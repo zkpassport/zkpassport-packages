@@ -1,25 +1,55 @@
-import { randomBytes } from "crypto";
-import { JsonRpcRequest, JsonRpcResponse } from "./types/json-rpc";
+import { randomBytes } from 'crypto'
+import { JsonRpcRequest, JsonRpcResponse } from './types/json-rpc'
+import { encrypt } from './encryption'
+import { WebSocketClient } from './websocket'
+import logger from './logger'
 
-export function createJsonRpcRequest(
-  method: string,
-  params: any
-): JsonRpcRequest {
+export function createJsonRpcRequest(method: string, params: any): JsonRpcRequest {
   return {
-    jsonrpc: "2.0",
-    id: randomBytes(16).toString("hex"),
+    jsonrpc: '2.0',
+    id: randomBytes(16).toString('hex'),
     method,
     params,
-  };
+  }
 }
 
-export function createJsonRpcResponse(
-  id: string,
-  result: any
-): JsonRpcResponse {
+export async function createEncryptedJsonRpcRequest(
+  method: string,
+  params: any,
+  sharedSecret: Uint8Array,
+  topic: string,
+): Promise<JsonRpcRequest> {
+  const encryptedMessage = await encrypt(JSON.stringify({ method, params: params || {} }), sharedSecret, topic)
+  return createJsonRpcRequest('encryptedMessage', {
+    payload: Buffer.from(encryptedMessage).toString('base64'),
+  })
+}
+
+export async function sendEncryptedJsonRpcRequest(
+  method: string,
+  params: any,
+  sharedSecret: Uint8Array,
+  topic: string,
+  wsClient: WebSocketClient,
+): Promise<boolean> {
+  try {
+    const encryptedMessage = await encrypt(JSON.stringify({ method, params: params || {} }), sharedSecret, topic)
+    const request = createJsonRpcRequest('encryptedMessage', {
+      payload: Buffer.from(encryptedMessage).toString('base64'),
+    })
+    logger.debug('Sending encrypted message:', request)
+    wsClient.send(JSON.stringify(request))
+    return true
+  } catch (error) {
+    logger.error('Error sending encrypted message:', error)
+    return false
+  }
+}
+
+export function createJsonRpcResponse(id: string, result: any): JsonRpcResponse {
   return {
-    jsonrpc: "2.0",
+    jsonrpc: '2.0',
     id,
     result,
-  };
+  }
 }

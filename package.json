@@ -22,7 +22,9 @@
     "@noble/secp256k1": "^2.1.0",
     "@noir-lang/backend_barretenberg": "^0.34.0",
     "@noir-lang/noir_js": "^0.34.0",
+    "colors": "^1.4.0",
     "i18n-iso-countries": "^7.12.0",
+    "winston": "^3.15.0",
     "ws": "^8.18.0"
   }
 }
