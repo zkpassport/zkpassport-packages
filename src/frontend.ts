@@ -51,21 +51,28 @@ function generalCompare(
   }
 }
 
+export { constants }
+
 export class ZkPassport {
   private domain: string
   private topicToConfig: Record<string, Record<string, IDCredentialConfig>> = {}
   private topicToKeyPair: Record<string, { privateKey: Uint8Array; publicKey: Uint8Array }> = {}
   private topicToWebSocketClient: Record<string, WebSocketClient> = {}
   private topicToSharedSecret: Record<string, Uint8Array> = {}
+  private topicToQRCodeScanned: Record<string, boolean> = {}
 
-  private qrCodeScannedCallbacks: Array<() => void> = []
-  private onGeneratingProofCallbacks: Array<(topic: string) => void> = []
-  private onProofGeneratedCallbacks: Array<(topic: string) => void> = []
-  private onRejectCallbacks: Array<() => void> = []
-  private onErrorCallbacks: Array<(topic: string) => void> = []
+  private onQRCodeScannedCallbacks: Record<string, Array<() => void>> = {}
+  private onGeneratingProofCallbacks: Record<string, Array<(topic: string) => void>> = {}
+  private onBridgeConnectCallbacks: Record<string, Array<() => void>> = {}
+  private onProofGeneratedCallbacks: Record<string, Array<(topic: string) => void>> = {}
+  private onRejectCallbacks: Record<string, Array<() => void>> = {}
+  private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
 
-  constructor(_domain: string) {
-    this.domain = _domain
+  constructor(_domain?: string) {
+    if (!_domain && typeof window === 'undefined') {
+      throw new Error('Domain argument is required in Node.js environment')
+    }
+    this.domain = _domain || window.location.hostname
   }
 
   /**
@@ -73,19 +80,19 @@ export class ZkPassport {
    * @param request The request.
    * @param outerRequest The outer request.
    */
-  private handleEncryptedMessage(topic: string, request: JsonRpcRequest, outerRequest: JsonRpcRequest) {
+  private async handleEncryptedMessage(topic: string, request: JsonRpcRequest, outerRequest: JsonRpcRequest) {
     logger.debug('Received encrypted message:', request)
     if (request.method === 'accept') {
       logger.debug(`User accepted the request and is generating a proof`)
-      this.onGeneratingProofCallbacks.forEach((callback) => callback(topic))
+      await Promise.all(this.onGeneratingProofCallbacks[topic].map((callback) => callback(topic)))
     } else if (request.method === 'reject') {
       logger.debug(`User rejected the request`)
-      this.onRejectCallbacks.forEach((callback) => callback())
+      await Promise.all(this.onRejectCallbacks[topic].map((callback) => callback()))
     } else if (request.method === 'done') {
       logger.debug(`User generated proof`)
-      this.onProofGeneratedCallbacks.forEach((callback) => callback(request.params.proof))
+      await Promise.all(this.onProofGeneratedCallbacks[topic].map((callback) => callback(request.params.proof)))
     } else if (request.method === 'error') {
-      this.onErrorCallbacks.forEach((callback) => callback(request.params.error))
+      await Promise.all(this.onErrorCallbacks[topic].map((callback) => callback(request.params.error)))
     }
   }
 
@@ -132,11 +139,14 @@ export class ZkPassport {
         return {
           url: `https://zkpassport.id/r?d=${this.domain}&t=${topic}&c=${base64Config}&p=${pubkey}`,
           requestId: topic,
-          onQRCodeScanned: (callback: () => void) => this.qrCodeScannedCallbacks.push(callback),
-          onGeneratingProof: (callback: () => void) => this.onGeneratingProofCallbacks.push(callback),
-          onProofGenerated: (callback: (proof: string) => void) => this.onProofGeneratedCallbacks.push(callback),
-          onReject: (callback: () => void) => this.onRejectCallbacks.push(callback),
-          onError: (callback: (error: string) => void) => this.onErrorCallbacks.push(callback),
+          onQRCodeScanned: (callback: () => void) => this.onQRCodeScannedCallbacks[topic].push(callback),
+          onGeneratingProof: (callback: () => void) => this.onGeneratingProofCallbacks[topic].push(callback),
+          onBridgeConnect: (callback: () => void) => this.onBridgeConnectCallbacks[topic].push(callback),
+          onProofGenerated: (callback: (proof: string) => void) => this.onProofGeneratedCallbacks[topic].push(callback),
+          onReject: (callback: () => void) => this.onRejectCallbacks[topic].push(callback),
+          onError: (callback: (error: string) => void) => this.onErrorCallbacks[topic].push(callback),
+          isBridgeConnected: () => this.topicToWebSocketClient[topic].readyState === WebSocket.OPEN,
+          isQRCodeScanned: () => this.topicToQRCodeScanned[topic] === true,
         }
       },
     }
@@ -153,30 +163,40 @@ export class ZkPassport {
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
   } = {}) {
-    const keyPair = keyPairOverride || (await generateECDHKeyPair())
-
     const topic = topicOverride || randomBytes(16).toString('hex')
+
+    const keyPair = keyPairOverride || (await generateECDHKeyPair())
     this.topicToKeyPair[topic] = {
       privateKey: keyPair.privateKey,
       publicKey: keyPair.publicKey,
     }
+
     this.topicToConfig[topic] = {}
+
+    this.onQRCodeScannedCallbacks[topic] = []
+    this.onGeneratingProofCallbacks[topic] = []
+    this.onBridgeConnectCallbacks[topic] = []
+    this.onProofGeneratedCallbacks[topic] = []
+    this.onRejectCallbacks[topic] = []
+    this.onErrorCallbacks[topic] = []
+
     const wsClient = getWebSocketClient(`wss://bridge.zkpassport.id?topic=${topic}`, this.domain)
     this.topicToWebSocketClient[topic] = wsClient
-    wsClient.onopen = () => {
-      logger.info('WebSocket connection established')
+    wsClient.onopen = async () => {
+      logger.info('[frontend] WebSocket connection established')
+      await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
     }
     wsClient.addEventListener('message', async (event: any) => {
-      logger.debug('Received message:', event.data)
+      logger.debug('[frontend] Received message:', event.data)
       try {
         const data: JsonRpcRequest = JSON.parse(event.data)
-
         // Handshake happens when the mobile app scans the QR code and connects to the bridge
         if (data.method === 'handshake') {
-          logger.debug('Received handshake:', event.data)
+          logger.debug('[frontend] Received handshake:', event.data)
 
+          this.topicToQRCodeScanned[topic] = true
           this.topicToSharedSecret[topic] = await getSharedSecret(bytesToHex(keyPair.privateKey), data.params.pubkey)
-          logger.debug('Shared secret:', Buffer.from(this.topicToSharedSecret[topic]).toString('hex'))
+          logger.debug('[frontend] Shared secret:', Buffer.from(this.topicToSharedSecret[topic]).toString('hex'))
 
           const encryptedMessage = await createEncryptedJsonRpcRequest(
             'hello',
@@ -184,10 +204,10 @@ export class ZkPassport {
             this.topicToSharedSecret[topic],
             topic,
           )
-          logger.debug('Sending encrypted message:', encryptedMessage)
+          logger.debug('[frontend] Sending encrypted message:', encryptedMessage)
           wsClient.send(JSON.stringify(encryptedMessage))
 
-          this.qrCodeScannedCallbacks.forEach((callback) => callback())
+          await Promise.all(this.onQRCodeScannedCallbacks[topic].map((callback) => callback()))
           return
         }
 
@@ -205,16 +225,16 @@ export class ZkPassport {
             const decryptedJson: JsonRpcRequest = JSON.parse(decrypted)
             this.handleEncryptedMessage(topic, decryptedJson, data)
           } catch (error) {
-            logger.error('Error decrypting message:', error)
+            logger.error('[frontend] Error decrypting message:', error)
           }
           return
         }
       } catch (error) {
-        logger.error('Error:', error)
+        logger.error('[frontend] Error:', error)
       }
     })
     wsClient.onerror = (error: Event) => {
-      logger.error('WebSocket error:', error)
+      logger.error('[frontend] WebSocket error:', error)
     }
     return this.getZkPassportRequest(topic)
   }
@@ -253,14 +273,14 @@ export class ZkPassport {
     delete this.topicToKeyPair[requestId]
     delete this.topicToConfig[requestId]
     delete this.topicToSharedSecret[requestId]
-    this.qrCodeScannedCallbacks = []
-    this.onGeneratingProofCallbacks = []
-    this.onProofGeneratedCallbacks = []
-    this.onErrorCallbacks = []
+    this.onQRCodeScannedCallbacks[requestId] = []
+    this.onGeneratingProofCallbacks[requestId] = []
+    this.onBridgeConnectCallbacks[requestId] = []
+    this.onProofGeneratedCallbacks[requestId] = []
+    this.onRejectCallbacks[requestId] = []
+    this.onErrorCallbacks[requestId] = []
   }
 }
-
-const zkPassport = new ZkPassport('https://demo.zkpassport.id')
 
 /*want to check "TUR" is not in the list
 
@@ -271,51 +291,3 @@ With each letter converted to its ASCII value and the three letters forming a 24
 Example:
 TUR -> 84 117 114
 */
-
-async function main() {
-  const queryBuilder = await zkPassport.request({
-    keyPairOverride: {
-      privateKey: new Uint8Array([
-        175, 240, 91, 237, 236, 122, 175, 26, 224, 150, 40, 191, 129, 171, 80, 203, 2, 85, 135, 222, 41, 239, 153, 214,
-        94, 222, 43, 145, 55, 168, 230, 253,
-      ]),
-      publicKey: new Uint8Array([
-        2, 211, 255, 94, 93, 183, 196, 140, 52, 136, 11, 193, 30, 139, 69, 122, 75, 154, 107, 242, 162, 245, 69, 207,
-        87, 94, 185, 65, 176, 143, 4, 173, 196,
-      ]),
-    },
-    topicOverride: 'abc456',
-  })
-
-  const { url, requestId, onQRCodeScanned, onGeneratingProof, onProofGenerated, onReject, onError } = queryBuilder
-    .eq('fullname', 'John Doe')
-    .range('age', 18, 25)
-    .in('nationality', ['USA', 'GBR', 'Germany', 'Canada', 'Portugal'])
-    .out('nationality', constants.countries.SANCTIONED)
-    .checkAML()
-    .done()
-
-  console.log(url)
-
-  onQRCodeScanned(() => {
-    logger.info('QR code scanned')
-  })
-
-  onGeneratingProof(() => {
-    logger.info('Generating proof')
-  })
-
-  onProofGenerated((proof) => {
-    logger.info('Proof generated', proof)
-  })
-
-  onReject(() => {
-    logger.info('User rejected')
-  })
-
-  onError((error) => {
-    logger.error('Error', error)
-  })
-}
-
-main()

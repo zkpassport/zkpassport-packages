@@ -33,11 +33,13 @@ export async function sendEncryptedJsonRpcRequest(
   wsClient: WebSocketClient,
 ): Promise<boolean> {
   try {
-    const encryptedMessage = await encrypt(JSON.stringify({ method, params: params || {} }), sharedSecret, topic)
+    const message = { method, params: params || {} }
+    const encryptedMessage = await encrypt(JSON.stringify(message), sharedSecret, topic)
     const request = createJsonRpcRequest('encryptedMessage', {
       payload: Buffer.from(encryptedMessage).toString('base64'),
     })
-    logger.debug('Sending encrypted message:', request)
+    logger.debug('Sending encrypted message (original):', message)
+    logger.debug('Sending encrypted message (encrypted):', request)
     wsClient.send(JSON.stringify(request))
     return true
   } catch (error) {

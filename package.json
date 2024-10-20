@@ -2,16 +2,11 @@
   "name": "zkpassport-sdk",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc",
-    "prepare": "npm run build"
-  },
+  "main": "src/frontend.ts",
+  "scripts": {},
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^22.7.4",
     "@types/ws": "^8.5.12",

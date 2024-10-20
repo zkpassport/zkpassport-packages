@@ -6,15 +6,17 @@ import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
 import { JsonRpcRequest } from './types/json-rpc'
 import logger from './logger'
 
-export class zkPassportScanner {
+export class ZkPassportProver {
   private domain?: string
   private topicToKeyPair: Record<string, { privateKey: Uint8Array; publicKey: Uint8Array }> = {}
   private topicToWebSocketClient: Record<string, WebSocketClient> = {}
+  private topicToRemoteDomainVerified: Record<string, boolean> = {}
   private topicToSharedSecret: Record<string, Uint8Array> = {}
   private topicToRemotePublicKey: Record<string, Uint8Array> = {}
 
-  private onWebsiteDomainVerifySuccessCallbacks: Array<() => void> = []
-  private onWebsiteDomainVerifyFailureCallbacks: Array<() => void> = []
+  private onDomainVerifiedCallbacks: Record<string, Array<() => void>> = {}
+  private onBridgeConnectCallbacks: Record<string, Array<() => void>> = {}
+  private onWebsiteDomainVerifyFailureCallbacks: Record<string, Array<() => void>> = {}
 
   constructor() {}
 
@@ -27,7 +29,8 @@ export class zkPassportScanner {
     logger.debug('Received encrypted message:', request)
     if (request.method === 'hello') {
       logger.info(`Successfully verified origin domain name: ${outerRequest.origin}`)
-      await Promise.all(this.onWebsiteDomainVerifySuccessCallbacks.map((callback) => callback()))
+      this.topicToRemoteDomainVerified[topic] = true
+      await Promise.all(this.onDomainVerifiedCallbacks[topic].map((callback) => callback()))
     } else if (request.method === 'closed_page') {
       // TODO: Implement
     }
@@ -63,9 +66,11 @@ export class zkPassportScanner {
       privateKey: keyPair.privateKey,
       publicKey: keyPair.publicKey,
     }
-    // this.topicToConfig[topic] = {}
     this.topicToRemotePublicKey[topic] = pubkey
     this.topicToSharedSecret[topic] = await getSharedSecret(bytesToHex(keyPair.privateKey), bytesToHex(pubkey))
+    this.topicToRemoteDomainVerified[topic] = false
+    this.onDomainVerifiedCallbacks[topic] = []
+    this.onBridgeConnectCallbacks[topic] = []
 
     // Set up WebSocket connection
     const wsClient = getWebSocketClient(
@@ -73,8 +78,9 @@ export class zkPassportScanner {
     )
     this.topicToWebSocketClient[topic] = wsClient
 
-    wsClient.onopen = () => {
-      logger.info('WebSocket connection established')
+    wsClient.onopen = async () => {
+      logger.info('[mobile] WebSocket connection established')
+      await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
       // Server sends handshake automatically (when it sees a pubkey in websocket URI)
       // wsClient.send(
       //   JSON.stringify(
@@ -86,14 +92,16 @@ export class zkPassportScanner {
     }
 
     wsClient.addEventListener('message', async (event: any) => {
-      logger.info('Received message:', event.data)
+      logger.info('[mobile] Received message:', event.data)
 
       try {
         const data: JsonRpcRequest = JSON.parse(event.data)
         const originDomain = data.origin ? new URL(data.origin).hostname : undefined
         // Origin domain must match domain in QR code
         if (originDomain !== this.domain) {
-          logger.warn(`Origin does not match domain in QR code. Expected ${this.domain} but got ${originDomain}`)
+          logger.warn(
+            `[mobile] Origin does not match domain in QR code. Expected ${this.domain} but got ${originDomain}`,
+          )
           return
         }
 
@@ -110,22 +118,25 @@ export class zkPassportScanner {
             const decryptedJson: JsonRpcRequest = JSON.parse(decrypted)
             await this.handleEncryptedMessage(topic, decryptedJson, data)
           } catch (error) {
-            logger.error('Error decrypting message:', error)
+            logger.error('[mobile] Error decrypting message:', error)
           }
         }
       } catch (error) {
-        logger.error('Error:', error)
+        logger.error('[mobile] Error:', error)
       }
     })
 
     wsClient.onerror = (error: Event) => {
-      logger.error('WebSocket error:', error)
+      logger.error('[mobile] WebSocket error:', error)
     }
 
     return {
       domain: this.domain,
       requestId: topic,
-      onWebsiteDomainVerified: (callback: () => void) => this.onWebsiteDomainVerifySuccessCallbacks.push(callback),
+      isBridgeConnected: () => this.topicToWebSocketClient[topic].readyState === WebSocket.OPEN,
+      isDomainVerified: () => this.topicToRemoteDomainVerified[topic] === true,
+      onDomainVerified: (callback: () => void) => this.onDomainVerifiedCallbacks[topic].push(callback),
+      onBridgeConnect: (callback: () => void) => this.onBridgeConnectCallbacks[topic].push(callback),
       notifyReject: async () => {
         await sendEncryptedJsonRpcRequest(
           'reject',
@@ -144,7 +155,7 @@ export class zkPassportScanner {
           this.topicToWebSocketClient[topic],
         )
       },
-      notifyDone: async (proof: string) => {
+      notifyDone: async (proof: any) => {
         await sendEncryptedJsonRpcRequest(
           'done',
           { proof },
@@ -166,8 +177,6 @@ export class zkPassportScanner {
   }
 }
 
-const zkPassport = new zkPassportScanner()
-
 /*want to check "TUR" is not in the list
 
 find some j where countries[j] < TUR < countries[j+1]
@@ -177,37 +186,3 @@ With each letter converted to its ASCII value and the three letters forming a 24
 Example:
 TUR -> 84 117 114
 */
-
-async function main() {
-  const scannedUrl =
-    'https://zkpassport.id/r?d=demo.zkpassport.id&t=abc456&p=02d3ff5e5db7c48c34880bc11e8b457a4b9a6bf2a2f545cf575eb941b08f04adc4'
-
-  const { onWebsiteDomainVerified, notifyAccept, notifyReject, notifyDone } = await zkPassport.scan(scannedUrl, {
-    keyPairOverride: {
-      privateKey: new Uint8Array([
-        90, 246, 191, 146, 154, 179, 181, 226, 245, 114, 8, 4, 190, 198, 230, 242, 30, 43, 221, 195, 89, 211, 59, 55,
-        174, 189, 59, 205, 197, 94, 216, 14,
-      ]),
-      publicKey: new Uint8Array([
-        3, 202, 45, 95, 176, 97, 188, 130, 46, 26, 69, 197, 152, 237, 220, 8, 6, 156, 55, 254, 254, 9, 96, 71, 169, 10,
-        127, 249, 203, 125, 180, 136, 170,
-      ]),
-    },
-  })
-
-  // Once the domain is verified, the accept button can be enabled, allowing the user to generate a proof
-  onWebsiteDomainVerified(async () => {
-    logger.info('Website domain verified!')
-    notifyAccept()
-    await sleep(1000)
-    notifyDone('proof')
-    // notifyReject()
-  })
-}
-
-main()
-
-// Utility function to sleep for a specified duration
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
