@@ -1,6 +1,12 @@
 import { randomBytes } from 'crypto'
 import { Alpha2Code, Alpha3Code } from 'i18n-iso-countries'
-import { IDCredential, IDCredentialConfig, IDCredentialValue, NumericalIDCredential } from './types/credentials'
+import {
+  DisclosableIDCredential,
+  IDCredential,
+  IDCredentialConfig,
+  IDCredentialValue,
+  NumericalIDCredential,
+} from './types/credentials'
 import { Proof } from './types/proof'
 import { CountryName } from './types/countries'
 import { UltraHonkBackend, ProofData, CompiledCircuit } from '@noir-lang/backend_barretenberg'
@@ -129,6 +135,13 @@ export class ZkPassport {
       },
       out: <T extends IDCredential>(key: T, value: IDCredentialValue<T>[]) => {
         generalCompare('out', key, value, topic, this.topicToConfig)
+        return this.getZkPassportRequest(topic)
+      },
+      disclose: (key: DisclosableIDCredential) => {
+        this.topicToConfig[topic][key] = {
+          ...this.topicToConfig[topic][key],
+          disclose: true,
+        }
         return this.getZkPassportRequest(topic)
       },
       checkAML: (country?: CountryName | Alpha2Code | Alpha3Code) => {
