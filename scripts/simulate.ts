@@ -44,6 +44,9 @@ async function main() {
   } else if (process.argv[2] === 'frontend') {
     const zkPassport = new ZkPassport('https://localhost')
     const queryBuilder = await zkPassport.request({
+      name: 'My Service',
+      logo: 'https://zkpassport.id/favicon.png',
+      purpose: 'Asking for random stuff',
       keyPairOverride: {
         privateKey: new Uint8Array([
           175, 240, 91, 237, 236, 122, 175, 26, 224, 150, 40, 191, 129, 171, 80, 203, 2, 85, 135, 222, 41, 239, 153,

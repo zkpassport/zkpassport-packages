@@ -67,6 +67,7 @@ export class ZkPassport {
   private onProofGeneratedCallbacks: Record<string, Array<(topic: string) => void>> = {}
   private onRejectCallbacks: Record<string, Array<() => void>> = {}
   private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
+  private topicToService: Record<string, { name: string; logo: string; purpose: string }> = {}
 
   constructor(_domain?: string) {
     if (!_domain && typeof window === 'undefined') {
@@ -135,9 +136,10 @@ export class ZkPassport {
       },
       done: () => {
         const base64Config = Buffer.from(JSON.stringify(this.topicToConfig[topic])).toString('base64')
+        const base64Service = Buffer.from(JSON.stringify(this.topicToService[topic])).toString('base64')
         const pubkey = bytesToHex(this.topicToKeyPair[topic].publicKey)
         return {
-          url: `https://zkpassport.id/r?d=${this.domain}&t=${topic}&c=${base64Config}&p=${pubkey}`,
+          url: `https://zkpassport.id/r?d=${this.domain}&t=${topic}&c=${base64Config}&s=${base64Service}&p=${pubkey}`,
           requestId: topic,
           onQRCodeScanned: (callback: () => void) => this.onQRCodeScannedCallbacks[topic].push(callback),
           onGeneratingProof: (callback: () => void) => this.onGeneratingProofCallbacks[topic].push(callback),
@@ -157,12 +159,18 @@ export class ZkPassport {
    * @returns The query builder object.
    */
   public async request({
+    name,
+    logo,
+    purpose,
     topicOverride,
     keyPairOverride,
   }: {
+    name: string
+    logo: string
+    purpose: string
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
-  } = {}) {
+  }) {
     const topic = topicOverride || randomBytes(16).toString('hex')
 
     const keyPair = keyPairOverride || (await generateECDHKeyPair())
@@ -172,6 +180,7 @@ export class ZkPassport {
     }
 
     this.topicToConfig[topic] = {}
+    this.topicToService[topic] = { name, logo, purpose }
 
     this.onQRCodeScannedCallbacks[topic] = []
     this.onGeneratingProofCallbacks[topic] = []
@@ -260,7 +269,9 @@ export class ZkPassport {
    */
   public getUrl(requestId: string) {
     const pubkey = bytesToHex(this.topicToKeyPair[requestId].publicKey)
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${this.topicToConfig[requestId]}&p=${pubkey}`
+    const base64Config = Buffer.from(JSON.stringify(this.topicToConfig[requestId])).toString('base64')
+    const base64Service = Buffer.from(JSON.stringify(this.topicToService[requestId])).toString('base64')
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}`
   }
 
   /**
