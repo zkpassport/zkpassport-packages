@@ -184,5 +184,5 @@ find some j where countries[j] < TUR < countries[j+1]
 With each letter converted to its ASCII value and the three letters forming a 24 bit number.
 
 Example:
-TUR -> 84 117 114
+TUR -> 84 117 114 -> 0x54 0x75 0x72 -> 0x547572 -> 5,535,090
 */

@@ -7,7 +7,7 @@ import {
   IDCredentialValue,
   NumericalIDCredential,
 } from './types/credentials'
-import { Proof } from './types/proof'
+import { ProofResult } from './types/query-result'
 import { CountryName } from './types/countries'
 import { UltraHonkBackend, ProofData, CompiledCircuit } from '@noir-lang/backend_barretenberg'
 import { bytesToHex } from '@noble/ciphers/utils'
@@ -70,7 +70,7 @@ export class ZkPassport {
   private onQRCodeScannedCallbacks: Record<string, Array<() => void>> = {}
   private onGeneratingProofCallbacks: Record<string, Array<(topic: string) => void>> = {}
   private onBridgeConnectCallbacks: Record<string, Array<() => void>> = {}
-  private onProofGeneratedCallbacks: Record<string, Array<(topic: string) => void>> = {}
+  private onProofGeneratedCallbacks: Record<string, Array<(result: ProofResult) => void>> = {}
   private onRejectCallbacks: Record<string, Array<() => void>> = {}
   private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
   private topicToService: Record<string, { name: string; logo: string; purpose: string }> = {}
@@ -97,7 +97,7 @@ export class ZkPassport {
       await Promise.all(this.onRejectCallbacks[topic].map((callback) => callback()))
     } else if (request.method === 'done') {
       logger.debug(`User generated proof`)
-      await Promise.all(this.onProofGeneratedCallbacks[topic].map((callback) => callback(request.params.proof)))
+      await Promise.all(this.onProofGeneratedCallbacks[topic].map((callback) => callback(request.params.result)))
     } else if (request.method === 'error') {
       await Promise.all(this.onErrorCallbacks[topic].map((callback) => callback(request.params.error)))
     }
@@ -157,7 +157,8 @@ export class ZkPassport {
           onQRCodeScanned: (callback: () => void) => this.onQRCodeScannedCallbacks[topic].push(callback),
           onGeneratingProof: (callback: () => void) => this.onGeneratingProofCallbacks[topic].push(callback),
           onBridgeConnect: (callback: () => void) => this.onBridgeConnectCallbacks[topic].push(callback),
-          onProofGenerated: (callback: (proof: string) => void) => this.onProofGeneratedCallbacks[topic].push(callback),
+          onProofGenerated: (callback: (result: ProofResult) => void) =>
+            this.onProofGeneratedCallbacks[topic].push(callback),
           onReject: (callback: () => void) => this.onRejectCallbacks[topic].push(callback),
           onError: (callback: (error: string) => void) => this.onErrorCallbacks[topic].push(callback),
           isBridgeConnected: () => this.topicToWebSocketClient[topic].readyState === WebSocket.OPEN,
@@ -266,11 +267,12 @@ export class ZkPassport {
    * @param proof The proof to verify.
    * @returns True if the proof is valid, false otherwise.
    */
-  public verify(proof: Proof) {
+  public verify(result: ProofResult) {
     const backend = new UltraHonkBackend(proofOfAgeCircuit as CompiledCircuit)
     const proofData: ProofData = {
-      proof: Buffer.from(proof.proof, 'hex'),
-      publicInputs: proof.publicInputs,
+      proof: Buffer.from(result.proof as string, 'hex'),
+      // TODO: extract the public inputs from the proof
+      publicInputs: [],
     }
     return backend.verifyProof(proofData)
   }
