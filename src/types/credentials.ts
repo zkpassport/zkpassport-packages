@@ -11,7 +11,7 @@ export type DisclosableIDCredential =
   | 'document_number'
   | 'document_type'
   | 'issuing_country'
-  | 'sex'
+  | 'gender'
 
 export type NumericalIDCredential = 'age' | 'birthdate' | 'expiry_date'
 
@@ -19,7 +19,7 @@ export type IDCredential = NumericalIDCredential | DisclosableIDCredential
 
 export type IDCredentialValue<T extends IDCredential> = T extends 'nationality' | 'issuing_country'
   ? CountryName | Alpha2Code | Alpha3Code
-  : T extends 'sex'
+  : T extends 'gender'
   ? 'male' | 'female'
   : T extends 'document_type'
   ? 'passport' | 'id_card' | 'residence_permit' | 'other'
