@@ -144,9 +144,9 @@ export class ZkPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      checkAML: (country?: CountryName | Alpha2Code | Alpha3Code) => {
+      /*checkAML: (country?: CountryName | Alpha2Code | Alpha3Code) => {
         return this.getZkPassportRequest(topic)
-      },
+      },*/
       done: () => {
         const base64Config = Buffer.from(JSON.stringify(this.topicToConfig[topic])).toString('base64')
         const base64Service = Buffer.from(JSON.stringify(this.topicToService[topic])).toString('base64')
