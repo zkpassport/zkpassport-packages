@@ -9,7 +9,7 @@ import {
 } from './types/credentials'
 import { ProofResult } from './types/query-result'
 import { CountryName } from './types/countries'
-import { UltraHonkBackend, ProofData, CompiledCircuit } from '@noir-lang/backend_barretenberg'
+//import { UltraHonkBackend, ProofData, CompiledCircuit } from '@noir-lang/backend_barretenberg'
 import { bytesToHex } from '@noble/ciphers/utils'
 import { getWebSocketClient, WebSocketClient } from './websocket'
 import { createEncryptedJsonRpcRequest, createJsonRpcRequest } from './json-rpc'
@@ -267,7 +267,7 @@ export class ZkPassport {
    * @param proof The proof to verify.
    * @returns True if the proof is valid, false otherwise.
    */
-  public verify(result: ProofResult) {
+  /*public verify(result: ProofResult) {
     const backend = new UltraHonkBackend(proofOfAgeCircuit as CompiledCircuit)
     const proofData: ProofData = {
       proof: Buffer.from(result.proof as string, 'hex'),
@@ -275,7 +275,7 @@ export class ZkPassport {
       publicInputs: [],
     }
     return backend.verifyProof(proofData)
-  }
+  }*/
 
   /**
    * @notice Returns the URL of the request.
