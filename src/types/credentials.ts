@@ -1,4 +1,4 @@
-import { Alpha2Code, Alpha3Code } from 'i18n-iso-countries'
+import { Alpha3Code } from 'i18n-iso-countries'
 import { CountryName } from './countries'
 
 export type DisclosableIDCredential =
@@ -18,7 +18,7 @@ export type NumericalIDCredential = 'age' | 'birthdate' | 'expiry_date'
 export type IDCredential = NumericalIDCredential | DisclosableIDCredential
 
 export type IDCredentialValue<T extends IDCredential> = T extends 'nationality' | 'issuing_country'
-  ? CountryName | Alpha2Code | Alpha3Code
+  ? CountryName | Alpha3Code
   : T extends 'gender'
   ? 'male' | 'female'
   : T extends 'document_type'

@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { Alpha3Code, getAlpha3Code, isValid as isValidCountryCode } from 'i18n-iso-countries'
+import { Alpha3Code, getAlpha3Code } from 'i18n-iso-countries'
 import {
   DisclosableIDCredential,
   IDCredential,
@@ -19,13 +19,8 @@ import logger from './logger'
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
   let normalizedCountry: Alpha3Code | undefined
-  if (!isValidCountryCode(country)) {
-    // If it's not a valid country code, we assume it's the country name
-    // and we convert it to the country code
-    normalizedCountry = getAlpha3Code(country, 'en') as Alpha3Code
-  } else {
-    normalizedCountry = country as Alpha3Code
-  }
+  const alpha3 = getAlpha3Code(country, 'en') as Alpha3Code | undefined
+  normalizedCountry = alpha3 || (country as Alpha3Code)
   return normalizedCountry
 }
 
