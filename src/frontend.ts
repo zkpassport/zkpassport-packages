@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { Alpha3Code, getAlpha3Code } from 'i18n-iso-countries'
+import { Alpha3Code, getAlpha3Code, registerLocale } from 'i18n-iso-countries'
 import {
   DisclosableIDCredential,
   IDCredential,
@@ -16,6 +16,8 @@ import { createEncryptedJsonRpcRequest } from './json-rpc'
 import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
 import { JsonRpcRequest } from './types/json-rpc'
 import logger from './logger'
+
+registerLocale(require('i18n-iso-countries/langs/en.json'))
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
   let normalizedCountry: Alpha3Code | undefined
