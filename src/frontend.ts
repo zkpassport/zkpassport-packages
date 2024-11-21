@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { Alpha2Code, Alpha3Code } from 'i18n-iso-countries'
+import { Alpha3Code, getAlpha3Code, isValid as isValidCountryCode } from 'i18n-iso-countries'
 import {
   DisclosableIDCredential,
   IDCredential,
@@ -12,12 +12,22 @@ import { CountryName } from './types/countries'
 //import { UltraHonkBackend, ProofData, CompiledCircuit } from '@noir-lang/backend_barretenberg'
 import { bytesToHex } from '@noble/ciphers/utils'
 import { getWebSocketClient, WebSocketClient } from './websocket'
-import { createEncryptedJsonRpcRequest, createJsonRpcRequest } from './json-rpc'
-import { decrypt, encrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
+import { createEncryptedJsonRpcRequest } from './json-rpc'
+import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
 import { JsonRpcRequest } from './types/json-rpc'
-import proofOfAgeCircuit from './circuits/proof_age.json'
-import constants from './constants'
 import logger from './logger'
+
+function normalizeCountry(country: CountryName | Alpha3Code) {
+  let normalizedCountry: Alpha3Code | undefined
+  if (!isValidCountryCode(country)) {
+    // If it's not a valid country code, we assume it's the country name
+    // and we convert it to the country code
+    normalizedCountry = getAlpha3Code(country, 'en') as Alpha3Code
+  } else {
+    normalizedCountry = country as Alpha3Code
+  }
+  return normalizedCountry
+}
 
 function numericalCompare(
   fnName: 'gte' | 'gt' | 'lte' | 'lt',
@@ -57,7 +67,8 @@ function generalCompare(
   }
 }
 
-export { constants }
+export * from './constants'
+export * from './types'
 
 export class ZkPassport {
   private domain: string
@@ -106,6 +117,9 @@ export class ZkPassport {
   private getZkPassportRequest(topic: string) {
     return {
       eq: <T extends IDCredential>(key: T, value: IDCredentialValue<T>) => {
+        if (key === 'issuing_country' || key === 'nationality') {
+          value = normalizeCountry(value as CountryName) as IDCredentialValue<T>
+        }
         generalCompare('eq', key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
@@ -130,10 +144,16 @@ export class ZkPassport {
         return this.getZkPassportRequest(topic)
       },
       in: <T extends IDCredential>(key: T, value: IDCredentialValue<T>[]) => {
+        if (key === 'issuing_country' || key === 'nationality') {
+          value = value.map((v) => normalizeCountry(v as CountryName)) as IDCredentialValue<T>[]
+        }
         generalCompare('in', key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
       out: <T extends IDCredential>(key: T, value: IDCredentialValue<T>[]) => {
+        if (key === 'issuing_country' || key === 'nationality') {
+          value = value.map((v) => normalizeCountry(v as CountryName)) as IDCredentialValue<T>[]
+        }
         generalCompare('out', key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
