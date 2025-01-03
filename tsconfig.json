@@ -5,12 +5,14 @@
     "lib": ["es2015", "dom"],
     "declaration": true,
     "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "moduleResolution": "Node16",
     "paths": {
-      "@zkpassport-sdk/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/types/*": ["./src/types/*"]
     }
   },
   "include": ["src"],

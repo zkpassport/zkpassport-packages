@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto'
-import { JsonRpcRequest, JsonRpcResponse } from './types/json-rpc'
-import { encrypt } from './encryption'
-import { WebSocketClient } from './websocket'
-import logger from './logger'
+import { JsonRpcRequest, JsonRpcResponse } from '@/types/json-rpc'
+import { encrypt } from '@/encryption'
+import { WebSocketClient } from '@/websocket'
+import logger from '@/logger'
 
 export function createJsonRpcRequest(method: string, params: any): JsonRpcRequest {
   return {

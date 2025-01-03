@@ -6,16 +6,16 @@ import {
   IDCredentialConfig,
   IDCredentialValue,
   NumericalIDCredential,
-} from './types/credentials'
-import { ProofResult } from './types/query-result'
-import { CountryName } from './types/countries'
+} from '@/types/credentials'
+import { ProofResult } from '@/types/query-result'
+import { CountryName } from '@/types/countries'
 //import { UltraHonkBackend, ProofData, CompiledCircuit } from '@noir-lang/backend_barretenberg'
 import { bytesToHex } from '@noble/ciphers/utils'
-import { getWebSocketClient, WebSocketClient } from './websocket'
-import { createEncryptedJsonRpcRequest } from './json-rpc'
-import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
-import { JsonRpcRequest } from './types/json-rpc'
-import logger from './logger'
+import { getWebSocketClient, WebSocketClient } from '@/websocket'
+import { createEncryptedJsonRpcRequest } from '@/json-rpc'
+import { decrypt, generateECDHKeyPair, getSharedSecret } from '@/encryption'
+import { JsonRpcRequest } from '@/types/json-rpc'
+import logger from '@/logger'
 
 registerLocale(require('i18n-iso-countries/langs/en.json'))
 
@@ -64,8 +64,8 @@ function generalCompare(
   }
 }
 
-export * from './constants'
-export * from './types'
+export * from '@/constants'
+export * from '@/types'
 
 export class ZkPassport {
   private domain: string
@@ -324,13 +324,3 @@ export class ZkPassport {
     this.onErrorCallbacks[requestId] = []
   }
 }
-
-/*want to check "TUR" is not in the list
-
-find some j where countries[j] < TUR < countries[j+1]
-
-With each letter converted to its ASCII value and the three letters forming a 24 bit number.
-
-Example:
-TUR -> 84 117 114
-*/

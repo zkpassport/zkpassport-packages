@@ -1,18 +1,24 @@
 {
-  "name": "zkpassport-sdk",
+  "name": "@zkpassport/sdk",
   "version": "0.1.0",
   "description": "",
-  "main": "dist/frontend.js",
-  "types": "dist/frontend.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "src/",
+    "dist/",
+    "tsconfig.json",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc",
-    "prepare": "tsc"
+    "prepare": "npm i --save-dev @types/node && npm run build",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/node": "^22.7.4",
+    "@types/node": "^22.10.5",
     "@types/ws": "^8.5.12",
     "typescript": "^5.6.2"
   },

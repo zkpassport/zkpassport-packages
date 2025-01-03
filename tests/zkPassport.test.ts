@@ -1,4 +1,4 @@
-import { ZkPassport as ZkPassportVerifier } from '../src/frontend'
+import { ZkPassport as ZkPassportVerifier } from '../src'
 import { ZkPassportProver } from '../src/mobile'
 import { expect, test, describe, mock, jest, beforeEach } from 'bun:test'
 import { MockWebSocket } from './helpers/MockWebSocket'

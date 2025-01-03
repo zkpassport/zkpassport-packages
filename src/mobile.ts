@@ -1,10 +1,9 @@
-import { IDCredential, IDCredentialConfig, IDCredentialValue, NumericalIDCredential } from './types/credentials'
 import { bytesToHex } from '@noble/ciphers/utils'
-import { getWebSocketClient, WebSocketClient } from './websocket'
-import { sendEncryptedJsonRpcRequest } from './json-rpc'
-import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
-import { JsonRpcRequest } from './types/json-rpc'
-import logger from './logger'
+import { getWebSocketClient, WebSocketClient } from '@/websocket'
+import { sendEncryptedJsonRpcRequest } from '@/json-rpc'
+import { decrypt, generateECDHKeyPair, getSharedSecret } from '@/encryption'
+import { JsonRpcRequest } from '@/types/json-rpc'
+import logger from '@/logger'
 
 export class ZkPassportProver {
   private domain?: string
@@ -176,13 +175,3 @@ export class ZkPassportProver {
     }
   }
 }
-
-/*want to check "TUR" is not in the list
-
-find some j where countries[j] < TUR < countries[j+1]
-
-With each letter converted to its ASCII value and the three letters forming a 24 bit number.
-
-Example:
-TUR -> 84 117 114 -> 0x54 0x75 0x72 -> 0x547572 -> 5,535,090
-*/

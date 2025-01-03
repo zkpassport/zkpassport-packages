@@ -1,5 +1,5 @@
 import { ZkPassportProver } from '../src/mobile'
-import { constants, ZkPassport } from '../src/frontend'
+import { ZkPassport, SANCTIONED_COUNTRIES } from '../src/index'
 import logger from '../src/logger'
 import { sleep } from 'bun'
 
@@ -64,8 +64,7 @@ async function main() {
       .eq('fullname', 'John Doe')
       .range('age', 18, 25)
       .in('nationality', ['USA', 'GBR', 'Germany', 'Canada', 'Portugal'])
-      .out('nationality', constants.countries.SANCTIONED)
-      .checkAML()
+      .out('nationality', SANCTIONED_COUNTRIES)
       .done()
 
     console.log(url)
