@@ -64,8 +64,8 @@ function generalCompare(
   }
 }
 
-export * from '@/constants'
-export * from '@/types'
+export * from './constants'
+export * from './types'
 
 export class ZkPassport {
   private domain: string
