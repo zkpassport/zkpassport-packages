@@ -1,4 +1,4 @@
-import { CountryName } from '@/types/countries'
+import { CountryName } from '../types/countries'
 
 /**
  * List of countries that are sanctioned by the US government.

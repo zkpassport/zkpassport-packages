@@ -1,9 +1,9 @@
 import { bytesToHex } from '@noble/ciphers/utils'
-import { getWebSocketClient, WebSocketClient } from '@/websocket'
-import { sendEncryptedJsonRpcRequest } from '@/json-rpc'
-import { decrypt, generateECDHKeyPair, getSharedSecret } from '@/encryption'
-import { JsonRpcRequest } from '@/types/json-rpc'
-import logger from '@/logger'
+import { getWebSocketClient, WebSocketClient } from './websocket'
+import { sendEncryptedJsonRpcRequest } from './json-rpc'
+import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
+import { JsonRpcRequest } from './types/json-rpc'
+import logger from './logger'
 
 export class ZkPassportProver {
   private domain?: string

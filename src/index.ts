@@ -6,16 +6,16 @@ import {
   IDCredentialConfig,
   IDCredentialValue,
   NumericalIDCredential,
-} from '@/types/credentials'
-import { ProofResult } from '@/types/query-result'
-import { CountryName } from '@/types/countries'
+} from './types/credentials'
+import { ProofResult } from './types/query-result'
+import { CountryName } from './types/countries'
 //import { UltraHonkBackend, ProofData, CompiledCircuit } from '@noir-lang/backend_barretenberg'
 import { bytesToHex } from '@noble/ciphers/utils'
-import { getWebSocketClient, WebSocketClient } from '@/websocket'
-import { createEncryptedJsonRpcRequest } from '@/json-rpc'
-import { decrypt, generateECDHKeyPair, getSharedSecret } from '@/encryption'
-import { JsonRpcRequest } from '@/types/json-rpc'
-import logger from '@/logger'
+import { getWebSocketClient, WebSocketClient } from './websocket'
+import { createEncryptedJsonRpcRequest } from './json-rpc'
+import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
+import { JsonRpcRequest } from './types/json-rpc'
+import logger from './logger'
 
 registerLocale(require('i18n-iso-countries/langs/en.json'))
 

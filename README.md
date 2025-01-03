@@ -3,13 +3,13 @@
 ## Installation
 
 ```
-npm install https://github.com/zkpassport/zkpassport-sdk.git
+npm install @zkpassport/sdk
 ```
 
 ## How to use
 
 ```ts
-import { ZkPassport } from 'zkpassport-sdk'
+import { ZkPassport } from '@zkpassport/sdk'
 
 // Replace with your domain
 const zkPassport = new ZkPassport('demo.zkpassport.id')
@@ -57,45 +57,48 @@ onProofGenerated((result: ProofResult) => {
   console.log('nationality', result.queryResult.nationality.disclose.result)
 })
 ```
+
 ### Using with Next.js
 
-You can integrate `zkpassport-sdk` into a Next.js application by creating a backend API route and calling it from your frontend.
+You can integrate `@zkpassport/sdk` into a Next.js application by creating a backend API route and calling it from your frontend.
 
 #### **Backend (API Route)**
 
 **App Router:** `app/api/zkpassport/route.ts`
+
 ```typescript
-import { NextResponse } from 'next/server';
-import { ZkPassport } from 'zkpassport-sdk';
+import { NextResponse } from 'next/server'
+import { ZkPassport } from '@zkpassport/sdk'
 
 export async function GET() {
-  const zkPassport = new ZkPassport('demo.zkpassport.id'); // Replace with your domain
+  const zkPassport = new ZkPassport('demo.zkpassport.id') // Replace with your domain
   const queryBuilder = await zkPassport.request({
     name: 'ZKpassport Demo',
     logo: 'https://via.placeholder.com/150',
     purpose: 'Verify user nationality and first name',
-  });
-  const { url } = queryBuilder.disclose('nationality').disclose('firstname').done();
-  return NextResponse.json({ url });
+  })
+  const { url } = queryBuilder.disclose('nationality').disclose('firstname').done()
+  return NextResponse.json({ url })
 }
 ```
 
 #### **Frontend Example**
 
 **App Router:** `app/page.tsx`
+
 ```tsx
-'use client';
-import { useEffect, useState } from 'react';
+'use client'
+import { useEffect, useState } from 'react'
 
 export default function Home() {
-  const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
+  const [verificationUrl, setVerificationUrl] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/zkpassport')
-      .then(res => res.json())
-      .then(data => setVerificationUrl(data.url))
-      .catch(console.error);
-  }, []);
+      .then((res) => res.json())
+      .then((data) => setVerificationUrl(data.url))
+      .catch(console.error)
+  }, [])
 
   return (
     <div>
@@ -108,9 +111,8 @@ export default function Home() {
         <p>Loading...</p>
       )}
     </div>
-  );
+  )
 }
-
 ```
 
 ## Local installation
