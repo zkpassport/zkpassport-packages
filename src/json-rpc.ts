@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { JsonRpcRequest, JsonRpcResponse } from './types/json-rpc'
+import type { JsonRpcRequest, JsonRpcResponse } from '@zkpassport/utils'
 import { encrypt } from './encryption'
 import { WebSocketClient } from './websocket'
 import logger from './logger'
@@ -19,7 +19,11 @@ export async function createEncryptedJsonRpcRequest(
   sharedSecret: Uint8Array,
   topic: string,
 ): Promise<JsonRpcRequest> {
-  const encryptedMessage = await encrypt(JSON.stringify({ method, params: params || {} }), sharedSecret, topic)
+  const encryptedMessage = await encrypt(
+    JSON.stringify({ method, params: params || {} }),
+    sharedSecret,
+    topic,
+  )
   return createJsonRpcRequest('encryptedMessage', {
     payload: Buffer.from(encryptedMessage).toString('base64'),
   })

@@ -2,7 +2,7 @@ import { bytesToHex } from '@noble/ciphers/utils'
 import { getWebSocketClient, WebSocketClient } from './websocket'
 import { sendEncryptedJsonRpcRequest } from './json-rpc'
 import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
-import { JsonRpcRequest } from './types/json-rpc'
+import type { JsonRpcRequest } from '@zkpassport/utils'
 import logger from './logger'
 
 export class ZkPassportProver {
@@ -24,7 +24,11 @@ export class ZkPassportProver {
    * @param request The request.
    * @param outerRequest The outer request.
    */
-  private async handleEncryptedMessage(topic: string, request: JsonRpcRequest, outerRequest: JsonRpcRequest) {
+  private async handleEncryptedMessage(
+    topic: string,
+    request: JsonRpcRequest,
+    outerRequest: JsonRpcRequest,
+  ) {
     logger.debug('Received encrypted message:', request)
     if (request.method === 'hello') {
       logger.info(`Successfully verified origin domain name: ${outerRequest.origin}`)
@@ -66,7 +70,10 @@ export class ZkPassportProver {
       publicKey: keyPair.publicKey,
     }
     this.topicToRemotePublicKey[topic] = pubkey
-    this.topicToSharedSecret[topic] = await getSharedSecret(bytesToHex(keyPair.privateKey), bytesToHex(pubkey))
+    this.topicToSharedSecret[topic] = await getSharedSecret(
+      bytesToHex(keyPair.privateKey),
+      bytesToHex(pubkey),
+    )
     this.topicToRemoteDomainVerified[topic] = false
     this.onDomainVerifiedCallbacks[topic] = []
     this.onBridgeConnectCallbacks[topic] = []
@@ -134,8 +141,10 @@ export class ZkPassportProver {
       requestId: topic,
       isBridgeConnected: () => this.topicToWebSocketClient[topic].readyState === WebSocket.OPEN,
       isDomainVerified: () => this.topicToRemoteDomainVerified[topic] === true,
-      onDomainVerified: (callback: () => void) => this.onDomainVerifiedCallbacks[topic].push(callback),
-      onBridgeConnect: (callback: () => void) => this.onBridgeConnectCallbacks[topic].push(callback),
+      onDomainVerified: (callback: () => void) =>
+        this.onDomainVerifiedCallbacks[topic].push(callback),
+      onBridgeConnect: (callback: () => void) =>
+        this.onBridgeConnectCallbacks[topic].push(callback),
       notifyReject: async () => {
         await sendEncryptedJsonRpcRequest(
           'reject',
