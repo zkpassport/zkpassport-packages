@@ -1,19 +1,20 @@
-import { ZkPassportProver } from '../src/mobile'
-import { ZKPassport, SANCTIONED_COUNTRIES } from '../src/index'
-import logger from '../src/logger'
-import { sleep } from 'bun'
+import { ZkPassportProver } from "../src/mobile"
+import { ZKPassport, SANCTIONED_COUNTRIES } from "../src/index"
+import logger from "../src/logger"
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 if (process.argv.length < 3) {
-  console.error('Usage: bun run scripts/simulate.ts mobile|frontend')
+  console.error("Usage: bun run scripts/simulate.ts mobile|frontend")
   process.exit(1)
 }
 
 async function main() {
-  if (process.argv[2] === 'mobile') {
+  if (process.argv[2] === "mobile") {
     const zkPassportProver = new ZkPassportProver()
 
     const scannedUrl =
-      'https://zkpassport.id/r?d=localhost&t=abc456&p=02d3ff5e5db7c48c34880bc11e8b457a4b9a6bf2a2f545cf575eb941b08f04adc4'
+      "https://zkpassport.id/r?d=localhost&t=abc456&p=02d3ff5e5db7c48c34880bc11e8b457a4b9a6bf2a2f545cf575eb941b08f04adc4"
 
     const { onDomainVerified, notifyAccept, notifyReject, notifyDone } =
       await zkPassportProver.scan(scannedUrl, {
@@ -31,23 +32,23 @@ async function main() {
 
     // Once the domain is verified, the accept button can be enabled, allowing the user to generate a proof
     onDomainVerified(async () => {
-      logger.info('Website domain verified!')
+      logger.info("Website domain verified!")
       notifyAccept()
       await sleep(3000)
       notifyDone({
         inputs: {
-          country: 'AUS',
-          firstName: 'Michael',
+          country: "AUS",
+          firstName: "Michael",
         },
       })
       // notifyReject()
     })
-  } else if (process.argv[2] === 'frontend') {
-    const zkPassport = new ZKPassport('https://localhost')
+  } else if (process.argv[2] === "frontend") {
+    const zkPassport = new ZKPassport("https://localhost")
     const queryBuilder = await zkPassport.request({
-      name: 'My Service',
-      logo: 'https://zkpassport.id/favicon.png',
-      purpose: 'Asking for random stuff',
+      name: "My Service",
+      logo: "https://zkpassport.id/favicon.png",
+      purpose: "Asking for random stuff",
       keyPairOverride: {
         privateKey: new Uint8Array([
           175, 240, 91, 237, 236, 122, 175, 26, 224, 150, 40, 191, 129, 171, 80, 203, 2, 85, 135,
@@ -58,44 +59,44 @@ async function main() {
           162, 245, 69, 207, 87, 94, 185, 65, 176, 143, 4, 173, 196,
         ]),
       },
-      topicOverride: 'abc456',
+      topicOverride: "abc456",
     })
 
     const {
       url,
       requestId,
-      onQRCodeScanned,
+      onRequestReceived,
       onGeneratingProof,
       onProofGenerated,
       onReject,
       onError,
     } = queryBuilder
-      .eq('fullname', 'John Doe')
-      .range('age', 18, 25)
-      .in('nationality', ['USA', 'GBR', 'Germany', 'Canada', 'Portugal'])
-      .out('nationality', SANCTIONED_COUNTRIES)
+      .eq("fullname", "John Doe")
+      .range("age", 18, 25)
+      .in("nationality", ["USA", "GBR", "Germany", "Canada", "Portugal"])
+      .out("nationality", SANCTIONED_COUNTRIES)
       .done()
 
     console.log(url)
 
-    onQRCodeScanned(() => {
-      logger.info('QR code scanned')
+    onRequestReceived(() => {
+      logger.info("Request received (QR code scanned)")
     })
 
     onGeneratingProof(() => {
-      logger.info('Generating proof')
+      logger.info("Generating proof")
     })
 
     onProofGenerated((proof) => {
-      logger.info('Proof generated', proof)
+      logger.info("Proof generated", proof)
     })
 
     onReject(() => {
-      logger.info('User rejected')
+      logger.info("User rejected")
     })
 
     onError((error) => {
-      logger.error('Error', error)
+      logger.error("Error", error)
     })
   }
 }

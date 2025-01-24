@@ -13,7 +13,7 @@ export class MockWebSocket {
   constructor(url: string, { headers }: { headers?: Record<string, string> } = {}) {
     this.url = url
     this.readyState = MockWebSocket.CONNECTING
-    this.origin = headers?.Origin || '?'
+    this.origin = headers?.Origin || "?"
 
     setTimeout(() => {
       this.readyState = MockWebSocket.OPEN
@@ -22,18 +22,18 @@ export class MockWebSocket {
   }
 
   send(data: string) {
-    console.log('(' + this.origin + ') WebSocket send()', data)
+    console.log("(" + this.origin + ") WebSocket send()", data)
   }
 
   close() {
     this.readyState = MockWebSocket.CLOSED
-    console.log('(' + this.origin + ') WebSocket close()')
+    console.log("(" + this.origin + ") WebSocket close()")
   }
 
   addEventListener(event: string, callback: ((event: { data: string }) => void) | (() => void)) {
-    if (event === 'open') {
+    if (event === "open") {
       this.onopen = callback as () => void
-    } else if (event === 'message') {
+    } else if (event === "message") {
       if (!this.onmessageHandlers) {
         this.onmessageHandlers = []
       }

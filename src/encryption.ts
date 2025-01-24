@@ -1,17 +1,17 @@
-import { gcm } from '@noble/ciphers/aes'
-import { utf8ToBytes } from '@noble/ciphers/utils'
+import { gcm } from "@noble/ciphers/aes"
+import { utf8ToBytes } from "@noble/ciphers/utils"
 
 async function sha256Truncate(topic: string): Promise<Uint8Array> {
   const encoder = new TextEncoder()
   const data = encoder.encode(topic)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
   const fullHashArray = new Uint8Array(hashBuffer)
   const truncatedHashArray = fullHashArray.slice(0, 12)
   return truncatedHashArray
 }
 
 export async function generateECDHKeyPair() {
-  const secp256k1 = await import('@noble/secp256k1')
+  const secp256k1 = await import("@noble/secp256k1")
   const privKey = secp256k1.utils.randomPrivateKey()
   const pubKey = secp256k1.getPublicKey(privKey)
   return {
@@ -21,7 +21,7 @@ export async function generateECDHKeyPair() {
 }
 
 export async function getSharedSecret(privateKey: string, publicKey: string) {
-  const secp256k1 = await import('@noble/secp256k1')
+  const secp256k1 = await import("@noble/secp256k1")
   const sharedSecret = secp256k1.getSharedSecret(privateKey, publicKey)
   return sharedSecret.slice(0, 32)
 }

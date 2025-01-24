@@ -1,9 +1,9 @@
-import { bytesToHex } from '@noble/ciphers/utils'
-import { getWebSocketClient, WebSocketClient } from './websocket'
-import { sendEncryptedJsonRpcRequest } from './json-rpc'
-import { decrypt, generateECDHKeyPair, getSharedSecret } from './encryption'
-import type { JsonRpcRequest } from '@zkpassport/utils'
-import logger from './logger'
+import { bytesToHex } from "@noble/ciphers/utils"
+import { getWebSocketClient, WebSocketClient } from "./websocket"
+import { sendEncryptedJsonRpcRequest } from "./json-rpc"
+import { decrypt, generateECDHKeyPair, getSharedSecret } from "./encryption"
+import type { JsonRpcRequest } from "@zkpassport/utils"
+import logger from "./logger"
 
 export class ZkPassportProver {
   private domain?: string
@@ -29,12 +29,12 @@ export class ZkPassportProver {
     request: JsonRpcRequest,
     outerRequest: JsonRpcRequest,
   ) {
-    logger.debug('Received encrypted message:', request)
-    if (request.method === 'hello') {
+    logger.debug("Received encrypted message:", request)
+    if (request.method === "hello") {
       logger.info(`Successfully verified origin domain name: ${outerRequest.origin}`)
       this.topicToRemoteDomainVerified[topic] = true
       await Promise.all(this.onDomainVerifiedCallbacks[topic].map((callback) => callback()))
-    } else if (request.method === 'closed_page') {
+    } else if (request.method === "closed_page") {
       // TODO: Implement
     }
   }
@@ -52,15 +52,15 @@ export class ZkPassportProver {
     } = {},
   ) {
     const parsedUrl = new URL(url)
-    const domain = parsedUrl.searchParams.get('d')
-    const topic = parsedUrl.searchParams.get('t')
-    const pubkeyHex = parsedUrl.searchParams.get('p')
+    const domain = parsedUrl.searchParams.get("d")
+    const topic = parsedUrl.searchParams.get("t")
+    const pubkeyHex = parsedUrl.searchParams.get("p")
 
     if (!domain || !topic || !pubkeyHex) {
-      throw new Error('Invalid URL: missing required parameters')
+      throw new Error("Invalid URL: missing required parameters")
     }
 
-    const pubkey = new Uint8Array(Buffer.from(pubkeyHex, 'hex'))
+    const pubkey = new Uint8Array(Buffer.from(pubkeyHex, "hex"))
 
     this.domain = domain
     const keyPair = keyPairOverride || (await generateECDHKeyPair())
@@ -85,7 +85,7 @@ export class ZkPassportProver {
     this.topicToWebSocketClient[topic] = wsClient
 
     wsClient.onopen = async () => {
-      logger.info('[mobile] WebSocket connection established')
+      logger.info("[mobile] WebSocket connection established")
       await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
       // Server sends handshake automatically (when it sees a pubkey in websocket URI)
       // wsClient.send(
@@ -97,8 +97,8 @@ export class ZkPassportProver {
       // )
     }
 
-    wsClient.addEventListener('message', async (event: any) => {
-      logger.info('[mobile] Received message:', event.data)
+    wsClient.addEventListener("message", async (event: any) => {
+      logger.info("[mobile] Received message:", event.data)
 
       try {
         const data: JsonRpcRequest = JSON.parse(event.data)
@@ -111,11 +111,11 @@ export class ZkPassportProver {
           return
         }
 
-        if (data.method === 'encryptedMessage') {
+        if (data.method === "encryptedMessage") {
           // Decode the payload from base64 to Uint8Array
           const payload = new Uint8Array(
             atob(data.params.payload)
-              .split('')
+              .split("")
               .map((c) => c.charCodeAt(0)),
           )
           try {
@@ -124,16 +124,16 @@ export class ZkPassportProver {
             const decryptedJson: JsonRpcRequest = JSON.parse(decrypted)
             await this.handleEncryptedMessage(topic, decryptedJson, data)
           } catch (error) {
-            logger.error('[mobile] Error decrypting message:', error)
+            logger.error("[mobile] Error decrypting message:", error)
           }
         }
       } catch (error) {
-        logger.error('[mobile] Error:', error)
+        logger.error("[mobile] Error:", error)
       }
     })
 
     wsClient.onerror = (error: Event) => {
-      logger.error('[mobile] WebSocket error:', error)
+      logger.error("[mobile] WebSocket error:", error)
     }
 
     return {
@@ -147,7 +147,7 @@ export class ZkPassportProver {
         this.onBridgeConnectCallbacks[topic].push(callback),
       notifyReject: async () => {
         await sendEncryptedJsonRpcRequest(
-          'reject',
+          "reject",
           null,
           this.topicToSharedSecret[topic],
           topic,
@@ -156,7 +156,7 @@ export class ZkPassportProver {
       },
       notifyAccept: async () => {
         await sendEncryptedJsonRpcRequest(
-          'accept',
+          "accept",
           null,
           this.topicToSharedSecret[topic],
           topic,
@@ -165,7 +165,7 @@ export class ZkPassportProver {
       },
       notifyDone: async (proof: any) => {
         await sendEncryptedJsonRpcRequest(
-          'done',
+          "done",
           { proof },
           this.topicToSharedSecret[topic],
           topic,
@@ -174,7 +174,7 @@ export class ZkPassportProver {
       },
       notifyError: async (error: string) => {
         await sendEncryptedJsonRpcRequest(
-          'error',
+          "error",
           { error },
           this.topicToSharedSecret[topic],
           topic,
