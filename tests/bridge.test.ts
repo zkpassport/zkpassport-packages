@@ -1,6 +1,6 @@
 import { ZKPassport as ZkPassportVerifier } from "../src/index"
 import { ZkPassportProver } from "../src/mobile"
-import { MockWebSocket } from "./helpers/MockWebSocket"
+import { MockWebSocket } from "./helpers/mock-websocket"
 import {
   simulateHelloFromFrontend,
   simulateHandshakeFromMobile,
@@ -19,7 +19,6 @@ const keyPairMobile = {
 }
 
 let wsClient: MockWebSocket | null = null
-
 jest.mock("../src/websocket", () => {
   return {
     getWebSocketClient: jest.fn((url: string, origin?: string) => {

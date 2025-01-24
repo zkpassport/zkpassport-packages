@@ -3,7 +3,7 @@ import { getWebSocketClient, WebSocketClient } from "./websocket"
 import { sendEncryptedJsonRpcRequest } from "./json-rpc"
 import { decrypt, generateECDHKeyPair, getSharedSecret } from "./encryption"
 import type { JsonRpcRequest } from "@zkpassport/utils"
-import logger from "./logger"
+import { noLogger as logger } from "./logger"
 
 export class ZkPassportProver {
   private domain?: string

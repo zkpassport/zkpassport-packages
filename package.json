@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/sdk",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Privacy-preserving identity verification using passports and ID cards",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -17,7 +17,7 @@
     "build": "npm run build:esm && npm run build:cjs",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
-    "test": "NODE_OPTIONS='--require ts-node/register' NODE_NO_WARNINGS=1 node node_modules/.bin/jest --no-cache --passWithNoTests **/*.test.ts",
+    "test": "NODE_OPTIONS='--require ts-node/register' NODE_NO_WARNINGS=1 node node_modules/.bin/jest --no-cache --passWithNoTests --runInBand **/*.test.ts",
     "test:debug": "NODE_OPTIONS='--require ts-node/register' NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 node_modules/.bin/jest --no-cache --passWithNoTests --runInBand **/*.test.ts",
     "deploy": "npm publish --access public"
   },

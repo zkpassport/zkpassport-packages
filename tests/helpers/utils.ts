@@ -1,6 +1,6 @@
 import { bytesToHex } from "@noble/ciphers/utils"
 import { getSharedSecret } from "../../src/encryption"
-import { MockWebSocket } from "./MockWebSocket"
+import { MockWebSocket } from "./mock-websocket"
 import { createEncryptedJsonRpcRequest } from "../../src/json-rpc"
 
 export async function waitForCallback(callback: (resolve: () => void) => void): Promise<void> {
@@ -13,15 +13,14 @@ export async function simulateHelloFromFrontend(
   wsClient: MockWebSocket,
   keyPairFrontend: any,
   keyPairMobile: any,
-  TOPIC: string,
+  topic: string,
 ) {
   const sharedSecret = await getSharedSecret(
     bytesToHex(keyPairFrontend.privateKey),
     bytesToHex(keyPairMobile.publicKey),
   )
-  const encryptedMessage = await createEncryptedJsonRpcRequest("hello", null, sharedSecret, TOPIC)
+  const encryptedMessage = await createEncryptedJsonRpcRequest("hello", null, sharedSecret, topic)
   encryptedMessage["origin"] = "https://localhost"
-  console.debug("Simulating sending encrypted message:", encryptedMessage)
   wsClient.onmessageHandlers?.forEach((callback) =>
     callback({ data: JSON.stringify(encryptedMessage) }),
   )

@@ -1,6 +1,6 @@
 import { ZkPassportProver } from "../src/mobile"
 import { ZKPassport, SANCTIONED_COUNTRIES } from "../src/index"
-import logger from "../src/logger"
+import { customLogger as logger } from "../src/logger"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

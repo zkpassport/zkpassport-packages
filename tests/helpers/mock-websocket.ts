@@ -21,13 +21,10 @@ export class MockWebSocket {
     }, 1)
   }
 
-  send(data: string) {
-    console.log("(" + this.origin + ") WebSocket send()", data)
-  }
+  send(data: string) {}
 
   close() {
     this.readyState = MockWebSocket.CLOSED
-    console.log("(" + this.origin + ") WebSocket close()")
   }
 
   addEventListener(event: string, callback: ((event: { data: string }) => void) | (() => void)) {
