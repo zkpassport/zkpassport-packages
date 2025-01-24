@@ -39,8 +39,9 @@ import { noLogger as logger } from "./logger"
 import { ungzip } from "node-gzip"
 //import initNoirC from '@noir-lang/noirc_abi'
 //import initACVM from '@noir-lang/acvm_js'
+import i18en from "i18n-iso-countries/langs/en.json"
 
-registerLocale(require("i18n-iso-countries/langs/en.json"))
+registerLocale(i18en)
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
   let normalizedCountry: Alpha3Code | undefined
