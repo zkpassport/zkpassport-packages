@@ -9,7 +9,7 @@
     "module": "es2020",
     "moduleResolution": "node",
     "outDir": "./dist/esm",
-    "rootDir": ".",
+    "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
@@ -20,5 +20,6 @@
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules", "**/__tests__/*"]
 }
