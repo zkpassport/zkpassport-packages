@@ -30,6 +30,7 @@ import {
   DisclosedData,
   formatName,
   getHostedPackagedCircuitByName,
+  Query,
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { getWebSocketClient, WebSocketClient } from "./websocket"
@@ -42,6 +43,23 @@ import { ungzip } from "node-gzip"
 import i18en from "i18n-iso-countries/langs/en.json"
 
 registerLocale(i18en)
+
+function hasRequestedAccessToField(credentialsRequest: Query, field: IDCredential): boolean {
+  const fieldValue = credentialsRequest[field as keyof Query]
+  const isDefined = fieldValue !== undefined && fieldValue !== null
+  if (!isDefined) {
+    return false
+  }
+  for (const key in fieldValue) {
+    if (
+      fieldValue[key as keyof typeof fieldValue] !== undefined &&
+      fieldValue[key as keyof typeof fieldValue] !== null
+    ) {
+      return true
+    }
+  }
+  return false
+}
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
   let normalizedCountry: Alpha3Code | undefined
@@ -242,6 +260,8 @@ export class ZKPassport {
     { name: string; logo: string; purpose: string; scope?: string }
   > = {}
   private topicToProofs: Record<string, Array<ProofResult>> = {}
+  private topicToExpectedProofCount: Record<string, number> = {}
+  private topicToResults: Record<string, QueryResult> = {}
 
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
   private onGeneratingProofCallbacks: Record<string, Array<(topic: string) => void>> = {}
@@ -274,6 +294,79 @@ export class ZKPassport {
     await Promise.all([initACVM(acvm), initNoirC(noirc)])
     this.wasmVerifierInit = true
   }*/
+
+  private async handleResult(topic: string) {
+    const result = this.topicToResults[topic]
+    // Clear the results straight away to avoid concurrency issues
+    delete this.topicToResults[topic]
+    // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
+    const { uniqueIdentifier, verified } = await this.verify(
+      topic,
+      this.topicToProofs[topic],
+      result,
+    )
+    await Promise.all(
+      this.onResultCallbacks[topic].map((callback) =>
+        callback({
+          uniqueIdentifier,
+          verified,
+          result,
+        }),
+      ),
+    )
+    // Clear the expected proof count
+    delete this.topicToExpectedProofCount[topic]
+  }
+
+  private setExpectedProofCount(topic: string) {
+    const fields = Object.keys(this.topicToConfig[topic] as Query).filter((key) =>
+      hasRequestedAccessToField(this.topicToConfig[topic] as Query, key as IDCredential),
+    )
+    const neededCircuits: string[] = []
+    // Determine which circuits are needed based on the requested fields
+    for (const field of fields) {
+      for (const key in this.topicToConfig[topic][field as IDCredential]) {
+        switch (key) {
+          case "eq":
+          case "disclose":
+            if (field !== "age" && !neededCircuits.includes("disclose_bytes")) {
+              neededCircuits.push("disclose_bytes")
+            } else if (field === "age" && !neededCircuits.includes("compare_age")) {
+              neededCircuits.push("compare_age")
+            }
+            break
+          case "gte":
+          case "gt":
+          case "lte":
+          case "lt":
+          case "range":
+            if (field === "age" && !neededCircuits.includes("compare_age")) {
+              neededCircuits.push("compare_age")
+            } else if (field === "expiry_date" && !neededCircuits.includes("compare_expiry")) {
+              neededCircuits.push("compare_expiry")
+            } else if (field === "birthdate" && !neededCircuits.includes("compare_birthdate")) {
+              neededCircuits.push("compare_birthdate")
+            }
+            break
+          case "in":
+            if (field === "nationality" && !neededCircuits.includes("inclusion_check_country")) {
+              neededCircuits.push("inclusion_check_country")
+            }
+            break
+          case "out":
+            if (field === "nationality" && !neededCircuits.includes("exclusion_check_country")) {
+              neededCircuits.push("exclusion_check_country")
+            }
+            break
+        }
+      }
+    }
+    // From the circuits needed, determine the expected proof count
+    // There are at least 4 proofs, 3 base proofs and 1 disclosure proof minimum
+    // Each separate needed circuit adds 1 disclosure proof
+    this.topicToExpectedProofCount[topic] =
+      neededCircuits.length === 0 ? 4 : 3 + neededCircuits.length
+  }
 
   /**
    * @notice Handle an encrypted message.
@@ -311,27 +404,45 @@ export class ZKPassport {
       await Promise.all(
         this.onProofGeneratedCallbacks[topic].map((callback) => callback(processedProof)),
       )
+      // If the results were received before all the proofs were generated,
+      // we can handle the result now
+      if (
+        this.topicToResults[topic] &&
+        this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length
+      ) {
+        await this.handleResult(topic)
+      }
     } else if (request.method === "done") {
       logger.debug(`User sent the query result`)
-      // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
-      const { uniqueIdentifier, verified } = await this.verify(
-        topic,
-        this.topicToProofs[topic],
-        request.params,
-      )
-      await Promise.all(
-        this.onResultCallbacks[topic].map((callback) =>
-          callback({
-            uniqueIdentifier,
-            verified,
-            result: request.params,
-          }),
-        ),
-      )
+      this.topicToResults[topic] = request.params
+      // Make sure all the proofs have been received, otherwise we'll handle the result later
+      // once the proofs have all been received
+      if (this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length) {
+        await this.handleResult(topic)
+      }
     } else if (request.method === "error") {
-      await Promise.all(
-        this.onErrorCallbacks[topic].map((callback) => callback(request.params.error)),
-      )
+      const error = request.params.error
+      if (error && error === "This ID is not supported yet") {
+        // This means the user has an ID that is not supported yet
+        // So we won't receive any proofs and we can handle the result now
+        this.topicToExpectedProofCount[topic] = 0
+        if (this.topicToResults[topic]) {
+          await this.handleResult(topic)
+        }
+      } else if (error && error.startsWith("Cannot generate proof")) {
+        // This means one of the disclosure proofs failed to be generated
+        // So we need to remove one from the expected proof count
+        this.topicToExpectedProofCount[topic] -= 1
+        // If the expected proof count is now equal to the number of proofs received
+        // and the results were received, we can handle the result now
+        if (
+          this.topicToResults[topic] &&
+          this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length
+        ) {
+          await this.handleResult(topic)
+        }
+      }
+      await Promise.all(this.onErrorCallbacks[topic].map((callback) => callback(error)))
     }
   }
 
@@ -396,6 +507,7 @@ export class ZKPassport {
           "base64",
         )
         const pubkey = bytesToHex(this.topicToKeyPair[topic].publicKey)
+        this.setExpectedProofCount(topic)
         return {
           url: `https://zkpassport.id/r?d=${this.domain}&t=${topic}&c=${base64Config}&s=${base64Service}&p=${pubkey}`,
           requestId: topic,
@@ -454,6 +566,7 @@ export class ZKPassport {
     this.topicToConfig[topic] = {}
     this.topicToService[topic] = { name, logo, purpose, scope }
     this.topicToProofs[topic] = []
+    this.topicToExpectedProofCount[topic] = 0
 
     this.onRequestReceivedCallbacks[topic] = []
     this.onGeneratingProofCallbacks[topic] = []
@@ -1108,6 +1221,18 @@ export class ZKPassport {
           isCorrect = false
           break
         }
+        // Check the countryList is in ascending order
+        // If the prover doesn't use a sorted list then the proof cannot be trusted
+        // as it is requirement in the circuit for the exclusion check to work
+        for (let i = 1; i < countryList.length; i++) {
+          if (countryList[i] < countryList[i - 1]) {
+            console.warn(
+              "The nationality exclusion list has not been sorted, and thus the proof cannot be trusted",
+            )
+            isCorrect = false
+            break
+          }
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "inclusion_check_country") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
@@ -1161,7 +1286,7 @@ export class ZKPassport {
       proofsToVerify = this.topicToProofs[requestId]
       if (!proofsToVerify || proofsToVerify.length < 4) {
         // It may happen that a request returns a result without proofs
-        // Meaning the ID is supported yet by ZKPassport circuits,
+        // Meaning the ID is not supported yet by ZKPassport circuits,
         // so the results has to be trusted and cannot be independently verified
         return { uniqueIdentifier: undefined, verified: false }
       }
@@ -1232,6 +1357,8 @@ export class ZKPassport {
     delete this.topicToConfig[requestId]
     delete this.topicToSharedSecret[requestId]
     delete this.topicToProofs[requestId]
+    delete this.topicToExpectedProofCount[requestId]
+    delete this.topicToResults[requestId]
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []
