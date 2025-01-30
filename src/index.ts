@@ -41,6 +41,12 @@ import { ungzip } from "node-gzip"
 //import initNoirC from '@noir-lang/noirc_abi'
 //import initACVM from '@noir-lang/acvm_js'
 import i18en from "i18n-iso-countries/langs/en.json"
+import { Buffer } from "buffer/"
+
+// If Buffer is not defined, then we use the Buffer from the buffer package
+if (typeof globalThis.Buffer === "undefined") {
+  globalThis.Buffer = Buffer as any
+}
 
 registerLocale(i18en)
 
@@ -554,7 +560,7 @@ export class ZKPassport {
     scope?: string
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
-  }) {
+  }): Promise<QueryBuilder> {
     const topic = topicOverride || randomBytes(16).toString("hex")
 
     const keyPair = keyPairOverride || (await generateECDHKeyPair())

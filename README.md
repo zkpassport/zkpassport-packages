@@ -15,21 +15,21 @@ npm install @zkpassport/sdk
 ## How to use
 
 ```ts
-import { ZKPassport, EU_COUNTRIES } from '@zkpassport/sdk'
+import { ZKPassport, EU_COUNTRIES } from "@zkpassport/sdk"
 
 // Replace with your domain
-const zkPassport = new ZKPassport('demo.zkpassport.id')
+const zkPassport = new ZKPassport("demo.zkpassport.id")
 
 // Specify your app name, logo and the purpose of the request
 // you'll send to your visitors or users
 const queryBuilder = await zkPassport.request({
-  name: 'ZKPassport',
-  logo: 'https://zkpassport.id/logo.png',
-  purpose: 'Prove you are an adult from the EU but not from Scandinavia',
+  name: "ZKPassport",
+  logo: "https://zkpassport.id/logo.png",
+  purpose: "Prove you are an adult from the EU but not from Scandinavia",
   // The scope is optional and can be used to scope the unique identifier
   // of the request to a specific use case
   // By default, the request's unique identifier is scoped to your domain name only
-  scope: 'eu-adult-not-scandinavia',
+  scope: "eu-adult-not-scandinavia",
 })
 
 // Specify the data you want to disclose
@@ -47,10 +47,10 @@ const {
   onReject,
   onError,
 } = queryBuilder
-  .disclose('firstname')
-  .gte('age', 18)
-  .in('nationality', EU_COUNTRIES)
-  .out('nationality', ['Sweden', 'Denmark'])
+  .disclose("firstname")
+  .gte("age", 18)
+  .in("nationality", EU_COUNTRIES)
+  .out("nationality", ["Sweden", "Denmark"])
   .done()
 
 // Generate a QR Code with the url and let your user scan it
@@ -60,12 +60,12 @@ onRequestReceived(() => {
   // The user scanned the QR code or clicked the link to the request
   // Essentially, this means the request popup is now opened
   // on the user phone
-  console.log('Request received')
+  console.log("Request received")
 })
 
 onGeneratingProof(() => {
   // The user accepted the request and the proof is being generated
-  console.log('Generating proof')
+  console.log("Generating proof")
 })
 
 // You probably don't need to use this callback
@@ -75,10 +75,10 @@ onProofGenerated(({ proof, vkeyHash, version, name }: ProofResult) => {
   // Here, you can retrieve the proof manually and verify it
   // But note that the verification of the proofs is handled
   // automatically by the SDK
-  console.log('Proof generated', proof)
-  console.log('Verification key hash', vkeyHash)
-  console.log('Version', version)
-  console.log('Name', name)
+  console.log("Proof generated", proof)
+  console.log("Verification key hash", vkeyHash)
+  console.log("Version", version)
+  console.log("Name", name)
 })
 
 // That's the callback you're looking for
@@ -93,22 +93,22 @@ onResult(
     result: QueryResult
   }) => {
     // All the proofs have been generated and the final result is available
-    console.log('firstname', result.firstname.disclose.result)
-    console.log('age over 18', result.age.gte.result)
-    console.log('nationality in EU', result.nationality.in.result)
-    console.log('nationality not from Scandinavia', result.nationality.out.result)
+    console.log("firstname", result.firstname.disclose.result)
+    console.log("age over 18", result.age.gte.result)
+    console.log("nationality in EU", result.nationality.in.result)
+    console.log("nationality not from Scandinavia", result.nationality.out.result)
     // You can also retrieved what were the values originally requested
-    console.log('age over', result.age.gte.expected)
-    console.log('nationality in', result.nationality.in.expected)
-    console.log('nationality not in', result.nationality.out.expected)
+    console.log("age over", result.age.gte.expected)
+    console.log("nationality in", result.nationality.in.expected)
+    console.log("nationality not in", result.nationality.out.expected)
     // You can make sure the proof are valid by checking verified is set to true
-    console.log('proofs are valid', verified)
+    console.log("proofs are valid", verified)
     // You can also retrieve the unique identifier associated to this request
     // The assumption is that the unique identifier will be the same if coming
     // from the same ID for the same domain name and scope
     // So you can use it to identify if the user has already provided the proof
     // for this specific use case
-    console.log('unique identifier', uniqueIdentifier)
+    console.log("unique identifier", uniqueIdentifier)
   },
 )
 ```
@@ -122,17 +122,17 @@ You can integrate `@zkpassport/sdk` into a Next.js application by creating a bac
 **App Router:** `app/api/zkpassport/route.ts`
 
 ```typescript
-import { NextResponse } from 'next/server'
-import { ZKPassport } from '@zkpassport/sdk'
+import { NextResponse } from "next/server"
+import { ZKPassport } from "@zkpassport/sdk"
 
 export async function GET() {
-  const zkPassport = new ZKPassport('demo.zkpassport.id') // Replace with your domain
+  const zkPassport = new ZKPassport("demo.zkpassport.id") // Replace with your domain
   const queryBuilder = await zkPassport.request({
-    name: 'ZKPassport Demo',
-    logo: 'https://via.placeholder.com/150',
-    purpose: 'Verify user nationality and first name',
+    name: "ZKPassport Demo",
+    logo: "https://via.placeholder.com/150",
+    purpose: "Verify user nationality and first name",
   })
-  const { url } = queryBuilder.disclose('nationality').disclose('firstname').done()
+  const { url } = queryBuilder.disclose("nationality").disclose("firstname").done()
   return NextResponse.json({ url })
 }
 ```
@@ -142,14 +142,14 @@ export async function GET() {
 **App Router:** `app/page.tsx`
 
 ```tsx
-'use client'
-import { useEffect, useState } from 'react'
+"use client"
+import { useEffect, useState } from "react"
 
 export default function Home() {
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/zkpassport')
+    fetch("/api/zkpassport")
       .then((res) => res.json())
       .then((data) => setVerificationUrl(data.url))
       .catch(console.error)
