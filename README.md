@@ -4,7 +4,7 @@ Privacy-preserving identity verification using passports and ID cards.
 
 _⚠️ Warning ⚠️_
 
-_This version of the SDK is only compatible with the version 0.5 and above of ZKPassport mobile app._
+_This is experimental software that has not been audited yet. Use at your own risk._
 
 ## Installation
 

@@ -37,7 +37,7 @@ import { getWebSocketClient, WebSocketClient } from "./websocket"
 import { createEncryptedJsonRpcRequest } from "./json-rpc"
 import { decrypt, generateECDHKeyPair, getSharedSecret } from "./encryption"
 import { noLogger as logger } from "./logger"
-import { ungzip } from "node-gzip"
+import { inflate } from "pako"
 //import initNoirC from '@noir-lang/noirc_abi'
 //import initACVM from '@noir-lang/acvm_js'
 import i18en from "i18n-iso-countries/langs/en.json"
@@ -46,6 +46,9 @@ import { Buffer } from "buffer/"
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
   globalThis.Buffer = Buffer as any
+  if (typeof window !== "undefined") {
+    window.Buffer = Buffer as any
+  }
 }
 
 registerLocale(i18en)
@@ -395,7 +398,7 @@ export class ZKPassport {
       logger.debug(`User generated proof`)
       // Uncompress the proof and convert it to a hex string
       const bytesProof = Buffer.from(request.params.proof, "base64")
-      const uncompressedProof = await ungzip(bytesProof)
+      const uncompressedProof = inflate(bytesProof)
       // The gzip lib in the app compress the proof as ASCII
       // and since the app passes the proof as a hex string, we can
       // just decode the bytes as hex characters using the TextDecoder
