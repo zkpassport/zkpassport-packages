@@ -260,6 +260,12 @@ export type QueryBuilder = {
 export class ZKPassport {
   private domain: string
   private topicToConfig: Record<string, Record<string, IDCredentialConfig>> = {}
+  private topicToLocalConfig: Record<
+    string,
+    {
+      validity: number
+    }
+  > = {}
   private topicToKeyPair: Record<string, { privateKey: Uint8Array; publicKey: Uint8Array }> = {}
   private topicToWebSocketClient: Record<string, WebSocketClient> = {}
   private topicToSharedSecret: Record<string, Uint8Array> = {}
@@ -546,7 +552,12 @@ export class ZKPassport {
   }
 
   /**
-   * @notice Create a new request.
+   * @notice Create a new request
+   * @param name Your service name
+   * @param logo The logo of your service
+   * @param purpose To explain what you want to do with the user's data
+   * @param scope Scope this request to a specific use case
+   * @param validity How many days ago should have the ID been last scanned by the user?
    * @returns The query builder object.
    */
   public async request({
@@ -554,6 +565,7 @@ export class ZKPassport {
     logo,
     purpose,
     scope,
+    validity,
     topicOverride,
     keyPairOverride,
   }: {
@@ -561,6 +573,7 @@ export class ZKPassport {
     logo: string
     purpose: string
     scope?: string
+    validity?: number
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
   }): Promise<QueryBuilder> {
@@ -576,6 +589,10 @@ export class ZKPassport {
     this.topicToService[topic] = { name, logo, purpose, scope }
     this.topicToProofs[topic] = []
     this.topicToExpectedProofCount[topic] = 0
+    this.topicToLocalConfig[topic] = {
+      // Default to 6 months
+      validity: validity || 6 * 30,
+    }
 
     this.onRequestReceivedCallbacks[topic] = []
     this.onGeneratingProofCallbacks[topic] = []
@@ -650,7 +667,11 @@ export class ZKPassport {
     return this.getZkPassportRequest(topic)
   }
 
-  private async checkPublicInputs(proofs: Array<ProofResult>, queryResult: QueryResult) {
+  private async checkPublicInputs(
+    proofs: Array<ProofResult>,
+    queryResult: QueryResult,
+    topic: string,
+  ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
     let isCorrect = true
@@ -720,13 +741,14 @@ export class ZKPassport {
         }
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
         const currentDate = getCurrentDateFromIntegrityProof(proofData)
-        // The date should be today or yesterday
-        // (if the proof request was requested just before midnight and is finalized after)
-        if (
-          currentDate.getTime() !== today.getTime() &&
-          currentDate.getTime() !== today.getTime() - 86400000
-        ) {
-          console.warn("Current date used to check the validity of the ID is too old")
+        const todayToCurrentDate = today.getTime() - currentDate.getTime()
+        const expectedDifference = this.topicToLocalConfig[topic]?.validity * 86400000
+        const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
+        // The ID should not expire within the next 6 months (or whatever the custom value is)
+        if (todayToCurrentDate >= actualDifference) {
+          console.warn(
+            `The date used to check the validity of the ID is older than ${this.topicToLocalConfig[topic]?.validity} days. You can ask the user to rescan their ID or ask them to disclose their expiry date`,
+          )
           isCorrect = false
           break
         }
@@ -1309,7 +1331,7 @@ export class ZKPassport {
     let uniqueIdentifier: string | undefined
     if (queryResult) {
       const { isCorrect, uniqueIdentifier: uniqueIdentifierFromPublicInputs } =
-        await this.checkPublicInputs(proofsToVerify!, queryResult!)
+        await this.checkPublicInputs(proofsToVerify!, queryResult!, requestId)
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       verified = isCorrect
     }
@@ -1364,6 +1386,7 @@ export class ZKPassport {
     delete this.topicToWebSocketClient[requestId]
     delete this.topicToKeyPair[requestId]
     delete this.topicToConfig[requestId]
+    delete this.topicToLocalConfig[requestId]
     delete this.topicToSharedSecret[requestId]
     delete this.topicToProofs[requestId]
     delete this.topicToExpectedProofCount[requestId]
