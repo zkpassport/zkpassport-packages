@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/sdk",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Privacy-preserving identity verification using passports and ID cards",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
