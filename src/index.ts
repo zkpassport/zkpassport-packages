@@ -263,13 +263,19 @@ export type QueryBuilder = {
    * @param key The attribute to compare.
    * @param value The list of values to check inclusion against.
    */
-  in: <T extends "nationality">(key: T, value: IDCredentialValue<T>[]) => QueryBuilder
+  in: <T extends "nationality" | "issuing_country">(
+    key: T,
+    value: IDCredentialValue<T>[],
+  ) => QueryBuilder
   /**
    * Requires this attribute to be excluded from the provided list.
    * @param key The attribute to compare.
    * @param value The list of values to check exclusion against.
    */
-  out: <T extends "nationality">(key: T, value: IDCredentialValue<T>[]) => QueryBuilder
+  out: <T extends "nationality" | "issuing_country">(
+    key: T,
+    value: IDCredentialValue<T>[],
+  ) => QueryBuilder
   /**
    * Requires this attribute to be disclosed.
    * @param key The attribute to disclose.
@@ -399,13 +405,29 @@ export class ZKPassport {
             }
             break
           case "in":
-            if (field === "nationality" && !neededCircuits.includes("inclusion_check_country")) {
-              neededCircuits.push("inclusion_check_country")
+            if (
+              field === "nationality" &&
+              !neededCircuits.includes("inclusion_check_nationality")
+            ) {
+              neededCircuits.push("inclusion_check_nationality")
+            } else if (
+              field === "issuing_country" &&
+              !neededCircuits.includes("inclusion_check_issuing_country")
+            ) {
+              neededCircuits.push("inclusion_check_issuing_country")
             }
             break
           case "out":
-            if (field === "nationality" && !neededCircuits.includes("exclusion_check_country")) {
-              neededCircuits.push("exclusion_check_country")
+            if (
+              field === "nationality" &&
+              !neededCircuits.includes("exclusion_check_nationality")
+            ) {
+              neededCircuits.push("exclusion_check_nationality")
+            } else if (
+              field === "issuing_country" &&
+              !neededCircuits.includes("exclusion_check_issuing_country")
+            ) {
+              neededCircuits.push("exclusion_check_issuing_country")
             }
             break
         }
@@ -532,12 +554,12 @@ export class ZKPassport {
         rangeCompare(key, [start, end], topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
-      in: <T extends "nationality">(key: T, value: IDCredentialValue<T>[]) => {
+      in: <T extends "nationality" | "issuing_country">(key: T, value: IDCredentialValue<T>[]) => {
         value = value.map((v) => normalizeCountry(v as CountryName)) as IDCredentialValue<T>[]
         generalCompare("in", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
-      out: <T extends "nationality">(key: T, value: IDCredentialValue<T>[]) => {
+      out: <T extends "nationality" | "issuing_country">(key: T, value: IDCredentialValue<T>[]) => {
         value = value.map((v) => normalizeCountry(v as CountryName)) as IDCredentialValue<T>[]
         generalCompare("out", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
@@ -755,8 +777,10 @@ export class ZKPassport {
         "compare_age",
         "compare_birthdate",
         "compare_expiry",
-        "exclusion_check_country",
-        "inclusion_check_country",
+        "exclusion_check_nationality",
+        "inclusion_check_nationality",
+        "exclusion_check_issuing_country",
+        "inclusion_check_issuing_country",
       ]
       const getIndex = (proof: ProofResult) => {
         const name = proof.name || ""
@@ -851,7 +875,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.document_type.eq = {
               expected: `${queryResult.document_type.eq.expected}`,
-              received: `${disclosedDataPassport.documentType}`,
+              received: `${disclosedDataPassport.documentType ?? disclosedDataIDCard.documentType}`,
               message: "Document type does not match the expected document type",
             }
           }
@@ -860,7 +884,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.document_type.disclose = {
               expected: `${queryResult.document_type.disclose?.result}`,
-              received: `${disclosedDataIDCard.documentType}`,
+              received: `${disclosedDataIDCard.documentType ?? disclosedDataPassport.documentType}`,
               message: "Document type does not match the disclosed document type in query result",
             }
           }
@@ -878,7 +902,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.birthdate.eq = {
               expected: `${queryResult.birthdate.eq.expected.toISOString()}`,
-              received: `${birthdatePassport.toISOString()}`,
+              received: `${birthdatePassport?.toISOString() ?? birthdateIDCard?.toISOString()}`,
               message: "Birthdate does not match the expected birthdate",
             }
           }
@@ -891,7 +915,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.birthdate.disclose = {
               expected: `${queryResult.birthdate.disclose.result.toISOString()}`,
-              received: `${birthdatePassport.toISOString()}`,
+              received: `${birthdatePassport?.toISOString() ?? birthdateIDCard?.toISOString()}`,
               message: "Birthdate does not match the disclosed birthdate in query result",
             }
           }
@@ -909,7 +933,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.expiry_date.eq = {
               expected: `${queryResult.expiry_date.eq.expected.toISOString()}`,
-              received: `${expiryDatePassport.toISOString()}`,
+              received: `${expiryDatePassport?.toISOString() ?? expiryDateIDCard?.toISOString()}`,
               message: "Expiry date does not match the expected expiry date",
             }
           }
@@ -922,7 +946,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.expiry_date.disclose = {
               expected: `${queryResult.expiry_date.disclose.result.toISOString()}`,
-              received: `${expiryDatePassport.toISOString()}`,
+              received: `${expiryDatePassport?.toISOString() ?? expiryDateIDCard?.toISOString()}`,
               message: "Expiry date does not match the disclosed expiry date in query result",
             }
           }
@@ -940,7 +964,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.nationality.eq = {
               expected: `${queryResult.nationality.eq.expected}`,
-              received: `${nationalityPassport}`,
+              received: `${nationalityPassport ?? nationalityIDCard}`,
               message: "Nationality does not match the expected nationality",
             }
           }
@@ -953,7 +977,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.nationality.disclose = {
               expected: `${queryResult.nationality.disclose.result}`,
-              received: `${nationalityPassport}`,
+              received: `${nationalityPassport ?? nationalityIDCard}`,
               message: "Nationality does not match the disclosed nationality in query result",
             }
           }
@@ -971,7 +995,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.document_number.eq = {
               expected: `${queryResult.document_number.eq.expected}`,
-              received: `${documentNumberPassport}`,
+              received: `${documentNumberPassport ?? documentNumberIDCard}`,
               message: "Document number does not match the expected document number",
             }
           }
@@ -986,7 +1010,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.document_number.disclose = {
               expected: `${queryResult.document_number.disclose.result}`,
-              received: `${documentNumberPassport}`,
+              received: `${documentNumberPassport ?? documentNumberIDCard}`,
               message:
                 "Document number does not match the disclosed document number in query result",
             }
@@ -1005,7 +1029,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.gender.eq = {
               expected: `${queryResult.gender.eq.expected}`,
-              received: `${genderPassport}`,
+              received: `${genderPassport ?? genderIDCard}`,
               message: "Gender does not match the expected gender",
             }
           }
@@ -1018,7 +1042,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.gender.disclose = {
               expected: `${queryResult.gender.disclose.result}`,
-              received: `${genderPassport}`,
+              received: `${genderPassport ?? genderIDCard}`,
               message: "Gender does not match the disclosed gender in query result",
             }
           }
@@ -1036,7 +1060,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.issuing_country.eq = {
               expected: `${queryResult.issuing_country.eq.expected}`,
-              received: `${issuingCountryPassport}`,
+              received: `${issuingCountryPassport ?? issuingCountryIDCard}`,
               message: "Issuing country does not match the expected issuing country",
             }
           }
@@ -1051,7 +1075,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.issuing_country.disclose = {
               expected: `${queryResult.issuing_country.disclose.result}`,
-              received: `${issuingCountryPassport}`,
+              received: `${issuingCountryPassport ?? issuingCountryIDCard}`,
               message:
                 "Issuing country does not match the disclosed issuing country in query result",
             }
@@ -1072,7 +1096,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.fullname.eq = {
               expected: `${queryResult.fullname.eq.expected}`,
-              received: `${fullnamePassport}`,
+              received: `${fullnamePassport ?? fullnameIDCard}`,
               message: "Fullname does not match the expected fullname",
             }
           }
@@ -1087,7 +1111,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.fullname.disclose = {
               expected: `${queryResult.fullname.disclose.result}`,
-              received: `${fullnamePassport}`,
+              received: `${fullnamePassport ?? fullnameIDCard}`,
               message: "Fullname does not match the disclosed fullname in query result",
             }
           }
@@ -1114,7 +1138,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.firstname.eq = {
               expected: `${queryResult.firstname.eq.expected}`,
-              received: `${firstnamePassport}`,
+              received: `${firstnamePassport ?? firstnameIDCard}`,
               message: "Firstname does not match the expected firstname",
             }
           }
@@ -1129,7 +1153,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.firstname.disclose = {
               expected: `${queryResult.firstname.disclose.result}`,
-              received: `${firstnamePassport}`,
+              received: `${firstnamePassport ?? firstnameIDCard}`,
               message: "Firstname does not match the disclosed firstname in query result",
             }
           }
@@ -1156,7 +1180,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.lastname.eq = {
               expected: `${queryResult.lastname.eq.expected}`,
-              received: `${lastnamePassport}`,
+              received: `${lastnamePassport ?? lastnameIDCard}`,
               message: "Lastname does not match the expected lastname",
             }
           }
@@ -1171,7 +1195,7 @@ export class ZKPassport {
             isCorrect = false
             queryResultErrors.lastname.disclose = {
               expected: `${queryResult.lastname.disclose.result}`,
-              received: `${lastnamePassport}`,
+              received: `${lastnamePassport ?? lastnameIDCard}`,
               message: "Lastname does not match the disclosed lastname in query result",
             }
           }
@@ -1470,18 +1494,18 @@ export class ZKPassport {
           }
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
-      } else if (proof.name === "exclusion_check_country") {
+      } else if (proof.name === "exclusion_check_nationality") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
           console.warn(
-            "Failed to check the link between the validity of the ID and the country exclusion check",
+            "Failed to check the link between the validity of the ID and the nationality exclusion check",
           )
           isCorrect = false
           queryResultErrors.nationality.commitment = {
             expected: `Commitment: ${commitmentOut}`,
             received: `Commitment: ${commitmentIn}`,
             message:
-              "Failed to check the link between the validity of the ID and the country exclusion check",
+              "Failed to check the link between the validity of the ID and the nationality exclusion check",
           }
         }
         const countryList = getCountryListFromExclusionProof(proofData)
@@ -1493,12 +1517,12 @@ export class ZKPassport {
           if (
             !queryResult.nationality.out.expected?.every((country) => countryList.includes(country))
           ) {
-            console.warn("Country exclusion list does not match the one from the query results")
+            console.warn("Nationality exclusion list does not match the one from the query results")
             isCorrect = false
             queryResultErrors.nationality.out = {
               expected: queryResult.nationality.out.expected,
               received: countryList,
-              message: "Country exclusion list does not match the one from the query results",
+              message: "Nationality exclusion list does not match the one from the query results",
             }
           }
         } else if (!queryResult.nationality || !queryResult.nationality.out) {
@@ -1524,18 +1548,77 @@ export class ZKPassport {
           }
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
-      } else if (proof.name === "inclusion_check_country") {
+      } else if (proof.name === "exclusion_check_issuing_country") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
           console.warn(
-            "Failed to check the link between the validity of the ID and the country inclusion check",
+            "Failed to check the link between the validity of the ID and the issuing country exclusion check",
           )
           isCorrect = false
           queryResultErrors.nationality.commitment = {
             expected: `Commitment: ${commitmentOut}`,
             received: `Commitment: ${commitmentIn}`,
             message:
-              "Failed to check the link between the validity of the ID and the country inclusion check",
+              "Failed to check the link between the validity of the ID and the issuing country exclusion check",
+          }
+        }
+        const countryList = getCountryListFromExclusionProof(proofData)
+        if (
+          queryResult.issuing_country &&
+          queryResult.issuing_country.out &&
+          queryResult.issuing_country.out.result
+        ) {
+          if (
+            !queryResult.issuing_country.out.expected?.every((country) =>
+              countryList.includes(country),
+            )
+          ) {
+            console.warn(
+              "Issuing country exclusion list does not match the one from the query results",
+            )
+            isCorrect = false
+            queryResultErrors.issuing_country.out = {
+              expected: queryResult.issuing_country.out.expected,
+              received: countryList,
+              message:
+                "Issuing country exclusion list does not match the one from the query results",
+            }
+          }
+        } else if (!queryResult.issuing_country || !queryResult.issuing_country.out) {
+          console.warn("Issuing country exclusion is not set in the query result")
+          isCorrect = false
+          queryResultErrors.issuing_country.out = {
+            message: "Issuing country exclusion is not set in the query result",
+          }
+        }
+        // Check the countryList is in ascending order
+        // If the prover doesn't use a sorted list then the proof cannot be trusted
+        // as it is requirement in the circuit for the exclusion check to work
+        for (let i = 1; i < countryList.length; i++) {
+          if (countryList[i] < countryList[i - 1]) {
+            console.warn(
+              "The issuing country exclusion list has not been sorted, and thus the proof cannot be trusted",
+            )
+            isCorrect = false
+            queryResultErrors.issuing_country.out = {
+              message:
+                "The issuing country exclusion list has not been sorted, and thus the proof cannot be trusted",
+            }
+          }
+        }
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+      } else if (proof.name === "inclusion_check_nationality") {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn(
+            "Failed to check the link between the validity of the ID and the nationality inclusion check",
+          )
+          isCorrect = false
+          queryResultErrors.nationality.commitment = {
+            expected: `Commitment: ${commitmentOut}`,
+            received: `Commitment: ${commitmentIn}`,
+            message:
+              "Failed to check the link between the validity of the ID and the nationality inclusion check",
           }
         }
         const countryList = getCountryListFromInclusionProof(proofData)
@@ -1547,12 +1630,12 @@ export class ZKPassport {
           if (
             !queryResult.nationality.in.expected?.every((country) => countryList.includes(country))
           ) {
-            console.warn("Country inclusion list does not match the one from the query results")
+            console.warn("Nationality inclusion list does not match the one from the query results")
             isCorrect = false
             queryResultErrors.nationality.in = {
               expected: queryResult.nationality.in.expected,
               received: countryList,
-              message: "Country inclusion list does not match the one from the query results",
+              message: "Nationality inclusion list does not match the one from the query results",
             }
           }
         } else if (!queryResult.nationality || !queryResult.nationality.in) {
@@ -1560,6 +1643,50 @@ export class ZKPassport {
           isCorrect = false
           queryResultErrors.nationality.in = {
             message: "Nationality inclusion is not set in the query result",
+          }
+        }
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+      } else if (proof.name === "inclusion_check_issuing_country") {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn(
+            "Failed to check the link between the validity of the ID and the issuing country inclusion check",
+          )
+          isCorrect = false
+          queryResultErrors.nationality.commitment = {
+            expected: `Commitment: ${commitmentOut}`,
+            received: `Commitment: ${commitmentIn}`,
+            message:
+              "Failed to check the link between the validity of the ID and the issuing country inclusion check",
+          }
+        }
+        const countryList = getCountryListFromInclusionProof(proofData)
+        if (
+          queryResult.issuing_country &&
+          queryResult.issuing_country.in &&
+          queryResult.issuing_country.in.result
+        ) {
+          if (
+            !queryResult.issuing_country.in.expected?.every((country) =>
+              countryList.includes(country),
+            )
+          ) {
+            console.warn(
+              "Issuing country inclusion list does not match the one from the query results",
+            )
+            isCorrect = false
+            queryResultErrors.issuing_country.in = {
+              expected: queryResult.issuing_country.in.expected,
+              received: countryList,
+              message:
+                "Issuing country inclusion list does not match the one from the query results",
+            }
+          }
+        } else if (!queryResult.issuing_country || !queryResult.issuing_country.in) {
+          console.warn("Issuing country inclusion is not set in the query result")
+          isCorrect = false
+          queryResultErrors.issuing_country.in = {
+            message: "Issuing country inclusion is not set in the query result",
           }
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
