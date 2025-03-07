@@ -38,8 +38,6 @@ import { createEncryptedJsonRpcRequest } from "./json-rpc"
 import { decrypt, generateECDHKeyPair, getSharedSecret } from "./encryption"
 import { noLogger as logger } from "./logger"
 import { inflate } from "pako"
-//import initNoirC from '@noir-lang/noirc_abi'
-//import initACVM from '@noir-lang/acvm_js'
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
 
@@ -339,23 +337,17 @@ export class ZKPassport {
     this.domain = _domain || window.location.hostname
   }
 
-  /*private async initWasmVerifier() {
-    const acvm = await import('@noir-lang/acvm_js/web/acvm_js_bg.wasm')
-    const noirc = await import('@noir-lang/noirc_abi/web/noirc_abi_wasm_bg.wasm')
-    await Promise.all([initACVM(acvm), initNoirC(noirc)])
-    this.wasmVerifierInit = true
-  }*/
-
   private async handleResult(topic: string) {
     const result = this.topicToResults[topic]
     // Clear the results straight away to avoid concurrency issues
     delete this.topicToResults[topic]
     // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
-    const { uniqueIdentifier, verified, queryResultErrors } = await this.verify(
-      topic,
-      this.topicToProofs[topic],
-      result,
-    )
+    const { uniqueIdentifier, verified, queryResultErrors } = await this.verify({
+      proofs: this.topicToProofs[topic],
+      queryResult: result,
+      validity: this.topicToLocalConfig[topic]?.validity,
+    })
+    delete this.topicToProofs[topic]
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
     await Promise.all(
       this.onResultCallbacks[topic].map((callback) =>
@@ -728,7 +720,7 @@ export class ZKPassport {
   private async checkPublicInputs(
     proofs: Array<ProofResult>,
     queryResult: QueryResult,
-    topic: string,
+    validity?: number,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -831,16 +823,17 @@ export class ZKPassport {
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
         const currentDate = getCurrentDateFromIntegrityProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const expectedDifference = this.topicToLocalConfig[topic]?.validity * 86400000
+        const differenceInDays = validity ?? 180
+        const expectedDifference = differenceInDays * 86400000
         const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
         // The ID should not expire within the next 6 months (or whatever the custom value is)
         if (todayToCurrentDate >= actualDifference) {
           console.warn(
-            `The date used to check the validity of the ID is older than ${this.topicToLocalConfig[topic]?.validity} days. You can ask the user to rescan their ID or ask them to disclose their expiry date`,
+            `The date used to check the validity of the ID is older than ${differenceInDays} days. You can ask the user to rescan their ID or ask them to disclose their expiry date`,
           )
           isCorrect = false
           queryResultErrors.data_check_integrity.date = {
-            expected: `Difference: ${this.topicToLocalConfig[topic]?.validity} days`,
+            expected: `Difference: ${differenceInDays} days`,
             received: `Difference: ${Math.round(todayToCurrentDate / 86400000)} days`,
             message:
               "The date used to check the validity of the ID is older than the validity period",
@@ -1310,7 +1303,7 @@ export class ZKPassport {
             message: "Current date in the proof is too old",
           }
         }
-        uniqueIdentifier = getCommitmentInFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "compare_birthdate") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -1402,7 +1395,7 @@ export class ZKPassport {
             message: "Birthdate is not set in the query result",
           }
         }
-        uniqueIdentifier = getCommitmentInFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "compare_expiry") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -1697,47 +1690,41 @@ export class ZKPassport {
 
   /**
    * @notice Verify the proofs received from the mobile app.
-   * @param requestId The request ID.
    * @param proofs The proofs to verify.
    * @param queryResult The query result to verify against
+   * @param validity How many days ago should have the ID been last scanned by the user?
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
-  public async verify(
-    requestId: string,
-    proofs?: Array<ProofResult>,
-    queryResult?: QueryResult,
-  ): Promise<{
+  public async verify({
+    proofs,
+    queryResult,
+    validity,
+  }: {
+    proofs: Array<ProofResult>
+    queryResult: QueryResult
+    validity?: number
+  }): Promise<{
     uniqueIdentifier: string | undefined
     verified: boolean
     queryResultErrors?: QueryResultErrors
   }> {
-    let proofsToVerify = proofs
-    // There is a minimum of 4 subproofs to make a complete proof
-    if (!proofs || proofs.length < 4) {
-      proofsToVerify = this.topicToProofs[requestId]
-    }
     const { BarretenbergVerifier } = await import("@aztec/bb.js")
     const verifier = new BarretenbergVerifier()
-    /*if (!this.wasmVerifierInit) {
-      await this.initWasmVerifier()
-    }*/
     let verified = true
     let uniqueIdentifier: string | undefined
     let queryResultErrors: QueryResultErrors | undefined
-    if (queryResult) {
-      const {
-        isCorrect,
-        uniqueIdentifier: uniqueIdentifierFromPublicInputs,
-        queryResultErrors: queryResultErrorsFromPublicInputs,
-      } = await this.checkPublicInputs(proofsToVerify!, queryResult!, requestId)
-      uniqueIdentifier = uniqueIdentifierFromPublicInputs
-      verified = isCorrect
-      queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
-    }
+    const {
+      isCorrect,
+      uniqueIdentifier: uniqueIdentifierFromPublicInputs,
+      queryResultErrors: queryResultErrorsFromPublicInputs,
+    } = await this.checkPublicInputs(proofs, queryResult, validity)
+    uniqueIdentifier = uniqueIdentifierFromPublicInputs
+    verified = isCorrect
+    queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
     // Only proceed with the proof verification if the public inputs are correct
-    if (verified && queryResult) {
-      for (const proof of proofsToVerify!) {
+    if (verified) {
+      for (const proof of proofs) {
         const proofData = getProofData(proof.proof as string, true)
         const hostedPackagedCircuit = await getHostedPackagedCircuitByName(
           proof.version as any,
@@ -1757,7 +1744,8 @@ export class ZKPassport {
         }
       }
     }
-    this.topicToProofs[requestId] = []
+    // If the proofs are not verified, we don't return the unique identifier
+    uniqueIdentifier = verified ? uniqueIdentifier : undefined
     return { uniqueIdentifier, verified, queryResultErrors }
   }
 
