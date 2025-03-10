@@ -738,9 +738,10 @@ export class ZKPassport {
     let commitmentOut: bigint | undefined
     let isCorrect = true
     let uniqueIdentifier: string | undefined
-    const expectedMerkleRoot = BigInt(
-      "21301853597069384763054217328384418971999152625381818922211526730996340553696",
-    )
+    const VALID_CERTIFICATE_REGISTRY_ROOT = [
+      BigInt("20192042006788880778219739574377003123593792072535937278552252195461520776494"),
+      BigInt("21301853597069384763054217328384418971999152625381818922211526730996340553696"),
+    ]
     const defaultDateValue = new Date(1111, 10, 11)
     const currentTime = new Date()
     const today = new Date(
@@ -798,11 +799,11 @@ export class ZKPassport {
       if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
-        if (merkleRoot !== expectedMerkleRoot) {
+        if (!VALID_CERTIFICATE_REGISTRY_ROOT.includes(merkleRoot)) {
           console.warn("The ID was signed by an unrecognized root certificate")
           isCorrect = false
           queryResultErrors.sig_check_dsc.certificate = {
-            expected: `Certificate registry root: ${expectedMerkleRoot.toString()}`,
+            expected: `Certificate registry root: ${VALID_CERTIFICATE_REGISTRY_ROOT.join(", ")}`,
             received: `Certificate registry root: ${merkleRoot.toString()}`,
             message: "The ID was signed by an unrecognized root certificate",
           }
