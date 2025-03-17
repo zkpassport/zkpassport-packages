@@ -1,0 +1,27 @@
+# Ignored folders
+.build
+.cache
+target
+log
+logs
+coverage
+__pycache__
+node_modules
+build
+dist
+out
+res
+.next
+.env
+.yarn
+
+# Ignored files
+*.DS_Store
+*.env*
+*.log*
+*.a
+*.so
+*.zip
+*.bak
+*.eslintcache
+*.tsbuildinfo
