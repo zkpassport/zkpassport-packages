@@ -1,7 +1,8 @@
 import type { Alpha3Code } from "i18n-iso-countries"
-import type { SOD } from "../passport-reader"
+import type { SOD } from "../passport"
 import type { CountryName } from "./countries"
-import { DigestAlgorithm } from "@/passport-reader/sod"
+import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
+export type { DigestAlgorithm, SignatureAlgorithm }
 
 export type SavedPassport = {
   id: string
@@ -345,17 +346,6 @@ export type RSADSCDataInputs = {
   exponent: number
   dsc_pubkey_redc_param: number[]
 }
-
-export type SignatureAlgorithm =
-  | "sha1-with-rsa-signature"
-  | "sha256WithRSAEncryption"
-  | "sha384WithRSAEncryption"
-  | "sha512WithRSAEncryption"
-  | "rsassa-pss"
-  | "ecdsa-with-SHA1"
-  | "ecdsa-with-SHA256"
-  | "ecdsa-with-SHA384"
-  | "ecdsa-with-SHA512"
 
 export type ECDSACSCPublicKey = {
   type: "ecPublicKey"

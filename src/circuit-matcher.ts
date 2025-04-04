@@ -1,4 +1,21 @@
+import { sha256 } from "@noble/hashes/sha256"
+import { AsnParser } from "@peculiar/asn1-schema"
+import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
+import { format } from "date-fns"
+import { alpha2ToAlpha3, Alpha3Code } from "i18n-iso-countries"
 import cscMasterlistFile from "./assets/certificates/csc-masterlist.json"
+import { redcLimbsFromBytes } from "./barrett-reduction"
+import { Binary, HexString } from "./binary"
+import {
+  calculatePrivateNullifier,
+  getCertificateLeafHash,
+  getCountryWeightedSum,
+  hashSaltCountrySignedAttrDg1PrivateNullifier,
+  hashSaltCountryTbs,
+  hashSaltDg1PrivateNullifier,
+} from "./circuits"
+import { parseDate } from "./circuits/disclose"
+import { getBitSizeFromCurve, getECDSAInfo, getRSAInfo } from "./cms/utils"
 import {
   CERTIFICATE_REGISTRY_HEIGHT,
   CERTIFICATE_REGISTRY_ID,
@@ -6,6 +23,12 @@ import {
   SIGNED_ATTR_INPUT_SIZE,
 } from "./constants"
 import { computeMerkleProof } from "./merkle-tree"
+import {
+  extractTBS,
+  getDSCSignatureAlgorithmType,
+  getSodSignatureAlgorithmType,
+} from "./passport/passport-reader"
+import type { DigestAlgorithm } from "./cms/types"
 import {
   Certificate,
   CSCMasterlist,
@@ -19,26 +42,6 @@ import {
   RSACSCPublicKey,
   RSADSCDataInputs,
 } from "./types"
-import { AsnParser } from "@peculiar/asn1-schema"
-import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
-import { format } from "date-fns"
-import { redcLimbsFromBytes } from "./barrett-reduction"
-import { Binary, HexString } from "./binary"
-import {
-  calculatePrivateNullifier,
-  getCertificateLeafHash,
-  getCountryWeightedSum,
-  hashSaltCountrySignedAttrDg1PrivateNullifier,
-  hashSaltCountryTbs,
-  hashSaltDg1PrivateNullifier,
-} from "./circuits"
-import {
-  extractTBS,
-  getDSCSignatureAlgorithmType,
-  getECDSAInfo,
-  getRSAInfo,
-  getSodSignatureAlgorithmType,
-} from "./passport-reader/passport-reader"
 import {
   bigintToBytes,
   bigintToNumber,
@@ -48,10 +51,6 @@ import {
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
 } from "./utils"
-import { parseDate } from "./circuits/disclose"
-import { alpha2ToAlpha3, Alpha3Code } from "i18n-iso-countries"
-import { sha256 } from "@noble/hashes/sha256"
-import { DigestAlgorithm } from "./passport-reader/sod"
 
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA256", "SHA384", "SHA512"]
 
@@ -295,17 +294,6 @@ export function processECDSASignature(signature: number[], byteSize: number): nu
   r = leftPadArrayWithZeros(r, byteSize)
   s = leftPadArrayWithZeros(s, byteSize)
   return [...r, ...s]
-}
-
-export function getBitSizeFromCurve(curve: string): number {
-  const curveName = curve
-    .replace("brainpoolP", "")
-    .replace("nist", "")
-    .replace("-", "")
-    .replace("r1", "")
-    .replace("t1", "")
-    .toLowerCase()
-  return Number(curveName.replace("p", ""))
 }
 
 export function getScopeHash(value?: string): bigint {

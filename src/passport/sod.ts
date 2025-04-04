@@ -1,29 +1,9 @@
-import { Binary } from "../binary"
-import { ASN } from "./asn"
+import { ContentInfo, SignedData } from "@peculiar/asn1-cms"
 import { AsnConvert, AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
-import { decodeOID, getHashAlgorithmName, getOIDName } from "./oids"
-
-export type DigestAlgorithm = "SHA1" | "SHA224" | "SHA256" | "SHA384" | "SHA512"
-export type SignatureAlgorithm =
-  | "rsaEncryption"
-  | "rsassa-pss"
-  | "P256"
-  | "P384"
-  | "P521"
-  | "BrainpoolP160r1"
-  | "BrainpoolP160t1"
-  | "BrainpoolP192r1"
-  | "BrainpoolP192t1"
-  | "BrainpoolP224r1"
-  | "BrainpoolP224t1"
-  | "BrainpoolP256r1"
-  | "BrainpoolP256t1"
-  | "BrainpoolP320r1"
-  | "BrainpoolP320t1"
-  | "BrainpoolP384r1"
-  | "BrainpoolP384t1"
-  | "BrainpoolP512r1"
-  | "BrainpoolP512t1"
+import { Binary } from "../binary"
+import { AttributeSet, LDSSecurityObject } from "../cms/asn"
+import { decodeOID, getHashAlgorithmName, getOIDName } from "../cms/oids"
+import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
 
 export class DataGroupHashValues {
   public values: { [key: number]: Binary }
@@ -284,12 +264,12 @@ export class SOD implements SODSignedData {
   static fromDER(der: Binary): SOD {
     der = der.slice(0, 2).equals(Binary.from([119, 130])) ? der.slice(4) : der
 
-    const contentInfo = AsnParser.parse(der.toUInt8Array(), ASN.ContentInfo)
-    const signedData = AsnParser.parse(contentInfo.content, ASN.SignedData)
+    const contentInfo = AsnParser.parse(der.toUInt8Array(), ContentInfo)
+    const signedData = AsnParser.parse(contentInfo.content, SignedData)
     if (!signedData.encapContentInfo?.eContent?.single) throw new Error("No eContent found")
     const eContent = AsnConvert.parse(
       signedData.encapContentInfo?.eContent?.single,
-      ASN.LDSSecurityObject,
+      LDSSecurityObject,
     )
     const cert = signedData.certificates?.[0]?.certificate
     if (!cert) throw new Error("No DSC certificate found")
@@ -302,7 +282,7 @@ export class SOD implements SODSignedData {
       signerInfo.signedAttrs.map((v) => [getOIDName(v.attrType), Binary.from(v.attrValues[0])]),
     )
     // Reconstruct signed attributes using AttributeSet to get the correct bytes that are signed
-    const reconstructedSignedAttrs = new ASN.AttributeSet(signerInfo.signedAttrs.map((v) => v))
+    const reconstructedSignedAttrs = new AttributeSet(signerInfo.signedAttrs.map((v) => v))
     const messageDigest = signedAttrsMap.get("messageDigest")
     if (!messageDigest) throw new Error("No signedAttrs.messageDigest found")
     const signingTime = signedAttrsMap.get("signingTime")
