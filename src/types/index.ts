@@ -244,11 +244,39 @@ export type QueryResult = {
   [key in IDCredential]?: QueryResultValue
 }
 
+export type AgeCommittedInputs = {
+  currentDate: string
+  minAge: number
+  maxAge: number
+}
+
+export type CountryCommittedInputs = {
+  countries: Alpha3Code[]
+}
+
+export type DateCommittedInputs = {
+  currentDate: string
+  minDate: string
+  maxDate: string
+}
+
+export type DiscloseCommittedInputs = {
+  discloseMask: number[]
+  disclosedBytes: number[]
+}
+
+export type CommittedInputs =
+  | AgeCommittedInputs
+  | CountryCommittedInputs
+  | DateCommittedInputs
+  | DiscloseCommittedInputs
+
 export type ProofResult = {
   proof?: string
   vkeyHash?: string
   version?: `${number}.${number}.${number}`
   name?: string
+  committedInputs?: CommittedInputs
 }
 
 export type Service = {

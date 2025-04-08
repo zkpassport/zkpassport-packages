@@ -827,7 +827,7 @@ export async function getNationalityExclusionCircuitInputs(
   const countryList: number[] = []
   for (let i = 0; i < (query.nationality?.out ?? []).length; i++) {
     const country: string = (query.nationality?.out ?? [])[i]
-    countryList.push(...getCountryWeightedSum(country as Alpha3Code))
+    countryList.push(getCountryWeightedSum(country as Alpha3Code))
   }
 
   return {
@@ -867,7 +867,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   const countryList: number[] = []
   for (let i = 0; i < (query.issuing_country?.out ?? []).length; i++) {
     const country: string = (query.issuing_country?.out ?? [])[i]
-    countryList.push(...getCountryWeightedSum(country as Alpha3Code))
+    countryList.push(getCountryWeightedSum(country as Alpha3Code))
   }
 
   return {

@@ -1,4 +1,6 @@
+import { rightPadArrayWithZeros } from "../utils"
 import { ProofData } from "."
+import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 
 interface DisclosedDataRaw {
   issuingCountry: Uint8Array // 3 bytes
@@ -55,6 +57,20 @@ export function parseDocumentType(documentType: string): string {
   }
 }
 
+export function getDisclosedBytesFromMrzAndMask(mrz: string, mask: number[]): number[] {
+  const mrzBytes = new TextEncoder().encode(mrz)
+  const maskBytes = new Uint8Array(mask)
+
+  const disclosedBytes = mrzBytes.map((byte, index) => {
+    if (maskBytes[index] === 1) {
+      return byte
+    }
+    return 0
+  })
+
+  return rightPadArrayWithZeros(Array.from(disclosedBytes), 90)
+}
+
 export class DisclosedData {
   readonly issuingCountry: string // 3-letter country code
   readonly nationality: string // 3-letter country code
@@ -89,6 +105,59 @@ export class DisclosedData {
     this.gender = data.gender
     this.firstName = data.firstName
     this.lastName = data.lastName
+  }
+
+  static fromDisclosedBytes(
+    disclosedBytes: number[],
+    idType: "passport" | "id_card",
+  ): DisclosedData {
+    const raw: DisclosedDataRaw = {
+      issuingCountry: new Uint8Array(disclosedBytes.slice(2, 5)),
+      nationality: new Uint8Array(
+        disclosedBytes.slice(idType === "id_card" ? 45 : 54, idType === "id_card" ? 48 : 57),
+      ),
+      documentType: new Uint8Array(disclosedBytes.slice(0, 2)),
+      documentNumber: new Uint8Array(
+        disclosedBytes.slice(idType === "id_card" ? 5 : 44, idType === "id_card" ? 14 : 53),
+      ),
+      dateOfExpiry: new Uint8Array(
+        disclosedBytes.slice(idType === "id_card" ? 38 : 65, idType === "id_card" ? 44 : 71),
+      ),
+      dateOfBirth: new Uint8Array(
+        disclosedBytes.slice(idType === "id_card" ? 30 : 57, idType === "id_card" ? 36 : 63),
+      ),
+      name: new Uint8Array(
+        disclosedBytes.slice(idType === "id_card" ? 60 : 5, idType === "id_card" ? 90 : 44),
+      ),
+      gender: new Uint8Array(
+        disclosedBytes.slice(idType === "id_card" ? 37 : 64, idType === "id_card" ? 38 : 65),
+      ),
+    }
+
+    const decoder = new TextDecoder()
+    const decode = (arr: Uint8Array) => decoder.decode(arr).replace(/\0/g, "")
+
+    const unformattedName = raw.name && raw.name.length > 0 ? decode(raw.name) : ""
+    const indexOfDoubleChevron = unformattedName.indexOf("<<")
+    const lastName =
+      indexOfDoubleChevron >= 0 ? unformattedName.substring(0, indexOfDoubleChevron) : ""
+    const firstName =
+      indexOfDoubleChevron >= 0 ? unformattedName.substring(indexOfDoubleChevron + 2) : ""
+    // To reverse the order as in passports it's lastName first
+    const fullName = firstName + " " + lastName
+
+    return new DisclosedData({
+      issuingCountry: decode(raw.issuingCountry),
+      nationality: decode(raw.nationality),
+      documentType: parseDocumentType(decode(raw.documentType)),
+      documentNumber: stripChevrons(decode(raw.documentNumber)),
+      dateOfExpiry: parseDate(raw.dateOfExpiry),
+      dateOfBirth: parseDate(raw.dateOfBirth),
+      name: formatName(fullName),
+      firstName: formatName(firstName),
+      lastName: formatName(lastName),
+      gender: decode(raw.gender),
+    })
   }
 
   static fromFlagsProof(proof: ProofData): DisclosedData {
@@ -267,4 +336,21 @@ export function getDiscloseBytesProofPublicInputCount(): number {
  */
 export function getDiscloseFlagsProofPublicInputCount(): number {
   return 73
+}
+
+/**
+ * Get the parameter commitment for the disclose proof.
+ * @param discloseMask - The disclose mask.
+ * @param disclosedBytes - The disclosed bytes.
+ * @returns The parameter commitment.
+ */
+export async function getDiscloseParameterCommitment(
+  discloseMask: number[],
+  disclosedBytes: number[],
+): Promise<bigint> {
+  const parameterCommitment = await poseidon2HashAsync([
+    ...discloseMask.map((x) => BigInt(x)),
+    ...disclosedBytes.map((x) => BigInt(x)),
+  ])
+  return parameterCommitment
 }

@@ -1,4 +1,5 @@
-import { ProofData } from "."
+import { DEFAULT_DATE_VALUE, getDateBytes, ProofData } from "."
+import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 
 /**
  * Convert a date string to a Date object
@@ -45,4 +46,24 @@ export function getMaxDateFromProof(proofData: ProofData): Date {
  */
 export function getDateProofPublicInputCount(): number {
   return 28
+}
+
+/**
+ * Get the parameter commitment for the date proof (birthdate and expiry date alike).
+ * @param currentDate - The current date (YYYYMMDD)
+ * @param minDate - The minimum date (YYYYMMDD)
+ * @param maxDate - The maximum date (YYYYMMDD)
+ * @returns The parameter commitment.
+ */
+export async function getDateParameterCommitment(
+  currentDate: string,
+  minDate: string = "11111111",
+  maxDate: string = "11111111",
+): Promise<bigint> {
+  const birthdateParameterCommitment = await poseidon2HashAsync([
+    ...Array.from(new TextEncoder().encode(currentDate)).map((x) => BigInt(x)),
+    ...Array.from(new TextEncoder().encode(minDate)).map((x) => BigInt(x)),
+    ...Array.from(new TextEncoder().encode(maxDate)).map((x) => BigInt(x)),
+  ])
+  return birthdateParameterCommitment
 }

@@ -1,8 +1,10 @@
 import { Alpha3Code } from "i18n-iso-countries"
 import { ProofData } from "."
+import { poseidon2HashAsync } from "@zkpassport/poseidon2"
+import { rightPadArrayWithZeros } from "../utils"
 
-export function getCountryWeightedSum(country: Alpha3Code): number[] {
-  return [country.charCodeAt(0) * 0x10000 + country.charCodeAt(1) * 0x100 + country.charCodeAt(2)]
+export function getCountryWeightedSum(country: Alpha3Code): number {
+  return country.charCodeAt(0) * 0x10000 + country.charCodeAt(1) * 0x100 + country.charCodeAt(2)
 }
 
 export function getCountryFromWeightedSum(weightedSum: number): Alpha3Code {
@@ -53,4 +55,23 @@ export function getCountryExclusionProofPublicInputCount(): number {
  */
 export function getCountryInclusionProofPublicInputCount(): number {
   return 604
+}
+
+/**
+ * Get the parameter commitment for the country proof (inclusion and exclusion alike).
+ * @param countries - The list of countries.
+ * @param sorted - Whether the countries are sorted.
+ * @returns The parameter commitment.
+ */
+export async function getCountryParameterCommitment(
+  countries: Alpha3Code[],
+  sorted = false,
+): Promise<bigint> {
+  const countrySums = countries.map((c) => getCountryWeightedSum(c))
+  const countrySumsBigInt = rightPadArrayWithZeros(
+    sorted ? countrySums.sort((a, b) => a - b) : countrySums,
+    200,
+  ).map((x) => BigInt(x))
+  const countryParameterCommitment = await poseidon2HashAsync(countrySumsBigInt)
+  return countryParameterCommitment
 }

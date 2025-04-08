@@ -8,18 +8,15 @@ const END_OF_PUBLIC_INPUTS_BYTES =
  * @param proof - The proof to convert.
  * @returns An array of fields.
  */
-export function proofToFields(proof: string) {
-  // Convert hex string to bytes
-  const bytes = Buffer.from(proof, "hex")
-
+export function proofToFields(proof: Buffer, startIndex = 4) {
   // Start from index 4 and chunk into 32-byte segments
   const fields = []
-  for (let i = 4; i < bytes.length; i += 32) {
+  for (let i = startIndex; i < proof.length; i += 32) {
     // Create a new buffer for each field by copying the bytes
     const fieldBytes = new Uint8Array(32)
-    const end = Math.min(i + 32, bytes.length)
+    const end = Math.min(i + 32, proof.length)
     for (let j = 0; j < end - i; j++) {
-      fieldBytes[j] = bytes[i + j]
+      fieldBytes[j] = proof[i + j]
     }
     fields.push(Buffer.from(fieldBytes))
   }
@@ -64,10 +61,11 @@ export function getProofWithoutPublicInputs(proofAsFields: string[], publicInput
  * Get the proof data from a proof.
  * @param proof - The proof to get the data from.
  * @param publicInputsNumber - The number of public inputs.
+ * @param proofStartIndex - The start index of the proof (i.e. how many bytes to skip at the start when parsing it)
  * @returns The proof data.
  */
-export function getProofData(proof: string, publicInputsNumber: number) {
-  const proofAsFields = proofToFields(proof)
+export function getProofData(proof: string, publicInputsNumber: number, proofStartIndex = 4) {
+  const proofAsFields = proofToFields(Buffer.from(proof, "hex"), proofStartIndex)
   const proofWithoutPublicInputs = getProofWithoutPublicInputs(proofAsFields, publicInputsNumber)
   const proofBytes = Buffer.from(proofWithoutPublicInputs.join(""), "hex")
   const publicInputs = getPublicInputs(proofAsFields, publicInputsNumber)

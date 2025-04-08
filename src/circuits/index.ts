@@ -13,6 +13,7 @@ import {
   getCountryInclusionProofPublicInputCount,
   getIDDataProofPublicInputCount,
 } from ".."
+import { formatDate } from "date-fns"
 
 export interface ProofData {
   publicInputs: string[]
@@ -102,12 +103,16 @@ export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
 }
 
-export function getServiceSubScopeFromDisclosureProof(proofData: ProofData): bigint {
+export function getParameterCommitmentFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
 }
 
-export function getServiceScopeFromDisclosureProof(proofData: ProofData): bigint {
+export function getServiceSubScopeFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
+}
+
+export function getServiceScopeFromDisclosureProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 4])
 }
 
 export function getCommitmentInFromDisclosureProof(proofData: ProofData): bigint {
@@ -170,11 +175,31 @@ export function getNumberOfPublicInputs(circuitName: string) {
     return getIDDataProofPublicInputCount()
   } else if (circuitName.startsWith("sig_check_dsc")) {
     return getDSCProofPublicInputCount()
+  } else if (circuitName.startsWith("outer")) {
+    const disclosureProofCount = Number(circuitName.charAt(-1)) - 3
+    return 12 + disclosureProofCount
   }
   return 0
 }
 
-export { DisclosedData, createDisclosedDataRaw, formatName, parseDocumentType } from "./disclose"
+export function getFormattedDate(date: Date): string {
+  return formatDate(date, "yyyyMMdd")
+}
+
+export function getDateBytes(date: Date): Binary {
+  return Binary.from(new TextEncoder().encode(getFormattedDate(date)))
+}
+
+export const DEFAULT_DATE_VALUE = new Date(Date.UTC(1111, 10, 11))
+
+export {
+  DisclosedData,
+  createDisclosedDataRaw,
+  formatName,
+  parseDocumentType,
+  getDisclosedBytesFromMrzAndMask,
+  getDiscloseParameterCommitment,
+} from "./disclose"
 
 export * from "./country"
 export * from "./age"

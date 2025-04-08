@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -99,6 +99,12 @@
       "import": "./dist/esm/csc-manager.js",
       "require": "./dist/cjs/csc-manager.js",
       "default": "./dist/cjs/csc-manager.js"
+    },
+    "./recursion": {
+      "types": "./dist/esm/recursion.d.ts",
+      "import": "./dist/esm/recursion.js",
+      "require": "./dist/cjs/recursion.js",
+      "default": "./dist/cjs/recursion.js"
     },
     "./types": {
       "types": "./dist/esm/types/index.d.ts"
