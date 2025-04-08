@@ -271,8 +271,10 @@ export class SOD implements SODSignedData {
       signedData.encapContentInfo?.eContent?.single,
       LDSSecurityObject,
     )
-    const cert = signedData.certificates?.[0]?.certificate
+    const certificates = signedData.certificates
+    const cert = certificates?.[0]?.certificate
     if (!cert) throw new Error("No DSC certificate found")
+    if ((certificates?.length ?? 0) > 1) console.warn("Warning: Found multiple DSC certificates")
     const tbs = cert?.tbsCertificate
     if (!tbs) throw new Error("No TBS found in DSC certificate")
     const signerInfo = signedData.signerInfos[0]
