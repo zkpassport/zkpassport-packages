@@ -327,7 +327,7 @@ export function createDisclosedDataRaw(data: {
  * @returns The number of public inputs.
  */
 export function getDiscloseBytesProofPublicInputCount(): number {
-  return 184
+  return 5
 }
 
 /**

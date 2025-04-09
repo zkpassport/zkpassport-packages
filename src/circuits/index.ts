@@ -17,7 +17,7 @@ import { formatDate } from "date-fns"
 
 export interface ProofData {
   publicInputs: string[]
-  proof: Uint8Array | string
+  proof: string[]
 }
 
 export async function calculatePrivateNullifier(dg1: Binary, sodSig: Binary): Promise<Binary> {
@@ -176,7 +176,7 @@ export function getNumberOfPublicInputs(circuitName: string) {
   } else if (circuitName.startsWith("sig_check_dsc")) {
     return getDSCProofPublicInputCount()
   } else if (circuitName.startsWith("outer")) {
-    const disclosureProofCount = Number(circuitName.charAt(-1)) - 3
+    const disclosureProofCount = Number(circuitName.charAt(circuitName.length - 1)) - 3
     return 12 + disclosureProofCount
   }
   return 0

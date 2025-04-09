@@ -1,4 +1,4 @@
-import { convertDateBytesToDate, getFormattedDate } from "."
+import { convertDateBytesToDate, getFormattedDate, ProofData } from "."
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -64,4 +64,53 @@ export function getOuterCircuitInputs(
       key_hash: proof.keyHash,
     })),
   }
+}
+
+export function getCertificateRegistryRootFromOuterProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[0])
+}
+
+export function getCurrentDateFromOuterProof(proofData: ProofData): Date {
+  const dateBytes = proofData.publicInputs
+    .slice(1, 9)
+    .map((x) => Number(x) - 48)
+    .map((x) => x.toString())
+  const date = convertDateBytesToDate(dateBytes.join(""))
+  return date
+}
+
+/**
+ * Get the service scope from the outer circuit proof.
+ * @param proofData - The proof data.
+ * @returns The service scope.
+ */
+export function getScopeFromOuterProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[9])
+}
+
+/**
+ * Get the service subscope from the outer circuit proof.
+ * @param proofData - The proof data.
+ * @returns The service subscope.
+ */
+export function getSubscopeFromOuterProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[10])
+}
+
+/**
+ * Get the scoped nullifier from the outer circuit proof.
+ * @param proofData - The proof data.
+ * @returns The scoped nullifier.
+ */
+export function getNullifierFromOuterProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
+}
+
+/**
+ * Get the param commitments from the outer circuit proof.
+ * @param proofData - The proof data.
+ * @returns The param commitments.
+ */
+export function getParamCommitmentsFromOuterProof(proofData: ProofData): bigint[] {
+  return proofData.publicInputs.slice(11, proofData.publicInputs.length - 1).map(BigInt)
 }

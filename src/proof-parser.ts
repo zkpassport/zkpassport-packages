@@ -1,5 +1,3 @@
-import { Binary } from "./binary"
-
 const END_OF_PUBLIC_INPUTS_BYTES =
   "0000000000000000000000000000000000000000000000042ab5d6d1986846cf"
 
@@ -67,10 +65,9 @@ export function getProofWithoutPublicInputs(proofAsFields: string[], publicInput
 export function getProofData(proof: string, publicInputsNumber: number, proofStartIndex = 4) {
   const proofAsFields = proofToFields(Buffer.from(proof, "hex"), proofStartIndex)
   const proofWithoutPublicInputs = getProofWithoutPublicInputs(proofAsFields, publicInputsNumber)
-  const proofBytes = Buffer.from(proofWithoutPublicInputs.join(""), "hex")
   const publicInputs = getPublicInputs(proofAsFields, publicInputsNumber)
   return {
-    proof: Binary.fromBuffer(proofBytes).toUInt8Array(),
+    proof: proofWithoutPublicInputs,
     // Make sure it's prefixed with 0x
     publicInputs: publicInputs.map((input) => (input.startsWith("0x") ? input : `0x${input}`)),
   }
