@@ -1,7 +1,14 @@
 import { CERTIFICATE_REGISTRY_ID, CERT_TYPE_CSC } from "../constants"
 import { Binary } from "../binary"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { Certificate, ECDSACSCPublicKey, PackagedCircuit, RSACSCPublicKey } from "../types"
+import {
+  AgeCommittedInputs,
+  Certificate,
+  DateCommittedInputs,
+  ECDSACSCPublicKey,
+  PackagedCircuit,
+  RSACSCPublicKey,
+} from "../types"
 import { getDiscloseFlagsProofPublicInputCount } from "./disclose"
 import { getDiscloseBytesProofPublicInputCount } from "./disclose"
 import { getIntegrityProofPublicInputCount } from "./integrity"
@@ -9,6 +16,7 @@ import { getAgeProofPublicInputCount } from "./age"
 import { getDateProofPublicInputCount } from "./date"
 import { getDSCProofPublicInputCount } from "./dsc"
 import {
+  convertDateBytesToDate,
   getCountryExclusionProofPublicInputCount,
   getCountryInclusionProofPublicInputCount,
   getIDDataProofPublicInputCount,
@@ -188,6 +196,12 @@ export function getFormattedDate(date: Date): string {
 
 export function getDateBytes(date: Date): Binary {
   return Binary.from(new TextEncoder().encode(getFormattedDate(date)))
+}
+
+export function getCurrentDateFromCommittedInputs(
+  committedInputs: DateCommittedInputs | AgeCommittedInputs,
+): Date {
+  return convertDateBytesToDate(committedInputs.currentDate)
 }
 
 export const DEFAULT_DATE_VALUE = new Date(Date.UTC(1111, 10, 11))

@@ -265,10 +265,21 @@ export type DiscloseCommittedInputs = {
   disclosedBytes: number[]
 }
 
-export type CommittedInputs = Partial<AgeCommittedInputs> &
-  Partial<CountryCommittedInputs> &
-  Partial<DateCommittedInputs> &
-  Partial<DiscloseCommittedInputs>
+export type CommittedInputs =
+  | AgeCommittedInputs
+  | CountryCommittedInputs
+  | DateCommittedInputs
+  | DiscloseCommittedInputs
+
+export type DisclosureCircuitName =
+  | "disclose_bytes"
+  | "compare_age"
+  | "compare_birthdate"
+  | "compare_expiry"
+  | "exclusion_check_issuing_country"
+  | "exclusion_check_nationality"
+  | "inclusion_check_issuing_country"
+  | "inclusion_check_nationality"
 
 export type ProofResult = {
   proof?: string
@@ -276,7 +287,7 @@ export type ProofResult = {
   version?: `${number}.${number}.${number}`
   name?: string
   committedInputs?: {
-    [circuitName: string]: CommittedInputs
+    [circuitName in DisclosureCircuitName]?: CommittedInputs
   }
 }
 

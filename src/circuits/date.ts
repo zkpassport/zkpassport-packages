@@ -1,5 +1,4 @@
-import { ProofResult } from "@/types"
-import { DateCommittedInputs } from "@/types"
+import { DateCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 
 /**
@@ -14,22 +13,12 @@ export function convertDateBytesToDate(strDate: string): Date {
   return new Date(year, month - 1, day)
 }
 
-export function getCurrentDateFromDateProof(proof: ProofResult): Date {
-  const commitedInputs = proof.committedInputs as DateCommittedInputs
-  const date = convertDateBytesToDate(commitedInputs.currentDate)
-  return date
+export function getMinDateFromCommittedInputs(committedInputs: DateCommittedInputs): Date {
+  return convertDateBytesToDate(committedInputs.minDate)
 }
 
-export function getMinDateFromProof(proof: ProofResult): Date {
-  const commitedInputs = proof.committedInputs as DateCommittedInputs
-  const date = convertDateBytesToDate(commitedInputs.minDate)
-  return date
-}
-
-export function getMaxDateFromProof(proof: ProofResult): Date {
-  const commitedInputs = proof.committedInputs as DateCommittedInputs
-  const date = convertDateBytesToDate(commitedInputs.maxDate)
-  return date
+export function getMaxDateFromCommittedInputs(committedInputs: DateCommittedInputs): Date {
+  return convertDateBytesToDate(committedInputs.maxDate)
 }
 
 /**

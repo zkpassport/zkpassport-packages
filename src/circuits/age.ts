@@ -1,21 +1,12 @@
-import { AgeCommittedInputs, ProofResult } from "@/types"
-import { convertDateBytesToDate } from "."
+import { AgeCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 
-export function getMinAgeFromProof(proof: ProofResult): number {
-  const commitedInputs = proof.committedInputs as AgeCommittedInputs
-  return Number(BigInt(commitedInputs.minAge))
+export function getMinAgeFromCommittedInputs(committedInputs: AgeCommittedInputs): number {
+  return committedInputs.minAge
 }
 
-export function getMaxAgeFromProof(proof: ProofResult): number {
-  const commitedInputs = proof.committedInputs as AgeCommittedInputs
-  return Number(BigInt(commitedInputs.maxAge))
-}
-
-export function getCurrentDateFromAgeProof(proof: ProofResult): Date {
-  const commitedInputs = proof.committedInputs as AgeCommittedInputs
-  const date = convertDateBytesToDate(commitedInputs.currentDate)
-  return date
+export function getMaxAgeFromCommittedInputs(committedInputs: AgeCommittedInputs): number {
+  return committedInputs.maxAge
 }
 
 /**

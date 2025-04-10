@@ -1,7 +1,7 @@
 import { Alpha3Code } from "i18n-iso-countries"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { rightPadArrayWithZeros } from "../utils"
-import { CountryCommittedInputs, ProofResult } from "@/types"
+import { CountryCommittedInputs } from "../types"
 
 export function getCountryWeightedSum(country: Alpha3Code): number {
   return country.charCodeAt(0) * 0x10000 + country.charCodeAt(1) * 0x100 + country.charCodeAt(2)
@@ -15,14 +15,15 @@ export function getCountryFromWeightedSum(weightedSum: number): Alpha3Code {
   ) as Alpha3Code
 }
 
-export function getCountryListFromCountryProof(proof: ProofResult): Alpha3Code[] {
-  const commitedInputs = proof.committedInputs as CountryCommittedInputs
+export function getCountryListFromCommittedInputs(
+  committedInputs: CountryCommittedInputs,
+): Alpha3Code[] {
   const result: Alpha3Code[] = []
-  for (let i = 0; i < commitedInputs.countries.length; i += 3) {
-    if (Number(commitedInputs.countries[i]) !== 0) {
+  for (let i = 0; i < committedInputs.countries.length; i += 3) {
+    if (Number(committedInputs.countries[i]) !== 0) {
       result.push(
         new TextDecoder().decode(
-          new Uint8Array(commitedInputs.countries.slice(i, i + 3).map(Number)),
+          new Uint8Array(committedInputs.countries.slice(i, i + 3).map(Number)),
         ) as Alpha3Code,
       )
     }
