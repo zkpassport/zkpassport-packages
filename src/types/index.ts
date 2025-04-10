@@ -265,11 +265,10 @@ export type DiscloseCommittedInputs = {
   disclosedBytes: number[]
 }
 
-export type CommittedInputs =
-  | AgeCommittedInputs
-  | CountryCommittedInputs
-  | DateCommittedInputs
-  | DiscloseCommittedInputs
+export type CommittedInputs = Partial<AgeCommittedInputs> &
+  Partial<CountryCommittedInputs> &
+  Partial<DateCommittedInputs> &
+  Partial<DiscloseCommittedInputs>
 
 export type ProofResult = {
   proof?: string
@@ -292,6 +291,7 @@ export type QRCodeData = {
   pubkey: string | null
   domain: string | null
   service: Service | null
+  mode: "fast" | "compressed"
 }
 
 export interface JsonRpcRequest {
