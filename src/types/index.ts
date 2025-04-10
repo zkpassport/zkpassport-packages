@@ -275,7 +275,9 @@ export type ProofResult = {
   vkeyHash?: string
   version?: `${number}.${number}.${number}`
   name?: string
-  committedInputs?: CommittedInputs
+  committedInputs?: {
+    [circuitName: string]: CommittedInputs
+  }
 }
 
 export type Service = {
