@@ -433,3 +433,15 @@ export type CSCMasterlist = {
 }
 
 export type { CountryName } from "./countries"
+
+export type {
+  ECCurve,
+  ECPublicKey,
+  RSAPublicKey,
+  HashAlgorithm,
+  NISTCurveName,
+  BrainpoolCurveName,
+  CurveName,
+  SignatureAlgorithmType,
+  PackagedCertificate,
+} from "./packaged-cert"

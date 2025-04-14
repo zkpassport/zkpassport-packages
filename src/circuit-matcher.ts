@@ -54,6 +54,7 @@ import {
 
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA256", "SHA384", "SHA512"]
 
+// TODO: Improve this with a structured list of supported signature algorithms
 export function isSignatureAlgorithmSupported(
   passport: PassportViewModel,
   signatureAlgorithm: "RSA" | "ECDSA" | "",
@@ -63,8 +64,12 @@ export function isSignatureAlgorithmSupported(
     return false
   }
   if (signatureAlgorithm === "ECDSA") {
-    const ecdsaInfo = getECDSAInfo(tbsCertificate.subjectPublicKeyInfo)
-    return !!ecdsaInfo.curve && ecdsaInfo.curve !== "unknown curve"
+    try {
+      const ecdsaInfo = getECDSAInfo(tbsCertificate.subjectPublicKeyInfo)
+      return !!ecdsaInfo.curve
+    } catch (e) {
+      return false
+    }
   } else if (signatureAlgorithm === "RSA") {
     const rsaInfo = getRSAInfo(tbsCertificate.subjectPublicKeyInfo)
     const modulusBits = getBitSize(rsaInfo.modulus)

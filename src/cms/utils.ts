@@ -25,22 +25,30 @@ import {
   RSA_OIDS,
 } from "./constants"
 import type { DigestAlgorithm } from "./types"
+import { CurveName, BrainpoolCurveName } from "@/types"
 
-// TODO: Consider throwing an error or returning undefined if curve is not found
-export function getCurveName(ecParams: ECParameters): string {
+export function getAbbreviatedCurveName(ecParams: ECParameters): string {
+  const curveName = getCurveName(ecParams)
+  return BRAINPOOL_CURVES_ABBR[curveName as keyof typeof BRAINPOOL_CURVES_ABBR] || curveName
+}
+
+export function getCurveName(ecParams: ECParameters): CurveName {
   if (ecParams.namedCurve) {
-    return CURVE_OIDS[ecParams.namedCurve as keyof typeof CURVE_OIDS] ?? ""
+    if (!(ecParams.namedCurve in CURVE_OIDS)) {
+      throw new Error(`Unknown curve OID: ${ecParams.namedCurve}`)
+    }
+    return CURVE_OIDS[ecParams.namedCurve as keyof typeof CURVE_OIDS] as CurveName
   }
   if (!ecParams.specifiedCurve) {
-    return ""
+    throw new Error("No named or specified curve found in ECParameters")
   }
+  // Map the specified curve to a known Brainpool curve name
   const a = BigInt(`0x${Buffer.from(ecParams.specifiedCurve.curve.a).toString("hex")}`)
   const b = BigInt(`0x${Buffer.from(ecParams.specifiedCurve.curve.b).toString("hex")}`)
   const n = BigInt(`0x${Buffer.from(ecParams.specifiedCurve.order).toString("hex")}`)
   const p = BigInt(
     `0x${Buffer.from(ecParams.specifiedCurve.fieldID.parameters.slice(2)).toString("hex")}`,
   )
-
   if (a == p256.CURVE.a && b == p256.CURVE.b && n == p256.CURVE.n && p == p256.CURVE.Fp.ORDER) {
     return "P-256"
   } else if (
@@ -65,10 +73,9 @@ export function getCurveName(ecParams: ECParameters): string {
       n == BRAINPOOL_CURVES[key as keyof typeof BRAINPOOL_CURVES].n &&
       p == BRAINPOOL_CURVES[key as keyof typeof BRAINPOOL_CURVES].p
     ) {
-      return BRAINPOOL_CURVES_ABBR[key as keyof typeof BRAINPOOL_CURVES_ABBR]
+      return key as BrainpoolCurveName
     }
   }
-  return `unknown curve`
   throw new Error(`Unknown curve: ${a}, ${b}, ${n}, ${p}`)
 }
 
@@ -131,13 +138,16 @@ function fromArrayBufferToBigInt(buffer: ArrayBuffer): bigint {
 }
 
 export function getECDSAInfo(subjectPublicKeyInfo: SubjectPublicKeyInfo): {
-  curve: string
+  curve: CurveName
   publicKey: Uint8Array
+  keySize: number
 } {
   const parsedParams = AsnParser.parse(subjectPublicKeyInfo.algorithm.parameters!, ECParameters)
+  const curve = getCurveName(parsedParams)
   return {
-    curve: getCurveName(parsedParams),
+    curve,
     publicKey: new Uint8Array(subjectPublicKeyInfo.subjectPublicKey),
+    keySize: getKeySizeFromCurve(curve),
   }
 }
 
@@ -171,15 +181,12 @@ export function getRSAInfo(subjectPublicKeyInfo: SubjectPublicKeyInfo): {
   }
 }
 
-// TODO: Consider using a different term other than "key profile"
-export function getKeyProfile(cert: X509Certificate): string {
+export function getSigningKeyType(cert: X509Certificate): string {
   const spki = cert.tbsCertificate.subjectPublicKeyInfo
   const publicKeyAlgOID = spki.algorithm.algorithm
   const publicKeyType = OIDS_TO_PUBKEY_TYPE[publicKeyAlgOID] || publicKeyAlgOID
-
   const sigAlgOID = cert.tbsCertificate.signature.algorithm
   const sigAlg = OIDS_TO_SIG_ALGORITHM[sigAlgOID as keyof typeof OIDS_TO_SIG_ALGORITHM] ?? sigAlgOID
-
   if (publicKeyType === "rsaEncryption") {
     const rsaInfo = getRSAInfo(spki)
     const keySize = rsaInfo.modulus.toString(2).length.toString()
@@ -189,9 +196,8 @@ export function getKeyProfile(cert: X509Certificate): string {
       return `RSA-${keySize}`
     }
   } else if (publicKeyType === "ecPublicKey") {
-    const curve = getCurveName(AsnParser.parse(spki.algorithm.parameters!, ECParameters))
+    const curve = getAbbreviatedCurveName(AsnParser.parse(spki.algorithm.parameters!, ECParameters))
     const pubkey = new Uint8Array(spki.subjectPublicKey)
-
     // Ensure the key size is within the curve
     // The first byte is 0x04, which is the prefix for uncompressed public keys so we get rid of it
     const pubkeyX = BigInt(
@@ -206,7 +212,7 @@ export function getKeyProfile(cert: X509Certificate): string {
     }
     return curve
   }
-  return `???`
+  return ""
 }
 
 // TODO: Consider throwing and error or returning undefined instead of ""?
@@ -283,4 +289,33 @@ export function derToPem(der: Uint8Array): string {
     .toString("base64")
     .match(/.{1,64}/g)
     ?.join("\n")}\n-----END CERTIFICATE-----`
+}
+
+export const CURVE_TO_KEYSIZE: Record<CurveName, number> = {
+  // NIST curves
+  "P-256": 256,
+  "P-384": 384,
+  "P-521": 521,
+  // Brainpool curves
+  "brainpoolP160r1": 160,
+  "brainpoolP160t1": 160,
+  "brainpoolP192r1": 192,
+  "brainpoolP192t1": 192,
+  "brainpoolP224r1": 224,
+  "brainpoolP224t1": 224,
+  "brainpoolP256r1": 256,
+  "brainpoolP256t1": 256,
+  "brainpoolP320r1": 320,
+  "brainpoolP320t1": 320,
+  "brainpoolP384r1": 384,
+  "brainpoolP384t1": 384,
+  "brainpoolP512r1": 512,
+  "brainpoolP512t1": 512,
+}
+
+export function getKeySizeFromCurve(curve: CurveName): number {
+  if (CURVE_TO_KEYSIZE[curve] === undefined) {
+    throw new Error(`Unknown curve: ${curve}`)
+  }
+  return CURVE_TO_KEYSIZE[curve]
 }
