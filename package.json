@@ -112,7 +112,7 @@
   },
   "scripts": {
     "prepublishOnly": "npm run test && npm run build",
-    "build": "npm run build:esm && npm run build:cjs",
+    "build": "rimraf ./dist && npm run build:esm && npm run build:cjs",
     "build:watch": "tsc -p tsconfig.json --watch",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
@@ -127,6 +127,7 @@
     "@types/node": "^22.10.6",
     "babel-jest": "^29.7.0",
     "jest": "^29.7.0",
+    "rimraf": "^6.0.1",
     "typescript": "^5.0.0"
   },
   "dependencies": {
