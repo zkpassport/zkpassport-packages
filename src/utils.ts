@@ -156,3 +156,12 @@ export function assert(truthy: boolean, errorMsg: string): void {
     throw new Error(errorMsg)
   }
 }
+
+export function packBeBytesIntoField(x: Uint8Array, maxFieldSize: number): bigint {
+  let result: bigint = BigInt(0)
+  for (let i = 0; i < maxFieldSize; i++) {
+    result *= BigInt(256)
+    result += BigInt(x[i])
+  }
+  return result
+}

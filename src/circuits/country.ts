@@ -1,7 +1,8 @@
 import { Alpha3Code } from "i18n-iso-countries"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { rightPadArrayWithZeros } from "../utils"
+import { packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
 import { CountryCommittedInputs } from "../types"
+import { sha256 } from "@noble/hashes/sha256"
 
 export function getCountryWeightedSum(country: Alpha3Code): number {
   return country.charCodeAt(0) * 0x10000 + country.charCodeAt(1) * 0x100 + country.charCodeAt(2)
@@ -64,4 +65,24 @@ export async function getCountryParameterCommitment(
   ).map((x) => BigInt(x))
   const countryParameterCommitment = await poseidon2HashAsync(countrySumsBigInt)
   return countryParameterCommitment
+}
+
+/**
+ * Get the EVM parameter commitment for the country proof (inclusion and exclusion alike).
+ * @param countries - The list of countries.
+ * @param sorted - Whether the countries are sorted.
+ * @returns The parameter commitment.
+ */
+export async function getCountryEVMParameterCommitment(
+  countries: Alpha3Code[],
+  sorted = false,
+): Promise<bigint> {
+  if (sorted) {
+    countries.sort((a, b) => a.localeCompare(b))
+  }
+  const countryBytes = countries.map((c) => Array.from(new TextEncoder().encode(c))).flat()
+  // 200 country code of 3 bytes each, so 600 bytes total
+  const countryBytesHash = sha256(new Uint8Array(rightPadArrayWithZeros(countryBytes, 600)))
+  const countryBytesHashBigInt = packBeBytesIntoField(countryBytesHash, 31)
+  return countryBytesHashBigInt
 }

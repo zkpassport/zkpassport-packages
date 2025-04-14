@@ -1,6 +1,7 @@
-import { rightPadArrayWithZeros } from "../utils"
+import { packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
 import { ProofData } from "."
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
+import { sha256 } from "@noble/hashes/sha256"
 
 interface DisclosedDataRaw {
   issuingCountry: Uint8Array // 3 bytes
@@ -353,4 +354,24 @@ export async function getDiscloseParameterCommitment(
     ...disclosedBytes.map((x) => BigInt(x)),
   ])
   return parameterCommitment
+}
+
+/**
+ * Get the EVM parameter commitment for the disclose proof.
+ * @param discloseMask - The disclose mask.
+ * @param disclosedBytes - The disclosed bytes.
+ * @returns The parameter commitment.
+ */
+export async function getDiscloseEVMParameterCommitment(
+  discloseMask: number[],
+  disclosedBytes: number[],
+): Promise<bigint> {
+  const hash = sha256(
+    new Uint8Array([
+      ...discloseMask.map((x) => Number(x)),
+      ...disclosedBytes.map((x) => Number(x)),
+    ]),
+  )
+  const hashBigInt = packBeBytesIntoField(hash, 31)
+  return hashBigInt
 }

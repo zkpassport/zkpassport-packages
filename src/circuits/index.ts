@@ -165,13 +165,16 @@ export async function getHostedPackagedCircuitByName(
  * @returns The number of public inputs.
  */
 export function getNumberOfPublicInputs(circuitName: string) {
-  if (circuitName === "disclose_bytes") {
+  if (circuitName.startsWith("disclose_bytes")) {
     return getDiscloseBytesProofPublicInputCount()
-  } else if (circuitName === "disclose_flags") {
+  } else if (circuitName.startsWith("disclose_flags")) {
     return getDiscloseFlagsProofPublicInputCount()
-  } else if (circuitName === "compare_age") {
+  } else if (circuitName.startsWith("compare_age")) {
     return getAgeProofPublicInputCount()
-  } else if (circuitName === "compare_birthdate" || circuitName === "compare_expiry") {
+  } else if (
+    circuitName.startsWith("compare_birthdate") ||
+    circuitName.startsWith("compare_expiry")
+  ) {
     return getDateProofPublicInputCount()
   } else if (circuitName.startsWith("exclusion_check")) {
     return getCountryExclusionProofPublicInputCount()
@@ -213,6 +216,7 @@ export {
   parseDocumentType,
   getDisclosedBytesFromMrzAndMask,
   getDiscloseParameterCommitment,
+  getDiscloseEVMParameterCommitment,
 } from "./disclose"
 
 export * from "./country"

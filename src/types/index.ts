@@ -273,13 +273,21 @@ export type CommittedInputs =
 
 export type DisclosureCircuitName =
   | "disclose_bytes"
+  | "disclose_bytes_evm"
   | "compare_age"
+  | "compare_age_evm"
   | "compare_birthdate"
+  | "compare_birthdate_evm"
   | "compare_expiry"
+  | "compare_expiry_evm"
   | "exclusion_check_issuing_country"
+  | "exclusion_check_issuing_country_evm"
   | "exclusion_check_nationality"
+  | "exclusion_check_nationality_evm"
   | "inclusion_check_issuing_country"
+  | "inclusion_check_issuing_country_evm"
   | "inclusion_check_nationality"
+  | "inclusion_check_nationality_evm"
 
 export type ProofResult = {
   proof?: string
