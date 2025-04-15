@@ -165,3 +165,26 @@ export function packBeBytesIntoField(x: Uint8Array, maxFieldSize: number): bigin
   }
   return result
 }
+
+/**
+ * Packs bytes into field elements using big-endian encoding, matching the Noir pack_be_bytes_into_fields function
+ * Note: A 254 bit field can hold up to 31 bytes
+ */
+export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): string[] {
+  if (bytes.length === 0) return []
+  const totalFields = Math.ceil(bytes.length / maxChunkSize)
+  const result = new Array(totalFields)
+  // Calculate size of first chunk (might be smaller than maxChunkSize)
+  const firstChunkSize = bytes.length % maxChunkSize || maxChunkSize
+  let byteIndex = 0
+  for (let fieldIndex = totalFields - 1; fieldIndex >= 0; fieldIndex--) {
+    const chunkSize = fieldIndex === totalFields - 1 ? firstChunkSize : maxChunkSize
+    let value = 0n
+    for (let i = 0; i < chunkSize; i++) {
+      value = (value << 8n) | BigInt(bytes[byteIndex++])
+    }
+    const hex = value.toString(16)
+    result[fieldIndex] = "0x" + (hex.length % 2 ? "0" : "") + hex
+  }
+  return result
+}
