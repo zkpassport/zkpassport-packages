@@ -111,12 +111,13 @@
     }
   },
   "scripts": {
-    "prepublishOnly": "npm run test && npm run build",
+    "prepublishOnly": "npm run lint && npm run test && npm run build",
     "build": "rimraf ./dist && npm run build:esm && npm run build:cjs",
     "build:watch": "tsc -p tsconfig.json --watch",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
-    "test": "jest src"
+    "test": "jest src",
+    "lint": "tsc --noEmit"
   },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^7.25.9",
