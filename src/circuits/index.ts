@@ -137,7 +137,7 @@ export async function getHostedPackagedCircuitByNameAndHash(
       .substring(0, 16)}.json.gz`,
   )
   const circuit = await response.json()
-  return circuit
+  return circuit as PackagedCircuit
 }
 
 export async function getHostedPackagedCircuitByVkeyHash(
@@ -147,7 +147,7 @@ export async function getHostedPackagedCircuitByVkeyHash(
     `https://circuits.zkpassport.id/hashes/${vkeyHash.replace("0x", "")}.json.gz`,
   )
   const circuit = await response.json()
-  return circuit
+  return circuit as PackagedCircuit
 }
 
 export async function getHostedPackagedCircuitByName(
@@ -156,7 +156,7 @@ export async function getHostedPackagedCircuitByName(
 ): Promise<PackagedCircuit> {
   const response = await fetch(`https://circuits.zkpassport.id/versions/${version}/${name}.json.gz`)
   const circuit = await response.json()
-  return circuit
+  return circuit as PackagedCircuit
 }
 
 /**

@@ -188,3 +188,5 @@ export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): 
   }
   return result
 }
+
+export { PromisePool, AggregateError } from "./promise-pool"
