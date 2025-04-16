@@ -12,7 +12,7 @@ export {
   SignerInfo,
 } from "@peculiar/asn1-cms"
 export { AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
-export { SubjectPublicKeyInfo, Certificate as X509Certificate } from "@peculiar/asn1-x509"
+export { SubjectPublicKeyInfo, Certificate as X509Certificate, Time } from "@peculiar/asn1-x509"
 export { ECParameters } from "@peculiar/asn1-ecc"
 
 /**
@@ -179,3 +179,4 @@ export class MasterList {
 export const id_ldsSecurityObject = "2.23.136.1.1.1"
 export const id_sha256 = "2.16.840.1.101.3.4.2.1"
 export const id_icao_cscaMasterList = "2.23.136.1.1.2"
+export const id_signingTime = "1.2.840.113549.1.9.5"

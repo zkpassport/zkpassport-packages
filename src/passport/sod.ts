@@ -1,7 +1,7 @@
 import { ContentInfo, SignedData } from "@peculiar/asn1-cms"
 import { AsnConvert, AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
 import { Binary } from "../binary"
-import { AttributeSet, LDSSecurityObject } from "../cms/asn"
+import { AttributeSet, LDSSecurityObject, Time } from "../cms/asn"
 import { decodeOID, getHashAlgorithmName, getOIDName } from "../cms/oids"
 import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
 
@@ -287,16 +287,15 @@ export class SOD implements SODSignedData {
     const reconstructedSignedAttrs = new AttributeSet(signerInfo.signedAttrs.map((v) => v))
     const messageDigest = signedAttrsMap.get("messageDigest")
     if (!messageDigest) throw new Error("No signedAttrs.messageDigest found")
-    const signingTime = signedAttrsMap.get("signingTime")
+    const signingTimeAttr = signedAttrsMap.get("signingTime")
+    const signingTime = signingTimeAttr
+      ? AsnParser.parse(signingTimeAttr.toUInt8Array(), Time).getTime()
+      : undefined
     const signedAttrs = {
       bytes: Binary.from(AsnSerializer.serialize(reconstructedSignedAttrs)),
-      contentType: getOIDName(
-        decodeOID((signedAttrsMap.get("contentType") as Binary).toNumberArray()),
-      ),
+      contentType: getOIDName(decodeOID(signedAttrsMap.get("contentType")!.toNumberArray())),
       messageDigest,
-      ...(signingTime && {
-        signingTime: new Date(parseInt(signingTime.toBigInt().toString())),
-      }),
+      ...(signingTime && { signingTime }),
     }
 
     return new SOD({
