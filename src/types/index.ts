@@ -306,13 +306,15 @@ export type Service = {
   scope?: string
 }
 
+export type ProofMode = "fast" | "compressed" | "compressed-evm"
+
 export type QRCodeData = {
   query: Query | null
   topic: string | null
   pubkey: string | null
   domain: string | null
   service: Service | null
-  mode: "fast" | "compressed"
+  mode: ProofMode
 }
 
 export interface JsonRpcRequest {
