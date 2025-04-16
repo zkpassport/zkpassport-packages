@@ -5,6 +5,7 @@ import {
   AgeCommittedInputs,
   Certificate,
   DateCommittedInputs,
+  DisclosureCircuitName,
   ECDSACSCPublicKey,
   PackagedCircuit,
   RSACSCPublicKey,
@@ -191,6 +192,43 @@ export function getNumberOfPublicInputs(circuitName: string) {
     return 12 + disclosureProofCount
   }
   return 0
+}
+
+export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
+  switch (circuitName) {
+    case "compare_age_evm":
+      return 10
+    case "compare_birthdate_evm":
+      return 24
+    case "disclose_bytes_evm":
+      return 180
+    case "inclusion_check_issuing_country_evm":
+      return 600
+    case "inclusion_check_nationality_evm":
+      return 600
+    case "exclusion_check_issuing_country_evm":
+      return 600
+    case "exclusion_check_nationality_evm":
+      return 600
+    case "compare_age":
+      return 10
+    case "compare_birthdate":
+      return 24
+    case "compare_expiry":
+      return 24
+    case "disclose_bytes":
+      return 180
+    case "inclusion_check_issuing_country":
+      return 200
+    case "inclusion_check_nationality":
+      return 200
+    case "exclusion_check_issuing_country":
+      return 200
+    case "exclusion_check_nationality":
+      return 200
+    default:
+      throw new Error(`Unknown circuit name: ${circuitName}`)
+  }
 }
 
 export function getFormattedDate(date: Date): string {
