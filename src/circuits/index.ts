@@ -188,7 +188,8 @@ export function getNumberOfPublicInputs(circuitName: string) {
   } else if (circuitName.startsWith("sig_check_dsc")) {
     return getDSCProofPublicInputCount()
   } else if (circuitName.startsWith("outer")) {
-    const disclosureProofCount = Number(circuitName.charAt(circuitName.length - 1)) - 3
+    // Get the characters after the last underscore
+    const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
     return 12 + disclosureProofCount
   }
   return 0
