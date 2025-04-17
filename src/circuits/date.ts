@@ -2,6 +2,7 @@ import { sha256 } from "@noble/hashes/sha256"
 import { DateCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { packBeBytesIntoField } from "../utils"
+import { ProofType } from "."
 
 /**
  * Convert a date string to a Date object
@@ -33,17 +34,20 @@ export function getDateProofPublicInputCount(): number {
 
 /**
  * Get the parameter commitment for the date proof (birthdate and expiry date alike).
+ * @param proofType - The proof type.
  * @param currentDate - The current date (YYYYMMDD)
  * @param minDate - The minimum date (YYYYMMDD)
  * @param maxDate - The maximum date (YYYYMMDD)
  * @returns The parameter commitment.
  */
 export async function getDateParameterCommitment(
+  proofType: ProofType,
   currentDate: string,
   minDate: string = "11111111",
   maxDate: string = "11111111",
 ): Promise<bigint> {
   const birthdateParameterCommitment = await poseidon2HashAsync([
+    BigInt(proofType),
     ...Array.from(new TextEncoder().encode(currentDate)).map((x) => BigInt(x)),
     ...Array.from(new TextEncoder().encode(minDate)).map((x) => BigInt(x)),
     ...Array.from(new TextEncoder().encode(maxDate)).map((x) => BigInt(x)),
@@ -53,18 +57,21 @@ export async function getDateParameterCommitment(
 
 /**
  * Get the EVM parameter commitment for the date proof (birthdate and expiry date alike).
+ * @param proofType - The proof type.
  * @param currentDate - The current date (YYYYMMDD)
  * @param minDate - The minimum date (YYYYMMDD)
  * @param maxDate - The maximum date (YYYYMMDD)
  * @returns The parameter commitment.
  */
 export async function getDateEVMParameterCommitment(
+  proofType: ProofType,
   currentDate: string,
   minDate: string = "11111111",
   maxDate: string = "11111111",
 ): Promise<bigint> {
   const hash = sha256(
     new Uint8Array([
+      proofType,
       ...Array.from(new TextEncoder().encode(currentDate)).map((x) => Number(x)),
       ...Array.from(new TextEncoder().encode(minDate)).map((x) => Number(x)),
       ...Array.from(new TextEncoder().encode(maxDate)).map((x) => Number(x)),

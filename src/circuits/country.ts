@@ -3,6 +3,7 @@ import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
 import { CountryCommittedInputs } from "../types"
 import { sha256 } from "@noble/hashes/sha256"
+import { ProofType } from "."
 
 export function getCountryWeightedSum(country: Alpha3Code): number {
   return country.charCodeAt(0) * 0x10000 + country.charCodeAt(1) * 0x100 + country.charCodeAt(2)
@@ -50,11 +51,13 @@ export function getCountryInclusionProofPublicInputCount(): number {
 
 /**
  * Get the parameter commitment for the country proof (inclusion and exclusion alike).
+ * @param proofType - The proof type.
  * @param countries - The list of countries.
  * @param sorted - Whether the countries are sorted.
  * @returns The parameter commitment.
  */
 export async function getCountryParameterCommitment(
+  proofType: ProofType,
   countries: Alpha3Code[],
   sorted = false,
 ): Promise<bigint> {
@@ -63,17 +66,22 @@ export async function getCountryParameterCommitment(
     sorted ? countrySums.sort((a, b) => a - b) : countrySums,
     200,
   ).map((x) => BigInt(x))
-  const countryParameterCommitment = await poseidon2HashAsync(countrySumsBigInt)
+  const countryParameterCommitment = await poseidon2HashAsync([
+    BigInt(proofType),
+    ...countrySumsBigInt,
+  ])
   return countryParameterCommitment
 }
 
 /**
  * Get the EVM parameter commitment for the country proof (inclusion and exclusion alike).
+ * @param proofType - The proof type.
  * @param countries - The list of countries.
  * @param sorted - Whether the countries are sorted.
  * @returns The parameter commitment.
  */
 export async function getCountryEVMParameterCommitment(
+  proofType: ProofType,
   countries: Alpha3Code[],
   sorted = false,
 ): Promise<bigint> {
@@ -82,7 +90,9 @@ export async function getCountryEVMParameterCommitment(
   }
   const countryBytes = countries.map((c) => Array.from(new TextEncoder().encode(c))).flat()
   // 200 country code of 3 bytes each, so 600 bytes total
-  const countryBytesHash = sha256(new Uint8Array(rightPadArrayWithZeros(countryBytes, 600)))
+  const countryBytesHash = sha256(
+    new Uint8Array([proofType, ...rightPadArrayWithZeros(countryBytes, 600)]),
+  )
   const countryBytesHashBigInt = packBeBytesIntoField(countryBytesHash, 31)
   return countryBytesHashBigInt
 }

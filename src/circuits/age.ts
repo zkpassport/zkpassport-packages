@@ -2,6 +2,7 @@ import { packBeBytesIntoField } from "../utils"
 import { AgeCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { sha256 } from "@noble/hashes/sha256"
+import { ProofType } from "."
 
 export function getMinAgeFromCommittedInputs(committedInputs: AgeCommittedInputs): number {
   return committedInputs.minAge
@@ -32,6 +33,7 @@ export async function getAgeParameterCommitment(
   maxAge: number,
 ): Promise<bigint> {
   const ageParameterCommitment = await poseidon2HashAsync([
+    BigInt(ProofType.AGE),
     ...Array.from(new TextEncoder().encode(currentDate)).map((x) => BigInt(x)),
     BigInt(minAge),
     BigInt(maxAge),
@@ -53,6 +55,7 @@ export async function getAgeEVMParameterCommitment(
 ): Promise<bigint> {
   const hash = sha256(
     new Uint8Array([
+      ProofType.AGE,
       ...Array.from(new TextEncoder().encode(currentDate)).map((x) => Number(x)),
       minAge,
       maxAge,

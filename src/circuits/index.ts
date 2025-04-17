@@ -197,35 +197,35 @@ export function getNumberOfPublicInputs(circuitName: string) {
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
   switch (circuitName) {
     case "compare_age_evm":
-      return 10
+      return 11
     case "compare_birthdate_evm":
-      return 24
+      return 25
     case "disclose_bytes_evm":
-      return 180
+      return 181
     case "inclusion_check_issuing_country_evm":
-      return 600
+      return 601
     case "inclusion_check_nationality_evm":
-      return 600
+      return 601
     case "exclusion_check_issuing_country_evm":
-      return 600
+      return 601
     case "exclusion_check_nationality_evm":
-      return 600
+      return 601
     case "compare_age":
-      return 10
+      return 11
     case "compare_birthdate":
-      return 24
+      return 25
     case "compare_expiry":
-      return 24
+      return 25
     case "disclose_bytes":
-      return 180
+      return 181
     case "inclusion_check_issuing_country":
-      return 200
+      return 201
     case "inclusion_check_nationality":
-      return 200
+      return 201
     case "exclusion_check_issuing_country":
-      return 200
+      return 201
     case "exclusion_check_nationality":
-      return 200
+      return 201
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }
@@ -246,6 +246,17 @@ export function getCurrentDateFromCommittedInputs(
 }
 
 export const DEFAULT_DATE_VALUE = new Date(Date.UTC(1111, 10, 11))
+
+export enum ProofType {
+  DISCLOSE = 0,
+  AGE = 1,
+  BIRTHDATE = 2,
+  EXPIRY_DATE = 3,
+  NATIONALITY_INCLUSION = 4,
+  NATIONALITY_EXCLUSION = 5,
+  ISSUING_COUNTRY_INCLUSION = 6,
+  ISSUING_COUNTRY_EXCLUSION = 7,
+}
 
 export {
   DisclosedData,
