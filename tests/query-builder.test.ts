@@ -139,7 +139,7 @@ describe("Query Builder", () => {
 
     // Verify URL format
     expect(result.url).toMatch(
-      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+$/,
+      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+&m=[^&]+$/,
     )
 
     // Verify service info is included

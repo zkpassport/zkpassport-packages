@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/sdk",
-  "version": "0.2.15",
+  "version": "0.3.0",
   "description": "Privacy-preserving identity verification using passports and ID cards",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -38,13 +38,15 @@
     "typescript": "^5.6.2"
   },
   "dependencies": {
-    "@aztec/bb.js": "^0.76.4",
+    "@aztec/bb.js": "^0.82.2",
     "@noble/ciphers": "^1.2.1",
+    "@noble/hashes": "^1.7.2",
     "@noble/secp256k1": "^2.2.3",
-    "@zkpassport/utils": "^0.2.30",
+    "@zkpassport/utils": "^0.4.7",
     "buffer": "^6.0.3",
     "i18n-iso-countries": "^7.12.0",
     "pako": "^2.1.0",
+    "viem": "^2.27.2",
     "ws": "^8.18.0"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
