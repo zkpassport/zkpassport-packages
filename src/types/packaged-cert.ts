@@ -73,6 +73,6 @@ export type PackagedCertificate = {
   }
   subject_key_identifier?: string
   authority_key_identifier?: string
-  tags?: string
+  tags?: string[]
   type?: string
 }
