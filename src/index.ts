@@ -53,6 +53,10 @@ import {
   getCommittedInputCount,
   ProofMode,
   ProofType,
+  getScopeHash,
+  ProofData,
+  getScopeFromOuterProof,
+  getSubscopeFromOuterProof,
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { getWebSocketClient, WebSocketClient } from "./websocket"
@@ -101,6 +105,7 @@ export type QueryResultErrors = {
     commitment?: QueryResultError<string>
     date?: QueryResultError<string>
     certificate?: QueryResultError<string>
+    scope?: QueryResultError<string>
   }
 }
 
@@ -111,6 +116,8 @@ export type SolidityVerifierParameters = {
   committedInputs: string
   committedInputCounts: number[]
   validityPeriodInDays: number
+  scope: string
+  subscope: string
 }
 
 export type EVMChain = "ethereum_sepolia" | "local_anvil"
@@ -386,6 +393,7 @@ export class ZKPassport {
       proofs: this.topicToProofs[topic],
       queryResult: result,
       validity: this.topicToLocalConfig[topic]?.validity,
+      scope: this.topicToService[topic]?.scope,
     })
     delete this.topicToProofs[topic]
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
@@ -1756,10 +1764,39 @@ export class ZKPassport {
     return { isCorrect, queryResultErrors }
   }
 
+  private checkScopeFromDisclosureProof(
+    proofData: ProofData,
+    queryResultErrors: QueryResultErrors,
+    key: string,
+    scope?: string,
+  ) {
+    let isCorrect = true
+    if (this.domain && getScopeHash(this.domain) !== BigInt(proofData.publicInputs[1])) {
+      console.warn("The proof comes from a different domain than the one expected")
+      isCorrect = false
+      queryResultErrors[key as keyof QueryResultErrors].scope = {
+        expected: `Scope: ${getScopeHash(this.domain).toString()}`,
+        received: `Scope: ${BigInt(proofData.publicInputs[1]).toString()}`,
+        message: "The proof comes from a different domain than the one expected",
+      }
+    }
+    if (scope && getScopeHash(scope) !== BigInt(proofData.publicInputs[2])) {
+      console.warn("The proof uses a different scope than the one expected")
+      isCorrect = false
+      queryResultErrors[key as keyof QueryResultErrors].scope = {
+        expected: `Scope: ${getScopeHash(scope).toString()}`,
+        received: `Scope: ${BigInt(proofData.publicInputs[2]).toString()}`,
+        message: "The proof uses a different scope than the one expected",
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   private async checkPublicInputs(
     proofs: Array<ProofResult>,
     queryResult: QueryResult,
     validity?: number,
+    scope?: string,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -1864,6 +1901,24 @@ export class ZKPassport {
             expected: `Number of parameter commitments: ${paramCommitments.length}`,
             received: `Number of disclosure proofs provided: ${keysInCommittedInputs.length}`,
             message: "The proof does not verify all the requested conditions and information",
+          }
+        }
+        if (this.domain && getScopeHash(this.domain) !== getScopeFromOuterProof(proofData)) {
+          console.warn("The proof comes from a different domain than the one expected")
+          isCorrect = false
+          queryResultErrors.outer.scope = {
+            expected: `Scope: ${getScopeHash(this.domain).toString()}`,
+            received: `Scope: ${getScopeFromOuterProof(proofData).toString()}`,
+            message: "The proof comes from a different domain than the one expected",
+          }
+        }
+        if (scope && getScopeHash(scope) !== getSubscopeFromOuterProof(proofData)) {
+          console.warn("The proof uses a different scope than the one expected")
+          isCorrect = false
+          queryResultErrors.outer.scope = {
+            expected: `Scope: ${getScopeHash(scope).toString()}`,
+            received: `Scope: ${getSubscopeFromOuterProof(proofData).toString()}`,
+            message: "The proof uses a different scope than the one expected",
           }
         }
         if (!!committedInputs?.compare_age) {
@@ -2194,12 +2249,20 @@ export class ZKPassport {
             message: "The disclosed data does not match the data committed by the proof",
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "disclose", scope)
+        isCorrect = isCorrect && isCorrectScope
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsScope,
+        }
         const { isCorrect: isCorrectDisclose, queryResultErrors: queryResultErrorsDisclose } =
           this.checkDiscloseBytesPublicInputs(proof, queryResult)
-        isCorrect = isCorrect && isCorrectDisclose
+        isCorrect = isCorrect && isCorrectDisclose && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsDisclose,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "compare_age") {
@@ -2235,12 +2298,15 @@ export class ZKPassport {
               "The conditions for the age check do not match the conditions checked by the proof",
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "age", scope)
         const { isCorrect: isCorrectAge, queryResultErrors: queryResultErrorsAge } =
           this.checkAgePublicInputs(proof, queryResult)
-        isCorrect = isCorrect && isCorrectAge
+        isCorrect = isCorrect && isCorrectAge && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsAge,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "compare_birthdate") {
@@ -2277,12 +2343,15 @@ export class ZKPassport {
               "The conditions for the birthdate check do not match the conditions checked by the proof",
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "birthdate", scope)
         const { isCorrect: isCorrectBirthdate, queryResultErrors: queryResultErrorsBirthdate } =
           this.checkBirthdatePublicInputs(proof, queryResult)
-        isCorrect = isCorrect && isCorrectBirthdate
+        isCorrect = isCorrect && isCorrectBirthdate && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsBirthdate,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "compare_expiry") {
@@ -2318,12 +2387,15 @@ export class ZKPassport {
               "The conditions for the expiry date check do not match the conditions checked by the proof",
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "expiry_date", scope)
         const { isCorrect: isCorrectExpiryDate, queryResultErrors: queryResultErrorsExpiryDate } =
           this.checkExpiryDatePublicInputs(proof, queryResult)
-        isCorrect = isCorrect && isCorrectExpiryDate
+        isCorrect = isCorrect && isCorrectExpiryDate && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsExpiryDate,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "exclusion_check_nationality") {
@@ -2361,15 +2433,17 @@ export class ZKPassport {
               "The committed country list for the exclusion check does not match the one from the proof",
           }
         }
-
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "nationality", scope)
         const {
           isCorrect: isCorrectNationalityExclusion,
           queryResultErrors: queryResultErrorsNationalityExclusion,
         } = this.checkNationalityExclusionPublicInputs(queryResult, countryList)
-        isCorrect = isCorrect && isCorrectNationalityExclusion
+        isCorrect = isCorrect && isCorrectNationalityExclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsNationalityExclusion,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "exclusion_check_issuing_country") {
@@ -2407,14 +2481,17 @@ export class ZKPassport {
               "The committed country list for the issuing country exclusion check does not match the one from the proof",
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "nationality", scope)
         const {
           isCorrect: isCorrectIssuingCountryExclusion,
           queryResultErrors: queryResultErrorsIssuingCountryExclusion,
         } = this.checkIssuingCountryExclusionPublicInputs(queryResult, countryList)
-        isCorrect = isCorrect && isCorrectIssuingCountryExclusion
+        isCorrect = isCorrect && isCorrectIssuingCountryExclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsIssuingCountryExclusion,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "inclusion_check_nationality") {
@@ -2452,14 +2529,17 @@ export class ZKPassport {
               "The committed country list for the nationality inclusion check does not match the one from the proof",
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "nationality", scope)
         const {
           isCorrect: isCorrectNationalityInclusion,
           queryResultErrors: queryResultErrorsNationalityInclusion,
         } = this.checkNationalityInclusionPublicInputs(queryResult, countryList)
-        isCorrect = isCorrect && isCorrectNationalityInclusion
+        isCorrect = isCorrect && isCorrectNationalityInclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsNationalityInclusion,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       } else if (proof.name === "inclusion_check_issuing_country") {
@@ -2497,14 +2577,17 @@ export class ZKPassport {
               "The committed country list for the issuing country inclusion check does not match the one from the proof",
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(proofData, queryResultErrors, "nationality", scope)
         const {
           isCorrect: isCorrectIssuingCountryInclusion,
           queryResultErrors: queryResultErrorsIssuingCountryInclusion,
         } = this.checkIssuingCountryInclusionPublicInputs(queryResult, countryList)
-        isCorrect = isCorrect && isCorrectIssuingCountryInclusion
+        isCorrect = isCorrect && isCorrectIssuingCountryInclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsIssuingCountryInclusion,
+          ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       }
@@ -2524,10 +2607,12 @@ export class ZKPassport {
     proofs,
     queryResult,
     validity,
+    scope,
   }: {
     proofs: Array<ProofResult>
     queryResult: QueryResult
     validity?: number
+    scope?: string
   }): Promise<{
     uniqueIdentifier: string | undefined
     verified: boolean
@@ -2555,7 +2640,7 @@ export class ZKPassport {
       isCorrect,
       uniqueIdentifier: uniqueIdentifierFromPublicInputs,
       queryResultErrors: queryResultErrorsFromPublicInputs,
-    } = await this.checkPublicInputs(proofs, formattedResult, validity)
+    } = await this.checkPublicInputs(proofs, formattedResult, validity, scope)
     uniqueIdentifier = uniqueIdentifierFromPublicInputs
     verified = isCorrect
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
@@ -2571,24 +2656,23 @@ export class ZKPassport {
           try {
             const { createPublicClient, http } = await import("viem")
             const { sepolia } = await import("viem/chains")
-            const verifierDetails = this.getSolidityVerifierDetails("ethereum_sepolia")
+            const { address, abi, functionName } =
+              this.getSolidityVerifierDetails("ethereum_sepolia")
             const client = createPublicClient({
               chain: sepolia,
               transport: http("https://ethereum-sepolia-rpc.publicnode.com"),
             })
-            const params = this.getSolidityVerifierParameters(proof)
+            const params = this.getSolidityVerifierParameters({
+              proof,
+              validityPeriodInDays: validity,
+              domain: this.domain,
+              scope,
+            })
             const result = await client.readContract({
-              address: verifierDetails.address as `0x${string}`,
-              abi: verifierDetails.abi,
-              functionName: "verifyProof",
-              args: [
-                params.vkeyHash,
-                params.proof,
-                params.publicInputs,
-                params.committedInputs,
-                params.committedInputCounts,
-                params.validityPeriodInDays,
-              ],
+              address,
+              abi,
+              functionName,
+              args: [params],
             })
             const isVerified = Array.isArray(result) ? Boolean(result[0]) : false
             verified = isVerified
@@ -2624,7 +2708,8 @@ export class ZKPassport {
   }
 
   public getSolidityVerifierDetails(network: EVMChain): {
-    address: string
+    address: `0x${string}`
+    functionName: string
     abi: {
       type: "function" | "event" | "constructor"
       name: string
@@ -2632,21 +2717,35 @@ export class ZKPassport {
       outputs: { name: string; type: string; internalType: string }[]
     }[]
   } {
+    const baseConfig = {
+      functionName: "verifyProof",
+      abi: ZKPassportVerifierAbi.abi as any,
+    }
     if (network === "ethereum_sepolia") {
       return {
-        address: "0xca644D3424c2ee577FaaF2b56C0f9D1937E8e87C",
-        abi: ZKPassportVerifierAbi.abi as any,
+        ...baseConfig,
+        address: "0x21E12Fa30a1F98699F242ac062Db4a8e7b344B5d",
       }
     } else if (network === "local_anvil") {
       return {
-        address: "0x0",
-        abi: ZKPassportVerifierAbi.abi as any,
+        ...baseConfig,
+        address: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
       }
     }
     throw new Error(`Unsupported network: ${network}`)
   }
 
-  public getSolidityVerifierParameters(proof: ProofResult, validityPeriodInDays: number = 7) {
+  public getSolidityVerifierParameters({
+    proof,
+    validityPeriodInDays = 7,
+    domain,
+    scope,
+  }: {
+    proof: ProofResult
+    validityPeriodInDays?: number
+    domain?: string
+    scope?: string
+  }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
         "This proof cannot be verified on an EVM chain. Please make sure to use the `compressed-evm` mode.",
@@ -2779,6 +2878,8 @@ export class ZKPassport {
       committedInputs: `0x${compressedCommittedInputs}`,
       committedInputCounts: committedInputCountsArray,
       validityPeriodInDays,
+      scope: domain ?? this.domain,
+      subscope: scope ?? "",
     }
     return params
   }
