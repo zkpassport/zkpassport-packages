@@ -430,10 +430,6 @@ export type Certificate = {
   }
 }
 
-export type CSCMasterlist = {
-  certificates: Certificate[]
-}
-
 export type { CountryName } from "./countries"
 
 export type {

@@ -136,6 +136,9 @@ export function getSodSignatureHashAlgorithm(
   }
 }
 
+/**
+ * @deprecated This function will be removed in a future version
+ */
 export function getDSCSignatureAlgorithmType(passport: PassportViewModel): "RSA" | "ECDSA" | "" {
   if (passport.dscSignatureAlgorithm?.toLowerCase().includes("rsa")) {
     return "RSA"
@@ -145,6 +148,9 @@ export function getDSCSignatureAlgorithmType(passport: PassportViewModel): "RSA"
   return ""
 }
 
+/**
+ * @deprecated This function will be removed in a future version
+ */
 export function getDSCSignatureHashAlgorithm(
   passport: PassportViewModel,
 ): DigestAlgorithm | undefined {

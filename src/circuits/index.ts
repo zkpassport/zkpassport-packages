@@ -1,28 +1,26 @@
-import { CERTIFICATE_REGISTRY_ID, CERT_TYPE_CSC } from "../constants"
-import { Binary } from "../binary"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import {
-  AgeCommittedInputs,
-  Certificate,
-  DateCommittedInputs,
-  DisclosureCircuitName,
-  ECDSACSCPublicKey,
-  PackagedCircuit,
-  RSACSCPublicKey,
-} from "../types"
-import { getDiscloseFlagsProofPublicInputCount } from "./disclose"
-import { getDiscloseBytesProofPublicInputCount } from "./disclose"
-import { getIntegrityProofPublicInputCount } from "./integrity"
-import { getAgeProofPublicInputCount } from "./age"
-import { getDateProofPublicInputCount } from "./date"
-import { getDSCProofPublicInputCount } from "./dsc"
+import { formatDate } from "date-fns"
 import {
   convertDateBytesToDate,
   getCountryExclusionProofPublicInputCount,
   getCountryInclusionProofPublicInputCount,
   getIDDataProofPublicInputCount,
 } from ".."
-import { formatDate } from "date-fns"
+import { Binary } from "../binary"
+import {
+  AgeCommittedInputs,
+  DateCommittedInputs,
+  DisclosureCircuitName,
+  PackagedCircuit,
+} from "../types"
+import { getAgeProofPublicInputCount } from "./age"
+import { getDateProofPublicInputCount } from "./date"
+import {
+  getDiscloseBytesProofPublicInputCount,
+  getDiscloseFlagsProofPublicInputCount,
+} from "./disclose"
+import { getDSCProofPublicInputCount } from "./dsc"
+import { getIntegrityProofPublicInputCount } from "./integrity"
 
 export interface ProofData {
   publicInputs: string[]
@@ -79,33 +77,6 @@ export async function hashSaltDg1PrivateNullifier(
   result.push(...Array.from(dg1).map((x) => BigInt(x)))
   result.push(privateNullifier)
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
-}
-
-export async function getCertificateLeafHash(
-  cert: Certificate,
-  options?: { registry_id?: number; cert_type?: number },
-): Promise<string> {
-  const registryId = options?.registry_id ?? CERTIFICATE_REGISTRY_ID
-  const certType = options?.cert_type ?? CERT_TYPE_CSC
-
-  let publicKey: Binary
-  if (cert.public_key.type === "rsaEncryption") {
-    publicKey = Binary.from((cert.public_key as RSACSCPublicKey).modulus)
-  } else if (cert.public_key.type === "ecPublicKey") {
-    publicKey = Binary.from((cert.public_key as ECDSACSCPublicKey).public_key_x).concat(
-      Binary.from((cert.public_key as ECDSACSCPublicKey).public_key_y),
-    )
-  } else {
-    throw new Error("Unsupported signature algorithm")
-  }
-  return Binary.from(
-    await poseidon2HashAsync([
-      BigInt(registryId),
-      BigInt(certType),
-      ...Array.from(cert.country).map((char: string) => BigInt(char.charCodeAt(0))),
-      ...Array.from(publicKey).map((x) => BigInt(x)),
-    ]),
-  ).toHex()
 }
 
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
@@ -262,19 +233,19 @@ export enum ProofType {
 }
 
 export {
-  DisclosedData,
   createDisclosedDataRaw,
+  DisclosedData,
   formatName,
-  parseDocumentType,
   getDisclosedBytesFromMrzAndMask,
-  getDiscloseParameterCommitment,
   getDiscloseEVMParameterCommitment,
+  getDiscloseParameterCommitment,
+  parseDocumentType,
 } from "./disclose"
 
-export * from "./country"
 export * from "./age"
+export * from "./country"
 export * from "./date"
-export * from "./integrity"
-export * from "./id-data"
 export * from "./dsc"
+export * from "./id-data"
+export * from "./integrity"
 export * from "./vkey"

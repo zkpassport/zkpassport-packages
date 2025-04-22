@@ -3,45 +3,33 @@ import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
 import { format } from "date-fns"
 import { alpha2ToAlpha3, Alpha3Code } from "i18n-iso-countries"
-import cscMasterlistFile from "./assets/certificates/csc-masterlist.json"
 import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
 import {
   calculatePrivateNullifier,
-  getCertificateLeafHash,
   getCountryWeightedSum,
   hashSaltCountrySignedAttrDg1PrivateNullifier,
   hashSaltCountryTbs,
   hashSaltDg1PrivateNullifier,
 } from "./circuits"
 import { parseDate } from "./circuits/disclose"
-import { getBitSizeFromCurve, getECDSAInfo, getRSAInfo } from "./cms/utils"
-import {
-  CERTIFICATE_REGISTRY_HEIGHT,
-  CERTIFICATE_REGISTRY_ID,
-  DG1_INPUT_SIZE,
-  SIGNED_ATTR_INPUT_SIZE,
-} from "./constants"
-import { computeMerkleProof } from "./merkle-tree"
-import {
-  extractTBS,
-  getDSCSignatureAlgorithmType,
-  getSodSignatureAlgorithmType,
-} from "./passport/passport-reader"
 import type { DigestAlgorithm } from "./cms/types"
+import { getBitSizeFromCurve, getECDSAInfo, getRSAInfo } from "./cms/utils"
+import { CERTIFICATE_REGISTRY_HEIGHT, DG1_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
+import { computeMerkleProof } from "./merkle-tree"
+import { extractTBS, getSodSignatureAlgorithmType } from "./passport/passport-reader"
+import { CERT_TYPE_CSCA, getCertificateLeafHash, tagsArrayToByteFlag } from "./registry"
 import {
-  Certificate,
-  CSCMasterlist,
   DiscloseFlags,
-  ECDSACSCPublicKey,
   ECDSADSCDataInputs,
   IDCredential,
   IDDataInputs,
   PassportViewModel,
   Query,
-  RSACSCPublicKey,
   RSADSCDataInputs,
+  RSAPublicKey,
 } from "./types"
+import type { HashAlgorithm, PackagedCertificate } from "./types"
 import {
   bigintToBytes,
   bigintToNumber,
@@ -52,7 +40,9 @@ import {
   rightPadArrayWithZeros,
 } from "./utils"
 
+// @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA256", "SHA384", "SHA512"]
+const SUPPORTED_HASH_ALGORITHMS_USE: HashAlgorithm[] = ["SHA-256", "SHA-384", "SHA-512"]
 
 // TODO: Improve this with a structured list of supported signature algorithms
 export function isSignatureAlgorithmSupported(
@@ -84,24 +74,26 @@ export function isSignatureAlgorithmSupported(
   return false
 }
 
-export function isCSCSupported(csc: Certificate): boolean {
-  if (csc.signature_algorithm.toLowerCase().includes("rsa")) {
+/**
+ * Check if a CSCA is supported by our circuits, based on the signature algorithm and hash algorithm
+ * @param csca The CSCA packaged certificate to check
+ * @returns True if the CSCA is supported, false otherwise
+ */
+export function isCscaSupported(csca: PackagedCertificate): boolean {
+  if (csca.signature_algorithm == "RSA") {
     return (
-      (csc.key_size === 1024 ||
-        csc.key_size === 2048 ||
-        csc.key_size === 3072 ||
-        csc.key_size === 4096) &&
-      ((csc.public_key as RSACSCPublicKey).exponent === 3 ||
-        (csc.public_key as RSACSCPublicKey).exponent === 65537)
+      (csca.public_key.key_size === 1024 ||
+        csca.public_key.key_size === 2048 ||
+        csca.public_key.key_size === 3072 ||
+        csca.public_key.key_size === 4096) &&
+      ((csca.public_key as RSAPublicKey).exponent === 3 ||
+        (csca.public_key as RSAPublicKey).exponent === 65537) &&
+      SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
     )
+  } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
+    return SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
   }
-  return (
-    SUPPORTED_HASH_ALGORITHMS.some((x) =>
-      csc.signature_algorithm.toLowerCase().includes(x.toLowerCase()),
-    ) ||
-    // We assume that PSS is always sha256, sha384, or sha512
-    csc.signature_algorithm.toLowerCase().includes("pss")
-  )
+  return false
 }
 
 export function isIDSupported(passport: PassportViewModel): boolean {
@@ -124,10 +116,6 @@ export function isIDSupported(passport: PassportViewModel): boolean {
   )
 }
 
-export function getCSCMasterlist(): CSCMasterlist {
-  return cscMasterlistFile as CSCMasterlist
-}
-
 export function getTBSMaxLen(passport: PassportViewModel): number {
   const tbs_len = passport.sod.certificate.tbs.bytes.length
   if (tbs_len <= 700) {
@@ -141,11 +129,10 @@ export function getTBSMaxLen(passport: PassportViewModel): number {
   }
 }
 
-export function getCSCForPassport(
+export function getCscaForPassport(
   passport: PassportViewModel,
-  masterlist?: CSCMasterlist,
-): Certificate | null {
-  const cscMasterlist = masterlist ?? getCSCMasterlist()
+  certificates: PackagedCertificate[],
+): PackagedCertificate | null {
   const extensions = passport.sod.certificate.tbs.extensions
 
   let notBefore: number | undefined
@@ -168,14 +155,14 @@ export function getCSCForPassport(
   const country = getDSCCountry(passport)
   const formattedCountry = country === "D<<" ? "DEU" : country
 
-  const checkAgainstAuthorityKeyIdentifier = (cert: Certificate) => {
+  const checkAgainstAuthorityKeyIdentifier = (cert: PackagedCertificate) => {
     return (
       authorityKeyIdentifier &&
       cert.subject_key_identifier?.replace("0x", "") === authorityKeyIdentifier
     )
   }
 
-  const checkAgainstPrivateKeyUsagePeriod = (cert: Certificate) => {
+  const checkAgainstPrivateKeyUsagePeriod = (cert: PackagedCertificate) => {
     return (
       cert.private_key_usage_period &&
       cert.private_key_usage_period?.not_before &&
@@ -187,7 +174,7 @@ export function getCSCForPassport(
     )
   }
 
-  const certificate = cscMasterlist.certificates.find((cert) => {
+  const certificate = certificates.find((cert) => {
     return (
       cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
       (checkAgainstAuthorityKeyIdentifier(cert) || checkAgainstPrivateKeyUsagePeriod(cert))
@@ -329,46 +316,46 @@ export function processSodSignature(signature: number[], passport: PassportViewM
 export async function getDSCCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
+  certificates: PackagedCertificate[],
   merkleTreeLeaves?: Binary[],
-  masterlist?: CSCMasterlist,
   merkleProof?: { root: string | HexString; index: number; path: (string | HexString)[] },
 ): Promise<any> {
-  // Get the CSC for this passport's DSC
-  const csc = getCSCForPassport(passport, masterlist)
-  if (!csc) return null
+  // Get the CSCA for this passport's DSC
+  const csca = getCscaForPassport(passport, certificates)
+  if (!csca) return null
 
   // Generate the certificate registry merkle proof
-  const cscMasterlist = masterlist ?? getCSCMasterlist()
   const leaves =
     merkleTreeLeaves ??
     (await Promise.all(
-      cscMasterlist.certificates.map(async (cert) => {
+      certificates.map(async (cert) => {
         const hash = await getCertificateLeafHash(cert)
         return Binary.fromHex(hash)
       }),
     ))
-  const index = cscMasterlist.certificates.findIndex(
-    (cert) => cert.subject_key_identifier === csc.subject_key_identifier,
+  const index = certificates.findIndex(
+    (cert) => cert.subject_key_identifier === csca.subject_key_identifier,
   )
+  if (index === -1) throw new Error("Could not find CSCA for DSC")
+  const tags = tagsArrayToByteFlag(csca.tags ?? [])
   const finalMerkleProof =
     merkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
+
   const inputs = {
     certificate_registry_root: finalMerkleProof.root,
     certificate_registry_index: finalMerkleProof.index,
     certificate_registry_hash_path: finalMerkleProof.path,
-    certificate_registry_id: CERTIFICATE_REGISTRY_ID,
-    certificate_type: 1,
-    country: csc.country,
+    certificate_tags: `0x${tags.toString(16)}`,
+    certificate_type: `0x${CERT_TYPE_CSCA.toString(16)}`,
+    country: csca.country,
     salt: `0x${salt.toString(16)}`,
   }
 
-  const signatureAlgorithm = getDSCSignatureAlgorithmType(passport)
   const maxTbsLength = getTBSMaxLen(passport)
-  if (signatureAlgorithm === "ECDSA") {
-    const cscPublicKey = csc?.public_key as ECDSACSCPublicKey
-    const publicKeyXBytes = Buffer.from(cscPublicKey.public_key_x.replace("0x", ""), "hex")
-    const publicKeyYBytes = Buffer.from(cscPublicKey.public_key_y.replace("0x", ""), "hex")
-    const curve = (csc.public_key as ECDSACSCPublicKey).curve
+  if (csca.public_key.type === "EC") {
+    const publicKeyXBytes = Buffer.from(csca.public_key.public_key_x.replace("0x", ""), "hex")
+    const publicKeyYBytes = Buffer.from(csca.public_key.public_key_y.replace("0x", ""), "hex")
+    const curve = csca.public_key.curve
     const bitSize = getBitSizeFromCurve(curve)
     const dscSignature = processECDSASignature(passport?.dscSignature ?? [], Math.ceil(bitSize / 8))
     return {
@@ -379,9 +366,8 @@ export async function getDSCCircuitInputs(
       tbs_certificate: rightPadArrayWithZeros(passport?.tbsCertificate ?? [], maxTbsLength),
       tbs_certificate_len: passport?.tbsCertificate?.length,
     }
-  } else if (signatureAlgorithm === "RSA") {
-    const cscPublicKey = csc?.public_key as RSACSCPublicKey
-    const modulusBytes = bigintToBytes(BigInt(cscPublicKey.modulus))
+  } else if (csca.public_key.type === "RSA") {
+    const modulusBytes = bigintToBytes(BigInt(csca.public_key.modulus))
     return {
       ...inputs,
       tbs_certificate: rightPadArrayWithZeros(passport?.tbsCertificate ?? [], maxTbsLength),
@@ -389,7 +375,7 @@ export async function getDSCCircuitInputs(
       dsc_signature: passport?.dscSignature ?? [],
       csc_pubkey: modulusBytes,
       csc_pubkey_redc_param: redcLimbsFromBytes(modulusBytes),
-      exponent: cscPublicKey.exponent,
+      exponent: csca.public_key.exponent,
     }
   }
 }

@@ -23,9 +23,18 @@ import {
   OIDS_TO_PUBKEY_TYPE,
   OIDS_TO_SIG_ALGORITHM,
   RSA_OIDS,
+  SIG_ALGORITHM_TO_HASH,
 } from "./constants"
 import type { DigestAlgorithm } from "./types"
-import { CurveName, BrainpoolCurveName } from "@/types"
+import {
+  CurveName,
+  BrainpoolCurveName,
+  PackagedCertificate,
+  SignatureAlgorithmType,
+  ECPublicKey,
+  HashAlgorithm,
+} from "@/types"
+import { countryCodeAlpha2ToAlpha3 } from "../country/country"
 
 export function getAbbreviatedCurveName(ecParams: ECParameters): string {
   const curveName = getCurveName(ecParams)
@@ -215,14 +224,24 @@ export function getSigningKeyType(cert: X509Certificate): string {
   return ""
 }
 
-// TODO: Consider throwing and error or returning undefined instead of ""?
-export function getSignatureAlgorithmType(signatureAlgorithm: string): "RSA" | "ECDSA" | "" {
-  if (signatureAlgorithm.toLowerCase().includes("rsa")) {
+/**
+ * Get the signature algorithm type from an x509 certificate
+ * @param x509 Certificate
+ * @returns Signature algorithm type (RSA, RSA-PSS, or ECDSA)
+ */
+export function getSignatureAlgorithmType(x509: X509Certificate): SignatureAlgorithmType {
+  const algorithmOID = x509.tbsCertificate.signature.algorithm
+  const signatureAlgo =
+    OIDS_TO_SIG_ALGORITHM[algorithmOID as keyof typeof OIDS_TO_SIG_ALGORITHM] ?? algorithmOID
+  if (signatureAlgo === "rsassa-pss") {
+    return "RSA-PSS"
+  } else if (signatureAlgo.toLowerCase().includes("rsa")) {
     return "RSA"
-  } else if (signatureAlgorithm.toLowerCase().includes("ecdsa")) {
+  } else if (signatureAlgo.toLowerCase().includes("ecdsa")) {
     return "ECDSA"
+  } else {
+    throw new Error(`Unsupported signature algorithm: ${signatureAlgo}`)
   }
-  return ""
 }
 
 export function getBitSizeFromCurve(curve: string): number {
@@ -318,4 +337,149 @@ export function getKeySizeFromCurve(curve: CurveName): number {
     throw new Error(`Unknown curve: ${curve}`)
   }
   return CURVE_TO_KEYSIZE[curve]
+}
+
+export function x509ToPackagedCertificate(x509: X509Certificate): PackagedCertificate {
+  const publicKeyOID = x509.tbsCertificate.subjectPublicKeyInfo.algorithm.algorithm
+  const publicKeyType =
+    OIDS_TO_PUBKEY_TYPE[publicKeyOID as keyof typeof OIDS_TO_PUBKEY_TYPE] ?? publicKeyOID
+
+  const validity = x509.tbsCertificate.validity
+  const notBefore = Math.floor(new Date(validity.notBefore.getTime()).getTime() / 1000)
+  const notAfter = Math.floor(new Date(validity.notAfter.getTime()).getTime() / 1000)
+
+  const countryCodeAlpha2 = getCertificateIssuerCountry(x509)
+  if (!countryCodeAlpha2) throw new Error(`Country is missing from certificate`)
+  if (countryCodeAlpha2.length !== 2) throw new Error("Invalid country code")
+  const countryCodeAlpha3 = countryCodeAlpha2ToAlpha3(countryCodeAlpha2)
+
+  // Return RSA certificate
+  if (publicKeyType === "rsaEncryption") {
+    const rsaInfo = getRSAInfo(x509.tbsCertificate.subjectPublicKeyInfo)
+    return {
+      country: countryCodeAlpha3,
+      signature_algorithm: getSignatureAlgorithmType(x509),
+      hash_algorithm: getHashAlgorithm(x509),
+      public_key: {
+        type: "RSA",
+        modulus: `0x${rsaInfo.modulus.toString(16)}`,
+        exponent: Number(rsaInfo.exponent),
+        key_size: getKeySize(x509.tbsCertificate.subjectPublicKeyInfo),
+      },
+      validity: {
+        not_before: notBefore,
+        not_after: notAfter,
+      },
+      authority_key_identifier: getAuthorityKeyId(x509),
+      subject_key_identifier: getSubjectKeyId(x509),
+      private_key_usage_period: getPrivateKeyUsagePeriod(x509),
+    }
+  }
+  // Return ECDSA certificate
+  else if (publicKeyType === "ecPublicKey") {
+    const ecdsaInfo = getECDSAInfo(x509.tbsCertificate.subjectPublicKeyInfo)
+    return {
+      country: countryCodeAlpha3,
+      signature_algorithm: getSignatureAlgorithmType(x509),
+      hash_algorithm: getHashAlgorithm(x509),
+      public_key: {
+        type: "EC",
+        curve: ecdsaInfo.curve,
+        key_size: ecdsaInfo.keySize,
+        // The first byte is 0x04, which is the prefix for uncompressed public keys
+        // so we get rid of it
+        public_key_x: `0x${Buffer.from(
+          ecdsaInfo.publicKey.slice(1, ecdsaInfo.publicKey.length / 2 + 1),
+        ).toString("hex")}`,
+        public_key_y: `0x${Buffer.from(
+          ecdsaInfo.publicKey.slice(ecdsaInfo.publicKey.length / 2 + 1),
+        ).toString("hex")}`,
+      } as ECPublicKey,
+      validity: {
+        not_before: notBefore,
+        not_after: notAfter,
+      },
+      authority_key_identifier: getAuthorityKeyId(x509),
+      subject_key_identifier: getSubjectKeyId(x509),
+      private_key_usage_period: getPrivateKeyUsagePeriod(x509),
+    }
+  } else {
+    throw new Error(`Unsupported public key type: ${publicKeyType}`)
+  }
+}
+
+/**
+ * Get the hash algorithm used for signing an x509 certificate
+ * @param x509 The x509 certificate
+ * @returns Hash algorithm (SHA-1, SHA-224, SHA-256, SHA-384, SHA-512)
+ */
+// TODO: Throw error if no OID to hash algorithm mapping is found
+export function getHashAlgorithm(x509: X509Certificate): HashAlgorithm {
+  const oid = x509.tbsCertificate.signature.algorithm
+  const signatureAlgo = OIDS_TO_SIG_ALGORITHM[oid as keyof typeof OIDS_TO_SIG_ALGORITHM] ?? oid
+  if (signatureAlgo === "rsassa-pss") {
+    const pssParams = getRSAPSSParams(x509.tbsCertificate.signature)
+    return (pssParams.hashAlgorithm.slice(0, 3) +
+      "-" +
+      pssParams.hashAlgorithm.slice(3)) as HashAlgorithm
+  } else {
+    return SIG_ALGORITHM_TO_HASH[signatureAlgo as keyof typeof SIG_ALGORITHM_TO_HASH]
+  }
+}
+
+/**
+ * Get the key size from an x509 certificate's subject public key info
+ * @param subjectPublicKeyInfo Subject public key info
+ * @returns Key size
+ */
+export function getKeySize(subjectPublicKeyInfo: SubjectPublicKeyInfo): number {
+  const rsaInfo = getRSAInfo(subjectPublicKeyInfo)
+  return rsaInfo.modulus.toString(2).length
+}
+
+/**
+ * Convert a PEM certificate to a PackagedCertificate
+ * @param pemContent PEM certificate content
+ * @returns PackagedCertificate
+ */
+export function convertPemToPackagedCertificate(pemContent: string): PackagedCertificate {
+  try {
+    // Remove PEM headers and convert to binary
+    const b64 = pemContent.replace(/(-----(BEGIN|END) CERTIFICATE-----|[\n\r])/g, "")
+    const binary = Buffer.from(b64, "base64")
+    const x509 = AsnParser.parse(binary, X509Certificate)
+    return x509ToPackagedCertificate(x509)
+  } catch (error) {
+    console.error("Error parsing PEM certificate:", error)
+    throw new Error("Error parsing PEM certificate")
+  }
+}
+
+/**
+ * Convert one or more PEM certificates to an array of PackagedCertificates
+ * @param pemContent PEM certificate content
+ * @returns PackagedCertificate
+ */
+export function convertPemToPackagedCertificates(pemContent: string): PackagedCertificate[] {
+  const certificates: PackagedCertificate[] = []
+  try {
+    // Split the PEM content into individual certificates
+    const pemRegex = /(-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----)/g
+    const matches = pemContent.match(pemRegex) || []
+    for (const certPem of matches) {
+      // Remove PEM headers and convert to binary
+      const b64 = certPem.replace(/(-----(BEGIN|END) CERTIFICATE-----|[\n\r])/g, "")
+      const binary = Buffer.from(b64, "base64")
+      try {
+        const x509 = AsnParser.parse(binary, X509Certificate)
+        certificates.push(x509ToPackagedCertificate(x509))
+      } catch (error) {
+        console.error("Error parsing x509 certificate:", error)
+      }
+    }
+  } catch (error) {
+    console.error("Error parsing PEM certificates:", error)
+    throw new Error("Error parsing PEM certificates")
+  }
+  return certificates
 }

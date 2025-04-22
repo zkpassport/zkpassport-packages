@@ -106,6 +106,12 @@
       "require": "./dist/cjs/recursion.js",
       "default": "./dist/cjs/recursion.js"
     },
+    "./registry": {
+      "types": "./dist/esm/registry.d.ts",
+      "import": "./dist/esm/registry.js",
+      "require": "./dist/cjs/registry.js",
+      "default": "./dist/cjs/registry.js"
+    },
     "./types": {
       "types": "./dist/esm/types/index.d.ts"
     }
@@ -113,7 +119,8 @@
   "scripts": {
     "prepublishOnly": "npm run lint && npm run test && npm run build",
     "build": "rimraf ./dist && npm run build:esm && npm run build:cjs",
-    "build:watch": "tsc -p tsconfig.json --watch",
+    "build:watch:esm": "tsc -p tsconfig.json --watch",
+    "build:watch:cjs": "tsc -p tsconfig.cjs.json --watch",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "test": "jest src",

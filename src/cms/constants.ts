@@ -1,3 +1,5 @@
+import type { HashAlgorithm } from "../types"
+
 export const HASH_OIDS = {
   "1.3.14.3.2.26": "SHA-1",
   "2.16.840.1.101.3.4.2.1": "SHA-256",
@@ -63,7 +65,7 @@ export const OIDS_TO_DESCRIPTION: Record<string, string> = {
   "1.2.840.10045.4.3.4": "ecdsa-with-SHA512",
 }
 
-export const SIG_ALGORITHM_TO_HASH: Record<string, string> = {
+export const SIG_ALGORITHM_TO_HASH: Record<string, HashAlgorithm> = {
   "sha1-with-rsa-signature": "SHA-1",
   "sha256WithRSAEncryption": "SHA-256",
   "sha384WithRSAEncryption": "SHA-384",
