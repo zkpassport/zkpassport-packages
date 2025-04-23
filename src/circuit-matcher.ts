@@ -39,6 +39,7 @@ import {
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
 } from "./utils"
+import { countryCodeAlpha2ToAlpha3 } from "./country/country"
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA256", "SHA384", "SHA512"]
@@ -435,9 +436,7 @@ export async function getIDDataCircuitInputs(
 
 export function getDSCCountry(passport: PassportViewModel): string {
   const country = passport.sod.certificate.tbs.issuer?.match(/countryName=([A-Z]+)/)?.[1]
-  const convertFromAlpha2ToAlpha3 = (country: string) =>
-    country === "ZK" ? "ZKR" : alpha2ToAlpha3(country)
-  const formattedCountryCode = country?.length === 2 ? convertFromAlpha2ToAlpha3(country) : country
+  const formattedCountryCode = country?.length === 2 ? countryCodeAlpha2ToAlpha3(country) : country
   return formattedCountryCode ?? passport.nationality
 }
 
