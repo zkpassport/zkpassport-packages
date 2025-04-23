@@ -1,7 +1,8 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { Binary } from "./binary"
-import { ECPublicKey, PackagedCertificate, RSAPublicKey } from "./types"
-import { assert, packBeBytesIntoFields } from "./utils"
+import { Binary } from "../binary"
+import { ECPublicKey, PackagedCertificate, RSAPublicKey } from "../types"
+import { assert, packBeBytesIntoFields } from "../utils"
+import { AsyncMerkleTree } from "./merkle"
 
 /**
  * Canonical merkle tree height for the certificate registry
@@ -33,6 +34,18 @@ export const CERT_TYPE_DSC = 2
  * this certificate is from
  */
 export const PACKAGED_CERTIFICATE_TAGS = ["ICAO", "DE", "NL", "IT", "ES"]
+
+/**
+ * Certificate Registry ID
+ * Used to identify the certificate registry in the root registry
+ */
+export const CERTIFICATE_REGISTRY_ID = 1
+
+/**
+ * Circuit Registry ID
+ * Used to identify the circuit registry in the root registry
+ */
+export const CIRCUIT_REGISTRY_ID = 2
 
 /**
  * Convert an array of certificate tags to a bigint byte flag
@@ -154,4 +167,23 @@ export async function getCertificateLeafHash(
       ...packBeBytesIntoFields(publicKeyBytes, 31).map((hex) => BigInt(hex)),
     ]),
   ).toHex()
+}
+
+/**
+ * Canonically generate merkle tree leaf hashes from certificates
+ */
+export async function getCertificateLeafHashes(certs: PackagedCertificate[]): Promise<bigint[]> {
+  return Promise.all(certs.map(async (cert) => BigInt(await getCertificateLeafHash(cert))))
+}
+
+/**
+ * Canonically build a merkle tree from certificates
+ */
+export async function buildMerkleTreeFromCerts(
+  certs: PackagedCertificate[],
+): Promise<AsyncMerkleTree> {
+  const leaves = await getCertificateLeafHashes(certs)
+  const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
+  await tree.initialize(0n, leaves)
+  return tree
 }
