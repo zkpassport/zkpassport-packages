@@ -1,9 +1,7 @@
-const END_OF_PUBLIC_INPUTS_BYTES =
-  "0000000000000000000000000000000000000000000000042ab5d6d1986846cf"
-
 /**
  * Convert a proof in hex format to an array of fields.
  * @param proof - The proof to convert.
+ * @param startIndex - The start index of the proof (i.e. how many bytes to skip at the start when parsing it)
  * @returns An array of fields.
  */
 export function proofToFields(proof: Buffer, startIndex = 4) {
@@ -19,20 +17,6 @@ export function proofToFields(proof: Buffer, startIndex = 4) {
     fields.push(Buffer.from(fieldBytes))
   }
   return fields.map((field) => field.toString("hex"))
-}
-
-/**
- * Get the number of public inputs from a proof.
- * @param proofAsFields - The proof as an array of fields.
- * @returns The number of public inputs.
- */
-export function getNumberOfPublicInputsFromProof(proofAsFields: string[]) {
-  const endOfPublicInputsBytes = Buffer.from(END_OF_PUBLIC_INPUTS_BYTES, "hex")
-  const endOfPublicInputsBytesHex = endOfPublicInputsBytes.toString("hex")
-  const endOfPublicInputsIndex = proofAsFields.findIndex(
-    (field) => field === endOfPublicInputsBytesHex,
-  )
-  return endOfPublicInputsIndex
 }
 
 /**
