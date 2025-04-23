@@ -14,9 +14,18 @@ import {
   getFullNameRange,
   getDiscloseCircuitInputs,
   calculateAge,
+  getAgeCircuitInputs,
+  getNationalityInclusionCircuitInputs,
+  getNationalityExclusionCircuitInputs,
+  getIssuingCountryInclusionCircuitInputs,
+  getIssuingCountryExclusionCircuitInputs,
+  getBirthdateCircuitInputs,
+  getExpiryDateCircuitInputs,
 } from "../circuit-matcher"
 import cscMasterlist from "./fixtures/csc-masterlist.json"
-import { rightPadArrayWithZeros } from "../utils"
+import { rightPadArrayWithZeros, rightPadCountryCodeArray } from "../utils"
+import { getCountryWeightedSum } from "../circuits/country"
+import { Alpha3Code } from "i18n-iso-countries"
 
 const PASSPORT: PassportViewModel = {
   appVersion: "",
@@ -392,5 +401,128 @@ describe("Circuit Matcher", () => {
   it("should calculate the correct age from passport", () => {
     const result = calculateAge(PASSPORT)
     expect(result).toBe(36)
+  })
+
+  it("should get the correct age circuit inputs", async () => {
+    const query: Query = {
+      age: { gte: 18 },
+    }
+    const result = await getAgeCircuitInputs(PASSPORT, query, 1n, 2n, 3n)
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORT.dataGroups[0].value, 95),
+      current_date: "20250423",
+      comm_in: "0x082e52412cad18cfb4dc88dca582a76c391464ee57aa434268ccc13e9b1939dd",
+      private_nullifier: "0x13df1be6b04c39cd334776ab3b9008f514606c03d4c9aaea6df2485fa1e8555d",
+      service_scope: "0x2",
+      service_subscope: "0x3",
+      salt: "0x1",
+      min_age_required: 18,
+      max_age_required: 0,
+    })
+  })
+
+  it("should get the correct nationality inclusion circuit inputs", async () => {
+    const query: Query = {
+      nationality: { in: ["ZKR", "FRA", "GBR", "USA"] },
+    }
+    const result = await getNationalityInclusionCircuitInputs(PASSPORT, query, 1n, 2n, 3n)
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORT.dataGroups[0].value, 95),
+      country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
+      comm_in: "0x082e52412cad18cfb4dc88dca582a76c391464ee57aa434268ccc13e9b1939dd",
+      private_nullifier: "0x13df1be6b04c39cd334776ab3b9008f514606c03d4c9aaea6df2485fa1e8555d",
+      service_scope: "0x2",
+      service_subscope: "0x3",
+      salt: "0x1",
+    })
+  })
+
+  it("should get the correct nationality exclusion circuit inputs", async () => {
+    const query: Query = {
+      nationality: { out: ["FRA", "USA", "GBR"] },
+    }
+    const result = await getNationalityExclusionCircuitInputs(PASSPORT, query, 1n, 2n, 3n)
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORT.dataGroups[0].value, 95),
+      // Notice how the country code are sorted compared to above
+      country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
+        getCountryWeightedSum(country as Alpha3Code),
+      ),
+      comm_in: "0x082e52412cad18cfb4dc88dca582a76c391464ee57aa434268ccc13e9b1939dd",
+      private_nullifier: "0x13df1be6b04c39cd334776ab3b9008f514606c03d4c9aaea6df2485fa1e8555d",
+      service_scope: "0x2",
+      service_subscope: "0x3",
+      salt: "0x1",
+    })
+  })
+
+  it("should get the correct issuing country inclusion circuit inputs", async () => {
+    const query: Query = {
+      issuing_country: { in: ["ZKR", "FRA", "GBR", "USA"] },
+    }
+    const result = await getIssuingCountryInclusionCircuitInputs(PASSPORT, query, 1n, 2n, 3n)
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORT.dataGroups[0].value, 95),
+      country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
+      comm_in: "0x082e52412cad18cfb4dc88dca582a76c391464ee57aa434268ccc13e9b1939dd",
+      private_nullifier: "0x13df1be6b04c39cd334776ab3b9008f514606c03d4c9aaea6df2485fa1e8555d",
+      service_scope: "0x2",
+      service_subscope: "0x3",
+      salt: "0x1",
+    })
+  })
+
+  it("should get the correct issuing country exclusion circuit inputs", async () => {
+    const query: Query = {
+      issuing_country: { out: ["FRA", "USA", "GBR"] },
+    }
+    const result = await getIssuingCountryExclusionCircuitInputs(PASSPORT, query, 1n, 2n, 3n)
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORT.dataGroups[0].value, 95),
+      country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
+        getCountryWeightedSum(country as Alpha3Code),
+      ),
+      comm_in: "0x082e52412cad18cfb4dc88dca582a76c391464ee57aa434268ccc13e9b1939dd",
+      private_nullifier: "0x13df1be6b04c39cd334776ab3b9008f514606c03d4c9aaea6df2485fa1e8555d",
+      service_scope: "0x2",
+      service_subscope: "0x3",
+      salt: "0x1",
+    })
+  })
+
+  it("should get the correct birthdate circuit inputs", async () => {
+    const query: Query = {
+      birthdate: { gte: new Date("1980-01-01"), lte: new Date("1990-01-01") },
+    }
+    const result = await getBirthdateCircuitInputs(PASSPORT, query, 1n, 2n, 3n)
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORT.dataGroups[0].value, 95),
+      current_date: "20250423",
+      comm_in: "0x082e52412cad18cfb4dc88dca582a76c391464ee57aa434268ccc13e9b1939dd",
+      private_nullifier: "0x13df1be6b04c39cd334776ab3b9008f514606c03d4c9aaea6df2485fa1e8555d",
+      service_scope: "0x2",
+      service_subscope: "0x3",
+      salt: "0x1",
+      min_date: "19800101",
+      max_date: "19900101",
+    })
+  })
+
+  it("should get the correct expiry date circuit inputs", async () => {
+    const query: Query = {
+      expiry_date: { gte: new Date("2025-01-01"), lte: new Date("2035-12-31") },
+    }
+    const result = await getExpiryDateCircuitInputs(PASSPORT, query, 1n, 2n, 3n)
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORT.dataGroups[0].value, 95),
+      current_date: "20250423",
+      comm_in: "0x082e52412cad18cfb4dc88dca582a76c391464ee57aa434268ccc13e9b1939dd",
+      private_nullifier: "0x13df1be6b04c39cd334776ab3b9008f514606c03d4c9aaea6df2485fa1e8555d",
+      service_scope: "0x2",
+      service_subscope: "0x3",
+      salt: "0x1",
+      min_date: "20250101",
+      max_date: "20351231",
+    })
   })
 })
