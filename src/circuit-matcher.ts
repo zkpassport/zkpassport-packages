@@ -435,7 +435,9 @@ export async function getIDDataCircuitInputs(
 
 export function getDSCCountry(passport: PassportViewModel): string {
   const country = passport.sod.certificate.tbs.issuer?.match(/countryName=([A-Z]+)/)?.[1]
-  const formattedCountryCode = country?.length === 2 ? alpha2ToAlpha3(country) : country
+  const convertFromAlpha2ToAlpha3 = (country: string) =>
+    country === "ZK" ? "ZKR" : alpha2ToAlpha3(country)
+  const formattedCountryCode = country?.length === 2 ? convertFromAlpha2ToAlpha3(country) : country
   return formattedCountryCode ?? passport.nationality
 }
 

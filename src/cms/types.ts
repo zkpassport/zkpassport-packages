@@ -18,3 +18,8 @@ export type SignatureAlgorithm =
   | "ecdsa-with-SHA256"
   | "ecdsa-with-SHA384"
   | "ecdsa-with-SHA512"
+
+/**
+ * Certificate public key type
+ */
+export type PublicKeyType = "rsaEncryption" | "ecPublicKey"

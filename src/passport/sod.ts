@@ -3,7 +3,7 @@ import { AsnConvert, AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
 import { Binary } from "../binary"
 import { AttributeSet, LDSSecurityObject, Time } from "../cms/asn"
 import { decodeOID, getHashAlgorithmName, getOIDName } from "../cms/oids"
-import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
+import type { DigestAlgorithm, PublicKeyType, SignatureAlgorithm } from "../cms/types"
 
 export class DataGroupHashValues {
   public values: { [key: number]: Binary }
@@ -134,7 +134,7 @@ export type SODSignedData = {
       subjectPublicKeyInfo: {
         // Type of public key (e.g. rsaEncryption, ecPublicKey)
         signatureAlgorithm: {
-          name: SignatureAlgorithm
+          name: PublicKeyType
           parameters?: Binary
         }
         // The DSC public key
@@ -230,7 +230,7 @@ export class SOD implements SODSignedData {
       subject: string
       subjectPublicKeyInfo: {
         signatureAlgorithm: {
-          name: SignatureAlgorithm
+          name: PublicKeyType
           parameters?: Binary
         }
         subjectPublicKey: Binary
@@ -252,13 +252,10 @@ export class SOD implements SODSignedData {
   constructor(sod: SODSignedData) {
     this.version = sod.version
     this.digestAlgorithms = sod.digestAlgorithms
-    this.encapContentInfo = sod.encapContentInfo
-    this.signerInfo = sod.signerInfo
     this.certificate = sod.certificate
+    this.signerInfo = sod.signerInfo
     this.bytes = sod.bytes
     this.encapContentInfo = sod.encapContentInfo
-    this.signerInfo = sod.signerInfo
-    this.certificate = sod.certificate
   }
 
   static fromDER(der: Binary): SOD {
@@ -365,7 +362,7 @@ export class SOD implements SODSignedData {
           subject: formatDN(tbs.subject),
           subjectPublicKeyInfo: {
             signatureAlgorithm: {
-              name: getOIDName(tbs.subjectPublicKeyInfo.algorithm.algorithm) as SignatureAlgorithm,
+              name: getOIDName(tbs.subjectPublicKeyInfo.algorithm.algorithm) as PublicKeyType,
               parameters: tbs.subjectPublicKeyInfo.algorithm.parameters
                 ? Binary.from(tbs.subjectPublicKeyInfo.algorithm.parameters)
                 : undefined,
