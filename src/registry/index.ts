@@ -187,3 +187,13 @@ export async function buildMerkleTreeFromCerts(
   await tree.initialize(0n, leaves)
   return tree
 }
+
+/**
+ * Calculate the canonical root hash of packaged certificates
+ */
+export async function getRootOfPackagedCertificates(certs: PackagedCertificate[]): Promise<string> {
+  const leaves = await getCertificateLeafHashes(certs)
+  const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
+  await tree.initialize(0n, leaves)
+  return tree.root
+}
