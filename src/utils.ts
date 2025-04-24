@@ -115,6 +115,10 @@ export function rightPadArrayWithZeros(array: number[], length: number): number[
   return array.concat(Array(length - array.length).fill(0))
 }
 
+export function rightPadCountryCodeArray(array: string[], length: number): string[] {
+  return array.concat(Array(length - array.length).fill("\u0000\u0000\u0000"))
+}
+
 export function leftPadArrayWithZeros(array: number[], length: number): number[] {
   return Array(length - array.length)
     .fill(0)
