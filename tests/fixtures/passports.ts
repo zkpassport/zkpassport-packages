@@ -1,5 +1,5 @@
-import { PassportViewModel } from "../../types"
-import { Binary } from "../../binary"
+import { PassportViewModel } from "../../src/types"
+import { Binary } from "../../src/binary"
 
 export const RSA_PASSPORT: PassportViewModel = {
   appVersion: "",

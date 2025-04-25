@@ -1,5 +1,5 @@
-import { Binary } from "../binary"
-import { HashAlgorithm, PackagedCertificate, PassportViewModel, Query } from "../types"
+import { Binary } from "../src/binary"
+import { HashAlgorithm, PackagedCertificate, PassportViewModel, Query } from "../src/types"
 import {
   isIDSupported,
   isCscaSupported,
@@ -21,10 +21,10 @@ import {
   getIssuingCountryExclusionCircuitInputs,
   getBirthdateCircuitInputs,
   getExpiryDateCircuitInputs,
-} from "../circuit-matcher"
+} from "../src/circuit-matcher"
 import cscMasterlist from "./fixtures/csc-masterlist.json"
-import { rightPadArrayWithZeros, rightPadCountryCodeArray } from "../utils"
-import { getCountryWeightedSum } from "../circuits/country"
+import { rightPadArrayWithZeros, rightPadCountryCodeArray } from "../src/utils"
+import { getCountryWeightedSum } from "../src/circuits/country"
 import { Alpha3Code } from "i18n-iso-countries"
 import { ECDSA_PASSPORT, RSA_PASSPORT } from "./fixtures/passports"
 import { formatDate } from "date-fns"

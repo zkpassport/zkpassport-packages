@@ -1,4 +1,4 @@
-import { getProofData } from "../proof-parser"
+import { getProofData } from "../src/proof-parser"
 import proofPublicInputs from "./fixtures/proof_public_inputs.json"
 import proof from "./fixtures/proof.json"
 
