@@ -3,6 +3,7 @@ import { Binary } from "../binary"
 import { ECPublicKey, PackagedCertificate, RSAPublicKey } from "../types"
 import { assert, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
+export { hexToCid, cidToHex } from "./cid"
 
 /**
  * Canonical merkle tree height for the certificate registry
