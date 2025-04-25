@@ -15,10 +15,10 @@ const BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
  */
 export function cidToHex(cid: string): string {
   // Validate CID format (basic check)
-  if (!cid.startsWith("bafkr")) {
-    throw new Error('Invalid CID format: expected a CIDv1 starting with "bafkr"')
+  if (!cid.startsWith("bafyb") && !cid.startsWith("bafkr")) {
+    throw new Error('Invalid CID format: expected a CIDv1 starting with "bafyb" or "bafkr"')
   }
-  // Remove the 'bafkr' prefix for processing
+  // Remove the 'bafyb' or 'bafkr' prefix for processing
   const base32Content = cid.substring(5)
   // Convert from base32 to binary
   let bits = ""
@@ -43,14 +43,14 @@ export function cidToHex(cid: string): string {
 /**
  * Converts a hexadecimal string to an IPFS CIDv1 string
  */
-export function hexToCid(hex: string): string {
+export function hexToCid(hex: string, codec: "raw" | "dag-pb" = "dag-pb"): string {
   // Validate and normalize hex string
   if (!hex.match(/^(0x)?[0-9a-fA-F]+$/)) {
     throw new Error("Invalid hex string format")
   }
   // Remove '0x' prefix if present
   hex = hex.startsWith("0x") ? hex.substring(2) : hex
-  // Add leading 220 to the hex string
+  // Add leading 220 to the hex string (multicodec for dag-pb)
   hex = "220" + hex
   // Convert hex to binary
   let bits = ""
@@ -72,6 +72,6 @@ export function hexToCid(hex: string): string {
       base32 += BASE32_ALPHABET[value]
     }
   }
-  // Add the CIDv1 prefix
-  return "bafkr" + base32
+  // Add the CIDv1 raw or dag-pb prefix
+  return "baf" + (codec === "raw" ? "kr" : "yb") + base32
 }

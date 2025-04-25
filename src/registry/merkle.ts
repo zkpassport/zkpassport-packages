@@ -89,6 +89,8 @@ export class AsyncMerkleTree {
    * Serialize the tree
    */
   public serialize(): string[][] {
-    return this.nodes.map((layer) => layer.map((node) => node.toString(16)))
+    return this.nodes.map((layer) =>
+      layer.map((node) => `0x${node.toString(16).padStart(64, "0")}`),
+    )
   }
 }
