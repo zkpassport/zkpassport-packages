@@ -1,20 +1,20 @@
-import { PackagedCertificate } from "@zkpassport/utils"
 import path from "path"
 import { RegistryClient } from "../src/client"
+import { PackagedCertificatesFile } from "../src/types"
 import { CERTIFICATE_FIXTURES_ROOT, INVALID_ROOT_HASH } from "./utils/constants"
 import {
   AnvilInstance,
   CHAIN_ID,
   RPC_URL,
   isAnvilRunning,
-  loadPackagedCertificates,
+  loadPackagedCertificatesFile,
   startAnvil,
   stopAnvil,
 } from "./utils/helpers"
 
 let anvil: AnvilInstance
 let registry: RegistryClient
-let fixtureCerts: PackagedCertificate[]
+let fixturePackagedCerts: PackagedCertificatesFile
 
 describe("Registry", () => {
   beforeAll(async () => {
@@ -28,7 +28,7 @@ describe("Registry", () => {
       registryHelper: anvil.registryHelper,
     })
     // Load packaged certificates fixture
-    fixtureCerts = loadPackagedCertificates(
+    fixturePackagedCerts = loadPackagedCertificatesFile(
       path.resolve(__dirname, "fixtures", "certificates.json"),
     )
   })
@@ -53,11 +53,21 @@ describe("Registry", () => {
         const url: string = typeof input === "string" ? input : input.toString()
         // Return the certificates fixture for the valid root hash
         if (url.endsWith(CERTIFICATE_FIXTURES_ROOT)) {
-          return new Response(JSON.stringify({ certificates: fixtureCerts }), { status: 200 })
+          return new Response(JSON.stringify(fixturePackagedCerts), {
+            status: 200,
+          })
         }
         // Only return the first certificate for the invalid root hash
         else if (url.endsWith(INVALID_ROOT_HASH)) {
-          return new Response(JSON.stringify({ certificates: [fixtureCerts[0]] }), { status: 200 })
+          return new Response(
+            JSON.stringify({
+              certificates: fixturePackagedCerts.certificates.slice(1),
+              serialised: fixturePackagedCerts.serialised,
+            }),
+            {
+              status: 200,
+            },
+          )
         }
         // Pass through to the original fetch
         else {
@@ -74,39 +84,42 @@ describe("Registry", () => {
     })
 
     it("should get latest root", async () => {
-      const latestRoot = await registry.getLatestCertificatesRoot()
+      const latestRoot = await registry.getCertificatesRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
     })
 
     it("should get latest certificates", async () => {
-      const certificates = await registry.getLatestCertificates()
-      expect(certificates).toEqual(fixtureCerts)
+      const certificates = await registry.getPackagedCertificates()
+      expect(certificates).toEqual(fixturePackagedCerts)
     })
 
     it("should fail to get certificates on invalid root hash", async () => {
-      await expect(registry.getCertificatesForRoot(INVALID_ROOT_HASH)).rejects.toThrow(
+      await expect(registry.getPackagedCertificates(INVALID_ROOT_HASH)).rejects.toThrow(
         /validation failed/i,
       )
     })
 
     it("should fetch certificates for a specific root", async () => {
-      const certificates = await registry.getCertificatesForRoot(CERTIFICATE_FIXTURES_ROOT)
-      expect(certificates).toEqual(fixtureCerts)
+      const packagedCerts = await registry.getPackagedCertificates(CERTIFICATE_FIXTURES_ROOT)
+      expect(packagedCerts).toEqual(fixturePackagedCerts)
     })
 
     it("should validate certificates against a root hash", async () => {
-      const latestRoot = await registry.getLatestCertificatesRoot()
+      const latestRoot = await registry.getCertificatesRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
-      const certificates = await registry.getCertificatesForRoot(latestRoot)
-      const valid = await registry.validateCertificates(certificates, latestRoot)
+      const packagedCerts = await registry.getPackagedCertificates(latestRoot)
+      const valid = await registry.validateCertificates(packagedCerts.certificates, latestRoot)
       expect(valid).toBe(true)
     })
 
     it("should not validate certificates against an invalid root hash", async () => {
-      const latestRoot = await registry.getLatestCertificatesRoot()
+      const latestRoot = await registry.getCertificatesRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
-      const certificates = await registry.getCertificatesForRoot(latestRoot)
-      const valid = await registry.validateCertificates(certificates, INVALID_ROOT_HASH)
+      const packagedCerts = await registry.getPackagedCertificates(latestRoot)
+      const valid = await registry.validateCertificates(
+        packagedCerts.certificates,
+        INVALID_ROOT_HASH,
+      )
       expect(valid).toBe(false)
     })
 

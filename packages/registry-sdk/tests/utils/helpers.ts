@@ -1,4 +1,4 @@
-import { PackagedCertificate } from "@zkpassport/utils"
+import { PackagedCertificatesFile } from "../../src/types"
 import { ChildProcess, execSync, spawn } from "child_process"
 import fs from "fs"
 import keccak256 from "keccak256"
@@ -273,12 +273,12 @@ export function getEthereumFunctionSelector(functionSignature: string): string {
   return "0x" + Buffer.from(hash.slice(0, 4)).toString("hex")
 }
 
-export function loadPackagedCertificates(filePath: string): PackagedCertificate[] {
+export function loadPackagedCertificatesFile(filePath: string): PackagedCertificatesFile {
   try {
     // Read and parse file
     const fileData = fs.readFileSync(filePath, "utf8")
     const fileJson = JSON.parse(fileData)
-    return fileJson.certificates
+    return fileJson
   } catch (_) {
     throw new Error(`Error loading packaged certificates: ${filePath}`)
   }

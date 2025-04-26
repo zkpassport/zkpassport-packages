@@ -7,7 +7,7 @@ import {
   PACKAGED_CERTIFICATES_URL_MAINNET,
   PACKAGED_CERTIFICATES_URL_SEPOLIA,
 } from "@/constants"
-import { RegistryClientOptions, RootDetails } from "@/types"
+import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "@/types"
 import { CERTIFICATE_REGISTRY_ID, PackagedCertificate } from "@zkpassport/utils"
 import { buildMerkleTreeFromCerts, hexToCid } from "@zkpassport/utils/registry"
 import debug from "debug"
@@ -76,7 +76,7 @@ export class RegistryClient {
   /**
    * Get latest root of the Certificate Registry
    */
-  async getLatestCertificatesRoot(): Promise<string> {
+  async getCertificatesRoot(): Promise<string> {
     log(`Fetching latest certificates root from root registry ${this.rootRegistry}`)
     const rpcRequest = {
       jsonrpc: "2.0",
@@ -107,20 +107,17 @@ export class RegistryClient {
   }
 
   /**
-   * Get certificates for the latest root
+   * Get packaged certificates
+   *
+   * @param root The root hash to get certificates for (defaults to latest root)
+   * @param validate Whether to validate the certificates against the root hash (defaults to true)
    */
-  async getLatestCertificates(validate: boolean = true): Promise<PackagedCertificate[]> {
-    const root = await this.getLatestCertificatesRoot()
-    return this.getCertificatesForRoot(root, validate)
-  }
+  async getPackagedCertificates(
+    root?: string,
+    { validate = true }: { validate?: boolean } = {},
+  ): Promise<PackagedCertificatesFile> {
+    if (!root) root = await this.getCertificatesRoot()
 
-  /**
-   * Get certificates for a specific root
-   */
-  async getCertificatesForRoot(
-    root: string,
-    validate: boolean = true,
-  ): Promise<PackagedCertificate[]> {
     const url = `${this.packagedCertificatesUrl}/${root}`
     log("Fetching certificates from:", url)
 
@@ -129,21 +126,20 @@ export class RegistryClient {
       throw new Error(
         `Failed to fetch certificates for root ${root}: ${response.status} ${response.statusText}`,
       )
-    const data = (await response.json()) as {
-      certificates: PackagedCertificate[]
-    }
+    const data = (await response.json()) as PackagedCertificatesFile
     log(`Got ${data.certificates?.length || 0} packaged certificates`)
 
-    // Handle invalid response
-    if (!data.certificates || !Array.isArray(data.certificates)) {
+    // Handle invalid responses
+    if (!data.certificates || !Array.isArray(data.certificates))
       throw new Error("Invalid certificates returned")
-    }
+    if (!data.serialised || !Array.isArray(data.serialised))
+      throw new Error("Invalid serialised certificates tree returned")
 
     if (validate) {
       const valid = await this.validateCertificates(data.certificates, root)
       if (!valid) throw new Error("Root hash validation failed for packaged certificates")
     }
-    return data.certificates
+    return data
   }
 
   /**
