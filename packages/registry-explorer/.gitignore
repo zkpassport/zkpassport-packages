@@ -1,0 +1,37 @@
+# Ignored folders
+.build/
+.cache/
+target/
+__pycache__/
+node_modules/
+build/
+dist/
+out/
+res/
+.next/
+.vercel
+
+# Ignored files
+*.DS_Store
+*.env
+*.run
+*.a
+*.so
+*.zip
+*.bak
+*.eslintcache
+*.tsbuildinfo
+
+# Logs
+logs
+_.log
+npm-debug.log_
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# local env files
+.env
+.env*.local
+!.env.example

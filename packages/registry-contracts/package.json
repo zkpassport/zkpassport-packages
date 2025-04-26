@@ -1,0 +1,10 @@
+{
+    "name": "registry-contracts",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+      "dev": "script/bash/run-and-deploy.sh",
+      "build": "forge build",
+      "test": "forge test"
+    }
+  }

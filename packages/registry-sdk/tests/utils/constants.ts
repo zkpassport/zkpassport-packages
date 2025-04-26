@@ -1,0 +1,11 @@
+// The root hash of the packaged certificates fixture: tests/fixtures/certificates.json
+export const CERTIFICATE_FIXTURES_ROOT =
+  "0x15db8c75a3eb23f2d87ad299a8a4263cdb630e59be154b8db9864911db507681"
+
+// The CID of the packaged certificates fixture: tests/fixtures/certificates.json
+export const CERTIFICATE_FIXTURES_CID =
+  "0xfa6c339b71fb02830ea53b4406e1f9911cf0952dee71a9b131c7d04f1948c52a"
+
+// An invalid root hash
+export const INVALID_ROOT_HASH =
+  "0x1111111111111111111111111111111111111111111111111111111111111111"

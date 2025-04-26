@@ -1,0 +1,112 @@
+{
+  "certificates": [
+    {
+      "country": "AUS",
+      "signature_algorithm": "RSA",
+      "hash_algorithm": "SHA-256",
+      "public_key": {
+        "type": "RSA",
+        "modulus": "0x9fc356d37179e527f8b6f40c93628df420ec32d781ade2611e67e3e501f84635860f0c7e5e2b069990ccc6e92509f0950a06ca955f69625ac7da788003d29d726ff9f00a97ffd562d24b3c9c491463583e09bde83f4959651d10295ad2c83ec2d7dd5df7f7800235eb62095950af9cab67f5cd7a8a70f72536190ea686fd7b6f5094b3cee4d9667e4e9924a554839f9ec50bd2188de40c84ba89ee1c3b5f1c2cbd2b55d1bc279d1642e1caf39762fcffd4bd68d73197ce10f4548afee8c0a6794b3f6764263cc879457020da8f0674d0bd8e79731b8c37defd62d2b318cf44b72f0ca3540fb09ee412738fe120337cf604c20236121fb22e91e5e9b1bb73d682e257adf9fa615b26a24b10d7178a7651aef9ec448b9f07beac7c58916cc92064cf4b3feddd6b7fc151aa1975deabf81b6bf439f0b52ed1bd2f7b8e151d19c235a068b34cabadfdd10decd22e178b3cac93c68e376523b6ba99792a29240a2cf44e3e4c6b3e4a9db53ea89e11e62d103b933771723bc87a8e58ecc8439d4dc99b014206a452b2d64ee8afc284799912bb6a8e0f9cc936628c7af7b2b4f9809c20b8c1101461408b6eac5e0519d6c6bd5bed931761e34c0da2b909e87d3034c1ea40a95026fddc7ddcb155f586ec514e04a5413f7d52fc08f4063bd69cc673ad5d3ef5ad4750a7542ae31b576baebd27c43453daf7895312bb95dfc3ded41d06b5",
+        "exponent": 65537,
+        "key_size": 4096
+      },
+      "validity": {
+        "not_before": 1298848960,
+        "not_after": 1772234090
+      },
+      "authority_key_identifier": "0x2b0f99a34be9d5ae00933a7868cbcd21a6cf47e5",
+      "subject_key_identifier": "0x2b0f99a34be9d5ae00933a7868cbcd21a6cf47e5",
+      "private_key_usage_period": {
+        "not_before": 1298848488,
+        "not_after": 1393542888
+      },
+      "tags": ["ICAO", "DE", "NL", "ES"]
+    },
+    {
+      "country": "PRT",
+      "signature_algorithm": "RSA",
+      "hash_algorithm": "SHA-512",
+      "public_key": {
+        "type": "RSA",
+        "modulus": "0xa3632f7ee02b38b51677d3120de9ea21408d4208ce61c8731ef17e4ca40651be96ef9dd48203adcc0613262549e79675084597670f56eb869553a4144038fbe1f51588cd84563860dad70c0cce40cf73cc744d5948898058f3933c14812dcc0a0ee64b8d33c03c5487c17e62d4c8dee68e21854e6c0aa4193413ff9e9ed4778d1df4eb8c5afc7103a678439b45672ef7071f16567a4789e59c84719364acc790c840898f21d7356564597962981a9cd9448986e87a79704c8d602fcbd54dacdb12771e72e8f2d6427fda4a95b4af3aad7d5a46b798251bccaee7c3a56da6bd69b723697301d179c050818c65d9d7c1eb0daff57c7613d151cd22006c328d72e0fcca820e665f08bba199690027373e606303bd771e60c36435c3163f65c3051b6d3f012719bdad6ca45f85f6c18acd6e266b2c32877c9c409bd9545977e9f2e6e8c39b42be616b849a17344f274a59dab4e91b59b2d3d1cd6f4c06563af443bbf93dd5febc6c98a99c2315339ffdf0e635344aa06cd9a88a317070e19c6d4f962409880ffeae46009c2daff2d4201cfd91829056c61916e49ee263acfd212c3a6b67a6b651858d4093fa533c1c1c9e37804f5a78f21fa2299fee45663fc856044d2d7477558d70b2147aed12260707befa471d92e97e851ebf8eb1e33d76b53c0f181aafada975972ed60a5c32e620904f06e98957762b3d9b1463fb4581e23f",
+        "exponent": 65537,
+        "key_size": 4096
+      },
+      "validity": {
+        "not_before": 1654273831,
+        "not_after": 1914337830
+      },
+      "authority_key_identifier": "0xab9902010e20d7a5d255aa50a7152b4ce77b785b",
+      "subject_key_identifier": "0xab9902010e20d7a5d255aa50a7152b4ce77b785b",
+      "private_key_usage_period": {
+        "not_before": 1654273831,
+        "not_after": 1748881831
+      },
+      "tags": ["DE", "NL"]
+    },
+    {
+      "country": "GBR",
+      "signature_algorithm": "ECDSA",
+      "hash_algorithm": "SHA-384",
+      "public_key": {
+        "type": "EC",
+        "curve": "P-384",
+        "key_size": 384,
+        "public_key_x": "0x60a2ff75eaad3c327bb559ae164c018c58b14f1328c4c908239e4a9172245294776b7efdd9a703e03bc857d1ff18de14",
+        "public_key_y": "0x11a35b502d90728fd46d1a56db769458131a52f52564f602cec8ee5f51bc6cb05f309203e4d73d421f0ff09fbc2e2c21"
+      },
+      "validity": {
+        "not_before": 1473416791,
+        "not_after": 1988880991
+      },
+      "authority_key_identifier": "0xdb1d1657c76023089b0139e2613c082134b57ca1",
+      "subject_key_identifier": "0xdb1d1657c76023089b0139e2613c082134b57ca1",
+      "private_key_usage_period": {
+        "not_before": 1473416791,
+        "not_after": 1633211935
+      },
+      "tags": ["ICAO", "DE", "NL", "IT", "ES"]
+    },
+    {
+      "country": "ITA",
+      "signature_algorithm": "RSA",
+      "hash_algorithm": "SHA-1",
+      "public_key": {
+        "type": "RSA",
+        "modulus": "0xd18b58ce2db34b3437a5a90501f7317019d499dd83e261538fd1fadfa8859a9e98eb9d5c1732ab0e900a59b98ab31e4c483aabc5b6d4dfef676dc7d7bdfd5649e92b55ee45126315c9a4620119f1a0f55a4460b870e830db4bda2905d6a73540054684179d0c98f3f7962c0048c6161321dfcbe486a36a1d308e9986e32ef77a4ac54100e9142ef9ba6f6ad19feb8689d5c88726ca0a0386942055d0a436289494559e23865d108e272e3a5c5909add04f9145bcc1e68de761b2ddad869165c5a578cd222b17daf612f026d6988e918a9a0d03dbd74193eddcef0ed80dd3fdc6a768ad856ff16949dbd5efddcd2bc3e8465e9991f2cd411b7457d6de41b433cef425e249a966bda423fcb3b46cc45cb71370caf31f45728217c2fbb81a1e10a7f60d43a0ac18d99131ddd25b166d799e8d366b2a08339b021104d832075d52b75a8e790b2b1140777401b514a3cdca2856a3295e1b73ccefaa0c415953fc4a78b227b961403fc3e65d55e0421dd3e8054202d5dcbd4a4b927362a732ac77abb3f1da3318fa90042e108b57ba08d62f1468d2b2c9ccc1dbc701e6a3dc925907e7638c25fa6b172840254b7afced72ce5c37b867d1d0284c187aad4e361935968d6bcb03d66848e16d0943e6781da82693067aa74524e6814c163270bc5675a9b30e11e61e696bbef4bb428b503754e7b35a89249a33afd8f928bfa4294aa3d365",
+        "exponent": 65537,
+        "key_size": 4096
+      },
+      "validity": {
+        "not_before": 1320921950,
+        "not_after": 1801737950
+      },
+      "authority_key_identifier": "0x48cf841228e6ce66fadab3ed96fe4ebf37d7124f",
+      "subject_key_identifier": "0x48cf841228e6ce66fadab3ed96fe4ebf37d7124f",
+      "tags": ["ES"]
+    },
+    {
+      "country": "THA",
+      "signature_algorithm": "ECDSA",
+      "hash_algorithm": "SHA-384",
+      "public_key": {
+        "type": "EC",
+        "curve": "brainpoolP384r1",
+        "key_size": 384,
+        "public_key_x": "0x73b16117ca5003a71ac6bd9dded5a5b61fe88e5fc5d08cad064a7e3864571c9ea1ca0726c9fb92c0a13d7d7b4e28f529",
+        "public_key_y": "0x832035d1e5e51ba3b4245816bae195ad2c73e42c9b034fe79ada231744e2bcbb0629b2ab7cc55176056bb40f60d2b234"
+      },
+      "validity": {
+        "not_before": 1722572791,
+        "not_after": 2195871991
+      },
+      "authority_key_identifier": "0x0951bd7741da230614be2d2702746527f672441d",
+      "subject_key_identifier": "0x0951bd7741da230614be2d2702746527f672441d",
+      "private_key_usage_period": {
+        "not_before": 1722572791,
+        "not_after": 1862022391
+      },
+      "tags": ["ICAO", "IT"]
+    }
+  ]
+}

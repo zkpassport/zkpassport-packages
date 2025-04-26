@@ -14,6 +14,12 @@ res
 .next
 .env
 .yarn
+.turbo
+
+# Foundry specific
+cache/
+artifacts/
+broadcast/
 
 # Ignored files
 *.DS_Store
@@ -25,3 +31,4 @@ res
 *.bak
 *.eslintcache
 *.tsbuildinfo
+next-env.d.ts

@@ -1,0 +1,63 @@
+{
+  "name": "@zkpassport/registry",
+  "version": "0.1.0",
+  "description": "Registry SDK for interacting with the ZKPassport Registry",
+  "author": "ZKPassport",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "zkpassport",
+    "zkpassport registry",
+    "certificate registry",
+    "circuit registry"
+  ],
+  "scripts": {
+    "test": "bun test tests/*.test.ts",
+    "coverage": "bun test tests/*.test.ts --coverage",
+    "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
+    "format": "prettier -c -w src tests",
+    "build": "rimraf ./dist && bun run build:bundle && bun run build:types",
+    "build:bundle": "node scripts/esbuild.mjs",
+    "build:types": "node scripts/gen-types.mjs",
+    "build:watch": "rimraf ./dist && concurrently \"node scripts/esbuild.mjs --watch\" \"node scripts/gen-types.mjs --watch\"",
+    "publish": "bun publish --access public",
+    "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "default": "./dist/esm/index.js"
+    }
+  },
+  "dependencies": {
+    "@zkpassport/poseidon2": "^0.6.1",
+    "@zkpassport/utils": "^0.7.0",
+    "date-fns": "^2.30.0",
+    "debug": "^4.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@types/bun": "^1.2.10",
+    "@types/debug": "^4.1.12",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^18.15.11",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.25.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "keccak256": "^1.0.6",
+    "prettier": "^3.4.2",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.1",
+    "tsx": "^4.19.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
