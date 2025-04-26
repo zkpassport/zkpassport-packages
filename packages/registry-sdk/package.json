@@ -41,7 +41,6 @@
     "debug": "^4.4.0"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
     "@types/bun": "^1.2.10",
     "@types/debug": "^4.1.12",
     "@types/jest": "^29.5.14",
