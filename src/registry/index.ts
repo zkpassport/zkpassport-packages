@@ -134,16 +134,16 @@ export async function getCertificateLeafHash(
   // Convert tags to byte flags
   const tags = options?.tags
     ? tagsArrayToByteFlag(options.tags)
-    : cert.tags
+    : cert?.tags
       ? tagsArrayToByteFlag(cert.tags)
       : 0n
   // Certificate type
   const type = options?.type ?? CERT_TYPE_CSCA
   assert(type >= 0 && type <= 255, `Certificate type must fit in a single byte: ${type}`)
   // Ensure country code is 3 characters
-  assert(cert.country.length === 3, `Country code must be 3 characters: ${cert.country}`)
+  assert(cert?.country?.length === 3, `Country code must be 3 characters: ${cert?.country}`)
   // Hash algorithm identifier
-  const hashAlgId = options?.hashAlgId ?? getHashAlgorithmIdentifier(cert.hash_algorithm)
+  const hashAlgId = options?.hashAlgId ?? getHashAlgorithmIdentifier(cert?.hash_algorithm)
   assert(
     hashAlgId >= 0 && hashAlgId <= 255,
     `Hash algorithm identifier must fit in a single byte: ${hashAlgId}`,
