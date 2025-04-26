@@ -46,7 +46,7 @@ export class PassportReader {
           groupNumber: Number(key),
           name: "DG" + key,
           hash: value.toNumberArray(),
-          value: key === "1" ? this.dg1?.toNumberArray() ?? [] : [],
+          value: key === "1" ? (this.dg1?.toNumberArray() ?? []) : [],
         }),
       ),
       dataGroupsHashAlgorithm: this.sod.encapContentInfo.eContent.hashAlgorithm,

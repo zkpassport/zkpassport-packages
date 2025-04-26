@@ -1,9 +1,9 @@
 // Type declaration for the crypto module
 declare let crypto:
   | {
-      generateKeyPairSync: typeof import("crypto")["generateKeyPairSync"]
-      createSign: typeof import("crypto")["createSign"]
-      createVerify: typeof import("crypto")["createVerify"]
+      generateKeyPairSync: (typeof import("crypto"))["generateKeyPairSync"]
+      createSign: (typeof import("crypto"))["createSign"]
+      createVerify: (typeof import("crypto"))["createVerify"]
     }
   | undefined
 

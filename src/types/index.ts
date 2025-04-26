@@ -166,14 +166,14 @@ export type IDCredential = NumericalIDCredential | DisclosableIDCredential
 export type IDCredentialValue<T extends IDCredential> = T extends "nationality" | "issuing_country"
   ? CountryName | Alpha3Code
   : T extends "gender"
-  ? "male" | "female"
-  : T extends "document_type"
-  ? "passport" | "id_card" | "residence_permit" | "other"
-  : T extends "age"
-  ? number
-  : T extends "birthdate" | "expiry_date"
-  ? Date
-  : string
+    ? "male" | "female"
+    : T extends "document_type"
+      ? "passport" | "id_card" | "residence_permit" | "other"
+      : T extends "age"
+        ? number
+        : T extends "birthdate" | "expiry_date"
+          ? Date
+          : string
 
 export type IDCredentialConfig = {
   eq?: any

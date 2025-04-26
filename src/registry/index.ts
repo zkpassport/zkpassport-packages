@@ -135,8 +135,8 @@ export async function getCertificateLeafHash(
   const tags = options?.tags
     ? tagsArrayToByteFlag(options.tags)
     : cert.tags
-    ? tagsArrayToByteFlag(cert.tags)
-    : 0n
+      ? tagsArrayToByteFlag(cert.tags)
+      : 0n
   // Certificate type
   const type = options?.type ?? CERT_TYPE_CSCA
   assert(type >= 0 && type <= 255, `Certificate type must fit in a single byte: ${type}`)
