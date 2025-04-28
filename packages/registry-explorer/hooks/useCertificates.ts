@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { CertificateFilterState } from "@/lib/types"
-import { getCountryName, isECDSA, isRSA, isRSAPSS, isRSAPKCS } from "@/lib/certificate-utils"
+import { isECDSA, isRSA, isRSAPSS, isRSAPKCS } from "@/lib/certificate-utils"
+import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import type { ECPublicKey, PackagedCertificate } from "@zkpassport/utils"
 import debug from "debug"
@@ -97,20 +98,20 @@ export const useCertificates = () => {
         // Extract unique countries
         const countryList = [
           ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.country)),
-        ]
+        ] as string[]
 
         // Sort by country name rather than code
         countryList.sort((a, b) => {
-          const nameA = getCountryName(a)
-          const nameB = getCountryName(b)
+          const nameA = countryCodeAlpha3ToName(a)
+          const nameB = countryCodeAlpha3ToName(b)
           return nameA.localeCompare(nameB)
-        })
+        }) as string[]
 
         // TODO: Consider implementing a more efficient way to do this
         // Extract unique hash algorithms
         const uniqueHashAlgorithms = [
           ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.hash_algorithm)),
-        ]
+        ] as string[]
 
         // TODO: Consider implementing a more efficient way to do this
         // Extract unique ECDSA curves
@@ -120,7 +121,7 @@ export const useCertificates = () => {
               .filter((cert: PackagedCertificate) => isECDSA(cert))
               .map((cert: PackagedCertificate) => (cert.public_key as ECPublicKey).curve),
           ),
-        ]
+        ] as string[]
 
         setUniqueCountries(countryList)
         setUniqueHashAlgorithms(uniqueHashAlgorithms.sort())
@@ -164,7 +165,9 @@ export const useCertificates = () => {
         filterState.searchTerm === "" ||
         cert.subject_key_identifier?.toLowerCase().includes(filterState.searchTerm.toLowerCase()) ||
         cert.signature_algorithm.toLowerCase().includes(filterState.searchTerm.toLowerCase()) ||
-        getCountryName(cert.country).toLowerCase().includes(filterState.searchTerm.toLowerCase())
+        countryCodeAlpha3ToName(cert.country)
+          .toLowerCase()
+          .includes(filterState.searchTerm.toLowerCase())
 
       // Filter by country
       const countryMatch =

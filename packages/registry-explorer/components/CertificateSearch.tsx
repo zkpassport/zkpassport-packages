@@ -1,8 +1,6 @@
 "use client"
 
 import { useEffect } from "react"
-import { registerLocale } from "i18n-iso-countries"
-import i18en from "i18n-iso-countries/langs/en.json"
 import { useCertificates } from "@/hooks/useCertificates"
 import { CertificateFilters } from "./certificate/CertificateFilters"
 import { CertificateList } from "./certificate/CertificateList"
@@ -15,9 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-// Register locale for country name lookup
-registerLocale(i18en)
 
 export default function CertificateSearch() {
   const router = useRouter()

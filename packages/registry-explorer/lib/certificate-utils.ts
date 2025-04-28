@@ -1,16 +1,6 @@
 import type { ECPublicKey, PackagedCertificate, RSAPublicKey } from "@zkpassport/utils"
-import { format } from "date-fns"
-import * as countries from "i18n-iso-countries"
 export { getCurveName } from "@zkpassport/utils/cms"
-
-// Get country name from country code
-export const getCountryName = (countryCode: string): string => {
-  try {
-    return countries.getName(countryCode, "en") || countryCode
-  } catch {
-    return countryCode
-  }
-}
+import { format } from "date-fns"
 
 // Determine if a certificate uses RSA (either RSA-PKCS or RSA-PSS)
 export const isRSA = (

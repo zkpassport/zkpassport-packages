@@ -1,5 +1,6 @@
 import type { PackagedCertificate } from "@zkpassport/utils"
-import { getCountryName, formatTimestamp, truncate, isRSA, isECDSA } from "@/lib/certificate-utils"
+import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
+import { formatTimestamp, truncate, isRSA, isECDSA } from "@/lib/certificate-utils"
 import { Button } from "@/components/ui/button"
 
 interface CertificateListProps {
@@ -77,7 +78,7 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {getCountryName(cert.country)}
+                  {countryCodeAlpha3ToName(cert.country)}
                   <span className="ml-2 text-sm font-medium text-gray-500 dark:text-gray-400">
                     ({cert.country})
                   </span>

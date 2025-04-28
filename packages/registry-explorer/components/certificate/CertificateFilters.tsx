@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { CertificateFilterState } from "@/lib/types"
-import { getCountryName } from "@/lib/certificate-utils"
+import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
 
 interface CertificateFiltersProps {
   filterState: CertificateFilterState
@@ -76,7 +76,7 @@ export function CertificateFilters({
                 </SelectItem>
                 {uniqueCountries.map((country) => (
                   <SelectItem key={country} value={country} className="cursor-pointer">
-                    {getCountryName(country)}
+                    {countryCodeAlpha3ToName(country)}
                   </SelectItem>
                 ))}
               </div>
