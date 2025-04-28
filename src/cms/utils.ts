@@ -33,7 +33,7 @@ import {
   SignatureAlgorithmType,
   ECPublicKey,
   HashAlgorithm,
-} from "@/types"
+} from "../types"
 import { countryCodeAlpha2ToAlpha3 } from "../country/country"
 
 export function getAbbreviatedCurveName(ecParams: ECParameters): string {
