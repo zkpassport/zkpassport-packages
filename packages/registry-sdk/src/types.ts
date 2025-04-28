@@ -25,9 +25,9 @@ export interface RegistryClientOptions {
   registryHelper?: string
 
   /**
-   * Base URL for packaged certificate files
+   * Packaged certificates file URL generator
    */
-  packagedCertificatesUrl?: string
+  packagedCertsUrlGenerator?: (chainId: number, root: string, cid?: string) => string
 }
 
 /**

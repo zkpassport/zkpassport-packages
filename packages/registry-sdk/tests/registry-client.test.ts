@@ -52,13 +52,13 @@ describe("Registry", () => {
       const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url: string = typeof input === "string" ? input : input.toString()
         // Return the certificates fixture for the valid root hash
-        if (url.endsWith(CERTIFICATE_FIXTURES_ROOT)) {
+        if (url.endsWith(`/${CERTIFICATE_FIXTURES_ROOT}.json`)) {
           return new Response(JSON.stringify(fixturePackagedCerts), {
             status: 200,
           })
         }
         // Only return the first certificate for the invalid root hash
-        else if (url.endsWith(INVALID_ROOT_HASH)) {
+        else if (url.endsWith(`/${INVALID_ROOT_HASH}.json`)) {
           return new Response(
             JSON.stringify({
               certificates: fixturePackagedCerts.certificates.slice(1),

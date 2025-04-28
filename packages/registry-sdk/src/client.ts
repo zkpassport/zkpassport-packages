@@ -3,9 +3,7 @@ import {
   GET_HISTORICAL_ROOTS_SIGNATURE,
   GET_LATEST_ROOT_DETAILS_SIGNATURE,
   LATEST_ROOT_WITH_PARAM_SIGNATURE,
-  PACKAGED_CERTIFICATES_URL_DEV,
-  PACKAGED_CERTIFICATES_URL_MAINNET,
-  PACKAGED_CERTIFICATES_URL_SEPOLIA,
+  PACKAGED_CERTIFICATES_URL_TEMPLATE,
 } from "@/constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "@/types"
 import { CERTIFICATE_REGISTRY_ID, PackagedCertificate } from "@zkpassport/utils"
@@ -18,7 +16,7 @@ interface ChainConfig {
   rpcUrl: string
   rootRegistry: string
   registryHelper: string
-  packagedCertificatesUrl: string
+  packagedCertsUrlGenerator: (chainId: number, root: string, cid?: string) => string
 }
 
 const CHAIN_CONFIG: Record<number, ChainConfig> = {
@@ -27,21 +25,21 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     rootRegistry: "0x0000000000000000000000000000000000000000",
     registryHelper: "0x0000000000000000000000000000000000000000",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
+    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
   },
   // Sepolia Testnet
   11155111: {
     rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     rootRegistry: "0x9d60e8c4796199535b860fcf814ca90eda93cac1",
     registryHelper: "0xc46b1336b8f3cfd46a3ad3e735fef6eb4252f229",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_SEPOLIA,
+    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
   },
   // Local Development (Anvil)
   31337: {
     rpcUrl: "http://localhost:8545",
     rootRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     registryHelper: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_DEV,
+    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
   },
 }
 
@@ -53,14 +51,18 @@ export class RegistryClient {
   private readonly rpcUrl: string
   private readonly rootRegistry: string
   private readonly registryHelper: string
-  private readonly packagedCertificatesUrl: string
+  private readonly packagedCertsUrlGenerator: (
+    chainId: number,
+    root: string,
+    cid?: string,
+  ) => string
 
   constructor({
     rpcUrl,
     rootRegistry,
     chainId,
     registryHelper,
-    packagedCertificatesUrl,
+    packagedCertsUrlGenerator,
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
     this.chainId = chainId
@@ -70,7 +72,8 @@ export class RegistryClient {
     this.rpcUrl = rpcUrl || chainConfig?.rpcUrl
     this.rootRegistry = rootRegistry || chainConfig?.rootRegistry
     this.registryHelper = registryHelper || chainConfig?.registryHelper
-    this.packagedCertificatesUrl = packagedCertificatesUrl || chainConfig?.packagedCertificatesUrl
+    this.packagedCertsUrlGenerator =
+      packagedCertsUrlGenerator || chainConfig?.packagedCertsUrlGenerator
   }
 
   /**
@@ -114,11 +117,14 @@ export class RegistryClient {
    */
   async getCertificates(
     root?: string,
-    { validate = true }: { validate?: boolean } = {},
+    { validate = true, ipfs = false }: { validate?: boolean; ipfs?: boolean } = {},
   ): Promise<PackagedCertificatesFile> {
     if (!root) root = await this.getCertificatesRoot()
 
-    const url = `${this.packagedCertificatesUrl}/${root}`
+    // TODO: Add support for IPFS flag by looking up the CID for this root
+    if (ipfs) throw new Error("IPFS flag not implemented")
+
+    const url = this.packagedCertsUrlGenerator(this.chainId, root)
     log("Fetching certificates from:", url)
 
     const response = await fetch(url)
