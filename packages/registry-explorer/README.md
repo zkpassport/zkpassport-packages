@@ -1,11 +1,26 @@
-# ZKpassport Web Verifier
+# ZKPassport Registry Explorer
 
-## Getting Started
+## Developing
 
-First, run the development server:
+Build the `@zkpassport/registry` package:
 
 ```bash
-bun dev
+cd packages/registry-sdk
+bun run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the web verifier.
+Start anvil, deploy contracts and update roots (in a new window):
+
+```bash
+cd packages/registry-contracts
+script/bash/run-and-deploy.sh
+```
+
+Start the development server for the Registry Explorer:
+
+```bash
+cd packages/registry-explorer
+bun run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the Registry Explorer.
