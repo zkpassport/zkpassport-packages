@@ -23,7 +23,6 @@
     "build:bundle": "node scripts/esbuild.mjs",
     "build:types": "node scripts/gen-types.mjs",
     "build:watch": "rimraf ./dist && concurrently \"node scripts/esbuild.mjs --watch\" \"node scripts/gen-types.mjs --watch\"",
-    "publish": "bun publish --access public",
     "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
   },
   "exports": {
