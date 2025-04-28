@@ -319,6 +319,7 @@ export class RegistryClient {
   /**
    * Get latest certificates root details
    */
+  // TODO: Change this to getCertificatesRootDetails(root?: string)
   async getLatestCertificatesRootDetails(): Promise<RootDetails> {
     log(
       `Fetching latest certificate registry root details using root registry ${this.rootRegistry}`,

@@ -19,16 +19,16 @@ import { RegistryClient } from "@zkpassport/registry"
 const client = new RegistryClient({ chainId: 11155111 })
 
 // Get latest certificates root
-const root = await client.getLatestCertificatesRoot()
+const root = await client.getCertificatesRoot()
 console.log(`Latest certificates root: ${root}`)
 
 // Get latest certificates (for latest root)
-const certs = await client.getLatestCertificates()
+const certs = await client.getCertificates()
 console.log(`Got ${certs.length} certificates`)
 
 // Get certificates for a specific root
 const forRoot = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-const certsForRoot = await client.getCertificatesForRoot(forRoot)
+const certsForRoot = await client.getCertificates(forRoot)
 console.log(`Got ${certs.length} certificates for root ${forRoot}`)
 
 // Validate certificates against a root
