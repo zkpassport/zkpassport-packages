@@ -89,25 +89,25 @@ describe("Registry", () => {
     })
 
     it("should get latest certificates", async () => {
-      const certificates = await registry.getPackagedCertificates()
+      const certificates = await registry.getCertificates()
       expect(certificates).toEqual(fixturePackagedCerts)
     })
 
     it("should fail to get certificates on invalid root hash", async () => {
-      await expect(registry.getPackagedCertificates(INVALID_ROOT_HASH)).rejects.toThrow(
+      await expect(registry.getCertificates(INVALID_ROOT_HASH)).rejects.toThrow(
         /validation failed/i,
       )
     })
 
     it("should fetch certificates for a specific root", async () => {
-      const packagedCerts = await registry.getPackagedCertificates(CERTIFICATE_FIXTURES_ROOT)
+      const packagedCerts = await registry.getCertificates(CERTIFICATE_FIXTURES_ROOT)
       expect(packagedCerts).toEqual(fixturePackagedCerts)
     })
 
     it("should validate certificates against a root hash", async () => {
       const latestRoot = await registry.getCertificatesRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
-      const packagedCerts = await registry.getPackagedCertificates(latestRoot)
+      const packagedCerts = await registry.getCertificates(latestRoot)
       const valid = await registry.validateCertificates(packagedCerts.certificates, latestRoot)
       expect(valid).toBe(true)
     })
@@ -115,7 +115,7 @@ describe("Registry", () => {
     it("should not validate certificates against an invalid root hash", async () => {
       const latestRoot = await registry.getCertificatesRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
-      const packagedCerts = await registry.getPackagedCertificates(latestRoot)
+      const packagedCerts = await registry.getCertificates(latestRoot)
       const valid = await registry.validateCertificates(
         packagedCerts.certificates,
         INVALID_ROOT_HASH,

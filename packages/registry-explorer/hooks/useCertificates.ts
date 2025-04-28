@@ -76,33 +76,27 @@ export const useCertificates = () => {
           // Don't fail the whole operation if this fails
         }
 
-        // Check if a specific root is requested from URL
+        // Only validate certificates in production
+        const validate = process.env.NODE_ENV !== "development"
+
         const rootFromUrl = searchParams.get("root")
-        let rootToUse: string
-        let sdkCertificates: PackagedCertificate[]
-        const latestRoot: string = await client.getLatestCertificatesRoot()
-
-        const validateCertificates = process.env.NODE_ENV !== "development"
-        if (rootFromUrl) {
-          log("Using root from URL:", rootFromUrl)
-          rootToUse = rootFromUrl
-          setIsLatestRoot(rootToUse === latestRoot)
-          sdkCertificates = await client.getCertificatesForRoot(rootToUse, validateCertificates)
-          log("Certificates loaded for root:", rootToUse)
-          log(`Loaded ${sdkCertificates.length} certificates from ${rootFromUrl}`)
-        } else {
-          sdkCertificates = await client.getLatestCertificates(validateCertificates)
-          rootToUse = latestRoot
-          setIsLatestRoot(true)
-        }
-
+        const latestRoot = await client.getCertificatesRoot()
+        const rootToUse = rootFromUrl ?? latestRoot
+        log(`Getting certificates for ${rootFromUrl ? "" : "latest "}root: ${rootToUse}`)
+        setIsLatestRoot(rootToUse === latestRoot)
+        const { certificates: packagedCerts } = await client.getCertificates(rootToUse, {
+          validate,
+        })
+        log(
+          `Got ${packagedCerts.length} certificates for ${rootFromUrl ? "" : "latest "}root: ${rootToUse}`,
+        )
         setCurrentRoot(rootToUse)
-        setCertificates(sdkCertificates)
+        setCertificates(packagedCerts)
 
         // TODO: Consider implementing a more efficient way to do this
         // Extract unique countries
         const countryList = [
-          ...new Set(sdkCertificates.map((cert: PackagedCertificate) => cert.country)),
+          ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.country)),
         ]
 
         // Sort by country name rather than code
@@ -115,14 +109,14 @@ export const useCertificates = () => {
         // TODO: Consider implementing a more efficient way to do this
         // Extract unique hash algorithms
         const uniqueHashAlgorithms = [
-          ...new Set(sdkCertificates.map((cert: PackagedCertificate) => cert.hash_algorithm)),
+          ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.hash_algorithm)),
         ]
 
         // TODO: Consider implementing a more efficient way to do this
         // Extract unique ECDSA curves
         const uniqueCurvesList = [
           ...new Set(
-            sdkCertificates
+            packagedCerts
               .filter((cert: PackagedCertificate) => isECDSA(cert))
               .map((cert: PackagedCertificate) => (cert.public_key as ECPublicKey).curve),
           ),
@@ -136,17 +130,17 @@ export const useCertificates = () => {
         const certId = searchParams.get("id")
         if (certId) {
           // If we have a certificate ID in the URL, attempt to find that certificate
-          const certificate = sdkCertificates.find(
+          const certificate = packagedCerts.find(
             (cert: PackagedCertificate) => cert.subject_key_identifier === certId,
           )
 
           if (certificate) {
             setFilteredCertificates([certificate])
           } else {
-            setFilteredCertificates(sdkCertificates)
+            setFilteredCertificates(packagedCerts)
           }
         } else {
-          setFilteredCertificates(sdkCertificates)
+          setFilteredCertificates(packagedCerts)
         }
       } catch (error) {
         console.error("Error fetching certificates:", error)

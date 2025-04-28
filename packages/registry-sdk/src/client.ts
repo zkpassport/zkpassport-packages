@@ -112,7 +112,7 @@ export class RegistryClient {
    * @param root The root hash to get certificates for (defaults to latest root)
    * @param validate Whether to validate the certificates against the root hash (defaults to true)
    */
-  async getPackagedCertificates(
+  async getCertificates(
     root?: string,
     { validate = true }: { validate?: boolean } = {},
   ): Promise<PackagedCertificatesFile> {
