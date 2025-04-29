@@ -94,10 +94,6 @@ const MERCOSUR_COUNTRIES: CountryName[] = [
 const SIGNED_ATTR_INPUT_SIZE = 200
 const DG1_INPUT_SIZE = 95
 const E_CONTENT_INPUT_SIZE = 700
-const CERTIFICATE_REGISTRY_HEIGHT = 14
-const CERTIFICATE_REGISTRY_ID = 1
-const CERT_TYPE_CSC = 1
-const CERT_TYPE_DSC = 2
 
 // Doing it this way as this fixes a weird issue where the constant arrays are not being exported
 // if you export them directly when they are declared
@@ -111,8 +107,4 @@ export {
   SIGNED_ATTR_INPUT_SIZE,
   DG1_INPUT_SIZE,
   E_CONTENT_INPUT_SIZE,
-  CERTIFICATE_REGISTRY_HEIGHT,
-  CERTIFICATE_REGISTRY_ID,
-  CERT_TYPE_CSC,
-  CERT_TYPE_DSC,
 }
