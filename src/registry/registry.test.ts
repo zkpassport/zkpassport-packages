@@ -1,6 +1,6 @@
 import { PackagedCertificate } from "../types"
 import { getCertificateLeafHash } from "."
-import { CERT_TYPE_DSC } from "../constants"
+import { CERT_TYPE_DSC } from "."
 
 describe("Registry", () => {
   const rsaCert: PackagedCertificate = {

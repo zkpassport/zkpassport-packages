@@ -18,7 +18,12 @@ import { getBitSizeFromCurve, getECDSAInfo, getRSAInfo } from "./cms/utils"
 import { DG1_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
 import { computeMerkleProof } from "./merkle-tree"
 import { extractTBS, getSodSignatureAlgorithmType } from "./passport/passport-reader"
-import { CERT_TYPE_CSCA, CERTIFICATE_REGISTRY_HEIGHT, getCertificateLeafHash, tagsArrayToByteFlag } from "./registry"
+import {
+  CERT_TYPE_CSCA,
+  CERTIFICATE_REGISTRY_HEIGHT,
+  getCertificateLeafHash,
+  tagsArrayToByteFlag,
+} from "./registry"
 import {
   DiscloseFlags,
   ECDSADSCDataInputs,
