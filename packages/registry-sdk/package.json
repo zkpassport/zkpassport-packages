@@ -1,10 +1,13 @@
 {
   "name": "@zkpassport/registry",
-  "version": "0.1.0",
+  "version": "0.1.8",
   "description": "Registry SDK for interacting with the ZKPassport Registry",
   "author": "ZKPassport",
   "license": "MIT",
   "type": "module",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
   "files": [
     "dist"
   ],
@@ -35,7 +38,7 @@
   },
   "dependencies": {
     "@zkpassport/poseidon2": "^0.6.1",
-    "@zkpassport/utils": "^0.7.0",
+    "@zkpassport/utils": "^0.7.2",
     "date-fns": "^2.30.0",
     "debug": "^4.4.0"
   },
@@ -56,6 +59,6 @@
     "tsx": "^4.19.3"
   },
   "peerDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^5.0.0"
   }
 }
