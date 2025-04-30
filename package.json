@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -123,7 +123,7 @@
     "build:watch:cjs": "tsc -p tsconfig.cjs.json --watch",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
-    "test": "jest src",
+    "test": "jest",
     "check": "tsc --noEmit && prettier -c src tests",
     "format": "prettier -c -w src tests"
   },

@@ -3,6 +3,6 @@ export default {
   transform: {
     "\\.[jt]sx?$": "babel-jest",
   },
-  testMatch: ["<rootDir>/src/**/*.test.ts"],
+  testMatch: ["<rootDir>/**/*.test.ts"],
   transformIgnorePatterns: ["/node_modules/(?!(@zkpassport|@zk-kit)/.*)"],
 }

@@ -111,11 +111,11 @@ export function getHashAlgorithmIdentifier(hashAlgo: string): number {
  */
 export function publicKeyToBytes(publicKey: ECPublicKey | RSAPublicKey): Uint8Array {
   if (publicKey.type === "RSA") {
-    return new Uint8Array(Binary.from(publicKey.modulus))
+    return Binary.from(publicKey.modulus).toUInt8Array()
   } else if (publicKey.type === "EC") {
-    return new Uint8Array(
-      Binary.from(publicKey.public_key_x).concat(Binary.from(publicKey.public_key_y)),
-    )
+    return Binary.from(publicKey.public_key_x)
+      .concat(Binary.from(publicKey.public_key_y))
+      .toUInt8Array()
   } else {
     throw new Error("Unsupported signature algorithm")
   }
@@ -148,7 +148,7 @@ export async function getCertificateLeafHash(
     hashAlgId >= 0 && hashAlgId <= 255,
     `Hash algorithm identifier must fit in a single byte: ${hashAlgId}`,
   )
-  const publicKeyBytes = new Uint8Array(Array.from(publicKeyToBytes(cert.public_key)))
+  const publicKeyBytes = publicKeyToBytes(cert.public_key)
   // Return the canonical leaf hash of the certificate
   return Binary.from(
     await poseidon2HashAsync([
