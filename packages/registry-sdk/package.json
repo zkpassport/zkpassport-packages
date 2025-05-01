@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/registry",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Registry SDK for interacting with the ZKPassport Registry",
   "author": "ZKPassport",
   "license": "MIT",
@@ -37,15 +37,13 @@
     }
   },
   "dependencies": {
-    "@zkpassport/poseidon2": "^0.6.1",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
     "@zkpassport/utils": "^0.7.2",
-    "date-fns": "^2.30.0",
     "debug": "^4.4.0"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.10",
     "@types/debug": "^4.1.12",
-    "@types/jest": "^29.5.14",
     "@types/node": "^18.19.87",
     "concurrently": "^8.2.2",
     "esbuild": "^0.25.3",
@@ -54,9 +52,7 @@
     "eslint-plugin-prettier": "^5.2.6",
     "keccak256": "^1.0.6",
     "prettier": "^3.5.3",
-    "rimraf": "^6.0.1",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.19.3"
+    "rimraf": "^6.0.1"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
