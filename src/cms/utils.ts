@@ -161,7 +161,7 @@ export function getECDSAInfo(subjectPublicKeyInfo: SubjectPublicKeyInfo): {
   }
 }
 
-export function getRSAPSSParams(parameters: ParametersType): {
+export function getRSAPSSParams(parameters: BufferSource): {
   hashAlgorithm: DigestAlgorithm
   saltLength: number
   maskGenAlgorithm: string
