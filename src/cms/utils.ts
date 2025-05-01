@@ -7,6 +7,7 @@ import { AsnParser } from "@peculiar/asn1-schema"
 import {
   AlgorithmIdentifier,
   AuthorityKeyIdentifier,
+  ParametersType,
   PrivateKeyUsagePeriod,
   SubjectKeyIdentifier,
   SubjectPublicKeyInfo,
@@ -160,12 +161,12 @@ export function getECDSAInfo(subjectPublicKeyInfo: SubjectPublicKeyInfo): {
   }
 }
 
-export function getRSAPSSParams(signatureAlgorithm: AlgorithmIdentifier): {
+export function getRSAPSSParams(parameters: ParametersType): {
   hashAlgorithm: DigestAlgorithm
   saltLength: number
   maskGenAlgorithm: string
 } {
-  const parsedKey = AsnParser.parse(signatureAlgorithm.parameters!, RsaSaPssParams)
+  const parsedKey = AsnParser.parse(parameters!, RsaSaPssParams)
   const hashAlgorithm = HASH_OIDS[parsedKey.hashAlgorithm.algorithm as keyof typeof HASH_OIDS] ?? ""
   const maskGenAlgorithm =
     HASH_OIDS[parsedKey.maskGenAlgorithm.algorithm as keyof typeof HASH_OIDS] ?? ""
@@ -418,7 +419,7 @@ export function getHashAlgorithm(x509: X509Certificate): HashAlgorithm {
   const oid = x509.tbsCertificate.signature.algorithm
   const signatureAlgo = OIDS_TO_SIG_ALGORITHM[oid as keyof typeof OIDS_TO_SIG_ALGORITHM] ?? oid
   if (signatureAlgo === "rsassa-pss") {
-    const pssParams = getRSAPSSParams(x509.tbsCertificate.signature)
+    const pssParams = getRSAPSSParams(x509.tbsCertificate.signature.parameters!)
     return (pssParams.hashAlgorithm.slice(0, 3) +
       "-" +
       pssParams.hashAlgorithm.slice(3)) as HashAlgorithm
