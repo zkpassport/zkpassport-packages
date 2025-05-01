@@ -1,5 +1,5 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { formatDate } from "date-fns"
+import { format } from "date-fns"
 import {
   convertDateBytesToDate,
   getCountryExclusionProofPublicInputCount,
@@ -206,7 +206,7 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
 }
 
 export function getFormattedDate(date: Date): string {
-  return formatDate(date, "yyyyMMdd")
+  return format(date, "yyyyMMdd")
 }
 
 export function getDateBytes(date: Date): Binary {
