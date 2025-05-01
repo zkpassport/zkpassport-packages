@@ -5,5 +5,5 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "bun@1.2.10"
+  "packageManager": "bun@1.2.11"
 }
