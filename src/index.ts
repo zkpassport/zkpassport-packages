@@ -66,9 +66,10 @@ import { noLogger as logger } from "./logger"
 import { inflate } from "pako"
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
-import { sha256 } from "@noble/hashes/sha256"
+import { sha256 } from "@noble/hashes/sha2"
 import { hexToBytes } from "@noble/hashes/utils"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
+import { RegistryClient } from "@zkpassport/registry"
 
 const DEFAULT_DATE_VALUE = new Date(1111, 10, 11)
 
@@ -118,6 +119,7 @@ export type SolidityVerifierParameters = {
   validityPeriodInDays: number
   scope: string
   subscope: string
+  devMode: boolean
 }
 
 export type EVMChain = "ethereum_sepolia" | "local_anvil"
@@ -142,9 +144,12 @@ function hasRequestedAccessToField(credentialsRequest: Query, field: IDCredentia
 }
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
-  let normalizedCountry: Alpha3Code | undefined
-  const alpha3 = getAlpha3Code(country, "en") as Alpha3Code | undefined
-  normalizedCountry = alpha3 || (country as Alpha3Code)
+  if (country === "Zero Knowledge Republic") {
+    return "ZKR"
+  }
+  let normalizedCountry: Alpha3Code | "ZKR" | undefined
+  const alpha3 = getAlpha3Code(country as CountryName, "en") as Alpha3Code | "ZKR" | undefined
+  normalizedCountry = alpha3 || (country as Alpha3Code) || "ZKR"
   return normalizedCountry
 }
 
@@ -343,6 +348,7 @@ export class ZKPassport {
     {
       validity: number
       mode: ProofMode
+      devMode: boolean
     }
   > = {}
   private topicToKeyPair: Record<string, { privateKey: Uint8Array; publicKey: Uint8Array }> = {}
@@ -394,6 +400,7 @@ export class ZKPassport {
       queryResult: result,
       validity: this.topicToLocalConfig[topic]?.validity,
       scope: this.topicToService[topic]?.scope,
+      devMode: this.topicToLocalConfig[topic]?.devMode,
     })
     delete this.topicToProofs[topic]
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
@@ -682,6 +689,7 @@ export class ZKPassport {
    * @param purpose To explain what you want to do with the user's data
    * @param scope Scope this request to a specific use case
    * @param validity How many days ago should have the ID been last scanned by the user?
+   * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @returns The query builder object.
    */
   public async request({
@@ -691,6 +699,7 @@ export class ZKPassport {
     scope,
     mode,
     validity,
+    devMode,
     topicOverride,
     keyPairOverride,
   }: {
@@ -700,6 +709,7 @@ export class ZKPassport {
     scope?: string
     mode?: ProofMode
     validity?: number
+    devMode?: boolean
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
   }): Promise<QueryBuilder> {
@@ -719,6 +729,7 @@ export class ZKPassport {
       // Default to 6 months
       validity: validity || 6 * 30,
       mode: mode || "fast",
+      devMode: devMode || false,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -1792,6 +1803,38 @@ export class ZKPassport {
     return { isCorrect, queryResultErrors }
   }
 
+  private async checkCertificateRegistryRoot(
+    root: string,
+    queryResultErrors: any,
+    outer?: boolean,
+  ) {
+    let isCorrect = true
+    try {
+      // Maintained certificate registry settled onchain
+      // Here we use Ethereum Sepolia
+      const registryClient = new RegistryClient({ chainId: 11155111 })
+      await registryClient.getCertificates(`0x${root}`)
+    } catch (error) {
+      console.warn(error)
+      // Check the legacy static roots that were used before the registry was deployed onchain
+      const VALID_CERTIFICATE_REGISTRY_ROOT = [
+        BigInt("20192042006788880778219739574377003123593792072535937278552252195461520776494"),
+        BigInt("21301853597069384763054217328384418971999152625381818922211526730996340553696"),
+        BigInt("10839898448097753834842514286432152806152415606387598803678317315409344029817"),
+      ]
+      if (!VALID_CERTIFICATE_REGISTRY_ROOT.includes(BigInt(root))) {
+        console.warn("The ID was signed by an unrecognized root certificate")
+        isCorrect = false
+        queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
+          expected: `A valid root from ZKPassport Registry`,
+          received: `Got invalid certificate registry root: ${root}`,
+          message: "The ID was signed by an unrecognized root certificate",
+        }
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   private async checkPublicInputs(
     proofs: Array<ProofResult>,
     queryResult: QueryResult,
@@ -1802,11 +1845,6 @@ export class ZKPassport {
     let commitmentOut: bigint | undefined
     let isCorrect = true
     let uniqueIdentifier: string | undefined
-    const VALID_CERTIFICATE_REGISTRY_ROOT = [
-      BigInt("20192042006788880778219739574377003123593792072535937278552252195461520776494"),
-      BigInt("21301853597069384763054217328384418971999152625381818922211526730996340553696"),
-      BigInt("10839898448097753834842514286432152806152415606387598803678317315409344029817"),
-    ]
     const currentTime = new Date()
     const today = new Date(
       currentTime.getFullYear(),
@@ -1864,14 +1902,18 @@ export class ZKPassport {
       if (proof.name?.startsWith("outer")) {
         const isForEVM = proof.name?.startsWith("outer_evm")
         const certificateRegistryRoot = getCertificateRegistryRootFromOuterProof(proofData)
-        if (!VALID_CERTIFICATE_REGISTRY_ROOT.includes(certificateRegistryRoot)) {
-          console.warn("The ID was signed by an unrecognized root certificate")
-          isCorrect = false
-          queryResultErrors.outer.certificate = {
-            expected: `Certificate registry root: ${VALID_CERTIFICATE_REGISTRY_ROOT.join(", ")}`,
-            received: `Certificate registry root: ${certificateRegistryRoot.toString()}`,
-            message: "The ID was signed by an unrecognized root certificate",
-          }
+        const {
+          isCorrect: isCorrectCertificateRegistryRoot,
+          queryResultErrors: queryResultErrorsCertificateRegistryRoot,
+        } = await this.checkCertificateRegistryRoot(
+          certificateRegistryRoot.toString(16),
+          queryResultErrors,
+          true,
+        )
+        isCorrect = isCorrect && isCorrectCertificateRegistryRoot
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCertificateRegistryRoot,
         }
         const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
@@ -2168,14 +2210,18 @@ export class ZKPassport {
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
-        if (!VALID_CERTIFICATE_REGISTRY_ROOT.includes(merkleRoot)) {
-          console.warn("The ID was signed by an unrecognized root certificate")
-          isCorrect = false
-          queryResultErrors.sig_check_dsc.certificate = {
-            expected: `Certificate registry root: ${VALID_CERTIFICATE_REGISTRY_ROOT.join(", ")}`,
-            received: `Certificate registry root: ${merkleRoot.toString()}`,
-            message: "The ID was signed by an unrecognized root certificate",
-          }
+        const {
+          isCorrect: isCorrectCertificateRegistryRoot,
+          queryResultErrors: queryResultErrorsCertificateRegistryRoot,
+        } = await this.checkCertificateRegistryRoot(
+          merkleRoot.toString(16),
+          queryResultErrors,
+          false,
+        )
+        isCorrect = isCorrect && isCorrectCertificateRegistryRoot
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCertificateRegistryRoot,
         }
       } else if (proof.name?.startsWith("sig_check_id_data")) {
         commitmentIn = getCommitmentInFromIDDataProof(proofData)
@@ -2608,11 +2654,13 @@ export class ZKPassport {
     queryResult,
     validity,
     scope,
+    devMode = false,
   }: {
     proofs: Array<ProofResult>
     queryResult: QueryResult
     validity?: number
     scope?: string
+    devMode?: boolean
   }): Promise<{
     uniqueIdentifier: string | undefined
     verified: boolean
@@ -2644,6 +2692,15 @@ export class ZKPassport {
     uniqueIdentifier = uniqueIdentifierFromPublicInputs
     verified = isCorrect
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
+    if (uniqueIdentifier && BigInt(uniqueIdentifier) === BigInt(0) && !devMode) {
+      // If the unique identifier is 0 and it is not in dev mode,
+      // the proofs are considered invalid as these are mock proofs only meant
+      // for testing purposes
+      verified = false
+      console.warn(
+        "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
+      )
+    }
     // Only proceed with the proof verification if the public inputs are correct
     if (verified) {
       for (const proof of proofs) {
@@ -2667,6 +2724,7 @@ export class ZKPassport {
               validityPeriodInDays: validity,
               domain: this.domain,
               scope,
+              devMode,
             })
             const result = await client.readContract({
               address,
@@ -2724,12 +2782,12 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0x21E12Fa30a1F98699F242ac062Db4a8e7b344B5d",
+        address: "0x8c6982D77f7a8f60aE3133cA9b2FAA6f3e78c394",
       }
     } else if (network === "local_anvil") {
       return {
         ...baseConfig,
-        address: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+        address: "0x0",
       }
     }
     throw new Error(`Unsupported network: ${network}`)
@@ -2740,11 +2798,13 @@ export class ZKPassport {
     validityPeriodInDays = 7,
     domain,
     scope,
+    devMode = false,
   }: {
     proof: ProofResult
     validityPeriodInDays?: number
     domain?: string
     scope?: string
+    devMode?: boolean
   }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
@@ -2880,6 +2940,7 @@ export class ZKPassport {
       validityPeriodInDays,
       scope: domain ?? this.domain,
       subscope: scope ?? "",
+      devMode,
     }
     return params
   }
