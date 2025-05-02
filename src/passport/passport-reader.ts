@@ -7,6 +7,7 @@ import { decodeOID } from "../cms/oids"
 import type { DigestAlgorithm } from "../cms/types"
 import { PassportViewModel } from "../types"
 import { SOD } from "./sod"
+import { getRSAPSSParams } from "../cms"
 
 export class PassportReader {
   public dg1?: Binary
@@ -52,21 +53,6 @@ export class PassportReader {
       dataGroupsHashAlgorithm: this.sod.encapContentInfo.eContent.hashAlgorithm,
 
       sod: this.sod,
-
-      sodVersion: this.sod.version.toString(),
-
-      signedAttributes: this.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
-      signedAttributesHashAlgorithm: this.sod.signerInfo.digestAlgorithm,
-      eContent: this.sod.encapContentInfo.eContent.bytes.toNumberArray(),
-      eContentHash: this.sod.signerInfo.signedAttrs.messageDigest.toHex(),
-      eContentHashAlgorithm: this.sod.signerInfo.digestAlgorithm,
-
-      tbsCertificate: this.sod.certificate.tbs.bytes.toNumberArray(),
-      dscSignatureAlgorithm: this.sod.certificate.signatureAlgorithm.name,
-      dscSignature: this.sod.certificate.signature.toNumberArray(),
-
-      sodSignature: this.sod.signerInfo.signature.toNumberArray(),
-      sodSignatureAlgorithm: this.sod.signerInfo.signatureAlgorithm.name,
     }
   }
 
@@ -116,9 +102,9 @@ export function extractTBS(passport: PassportViewModel): TBSCertificate | null {
 }
 
 export function getSodSignatureAlgorithmType(passport: PassportViewModel): "RSA" | "ECDSA" | "" {
-  if (passport.sodSignatureAlgorithm?.toLowerCase().includes("rsa")) {
+  if (passport.sod.signerInfo.signatureAlgorithm.name?.toLowerCase().includes("rsa")) {
     return "RSA"
-  } else if (passport.sodSignatureAlgorithm?.toLowerCase().includes("ecdsa")) {
+  } else if (passport.sod.signerInfo.signatureAlgorithm.name?.toLowerCase().includes("ecdsa")) {
     return "ECDSA"
   }
   return ""
@@ -127,22 +113,16 @@ export function getSodSignatureAlgorithmType(passport: PassportViewModel): "RSA"
 export function getSodSignatureHashAlgorithm(
   passport: PassportViewModel,
 ): DigestAlgorithm | undefined {
-  if (passport.sodSignatureAlgorithm?.toLowerCase().includes("sha256")) {
-    return "SHA256"
-  } else if (passport.sodSignatureAlgorithm?.toLowerCase().includes("sha384")) {
-    return "SHA384"
-  } else if (passport.sodSignatureAlgorithm?.toLowerCase().includes("sha512")) {
-    return "SHA512"
-  }
+  return passport.sod.signerInfo.digestAlgorithm
 }
 
 /**
  * @deprecated This function will be removed in a future version
  */
 export function getDSCSignatureAlgorithmType(passport: PassportViewModel): "RSA" | "ECDSA" | "" {
-  if (passport.dscSignatureAlgorithm?.toLowerCase().includes("rsa")) {
+  if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("rsa")) {
     return "RSA"
-  } else if (passport.dscSignatureAlgorithm?.toLowerCase().includes("ecdsa")) {
+  } else if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("ecdsa")) {
     return "ECDSA"
   }
   return ""
@@ -154,11 +134,18 @@ export function getDSCSignatureAlgorithmType(passport: PassportViewModel): "RSA"
 export function getDSCSignatureHashAlgorithm(
   passport: PassportViewModel,
 ): DigestAlgorithm | undefined {
-  if (passport.dscSignatureAlgorithm?.toLowerCase().includes("sha256")) {
+  if (passport.sod.certificate.signatureAlgorithm.name.toLowerCase().includes("pss")) {
+    const params = getRSAPSSParams(
+      passport.sod.certificate.signatureAlgorithm.parameters?.toBuffer()!,
+    )
+    return params.hashAlgorithm
+  }
+
+  if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("sha256")) {
     return "SHA256"
-  } else if (passport.dscSignatureAlgorithm?.toLowerCase().includes("sha384")) {
+  } else if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("sha384")) {
     return "SHA384"
-  } else if (passport.dscSignatureAlgorithm?.toLowerCase().includes("sha512")) {
+  } else if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("sha512")) {
     return "SHA512"
   }
 }

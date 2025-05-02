@@ -108,9 +108,12 @@ describe("Circuit Matcher - RSA", () => {
       certificate_type: "0x1",
       country: "ZKR",
       salt: "0x1",
-      tbs_certificate: rightPadArrayWithZeros(PASSPORTS.john.tbsCertificate, 700),
+      tbs_certificate: rightPadArrayWithZeros(
+        PASSPORTS.john.sod.certificate.tbs.bytes.toNumberArray(),
+        700,
+      ),
       tbs_certificate_len: 582,
-      dsc_signature: PASSPORTS.john.dscSignature,
+      dsc_signature: PASSPORTS.john.sod.certificate.signature.toNumberArray(),
       csc_pubkey: [
         248, 49, 245, 49, 134, 64, 78, 179, 47, 178, 82, 126, 19, 229, 209, 152, 237, 167, 236, 246,
         86, 119, 34, 191, 211, 111, 112, 65, 64, 49, 155, 81, 182, 44, 213, 36, 96, 11, 21, 152,
@@ -149,7 +152,10 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getIDDataCircuitInputs(PASSPORTS.john, 1n, 1n)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
-      signed_attributes: rightPadArrayWithZeros(PASSPORTS.john.signedAttributes, 200),
+      signed_attributes: rightPadArrayWithZeros(
+        PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
+        200,
+      ),
       signed_attributes_size: 104,
       comm_in: "0x1e7ec73a70d9bee5e4f770027cbc1a8a8305ddba417d3401ba933abf90bfbec1",
       salt_in: "0x1",
@@ -170,7 +176,7 @@ describe("Circuit Matcher - RSA", () => {
         197, 251, 154, 172, 189, 117, 93, 167, 237, 51, 217, 74, 225, 178, 212, 188, 219, 231,
       ],
       exponent: 65537,
-      sod_signature: PASSPORTS.john.sodSignature,
+      sod_signature: PASSPORTS.john.sod.signerInfo.signature.toNumberArray(),
       dsc_pubkey_redc_param: [
         22, 68, 93, 51, 146, 119, 200, 66, 91, 4, 139, 219, 211, 238, 244, 80, 172, 237, 63, 200,
         201, 255, 143, 95, 133, 21, 198, 238, 249, 191, 44, 20, 195, 124, 130, 48, 218, 87, 25, 35,
@@ -186,7 +192,10 @@ describe("Circuit Matcher - RSA", () => {
         234, 196, 93, 211, 101, 180, 103, 120, 132, 124, 71, 169, 77, 94, 147, 235, 0, 74, 214, 230,
         58, 5, 158, 123, 1, 250, 108, 41, 204, 143, 203, 85, 63, 227, 173, 14,
       ],
-      tbs_certificate: rightPadArrayWithZeros(PASSPORTS.john.tbsCertificate, 700),
+      tbs_certificate: rightPadArrayWithZeros(
+        PASSPORTS.john.sod.certificate.tbs.bytes.toNumberArray(),
+        700,
+      ),
       pubkey_offset_in_tbs: 199,
     })
   })
@@ -201,9 +210,15 @@ describe("Circuit Matcher - RSA", () => {
     expect(result).toEqual({
       current_date: format(new Date(), "yyyyMMdd"),
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
-      signed_attributes: rightPadArrayWithZeros(PASSPORTS.john.signedAttributes, 200),
+      signed_attributes: rightPadArrayWithZeros(
+        PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
+        200,
+      ),
       signed_attributes_size: 104,
-      e_content: rightPadArrayWithZeros(PASSPORTS.john.eContent, 700),
+      e_content: rightPadArrayWithZeros(
+        PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
+        700,
+      ),
       e_content_size: 98,
       dg1_offset_in_e_content: 27,
       comm_in: "0x15c55784d6e98efd7bef72ffd4137ff083364b8d4a56576c0ec5e47a5c34feaa",
@@ -441,10 +456,13 @@ describe("Circuit Matcher - ECDSA", () => {
         8, 154, 151, 127, 22, 55, 93, 197, 145, 218, 255, 163,
       ],
       dsc_signature: [
-        ...PASSPORTS.mary.dscSignature?.slice(4, 36)!,
-        ...PASSPORTS.mary.dscSignature?.slice(38)!,
+        ...PASSPORTS.mary.sod.certificate.signature.toNumberArray().slice(4, 36)!,
+        ...PASSPORTS.mary.sod.certificate.signature.toNumberArray().slice(38)!,
       ],
-      tbs_certificate: rightPadArrayWithZeros(PASSPORTS.mary.tbsCertificate, 700),
+      tbs_certificate: rightPadArrayWithZeros(
+        PASSPORTS.mary.sod.certificate.tbs.bytes.toNumberArray(),
+        700,
+      ),
       tbs_certificate_len: 376,
     })
   })
@@ -453,12 +471,18 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getIDDataCircuitInputs(PASSPORTS.mary, 1n, 1n)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
-      signed_attributes: rightPadArrayWithZeros(PASSPORTS.mary.signedAttributes, 200),
+      signed_attributes: rightPadArrayWithZeros(
+        PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
+        200,
+      ),
       signed_attributes_size: 104,
       comm_in: "0x04befe4fa43a4bcfb052a6de7b9745a09f284aabd0d79e7ee6c461e75f70b7af",
       salt_in: "0x1",
       salt_out: "0x1",
-      tbs_certificate: rightPadArrayWithZeros(PASSPORTS.mary.tbsCertificate, 700),
+      tbs_certificate: rightPadArrayWithZeros(
+        PASSPORTS.mary.sod.certificate.tbs.bytes.toNumberArray(),
+        700,
+      ),
       pubkey_offset_in_tbs: 190,
       dsc_pubkey_x: [
         38, 197, 165, 50, 70, 123, 24, 161, 149, 121, 124, 15, 43, 188, 231, 62, 245, 182, 9, 243,
@@ -468,7 +492,7 @@ describe("Circuit Matcher - ECDSA", () => {
         180, 251, 221, 42, 12, 191, 223, 2, 98, 97, 236, 120, 27, 132, 144, 43, 43, 187, 100, 199,
         222, 180, 166, 185, 133, 43, 134, 225, 103, 129, 152, 86,
       ],
-      sod_signature: PASSPORTS.mary.sodSignature,
+      sod_signature: PASSPORTS.mary.sod.signerInfo.signature.toNumberArray(),
     })
   })
 
@@ -482,9 +506,15 @@ describe("Circuit Matcher - ECDSA", () => {
     expect(result).toEqual({
       current_date: format(new Date(), "yyyyMMdd"),
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
-      signed_attributes: rightPadArrayWithZeros(PASSPORTS.mary.signedAttributes, 200),
+      signed_attributes: rightPadArrayWithZeros(
+        PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
+        200,
+      ),
       signed_attributes_size: 104,
-      e_content: rightPadArrayWithZeros(PASSPORTS.mary.eContent, 700),
+      e_content: rightPadArrayWithZeros(
+        PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
+        700,
+      ),
       e_content_size: 98,
       dg1_offset_in_e_content: 27,
       comm_in: "0x11557e9744e81d78af2760ee744c96789fe3aca92e3ea6dcf0a2d4b30bfc5a6d",

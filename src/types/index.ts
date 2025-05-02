@@ -47,25 +47,7 @@ export type PassportViewModel = {
   dataGroups: DataGroupInfo[]
   dataGroupsHashAlgorithm: string
 
-  // Matches the subject key identifier of the CSC
-  dscAuthorityKeyIdentifier?: string
-  dscDistinguishedName?: string
-  dscCountry?: string
-  dscValidity?: { notBefore: Date; notAfter: Date }
-  dscSignatureAlgorithm?: string
-  dscPublicKeyAlgorithm?: string
-  dscSignature?: number[]
-
   sod: SOD
-  sodSignatureAlgorithm?: string
-  sodSignature: number[]
-  sodVersion: string
-  eContent: number[]
-  eContentHash: string
-  eContentHashAlgorithm: string
-  signedAttributesHashAlgorithm: string
-  signedAttributes: number[]
-  tbsCertificate: number[]
   appVersion: string
 }
 
