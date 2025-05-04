@@ -2666,6 +2666,14 @@ export class ZKPassport {
     verified: boolean
     queryResultErrors?: QueryResultErrors
   }> {
+    // If no proofs were generated, the results can't be trusted.
+    // We still return it but verified will be false
+    if (!proofs || proofs.length === 0) {
+      return {
+        uniqueIdentifier: undefined,
+        verified: false,
+      }
+    }
     const formattedResult: QueryResult = queryResult
     // Make sure to reconvert the dates to Date objects
     if (formattedResult.birthdate && formattedResult.birthdate.disclose) {
