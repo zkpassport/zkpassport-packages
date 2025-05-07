@@ -1,8 +1,12 @@
-name: CI
+name: Registry Contracts
 
 on:
   push:
+    paths:
+      - 'packages/registry-contracts/**'
   pull_request:
+    paths:
+      - 'packages/registry-contracts/**'
   workflow_dispatch:
 
 env:
@@ -13,7 +17,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Foundry project
+    name: Registry Contracts Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,18 +32,22 @@ jobs:
       - name: Show Forge version
         run: |
           forge --version
+        working-directory: packages/registry-contracts
 
       - name: Run Forge fmt
         run: |
           forge fmt --check
         id: fmt
+        working-directory: packages/registry-contracts
 
       - name: Run Forge build
         run: |
           forge build --sizes
         id: build
+        working-directory: packages/registry-contracts
 
       - name: Run Forge tests
         run: |
           forge test -vvv
         id: test
+        working-directory: packages/registry-contracts
