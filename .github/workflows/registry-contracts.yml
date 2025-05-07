@@ -17,48 +17,39 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Registry Contracts Tests
+    name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
-
-      - name: Initialize and update submodules
-        run: |
-          git submodule init
-          git submodule update --recursive
-        working-directory: packages/registry-contracts
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
 
-      - name: Install Forge dependencies
-        run: |
-          forge install
+      - name: Install Dependencies
+        run: forge install foundry-rs/forge-std
         working-directory: packages/registry-contracts
 
       - name: Show Forge version
-        run: |
-          forge --version
+        run: forge --version
         working-directory: packages/registry-contracts
 
       - name: Run Forge fmt
-        run: |
-          forge fmt --check
+        run: forge fmt --check
         id: fmt
         working-directory: packages/registry-contracts
 
       - name: Run Forge build
-        run: |
-          forge build --sizes
+        run: forge build --sizes
         id: build
         working-directory: packages/registry-contracts
 
       - name: Run Forge tests
-        run: |
-          forge test -vvv
+        run: forge test -vvv
         id: test
         working-directory: packages/registry-contracts
