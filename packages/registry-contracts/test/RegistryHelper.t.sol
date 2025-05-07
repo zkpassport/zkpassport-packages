@@ -197,4 +197,54 @@ contract RegistryHelperTest is Test {
         vm.expectRevert("No roots exist yet");
         helper.getLatestRootDetails(CERTIFICATE_REGISTRY_ID);
     }
+
+    function testGetRootDetailsByIndex() public {
+        // Create multiple roots
+        bytes32[] memory roots = new bytes32[](3);
+        bytes32[] memory ipfsCids = new bytes32[](3);
+        uint256[] memory leaves = new uint256[](3);
+
+        // Create 3 roots with different metadata
+        for (uint256 i = 0; i < 3; i++) {
+            roots[i] = bytes32(uint256(i + 1));
+            ipfsCids[i] = bytes32(uint256(100 + i));
+            leaves[i] = 50 + i * 10;
+
+            vm.prank(oracle);
+            registry.updateRootWithMetadata(roots[i], leaves[i], ipfsCids[i], bytes32(0), bytes32(0), bytes32(0));
+        }
+
+        // Test getting root by index
+        RegistryHelper.RootDetails memory details = helper.getRootDetailsByIndex(CERTIFICATE_REGISTRY_ID, 2);
+
+        // Verify the details match the second root we created
+        assertEq(details.index, 2);
+        assertEq(details.root, roots[1]);
+        assertEq(details.leaves, leaves[1]);
+        assertEq(details.cid, ipfsCids[1]);
+        assertEq(details.validFrom, block.timestamp);
+        assertFalse(details.revoked);
+    }
+
+    function testGetRootDetailsByIndexInvalidIndex() public {
+        bytes32 root1 = bytes32(uint256(1));
+        bytes32 ipfsCid1 = bytes32(uint256(100));
+
+        vm.prank(oracle);
+        registry.updateRootWithMetadata(root1, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0));
+
+        // Test with index 0 (invalid, as indexing starts at 1)
+        vm.expectRevert();
+        helper.getRootDetailsByIndex(CERTIFICATE_REGISTRY_ID, 0);
+
+        // Test with index out of bounds
+        vm.expectRevert("Root not found");
+        helper.getRootDetailsByIndex(CERTIFICATE_REGISTRY_ID, 2);
+    }
+
+    function testGetRootDetailsByIndexEmptyRegistry() public {
+        // Test with empty registry
+        vm.expectRevert();
+        helper.getRootDetailsByIndex(CERTIFICATE_REGISTRY_ID, 1);
+    }
 }
