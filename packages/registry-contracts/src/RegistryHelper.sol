@@ -158,6 +158,63 @@ contract RegistryHelper {
     }
 
     /**
+     * @dev Get the root details of a root by index
+     * @param registryId The registry identifier
+     * @param index The index of the root
+     * @return The details of the root
+     */
+    function getRootDetailsByIndex(bytes32 registryId, uint256 index) external view returns (RootDetails memory) {
+        require(registryId != bytes32(0), "Registry identifier cannot be zero");
+
+        IRegistryInstance registry = IRegistryInstance(rootRegistry.registries(registryId));
+        bytes32 root = registry.rootByIndex(index);
+        require(root != bytes32(0), "Root not found");
+
+        // Get the consolidated data from historicalRoots
+        (uint256 validFrom, uint256 validTo, bool revoked, uint256 leaves, bytes32 cid,,,) =
+            registry.historicalRoots(root);
+
+        return RootDetails({
+            index: index,
+            root: root,
+            validFrom: validFrom,
+            validTo: validTo,
+            revoked: revoked,
+            leaves: leaves,
+            cid: cid
+        });
+    }
+
+    /**
+     * @dev Get the root details of a root by root hash
+     * @param registryId The registry identifier
+     * @param root The root hash
+     * @return The details of the root
+     */
+    function getRootDetailsByRoot(bytes32 registryId, bytes32 root) external view returns (RootDetails memory) {
+        require(registryId != bytes32(0), "Registry identifier cannot be zero");
+        require(root != bytes32(0), "Root hash cannot be zero");
+
+        IRegistryInstance registry = IRegistryInstance(rootRegistry.registries(registryId));
+        uint256 index = registry.indexByRoot(root);
+        require(index != 0, "Root not found");
+
+        // Get the consolidated data from historicalRoots
+        (uint256 validFrom, uint256 validTo, bool revoked, uint256 leaves, bytes32 cid,,,) =
+            registry.historicalRoots(root);
+
+        return RootDetails({
+            index: index,
+            root: root,
+            validFrom: validFrom,
+            validTo: validTo,
+            revoked: revoked,
+            leaves: leaves,
+            cid: cid
+        });
+    }
+
+    /**
      * @dev Get the total number of historical roots
      * @param registryId The registry identifier
      * @return count The total number of roots

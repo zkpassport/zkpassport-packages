@@ -1,9 +1,6 @@
 name: Registry Contracts
 
 on:
-  push:
-    paths:
-      - 'packages/registry-contracts/**'
   pull_request:
     paths:
       - 'packages/registry-contracts/**'
