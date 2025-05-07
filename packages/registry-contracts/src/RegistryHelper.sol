@@ -163,11 +163,7 @@ contract RegistryHelper {
      * @param index The index of the root
      * @return The details of the root
      */
-    function getRootDetailsByIndex(bytes32 registryId, uint256 index)
-        external
-        view
-        returns (RootDetails memory)
-    {
+    function getRootDetailsByIndex(bytes32 registryId, uint256 index) external view returns (RootDetails memory) {
         require(registryId != bytes32(0), "Registry identifier cannot be zero");
 
         IRegistryInstance registry = IRegistryInstance(rootRegistry.registries(registryId));
@@ -195,11 +191,7 @@ contract RegistryHelper {
      * @param root The root hash
      * @return The details of the root
      */
-    function getRootDetailsByRoot(bytes32 registryId, bytes32 root)
-        external
-        view
-        returns (RootDetails memory)
-    {
+    function getRootDetailsByRoot(bytes32 registryId, bytes32 root) external view returns (RootDetails memory) {
         require(registryId != bytes32(0), "Registry identifier cannot be zero");
         require(root != bytes32(0), "Root hash cannot be zero");
 
