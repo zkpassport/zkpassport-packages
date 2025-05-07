@@ -24,10 +24,21 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Initialize and update submodules
+        run: |
+          git submodule init
+          git submodule update --recursive
+        working-directory: packages/registry-contracts
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
+
+      - name: Install Forge dependencies
+        run: |
+          forge install
+        working-directory: packages/registry-contracts
 
       - name: Show Forge version
         run: |
