@@ -132,11 +132,7 @@ contract RegistryHelper {
      * @param registryId The registry identifier
      * @return The details of the latest root
      */
-    function getLatestRootDetails(bytes32 registryId)
-        external
-        view
-        returns (RootDetails memory)
-    {
+    function getLatestRootDetails(bytes32 registryId) external view returns (RootDetails memory) {
         require(registryId != bytes32(0), "Registry identifier cannot be zero");
 
         IRegistryInstance registry = IRegistryInstance(rootRegistry.registries(registryId));
