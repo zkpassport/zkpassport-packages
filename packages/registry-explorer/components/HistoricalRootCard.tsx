@@ -118,7 +118,7 @@ export function HistoricalRootCard({ rootDetails }: HistoricalRootCardProps) {
           <div className="grid grid-cols-3 gap-1">
             <div className="font-semibold">IPFS CID:</div>
             <div className="col-span-2 font-mono">
-              <Link href={`https://ipfs.io/ipfs/${cid}`} target="_blank">
+              <Link href={`https://ipfs.infura.io/ipfs/${cid}`} target="_blank">
                 {formatCid(cid)}
               </Link>
             </div>
