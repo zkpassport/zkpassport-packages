@@ -195,9 +195,15 @@ export async function startAnvil({
 } = {}): Promise<AnvilInstance> {
   // Make sure there's no anvil running on the port
   try {
-    execSync(`lsof -ti:${PORT} | xargs kill -9`, { stdio: "ignore" })
+    // First check if there's a process on the port before trying to kill it
+    const checkProcess = execSync(`lsof -ti:${PORT}`, { stdio: "pipe", encoding: "utf-8" }).trim()
+    if (checkProcess) {
+      execSync(`kill -9 ${checkProcess}`, { stdio: "ignore" })
+      if (verbose) console.log(`Killed existing process on port ${PORT}`)
+    }
   } catch (error) {
-    console.error("Error killing Anvil process:", error)
+    // It's normal for this to fail if no process is running on the port
+    if (verbose) console.log(`No process running on port ${PORT}`)
   }
 
   // Run Anvil as a child process
@@ -214,16 +220,37 @@ export async function startAnvil({
 
   // Build and deploy contracts
   if (verbose) console.log("Building contracts...")
-  execSync(`cd ${CONTRACTS_DIR} && forge build`, {
-    stdio: verbose ? "inherit" : "ignore",
-  })
+  try {
+    execSync(`cd ${CONTRACTS_DIR} && forge build`, {
+      stdio: verbose ? ["inherit", "inherit", "pipe"] : ["ignore", "ignore", "pipe"],
+    })
+  } catch (error: any) {
+    console.error("Error building contracts:")
+    if (error.stderr) {
+      console.error(error.stderr.toString())
+    }
+    throw error
+  }
   if (verbose) console.log("Deploying contracts...")
-  const deployOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/deploy.sh`, {
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "ignore"],
-    env: { RPC_URL },
-  })
-  if (verbose) verboseLog(deployOutput)
+  let deployOutput = ""
+  try {
+    deployOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/deploy.sh`, {
+      encoding: "utf-8",
+      stdio: ["inherit", "pipe", "pipe"],
+      env: { ...process.env, RPC_URL },
+    })
+    if (verbose) verboseLog(deployOutput)
+  } catch (error: any) {
+    // Show the error output from the command
+    console.error("Error deploying contracts:")
+    if (error.stderr) {
+      console.error(error.stderr.toString())
+    }
+    if (error.stdout) {
+      console.error(error.stdout.toString())
+    }
+    throw error
+  }
 
   // Get root registry address from deployment output
   const registryAddress = deployOutput.match(/RootRegistry deployed at: (0x[a-fA-F0-9]{40})/)?.[1]
@@ -235,14 +262,23 @@ export async function startAnvil({
 
   // Update roots
   if (verbose) console.log("Updating roots...")
-  const updateRootsOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/update-roots.sh`, {
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "ignore"],
-    env: {
-      RPC_URL: RPC_URL,
-    },
-  })
-  verboseLog(updateRootsOutput)
+  try {
+    const updateRootsOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/update-roots.sh`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, RPC_URL },
+    })
+    verboseLog(updateRootsOutput)
+  } catch (error: any) {
+    console.error("Error updating roots:")
+    if (error.stderr) {
+      console.error(error.stderr.toString())
+    }
+    if (error.stdout) {
+      console.error(error.stdout.toString())
+    }
+    throw error
+  }
 
   return { anvilProcess, rootRegistry: registryAddress, registryHelper: helperAddress }
 }

@@ -1,6 +1,8 @@
 #!/bin/zsh
 
-set -e
+set -ex
+
+env
 
 export CHAIN_ID=${CHAIN_ID:-31337}
 export RPC_URL=${RPC_URL:-http://localhost:8545}
