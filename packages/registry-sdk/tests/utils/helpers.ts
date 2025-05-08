@@ -214,16 +214,40 @@ export async function startAnvil({
 
   // Build and deploy contracts
   if (verbose) console.log("Building contracts...")
-  execSync(`cd ${CONTRACTS_DIR} && forge build`, {
-    stdio: verbose ? "inherit" : "ignore",
-  })
+  try {
+    execSync(`forge build`, {
+      stdio: ["ignore", verbose ? "inherit" : "ignore", "pipe"],
+      cwd: CONTRACTS_DIR,
+    })
+  } catch (error: any) {
+    console.error("Error building contracts")
+    if (error.stderr) {
+      console.error(error.stderr.toString())
+    }
+    throw error
+  }
+
   if (verbose) console.log("Deploying contracts...")
-  const deployOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/deploy.sh`, {
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "ignore"],
-    env: { RPC_URL },
-  })
-  if (verbose) verboseLog(deployOutput)
+  let deployOutput = ""
+  try {
+    deployOutput = execSync(`script/bash/deploy.sh`, {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, RPC_URL },
+      cwd: CONTRACTS_DIR,
+    })
+    verboseLog(deployOutput)
+  } catch (error: any) {
+    // Show the error output from the command
+    console.error("Error deploying contracts")
+    if (error.stderr) {
+      console.error(error.stderr.toString())
+    }
+    if (error.stdout) {
+      console.error(error.stdout.toString())
+    }
+    throw error
+  }
 
   // Get root registry address from deployment output
   const registryAddress = deployOutput.match(/RootRegistry deployed at: (0x[a-fA-F0-9]{40})/)?.[1]
@@ -235,14 +259,21 @@ export async function startAnvil({
 
   // Update roots
   if (verbose) console.log("Updating roots...")
-  const updateRootsOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/update-roots.sh`, {
-    encoding: "utf-8",
-    stdio: ["pipe", "pipe", "ignore"],
-    env: {
-      RPC_URL: RPC_URL,
-    },
-  })
-  verboseLog(updateRootsOutput)
+  try {
+    const updateRootsOutput = execSync(`script/bash/update-roots.sh`, {
+      encoding: "utf-8",
+      stdio: ["ignore", verbose ? "inherit" : "ignore", "pipe"],
+      env: { ...process.env, RPC_URL },
+      cwd: CONTRACTS_DIR,
+    })
+    verboseLog(updateRootsOutput)
+  } catch (error: any) {
+    console.error("Error updating roots")
+    if (error.stdout) {
+      console.error(error.stdout.toString())
+    }
+    throw error
+  }
 
   return { anvilProcess, rootRegistry: registryAddress, registryHelper: helperAddress }
 }

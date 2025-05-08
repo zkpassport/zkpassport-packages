@@ -9,17 +9,30 @@ export ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-dummy}
 export ORACLE_ADDRESS=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 export ORACLE_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
 
+# Function to generate SHA-256 hash that works on both macOS and Linux
+generate_sha256() {
+  if command -v shasum >/dev/null 2>&1; then
+    echo -n "$1" | shasum -a 256 | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    echo -n "$1" | sha256sum | awk '{print $1}'
+  else
+    echo "Error: No SHA-256 hashing utility found"
+    exit 1
+  fi
+}
+
 CERTIFICATE_REGISTRY_ADDRESS=$(cat broadcast/DeployCertificateRegistry.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 echo "Using CertificateRegistry address: $CERTIFICATE_REGISTRY_ADDRESS"
+
 echo "Creating Certificate Registry historical roots..."
 
 # Loop to create 10 roots
 for i in {1..10}
 do
   # Generate a SHA-256 hash for the root
-  ROOT="0x$(echo -n "$i" | shasum -a 256 | awk '{print $1}')"
+  ROOT="0x$(generate_sha256 "$i")"
   # Generate a SHA-256 hash for CID (simulating IPFS CID)
-  CID="0x$(echo -n "$i" | shasum -a 256 | awk '{print $1}')"
+  CID="0x$(generate_sha256 "$i")"
   # Calculate a simulated leaves count - each root has i*100 certificates
   LEAVES_COUNT=$((i * 100))
 
@@ -42,15 +55,16 @@ done
 
 CIRCUIT_REGISTRY_ADDRESS=$(cat broadcast/DeployCircuitRegistry.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 echo "Using CircuitRegistry address: $CIRCUIT_REGISTRY_ADDRESS"
+
 echo "Creating Circuit Registry historical roots..."
 
 # Loop to create 10 roots
 for i in {1..10}
 do
   # Generate a SHA-256 hash for the root
-  ROOT="0x$(echo -n "$i" | shasum -a 256 | awk '{print $1}')"
+  ROOT="0x$(generate_sha256 "$i")"
   # Generate a SHA-256 hash for CID (simulating IPFS CID)
-  CID="0x$(echo -n "$i" | shasum -a 256 | awk '{print $1}')"
+  CID="0x$(generate_sha256 "$i")"
   # Calculate a simulated leaves count - each root has i*100 certificates
   LEAVES_COUNT=$((i * 100))
 

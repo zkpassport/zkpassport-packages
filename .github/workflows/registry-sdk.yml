@@ -24,6 +24,13 @@ jobs:
         with:
           version: stable
 
+      - name: Build contracts
+        run: forge build
+        working-directory: packages/registry-contracts
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
+
       - name: Install dependencies
         run: bun install
         working-directory: packages/registry-sdk
