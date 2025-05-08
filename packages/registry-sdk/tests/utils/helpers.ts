@@ -221,8 +221,9 @@ export async function startAnvil({
   // Build and deploy contracts
   if (verbose) console.log("Building contracts...")
   try {
-    execSync(`cd ${CONTRACTS_DIR} && forge build`, {
+    execSync(`forge build`, {
       stdio: verbose ? ["inherit", "inherit", "pipe"] : ["ignore", "ignore", "pipe"],
+      cwd: CONTRACTS_DIR,
     })
   } catch (error: any) {
     console.error("Error building contracts:")
@@ -234,10 +235,11 @@ export async function startAnvil({
   if (verbose) console.log("Deploying contracts...")
   let deployOutput = ""
   try {
-    deployOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/deploy.sh`, {
+    deployOutput = execSync(`script/bash/deploy.sh`, {
       encoding: "utf-8",
       stdio: ["inherit", "pipe", "pipe"],
       env: { ...process.env, RPC_URL },
+      cwd: CONTRACTS_DIR,
     })
     if (verbose) verboseLog(deployOutput)
   } catch (error: any) {
@@ -263,10 +265,11 @@ export async function startAnvil({
   // Update roots
   if (verbose) console.log("Updating roots...")
   try {
-    const updateRootsOutput = execSync(`cd ${CONTRACTS_DIR} && script/bash/update-roots.sh`, {
+    const updateRootsOutput = execSync(`script/bash/update-roots.sh`, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, RPC_URL },
+      cwd: CONTRACTS_DIR,
     })
     verboseLog(updateRootsOutput)
   } catch (error: any) {
