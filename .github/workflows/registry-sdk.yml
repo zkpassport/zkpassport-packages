@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'packages/registry-sdk/**'
+  push:
   workflow_dispatch:
 
 jobs:
