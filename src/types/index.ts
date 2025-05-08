@@ -424,4 +424,5 @@ export type {
   CurveName,
   SignatureAlgorithmType,
   PackagedCertificate,
-} from "./packaged-cert"
+  CircuitManifest,
+} from "./registry"

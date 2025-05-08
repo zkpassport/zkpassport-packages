@@ -76,3 +76,9 @@ export type PackagedCertificate = {
   tags?: string[]
   type?: string
 }
+
+export type CircuitManifest = {
+  version: string
+  root: string
+  circuits: Record<string, { hash: string; size: number }>
+}
