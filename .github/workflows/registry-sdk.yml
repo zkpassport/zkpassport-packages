@@ -24,13 +24,13 @@ jobs:
         with:
           version: stable
 
-      - name: Install dependencies
-        run: bun install
-        working-directory: packages/registry-sdk
-
       - name: Build contracts
         run: forge build
         working-directory: packages/registry-contracts
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: packages/registry-sdk
 
     #   - name: Run checks
     #     run: bun run check
