@@ -31,6 +31,32 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
 }
 
 /**
+ * Circuit manifest URLs
+ */
+export const CIRCUIT_MANIFEST_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
+export const CIRCUIT_MANIFEST_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia"
+export const CIRCUIT_MANIFEST_URL_DEV = "http://localhost:3000/circuits"
+
+/**
+ * Circuit manifest URL generator
+ * @param chainId - The chain ID
+ * @param root - The circuit manifest root hash
+ * @param cid - The CID of the circuit manifest (optional)
+ */
+export const CIRCUIT_MANIFEST_URL_TEMPLATE = (chainId: number, root: string, cid?: string) => {
+  if (cid) {
+    return `https://ipfs.infura.io/ipfs/${cid}`
+  }
+  if (chainId === 1) {
+    return `${CIRCUIT_MANIFEST_URL_MAINNET}/${root}.json`
+  } else if (chainId === 11155111) {
+    return `${CIRCUIT_MANIFEST_URL_SEPOLIA}/${root}.json`
+  } else {
+    return `${CIRCUIT_MANIFEST_URL_DEV}/${root}.json`
+  }
+}
+
+/**
  * Default page size for historical roots results
  */
 export const DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE = 100

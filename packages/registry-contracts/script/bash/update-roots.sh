@@ -54,11 +54,10 @@ do
   # Calculate a simulated leaves count - each root has i*100 certificates
   LEAVES_COUNT=$((i * 100))
 
-  # Use the circuits fixture root hash and cid for the last root update
-  # TODO: Implement this
+  # Use the circuit manifest fixture root hash and cid for the last root update
   if [ $i -eq 10 ]; then
-    ROOT="0x15db8c75a3eb23f2d87ad299a8a4263cdb630e59be154b8db9864911db507681"
-    CID="0xfa6c339b71fb02830ea53b4406e1f9911cf0952dee71a9b131c7d04f1948c52a" # bafkreih2nqzzw4p3akbq5jj3iqdod6mrdtyjklpoogu3cmoh2bhrssgffi
+    ROOT="0x2e69be09971588016807c5b4f8596c0994fafd5171a096dc9df3ebeadf5b235a"
+    CID="0x55f116cfb4d2977dd8e5836fd5cdefcadcbf964782b9cf107f8f423e3080d609" # bafkreicv6elm7ngss565rzmdn7k4336k3s7zmr4cxhhra74pii7dbagwbe
     LEAVES_COUNT=5
   fi
 

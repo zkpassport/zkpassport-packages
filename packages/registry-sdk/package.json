@@ -39,7 +39,7 @@
   "dependencies": {
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "@zkpassport/utils": "^0.7.2",
+    "@zkpassport/utils": "^0.8.1",
     "debug": "^4.4.0"
   },
   "devDependencies": {
