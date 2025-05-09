@@ -1,0 +1,44 @@
+name: Registry SDK
+
+on:
+  pull_request:
+    paths:
+      - 'packages/registry-sdk/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Build contracts
+        run: forge build
+        working-directory: packages/registry-contracts
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: packages/registry-sdk
+
+      - name: Run checks
+        run: bun run check
+        working-directory: packages/registry-sdk
+
+      - name: Run tests
+        run: bun run test
+        working-directory: packages/registry-sdk

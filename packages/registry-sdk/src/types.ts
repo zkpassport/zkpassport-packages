@@ -28,6 +28,11 @@ export interface RegistryClientOptions {
    * Packaged certificates file URL generator
    */
   packagedCertsUrlGenerator?: (chainId: number, root: string, cid?: string) => string
+
+  /**
+   * Circuit manifest file URL generator
+   */
+  circuitManifestUrlGenerator?: (chainId: number, root: string, cid?: string) => string
 }
 
 /**

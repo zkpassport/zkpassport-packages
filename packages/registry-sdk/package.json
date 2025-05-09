@@ -37,14 +37,16 @@
     }
   },
   "dependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
-    "@zkpassport/utils": "^0.7.2",
+    "@zkpassport/utils": "^0.8.1",
     "debug": "^4.4.0"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.12",
     "@types/debug": "^4.1.12",
+    "@types/jest": "^29.5.14",
     "@types/node": "^18.19.87",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
     "concurrently": "^8.2.2",
     "esbuild": "^0.25.3",
     "eslint": "^8.57.1",
