@@ -319,6 +319,15 @@ export function getScopeHash(value?: string): bigint {
   return bytes
 }
 
+export function getServiceScopeHash(domain: string, chainId?: number) {
+  const scope = !!chainId ? `${domain}:chain-${chainId}` : domain
+  return getScopeHash(scope)
+}
+
+export function getServiceSubscopeHash(value: string) {
+  return getScopeHash(value)
+}
+
 export function processSodSignature(signature: number[], passport: PassportViewModel): number[] {
   const signatureAlgorithm = getSodSignatureAlgorithmType(passport)
   if (signatureAlgorithm === "ECDSA") {
