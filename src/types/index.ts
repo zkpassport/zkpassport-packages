@@ -426,4 +426,5 @@ export type {
   SignatureAlgorithmType,
   PackagedCertificate,
   CircuitManifest,
+  CircuitManifestEntry,
 } from "./registry"

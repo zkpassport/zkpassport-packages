@@ -77,8 +77,10 @@ export type PackagedCertificate = {
   type?: string
 }
 
+export type CircuitManifestEntry = { hash: string; size: number }
+
 export type CircuitManifest = {
   version: string
   root: string
-  circuits: Record<string, { hash: string; size: number }>
+  circuits: Record<string, CircuitManifestEntry>
 }
