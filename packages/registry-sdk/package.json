@@ -5,9 +5,28 @@
   "author": "ZKPassport",
   "license": "MIT",
   "type": "module",
-  "types": "./dist/index.d.ts",
   "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "default": "./dist/cjs/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "test": "bun test tests/*.test.ts",
+    "coverage": "bun test tests/*.test.ts --coverage",
+    "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
+    "format": "prettier -c -w src tests",
+    "build": "rimraf ./dist && bun run build:esm && bun run build:cjs",
+    "build:watch:esm": "tsc --watch",
+    "build:watch:cjs": "tsc -p tsconfig.cjs.json --watch",
+    "build:esm": "tsc",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
+  },
   "files": [
     "dist"
   ],
@@ -17,25 +36,6 @@
     "certificate registry",
     "circuit registry"
   ],
-  "scripts": {
-    "test": "bun test tests/*.test.ts",
-    "coverage": "bun test tests/*.test.ts --coverage",
-    "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
-    "format": "prettier -c -w src tests",
-    "build": "rimraf ./dist && bun run build:bundle && bun run build:types",
-    "build:bundle": "node scripts/esbuild.mjs",
-    "build:types": "node scripts/gen-types.mjs",
-    "build:watch": "rimraf ./dist && concurrently \"node scripts/esbuild.mjs --watch\" \"node scripts/gen-types.mjs --watch\"",
-    "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "default": "./dist/esm/index.js"
-    }
-  },
   "dependencies": {
     "@zkpassport/utils": "^0.8.1",
     "debug": "^4.4.0"

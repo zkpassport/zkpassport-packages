@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "dist/cjs",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@zkpassport/utils/registry": ["node_modules/@zkpassport/utils/dist/esm/registry/index.js"],
+      "@zkpassport/utils/types": ["node_modules/@zkpassport/utils/dist/esm/types/index.js"]
+    },
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"],
+  "exclude": ["**/*.test.ts"]
+}

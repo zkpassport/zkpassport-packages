@@ -1,4 +1,4 @@
-import type { PackagedCertificate } from "@zkpassport/utils"
+import type { PackagedCertificate } from "@zkpassport/utils/types"
 
 /**
  * Registry client configuration options
