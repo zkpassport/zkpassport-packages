@@ -5,8 +5,8 @@ import {
   GET_LATEST_ROOT_DETAILS_SIGNATURE,
   LATEST_ROOT_WITH_PARAM_SIGNATURE,
   PACKAGED_CERTIFICATES_URL_TEMPLATE,
-} from "./constants"
-import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
+} from "@/constants"
+import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "@/types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import {
   buildMerkleTreeFromCerts,

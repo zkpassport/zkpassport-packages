@@ -8,7 +8,8 @@
     "baseUrl": ".",
     "paths": {
       "@zkpassport/utils/registry": ["node_modules/@zkpassport/utils/dist/esm/registry/index.js"],
-      "@zkpassport/utils/types": ["node_modules/@zkpassport/utils/dist/esm/types/index.js"]
+      "@zkpassport/utils/types": ["node_modules/@zkpassport/utils/dist/esm/types/index.js"],
+      "@/*": ["./src/*"]
     },
     "esModuleInterop": true,
     "declaration": false,
