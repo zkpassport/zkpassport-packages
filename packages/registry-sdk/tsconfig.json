@@ -1,18 +1,15 @@
-// This tsconfig is only used for editor linting and building type declarations
 {
   "compilerOptions": {
     "target": "es2022",
     "module": "es2022",
     "moduleResolution": "bundler",
-    "outDir": "./dist",
+    "outDir": "./dist/esm",
     "rootDir": "./src",
     "baseUrl": ".",
-    // TODO: Disabled until dist/cjs path alias rewrite is added
-    // "paths": { "@/*": ["./src/*"] },
+    "paths": { "@/*": ["./src/*"] },
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
-    "emitDeclarationOnly": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "isolatedModules": true,
