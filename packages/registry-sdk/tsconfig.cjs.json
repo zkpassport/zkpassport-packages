@@ -13,7 +13,6 @@
     "strict": true,
     "esModuleInterop": true,
     "declaration": false,
-    "emitDeclarationOnly": false,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "isolatedModules": true,
