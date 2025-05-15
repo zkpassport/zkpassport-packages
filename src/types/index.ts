@@ -286,6 +286,7 @@ export type Service = {
   logo: string
   purpose: string
   scope?: string
+  chainId?: number
 }
 
 export type ProofMode = "fast" | "compressed" | "compressed-evm"
