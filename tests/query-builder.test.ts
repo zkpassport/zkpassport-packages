@@ -1,36 +1,25 @@
 import { ZKPassport as ZkPassportVerifier } from "../src/index"
 import { MockWebSocket } from "./helpers/mock-websocket"
-
-let wsClient: MockWebSocket | null = null
-jest.mock("../src/websocket", () => {
-  return {
-    getWebSocketClient: jest.fn((url: string, origin?: string) => {
-      const wsClientInstance = new MockWebSocket(url, {
-        headers: {
-          Origin: origin || "nodejs",
-        },
-      })
-      wsClient = wsClientInstance
-      return wsClientInstance
-    }),
-  }
-})
+import { Bridge } from "@obsidion/bridge"
 
 describe("Query Builder", () => {
   let zkPassport: ZkPassportVerifier
   let queryBuilder: any
+  let mockBridge: jest.Mocked<Bridge>
 
   beforeEach(async () => {
+    // Clear any previous mock states
+    MockWebSocket.clearHub()
+
+    // Get the mocked Bridge instance
+    mockBridge = new Bridge() as jest.Mocked<Bridge>
+
     zkPassport = new ZkPassportVerifier("localhost")
     queryBuilder = await zkPassport.request({
       name: "Test App",
       logo: "https://test.com/logo.png",
       purpose: "Testing query builder",
     })
-  })
-
-  afterEach(() => {
-    wsClient!.close()
   })
 
   test("should build equality query with validation", async () => {
