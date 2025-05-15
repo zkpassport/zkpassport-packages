@@ -106,16 +106,6 @@ export function isIDSupported(passport: PassportViewModel): boolean {
   const sodSignatureAlgorithm = getSodSignatureAlgorithmType(passport)
   return (
     isSignatureAlgorithmSupported(passport, sodSignatureAlgorithm) &&
-    (SUPPORTED_HASH_ALGORITHMS.some((x) =>
-      passport.sod.certificate.signatureAlgorithm.name.toLowerCase().includes(x.toLowerCase()),
-    ) ||
-      // We assume that PSS is always sha256, sha384, or sha512
-      passport.sod.certificate.signatureAlgorithm.name.toLowerCase().includes("pss")) &&
-    (SUPPORTED_HASH_ALGORITHMS.some((x) =>
-      passport.sod.signerInfo.signatureAlgorithm.name.toLowerCase().includes(x.toLowerCase()),
-    ) ||
-      // We assume that PSS is always sha256, sha384, or sha512
-      passport.sod.signerInfo.signatureAlgorithm.name.toLowerCase().includes("pss")) &&
     passport.sod.digestAlgorithms.every((digest) => SUPPORTED_HASH_ALGORITHMS.includes(digest)) &&
     SUPPORTED_HASH_ALGORITHMS.includes(passport.sod.encapContentInfo.eContent.hashAlgorithm) &&
     SUPPORTED_HASH_ALGORITHMS.includes(passport.sod.signerInfo.digestAlgorithm)

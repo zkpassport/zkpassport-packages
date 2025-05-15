@@ -136,7 +136,7 @@ export function getDSCSignatureHashAlgorithm(
 ): DigestAlgorithm | undefined {
   if (passport.sod.certificate.signatureAlgorithm.name.toLowerCase().includes("pss")) {
     const params = getRSAPSSParams(
-      passport.sod.certificate.signatureAlgorithm.parameters?.toBuffer()!,
+      passport.sod.certificate.signatureAlgorithm.parameters?.toBuffer()! as BufferSource,
     )
     return params.hashAlgorithm
   }
