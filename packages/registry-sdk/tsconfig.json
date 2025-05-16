@@ -1,20 +1,21 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "ESNext",
+    "target": "es2022",
+    "module": "es2022",
     "moduleResolution": "bundler",
-    "strict": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist/esm",
     "rootDir": "./src",
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "paths": { "@/*": ["./src/*"] },
+    "strict": true,
+    "esModuleInterop": true,
+    "declaration": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["**/*.test.ts"]
 }

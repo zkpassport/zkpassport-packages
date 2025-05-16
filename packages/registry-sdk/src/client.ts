@@ -8,8 +8,17 @@ import {
 } from "@/constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "@/types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { CERTIFICATE_REGISTRY_ID, CircuitManifest, PackagedCertificate } from "@zkpassport/utils"
-import { buildMerkleTreeFromCerts, CIRCUIT_REGISTRY_ID, hexToCid } from "@zkpassport/utils/registry"
+import {
+  buildMerkleTreeFromCerts,
+  CERTIFICATE_REGISTRY_ID,
+  CIRCUIT_REGISTRY_ID,
+  hexToCid,
+} from "@zkpassport/utils/registry"
+import type {
+  CircuitManifest,
+  CircuitManifestEntry,
+  PackagedCertificate,
+} from "@zkpassport/utils/types"
 import debug from "debug"
 
 const log = debug("zkpassport:registry")
@@ -477,8 +486,8 @@ export class RegistryClient {
   async validateCircuitManifest(manifest: CircuitManifest, root?: string): Promise<boolean> {
     try {
       // Loop over the circuit hashes and convert them to a bigint
-      const circuitHashes = Object.values(manifest.circuits).map((circuit: { hash: string }) =>
-        BigInt(circuit.hash),
+      const circuitHashes = (Object.values(manifest.circuits) as CircuitManifestEntry[]).map(
+        (circuit: { hash: string }) => BigInt(circuit.hash),
       )
       // Hash the circuit hashes using Poseidon2
       const hash = await poseidon2HashAsync([...circuitHashes])

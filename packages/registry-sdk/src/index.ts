@@ -1,2 +1,2 @@
-export { RegistryClient } from "@/client"
+export { RegistryClient } from "./client"
 export type { RootDetails } from "@/types"
