@@ -33,6 +33,11 @@ export interface RegistryClientOptions {
    * Circuit manifest file URL generator
    */
   circuitManifestUrlGenerator?: (chainId: number, root: string, cid?: string) => string
+
+  /**
+   * Packaged circuit file URL generator
+   */
+  packagedCircuitUrlGenerator?: (chainId: number, hash: string, cid?: string) => string
 }
 
 /**

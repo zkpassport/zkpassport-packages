@@ -33,9 +33,9 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
 /**
  * Circuit manifest URLs
  */
-export const CIRCUIT_MANIFEST_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
-export const CIRCUIT_MANIFEST_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia"
-export const CIRCUIT_MANIFEST_URL_DEV = "http://localhost:3000/circuits"
+export const CIRCUIT_MANIFEST_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet/manifests"
+export const CIRCUIT_MANIFEST_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia/manifests"
+export const CIRCUIT_MANIFEST_URL_DEV = "http://localhost:3000/manifests"
 
 /**
  * Circuit manifest URL generator
@@ -53,6 +53,32 @@ export const CIRCUIT_MANIFEST_URL_TEMPLATE = (chainId: number, root: string, cid
     return `${CIRCUIT_MANIFEST_URL_SEPOLIA}/${root}.json`
   } else {
     return `${CIRCUIT_MANIFEST_URL_DEV}/${root}.json`
+  }
+}
+
+/**
+ * Packaged circuit URLs
+ */
+export const PACKAGED_CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet/circuits"
+export const PACKAGED_CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia/circuits"
+export const PACKAGED_CIRCUIT_URL_DEV = "http://localhost:3000/circuits"
+
+/**
+ * Packaged circuit URL generator
+ * @param chainId - The chain ID
+ * @param hash - The circuit vkey hash
+ * @param cid - The CID of the packaged circuit (optional)
+ */
+export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid?: string) => {
+  if (cid) {
+    return `https://ipfs.infura.io/ipfs/${cid}`
+  }
+  if (chainId === 1) {
+    return `${PACKAGED_CIRCUIT_URL_MAINNET}/${hash}.json`
+  } else if (chainId === 11155111) {
+    return `${PACKAGED_CIRCUIT_URL_SEPOLIA}/${hash}.json`
+  } else {
+    return `${PACKAGED_CIRCUIT_URL_DEV}/${hash}.json`
   }
 }
 

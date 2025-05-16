@@ -5,10 +5,13 @@ import {
   GET_LATEST_ROOT_DETAILS_SIGNATURE,
   LATEST_ROOT_WITH_PARAM_SIGNATURE,
   PACKAGED_CERTIFICATES_URL_TEMPLATE,
+  PACKAGED_CIRCUIT_URL_TEMPLATE,
   REGISTRIES_MAPPING_SIGNATURE,
 } from "@/constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "@/types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
+import { Binary } from "@zkpassport/utils"
+import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
   buildMerkleTreeFromCerts,
   CERTIFICATE_REGISTRY_ID,
@@ -19,6 +22,7 @@ import type {
   CircuitManifest,
   CircuitManifestEntry,
   PackagedCertificate,
+  PackagedCircuit,
 } from "@zkpassport/utils/types"
 import debug from "debug"
 
@@ -30,6 +34,7 @@ interface ChainConfig {
   registryHelper: string
   packagedCertsUrlGenerator: (chainId: number, root: string, cid?: string) => string
   circuitManifestUrlGenerator: (chainId: number, root: string, cid?: string) => string
+  packagedCircuitUrlGenerator: (chainId: number, hash: string, cid?: string) => string
 }
 
 const CHAIN_CONFIG: Record<number, ChainConfig> = {
@@ -40,6 +45,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     registryHelper: "0x0000000000000000000000000000000000000000",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
+    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
   },
   // Sepolia Testnet
   11155111: {
@@ -48,6 +54,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     registryHelper: "0xc46b1336b8f3cfd46a3ad3e735fef6eb4252f229",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
+    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
   },
   // Local Development (Anvil)
   31337: {
@@ -56,6 +63,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     registryHelper: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
+    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
   },
 }
 
@@ -77,6 +85,11 @@ export class RegistryClient {
     root: string,
     cid?: string,
   ) => string
+  private readonly packagedCircuitUrlGenerator: (
+    chainId: number,
+    hash: string,
+    cid?: string,
+  ) => string
 
   constructor({
     rpcUrl,
@@ -85,6 +98,7 @@ export class RegistryClient {
     registryHelper,
     packagedCertsUrlGenerator,
     circuitManifestUrlGenerator,
+    packagedCircuitUrlGenerator,
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
     this.chainId = chainId
@@ -98,6 +112,8 @@ export class RegistryClient {
       packagedCertsUrlGenerator || chainConfig?.packagedCertsUrlGenerator
     this.circuitManifestUrlGenerator =
       circuitManifestUrlGenerator || chainConfig?.circuitManifestUrlGenerator
+    this.packagedCircuitUrlGenerator =
+      packagedCircuitUrlGenerator || chainConfig?.packagedCircuitUrlGenerator
   }
 
   /**
@@ -170,7 +186,7 @@ export class RegistryClient {
 
     if (validate) {
       const valid = await this.validateCertificates(data.certificates, root)
-      if (!valid) throw new Error("Root hash validation failed for packaged certificates")
+      if (!valid) throw new Error(`Validation failed for packaged certificates: ${root}`)
     }
     return data
   }
@@ -446,7 +462,7 @@ export class RegistryClient {
   /**
    * Get circuit manifest
    *
-   * @param root The root hash to get circuit manifest for (defaults to latest root)
+   * @param root Optional root hash to get circuit manifest for (defaults to latest root)
    * @param validate Whether to validate the circuit manifest against the root hash (defaults to true)
    */
   async getCircuitManifest(
@@ -455,7 +471,7 @@ export class RegistryClient {
   ): Promise<CircuitManifest> {
     if (!root) root = await this.getCircuitsRoot()
 
-    // TODO: Add support for IPFS flag by looking up the CID for this root
+    // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
 
     const url = this.circuitManifestUrlGenerator(this.chainId, root)
@@ -468,15 +484,13 @@ export class RegistryClient {
       )
     }
     const data = (await response.json()) as CircuitManifest
-    log(`Got circuit manifest for root ${root}`)
-
-    // Handle invalid responses
     if (!data.version || !data.root || !data.circuits)
       throw new Error("Invalid circuit manifest returned")
+    log(`Got circuit manifest for root ${root}`)
 
     if (validate) {
       const valid = await this.validateCircuitManifest(data, root)
-      if (!valid) throw new Error("Root hash validation failed for circuit manifest")
+      if (!valid) throw new Error(`Validation failed for circuit manifest: ${root}`)
     }
     return data
   }
@@ -515,6 +529,58 @@ export class RegistryClient {
       console.error("Error validating circuit manifest:", error)
       return false
     }
+  }
+
+  /**
+   * Validate packaged circuit against an optional vkey hash
+   *
+   * @param circuit The packaged circuit to validate
+   * @param hash Optional hash to validate against (defaults to the vkey hash in the circuit)
+   */
+  async validatePackagedCircuit(circuit: PackagedCircuit, hash?: string): Promise<boolean> {
+    const expectedHash = hash || circuit.vkey_hash
+    const vkeyHashFields = ultraVkToFields(Binary.fromBase64(circuit.vkey).toUInt8Array())
+    const calculatedHash =
+      "0x" + (await poseidon2HashAsync(vkeyHashFields.map(BigInt))).toString(16)
+
+    const valid = calculatedHash.toLowerCase() === expectedHash.toLowerCase()
+    if (valid) {
+      log(`Validated packaged circuit against hash ${expectedHash}`)
+    } else {
+      log(`Error validating packaged circuit. Expected: ${expectedHash} Got: ${calculatedHash}`)
+    }
+    return valid
+  }
+
+  async getPackagedCircuit(
+    circuit: string,
+    manifest: CircuitManifest,
+    { validate = true, ipfs = false }: { validate?: boolean; ipfs?: boolean } = {},
+  ): Promise<PackagedCircuit> {
+    // TODO: Add support for IPFS flag
+    if (ipfs) throw new Error("IPFS flag not implemented")
+
+    const circuitHash = manifest.circuits[circuit]?.hash || null
+    if (!circuitHash) throw new Error(`Circuit ${circuit} not found in manifest`)
+
+    const url = this.packagedCircuitUrlGenerator(this.chainId, circuitHash)
+    log("Fetching packaged circuit from:", url)
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch packaged circuit for ${circuit}: ${response.status} ${response.statusText}`,
+      )
+    }
+    const data = (await response.json()) as PackagedCircuit
+    if (!data.name || !data.hash || !data.noir_version || !data.bb_version)
+      throw new Error(`Invalid packaged circuit returned for ${circuit}`)
+    log(`Got packaged circuit for ${circuit}`)
+
+    if (validate) {
+      const valid = await this.validatePackagedCircuit(data, circuitHash)
+      if (!valid) throw new Error(`Validation failed for packaged circuit: ${circuit}`)
+    }
+    return data
   }
 
   // /**
@@ -672,7 +738,7 @@ export class RegistryClient {
   /**
    * Get latest circuits root details
    */
-  // TODO: Change this to getCertificatesRootDetails(root?: string)
+  // TODO: Change this to getCircuitsRootDetails(root?: string)
   async getLatestCircuitsRootDetails(): Promise<RootDetails> {
     log(`Fetching latest circuits registry root details using root registry ${this.rootRegistry}`)
     const rpcRequest = {

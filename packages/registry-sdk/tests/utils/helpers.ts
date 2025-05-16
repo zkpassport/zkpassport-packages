@@ -1,9 +1,9 @@
-import { PackagedCertificatesFile } from "../../src/types"
-import { CircuitManifest } from "@zkpassport/utils"
+import { CircuitManifest, PackagedCircuit } from "@zkpassport/utils"
 import { ChildProcess, execSync, spawn } from "child_process"
 import fs from "fs"
 import keccak256 from "keccak256"
 import path from "path"
+import { PackagedCertificatesFile } from "../../src/types"
 
 // Configuration
 export const CHAIN_ID = 31337
@@ -324,5 +324,16 @@ export function loadCircuitManifestFile(filePath: string): CircuitManifest {
     return fileJson
   } catch (_) {
     throw new Error(`Error loading circuit manifest: ${filePath}`)
+  }
+}
+
+export function loadPackagedCircuitFile(filePath: string): PackagedCircuit {
+  try {
+    // Read and parse file
+    const fileData = fs.readFileSync(filePath, "utf8")
+    const fileJson = JSON.parse(fileData)
+    return fileJson
+  } catch (_) {
+    throw new Error(`Error loading packaged circuit: ${filePath}`)
   }
 }
