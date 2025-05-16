@@ -4,8 +4,11 @@ import { RegistryClient } from "../src/client"
 import { PackagedCertificatesFile } from "../src/types"
 import {
   CERTIFICATE_FIXTURES_ROOT,
+  CERTIFICATE_REGISTRY_ID,
   CIRCUIT_MANIFEST_FIXTURES_ROOT,
+  CIRCUIT_REGISTRY_ID,
   INVALID_ROOT_HASH,
+  NONEXISTENT_REGISTRY_ID,
 } from "./utils/constants"
 import {
   AnvilInstance,
@@ -256,6 +259,38 @@ describe("Registry", () => {
       expect(latest.index).toBe(10)
       expect(latest.isLatest).toBe(true)
       expect(latest.validTo).toBeUndefined()
+    })
+  })
+
+  describe("RootRegistry", () => {
+    it("should get certificate registry address", async () => {
+      const registryAddress1 = await registry.getRegistryAddress(CERTIFICATE_REGISTRY_ID)
+      expect(registryAddress1).toBe("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0")
+      const registryAddress2 = await registry.getCertificateRegistryAddress()
+      expect(registryAddress2).toBe("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0")
+    })
+
+    it("should get circuit registry address", async () => {
+      const registryAddress1 = await registry.getRegistryAddress(CIRCUIT_REGISTRY_ID)
+      expect(registryAddress1).toBe("0xdc64a140aa3e981100a9beca4e685f962f0cf6c9")
+      const registryAddress2 = await registry.getCircuitRegistryAddress()
+      expect(registryAddress2).toBe("0xdc64a140aa3e981100a9beca4e685f962f0cf6c9")
+    })
+
+    it("should handle non-existent registry ID", async () => {
+      await expect(registry.getRegistryAddress(NONEXISTENT_REGISTRY_ID)).rejects.toThrow(
+        /doesn't exist/i,
+      )
+    })
+
+    it("should handle invalid registry ID format", async () => {
+      await expect(registry.getRegistryAddress("invalid")).rejects.toThrow(/invalid registry id/i)
+    })
+
+    it("should accept numeric registry ID", async () => {
+      const registryId = parseInt(CERTIFICATE_REGISTRY_ID, 16)
+      const registryAddress = await registry.getRegistryAddress(registryId)
+      expect(registryAddress).toBe("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0")
     })
   })
 })
