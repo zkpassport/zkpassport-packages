@@ -5,6 +5,7 @@ import {
   GET_LATEST_ROOT_DETAILS_SIGNATURE,
   LATEST_ROOT_WITH_PARAM_SIGNATURE,
   PACKAGED_CERTIFICATES_URL_TEMPLATE,
+  REGISTRIES_MAPPING_SIGNATURE,
 } from "@/constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "@/types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
@@ -723,5 +724,80 @@ export class RegistryClient {
         isLatest: true,
       }
     } else throw new Error("No result returned from node")
+  }
+
+  /**
+   * Get registry address for a specific registryId
+   * @param registryId The registry ID to look up (number or hex string)
+   * @returns The registry address as a hex string
+   */
+  async getRegistryAddress(registryId: number | string): Promise<string> {
+    log(`Fetching registry address for ID ${registryId} from root registry ${this.rootRegistry}`)
+
+    let formattedRegistryId: string
+    if (typeof registryId === "string" && registryId.startsWith("0x")) {
+      formattedRegistryId = `0x${registryId.substring(2).padStart(64, "0")}`
+    } else if (typeof registryId === "number") {
+      formattedRegistryId = `0x${registryId.toString(16).padStart(64, "0")}`
+    } else {
+      throw new Error(`Invalid registry ID: ${registryId}`)
+    }
+
+    const rpcRequest = {
+      jsonrpc: "2.0",
+      id: Math.floor(Math.random() * 1000000),
+      method: "eth_call",
+      params: [
+        {
+          to: this.rootRegistry,
+          data: `${REGISTRIES_MAPPING_SIGNATURE}${formattedRegistryId.slice(2)}`,
+        },
+        "latest",
+      ],
+    }
+    try {
+      const response = await fetch(this.rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rpcRequest),
+      })
+      if (!response.ok) {
+        throw new Error(
+          `Error getting address for registry ID ${registryId}: ${response.status} ${response.statusText}`,
+        )
+      }
+      const rpcData = await response.json()
+      if (rpcData.error) {
+        throw new Error(
+          `Error getting address for registry ID ${registryId}: ${rpcData.error.message}`,
+        )
+      }
+      if (rpcData.result === "0x0000000000000000000000000000000000000000000000000000000000000000") {
+        throw new Error(`Registry ID ${registryId} doesn't exist`)
+      }
+      // Parse the address from the result
+      // Address is 20 bytes (40 hex chars) but padded to 32 bytes in the response
+      const address = `0x${rpcData.result.slice(-40)}`
+      log(`Got address for registry ID ${registryId}: ${address}`)
+      return address
+    } catch (err) {
+      throw new Error(`Error getting address for registry ID ${registryId}: ${err}`)
+    }
+  }
+
+  /**
+   * Get the address of the Certificate Registry
+   * @returns The address of the Certificate Registry
+   */
+  async getCertificateRegistryAddress(): Promise<string> {
+    return this.getRegistryAddress(CERTIFICATE_REGISTRY_ID)
+  }
+
+  /**
+   * Get the address of the Circuit Registry
+   * @returns The address of the Circuit Registry
+   */
+  async getCircuitRegistryAddress(): Promise<string> {
+    return this.getRegistryAddress(CIRCUIT_REGISTRY_ID)
   }
 }

@@ -80,3 +80,8 @@ export const GET_HISTORICAL_ROOTS_SIGNATURE = "0x06ac4103"
  * Function signature for getLatestRootDetails(bytes32)
  */
 export const GET_LATEST_ROOT_DETAILS_SIGNATURE = "0x76785af8"
+
+/**
+ * Function signature for registries(bytes32)
+ */
+export const REGISTRIES_MAPPING_SIGNATURE = "0x5d8d57a6"
