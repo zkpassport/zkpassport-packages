@@ -39,7 +39,7 @@
     "circuit registry"
   ],
   "dependencies": {
-    "@zkpassport/utils": "^0.8.1",
+    "@zkpassport/utils": "^0.8.4",
     "debug": "^4.4.0"
   },
   "devDependencies": {

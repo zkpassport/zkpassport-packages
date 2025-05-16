@@ -42,7 +42,7 @@
       "name": "@zkpassport/registry",
       "version": "0.1.11",
       "dependencies": {
-        "@zkpassport/utils": "^0.8.1",
+        "@zkpassport/utils": "^0.8.4",
         "debug": "^4.4.0",
       },
       "devDependencies": {
@@ -396,7 +396,7 @@
 
     "@zkpassport/registry": ["@zkpassport/registry@workspace:packages/registry-sdk"],
 
-    "@zkpassport/utils": ["@zkpassport/utils@0.8.1", "", { "dependencies": { "@lapo/asn1js": "^2.0.4", "@noble/ciphers": "^1.0.0", "@noble/curves": "^1.6.0", "@noble/hashes": "^1.5.0", "@noble/secp256k1": "^2.1.0", "@peculiar/asn1-cms": "^2.3.15", "@peculiar/asn1-ecc": "^2.3.15", "@peculiar/asn1-rsa": "^2.3.15", "@peculiar/asn1-schema": "^2.3.15", "@peculiar/asn1-x509": "^2.3.15", "@peculiar/x509": "^1.12.3", "@zk-kit/utils": "^1.2.1", "@zkpassport/poseidon2": "^0.6.0", "date-fns": "^4.1.0", "i18n-iso-countries": "^7.13.0" } }, "sha512-C0HjnsHjOGP2GYC7pWRHY9G1Oj2zYJSv5RBWViJ99BfR/+7sVfrVFMl6aB1nBNZGWJWPILMlCNvy354tdAXd/Q=="],
+    "@zkpassport/utils": ["@zkpassport/utils@0.8.4", "", { "dependencies": { "@lapo/asn1js": "^2.0.4", "@noble/ciphers": "^1.0.0", "@noble/curves": "^1.6.0", "@noble/hashes": "^1.5.0", "@noble/secp256k1": "^2.1.0", "@peculiar/asn1-cms": "^2.3.15", "@peculiar/asn1-ecc": "^2.3.15", "@peculiar/asn1-rsa": "^2.3.15", "@peculiar/asn1-schema": "^2.3.15", "@peculiar/asn1-x509": "^2.3.15", "@peculiar/x509": "^1.12.3", "@zk-kit/utils": "^1.2.1", "@zkpassport/poseidon2": "^0.6.0", "date-fns": "^4.1.0", "i18n-iso-countries": "^7.13.0" } }, "sha512-L/BXHac18SFpDf/aKhET4bJJxnQBOWuD0EonEGSzkeUw1WEIcWwAn7jAe34v2upVlLPGPj07sC2MtGjD5SOg9A=="],
 
     "acorn": ["acorn@8.14.1", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-OvQ/2pUDKmgfCg++xsTX1wGxfTaszcHVcTctW4UJB4hibJx2HXxxO5UmVgyjMa+ZDsiaf5wWLXYpRWMmBI0QHg=="],
 
