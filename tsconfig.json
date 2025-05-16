@@ -1,13 +1,8 @@
 {
   "compilerOptions": {
-    "strict": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "experimentalDecorators": true,
-    "skipLibCheck": true,
-    "target": "es2020",
-    "module": "es2020",
-    "moduleResolution": "node",
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
     "outDir": "./dist/esm",
     "rootDir": "./src",
     "baseUrl": ".",
@@ -15,8 +10,13 @@
       "@/*": ["./src/*"],
       "@/types": ["src/types/index.ts"]
     },
+    "strict": true,
+    "esModuleInterop": true,
     "declaration": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
     "isolatedModules": true,
+    "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true
   },

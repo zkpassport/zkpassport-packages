@@ -117,28 +117,17 @@
     }
   },
   "scripts": {
-    "prepublishOnly": "npm run check && npm run test && npm run build",
-    "build": "rimraf ./dist && npm run build:esm && npm run build:cjs",
-    "build:watch:esm": "tsc -p tsconfig.json --watch",
-    "build:watch:cjs": "tsc -p tsconfig.cjs.json --watch",
-    "build:esm": "tsc -p tsconfig.json",
-    "build:cjs": "tsc -p tsconfig.cjs.json",
-    "test": "jest",
+    "test": "bun test src tests",
+    "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests",
-    "format": "prettier -c -w src tests"
-  },
-  "devDependencies": {
-    "@babel/plugin-proposal-decorators": "^7.25.9",
-    "@babel/plugin-transform-class-properties": "^7.25.9",
-    "@babel/preset-env": "^7.26.0",
-    "@babel/preset-typescript": "^7.26.0",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.10.6",
-    "babel-jest": "^29.7.0",
-    "jest": "^29.7.0",
-    "prettier": "^3.5.3",
-    "rimraf": "^6.0.1",
-    "typescript": "^5.0.0"
+    "format": "prettier -c -w src tests",
+    "build": "rimraf ./dist && tsc && tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
+    "build:esm": "rimraf ./dist && tsc && bun run build:fix-aliases",
+    "build:cjs": "rimraf ./dist && tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
+    "build:watch:esm": "rimraf ./dist && tsc --watch",
+    "build:watch:cjs": "rimraf ./dist && tsc -p tsconfig.cjs.json --watch",
+    "build:fix-aliases": "bun run scripts/fix-aliases.mjs",
+    "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
   },
   "dependencies": {
     "@lapo/asn1js": "^2.0.4",
@@ -156,5 +145,21 @@
     "@zkpassport/poseidon2": "^0.6.0",
     "date-fns": "^4.1.0",
     "i18n-iso-countries": "^7.13.0"
-  }
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^7.25.9",
+    "@babel/plugin-transform-class-properties": "^7.25.9",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.6",
+    "babel-jest": "^29.7.0",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "tsc-alias": "^1.8.16"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "bun@1.2.13"
 }

@@ -1,4 +1,4 @@
 node_modules/
 dist/
-bun.lockb
+coverage/
 .DS_Store
