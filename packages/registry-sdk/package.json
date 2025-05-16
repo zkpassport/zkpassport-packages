@@ -39,7 +39,7 @@
     "circuit registry"
   ],
   "dependencies": {
-    "@zkpassport/utils": "^0.8.4",
+    "@zkpassport/utils": "^0.8.5",
     "debug": "^4.4.0"
   },
   "devDependencies": {
@@ -49,8 +49,6 @@
     "@types/node": "^18.19.87",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "concurrently": "^8.2.2",
-    "esbuild": "^0.25.3",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
@@ -61,5 +59,6 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
-  }
+  },
+  "packageManager": "bun@1.2.13"
 }
