@@ -1,11 +1,17 @@
-import { CircuitManifest } from "@zkpassport/utils"
+import { CircuitManifest, PackagedCircuit } from "@zkpassport/utils"
 import path from "path"
 import { RegistryClient } from "../src/client"
 import { PackagedCertificatesFile } from "../src/types"
 import {
+  CERTIFICATE_FIXTURES_CID_BASE32,
   CERTIFICATE_FIXTURES_ROOT,
+  CERTIFICATE_REGISTRY_ID,
+  CIRCUIT_MANIFEST_FIXTURES_CID_BASE32,
   CIRCUIT_MANIFEST_FIXTURES_ROOT,
-  INVALID_ROOT_HASH,
+  CIRCUIT_REGISTRY_ID,
+  INVALID_HASH,
+  NONEXISTENT_REGISTRY_ID,
+  PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH,
 } from "./utils/constants"
 import {
   AnvilInstance,
@@ -14,6 +20,7 @@ import {
   isAnvilRunning,
   loadCircuitManifestFile,
   loadPackagedCertificatesFile,
+  loadPackagedCircuitFile,
   startAnvil,
   stopAnvil,
 } from "./utils/helpers"
@@ -22,6 +29,7 @@ let anvil: AnvilInstance
 let registry: RegistryClient
 let fixturePackagedCerts: PackagedCertificatesFile
 let fixtureCircuitManifest: CircuitManifest
+let fixturePackagedCircuit: PackagedCircuit
 
 describe("Registry", () => {
   beforeAll(async () => {
@@ -42,6 +50,10 @@ describe("Registry", () => {
     fixtureCircuitManifest = loadCircuitManifestFile(
       path.resolve(__dirname, "fixtures", "manifest.json"),
     )
+    // Load packaged circuit fixture
+    fixturePackagedCircuit = loadPackagedCircuitFile(
+      path.resolve(__dirname, "fixtures", "circuit_compare_age.json"),
+    )
   })
   let originalFetch: typeof fetch
 
@@ -51,32 +63,26 @@ describe("Registry", () => {
     // Create a mock fetch that returns the packaged certificates fixture
     const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
       const url: string = typeof input === "string" ? input : input.toString()
-      // Return the valid packaged certificates
+      // Return valid packaged certificates
       if (url.endsWith(`/certificates/${CERTIFICATE_FIXTURES_ROOT}.json`)) {
-        return new Response(JSON.stringify(fixturePackagedCerts), {
-          status: 200,
-        })
+        return new Response(JSON.stringify(fixturePackagedCerts), { status: 200 })
       }
       // Return invalid packaged certificates
-      else if (url.endsWith(`/certificates/${INVALID_ROOT_HASH}.json`)) {
+      else if (url.endsWith(`/certificates/${INVALID_HASH}.json`)) {
         return new Response(
           JSON.stringify({
             certificates: fixturePackagedCerts.certificates.slice(1),
             serialised: fixturePackagedCerts.serialised,
           }),
-          {
-            status: 200,
-          },
+          { status: 200 },
         )
       }
       // Return valid circuit manifest
-      else if (url.endsWith(`/circuits/${CIRCUIT_MANIFEST_FIXTURES_ROOT}.json`)) {
-        return new Response(JSON.stringify(fixtureCircuitManifest), {
-          status: 200,
-        })
+      else if (url.endsWith(`/manifests/${CIRCUIT_MANIFEST_FIXTURES_ROOT}.json`)) {
+        return new Response(JSON.stringify(fixtureCircuitManifest), { status: 200 })
       }
       // Return invalid circuit manifest
-      else if (url.endsWith(`/circuits/${INVALID_ROOT_HASH}.json`)) {
+      else if (url.endsWith(`/manifests/${INVALID_HASH}.json`)) {
         return new Response(
           JSON.stringify({
             version: fixtureCircuitManifest.version,
@@ -84,12 +90,23 @@ describe("Registry", () => {
             // Remove the first entry
             circuits: Object.fromEntries(Object.entries(fixtureCircuitManifest.circuits).slice(1)),
           }),
-          {
-            status: 200,
-          },
+          { status: 200 },
         )
       }
-
+      // Return valid packaged circuit
+      if (url.endsWith(`/circuits/${PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH}.json`)) {
+        return new Response(JSON.stringify(fixturePackagedCircuit), { status: 200 })
+      }
+      // Return invalid packaged circuit
+      else if (url.endsWith(`/circuits/${INVALID_HASH}.json`)) {
+        return new Response(
+          JSON.stringify({
+            ...fixturePackagedCircuit,
+            circuit: fixturePackagedCircuit.vkey.substring(1),
+          }),
+          { status: 200 },
+        )
+      }
       // Pass through to the original fetch
       else {
         return originalFetch(input, init)
@@ -122,9 +139,7 @@ describe("Registry", () => {
     })
 
     it("should fail to get certificates on invalid root hash", async () => {
-      await expect(registry.getCertificates(INVALID_ROOT_HASH)).rejects.toThrow(
-        /validation failed/i,
-      )
+      await expect(registry.getCertificates(INVALID_HASH)).rejects.toThrow(/validation failed/i)
     })
 
     it("should fetch certificates for a specific root", async () => {
@@ -144,10 +159,7 @@ describe("Registry", () => {
       const latestRoot = await registry.getCertificatesRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
       const packagedCerts = await registry.getCertificates(latestRoot)
-      const valid = await registry.validateCertificates(
-        packagedCerts.certificates,
-        INVALID_ROOT_HASH,
-      )
+      const valid = await registry.validateCertificates(packagedCerts.certificates, INVALID_HASH)
       expect(valid).toBe(false)
     })
 
@@ -170,14 +182,14 @@ describe("Registry", () => {
 
       const latest = historicalRoots[historicalRoots.length - 1]
       expect(latest.isLatest).toBe(true)
-      expect(latest.root).toBe("0x15db8c75a3eb23f2d87ad299a8a4263cdb630e59be154b8db9864911db507681")
-      expect(latest.cid).toBe("bafybeih2nqzzw4p3akbq5jj3iqdod6mrdtyjklpoogu3cmoh2bhrssgffi")
+      expect(latest.root).toBe(CERTIFICATE_FIXTURES_ROOT)
+      expect(latest.cid).toBe(CERTIFICATE_FIXTURES_CID_BASE32)
     })
 
     it("should get latest historical root", async () => {
       const latest = await registry.getLatestCertificatesRootDetails()
-      expect(latest.root).toBe("0x15db8c75a3eb23f2d87ad299a8a4263cdb630e59be154b8db9864911db507681")
-      expect(latest.cid).toBe("bafybeih2nqzzw4p3akbq5jj3iqdod6mrdtyjklpoogu3cmoh2bhrssgffi")
+      expect(latest.root).toBe(CERTIFICATE_FIXTURES_ROOT)
+      expect(latest.cid).toBe(CERTIFICATE_FIXTURES_CID_BASE32)
       expect(latest.leaves).toBe(5)
       expect(latest.revoked).toBe(false)
       expect(latest.index).toBe(10)
@@ -198,9 +210,7 @@ describe("Registry", () => {
     })
 
     it("should fail to get circuit manifest on invalid root hash", async () => {
-      await expect(registry.getCircuitManifest(INVALID_ROOT_HASH)).rejects.toThrow(
-        /validation failed/i,
-      )
+      await expect(registry.getCircuitManifest(INVALID_HASH)).rejects.toThrow(/validation failed/i)
     })
 
     it("should fetch circuit manifest for a specific root", async () => {
@@ -220,7 +230,7 @@ describe("Registry", () => {
       const latestRoot = await registry.getCircuitsRoot()
       expect(latestRoot).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
       const circuitManifest = await registry.getCircuitManifest(latestRoot)
-      const valid = await registry.validateCircuitManifest(circuitManifest, INVALID_ROOT_HASH)
+      const valid = await registry.validateCircuitManifest(circuitManifest, INVALID_HASH)
       expect(valid).toBe(false)
     })
 
@@ -243,19 +253,82 @@ describe("Registry", () => {
 
       const latest = historicalRoots[historicalRoots.length - 1]
       expect(latest.isLatest).toBe(true)
-      expect(latest.root).toBe("0x2e69be09971588016807c5b4f8596c0994fafd5171a096dc9df3ebeadf5b235a")
-      expect(latest.cid).toBe("bafybeicv6elm7ngss565rzmdn7k4336k3s7zmr4cxhhra74pii7dbagwbe")
+      expect(latest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+      expect(latest.cid).toBe(CIRCUIT_MANIFEST_FIXTURES_CID_BASE32)
     })
 
     it("should get latest historical root", async () => {
       const latest = await registry.getLatestCircuitsRootDetails()
-      expect(latest.root).toBe("0x2e69be09971588016807c5b4f8596c0994fafd5171a096dc9df3ebeadf5b235a")
-      expect(latest.cid).toBe("bafybeicv6elm7ngss565rzmdn7k4336k3s7zmr4cxhhra74pii7dbagwbe")
+      expect(latest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+      expect(latest.cid).toBe(CIRCUIT_MANIFEST_FIXTURES_CID_BASE32)
       expect(latest.leaves).toBe(5)
       expect(latest.revoked).toBe(false)
       expect(latest.index).toBe(10)
       expect(latest.isLatest).toBe(true)
       expect(latest.validTo).toBeUndefined()
+    })
+
+    it("should get latest circuit manifest", async () => {
+      const manifest = await registry.getCircuitManifest()
+      expect(manifest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+    })
+
+    it("should fail to get invalid circuit manifest", async () => {
+      await expect(registry.getCircuitManifest(INVALID_HASH)).rejects.toThrow(/validation failed/i)
+    })
+
+    it("should get packaged circuit", async () => {
+      const manifest = await registry.getCircuitManifest()
+      expect(manifest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+      const circuit = await registry.getPackagedCircuit("compare_age", manifest)
+      expect(circuit.vkey_hash).toBe(PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH)
+    })
+
+    it("should fail to get invalid packaged circuit", async () => {
+      const manifest = await registry.getCircuitManifest()
+      expect(manifest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+      manifest.circuits["compare_age"].hash = INVALID_HASH
+      await expect(registry.getPackagedCircuit("compare_age", manifest)).rejects.toThrow(
+        /validation failed/i,
+      )
+    })
+
+    it("should fail to get unknown packaged circuit", async () => {
+      const manifest = await registry.getCircuitManifest()
+      expect(manifest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+      await expect(registry.getPackagedCircuit("unknown", manifest)).rejects.toThrow(/not found/i)
+    })
+  })
+
+  describe("RootRegistry", () => {
+    it("should get certificate registry address", async () => {
+      const registryAddress1 = await registry.getRegistryAddress(CERTIFICATE_REGISTRY_ID)
+      expect(registryAddress1).toBe("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0")
+      const registryAddress2 = await registry.getCertificateRegistryAddress()
+      expect(registryAddress2).toBe("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0")
+    })
+
+    it("should get circuit registry address", async () => {
+      const registryAddress1 = await registry.getRegistryAddress(CIRCUIT_REGISTRY_ID)
+      expect(registryAddress1).toBe("0xdc64a140aa3e981100a9beca4e685f962f0cf6c9")
+      const registryAddress2 = await registry.getCircuitRegistryAddress()
+      expect(registryAddress2).toBe("0xdc64a140aa3e981100a9beca4e685f962f0cf6c9")
+    })
+
+    it("should handle non-existent registry ID", async () => {
+      await expect(registry.getRegistryAddress(NONEXISTENT_REGISTRY_ID)).rejects.toThrow(
+        /doesn't exist/i,
+      )
+    })
+
+    it("should handle invalid registry ID format", async () => {
+      await expect(registry.getRegistryAddress("invalid")).rejects.toThrow(/invalid registry id/i)
+    })
+
+    it("should accept numeric registry ID", async () => {
+      const registryId = parseInt(CERTIFICATE_REGISTRY_ID, 16)
+      const registryAddress = await registry.getRegistryAddress(registryId)
+      expect(registryAddress).toBe("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0")
     })
   })
 })
