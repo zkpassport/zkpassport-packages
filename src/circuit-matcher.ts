@@ -1070,13 +1070,12 @@ export async function getBindCircuitInputs(
   )
 
   const data = formatBindData(query.bind ?? {})
-  const dataBytes = Array.from(new TextEncoder().encode(data))
   const expectedHash = await getBindDataHash(data, isEvm)
 
   return {
     dg1: idData.dg1,
     comm_in: commIn.toHex(),
-    data: rightPadArrayWithZeros(dataBytes, 500),
+    data: rightPadArrayWithZeros(data, 500),
     // Drop the last byte of the expected hash to fit within 254 bits
     expected_hash:
       typeof expectedHash === "bigint" ? `0x${expectedHash.toString(16)}` : expectedHash,
