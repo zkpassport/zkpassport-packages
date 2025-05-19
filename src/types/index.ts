@@ -220,10 +220,14 @@ export type QueryResultValue = {
 
 export type Query = {
   [key in IDCredential]?: IDCredentialConfig
+} & {
+  bind?: BindData
 }
 
 export type QueryResult = {
   [key in IDCredential]?: QueryResultValue
+} & {
+  bind?: BindData
 }
 
 export type AgeCommittedInputs = {
@@ -247,11 +251,21 @@ export type DiscloseCommittedInputs = {
   disclosedBytes: number[]
 }
 
+export type BindData = {
+  user_address?: string
+}
+
+export type BindCommittedInputs = {
+  data: BindData
+  expected_hash: string
+}
+
 export type CommittedInputs =
   | AgeCommittedInputs
   | CountryCommittedInputs
   | DateCommittedInputs
   | DiscloseCommittedInputs
+  | BindCommittedInputs
 
 export type DisclosureCircuitName =
   | "disclose_bytes"
@@ -270,6 +284,8 @@ export type DisclosureCircuitName =
   | "inclusion_check_issuing_country_evm"
   | "inclusion_check_nationality"
   | "inclusion_check_nationality_evm"
+  | "bind"
+  | "bind_evm"
 
 export type ProofResult = {
   proof?: string

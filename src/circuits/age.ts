@@ -1,7 +1,7 @@
 import { packBeBytesIntoField } from "../utils"
 import { AgeCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { sha256 } from "@noble/hashes/sha256"
+import { sha256 } from "@noble/hashes/sha2"
 import { ProofType } from "."
 
 export function getMinAgeFromCommittedInputs(committedInputs: AgeCommittedInputs): number {

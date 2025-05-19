@@ -1,4 +1,3 @@
-import { sha256 } from "@noble/hashes/sha256"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
 import { format } from "date-fns"
@@ -7,6 +6,8 @@ import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
 import {
   calculatePrivateNullifier,
+  formatBindData,
+  getBindDataHash,
   getCountryWeightedSum,
   hashSaltCountrySignedAttrDg1PrivateNullifier,
   hashSaltCountryTbs,
@@ -45,6 +46,8 @@ import {
   rightPadArrayWithZeros,
 } from "./utils"
 import { countryCodeAlpha2ToAlpha3 } from "./country/country"
+import { poseidon2HashAsync } from "@zkpassport/poseidon2"
+import { sha256 } from "@noble/hashes/sha2"
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA256", "SHA384", "SHA512"]
@@ -1041,5 +1044,45 @@ export async function getExpiryDateCircuitInputs(
     // "11111111" means the date is ignored
     min_date: minDate ? format(minDate, "yyyyMMdd") : "1".repeat(8),
     max_date: maxDate ? format(maxDate, "yyyyMMdd") : "1".repeat(8),
+  }
+}
+
+export async function getBindCircuitInputs(
+  passport: PassportViewModel,
+  query: Query,
+  salt: bigint,
+  service_scope: bigint = 0n,
+  service_subscope: bigint = 0n,
+  isEvm: boolean = false,
+): Promise<any> {
+  const idData = getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1PrivateNullifier(
+    salt,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    privateNullifier.toBigInt(),
+  )
+
+  const data = formatBindData(query.bind ?? {})
+  const dataBytes = Array.from(new TextEncoder().encode(data))
+  const expectedHash = await getBindDataHash(data, isEvm)
+
+  return {
+    dg1: idData.dg1,
+    comm_in: commIn.toHex(),
+    data: rightPadArrayWithZeros(dataBytes, 500),
+    // Drop the last byte of the expected hash to fit within 254 bits
+    expected_hash:
+      typeof expectedHash === "bigint" ? `0x${expectedHash.toString(16)}` : expectedHash,
+    private_nullifier: privateNullifier.toHex(),
+    service_scope: `0x${service_scope.toString(16)}`,
+    service_subscope: `0x${service_subscope.toString(16)}`,
+    salt: `0x${salt.toString(16)}`,
   }
 }

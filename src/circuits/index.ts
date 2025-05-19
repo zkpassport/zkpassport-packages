@@ -230,6 +230,7 @@ export enum ProofType {
   NATIONALITY_EXCLUSION = 5,
   ISSUING_COUNTRY_INCLUSION = 6,
   ISSUING_COUNTRY_EXCLUSION = 7,
+  BIND = 8,
 }
 
 export {
@@ -249,3 +250,4 @@ export * from "./dsc"
 export * from "./id-data"
 export * from "./integrity"
 export * from "./vkey"
+export * from "./bind"
