@@ -2,6 +2,7 @@ import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { format } from "date-fns"
 import {
   convertDateBytesToDate,
+  getBindProofPublicInputCount,
   getCountryExclusionProofPublicInputCount,
   getCountryInclusionProofPublicInputCount,
   getIDDataProofPublicInputCount,
@@ -158,6 +159,8 @@ export function getNumberOfPublicInputs(circuitName: string) {
     return getIDDataProofPublicInputCount()
   } else if (circuitName.startsWith("sig_check_dsc")) {
     return getDSCProofPublicInputCount()
+  } else if (circuitName.startsWith("bind")) {
+    return getBindProofPublicInputCount()
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
     const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
@@ -200,6 +203,10 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
       return 201
     case "exclusion_check_nationality":
       return 201
+    case "bind":
+      return 502
+    case "bind_evm":
+      return 533
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }
