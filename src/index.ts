@@ -57,6 +57,11 @@ import {
   getScopeFromOuterProof,
   getSubscopeFromOuterProof,
   getServiceScopeHash,
+  BoundData,
+  BindCommittedInputs,
+  getBindEVMParameterCommitment,
+  getBindParameterCommitment,
+  formatBoundData,
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -92,7 +97,8 @@ export type QueryResultErrors = {
     | "sig_check_id_data"
     | "data_check_integrity"
     | "outer"
-    | "disclose"]: {
+    | "disclose"
+    | "bind"]: {
     disclose?: QueryResultError<string | number | Date>
     gte?: QueryResultError<number | Date>
     lte?: QueryResultError<number | Date>
@@ -347,6 +353,12 @@ export type QueryBuilder = {
    */
   disclose: (key: DisclosableIDCredential) => QueryBuilder
   /**
+   * Binds a value to the request.
+   * @param key The key of the value to bind.
+   * @param value The value to bind the request to.
+   */
+  bind: (key: keyof BoundData, value: BoundData[keyof BoundData]) => QueryBuilder
+  /**
    * Builds the request.
    *
    * This will return the URL of the request, which you can either encode in a QR code
@@ -503,6 +515,9 @@ export class ZKPassport {
         }
       }
     }
+    if ((this.topicToConfig[topic] as Query).bind) {
+      neededCircuits.push("bind")
+    }
     // From the circuits needed, determine the expected proof count
     // There are at least 4 proofs, 3 base proofs and 1 disclosure proof minimum
     // Each separate needed circuit adds 1 disclosure proof
@@ -633,6 +648,13 @@ export class ZKPassport {
         this.topicToConfig[topic][key] = {
           ...this.topicToConfig[topic][key],
           disclose: true,
+        }
+        return this.getZkPassportRequest(topic)
+      },
+      bind: (key: keyof BoundData, value: BoundData[keyof BoundData]) => {
+        this.topicToConfig[topic].bind = {
+          ...this.topicToConfig[topic].bind,
+          [key]: value,
         }
         return this.getZkPassportRequest(topic)
       },
@@ -777,6 +799,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
     // We can't be certain that the disclosed data is for a passport or an ID card
@@ -1138,6 +1161,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
     const currentTime = new Date()
@@ -1271,6 +1295,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
     const currentTime = new Date()
@@ -1399,6 +1424,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
     const currentTime = new Date()
@@ -1527,6 +1553,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
     if (
@@ -1591,6 +1618,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
 
@@ -1653,6 +1681,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
     if (
@@ -1700,6 +1729,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
     let isCorrect = true
 
@@ -1793,6 +1823,57 @@ export class ZKPassport {
     return { isCorrect, queryResultErrors }
   }
 
+  private checkBindPublicInputs(queryResult: QueryResult, boundData: BoundData) {
+    const queryResultErrors: QueryResultErrors = {
+      sig_check_dsc: {},
+      sig_check_id_data: {},
+      data_check_integrity: {},
+      disclose: {},
+      age: {},
+      birthdate: {},
+      expiry_date: {},
+      document_type: {},
+      issuing_country: {},
+      gender: {},
+      nationality: {},
+      firstname: {},
+      lastname: {},
+      fullname: {},
+      document_number: {},
+      outer: {},
+      bind: {},
+    }
+    let isCorrect = true
+
+    if (queryResult.bind) {
+      if (
+        queryResult.bind.user_address?.toLowerCase().replace("0x", "") !==
+        boundData.user_address?.toLowerCase().replace("0x", "")
+      ) {
+        console.warn("Bound user address does not match the one from the query results")
+        isCorrect = false
+        queryResultErrors.bind.eq = {
+          expected: queryResult.bind.user_address,
+          received: boundData.user_address,
+          message: "Bound user address does not match the one from the query results",
+        }
+      }
+      if (
+        queryResult.bind.custom_data?.trim().toLowerCase() !==
+        boundData.custom_data?.trim().toLowerCase()
+      ) {
+        console.warn("Bound custom data does not match the one from the query results")
+        isCorrect = false
+        queryResultErrors.bind.eq = {
+          expected: queryResult.bind.custom_data,
+          received: boundData.custom_data,
+          message: "Bound custom data does not match the one from the query results",
+        }
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   private async checkPublicInputs(
     proofs: Array<ProofResult>,
     queryResult: QueryResult,
@@ -1831,6 +1912,7 @@ export class ZKPassport {
       fullname: {},
       document_number: {},
       outer: {},
+      bind: {},
     }
 
     // Since the order is important for the commitments, we need to sort the proofs
@@ -1848,6 +1930,7 @@ export class ZKPassport {
         "inclusion_check_nationality",
         "exclusion_check_issuing_country",
         "inclusion_check_issuing_country",
+        "bind",
       ]
       const getIndex = (proof: ProofResult) => {
         const name = proof.name || ""
@@ -2166,6 +2249,27 @@ export class ZKPassport {
           queryResultErrors = {
             ...queryResultErrors,
             ...queryResultErrorsIssuingCountryExclusion,
+          }
+        } else if (!!committedInputs?.bind) {
+          const bindCommittedInputs = committedInputs?.bind as BindCommittedInputs
+          const bindParameterCommitment = isForEVM
+            ? await getBindEVMParameterCommitment(formatBoundData(bindCommittedInputs.data))
+            : await getBindParameterCommitment(formatBoundData(bindCommittedInputs.data))
+          if (!paramCommitments.includes(bindParameterCommitment)) {
+            console.warn("This proof does not verify the bound data")
+            isCorrect = false
+            queryResultErrors.bind.commitment = {
+              expected: `Bind parameter commitment: ${bindParameterCommitment.toString()}`,
+              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+              message: "This proof does not verify the bound data",
+            }
+          }
+          const { isCorrect: isCorrectBind, queryResultErrors: queryResultErrorsBind } =
+            this.checkBindPublicInputs(queryResult, bindCommittedInputs.data)
+          isCorrect = isCorrect && isCorrectBind
+          queryResultErrors = {
+            ...queryResultErrors,
+            ...queryResultErrorsBind,
           }
         }
         uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
@@ -2598,6 +2702,29 @@ export class ZKPassport {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+      } else if (proof.name === "bind") {
+        const bindCommittedInputs = proof.committedInputs?.bind as BindCommittedInputs
+        const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
+        const calculatedParamCommitment = await getBindParameterCommitment(
+          formatBoundData(bindCommittedInputs.data),
+        )
+        if (paramCommittment !== calculatedParamCommitment) {
+          console.warn("The bound data does not match the one from the proof")
+          isCorrect = false
+          queryResultErrors.bind.commitment = {
+            expected: `Commitment: ${calculatedParamCommitment}`,
+            received: `Commitment: ${paramCommittment}`,
+            message: "The bound data does not match the one from the proof",
+          }
+        }
+        const { isCorrect: isCorrectBind, queryResultErrors: queryResultErrorsBind } =
+          this.checkBindPublicInputs(queryResult, bindCommittedInputs.data)
+        isCorrect = isCorrect && isCorrectBind
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsBind,
+        }
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       }
     }
     return { isCorrect, uniqueIdentifier, queryResultErrors }
@@ -2758,7 +2885,7 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0xDfE02DFd5c208854884B58bFf6522De5c42F73E3",
+        address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F",
       }
     } else if (network === "local_anvil") {
       return {
@@ -2869,6 +2996,13 @@ export class ZKPassport {
           ProofType.DISCLOSE.toString(16).padStart(2, "0") +
           value.discloseMask.map((x) => x.toString(16).padStart(2, "0")).join("") +
           value.disclosedBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
+      } else if (circuitName === "bind_evm") {
+        const value = proof.committedInputs[circuitName] as BindCommittedInputs
+        compressedCommittedInputs =
+          ProofType.BIND.toString(16).padStart(2, "0") +
+          rightPadArrayWithZeros(formatBoundData(value.data), 500)
+            .map((x) => x.toString(16).padStart(2, "0"))
+            .join("")
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
       }
