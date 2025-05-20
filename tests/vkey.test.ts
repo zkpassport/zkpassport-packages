@@ -1,4 +1,6 @@
-import { ultraVkToFields } from "./vkey"
+import { ultraVkToFields } from "../src/circuits/vkey"
+import fs from "fs"
+import path from "path"
 
 describe("ultraVkToFields", () => {
   test("simple", () => {
@@ -273,5 +275,29 @@ describe("ultraVkToFields", () => {
     ]
     const vkeyAsFields = ultraVkToFields(Buffer.from(vkey, "hex"))
     expect(vkeyAsFields).toEqual(expectedVkeyAsFields)
+  })
+
+  test("outer_evm_count_6_vkey", () => {
+    const fixturesDir = path.join(__dirname, "fixtures", "outer_evm_count_6_vkey")
+    const vkey = fs.readFileSync(path.join(fixturesDir, "vk"))
+    const expected = JSON.parse(fs.readFileSync(path.join(fixturesDir, "vk_fields.json"), "utf8"))
+    const vkeyAsFields = ultraVkToFields(vkey)
+    expect(vkeyAsFields).toEqual(expected)
+  })
+
+  test("outer_count_6_vkey", () => {
+    const fixturesDir = path.join(__dirname, "fixtures", "outer_count_6_vkey")
+    const vkey = fs.readFileSync(path.join(fixturesDir, "vk"))
+    const expected = JSON.parse(fs.readFileSync(path.join(fixturesDir, "vk_fields.json"), "utf8"))
+    const vkeyAsFields = ultraVkToFields(vkey)
+    expect(vkeyAsFields).toEqual(expected)
+  })
+
+  test("compare_age_vkey", () => {
+    const fixturesDir = path.join(__dirname, "fixtures", "compare_age_vkey")
+    const vkey = fs.readFileSync(path.join(fixturesDir, "vk"))
+    const expected = JSON.parse(fs.readFileSync(path.join(fixturesDir, "vk_fields.json"), "utf8"))
+    const vkeyAsFields = ultraVkToFields(vkey)
+    expect(vkeyAsFields).toEqual(expected)
   })
 })
