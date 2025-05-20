@@ -204,9 +204,9 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
     case "exclusion_check_nationality":
       return 201
     case "bind":
-      return 502
+      return 501
     case "bind_evm":
-      return 533
+      return 501
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }

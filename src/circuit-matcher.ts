@@ -6,8 +6,7 @@ import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
 import {
   calculatePrivateNullifier,
-  formatBindData,
-  getBindDataHash,
+  formatBoundData,
   getCountryWeightedSum,
   hashSaltCountrySignedAttrDg1PrivateNullifier,
   hashSaltCountryTbs,
@@ -1053,7 +1052,6 @@ export async function getBindCircuitInputs(
   salt: bigint,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
-  isEvm: boolean = false,
 ): Promise<any> {
   const idData = getIDDataInputs(passport)
   if (!idData) return null
@@ -1069,16 +1067,12 @@ export async function getBindCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
-  const data = formatBindData(query.bind ?? {})
-  const expectedHash = await getBindDataHash(data, isEvm)
+  const data = formatBoundData(query.bind ?? {})
 
   return {
     dg1: idData.dg1,
     comm_in: commIn.toHex(),
     data: rightPadArrayWithZeros(data, 500),
-    // Drop the last byte of the expected hash to fit within 254 bits
-    expected_hash:
-      typeof expectedHash === "bigint" ? `0x${expectedHash.toString(16)}` : expectedHash,
     private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,

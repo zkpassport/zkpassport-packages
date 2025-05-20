@@ -221,13 +221,13 @@ export type QueryResultValue = {
 export type Query = {
   [key in IDCredential]?: IDCredentialConfig
 } & {
-  bind?: BindData
+  bind?: BoundData
 }
 
 export type QueryResult = {
   [key in IDCredential]?: QueryResultValue
 } & {
-  bind?: BindData
+  bind?: BoundData
 }
 
 export type AgeCommittedInputs = {
@@ -251,13 +251,13 @@ export type DiscloseCommittedInputs = {
   disclosedBytes: number[]
 }
 
-export type BindData = {
+export type BoundData = {
   user_address?: string
+  custom_data?: string
 }
 
 export type BindCommittedInputs = {
-  data: BindData
-  expected_hash: string
+  data: BoundData
 }
 
 export type CommittedInputs =
