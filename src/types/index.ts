@@ -304,6 +304,7 @@ export type Service = {
   scope?: string
   chainId?: number
   cloudProverUrl?: string
+  bridgeUrl?: string
 }
 
 export type ProofMode = "fast" | "compressed" | "compressed-evm"
@@ -315,6 +316,7 @@ export type QRCodeData = {
   domain: string | null
   service: Service | null
   mode: ProofMode
+  sdkVersion: string | null
 }
 
 export interface JsonRpcRequest {
