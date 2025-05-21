@@ -303,6 +303,7 @@ export type Service = {
   purpose: string
   scope?: string
   chainId?: number
+  cloudProverUrl?: string
 }
 
 export type ProofMode = "fast" | "compressed" | "compressed-evm"
