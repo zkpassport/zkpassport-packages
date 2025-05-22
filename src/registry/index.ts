@@ -1,6 +1,6 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { Binary } from "../binary"
-import { ECPublicKey, PackagedCertificate, RSAPublicKey } from "../types"
+import { ECPublicKey, PackagedCertificate, PackagedCircuit, RSAPublicKey } from "../types"
 import { assert, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
 export { hexToCid, cidToHex } from "./cid"
@@ -9,6 +9,11 @@ export { hexToCid, cidToHex } from "./cid"
  * Canonical merkle tree height for the certificate registry
  */
 export const CERTIFICATE_REGISTRY_HEIGHT = 16
+
+/**
+ * Canonical merkle tree height for the circuit registry
+ */
+export const CIRCUIT_REGISTRY_HEIGHT = 12
 
 /**
  * Canonical hash algorithm identifiers for the certificate registry
@@ -190,11 +195,42 @@ export async function buildMerkleTreeFromCerts(
 }
 
 /**
- * Calculate the canonical root hash of packaged certificates
+ * Calculate the canonical packaged certificates merkle root
+ * @param certs Array of packaged certificates
+ * @returns Canonical packaged certificates merkle root used for the certificate registry root
  */
-export async function getRootOfPackagedCertificates(certs: PackagedCertificate[]): Promise<string> {
+// TODO: Consider sorting the leaves before calculating the root
+export async function calculatePackagedCertificatesRoot(
+  certs: PackagedCertificate[],
+): Promise<string> {
   const leaves = await getCertificateLeafHashes(certs)
   const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
+  await tree.initialize(0n, leaves)
+  return tree.root
+}
+
+/**
+ * Calculate the canonical packaged circuits merkle root
+ * @param circuits Array of packaged circuits
+ * @returns Canonical packaged circuits merkle root used for the circuit registry root
+ */
+export async function calculatePackagedCircuitsRoot(circuits: PackagedCircuit[]): Promise<string> {
+  const leaves = circuits.map((circuit) => BigInt(circuit.vkey_hash))
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
+  await tree.initialize(0n, leaves)
+  return tree.root
+}
+
+/**
+ * Calculate the canonical packaged circuits merkle root from an array of vkey hashes
+ * @param vkeyHashes Array of vkey hashes
+ * @returns Canonical packaged circuits merkle root used for the circuit registry root
+ */
+export async function calculateCircuitsRootFromVKeyHashes(vkeyHashes: string[]): Promise<string> {
+  const leaves = vkeyHashes.map((vkeyHash) => BigInt(vkeyHash))
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
   await tree.initialize(0n, leaves)
   return tree.root
 }
