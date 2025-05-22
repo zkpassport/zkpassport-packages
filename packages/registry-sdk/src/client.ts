@@ -7,8 +7,8 @@ import {
   PACKAGED_CERTIFICATES_URL_TEMPLATE,
   PACKAGED_CIRCUIT_URL_TEMPLATE,
   REGISTRIES_MAPPING_SIGNATURE,
-} from "@/constants"
-import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "@/types"
+} from "./constants"
+import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { Binary } from "@zkpassport/utils"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
