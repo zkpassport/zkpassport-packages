@@ -12,15 +12,15 @@ export const CERTIFICATE_FIXTURES_CID_BASE32 =
 
 // The root hash of the circuit manifest fixture: tests/fixtures/manifest.json
 export const CIRCUIT_MANIFEST_FIXTURES_ROOT =
-  "0x2582ffa2a9c504b606c43ae013ba85c22cfde4cd4db72b54e4615bdc4f789217"
+  "0x068f6e356f993bd2afaf3d3466efff1dd4bc06f61952ac336085b832b93289a7"
 
 // The CID of the circuit manifest fixture: tests/fixtures/manifest.json
 export const CIRCUIT_MANIFEST_FIXTURES_CID =
-  "0xa50ded00e36d58eb178f62fcb9861e4a6e565bffc52931317f8cb140623f3aec"
+  "0xc49583d83cde885ac798b7bd39f9910ba72b72faf27cbda4a5fcf951c3282019"
 
 // The base32 CID of the circuit manifest fixture: tests/fixtures/manifest.json
 export const CIRCUIT_MANIFEST_FIXTURES_CID_BASE32 =
-  "bafybeiffbxwqby3nldvrpd3c7s4ymhsknzlfx76ffeytc74mwfagepz25q"
+  "bafybeigeswb5qpg6rbnmpgfxxu47teilu4vxf6xsps62jjp47fi4gkbade"
 
 // An invalid root hash
 export const INVALID_HASH = "0x1111111111111111111111111111111111111111111111111111111111111111"

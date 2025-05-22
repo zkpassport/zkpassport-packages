@@ -70,8 +70,8 @@ do
 
   # Use the circuit manifest fixture root hash and cid for the last root update
   if [ $i -eq 10 ]; then
-    ROOT="0x2582ffa2a9c504b606c43ae013ba85c22cfde4cd4db72b54e4615bdc4f789217"
-    CID="0xa50ded00e36d58eb178f62fcb9861e4a6e565bffc52931317f8cb140623f3aec" # bafkreiffbxwqby3nldvrpd3c7s4ymhsknzlfx76ffeytc74mwfagepz25q
+    ROOT="0x068f6e356f993bd2afaf3d3466efff1dd4bc06f61952ac336085b832b93289a7"
+    CID="0xc49583d83cde885ac798b7bd39f9910ba72b72faf27cbda4a5fcf951c3282019" # bafybeigeswb5qpg6rbnmpgfxxu47teilu4vxf6xsps62jjp47fi4gkbade
     LEAVES_COUNT=5
   fi
 

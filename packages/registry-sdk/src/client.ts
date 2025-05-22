@@ -14,6 +14,7 @@ import { Binary } from "@zkpassport/utils"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
   buildMerkleTreeFromCerts,
+  calculateCircuitsRootFromVKeyHashes,
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
   hexToCid,
@@ -25,6 +26,7 @@ import type {
   PackagedCircuit,
 } from "@zkpassport/utils/types"
 import debug from "debug"
+import { normaliseHash } from "./utils"
 
 const log = debug("zkpassport:registry")
 
@@ -33,7 +35,10 @@ interface ChainConfig {
   rootRegistry: string
   registryHelper: string
   packagedCertsUrlGenerator: (chainId: number, root: string, cid?: string) => string
-  circuitManifestUrlGenerator: (chainId: number, root: string, cid?: string) => string
+  circuitManifestUrlGenerator: (
+    chainId: number,
+    { root, version, cid }: { root?: string; version?: string; cid?: string },
+  ) => string
   packagedCircuitUrlGenerator: (chainId: number, hash: string, cid?: string) => string
 }
 
@@ -82,8 +87,7 @@ export class RegistryClient {
   ) => string
   private readonly circuitManifestUrlGenerator: (
     chainId: number,
-    root: string,
-    cid?: string,
+    { root, version, cid }: { root?: string; version?: string; cid?: string },
   ) => string
   private readonly packagedCircuitUrlGenerator: (
     chainId: number,
@@ -474,7 +478,7 @@ export class RegistryClient {
     // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
 
-    const url = this.circuitManifestUrlGenerator(this.chainId, root)
+    const url = this.circuitManifestUrlGenerator(this.chainId, { root })
     log("Fetching circuit manifest from:", url)
 
     const response = await fetch(url)
@@ -500,29 +504,19 @@ export class RegistryClient {
    */
   async validateCircuitManifest(manifest: CircuitManifest, root?: string): Promise<boolean> {
     try {
-      // Loop over the circuit hashes and convert them to a bigint
+      // Validate circuit root in manifest against calculated root from circuit vkey hashes
       const circuitHashes = (Object.values(manifest.circuits) as CircuitManifestEntry[]).map(
-        (circuit: { hash: string }) => BigInt(circuit.hash),
+        (circuit: { hash: string }) => circuit.hash,
       )
-      // Hash the circuit hashes using Poseidon2
-      const hash = await poseidon2HashAsync([...circuitHashes])
-      const calculatedRoot = `0x${hash.toString(16).padStart(64, "0")}`
-      // Compare using the root provided or if not provided use the root in the manifest
-      const expectedRootHash = root
-        ? root.startsWith("0x")
-          ? root
-          : `0x${root}`
-        : manifest.root.startsWith("0x")
-          ? manifest.root
-          : `0x${manifest.root}`
+      const calculatedRoot = normaliseHash(await calculateCircuitsRootFromVKeyHashes(circuitHashes))
+      // Compare using the provided root or manifest root
+      const expectedRoot = normaliseHash(root || manifest.root)
 
-      const valid = calculatedRoot.toLowerCase() === expectedRootHash.toLowerCase()
+      const valid = calculatedRoot.toLowerCase() === expectedRoot.toLowerCase()
       if (valid) {
         log(`Validated circuit manifest against root ${calculatedRoot}`)
       } else {
-        log(
-          `Error validating circuit manifest. Expected: ${expectedRootHash} Got: ${calculatedRoot}`,
-        )
+        log(`Error validating circuit manifest. Expected: ${expectedRoot} Got: ${calculatedRoot}`)
       }
       return valid
     } catch (error) {
@@ -537,7 +531,8 @@ export class RegistryClient {
    * @param circuit The packaged circuit to validate
    * @param hash Optional hash to validate against (defaults to the vkey hash in the circuit)
    */
-  async validatePackagedCircuit(circuit: PackagedCircuit, hash?: string): Promise<boolean> {
+  // TODO: Update ultraVkToFields to use VerificationKey.fromBuffer() in aztec-packages
+  static async validatePackagedCircuit(circuit: PackagedCircuit, hash?: string): Promise<boolean> {
     const expectedHash = hash || circuit.vkey_hash
     const vkeyHashFields = ultraVkToFields(Binary.fromBase64(circuit.vkey).toUInt8Array())
     const calculatedHash =
@@ -577,7 +572,7 @@ export class RegistryClient {
     log(`Got packaged circuit for ${circuit}`)
 
     if (validate) {
-      const valid = await this.validatePackagedCircuit(data, circuitHash)
+      const valid = await RegistryClient.validatePackagedCircuit(data, circuitHash)
       if (!valid) throw new Error(`Validation failed for packaged circuit: ${circuit}`)
     }
     return data
@@ -865,5 +860,25 @@ export class RegistryClient {
    */
   async getCircuitRegistryAddress(): Promise<string> {
     return this.getRegistryAddress(CIRCUIT_REGISTRY_ID)
+  }
+
+  getUrlForPackagedCertificates(root: string, cid?: string): string {
+    return this.packagedCertsUrlGenerator(this.chainId, root, cid)
+  }
+
+  getUrlForCircuitManifestByRoot(root: string): string {
+    return this.circuitManifestUrlGenerator(this.chainId, { root })
+  }
+
+  getUrlForCircuitManifestByVersion(version: string): string {
+    return this.circuitManifestUrlGenerator(this.chainId, { version })
+  }
+
+  getUrlForCircuitManifestByCid(cid: string): string {
+    return this.circuitManifestUrlGenerator(this.chainId, { cid })
+  }
+
+  getUrlForPackagedCircuits(hash: string, cid?: string): string {
+    return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
   }
 }
