@@ -78,11 +78,11 @@ describe("Registry", () => {
         )
       }
       // Return valid circuit manifest
-      else if (url.endsWith(`/manifests/${CIRCUIT_MANIFEST_FIXTURES_ROOT}.json`)) {
+      else if (url.endsWith(`/by-root/${CIRCUIT_MANIFEST_FIXTURES_ROOT}/manifest.json.gz`)) {
         return new Response(JSON.stringify(fixtureCircuitManifest), { status: 200 })
       }
       // Return invalid circuit manifest
-      else if (url.endsWith(`/manifests/${INVALID_HASH}.json`)) {
+      else if (url.endsWith(`/by-root/${INVALID_HASH}/manifest.json.gz`)) {
         return new Response(
           JSON.stringify({
             version: fixtureCircuitManifest.version,
@@ -94,11 +94,11 @@ describe("Registry", () => {
         )
       }
       // Return valid packaged circuit
-      if (url.endsWith(`/circuits/${PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH}.json`)) {
+      if (url.endsWith(`/by-hash/${PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH}.json.gz`)) {
         return new Response(JSON.stringify(fixturePackagedCircuit), { status: 200 })
       }
       // Return invalid packaged circuit
-      else if (url.endsWith(`/circuits/${INVALID_HASH}.json`)) {
+      else if (url.endsWith(`/by-hash/${INVALID_HASH}.json.gz`)) {
         return new Response(
           JSON.stringify({
             ...fixturePackagedCircuit,

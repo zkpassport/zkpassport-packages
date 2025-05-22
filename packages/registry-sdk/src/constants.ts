@@ -31,37 +31,45 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
 }
 
 /**
- * Circuit manifest URLs
+ * Circuit URLs
  */
-export const CIRCUIT_MANIFEST_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet/manifests"
-export const CIRCUIT_MANIFEST_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia/manifests"
-export const CIRCUIT_MANIFEST_URL_DEV = "http://localhost:3000/manifests"
+export const CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
+export const CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia"
+export const CIRCUIT_URL_DEV = "http://localhost:3000"
 
 /**
  * Circuit manifest URL generator
  * @param chainId - The chain ID
  * @param root - The circuit manifest root hash
+ * @param version - The circuit manifest version
  * @param cid - The CID of the circuit manifest (optional)
  */
-export const CIRCUIT_MANIFEST_URL_TEMPLATE = (chainId: number, root: string, cid?: string) => {
-  if (cid) {
+export const CIRCUIT_MANIFEST_URL_TEMPLATE = (
+  chainId: number,
+  { root, version, cid }: { root?: string; version?: string; cid?: string },
+) => {
+  if (root) {
+    if (chainId === 1) {
+      return `${CIRCUIT_URL_MAINNET}/by-root/${root}/manifest.json.gz`
+    } else if (chainId === 11155111) {
+      return `${CIRCUIT_URL_SEPOLIA}/by-root/${root}/manifest.json.gz`
+    } else {
+      return `${CIRCUIT_URL_DEV}/by-root/${root}/manifest.json.gz`
+    }
+  } else if (version) {
+    if (chainId === 1) {
+      return `${CIRCUIT_URL_MAINNET}/by-version/${version}/manifest.json.gz`
+    } else if (chainId === 11155111) {
+      return `${CIRCUIT_URL_SEPOLIA}/by-version/${version}/manifest.json.gz`
+    } else {
+      return `${CIRCUIT_URL_DEV}/by-version/${version}/manifest.json.gz`
+    }
+  } else if (cid) {
     return `https://ipfs.infura.io/ipfs/${cid}`
-  }
-  if (chainId === 1) {
-    return `${CIRCUIT_MANIFEST_URL_MAINNET}/${root}.json`
-  } else if (chainId === 11155111) {
-    return `${CIRCUIT_MANIFEST_URL_SEPOLIA}/${root}.json`
   } else {
-    return `${CIRCUIT_MANIFEST_URL_DEV}/${root}.json`
+    throw new Error("No root, version or cid provided")
   }
 }
-
-/**
- * Packaged circuit URLs
- */
-export const PACKAGED_CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet/circuits"
-export const PACKAGED_CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia/circuits"
-export const PACKAGED_CIRCUIT_URL_DEV = "http://localhost:3000/circuits"
 
 /**
  * Packaged circuit URL generator
@@ -74,11 +82,11 @@ export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid
     return `https://ipfs.infura.io/ipfs/${cid}`
   }
   if (chainId === 1) {
-    return `${PACKAGED_CIRCUIT_URL_MAINNET}/${hash}.json`
+    return `${CIRCUIT_URL_MAINNET}/by-hash/${hash}.json.gz`
   } else if (chainId === 11155111) {
-    return `${PACKAGED_CIRCUIT_URL_SEPOLIA}/${hash}.json`
+    return `${CIRCUIT_URL_SEPOLIA}/by-hash/${hash}.json.gz`
   } else {
-    return `${PACKAGED_CIRCUIT_URL_DEV}/${hash}.json`
+    return `${CIRCUIT_URL_DEV}/by-hash/${hash}.json.gz`
   }
 }
 

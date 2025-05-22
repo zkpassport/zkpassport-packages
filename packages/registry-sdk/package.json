@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/registry",
-  "version": "0.1.12",
+  "version": "0.2.0",
   "description": "Registry SDK for interacting with the ZKPassport Registry",
   "author": "ZKPassport",
   "license": "MIT",
@@ -39,7 +39,7 @@
     "circuit registry"
   ],
   "dependencies": {
-    "@zkpassport/utils": "^0.9.0",
+    "@zkpassport/utils": "^0.10.1",
     "debug": "^4.4.0"
   },
   "devDependencies": {
