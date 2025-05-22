@@ -300,4 +300,11 @@ describe("ultraVkToFields", () => {
     const vkeyAsFields = ultraVkToFields(vkey)
     expect(vkeyAsFields).toEqual(expected)
   })
+  test("compare_age_evm_vkey", () => {
+    const fixturesDir = path.join(__dirname, "fixtures", "compare_age_evm_vkey")
+    const vkey = fs.readFileSync(path.join(fixturesDir, "vk"))
+    const expected = JSON.parse(fs.readFileSync(path.join(fixturesDir, "vk_fields.json"), "utf8"))
+    const vkeyAsFields = ultraVkToFields(vkey)
+    expect(vkeyAsFields).toEqual(expected)
+  })
 })
