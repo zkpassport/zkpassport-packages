@@ -62,10 +62,10 @@ import {
   getBindEVMParameterCommitment,
   getBindParameterCommitment,
   formatBoundData,
+  Service,
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
-import { inflate } from "pako"
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
 import { sha256 } from "@noble/hashes/sha2"
@@ -73,6 +73,8 @@ import { hexToBytes } from "@noble/hashes/utils"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
+
+const VERSION = "0.4.2"
 
 const DEFAULT_DATE_VALUE = new Date(1111, 10, 11)
 
@@ -382,10 +384,7 @@ export class ZKPassport {
   private topicToPublicKey: Record<string, string> = {}
   private topicToBridge: Record<string, BridgeInterface> = {}
   private topicToRequestReceived: Record<string, boolean> = {}
-  private topicToService: Record<
-    string,
-    { name: string; logo: string; purpose: string; scope?: string; chainId?: number }
-  > = {}
+  private topicToService: Record<string, Service> = {}
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToExpectedProofCount: Record<string, number> = {}
   private topicToFailedProofCount: Record<string, number> = {}
@@ -659,16 +658,9 @@ export class ZKPassport {
         return this.getZkPassportRequest(topic)
       },
       done: () => {
-        const base64Config = Buffer.from(JSON.stringify(this.topicToConfig[topic])).toString(
-          "base64",
-        )
-        const base64Service = Buffer.from(JSON.stringify(this.topicToService[topic])).toString(
-          "base64",
-        )
-        const pubkey = this.topicToPublicKey[topic]
         this.setExpectedProofCount(topic)
         return {
-          url: `https://zkpassport.id/r?d=${this.domain}&t=${topic}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[topic].mode}`,
+          url: this._getUrl(topic),
           requestId: topic,
           onRequestReceived: (callback: () => void) =>
             this.onRequestReceivedCallbacks[topic].push(callback),
@@ -718,6 +710,8 @@ export class ZKPassport {
     devMode,
     topicOverride,
     keyPairOverride,
+    cloudProverUrl,
+    bridgeUrl,
   }: {
     name: string
     logo: string
@@ -729,10 +723,13 @@ export class ZKPassport {
     devMode?: boolean
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
+    cloudProverUrl?: string
+    bridgeUrl?: string
   }): Promise<QueryBuilder> {
     const bridge = await Bridge.create({
       keyPair: keyPairOverride,
       bridgeId: topicOverride,
+      bridgeUrl,
     })
 
     const topic = bridge.connection.getBridgeId()
@@ -744,6 +741,8 @@ export class ZKPassport {
       purpose,
       scope,
       chainId: evmChain ? getChainIdFromEVMChain(evmChain) : undefined,
+      cloudProverUrl,
+      bridgeUrl,
     }
     this.topicToProofs[topic] = []
     this.topicToExpectedProofCount[topic] = 0
@@ -3055,20 +3054,24 @@ export class ZKPassport {
     return params
   }
 
-  /**
-   * @notice Returns the URL of the request.
-   * @param requestId The request ID.
-   * @returns The URL of the request.
-   */
-  public getUrl(requestId: string) {
-    const pubkey = this.topicToPublicKey[requestId]
+  private _getUrl(requestId: string) {
     const base64Config = Buffer.from(JSON.stringify(this.topicToConfig[requestId])).toString(
       "base64",
     )
     const base64Service = Buffer.from(JSON.stringify(this.topicToService[requestId])).toString(
       "base64",
     )
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}`
+    const pubkey = this.topicToPublicKey[requestId]
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}`
+  }
+
+  /**
+   * @notice Returns the URL of the request.
+   * @param requestId The request ID.
+   * @returns The URL of the request.
+   */
+  public getUrl(requestId: string) {
+    return this._getUrl(requestId)
   }
 
   /**
