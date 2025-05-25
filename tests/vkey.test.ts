@@ -1,6 +1,6 @@
-import { ultraVkToFields } from "../src/circuits/vkey"
 import fs from "fs"
 import path from "path"
+import { ultraVkToFields } from "../src/circuits/vkey"
 
 describe("ultraVkToFields", () => {
   test("simple", () => {
@@ -300,6 +300,7 @@ describe("ultraVkToFields", () => {
     const vkeyAsFields = ultraVkToFields(vkey)
     expect(vkeyAsFields).toEqual(expected)
   })
+
   test("compare_age_evm_vkey", () => {
     const fixturesDir = path.join(__dirname, "fixtures", "compare_age_evm_vkey")
     const vkey = fs.readFileSync(path.join(fixturesDir, "vk"))

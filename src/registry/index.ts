@@ -3,7 +3,7 @@ import { Binary } from "../binary"
 import { ECPublicKey, PackagedCertificate, PackagedCircuit, RSAPublicKey } from "../types"
 import { assert, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
-export { hexToCid, cidToHex } from "./cid"
+export { cidv0ToHex, hexToCidv0 } from "./cid"
 
 /**
  * Canonical merkle tree height for the certificate registry
@@ -62,7 +62,6 @@ export const CIRCUIT_REGISTRY_ID = 2
  */
 export function tagsArrayToByteFlag(tags: string[]): bigint {
   let byteFlag = 0n
-
   for (const tag of tags) {
     const index = PACKAGED_CERTIFICATE_TAGS.indexOf(tag)
     if (index === -1) {
@@ -71,7 +70,6 @@ export function tagsArrayToByteFlag(tags: string[]): bigint {
     // Shift 0xFF (255) to the left by the byte position (8 bits per flag)
     byteFlag |= 0xffn << BigInt(index * 8)
   }
-
   return byteFlag
 }
 
@@ -82,7 +80,6 @@ export function tagsArrayToByteFlag(tags: string[]): bigint {
  */
 export function byteFlagToTagsArray(byteFlag: bigint): string[] {
   const tags: string[] = []
-
   for (let i = 0; i < PACKAGED_CERTIFICATE_TAGS.length; i++) {
     // Check if the respective byte is set (8 bits per flag)
     const mask = 0xffn << BigInt(i * 8)
@@ -90,7 +87,6 @@ export function byteFlagToTagsArray(byteFlag: bigint): string[] {
       tags.push(PACKAGED_CERTIFICATE_TAGS[i])
     }
   }
-
   return tags
 }
 
@@ -196,6 +192,7 @@ export async function buildMerkleTreeFromCerts(
 
 /**
  * Calculate the canonical packaged certificates merkle root
+ * @deprecated Use `calculateCertificateRoot` instead
  * @param certs Array of packaged certificates
  * @returns Canonical packaged certificates merkle root used for the certificate registry root
  */
@@ -210,27 +207,40 @@ export async function calculatePackagedCertificatesRoot(
 }
 
 /**
- * Calculate the canonical packaged circuits merkle root
- * @param circuits Array of packaged circuits
- * @returns Canonical packaged circuits merkle root used for the circuit registry root
+ * Calculate the canonical certificate root from packaged certificates
+ * @param certs Array of packaged certificates
+ * @returns Certificate root used in the Certificate Registry
  */
-export async function calculatePackagedCircuitsRoot(circuits: PackagedCircuit[]): Promise<string> {
-  const leaves = circuits.map((circuit) => BigInt(circuit.vkey_hash))
-  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
-  const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
+export async function calculateCertificateRoot(certs: PackagedCertificate[]) {
+  const leaves = await getCertificateLeafHashes(certs)
+  const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
   await tree.initialize(0n, leaves)
   return tree.root
 }
 
 /**
- * Calculate the canonical packaged circuits merkle root from an array of vkey hashes
- * @param vkeyHashes Array of vkey hashes
- * @returns Canonical packaged circuits merkle root used for the circuit registry root
+ * Calculate the canonical circuit root from packaged circuits or vkey hashes
+ * @param param An object containing either:
+ *              - circuits: Array of PackagedCircuit objects to use for calculating the root
+ *              - hashes: Array of vkey hashes to use for calculating the root
+ * @returns Circuit root used in the Circuit Registry
  */
-export async function calculateCircuitsRootFromVKeyHashes(vkeyHashes: string[]): Promise<string> {
-  const leaves = vkeyHashes.map((vkeyHash) => BigInt(vkeyHash))
-  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
-  const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
-  return tree.root
+export async function calculateCircuitRoot(
+  param: Partial<{ circuits: PackagedCircuit[]; hashes: string[] }>,
+) {
+  if (param.circuits !== undefined) {
+    const leaves = param.circuits.map((circuit) => BigInt(circuit.vkey_hash))
+    leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+    const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
+    await tree.initialize(0n, leaves)
+    return tree.root
+  } else if (param.hashes !== undefined) {
+    const leaves = param.hashes.map((hash) => BigInt(hash))
+    leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+    const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
+    await tree.initialize(0n, leaves)
+    return tree.root
+  } else {
+    throw new Error("Either circuits or vkeyHashes must be provided")
+  }
 }

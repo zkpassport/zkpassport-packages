@@ -1,19 +1,14 @@
-import { cidToHex, hexToCid } from "./cid"
+import { cidv0ToHex, hexToCidv0 } from "./cid"
 
-const TEST_CID_BASE32_RAW = "bafkreiavmwjivt47xawnkvmxp3fkaod6onmkqfb2lhxhv44rfoqgsmxm2u"
-const TEST_CID_BASE32_DAG_PB = "bafybeiavmwjivt47xawnkvmxp3fkaod6onmkqfb2lhxhv44rfoqgsmxm2u"
-const TEST_CID_HEX = "0x1565928acf9fb82cd555977ecaa0387e7358a8143a59ee7af3912ba06932ecd5"
+const TEST_CID = "QmRk1rduJvo5DfEYAaLobS2za9tDszk35hzaNSDCJ74DA7"
+const TEST_CID_HEX = "0x328F549938F9CA71D855F81335F36DAFA2A8BA0E8EC8595C583E08E2F70995F8"
 
-describe("CIDv1 conversion utilities", () => {
-  test("should convert CIDv1 to hex and back", () => {
-    const hex1 = cidToHex(TEST_CID_BASE32_RAW)
-    const hex2 = cidToHex(TEST_CID_BASE32_DAG_PB)
-    expect(hex1).toBe(hex2)
-    expect(hex1).toBe(TEST_CID_HEX)
-    expect(hex2).toBe(TEST_CID_HEX)
-    const cidRaw = hexToCid(hex1, "raw")
-    expect(cidRaw).toBe(TEST_CID_BASE32_RAW)
-    const cidDagPb = hexToCid(hex2)
-    expect(cidDagPb).toBe(TEST_CID_BASE32_DAG_PB)
+describe("CIDv0 conversion utilities", () => {
+  test("should convert CIDv0 to hex and back", () => {
+    const hex = cidv0ToHex(TEST_CID)
+    expect(hex).toBe(TEST_CID_HEX)
+
+    const cid = hexToCidv0(hex)
+    expect(cid).toBe(TEST_CID)
   })
 })
