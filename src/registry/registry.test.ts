@@ -1,6 +1,5 @@
+import { CERT_TYPE_DSC, getCertificateLeafHash } from "."
 import { PackagedCertificate } from "../types"
-import { getCertificateLeafHash } from "."
-import { CERT_TYPE_DSC } from "."
 
 describe("Registry", () => {
   const rsaCert: PackagedCertificate = {
@@ -55,12 +54,16 @@ describe("Registry", () => {
 
   test("should generate correct canonical leaf for RSA cert", async () => {
     const leaf = await getCertificateLeafHash(rsaCert)
-    expect(leaf).toEqual("0x28eefd19090dd88b450bbf65da4124357975da9937a159c3379dc6bbf2539f77")
+    expect(leaf).toEqual(
+      18514770361525822184434017111501266198937862764353672896507497442488232419191n,
+    )
   })
 
   test("should generate correct canonical leaf for ECDSA cert", async () => {
     const leaf = await getCertificateLeafHash(ecdsaCert)
-    expect(leaf).toEqual("0x2e006f1f71102863da262f1637ec4a9e2eb81e710c92992774fb9b00720aee13")
+    expect(leaf).toEqual(
+      20807157976340030180503241085962340372124387468197356126141341265578309643795n,
+    )
   })
 
   test("should generate correct canonical leaf for different publisher and type", async () => {
@@ -68,6 +71,8 @@ describe("Registry", () => {
       tags: ["ICAO"],
       type: CERT_TYPE_DSC,
     })
-    expect(leaf).toEqual("0x12505ce2da43cd1465dd8c7d911dbcfa499b2fd7c427c411ccd8b5dc15075f26")
+    expect(leaf).toEqual(
+      8283620116278888580418973930292208239315127621569120803973116422034293219110n,
+    )
   })
 })

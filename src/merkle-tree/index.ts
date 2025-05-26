@@ -1,25 +1,22 @@
-import { Binary } from "../binary"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
+import { normaliseHex } from "../utils"
 import { AsyncIMT } from "./async-imt"
 
 async function poseidon2(values: any[]) {
   return poseidon2HashAsync(values.map((v) => BigInt(v)))
 }
 
-export async function computeMerkleProof(leaves: Binary[], index: number, height: number) {
+export async function computeMerkleProof(leaves: bigint[], index: number, height: number) {
   if (index < 0 || index >= leaves.length) throw new Error("Invalid index")
   const zeroValue = 0
   const arity = 2
   const tree = new AsyncIMT(poseidon2, height, arity)
-  await tree.initialize(
-    zeroValue,
-    leaves.map((leaf) => leaf.toBigInt()),
-  )
+  await tree.initialize(zeroValue, leaves)
   const proof = tree.createProof(index)
   return {
-    root: Binary.from(BigInt(proof.root)).toHex(),
+    root: normaliseHex(BigInt(proof.root)),
     index: proof.leafIndex,
-    path: proof.siblings.flatMap((v) => Binary.from(BigInt(v)).toHex()),
+    path: proof.siblings.flatMap((v) => normaliseHex(BigInt(v))),
   }
 }
 

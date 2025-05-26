@@ -126,12 +126,12 @@ export function publicKeyToBytes(publicKey: ECPublicKey | RSAPublicKey): Uint8Ar
  * Canonically generate a leaf hash from a packaged certificate using Poseidon2
  * @param cert Packaged certificate to generate a leaf hash for
  * @param options Optional options for the leaf hash
- * @returns Leaf hash as a hex string
+ * @returns Leaf hash as a bigint
  */
 export async function getCertificateLeafHash(
   cert: PackagedCertificate,
   options?: { tags?: string[]; type?: number; hashAlgId?: number },
-): Promise<string> {
+): Promise<bigint> {
   // Convert tags to byte flags
   const tags = options?.tags
     ? tagsArrayToByteFlag(options.tags)
@@ -151,35 +151,40 @@ export async function getCertificateLeafHash(
   )
   const publicKeyBytes = publicKeyToBytes(cert.public_key)
   // Return the canonical leaf hash of the certificate
-  return Binary.from(
-    await poseidon2HashAsync([
-      tags,
-      BigInt(
-        packBeBytesIntoFields(
-          new Uint8Array([
-            type,
-            cert.country.charCodeAt(0),
-            cert.country.charCodeAt(1),
-            cert.country.charCodeAt(2),
-            hashAlgId,
-          ]),
-          31,
-        )[0],
-      ),
-      ...packBeBytesIntoFields(publicKeyBytes, 31).map((hex) => BigInt(hex)),
-    ]),
-  ).toHex()
+  return poseidon2HashAsync([
+    tags,
+    BigInt(
+      packBeBytesIntoFields(
+        new Uint8Array([
+          type,
+          cert.country.charCodeAt(0),
+          cert.country.charCodeAt(1),
+          cert.country.charCodeAt(2),
+          hashAlgId,
+        ]),
+        31,
+      )[0],
+    ),
+    ...packBeBytesIntoFields(publicKeyBytes, 31).map((hex) => BigInt(hex)),
+  ])
 }
 
 /**
  * Canonically generate merkle tree leaf hashes from certificates
+ * @param certs Array of packaged certificates
+ * @returns Array of leaf hashes as bigints
  */
 export async function getCertificateLeafHashes(certs: PackagedCertificate[]): Promise<bigint[]> {
-  return Promise.all(certs.map(async (cert) => BigInt(await getCertificateLeafHash(cert))))
+  const leaves = await Promise.all(certs.map((c) => getCertificateLeafHash(c)))
+  // TODO: Enable sorting of certificate registry leaves before computing the root
+  // leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  return leaves
 }
 
 /**
  * Canonically build a merkle tree from certificates
+ * @param certs Array of packaged certificates
+ * @returns AsyncMerkleTree
  */
 export async function buildMerkleTreeFromCerts(
   certs: PackagedCertificate[],
@@ -191,30 +196,12 @@ export async function buildMerkleTreeFromCerts(
 }
 
 /**
- * Calculate the canonical packaged certificates merkle root
- * @deprecated Use `calculateCertificateRoot` instead
- * @param certs Array of packaged certificates
- * @returns Canonical packaged certificates merkle root used for the certificate registry root
- */
-// TODO: Consider sorting the leaves before calculating the root
-export async function calculatePackagedCertificatesRoot(
-  certs: PackagedCertificate[],
-): Promise<string> {
-  const leaves = await getCertificateLeafHashes(certs)
-  const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
-  return tree.root
-}
-
-/**
  * Calculate the canonical certificate root from packaged certificates
  * @param certs Array of packaged certificates
  * @returns Certificate root used in the Certificate Registry
  */
 export async function calculateCertificateRoot(certs: PackagedCertificate[]) {
-  const leaves = await getCertificateLeafHashes(certs)
-  const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
+  const tree = await buildMerkleTreeFromCerts(certs)
   return tree.root
 }
 

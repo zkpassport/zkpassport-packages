@@ -103,6 +103,17 @@ export function strip0x(input: string): string {
   return input.startsWith("0x") ? input.slice(2) : input
 }
 
+/**
+ * Normalise a hex string or bigint into a 0x-prefixed even 0-padded hex string
+ * @param hex - The hex string or bigint to normalise
+ * @returns A normalised hex string, e.g. 0x0123
+ */
+export function normaliseHex(hex: string | bigint): string {
+  const hexInput = typeof hex === "bigint" ? hex.toString(16) : hex
+  // Output 0x-prefixed even 0-padded hex string
+  return `0x${hexInput.toLowerCase().padStart(hexInput.length % 2 ? hexInput.length + 1 : hexInput.length, "0")}`
+}
+
 export function fromBytesToBigInt(bytes: number[]): bigint {
   return BigInt("0x" + Buffer.from(bytes).toString("hex"))
 }
@@ -193,4 +204,4 @@ export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): 
   return result
 }
 
-export { PromisePool, AggregateError } from "./promise-pool"
+export { AggregateError, PromisePool } from "./promise-pool"

@@ -1,7 +1,8 @@
+import { sha256 } from "@noble/hashes/sha2"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
 import { format } from "date-fns"
-import { alpha2ToAlpha3, Alpha3Code } from "i18n-iso-countries"
+import { Alpha3Code } from "i18n-iso-countries"
 import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
 import {
@@ -16,14 +17,17 @@ import { parseDate } from "./circuits/disclose"
 import type { DigestAlgorithm } from "./cms/types"
 import { getBitSizeFromCurve, getECDSAInfo, getRSAInfo } from "./cms/utils"
 import { DG1_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
+import { countryCodeAlpha2ToAlpha3 } from "./country/country"
 import { computeMerkleProof } from "./merkle-tree"
 import { extractTBS, getSodSignatureAlgorithmType } from "./passport/passport-reader"
 import {
   CERT_TYPE_CSCA,
   CERTIFICATE_REGISTRY_HEIGHT,
   getCertificateLeafHash,
+  getCertificateLeafHashes,
   tagsArrayToByteFlag,
 } from "./registry"
+import type { HashAlgorithm, PackagedCertificate } from "./types"
 import {
   DiscloseFlags,
   ECDSADSCDataInputs,
@@ -34,7 +38,6 @@ import {
   RSADSCDataInputs,
   RSAPublicKey,
 } from "./types"
-import type { HashAlgorithm, PackagedCertificate } from "./types"
 import {
   bigintToBytes,
   bigintToNumber,
@@ -44,9 +47,6 @@ import {
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
 } from "./utils"
-import { countryCodeAlpha2ToAlpha3 } from "./country/country"
-import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { sha256 } from "@noble/hashes/sha2"
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA256", "SHA384", "SHA512"]
@@ -338,34 +338,28 @@ export async function getDSCCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
   certificates: PackagedCertificate[],
-  merkleTreeLeaves?: Binary[],
-  merkleProof?: { root: string | HexString; index: number; path: (string | HexString)[] },
+  overrideCertLeaves?: bigint[],
+  overrideMerkleProof?: {
+    root: string | HexString
+    index: number
+    path: (string | HexString)[]
+  },
 ): Promise<any> {
   // Get the CSCA for this passport's DSC
   const csca = getCscaForPassport(passport, certificates)
-  if (!csca) return null
-
+  if (!csca) throw new Error("Could not find CSCA for DSC")
   // Generate the certificate registry merkle proof
-  const leaves =
-    merkleTreeLeaves ??
-    (await Promise.all(
-      certificates.map(async (cert) => {
-        const hash = await getCertificateLeafHash(cert)
-        return Binary.fromHex(hash)
-      }),
-    ))
-  const index = certificates.findIndex(
-    (cert) => cert.subject_key_identifier === csca.subject_key_identifier,
-  )
-  if (index === -1) throw new Error("Could not find CSCA for DSC")
+  const cscaLeaf = await getCertificateLeafHash(csca)
+  const leaves = overrideCertLeaves ?? (await getCertificateLeafHashes(certificates))
+  const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
   const tags = tagsArrayToByteFlag(csca.tags ?? [])
-  const finalMerkleProof =
-    merkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
+  const merkleProof =
+    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
 
   const inputs = {
-    certificate_registry_root: finalMerkleProof.root,
-    certificate_registry_index: finalMerkleProof.index,
-    certificate_registry_hash_path: finalMerkleProof.path,
+    certificate_registry_root: merkleProof.root,
+    certificate_registry_index: merkleProof.index,
+    certificate_registry_hash_path: merkleProof.path,
     certificate_tags: `0x${tags.toString(16)}`,
     certificate_type: `0x${CERT_TYPE_CSCA.toString(16)}`,
     country: csca.country,

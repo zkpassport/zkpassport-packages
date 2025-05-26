@@ -1,9 +1,8 @@
-import { Binary } from "../binary"
 import { computeMerkleProof } from "."
 
 describe("merkle tree", () => {
   test("compute merkle proof", async () => {
-    const leaves = [Binary.from(BigInt(1))]
+    const leaves = [BigInt(1)]
     const index = 0
     const height = 14
     const proof = await computeMerkleProof(leaves, index, height)
