@@ -1800,7 +1800,7 @@ export class ZKPassport {
       // Maintained certificate registry settled onchain
       // Here we use Ethereum Sepolia
       const registryClient = new RegistryClient({ chainId: 11155111 })
-      await registryClient.getCertificates(`0x${root}`)
+      await registryClient.getCertificates(`0x${root.padStart(64, "0")}`)
     } catch (error) {
       console.warn(error)
       // Check the legacy static roots that were used before the registry was deployed onchain
