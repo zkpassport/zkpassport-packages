@@ -1,37 +1,35 @@
-import { Binary } from "../src/binary"
-import { HashAlgorithm, PackagedCertificate, PassportViewModel, Query } from "../src/types"
+import { format } from "date-fns"
+import { Alpha3Code } from "i18n-iso-countries"
 import {
-  isIDSupported,
-  isCscaSupported,
-  getCscaForPassport,
-  processECDSASignature,
-  getDSCCircuitInputs,
-  getIDDataCircuitInputs,
-  getDSCCountry,
-  getIntegrityCheckCircuitInputs,
-  getFirstNameRange,
-  getLastNameRange,
-  getFullNameRange,
-  getDiscloseCircuitInputs,
   calculateAge,
   getAgeCircuitInputs,
-  getNationalityInclusionCircuitInputs,
-  getNationalityExclusionCircuitInputs,
-  getIssuingCountryInclusionCircuitInputs,
-  getIssuingCountryExclusionCircuitInputs,
   getBirthdateCircuitInputs,
+  getCscaForPassport,
+  getDSCCircuitInputs,
+  getDSCCountry,
+  getDiscloseCircuitInputs,
   getExpiryDateCircuitInputs,
+  getFirstNameRange,
+  getFullNameRange,
+  getIDDataCircuitInputs,
+  getIntegrityCheckCircuitInputs,
+  getIssuingCountryExclusionCircuitInputs,
+  getIssuingCountryInclusionCircuitInputs,
+  getLastNameRange,
+  getNationalityExclusionCircuitInputs,
+  getNationalityInclusionCircuitInputs,
+  isCscaSupported,
+  isIDSupported,
 } from "../src/circuit-matcher"
-import cscMasterlist from "./fixtures/csc-masterlist.json"
-import { rightPadArrayWithZeros, rightPadCountryCodeArray } from "../src/utils"
 import { getCountryWeightedSum } from "../src/circuits/country"
-import { Alpha3Code } from "i18n-iso-countries"
+import { HashAlgorithm, PackagedCertificate, Query } from "../src/types"
+import { rightPadArrayWithZeros, rightPadCountryCodeArray } from "../src/utils"
+import rootCerts from "./fixtures/root-certs.json"
 import { PASSPORTS } from "./fixtures/passports"
-import { format } from "date-fns"
 
 describe("Circuit Matcher - General", () => {
   it("should detect if CSCA certificate is supported", () => {
-    const certificates = cscMasterlist.certificates
+    const certificates = rootCerts.certificates
     let totalUnsupported = 0
     for (const certificate of certificates) {
       const result = isCscaSupported(certificate as PackagedCertificate)
@@ -68,12 +66,10 @@ describe("Circuit Matcher - RSA", () => {
   it("should get the correct CSCA for the passport", () => {
     const result = getCscaForPassport(
       PASSPORTS.john,
-      cscMasterlist.certificates as PackagedCertificate[],
+      rootCerts.certificates as PackagedCertificate[],
     )
     expect(result).toEqual(
-      cscMasterlist.certificates.find(
-        (x) => x.country === "ZKR" && x.signature_algorithm === "RSA",
-      ),
+      rootCerts.certificates.find((x) => x.country === "ZKR" && x.signature_algorithm === "RSA"),
     )
   })
 
@@ -81,21 +77,21 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.john,
       1n,
-      cscMasterlist.certificates as PackagedCertificate[],
+      rootCerts.certificates as PackagedCertificate[],
     )
     expect(result).toEqual({
-      certificate_registry_root: `0x${cscMasterlist.serialised[cscMasterlist.serialised.length - 1]}`,
-      certificate_registry_index: 410,
+      certificate_registry_root: rootCerts.serialised[rootCerts.serialised.length - 1][0],
+      certificate_registry_index: 251,
       certificate_registry_hash_path: [
-        "0x2250c0c4d271dd8129be54bc22dd87aa98aad9169275c29f0084ad8502b74e17",
-        "0x9e9ab748920884b7bfdc71e52feff9a5869d4f4be2a69ce9ad8efa1e297425",
-        "0x24e7d5ab9654c3ea3cef666f40553c2223c9b1bf5e2c1d0f9b7a4b94a2ee9ba0",
-        "0x12c0be156a6520eeab5085f990743f2370b22f732e90b4a83c7a8f23cc07df05",
-        "0x111393d7108e3592fa634ca1377228a8f5becf3b468512fc0183e89a437e8bc9",
-        "0x120157cfaaa49ce3da30f8b47879114977c24b266d58b0ac18b325d878aafddf",
-        "0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76",
-        "0xb8c82a5443dd87c7961434ae062c0dda16e2b14b904ce5816c241d33b830dd",
-        "0x2729e3c7475e116e8e637659f019ba6ed0cd8f3a0ba6cb2064c123ccf5b51efa",
+        "0x1ee021b28c01808e2594a16fa037d44a76de9e0a7b818a6696b9683c28b59057",
+        "0x046a7e915a03ea3aa527dec0799c38e7e278e8110734b8e33a0fb1b453260387",
+        "0x1f179eb8fca43bdfcd9690b285f9fb3eaedb65be465d60408b4d9b9db92f5e31",
+        "0x1e79b1c83dae5ebaa403ad68bb5f802ca6ce44807aea32c344e2f59535961e21",
+        "0x1efeca1db2e65d3933292c3e034951160333fee39d41fb73f19080846dc83a92",
+        "0x05414872b7911beb4e6bbe7a15a0cabdd32bfc14f13f391e069a9ed1643439a6",
+        "0x086cb4f43d2bd628ae1323f6d3eb9c8caf388e7643bcb9b303b2fb9289fce7b7",
+        "0x1f0ea7762d5549549406bb021a403a09f0116f135053caf4f8ae9e9e65039b8c",
+        "0x2ee0fc08b841723ee693af3025a1478e0f9e30429590712bca8da35b96310410",
         "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",
@@ -407,12 +403,10 @@ describe("Circuit Matcher - ECDSA", () => {
   it("should get the correct CSCA for the passport", () => {
     const result = getCscaForPassport(
       PASSPORTS.mary,
-      cscMasterlist.certificates as PackagedCertificate[],
+      rootCerts.certificates as PackagedCertificate[],
     )
     expect(result).toEqual(
-      cscMasterlist.certificates.find(
-        (x) => x.country === "ZKR" && x.signature_algorithm === "ECDSA",
-      ),
+      rootCerts.certificates.find((x) => x.country === "ZKR" && x.signature_algorithm === "ECDSA"),
     )
   })
 
@@ -420,21 +414,21 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.mary,
       1n,
-      cscMasterlist.certificates as PackagedCertificate[],
+      rootCerts.certificates as PackagedCertificate[],
     )
     expect(result).toEqual({
-      certificate_registry_root: `0x${cscMasterlist.serialised[cscMasterlist.serialised.length - 1]}`,
-      certificate_registry_index: 411,
+      certificate_registry_root: rootCerts.serialised[rootCerts.serialised.length - 1][0],
+      certificate_registry_index: 288,
       certificate_registry_hash_path: [
-        "0x1ee5ba195484bc2fcb172a0e31eae78fc787d44dc7499b3391109ce54e0970b9",
-        "0x9e9ab748920884b7bfdc71e52feff9a5869d4f4be2a69ce9ad8efa1e297425",
-        "0x24e7d5ab9654c3ea3cef666f40553c2223c9b1bf5e2c1d0f9b7a4b94a2ee9ba0",
-        "0x12c0be156a6520eeab5085f990743f2370b22f732e90b4a83c7a8f23cc07df05",
-        "0x111393d7108e3592fa634ca1377228a8f5becf3b468512fc0183e89a437e8bc9",
-        "0x120157cfaaa49ce3da30f8b47879114977c24b266d58b0ac18b325d878aafddf",
-        "0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76",
-        "0xb8c82a5443dd87c7961434ae062c0dda16e2b14b904ce5816c241d33b830dd",
-        "0x2729e3c7475e116e8e637659f019ba6ed0cd8f3a0ba6cb2064c123ccf5b51efa",
+        "0x2279e0b835e985091a284d1a08934336ee251dd2d4d79a1509b71c6fac682561",
+        "0x04b369f24cd99ec59cd06e8cc045493cbf760ba8e48fc8b89cf5c349245ea439",
+        "0x213e025fd360844246b83b8c0e787023735909d5829e57bc9821e7eedc8c8c81",
+        "0x14e82e2e112278557a965d517a8ddd5b0475850bcbd12f9ec643a6b0718e1c61",
+        "0x02a6a89a1b30d682c064c5e1fa15d85123aa51aff4a09452e0c8a7cb9b872dca",
+        "0x302241961f17e2843700475b185eb6beeac03ef75fc2c85d64f395b705b953cd",
+        "0x044eb2aef3c14e0d81a5cc9758865a58b7c052bdcb811310b5e9b7c6e70c292f",
+        "0x249ad951ce3a6216055a04eb6d910cdcc798fef5f36e0e694d9ba35f5145d78f",
+        "0x163621253979894bde89285410fa47be0e6edc62adf7479cbaa31119bece9edd",
         "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",

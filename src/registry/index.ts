@@ -176,8 +176,7 @@ export async function getCertificateLeafHash(
  */
 export async function getCertificateLeafHashes(certs: PackagedCertificate[]): Promise<bigint[]> {
   const leaves = await Promise.all(certs.map((c) => getCertificateLeafHash(c)))
-  // TODO: Enable sorting of certificate registry leaves before computing the root
-  // leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
   return leaves
 }
 
