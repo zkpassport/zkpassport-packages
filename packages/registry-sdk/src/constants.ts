@@ -1,3 +1,5 @@
+import { normaliseHash, strip0x } from "./utils"
+
 /**
  * Certificate Registry ID
  * Used to identify the certificate registry in the root registry
@@ -22,6 +24,7 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
     return `https://ipfs.infura.io/ipfs/${cid}`
   }
   if (chainId === 1) {
+    root = strip0x(normaliseHash(root))
     return `${PACKAGED_CERTIFICATES_URL_MAINNET}/${root}.json`
   } else if (chainId === 11155111) {
     return `${PACKAGED_CERTIFICATES_URL_SEPOLIA}/${root}.json`
@@ -49,6 +52,7 @@ export const CIRCUIT_MANIFEST_URL_TEMPLATE = (
   { root, version, cid }: { root?: string; version?: string; cid?: string },
 ) => {
   if (root) {
+    root = strip0x(normaliseHash(root))
     if (chainId === 1) {
       return `${CIRCUIT_URL_MAINNET}/by-root/${root}/manifest.json.gz`
     } else if (chainId === 11155111) {
@@ -81,6 +85,7 @@ export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid
   if (cid) {
     return `https://ipfs.infura.io/ipfs/${cid}`
   }
+  hash = strip0x(normaliseHash(hash))
   if (chainId === 1) {
     return `${CIRCUIT_URL_MAINNET}/by-hash/${hash}.json.gz`
   } else if (chainId === 11155111) {
@@ -111,6 +116,11 @@ export const LATEST_ROOT_WITH_PARAM_SIGNATURE = "0xc3bc16e8"
 export const GET_HISTORICAL_ROOTS_SIGNATURE = "0x06ac4103"
 
 /**
+ * Function signature for getHistoricalRootsByHash(bytes32,bytes32,uint256)
+ */
+export const GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE = "0xcb0c82c7"
+
+/**
  * Function signature for getLatestRootDetails(bytes32)
  */
 export const GET_LATEST_ROOT_DETAILS_SIGNATURE = "0x76785af8"
@@ -119,3 +129,8 @@ export const GET_LATEST_ROOT_DETAILS_SIGNATURE = "0x76785af8"
  * Function signature for registries(bytes32)
  */
 export const REGISTRIES_MAPPING_SIGNATURE = "0x5d8d57a6"
+
+/**
+ * Function signature for getRootDetailsByRoot(bytes32,bytes32)
+ */
+export const GET_ROOT_DETAILS_BY_ROOT_SIGNATURE = "0xbb3dd539"
