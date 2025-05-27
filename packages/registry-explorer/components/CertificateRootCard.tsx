@@ -1,6 +1,3 @@
-import Link from "next/link"
-import { useState } from "react"
-import { RootDetails } from "@zkpassport/registry"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,14 +8,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Copy } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { RootDetails } from "@zkpassport/registry"
+import { Copy } from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
 
-interface HistoricalRootCardProps {
+interface CertificateRootCardProps {
   rootDetails: RootDetails
 }
 
-export function HistoricalRootCard({ rootDetails }: HistoricalRootCardProps) {
+export function CertificateRootCard({ rootDetails }: CertificateRootCardProps) {
   const [copied, setCopied] = useState(false)
   const { root, revoked, validFrom, validTo, cid, leaves, isLatest, index } = rootDetails
 
@@ -59,7 +59,7 @@ export function HistoricalRootCard({ rootDetails }: HistoricalRootCardProps) {
                 variant="secondary"
                 className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100"
               >
-                Latest Root
+                Latest
               </Badge>
             )}
             {isGenesisRoot && (
@@ -103,18 +103,6 @@ export function HistoricalRootCard({ rootDetails }: HistoricalRootCardProps) {
               {validTo !== undefined ? validTo.toLocaleDateString() : "Present"}
             </div>
           </div>
-          {/* <div className="grid grid-cols-3 gap-1">
-            <div className="font-semibold">Previous Root:</div>
-            <div className="col-span-2 font-mono">{formatHash(prevRoot, true)}</div>
-          </div>
-          <div className="grid grid-cols-3 gap-1">
-            <div className="font-semibold">Next Root:</div>
-            <div className="col-span-2 font-mono">
-              {nextRoot === "0x0000000000000000000000000000000000000000000000000000000000000000"
-                ? "None (Latest Root)"
-                : formatHash(nextRoot)}
-            </div>
-          </div> */}
           <div className="grid grid-cols-3 gap-1">
             <div className="font-semibold">IPFS CID:</div>
             <div className="col-span-2 font-mono">

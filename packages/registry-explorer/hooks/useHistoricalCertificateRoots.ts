@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import debug from "debug"
+import { useCallback, useEffect, useState } from "react"
 
 const log = debug("explorer")
 
-export function useHistoricalRoots() {
+export function useHistoricalCertificateRoots() {
   const [roots, setRoots] = useState<RootDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -23,7 +23,7 @@ export function useHistoricalRoots() {
         rootRegistry: process.env.NEXT_PUBLIC_ROOT_REGISTRY_ADDRESS,
         registryHelper: process.env.NEXT_PUBLIC_REGISTRY_HELPER_ADDRESS,
       })
-      const allRoots = await client.getAllHistoricalCertificateRegistryRoots(
+      const allRoots = await client.getAllHistoricalCertificateRoots(
         100,
         // Handle progress updates if needed
         (pageNumber: number, pageRoots: RootDetails[], totalRoots: number, isLastPage: boolean) => {
