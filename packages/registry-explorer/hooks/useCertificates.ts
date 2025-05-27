@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react"
-import { useSearchParams } from "next/navigation"
+import { isECDSA, isRSA, isRSAPKCS, isRSAPSS } from "@/lib/certificate-utils"
 import { CertificateFilterState } from "@/lib/types"
-import { isECDSA, isRSA, isRSAPSS, isRSAPKCS } from "@/lib/certificate-utils"
-import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import type { ECPublicKey, PackagedCertificate } from "@zkpassport/utils"
+import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
 import debug from "debug"
+import { useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useState } from "react"
 
 const log = debug("explorer")
 
@@ -70,7 +70,7 @@ export const useCertificates = () => {
 
         // Fetch all available roots
         try {
-          const roots = await client.getAllHistoricalCertificateRegistryRoots()
+          const roots = await client.getAllHistoricalCertificateRoots()
           setAvailableRoots(roots)
         } catch (err) {
           console.error("Error fetching historical roots:", err)
@@ -81,7 +81,7 @@ export const useCertificates = () => {
         const validate = process.env.NODE_ENV !== "development"
 
         const rootFromUrl = searchParams.get("root")
-        const latestRoot = await client.getCertificatesRoot()
+        const latestRoot = await client.getLatestCertificateRoot()
         const rootToUse = rootFromUrl ?? latestRoot
         log(`Getting certificates for ${rootFromUrl ? "" : "latest "}root: ${rootToUse}`)
         setIsLatestRoot(rootToUse === latestRoot)

@@ -1,12 +1,12 @@
 "use client"
 
 import { Suspense } from "react"
-import { useHistoricalRoots } from "@/hooks/useHistoricalRoots"
-import { HistoricalRootCard } from "@/components/HistoricalRootCard"
+import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
+import { CertificateRootCard } from "@/components/CertificateRootCard"
 import { LoadingAnimation } from "@/components/LoadingAnimation"
 
 function HistoricalRootsContent() {
-  const { roots, isLoading, error } = useHistoricalRoots()
+  const { roots, isLoading, error } = useHistoricalCertificateRoots()
 
   if (error) {
     return (
@@ -30,7 +30,7 @@ function HistoricalRootsContent() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {roots.map((root) => (
-            <HistoricalRootCard key={root.root} rootDetails={root} />
+            <CertificateRootCard key={root.root} rootDetails={root} />
           ))}
         </div>
       )}
@@ -41,7 +41,7 @@ function HistoricalRootsContent() {
 export default function HistoricalRootsPage() {
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-2xl font-bold mb-2">Certificate Registry Historical Roots</h1>
+      <h1 className="text-2xl font-bold mb-2">Historical Certificate Roots</h1>
       <p className="text-muted-foreground mb-6">
         Browse all historical certificate roots stored in the registry
       </p>

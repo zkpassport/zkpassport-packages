@@ -1,11 +1,12 @@
-import type { Metadata } from "next"
-import localFont from "next/font/local"
-import "./globals.css"
+import { DebugInitializer } from "@/components/DebugInitializer"
+import { NavLink } from "@/components/NavLink"
 import { ThemeProvider } from "@/components/ThemeProvider"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import type { Metadata } from "next"
+import localFont from "next/font/local"
+import Image from "next/image"
 import Link from "next/link"
-import { NavLink } from "@/components/NavLink"
-import { DebugInitializer } from "@/components/DebugInitializer"
+import "./globals.css"
 
 const mrzFont = localFont({
   src: "./fonts/OCR-B.ttf",
@@ -64,13 +65,18 @@ export default function RootLayout({
           <header className="border-b border-border">
             <div className="container mx-auto p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <Link href="/" className="font-bold text-lg">
-                  ZKPassport Registry Explorer
+                <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+                  <Image src="/favicon.png" alt="ZKPassport Logo" width={26} height={26} />
+                  <span className="whitespace-nowrap text-xs sm:text-base md:text-lg">
+                    ZKPassport Registry Explorer
+                  </span>
                 </Link>
               </div>
               <nav className="flex items-center gap-4">
                 <NavLink href="/certificates">Certificates</NavLink>
-                <NavLink href="/history">Historical Roots</NavLink>
+                <NavLink href="/certificates/history">Certificate Roots</NavLink>
+                <NavLink href="/circuits/history">Circuit Roots</NavLink>
+                <NavLink href="/overview">Overview</NavLink>
                 <ThemeToggle />
               </nav>
             </div>
