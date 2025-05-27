@@ -221,6 +221,18 @@ describe("Registry", () => {
       expect(historicalRoots.roots.length).toBe(5)
       expect(historicalRoots.isLastPage).toBe(false)
     })
+
+    it("should check if a certificate root is valid", async () => {
+      const valid = await registry.isCertificateRootValid(CERTIFICATE_FIXTURES_ROOT)
+      expect(valid).toBe(true)
+      const valid2 = await registry.isCertificateRootValid(strip0x(CERTIFICATE_FIXTURES_ROOT))
+      expect(valid2).toBe(true)
+    })
+
+    it("should check if a certificate root is invalid", async () => {
+      const valid = await registry.isCertificateRootValid(INVALID_HASH)
+      expect(valid).toBe(false)
+    })
   })
 
   describe("CircuitRegistry", () => {
@@ -363,6 +375,18 @@ describe("Registry", () => {
       const registryId = parseInt(CERTIFICATE_REGISTRY_ID, 16)
       const registryAddress = await registry.getRegistryAddress(registryId)
       expect(registryAddress).toBe("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0")
+    })
+
+    it("should check if a circuit root is valid", async () => {
+      const valid = await registry.isCircuitRootValid(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+      expect(valid).toBe(true)
+      const valid2 = await registry.isCircuitRootValid(strip0x(CIRCUIT_MANIFEST_FIXTURES_ROOT))
+      expect(valid2).toBe(true)
+    })
+
+    it("should check if a circuit root is invalid", async () => {
+      const valid = await registry.isCircuitRootValid(INVALID_HASH)
+      expect(valid).toBe(false)
     })
   })
 })
