@@ -22,6 +22,7 @@ import {
   GET_HISTORICAL_ROOTS_SIGNATURE,
   GET_LATEST_ROOT_DETAILS_SIGNATURE,
   GET_ROOT_DETAILS_BY_ROOT_SIGNATURE,
+  IS_ROOT_VALID_SIGNATURE,
   LATEST_ROOT_WITH_PARAM_SIGNATURE,
   PACKAGED_CERTIFICATES_URL_TEMPLATE,
   PACKAGED_CIRCUIT_URL_TEMPLATE,
@@ -127,25 +128,10 @@ export class RegistryClient {
    */
   async getLatestCertificateRoot(): Promise<string> {
     log("Getting latest certificate root", { registry: this.rootRegistry })
-    const rpcRequest = {
-      jsonrpc: "2.0",
-      id: Math.floor(Math.random() * 1000000),
-      method: "eth_call",
-      params: [
-        {
-          to: this.rootRegistry,
-          data:
-            LATEST_ROOT_WITH_PARAM_SIGNATURE +
-            CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
-        },
-        "latest",
-      ],
-    }
-    const response = await fetch(this.rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(rpcRequest),
-    })
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      LATEST_ROOT_WITH_PARAM_SIGNATURE + CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
+    )
     if (!response.ok) {
       throw new Error(
         `Failed to get latest certificate root: ${response.status} ${response.statusText}`,
@@ -155,6 +141,30 @@ export class RegistryClient {
     if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
     log(`Got latest certificates root: ${rpcData.result}`)
     return rpcData.result
+  }
+
+  /**
+   * Check if a certificate root is valid
+   *
+   * @param root The root hash to check
+   * @returns True if the root is valid, false otherwise
+   */
+  async isCertificateRootValid(root: string): Promise<boolean> {
+    root = normaliseHash(root)
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      IS_ROOT_VALID_SIGNATURE +
+        CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0") +
+        strip0x(root),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Error checking if certificate root is valid: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    return parseInt(strip0x(rpcData.result)) === 1
   }
 
   /**
@@ -168,13 +178,13 @@ export class RegistryClient {
     { validate = true, ipfs = false }: { validate?: boolean; ipfs?: boolean } = {},
   ): Promise<PackagedCertificatesFile> {
     if (!root) root = await this.getLatestCertificateRoot()
+    else root = normaliseHash(root)
 
     // TODO: Add support for IPFS flag by looking up the CID for this root
     if (ipfs) throw new Error("IPFS flag not implemented")
 
     const url = this.packagedCertsUrlGenerator(this.chainId, root)
     log("Getting certificates from:", url)
-
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(
@@ -343,24 +353,10 @@ export class RegistryClient {
    */
   async getLatestCircuitRoot(): Promise<string> {
     log("Getting latest circuit root", { registry: this.rootRegistry })
-    const rpcRequest = {
-      jsonrpc: "2.0",
-      id: Math.floor(Math.random() * 1000000),
-      method: "eth_call",
-      params: [
-        {
-          to: this.rootRegistry,
-          data:
-            LATEST_ROOT_WITH_PARAM_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
-        },
-        "latest",
-      ],
-    }
-    const response = await fetch(this.rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(rpcRequest),
-    })
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      LATEST_ROOT_WITH_PARAM_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
+    )
     if (!response.ok) {
       throw new Error(
         `Failed to get latest circuit root: ${response.status} ${response.statusText}`,
@@ -370,6 +366,28 @@ export class RegistryClient {
     if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
     log(`Got latest circuit root: ${rpcData.result}`)
     return rpcData.result
+  }
+
+  /**
+   * Check if a circuit root is valid
+   *
+   * @param root The root hash to check
+   * @returns True if the root is valid, false otherwise
+   */
+  async isCircuitRootValid(root: string): Promise<boolean> {
+    root = normaliseHash(root)
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      IS_ROOT_VALID_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") + strip0x(root),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Error checking if circuit root is valid: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    return parseInt(strip0x(rpcData.result)) === 1
   }
 
   /**
@@ -383,13 +401,13 @@ export class RegistryClient {
     { validate = true, ipfs = false }: { validate?: boolean; ipfs?: boolean } = {},
   ): Promise<CircuitManifest> {
     if (!root) root = await this.getLatestCircuitRoot()
+    else root = normaliseHash(root)
 
     // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
 
     const url = this.circuitManifestUrlGenerator(this.chainId, { root })
     log("Getting circuit manifest from:", url)
-
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(
@@ -442,12 +460,12 @@ export class RegistryClient {
    */
   // TODO: Update ultraVkToFields to use VerificationKey.fromBuffer() in aztec-packages
   static async validatePackagedCircuit(circuit: PackagedCircuit, hash?: string): Promise<boolean> {
-    const expectedHash = hash || circuit.vkey_hash
+    const expectedHash = normaliseHash(hash || circuit.vkey_hash)
     const vkeyHashFields = ultraVkToFields(Binary.fromBase64(circuit.vkey).toUInt8Array())
-    const calculatedHash =
-      "0x" + (await poseidon2HashAsync(vkeyHashFields.map(BigInt))).toString(16)
-
-    const valid = calculatedHash.toLowerCase() === expectedHash.toLowerCase()
+    const calculatedHash = normaliseHash(
+      (await poseidon2HashAsync(vkeyHashFields.map(BigInt))).toString(16),
+    )
+    const valid = calculatedHash === expectedHash
     if (valid) {
       log(`Validated packaged circuit against hash ${expectedHash}`)
     } else {
@@ -623,24 +641,11 @@ export class RegistryClient {
       throw new Error(`Invalid registry ID: ${registryId}`)
     }
 
-    const rpcRequest = {
-      jsonrpc: "2.0",
-      id: Math.floor(Math.random() * 1000000),
-      method: "eth_call",
-      params: [
-        {
-          to: this.rootRegistry,
-          data: `${REGISTRIES_MAPPING_SIGNATURE}${formattedRegistryId.slice(2)}`,
-        },
-        "latest",
-      ],
-    }
     try {
-      const response = await fetch(this.rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(rpcRequest),
-      })
+      const response = await this.rpcRequest(
+        this.rootRegistry,
+        `${REGISTRIES_MAPPING_SIGNATURE}${formattedRegistryId.slice(2)}`,
+      )
       if (!response.ok) {
         throw new Error(
           `Error getting address for registry ID ${registryId}: ${response.status} ${response.statusText}`,

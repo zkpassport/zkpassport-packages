@@ -134,3 +134,8 @@ export const REGISTRIES_MAPPING_SIGNATURE = "0x5d8d57a6"
  * Function signature for getRootDetailsByRoot(bytes32,bytes32)
  */
 export const GET_ROOT_DETAILS_BY_ROOT_SIGNATURE = "0xbb3dd539"
+
+/**
+ * Function signature for isRootValid(bytes32,bytes32)
+ */
+export const IS_ROOT_VALID_SIGNATURE = "0x83578c11"
