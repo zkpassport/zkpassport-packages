@@ -214,19 +214,16 @@ export async function calculateCertificateRoot(certs: PackagedCertificate[]) {
 export async function calculateCircuitRoot(
   param: Partial<{ circuits: PackagedCircuit[]; hashes: string[] }>,
 ) {
+  let leaves: bigint[]
   if (param.circuits !== undefined) {
-    const leaves = param.circuits.map((circuit) => BigInt(circuit.vkey_hash))
-    leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
-    const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
-    await tree.initialize(0n, leaves)
-    return tree.root
+    leaves = param.circuits.map((circuit) => BigInt(circuit.vkey_hash))
   } else if (param.hashes !== undefined) {
-    const leaves = param.hashes.map((hash) => BigInt(hash))
-    leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
-    const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
-    await tree.initialize(0n, leaves)
-    return tree.root
-  } else {
-    throw new Error("Either circuits or vkeyHashes must be provided")
-  }
+    leaves = param.hashes.map((hash) => BigInt(hash))
+  } else throw new Error("Either circuits or hashes must be provided")
+  // Sort leaves to ensure consistent roots
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  // Build the merkle tree and return the root
+  const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
+  await tree.initialize(0n, leaves)
+  return tree.root
 }

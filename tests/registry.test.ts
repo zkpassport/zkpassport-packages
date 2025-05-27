@@ -1,5 +1,12 @@
-import { CERT_TYPE_DSC, getCertificateLeafHash } from "."
-import { PackagedCertificate } from "../types"
+import {
+  calculateCertificateRoot,
+  calculateCircuitRoot,
+  CERT_TYPE_DSC,
+  getCertificateLeafHash,
+} from "../src/registry"
+import { PackagedCertificate } from "../src/types"
+import rootCerts from "./fixtures/root-certs.json"
+import circuitManifest from "./fixtures/manifest.json"
 
 describe("Registry", () => {
   const rsaCert: PackagedCertificate = {
@@ -74,5 +81,16 @@ describe("Registry", () => {
     expect(leaf).toEqual(
       8283620116278888580418973930292208239315127621569120803973116422034293219110n,
     )
+  })
+
+  test("should generate correct canonical certificate root", async () => {
+    const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
+    expect(root).toEqual("0x2575d09aeea70b3dd8fb28f54d24b4199b8ce81fa97301656b80e7a922e22155")
+  })
+
+  test("should generate correct canonical circuit root", async () => {
+    const hashes = Object.values(circuitManifest.circuits).map((circuit) => circuit.hash)
+    const root = await calculateCircuitRoot({ hashes })
+    expect(root).toEqual(circuitManifest.root)
   })
 })
