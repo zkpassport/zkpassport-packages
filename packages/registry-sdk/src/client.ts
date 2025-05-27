@@ -1,23 +1,12 @@
-import {
-  CIRCUIT_MANIFEST_URL_TEMPLATE,
-  DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
-  GET_HISTORICAL_ROOTS_SIGNATURE,
-  GET_LATEST_ROOT_DETAILS_SIGNATURE,
-  LATEST_ROOT_WITH_PARAM_SIGNATURE,
-  PACKAGED_CERTIFICATES_URL_TEMPLATE,
-  PACKAGED_CIRCUIT_URL_TEMPLATE,
-  REGISTRIES_MAPPING_SIGNATURE,
-} from "./constants"
-import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { Binary } from "@zkpassport/utils"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
   buildMerkleTreeFromCerts,
-  calculateCircuitsRootFromVKeyHashes,
+  calculateCircuitRoot,
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
-  hexToCid,
+  hexToCidv0,
 } from "@zkpassport/utils/registry"
 import type {
   CircuitManifest,
@@ -26,7 +15,20 @@ import type {
   PackagedCircuit,
 } from "@zkpassport/utils/types"
 import debug from "debug"
-import { normaliseHash } from "./utils"
+import {
+  CIRCUIT_MANIFEST_URL_TEMPLATE,
+  DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
+  GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE,
+  GET_HISTORICAL_ROOTS_SIGNATURE,
+  GET_LATEST_ROOT_DETAILS_SIGNATURE,
+  GET_ROOT_DETAILS_BY_ROOT_SIGNATURE,
+  LATEST_ROOT_WITH_PARAM_SIGNATURE,
+  PACKAGED_CERTIFICATES_URL_TEMPLATE,
+  PACKAGED_CIRCUIT_URL_TEMPLATE,
+  REGISTRIES_MAPPING_SIGNATURE,
+} from "./constants"
+import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
+import { normaliseHash, strip0x } from "./utils"
 
 const log = debug("zkpassport:registry")
 
@@ -121,10 +123,10 @@ export class RegistryClient {
   }
 
   /**
-   * Get latest root of the Certificate Registry
+   * Get latest Certificate Registry root
    */
-  async getCertificatesRoot(): Promise<string> {
-    log(`Fetching latest certificates root from root registry ${this.rootRegistry}`)
+  async getLatestCertificateRoot(): Promise<string> {
+    log("Getting latest certificate root", { registry: this.rootRegistry })
     const rpcRequest = {
       jsonrpc: "2.0",
       id: Math.floor(Math.random() * 1000000),
@@ -146,7 +148,7 @@ export class RegistryClient {
     })
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch latest certificate registry root: ${response.status} ${response.statusText}`,
+        `Failed to get latest certificate root: ${response.status} ${response.statusText}`,
       )
     }
     const rpcData = await response.json()
@@ -165,18 +167,18 @@ export class RegistryClient {
     root?: string,
     { validate = true, ipfs = false }: { validate?: boolean; ipfs?: boolean } = {},
   ): Promise<PackagedCertificatesFile> {
-    if (!root) root = await this.getCertificatesRoot()
+    if (!root) root = await this.getLatestCertificateRoot()
 
     // TODO: Add support for IPFS flag by looking up the CID for this root
     if (ipfs) throw new Error("IPFS flag not implemented")
 
     const url = this.packagedCertsUrlGenerator(this.chainId, root)
-    log("Fetching certificates from:", url)
+    log("Getting certificates from:", url)
 
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch certificates for root ${root}: ${response.status} ${response.statusText}`,
+        `Failed to get certificates for root ${root}: ${response.status} ${response.statusText}`,
       )
     }
     const data = (await response.json()) as PackagedCertificatesFile
@@ -218,106 +220,43 @@ export class RegistryClient {
   }
 
   /**
-   * Get historical certificate registry roots
+   * Get historical certificate roots
    *
-   * @param fromIndex The root index to start from (defaults to 1, the genesis root)
+   * @param from The root index or hash to start from (defaults to 1, the genesis root)
    * @param limit Maximum number of roots to return per page
    * @returns The roots for this page and a flag indicating if this is the last page
    */
-  async getHistoricalCertificateRegistryRoots(
-    fromIndex: number = 1,
+  async getHistoricalCertificateRoots(
+    from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) {
-      throw new Error("Historical roots helper address is not configured")
-    }
-
+    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
+    const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
+    const requestData =
+      typeof fromRoot === "number"
+        ? `${GET_HISTORICAL_ROOTS_SIGNATURE}${
+            // registryId parameter (bytes32) padded to 32 bytes
+            CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0")
+          }${
+            // startIndex parameter (uint256) padded to 32 bytes
+            fromRoot.toString(16).padStart(64, "0")
+          }${
+            // limit parameter (uint256) padded to 32 bytes
+            limit.toString(16).padStart(64, "0")
+          }`
+        : `${GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE}${
+            // registryId parameter (bytes32) padded to 32 bytes
+            CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0")
+          }${
+            // fromRoot parameter (bytes32) padded to 32 bytes
+            fromRoot.padStart(64, "0")
+          }${
+            // limit parameter (uint256) padded to 32 bytes
+            limit.toString(16).padStart(64, "0")
+          }`
     try {
-      const response = await fetch(this.rpcUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: Math.floor(Math.random() * 1000000),
-          method: "eth_call",
-          params: [
-            {
-              to: this.registryHelper,
-              data: `${GET_HISTORICAL_ROOTS_SIGNATURE}${
-                // registryId parameter (bytes32) padded to 32 bytes
-                CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0")
-              }${
-                // fromIndex parameter (uint256) padded to 32 bytes
-                fromIndex.toString(16).padStart(64, "0")
-              }${
-                // limit parameter (uint256) padded to 32 bytes
-                limit.toString(16).padStart(64, "0")
-              }`,
-            },
-            "latest",
-          ],
-        }),
-      })
-      const data = await response.json()
-
-      if (data.error) throw new Error(data.error.message || "Error fetching roots")
-      if (data.result) {
-        // The result is an ABI-encoded tuple of (RootDetails[], bool)
-        // We need to extract the array and the isLastPage boolean
-        const result = data.result.slice(2) // Remove '0x' prefix
-
-        // First 64 bytes (32 bytes * 2) contain pointers
-        // The first 32 bytes are the offset to the array data
-        const arrayOffset = parseInt(result.slice(0, 64), 16)
-        // The second 32 bytes contain the isLastPage boolean
-        const isLastPage = parseInt(result.slice(64, 128), 16) === 1
-        // The array data starts at the offset (in bytes) from the start of the return value
-        // Skipping the prefix '0x' (2 chars), each byte is 2 chars in hex
-        const arrayData = result.slice(arrayOffset * 2)
-        // First 32 bytes of the array data is the array length
-        const arrayLength = parseInt(arrayData.slice(0, 64), 16)
-        // Parse each root detail
-        const rootDetails: RootDetails[] = []
-        // Each root detail is a struct with the following fields:
-        // struct RootDetails {
-        //   uint256 index;
-        //   bytes32 root;
-        //   uint256 validFrom;
-        //   uint256 validTo;
-        //   bool revoked;
-        //   uint256 leaves;
-        //   bytes32 cid;
-        // }
-        for (let i = 0; i < arrayLength; i++) {
-          // The RootDetails struct in the helper contract has 7 fields (32 bytes each)
-          const startIndex = 64 + i * 7 * 64 // 64 hex chars per 32 bytes
-
-          const index = parseInt(arrayData.slice(startIndex, startIndex + 64), 16)
-          const root = `0x${arrayData.slice(startIndex + 64, startIndex + 128)}`
-          const validFrom = new Date(
-            parseInt(arrayData.slice(startIndex + 128, startIndex + 192), 16) * 1000,
-          )
-          const validToOrig = parseInt(arrayData.slice(startIndex + 192, startIndex + 256), 16)
-          const validTo = validToOrig === 0 ? undefined : new Date(validToOrig * 1000)
-          const revoked = parseInt(arrayData.slice(startIndex + 256, startIndex + 320), 16) === 1
-          const leaves = parseInt(arrayData.slice(startIndex + 320, startIndex + 384), 16)
-          const cid = hexToCid(`0x${arrayData.slice(startIndex + 384, startIndex + 448)}`)
-          rootDetails.push({
-            root,
-            validFrom,
-            validTo,
-            revoked,
-            cid,
-            leaves,
-            isLatest: i === arrayLength - 1 && isLastPage,
-            index,
-          })
-        }
-        return { roots: rootDetails, isLastPage }
-      }
-      return { roots: [], isLastPage: true }
+      const response = await this.rpcRequest(this.registryHelper, requestData)
+      return this._handleHistoricalRootsResponse(response)
     } catch (err) {
       throw err instanceof Error ? err : new Error(String(err))
     }
@@ -327,11 +266,11 @@ export class RegistryClient {
    * Get all historical certificate registry roots by handling pagination internally
    * This method starts from the first root and collects all roots by handling pagination automatically
    *
-   * @param pageSize Number of roots to fetch per page
+   * @param pageSize Number of roots to get per page
    * @param onProgress Optional callback to report progress during pagination
    * @returns All historical roots from the registry
    */
-  async getAllHistoricalCertificateRegistryRoots(
+  async getAllHistoricalCertificateRoots(
     pageSize: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
     onProgress?: (
       pageNumber: number,
@@ -347,7 +286,7 @@ export class RegistryClient {
     let currentIndex = 1
     const allRoots: RootDetails[] = []
     while (!isLastPage) {
-      const { roots, isLastPage: lastPage } = await this.getHistoricalCertificateRegistryRoots(
+      const { roots, isLastPage: lastPage } = await this.getHistoricalCertificateRoots(
         currentIndex,
         pageSize,
       )
@@ -355,10 +294,7 @@ export class RegistryClient {
       isLastPage = lastPage
       pageNumber++
       // Update currentIndex for next pagination
-      if (roots.length > 0) {
-        // Add the number of roots we fetched to move to the next page
-        currentIndex += roots.length
-      }
+      if (roots.length > 0) currentIndex += roots.length
       // Invoke progress callback if provided
       if (onProgress) {
         onProgress(pageNumber, roots, allRoots.length, isLastPage)
@@ -370,70 +306,43 @@ export class RegistryClient {
   }
 
   /**
-   * Get latest certificates root details
+   * Get certificate root details
+   * @param root Optional root to get details for (defaults to latest)
    */
-  // TODO: Change this to getCertificatesRootDetails(root?: string)
-  async getLatestCertificatesRootDetails(): Promise<RootDetails> {
-    log(
-      `Fetching latest certificate registry root details using root registry ${this.rootRegistry}`,
-    )
-    const rpcRequest = {
-      jsonrpc: "2.0",
-      id: Math.floor(Math.random() * 1000000),
-      method: "eth_call",
-      params: [
-        {
-          to: this.registryHelper,
-          data:
-            GET_LATEST_ROOT_DETAILS_SIGNATURE +
-            CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
-        },
-        "latest",
-      ],
+  async getCertificateRootDetails(root?: string): Promise<RootDetails> {
+    if (root) {
+      log("Getting certificate root details")
+      const response = await this.rpcRequest(
+        this.registryHelper,
+        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
+          CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0") +
+          strip0x(root).padStart(64, "0"),
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Failed to get certificate root details: ${response.status} ${response.statusText}`,
+        )
+      }
+      return this._handleRootDetailsResponse(response)
     }
-    const response = await fetch(this.rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(rpcRequest),
-    })
+    log("Getting latest certificate root details")
+    const response = await this.rpcRequest(
+      this.registryHelper,
+      GET_LATEST_ROOT_DETAILS_SIGNATURE + CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
+    )
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch latest certificate registry root details: ${response.status} ${response.statusText}`,
+        `Failed to get latest certificate root details: ${response.status} ${response.statusText}`,
       )
     }
-    const data = await response.json()
-
-    if (data.error) throw new Error(`Error from node: ${data.error.message}`)
-    if (data.result) {
-      // The result is an ABI-encoded RootDetails struct
-      const result = data.result.slice(2) // Remove '0x' prefix
-      // Each field in the struct is 32 bytes (64 hex chars)
-      const index = parseInt(result.slice(0, 64), 16)
-      const root = `0x${result.slice(64, 128)}`
-      const validFrom = new Date(parseInt(result.slice(128, 192), 16) * 1000)
-      const validToOrig = parseInt(result.slice(192, 256), 16)
-      const validTo = validToOrig === 0 ? undefined : new Date(validToOrig * 1000)
-      const revoked = parseInt(result.slice(256, 320), 16) === 1
-      const leaves = parseInt(result.slice(320, 384), 16)
-      const cid = hexToCid(`0x${result.slice(384, 448)}`)
-      return {
-        index,
-        root,
-        validFrom,
-        validTo,
-        revoked,
-        leaves,
-        cid,
-        isLatest: true,
-      }
-    } else throw new Error("No result returned from node")
+    return this._handleRootDetailsResponse(response)
   }
 
   /**
-   * Get latest root of the Circuit Registry
+   * Get latest Circuit Registry root
    */
-  async getCircuitsRoot(): Promise<string> {
-    log(`Fetching latest circuits root from root registry ${this.rootRegistry}`)
+  async getLatestCircuitRoot(): Promise<string> {
+    log("Getting latest circuit root", { registry: this.rootRegistry })
     const rpcRequest = {
       jsonrpc: "2.0",
       id: Math.floor(Math.random() * 1000000),
@@ -454,12 +363,12 @@ export class RegistryClient {
     })
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch latest circuits registry root: ${response.status} ${response.statusText}`,
+        `Failed to get latest circuit root: ${response.status} ${response.statusText}`,
       )
     }
     const rpcData = await response.json()
     if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    log(`Got latest circuits root: ${rpcData.result}`)
+    log(`Got latest circuit root: ${rpcData.result}`)
     return rpcData.result
   }
 
@@ -473,18 +382,18 @@ export class RegistryClient {
     root?: string,
     { validate = true, ipfs = false }: { validate?: boolean; ipfs?: boolean } = {},
   ): Promise<CircuitManifest> {
-    if (!root) root = await this.getCircuitsRoot()
+    if (!root) root = await this.getLatestCircuitRoot()
 
     // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
 
     const url = this.circuitManifestUrlGenerator(this.chainId, { root })
-    log("Fetching circuit manifest from:", url)
+    log("Getting circuit manifest from:", url)
 
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch circuit manifest for root ${root}: ${response.status} ${response.statusText}`,
+        `Failed to get circuit manifest for root ${root}: ${response.status} ${response.statusText}`,
       )
     }
     const data = (await response.json()) as CircuitManifest
@@ -508,7 +417,7 @@ export class RegistryClient {
       const circuitHashes = (Object.values(manifest.circuits) as CircuitManifestEntry[]).map(
         (circuit: { hash: string }) => circuit.hash,
       )
-      const calculatedRoot = normaliseHash(await calculateCircuitsRootFromVKeyHashes(circuitHashes))
+      const calculatedRoot = normaliseHash(await calculateCircuitRoot({ hashes: circuitHashes }))
       // Compare using the provided root or manifest root
       const expectedRoot = normaliseHash(root || manifest.root)
 
@@ -559,11 +468,11 @@ export class RegistryClient {
     if (!circuitHash) throw new Error(`Circuit ${circuit} not found in manifest`)
 
     const url = this.packagedCircuitUrlGenerator(this.chainId, circuitHash)
-    log("Fetching packaged circuit from:", url)
+    log("Getting packaged circuit from:", url)
     const response = await fetch(url)
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch packaged circuit for ${circuit}: ${response.status} ${response.statusText}`,
+        `Failed to get packaged circuit for ${circuit}: ${response.status} ${response.statusText}`,
       )
     }
     const data = (await response.json()) as PackagedCircuit
@@ -578,107 +487,44 @@ export class RegistryClient {
     return data
   }
 
-  // /**
-  //  * Get historical circuits registry roots
-  //  *
-  //  * @param fromIndex The root index to start from (defaults to 1, the genesis root)
-  //  * @param limit Maximum number of roots to return per page
-  //  * @returns The roots for this page and a flag indicating if this is the last page
-  //  */
-  async getHistoricalCircuitRegistryRoots(
-    fromIndex: number = 1,
+  /**
+   * Get historical circuit roots
+   *
+   * @param from The root index or hash to start from (defaults to 1, the genesis root)
+   * @param limit Maximum number of roots to return per page
+   * @returns The roots for this page and a flag indicating if this is the last page
+   */
+  async getHistoricalCircuitRoots(
+    from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) {
-      throw new Error("Historical roots helper address is not configured")
-    }
-
+    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
+    const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
+    const requestData =
+      typeof fromRoot === "number"
+        ? `${GET_HISTORICAL_ROOTS_SIGNATURE}${
+            // registryId parameter (bytes32) padded to 32 bytes
+            CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0")
+          }${
+            // startIndex parameter (uint256) padded to 32 bytes
+            fromRoot.toString(16).padStart(64, "0")
+          }${
+            // limit parameter (uint256) padded to 32 bytes
+            limit.toString(16).padStart(64, "0")
+          }`
+        : `${GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE}${
+            // registryId parameter (bytes32) padded to 32 bytes
+            CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0")
+          }${
+            // fromRoot parameter (bytes32) padded to 32 bytes
+            fromRoot.padStart(64, "0")
+          }${
+            // limit parameter (uint256) padded to 32 bytes
+            limit.toString(16).padStart(64, "0")
+          }`
     try {
-      const response = await fetch(this.rpcUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: Math.floor(Math.random() * 1000000),
-          method: "eth_call",
-          params: [
-            {
-              to: this.registryHelper,
-              data: `${GET_HISTORICAL_ROOTS_SIGNATURE}${
-                // registryId parameter (bytes32) padded to 32 bytes
-                CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0")
-              }${
-                // fromIndex parameter (uint256) padded to 32 bytes
-                fromIndex.toString(16).padStart(64, "0")
-              }${
-                // limit parameter (uint256) padded to 32 bytes
-                limit.toString(16).padStart(64, "0")
-              }`,
-            },
-            "latest",
-          ],
-        }),
-      })
-      const data = await response.json()
-
-      if (data.error) throw new Error(data.error.message || "Error fetching roots")
-      if (data.result) {
-        // The result is an ABI-encoded tuple of (RootDetails[], bool)
-        // We need to extract the array and the isLastPage boolean
-        const result = data.result.slice(2) // Remove '0x' prefix
-
-        // First 64 bytes (32 bytes * 2) contain pointers
-        // The first 32 bytes are the offset to the array data
-        const arrayOffset = parseInt(result.slice(0, 64), 16)
-        // The second 32 bytes contain the isLastPage boolean
-        const isLastPage = parseInt(result.slice(64, 128), 16) === 1
-        // The array data starts at the offset (in bytes) from the start of the return value
-        // Skipping the prefix '0x' (2 chars), each byte is 2 chars in hex
-        const arrayData = result.slice(arrayOffset * 2)
-        // First 32 bytes of the array data is the array length
-        const arrayLength = parseInt(arrayData.slice(0, 64), 16)
-        // Parse each root detail
-        const rootDetails: RootDetails[] = []
-        // Each root detail is a struct with the following fields:
-        // struct RootDetails {
-        //   uint256 index;
-        //   bytes32 root;
-        //   uint256 validFrom;
-        //   uint256 validTo;
-        //   bool revoked;
-        //   uint256 leaves;
-        //   bytes32 cid;
-        // }
-        for (let i = 0; i < arrayLength; i++) {
-          // The RootDetails struct in the helper contract has 7 fields (32 bytes each)
-          const startIndex = 64 + i * 7 * 64 // 64 hex chars per 32 bytes
-
-          const index = parseInt(arrayData.slice(startIndex, startIndex + 64), 16)
-          const root = `0x${arrayData.slice(startIndex + 64, startIndex + 128)}`
-          const validFrom = new Date(
-            parseInt(arrayData.slice(startIndex + 128, startIndex + 192), 16) * 1000,
-          )
-          const validToOrig = parseInt(arrayData.slice(startIndex + 192, startIndex + 256), 16)
-          const validTo = validToOrig === 0 ? undefined : new Date(validToOrig * 1000)
-          const revoked = parseInt(arrayData.slice(startIndex + 256, startIndex + 320), 16) === 1
-          const leaves = parseInt(arrayData.slice(startIndex + 320, startIndex + 384), 16)
-          const cid = hexToCid(`0x${arrayData.slice(startIndex + 384, startIndex + 448)}`)
-          rootDetails.push({
-            root,
-            validFrom,
-            validTo,
-            revoked,
-            cid,
-            leaves,
-            isLatest: i === arrayLength - 1 && isLastPage,
-            index,
-          })
-        }
-        return { roots: rootDetails, isLastPage }
-      }
-      return { roots: [], isLastPage: true }
+      const response = await this.rpcRequest(this.registryHelper, requestData)
+      return this._handleHistoricalRootsResponse(response)
     } catch (err) {
       throw err instanceof Error ? err : new Error(String(err))
     }
@@ -688,11 +534,11 @@ export class RegistryClient {
    * Get all historical circuit registry roots by handling pagination internally
    * This method starts from the first root and collects all roots by handling pagination automatically
    *
-   * @param pageSize Number of roots to fetch per page
+   * @param pageSize Number of roots to get per page
    * @param onProgress Optional callback to report progress during pagination
    * @returns All historical roots from the registry
    */
-  async getAllHistoricalCircuitRegistryRoots(
+  async getAllHistoricalCircuitRoots(
     pageSize: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
     onProgress?: (
       pageNumber: number,
@@ -708,7 +554,7 @@ export class RegistryClient {
     let currentIndex = 1
     const allRoots: RootDetails[] = []
     while (!isLastPage) {
-      const { roots, isLastPage: lastPage } = await this.getHistoricalCircuitRegistryRoots(
+      const { roots, isLastPage: lastPage } = await this.getHistoricalCircuitRoots(
         currentIndex,
         pageSize,
       )
@@ -716,10 +562,7 @@ export class RegistryClient {
       isLastPage = lastPage
       pageNumber++
       // Update currentIndex for next pagination
-      if (roots.length > 0) {
-        // Add the number of roots we fetched to move to the next page
-        currentIndex += roots.length
-      }
+      if (roots.length > 0) currentIndex += roots.length
       // Invoke progress callback if provided
       if (onProgress) {
         onProgress(pageNumber, roots, allRoots.length, isLastPage)
@@ -731,60 +574,36 @@ export class RegistryClient {
   }
 
   /**
-   * Get latest circuits root details
+   * Get circuit root details
+   * @param root Optional root to get details for (defaults to latest)
    */
-  // TODO: Change this to getCircuitsRootDetails(root?: string)
-  async getLatestCircuitsRootDetails(): Promise<RootDetails> {
-    log(`Fetching latest circuits registry root details using root registry ${this.rootRegistry}`)
-    const rpcRequest = {
-      jsonrpc: "2.0",
-      id: Math.floor(Math.random() * 1000000),
-      method: "eth_call",
-      params: [
-        {
-          to: this.registryHelper,
-          data:
-            GET_LATEST_ROOT_DETAILS_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
-        },
-        "latest",
-      ],
+  async getCircuitRootDetails(root?: string): Promise<RootDetails> {
+    if (root) {
+      log("Getting circuit root details")
+      const response = await this.rpcRequest(
+        this.registryHelper,
+        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
+          CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") +
+          strip0x(root).padStart(64, "0"),
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Failed to get circuit root details: ${response.status} ${response.statusText}`,
+        )
+      }
+      return this._handleRootDetailsResponse(response)
     }
-    const response = await fetch(this.rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(rpcRequest),
-    })
+    log("Getting latest circuit root details")
+    const response = await this.rpcRequest(
+      this.registryHelper,
+      GET_LATEST_ROOT_DETAILS_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
+    )
     if (!response.ok) {
       throw new Error(
-        `Failed to fetch latest circuits registry root details: ${response.status} ${response.statusText}`,
+        `Failed to get latest circuit root details: ${response.status} ${response.statusText}`,
       )
     }
-    const data = await response.json()
-
-    if (data.error) throw new Error(`Error from node: ${data.error.message}`)
-    if (data.result) {
-      // The result is an ABI-encoded RootDetails struct
-      const result = data.result.slice(2) // Remove '0x' prefix
-      // Each field in the struct is 32 bytes (64 hex chars)
-      const index = parseInt(result.slice(0, 64), 16)
-      const root = `0x${result.slice(64, 128)}`
-      const validFrom = new Date(parseInt(result.slice(128, 192), 16) * 1000)
-      const validToOrig = parseInt(result.slice(192, 256), 16)
-      const validTo = validToOrig === 0 ? undefined : new Date(validToOrig * 1000)
-      const revoked = parseInt(result.slice(256, 320), 16) === 1
-      const leaves = parseInt(result.slice(320, 384), 16)
-      const cid = hexToCid(`0x${result.slice(384, 448)}`)
-      return {
-        index,
-        root,
-        validFrom,
-        validTo,
-        revoked,
-        leaves,
-        cid,
-        isLatest: true,
-      }
-    } else throw new Error("No result returned from node")
+    return this._handleRootDetailsResponse(response)
   }
 
   /**
@@ -793,7 +612,7 @@ export class RegistryClient {
    * @returns The registry address as a hex string
    */
   async getRegistryAddress(registryId: number | string): Promise<string> {
-    log(`Fetching registry address for ID ${registryId} from root registry ${this.rootRegistry}`)
+    log(`Getting registry address for ID ${registryId} from root registry ${this.rootRegistry}`)
 
     let formattedRegistryId: string
     if (typeof registryId === "string" && registryId.startsWith("0x")) {
@@ -847,6 +666,14 @@ export class RegistryClient {
   }
 
   /**
+   * Get the address of the Root Registry
+   * @returns The address of the Root Registry
+   */
+  getRootRegistryAddress(): string {
+    return this.rootRegistry
+  }
+
+  /**
    * Get the address of the Certificate Registry
    * @returns The address of the Certificate Registry
    */
@@ -880,5 +707,108 @@ export class RegistryClient {
 
   getUrlForPackagedCircuits(hash: string, cid?: string): string {
     return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
+  }
+
+  private rpcRequest(to: string, data: any): Promise<Response> {
+    return fetch(this.rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Math.floor(Math.random() * 1000000),
+        method: "eth_call",
+        params: [{ to, data }, "latest"],
+      }),
+    })
+  }
+
+  private async _handleRootDetailsResponse(response: Response): Promise<RootDetails> {
+    const data = await response.json()
+    if (data.error) throw new Error(`Error from node: ${data.error.message}`)
+    if (data.result) {
+      // The result is an ABI-encoded RootDetails struct
+      const result = data.result.slice(2) // Remove '0x' prefix
+      // Each field in the struct is 32 bytes (64 hex chars)
+      const index = parseInt(result.slice(0, 64), 16)
+      const root = `0x${result.slice(64, 128)}`
+      const validFrom = new Date(parseInt(result.slice(128, 192), 16) * 1000)
+      const validToOrig = parseInt(result.slice(192, 256), 16)
+      const validTo = validToOrig === 0 ? undefined : new Date(validToOrig * 1000)
+      const revoked = parseInt(result.slice(256, 320), 16) === 1
+      const leaves = parseInt(result.slice(320, 384), 16)
+      const cid = hexToCidv0(`0x${result.slice(384, 448)}`)
+      return {
+        index,
+        root,
+        validFrom,
+        validTo,
+        revoked,
+        leaves,
+        cid,
+        isLatest: validTo === undefined ? true : false,
+      }
+    } else throw new Error("No result returned from node")
+  }
+
+  async _handleHistoricalRootsResponse(
+    response: Response,
+  ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
+    const data = await response.json()
+    if (data.error) throw new Error(data?.error?.message || "Error getting roots")
+    if (data.result) {
+      // The result is an ABI-encoded tuple of (RootDetails[], bool)
+      // We need to extract the array and the isLastPage boolean
+      const result = data.result.slice(2) // Remove '0x' prefix
+
+      // First 64 bytes (32 bytes * 2) contain pointers
+      // The first 32 bytes are the offset to the array data
+      const arrayOffset = parseInt(result.slice(0, 64), 16)
+      // The second 32 bytes contain the isLastPage boolean
+      const isLastPage = parseInt(result.slice(64, 128), 16) === 1
+      // The array data starts at the offset (in bytes) from the start of the return value
+      // Skipping the prefix '0x' (2 chars), each byte is 2 chars in hex
+      const arrayData = result.slice(arrayOffset * 2)
+      // First 32 bytes of the array data is the array length
+      const arrayLength = parseInt(arrayData.slice(0, 64), 16)
+      // Parse each root detail
+      const rootDetails: RootDetails[] = []
+      // Each root detail is a struct with the following fields:
+      // struct RootDetails {
+      //   uint256 index;
+      //   bytes32 root;
+      //   uint256 validFrom;
+      //   uint256 validTo;
+      //   bool revoked;
+      //   uint256 leaves;
+      //   bytes32 cid;
+      // }
+      for (let i = 0; i < arrayLength; i++) {
+        // The RootDetails struct in the helper contract has 7 fields (32 bytes each)
+        const startIndex = 64 + i * 7 * 64 // 64 hex chars per 32 bytes
+
+        const index = parseInt(arrayData.slice(startIndex, startIndex + 64), 16)
+        const root = `0x${arrayData.slice(startIndex + 64, startIndex + 128)}`
+        const validFrom = new Date(
+          parseInt(arrayData.slice(startIndex + 128, startIndex + 192), 16) * 1000,
+        )
+        const validToOrig = parseInt(arrayData.slice(startIndex + 192, startIndex + 256), 16)
+        const validTo = validToOrig === 0 ? undefined : new Date(validToOrig * 1000)
+        const revoked = parseInt(arrayData.slice(startIndex + 256, startIndex + 320), 16) === 1
+        const leaves = parseInt(arrayData.slice(startIndex + 320, startIndex + 384), 16)
+        const cid = hexToCidv0(`0x${arrayData.slice(startIndex + 384, startIndex + 448)}`)
+        rootDetails.push({
+          root,
+          validFrom,
+          validTo,
+          revoked,
+          cid,
+          leaves,
+          isLatest: i === arrayLength - 1 && isLastPage,
+          index,
+        })
+      }
+      return { roots: rootDetails, isLastPage }
+    }
+    return { roots: [], isLastPage: true }
   }
 }

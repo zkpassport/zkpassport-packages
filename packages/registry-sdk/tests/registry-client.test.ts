@@ -1,12 +1,14 @@
-import { CircuitManifest, PackagedCircuit } from "@zkpassport/utils"
+import { CircuitManifest, PackagedCircuit, strip0x } from "@zkpassport/utils"
 import path from "path"
 import { RegistryClient } from "../src/client"
 import { PackagedCertificatesFile } from "../src/types"
 import {
-  CERTIFICATE_FIXTURES_CID_BASE32,
+  CERTIFICATE_FIXTURES_CID,
   CERTIFICATE_FIXTURES_ROOT,
+  CERTIFICATE_GENESIS_ROOT,
   CERTIFICATE_REGISTRY_ID,
-  CIRCUIT_MANIFEST_FIXTURES_CID_BASE32,
+  CIRCUIT_GENESIS_ROOT,
+  CIRCUIT_MANIFEST_FIXTURES_CID,
   CIRCUIT_MANIFEST_FIXTURES_ROOT,
   CIRCUIT_REGISTRY_ID,
   INVALID_HASH,
@@ -78,11 +80,13 @@ describe("Registry", () => {
         )
       }
       // Return valid circuit manifest
-      else if (url.endsWith(`/by-root/${CIRCUIT_MANIFEST_FIXTURES_ROOT}/manifest.json.gz`)) {
+      else if (
+        url.endsWith(`/by-root/${strip0x(CIRCUIT_MANIFEST_FIXTURES_ROOT)}/manifest.json.gz`)
+      ) {
         return new Response(JSON.stringify(fixtureCircuitManifest), { status: 200 })
       }
       // Return invalid circuit manifest
-      else if (url.endsWith(`/by-root/${INVALID_HASH}/manifest.json.gz`)) {
+      else if (url.endsWith(`/by-root/${strip0x(INVALID_HASH)}/manifest.json.gz`)) {
         return new Response(
           JSON.stringify({
             version: fixtureCircuitManifest.version,
@@ -94,11 +98,11 @@ describe("Registry", () => {
         )
       }
       // Return valid packaged circuit
-      if (url.endsWith(`/by-hash/${PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH}.json.gz`)) {
+      if (url.endsWith(`/by-hash/${strip0x(PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH)}.json.gz`)) {
         return new Response(JSON.stringify(fixturePackagedCircuit), { status: 200 })
       }
       // Return invalid packaged circuit
-      else if (url.endsWith(`/by-hash/${INVALID_HASH}.json.gz`)) {
+      else if (url.endsWith(`/by-hash/${strip0x(INVALID_HASH)}.json.gz`)) {
         return new Response(
           JSON.stringify({
             ...fixturePackagedCircuit,
@@ -129,7 +133,7 @@ describe("Registry", () => {
 
   describe("CertificateRegistry", () => {
     it("should get latest root", async () => {
-      const latestRoot = await registry.getCertificatesRoot()
+      const latestRoot = await registry.getLatestCertificateRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
     })
 
@@ -148,7 +152,7 @@ describe("Registry", () => {
     })
 
     it("should validate certificates against a root hash", async () => {
-      const latestRoot = await registry.getCertificatesRoot()
+      const latestRoot = await registry.getLatestCertificateRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
       const packagedCerts = await registry.getCertificates(latestRoot)
       const valid = await registry.validateCertificates(packagedCerts.certificates, latestRoot)
@@ -156,7 +160,7 @@ describe("Registry", () => {
     })
 
     it("should not validate certificates against an invalid root hash", async () => {
-      const latestRoot = await registry.getCertificatesRoot()
+      const latestRoot = await registry.getLatestCertificateRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
       const packagedCerts = await registry.getCertificates(latestRoot)
       const valid = await registry.validateCertificates(packagedCerts.certificates, INVALID_HASH)
@@ -164,43 +168,64 @@ describe("Registry", () => {
     })
 
     it("should get historical roots with limit of 5", async () => {
-      const historicalRoots = await registry.getHistoricalCertificateRegistryRoots(1, 5)
+      const historicalRoots = await registry.getHistoricalCertificateRoots(1, 5)
       expect(historicalRoots.roots.length).toBe(5)
+      // Note: Index-based pagination _includes_ the record referenced
       expect(historicalRoots.roots[4].revoked).toBe(true)
       expect(historicalRoots.isLastPage).toBe(false)
     })
 
     it("should get last page of historical roots", async () => {
-      const historicalRoots = await registry.getHistoricalCertificateRegistryRoots(7)
+      const historicalRoots = await registry.getHistoricalCertificateRoots(7)
       expect(historicalRoots.roots.length).toBe(4)
       expect(historicalRoots.isLastPage).toBe(true)
     })
 
     it("should get all historical roots using pagination", async () => {
-      const historicalRoots = await registry.getAllHistoricalCertificateRegistryRoots(4)
+      const historicalRoots = await registry.getAllHistoricalCertificateRoots(4)
       expect(historicalRoots.length).toBe(10)
 
       const latest = historicalRoots[historicalRoots.length - 1]
       expect(latest.isLatest).toBe(true)
       expect(latest.root).toBe(CERTIFICATE_FIXTURES_ROOT)
-      expect(latest.cid).toBe(CERTIFICATE_FIXTURES_CID_BASE32)
+      expect(latest.cid).toBe(CERTIFICATE_FIXTURES_CID)
     })
 
-    it("should get latest historical root", async () => {
-      const latest = await registry.getLatestCertificatesRootDetails()
-      expect(latest.root).toBe(CERTIFICATE_FIXTURES_ROOT)
-      expect(latest.cid).toBe(CERTIFICATE_FIXTURES_CID_BASE32)
-      expect(latest.leaves).toBe(5)
-      expect(latest.revoked).toBe(false)
-      expect(latest.index).toBe(10)
-      expect(latest.isLatest).toBe(true)
-      expect(latest.validTo).toBeUndefined()
+    it("should get latest certificate root details", async () => {
+      const details = await registry.getCertificateRootDetails()
+      expect(details.root).toBe(CERTIFICATE_FIXTURES_ROOT)
+      expect(details.cid).toBe(CERTIFICATE_FIXTURES_CID)
+      expect(details.leaves).toBe(5)
+      expect(details.revoked).toBe(false)
+      expect(details.index).toBe(10)
+      expect(details.isLatest).toBe(true)
+      expect(details.validTo).toBeUndefined()
+    })
+
+    it("should get specific certificate root details", async () => {
+      const details = await registry.getCertificateRootDetails(CIRCUIT_GENESIS_ROOT)
+      expect(details.root).toBe(CIRCUIT_GENESIS_ROOT)
+      expect(details.leaves).toBe(100)
+      expect(details.revoked).toBe(false)
+      expect(details.index).toBe(1)
+      expect(details.isLatest).toBe(false)
+    })
+
+    it("should get historical roots by hash with limit of 5", async () => {
+      const historicalRoots = await registry.getHistoricalCertificateRoots(
+        CERTIFICATE_GENESIS_ROOT,
+        5,
+      )
+      // Note: Cursor-based pagination _excludes_ the record referenced
+      expect(historicalRoots.roots[3].revoked).toBe(true)
+      expect(historicalRoots.roots.length).toBe(5)
+      expect(historicalRoots.isLastPage).toBe(false)
     })
   })
 
   describe("CircuitRegistry", () => {
     it("should get latest root", async () => {
-      const latestRoot = await registry.getCircuitsRoot()
+      const latestRoot = await registry.getLatestCircuitRoot()
       expect(latestRoot).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
     })
 
@@ -219,7 +244,7 @@ describe("Registry", () => {
     })
 
     it("should validate circuit manifest against a root hash", async () => {
-      const latestRoot = await registry.getCircuitsRoot()
+      const latestRoot = await registry.getLatestCircuitRoot()
       expect(latestRoot).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
       const circuitManifest = await registry.getCircuitManifest(latestRoot)
       const valid = await registry.validateCircuitManifest(circuitManifest, latestRoot)
@@ -227,7 +252,7 @@ describe("Registry", () => {
     })
 
     it("should not validate circuit manifest against an invalid root hash", async () => {
-      const latestRoot = await registry.getCircuitsRoot()
+      const latestRoot = await registry.getLatestCircuitRoot()
       expect(latestRoot).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
       const circuitManifest = await registry.getCircuitManifest(latestRoot)
       const valid = await registry.validateCircuitManifest(circuitManifest, INVALID_HASH)
@@ -235,37 +260,46 @@ describe("Registry", () => {
     })
 
     it("should get historical roots with limit of 5", async () => {
-      const historicalRoots = await registry.getHistoricalCircuitRegistryRoots(1, 5)
+      const historicalRoots = await registry.getHistoricalCircuitRoots(1, 5)
       expect(historicalRoots.roots.length).toBe(5)
       expect(historicalRoots.roots[4].revoked).toBe(true)
       expect(historicalRoots.isLastPage).toBe(false)
     })
 
     it("should get last page of historical roots", async () => {
-      const historicalRoots = await registry.getHistoricalCircuitRegistryRoots(7)
+      const historicalRoots = await registry.getHistoricalCircuitRoots(7)
       expect(historicalRoots.roots.length).toBe(4)
       expect(historicalRoots.isLastPage).toBe(true)
     })
 
     it("should get all historical roots using pagination", async () => {
-      const historicalRoots = await registry.getAllHistoricalCircuitRegistryRoots(4)
+      const historicalRoots = await registry.getAllHistoricalCircuitRoots(4)
       expect(historicalRoots.length).toBe(10)
 
       const latest = historicalRoots[historicalRoots.length - 1]
       expect(latest.isLatest).toBe(true)
       expect(latest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
-      expect(latest.cid).toBe(CIRCUIT_MANIFEST_FIXTURES_CID_BASE32)
+      expect(latest.cid).toBe(CIRCUIT_MANIFEST_FIXTURES_CID)
     })
 
-    it("should get latest historical root", async () => {
-      const latest = await registry.getLatestCircuitsRootDetails()
-      expect(latest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
-      expect(latest.cid).toBe(CIRCUIT_MANIFEST_FIXTURES_CID_BASE32)
-      expect(latest.leaves).toBe(5)
-      expect(latest.revoked).toBe(false)
-      expect(latest.index).toBe(10)
-      expect(latest.isLatest).toBe(true)
-      expect(latest.validTo).toBeUndefined()
+    it("should get latest circuit root details", async () => {
+      const details = await registry.getCircuitRootDetails()
+      expect(details.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
+      expect(details.cid).toBe(CIRCUIT_MANIFEST_FIXTURES_CID)
+      expect(details.leaves).toBe(5)
+      expect(details.revoked).toBe(false)
+      expect(details.index).toBe(10)
+      expect(details.isLatest).toBe(true)
+      expect(details.validTo).toBeUndefined()
+    })
+
+    it("should get specific circuit root details", async () => {
+      const details = await registry.getCircuitRootDetails(CIRCUIT_GENESIS_ROOT)
+      expect(details.root).toBe(CIRCUIT_GENESIS_ROOT)
+      expect(details.leaves).toBe(100)
+      expect(details.revoked).toBe(false)
+      expect(details.index).toBe(1)
+      expect(details.isLatest).toBe(false)
     })
 
     it("should get latest circuit manifest", async () => {
