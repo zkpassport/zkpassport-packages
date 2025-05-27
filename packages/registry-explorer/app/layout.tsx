@@ -24,11 +24,33 @@ const geistMono = localFont({
   weight: "100 900",
 })
 
+const title = "ZKPassport Registry Explorer"
+const description = "Explore the ZKPassport certificate and circuit registries"
+const url = "https://registry.zkpassport.id"
+const ogimage = "/og.png"
+const sitename = "registry.zkpassport.id"
+
 export const metadata: Metadata = {
-  title: "ZKPassport Registry Explorer",
-  description: "Explore the ZKPassport certificate and circuit registries",
+  metadataBase: new URL(url),
+  title,
+  description,
   icons: {
     icon: "/favicon.png",
+  },
+  openGraph: {
+    images: [ogimage],
+    title,
+    description,
+    url: url,
+    siteName: sitename,
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: [ogimage],
+    title,
+    description,
   },
 }
 
