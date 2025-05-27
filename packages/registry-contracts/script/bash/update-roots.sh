@@ -38,8 +38,8 @@ do
 
   # Use the certificates fixture root hash and cid for the last root update
   if [ $i -eq 10 ]; then
-    ROOT="0x15db8c75a3eb23f2d87ad299a8a4263cdb630e59be154b8db9864911db507681"
-    CID="0xfa6c339b71fb02830ea53b4406e1f9911cf0952dee71a9b131c7d04f1948c52a" # bafkreih2nqzzw4p3akbq5jj3iqdod6mrdtyjklpoogu3cmoh2bhrssgffi
+    ROOT="0x23365271ae4d74873e89c8a1457e0bce7bc1a40647b742e9b39ef205cc0d36f2"
+    CID="0x2faca44e2b6e4e88a8bbba15bc53b0a7604b693c7733d3d4995c445b5a6258a2" # QmRYkZEm7ueX8XT82QuYTdL6iivv3gryoi2jJsPzvsdu6H
     LEAVES_COUNT=5
   fi
 

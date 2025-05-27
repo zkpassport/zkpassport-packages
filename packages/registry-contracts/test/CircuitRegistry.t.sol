@@ -1,10 +1,10 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/CertificateRegistry.sol";
+import "../src/CircuitRegistry.sol";
 
-contract CertificateRegistryTest is Test {
-    CertificateRegistry public registry;
+contract CircuitRegistryTest is Test {
+    CircuitRegistry public registry;
     address public admin = address(1);
     address public user = address(2);
     address public oracle = address(3);
@@ -21,14 +21,14 @@ contract CertificateRegistryTest is Test {
 
     function setUp() public {
         vm.prank(admin);
-        registry = new CertificateRegistry(admin, oracle);
+        registry = new CircuitRegistry(admin, oracle);
     }
 
     function testDeploymentEvent() public {
         // Deploy a new registry to capture the event
         vm.recordLogs();
         vm.prank(admin);
-        new CertificateRegistry(admin, oracle);
+        new CircuitRegistry(admin, oracle);
 
         // Get the logs
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -57,13 +57,13 @@ contract CertificateRegistryTest is Test {
     function testCannotDeployWithZeroAdmin() public {
         vm.prank(admin);
         vm.expectRevert("Admin cannot be zero address");
-        new CertificateRegistry(address(0), oracle);
+        new CircuitRegistry(address(0), oracle);
     }
 
     function testCannotDeployWithZeroOracle() public {
         vm.prank(admin);
         vm.expectRevert("Oracle cannot be zero address");
-        new CertificateRegistry(admin, address(0));
+        new CircuitRegistry(admin, address(0));
     }
 
     function testUpdateRoot() public {
