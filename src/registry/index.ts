@@ -1,8 +1,15 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { Binary } from "../binary"
-import { ECPublicKey, PackagedCertificate, PackagedCircuit, RSAPublicKey } from "../types"
+import {
+  CircuitManifest,
+  ECPublicKey,
+  PackagedCertificate,
+  PackagedCircuit,
+  RSAPublicKey,
+} from "../types"
 import { assert, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
+import { computeMerkleProof } from ".."
 export { cidv0ToHex, hexToCidv0 } from "./cid"
 
 /**
@@ -226,4 +233,25 @@ export async function calculateCircuitRoot(
   const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
   await tree.initialize(0n, leaves)
   return tree.root
+}
+
+export function getLeavesFromCircuitManifest(circuitManifest: CircuitManifest) {
+  let leaves: bigint[]
+  if (circuitManifest.circuits !== undefined) {
+    leaves = Object.values(circuitManifest.circuits).map((circuit) => BigInt(circuit.hash))
+  } else {
+    throw new Error("Circuits must be provided")
+  }
+  // Sort leaves to ensure consistent roots
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  return leaves
+}
+
+export async function getCircuitMerkleProof(
+  circuitKeyHash: string,
+  circuitManifest: CircuitManifest,
+) {
+  const leaves = getLeavesFromCircuitManifest(circuitManifest)
+  const index = leaves.findIndex((leaf) => leaf === BigInt(circuitKeyHash))
+  return computeMerkleProof(leaves, index, CIRCUIT_REGISTRY_HEIGHT)
 }
