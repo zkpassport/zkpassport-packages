@@ -250,8 +250,17 @@ export function getLeavesFromCircuitManifest(circuitManifest: CircuitManifest) {
 export async function getCircuitMerkleProof(
   circuitKeyHash: string,
   circuitManifest: CircuitManifest,
+  computeMerkleProofFn: (
+    leaves: bigint[],
+    index: number,
+    height: number,
+  ) => Promise<{
+    root: string
+    index: number
+    path: string[]
+  }> = computeMerkleProof,
 ) {
   const leaves = getLeavesFromCircuitManifest(circuitManifest)
   const index = leaves.findIndex((leaf) => leaf === BigInt(circuitKeyHash))
-  return computeMerkleProof(leaves, index, CIRCUIT_REGISTRY_HEIGHT)
+  return computeMerkleProofFn(leaves, index, CIRCUIT_REGISTRY_HEIGHT)
 }
