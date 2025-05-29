@@ -25,6 +25,11 @@ export CIRCUIT_REGISTRY_ORACLE_PRIVATE_KEY=${CIRCUIT_REGISTRY_ORACLE_PRIVATE_KEY
 REGISTRY_ID_CERTIFICATE_REGISTRY=0x0000000000000000000000000000000000000000000000000000000000000001
 REGISTRY_ID_CIRCUIT_REGISTRY=0x0000000000000000000000000000000000000000000000000000000000000002
 
+if [ $CHAIN_ID -eq 11155111 ]; then
+  echo "Deploying to Sepolia! Press any key to continue..."
+  read -k1
+fi
+
 # Deploy the RootRegistry contract
 echo "Deploying RootRegistry..."
 forge script script/DeployRootRegistry.s.sol:DeployRootRegistryScript --rpc-url $RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast
