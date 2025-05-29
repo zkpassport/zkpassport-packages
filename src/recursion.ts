@@ -84,7 +84,7 @@ export function getCertificateRegistryRootFromOuterProof(proofData: ProofData): 
   return BigInt(proofData.publicInputs[0])
 }
 
-export function getCircularTreeRootFromOuterProof(proofData: ProofData): bigint {
+export function getCircuitRegistryRootFromOuterProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[1])
 }
 
