@@ -63,6 +63,8 @@ import {
   getBindParameterCommitment,
   formatBoundData,
   Service,
+  CircuitManifest,
+  getCircuitRegistryRootFromOuterProof,
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -74,7 +76,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.4.2"
+const VERSION = "0.5.0"
 
 const DEFAULT_DATE_VALUE = new Date(1111, 10, 11)
 
@@ -611,6 +613,9 @@ export class ZKPassport {
       },
       gte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
         numericalCompare("gte", key, value, topic, this.topicToConfig)
+        if (key === "age" && ((value as number) < 1 || (value as number) >= 100)) {
+          throw new Error("Age must be between 1 and 99 (inclusive)")
+        }
         return this.getZkPassportRequest(topic)
       },
       /*gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
@@ -1800,16 +1805,8 @@ export class ZKPassport {
       // Maintained certificate registry settled onchain
       // Here we use Ethereum Sepolia
       const registryClient = new RegistryClient({ chainId: 11155111 })
-      await registryClient.getCertificates(`0x${root.padStart(64, "0")}`)
-    } catch (error) {
-      console.warn(error)
-      // Check the legacy static roots that were used before the registry was deployed onchain
-      const VALID_CERTIFICATE_REGISTRY_ROOT = [
-        BigInt("20192042006788880778219739574377003123593792072535937278552252195461520776494"),
-        BigInt("21301853597069384763054217328384418971999152625381818922211526730996340553696"),
-        BigInt("10839898448097753834842514286432152806152415606387598803678317315409344029817"),
-      ]
-      if (!VALID_CERTIFICATE_REGISTRY_ROOT.includes(BigInt(root))) {
+      const isValid = await registryClient.isCertificateRootValid(root)
+      if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
         isCorrect = false
         queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
@@ -1817,6 +1814,42 @@ export class ZKPassport {
           received: `Got invalid certificate registry root: ${root}`,
           message: "The ID was signed by an unrecognized root certificate",
         }
+      }
+    } catch (error) {
+      console.warn(error)
+      console.warn("The ID was signed by an unrecognized root certificate")
+      isCorrect = false
+      queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
+        expected: `A valid root from ZKPassport Registry`,
+        received: `Got invalid certificate registry root: ${root}`,
+        message: "The ID was signed by an unrecognized root certificate",
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
+  private async checkCircuitRegistryRoot(root: string, queryResultErrors: any) {
+    let isCorrect = true
+    try {
+      const registryClient = new RegistryClient({ chainId: 11155111 })
+      const isValid = await registryClient.isCircuitRootValid(root)
+      if (!isValid) {
+        console.warn("The proof uses unrecognized circuits")
+        isCorrect = false
+        queryResultErrors.outer.circuit = {
+          expected: `A valid circuit from ZKPassport Registry`,
+          received: `Got invalid circuit registry root: ${root}`,
+          message: "The proof uses an unrecognized circuit",
+        }
+      }
+    } catch (error) {
+      console.warn(error)
+      console.warn("The proof uses unrecognized circuits")
+      isCorrect = false
+      queryResultErrors.outer.circuit = {
+        expected: `A valid circuit from ZKPassport Registry`,
+        received: `Got invalid circuit registry root: ${root}`,
+        message: "The proof uses an unrecognized circuit",
       }
     }
     return { isCorrect, queryResultErrors }
@@ -1956,6 +1989,18 @@ export class ZKPassport {
           ...queryResultErrors,
           ...queryResultErrorsCertificateRegistryRoot,
         }
+
+        const circuitRegistryRoot = getCircuitRegistryRootFromOuterProof(proofData)
+        const {
+          isCorrect: isCorrectCircuitRegistryRoot,
+          queryResultErrors: queryResultErrorsCircuitRegistryRoot,
+        } = await this.checkCircuitRegistryRoot(circuitRegistryRoot.toString(16), queryResultErrors)
+        isCorrect = isCorrect && isCorrectCircuitRegistryRoot
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCircuitRegistryRoot,
+        }
+
         const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
         const differenceInDays = validity ?? 180
@@ -2805,11 +2850,16 @@ export class ZKPassport {
     }
     // Only proceed with the proof verification if the public inputs are correct
     if (verified) {
+      const registryClient = new RegistryClient({ chainId: 11155111 })
+      const circuitManifest = await registryClient.getCircuitManifest(undefined, {
+        // We assume all proofs have the same version
+        version: proofs[0].version,
+      })
       for (const proof of proofs) {
         const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
-        const hostedPackagedCircuit = await getHostedPackagedCircuitByName(
-          proof.version as any,
+        const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
           proof.name!,
+          circuitManifest,
         )
         if (proof.name?.startsWith("outer_evm")) {
           try {
@@ -2884,7 +2934,7 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F",
+        address: "0xEE9F10f38319eAE2730dBa28fB09081dB806c5E5",
       }
     } else if (network === "local_anvil") {
       return {
@@ -3007,7 +3057,7 @@ export class ZKPassport {
       }
       committedInputs.push({ circuitName, inputs: compressedCommittedInputs })
     }
-    const parameterCommitments = proofData.publicInputs.slice(11, proofData.publicInputs.length - 1)
+    const parameterCommitments = proofData.publicInputs.slice(12, proofData.publicInputs.length - 1)
     let compressedCommittedInputs = ""
     let committedInputCountsArray = []
     for (const commitment of parameterCommitments) {
