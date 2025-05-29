@@ -395,10 +395,15 @@ export class RegistryClient {
    *
    * @param root Optional root hash to get circuit manifest for (defaults to latest root)
    * @param validate Whether to validate the circuit manifest against the root hash (defaults to true)
+   * @param version Optional version to get circuit manifest for (defaults to latest version)
    */
   async getCircuitManifest(
     root?: string,
-    { validate = true, ipfs = false }: { validate?: boolean; ipfs?: boolean } = {},
+    {
+      validate = true,
+      ipfs = false,
+      version = undefined,
+    }: { validate?: boolean; ipfs?: boolean; version?: string } = {},
   ): Promise<CircuitManifest> {
     if (!root) root = await this.getLatestCircuitRoot()
     else root = normaliseHash(root)
@@ -406,7 +411,7 @@ export class RegistryClient {
     // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
 
-    const url = this.circuitManifestUrlGenerator(this.chainId, { root })
+    const url = this.circuitManifestUrlGenerator(this.chainId, { root, version })
     log("Getting circuit manifest from:", url)
     const response = await fetch(url)
     if (!response.ok) {
