@@ -25,6 +25,18 @@ contract CertificateRegistry {
         bytes32 metadata3;
     }
 
+    struct RootInput {
+        bytes32 root;
+        uint256 validFrom;
+        uint256 validTo;
+        bool revoked;
+        uint256 leaves;
+        bytes32 cid;
+        bytes32 metadata1;
+        bytes32 metadata2;
+        bytes32 metadata3;
+    }
+
     address public admin;
     address public oracle;
     bool public paused;
@@ -129,6 +141,80 @@ contract CertificateRegistry {
      */
     function updateRoot(bytes32 newRoot, uint256 leaves, bytes32 cid) public {
         updateRootWithMetadata(newRoot, leaves, cid, bytes32(0), bytes32(0), bytes32(0));
+    }
+
+    /**
+     * @dev Batch update roots
+     * @param roots Array of root data
+     */
+    function batchUpdateRoots(RootInput[] calldata roots) external onlyOracle whenNotPaused {
+        require(roots.length > 0, "Empty roots array");
+
+        bytes32 previousRoot = latestRoot;
+
+        for (uint256 i = 0; i < roots.length; i++) {
+            RootInput calldata rootInput = roots[i];
+
+            require(rootInput.root != bytes32(0), "Root cannot be zero");
+            require(indexByRoot[rootInput.root] == 0, "Root already exists");
+            require(rootInput.leaves > 0, "Leaves count must be greater than zero");
+
+            // Validate chronological ordering
+            // For first root, ensure it comes after current latest root (if exists)
+            if (i == 0) {
+                if (latestRoot != bytes32(0)) {
+                    require(
+                        rootInput.validFrom > historicalRoots[latestRoot].validFrom,
+                        "First root validFrom must be after current latest root"
+                    );
+                }
+            }
+            // For subsequent roots, ensure validFrom is after previous root's validTo
+            else {
+                require(
+                    rootInput.validFrom > roots[i - 1].validTo, "Root validFrom must be after previous root validTo"
+                );
+            }
+            // Ensure validTo is non-zero unless it's the last root
+            if (i < roots.length - 1) {
+                require(rootInput.validTo != 0, "Root validTo cannot be zero unless it's the last root");
+            }
+
+            // Increment root count and store index mapping
+            rootCount++;
+            rootByIndex[rootCount] = rootInput.root;
+            indexByRoot[rootInput.root] = rootCount;
+
+            // Set up this root's historical data
+            historicalRoots[rootInput.root] = HistoricalRoot({
+                validFrom: rootInput.validFrom,
+                validTo: rootInput.validTo,
+                revoked: rootInput.revoked,
+                leaves: rootInput.leaves,
+                cid: rootInput.cid,
+                metadata1: rootInput.metadata1,
+                metadata2: rootInput.metadata2,
+                metadata3: rootInput.metadata3
+            });
+
+            // Emit event for this root with proper oldRoot sequencing
+            emit RootUpdated(previousRoot, rootInput.root, rootInput.validFrom, rootCount);
+
+            // Update previous root for the next iteration
+            previousRoot = rootInput.root;
+        }
+
+        // The last root in the array becomes the latest root
+        bytes32 newLatestRoot = roots[roots.length - 1].root;
+
+        // If we already had a latest root, update its validTo
+        if (latestRoot != bytes32(0)) {
+            HistoricalRoot storage oldLatestRoot = historicalRoots[latestRoot];
+            oldLatestRoot.validTo = historicalRoots[newLatestRoot].validFrom - 1;
+        }
+
+        // Set the latest root to the last one in the array
+        latestRoot = newLatestRoot;
     }
 
     /**

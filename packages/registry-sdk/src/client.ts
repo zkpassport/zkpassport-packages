@@ -58,8 +58,8 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   // Sepolia Testnet
   11155111: {
     rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x9d60e8c4796199535b860fcf814ca90eda93cac1",
-    registryHelper: "0xc46b1336b8f3cfd46a3ad3e735fef6eb4252f229",
+    rootRegistry: "0xB6bF4a45D5Ed1363C45BD0e4cbaDCcd48F8D3FaB",
+    registryHelper: "0x5b3318632f71ba1017cca8f995aac33a847ef127",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
