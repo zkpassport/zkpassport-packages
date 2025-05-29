@@ -1,4 +1,4 @@
-import { normaliseHash, strip0x } from "./utils"
+import { normaliseHash } from "./utils"
 
 /**
  * Certificate Registry ID
@@ -23,8 +23,8 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
   if (cid) {
     return `https://ipfs.infura.io/ipfs/${cid}`
   }
+  root = normaliseHash(root)
   if (chainId === 1) {
-    root = strip0x(normaliseHash(root))
     return `${PACKAGED_CERTIFICATES_URL_MAINNET}/${root}.json`
   } else if (chainId === 11155111) {
     return `${PACKAGED_CERTIFICATES_URL_SEPOLIA}/${root}.json`
@@ -52,21 +52,21 @@ export const CIRCUIT_MANIFEST_URL_TEMPLATE = (
   { root, version, cid }: { root?: string; version?: string; cid?: string },
 ) => {
   if (root) {
-    root = strip0x(normaliseHash(root))
+    root = normaliseHash(root)
     if (chainId === 1) {
-      return `${CIRCUIT_URL_MAINNET}/by-root/${root}/manifest.json.gz`
+      return `${CIRCUIT_URL_MAINNET}/by-root/${root}/manifest.json`
     } else if (chainId === 11155111) {
-      return `${CIRCUIT_URL_SEPOLIA}/by-root/${root}/manifest.json.gz`
+      return `${CIRCUIT_URL_SEPOLIA}/by-root/${root}/manifest.json`
     } else {
-      return `${CIRCUIT_URL_DEV}/by-root/${root}/manifest.json.gz`
+      return `${CIRCUIT_URL_DEV}/by-root/${root}/manifest.json`
     }
   } else if (version) {
     if (chainId === 1) {
-      return `${CIRCUIT_URL_MAINNET}/by-version/${version}/manifest.json.gz`
+      return `${CIRCUIT_URL_MAINNET}/by-version/${version}/manifest.json`
     } else if (chainId === 11155111) {
-      return `${CIRCUIT_URL_SEPOLIA}/by-version/${version}/manifest.json.gz`
+      return `${CIRCUIT_URL_SEPOLIA}/by-version/${version}/manifest.json`
     } else {
-      return `${CIRCUIT_URL_DEV}/by-version/${version}/manifest.json.gz`
+      return `${CIRCUIT_URL_DEV}/by-version/${version}/manifest.json`
     }
   } else if (cid) {
     return `https://ipfs.infura.io/ipfs/${cid}`
@@ -85,13 +85,13 @@ export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid
   if (cid) {
     return `https://ipfs.infura.io/ipfs/${cid}`
   }
-  hash = strip0x(normaliseHash(hash))
+  hash = normaliseHash(hash)
   if (chainId === 1) {
-    return `${CIRCUIT_URL_MAINNET}/by-hash/${hash}.json.gz`
+    return `${CIRCUIT_URL_MAINNET}/by-hash/${hash}.json`
   } else if (chainId === 11155111) {
-    return `${CIRCUIT_URL_SEPOLIA}/by-hash/${hash}.json.gz`
+    return `${CIRCUIT_URL_SEPOLIA}/by-hash/${hash}.json`
   } else {
-    return `${CIRCUIT_URL_DEV}/by-hash/${hash}.json.gz`
+    return `${CIRCUIT_URL_DEV}/by-hash/${hash}.json`
   }
 }
 
