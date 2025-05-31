@@ -49,8 +49,8 @@ import {
 } from "./utils"
 
 // @deprecated This list will be removed in a future version
-const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA256", "SHA384", "SHA512"]
-const SUPPORTED_HASH_ALGORITHMS_USE: HashAlgorithm[] = ["SHA-256", "SHA-384", "SHA-512"]
+const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
+const SUPPORTED_HASH_ALGORITHMS_USE: HashAlgorithm[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]
 
 // TODO: Improve this with a structured list of supported signature algorithms
 export function isSignatureAlgorithmSupported(
