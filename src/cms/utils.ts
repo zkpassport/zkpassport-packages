@@ -89,6 +89,61 @@ export function getCurveName(ecParams: ECParameters): CurveName {
   throw new Error(`Unknown curve: ${a}, ${b}, ${n}, ${p}`)
 }
 
+export function getCurveParams(curve: CurveName): { a: bigint; b: bigint; n: bigint; p: bigint } {
+  if (curve === "P-256") {
+    return {
+      a: p256.CURVE.a,
+      b: p256.CURVE.b,
+      n: p256.CURVE.n,
+      p: p256.CURVE.Fp.ORDER,
+    }
+  } else if (curve === "P-384") {
+    return {
+      a: p384.CURVE.a,
+      b: p384.CURVE.b,
+      n: p384.CURVE.n,
+      p: p384.CURVE.Fp.ORDER,
+    }
+  } else if (curve === "P-521") {
+    return {
+      a: p521.CURVE.a,
+      b: p521.CURVE.b,
+      n: p521.CURVE.n,
+      p: p521.CURVE.Fp.ORDER,
+    }
+  } else if (curve === "brainpoolP160r1") {
+    return BRAINPOOL_CURVES["brainpoolP160r1"]
+  } else if (curve === "brainpoolP160t1") {
+    return BRAINPOOL_CURVES["brainpoolP160t1"]
+  } else if (curve === "brainpoolP192r1") {
+    return BRAINPOOL_CURVES["brainpoolP192r1"]
+  } else if (curve === "brainpoolP192t1") {
+    return BRAINPOOL_CURVES["brainpoolP192t1"]
+  } else if (curve === "brainpoolP224r1") {
+    return BRAINPOOL_CURVES["brainpoolP224r1"]
+  } else if (curve === "brainpoolP224t1") {
+    return BRAINPOOL_CURVES["brainpoolP224t1"]
+  } else if (curve === "brainpoolP256r1") {
+    return BRAINPOOL_CURVES["brainpoolP256r1"]
+  } else if (curve === "brainpoolP256t1") {
+    return BRAINPOOL_CURVES["brainpoolP256t1"]
+  } else if (curve === "brainpoolP320r1") {
+    return BRAINPOOL_CURVES["brainpoolP320r1"]
+  } else if (curve === "brainpoolP320t1") {
+    return BRAINPOOL_CURVES["brainpoolP320t1"]
+  } else if (curve === "brainpoolP384r1") {
+    return BRAINPOOL_CURVES["brainpoolP384r1"]
+  } else if (curve === "brainpoolP384t1") {
+    return BRAINPOOL_CURVES["brainpoolP384t1"]
+  } else if (curve === "brainpoolP512r1") {
+    return BRAINPOOL_CURVES["brainpoolP512r1"]
+  } else if (curve === "brainpoolP512t1") {
+    return BRAINPOOL_CURVES["brainpoolP512t1"]
+  } else {
+    throw new Error(`Unknown curve: ${curve}`)
+  }
+}
+
 export function getAuthorityKeyId(cert: X509Certificate): string | undefined {
   const authKeyExt = cert.tbsCertificate.extensions?.find(
     (ext) => ext.extnID === id_authorityKeyIdentifier,

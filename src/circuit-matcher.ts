@@ -15,7 +15,7 @@ import {
 } from "./circuits"
 import { parseDate } from "./circuits/disclose"
 import type { DigestAlgorithm } from "./cms/types"
-import { getBitSizeFromCurve, getECDSAInfo, getRSAInfo } from "./cms/utils"
+import { getBitSizeFromCurve, getCurveParams, getECDSAInfo, getRSAInfo } from "./cms/utils"
 import { DG1_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
 import { countryCodeAlpha2ToAlpha3 } from "./country/country"
 import { computeMerkleProof } from "./merkle-tree"
@@ -253,7 +253,30 @@ function getIDDataInputs(passport: PassportViewModel): IDDataInputs {
   return id_data
 }
 
-export function processECDSASignature(signature: number[], byteSize: number): number[] {
+function ensureLowSValue(
+  s: number[],
+  curveParams: { a: bigint; b: bigint; n: bigint; p: bigint },
+): number[] {
+  const sBigInt = fromBytesToBigInt(s)
+  const halfN = curveParams.n / 2n
+  if (sBigInt > halfN) {
+    const lowS = curveParams.n - sBigInt
+    return bigintToBytes(lowS)
+  }
+  return s
+}
+
+export function processECDSASignature(
+  signature: number[],
+  byteSize: number,
+  curveParams: { a: bigint; b: bigint; n: bigint; p: bigint },
+): number[] {
+  if (signature.length === byteSize * 2) {
+    const r = signature.slice(0, byteSize)
+    const s = ensureLowSValue(signature.slice(byteSize), curveParams)
+    return [...r, ...s]
+  }
+
   if (signature[0] !== 0x30) {
     // Not a valid ASN.1 sequence
     return signature
@@ -294,6 +317,10 @@ export function processECDSASignature(signature: number[], byteSize: number): nu
       break
     }
   }
+
+  // Ensure s is the low-s value (canonical form)
+  s = ensureLowSValue(s, curveParams)
+
   // Pad r and s to the expected byte size
   r = leftPadArrayWithZeros(r, byteSize)
   s = leftPadArrayWithZeros(s, byteSize)
@@ -328,7 +355,7 @@ export function processSodSignature(signature: number[], passport: PassportViewM
     const ecdsaInfo = getECDSAInfo(tbsCertificate.subjectPublicKeyInfo)
     const curve = ecdsaInfo.curve
     const bitSize = getBitSizeFromCurve(curve)
-    return processECDSASignature(signature, Math.ceil(bitSize / 8))
+    return processECDSASignature(signature, Math.ceil(bitSize / 8), getCurveParams(curve))
   } else {
     return signature
   }
@@ -375,6 +402,7 @@ export async function getDSCCircuitInputs(
     const dscSignature = processECDSASignature(
       passport?.sod.certificate.signature.toNumberArray() ?? [],
       Math.ceil(bitSize / 8),
+      getCurveParams(curve),
     )
     return {
       ...inputs,
