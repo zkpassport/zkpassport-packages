@@ -274,7 +274,7 @@ export function processECDSASignature(
   if (signature.length === byteSize * 2) {
     const r = signature.slice(0, byteSize)
     const s = ensureLowSValue(signature.slice(byteSize), curveParams)
-    return [...r, ...s]
+    return [...leftPadArrayWithZeros(r, byteSize), ...leftPadArrayWithZeros(s, byteSize)]
   }
 
   if (signature[0] !== 0x30) {

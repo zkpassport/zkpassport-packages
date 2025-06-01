@@ -1,3 +1,5 @@
+import { bigIntToBuffer } from "@zk-kit/utils"
+
 export async function loadModule(module: string) {
   try {
     return require(module)
@@ -154,12 +156,7 @@ export function getOffsetInArray(
 }
 
 export function bigintToBytes(value: bigint): number[] {
-  const hexString = value.toString(16).padStart(2, "0")
-  const bytes = []
-  for (let i = 0; i < hexString.length; i += 2) {
-    bytes.push(parseInt(hexString.slice(i, i + 2), 16))
-  }
-  return bytes
+  return Array.from(bigIntToBuffer(value))
 }
 
 export function bigintToNumber(value: bigint): number {
