@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/sdk",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Privacy-preserving identity verification using passports and ID cards",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -42,7 +42,7 @@
     "@noble/ciphers": "^1.2.1",
     "@noble/hashes": "^1.7.2",
     "@noble/secp256k1": "^2.2.3",
-    "@obsidion/bridge": "^0.10.1",
+    "@obsidion/bridge": "^0.10.2",
     "@zkpassport/registry": "^0.5.1",
     "@zkpassport/utils": "^0.13.1",
     "buffer": "^6.0.3",
