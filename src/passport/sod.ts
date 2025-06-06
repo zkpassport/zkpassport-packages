@@ -4,6 +4,8 @@ import { Binary } from "../binary"
 import { AttributeSet, LDSSecurityObject, Time } from "../cms/asn"
 import { decodeOID, getHashAlgorithmName, getOIDName } from "../cms/oids"
 import type { DigestAlgorithm, PublicKeyType, SignatureAlgorithm } from "../cms/types"
+import { DSC, DSCData } from "./dsc"
+import { formatDN } from "./common"
 
 export class DataGroupHashValues {
   public values: { [key: number]: Binary }
@@ -102,85 +104,9 @@ export type SODSignedData = {
   }
 
   // The DSC (Document Signing Certificate) that is signed by the CSC (Country Signing Certificate)
-  certificate: {
-    // TBS (To-Be-Signed) certificate
-    // The region of the DSC signed by the CSC
-    tbs: {
-      // Version of this TBS certificate
-      // Specifies certificate format and types of fields/extensions supported
-      version: number
-      // The serial number of this TBS certificate, which uniquely identifies it within the issuing authority
-      serialNumber: Binary
-
-      // Hash and signature algorithm used by the CSC to sign this TBS certificate (e.g. sha256WithRSAEncryption)
-      // Actual signature is stored at SOD.certificate.signature
-      // This field is the same as the SOD.certificate.signatureAlgorithm field
-      // While in most cases the two fields will match, it is possible they may not, indicating a malformed or tampered certificate
-      // This field should be ignored, because the SOD.certificate.signatureAlgorithm field indicates which algorithm the CSC decided to use
-      // TODO: Consider removing this field
-      signatureAlgorithm: {
-        name: SignatureAlgorithm
-        parameters?: Binary
-      }
-
-      // Distinguished name of the issuer of this TBS certificate (Matches the subject field of the CSC)
-      issuer: string
-      // Validity period of the TBS certificate, indicating the dates during which it is valid
-      validity: { notBefore: Date; notAfter: Date }
-      // Distinguished name of this TBS certificate (DSC)
-      subject: string
-
-      // Info about the DSC public key
-      subjectPublicKeyInfo: {
-        // Type of public key (e.g. rsaEncryption, ecPublicKey)
-        signatureAlgorithm: {
-          name: PublicKeyType
-          parameters?: Binary
-        }
-        // The DSC public key
-        subjectPublicKey: Binary
-      }
-      // Optional set of extensions providing additional information or capabilities for the TBS certificate
-      // e.g. authorityKeyIdentifier, subjectKeyIdentifier, privateKeyUsagePeriod, cRLDistributionPoints, subjectAltName, documentTypeList, keyUsage, issuerAltName
-      // extensions?: { id: string; critical?: boolean; value: Binary }[]
-      extensions: Map<string, { critical?: boolean; value: Binary }>
-
-      // Optional unique identifier for the issuer, used in cases where issuer's name is not unique
-      // TODO: Consider removing this field
-      issuerUniqueID?: Binary
-      // Optional unique identifier for the subject, used in cases where subject's name is not unique
-      // TODO: Consider removing this field
-      subjectUniqueID?: Binary
-      // The bytes of TBS certificate
-      bytes: Binary
-    }
-    // Hash and signature algorithm used by the CSC to sign the TBS certificate (e.g. sha256WithRSAEncryption)
-    // This field is the same as the TBS certificate.signatureAlgorithm field
-    // While in most cases the two fields will match, it is possible they may not, indicating a malformed or tampered certificate
-    // This field indicates which algorithm the CSC decided to use, and therefore TBS certificate.signatureAlgorithm should be ignored
-    signatureAlgorithm: {
-      name: SignatureAlgorithm
-      parameters?: Binary
-    }
-    // Signature over the TBS certificate by the CSC
-    // The actual signature used to verify the TBS certificate
-    signature: Binary
-  }
+  certificate: DSCData
   // The bytes of the SOD
   bytes: Binary
-}
-
-function formatDN(issuer: any[]): string {
-  return issuer
-    .map((i) =>
-      i
-        .map(
-          (j: { type: string; value: { toString: () => any } }) =>
-            `${getOIDName(j.type)}=${j.value.toString()}`,
-        )
-        .join(", "),
-    )
-    .join(", ")
 }
 
 export class SOD implements SODSignedData {
@@ -272,8 +198,6 @@ export class SOD implements SODSignedData {
     const cert = certificates?.[0]?.certificate
     if (!cert) throw new Error("No DSC certificate found")
     if ((certificates?.length ?? 0) > 1) console.warn("Warning: Found multiple DSC certificates")
-    const tbs = cert?.tbsCertificate
-    if (!tbs) throw new Error("No TBS found in DSC certificate")
     const signerInfo = signedData.signerInfos[0]
     if (signedData.signerInfos.length > 1) console.warn("Warning: Found multiple SignerInfos")
     if (!signerInfo.signedAttrs) throw new Error("No signedAttrs found")
@@ -343,49 +267,7 @@ export class SOD implements SODSignedData {
         },
       },
 
-      certificate: {
-        tbs: {
-          bytes: Binary.from(AsnSerializer.serialize(tbs)),
-          version: tbs.version,
-          serialNumber: Binary.from(tbs.serialNumber),
-          signatureAlgorithm: {
-            name: getOIDName(tbs.signature.algorithm) as SignatureAlgorithm,
-            parameters: tbs.signature.parameters
-              ? Binary.from(tbs.signature.parameters)
-              : undefined,
-          },
-          issuer: formatDN(tbs.issuer),
-          validity: {
-            notBefore: tbs.validity.notBefore.getTime(),
-            notAfter: tbs.validity.notAfter.getTime(),
-          },
-          subject: formatDN(tbs.subject),
-          subjectPublicKeyInfo: {
-            signatureAlgorithm: {
-              name: getOIDName(tbs.subjectPublicKeyInfo.algorithm.algorithm) as PublicKeyType,
-              parameters: tbs.subjectPublicKeyInfo.algorithm.parameters
-                ? Binary.from(tbs.subjectPublicKeyInfo.algorithm.parameters)
-                : undefined,
-            },
-            subjectPublicKey: Binary.from(tbs.subjectPublicKeyInfo.subjectPublicKey),
-          },
-          issuerUniqueID: tbs.issuerUniqueID ? Binary.from(tbs.issuerUniqueID) : undefined,
-          subjectUniqueID: tbs.subjectUniqueID ? Binary.from(tbs.subjectUniqueID) : undefined,
-          extensions: new Map<string, { critical?: boolean; value: Binary }>(
-            tbs.extensions?.map((v) => [
-              getOIDName(v.extnID),
-              { critical: v.critical, value: Binary.from(v.extnValue.buffer) },
-            ]) ?? [],
-          ),
-        },
-        signatureAlgorithm: {
-          name: getOIDName(cert.signatureAlgorithm.algorithm) as SignatureAlgorithm,
-          parameters: cert.signatureAlgorithm.parameters
-            ? Binary.from(cert.signatureAlgorithm.parameters)
-            : undefined,
-        },
-        signature: Binary.from(cert.signatureValue),
-      },
+      certificate: DSC.fromCertificate(cert),
     })
   }
 

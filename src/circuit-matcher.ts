@@ -19,7 +19,11 @@ import { getBitSizeFromCurve, getCurveParams, getECDSAInfo, getRSAInfo } from ".
 import { DG1_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
 import { countryCodeAlpha2ToAlpha3 } from "./country/country"
 import { computeMerkleProof } from "./merkle-tree"
-import { extractTBS, getSodSignatureAlgorithmType } from "./passport/passport-reader"
+import {
+  extractTBS,
+  getDSCSignatureHashAlgorithm,
+  getSodSignatureAlgorithmType,
+} from "./passport/passport-reader"
 import {
   CERT_TYPE_CSCA,
   CERTIFICATE_REGISTRY_HEIGHT,
@@ -47,6 +51,7 @@ import {
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
 } from "./utils"
+import { DSC } from "./passport/dsc"
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
@@ -128,10 +133,10 @@ export function getTBSMaxLen(passport: PassportViewModel): number {
 }
 
 export function getCscaForPassport(
-  passport: PassportViewModel,
+  dsc: DSC,
   certificates: PackagedCertificate[],
 ): PackagedCertificate | null {
-  const extensions = passport.sod.certificate.tbs.extensions
+  const extensions = dsc.tbs.extensions
 
   let notBefore: number | undefined
   let notAfter: number | undefined
@@ -150,7 +155,7 @@ export function getCscaForPassport(
       authorityKeyIdentifier = Binary.from(parsed.keyIdentifier.buffer).toHex().replace("0x", "")
     }
   }
-  const country = getDSCCountry(passport)
+  const country = getDSCCountry(dsc)
   const formattedCountry = country === "D<<" ? "DEU" : country
 
   const checkAgainstAuthorityKeyIdentifier = (cert: PackagedCertificate) => {
@@ -172,16 +177,38 @@ export function getCscaForPassport(
     )
   }
 
-  const certificate = certificates.find((cert) => {
+  const validCertificates = certificates.filter((cert) => {
     return (
       cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
       (checkAgainstAuthorityKeyIdentifier(cert) || checkAgainstPrivateKeyUsagePeriod(cert))
     )
   })
-  if (!certificate) {
-    console.warn(`Could not find CSC for DSC`)
+
+  if (validCertificates.length === 0) {
+    return null
+  } else if (validCertificates.length === 1) {
+    return validCertificates[0]
+  } else {
+    // Support edge cases where multiple CSCs with the same characteristics are found
+    const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
+      if (cert.signature_algorithm === "RSA-PSS") {
+        return dsc.signatureAlgorithm.name.toLowerCase().includes("pss")
+      } else if (cert.signature_algorithm === "RSA") {
+        return dsc.signatureAlgorithm.name.toLowerCase().includes("rsa")
+      } else if (cert.signature_algorithm === "ECDSA") {
+        return dsc.signatureAlgorithm.name.toLowerCase().includes("ecdsa")
+      }
+      return false
+    }
+    return (
+      validCertificates.find((cert) => {
+        return (
+          cert.hash_algorithm.replace("-", "").toLowerCase() ===
+            getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
+        )
+      }) ?? null
+    )
   }
-  return certificate ?? null
 }
 
 function getDSCDataInputs(
@@ -373,7 +400,7 @@ export async function getDSCCircuitInputs(
   },
 ): Promise<any> {
   // Get the CSCA for this passport's DSC
-  const csca = getCscaForPassport(passport, certificates)
+  const csca = getCscaForPassport(passport.sod.certificate, certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
   // Generate the certificate registry merkle proof
   const cscaLeaf = await getCertificateLeafHash(csca)
@@ -444,7 +471,7 @@ export async function getIDDataCircuitInputs(
 
   const commIn = await hashSaltCountryTbs(
     saltIn,
-    getDSCCountry(passport),
+    getDSCCountry(passport.sod.certificate),
     passport.sod.certificate.tbs.bytes,
     maxTbsLength,
   )
@@ -488,10 +515,10 @@ export async function getIDDataCircuitInputs(
   }
 }
 
-export function getDSCCountry(passport: PassportViewModel): string {
-  const country = passport.sod.certificate.tbs.issuer?.match(/countryName=([A-Z]+)/)?.[1]
+export function getDSCCountry(dsc: DSC): string {
+  const country = dsc.tbs.issuer?.match(/countryName=([A-Za-z]+)/)?.[1]
   const formattedCountryCode = country?.length === 2 ? countryCodeAlpha2ToAlpha3(country) : country
-  return formattedCountryCode ?? passport.nationality
+  return formattedCountryCode ?? dsc.tbs.subject.match(/countryName=([A-Za-z]+)/)?.[1] ?? ""
 }
 
 export async function getIntegrityCheckCircuitInputs(
@@ -514,7 +541,7 @@ export async function getIntegrityCheckCircuitInputs(
   const signedAttributes = passport?.sod.signerInfo.signedAttrs.bytes.toNumberArray()
   const comm_in = await hashSaltCountrySignedAttrDg1PrivateNullifier(
     saltIn,
-    getDSCCountry(passport),
+    getDSCCountry(passport.sod.certificate),
     Binary.from(signedAttributes).padEnd(SIGNED_ATTR_INPUT_SIZE),
     BigInt(signedAttributes.length),
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),

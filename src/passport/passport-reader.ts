@@ -8,6 +8,7 @@ import type { DigestAlgorithm } from "../cms/types"
 import { PassportViewModel } from "../types"
 import { SOD } from "./sod"
 import { getRSAPSSParams } from "../cms"
+import { DSC } from "./dsc"
 
 export class PassportReader {
   public dg1?: Binary
@@ -128,24 +129,21 @@ export function getDSCSignatureAlgorithmType(passport: PassportViewModel): "RSA"
   return ""
 }
 
-/**
- * @deprecated This function will be removed in a future version
- */
-export function getDSCSignatureHashAlgorithm(
-  passport: PassportViewModel,
-): DigestAlgorithm | undefined {
-  if (passport.sod.certificate.signatureAlgorithm.name.toLowerCase().includes("pss")) {
-    const params = getRSAPSSParams(
-      passport.sod.certificate.signatureAlgorithm.parameters?.toBuffer()! as BufferSource,
-    )
+export function getDSCSignatureHashAlgorithm(dsc: DSC): DigestAlgorithm | undefined {
+  if (dsc.signatureAlgorithm.name.toLowerCase().includes("pss")) {
+    const params = getRSAPSSParams(dsc.signatureAlgorithm.parameters?.toBuffer()! as BufferSource)
     return params.hashAlgorithm
   }
 
-  if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("sha256")) {
+  if (dsc.signatureAlgorithm.name?.toLowerCase().includes("sha1")) {
+    return "SHA1"
+  } else if (dsc.signatureAlgorithm.name?.toLowerCase().includes("sha224")) {
+    return "SHA224"
+  } else if (dsc.signatureAlgorithm.name?.toLowerCase().includes("sha256")) {
     return "SHA256"
-  } else if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("sha384")) {
+  } else if (dsc.signatureAlgorithm.name?.toLowerCase().includes("sha384")) {
     return "SHA384"
-  } else if (passport.sod.certificate.signatureAlgorithm.name?.toLowerCase().includes("sha512")) {
+  } else if (dsc.signatureAlgorithm.name?.toLowerCase().includes("sha512")) {
     return "SHA512"
   }
 }
