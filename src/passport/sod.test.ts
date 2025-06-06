@@ -83,4 +83,29 @@ describe("SOD", () => {
     expect(cert.signature).toBeTruthy()
     expect(sod.signerInfo.signature).toBeTruthy()
   })
+
+  it("should get the exportable SOD", () => {
+    const exportableSOD = sod.getExportableSOD()
+    console.log(JSON.stringify(exportableSOD))
+    expect(exportableSOD.bytes).toBe(sod.bytes.length)
+    expect(exportableSOD.encapContentInfo.eContent.bytes).toBe(
+      sod.encapContentInfo.eContent.bytes.length,
+    )
+    expect(exportableSOD.encapContentInfo.eContent.dataGroupHashValues).toEqual({
+      1: 32,
+      2: 32,
+      3: 32,
+      4: 32,
+      14: 32,
+    })
+    expect(exportableSOD.signerInfo.signedAttrs.bytes).toBe(sod.signerInfo.signedAttrs.bytes.length)
+    expect(exportableSOD.signerInfo.signature).toBe(sod.signerInfo.signature.length)
+    expect(exportableSOD.signerInfo.sid.issuerAndSerialNumber?.serialNumber).toBe(
+      sod.signerInfo.sid.issuerAndSerialNumber?.serialNumber.length,
+    )
+    expect(exportableSOD.certificate.signature).toBe(sod.certificate.signature)
+    expect(exportableSOD.certificate.tbs.extensions.get("keyUsage")?.critical).toBe(true)
+    expect(exportableSOD.certificate.tbs.extensions.has("authorityKeyIdentifier")).toBe(true)
+    expect(exportableSOD.certificate.tbs.extensions.has("subjectKeyIdentifier")).toBe(true)
+  })
 })

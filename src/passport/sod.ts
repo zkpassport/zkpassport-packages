@@ -109,6 +109,55 @@ export type SODSignedData = {
   bytes: Binary
 }
 
+/*
+ * The exportable SOD is the SOD with all the sensitive data stripped
+ * So it can be exported without exposing the sensitive data
+ */
+export type ExportableSOD = {
+  version: number
+  digestAlgorithms: DigestAlgorithm[]
+  encapContentInfo: {
+    eContentType: string
+    eContent: {
+      version: number
+      hashAlgorithm: DigestAlgorithm
+      // Becomes the lengths of the dataGroupHashValues values
+      dataGroupHashValues: { [key: number]: number }
+      // Becomes the length of the eContent bytes
+      bytes: number
+    }
+  }
+  signerInfo: {
+    version: number
+    signedAttrs: {
+      contentType: string
+      // Becomes the length of the messageDigest bytes
+      messageDigest: number
+      signingTime?: Date
+      // Becomes the length of the signedAttrs bytes
+      bytes: number
+    }
+    digestAlgorithm: DigestAlgorithm
+    signatureAlgorithm: {
+      name: SignatureAlgorithm
+      parameters?: Binary
+    }
+    // Becomes the length of the signature
+    signature: number
+    sid: {
+      issuerAndSerialNumber?: {
+        issuer: string
+        // Becomes the length of the serialNumber
+        serialNumber: number
+      }
+    }
+  }
+  // The DSC has no sensitive data, so we can just use the DSC class
+  certificate: DSC
+  // Becomes the length of the SOD bytes
+  bytes: number
+}
+
 export class SOD implements SODSignedData {
   version: number
   digestAlgorithms: DigestAlgorithm[]
@@ -143,36 +192,8 @@ export class SOD implements SODSignedData {
       subjectKeyIdentifier?: string
     }
   }
-  certificate: {
-    tbs: {
-      version: number
-      serialNumber: Binary
-      signatureAlgorithm: {
-        name: SignatureAlgorithm
-        parameters?: Binary
-      }
-      issuer: string
-      validity: { notBefore: Date; notAfter: Date }
-      subject: string
-      subjectPublicKeyInfo: {
-        signatureAlgorithm: {
-          name: PublicKeyType
-          parameters?: Binary
-        }
-        subjectPublicKey: Binary
-      }
-      extensions: Map<string, { critical?: boolean; value: Binary }>
-
-      issuerUniqueID?: Binary
-      subjectUniqueID?: Binary
-      bytes: Binary
-    }
-    signatureAlgorithm: {
-      name: SignatureAlgorithm
-      parameters?: Binary
-    }
-    signature: Binary
-  }
+  // The DSC has no sensitive data, so we can just use the DSC class
+  certificate: DSC
   bytes: Binary
 
   constructor(sod: SODSignedData) {
@@ -269,6 +290,47 @@ export class SOD implements SODSignedData {
 
       certificate: DSC.fromCertificate(cert),
     })
+  }
+
+  /**
+   * Get the exportable SOD
+   * This is the SOD with all the sensitive data stripped
+   * So it can be exported without exposing the sensitive data
+   */
+  getExportableSOD(): ExportableSOD {
+    return {
+      ...this,
+      encapContentInfo: {
+        ...this.encapContentInfo,
+        eContent: {
+          ...this.encapContentInfo.eContent,
+          bytes: this.encapContentInfo.eContent.bytes.length,
+          dataGroupHashValues: Object.fromEntries(
+            Object.entries(this.encapContentInfo.eContent.dataGroupHashValues.values).map(
+              ([key, value]) => [Number(key), value.length],
+            ),
+          ),
+        },
+      },
+      signerInfo: {
+        ...this.signerInfo,
+        signedAttrs: {
+          ...this.signerInfo.signedAttrs,
+          messageDigest: this.signerInfo.signedAttrs.messageDigest.length,
+          bytes: this.signerInfo.signedAttrs.bytes.length,
+        },
+        signature: this.signerInfo.signature.length,
+        sid: {
+          issuerAndSerialNumber: this.signerInfo.sid.issuerAndSerialNumber
+            ? {
+                issuer: this.signerInfo.sid.issuerAndSerialNumber.issuer,
+                serialNumber: this.signerInfo.sid.issuerAndSerialNumber.serialNumber.length,
+              }
+            : undefined,
+        },
+      },
+      bytes: this.bytes.length,
+    }
   }
 
   /*[Symbol.for("nodejs.util.inspect.custom")](): string {
