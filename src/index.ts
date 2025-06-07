@@ -76,7 +76,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.5.2"
+const VERSION = "0.5.3"
 
 const DEFAULT_DATE_VALUE = new Date(1111, 10, 11)
 
@@ -2782,6 +2782,8 @@ export class ZKPassport {
    * @param scope Scope this request to a specific use case
    * @param evmChain The EVM chain to use for the verification (if using the proof onchain)
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
+   * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
+   * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
@@ -2792,7 +2794,7 @@ export class ZKPassport {
     scope,
     evmChain,
     devMode = false,
-    crsPath,
+    writingDirectory,
   }: {
     proofs: Array<ProofResult>
     queryResult: QueryResult
@@ -2800,7 +2802,7 @@ export class ZKPassport {
     scope?: string
     evmChain?: EVMChain
     devMode?: boolean
-    crsPath?: string
+    writingDirectory?: string
   }): Promise<{
     uniqueIdentifier: string | undefined
     verified: boolean
@@ -2828,8 +2830,13 @@ export class ZKPassport {
     }
 
     const { BarretenbergVerifier } = await import("@aztec/bb.js")
+    // Automatically set the writing directory to `/tmp` if it is not provided
+    // and the code is not running in the browser
+    if (typeof window === "undefined" && !writingDirectory) {
+      writingDirectory = "/tmp"
+    }
     const verifier = new BarretenbergVerifier({
-      crsPath,
+      crsPath: writingDirectory ? writingDirectory + "/.bb-crs" : undefined,
     })
     let verified = true
     let uniqueIdentifier: string | undefined
