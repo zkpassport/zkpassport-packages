@@ -76,7 +76,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.5.0"
+const VERSION = "0.5.2"
 
 const DEFAULT_DATE_VALUE = new Date(1111, 10, 11)
 
@@ -2792,6 +2792,7 @@ export class ZKPassport {
     scope,
     evmChain,
     devMode = false,
+    crsPath,
   }: {
     proofs: Array<ProofResult>
     queryResult: QueryResult
@@ -2799,6 +2800,7 @@ export class ZKPassport {
     scope?: string
     evmChain?: EVMChain
     devMode?: boolean
+    crsPath?: string
   }): Promise<{
     uniqueIdentifier: string | undefined
     verified: boolean
@@ -2826,7 +2828,9 @@ export class ZKPassport {
     }
 
     const { BarretenbergVerifier } = await import("@aztec/bb.js")
-    const verifier = new BarretenbergVerifier()
+    const verifier = new BarretenbergVerifier({
+      crsPath,
+    })
     let verified = true
     let uniqueIdentifier: string | undefined
     let queryResultErrors: QueryResultErrors | undefined
