@@ -12,25 +12,27 @@ import Link from "next/link"
 
 export default function HomePage() {
   return (
-    <div className="container mx-auto py-20">
-      <div className="max-w-3xl mx-auto text-center mb-16">
-        <h1 className="text-4xl font-bold mb-4">Registry Explorer</h1>
-        <p className="text-xl text-muted-foreground">
+    <div className="container mx-auto py-8 px-4 sm:py-20">
+      <div className="max-w-3xl mx-auto text-center mb-8 sm:mb-16">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-4">Registry Explorer</h1>
+        <p className="text-lg sm:text-xl text-muted-foreground px-4">
           Explore certificates and historical roots in the registry
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-6 w-6" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
               <span>Certificates</span>
             </CardTitle>
-            <CardDescription>Search and verify certificates in the registry</CardDescription>
+            <CardDescription className="text-sm">
+              Search and verify certificates in the registry
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               View details of certificates, verify their authenticity, and check their status in the
               registry.
             </p>
@@ -38,7 +40,7 @@ export default function HomePage() {
           <CardFooter>
             <Button
               asChild
-              className="w-full dark:text-white dark:bg-blue-800 hover:dark:bg-blue-700"
+              className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] dark:from-emerald-600 dark:to-green-700 dark:hover:from-emerald-700 dark:hover:to-green-800"
             >
               <Link href="/certificates">Browse Certificates</Link>
             </Button>
@@ -47,14 +49,16 @@ export default function HomePage() {
 
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-6 w-6" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <History className="h-5 w-5 sm:h-6 sm:w-6" />
               <span>Historical Certificate Roots</span>
             </CardTitle>
-            <CardDescription>Browse historical certificate registry roots</CardDescription>
+            <CardDescription className="text-sm">
+              Browse historical certificate registry roots
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">
-            <p className="text-muted-foreground text-base">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Explore historical certificate registry merkle roots, their validity periods, and
               certificate counts. Each root captures a snapshot of the registry at a specific point
               in time.
@@ -63,7 +67,7 @@ export default function HomePage() {
           <CardFooter>
             <Button
               asChild
-              className="w-full dark:text-white dark:bg-blue-800 hover:dark:bg-blue-700"
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] dark:from-amber-600 dark:to-orange-700 dark:hover:from-amber-700 dark:hover:to-orange-800"
             >
               <Link href="/certificates/history">Browse Certificate Roots</Link>
             </Button>
@@ -72,14 +76,16 @@ export default function HomePage() {
 
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-6 w-6" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <History className="h-5 w-5 sm:h-6 sm:w-6" />
               <span>Historical Circuit Roots</span>
             </CardTitle>
-            <CardDescription>Browse historical circuit registry roots</CardDescription>
+            <CardDescription className="text-sm">
+              Browse historical circuit registry roots
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Explore historical circuit registry merkle roots, their validity periods, and circuit
               counts. Each root captures a snapshot of the registry at a specific point in time.
             </p>
@@ -87,7 +93,7 @@ export default function HomePage() {
           <CardFooter>
             <Button
               asChild
-              className="w-full dark:text-white dark:bg-blue-800 hover:dark:bg-blue-700"
+              className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] dark:from-purple-600 dark:to-violet-700 dark:hover:from-purple-700 dark:hover:to-violet-800"
             >
               <Link href="/circuits/history">Browse Circuit Roots</Link>
             </Button>

@@ -87,25 +87,27 @@ export function CircuitRootCard({ rootDetails }: CircuitRootCardProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2 text-sm">
-          <div className="grid grid-cols-3 gap-1">
-            <div className="font-semibold">Validity Period:</div>
-            <div className="col-span-2">
+        <div className="space-y-3 text-sm">
+          <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
+            <div className="font-semibold text-gray-700 dark:text-gray-300">Validity Period:</div>
+            <div className="sm:col-span-2 text-gray-900 dark:text-gray-100">
               {validFrom.toLocaleDateString()} to{" "}
               {validTo !== undefined ? validTo.toLocaleDateString() : "Present"}
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-1">
-            <div className="font-semibold">IPFS CID:</div>
-            <div className="col-span-2 font-mono">
+          <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
+            <div className="font-semibold text-gray-700 dark:text-gray-300">IPFS CID:</div>
+            <div className="sm:col-span-2 font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
               <Link href={`https://ipfs.infura.io/ipfs/${cid}`} target="_blank">
                 {formatCid(cid)}
               </Link>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-1">
-            <div className="font-semibold">Circuits:</div>
-            <div className="col-span-2">{leaves ? leaves.toString() : "0"}</div>
+          <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
+            <div className="font-semibold text-gray-700 dark:text-gray-300">Circuits:</div>
+            <div className="sm:col-span-2 text-gray-900 dark:text-gray-100">
+              {leaves ? leaves.toString() : "0"}
+            </div>
           </div>
         </div>
       </CardContent>

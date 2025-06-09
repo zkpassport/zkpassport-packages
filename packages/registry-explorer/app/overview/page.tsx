@@ -23,8 +23,8 @@ export default function InfoPage() {
   } = useRegistryInfo()
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-2xl font-bold mb-6">Registry Overview</h1>
+    <div className="container mx-auto py-6 px-4 sm:py-10">
+      <h1 className="text-xl sm:text-2xl font-bold mb-6">Registry Overview</h1>
 
       {error && (
         <Alert variant="destructive" className="mb-6">
@@ -98,14 +98,14 @@ function AddressCard({
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-2">Address</p>
             {isLoading ? (
               <Skeleton className="h-8 mt-3 mb-1 w-full" />
             ) : address ? (
-              <div className="flex items-center gap-2">
-                <code className="bg-muted p-2 rounded text-xs break-all">{address}</code>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <code className="bg-muted p-2 rounded text-xs break-all flex-1">{address}</code>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -135,8 +135,8 @@ function AddressCard({
                 "0x0000000000000000000000000000000000000000000000000000000000000000" ? (
                 <span className="text-muted-foreground italic">Not available</span>
               ) : (
-                <div className="flex items-center gap-2">
-                  <code className="bg-muted p-2 rounded text-xs break-all">{rootHash}</code>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <code className="bg-muted p-2 rounded text-xs break-all flex-1">{rootHash}</code>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -161,7 +161,7 @@ function AddressCard({
 
         {rootDetails && (
           <div className="border-t pt-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">{getLeavesLabel()}</p>
                 <p>{rootDetails.leaves}</p>
