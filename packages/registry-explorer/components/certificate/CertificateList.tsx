@@ -156,7 +156,7 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
                   <div className="w-full sm:w-2/3">
                     <div className="relative group">
                       <div className="relative">
-                        <code className="font-mono text-xs p-2 pr-9 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 break-all">
+                        <code className="font-mono text-xs p-2 pr-9 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-ellipsis overflow-auto">
                           {truncate(cert.public_key.modulus, 100)}
                         </code>
                         <Button
@@ -230,7 +230,7 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
                     <div className="w-full sm:w-2/3">
                       <div className="relative group">
                         <div className="relative">
-                          <code className="font-mono text-xs p-2 pr-9 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 break-all">
+                          <code className="font-mono text-xs p-2 pr-9 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-ellipsis overflow-auto">
                             {truncate(cert.public_key.public_key_x, 100)}
                           </code>
                           <Button
@@ -274,7 +274,7 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
                     <div className="w-full sm:w-2/3">
                       <div className="relative group">
                         <div className="relative">
-                          <code className="font-mono text-xs p-2 pr-9 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 break-all">
+                          <code className="font-mono text-xs p-2 pr-9 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-ellipsis overflow-auto">
                             {truncate(cert.public_key.public_key_y, 100)}
                           </code>
                           <Button
@@ -318,7 +318,7 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
                   Subject Key Identifier
                 </div>
                 <div className="w-full sm:w-2/3">
-                  <code className="font-mono text-xs p-2 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                  <code className="font-mono text-xs p-2 block bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 text-ellipsis overflow-auto">
                     {cert.subject_key_identifier}
                   </code>
                 </div>
