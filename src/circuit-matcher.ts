@@ -109,6 +109,11 @@ export function isCscaSupported(csca: PackagedCertificate): boolean {
   return false
 }
 
+export function isDSCSupported(dsc: DSC): boolean {
+  const hashAlgorithm = getDSCSignatureHashAlgorithm(dsc)
+  return !!hashAlgorithm && SUPPORTED_HASH_ALGORITHMS.includes(hashAlgorithm)
+}
+
 export function isIDSupported(passport: PassportViewModel): boolean {
   const sodSignatureAlgorithm = getSodSignatureAlgorithmType(passport)
   return (

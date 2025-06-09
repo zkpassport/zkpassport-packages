@@ -86,7 +86,6 @@ describe("SOD", () => {
 
   it("should get the exportable SOD", () => {
     const exportableSOD = sod.getExportableSOD()
-    console.log(JSON.stringify(exportableSOD))
     expect(exportableSOD.bytes).toBe(sod.bytes.length)
     expect(exportableSOD.encapContentInfo.eContent.bytes).toBe(
       sod.encapContentInfo.eContent.bytes.length,

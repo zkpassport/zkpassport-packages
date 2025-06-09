@@ -19,6 +19,7 @@ import {
   getNationalityExclusionCircuitInputs,
   getNationalityInclusionCircuitInputs,
   isCscaSupported,
+  isDSCSupported,
   isIDSupported,
 } from "../src/circuit-matcher"
 import { getCountryWeightedSum } from "../src/circuits/country"
@@ -28,10 +29,11 @@ import rootCerts from "./fixtures/root-certs.json"
 import { PASSPORTS } from "./fixtures/passports"
 import * as fs from "fs"
 import * as path from "path"
-import { Binary } from "../src"
+import { Binary, getCurveName, getDSCSignatureHashAlgorithm } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
+import { ECParameters } from "@peculiar/asn1-ecc"
 
 function getDSCs() {
   const dscDir = path.join(__dirname, "fixtures", "dsc")
@@ -77,49 +79,21 @@ describe("Circuit Matcher - General", () => {
   it.skip("should find the CSCs of all the DSCs", () => {
     const dscs = getDSCs()
     const expectedUnknownCSCSubjectKeyIdentifiers = [
-      "b0507e0bf633066293f749b9392c4b2c4a38d2fe",
-      "3b346f4af56c7f8cc4c6465ff824f8309ad218c0",
-      "58122eeba329ddfcc28642d205bf675b8c2f7ed6",
-      "3b9bed6ce2737704c26a26f9b74ce974b0f34dac",
-      "8952182132f0dea57f133a172a5d5617a079126a",
-      "37e545383e53acad7636cea92600c567e97c7289",
-      "6e7ebe8598e78fa1b061a61274a84f9ed22edfc7",
-      "2db16de14303d875c387b9aa151001b581164f18",
-      "8d8b3b56eec36e11ac059d409ccf6293642f4735",
-      "b634f3529e2ed5ed777379a85be64a5dade0f59c",
-      "6636b09b26d2f280545edac766c8f0124db53bb4",
-      "9def8d8f2c9cbfd53fcbce763a2274e2c40d7ae5",
-      "f064b24b6c47f31299345cd196727bc67af48d90",
-      "9dcc4576b8ad6f2a4a8728032ff34058f474c93e",
-      "94c0401b5912f02ab06e2caa4acaa8e5e0f6bd19",
-      "3fd984c33905f9d63a7259c0accc210c951b381b",
-      "ff700f999c6cb70f739e26f0bc481541c76f2558",
-      "8234b6b174ebcbe271aeaf446cc4ea31223873ec",
-      "c966fbc1e8d81923b1129083861d43210e762bc6",
-      "d123d04ad77913d15101e9a4d390599f109dbf0d",
-      "0e3050b892f39962c847192e98e4d3faa84319ac",
-      "6044f245f2e071d4d564f4e577d63669dbeb1859",
-      "d757577cf97563d3b11a3e51ce4c57570aedcf8c",
       "45728821c8fbff1153455807ad09ed5e868035e8",
-      "f9a7ae6b1e80c0bf2416a71c7bd6d24376bcfb0c",
-      "ca2543b364c9310b7e4c7e58db97d86472a4afd4",
       "0654b2b864ec78aa4675f9110634ecdac2a5b4af",
-      "f97dc605cbe1836b1b707f4d5802953b017b7575",
       "a775af64b440e8dd386f2f002280ecedd19d1b97",
-      "e376ae6612fe7a81e6722c51385bd883490fc3a2",
-      "2b7110617a4f9d6781e35c078f85b610f234596a",
-      "bfad4fd2cb52675b04105d79d2cac3b8944b25e0",
-      "13f8aa6f5a52a01b57f2d76efc3a575c225e24dd",
-      "4b22248fb5107aecf2f60550ff5553e8494422a7",
-      "4fa3f5c79bd07922",
-      "049922c32a1cb57b000773dfd252bcae32b2dae9",
-      "c3379911acbf19198f64198d1af28e9d63425ad2",
-      "f50520ec24ee0ba29d78aacc479b33686644af6c23c3a667bc7730ce32cb3da1",
-      "796bc24170f1ac5fee01df6cb25e2136852e71c4",
-      "4b7f80903bcc68204ea4d943063d1348dc5258a7",
     ]
     const unknownCSCSubjectKeyIdentifiers: string[] = []
+    const unknownCSCsCountries: string[] = []
+    const supportedDSCs: DSC[] = []
     for (const dsc of dscs) {
+      if (dsc.tbs.validity.notAfter.getTime() < Date.now()) {
+        continue
+      }
+      const isSupported = isDSCSupported(dsc)
+      if (isSupported) {
+        supportedDSCs.push(dsc)
+      }
       const result = getCscaForPassport(dsc, rootCerts.certificates as PackagedCertificate[])
       if (!result) {
         const akiBuffer = dsc.tbs.extensions.get("authorityKeyIdentifier")?.value.toBuffer()
@@ -132,6 +106,10 @@ describe("Circuit Matcher - General", () => {
             unknownCSCSubjectKeyIdentifiers.push(authorityKeyIdentifier)
           }
         }
+        const country = getDSCCountry(dsc)
+        if (country) {
+          unknownCSCsCountries.push(country)
+        }
       }
     }
     console.log(
@@ -140,10 +118,45 @@ describe("Circuit Matcher - General", () => {
     const uniqueUnknownCSCSubjectKeyIdentifiers = Array.from(
       new Set(unknownCSCSubjectKeyIdentifiers),
     )
+    const uniqueUnknownCSCsCountries = Array.from(new Set(unknownCSCsCountries))
     console.log(
       `Total unique unknown CSC subject key identifiers: ${uniqueUnknownCSCSubjectKeyIdentifiers.length}`,
     )
     console.log(JSON.stringify(uniqueUnknownCSCSubjectKeyIdentifiers))
+    console.log(`Total unique unknown CSC countries: ${uniqueUnknownCSCsCountries.length}`)
+    console.log(JSON.stringify(uniqueUnknownCSCsCountries))
+    console.log(
+      `Hash algorithms: ${JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCSignatureHashAlgorithm(x)))))}`,
+    )
+    console.log(
+      `Signature algorithms: ${JSON.stringify(
+        Array.from(new Set(supportedDSCs.map((x) => x.signatureAlgorithm.name))),
+      )}`,
+    )
+    console.log(
+      `Curves: ${JSON.stringify(
+        Array.from(
+          new Set(
+            supportedDSCs.map((x) =>
+              x.tbs.subjectPublicKeyInfo.signatureAlgorithm.name.toLowerCase().includes("ec") &&
+              x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters &&
+              x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters.toBuffer().length > 0
+                ? getCurveName(
+                    AsnParser.parse(
+                      x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters.toBuffer(),
+                      ECParameters,
+                    ),
+                  )
+                : "",
+            ),
+          ),
+        ),
+      )}`,
+    )
+    console.log(`Total supported DSCs: ${supportedDSCs.length}`)
+    console.log(
+      JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCCountry(x)))).sort()),
+    )
     expect(uniqueUnknownCSCSubjectKeyIdentifiers).toEqual(expectedUnknownCSCSubjectKeyIdentifiers)
   })
 })
