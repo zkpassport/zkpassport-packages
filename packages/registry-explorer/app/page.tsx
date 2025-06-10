@@ -40,7 +40,7 @@ export default function HomePage() {
           <CardFooter>
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] dark:from-emerald-600 dark:to-green-700 dark:hover:from-emerald-700 dark:hover:to-green-800"
+              className="w-full bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white py-3 px-6 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01]"
             >
               <Link href="/certificates">Browse Certificates</Link>
             </Button>
@@ -67,7 +67,7 @@ export default function HomePage() {
           <CardFooter>
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] dark:from-amber-600 dark:to-orange-700 dark:hover:from-amber-700 dark:hover:to-orange-800"
+              className="w-full bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white py-3 px-6 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01]"
             >
               <Link href="/certificates/history">Browse Certificate Roots</Link>
             </Button>
@@ -93,7 +93,7 @@ export default function HomePage() {
           <CardFooter>
             <Button
               asChild
-              className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] dark:from-purple-600 dark:to-violet-700 dark:hover:from-purple-700 dark:hover:to-violet-800"
+              className="w-full bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white py-3 px-6 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01]"
             >
               <Link href="/circuits/history">Browse Circuit Roots</Link>
             </Button>
