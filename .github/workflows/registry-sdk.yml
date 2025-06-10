@@ -2,8 +2,6 @@ name: Registry SDK
 
 on:
   pull_request:
-    paths:
-      - 'packages/registry-sdk/**'
   workflow_dispatch:
 
 jobs:

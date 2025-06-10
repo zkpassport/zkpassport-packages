@@ -2,8 +2,6 @@ name: Registry Contracts
 
 on:
   pull_request:
-    paths:
-      - 'packages/registry-contracts/**'
   workflow_dispatch:
 
 env:
