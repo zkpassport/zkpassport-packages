@@ -132,8 +132,10 @@ export function getTBSMaxLen(passport: PassportViewModel): number {
     return 1000
   } else if (tbs_len <= 1200) {
     return 1200
-  } else {
+  } else if (tbs_len <= 1500) {
     return 1500
+  } else {
+    return 1600
   }
 }
 
