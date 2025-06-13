@@ -2850,8 +2850,12 @@ export class ZKPassport {
     uniqueIdentifier = uniqueIdentifierFromPublicInputs
     verified = isCorrect
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
-    if (uniqueIdentifier && BigInt(uniqueIdentifier) === BigInt(0) && !devMode) {
-      // If the unique identifier is 0 and it is not in dev mode,
+    if (
+      uniqueIdentifier &&
+      (BigInt(uniqueIdentifier) === BigInt(1) || BigInt(uniqueIdentifier) === BigInt(0)) &&
+      !devMode
+    ) {
+      // If the unique identifier is 0 (old ZKR proofs) or 1 (new ZKR proofs) and it is not in dev mode,
       // the proofs are considered invalid as these are mock proofs only meant
       // for testing purposes
       verified = false
