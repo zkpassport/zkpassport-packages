@@ -76,7 +76,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.5.3"
+const VERSION = "0.5.5"
 
 const DEFAULT_DATE_VALUE = new Date(1111, 10, 11)
 
@@ -125,8 +125,8 @@ export type SolidityVerifierParameters = {
   committedInputs: string
   committedInputCounts: number[]
   validityPeriodInDays: number
+  domain: string
   scope: string
-  subscope: string
   devMode: boolean
 }
 
@@ -2949,7 +2949,7 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0xEE9F10f38319eAE2730dBa28fB09081dB806c5E5",
+        address: "0xDDeFf76024052D26B78A7Fac66FFbd6fbc5bd9Ad",
       }
     } else if (network === "local_anvil") {
       return {
@@ -3112,8 +3112,8 @@ export class ZKPassport {
       committedInputs: `0x${compressedCommittedInputs}`,
       committedInputCounts: committedInputCountsArray,
       validityPeriodInDays,
-      scope: domain ?? this.domain,
-      subscope: scope ?? "",
+      domain: domain ?? this.domain,
+      scope: scope ?? "",
       devMode,
     }
     return params
