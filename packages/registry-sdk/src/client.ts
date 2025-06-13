@@ -405,8 +405,8 @@ export class RegistryClient {
       version = undefined,
     }: { validate?: boolean; ipfs?: boolean; version?: string } = {},
   ): Promise<CircuitManifest> {
-    if (!root) root = await this.getLatestCircuitRoot()
-    else root = normaliseHash(root)
+    if (!root && !version) root = await this.getLatestCircuitRoot()
+    else if (root) root = normaliseHash(root)
 
     // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
