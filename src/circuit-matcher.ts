@@ -251,11 +251,15 @@ function getDSCDataInputs(
     }
   } else {
     const { modulus, exponent } = getRSAInfo(tbsCertificate.subjectPublicKeyInfo)
-    const modulusBytes = bigintToBytes(modulus)
+    const modulusBits = getBitSize(modulus)
+    const modulusBytes = leftPadArrayWithZeros(bigintToBytes(modulus), Math.ceil(modulusBits / 8))
     return {
       dsc_pubkey: modulusBytes,
       exponent: bigintToNumber(exponent),
-      dsc_pubkey_redc_param: redcLimbsFromBytes(modulusBytes),
+      dsc_pubkey_redc_param: leftPadArrayWithZeros(
+        redcLimbsFromBytes(modulusBytes),
+        Math.ceil(modulusBits / 8) + 1,
+      ),
       tbs_certificate: rightPadArrayWithZeros(
         passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
         maxTbsLength,
@@ -450,7 +454,11 @@ export async function getDSCCircuitInputs(
       tbs_certificate_len: passport?.sod.certificate.tbs.bytes.toNumberArray().length,
     }
   } else if (csca.public_key.type === "RSA") {
-    const modulusBytes = bigintToBytes(BigInt(csca.public_key.modulus))
+    const modulusBits = getBitSize(BigInt(csca.public_key.modulus))
+    const modulusBytes = leftPadArrayWithZeros(
+      bigintToBytes(BigInt(csca.public_key.modulus)),
+      Math.ceil(modulusBits / 8),
+    )
     return {
       ...inputs,
       tbs_certificate: rightPadArrayWithZeros(
@@ -460,7 +468,10 @@ export async function getDSCCircuitInputs(
       tbs_certificate_len: passport?.sod.certificate.tbs.bytes.toNumberArray().length,
       dsc_signature: passport?.sod.certificate.signature.toNumberArray() ?? [],
       csc_pubkey: modulusBytes,
-      csc_pubkey_redc_param: redcLimbsFromBytes(modulusBytes),
+      csc_pubkey_redc_param: leftPadArrayWithZeros(
+        redcLimbsFromBytes(modulusBytes),
+        Math.ceil(modulusBits / 8) + 1,
+      ),
       exponent: csca.public_key.exponent,
     }
   }
