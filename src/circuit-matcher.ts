@@ -519,11 +519,15 @@ export async function getIDDataCircuitInputs(
       signed_attributes_size: idData.signed_attributes_size,
     }
   } else if (signatureAlgorithm === "RSA") {
+    const pubkeySize = (dscData as RSADSCDataInputs).dsc_pubkey.length
     return {
       ...inputs,
       dsc_pubkey: (dscData as RSADSCDataInputs).dsc_pubkey,
       exponent: (dscData as RSADSCDataInputs).exponent,
-      sod_signature: passport?.sod.signerInfo.signature.toNumberArray() ?? [],
+      sod_signature: leftPadArrayWithZeros(
+        passport?.sod.signerInfo.signature.toNumberArray() ?? [],
+        pubkeySize,
+      ),
       dsc_pubkey_redc_param: (dscData as RSADSCDataInputs).dsc_pubkey_redc_param,
       tbs_certificate: (dscData as RSADSCDataInputs).tbs_certificate,
       pubkey_offset_in_tbs: (dscData as RSADSCDataInputs).pubkey_offset_in_tbs,
