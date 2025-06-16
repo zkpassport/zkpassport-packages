@@ -1,5 +1,5 @@
 
-// c.f. https://github.com/zkpassport/zk-kit/blob/main/packages/smt/src/async-smt.ts
+// c.f. https://github.com/zkpassport/zk-kit/blob/main/packages/smt/src/smt.ts
 
 export type Node = string | bigint
 export type Key = Node
@@ -71,10 +71,6 @@ export default class SMT {
             /* istanbul ignore next */
             if (typeof BigInt !== "function") {
                 throw new Error("Big numbers are not supported")
-            }
-
-            if (typeof hash([BigInt(1), BigInt(1)]) !== "bigint") {
-                throw new Error("The hash function must return a big number")
             }
         } 
 
@@ -385,6 +381,53 @@ export default class SMT {
 
             this.nodes.delete(node)
         }
+    }
+
+    /**
+     * c.f. https://github.com/zk-passport/zk-kit/blob/main/packages/smt/src/smt.ts
+     * It imports an entire tree by initializing the nodes and root without calculating
+     * any hashes. Note that it is crucial to ensure the integrity of the tree
+     * before or after importing it.
+     * The tree must be empty before importing.
+     * @param nodes The stringified JSON of the tree.
+     */
+    import(json: string) {
+        const obj = JSON.parse(json)
+        const map = new Map<Node, ChildNodes>()
+
+        for (const [key, value] of Object.entries(obj)) {
+            if (key === "root") {
+                this.root = this.bigNumbers ? BigInt((value as string[])[0]) : (value as string[])[0]
+            } else {
+                const Key = this.bigNumbers ? BigInt(key) : key
+                if (this.bigNumbers) {
+                    const Children = (value as string[]).map((v) => BigInt(v))
+                    map.set(Key, Children)
+                } else {
+                    map.set(Key, value as string[])
+                }
+            }
+        }
+
+        this.nodes = map
+    }
+
+    /**
+     * c.f. https://github.com/zk-passport/zk-kit/blob/main/packages/smt/src/smt.ts
+     * It enables the conversion of the full tree structure into a JSON string,
+     * facilitating future imports of the tree. This approach is beneficial for
+     * sharing across networks, as it saves time by storing root and the map of
+     * hashed nodes directly instead of recomputing them
+     * @returns The stringified JSON of the tree.
+     */
+    export(): string {
+        const obj: { [key: string]: string[] } = {}
+        obj.root = [this.root.toString()]
+        this.nodes.forEach((value, key) => {
+            obj[key.toString()] = value.map((v) => v.toString())
+        })
+
+        return JSON.stringify(obj, null, 2)
     }
 
     /**
