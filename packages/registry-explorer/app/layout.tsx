@@ -75,6 +75,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {process.env.NODE_ENV === "production" && (
+          <script
+            defer
+            data-domain="registry.zkpassport.id"
+            src="https://plausible.io/js/script.js"
+          ></script>
+        )}
       </head>
       <body
         className={`${mrzFont.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
