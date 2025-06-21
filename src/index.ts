@@ -1188,7 +1188,7 @@ export class ZKPassport {
       if (
         queryResult.age.gte &&
         queryResult.age.gte.result &&
-        minAge < (queryResult.age.gte.expected as number)
+        minAge !== (queryResult.age.gte.expected as number)
       ) {
         console.warn("Age is not greater than or equal to the expected age")
         isCorrect = false
@@ -1201,7 +1201,7 @@ export class ZKPassport {
       if (
         queryResult.age.lt &&
         queryResult.age.lt.result &&
-        maxAge >= (queryResult.age.lt.expected as number)
+        maxAge !== (queryResult.age.lt.expected as number)
       ) {
         console.warn("Age is not less than the expected age")
         isCorrect = false
@@ -1214,8 +1214,8 @@ export class ZKPassport {
       if (queryResult.age.range) {
         if (
           queryResult.age.range.result &&
-          (minAge < (queryResult.age.range.expected[0] as number) ||
-            maxAge >= (queryResult.age.range.expected[1] as number))
+          (minAge !== (queryResult.age.range.expected[0] as number) ||
+            maxAge !== (queryResult.age.range.expected[1] as number))
         ) {
           console.warn("Age is not in the expected range")
           isCorrect = false
@@ -1324,7 +1324,7 @@ export class ZKPassport {
       if (
         queryResult.birthdate.gte &&
         queryResult.birthdate.gte.result &&
-        minDate < queryResult.birthdate.gte.expected
+        minDate !== queryResult.birthdate.gte.expected
       ) {
         console.warn("Birthdate is not greater than or equal to the expected birthdate")
         isCorrect = false
@@ -1337,7 +1337,7 @@ export class ZKPassport {
       if (
         queryResult.birthdate.lte &&
         queryResult.birthdate.lte.result &&
-        maxDate > queryResult.birthdate.lte.expected
+        maxDate !== queryResult.birthdate.lte.expected
       ) {
         console.warn("Birthdate is not less than the expected birthdate")
         isCorrect = false
@@ -1350,8 +1350,8 @@ export class ZKPassport {
       if (queryResult.birthdate.range) {
         if (
           queryResult.birthdate.range.result &&
-          (minDate < queryResult.birthdate.range.expected[0] ||
-            maxDate > queryResult.birthdate.range.expected[1])
+          (minDate !== queryResult.birthdate.range.expected[0] ||
+            maxDate !== queryResult.birthdate.range.expected[1])
         ) {
           console.warn("Birthdate is not in the expected range")
           isCorrect = false
@@ -1453,7 +1453,7 @@ export class ZKPassport {
       if (
         queryResult.expiry_date.gte &&
         queryResult.expiry_date.gte.result &&
-        minDate < queryResult.expiry_date.gte.expected
+        minDate !== queryResult.expiry_date.gte.expected
       ) {
         console.warn("Expiry date is not greater than or equal to the expected expiry date")
         isCorrect = false
@@ -1466,7 +1466,7 @@ export class ZKPassport {
       if (
         queryResult.expiry_date.lte &&
         queryResult.expiry_date.lte.result &&
-        maxDate > queryResult.expiry_date.lte.expected
+        maxDate !== queryResult.expiry_date.lte.expected
       ) {
         console.warn("Expiry date is not less than the expected expiry date")
         isCorrect = false
@@ -1479,8 +1479,8 @@ export class ZKPassport {
       if (queryResult.expiry_date.range) {
         if (
           queryResult.expiry_date.range.result &&
-          (minDate < queryResult.expiry_date.range.expected[0] ||
-            maxDate > queryResult.expiry_date.range.expected[1])
+          (minDate !== queryResult.expiry_date.range.expected[0] ||
+            maxDate !== queryResult.expiry_date.range.expected[1])
         ) {
           console.warn("Expiry date is not in the expected range")
           isCorrect = false
