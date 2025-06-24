@@ -1,8 +1,9 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { normaliseHex } from "../utils"
 import { AsyncIMT } from "./async-imt"
+import SMT from "./async-smt"
 
-async function poseidon2(values: any[]) {
+export async function poseidon2(values: any[]) {
   return poseidon2HashAsync(values.map((v) => BigInt(v)))
 }
 
@@ -20,4 +21,4 @@ export async function computeMerkleProof(leaves: bigint[], index: number, height
   }
 }
 
-export { AsyncIMT }
+export { AsyncIMT, SMT }
