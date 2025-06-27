@@ -53,17 +53,17 @@ function getDSCs() {
     })
 }
 
-const EXPECTED_NULLIFIER = "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986";
+const EXPECTED_NULLIFIER = "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986"
 
-const SALT = 1n;
-const EXPECTED_SALT = "0x1";
-const SERVICE_SCOPE = 2n;
-const EXPECTED_SERVICE_SCOPE = "0x2";
-const SERVICE_SUBSCOPE = 3n;
-const EXPECTED_SERVICE_SUBSCOPE = "0x3";
+// Global constants
+const SALT = 1n
+const EXPECTED_SALT = "0x1"
+const SERVICE_SCOPE = 2n
+const EXPECTED_SERVICE_SCOPE = "0x2"
+const SERVICE_SUBSCOPE = 3n
+const EXPECTED_SERVICE_SUBSCOPE = "0x3"
 
 describe("Circuit Matcher - General", () => {
-
   it("should detect if CSCA certificate is supported", () => {
     const certificates = rootCerts.certificates
     let totalUnsupported = 0
@@ -372,7 +372,13 @@ describe("Circuit Matcher - RSA", () => {
       issuing_country: { disclose: true },
     }
 
-    const result = await getDiscloseCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getDiscloseCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       disclose_mask: [
@@ -397,7 +403,13 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       age: { gte: 18 },
     }
-    const result = await getAgeCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getAgeCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       current_date: format(new Date(), "yyyyMMdd"),
@@ -415,7 +427,13 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       nationality: { in: ["ZKR", "FRA", "GBR", "USA"] },
     }
-    const result = await getNationalityInclusionCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getNationalityInclusionCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
@@ -431,7 +449,13 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       nationality: { out: ["FRA", "USA", "GBR"] },
     }
-    const result = await getNationalityExclusionCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getNationalityExclusionCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       // Notice how the country code are sorted compared to above
@@ -450,7 +474,13 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       issuing_country: { in: ["ZKR", "FRA", "GBR", "USA"] },
     }
-    const result = await getIssuingCountryInclusionCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getIssuingCountryInclusionCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
@@ -466,7 +496,13 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       issuing_country: { out: ["FRA", "USA", "GBR"] },
     }
-    const result = await getIssuingCountryExclusionCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getIssuingCountryExclusionCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
@@ -484,7 +520,13 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       birthdate: { gte: new Date("1980-01-01"), lte: new Date("1990-01-01") },
     }
-    const result = await getBirthdateCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getBirthdateCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
@@ -502,7 +544,13 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       expiry_date: { gte: new Date("2025-01-01"), lte: new Date("2035-12-31") },
     }
-    const result = await getExpiryDateCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getExpiryDateCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
@@ -670,7 +718,13 @@ describe("Circuit Matcher - ECDSA", () => {
       issuing_country: { disclose: true },
     }
 
-    const result = await getDiscloseCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getDiscloseCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       disclose_mask: [
@@ -695,7 +749,13 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       age: { gte: 18 },
     }
-    const result = await getAgeCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getAgeCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
@@ -713,7 +773,13 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       nationality: { in: ["ZKR", "FRA", "GBR", "USA"] },
     }
-    const result = await getNationalityInclusionCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getNationalityInclusionCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
@@ -729,7 +795,13 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       nationality: { out: ["FRA", "USA", "GBR"] },
     }
-    const result = await getNationalityExclusionCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getNationalityExclusionCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       // Notice how the country code are sorted compared to above
@@ -748,7 +820,13 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       issuing_country: { in: ["ZKR", "FRA", "GBR", "USA"] },
     }
-    const result = await getIssuingCountryInclusionCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getIssuingCountryInclusionCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
@@ -764,7 +842,13 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       issuing_country: { out: ["FRA", "USA", "GBR"] },
     }
-    const result = await getIssuingCountryExclusionCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getIssuingCountryExclusionCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
@@ -782,7 +866,13 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       birthdate: { gte: new Date("1980-01-01"), lte: new Date("1990-01-01") },
     }
-    const result = await getBirthdateCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getBirthdateCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
@@ -800,7 +890,13 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       expiry_date: { gte: new Date("2025-01-01"), lte: new Date("2035-12-31") },
     }
-    const result = await getExpiryDateCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE)
+    const result = await getExpiryDateCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
@@ -814,12 +910,25 @@ describe("Circuit Matcher - ECDSA", () => {
     })
   })
 
-  // TODO
-  it("should get the correct sanctions circuit inputs", async () => {
-    // const query: Query = {
-    //   sanctions: true,
-    // }
-    // const result = await getSanctionsCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
-    // expect(result).toEqual({
+  it("should get the correct sanctions exclusion check circuit inputs", async () => {
+    const sanctions = await SanctionsBuilder.create()
+    const { proofs, rootHash } = await sanctions.getSanctionsMerkleProofs(PASSPORTS.mary)
+    const result = await getSanctionsExclusionCheckCircuitInputs(
+      PASSPORTS.mary,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      sanctions,
+    )
+    expect(result).toEqual({
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      comm_in: EXPECTED_MARY_COMM_IN,
+      private_nullifier: EXPECTED_MARY_NULLIFIER,
+      root_hash: rootHash,
+      proofs,
+      service_scope: EXPECTED_SERVICE_SCOPE,
+      service_subscope: EXPECTED_SERVICE_SUBSCOPE,
+      salt: EXPECTED_SALT,
+    })
   })
 })
