@@ -1,0 +1,18 @@
+crs
+target
+proofs
+Prover.toml
+Verifier.toml
+info
+.DS_Store
+node_modules
+flamegraphs
+res
+.env
+src/solidity/cache
+src/solidity/out
+src/solidity/broadcast
+# Ignore the anvil deployment file
+src/solidity/deployments/deployment-31337.json
+src/solidity/snapshots
+src/ts/tests/fixtures/zkr/keypairs
