@@ -1693,7 +1693,7 @@ export class ZKPassport {
       queryResult.nationality.in &&
       queryResult.nationality.in.result
     ) {
-      if (!queryResult.nationality.in.expected?.every((country) => countryList.includes(country))) {
+      if (!queryResult.nationality.in.expected?.every((country: any) => countryList.includes(country))) {
         console.warn("Nationality inclusion list does not match the one from the query results")
         isCorrect = false
         queryResultErrors.nationality.in = {
@@ -1743,7 +1743,7 @@ export class ZKPassport {
       queryResult.issuing_country.in.result
     ) {
       if (
-        !queryResult.issuing_country.in.expected?.every((country) => countryList.includes(country))
+        !queryResult.issuing_country.in.expected?.every((country: any) => countryList.includes(country))
       ) {
         console.warn("Issuing country inclusion list does not match the one from the query results")
         isCorrect = false
@@ -2983,7 +2983,7 @@ export class ZKPassport {
     // and should be moved at the end of the public inputs
     const actualProof = proofData.proof.slice(16)
     const actualPublicInputs = proofData.publicInputs.concat(
-      proofData.proof.slice(0, 16).map((x) => `0x${x}`),
+      proofData.proof.slice(0, 16).map((x: any) => `0x${x}`),
     )
     let committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
     let committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
@@ -3004,7 +3004,7 @@ export class ZKPassport {
           circuitName === "exclusion_check_issuing_country_evm" ||
           circuitName === "exclusion_check_nationality_evm"
         ) {
-          formattedCountries.sort((a, b) => a.localeCompare(b))
+          formattedCountries.sort((a: any, b: any) => a.localeCompare(b))
         }
         const proofType = (() => {
           switch (circuitName) {
@@ -3021,10 +3021,10 @@ export class ZKPassport {
         compressedCommittedInputs =
           proofType.toString(16).padStart(2, "0") +
           rightPadArrayWithZeros(
-            formattedCountries.map((c) => Array.from(new TextEncoder().encode(c))).flat(),
+            formattedCountries.map((c: any) => Array.from(new TextEncoder().encode(c))).flat(),
             600,
           )
-            .map((x) => x.toString(16).padStart(2, "0"))
+            .map((x: any) => x.toString(16).padStart(2, "0"))
             .join("")
       } else if (circuitName === "compare_age_evm") {
         const value = proof.committedInputs[circuitName] as AgeCommittedInputs
@@ -3058,14 +3058,14 @@ export class ZKPassport {
         const value = proof.committedInputs[circuitName] as DiscloseCommittedInputs
         compressedCommittedInputs =
           ProofType.DISCLOSE.toString(16).padStart(2, "0") +
-          value.discloseMask.map((x) => x.toString(16).padStart(2, "0")).join("") +
-          value.disclosedBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
+          value.discloseMask.map((x: any) => x.toString(16).padStart(2, "0")).join("") +
+          value.disclosedBytes.map((x: any) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "bind_evm") {
         const value = proof.committedInputs[circuitName] as BindCommittedInputs
         compressedCommittedInputs =
           ProofType.BIND.toString(16).padStart(2, "0") +
           rightPadArrayWithZeros(formatBoundData(value.data), 500)
-            .map((x) => x.toString(16).padStart(2, "0"))
+            .map((x: any) => x.toString(16).padStart(2, "0"))
             .join("")
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)

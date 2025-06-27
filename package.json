@@ -5,5 +5,9 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "bun@1.2.11"
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test"
+  },
+  "packageManager": "bun@1.2.13"
 }

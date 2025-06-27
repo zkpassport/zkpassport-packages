@@ -13,12 +13,13 @@
     "README.md"
   ],
   "scripts": {
-    "prepublishOnly": "npm run test && npm run build",
-    "build": "npm run build:esm && npm run build:cjs",
-    "build:esm": "tsc -p tsconfig.json",
-    "build:cjs": "tsc -p tsconfig.cjs.json",
-    "test": "NODE_OPTIONS='--require ts-node/register' NODE_NO_WARNINGS=1 node node_modules/.bin/jest --no-cache --passWithNoTests --runInBand **/*.test.ts",
-    "test:debug": "NODE_OPTIONS='--require ts-node/register' NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 node_modules/.bin/jest --no-cache --passWithNoTests --runInBand **/*.test.ts",
+    "prepublishOnly": "bun run test && bun run build",
+    "build": "tsc && tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
+    "build:esm": "tsc && bun run build:fix-aliases",
+    "build:cjs": "tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
+    "build:fix-aliases": "bun run scripts/fix-aliases.mjs",
+    "test": "bun test tests/*.test.ts",
+    "test:debug": "bun test tests/*.test.ts --inspect-wait",
     "deploy": "npm publish --access public"
   },
   "keywords": [],
@@ -35,6 +36,7 @@
     "@types/ws": "^8.5.12",
     "jest": "^29.7.0",
     "ts-node": "^10.9.2",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.6.2"
   },
   "dependencies": {
@@ -43,13 +45,13 @@
     "@noble/hashes": "^1.7.2",
     "@noble/secp256k1": "^2.2.3",
     "@obsidion/bridge": "^0.10.2",
-    "@zkpassport/registry": "^0.5.2",
-    "@zkpassport/utils": "file:../zkpassport-utils",
+    "@zkpassport/registry": "workspace:*",
+    "@zkpassport/utils": "workspace:*",
     "buffer": "^6.0.3",
     "i18n-iso-countries": "^7.12.0",
     "pako": "^2.1.0",
     "viem": "^2.27.2",
     "ws": "^8.18.0"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "bun@1.2.13"
 }
