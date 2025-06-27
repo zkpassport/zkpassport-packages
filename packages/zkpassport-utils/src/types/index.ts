@@ -223,6 +223,7 @@ export type Query = {
   [key in IDCredential]?: IDCredentialConfig
 } & {
   bind?: BoundData
+  sanctions?: boolean
 }
 
 export type QueryResult = {
@@ -264,12 +265,17 @@ export type BindCommittedInputs = {
   data: BoundData
 }
 
+export type SanctionsCommittedInputs = {
+  rootHash: bigint
+}
+
 export type CommittedInputs =
   | AgeCommittedInputs
   | CountryCommittedInputs
   | DateCommittedInputs
   | DiscloseCommittedInputs
   | BindCommittedInputs
+  | SanctionsCommittedInputs
 
 export type DisclosureCircuitName =
   | "disclose_bytes"
@@ -284,6 +290,8 @@ export type DisclosureCircuitName =
   | "exclusion_check_issuing_country_evm"
   | "exclusion_check_nationality"
   | "exclusion_check_nationality_evm"
+  | "exclusion_check_sanctions"
+  | "exclusion_check_sanctions_evm"
   | "inclusion_check_issuing_country"
   | "inclusion_check_issuing_country_evm"
   | "inclusion_check_nationality"

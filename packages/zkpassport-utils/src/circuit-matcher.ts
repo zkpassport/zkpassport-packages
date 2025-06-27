@@ -53,7 +53,8 @@ import {
 } from "./utils"
 import { DSC } from "./passport/dsc"
 import { getBirthdateRange, getDocumentNumberRange, getExpiryDateRange, getFirstNameRange, getFullNameRange, getGenderRange, getLastNameRange, getNationalityRange } from "./passport/getters"
-import { getOFACMerkleProofs } from "./circuits/ofac"
+import { SanctionsBuilder } from "./circuits/sanctions"
+export { SanctionsBuilder }
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
@@ -973,12 +974,12 @@ export async function getIssuingCountryExclusionCircuitInputs(
   }
 }
 
-
-export async function getOFACExclusionCheckCircuitInputs(
+export async function getSanctionsExclusionCheckCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
 ): Promise<any> {
   const idData = getIDDataInputs(passport)
   if (!idData) return null
@@ -994,13 +995,16 @@ export async function getOFACExclusionCheckCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
-  const proofs = await getOFACMerkleProofs(passport);
+  // Only build the merkle trees if they are not provided
+  sanctions = sanctions ?? await SanctionsBuilder.create()
+  const {proofs, rootHash} = await sanctions.getSanctionsMerkleProofs(passport);
 
   return {
     dg1: idData.dg1,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     proofs,
+    root_hash: rootHash,
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
