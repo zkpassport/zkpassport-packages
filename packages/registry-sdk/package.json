@@ -21,11 +21,11 @@
     "coverage": "bun test tests/*.test.ts --coverage",
     "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
-    "build": "rimraf ./dist && tsc && tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
-    "build:esm": "rimraf ./dist && tsc && bun run build:fix-aliases",
-    "build:cjs": "rimraf ./dist && tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
-    "build:watch:esm": "rimraf ./dist && tsc --watch",
-    "build:watch:cjs": "rimraf ./dist && tsc -p tsconfig.cjs.json --watch",
+    "build": "tsc && tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
+    "build:esm": "tsc && bun run build:fix-aliases",
+    "build:cjs": "tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
+    "build:watch:esm": "tsc --watch",
+    "build:watch:cjs": "tsc -p tsconfig.cjs.json --watch",
     "build:fix-aliases": "bun run scripts/fix-aliases.mjs",
     "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
   },
@@ -54,7 +54,6 @@
     "eslint-plugin-prettier": "^5.2.6",
     "keccak256": "^1.0.6",
     "prettier": "^3.5.3",
-    "rimraf": "^6.0.1",
     "tsc-alias": "^1.8.16"
   },
   "peerDependencies": {

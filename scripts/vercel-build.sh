@@ -1,10 +1,8 @@
 #!/bin/bash
 set -e
 
-# Go to monorepo root
+# Install at monorepo root
 cd $(git rev-parse --show-toplevel)
-
-# Install at root
 bun install --frozen-lockfile
 
 # Build zkpassport-utils
