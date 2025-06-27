@@ -1,0 +1,7 @@
+[package]
+name = "redc-param-gen"
+version = "0.1.0"
+
+[dependencies]
+noir-bignum-paramgen = "0.1.5"
+num-bigint = { version = "0.8.2", features = ["i128", "prime", "zeroize"], default-features = false, package = "num-bigint-dig" }
