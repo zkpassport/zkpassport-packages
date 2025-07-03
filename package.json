@@ -7,7 +7,9 @@
   ],
   "scripts": {
     "build": "bun run -F @zkpassport/utils build && bun run -F '*' build",
-    "test": "bun run -F '*' test"
+    "test": "bun run -F '*' test",
+    "check": "bun run -F '*' check",
+    "format": "bun run -F '*' format"
   },
   "packageManager": "bun@1.2.13"
 }
