@@ -32,6 +32,7 @@ export type PassportViewModel = {
   nationality: string
   gender: string
   passportNumber: string
+  dateOfIssue: string
   passportExpiry: string
   firstName: string
   lastName: string
