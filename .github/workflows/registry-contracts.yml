@@ -1,17 +1,15 @@
 name: Registry Contracts
 
 on:
+  push:
   pull_request:
-  workflow_dispatch:
+    types: [opened, reopened, ready_for_review]
 
 env:
   FOUNDRY_PROFILE: ci
 
 jobs:
-  check:
-    strategy:
-      fail-fast: true
-
+  test:
     name: Tests
     runs-on: ubuntu-latest
     steps:
@@ -29,17 +27,17 @@ jobs:
         run: forge --version
         working-directory: packages/registry-contracts
 
-      - name: Run Forge fmt
+      - name: Run checks
         run: forge fmt --check
-        id: fmt
+        id: check
         working-directory: packages/registry-contracts
 
-      - name: Run Forge build
+      - name: Build contracts
         run: forge build --sizes
         id: build
         working-directory: packages/registry-contracts
 
-      - name: Run Forge tests
+      - name: Run tests
         run: forge test -vvv
         id: test
         working-directory: packages/registry-contracts
