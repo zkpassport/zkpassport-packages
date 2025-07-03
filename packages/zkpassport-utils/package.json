@@ -1,118 +1,81 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.16.1",
+  "version": "0.16.2",
   "type": "module",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
+  "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
-  "files": [
-    "dist"
-  ],
   "exports": {
     ".": {
-      "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "default": "./dist/cjs/index.js"
+      "require": "./dist/cjs/index.cjs"
     },
     "./binary": {
-      "types": "./dist/esm/binary/index.d.ts",
       "import": "./dist/esm/binary/index.js",
-      "require": "./dist/cjs/binary/index.js",
-      "default": "./dist/cjs/binary/index.js"
+      "require": "./dist/cjs/binary/index.cjs"
     },
     "./cms": {
-      "types": "./dist/esm/cms/index.d.ts",
       "import": "./dist/esm/cms/index.js",
-      "require": "./dist/cjs/cms/index.js",
-      "default": "./dist/cjs/cms/index.js"
+      "require": "./dist/cjs/cms/index.cjs"
     },
     "./asn": {
-      "types": "./dist/esm/cms/asn.d.ts",
       "import": "./dist/esm/cms/asn.js",
-      "require": "./dist/cjs/cms/asn.js",
-      "default": "./dist/cjs/cms/asn.js"
+      "require": "./dist/cjs/cms/asn.cjs"
     },
     "./country": {
-      "types": "./dist/esm/country/country.d.ts",
       "import": "./dist/esm/country/country.js",
-      "require": "./dist/cjs/country/country.js",
-      "default": "./dist/cjs/country/country.js"
+      "require": "./dist/cjs/country/country.cjs"
     },
     "./rsa": {
-      "types": "./dist/esm/rsa.d.ts",
       "import": "./dist/esm/rsa.js",
-      "require": "./dist/cjs/rsa.js",
-      "default": "./dist/cjs/rsa.js"
+      "require": "./dist/cjs/rsa.cjs"
     },
     "./circuits": {
-      "types": "./dist/esm/circuits/index.d.ts",
       "import": "./dist/esm/circuits/index.js",
-      "require": "./dist/cjs/circuits/index.js",
-      "default": "./dist/cjs/circuits/index.js"
+      "require": "./dist/cjs/circuits/index.cjs"
     },
     "./circuit-matcher": {
-      "types": "./dist/esm/circuit-matcher.d.ts",
       "import": "./dist/esm/circuit-matcher.js",
-      "require": "./dist/cjs/circuit-matcher.js",
-      "default": "./dist/cjs/circuit-matcher.js"
+      "require": "./dist/cjs/circuit-matcher.cjs"
     },
     "./constants": {
-      "types": "./dist/esm/constants/index.d.ts",
       "import": "./dist/esm/constants/index.js",
-      "require": "./dist/cjs/constants/index.js",
-      "default": "./dist/cjs/constants/index.js"
+      "require": "./dist/cjs/constants/index.cjs"
     },
     "./merkle-tree": {
-      "types": "./dist/esm/merkle-tree/index.d.ts",
       "import": "./dist/esm/merkle-tree/index.js",
-      "require": "./dist/cjs/merkle-tree/index.js",
-      "default": "./dist/cjs/merkle-tree/index.js"
+      "require": "./dist/cjs/merkle-tree/index.cjs"
     },
     "./passport-reader": {
-      "types": "./dist/esm/passport/index.d.ts",
       "import": "./dist/esm/passport/index.js",
-      "require": "./dist/cjs/passport/index.js",
-      "default": "./dist/cjs/passport/index.js"
+      "require": "./dist/cjs/passport/index.cjs"
     },
     "./passport": {
-      "types": "./dist/esm/passport/index.d.ts",
       "import": "./dist/esm/passport/index.js",
-      "require": "./dist/cjs/passport/index.js",
-      "default": "./dist/cjs/passport/index.js"
+      "require": "./dist/cjs/passport/index.cjs"
     },
     "./utils": {
-      "types": "./dist/esm/utils.d.ts",
       "import": "./dist/esm/utils.js",
-      "require": "./dist/cjs/utils.js",
-      "default": "./dist/cjs/utils.js"
+      "require": "./dist/cjs/utils.cjs"
     },
     "./barrett-reduction": {
-      "types": "./dist/esm/barrett-reduction.d.ts",
       "import": "./dist/esm/barrett-reduction.js",
-      "require": "./dist/cjs/barrett-reduction.js",
-      "default": "./dist/cjs/barrett-reduction.js"
+      "require": "./dist/cjs/barrett-reduction.cjs"
     },
     "./csc-manager": {
-      "types": "./dist/esm/csc-manager.d.ts",
       "import": "./dist/esm/csc-manager.js",
-      "require": "./dist/cjs/csc-manager.js",
-      "default": "./dist/cjs/csc-manager.js"
+      "require": "./dist/cjs/csc-manager.cjs"
     },
     "./recursion": {
-      "types": "./dist/esm/recursion.d.ts",
       "import": "./dist/esm/recursion.js",
-      "require": "./dist/cjs/recursion.js",
-      "default": "./dist/cjs/recursion.js"
+      "require": "./dist/cjs/recursion.cjs"
     },
     "./registry": {
-      "types": "./dist/esm/registry/index.d.ts",
       "import": "./dist/esm/registry/index.js",
-      "require": "./dist/cjs/registry/index.js",
-      "default": "./dist/cjs/registry/index.js"
+      "require": "./dist/cjs/registry/index.cjs"
     },
     "./types": {
-      "types": "./dist/esm/types/index.d.ts"
+      "import": "./dist/esm/types/index.js",
+      "require": "./dist/cjs/types/index.cjs"
     }
   },
   "scripts": {
@@ -120,9 +83,17 @@
     "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests",
     "format": "prettier -c -w src tests",
-    "build": "tsc && tsc -p tsconfig.cjs.json && bun run scripts/fix-aliases.mjs",
+    "build": "tsc && bun run scripts/fix-aliases.mjs && tsup",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
+  "files": [
+    "dist/esm",
+    "dist/cjs"
+  ],
+  "keywords": [
+    "zkpassport",
+    "zkpassport-utils"
+  ],
   "dependencies": {
     "@lapo/asn1js": "^2.0.4",
     "@noble/ciphers": "^1.0.0",
@@ -136,7 +107,7 @@
     "@peculiar/asn1-x509": "^2.3.15",
     "@peculiar/x509": "^1.12.3",
     "@zk-kit/utils": "^1.2.1",
-    "@zkpassport/poseidon2": "^0.6.0",
+    "@zkpassport/poseidon2": "^0.6.2",
     "date-fns": "^4.1.0",
     "i18n-iso-countries": "^7.13.0"
   },
@@ -147,10 +118,9 @@
     "@babel/preset-typescript": "^7.26.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.6",
-    "babel-jest": "^29.7.0",
     "prettier": "^3.5.3",
-    "rimraf": "^6.0.1",
-    "tsc-alias": "^1.8.16"
+    "tsc-alias": "^1.8.16",
+    "tsup": "^8.5.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

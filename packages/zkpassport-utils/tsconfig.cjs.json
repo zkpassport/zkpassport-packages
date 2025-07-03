@@ -6,10 +6,6 @@
     "outDir": "./dist/cjs",
     "rootDir": "./src",
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@/types": ["src/types/index.ts"]
-    },
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
