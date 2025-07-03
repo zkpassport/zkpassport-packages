@@ -6,8 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "bun run --filter '*' build",
-    "test": "bun run --filter '*' test"
+    "build": "bun run -F @zkpassport/utils build && bun run -F '*' build",
+    "test": "bun run -F '*' test"
   },
   "packageManager": "bun@1.2.13"
 }
