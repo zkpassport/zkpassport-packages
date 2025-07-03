@@ -5,6 +5,8 @@
     "scripts": {
       "dev": "script/bash/run-and-deploy.sh",
       "build": "forge build",
-      "test": "forge test"
+      "test": "forge test",
+      "check": "forge fmt --check",
+      "format": "forge fmt"
     }
   }

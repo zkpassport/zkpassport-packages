@@ -7,7 +7,10 @@
     "outDir": "./dist/esm",
     "rootDir": "./src",
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] },
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/types": ["src/types/index.ts"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
@@ -15,11 +18,9 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "experimentalDecorators": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "importHelpers": true
   },
   "include": ["src"],
-  "exclude": ["**/*.test.ts"],
-  "references": [
-    { "path": "../zkpassport-utils" }
-  ]
+  "exclude": ["**/*.test.ts"]
 }

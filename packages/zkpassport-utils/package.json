@@ -1,0 +1,159 @@
+{
+  "name": "@zkpassport/utils",
+  "version": "0.16.0",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "default": "./dist/cjs/index.js"
+    },
+    "./binary": {
+      "types": "./dist/esm/binary/index.d.ts",
+      "import": "./dist/esm/binary/index.js",
+      "require": "./dist/cjs/binary/index.js",
+      "default": "./dist/cjs/binary/index.js"
+    },
+    "./cms": {
+      "types": "./dist/esm/cms/index.d.ts",
+      "import": "./dist/esm/cms/index.js",
+      "require": "./dist/cjs/cms/index.js",
+      "default": "./dist/cjs/cms/index.js"
+    },
+    "./asn": {
+      "types": "./dist/esm/cms/asn.d.ts",
+      "import": "./dist/esm/cms/asn.js",
+      "require": "./dist/cjs/cms/asn.js",
+      "default": "./dist/cjs/cms/asn.js"
+    },
+    "./country": {
+      "types": "./dist/esm/country/country.d.ts",
+      "import": "./dist/esm/country/country.js",
+      "require": "./dist/cjs/country/country.js",
+      "default": "./dist/cjs/country/country.js"
+    },
+    "./rsa": {
+      "types": "./dist/esm/rsa.d.ts",
+      "import": "./dist/esm/rsa.js",
+      "require": "./dist/cjs/rsa.js",
+      "default": "./dist/cjs/rsa.js"
+    },
+    "./circuits": {
+      "types": "./dist/esm/circuits/index.d.ts",
+      "import": "./dist/esm/circuits/index.js",
+      "require": "./dist/cjs/circuits/index.js",
+      "default": "./dist/cjs/circuits/index.js"
+    },
+    "./circuit-matcher": {
+      "types": "./dist/esm/circuit-matcher.d.ts",
+      "import": "./dist/esm/circuit-matcher.js",
+      "require": "./dist/cjs/circuit-matcher.js",
+      "default": "./dist/cjs/circuit-matcher.js"
+    },
+    "./constants": {
+      "types": "./dist/esm/constants/index.d.ts",
+      "import": "./dist/esm/constants/index.js",
+      "require": "./dist/cjs/constants/index.js",
+      "default": "./dist/cjs/constants/index.js"
+    },
+    "./merkle-tree": {
+      "types": "./dist/esm/merkle-tree/index.d.ts",
+      "import": "./dist/esm/merkle-tree/index.js",
+      "require": "./dist/cjs/merkle-tree/index.js",
+      "default": "./dist/cjs/merkle-tree/index.js"
+    },
+    "./passport-reader": {
+      "types": "./dist/esm/passport/index.d.ts",
+      "import": "./dist/esm/passport/index.js",
+      "require": "./dist/cjs/passport/index.js",
+      "default": "./dist/cjs/passport/index.js"
+    },
+    "./passport": {
+      "types": "./dist/esm/passport/index.d.ts",
+      "import": "./dist/esm/passport/index.js",
+      "require": "./dist/cjs/passport/index.js",
+      "default": "./dist/cjs/passport/index.js"
+    },
+    "./utils": {
+      "types": "./dist/esm/utils.d.ts",
+      "import": "./dist/esm/utils.js",
+      "require": "./dist/cjs/utils.js",
+      "default": "./dist/cjs/utils.js"
+    },
+    "./barrett-reduction": {
+      "types": "./dist/esm/barrett-reduction.d.ts",
+      "import": "./dist/esm/barrett-reduction.js",
+      "require": "./dist/cjs/barrett-reduction.js",
+      "default": "./dist/cjs/barrett-reduction.js"
+    },
+    "./csc-manager": {
+      "types": "./dist/esm/csc-manager.d.ts",
+      "import": "./dist/esm/csc-manager.js",
+      "require": "./dist/cjs/csc-manager.js",
+      "default": "./dist/cjs/csc-manager.js"
+    },
+    "./recursion": {
+      "types": "./dist/esm/recursion.d.ts",
+      "import": "./dist/esm/recursion.js",
+      "require": "./dist/cjs/recursion.js",
+      "default": "./dist/cjs/recursion.js"
+    },
+    "./registry": {
+      "types": "./dist/esm/registry/index.d.ts",
+      "import": "./dist/esm/registry/index.js",
+      "require": "./dist/cjs/registry/index.js",
+      "default": "./dist/cjs/registry/index.js"
+    },
+    "./types": {
+      "types": "./dist/esm/types/index.d.ts"
+    }
+  },
+  "scripts": {
+    "test": "bun test src tests",
+    "coverage": "bun test src tests --coverage",
+    "check": "tsc --noEmit && prettier -c src tests",
+    "format": "prettier -c -w src tests",
+    "build": "tsc && tsc -p tsconfig.cjs.json && bun run scripts/fix-aliases.mjs",
+    "prepublishOnly": "./scripts/prepublish.sh"
+  },
+  "dependencies": {
+    "@lapo/asn1js": "^2.0.4",
+    "@noble/ciphers": "^1.0.0",
+    "@noble/curves": "^1.6.0",
+    "@noble/hashes": "^1.5.0",
+    "@noble/secp256k1": "^2.1.0",
+    "@peculiar/asn1-cms": "^2.3.15",
+    "@peculiar/asn1-ecc": "^2.3.15",
+    "@peculiar/asn1-rsa": "^2.3.15",
+    "@peculiar/asn1-schema": "^2.3.15",
+    "@peculiar/asn1-x509": "^2.3.15",
+    "@peculiar/x509": "^1.12.3",
+    "@zk-kit/utils": "^1.2.1",
+    "@zkpassport/poseidon2": "^0.6.0",
+    "date-fns": "^4.1.0",
+    "i18n-iso-countries": "^7.13.0"
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^7.25.9",
+    "@babel/plugin-transform-class-properties": "^7.25.9",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.6",
+    "babel-jest": "^29.7.0",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "tsc-alias": "^1.8.16"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "bun@1.2.13"
+}

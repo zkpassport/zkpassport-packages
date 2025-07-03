@@ -1,8 +1,9 @@
 name: Registry SDK
 
 on:
+  push:
   pull_request:
-  workflow_dispatch:
+    types: [opened, reopened, ready_for_review]
 
 jobs:
   test:
@@ -12,10 +13,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -26,11 +25,20 @@ jobs:
         run: forge build
         working-directory: packages/registry-contracts
 
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-      - name: Install dependencies
-        run: bun install
+      - name: Install package dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build zkpassport-utils
+        run: bun run build
+        working-directory: packages/zkpassport-utils
+
+      - name: Build registry-sdk
+        run: bun run build
         working-directory: packages/registry-sdk
 
       - name: Run checks
