@@ -21,13 +21,8 @@
     "coverage": "bun test tests/*.test.ts --coverage",
     "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
-    "build": "tsc && tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
-    "build:esm": "tsc && bun run build:fix-aliases",
-    "build:cjs": "tsc -p tsconfig.cjs.json && bun run build:fix-aliases",
-    "build:watch:esm": "tsc --watch",
-    "build:watch:cjs": "tsc -p tsconfig.cjs.json --watch",
-    "build:fix-aliases": "bun run scripts/fix-aliases.mjs",
-    "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
+    "build": "tsc && tsc -p tsconfig.cjs.json && bun run scripts/fix-aliases.mjs",
+    "prepublishOnly": "./scripts/prepublish.sh"
   },
   "files": [
     "dist"

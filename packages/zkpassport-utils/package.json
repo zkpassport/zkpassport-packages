@@ -121,7 +121,7 @@
     "check": "tsc --noEmit && prettier -c src tests",
     "format": "prettier -c -w src tests",
     "build": "tsc && tsc -p tsconfig.cjs.json && bun run scripts/fix-aliases.mjs",
-    "prepublishOnly": "bun run format && bun run check && bun run test && bun run build"
+    "prepublishOnly": "./scripts/prepublish.sh"
   },
   "dependencies": {
     "@lapo/asn1js": "^2.0.4",
