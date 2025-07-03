@@ -29,6 +29,7 @@ export class PassportReader {
       nationality: mrz.slice(isIDCard ? 45 : 54, isIDCard ? 48 : 57),
       gender: mrz.slice(isIDCard ? 37 : 64, isIDCard ? 38 : 65),
       passportNumber: mrz.slice(isIDCard ? 5 : 44, isIDCard ? 14 : 53),
+      dateOfIssue: "",
       passportExpiry: mrz.slice(isIDCard ? 38 : 65, isIDCard ? 44 : 71),
       firstName: "",
       lastName: "",
