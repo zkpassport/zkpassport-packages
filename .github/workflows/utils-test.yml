@@ -21,7 +21,6 @@ jobs:
           key: ${{ runner.os }}-bun-zkpassport-utils-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-zkpassport-utils
-        working-directory: packages/zkpassport-utils
 
       - name: Install Dependencies
         run: bun install
