@@ -676,6 +676,30 @@ export class RegistryClient {
   }
 
   /**
+   * Check if a document is supported based on the country code and issue date
+   *
+   * @param countryCode The country code of the document
+   * @param issueDate The issue date of the document
+   * @returns True if the document is supported, false otherwise
+   */
+  async isDocumentSupported(
+    countryCode: string,
+    issueDate: number,
+    type?: string,
+  ): Promise<boolean> {
+    const certificates = await this.getCertificates()
+
+    const hasCertificateBeforeIssueDate = certificates.certificates.some(
+      (c) =>
+        c.country === countryCode &&
+        c.validity.not_before < issueDate &&
+        (type ? c.type === type : true),
+    )
+
+    return hasCertificateBeforeIssueDate
+  }
+
+  /**
    * Get the address of the Root Registry
    * @returns The address of the Root Registry
    */
