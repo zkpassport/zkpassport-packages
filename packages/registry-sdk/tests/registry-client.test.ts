@@ -388,7 +388,7 @@ describe("Registry", () => {
     })
   })
 
-  describe.only("Document support", () => {
+  describe("Document support", () => {
     it("should return true if a certificate is available before the issue date", async () => {
       const randomTimestamp = Math.floor(new Date("2025-01-01").getTime() / 1000)
       const supported = await registry.isDocumentSupported("AUS", randomTimestamp)
@@ -398,6 +398,12 @@ describe("Registry", () => {
     it("should return false if a certificate is not available before the issue date", async () => {
       const randomTimestamp = Math.floor(new Date("2025-01-01").getTime() / 1000)
       const supported = await registry.isDocumentSupported("IND", randomTimestamp) // Not present in the mock registry
+      expect(supported).toBe(false)
+    })
+
+    it("should return false if a document is not supported by custom rules", async () => {
+      const randomTimestamp = Math.floor(new Date("2025-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentSupported("VNM", randomTimestamp)
       expect(supported).toBe(false)
     })
   })
