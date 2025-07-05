@@ -17,7 +17,7 @@
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"],
+  "include": ["src", "src/**/*.json"],
   "exclude": ["**/*.test.ts"],
   "references": [
     { "path": "../zkpassport-utils" }

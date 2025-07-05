@@ -30,6 +30,7 @@ import {
 } from "./constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
 import { normaliseHash, strip0x } from "./utils"
+import unsupportedDocuments from "./unsupported-documents.json"
 
 const log = debug("zkpassport:registry")
 
@@ -673,6 +674,41 @@ export class RegistryClient {
     } catch (err) {
       throw new Error(`Error getting address for registry ID ${registryId}: ${err}`)
     }
+  }
+
+  /**
+   * Check if a document is supported based on the country code and issue date
+   *
+   * @param countryCode The country code of the document
+   * @param issueDate The issue date of the document
+   * @returns True if the document is supported, false otherwise
+   */
+  async isDocumentSupported(
+    countryCode: string,
+    issueDate: number,
+    type?: string,
+  ): Promise<boolean> {
+    // Check if the document is in the unsupported rules list
+    const isInUnsupportedDocuments = unsupportedDocuments.find(
+      (d) =>
+        d.countryCode === countryCode &&
+        (d.issueDateFrom && d.issueDateTo
+          ? d.issueDateFrom <= issueDate && d.issueDateTo >= issueDate
+          : true),
+    )
+    if (isInUnsupportedDocuments) return false
+
+    // Check if there is a certificate available in the registry
+    const certificates = await this.getCertificates()
+    const hasCertificateBeforeIssueDate = certificates.certificates.some(
+      (c) =>
+        c.country === countryCode &&
+        c.validity.not_before < issueDate &&
+        (type ? c.type === type : true),
+    )
+    if (!hasCertificateBeforeIssueDate) return false
+
+    return true
   }
 
   /**
