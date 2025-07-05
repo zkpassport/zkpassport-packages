@@ -1,0 +1,50 @@
+name: ZKPassport SDK
+
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-bun-zkpassport-sdk-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-zkpassport-sdk
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build zkpassport-utils
+        run: bun run build
+        working-directory: packages/zkpassport-utils
+
+      - name: Build registry-sdk
+        run: bun run build
+        working-directory: packages/registry-sdk
+
+      - name: Build zkpassport-sdk
+        run: bun run build
+        working-directory: packages/zkpassport-sdk
+
+      - name: Run checks
+        run: bun run check
+        working-directory: packages/zkpassport-sdk
+
+      - name: Run tests
+        run: bun run test
+        working-directory: packages/zkpassport-sdk
