@@ -196,8 +196,8 @@ export async function startAnvil({
   // Make sure there's no anvil running on the port
   try {
     execSync(`lsof -ti:${PORT} | xargs kill -9`, { stdio: "ignore" })
-  } catch (error) {
-    console.error("Error killing Anvil process:", error)
+  } catch {
+    // Ignore error
   }
 
   // Run Anvil as a child process

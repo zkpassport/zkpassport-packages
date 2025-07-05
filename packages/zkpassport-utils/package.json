@@ -111,17 +111,6 @@
     "date-fns": "^4.1.0",
     "i18n-iso-countries": "^7.13.0"
   },
-  "devDependencies": {
-    "@babel/plugin-proposal-decorators": "^7.25.9",
-    "@babel/plugin-transform-class-properties": "^7.25.9",
-    "@babel/preset-env": "^7.26.0",
-    "@babel/preset-typescript": "^7.26.0",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.10.6",
-    "prettier": "^3.5.3",
-    "tsc-alias": "^1.8.16",
-    "tsup": "^8.5.0"
-  },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },

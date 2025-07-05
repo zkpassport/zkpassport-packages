@@ -38,18 +38,12 @@
     "debug": "^4.4.0"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.12",
-    "@types/debug": "^4.1.12",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^18.19.87",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
-    "keccak256": "^1.0.6",
-    "prettier": "^3.5.3",
-    "tsc-alias": "^1.8.16"
+    "keccak256": "^1.0.6"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

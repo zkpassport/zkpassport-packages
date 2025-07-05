@@ -1,0 +1,52 @@
+{
+  "name": "@zkpassport/sdk",
+  "version": "0.5.7-beta.1",
+  "description": "Privacy-preserving identity verification using passports and ID cards",
+  "author": "ZKPassport",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    }
+  },
+  "scripts": {
+    "test": "bun test",
+    "coverage": "bun test --coverage",
+    "check": "tsc --noEmit && prettier -c src tests",
+    "format": "prettier -c -w src tests",
+    "build": "rimraf dist && tsc && bun run scripts/fix-aliases.mjs && tsup",
+    "prepublishOnly": "./scripts/prepublish.sh"
+  },
+  "files": [
+    "dist/esm",
+    "dist/cjs"
+  ],
+  "keywords": [
+    "zkpassport",
+    "zkpassport-sdk",
+    "sdk"
+  ],
+  "dependencies": {
+    "@aztec/bb.js": "^0.82.2",
+    "@noble/ciphers": "^1.2.1",
+    "@noble/hashes": "^1.7.2",
+    "@noble/secp256k1": "^2.2.3",
+    "@obsidion/bridge": "^0.10.2",
+    "@zkpassport/registry": "workspace:*",
+    "@zkpassport/utils": "workspace:*",
+    "buffer": "^6.0.3",
+    "i18n-iso-countries": "^7.12.0",
+    "pako": "^2.1.0",
+    "viem": "^2.27.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/pako": "^2.0.3",
+    "@types/ws": "^8.5.12"
+  },
+  "packageManager": "bun@1.2.13"
+}
