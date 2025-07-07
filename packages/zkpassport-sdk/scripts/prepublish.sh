@@ -15,5 +15,10 @@ cd ../registry-sdk
 bun run check && bun run test && bun run build
 cd -
 
+# Sync workspace dependencies
+cd ../..
+./scripts/sync-workspace-deps.sh
+cd -
+
 # Check, test and build package
 bun run check && bun run test && bun run build
