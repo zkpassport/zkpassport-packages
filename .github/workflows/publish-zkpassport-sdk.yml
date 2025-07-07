@@ -12,9 +12,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -48,11 +45,11 @@ jobs:
         run: |
           VERSION=$(bun -p "require('./packages/zkpassport-sdk/package.json').version")
           if ! bun pm view @zkpassport/sdk@$VERSION version 2>/dev/null; then
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "publish=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish new version to npm
-        if: steps.version_check.outputs.exists == 'false'
+        if: steps.version_check.outputs.publish == 'true'
         run: bun publish
         working-directory: packages/zkpassport-sdk
         env:
