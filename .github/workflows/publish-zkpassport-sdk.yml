@@ -3,8 +3,6 @@ name: Publish ZKPassport SDK
 on:
   push:
     branches: [main, me/npm-auto-publish]
-    paths:
-      - 'packages/zkpassport-sdk/**'
 
 jobs:
   publish:
