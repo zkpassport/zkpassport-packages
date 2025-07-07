@@ -677,15 +677,16 @@ export class RegistryClient {
   }
 
   /**
-   * Check if a document is supported based on the country code and issue date
+   * Check if a document is likely to be supported for proving
    *
    * @param countryCode The country code of the document
    * @param issueDate The issue date of the document
-   * @returns True if the document is supported, false otherwise
+   * @returns True if the document is likely to be supported, false otherwise
    */
-  async isDocumentSupported(
+  async isDocumentLikelySupported(
     countryCode: string,
     issueDate: number,
+    expirtyDate: number,
     type?: string,
   ): Promise<boolean> {
     // Check if the document is in the unsupported rules list
@@ -700,13 +701,31 @@ export class RegistryClient {
 
     // Check if there is a certificate available in the registry
     const certificates = await this.getCertificates()
-    const hasCertificateBeforeIssueDate = certificates.certificates.some(
-      (c) =>
-        c.country === countryCode &&
-        c.validity.not_before < issueDate &&
-        (type ? c.type === type : true),
-    )
-    if (!hasCertificateBeforeIssueDate) return false
+
+    const hasValidCertificate = certificates.certificates
+      .filter((c) => c.country === countryCode)
+      .some((c) => {
+        // Check if the issue date falls within the private key usage period
+        let privateKeyUsagePeriodStart = c.private_key_usage_period?.not_before
+        let privateKeyUsagePeriodEnd = c.private_key_usage_period?.not_after
+
+        if (!privateKeyUsagePeriodStart || !privateKeyUsagePeriodEnd) {
+          // Compute the private key usage period if not provided.
+          // A certificate should be valid till "the issue date of last passport + its validity"
+          // i.e they are used for singing from `not_before` to `not_after - documentValidityDuration`
+          const documentValidityDuration = expirtyDate - issueDate
+          privateKeyUsagePeriodStart = c.validity.not_before
+          privateKeyUsagePeriodEnd = c.validity.not_after - documentValidityDuration
+        }
+
+        return (
+          issueDate >= privateKeyUsagePeriodStart! &&
+          issueDate <= privateKeyUsagePeriodEnd! &&
+          (type ? c.type === type : true)
+        )
+      })
+
+    if (!hasValidCertificate) return false
 
     return true
   }

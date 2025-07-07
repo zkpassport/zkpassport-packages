@@ -389,21 +389,48 @@ describe("Registry", () => {
   })
 
   describe("Document support", () => {
-    it("should return true if a certificate is available before the issue date", async () => {
-      const randomTimestamp = Math.floor(new Date("2025-01-01").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("AUS", randomTimestamp)
+    it("should return true if a certificate is available", async () => {
+      const issueDate = Math.floor(new Date("2013-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2023-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentLikelySupported("AUS", issueDate, expirtyDate)
       expect(supported).toBe(true)
     })
 
-    it("should return false if a certificate is not available before the issue date", async () => {
-      const randomTimestamp = Math.floor(new Date("2025-01-01").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("IND", randomTimestamp) // Not present in the mock registry
+    it("should return false if issue date is after the private key usage period mentioned in the certificate", async () => {
+      // AUS certificate's private key usage period is till 2014 (1298848488)
+      const issueDate = Math.floor(new Date("2016-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2026-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentLikelySupported("AUS", issueDate, expirtyDate)
+      expect(supported).toBe(false)
+    })
+
+    it("should return false if issue date is before the private key usage period mentioned in the certificate", async () => {
+      const issueDate = Math.floor(new Date("2011-02-26").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2021-02-26").getTime() / 1000)
+      const supported = await registry.isDocumentLikelySupported("AUS", issueDate, expirtyDate)
+      expect(supported).toBe(false)
+    })
+
+    it("should return true if issue date is within the private key usage period computed from document validity", async () => {
+      // ITA certificate is missing private_key_usage_period, but should valid till 2017 for signing
+      // assuming 10 year validity for issued documents
+      const issueDate = Math.floor(new Date("2017-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2027-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentLikelySupported("ITA", issueDate, expirtyDate)
+      expect(supported).toBe(true)
+    })
+
+    it("should return false if issue date is after the private key usage period computed from document validity", async () => {
+      const issueDate = Math.floor(new Date("2018-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2028-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentLikelySupported("ITA", issueDate, expirtyDate)
       expect(supported).toBe(false)
     })
 
     it("should return false if a document is not supported by custom rules", async () => {
-      const randomTimestamp = Math.floor(new Date("2025-01-01").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("VNM", randomTimestamp)
+      const issueDate = Math.floor(new Date("2025-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2035-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentLikelySupported("VNM", issueDate, expirtyDate)
       expect(supported).toBe(false)
     })
   })
