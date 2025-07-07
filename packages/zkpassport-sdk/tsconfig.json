@@ -1,21 +1,23 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "outDir": "./dist/cjs",
-    "rootDir": "./src",
-    "baseUrl": ".",
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "experimentalDecorators": true,
     "skipLibCheck": true,
+    "target": "es2020",
+    "module": "es2020",
+    "moduleResolution": "node",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "declaration": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true
   },
   "include": ["src"],
-  "exclude": ["**/*.test.ts"]
+  "exclude": ["node_modules", "**/__tests__/*"]
 }

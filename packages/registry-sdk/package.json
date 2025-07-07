@@ -1,19 +1,17 @@
 {
   "name": "@zkpassport/registry",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "description": "Registry SDK for interacting with the ZKPassport Registry",
   "author": "ZKPassport",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
+  "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
+      "require": "./dist/cjs/index.cjs"
     }
   },
   "scripts": {
@@ -21,7 +19,7 @@
     "coverage": "bun test tests/*.test.ts --coverage",
     "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
-    "build": "tsc && tsc -p tsconfig.cjs.json && bun run scripts/fix-aliases.mjs",
+    "build": "tsup",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
   "files": [
@@ -38,18 +36,12 @@
     "debug": "^4.4.0"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.12",
-    "@types/debug": "^4.1.12",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^18.19.87",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
-    "keccak256": "^1.0.6",
-    "prettier": "^3.5.3",
-    "tsc-alias": "^1.8.16"
+    "keccak256": "^1.0.6"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

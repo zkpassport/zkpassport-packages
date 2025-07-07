@@ -1,13 +1,10 @@
 {
   "compilerOptions": {
-    "composite": true,
     "target": "es2022",
     "module": "es2022",
     "moduleResolution": "bundler",
-    "outDir": "./dist/esm",
     "rootDir": "./src",
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] },
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
@@ -18,8 +15,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src", "src/**/*.json"],
-  "exclude": ["**/*.test.ts"],
-  "references": [
-    { "path": "../zkpassport-utils" }
-  ]
+  "exclude": ["**/*.test.ts"]
 }

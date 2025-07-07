@@ -10,8 +10,13 @@ cd ../..
 ./scripts/sync-workspace-deps.sh
 cd -
 
-# Build zkpassport-utils first
+# Build zkpassport-utils
 cd ../zkpassport-utils
+bun run check && bun run test && bun run build
+cd -
+
+# Build registry-sdk
+cd ../registry-sdk
 bun run check && bun run test && bun run build
 cd -
 

@@ -11,5 +11,13 @@
     "check": "bun run -F '*' check",
     "format": "bun run -F '*' format"
   },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.10",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.0"
+  },
   "packageManager": "bun@1.2.13"
 }

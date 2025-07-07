@@ -1,0 +1,55 @@
+name: Publish ZKPassport Utils
+
+on:
+  push:
+    paths:
+      - packages/zkpassport-utils/package.json
+
+jobs:
+  publish:
+    name: Publish Utils
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-bun-zkpassport-utils-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-zkpassport-utils
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Ensure workspace dependencies are synced
+        run: bash scripts/sync-workspace-deps.sh check
+
+      - name: Check if version is published to npm
+        if: github.ref == 'refs/heads/main'
+        id: version_check
+        run: |
+          VERSION=$(bun -p "require('./packages/zkpassport-utils/package.json').version")
+          if ! bun pm view @zkpassport/utils@$VERSION version 2>/dev/null; then
+            echo "publish=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish new version to npm
+        if: steps.version_check.outputs.publish == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          if [[ "${{ steps.version_check.outputs.version }}" =~ [0-9]+\.[0-9]+\.[0-9]+\- ]]; then
+            bun publish --tag beta
+          else
+            bun publish
+          fi
+        working-directory: packages/zkpassport-utils
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}

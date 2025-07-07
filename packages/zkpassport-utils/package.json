@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.16.2",
+  "version": "0.16.3-beta.1",
   "type": "module",
   "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
@@ -83,7 +83,7 @@
     "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests",
     "format": "prettier -c -w src tests",
-    "build": "tsc && bun run scripts/fix-aliases.mjs && tsup",
+    "build": "tsup",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
   "files": [
@@ -110,17 +110,6 @@
     "@zkpassport/poseidon2": "^0.6.2",
     "date-fns": "^4.1.0",
     "i18n-iso-countries": "^7.13.0"
-  },
-  "devDependencies": {
-    "@babel/plugin-proposal-decorators": "^7.25.9",
-    "@babel/plugin-transform-class-properties": "^7.25.9",
-    "@babel/preset-env": "^7.26.0",
-    "@babel/preset-typescript": "^7.26.0",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.10.6",
-    "prettier": "^3.5.3",
-    "tsc-alias": "^1.8.16",
-    "tsup": "^8.5.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
