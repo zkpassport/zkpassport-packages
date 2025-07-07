@@ -2,7 +2,6 @@ name: Publish ZKPassport SDK
 
 on:
   push:
-    branches: [main]
     paths:
       - packages/zkpassport-sdk/package.json
 
@@ -13,18 +12,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: stable
-
-      - name: Build contracts
-        run: forge build
-        working-directory: packages/registry-contracts
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -45,7 +32,23 @@ jobs:
       - name: Ensure workspace dependencies are synced
         run: bash scripts/sync-workspace-deps.sh check
 
+      - name: Install system dependencies
+        if: github.ref == 'refs/heads/main'
+        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
+
+      - name: Install Foundry
+        if: github.ref == 'refs/heads/main'
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Build contracts
+        if: github.ref == 'refs/heads/main'
+        run: forge build
+        working-directory: packages/registry-contracts
+
       - name: Check if version is published to npm
+        if: github.ref == 'refs/heads/main'
         id: version_check
         run: |
           VERSION=$(bun -p "require('./packages/zkpassport-sdk/package.json').version")
@@ -54,7 +57,7 @@ jobs:
           fi
 
       - name: Publish new version to npm
-        if: steps.version_check.outputs.publish == 'true'
+        if: steps.version_check.outputs.publish == 'true' && github.ref == 'refs/heads/main'
         run: bun publish
         working-directory: packages/zkpassport-sdk
         env:
