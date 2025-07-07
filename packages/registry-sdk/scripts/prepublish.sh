@@ -5,14 +5,14 @@ set -e
 # Require bun publish
 bun -e "process.env.npm_config_user_agent?.startsWith('bun/') || (console.error('Must use bun publish'), process.exit(1))"
 
-# Build zkpassport-utils first
-cd ../zkpassport-utils
-bun run check && bun run test && bun run build
-cd -
-
 # Sync workspace dependencies
 cd ../..
 ./scripts/sync-workspace-deps.sh
+cd -
+
+# Build zkpassport-utils first
+cd ../zkpassport-utils
+bun run check && bun run test && bun run build
 cd -
 
 # Check, test and build package
