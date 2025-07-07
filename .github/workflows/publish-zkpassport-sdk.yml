@@ -12,6 +12,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Build contracts
+        run: forge build
+        working-directory: packages/registry-contracts
+
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
