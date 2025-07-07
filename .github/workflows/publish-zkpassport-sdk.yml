@@ -2,10 +2,9 @@ name: Publish ZKPassport SDK
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, me/npm-auto-publish]
     paths:
       - 'packages/zkpassport-sdk/**'
-  workflow_dispatch:
 
 jobs:
   publish:
@@ -38,8 +37,7 @@ jobs:
         id: version_check
         run: |
           VERSION=$(bun -p "require('./packages/zkpassport-sdk/package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if ! npm view @zkpassport/sdk@$VERSION version 2>/dev/null; then
+          if ! bun pm view @zkpassport/sdk@$VERSION version 2>/dev/null; then
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
