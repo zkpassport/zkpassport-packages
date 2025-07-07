@@ -6,7 +6,7 @@ on:
     types: [opened, reopened, ready_for_review]
 
 jobs:
-  publish:
+  synced-deps-check:
     name: Synced dependencies check
     runs-on: ubuntu-latest
     steps:
