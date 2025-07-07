@@ -39,11 +39,17 @@ jobs:
           VERSION=$(bun -p "require('./packages/zkpassport-utils/package.json').version")
           if ! bun pm view @zkpassport/utils@$VERSION version 2>/dev/null; then
             echo "publish=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish new version to npm
         if: steps.version_check.outputs.publish == 'true' && github.ref == 'refs/heads/main'
-        run: bun publish
+        run: |
+          if [[ "${{ steps.version_check.outputs.version }}" =~ [0-9]+\.[0-9]+\.[0-9]+\- ]]; then
+            bun publish --tag beta
+          else
+            bun publish
+          fi
         working-directory: packages/zkpassport-utils
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
