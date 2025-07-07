@@ -50,7 +50,7 @@
     },
     "packages/registry-sdk": {
       "name": "@zkpassport/registry",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "dependencies": {
         "@zkpassport/utils": "workspace:*",
         "debug": "^4.4.0",
