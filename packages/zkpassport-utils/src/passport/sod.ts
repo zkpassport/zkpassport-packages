@@ -1,9 +1,9 @@
 import { ContentInfo, SignedData } from "@peculiar/asn1-cms"
-import { AsnConvert, AsnParser, AsnSerializer, OctetString } from "@peculiar/asn1-schema"
+import { AsnConvert, AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
 import { Binary } from "../binary"
 import { AttributeSet, LDSSecurityObject, Time } from "../cms/asn"
 import { decodeOID, getHashAlgorithmName, getOIDName } from "../cms/oids"
-import type { DigestAlgorithm, PublicKeyType, SignatureAlgorithm } from "../cms/types"
+import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
 import { DSC, DSCData } from "./dsc"
 import { formatDN } from "./common"
 
