@@ -1,0 +1,62 @@
+[
+  {
+    "countryCode": "RUS",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 0.5
+  },
+  {
+    "countryCode": "JPN",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 1
+  },
+  {
+    "countryCode": "GBR",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 1
+  },
+  {
+    "countryCode": "IDN",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 0
+  },
+  {
+    "countryCode": "NGA",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 0.5
+  },
+  {
+    "countryCode": "DEU",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 1
+  },
+  {
+    "countryCode": "EST",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 1
+  },
+  {
+    "countryCode": "SGP",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 0
+  },
+  {
+    "countryCode": "VNM",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 0
+  },
+  {
+    "countryCode": "TUR",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 0.5
+  }
+]

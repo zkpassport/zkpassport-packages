@@ -30,7 +30,7 @@ import {
 } from "./constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
 import { normaliseHash, strip0x } from "./utils"
-import unsupportedDocuments from "./unsupported-documents.json"
+import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
 
@@ -681,23 +681,25 @@ export class RegistryClient {
    *
    * @param countryCode The country code of the document
    * @param issueDate The issue date of the document
-   * @returns True if the document is likely to be supported, false otherwise
+   * @returns 0 if the document is not supported, 0.5 if it is likely to be supported, 1 if it is supported
    */
-  async isDocumentLikelySupported(
+  async isDocumentSupported(
     countryCode: string,
     issueDate: number,
     expirtyDate: number,
     type?: string,
-  ): Promise<boolean> {
-    // Check if the document is in the unsupported rules list
-    const isInUnsupportedDocuments = unsupportedDocuments.find(
+  ): Promise<number> {
+    // Check if the document is in the custom rules list
+    const customRule = documentSupportRules.find(
       (d) =>
         d.countryCode === countryCode &&
         (d.issueDateFrom && d.issueDateTo
           ? d.issueDateFrom <= issueDate && d.issueDateTo >= issueDate
           : true),
     )
-    if (isInUnsupportedDocuments) return false
+    if (customRule !== undefined) {
+      return customRule.supported
+    }
 
     // Check if there is a certificate available in the registry
     const certificates = await this.getCertificates()
@@ -725,9 +727,9 @@ export class RegistryClient {
         )
       })
 
-    if (!hasValidCertificate) return false
+    if (hasValidCertificate) return 0.5 // likely supported
 
-    return true
+    return 0 // not supported
   }
 
   /**
