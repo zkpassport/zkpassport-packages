@@ -83,7 +83,7 @@
     "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests",
     "format": "prettier -c -w src tests",
-    "build": "tsup --watch src/",
+    "build": "tsup",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
   "files": [

@@ -65,6 +65,7 @@ import {
   Service,
   CircuitManifest,
   getCircuitRegistryRootFromOuterProof,
+  hasRequestedAccessToField
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -151,23 +152,6 @@ function getEVMChainFromChainId(chainId: number): EVMChain {
 }
 
 registerLocale(i18en)
-
-function hasRequestedAccessToField(credentialsRequest: Query, field: IDCredential): boolean {
-  const fieldValue = credentialsRequest[field as keyof Query]
-  const isDefined = fieldValue !== undefined && fieldValue !== null
-  if (!isDefined) {
-    return false
-  }
-  for (const key in fieldValue) {
-    if (
-      fieldValue[key as keyof typeof fieldValue] !== undefined &&
-      fieldValue[key as keyof typeof fieldValue] !== null
-    ) {
-      return true
-    }
-  }
-  return false
-}
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
   if (country === "Zero Knowledge Republic") {

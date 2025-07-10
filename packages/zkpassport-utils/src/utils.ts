@@ -1,4 +1,7 @@
 import { bigIntToBuffer } from "@zk-kit/utils"
+import { Binary } from "./binary"
+import { ultraVkToFields } from "./circuits/vkey"
+import { poseidon2Hash } from "@zkpassport/poseidon2"
 
 export async function loadModule(module: string) {
   try {
@@ -202,3 +205,83 @@ export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): 
 }
 
 export { AggregateError, PromisePool } from "./promise-pool"
+
+export function capitalizeEveryWord(str: string): string {
+  if (!str) return ""
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+export function padArrayWithZeros(array: number[], length: number): number[] {
+  return array.concat(Array(length - array.length).fill(0))
+}
+
+export function textToBytes(text: string) {
+  return [...text].map((char) => char.charCodeAt(0))
+}
+
+export function hexToBytes(hex: string) {
+  const hexWithoutPrefix = hex.startsWith("0x") ? hex.slice(2) : hex
+  return hexWithoutPrefix.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+}
+
+export function bytesToBigInt(bytes: number[]) {
+  return BigInt(`0x${bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("")}`)
+}
+
+export function padHexToEven(hex: string) {
+  return hex.length % 2 === 0 ? hex : `0${hex}`
+}
+
+export function hexToBase64(hex: string) {
+  return Buffer.from(hexToBytes(hex)).toString("base64")
+}
+
+export function getCurrentDateYYMMDD() {
+  const date = new Date()
+  return `${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1)
+    .toString()
+    .padStart(2, "0")}${date.getDate().toString().padStart(2, "0")}`
+}
+
+export function getRandomBytes(length: number) {
+  return crypto.getRandomValues(new Uint8Array(length))
+}
+
+export function getRandomBytesHex(length: number) {
+  return Binary.from(getRandomBytes(length)).toString("hex")
+}
+
+export function hashVerificationKey(verificationKey: string) {
+  const vkeyBytes = hexToBytes(verificationKey)
+  const fields = ultraVkToFields(new Uint8Array(vkeyBytes))
+  return poseidon2Hash(fields.map((field) => BigInt(field))).toString(16)
+}
+
+export class TextDecoderPolyfill {
+  decode(buffer: Uint8Array | ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer instanceof ArrayBuffer ? buffer : buffer.buffer)
+    let result = ""
+    for (let i = 0; i < bytes.length; i++) {
+      result += String.fromCharCode(bytes[i])
+    }
+    return result
+  }
+}
+
+export class TextEncoderPolyfill {
+  encode(str: string): Uint8Array {
+    const arr = new Uint8Array(str.length)
+    for (let i = 0; i < str.length; i++) {
+      arr[i] = str.charCodeAt(i)
+    }
+    return arr
+  }
+}
+
+export function negativeBytesToPositiveBytes(bytes: number[]) {
+  return bytes.map((byte) => (byte < 0 ? byte + 256 : byte))
+}

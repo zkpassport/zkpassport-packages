@@ -6,6 +6,7 @@ import { decodeOID, getHashAlgorithmName, getOIDName } from "../cms/oids"
 import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
 import { DSC, DSCData } from "./dsc"
 import { formatDN } from "./common"
+import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 
 export class DataGroupHashValues {
   public values: { [key: number]: Binary }
@@ -350,6 +351,24 @@ export class SOD implements SODSignedData {
       bytes: this.bytes.length,
     }
   }
+
+  getAuthorityKeyId(): string | undefined {
+    const extensions = this.certificate.tbs.extensions;
+    const akiBuffer = extensions.get("authorityKeyIdentifier")?.value.toBuffer();
+      if (akiBuffer) {
+        const parsed = AsnParser.parse(akiBuffer, AuthorityKeyIdentifier);
+        if (parsed?.keyIdentifier?.buffer) {
+          const aki = Binary.from(parsed.keyIdentifier.buffer).toHex();
+          return aki;
+        } else {
+          console.log("No Authority Key ID found");
+        }
+      } else {
+        console.log("No Authority Key ID found");
+      }
+  }
+
+
 
   /**
    * Find the first occurrence of a subarray in a Uint8Array

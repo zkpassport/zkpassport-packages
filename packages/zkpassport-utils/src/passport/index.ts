@@ -1,3 +1,6 @@
 export * from "./passport-reader"
 export { SOD } from "./sod"
 export { DSC } from "./dsc"
+export * from "./mrz"
+export * from "./credentials"
+export * from "./passport-chip-positions"

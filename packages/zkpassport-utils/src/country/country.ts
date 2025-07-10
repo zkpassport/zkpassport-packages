@@ -15,6 +15,12 @@ export function countryCodeAlpha3ToName(countryCodeAlpha3: string) {
   return ccAlpha3ToName[countryCodeAlpha3.toUpperCase() as keyof typeof ccAlpha3ToName]
 }
 
+export function getCountryName(alpha3: string) {
+  return countryCodeAlpha3ToName(alpha3)
+}
+
+
+
 const ccAlpha3ToName = {
   "ABW": "Aruba",
   "AFG": "Afghanistan",

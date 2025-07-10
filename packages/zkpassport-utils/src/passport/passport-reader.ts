@@ -148,3 +148,34 @@ export function getDSCSignatureHashAlgorithm(dsc: DSC): DigestAlgorithm | undefi
     return "SHA512"
   }
 }
+
+// Helper function to convert stored passport data to PassportViewModel
+export const convertToPassportViewModel = (passportData: any): PassportViewModel => {
+  // Recursive function to convert serialized Binary (string) to actual Binary
+  const convertBytesToBinary = (obj: any): any => {
+    if (!obj || typeof obj !== "object") return obj
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => convertBytesToBinary(item))
+    }
+
+    const newObj: any = {}
+    for (const key in obj) {
+      if (key === "bytes" && typeof obj[key] === "string") {
+        newObj[key] = Binary.from(obj[key])
+      } else {
+        newObj[key] = convertBytesToBinary(obj[key])
+      }
+    }
+    return newObj
+  }
+
+  // Apply conversions
+  const passport = convertBytesToBinary(passportData) as PassportViewModel
+  passport.sod = SOD.fromDER(passport.sod.bytes)
+
+  // Patch for old ID with badly formatted MRZ
+  passport.mrz = passport.mrz.replaceAll(" ", "").replaceAll("\n", "")
+
+  return passport
+}
