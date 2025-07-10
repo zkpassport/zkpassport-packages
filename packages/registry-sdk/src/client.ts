@@ -30,6 +30,7 @@ import {
 } from "./constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
 import { normaliseHash, strip0x } from "./utils"
+import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
 
@@ -673,6 +674,62 @@ export class RegistryClient {
     } catch (err) {
       throw new Error(`Error getting address for registry ID ${registryId}: ${err}`)
     }
+  }
+
+  /**
+   * Check if a document is likely to be supported for proving
+   *
+   * @param countryCode The country code of the document
+   * @param issueDate The issue date of the document
+   * @returns 0 if the document is not supported, 0.5 if it is likely to be supported, 1 if it is supported
+   */
+  async isDocumentSupported(
+    countryCode: string,
+    issueDate: number,
+    expirtyDate: number,
+    type?: string,
+  ): Promise<number> {
+    // Check if the document is in the custom rules list
+    const customRule = documentSupportRules.find(
+      (d) =>
+        d.countryCode === countryCode &&
+        (d.issueDateFrom && d.issueDateTo
+          ? d.issueDateFrom <= issueDate && d.issueDateTo >= issueDate
+          : true),
+    )
+    if (customRule !== undefined) {
+      return customRule.supported
+    }
+
+    // Check if there is a certificate available in the registry
+    const certificates = await this.getCertificates()
+
+    const hasValidCertificate = certificates.certificates
+      .filter((c) => c.country === countryCode)
+      .some((c) => {
+        // Check if the issue date falls within the private key usage period
+        let privateKeyUsagePeriodStart = c.private_key_usage_period?.not_before
+        let privateKeyUsagePeriodEnd = c.private_key_usage_period?.not_after
+
+        if (!privateKeyUsagePeriodStart || !privateKeyUsagePeriodEnd) {
+          // Compute the private key usage period if not provided.
+          // A certificate should be valid till "the issue date of last passport + its validity"
+          // i.e they are used for singing from `not_before` to `not_after - documentValidityDuration`
+          const documentValidityDuration = expirtyDate - issueDate
+          privateKeyUsagePeriodStart = c.validity.not_before
+          privateKeyUsagePeriodEnd = c.validity.not_after - documentValidityDuration
+        }
+
+        return (
+          issueDate >= privateKeyUsagePeriodStart! &&
+          issueDate <= privateKeyUsagePeriodEnd! &&
+          (type ? c.type === type : true)
+        )
+      })
+
+    if (hasValidCertificate) return 0.5 // likely supported
+
+    return 0 // not supported
   }
 
   /**
