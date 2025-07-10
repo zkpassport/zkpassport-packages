@@ -1,4 +1,4 @@
-import { Binary, HexString } from "./binary"
+import { Binary, HexString } from "../src"
 
 describe("Binary", () => {
   // Constructor and factory methods

@@ -1,4 +1,5 @@
-import { computeMerkleProof } from "."
+import { computeMerkleProof } from "../src"
+
 
 describe("merkle tree", () => {
   test("compute merkle proof", async () => {
