@@ -387,4 +387,51 @@ describe("Registry", () => {
       expect(valid).toBe(false)
     })
   })
+
+  describe("Document support", () => {
+    it("should return value if found in custom rules", async () => {
+      const issueDate = Math.floor(new Date("2025-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2035-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentSupported("RUS", issueDate, expirtyDate)
+      expect(supported).toBe(0.5)
+    })
+
+    it("should return 0.5 if a certificate is available", async () => {
+      const issueDate = Math.floor(new Date("2013-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2023-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentSupported("AUS", issueDate, expirtyDate)
+      expect(supported).toBe(0.5)
+    })
+
+    it("should return 0 if issue date is after the private key usage period mentioned in the certificate", async () => {
+      // AUS certificate's private key usage period is till 2014 (1298848488)
+      const issueDate = Math.floor(new Date("2016-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2026-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentSupported("AUS", issueDate, expirtyDate)
+      expect(supported).toBe(0)
+    })
+
+    it("should return 0 if issue date is before the private key usage period mentioned in the certificate", async () => {
+      const issueDate = Math.floor(new Date("2011-02-26").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2021-02-26").getTime() / 1000)
+      const supported = await registry.isDocumentSupported("AUS", issueDate, expirtyDate)
+      expect(supported).toBe(0)
+    })
+
+    it("should return 0.5 if issue date is within the private key usage period computed from document validity", async () => {
+      // ITA certificate is missing private_key_usage_period, but should valid till 2017 for signing
+      // assuming 10 year validity for issued documents
+      const issueDate = Math.floor(new Date("2017-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2027-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentSupported("ITA", issueDate, expirtyDate)
+      expect(supported).toBe(0.5)
+    })
+
+    it("should return 0 if issue date is after the private key usage period computed from document validity", async () => {
+      const issueDate = Math.floor(new Date("2018-01-01").getTime() / 1000)
+      const expirtyDate = Math.floor(new Date("2028-01-01").getTime() / 1000)
+      const supported = await registry.isDocumentSupported("ITA", issueDate, expirtyDate)
+      expect(supported).toBe(0)
+    })
+  })
 })
