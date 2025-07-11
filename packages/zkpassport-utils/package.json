@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.16.3-beta.1",
+  "version": "0.16.4",
   "type": "module",
   "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
@@ -81,8 +81,8 @@
   "scripts": {
     "test": "bun test src tests",
     "coverage": "bun test src tests --coverage",
-    "check": "tsc --noEmit && prettier -c src tests",
-    "format": "prettier -c -w src tests",
+    "check": "tsc --noEmit && prettier -c src tests && eslint src --ext .ts",
+    "format": "prettier -c -w src tests && eslint src --ext .ts --fix",
     "build": "tsup",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
@@ -110,6 +110,11 @@
     "@zkpassport/poseidon2": "^0.6.2",
     "date-fns": "^4.1.0",
     "i18n-iso-countries": "^7.13.0"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "^5.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

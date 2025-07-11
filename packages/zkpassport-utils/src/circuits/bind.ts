@@ -1,5 +1,5 @@
 import { leftPadArrayWithZeros, packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
-import { BindCommittedInputs, BoundData, Query } from "../types"
+import { BindCommittedInputs, BoundData } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { sha256 } from "@noble/hashes/sha2"
 import { ProofType } from "."

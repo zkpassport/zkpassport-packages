@@ -44,6 +44,7 @@ describe("Binary", () => {
     })
 
     it("should throw for unsupported types", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(() => new Binary({} as any)).toThrow("Unsupported data type")
     })
   })

@@ -10,9 +10,12 @@ declare let crypto:
 // Conditionally import crypto in Node.js environment
 if (typeof window === "undefined") {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const nodeCrypto = require("crypto")
     crypto = nodeCrypto
-  } catch {}
+  } catch {
+    // Ignore
+  }
 }
 
 import { AsnParser } from "@peculiar/asn1-schema"

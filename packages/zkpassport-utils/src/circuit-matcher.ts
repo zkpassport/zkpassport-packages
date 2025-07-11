@@ -70,7 +70,7 @@ export function isSignatureAlgorithmSupported(
     try {
       const ecdsaInfo = getECDSAInfo(tbsCertificate.subjectPublicKeyInfo)
       return !!ecdsaInfo.curve
-    } catch (e) {
+    } catch {
       return false
     }
   } else if (signatureAlgorithm === "RSA") {
@@ -377,7 +377,7 @@ export function getScopeHash(value?: string): bigint {
 }
 
 export function getServiceScopeHash(domain: string, chainId?: number) {
-  const scope = !!chainId ? `${domain}:chain-${chainId}` : domain
+  const scope = chainId ? `${domain}:chain-${chainId}` : domain
   return getScopeHash(scope)
 }
 
@@ -409,7 +409,7 @@ export async function getDSCCircuitInputs(
     index: number
     path: (string | HexString)[]
   },
-): Promise<any> {
+) {
   // Get the CSCA for this passport's DSC
   const csca = getCscaForPassport(passport.sod.certificate, certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
@@ -481,7 +481,7 @@ export async function getIDDataCircuitInputs(
   passport: PassportViewModel,
   saltIn: bigint,
   saltOut: bigint,
-): Promise<any> {
+) {
   const idData = getIDDataInputs(passport)
   const maxTbsLength = getTBSMaxLen(passport)
   const dscData = getDSCDataInputs(passport, maxTbsLength)
@@ -547,7 +547,7 @@ export async function getIntegrityCheckCircuitInputs(
   passport: PassportViewModel,
   saltIn: bigint,
   saltOut: bigint,
-): Promise<any> {
+) {
   const maxTbsLength = getTBSMaxLen(passport)
   const dscData = getDSCDataInputs(passport, maxTbsLength)
   if (!dscData) return null
@@ -646,7 +646,7 @@ export async function getDiscloseCircuitInputs(
   salt: bigint,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
-): Promise<any> {
+) {
   const idData = getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -662,7 +662,7 @@ export async function getDiscloseCircuitInputs(
   )
 
   const discloseMask = Array(90).fill(0)
-  let fieldsToDisclose: { [key in IDCredential]: boolean } = {} as any
+  const fieldsToDisclose: { [key in IDCredential]: boolean } = {} as any
   for (const field in query) {
     if (query[field as IDCredential]?.disclose || query[field as IDCredential]?.eq) {
       fieldsToDisclose[field as IDCredential] = true
@@ -671,44 +671,54 @@ export async function getDiscloseCircuitInputs(
   for (const field in fieldsToDisclose) {
     if (fieldsToDisclose[field as IDCredential]) {
       switch (field as IDCredential) {
-        case "firstname":
+        case "firstname": {
           const firstNameRange = getFirstNameRange(passport)
           discloseMask.fill(1, firstNameRange[0], firstNameRange[1])
           break
-        case "lastname":
+        }
+        case "lastname": {
           const lastNameRange = getLastNameRange(passport)
           discloseMask.fill(1, lastNameRange[0], lastNameRange[1])
           break
-        case "fullname":
+        }
+        case "fullname": {
           const fullNameRange = getFullNameRange(passport)
           discloseMask.fill(1, fullNameRange[0], fullNameRange[1])
           break
-        case "birthdate":
+        }
+        case "birthdate": {
           const birthdateRange = getBirthdateRange(passport)
           discloseMask.fill(1, birthdateRange[0], birthdateRange[1])
           break
-        case "document_number":
+        }
+        case "document_number": {
           const documentNumberRange = getDocumentNumberRange(passport)
           discloseMask.fill(1, documentNumberRange[0], documentNumberRange[1])
           break
-        case "nationality":
+        }
+        case "nationality": {
           const nationalityRange = getNationalityRange(passport)
           discloseMask.fill(1, nationalityRange[0], nationalityRange[1])
           break
-        case "document_type":
+        }
+        case "document_type": {
           discloseMask.fill(1, 0, 2)
           break
-        case "expiry_date":
+        }
+        case "expiry_date": {
           const expiryDateRange = getExpiryDateRange(passport)
           discloseMask.fill(1, expiryDateRange[0], expiryDateRange[1])
           break
-        case "gender":
+        }
+        case "gender": {
           const genderRange = getGenderRange(passport)
           discloseMask.fill(1, genderRange[0], genderRange[1])
           break
-        case "issuing_country":
+        }
+        case "issuing_country": {
           discloseMask.fill(1, 2, 5)
           break
+        }
       }
     }
   }
@@ -801,7 +811,7 @@ export async function getAgeCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
-  let age = calculateAge(passport)
+  const age = calculateAge(passport)
 
   let minAge = 0
   let maxAge = 0

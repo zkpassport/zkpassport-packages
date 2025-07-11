@@ -290,6 +290,7 @@ export class SOD implements SODSignedData {
       certificate: DSC.fromCertificate(cert),
     })
   }
+
   /**
    * Get the redacted SOD
    * This is the full SOD with the data group hash values replaced with zeros
