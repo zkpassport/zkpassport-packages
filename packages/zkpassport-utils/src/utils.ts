@@ -2,6 +2,7 @@ import { bigIntToBuffer } from "@zk-kit/utils"
 
 export async function loadModule(module: string) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require(module)
   } catch {
     return undefined

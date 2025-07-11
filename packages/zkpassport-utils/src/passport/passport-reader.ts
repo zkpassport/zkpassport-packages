@@ -132,7 +132,7 @@ export function getDSCSignatureAlgorithmType(passport: PassportViewModel): "RSA"
 
 export function getDSCSignatureHashAlgorithm(dsc: DSC): DigestAlgorithm | undefined {
   if (dsc.signatureAlgorithm.name.toLowerCase().includes("pss")) {
-    const params = getRSAPSSParams(dsc.signatureAlgorithm.parameters?.toBuffer()! as BufferSource)
+    const params = getRSAPSSParams(dsc.signatureAlgorithm.parameters?.toBuffer() as BufferSource)
     return params.hashAlgorithm
   }
 

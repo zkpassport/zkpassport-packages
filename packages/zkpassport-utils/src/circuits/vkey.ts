@@ -17,7 +17,7 @@ export function ultraVkToFields(bytes: Uint8Array): string[] {
   const circuit_size = shift(vkey, 8) // uint64
   fields.push(toField(circuit_size.bytes))
 
-  const num_public_inputs = shift(vkey, 8) // uint64, skipped
+  const _num_public_inputs = shift(vkey, 8) // uint64, skipped
 
   const pub_inputs_offset = shift(vkey, 8) //  uint64
   fields.push(toField(pub_inputs_offset.bytes))

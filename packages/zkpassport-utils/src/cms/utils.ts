@@ -5,9 +5,7 @@ import { ECParameters } from "@peculiar/asn1-ecc"
 import { RSAPublicKey, RsaSaPssParams } from "@peculiar/asn1-rsa"
 import { AsnParser } from "@peculiar/asn1-schema"
 import {
-  AlgorithmIdentifier,
   AuthorityKeyIdentifier,
-  ParametersType,
   PrivateKeyUsagePeriod,
   SubjectKeyIdentifier,
   SubjectPublicKeyInfo,
@@ -154,7 +152,7 @@ export function getAuthorityKeyId(cert: X509Certificate): string | undefined {
       const keyId = authKeyId?.keyIdentifier?.buffer
       if (!keyId) return
       return `0x${Buffer.from(keyId).toString("hex")}`
-    } catch (error) {
+    } catch {
       return
     }
   }
@@ -171,7 +169,7 @@ export function getSubjectKeyId(cert: X509Certificate): string | undefined {
       const keyId = subjKeyId?.buffer
       if (!keyId) return
       return `0x${Buffer.from(keyId).toString("hex")}`
-    } catch (error) {
+    } catch {
       return
     }
   }
@@ -192,10 +190,6 @@ export function getPrivateKeyUsagePeriod(
     }
   }
   return
-}
-
-function fromBytesToBigInt(bytes: number[]): bigint {
-  return BigInt("0x" + Buffer.from(bytes).toString("hex"))
 }
 
 function fromArrayBufferToBigInt(buffer: ArrayBuffer): bigint {
