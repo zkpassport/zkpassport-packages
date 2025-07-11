@@ -107,4 +107,67 @@ describe("SOD", () => {
     expect(exportableSOD.certificate.tbs.extensions.has("authorityKeyIdentifier")).toBe(true)
     expect(exportableSOD.certificate.tbs.extensions.has("subjectKeyIdentifier")).toBe(true)
   })
+
+  it("should get the redacted SOD with data group hashes replaced by zeros", () => {
+    const redactedSOD = sod.getRedactedSOD()
+
+    // The redacted SOD should have the same length as the original
+    expect(redactedSOD.length).toBe(sod.bytes.length)
+
+    // But should not contain the original data group hash values
+    const dgHashes = sod.encapContentInfo.eContent.dataGroupHashValues.values
+    const redactedHex = redactedSOD.toHex()
+
+    // Verify that none of the original hash values are present in the redacted SOD
+    Object.values(dgHashes).forEach((hashValue) => {
+      const hashHex = hashValue.toHex().slice(2) // Remove 0x prefix
+      expect(redactedHex).not.toContain(hashHex)
+    })
+
+    // The redacted SOD should be different from the original
+    expect(redactedSOD.equals(sod.bytes)).toBe(false)
+
+    // But still be a valid binary of the same size
+    expect(redactedSOD).toBeInstanceOf(Binary)
+  })
+
+  it("compares the redacted SOD with the original SOD", () => {
+    const redactedSOD = sod.getRedactedSOD()
+
+    // Parse the redacted SOD back to verify its structure
+    const redactedSODParsed = SOD.fromDER(redactedSOD)
+
+    // The structure should be identical to the original
+    expect(redactedSODParsed.version).toBe(sod.version)
+    expect(redactedSODParsed.digestAlgorithms).toEqual(sod.digestAlgorithms)
+    expect(redactedSODParsed.encapContentInfo.eContentType).toBe(sod.encapContentInfo.eContentType)
+    expect(redactedSODParsed.encapContentInfo.eContent.version).toBe(
+      sod.encapContentInfo.eContent.version,
+    )
+    expect(redactedSODParsed.encapContentInfo.eContent.hashAlgorithm).toBe(
+      sod.encapContentInfo.eContent.hashAlgorithm,
+    )
+
+    // The data group hash values should all be zeros
+    const redactedDGHashes = redactedSODParsed.encapContentInfo.eContent.dataGroupHashValues.values
+    const originalDGHashes = sod.encapContentInfo.eContent.dataGroupHashValues.values
+    // Should have the same data group numbers
+    expect(Object.keys(redactedDGHashes)).toEqual(Object.keys(originalDGHashes))
+
+    // But all hash values should be zeros (while maintaining original lengths)
+    Object.entries(redactedDGHashes).forEach(([dgNumber, hashValue]) => {
+      const originalLength = originalDGHashes[Number(dgNumber)].length
+      expect(hashValue.length).toBe(originalLength) // Same length as original
+      expect(hashValue.toNumberArray().every((byte) => byte === 0)).toBe(true) // All bytes are zeros
+    })
+
+    // Other non-sensitive data should be identical to the original
+    expect(redactedSODParsed.signerInfo.version).toBe(sod.signerInfo.version)
+    expect(redactedSODParsed.signerInfo.digestAlgorithm).toBe(sod.signerInfo.digestAlgorithm)
+    expect(redactedSODParsed.signerInfo.signatureAlgorithm.name).toBe(
+      sod.signerInfo.signatureAlgorithm.name,
+    )
+    expect(redactedSODParsed.certificate.tbs.subject).toBe(sod.certificate.tbs.subject)
+    expect(redactedSODParsed.certificate.tbs.issuer).toBe(sod.certificate.tbs.issuer)
+  })
 })

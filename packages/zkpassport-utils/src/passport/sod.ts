@@ -3,7 +3,7 @@ import { AsnConvert, AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
 import { Binary } from "../binary"
 import { AttributeSet, LDSSecurityObject, Time } from "../cms/asn"
 import { decodeOID, getHashAlgorithmName, getOIDName } from "../cms/oids"
-import type { DigestAlgorithm, PublicKeyType, SignatureAlgorithm } from "../cms/types"
+import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
 import { DSC, DSCData } from "./dsc"
 import { formatDN } from "./common"
 
@@ -157,7 +157,6 @@ export type ExportableSOD = {
   // Becomes the length of the SOD bytes
   bytes: number
 }
-
 export class SOD implements SODSignedData {
   version: number
   digestAlgorithms: DigestAlgorithm[]
@@ -291,6 +290,25 @@ export class SOD implements SODSignedData {
       certificate: DSC.fromCertificate(cert),
     })
   }
+  /**
+   * Get the redacted SOD
+   * This is the full SOD with the data group hash values replaced with zeros
+   * This is used to create a SOD that can be exported without exposing the sensitive data
+   */
+  getRedactedSOD(): Binary {
+    const haystack = this.bytes.toUInt8Array()
+    for (const hashValue of Object.values(
+      this.encapContentInfo.eContent.dataGroupHashValues.values,
+    )) {
+      const needle = hashValue.toUInt8Array()
+      const pos = this.findSubarray(haystack, needle)
+      if (pos !== -1) {
+        haystack.fill(0, pos, pos + needle.length)
+      }
+    }
+
+    return Binary.from(haystack)
+  }
 
   /**
    * Get the exportable SOD
@@ -331,6 +349,24 @@ export class SOD implements SODSignedData {
       },
       bytes: this.bytes.length,
     }
+  }
+
+  /**
+   * Find the first occurrence of a subarray in a Uint8Array
+   * @param haystack - The array to search in
+   * @param needle - The subarray to find
+   * @returns The index of the first occurrence of the subarray, or -1 if not found
+   */
+  private findSubarray(haystack: Uint8Array, needle: Uint8Array): number {
+    const H = haystack.length,
+      N = needle.length
+    outer: for (let i = 0; i <= H - N; i++) {
+      for (let j = 0; j < N; j++) {
+        if (haystack[i + j] !== needle[j]) continue outer
+      }
+      return i
+    }
+    return -1
   }
 
   /*[Symbol.for("nodejs.util.inspect.custom")](): string {
