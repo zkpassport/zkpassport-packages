@@ -52,6 +52,7 @@ import {
   rightPadArrayWithZeros,
 } from "./utils"
 import { DSC } from "./passport/dsc"
+import { DataStructureError, ZKPassportErrorSubType } from "./errors"
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
@@ -412,7 +413,17 @@ export async function getDSCCircuitInputs(
 ): Promise<any> {
   // Get the CSCA for this passport's DSC
   const csca = getCscaForPassport(passport.sod.certificate, certificates)
-  if (!csca) throw new Error("Could not find CSCA for DSC")
+  if (!csca) {
+    throw new DataStructureError(
+      `Could not find CSCA for DSC`,
+      ZKPassportErrorSubType.NOT_FOUND,
+      {
+        file: 'circuit-matcher.ts',
+        function: 'computeCertificateRegistryMerkleProof',
+        dscCertificate: passport.sod.certificate
+      }
+    )
+  }
   // Generate the certificate registry merkle proof
   const cscaLeaf = await getCertificateLeafHash(csca)
   const leaves = overrideCertLeaves ?? (await getCertificateLeafHashes(certificates))

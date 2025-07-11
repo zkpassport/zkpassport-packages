@@ -4,6 +4,7 @@ import { p521 } from "@noble/curves/p521"
 import { ECParameters } from "@peculiar/asn1-ecc"
 import { RSAPublicKey, RsaSaPssParams } from "@peculiar/asn1-rsa"
 import { AsnParser } from "@peculiar/asn1-schema"
+import { CryptographicError, ValidationError, MissingDataError, ZKPassportErrorSubType, DataStructureError, ParsingError } from "../errors"
 import {
   AlgorithmIdentifier,
   AuthorityKeyIdentifier,
@@ -45,12 +46,27 @@ export function getAbbreviatedCurveName(ecParams: ECParameters): string {
 export function getCurveName(ecParams: ECParameters): CurveName {
   if (ecParams.namedCurve) {
     if (!(ecParams.namedCurve in CURVE_OIDS)) {
-      throw new Error(`Unknown curve OID: ${ecParams.namedCurve}`)
+      throw new CryptographicError(
+        `Unknown curve OID: ${ecParams.namedCurve}`,
+        ZKPassportErrorSubType.UNKNOWN_CURVE,
+        {
+          file: 'cms/utils.ts',
+          function: 'getCurveName',
+          curveOID: ecParams.namedCurve
+        }
+      )
     }
     return CURVE_OIDS[ecParams.namedCurve as keyof typeof CURVE_OIDS] as CurveName
   }
   if (!ecParams.specifiedCurve) {
-    throw new Error("No named or specified curve found in ECParameters")
+    throw new MissingDataError(
+      "No named or specified curve found in ECParameters",
+      ZKPassportErrorSubType.MISSING_PARAMETER,
+      {
+        file: 'cms/utils.ts',
+        function: 'getCurveName'
+      }
+    )
   }
   // Map the specified curve to a known Brainpool curve name
   const a = BigInt(`0x${Buffer.from(ecParams.specifiedCurve.curve.a).toString("hex")}`)
@@ -405,8 +421,18 @@ export function x509ToPackagedCertificate(x509: X509Certificate): PackagedCertif
   const notAfter = Math.floor(new Date(validity.notAfter.getTime()).getTime() / 1000)
 
   const countryCodeAlpha2 = getCertificateIssuerCountry(x509)
-  if (!countryCodeAlpha2) throw new Error(`Country is missing from certificate`)
-  if (countryCodeAlpha2.length !== 2) throw new Error("Invalid country code")
+  if (!countryCodeAlpha2) {
+    throw new MissingDataError(
+      `Country is missing from certificate`,
+      ZKPassportErrorSubType.INVALID_CERTIFICATE,
+      {
+        file: 'cms/utils.ts',
+        function: 'x509ToPackagedCertificate',
+        certificate: x509.tbsCertificate
+      }
+    )
+  }
+  if (countryCodeAlpha2.length !== 2) throw new Error(`Invalid country code: ${countryCodeAlpha2}`)
   const countryCodeAlpha3 = countryCodeAlpha2ToAlpha3(countryCodeAlpha2)
 
   // Return RSA certificate
@@ -507,7 +533,15 @@ export function convertPemToPackagedCertificate(pemContent: string): PackagedCer
     return x509ToPackagedCertificate(x509)
   } catch (error) {
     console.error("Error parsing PEM certificate:", error)
-    throw new Error("Error parsing PEM certificate")
+    throw new MissingDataError(
+      `Error parsing PEM certificate`,
+      ZKPassportErrorSubType.INVALID_CERTIFICATE,
+      {
+        file: 'cms/utils.ts',
+        function: 'convertPemToPackagedCertificate',
+        pemContent: pemContent
+      }
+    )
   }
 }
 
@@ -535,7 +569,15 @@ export function convertPemToPackagedCertificates(pemContent: string): PackagedCe
     }
   } catch (error) {
     console.error("Error parsing PEM certificates:", error)
-    throw new Error("Error parsing PEM certificates")
+    throw new ParsingError(
+      `Error parsing PEM certificates`,
+      ZKPassportErrorSubType.INVALID_CERTIFICATE,
+      {
+        file: 'cms/utils.ts',
+        function: 'convertPemToPackagedCertificates',
+        pemContent: pemContent
+      }
+    )
   }
   return certificates
 }

@@ -6,6 +6,7 @@ import {
   requireObject,
   requireTypes,
 } from "@zk-kit/utils"
+import { CapacityError, DataStructureError, ZKPassportErrorSubType } from "../errors"
 
 /**
  * It represents a node of the tree, which can be a number, a string or a bigint.
@@ -161,7 +162,16 @@ export class AsyncIMT {
     requireObject(leaves, "leaves")
 
     if (leaves.length > this._arity ** this._depth) {
-      throw new Error(`The tree cannot contain more than ${this._arity ** this._depth} leaves`)
+      throw new CapacityError(
+        `The tree cannot contain more than ${this._arity ** this._depth} leaves`,
+        ZKPassportErrorSubType.CAPACITY_EXCEEDED,
+        {
+          file: 'merkle-tree/async-imt.ts',
+          function: 'constructor',
+          maxCapacity: this._arity ** this._depth,
+          actualSize: leaves.length
+        }
+      )
     }
 
     for (let level = 0; level < this.depth; level += 1) {
@@ -213,7 +223,16 @@ export class AsyncIMT {
     requireTypes(leaf, "leaf", ["number", "string", "bigint"])
 
     if (this._nodes[0].length >= this.arity ** this.depth) {
-      throw new Error("The tree is full")
+      throw new CapacityError(
+        `The tree is full`,
+        ZKPassportErrorSubType.CAPACITY_EXCEEDED,
+        {
+          file: 'merkle-tree/async-imt.ts',
+          function: 'insert',
+          maxCapacity: this.arity ** this.depth,
+          actualSize: this._nodes[0].length
+        }
+      )
     }
 
     let node = leaf
@@ -260,7 +279,15 @@ export class AsyncIMT {
     requireNumber(index, "index")
 
     if (index < 0 || index >= this._nodes[0].length) {
-      throw new Error("The leaf does not exist in this tree")
+      throw new DataStructureError(
+        `The leaf does not exist in this tree`,
+        ZKPassportErrorSubType.NOT_FOUND,
+        {
+          file: 'merkle-tree/async-imt.ts',
+          function: 'update',
+          index: index
+        }
+      )
     }
 
     if (newLeaf === this._nodes[0][index]) return
@@ -300,7 +327,15 @@ export class AsyncIMT {
     requireNumber(index, "index")
 
     if (index < 0 || index >= this._nodes[0].length) {
-      throw new Error("The leaf does not exist in this tree")
+      throw new DataStructureError(
+        `The leaf does not exist in this tree`,
+        ZKPassportErrorSubType.NOT_FOUND,
+        {
+          file: 'merkle-tree/async-imt.ts',
+          function: 'createProof',
+          index: index
+        }
+      )
     }
 
     const siblings: IMTNode[][] = []

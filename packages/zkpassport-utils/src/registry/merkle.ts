@@ -1,3 +1,4 @@
+import { DataStructureError, ZKPassportErrorSubType } from "@/errors"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 
 /**
@@ -48,7 +49,11 @@ export class AsyncMerkleTree {
 
     // Check for duplicate leaves
     const uniqueLeaves = new Set(leaves.map((leaf) => leaf.toString()))
-    if (uniqueLeaves.size !== leaves.length) throw new Error("Duplicate leaves")
+    if (uniqueLeaves.size !== leaves.length) throw new DataStructureError(`Duplicate leaves`, ZKPassportErrorSubType.DUPLICATE_ENTRY, {
+      file: 'registry/merkle.ts',
+      function: 'initialize',
+      leaves: leaves
+    })
 
     for (let level = 0; level < this.depth; level += 1) {
       this.zeroes.push(zeroValue)

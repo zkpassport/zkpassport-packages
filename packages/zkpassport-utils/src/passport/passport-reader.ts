@@ -9,6 +9,7 @@ import { PassportViewModel } from "../types"
 import { SOD } from "./sod"
 import { getRSAPSSParams } from "../cms"
 import { DSC } from "./dsc"
+import { StateError, ZKPassportErrorSubType } from "@/errors"
 
 export class PassportReader {
   public dg1?: Binary
@@ -16,7 +17,12 @@ export class PassportReader {
 
   getPassportViewModel(): PassportViewModel {
     if (this.dg1 === undefined || this.sod === undefined) {
-      throw new Error("PassportReader not initialized")
+      throw new StateError("PassportReader not initialized", ZKPassportErrorSubType.NOT_INITIALIZED, {
+        file: 'passport/passport-reader.ts',
+        function: 'getPassportViewModel',
+        dg1: this.dg1,
+        sod: this.sod
+      })
     }
     const isIDCard = this.dg1.length === 95
     const mrz = this.dg1.slice(5).toString("ascii")

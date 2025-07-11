@@ -4,6 +4,7 @@ import { getOIDName } from "../cms/oids"
 import type { PublicKeyType, SignatureAlgorithm } from "../cms/types"
 import { Certificate } from "@peculiar/asn1-x509"
 import { formatDN } from "./common"
+import { CertificateError, ZKPassportErrorSubType } from "@/errors"
 
 export type DSCData = {
   // TBS (To-Be-Signed) certificate
@@ -114,7 +115,11 @@ export class DSC implements DSCData {
 
   static fromCertificate(certificate: Certificate): DSC {
     const tbs = certificate.tbsCertificate
-    if (!tbs) throw new Error("No TBS found in DSC certificate")
+    if (!tbs) throw new CertificateError(`No TBS found in DSC certificate`, ZKPassportErrorSubType.INVALID_CERTIFICATE, {
+      file: 'passport/dsc.ts',
+      function: 'fromCertificate',
+      certificate: certificate
+    })
 
     return {
       tbs: {

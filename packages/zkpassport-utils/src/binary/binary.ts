@@ -1,3 +1,5 @@
+import { ValidationError, ZKPassportErrorSubType } from '../errors'
+
 declare global {
   interface BigIntConstructor {
     (value: Binary): bigint
@@ -38,7 +40,15 @@ export class Binary {
 
     if (Array.isArray(data)) {
       if (!data.every((n) => typeof n === "number" && n >= 0 && n <= 255)) {
-        throw new Error("Invalid byte array: values must be between 0 and 255")
+        throw new ValidationError(
+          "Invalid byte array: values must be between 0 and 255",
+          ZKPassportErrorSubType.INVALID_VALUE,
+          { 
+            file: 'binary.ts',
+            function: 'convertToBytes',
+            input: data
+          }
+        )
       }
       return new Uint8Array(data)
     }
@@ -64,7 +74,15 @@ export class Binary {
       }
     }
 
-    throw new Error("Unsupported data type")
+    throw new ValidationError(
+      "Unsupported data type",
+      ZKPassportErrorSubType.INVALID_TYPE,
+      {
+        file: 'binary.ts',
+        function: 'convertToBytes',
+        inputType: typeof data
+      }
+    )
   }
 
   private static isHexString(value: string): value is HexString {
@@ -79,7 +97,15 @@ export class Binary {
 
   static fromHex(hex: string): Binary {
     if (!Binary.isHexString(hex)) {
-      throw new Error("Invalid hex string")
+      throw new ValidationError(
+        "Invalid hex string",
+        ZKPassportErrorSubType.INVALID_FORMAT,
+        {
+          file: 'binary.ts',
+          function: 'fromHex',
+          input: hex
+        }
+      )
     }
     return new Binary(hex.startsWith("0x") ? hex : "0x" + hex)
   }

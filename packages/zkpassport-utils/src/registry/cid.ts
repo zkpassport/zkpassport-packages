@@ -10,6 +10,8 @@
  * - multihash with sha2-256
  */
 
+import { ValidationError, ZKPassportErrorSubType } from "@/errors"
+
 /**
  * Base58 character set used in CIDv0
  */
@@ -107,7 +109,11 @@ export function cidv0ToHex(cid: string): string {
   }
   // Validate CID format (basic check)
   if (!cid.startsWith("Qm")) {
-    throw new Error('Invalid CID format: expected a CIDv0 starting with "Qm"')
+    throw new ValidationError(`Invalid CID format: expected a CIDv0 starting with "Qm"`, ZKPassportErrorSubType.INVALID_FORMAT, {
+      file: 'registry/cid.ts',
+      function: 'cidv0ToHex',
+      cid: cid
+    })
   }
   // Decode the base58btc string to bytes
   const bytes = base58ToBuffer(cid)
@@ -117,7 +123,12 @@ export function cidv0ToHex(cid: string): string {
     bytes[0] !== SHA256_MULTIHASH_PREFIX[0] ||
     bytes[1] !== SHA256_MULTIHASH_PREFIX[1]
   ) {
-    throw new Error("Invalid CIDv0: missing or incorrect sha2-256 multihash prefix")
+    throw new ValidationError(`Invalid CIDv0: missing or incorrect sha2-256 multihash prefix`, ZKPassportErrorSubType.INVALID_FORMAT, {
+      file: 'registry/cid.ts',
+      function: 'cidv0ToHex',
+      cid: cid,
+      bytes: bytes
+    })
   }
   // Convert to hex - skip the first two bytes (multihash prefix)
   let hex = "0x"
@@ -139,7 +150,11 @@ export function hexToCidv0(hex: string): string {
     throw new Error("Input must be a non-empty hex string")
   }
   // Validate and normalize hex string
-  if (!hex.match(/^(0x)?[0-9a-fA-F]+$/i)) throw new Error("Invalid hex string format")
+  if (!hex.match(/^(0x)?[0-9a-fA-F]+$/i)) throw new ValidationError(`Invalid hex string format`, ZKPassportErrorSubType.INVALID_FORMAT, {
+    file: 'registry/cid.ts',
+    function: 'hexToCidv0',
+    hex: hex
+  })
   // Remove '0x' prefix if present
   hex = hex.startsWith("0x") ? hex.substring(2) : hex
   // Check that we have a valid length for a 32-byte digest
