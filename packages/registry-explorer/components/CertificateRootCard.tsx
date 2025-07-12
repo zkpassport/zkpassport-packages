@@ -10,15 +10,16 @@ import {
 } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { RootDetails } from "@zkpassport/registry"
-import { Copy } from "lucide-react"
+import { Copy, GitCompare } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
 interface CertificateRootCardProps {
   rootDetails: RootDetails
+  previousRoot?: string
 }
 
-export function CertificateRootCard({ rootDetails }: CertificateRootCardProps) {
+export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRootCardProps) {
   const [copied, setCopied] = useState(false)
   const { root, revoked, validFrom, validTo, cid, leaves, isLatest, index } = rootDetails
 
@@ -119,10 +120,22 @@ export function CertificateRootCard({ rootDetails }: CertificateRootCardProps) {
           </div>
         </div>
       </CardContent>
-      <CardFooter>
-        <Button asChild className="w-full">
+      <CardFooter className="flex gap-2">
+        <Button asChild className="flex-1">
           <Link href={`/certificates?root=${encodeURIComponent(root)}`}>Show Certificates</Link>
         </Button>
+        {previousRoot && (
+          <Button asChild variant="outline" className="flex-1">
+            <Link
+              href={`/certificates/diff?before=${encodeURIComponent(
+                previousRoot,
+              )}&after=${encodeURIComponent(root)}`}
+            >
+              <GitCompare className="h-4 w-4 mr-2" />
+              View Diff
+            </Link>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   )

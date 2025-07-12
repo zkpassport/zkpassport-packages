@@ -29,9 +29,13 @@ function HistoricalRootsContent() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {roots.map((root) => (
-            <CertificateRootCard key={root.root} rootDetails={root} />
-          ))}
+          {roots.map((root, index) => {
+            // Get the previous root (next in the array since roots are in reverse chronological order)
+            const previousRoot = index < roots.length - 1 ? roots[index + 1].root : undefined
+            return (
+              <CertificateRootCard key={root.root} rootDetails={root} previousRoot={previousRoot} />
+            )
+          })}
         </div>
       )}
     </div>
