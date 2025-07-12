@@ -1,10 +1,10 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoadingAnimation } from "@/components/LoadingAnimation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, AlertCircle, FileText, GitCompare } from "lucide-react"
+import { ArrowLeft, AlertCircle, GitCompare } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
@@ -335,10 +335,10 @@ function CertificateDiffContent() {
 
             {/* Context Cards at the End */}
             <div className="p-3 bg-slate-50 dark:bg-slate-900/20 rounded-lg border border-slate-200 dark:border-slate-800 text-center min-w-28">
-              <div className="text-xl font-semibold text-slate-600 dark:text-slate-500">
+              <div className="text-xl font-semibold text-slate-400 dark:text-slate-500">
                 {beforeCount}
               </div>
-              <div className="text-xs text-slate-600 dark:text-slate-500">Before</div>
+              <div className="text-xs text-slate-400 dark:text-slate-500">Before</div>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-900/20 rounded-lg border border-slate-200 dark:border-slate-600 text-center min-w-28">
               <div className="text-xl font-semibold text-slate-600 dark:text-slate-400">
