@@ -108,7 +108,7 @@ describe("SOD", () => {
     expect(exportableSOD.certificate.tbs.extensions.has("subjectKeyIdentifier")).toBe(true)
   })
 
-  it("should get the redacted SOD with data group hashes replaced by zeros", () => {
+  it("should redact all sensitive data (hashes, signature, message digest) with zeros", () => {
     const redactedSOD = sod.getRedactedSOD()
 
     // The redacted SOD should have the same length as the original
@@ -123,6 +123,14 @@ describe("SOD", () => {
       const hashHex = hashValue.toHex().slice(2) // Remove 0x prefix
       expect(redactedHex).not.toContain(hashHex)
     })
+
+    // Verify that the signature is also redacted (not present in redacted SOD)
+    const signatureHex = sod.signerInfo.signature.toHex().slice(2)
+    expect(redactedHex).not.toContain(signatureHex)
+
+    // Verify that the message digest is also redacted (not present in redacted SOD)
+    const messageDigestHex = sod.signerInfo.signedAttrs.messageDigest.toHex().slice(2) 
+    expect(redactedHex).not.toContain(messageDigestHex)
 
     // The redacted SOD should be different from the original
     expect(redactedSOD.equals(sod.bytes)).toBe(false)
@@ -151,8 +159,15 @@ describe("SOD", () => {
     // The data group hash values should all be zeros
     const redactedDGHashes = redactedSODParsed.encapContentInfo.eContent.dataGroupHashValues.values
     const originalDGHashes = sod.encapContentInfo.eContent.dataGroupHashValues.values
+    const redactedSignature = redactedSODParsed.signerInfo.signature.toHex().slice(2)
+    const redactedMessageDigest = redactedSODParsed.signerInfo.signedAttrs.messageDigest.toHex().slice(2)
+    const originalSignature = sod.signerInfo.signature.toHex().slice(2)
+    const originalMessageDigest = sod.signerInfo.signedAttrs.messageDigest.toHex().slice(2)
+
     // Should have the same data group numbers
     expect(Object.keys(redactedDGHashes)).toEqual(Object.keys(originalDGHashes))
+    expect(redactedSignature).not.toBe(originalSignature)
+    expect(redactedMessageDigest).not.toBe(originalMessageDigest)
 
     // But all hash values should be zeros (while maintaining original lengths)
     Object.entries(redactedDGHashes).forEach(([dgNumber, hashValue]) => {
@@ -161,13 +176,105 @@ describe("SOD", () => {
       expect(hashValue.toNumberArray().every((byte) => byte === 0)).toBe(true) // All bytes are zeros
     })
 
-    // Other non-sensitive data should be identical to the original
+    // Verify that the signature is redacted (replaced with zeros)
+    const redactedHex = redactedSOD.toHex()
+    const originalSignatureHex = sod.signerInfo.signature.toHex().slice(2)
+    const zeroSignature = '0'.repeat(originalSignatureHex.length)
+    
+    // Original signature should not be present
+    expect(redactedHex).not.toContain(originalSignatureHex)
+    
+    // Zero signature should be present instead
+    expect(redactedHex).toContain(zeroSignature)
+
+    //same for the message digest
+    const originalMessageDigestHex = sod.signerInfo.signedAttrs.messageDigest.toHex().slice(2)
+    const zeroMessageDigest = '0'.repeat(originalMessageDigestHex.length)
+    expect(redactedHex).not.toContain(originalMessageDigestHex)
+    expect(redactedHex).toContain(zeroMessageDigest)
+
+    // Non-sensitive data should be identical to the original, except signature and message digest
     expect(redactedSODParsed.signerInfo.version).toBe(sod.signerInfo.version)
     expect(redactedSODParsed.signerInfo.digestAlgorithm).toBe(sod.signerInfo.digestAlgorithm)
     expect(redactedSODParsed.signerInfo.signatureAlgorithm.name).toBe(
       sod.signerInfo.signatureAlgorithm.name,
     )
-    expect(redactedSODParsed.certificate.tbs.subject).toBe(sod.certificate.tbs.subject)
-    expect(redactedSODParsed.certificate.tbs.issuer).toBe(sod.certificate.tbs.issuer)
+  })
+
+  it("should produce identical results when redacting twice (idempotency)", () => {
+    const redactedOnce = sod.getRedactedSOD()
+    const redactedTwice = SOD.fromDER(redactedOnce).getRedactedSOD()
+    
+    expect(redactedOnce.equals(redactedTwice)).toBe(true)
+  })
+
+  it("should maintain exact byte lengths for all redacted values", () => {
+    const redactedSOD = sod.getRedactedSOD()
+    const redactedParsed = SOD.fromDER(redactedSOD)
+    
+    // Verify data group hash lengths are preserved
+    Object.entries(sod.encapContentInfo.eContent.dataGroupHashValues.values).forEach(([dgNum, originalHash]) => {
+      const redactedHash = redactedParsed.encapContentInfo.eContent.dataGroupHashValues.values[Number(dgNum)]
+      expect(redactedHash.length).toBe(originalHash.length)
+    })
+    
+    // Verify signature length is preserved
+    expect(redactedParsed.signerInfo.signature.length).toBe(sod.signerInfo.signature.length)
+    
+    // Verify message digest length is preserved  
+    expect(redactedParsed.signerInfo.signedAttrs.messageDigest.length).toBe(sod.signerInfo.signedAttrs.messageDigest.length)
+  })
+
+  it("should ensure no sensitive data remains anywhere in the SOD", () => {
+    const redactedSOD = sod.getRedactedSOD()
+    const redactedHex = redactedSOD.toHex()
+    
+    // Check that NO occurrence of sensitive data exists (not just first occurrence)
+    const sensitiveValues = [
+      ...Object.values(sod.encapContentInfo.eContent.dataGroupHashValues.values),
+      sod.signerInfo.signature,
+      sod.signerInfo.signedAttrs.messageDigest
+    ]
+    
+    sensitiveValues.forEach(sensitiveValue => {
+      const hexValue = sensitiveValue.toHex().slice(2)
+      // Should not appear anywhere in the redacted SOD
+      expect(redactedHex.split(hexValue).length).toBe(1) // If found, split would create >1 parts
+    })
+  })
+
+  it("should replace sensitive data with proper zero patterns", () => {
+    const redactedSOD = sod.getRedactedSOD()
+    const redactedParsed = SOD.fromDER(redactedSOD)
+    
+    // Verify all data group hashes are exactly zero-filled
+    Object.values(redactedParsed.encapContentInfo.eContent.dataGroupHashValues.values).forEach(hashValue => {
+      expect(hashValue.toNumberArray().every(byte => byte === 0)).toBe(true)
+    })
+    
+    // Verify signature is exactly zero-filled
+    expect(redactedParsed.signerInfo.signature.toNumberArray().every(byte => byte === 0)).toBe(true)
+    
+    // Verify message digest has preserved ASN.1 structure but zeroed content
+    const messageDigest = redactedParsed.signerInfo.signedAttrs.messageDigest.toNumberArray()
+    // Verify the actual digest content (after tag and length) is zero-filled
+    expect(messageDigest.slice(2).every(byte => byte === 0)).toBe(true)
+  })
+
+  it("should handle edge cases and maintain SOD integrity", () => {
+    const redactedSOD = sod.getRedactedSOD()
+    
+    // SOD should still be valid ASN.1 structure
+    expect(() => SOD.fromDER(redactedSOD)).not.toThrow()
+    
+    // Should maintain same structure fields
+    const redactedParsed = SOD.fromDER(redactedSOD)
+    expect(redactedParsed.version).toBe(sod.version)
+    expect(redactedParsed.digestAlgorithms).toEqual(sod.digestAlgorithms)
+    expect(redactedParsed.encapContentInfo.eContentType).toBe(sod.encapContentInfo.eContentType)
+    
+    // Certificate should be unchanged
+    expect(redactedParsed.certificate.tbs.subject).toBe(sod.certificate.tbs.subject)
+    expect(redactedParsed.certificate.tbs.issuer).toBe(sod.certificate.tbs.issuer)
   })
 })

@@ -293,22 +293,130 @@ export class SOD implements SODSignedData {
 
   /**
    * Get the redacted SOD
-   * This is the full SOD with the data group hash values replaced with zeros
+   * This is the full SOD with sensitive data replaced with zeros:
+   * - Data group hash values
+   * - Signature over the passport data
+   * - Message digest (hash of eContent in signed attributes)
    * This is used to create a SOD that can be exported without exposing the sensitive data
    */
   getRedactedSOD(): Binary {
     const haystack = this.bytes.toUInt8Array()
-    for (const hashValue of Object.values(
-      this.encapContentInfo.eContent.dataGroupHashValues.values,
-    )) {
-      const needle = hashValue.toUInt8Array()
-      const pos = this.findSubarray(haystack, needle)
-      if (pos !== -1) {
-        haystack.fill(0, pos, pos + needle.length)
-      }
-    }
+    
+    const regions = this.extractSensitiveRegions()
+    
+    // Redact data group hashes within the eContent region
+    Object.values(this.encapContentInfo.eContent.dataGroupHashValues.values)
+      .forEach((hashValue) => 
+        this.redactRegion(haystack, regions.eContent, hashValue.toUInt8Array())
+    );
 
+    // Redact signature within the signature region
+    this.redactRegion(
+      haystack, 
+      regions.signature, 
+      this.signerInfo.signature.toUInt8Array()
+    );
+
+    // Redact message digest directly
+    this.redactRegion(
+      haystack, 
+      regions.messageDigest, 
+      this.signerInfo.signedAttrs.messageDigest.toUInt8Array()
+    );
+    
     return Binary.from(haystack)
+  }
+
+  /**
+   * Searches for `needle` inside `region.bytes`, and if found zeroes out
+   * the corresponding slice in `fullBytes`.
+   */
+  private redactRegion(haystack: Uint8Array, region: { bytes: Uint8Array; offset: number }, needle: Uint8Array): void {
+    const pos = this.findSubarray(region.bytes, needle)
+    if (pos !== -1) {
+     // Check if this is an ASN.1 OCTET STRING with simple length encoding
+     if (needle.length >= 3 && needle[0] === 0x04 && needle[1] <= 127 && needle[1] + 2 === needle.length) {
+      // this is for the message digest structure
+      haystack.fill(0, region.offset + pos + 2, region.offset + pos + needle.length);
+    } else {
+      // For non-ASN.1 data or complex length encoding, zero out completely
+      haystack.fill(0, region.offset + pos, region.offset + pos + needle.length);
+    }
+  }
+}
+
+  /**
+   * Compare two Uint8Arrays for equality
+   */
+  private arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false
+    }
+    return true
+  }
+
+  /**
+   * Extract the specific byte regions where sensitive data lives
+   * This allows us to search only within relevant regions rather than the entire SOD
+   */
+  private extractSensitiveRegions(): Record<string, { bytes: Uint8Array; offset: number }> {
+    const haystack = this.bytes.toUInt8Array()
+    
+    const needles = [
+      { name: 'eContent', bytes: this.encapContentInfo.eContent.bytes.toUInt8Array() },
+      { name: 'signature', bytes: this.signerInfo.signature.toUInt8Array() },
+      { name: 'messageDigest', bytes: this.signerInfo.signedAttrs.messageDigest.toUInt8Array() },
+    ]
+
+    const regions = this.findMultipleSubarrays(haystack, needles);
+    
+    // Build result, falling back to full SOD if region not found
+    return Object.fromEntries(
+      needles.map(({ name, bytes }) => {
+        const offset = regions[name];
+        if (offset !== undefined) {
+          return [name, { bytes, offset }];
+        } else {
+          // Fall back to using the entire SOD as the search region
+          console.warn(`Could not locate ${name} region in SOD, falling back to full SOD search`);
+          return [name, { bytes: haystack, offset: 0 }];
+        }
+      })
+    );
+  }
+
+  /**
+   * Find multiple subarrays in the haystack
+   * Returns undefined for needles that aren't found instead of throwing
+   */
+  private findMultipleSubarrays(
+    haystack: Uint8Array, 
+    needles: Array<{ name: string; bytes: Uint8Array }>
+  ): Record<string, number | undefined> {
+    return needles.reduce((positions, { name, bytes }) => {
+      const pos = this.findSubarray(haystack, bytes)
+      positions[name] = pos !== -1 ? pos : undefined
+      return positions
+    }, {} as Record<string, number | undefined>)
+  }
+
+  /**
+   * Find the first occurrence of a subarray in a Uint8Array
+   * @param haystack - The array to search in
+   * @param needle - The subarray to find
+   * @returns The index of the first occurrence of the subarray, or -1 if not found
+   */
+  private findSubarray(haystack: Uint8Array, needle: Uint8Array): number {
+    const H = haystack.length,
+      N = needle.length
+    outer: for (let i = 0; i <= H - N; i++) {
+      for (let j = 0; j < N; j++) {
+        if (haystack[i + j] !== needle[j]) continue outer
+      }
+      return i
+    }
+    return -1
   }
 
   /**
@@ -350,24 +458,6 @@ export class SOD implements SODSignedData {
       },
       bytes: this.bytes.length,
     }
-  }
-
-  /**
-   * Find the first occurrence of a subarray in a Uint8Array
-   * @param haystack - The array to search in
-   * @param needle - The subarray to find
-   * @returns The index of the first occurrence of the subarray, or -1 if not found
-   */
-  private findSubarray(haystack: Uint8Array, needle: Uint8Array): number {
-    const H = haystack.length,
-      N = needle.length
-    outer: for (let i = 0; i <= H - N; i++) {
-      for (let j = 0; j < N; j++) {
-        if (haystack[i + j] !== needle[j]) continue outer
-      }
-      return i
-    }
-    return -1
   }
 
   /*[Symbol.for("nodejs.util.inspect.custom")](): string {
