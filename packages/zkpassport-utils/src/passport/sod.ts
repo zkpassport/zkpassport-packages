@@ -346,17 +346,6 @@ export class SOD implements SODSignedData {
 }
 
   /**
-   * Compare two Uint8Arrays for equality
-   */
-  private arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
-    if (a.length !== b.length) return false
-    for (let i = 0; i < a.length; i++) {
-      if (a[i] !== b[i]) return false
-    }
-    return true
-  }
-
-  /**
    * Extract the specific byte regions where sensitive data lives
    * This allows us to search only within relevant regions rather than the entire SOD
    */
