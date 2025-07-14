@@ -39,6 +39,14 @@ export function getProofWithoutPublicInputs(proofAsFields: string[], publicInput
   return proofAsFields.slice(publicInputsNumber)
 }
 
+export function getPublicInputsCountFromVkey(vkey: string[]): number {
+  if (vkey.length !== 112) {
+    throw new Error("The verification key must be 112 fields")
+  }
+  // The public inputs count is the second field of the vkey
+  return Number(vkey[1])
+}
+
 /**
  * Get the proof data from a proof.
  * @param proof - The proof to get the data from.
@@ -46,7 +54,7 @@ export function getProofWithoutPublicInputs(proofAsFields: string[], publicInput
  * @param proofStartIndex - The start index of the proof (i.e. how many bytes to skip at the start when parsing it)
  * @returns The proof data.
  */
-export function getProofData(proof: string, publicInputsNumber: number, proofStartIndex = 4) {
+export function getProofData(proof: string, publicInputsNumber: number, proofStartIndex = 0) {
   const proofAsFields = proofToFields(Buffer.from(proof, "hex"), proofStartIndex)
   const proofWithoutPublicInputs = getProofWithoutPublicInputs(proofAsFields, publicInputsNumber)
   const publicInputs = getPublicInputs(proofAsFields, publicInputsNumber)
