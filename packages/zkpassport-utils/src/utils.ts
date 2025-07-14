@@ -1,4 +1,5 @@
 import { bigIntToBuffer } from "@zk-kit/utils"
+import { SupportedChain } from "./types"
 
 export async function loadModule(module: string) {
   try {
@@ -200,6 +201,24 @@ export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): 
     result[fieldIndex] = "0x" + (hex.length % 2 ? "0" : "") + hex
   }
   return result
+}
+
+export function getIdFromChain(chain: SupportedChain): number {
+  if (chain === "ethereum_sepolia") {
+    return 11155111
+  } else if (chain === "local_anvil") {
+    return 31337
+  }
+  throw new Error(`Unsupported chain: ${chain}`)
+}
+
+export function getChainFromId(chainId: number): SupportedChain {
+  if (chainId === 11155111) {
+    return "ethereum_sepolia"
+  } else if (chainId === 31337) {
+    return "local_anvil"
+  }
+  throw new Error(`Unsupported chain ID: ${chainId}`)
 }
 
 export { AggregateError, PromisePool } from "./promise-pool"

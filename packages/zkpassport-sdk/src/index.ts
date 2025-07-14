@@ -65,6 +65,7 @@ import {
   Service,
   CircuitManifest,
   getCircuitRegistryRootFromOuterProof,
+  SupportedChain,
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -128,26 +129,6 @@ export type SolidityVerifierParameters = {
   domain: string
   scope: string
   devMode: boolean
-}
-
-export type EVMChain = "ethereum_sepolia" | "local_anvil"
-
-function getChainIdFromEVMChain(chain: EVMChain): number {
-  if (chain === "ethereum_sepolia") {
-    return 11155111
-  } else if (chain === "local_anvil") {
-    return 31337
-  }
-  throw new Error(`Unsupported chain: ${chain}`)
-}
-
-function getEVMChainFromChainId(chainId: number): EVMChain {
-  if (chainId === 11155111) {
-    return "ethereum_sepolia"
-  } else if (chainId === 31337) {
-    return "local_anvil"
-  }
-  throw new Error(`Unsupported chain ID: ${chainId}`)
 }
 
 registerLocale(i18en)
@@ -428,9 +409,6 @@ export class ZKPassport {
       queryResult: result,
       validity: this.topicToLocalConfig[topic]?.validity,
       scope: this.topicToService[topic]?.scope,
-      evmChain: this.topicToService[topic]?.chainId
-        ? getEVMChainFromChainId(this.topicToService[topic]?.chainId)
-        : undefined,
       devMode: this.topicToLocalConfig[topic]?.devMode,
     })
     delete this.topicToProofs[topic]
@@ -710,7 +688,6 @@ export class ZKPassport {
     purpose,
     scope,
     mode,
-    evmChain,
     validity,
     devMode,
     topicOverride,
@@ -723,7 +700,6 @@ export class ZKPassport {
     purpose: string
     scope?: string
     mode?: ProofMode
-    evmChain?: EVMChain
     validity?: number
     devMode?: boolean
     topicOverride?: string
@@ -745,7 +721,6 @@ export class ZKPassport {
       logo,
       purpose,
       scope,
-      chainId: evmChain ? getChainIdFromEVMChain(evmChain) : undefined,
       cloudProverUrl,
       bridgeUrl,
     }
@@ -1771,14 +1746,11 @@ export class ZKPassport {
     chainId?: number,
   ) {
     let isCorrect = true
-    if (
-      this.domain &&
-      getServiceScopeHash(this.domain, chainId) !== BigInt(proofData.publicInputs[1])
-    ) {
+    if (this.domain && getServiceScopeHash(this.domain) !== BigInt(proofData.publicInputs[1])) {
       console.warn("The proof comes from a different domain than the one expected")
       isCorrect = false
       queryResultErrors[key as keyof QueryResultErrors].scope = {
-        expected: `Scope: ${getServiceScopeHash(this.domain, chainId).toString()}`,
+        expected: `Scope: ${getServiceScopeHash(this.domain).toString()}`,
         received: `Scope: ${BigInt(proofData.publicInputs[1]).toString()}`,
         message: "The proof comes from a different domain than the one expected",
       }
@@ -1890,6 +1862,15 @@ export class ZKPassport {
           message: "Bound user address does not match the one from the query results",
         }
       }
+      if (queryResult.bind.chain !== boundData.chain) {
+        console.warn("Bound chain id does not match the one from the query results")
+        isCorrect = false
+        queryResultErrors.bind.eq = {
+          expected: queryResult.bind.chain,
+          received: boundData.chain,
+          message: "Bound chain id does not match the one from the query results",
+        }
+      }
       if (
         queryResult.bind.custom_data?.trim().toLowerCase() !==
         boundData.custom_data?.trim().toLowerCase()
@@ -1911,7 +1892,6 @@ export class ZKPassport {
     queryResult: QueryResult,
     validity?: number,
     scope?: string,
-    chainId?: number,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -2031,14 +2011,11 @@ export class ZKPassport {
             message: "The proof does not verify all the requested conditions and information",
           }
         }
-        if (
-          this.domain &&
-          getServiceScopeHash(this.domain, chainId) !== getScopeFromOuterProof(proofData)
-        ) {
+        if (this.domain && getServiceScopeHash(this.domain) !== getScopeFromOuterProof(proofData)) {
           console.warn("The proof comes from a different domain than the one expected")
           isCorrect = false
           queryResultErrors.outer.scope = {
-            expected: `Scope: ${getServiceScopeHash(this.domain, chainId).toString()}`,
+            expected: `Scope: ${getServiceScopeHash(this.domain).toString()}`,
             received: `Scope: ${getScopeFromOuterProof(proofData).toString()}`,
             message: "The proof comes from a different domain than the one expected",
           }
@@ -2792,7 +2769,6 @@ export class ZKPassport {
     queryResult,
     validity,
     scope,
-    evmChain,
     devMode = false,
     writingDirectory,
   }: {
@@ -2800,7 +2776,6 @@ export class ZKPassport {
     queryResult: QueryResult
     validity?: number
     scope?: string
-    evmChain?: EVMChain
     devMode?: boolean
     writingDirectory?: string
   }): Promise<{
@@ -2841,12 +2816,11 @@ export class ZKPassport {
     let verified = true
     let uniqueIdentifier: string | undefined
     let queryResultErrors: QueryResultErrors | undefined
-    const chainId = evmChain ? getChainIdFromEVMChain(evmChain) : undefined
     const {
       isCorrect,
       uniqueIdentifier: uniqueIdentifierFromPublicInputs,
       queryResultErrors: queryResultErrorsFromPublicInputs,
-    } = await this.checkPublicInputs(proofs, formattedResult, validity, scope, chainId)
+    } = await this.checkPublicInputs(proofs, formattedResult, validity, scope)
     uniqueIdentifier = uniqueIdentifierFromPublicInputs
     verified = isCorrect
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
@@ -2932,7 +2906,7 @@ export class ZKPassport {
     return { uniqueIdentifier, verified, queryResultErrors }
   }
 
-  public getSolidityVerifierDetails(network: EVMChain): {
+  public getSolidityVerifierDetails(network: SupportedChain): {
     address: `0x${string}`
     functionName: string
     abi: {

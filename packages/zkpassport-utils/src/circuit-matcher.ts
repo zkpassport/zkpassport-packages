@@ -376,9 +376,8 @@ export function getScopeHash(value?: string): bigint {
   return bytes
 }
 
-export function getServiceScopeHash(domain: string, chainId?: number) {
-  const scope = chainId ? `${domain}:chain-${chainId}` : domain
-  return getScopeHash(scope)
+export function getServiceScopeHash(domain: string) {
+  return getScopeHash(domain)
 }
 
 export function getServiceSubscopeHash(value: string) {

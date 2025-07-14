@@ -252,8 +252,11 @@ export type DiscloseCommittedInputs = {
   disclosedBytes: number[]
 }
 
+export type SupportedChain = "ethereum_sepolia" | "local_anvil"
+
 export type BoundData = {
   user_address?: string
+  chain?: SupportedChain
   custom_data?: string
 }
 
