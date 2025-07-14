@@ -75,6 +75,9 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   },
 }
 
+const DOCUMENT_SUPPORT_RULES_URL =
+  "https://raw.githubusercontent.com/zkpassport/zkpassport-packages/main/packages/registry-sdk/src/document-support-rules.json"
+
 let DOCUMENT_SUPPORT_RULES_CACHE:
   | {
       countryCode: string
@@ -702,9 +705,7 @@ export class RegistryClient {
         const response = await import("./document-support-rules.json")
         DOCUMENT_SUPPORT_RULES_CACHE = response.default
       } else {
-        const response = await fetch(
-          "https://raw.githubusercontent.com/zkpassport/zkpassport-packages/main/packages/registry-sdk/src/document-support-rules.json",
-        )
+        const response = await fetch(DOCUMENT_SUPPORT_RULES_URL)
         DOCUMENT_SUPPORT_RULES_CACHE = await response.json()
       }
     }
