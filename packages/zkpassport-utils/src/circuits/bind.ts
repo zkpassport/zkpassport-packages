@@ -44,8 +44,8 @@ export function formatBoundData(boundData: BoundData): number[] {
   }
   if (boundData.chain) {
     const chainId = getIdFromChain(boundData.chain)
-    // 32 bytes for a uint256
-    data = [...data, BoundDataIdentifier.CHAIN_ID, ...[0, 32], chainId]
+    const chainIdBytes = Binary.fromHex(chainId.toString(16)).toNumberArray()
+    data = [...data, BoundDataIdentifier.CHAIN_ID, ...[0, chainIdBytes.length], ...chainIdBytes]
   }
   if (boundData.custom_data && boundData.custom_data.length > 0) {
     // The custom data is treated as a regular string of characters
