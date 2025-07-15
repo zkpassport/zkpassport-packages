@@ -4,8 +4,8 @@
  * @param startIndex - The start index of the proof (i.e. how many bytes to skip at the start when parsing it)
  * @returns An array of fields.
  */
-export function proofToFields(proof: Buffer, startIndex = 4) {
-  // Start from index 4 and chunk into 32-byte segments
+export function proofToFields(proof: Buffer, startIndex = 0) {
+  // Start from index {startIndex} and chunk into 32-byte segments
   const fields = []
   for (let i = startIndex; i < proof.length; i += 32) {
     // Create a new buffer for each field by copying the bytes
