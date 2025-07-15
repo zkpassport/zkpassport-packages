@@ -221,4 +221,13 @@ export function getChainFromId(chainId: number): SupportedChain {
   throw new Error(`Unsupported chain ID: ${chainId}`)
 }
 
+export function getChainDisplayName(chain: SupportedChain): string {
+  if (chain === "ethereum_sepolia") {
+    return "Ethereum Sepolia"
+  } else if (chain === "local_anvil") {
+    return "Anvil (local)"
+  }
+  throw new Error(`Unsupported chain: ${chain}`)
+}
+
 export { AggregateError, PromisePool } from "./promise-pool"
