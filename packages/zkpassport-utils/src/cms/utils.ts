@@ -1,6 +1,3 @@
-import { p256 } from "@noble/curves/p256"
-import { p384 } from "@noble/curves/p384"
-import { p521 } from "@noble/curves/p521"
 import { ECParameters } from "@peculiar/asn1-ecc"
 import { RSAPublicKey, RsaSaPssParams } from "@peculiar/asn1-rsa"
 import { AsnParser } from "@peculiar/asn1-schema"
