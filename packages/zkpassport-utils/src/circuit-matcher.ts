@@ -9,14 +9,14 @@ import {
   calculatePrivateNullifier,
   formatBoundData,
   getCountryWeightedSum,
-  hashSaltCountrySignedAttrDg1PrivateNullifier,
+  hashSaltCountrySignedAttrDg1EContentPrivateNullifier,
   hashSaltCountryTbs,
   hashSaltDg1PrivateNullifier,
 } from "./circuits"
 import { parseDate } from "./circuits/disclose"
 import type { DigestAlgorithm } from "./cms/types"
 import { getBitSizeFromCurve, getCurveParams, getECDSAInfo, getRSAInfo } from "./cms/utils"
-import { DG1_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
+import { DG1_INPUT_SIZE, E_CONTENT_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
 import { countryCodeAlpha2ToAlpha3 } from "./country/country"
 import { computeMerkleProof } from "./merkle-tree"
 import {
@@ -498,6 +498,7 @@ export async function getIDDataCircuitInputs(
     comm_in: commIn.toHex(),
     salt_in: `0x${saltIn.toString(16)}`,
     salt_out: `0x${saltOut.toString(16)}`,
+    e_content: idData.e_content,
   }
 
   const signatureAlgorithm = getSodSignatureAlgorithmType(passport)
@@ -553,17 +554,19 @@ export async function getIntegrityCheckCircuitInputs(
 
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
   )
   const signedAttributes = passport?.sod.signerInfo.signedAttrs.bytes.toNumberArray()
-  const comm_in = await hashSaltCountrySignedAttrDg1PrivateNullifier(
+  const comm_in = await hashSaltCountrySignedAttrDg1EContentPrivateNullifier(
     saltIn,
     getDSCCountry(passport.sod.certificate),
     Binary.from(signedAttributes).padEnd(SIGNED_ATTR_INPUT_SIZE),
     BigInt(signedAttributes.length),
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     privateNullifier.toBigInt(),
   )
 
@@ -648,6 +651,7 @@ export async function getDiscloseCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -741,6 +745,7 @@ export async function getDiscloseFlagsCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -798,6 +803,7 @@ export async function getAgeCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -867,6 +873,7 @@ export async function getNationalityInclusionCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -899,6 +906,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -931,6 +939,7 @@ export async function getNationalityExclusionCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -973,6 +982,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -1015,6 +1025,7 @@ export async function getBirthdateCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -1075,6 +1086,7 @@ export async function getExpiryDateCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),
@@ -1135,6 +1147,7 @@ export async function getBindCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),

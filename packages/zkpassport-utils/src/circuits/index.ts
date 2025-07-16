@@ -6,6 +6,7 @@ import {
   getCountryExclusionProofPublicInputCount,
   getCountryInclusionProofPublicInputCount,
   getIDDataProofPublicInputCount,
+  packBeBytesIntoFields,
 } from ".."
 import { Binary } from "../binary"
 import {
@@ -28,11 +29,16 @@ export interface ProofData {
   proof: string[]
 }
 
-export async function calculatePrivateNullifier(dg1: Binary, sodSig: Binary): Promise<Binary> {
+export async function calculatePrivateNullifier(
+  dg1: Binary,
+  eContent: Binary,
+  sodSig: Binary,
+): Promise<Binary> {
   return Binary.from(
     await poseidon2HashAsync([
-      ...Array.from(dg1).map((x) => BigInt(x)),
-      ...Array.from(sodSig).map((x) => BigInt(x)),
+      ...packBeBytesIntoFields(dg1.toUInt8Array(), 31).map((x) => BigInt(x)),
+      ...packBeBytesIntoFields(eContent.toUInt8Array(), 31).map((x) => BigInt(x)),
+      ...packBeBytesIntoFields(sodSig.toUInt8Array(), 31).map((x) => BigInt(x)),
     ]),
   )
 }
@@ -45,25 +51,37 @@ export async function hashSaltCountryTbs(
 ): Promise<Binary> {
   const result: bigint[] = []
   result.push(salt)
-  result.push(...country.split("").map((x) => BigInt(x.charCodeAt(0))))
-  result.push(...Array.from(tbs.padEnd(maxTbsLength)).map((x) => BigInt(x)))
+  result.push(
+    ...packBeBytesIntoFields(new Uint8Array(country.split("").map((x) => x.charCodeAt(0))), 31).map(
+      (x) => BigInt(x),
+    ),
+  )
+  result.push(
+    ...packBeBytesIntoFields(tbs.padEnd(maxTbsLength).toUInt8Array(), 31).map((x) => BigInt(x)),
+  )
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
 
-export async function hashSaltCountrySignedAttrDg1PrivateNullifier(
+export async function hashSaltCountrySignedAttrDg1EContentPrivateNullifier(
   salt: bigint,
   country: string,
   paddedSignedAttr: Binary,
   signedAttrSize: bigint,
   dg1: Binary,
+  eContent: Binary,
   privateNullifier: bigint,
 ): Promise<Binary> {
   const result: bigint[] = []
   result.push(salt)
-  result.push(...country.split("").map((x) => BigInt(x.charCodeAt(0))))
-  result.push(...Array.from(paddedSignedAttr).map((x) => BigInt(x)))
+  result.push(
+    ...packBeBytesIntoFields(new Uint8Array(country.split("").map((x) => x.charCodeAt(0))), 31).map(
+      (x) => BigInt(x),
+    ),
+  )
+  result.push(...packBeBytesIntoFields(paddedSignedAttr.toUInt8Array(), 31).map((x) => BigInt(x)))
   result.push(signedAttrSize)
-  result.push(...Array.from(dg1).map((x) => BigInt(x)))
+  result.push(...packBeBytesIntoFields(dg1.toUInt8Array(), 31).map((x) => BigInt(x)))
+  result.push(...packBeBytesIntoFields(eContent.toUInt8Array(), 31).map((x) => BigInt(x)))
   result.push(privateNullifier)
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
@@ -75,7 +93,7 @@ export async function hashSaltDg1PrivateNullifier(
 ): Promise<Binary> {
   const result: bigint[] = []
   result.push(salt)
-  result.push(...Array.from(dg1).map((x) => BigInt(x)))
+  result.push(...packBeBytesIntoFields(dg1.toUInt8Array(), 31).map((x) => BigInt(x)))
   result.push(privateNullifier)
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
