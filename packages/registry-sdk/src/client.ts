@@ -30,7 +30,6 @@ import {
 } from "./constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
 import { normaliseHash, strip0x } from "./utils"
-import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
 
@@ -75,6 +74,18 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
   },
 }
+
+const DOCUMENT_SUPPORT_RULES_URL =
+  "https://raw.githubusercontent.com/zkpassport/zkpassport-packages/main/packages/registry-sdk/src/document-support-rules.json"
+
+let DOCUMENT_SUPPORT_RULES_CACHE:
+  | {
+      countryCode: string
+      issueDateFrom: number
+      issueDateTo: number
+      supported: number
+    }[]
+  | null = null
 
 /**
  * Client for interacting with the ZKPassport Registry
@@ -689,8 +700,18 @@ export class RegistryClient {
     expirtyDate: number,
     type?: string,
   ): Promise<number> {
+    if (!DOCUMENT_SUPPORT_RULES_CACHE) {
+      if ((globalThis as any)?.env?.USE_LOCAL_DOCUMENT_SUPPORT_RULES) {
+        const response = await import("./document-support-rules.json")
+        DOCUMENT_SUPPORT_RULES_CACHE = response.default
+      } else {
+        const response = await fetch(DOCUMENT_SUPPORT_RULES_URL)
+        DOCUMENT_SUPPORT_RULES_CACHE = await response.json()
+      }
+    }
+
     // Check if the document is in the custom rules list
-    const customRule = documentSupportRules.find(
+    const customRule = DOCUMENT_SUPPORT_RULES_CACHE!.find(
       (d) =>
         d.countryCode === countryCode &&
         (d.issueDateFrom && d.issueDateTo

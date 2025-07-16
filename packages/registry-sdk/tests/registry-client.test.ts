@@ -391,6 +391,12 @@ describe("Registry", () => {
   })
 
   describe("Document support", () => {
+    // Use local document support rules during tests
+    globalThis.env = {
+      ...globalThis.env,
+      USE_LOCAL_DOCUMENT_SUPPORT_RULES: false,
+    }
+
     it("should return value if found in custom rules", async () => {
       const issueDate = Math.floor(new Date("2025-01-01").getTime() / 1000)
       const expirtyDate = Math.floor(new Date("2035-01-01").getTime() / 1000)
