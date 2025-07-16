@@ -1,4 +1,9 @@
-import { leftPadArrayWithZeros, packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
+import {
+  getIdFromChain,
+  leftPadArrayWithZeros,
+  packBeBytesIntoField,
+  rightPadArrayWithZeros,
+} from "../utils"
 import { BindCommittedInputs, BoundData } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { sha256 } from "@noble/hashes/sha2"
@@ -19,7 +24,8 @@ export function getBindProofPublicInputCount(): number {
 
 export enum BoundDataIdentifier {
   USER_ADDRESS = 1,
-  CUSTOM_DATA = 2,
+  CHAIN_ID = 2,
+  CUSTOM_DATA = 3,
 }
 
 export function formatBoundData(boundData: BoundData): number[] {
@@ -35,6 +41,11 @@ export function formatBoundData(boundData: BoundData): number[] {
       ...leftPadArrayWithZeros([userAddress.length], 2),
       ...userAddress,
     ]
+  }
+  if (boundData.chain) {
+    const chainId = getIdFromChain(boundData.chain)
+    const chainIdBytes = Binary.fromHex(chainId.toString(16)).toNumberArray()
+    data = [...data, BoundDataIdentifier.CHAIN_ID, ...[0, chainIdBytes.length], ...chainIdBytes]
   }
   if (boundData.custom_data && boundData.custom_data.length > 0) {
     // The custom data is treated as a regular string of characters

@@ -1,6 +1,3 @@
-import { p256 } from "@noble/curves/p256"
-import { p384 } from "@noble/curves/p384"
-import { p521 } from "@noble/curves/p521"
 import { ECParameters } from "@peculiar/asn1-ecc"
 import { RSAPublicKey, RsaSaPssParams } from "@peculiar/asn1-rsa"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -19,6 +16,7 @@ import {
   id_authorityKeyIdentifier,
   id_privateKeyUsagePeriod,
   id_subjectKeyIdentifier,
+  NIST_CURVES,
   OIDS_TO_PUBKEY_TYPE,
   OIDS_TO_SIG_ALGORITHM,
   RSA_OIDS,
@@ -32,6 +30,7 @@ import {
   SignatureAlgorithmType,
   ECPublicKey,
   HashAlgorithm,
+  NISTCurveName,
 } from "../types"
 import { countryCodeAlpha2ToAlpha3 } from "../country/country"
 
@@ -57,22 +56,15 @@ export function getCurveName(ecParams: ECParameters): CurveName {
   const p = BigInt(
     `0x${Buffer.from(ecParams.specifiedCurve.fieldID.parameters.slice(2)).toString("hex")}`,
   )
-  if (a == p256.CURVE.a && b == p256.CURVE.b && n == p256.CURVE.n && p == p256.CURVE.Fp.ORDER) {
-    return "P-256"
-  } else if (
-    a == p384.CURVE.a &&
-    b == p384.CURVE.b &&
-    n == p384.CURVE.n &&
-    p == p384.CURVE.Fp.ORDER
-  ) {
-    return "P-384"
-  } else if (
-    a == p521.CURVE.a &&
-    b == p521.CURVE.b &&
-    n == p521.CURVE.n &&
-    p == p521.CURVE.Fp.ORDER
-  ) {
-    return "P-521"
+  for (const key in NIST_CURVES) {
+    if (
+      a == NIST_CURVES[key as keyof typeof NIST_CURVES].a &&
+      b == NIST_CURVES[key as keyof typeof NIST_CURVES].b &&
+      n == NIST_CURVES[key as keyof typeof NIST_CURVES].n &&
+      p == NIST_CURVES[key as keyof typeof NIST_CURVES].p
+    ) {
+      return key as NISTCurveName
+    }
   }
   for (const key in BRAINPOOL_CURVES) {
     if (
@@ -88,27 +80,16 @@ export function getCurveName(ecParams: ECParameters): CurveName {
 }
 
 export function getCurveParams(curve: CurveName): { a: bigint; b: bigint; n: bigint; p: bigint } {
-  if (curve === "P-256") {
-    return {
-      a: p256.CURVE.a,
-      b: p256.CURVE.b,
-      n: p256.CURVE.n,
-      p: p256.CURVE.Fp.ORDER,
-    }
+  if (curve === "P-192") {
+    return NIST_CURVES["P-192"]
+  } else if (curve === "P-224") {
+    return NIST_CURVES["P-224"]
+  } else if (curve === "P-256") {
+    return NIST_CURVES["P-256"]
   } else if (curve === "P-384") {
-    return {
-      a: p384.CURVE.a,
-      b: p384.CURVE.b,
-      n: p384.CURVE.n,
-      p: p384.CURVE.Fp.ORDER,
-    }
+    return NIST_CURVES["P-384"]
   } else if (curve === "P-521") {
-    return {
-      a: p521.CURVE.a,
-      b: p521.CURVE.b,
-      n: p521.CURVE.n,
-      p: p521.CURVE.Fp.ORDER,
-    }
+    return NIST_CURVES["P-521"]
   } else if (curve === "brainpoolP160r1") {
     return BRAINPOOL_CURVES["brainpoolP160r1"]
   } else if (curve === "brainpoolP160t1") {
@@ -362,6 +343,8 @@ export function derToPem(der: Uint8Array): string {
 
 export const CURVE_TO_KEYSIZE: Record<CurveName, number> = {
   // NIST curves
+  "P-192": 192,
+  "P-224": 224,
   "P-256": 256,
   "P-384": 384,
   "P-521": 521,

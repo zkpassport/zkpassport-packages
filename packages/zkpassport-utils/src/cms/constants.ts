@@ -1,4 +1,7 @@
 import type { HashAlgorithm } from "../types"
+import { p256 } from "@noble/curves/p256"
+import { p384 } from "@noble/curves/p384"
+import { p521 } from "@noble/curves/p521"
 
 export const HASH_OIDS = {
   "1.3.14.3.2.26": "SHA-1",
@@ -9,6 +12,8 @@ export const HASH_OIDS = {
 }
 
 export const CURVE_OIDS = {
+  "1.2.840.10045.3.1.1": "P-192",
+  "1.3.132.0.33": "P-224",
   "1.2.840.10045.3.1.7": "P-256",
   "1.3.132.0.34": "P-384",
   "1.3.132.0.35": "P-521",
@@ -74,6 +79,39 @@ export const SIG_ALGORITHM_TO_HASH: Record<string, HashAlgorithm> = {
   "ecdsa-with-SHA256": "SHA-256",
   "ecdsa-with-SHA384": "SHA-384",
   "ecdsa-with-SHA512": "SHA-512",
+}
+
+export const NIST_CURVES = {
+  "P-192": {
+    a: 0xfffffffffffffffffffffffffffffffefffffffffffffffcn,
+    b: 0x64210519e59c80e70fa7e9ab72243049feb8deecc146b9b1n,
+    n: 0xffffffffffffffffffffffff99def836146bc9b1b4d22831n,
+    p: 0xfffffffffffffffffffffffffffffffeffffffffffffffffn,
+  },
+  "P-224": {
+    a: 0xfffffffffffffffffffffffffffffffefffffffffffffffffffffffen,
+    b: 0xb4050a850c04b3abf54132565044b0b7d7bfd8ba270b39432355ffb4n,
+    n: 0xffffffffffffffffffffffffffff16a2e0b8f03e13dd29455c5c2a3dn,
+    p: 0xffffffffffffffffffffffffffffffff000000000000000000000001n,
+  },
+  "P-256": {
+    a: p256.CURVE.a,
+    b: p256.CURVE.b,
+    n: p256.CURVE.n,
+    p: p256.CURVE.Fp.ORDER,
+  },
+  "P-384": {
+    a: p384.CURVE.a,
+    b: p384.CURVE.b,
+    n: p384.CURVE.n,
+    p: p384.CURVE.Fp.ORDER,
+  },
+  "P-521": {
+    a: p521.CURVE.a,
+    b: p521.CURVE.b,
+    n: p521.CURVE.n,
+    p: p521.CURVE.Fp.ORDER,
+  },
 }
 
 export const BRAINPOOL_CURVES = {

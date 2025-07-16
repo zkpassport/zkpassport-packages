@@ -14,38 +14,25 @@ export function ultraVkToFields(bytes: Uint8Array): string[] {
   const fields: string[] = []
   const vkey = { bytes }
 
+  // UltraHonk vkey using keccak for the random oracle
+  // have 4 bytes less than ones using poseidon2
+  const is_keccak = vkey.bytes.length === 1760
+
   const circuit_size = shift(vkey, 8) // uint64
   fields.push(toField(circuit_size.bytes))
 
-  const _num_public_inputs = shift(vkey, 8) // uint64, skipped
+  const _not_used = shift(vkey, 8) // uint64, skipped
 
-  const pub_inputs_offset = shift(vkey, 8) //  uint64
+  const num_public_inputs = shift(vkey, 8) //  uint64
+  fields.push(toField(num_public_inputs.bytes))
+
+  const pub_inputs_offset = shift(vkey, 8) // uint64
   fields.push(toField(pub_inputs_offset.bytes))
 
-  const contains_ipa_claim = shift(vkey, 8) // bool
-  fields.push(toField(contains_ipa_claim.bytes))
-
-  // Contains aggregation object (aka contains_pairing_point_accumulator)
-  const contains_aggregation_object = vkey.bytes.slice(0, 1) // bool
-
-  // Aggregation object (aka pairing_point_accumulator_indices)
-  // See: https://github.com/aztecprotocol/aztec-packages/blob/c53f4cf84c60b8d81cc62d5827ec4408da88cc4e/barretenberg/cpp/src/barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp#L10
-  // If the contains_aggregation_object flag is 0x00 or 0x01, then the aggregation object is present
-  if (contains_aggregation_object[0] === 0 || contains_aggregation_object[0] === 1) {
-    // Add the contains_aggregation_object flag byte
-    shift(vkey, 1)
-    fields.push(toField(contains_aggregation_object))
-    // The next 64 bytes contain the aggregation object
-    // Add each 4 byte chunk over 16 fields
-    for (let offset = 0; offset < 64; offset += 4) {
-      const aggregation_object_chunk = shift(vkey, 4)
-      fields.push(toField(aggregation_object_chunk.bytes))
-    }
-  }
-  // No aggregation object (only applies to EVM vkeys?)
-  else {
-    // Push 17 empty fields
-    for (let i = 0; i < 17; i++) fields.push("0x" + "0".repeat(64))
+  // Keccak vkeys don't have this
+  if (!is_keccak) {
+    const pairing_inputs_public_input_key_start_idx = shift(vkey, 4) // uint32
+    fields.push(toField(pairing_inputs_public_input_key_start_idx.bytes))
   }
 
   // Process commitment data (remaining bytes)

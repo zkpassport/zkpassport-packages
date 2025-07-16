@@ -1,4 +1,6 @@
 type NISTCurve =
+  | { curve: "P-192"; key_size: 192 }
+  | { curve: "P-224"; key_size: 224 }
   | { curve: "P-256"; key_size: 256 }
   | { curve: "P-384"; key_size: 384 }
   | { curve: "P-521"; key_size: 521 }
@@ -36,7 +38,7 @@ export type RSAPublicKey = {
 
 export type HashAlgorithm = "SHA-1" | "SHA-224" | "SHA-256" | "SHA-384" | "SHA-512"
 
-export type NISTCurveName = "P-256" | "P-384" | "P-521"
+export type NISTCurveName = "P-192" | "P-224" | "P-256" | "P-384" | "P-521"
 
 export type BrainpoolCurveName =
   | "brainpoolP160r1"

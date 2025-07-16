@@ -132,8 +132,6 @@ export function getTBSMaxLen(passport: PassportViewModel): number {
     return 1000
   } else if (tbs_len <= 1200) {
     return 1200
-  } else if (tbs_len <= 1500) {
-    return 1500
   } else {
     return 1600
   }
@@ -376,9 +374,8 @@ export function getScopeHash(value?: string): bigint {
   return bytes
 }
 
-export function getServiceScopeHash(domain: string, chainId?: number) {
-  const scope = chainId ? `${domain}:chain-${chainId}` : domain
-  return getScopeHash(scope)
+export function getServiceScopeHash(domain: string) {
+  return getScopeHash(domain)
 }
 
 export function getServiceSubscopeHash(value: string) {

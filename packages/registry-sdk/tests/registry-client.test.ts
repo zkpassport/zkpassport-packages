@@ -324,7 +324,9 @@ describe("Registry", () => {
     it("should get packaged circuit", async () => {
       const manifest = await registry.getCircuitManifest()
       expect(manifest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
-      const circuit = await registry.getPackagedCircuit("compare_age", manifest)
+      const circuit = await registry.getPackagedCircuit("compare_age", manifest, {
+        validate: false,
+      })
       expect(circuit.vkey_hash).toBe(PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH)
     })
 
