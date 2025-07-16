@@ -679,7 +679,6 @@ export class ZKPassport {
    * @param scope Scope this request to a specific use case
    * @param validity How many days ago should have the ID been last scanned by the user?
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
-   * @param evmChain The EVM chain to use for the request (if using the proof onchain)
    * @returns The query builder object.
    */
   public async request({
@@ -2757,7 +2756,6 @@ export class ZKPassport {
    * @param queryResult The query result to verify against
    * @param validity How many days ago should have the ID been last scanned by the user?
    * @param scope Scope this request to a specific use case
-   * @param evmChain The EVM chain to use for the verification (if using the proof onchain)
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
@@ -2923,7 +2921,7 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0xDDeFf76024052D26B78A7Fac66FFbd6fbc5bd9Ad",
+        address: "0x62e33cC35e29130e135341586e8Cf9C2BAbFB3eE",
       }
     } else if (network === "local_anvil") {
       return {
