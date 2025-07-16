@@ -2860,7 +2860,6 @@ export class ZKPassport {
             })
             const params = this.getSolidityVerifierParameters({
               proof,
-              validityPeriodInDays: validity,
               domain: this.domain,
               scope,
               devMode,
@@ -2951,12 +2950,6 @@ export class ZKPassport {
       )
     }
     const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
-    // For EVM optimised proofs, the first 16 bytes of the proof are the aggregation object
-    // and should be moved at the end of the public inputs
-    const actualProof = proofData.proof.slice(16)
-    const actualPublicInputs = proofData.publicInputs.concat(
-      proofData.proof.slice(0, 16).map((x) => `0x${x}`),
-    )
     let committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
     let committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
     for (const key in proof.committedInputs) {
@@ -3079,8 +3072,8 @@ export class ZKPassport {
     const params: SolidityVerifierParameters = {
       // Make sure the vkeyHash is 32 bytes
       vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
-      proof: `0x${actualProof.join("")}`,
-      publicInputs: actualPublicInputs,
+      proof: `0x${proofData.proof.join("")}`,
+      publicInputs: proofData.publicInputs,
       committedInputs: `0x${compressedCommittedInputs}`,
       committedInputCounts: committedInputCountsArray,
       validityPeriodInDays,
