@@ -57,8 +57,8 @@ describe("Circuit Matcher - General", () => {
       const isUnsupportedHashAlgorithm = (certificate.hash_algorithm as HashAlgorithm) === "SHA-224"
       const isUnsupportedExponent =
         certificate.public_key.type === "RSA" &&
-        certificate.public_key.exponent !== 65537 &&
-        certificate.public_key.exponent !== 3
+        certificate.public_key.exponent &&
+        certificate.public_key.exponent >= 131072
       const isUnsupportedKeySize =
         certificate.public_key.type === "RSA" &&
         certificate.public_key.key_size !== 1024 &&
