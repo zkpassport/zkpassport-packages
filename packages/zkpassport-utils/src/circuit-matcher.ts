@@ -81,7 +81,7 @@ export function isSignatureAlgorithmSupported(
         modulusBits === 2048 ||
         modulusBits === 3072 ||
         modulusBits === 4096) &&
-      (rsaInfo.exponent === 3n || rsaInfo.exponent === 65537n)
+      rsaInfo.exponent < 131072n
     )
   }
   return false
@@ -99,8 +99,7 @@ export function isCscaSupported(csca: PackagedCertificate): boolean {
         csca.public_key.key_size === 2048 ||
         csca.public_key.key_size === 3072 ||
         csca.public_key.key_size === 4096) &&
-      ((csca.public_key as RSAPublicKey).exponent === 3 ||
-        (csca.public_key as RSAPublicKey).exponent === 65537) &&
+      (csca.public_key as RSAPublicKey).exponent < 131072 &&
       SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
     )
   } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
