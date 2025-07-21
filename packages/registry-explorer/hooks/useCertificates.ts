@@ -4,12 +4,13 @@ import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import type { ECPublicKey, PackagedCertificate } from "@zkpassport/utils"
 import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
 import debug from "debug"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
 const log = debug("explorer")
 
 export const useCertificates = () => {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [certificates, setCertificates] = useState<PackagedCertificate[]>([])
   const [filteredCertificates, setFilteredCertificates] = useState<PackagedCertificate[]>([])
@@ -35,22 +36,43 @@ export const useCertificates = () => {
   const [uniqueCurves, setUniqueCurves] = useState<string[]>([])
 
   // Memoize updateFilter to prevent re-creation on every render
-  const updateFilter = useCallback((key: keyof CertificateFilterState, value: string) => {
-    setFilterState((prev) => ({
-      ...prev,
-      [key]: value,
-    }))
-  }, [])
-
-  // Initialize searchTerm from URL if provided
-  useEffect(() => {
-    const certId = searchParams.get("id")
-    if (certId) {
+  const updateFilter = useCallback(
+    (key: keyof CertificateFilterState, value: string) => {
       setFilterState((prev) => ({
         ...prev,
-        searchTerm: certId,
+        [key]: value,
       }))
-    }
+
+      // Update URL when filter changes
+      if (key === "selectedCountry") {
+        const newSearchParams = new URLSearchParams(searchParams.toString())
+
+        if (value === "all") {
+          newSearchParams.delete("country")
+        } else {
+          newSearchParams.set("country", value)
+        }
+
+        // Preserve other params
+        const newUrl = newSearchParams.toString()
+          ? `?${newSearchParams.toString()}`
+          : "/certificates"
+        router.push(`/certificates${newUrl === "/certificates" ? "" : newUrl}`)
+      }
+    },
+    [searchParams, router],
+  )
+
+  // Initialize filters from URL parameters
+  useEffect(() => {
+    const certId = searchParams.get("id")
+    const countryParam = searchParams.get("country")
+
+    setFilterState((prev) => ({
+      ...prev,
+      searchTerm: certId || "",
+      selectedCountry: countryParam || "all",
+    }))
   }, [searchParams])
 
   // Use the RegistryClient to fetch certificates
