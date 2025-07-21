@@ -21,7 +21,7 @@
     "countryCode": "IDN",
     "issueDateFrom": 0,
     "issueDateTo": 0,
-    "supported": 0
+    "supported": 0.5
   },
   {
     "countryCode": "NGA",
@@ -45,7 +45,7 @@
     "countryCode": "SGP",
     "issueDateFrom": 0,
     "issueDateTo": 0,
-    "supported": 0
+    "supported": 1
   },
   {
     "countryCode": "VNM",
@@ -55,6 +55,12 @@
   },
   {
     "countryCode": "TUR",
+    "issueDateFrom": 0,
+    "issueDateTo": 0,
+    "supported": 0.5
+  },
+  {
+    "countryCode": "THA",
     "issueDateFrom": 0,
     "issueDateTo": 0,
     "supported": 0.5
