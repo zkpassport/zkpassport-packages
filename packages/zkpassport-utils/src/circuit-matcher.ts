@@ -147,8 +147,8 @@ export function getCscaForPassport(
   const pkupBuffer = extensions.get("privateKeyUsagePeriod")?.value.toBuffer()
   if (pkupBuffer) {
     const pkup = AsnParser.parse(pkupBuffer, PrivateKeyUsagePeriod)
-    notBefore = pkup.notBefore?.getTime() ?? 0 / 1000
-    notAfter = pkup.notAfter?.getTime() ?? 0 / 1000
+    notBefore = (pkup.notBefore?.getTime() ?? 0) / 1000
+    notAfter = (pkup.notAfter?.getTime() ?? 0) / 1000
   }
 
   let authorityKeyIdentifier: string | undefined
@@ -181,12 +181,25 @@ export function getCscaForPassport(
     )
   }
 
-  const validCertificates = certificates.filter((cert) => {
+  // First try to find the CSC by looking at the authority key identifier
+  // which should uniquely identify the CSC that signed the DSC
+  let validCertificates = certificates.filter((cert) => {
     return (
       cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
-      (checkAgainstAuthorityKeyIdentifier(cert) || checkAgainstPrivateKeyUsagePeriod(cert))
+      checkAgainstAuthorityKeyIdentifier(cert)
     )
   })
+
+  if (validCertificates.length === 0) {
+    // If no certificate was found in the previous step, we use find the CSCs which
+    // could have signed the DSCs according to their private key usage period
+    validCertificates = certificates.filter((cert) => {
+      return (
+        cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
+        checkAgainstPrivateKeyUsagePeriod(cert)
+      )
+    })
+  }
 
   if (validCertificates.length === 0) {
     return null

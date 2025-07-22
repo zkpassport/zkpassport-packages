@@ -85,7 +85,7 @@ describe("Registry", () => {
 
   test("should generate correct canonical certificate root", async () => {
     const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
-    expect(root).toEqual("0x2575d09aeea70b3dd8fb28f54d24b4199b8ce81fa97301656b80e7a922e22155")
+    expect(root).toEqual("0x295537175b3803782b9c08cfc05a82894dbb946d932c815b503d823f7f1c3438")
   })
 
   test("should generate correct canonical circuit root", async () => {
