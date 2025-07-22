@@ -24,6 +24,8 @@ interface CertificateChange {
   changeType: "added" | "removed" | "modified"
   oldTags?: string[]
   newTags?: string[]
+  oldHashAlgorithm?: string
+  newHashAlgorithm?: string
 }
 
 interface CertificateDiff {
@@ -107,6 +109,23 @@ function CertificateDiffContent() {
     return root.startsWith("0x") ? root : `0x${root}`
   }
 
+  // Function to generate unique certificate key
+  const getCertificateKey = (cert: PackagedCertificate): string => {
+    const publicKeyParts = []
+    if (cert.public_key?.type === "RSA") {
+      publicKeyParts.push(cert.public_key.type, cert.public_key.modulus, cert.public_key.exponent)
+    } else if (cert.public_key?.type === "EC") {
+      publicKeyParts.push(
+        cert.public_key.type,
+        cert.public_key.curve,
+        cert.public_key.public_key_x,
+        cert.public_key.public_key_y,
+      )
+    }
+    const parts = [cert.country, cert.signature_algorithm, cert.hash_algorithm, ...publicKeyParts]
+    return parts.join("|")
+  }
+
   // Function to calculate certificate differences
   const calculateCertificateDiff = (
     beforeCerts: PackagedCertificate[],
@@ -115,16 +134,18 @@ function CertificateDiffContent() {
     const beforeMap = new Map<string, PackagedCertificate>()
     const afterMap = new Map<string, PackagedCertificate>()
 
-    // Create maps using subject_key_identifier as the key
+    // Create maps using the proper unique identifier
     beforeCerts.forEach((cert) => {
-      if (cert.subject_key_identifier) {
-        beforeMap.set(cert.subject_key_identifier, cert)
+      const key = getCertificateKey(cert)
+      if (key) {
+        beforeMap.set(key, cert)
       }
     })
 
     afterCerts.forEach((cert) => {
-      if (cert.subject_key_identifier) {
-        afterMap.set(cert.subject_key_identifier, cert)
+      const key = getCertificateKey(cert)
+      if (key) {
+        afterMap.set(key, cert)
       }
     })
 
@@ -146,7 +167,7 @@ function CertificateDiffContent() {
       } else {
         const afterCert = afterMap.get(id)!
 
-        // Compare tags
+        // Compare tags and hash algorithm
         const beforeTags = beforeCert.tags || []
         const afterTags = afterCert.tags || []
 
@@ -155,12 +176,16 @@ function CertificateDiffContent() {
           beforeTags.some((tag) => !afterTags.includes(tag)) ||
           afterTags.some((tag) => !beforeTags.includes(tag))
 
-        if (tagsChanged) {
+        const hashAlgorithmChanged = beforeCert.hash_algorithm !== afterCert.hash_algorithm
+
+        if (tagsChanged || hashAlgorithmChanged) {
           modified.push({
             certificate: afterCert,
             changeType: "modified",
             oldTags: beforeTags,
             newTags: afterTags,
+            oldHashAlgorithm: hashAlgorithmChanged ? beforeCert.hash_algorithm : undefined,
+            newHashAlgorithm: hashAlgorithmChanged ? afterCert.hash_algorithm : undefined,
           })
         }
       }
@@ -174,6 +199,8 @@ function CertificateDiffContent() {
     changeType: "added" | "removed" | "modified",
     oldTags?: string[],
     newTags?: string[],
+    oldHashAlgorithm?: string,
+    newHashAlgorithm?: string,
   ) => {
     const getChangeTypeStyle = (type: "added" | "removed" | "modified") => {
       switch (type) {
@@ -214,7 +241,18 @@ function CertificateDiffContent() {
           </div>
           <div className="text-sm">
             {cert.signature_algorithm} {cert.public_key?.key_size || "Unknown Key Size"} &bull;{" "}
-            {cert.hash_algorithm}
+            {oldHashAlgorithm && newHashAlgorithm ? (
+              <>
+                <span className="text-red-600 dark:text-red-400 line-through">
+                  {oldHashAlgorithm}
+                </span>{" "}
+                <span className="text-green-600 dark:text-green-500 font-bold">
+                  {newHashAlgorithm}
+                </span>
+              </>
+            ) : (
+              cert.hash_algorithm
+            )}
           </div>
         </div>
 
@@ -277,7 +315,14 @@ function CertificateDiffContent() {
           {diff.added.map((cert) => renderCertificateChange(cert, "added"))}
           {diff.removed.map((cert) => renderCertificateChange(cert, "removed"))}
           {diff.modified.map((change) =>
-            renderCertificateChange(change.certificate, "modified", change.oldTags, change.newTags),
+            renderCertificateChange(
+              change.certificate,
+              "modified",
+              change.oldTags,
+              change.newTags,
+              change.oldHashAlgorithm,
+              change.newHashAlgorithm,
+            ),
           )}
         </div>
       </div>
