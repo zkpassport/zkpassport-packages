@@ -59,10 +59,18 @@ function CertificateDiffContent() {
 
       setDiffState((prev) => ({ ...prev, isLoading: true, error: null }))
 
-      // Get chain ID and construct URLs from root hashes
+      // Get chain ID and construct URLs from root hashes, local JSON files, or direct URLs
       const chainId = getChainId()
-      const beforeUrl = getCertificateUrl(beforeRoot, chainId)
-      const afterUrl = getCertificateUrl(afterRoot, chainId)
+      const beforeUrl = beforeRoot.startsWith("http")
+        ? beforeRoot
+        : beforeRoot.endsWith(".json")
+          ? `/${beforeRoot}`
+          : getCertificateUrl(beforeRoot, chainId)
+      const afterUrl = afterRoot.startsWith("http")
+        ? afterRoot
+        : afterRoot.endsWith(".json")
+          ? `/${afterRoot}`
+          : getCertificateUrl(afterRoot, chainId)
 
       try {
         const [beforeResponse, afterResponse] = await Promise.all([
@@ -106,6 +114,9 @@ function CertificateDiffContent() {
   }, [beforeRoot, afterRoot])
 
   const formatRoot = (root: string) => {
+    if (root.endsWith(".json") || root.startsWith("http")) {
+      return root
+    }
     return root.startsWith("0x") ? root : `0x${root}`
   }
 
