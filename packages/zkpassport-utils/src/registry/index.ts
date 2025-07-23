@@ -46,7 +46,7 @@ export const CERT_TYPE_DSC = 2
  * This is used to identify the publisher of the masterlist
  * this certificate is from
  */
-export const PACKAGED_CERTIFICATE_TAGS = ["ICAO", "DE", "NL", "IT", "ES"]
+export const PACKAGED_CERTIFICATE_TAGS = ["ICAO", "DE", "NL", "IT", "ES", "CH", "SE", "IN", "BD"]
 
 /**
  * Certificate Registry ID
