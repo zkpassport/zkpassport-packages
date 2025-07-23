@@ -18,14 +18,6 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-bun-zkpassport-sdk-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-zkpassport-sdk
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
