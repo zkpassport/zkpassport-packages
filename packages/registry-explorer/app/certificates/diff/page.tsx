@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoadingAnimation } from "@/components/LoadingAnimation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, AlertCircle, GitCompare } from "lucide-react"
+import { ArrowLeft, AlertCircle, GitCompare, ArrowUpDown } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
 import { PackagedCertificatesFile } from "@zkpassport/registry"
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
@@ -36,6 +36,7 @@ interface CertificateDiff {
 
 function CertificateDiffContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const beforeRoot = searchParams.get("before")
   const afterRoot = searchParams.get("after")
 
@@ -118,6 +119,15 @@ function CertificateDiffContent() {
       return root
     }
     return root.startsWith("0x") ? root : `0x${root}`
+  }
+
+  const handleSwapRoots = () => {
+    if (beforeRoot && afterRoot) {
+      const newParams = new URLSearchParams(searchParams.toString())
+      newParams.set("before", afterRoot)
+      newParams.set("after", beforeRoot)
+      router.push(`?${newParams.toString()}`)
+    }
   }
 
   // Function to generate unique certificate key
@@ -265,6 +275,11 @@ function CertificateDiffContent() {
               cert.hash_algorithm
             )}
           </div>
+          {cert.subject_key_identifier && (
+            <div className="text-xs text-muted-foreground font-mono break-all">
+              SKI: {cert.subject_key_identifier}
+            </div>
+          )}
         </div>
 
         {changeType === "modified" && oldTags && newTags ? (
@@ -438,23 +453,35 @@ function CertificateDiffContent() {
         <>
           <div className="mb-6">
             <h1 className="text-xl sm:text-2xl font-bold mb-4">Comparing Certificate Roots</h1>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-medium text-red-600 dark:text-red-400 flex-shrink-0">
-                  Before:
-                </span>
-                <span className="font-mono bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded truncate">
-                  {formatRoot(beforeRoot)}
-                </span>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+              <div className="space-y-2 text-sm flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                  <span className="font-medium text-red-600 dark:text-red-400 flex-shrink-0">
+                    Before:
+                  </span>
+                  <span className="font-mono text-xs sm:text-sm bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded break-all sm:truncate">
+                    {formatRoot(beforeRoot)}
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                  <span className="font-medium text-green-600 dark:text-green-400 flex-shrink-0">
+                    After:
+                  </span>
+                  <span className="font-mono text-xs sm:text-sm bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded break-all sm:truncate">
+                    {formatRoot(afterRoot)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-medium text-green-600 dark:text-green-400 flex-shrink-0">
-                  After:
-                </span>
-                <span className="font-mono bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded truncate">
-                  {formatRoot(afterRoot)}
-                </span>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSwapRoots}
+                disabled={!beforeRoot || !afterRoot}
+                className="flex-shrink-0 self-start"
+                title="Swap before and after"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
