@@ -33,6 +33,7 @@ import {
   NISTCurveName,
 } from "../types"
 import { countryCodeAlpha2ToAlpha3 } from "../country/country"
+import { SignerInfo } from "./asn"
 
 export function getAbbreviatedCurveName(ecParams: ECParameters): string {
   const curveName = getCurveName(ecParams)
@@ -154,7 +155,17 @@ export function getSubjectKeyId(cert: X509Certificate): string | undefined {
       return
     }
   }
-  return
+}
+
+export function getSubjectKeyIdFromSignerInfo(signerInfo: SignerInfo): string | undefined {
+  try {
+    if (signerInfo.sid?.subjectKeyIdentifier) {
+      const ski = signerInfo.sid?.subjectKeyIdentifier.toASN()?.getValue()
+      if (ski) return `0x${Buffer.from(ski).toString("hex")}`
+    }
+  } catch {
+    return
+  }
 }
 
 export function getPrivateKeyUsagePeriod(

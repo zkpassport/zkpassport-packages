@@ -11,9 +11,14 @@ export {
   SignerIdentifier,
   SignerInfo,
 } from "@peculiar/asn1-cms"
-export { AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
-export { SubjectPublicKeyInfo, Certificate as X509Certificate, Time } from "@peculiar/asn1-x509"
 export { ECParameters } from "@peculiar/asn1-ecc"
+export { AsnParser, AsnSerializer } from "@peculiar/asn1-schema"
+export {
+  SubjectKeyIdentifier,
+  SubjectPublicKeyInfo,
+  Time,
+  Certificate as X509Certificate,
+} from "@peculiar/asn1-x509"
 
 /**
  * ```asn
