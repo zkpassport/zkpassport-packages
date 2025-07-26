@@ -29,7 +29,14 @@ import rootCerts from "./fixtures/root-certs.json"
 import { PASSPORTS } from "./fixtures/passports"
 import * as fs from "fs"
 import * as path from "path"
-import { Binary, getCurveName, getDSCSignatureHashAlgorithm } from "../src"
+import {
+  Binary,
+  DG1_INPUT_SIZE,
+  getCurveName,
+  getDSCSignatureHashAlgorithm,
+  SIGNED_ATTR_INPUT_SIZE,
+  E_CONTENT_INPUT_SIZE,
+} from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
@@ -251,10 +258,10 @@ describe("Circuit Matcher - RSA", () => {
   it("should get the correct ID circuit inputs", async () => {
     const result = await getIDDataCircuitInputs(PASSPORTS.john, 1n, 1n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
-        200,
+        SIGNED_ATTR_INPUT_SIZE,
       ),
       signed_attributes_size: 104,
       comm_in: "0x088cd37187d223eadf75319fbf8ab0c12625c99e664116d894b2421b21a12771",
@@ -299,7 +306,7 @@ describe("Circuit Matcher - RSA", () => {
       pubkey_offset_in_tbs: 199,
       e_content: rightPadArrayWithZeros(
         PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
-        700,
+        E_CONTENT_INPUT_SIZE,
       ),
     })
   })
@@ -316,7 +323,7 @@ describe("Circuit Matcher - RSA", () => {
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
-        200,
+        220,
       ),
       signed_attributes_size: 104,
       e_content: rightPadArrayWithZeros(
@@ -325,7 +332,7 @@ describe("Circuit Matcher - RSA", () => {
       ),
       e_content_size: 98,
       dg1_offset_in_e_content: 27,
-      comm_in: "0x2b3e6407500854806bceba3d7f9692e8b6ae90323b8e44a4c896924478210c82",
+      comm_in: "0x1d483dee098c59f3641a5ba2948db5e65ca250d3224cf214edfb9219ceffd0a5",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
       salt_in: "0x1",
       salt_out: "0x1",
@@ -402,7 +409,7 @@ describe("Circuit Matcher - RSA", () => {
     }
     const result = await getNationalityInclusionCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
@@ -418,7 +425,7 @@ describe("Circuit Matcher - RSA", () => {
     }
     const result = await getNationalityExclusionCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       // Notice how the country code are sorted compared to above
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
@@ -437,7 +444,7 @@ describe("Circuit Matcher - RSA", () => {
     }
     const result = await getIssuingCountryInclusionCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
@@ -453,7 +460,7 @@ describe("Circuit Matcher - RSA", () => {
     }
     const result = await getIssuingCountryExclusionCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
@@ -471,7 +478,7 @@ describe("Circuit Matcher - RSA", () => {
     }
     const result = await getBirthdateCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
       comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
@@ -489,7 +496,7 @@ describe("Circuit Matcher - RSA", () => {
     }
     const result = await getExpiryDateCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
       comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
@@ -572,10 +579,10 @@ describe("Circuit Matcher - ECDSA", () => {
   it("should get the correct ID circuit inputs", async () => {
     const result = await getIDDataCircuitInputs(PASSPORTS.mary, 1n, 1n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
-        200,
+        SIGNED_ATTR_INPUT_SIZE,
       ),
       signed_attributes_size: 104,
       comm_in: "0x2526a295a36f6467bc67c40cfb8f821b53973b40a78ca57530cef35ddd101123",
@@ -597,7 +604,7 @@ describe("Circuit Matcher - ECDSA", () => {
       sod_signature: PASSPORTS.mary.sod.signerInfo.signature.toNumberArray(),
       e_content: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
-        700,
+        E_CONTENT_INPUT_SIZE,
       ),
     })
   })
@@ -611,19 +618,19 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, 1n, 1n)
     expect(result).toEqual({
       current_date: format(new Date(), "yyyyMMdd"),
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
-        200,
+        SIGNED_ATTR_INPUT_SIZE,
       ),
       signed_attributes_size: 104,
       e_content: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
-        700,
+        E_CONTENT_INPUT_SIZE,
       ),
       e_content_size: 98,
       dg1_offset_in_e_content: 27,
-      comm_in: "0x0dd48c7da6c287f31b4004756070246f9684244d1f8ed77ca268d1c11bc78f11",
+      comm_in: "0x18a9c4f5e92fd5e7005bd17bb32d4f95655396e3538c3f3e510cad664f6d7321",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
       salt_in: "0x1",
       salt_out: "0x1",
@@ -657,7 +664,7 @@ describe("Circuit Matcher - ECDSA", () => {
 
     const result = await getDiscloseCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       disclose_mask: [
         0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -682,7 +689,7 @@ describe("Circuit Matcher - ECDSA", () => {
     }
     const result = await getAgeCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
@@ -700,7 +707,7 @@ describe("Circuit Matcher - ECDSA", () => {
     }
     const result = await getNationalityInclusionCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
@@ -716,7 +723,7 @@ describe("Circuit Matcher - ECDSA", () => {
     }
     const result = await getNationalityExclusionCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       // Notice how the country code are sorted compared to above
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
@@ -735,7 +742,7 @@ describe("Circuit Matcher - ECDSA", () => {
     }
     const result = await getIssuingCountryInclusionCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
@@ -751,7 +758,7 @@ describe("Circuit Matcher - ECDSA", () => {
     }
     const result = await getIssuingCountryExclusionCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
@@ -769,7 +776,7 @@ describe("Circuit Matcher - ECDSA", () => {
     }
     const result = await getBirthdateCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
@@ -787,7 +794,7 @@ describe("Circuit Matcher - ECDSA", () => {
     }
     const result = await getExpiryDateCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
