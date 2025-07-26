@@ -14,26 +14,15 @@ export function ultraVkToFields(bytes: Uint8Array): string[] {
   const fields: string[] = []
   const vkey = { bytes }
 
-  // UltraHonk vkey using keccak for the random oracle
-  // have 4 bytes less than ones using poseidon2
-  const is_keccak = vkey.bytes.length === 1760
+  // What is this?
+  const unknown = shift(vkey, 8) // uint64
+  fields.push(toField(unknown.bytes))
 
-  const circuit_size = shift(vkey, 8) // uint64
-  fields.push(toField(circuit_size.bytes))
-
-  const _not_used = shift(vkey, 8) // uint64, skipped
-
-  const num_public_inputs = shift(vkey, 8) //  uint64
-  fields.push(toField(num_public_inputs.bytes))
+  const num_public_inputs_plus_pairing_points = shift(vkey, 8) //  uint64
+  fields.push(toField(num_public_inputs_plus_pairing_points.bytes))
 
   const pub_inputs_offset = shift(vkey, 8) // uint64
   fields.push(toField(pub_inputs_offset.bytes))
-
-  // Keccak vkeys don't have this
-  if (!is_keccak) {
-    const pairing_inputs_public_input_key_start_idx = shift(vkey, 4) // uint32
-    fields.push(toField(pairing_inputs_public_input_key_start_idx.bytes))
-  }
 
   // Process commitment data (remaining bytes)
   // Each 32-byte commitment is split into two field elements

@@ -289,14 +289,14 @@ function getIDDataInputs(passport: PassportViewModel): IDDataInputs {
   const signedAttributes = passport.sod.signerInfo.signedAttrs.bytes.toNumberArray()
   const id_data = {
     // Padded with 0s to make it 700 bytes
-    e_content: rightPadArrayWithZeros(eContent ?? [], 700),
+    e_content: rightPadArrayWithZeros(eContent ?? [], E_CONTENT_INPUT_SIZE),
     e_content_size: eContent?.length ?? 0,
     dg1_offset_in_e_content: dg1Offset,
     // Padded to 200 bytes with 0s
-    signed_attributes: rightPadArrayWithZeros(signedAttributes ?? [], 200),
+    signed_attributes: rightPadArrayWithZeros(signedAttributes ?? [], SIGNED_ATTR_INPUT_SIZE),
     signed_attributes_size: signedAttributes.length ?? 0,
     // Padded to 95 bytes with 0s
-    dg1: rightPadArrayWithZeros(dg1?.value ?? [], 95),
+    dg1: rightPadArrayWithZeros(dg1?.value ?? [], DG1_INPUT_SIZE),
   }
   return id_data
 }

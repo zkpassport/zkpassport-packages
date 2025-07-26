@@ -91,7 +91,7 @@ const MERCOSUR_COUNTRIES: CountryName[] = [
   "Uruguay",
 ]
 
-const SIGNED_ATTR_INPUT_SIZE = 200
+const SIGNED_ATTR_INPUT_SIZE = 220
 const DG1_INPUT_SIZE = 95
 const E_CONTENT_INPUT_SIZE = 700
 
