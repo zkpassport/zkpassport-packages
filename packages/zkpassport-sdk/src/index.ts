@@ -2843,12 +2843,14 @@ export class ZKPassport {
         version: proofs[0].version,
       })
       for (const proof of proofs) {
-        const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+        const isOuterEVM = proof.name?.startsWith("outer_evm_")
+        const proofName = isOuterEVM ? proof.name!.replace("outer_evm_", "outer_") : proof.name!
+        const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
         const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
-          proof.name!,
+          proofName,
           circuitManifest,
         )
-        if (proof.name?.startsWith("outer_evm")) {
+        if (isOuterEVM) {
           try {
             const { createPublicClient, http } = await import("viem")
             const { sepolia } = await import("viem/chains")
