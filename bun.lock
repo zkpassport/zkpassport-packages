@@ -69,7 +69,7 @@
     },
     "packages/zkpassport-sdk": {
       "name": "@zkpassport/sdk",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "dependencies": {
         "@aztec/bb.js": "1.0.0-nightly.20250723",
         "@noble/ciphers": "^1.2.1",
@@ -91,7 +91,7 @@
     },
     "packages/zkpassport-utils": {
       "name": "@zkpassport/utils",
-      "version": "0.19.0",
+      "version": "0.19.1",
       "dependencies": {
         "@lapo/asn1js": "^2.0.4",
         "@noble/ciphers": "^1.0.0",
