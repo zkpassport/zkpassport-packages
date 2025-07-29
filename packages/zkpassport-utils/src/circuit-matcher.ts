@@ -985,6 +985,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     Binary.from(
       processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
     ),

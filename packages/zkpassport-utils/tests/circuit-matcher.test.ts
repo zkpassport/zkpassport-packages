@@ -33,6 +33,8 @@ import {
   getDSCSignatureHashAlgorithm,
   SIGNED_ATTR_INPUT_SIZE,
   E_CONTENT_INPUT_SIZE,
+  getSanctionsExclusionCheckCircuitInputs,
+  SanctionsBuilder,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -554,7 +556,7 @@ describe("Circuit Matcher - RSA", () => {
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: format(new Date(), "yyyyMMdd"),
-      comm_in: "0x2a0283e2f98b06cca0b5c908b69c344f87d129401589571aaa574f2151308d5e",
+      comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: EXPECTED_NULLIFIER,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -922,8 +924,8 @@ describe("Circuit Matcher - ECDSA", () => {
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
-      comm_in: EXPECTED_MARY_COMM_IN,
-      private_nullifier: EXPECTED_MARY_NULLIFIER,
+      comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
+      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
       root_hash: rootHash,
       proofs,
       service_scope: EXPECTED_SERVICE_SCOPE,
