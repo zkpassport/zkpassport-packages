@@ -139,7 +139,7 @@ function hasRequestedAccessToField(credentialsRequest: Query, field: IDCredentia
   if (!isDefined) {
     return false
   }
-  for (const key in fieldValue) {
+  for (const key in fieldValue as IDCredentialConfig) {
     if (
       fieldValue[key as keyof typeof fieldValue] !== undefined &&
       fieldValue[key as keyof typeof fieldValue] !== null
