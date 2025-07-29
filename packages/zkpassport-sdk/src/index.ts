@@ -827,15 +827,6 @@ export class ZKPassport {
         !areDatesEqual(queryResult.birthdate.disclose.result, birthdatePassport) &&
         !areDatesEqual(queryResult.birthdate.disclose.result, birthdateIDCard)
       ) {
-        console.log("queryResult.birthdate.eq.expected", queryResult.birthdate.eq?.expected)
-        console.log(
-          "birthdatePassport",
-          areDatesEqual(queryResult.birthdate.disclose.result, birthdatePassport),
-        )
-        console.log(
-          "birthdateIDCard",
-          areDatesEqual(queryResult.birthdate.disclose.result, birthdateIDCard),
-        )
         console.warn("Birthdate does not match the disclosed birthdate in query result")
         isCorrect = false
         queryResultErrors.birthdate.disclose = {
