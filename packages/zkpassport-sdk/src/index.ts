@@ -66,6 +66,8 @@ import {
   CircuitManifest,
   getCircuitRegistryRootFromOuterProof,
   SupportedChain,
+  areDatesEqual,
+  formatQueryResultDates,
 } from "@zkpassport/utils"
 import { bytesToHex } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -534,19 +536,7 @@ export class ZKPassport {
       }
     } else if (request.method === "done") {
       logger.debug(`User sent the query result`)
-      const formattedResult: QueryResult = request.params
-      // Make sure to reconvert the dates to Date objects
-      if (formattedResult.birthdate && formattedResult.birthdate.disclose) {
-        formattedResult.birthdate.disclose.result = new Date(
-          formattedResult.birthdate.disclose.result,
-        )
-      }
-      if (formattedResult.expiry_date && formattedResult.expiry_date.disclose) {
-        formattedResult.expiry_date.disclose.result = new Date(
-          formattedResult.expiry_date.disclose.result,
-        )
-      }
-      this.topicToResults[topic] = formattedResult
+      this.topicToResults[topic] = formatQueryResultDates(request.params)
       // Make sure all the proofs have been received, otherwise we'll handle the result later
       // once the proofs have all been received
       if (this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length) {
@@ -821,8 +811,8 @@ export class ZKPassport {
       if (
         queryResult.birthdate.eq &&
         queryResult.birthdate.eq.result &&
-        queryResult.birthdate.eq.expected.getTime() !== birthdatePassport.getTime() &&
-        queryResult.birthdate.eq.expected.getTime() !== birthdateIDCard.getTime()
+        !areDatesEqual(queryResult.birthdate.eq.expected, birthdatePassport) &&
+        !areDatesEqual(queryResult.birthdate.eq.expected, birthdateIDCard)
       ) {
         console.warn("Birthdate does not match the expected birthdate")
         isCorrect = false
@@ -834,9 +824,18 @@ export class ZKPassport {
       }
       if (
         queryResult.birthdate.disclose &&
-        queryResult.birthdate.disclose.result.getTime() !== birthdatePassport.getTime() &&
-        queryResult.birthdate.disclose.result.getTime() !== birthdateIDCard.getTime()
+        !areDatesEqual(queryResult.birthdate.disclose.result, birthdatePassport) &&
+        !areDatesEqual(queryResult.birthdate.disclose.result, birthdateIDCard)
       ) {
+        console.log("queryResult.birthdate.eq.expected", queryResult.birthdate.eq?.expected)
+        console.log(
+          "birthdatePassport",
+          areDatesEqual(queryResult.birthdate.disclose.result, birthdatePassport),
+        )
+        console.log(
+          "birthdateIDCard",
+          areDatesEqual(queryResult.birthdate.disclose.result, birthdateIDCard),
+        )
         console.warn("Birthdate does not match the disclosed birthdate in query result")
         isCorrect = false
         queryResultErrors.birthdate.disclose = {
@@ -852,8 +851,8 @@ export class ZKPassport {
       if (
         queryResult.expiry_date.eq &&
         queryResult.expiry_date.eq.result &&
-        queryResult.expiry_date.eq.expected.getTime() !== expiryDatePassport.getTime() &&
-        queryResult.expiry_date.eq.expected.getTime() !== expiryDateIDCard.getTime()
+        !areDatesEqual(queryResult.expiry_date.eq.expected, expiryDatePassport) &&
+        !areDatesEqual(queryResult.expiry_date.eq.expected, expiryDateIDCard)
       ) {
         console.warn("Expiry date does not match the expected expiry date")
         isCorrect = false
@@ -865,8 +864,8 @@ export class ZKPassport {
       }
       if (
         queryResult.expiry_date.disclose &&
-        queryResult.expiry_date.disclose.result.getTime() !== expiryDatePassport.getTime() &&
-        queryResult.expiry_date.disclose.result.getTime() !== expiryDateIDCard.getTime()
+        !areDatesEqual(queryResult.expiry_date.disclose.result, expiryDatePassport) &&
+        !areDatesEqual(queryResult.expiry_date.disclose.result, expiryDateIDCard)
       ) {
         console.warn("Expiry date does not match the disclosed expiry date in query result")
         isCorrect = false
@@ -1241,8 +1240,8 @@ export class ZKPassport {
       proof.committedInputs?.compare_age as AgeCommittedInputs,
     )
     if (
-      currentDate.getTime() !== today.getTime() &&
-      currentDate.getTime() !== today.getTime() - 86400000
+      !areDatesEqual(currentDate, today) &&
+      !areDatesEqual(currentDate, today.getTime() - 86400000)
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
@@ -1339,7 +1338,7 @@ export class ZKPassport {
       if (
         !queryResult.birthdate.lte &&
         !queryResult.birthdate.range &&
-        maxDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(maxDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Maximum birthdate should be equal to default date value")
         isCorrect = false
@@ -1352,7 +1351,7 @@ export class ZKPassport {
       if (
         !queryResult.birthdate.gte &&
         !queryResult.birthdate.range &&
-        minDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(minDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Minimum birthdate should be equal to default date value")
         isCorrect = false
@@ -1370,8 +1369,8 @@ export class ZKPassport {
       }
     }
     if (
-      currentDate.getTime() !== today.getTime() &&
-      currentDate.getTime() !== today.getTime() - 86400000
+      !areDatesEqual(currentDate, today) &&
+      !areDatesEqual(currentDate, today.getTime() - 86400000)
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
@@ -1468,7 +1467,7 @@ export class ZKPassport {
       if (
         !queryResult.expiry_date.lte &&
         !queryResult.expiry_date.range &&
-        maxDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(maxDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Maximum expiry date should be equal to default date value")
         isCorrect = false
@@ -1481,7 +1480,7 @@ export class ZKPassport {
       if (
         !queryResult.expiry_date.gte &&
         !queryResult.expiry_date.range &&
-        minDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(minDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Minimum expiry date should be equal to default date value")
         isCorrect = false
@@ -1499,8 +1498,8 @@ export class ZKPassport {
       }
     }
     if (
-      currentDate.getTime() !== today.getTime() &&
-      currentDate.getTime() !== today.getTime() - 86400000
+      !areDatesEqual(currentDate, today) &&
+      !areDatesEqual(currentDate, today.getTime() - 86400000)
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
@@ -2789,18 +2788,7 @@ export class ZKPassport {
         verified: false,
       }
     }
-    const formattedResult: QueryResult = queryResult
-    // Make sure to reconvert the dates to Date objects
-    if (formattedResult.birthdate && formattedResult.birthdate.disclose) {
-      formattedResult.birthdate.disclose.result = new Date(
-        formattedResult.birthdate.disclose.result,
-      )
-    }
-    if (formattedResult.expiry_date && formattedResult.expiry_date.disclose) {
-      formattedResult.expiry_date.disclose.result = new Date(
-        formattedResult.expiry_date.disclose.result,
-      )
-    }
+    const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
     const { BarretenbergVerifier } = await import("@aztec/bb.js")
     // Automatically set the writing directory to `/tmp` if it is not provided
