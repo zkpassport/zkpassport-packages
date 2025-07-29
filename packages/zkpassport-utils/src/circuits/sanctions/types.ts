@@ -1,9 +1,8 @@
-
 //////////////// Sanctions
 export type SanctionsSparseMerkleTreeProofs = {
-  passportNoAndNationalitySMTProof: SanctionsMerkleProof,
-  nameAndDobSMTProof: SanctionsMerkleProof,
-  nameAndYobSMTProof: SanctionsMerkleProof,
+  passportNoAndNationalitySMTProof: SanctionsMerkleProof
+  nameAndDobSMTProof: SanctionsMerkleProof
+  nameAndYobSMTProof: SanctionsMerkleProof
 }
 
 export type SanctionsMerkleProof = {

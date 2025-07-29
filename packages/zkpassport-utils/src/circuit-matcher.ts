@@ -52,7 +52,16 @@ import {
   rightPadArrayWithZeros,
 } from "./utils"
 import { DSC } from "./passport/dsc"
-import { getBirthdateRange, getDocumentNumberRange, getExpiryDateRange, getFirstNameRange, getFullNameRange, getGenderRange, getLastNameRange, getNationalityRange } from "./passport/getters"
+import {
+  getBirthdateRange,
+  getDocumentNumberRange,
+  getExpiryDateRange,
+  getFirstNameRange,
+  getFullNameRange,
+  getGenderRange,
+  getLastNameRange,
+  getNationalityRange,
+} from "./passport/getters"
 import { SanctionsBuilder } from "./circuits/sanctions"
 export { SanctionsBuilder }
 
@@ -997,8 +1006,8 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   )
 
   // Only build the merkle trees if they are not provided
-  sanctions = sanctions ?? await SanctionsBuilder.create()
-  const {proofs, rootHash} = await sanctions.getSanctionsMerkleProofs(passport);
+  sanctions = sanctions ?? (await SanctionsBuilder.create())
+  const { proofs, rootHash } = await sanctions.getSanctionsMerkleProofs(passport)
 
   return {
     dg1: idData.dg1,
