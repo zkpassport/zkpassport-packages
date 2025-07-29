@@ -417,6 +417,26 @@ export default class SMT {
     this.nodes = map
   }
 
+  importFromJson(obj: any) {
+    const map = new Map<Node, ChildNodes>()
+
+    for (const [key, value] of Object.entries(obj)) {
+      if (key === "root") {
+        this.root = this.bigNumbers ? BigInt((value as string[])[0]) : (value as string[])[0]
+      } else {
+        const Key = this.bigNumbers ? BigInt(key) : key
+        if (this.bigNumbers) {
+          const Children = (value as string[]).map((v) => BigInt(v))
+          map.set(Key, Children)
+        } else {
+          map.set(Key, value as string[])
+        }
+      }
+    }
+
+    this.nodes = map
+  }
+
   /**
    * c.f. https://github.com/zk-passport/zk-kit/blob/main/packages/smt/src/smt.ts
    * It enables the conversion of the full tree structure into a JSON string,
