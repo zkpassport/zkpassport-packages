@@ -581,9 +581,11 @@ export async function getIntegrityCheckCircuitInputs(
     Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
     privateNullifier.toBigInt(),
   )
+  // UNIX timestamp in seconds
+  const timestamp = Math.floor(Date.now() / 1000)
 
   return {
-    current_date: format(new Date(), "yyyyMMdd"),
+    current_date: timestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
     signed_attributes_size: idData.signed_attributes_size,
