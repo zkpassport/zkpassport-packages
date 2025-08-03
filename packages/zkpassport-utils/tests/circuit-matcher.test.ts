@@ -1,4 +1,4 @@
-import { format } from "date-fns"
+import { format, formatDate } from "date-fns"
 import { Alpha3Code } from "i18n-iso-countries"
 import {
   calculateAge,
@@ -319,7 +319,8 @@ describe("Circuit Matcher - RSA", () => {
   it("should get the right integrity check circuit inputs", async () => {
     const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, 1n, 1n)
     expect(result).toEqual({
-      current_date: Math.floor(Date.now() / 1000),
+      current_date: formatDate(new Date(), "yyyyMMdd"),
+      timestamp: Math.floor(Date.now() / 1000),
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
@@ -617,7 +618,8 @@ describe("Circuit Matcher - ECDSA", () => {
   it("should get the right integrity check circuit inputs", async () => {
     const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, 1n, 1n)
     expect(result).toEqual({
-      current_date: Math.floor(Date.now() / 1000),
+      current_date: formatDate(new Date(), "yyyyMMdd"),
+      timestamp: Math.floor(Date.now() / 1000),
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),

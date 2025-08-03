@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
-import { format } from "date-fns"
+import { format, formatDate } from "date-fns"
 import { Alpha3Code } from "i18n-iso-countries"
 import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
@@ -585,7 +585,8 @@ export async function getIntegrityCheckCircuitInputs(
   const timestamp = Math.floor(Date.now() / 1000)
 
   return {
-    current_date: timestamp,
+    current_date: formatDate(new Date(), "yyyyMMdd"),
+    timestamp: timestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
     signed_attributes_size: idData.signed_attributes_size,
