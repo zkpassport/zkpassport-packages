@@ -188,6 +188,7 @@ export function getNumberOfPublicInputs(circuitName: string) {
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
+  // TODO: make constants
   switch (circuitName) {
     case "compare_age_evm":
       return 11
@@ -221,6 +222,10 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
       return 201
     case "exclusion_check_nationality":
       return 201
+    case "exclusion_check_sanctions":
+      return 33
+    case "exclusion_check_sanctions_evm":
+      return 33
     case "bind":
       return 501
     case "bind_evm":
@@ -256,6 +261,7 @@ export enum ProofType {
   ISSUING_COUNTRY_INCLUSION = 6,
   ISSUING_COUNTRY_EXCLUSION = 7,
   BIND = 8,
+  Sanctions_EXCLUSION = 9,
 }
 
 export {
