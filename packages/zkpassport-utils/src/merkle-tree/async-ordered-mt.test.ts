@@ -9,7 +9,7 @@ function expectProofOk(proof: MembershipProof, leaves: bigint[]): void {
   expect(proof.siblings.length).toBe(proof.path.length)
 }
 
-describe("AsyncSortedSMT (sorted set)", () => {
+describe("AsyncOrderedMT (ordered set)", () => {
   test("initialize sorts and de-duplicates leaves; root stable regardless of order", async () => {
     const depth = 4
     const tree1 = await AsyncOrderedMT.create(depth, poseidon2)

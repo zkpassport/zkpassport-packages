@@ -30,6 +30,8 @@ export const BN254_MODULUS_MINUS_ONE: Node = BigInt(0x2523648240000001BA344D8000
  * - Leaves are unique and sorted ascending
  * - Membership proof: standard binary Merkle path
  * - Non-membership proof: neighbor membership proofs + ordering (left < target < right)
+ *   - every tree by default includes 0 and BN254.MODULUS as leaves, to avoid cases where non membership proofs can be 
+ *     created for the first or last item in the tree.
  */
 export default class AsyncOrderedMT {
   private readonly depth: number
