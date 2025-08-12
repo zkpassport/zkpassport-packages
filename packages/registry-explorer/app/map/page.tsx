@@ -1,13 +1,13 @@
 "use client"
 
 import WorldMap from "@/components/ui/WorldMap"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Globe, Shield, Calendar, AlertCircle, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useCertificates } from "@/hooks/useCertificates"
 import type { PackagedCertificate } from "@zkpassport/utils"
 
-export default function MapPage() {
+function MapPageContent() {
   const [selectedCountry, setSelectedCountry] = useState<{ code: string; name: string } | null>(
     null,
   )
@@ -573,5 +573,30 @@ export default function MapPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function MapPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col h-screen">
+        <div className="bg-white border-b px-4 py-3">
+          <div className="container mx-auto">
+            <h1 className="text-2xl font-bold">Certificate Registry Map</h1>
+            <p className="text-gray-600 text-sm mt-1">
+              Interactive map showing countries with supported documents in the zkPassport registry
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-1 items-center justify-center">
+          <div className="inline-flex items-center gap-2 text-gray-600">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            Loading map...
+          </div>
+        </div>
+      </div>
+    }>
+      <MapPageContent />
+    </Suspense>
   )
 }

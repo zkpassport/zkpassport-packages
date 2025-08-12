@@ -322,8 +322,8 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
       countryCode = countryIdToISO3[geo.id.toString()]
     }
 
-    if (!countryCode) return "#374151" // Dark gray for countries with no data
-    const countryData = data[countryCode]
+    if (!countryCode || typeof countryCode !== 'string') return "#374151" // Dark gray for countries with no data
+    const countryData = data[countryCode] 
 
     if (!countryData || countryData.support === "none") return "#374151" // Dark gray for no support
 
@@ -355,7 +355,7 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
       countryCode = countryIdToISO3[geo.id.toString()]
     }
 
-    const countryInfo = countryCode ? data[countryCode] : null
+    const countryInfo = countryCode && typeof countryCode === 'string' ? data[countryCode] : null
 
     if (countryInfo && countryInfo.support !== "none") {
       const documentIcons = {
@@ -365,7 +365,7 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
       }
 
       const docTypes = countryInfo.documentTypes
-        .map((type) => documentIcons[type as keyof typeof documentIcons] || "📄")
+        .map((type: string) => documentIcons[type as keyof typeof documentIcons] || "📄")
         .join(" ")
 
       let tooltipText = `${countryName}`
@@ -422,8 +422,8 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
 
     console.log("Final country code:", countryCode, "name:", countryName)
 
-    if (countryCode && countryName) {
-      onCountryClick?.(countryCode, countryName)
+    if (countryCode && countryName && typeof countryCode === 'string') {
+      onCountryClick?.(countryCode, countryName as string)
     }
   }
 
@@ -553,7 +553,7 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
                             if (!code && geo.id) {
                               code = countryIdToISO3[geo.id.toString()]
                             }
-                            const certCount = data[code]?.certificateCount || 0
+                            const certCount = code && typeof code === 'string' ? (data[code]?.certificateCount || 0) : 0
                             // Darker hover colors based on certificate count
                             if (certCount === 0) return "#6b7280"
                             if (certCount <= 2) return "#93C5FD"
