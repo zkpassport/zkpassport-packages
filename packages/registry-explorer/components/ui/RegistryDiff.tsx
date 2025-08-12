@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { PackagedCertificatesFile } from "@zkpassport/registry";
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils";
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url";
-import { GitCompare, Plus, Minus, Edit2, Calendar, ExternalLink } from "lucide-react";
+import { GitCompare, Plus, Minus, Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 interface CertificateChange {
@@ -23,7 +23,6 @@ interface RegistryDiffProps {
   afterRoot: string;
   beforeDate?: string;
   afterDate?: string;
-  compact?: boolean;
 }
 
 export default function RegistryDiff({ 
@@ -31,7 +30,6 @@ export default function RegistryDiff({
   afterRoot, 
   beforeDate, 
   afterDate,
-  compact = true 
 }: RegistryDiffProps) {
   const [beforeData, setBeforeData] = useState<PackagedCertificatesFile | null>(null);
   const [afterData, setAfterData] = useState<PackagedCertificatesFile | null>(null);

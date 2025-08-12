@@ -180,8 +180,8 @@ function MapPageContent() {
               <RegistryDiff
                 beforeRoot={historicalRoots[1].root}
                 afterRoot={historicalRoots[0].root}
-                beforeDate={historicalRoots[1].validFrom}
-                afterDate={historicalRoots[0].validFrom}
+                beforeDate={historicalRoots[1].validFrom.toISOString()}
+                afterDate={historicalRoots[0].validFrom.toISOString()}
               />
             )}
 
