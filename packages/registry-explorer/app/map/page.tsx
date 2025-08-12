@@ -5,7 +5,9 @@ import { useState, useEffect, Suspense } from "react"
 import { Globe, Shield, Calendar, AlertCircle, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useCertificates } from "@/hooks/useCertificates"
+import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
 import type { PackagedCertificate } from "@zkpassport/utils"
+import RegistryDiff from "@/components/ui/RegistryDiff"
 
 function MapPageContent() {
   const [selectedCountry, setSelectedCountry] = useState<{ code: string; name: string } | null>(
@@ -31,6 +33,9 @@ function MapPageContent() {
 
   // Fetch certificates using the hook
   const { certificates, isLoading, error } = useCertificates()
+  
+  // Fetch historical roots for diff display
+  const { roots: historicalRoots, isLoading: rootsLoading } = useHistoricalCertificateRoots()
 
   // Process certificates when they're loaded
   useEffect(() => {
@@ -168,6 +173,16 @@ function MapPageContent() {
                   <p className="text-xs text-blue-600">Countries Covered</p>
                 </div>
               </div>
+            )}
+
+            {/* Recent Registry Update Diff */}
+            {!rootsLoading && historicalRoots && historicalRoots.length >= 2 && !historicalRoots[0].revoked && !historicalRoots[1].revoked && (
+              <RegistryDiff
+                beforeRoot={historicalRoots[1].root}
+                afterRoot={historicalRoots[0].root}
+                beforeDate={historicalRoots[1].validFrom}
+                afterDate={historicalRoots[0].validFrom}
+              />
             )}
 
             {/* New Countries */}
