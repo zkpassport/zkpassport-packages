@@ -24,7 +24,6 @@ const CertificateDetails = ({
               >
                 {cert.public_key.type}
               </span>
-              å
             </div>
             <p className="text-xs text-gray-600">
               {cert.hash_algorithm}{" "}
