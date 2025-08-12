@@ -16,6 +16,12 @@ export interface CountryData {
     }
     hasExtendedCoverage?: boolean
     certificateCount?: number
+    privateKeyUsagePeriodCoverage?: {
+      percentage: number
+      coveredDays: number
+      totalDaysInPeriod: number
+      hasCriticalGaps: boolean
+    }
   }
 }
 

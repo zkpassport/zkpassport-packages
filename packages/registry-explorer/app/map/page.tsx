@@ -2,12 +2,11 @@
 
 import { WorldMap, Sidebar } from "@/components/Map"
 import { useState, useEffect, Suspense } from "react"
-
 import { useCertificates } from "@/hooks/useCertificates"
 import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
 import type { PackagedCertificate } from "@zkpassport/utils"
-
 import { CountryData } from "@/lib/types"
+import { coverageCache } from "@/lib/coverageCache"
 
 function MapPageContent() {
   const [selectedCountry, setSelectedCountry] = useState<{ code: string; name: string } | null>(
@@ -27,49 +26,70 @@ function MapPageContent() {
 
   // Process certificates when they're loaded
   useEffect(() => {
-    if (certificates && certificates.length > 0) {
-      console.log("Processing certificates:", certificates.length)
+    const processCertificates = async () => {
+      if (certificates && certificates.length > 0) {
+        console.log("Processing certificates:", certificates.length)
 
-      // Group certificates by country
-      const certsByCountry: Record<string, PackagedCertificate[]> = {}
-      certificates.forEach((cert) => {
-        if (!certsByCountry[cert.country]) {
-          certsByCountry[cert.country] = []
-        }
-        certsByCountry[cert.country].push(cert)
-      })
-      setCertificatesByCountry(certsByCountry)
-      console.log("Certificates by country:", Object.keys(certsByCountry).length, "countries")
+        // Group certificates by country
+        const certsByCountry: Record<string, PackagedCertificate[]> = {}
+        certificates.forEach((cert) => {
+          if (!certsByCountry[cert.country]) {
+            certsByCountry[cert.country] = []
+          }
+          certsByCountry[cert.country].push(cert)
+        })
+        setCertificatesByCountry(certsByCountry)
+        console.log("Certificates by country:", Object.keys(certsByCountry).length, "countries")
 
-      // Create country data based on certificates
-      const newCountryData: typeof countryData = {}
-      Object.entries(certsByCountry).forEach(([countryCode, countryCerts]) => {
-        // Determine support level based on certificate count
-        // More granular levels: 1-2 minimal, 3-5 basic, 6-10 partial, 11-20 good, 20+ full
-        const certCount = countryCerts.length
-        let support: "full" | "partial" = "partial"
-        if (certCount >= 20) support = "full"
-        else if (certCount >= 11) support = "full" // We'll use certificateCount for more granular coloring
+        // Convert to Map for coverage calculation
+        const certsByCountryMap = new Map(Object.entries(certsByCountry))
 
-        // Calculate date range
-        const validFromDates = countryCerts.map((c) => c.validity.not_before * 1000)
-        const validToDates = countryCerts.map((c) => c.validity.not_after * 1000)
-        const minDate = Math.min(...validFromDates)
-        const maxDate = Math.max(...validToDates)
+        // Calculate private key usage period coverage using cache
+        const coverageData = await coverageCache.getCoverage(certsByCountryMap)
 
-        newCountryData[countryCode] = {
-          support: support,
-          dateRange: {
-            from: new Date(minDate).toISOString().split("T")[0],
-            to: new Date(maxDate).toISOString().split("T")[0],
-          },
-          certificateCount: countryCerts.length,
-          hasExtendedCoverage: countryCerts.length > 15,
-        }
-      })
-      setCountryData(newCountryData)
-      console.log("Country data created:", newCountryData)
+        // Create country data based on certificates
+        const newCountryData: typeof countryData = {}
+        Object.entries(certsByCountry).forEach(([countryCode, countryCerts]) => {
+          // Determine support level based on certificate count
+          // More granular levels: 1-2 minimal, 3-5 basic, 6-10 partial, 11-20 good, 20+ full
+          const certCount = countryCerts.length
+          let support: "full" | "partial" = "partial"
+          if (certCount >= 20) support = "full"
+          else if (certCount >= 11) support = "full" // We'll use certificateCount for more granular coloring
+
+          // Calculate date range
+          const validFromDates = countryCerts.map((c) => c.validity.not_before * 1000)
+          const validToDates = countryCerts.map((c) => c.validity.not_after * 1000)
+          const minDate = Math.min(...validFromDates)
+          const maxDate = Math.max(...validToDates)
+
+          // Get coverage data for this country
+          const countryCoverage = coverageData.get(countryCode)
+
+          newCountryData[countryCode] = {
+            support: support,
+            dateRange: {
+              from: new Date(minDate).toISOString().split("T")[0],
+              to: new Date(maxDate).toISOString().split("T")[0],
+            },
+            certificateCount: countryCerts.length,
+            hasExtendedCoverage: countryCerts.length > 15,
+            privateKeyUsagePeriodCoverage: countryCoverage
+              ? {
+                  percentage: countryCoverage.percentage,
+                  coveredDays: countryCoverage.coveredDays,
+                  totalDaysInPeriod: countryCoverage.totalDaysInPeriod,
+                  hasCriticalGaps: countryCoverage.hasCriticalGaps,
+                }
+              : undefined,
+          }
+        })
+        setCountryData(newCountryData)
+        console.log("Country data created with coverage:", newCountryData)
+      }
     }
+
+    processCertificates()
   }, [certificates])
 
   const handleCountryClick = (countryCode: string, countryName: string) => {

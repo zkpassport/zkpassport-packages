@@ -217,14 +217,14 @@ export default function RegistryDiffSidebar({
           <div className="flex items-center gap-1">
             <Plus className="w-3 h-3 text-green-600" />
             <span className="text-sm font-semibold text-green-600">{diff.added.length}</span>
-            <span className="text-xs text-gray-600">added</span>
+            <span className="text-xs text-gray-600">certificates added</span>
           </div>
         )}
         {diff.removed.length > 0 && (
           <div className="flex items-center gap-1">
             <Minus className="w-3 h-3 text-red-600" />
             <span className="text-sm font-semibold text-red-600">{diff.removed.length}</span>
-            <span className="text-xs text-gray-600">removed</span>
+            <span className="text-xs text-gray-600">certificates removed</span>
           </div>
         )}
         {totalChanges === 0 && <span className="text-xs text-gray-500">No changes</span>}

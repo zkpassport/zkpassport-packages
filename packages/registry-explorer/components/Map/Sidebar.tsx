@@ -2,7 +2,13 @@ import React from "react"
 import Link from "next/link"
 import { Globe, X } from "lucide-react"
 import type { PackagedCertificate } from "@zkpassport/utils"
-import { CoverageSummary, CertificateTimeline, CertificateDetails, CertificateSummary, RegistryDiff } from "."
+import {
+  CoverageSummary,
+  CertificateTimeline,
+  CertificateDetails,
+  CertificateSummary,
+  RegistryDiff,
+} from "."
 
 interface HistoricalRoot {
   root: string

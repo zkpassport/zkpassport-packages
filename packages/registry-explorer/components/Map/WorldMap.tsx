@@ -139,8 +139,16 @@ export default function WorldMap({ data = {}, onCountryClick, resetMapView }: Wo
     if (countryInfo && countryInfo.support !== "none") {
       let tooltipText = `${countryName}`
 
-      // Add certificate count if available
-      if (countryInfo.certificateCount) {
+      // Add private key usage period coverage if available
+      if (countryInfo.privateKeyUsagePeriodCoverage) {
+        const coverage = countryInfo.privateKeyUsagePeriodCoverage
+        tooltipText += `\n${coverage.percentage.toFixed(1)}% coverage`
+        tooltipText += `\n${coverage.coveredDays}/${coverage.totalDaysInPeriod} days`
+        if (coverage.hasCriticalGaps) {
+          tooltipText += `\n⚠️ Has gaps >30 days`
+        }
+      } else if (countryInfo.certificateCount) {
+        // Fallback to certificate count if no coverage data
         tooltipText += `\n${countryInfo.certificateCount} certificates`
       }
 
@@ -265,8 +273,23 @@ export default function WorldMap({ data = {}, onCountryClick, resetMapView }: Wo
                         hover: {
                           fill: (() => {
                             const code = getCountryCode(geo, data, countryNameToCode)
-                            const certCount = code ? data[code]?.certificateCount || 0 : 0
-                            // Darker hover colors based on certificate count
+                            const countryData = code ? data[code] : null
+
+                            if (!countryData) return "#6b7280"
+
+                            // Use private key usage period coverage for hover colors
+                            if (countryData.privateKeyUsagePeriodCoverage) {
+                              const percentage =
+                                countryData.privateKeyUsagePeriodCoverage.percentage
+                              if (percentage === 0) return "#6b7280"
+                              if (percentage < 25) return "#60A5FA"
+                              if (percentage < 50) return "#2563EB"
+                              if (percentage < 75) return "#1D4ED8"
+                              return "#1E40AF"
+                            }
+
+                            // Fallback to certificate count
+                            const certCount = countryData.certificateCount || 0
                             if (certCount === 0) return "#6b7280"
                             if (certCount <= 2) return "#93C5FD"
                             if (certCount <= 5) return "#60A5FA"

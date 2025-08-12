@@ -1,14 +1,13 @@
 import { CountryData, GeographyObject } from "./types"
 
-// Legend data for certificate coverage levels
-export const CERTIFICATE_LEGEND_ITEMS = [
-  { color: "#1D4ED8", label: "Excellent (20+ certificates)" },
-  { color: "#2563EB", label: "Strong (11-20 certificates)" },
-  { color: "#3B82F6", label: "Good (6-10 certificates)" },
-  { color: "#60A5FA", label: "Partial (3-5 certificates)" },
-  { color: "#93C5FD", label: "Basic (1-2 certificates)" },
-  { color: "#DBEAFE", label: "Minimal (0-1 certificates)" },
-  { color: "#374151", label: "No coverage" },
+// Legend data for private key usage period coverage levels
+export const COVERAGE_LEGEND_ITEMS = [
+  { color: "#1D4ED8", label: "High (75-100%)" },
+  { color: "#2563EB", label: "Medium-High (50-75%)" },
+  { color: "#3B82F6", label: "Medium-Low (25-50%)" },
+  { color: "#93C5FD", label: "Low (1-25%)" },
+  { color: "#374151", label: "No active keys (0%)" },
+  { color: "#374151", label: "No data" },
 ] as const
 
 // Function to get country code from geography object
@@ -45,7 +44,7 @@ export const getCountryCode = (
   return null
 }
 
-// Function to get country color based on support level
+// Function to get country color based on private key usage period coverage
 export const getCountryColor = (
   geo: GeographyObject,
   data: CountryData,
@@ -58,7 +57,18 @@ export const getCountryColor = (
 
   if (!countryData || countryData.support === "none") return "#374151" // Dark gray for no support
 
-  // Color based on certificate count for more granular visualization
+  // Use private key usage period coverage if available, otherwise fall back to certificate count
+  if (countryData.privateKeyUsagePeriodCoverage) {
+    const percentage = countryData.privateKeyUsagePeriodCoverage.percentage
+
+    if (percentage === 0) return "#374151" // Gray for no coverage
+    if (percentage < 25) return "#93C5FD" // Light blue for low coverage
+    if (percentage < 50) return "#3B82F6" // Medium blue for medium-low coverage
+    if (percentage < 75) return "#2563EB" // Dark blue for medium-high coverage
+    return "#1D4ED8" // Darkest blue for high coverage
+  }
+
+  // Fallback to certificate count if no private key usage period data
   const certCount = countryData.certificateCount || 0
 
   if (certCount === 0) return "#374151" // Dark gray - no certificates
