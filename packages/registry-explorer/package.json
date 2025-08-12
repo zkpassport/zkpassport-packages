@@ -25,10 +25,13 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.5.5",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "react-simple-maps": "^3.0.0",
+    "react-world-flags": "^1.6.0"
   },
   "devDependencies": {
     "@types/react": "^18",
+    "@types/react-simple-maps": "^3.0.6",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
     "eslint": "^8",

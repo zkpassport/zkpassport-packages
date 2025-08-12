@@ -31,6 +31,7 @@ export function Navigation() {
             </Link>
           </div>
           <nav className="flex items-center gap-4">
+            <NavLink href="/map">Map</NavLink>
             <NavLink href="/certificates">Certificates</NavLink>
             <NavLink href="/certificates/history">Certificate Roots</NavLink>
             <NavLink href="/circuits/history">Circuit Roots</NavLink>
