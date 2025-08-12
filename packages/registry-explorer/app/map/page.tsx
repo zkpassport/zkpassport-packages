@@ -13,7 +13,7 @@ function MapPageContent() {
   const [selectedCountry, setSelectedCountry] = useState<{ code: string; name: string } | null>(
     null,
   )
-  const [registryUpdateDate] = useState("2025-01-10")
+  const [registryUpdateDate] = useState("2025-01-10") //TODO:change this
   const [countryData, setCountryData] = useState<
     Record<
       string,
@@ -33,7 +33,7 @@ function MapPageContent() {
 
   // Fetch certificates using the hook
   const { certificates, isLoading, error } = useCertificates()
-  
+
   // Fetch historical roots for diff display
   const { roots: historicalRoots, isLoading: rootsLoading } = useHistoricalCertificateRoots()
 
@@ -71,7 +71,7 @@ function MapPageContent() {
 
         newCountryData[countryCode] = {
           support: support,
-          documentTypes: ["passport"], // Default to passport, could be enhanced
+          documentTypes: ["passport"], // Default to passport, could be enhanced, yeah i dont think we can distinguish between passport and id card
           dateRange: {
             from: new Date(minDate).toISOString().split("T")[0],
             to: new Date(maxDate).toISOString().split("T")[0],
@@ -116,9 +116,9 @@ function MapPageContent() {
   // };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b px-4 py-3">
+      <div className="bg-white border-b px-4 py-3 flex-shrink-0">
         <div className="container mx-auto">
           <h1 className="text-2xl font-bold">Certificate Registry Map</h1>
           <p className="text-gray-600 text-sm mt-1">
@@ -128,9 +128,9 @@ function MapPageContent() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 relative">
+      <div className="flex flex-1 min-h-0 overflow-hidden max-h-[80%] mx-auto">
         {/* Left Sidebar */}
-        <div className="w-80 bg-white border-r overflow-y-auto">
+        <div className="w-80 bg-white border-r overflow-y-auto flex-shrink-0">
           <div className="p-4">
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -176,14 +176,17 @@ function MapPageContent() {
             )}
 
             {/* Recent Registry Update Diff */}
-            {!rootsLoading && historicalRoots && historicalRoots.length >= 2 && !historicalRoots[0].revoked && !historicalRoots[1].revoked && (
-              <RegistryDiff
-                beforeRoot={historicalRoots[1].root}
-                afterRoot={historicalRoots[0].root}
-                beforeDate={historicalRoots[1].validFrom.toISOString()}
-                afterDate={historicalRoots[0].validFrom.toISOString()}
-              />
-            )}
+            {!rootsLoading &&
+              historicalRoots &&
+              historicalRoots.length >= 2 &&
+              !historicalRoots[0].revoked &&
+              !historicalRoots[1].revoked && (
+                <RegistryDiff
+                  beforeRoot={historicalRoots[1].root}
+                  afterRoot={historicalRoots[0].root}
+                  beforeDate={historicalRoots[1].validFrom.toISOString()}
+                />
+              )}
 
             {/* New Countries */}
             {/* {newCountries.length > 0 && (
@@ -380,7 +383,7 @@ function MapPageContent() {
         </div>
 
         {/* Map Container */}
-        <div className="flex-1 relative bg-gray-50">
+        <div className="flex-1 relative bg-gray-50 overflow-hidden">
           <WorldMap
             data={isLoading ? {} : countryData}
             registryUpdateDate={registryUpdateDate}
@@ -593,24 +596,27 @@ function MapPageContent() {
 
 export default function MapPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col h-screen">
-        <div className="bg-white border-b px-4 py-3">
-          <div className="container mx-auto">
-            <h1 className="text-2xl font-bold">Certificate Registry Map</h1>
-            <p className="text-gray-600 text-sm mt-1">
-              Interactive map showing countries with supported documents in the zkPassport registry
-            </p>
+    <Suspense
+      fallback={
+        <div className="flex flex-col h-screen overflow-hidden">
+          <div className="bg-white border-b px-4 py-3 flex-shrink-0">
+            <div className="container mx-auto">
+              <h1 className="text-2xl font-bold">Certificate Registry Map</h1>
+              <p className="text-gray-600 text-sm mt-1">
+                Interactive map showing countries with supported documents in the zkPassport
+                registry
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-1 min-h-0 items-center justify-center">
+            <div className="inline-flex items-center gap-2 text-gray-600">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              Loading map...
+            </div>
           </div>
         </div>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="inline-flex items-center gap-2 text-gray-600">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            Loading map...
-          </div>
-        </div>
-      </div>
-    }>
+      }
+    >
       <MapPageContent />
     </Suspense>
   )

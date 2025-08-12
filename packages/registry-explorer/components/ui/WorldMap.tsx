@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useMemo } from "react"
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps"
 import { Search } from "lucide-react"
+import { countryCodeAlpha3ToName } from "@zkpassport/utils"
 
 // World map data URL (Natural Earth 110m resolution)
 const geoUrl = "/countries-110m.json"
@@ -42,112 +43,6 @@ interface GeographyObject {
   [key: string]: unknown
 }
 
-// Map numeric country IDs to ISO3 codes
-const countryIdToISO3: Record<string, string> = {
-  "840": "USA",
-  "124": "CAN",
-  "484": "MEX",
-  "076": "BRA",
-  "032": "ARG",
-  "152": "CHL",
-  "604": "PER",
-  "170": "COL",
-  "862": "VEN",
-  "826": "GBR",
-  "250": "FRA",
-  "276": "DEU",
-  "380": "ITA",
-  "724": "ESP",
-  "620": "PRT",
-  "528": "NLD",
-  "056": "BEL",
-  "756": "CHE",
-  "040": "AUT",
-  "203": "CZE",
-  "616": "POL",
-  "348": "HUN",
-  "642": "ROU",
-  "100": "BGR",
-  "300": "GRC",
-  "792": "TUR",
-  "643": "RUS",
-  "804": "UKR",
-  "112": "BLR",
-  "156": "CHN",
-  "392": "JPN",
-  "410": "KOR",
-  "704": "VNM",
-  "764": "THA",
-  "458": "MYS",
-  "360": "IDN",
-  "608": "PHL",
-  "702": "SGP",
-  "356": "IND",
-  "586": "PAK",
-  "050": "BGD",
-  "144": "LKA",
-  "524": "NPL",
-  "004": "AFG",
-  "364": "IRN",
-  "368": "IRA",
-  "682": "SAU",
-  "784": "ARE",
-  "818": "EGY",
-  "434": "LYB",
-  "012": "DZA",
-  "504": "MAR",
-  "788": "TUN",
-  "566": "NGA",
-  "710": "ZAF",
-  "404": "KEN",
-  "231": "ETH",
-  "800": "UGA",
-  "834": "TZA",
-  "024": "AGO",
-  "508": "MOZ",
-  "716": "ZWE",
-  "894": "ZMB",
-  "454": "MWI",
-  "036": "AUS",
-  "554": "NZL",
-  "242": "FJI",
-  "598": "PNG",
-  "008": "ALB",
-  "031": "AZE",
-  "051": "ARM",
-  "070": "BIH",
-  "191": "HRV",
-  "196": "CYP",
-  "268": "GEO",
-  "352": "ISL",
-  "398": "KAZ",
-  "417": "KGZ",
-  "440": "LTU",
-  "428": "LVA",
-  "807": "MKD",
-  "498": "MDA",
-  "499": "MNE",
-  "688": "SRB",
-  "705": "SVN",
-  "762": "TJK",
-  "795": "TKM",
-  "860": "UZB",
-  "233": "EST",
-  "246": "FIN",
-  "578": "NOR",
-  "752": "SWE",
-  "208": "DNK",
-  "372": "IRL",
-  "703": "SVK",
-  "442": "LUX",
-  "470": "MLT",
-  "020": "AND",
-  "492": "MCO",
-  "674": "SMR",
-  "336": "VAT",
-  "438": "LIE",
-}
-
 export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState<string>("")
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
@@ -159,121 +54,64 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
   const [showSearchResults, setShowSearchResults] = useState(false)
 
   useEffect(() => {
-    setMapWidth(window.innerWidth)
-    setMapHeight(window.innerHeight)
-    window.addEventListener("resize", () => {
-      setMapWidth(window.innerWidth)
-      setMapHeight(window.innerHeight)
-    })
+    const updateMapSize = () => {
+      // Get the actual container size instead of window size
+      const container = document.getElementById("map-container")
+      if (container) {
+        setMapWidth(container.clientWidth)
+        setMapHeight(container.clientHeight)
+      }
+    }
+
+    updateMapSize()
+    window.addEventListener("resize", updateMapSize)
+
+    return () => window.removeEventListener("resize", updateMapSize)
   }, [])
 
-  // Country name mappings for search
-  const countryNames: Record<string, string> = {
-    USA: "United States",
-    GBR: "United Kingdom",
-    FRA: "France",
-    DEU: "Germany",
-    ITA: "Italy",
-    ESP: "Spain",
-    NLD: "Netherlands",
-    BEL: "Belgium",
-    CHE: "Switzerland",
-    AUT: "Austria",
-    POL: "Poland",
-    CZE: "Czech Republic",
-    SVK: "Slovakia",
-    HUN: "Hungary",
-    ROU: "Romania",
-    BGR: "Bulgaria",
-    GRC: "Greece",
-    TUR: "Turkey",
-    RUS: "Russia",
-    UKR: "Ukraine",
-    CHN: "China",
-    JPN: "Japan",
-    KOR: "South Korea",
-    IND: "India",
-    AUS: "Australia",
-    NZL: "New Zealand",
-    CAN: "Canada",
-    MEX: "Mexico",
-    BRA: "Brazil",
-    ARG: "Argentina",
-    ZAF: "South Africa",
-    EGY: "Egypt",
-    NGA: "Nigeria",
-    KEN: "Kenya",
-    MAR: "Morocco",
-    SAU: "Saudi Arabia",
-    ARE: "United Arab Emirates",
-    ISR: "Israel",
-    SGP: "Singapore",
-    MYS: "Malaysia",
-    IDN: "Indonesia",
-    THA: "Thailand",
-    VNM: "Vietnam",
-    PHL: "Philippines",
-    PAK: "Pakistan",
-    BGD: "Bangladesh",
-    IRN: "Iran",
-    IRQ: "Iraq",
-    AFG: "Afghanistan",
-    NPL: "Nepal",
-    LKA: "Sri Lanka",
-    MMR: "Myanmar",
-    PER: "Peru",
-    CHL: "Chile",
-    COL: "Colombia",
-    VEN: "Venezuela",
-    ECU: "Ecuador",
-    BOL: "Bolivia",
-    PRY: "Paraguay",
-    URY: "Uruguay",
-    PAN: "Panama",
-    CRI: "Costa Rica",
-    GTM: "Guatemala",
-    HND: "Honduras",
-    SLV: "El Salvador",
-    NIC: "Nicaragua",
-    DOM: "Dominican Republic",
-    HTI: "Haiti",
-    CUB: "Cuba",
-    JAM: "Jamaica",
-    PRT: "Portugal",
-    IRL: "Ireland",
-    DNK: "Denmark",
-    NOR: "Norway",
-    SWE: "Sweden",
-    FIN: "Finland",
-    ISL: "Iceland",
-    EST: "Estonia",
-    LVA: "Latvia",
-    LTU: "Lithuania",
-    BLR: "Belarus",
-    MDA: "Moldova",
-    ALB: "Albania",
-    MKD: "North Macedonia",
-    SRB: "Serbia",
-    MNE: "Montenegro",
-    HRV: "Croatia",
-    SVN: "Slovenia",
-    BIH: "Bosnia and Herzegovina",
-    ARM: "Armenia",
-    GEO: "Georgia",
-    AZE: "Azerbaijan",
-    KAZ: "Kazakhstan",
-    UZB: "Uzbekistan",
-    TKM: "Turkmenistan",
-    TJK: "Tajikistan",
-    KGZ: "Kyrgyzstan",
-    MNG: "Mongolia",
-    PRK: "North Korea",
-    LAO: "Laos",
-    KHM: "Cambodia",
-    TWN: "Taiwan",
-    HKG: "Hong Kong",
-    MAC: "Macau",
-  }
+  // Build dynamic country name to code mapping from certificate data
+  const countryNameToCode = useMemo(() => {
+    const mapping: Record<string, string> = {}
+
+    // Get all country codes from the data
+    Object.keys(data).forEach((code) => {
+      const countryName = countryCodeAlpha3ToName(code)
+      if (countryName && countryName !== code) {
+        // Store multiple variations of the country name for better matching
+        mapping[countryName] = code
+        mapping[countryName.toLowerCase()] = code
+
+        // Handle special cases
+        if (countryName === "United States") {
+          mapping["United States of America"] = code
+          mapping["united states of america"] = code
+        }
+        if (countryName === "United Kingdom") {
+          mapping["UK"] = code
+          mapping["uk"] = code
+        }
+        if (countryName === "Democratic Republic of the Congo") {
+          mapping["Dem. Rep. Congo"] = code
+          mapping["dem. rep. congo"] = code
+        }
+        if (countryName === "Central African Republic") {
+          mapping["Central African Rep."] = code
+          mapping["central african rep."] = code
+        }
+      }
+    })
+
+    return mapping
+  }, [data])
+
+  // Build country names for search from the certificate data
+  const countryNames = useMemo(() => {
+    const names: Record<string, string> = {}
+    Object.keys(data).forEach((code) => {
+      names[code] = countryCodeAlpha3ToName(code)
+    })
+    return names
+  }, [data])
 
   // Handle search
   useEffect(() => {
@@ -306,24 +144,44 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
       setSearchResults([])
       setShowSearchResults(false)
     }
-  }, [searchQuery, data])
+  }, [searchQuery, data, countryNames])
 
-  // Function to get country color based on support level
-  const getCountryColor = (geo: GeographyObject): string => {
-    // First try to get ISO3 code directly
-    let countryCode =
+  // Function to get country code from geography object
+  const getCountryCode = (geo: GeographyObject): string | null => {
+    // First try to get ISO3 code directly from properties
+    const countryCode =
       geo.properties.ISO_A3 ||
       geo.properties.ISO_A3_EH ||
       geo.properties.ISO3 ||
       geo.properties.iso_a3
 
-    // If not found, try to map from numeric ID
-    if (!countryCode && geo.id) {
-      countryCode = countryIdToISO3[geo.id.toString()]
+    // If we have a code, check if it exists in our data
+    if (countryCode && typeof countryCode === "string" && data[countryCode]) {
+      return countryCode
     }
 
-    if (!countryCode || typeof countryCode !== 'string') return "#374151" // Dark gray for countries with no data
-    const countryData = data[countryCode] 
+    // Try to match by country name
+    const countryName = geo.properties.NAME || geo.properties.name
+    if (countryName && typeof countryName === "string") {
+      // Check our dynamic mapping
+      const codeFromName =
+        countryNameToCode[countryName] || countryNameToCode[countryName.toLowerCase()]
+      if (codeFromName && data[codeFromName]) {
+        return codeFromName
+      }
+    }
+
+    // We don't use numeric ID mapping anymore since we rely on ISO codes and country names
+
+    return null
+  }
+
+  // Function to get country color based on support level
+  const getCountryColor = (geo: GeographyObject): string => {
+    const countryCode = getCountryCode(geo)
+
+    if (!countryCode) return "#374151" // Dark gray for countries with no data
+    const countryData = data[countryCode]
 
     if (!countryData || countryData.support === "none") return "#374151" // Dark gray for no support
 
@@ -331,11 +189,11 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
     const certCount = countryData.certificateCount || 0
 
     if (certCount === 0) return "#374151" // Dark gray - no certificates
-    if (certCount <= 2) return "#DBEAFE" // Very light blue - minimal support (1-2 certs)
-    if (certCount <= 5) return "#93C5FD" // Light blue - basic support (3-5 certs)
-    if (certCount <= 10) return "#60A5FA" // Medium blue - partial support (6-10 certs)
-    if (certCount <= 20) return "#3B82F6" // Blue - good support (11-20 certs)
-    if (certCount <= 50) return "#2563EB" // Dark blue - strong support (21-50 certs)
+    if (certCount <= 1) return "#DBEAFE" // Very light blue - minimal support (1-2 certs)
+    if (certCount <= 3) return "#93C5FD" // Light blue - basic support (3-5 certs)
+    if (certCount <= 6) return "#60A5FA" // Medium blue - partial support (6-10 certs)
+    if (certCount <= 10) return "#3B82F6" // Blue - good support (11-20 certs)
+    if (certCount <= 20) return "#2563EB" // Dark blue - strong support (21-50 certs)
     return "#1D4ED8" // Very dark blue - excellent support (50+ certs)
   }
 
@@ -343,19 +201,8 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
     const countryName =
       geo.properties.NAME || geo.properties.NAME_EN || geo.properties.name || geo.properties.ADMIN
 
-    // Try to get ISO3 code directly
-    let countryCode =
-      geo.properties.ISO_A3 ||
-      geo.properties.ISO_A3_EH ||
-      geo.properties.ISO3 ||
-      geo.properties.iso_a3
-
-    // If not found, try to map from numeric ID
-    if (!countryCode && geo.id) {
-      countryCode = countryIdToISO3[geo.id.toString()]
-    }
-
-    const countryInfo = countryCode && typeof countryCode === 'string' ? data[countryCode] : null
+    const countryCode = getCountryCode(geo)
+    const countryInfo = countryCode ? data[countryCode] : null
 
     if (countryInfo && countryInfo.support !== "none") {
       const documentIcons = {
@@ -401,34 +248,18 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
   }
 
   const handleCountryClick = (geo: GeographyObject) => {
-    console.log("Geography properties:", geo.properties)
-    console.log("Geography id:", geo.id)
-
     const countryName =
       geo.properties.NAME || geo.properties.NAME_EN || geo.properties.name || geo.properties.ADMIN
 
-    // Try to get ISO3 code directly
-    let countryCode =
-      geo.properties.ISO_A3 ||
-      geo.properties.ISO_A3_EH ||
-      geo.properties.ISO3 ||
-      geo.properties.iso_a3
+    const countryCode = getCountryCode(geo)
 
-    // If not found, try to map from numeric ID
-    if (!countryCode && geo.id) {
-      countryCode = countryIdToISO3[geo.id.toString()]
-      console.log("Mapped from ID", geo.id, "to code:", countryCode)
-    }
-
-    console.log("Final country code:", countryCode, "name:", countryName)
-
-    if (countryCode && countryName && typeof countryCode === 'string') {
+    if (countryCode && countryName) {
       onCountryClick?.(countryCode, countryName as string)
     }
   }
 
   return (
-    <div className="relative w-full h-full overflow-hidden">
+    <div id="map-container" className="relative w-full h-full overflow-hidden">
       {/* Background with gradient and animated elements */}
       <div className="absolute inset-0 bg-white">
         {/* Subtle radial overlay for depth */}
@@ -522,9 +353,14 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
       </div>
 
       {/* Map container with enhanced styling */}
-      <div className="relative z-0">
-        <ComposableMap projection="geoEqualEarth" width={mapWidth} height={mapHeight}>
-          <ZoomableGroup zoom={1.5} center={[40, -10]} minZoom={0.5} maxZoom={8}>
+      <div className="relative z-0 w-full h-full">
+        <ComposableMap
+          projection="geoEqualEarth"
+          width={mapWidth}
+          height={mapHeight}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <ZoomableGroup zoom={1.5} center={[20, 0]} minZoom={0.5} maxZoom={8}>
             <Geographies geography={geoUrl}>
               {({ geographies }: { geographies: GeographyObject[] }) =>
                 geographies.map((geo: GeographyObject) => {
@@ -545,15 +381,8 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
                         },
                         hover: {
                           fill: (() => {
-                            let code =
-                              geo.properties.ISO_A3 ||
-                              geo.properties.ISO_A3_EH ||
-                              geo.properties.ISO3 ||
-                              geo.properties.iso_a3
-                            if (!code && geo.id) {
-                              code = countryIdToISO3[geo.id.toString()]
-                            }
-                            const certCount = code && typeof code === 'string' ? (data[code]?.certificateCount || 0) : 0
+                            const code = getCountryCode(geo)
+                            const certCount = code ? data[code]?.certificateCount || 0 : 0
                             // Darker hover colors based on certificate count
                             if (certCount === 0) return "#6b7280"
                             if (certCount <= 2) return "#93C5FD"
@@ -606,27 +435,27 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: "#1D4ED8" }}></div>
-            <span className="text-xs text-gray-700">Excellent (50+ certificates)</span>
+            <span className="text-xs text-gray-700">Excellent (20+ certificates)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: "#2563EB" }}></div>
-            <span className="text-xs text-gray-700">Strong (21-50 certificates)</span>
+            <span className="text-xs text-gray-700">Strong (11-20 certificates)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: "#3B82F6" }}></div>
-            <span className="text-xs text-gray-700">Good (11-20 certificates)</span>
+            <span className="text-xs text-gray-700">Good (6-10 certificates)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: "#60A5FA" }}></div>
-            <span className="text-xs text-gray-700">Partial (6-10 certificates)</span>
+            <span className="text-xs text-gray-700">Partial (3-5 certificates)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: "#93C5FD" }}></div>
-            <span className="text-xs text-gray-700">Basic (3-5 certificates)</span>
+            <span className="text-xs text-gray-700">Basic (1-2 certificates)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: "#DBEAFE" }}></div>
-            <span className="text-xs text-gray-700">Minimal (1-2 certificates)</span>
+            <span className="text-xs text-gray-700">Minimal (0-1 certificates)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: "#374151" }}></div>

@@ -1,132 +1,130 @@
-"use client";
+"use client"
 
-import React, { useEffect, useState } from "react";
-import { PackagedCertificatesFile } from "@zkpassport/registry";
-import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils";
-import { getCertificateUrl, getChainId } from "@/lib/certificate-url";
-import { GitCompare, Plus, Minus, Calendar, ExternalLink } from "lucide-react";
-import Link from "next/link";
+import React, { useEffect, useState } from "react"
+import { PackagedCertificatesFile } from "@zkpassport/registry"
+import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
+import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
+import { GitCompare, Plus, Minus, Calendar, ExternalLink } from "lucide-react"
+import Link from "next/link"
 
 interface CertificateChange {
-  certificate: PackagedCertificate;
-  changeType: "added" | "removed" | "modified";
+  certificate: PackagedCertificate
+  changeType: "added" | "removed" | "modified"
 }
 
 interface CertificateDiff {
-  added: PackagedCertificate[];
-  removed: PackagedCertificate[];
-  modified: CertificateChange[];
+  added: PackagedCertificate[]
+  removed: PackagedCertificate[]
+  modified: CertificateChange[]
 }
 
 interface RegistryDiffProps {
-  beforeRoot: string;
-  afterRoot: string;
-  beforeDate?: string;
-  afterDate?: string;
+  beforeRoot: string
+  afterRoot: string
+  beforeDate?: string
 }
 
-export default function RegistryDiff({ 
-  beforeRoot, 
-  afterRoot, 
-  beforeDate, 
-  afterDate,
+export default function RegistryDiffSidebar({
+  beforeRoot,
+  afterRoot,
+  beforeDate,
 }: RegistryDiffProps) {
-  const [beforeData, setBeforeData] = useState<PackagedCertificatesFile | null>(null);
-  const [afterData, setAfterData] = useState<PackagedCertificatesFile | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [beforeData, setBeforeData] = useState<PackagedCertificatesFile | null>(null)
+  const [afterData, setAfterData] = useState<PackagedCertificatesFile | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchCertificateData = async () => {
-      if (!beforeRoot || !afterRoot) return;
+      if (!beforeRoot || !afterRoot) return
 
-      setIsLoading(true);
-      setError(null);
+      setIsLoading(true)
+      setError(null)
 
-      const chainId = getChainId();
-      const beforeUrl = getCertificateUrl(beforeRoot, chainId);
-      const afterUrl = getCertificateUrl(afterRoot, chainId);
+      const chainId = getChainId()
+      const beforeUrl = getCertificateUrl(beforeRoot, chainId)
+      const afterUrl = getCertificateUrl(afterRoot, chainId)
 
       try {
         const [beforeResponse, afterResponse] = await Promise.all([
           fetch(beforeUrl),
           fetch(afterUrl),
-        ]);
+        ])
 
         if (!beforeResponse.ok || !afterResponse.ok) {
-          throw new Error("Failed to fetch certificate data");
+          throw new Error("Failed to fetch certificate data")
         }
 
         const [beforeData, afterData] = await Promise.all([
           beforeResponse.json(),
           afterResponse.json(),
-        ]);
+        ])
 
-        setBeforeData(beforeData);
-        setAfterData(afterData);
+        setBeforeData(beforeData)
+        setAfterData(afterData)
       } catch (error) {
-        setError(error instanceof Error ? error.message : "Unknown error");
+        setError(error instanceof Error ? error.message : "Unknown error")
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
-    };
+    }
 
-    fetchCertificateData();
-  }, [beforeRoot, afterRoot]);
+    fetchCertificateData()
+  }, [beforeRoot, afterRoot])
 
   // Reuse certificate key generation from diff page
   const getCertificateKey = (cert: PackagedCertificate): string => {
-    const publicKeyParts = [];
+    const publicKeyParts = []
     if (cert.public_key?.type === "RSA") {
-      publicKeyParts.push(cert.public_key.type, cert.public_key.modulus, cert.public_key.exponent);
+      publicKeyParts.push(cert.public_key.type, cert.public_key.modulus, cert.public_key.exponent)
     } else if (cert.public_key?.type === "EC") {
       publicKeyParts.push(
         cert.public_key.type,
         cert.public_key.curve,
         cert.public_key.public_key_x,
         cert.public_key.public_key_y,
-      );
+      )
     }
-    const parts = [cert.country, cert.signature_algorithm, cert.hash_algorithm, ...publicKeyParts];
-    return parts.join("|");
-  };
+    const parts = [cert.country, cert.signature_algorithm, cert.hash_algorithm, ...publicKeyParts]
+    return parts.join("|")
+  }
 
   // Calculate diff
   const calculateCertificateDiff = (
     beforeCerts: PackagedCertificate[],
     afterCerts: PackagedCertificate[],
   ): CertificateDiff => {
-    const beforeMap = new Map<string, PackagedCertificate>();
-    const afterMap = new Map<string, PackagedCertificate>();
+    const beforeMap = new Map<string, PackagedCertificate>()
+    const afterMap = new Map<string, PackagedCertificate>()
 
     beforeCerts.forEach((cert) => {
-      const key = getCertificateKey(cert);
-      if (key) beforeMap.set(key, cert);
-    });
+      const key = getCertificateKey(cert)
+      if (key) beforeMap.set(key, cert)
+    })
 
     afterCerts.forEach((cert) => {
-      const key = getCertificateKey(cert);
-      if (key) afterMap.set(key, cert);
-    });
+      const key = getCertificateKey(cert)
+      if (key) afterMap.set(key, cert)
+    })
 
-    const added: PackagedCertificate[] = [];
-    const removed: PackagedCertificate[] = [];
-    const modified: CertificateChange[] = [];
+    const added: PackagedCertificate[] = []
+    const removed: PackagedCertificate[] = []
+    const modified: CertificateChange[] = []
 
     afterMap.forEach((cert, id) => {
       if (!beforeMap.has(id)) {
-        added.push(cert);
+        added.push(cert)
       }
-    });
+    })
 
     beforeMap.forEach((beforeCert, id) => {
       if (!afterMap.has(id)) {
-        removed.push(beforeCert);
+        removed.push(beforeCert)
       }
-    });
+    })
 
-    return { added, removed, modified };
-  };
+    return { added, removed, modified }
+  }
 
   if (isLoading) {
     return (
@@ -136,7 +134,7 @@ export default function RegistryDiff({
           <p className="text-sm text-gray-600">Loading diff...</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -144,43 +142,40 @@ export default function RegistryDiff({
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
         <p className="text-sm text-red-700">Error loading diff: {error}</p>
       </div>
-    );
+    )
   }
 
   if (!beforeData || !afterData) {
-    return null;
+    return null
   }
 
-  const diff = calculateCertificateDiff(
-    beforeData.certificates || [],
-    afterData.certificates || [],
-  );
+  const diff = calculateCertificateDiff(beforeData.certificates || [], afterData.certificates || [])
 
-  const totalChanges = diff.added.length + diff.removed.length;
+  const totalChanges = diff.added.length + diff.removed.length
 
   // Group changes by country
-  const changesByCountry = new Map<string, { added: number; removed: number }>();
-  
-  diff.added.forEach(cert => {
-    const country = cert.country;
-    if (!changesByCountry.has(country)) {
-      changesByCountry.set(country, { added: 0, removed: 0 });
-    }
-    changesByCountry.get(country)!.added++;
-  });
+  const changesByCountry = new Map<string, { added: number; removed: number }>()
 
-  diff.removed.forEach(cert => {
-    const country = cert.country;
+  diff.added.forEach((cert) => {
+    const country = cert.country
     if (!changesByCountry.has(country)) {
-      changesByCountry.set(country, { added: 0, removed: 0 });
+      changesByCountry.set(country, { added: 0, removed: 0 })
     }
-    changesByCountry.get(country)!.removed++;
-  });
+    changesByCountry.get(country)!.added++
+  })
+
+  diff.removed.forEach((cert) => {
+    const country = cert.country
+    if (!changesByCountry.has(country)) {
+      changesByCountry.set(country, { added: 0, removed: 0 })
+    }
+    changesByCountry.get(country)!.removed++
+  })
 
   // Sort countries by total changes
   const sortedCountries = Array.from(changesByCountry.entries())
-    .sort((a, b) => (b[1].added + b[1].removed) - (a[1].added + a[1].removed))
-    .slice(0, 5); // Show top 5 countries
+    .sort((a, b) => b[1].added + b[1].removed - (a[1].added + a[1].removed))
+    .slice(0, 5) // Show top 5 countries
 
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 border border-blue-200">
@@ -199,12 +194,12 @@ export default function RegistryDiff({
       </div>
 
       {/* Date Range */}
-      {(beforeDate || afterDate) && (
+      {beforeDate && (
         <div className="flex items-center gap-1 text-xs text-gray-600 mb-3">
           <Calendar className="w-3 h-3" />
           {beforeDate && <span>{new Date(beforeDate).toLocaleDateString()}</span>}
-          {beforeDate && afterDate && <span>→</span>}
-          {afterDate && <span>{new Date(afterDate).toLocaleDateString()}</span>}
+          {beforeDate && <span>→</span>}
+          {beforeDate && <span>Present</span>}
         </div>
       )}
 
@@ -224,9 +219,7 @@ export default function RegistryDiff({
             <span className="text-xs text-gray-600">removed</span>
           </div>
         )}
-        {totalChanges === 0 && (
-          <span className="text-xs text-gray-500">No changes</span>
-        )}
+        {totalChanges === 0 && <span className="text-xs text-gray-500">No changes</span>}
       </div>
 
       {/* Countries with changes */}
@@ -234,7 +227,10 @@ export default function RegistryDiff({
         <div className="space-y-1">
           <p className="text-xs font-medium text-gray-700 mb-1">Countries affected:</p>
           {sortedCountries.map(([country, changes]) => (
-            <div key={country} className="flex items-center justify-between text-xs bg-white/50 rounded px-2 py-1">
+            <div
+              key={country}
+              className="flex items-center justify-between text-xs bg-white/50 rounded px-2 py-1"
+            >
               <span className="font-medium">{countryCodeAlpha3ToName(country)}</span>
               <div className="flex items-center gap-2">
                 {changes.added > 0 && (
@@ -270,5 +266,5 @@ export default function RegistryDiff({
         </div>
       </div>
     </div>
-  );
+  )
 }
