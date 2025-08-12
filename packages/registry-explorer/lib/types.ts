@@ -6,3 +6,37 @@ export interface CertificateFilterState {
   selectedRSAType: string
   selectedCurve: string
 }
+
+export interface CountryData {
+  [countryCode: string]: {
+    support: "full" | "partial" | "none"
+    dateRange?: {
+      from: string
+      to: string
+    }
+    hasExtendedCoverage?: boolean
+    certificateCount?: number
+  }
+}
+
+export interface WorldMapProps {
+  data?: CountryData
+  onCountryClick?: (countryCode: string, countryName: string) => void
+  registryUpdateDate?: string
+  onCountrySearch?: (countryCode: string) => void
+  resetMapView?: boolean
+}
+
+export interface GeographyProperties {
+  ISO_A3?: string
+  NAME?: string
+  name?: string
+  [key: string]: unknown
+}
+
+export interface GeographyObject {
+  rsmKey: string
+  properties: GeographyProperties
+  id?: string | number
+  [key: string]: unknown
+}

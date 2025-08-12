@@ -175,9 +175,9 @@ export default function RegistryDiffSidebar({
   })
 
   // Sort countries by total changes
-  const sortedCountries = Array.from(changesByCountry.entries())
-    .sort((a, b) => b[1].added + b[1].removed - (a[1].added + a[1].removed))
-    .slice(0, 5) // Show top 5 countries
+  const sortedCountries = Array.from(changesByCountry.entries()).sort(
+    (a, b) => b[1].added + b[1].removed - (a[1].added + a[1].removed),
+  )
 
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
