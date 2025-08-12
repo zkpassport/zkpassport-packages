@@ -2,7 +2,7 @@
 
 import WorldMap from "@/components/ui/WorldMap"
 import { useState, useEffect, Suspense } from "react"
-import { Globe, Shield, Calendar, AlertCircle, CheckCircle } from "lucide-react"
+import { Globe, Calendar, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useCertificates } from "@/hooks/useCertificates"
 import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
@@ -19,9 +19,7 @@ function MapPageContent() {
       string,
       {
         support: "full" | "partial" | "none"
-        documentTypes: Array<"passport" | "id_card" | "residence_permit">
         dateRange?: { from: string; to: string }
-        isNew?: boolean
         hasExtendedCoverage?: boolean
         certificateCount?: number
       }
@@ -71,13 +69,11 @@ function MapPageContent() {
 
         newCountryData[countryCode] = {
           support: support,
-          documentTypes: ["passport"], // Default to passport, could be enhanced, yeah i dont think we can distinguish between passport and id card
           dateRange: {
             from: new Date(minDate).toISOString().split("T")[0],
             to: new Date(maxDate).toISOString().split("T")[0],
           },
           certificateCount: countryCerts.length,
-          isNew: Math.random() > 0.8, // Mock: randomly mark some as new
           hasExtendedCoverage: countryCerts.length > 15,
         }
       })
@@ -87,33 +83,8 @@ function MapPageContent() {
   }, [certificates])
 
   const handleCountryClick = (countryCode: string, countryName: string) => {
-    console.log("Country clicked:", countryCode, countryName)
-    console.log("Country data available:", countryData[countryCode])
-    console.log("Country certificates:", certificatesByCountry[countryCode]?.length || 0)
     setSelectedCountry({ code: countryCode, name: countryName })
   }
-
-  // Get new countries and countries with extended coverage
-  // const newCountries = Object.entries(mockCountryData)
-  //   .filter(([_, info]) => info.isNew)
-  //   .map(([code, info]) => ({ code, ...info }));
-
-  // const extendedCountries = Object.entries(mockCountryData)
-  //   .filter(([_, info]) => info.hasExtendedCoverage)
-  //   .map(([code, info]) => ({ code, ...info }));
-
-  // const getDocumentTypeIcon = (type: string) => {
-  //   switch (type) {
-  //     case 'passport':
-  //       return '🛂';
-  //     case 'id_card':
-  //       return '🪪';
-  //     case 'residence_permit':
-  //       return '🏠';
-  //     default:
-  //       return '📄';
-  //   }
-  // };
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -122,7 +93,7 @@ function MapPageContent() {
         <div className="container mx-auto">
           <h1 className="text-2xl font-bold">Certificate Registry Map</h1>
           <p className="text-gray-600 text-sm mt-1">
-            Interactive map showing countries with supported documents in the zkPassport registry
+            Interactive map showing countries with supported documents in the ZKPassport registry
           </p>
         </div>
       </div>
@@ -223,22 +194,6 @@ function MapPageContent() {
                     </span>
                   </div>
 
-                  <div>
-                    <p className="text-xs font-medium text-gray-600 mb-1">Supported Documents</p>
-                    <div className="flex flex-wrap gap-1">
-                      {(countryData[selectedCountry.code]?.documentTypes || ["passport"]).map(
-                        (type) => (
-                          <span
-                            key={type}
-                            className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
-                          >
-                            {type.replace("_", " ")}
-                          </span>
-                        ),
-                      )}
-                    </div>
-                  </div>
-
                   {countryData[selectedCountry.code]?.dateRange && (
                     <div>
                       <p className="text-xs font-medium text-gray-600 mb-1">Certificate Validity</p>
@@ -259,7 +214,7 @@ function MapPageContent() {
                     <div className="border-t pt-3 mt-3">
                       <p className="text-xs font-medium text-gray-600 mb-2">Certificate Details</p>
                       <div className="space-y-2">
-                        {certificatesByCountry[selectedCountry.code].slice(0, 2).map((cert) => (
+                        {certificatesByCountry[selectedCountry.code].map((cert) => (
                           <div key={cert.subject_key_identifier} className="bg-gray-50 rounded p-2">
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-xs font-medium text-gray-700">
@@ -335,9 +290,9 @@ function MapPageContent() {
               const latestDate = new Date(
                 Math.max(...certs.map((c) => c.validity.not_after * 1000)),
               )
-              const activeCerts = certs.filter(
-                (cert) => new Date(cert.validity.not_after * 1000) > new Date(),
-              )
+              // const activeCerts = certs.filter(
+              //   (cert) => new Date(cert.validity.not_after * 1000) > new Date(),
+              // )
 
               // Find gaps in coverage
               const gaps: Array<{ from: Date; to: Date }> = []
@@ -373,14 +328,17 @@ function MapPageContent() {
                     </button>
                   </div>
 
+                  {/* POPUP IN RIGHT CORNER */}
+
                   {/* Coverage Summary */}
                   <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 mb-4">
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <p className="text-2xl font-bold text-blue-900">{certs.length}</p>
-                        <p className="text-sm text-blue-700">certificates in registry</p>
+                        <p className="text-2xl font-bold text-blue-900">
+                          {certs.length}
+                          <span className="text-sm text-blue-700"> certificates in registry</span>
+                        </p>
                       </div>
-                      <Shield className="w-12 h-12 text-blue-500 opacity-20" />
                     </div>
 
                     <div className="space-y-2 text-sm">
@@ -392,7 +350,7 @@ function MapPageContent() {
                         </span>
                       </div>
 
-                      {activeCerts.length === certs.length ? (
+                      {/* {activeCerts.length === certs.length ? (
                         <div className="flex items-center gap-2">
                           <CheckCircle className="w-4 h-4 text-green-600" />
                           <span className="text-green-700">All certificates currently active</span>
@@ -404,7 +362,7 @@ function MapPageContent() {
                             {activeCerts.length} active, {certs.length - activeCerts.length} expired
                           </span>
                         </div>
-                      )}
+                      )} */}
                     </div>
                   </div>
 
@@ -432,54 +390,117 @@ function MapPageContent() {
 
                   {/* Visual Timeline */}
                   <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Certificate Timeline</p>
-                    <div className="relative h-20 bg-gray-100 rounded-lg p-2">
-                      {sortedCerts.map((cert, index) => {
+                    <p className="text-sm font-medium text-gray-700 mb-4">Certificate Timeline</p>
+                    <div
+                      className="relative bg-gray-100 rounded-lg p-2"
+                      style={{ height: `${Math.max(sortedCerts.length * 12 + 20, 80)}px` }}
+                    >
+                      {(() => {
+                        const now = new Date()
+                        const tenYearsAgo = new Date(now.getTime() - 10 * 365 * 24 * 60 * 60 * 1000)
+
+                        // Extend timeline to include 10 years ago if needed
+                        const timelineStart = new Date(
+                          Math.min(earliestDate.getTime(), tenYearsAgo.getTime()),
+                        )
+                        const timelineEnd = new Date(Math.max(latestDate.getTime(), now.getTime()))
                         const totalDays =
-                          (latestDate.getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24)
-                        const startOffset =
-                          ((cert.validity.not_before * 1000 - earliestDate.getTime()) /
+                          (timelineEnd.getTime() - timelineStart.getTime()) / (1000 * 60 * 60 * 24)
+
+                        // Calculate current date position
+                        const nowOffset =
+                          ((now.getTime() - timelineStart.getTime()) /
                             (1000 * 60 * 60 * 24) /
                             totalDays) *
                           100
-                        const width =
-                          ((cert.validity.not_after * 1000 - cert.validity.not_before * 1000) /
+
+                        // Calculate 10 years ago position
+                        const tenYearsAgoOffset =
+                          ((tenYearsAgo.getTime() - timelineStart.getTime()) /
                             (1000 * 60 * 60 * 24) /
                             totalDays) *
                           100
-                        const isActive = new Date(cert.validity.not_after * 1000) > new Date()
 
                         return (
-                          <div
-                            key={cert.subject_key_identifier || index}
-                            className={`absolute h-8 rounded transition-all hover:z-10 hover:shadow-lg ${
-                              isActive ? "bg-blue-500" : "bg-gray-400"
-                            }`}
-                            style={{
-                              left: `${startOffset}%`,
-                              width: `${width}%`,
-                              top: `${(index % 2) * 20 + 8}px`,
-                              opacity: isActive ? 1 : 0.5,
-                            }}
-                            title={`${cert.country}\n${new Date(cert.validity.not_before * 1000).toLocaleDateString()} - ${new Date(cert.validity.not_after * 1000).toLocaleDateString()}`}
-                          />
+                          <>
+                            {/* 10 Years Ago Reference Line */}
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-purple-400 opacity-50"
+                              style={{ left: `${tenYearsAgoOffset}%` }}
+                              title="10 years ago - typical passport validity"
+                            >
+                              <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-purple-600 whitespace-nowrap">
+                                10y ago
+                              </span>
+                            </div>
+
+                            {/* Current Date Line */}
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20"
+                              style={{ left: `${nowOffset}%` }}
+                              title={`Today: ${now.toLocaleDateString()}`}
+                            >
+                              <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-red-600 font-medium whitespace-nowrap">
+                                Today
+                              </span>
+                            </div>
+
+                            {/* Certificate Bars */}
+                            {sortedCerts.map((cert, index) => {
+                              const startOffset =
+                                ((cert.validity.not_before * 1000 - timelineStart.getTime()) /
+                                  (1000 * 60 * 60 * 24) /
+                                  totalDays) *
+                                100
+                              const width =
+                                ((cert.validity.not_after * 1000 -
+                                  cert.validity.not_before * 1000) /
+                                  (1000 * 60 * 60 * 24) /
+                                  totalDays) *
+                                100
+                              const isActive = new Date(cert.validity.not_after * 1000) > now
+                              const isExpired = new Date(cert.validity.not_after * 1000) < now
+
+                              return (
+                                <div
+                                  key={cert.subject_key_identifier || index}
+                                  className={`absolute h-3 rounded-sm transition-all hover:z-10 hover:shadow-md ${
+                                    isActive ? "bg-blue-500" : "bg-gray-400"
+                                  }`}
+                                  style={{
+                                    left: `${startOffset}%`,
+                                    width: `${width}%`,
+                                    top: `${index * 12 + 24}px`,
+                                    opacity: isActive ? 1 : 0.6,
+                                  }}
+                                  title={`Certificate ${index + 1}\n${new Date(cert.validity.not_before * 1000).toLocaleDateString()} - ${new Date(cert.validity.not_after * 1000).toLocaleDateString()}\n${isExpired ? "Expired" : "Active"}`}
+                                />
+                              )
+                            })}
+                          </>
                         )
-                      })}
+                      })()}
                     </div>
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>{earliestDate.getFullYear()}</span>
-                      <span>{latestDate.getFullYear()}</span>
+                      <span>
+                        {new Date(
+                          Math.min(
+                            earliestDate.getTime(),
+                            new Date().getTime() - 10 * 365 * 24 * 60 * 60 * 1000,
+                          ),
+                        ).getFullYear()}
+                      </span>
+                      <span className="text-red-600 font-medium">Now</span>
+                      <span>
+                        {new Date(
+                          Math.max(latestDate.getTime(), new Date().getTime()),
+                        ).getFullYear()}
+                      </span>
                     </div>
                   </div>
 
                   {/* Quick Stats */}
-                  <div className="grid grid-cols-3 gap-2 mb-4 text-center">
-                    <div className="bg-gray-50 rounded-lg p-2">
-                      <p className="text-lg font-semibold text-gray-900">
-                        {countryData[selectedCountry.code]?.documentTypes?.length || 1}
-                      </p>
-                      <p className="text-xs text-gray-600">Document types</p>
-                    </div>
+                  {/* <div className="grid grid-cols-2 gap-2 mb-4 text-center">
                     <div className="bg-gray-50 rounded-lg p-2">
                       <p className="text-lg font-semibold text-gray-900">
                         {Math.ceil(
@@ -497,7 +518,9 @@ function MapPageContent() {
                         {gaps.length === 0 ? "No gaps" : "Gaps"}
                       </p>
                     </div>
-                  </div>
+                  </div> */}
+
+                  {/*END OF POPUP IN RIGHT CORNER */}
 
                   {/* Actions */}
                   <div className="flex gap-2">

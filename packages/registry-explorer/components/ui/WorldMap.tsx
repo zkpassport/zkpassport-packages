@@ -12,12 +12,10 @@ const geoUrl = "/countries-110m.json"
 export interface CountryData {
   [countryCode: string]: {
     support: "full" | "partial" | "none"
-    documentTypes: Array<"passport" | "id_card" | "residence_permit">
     dateRange?: {
       from: string
       to: string
     }
-    isNew?: boolean
     hasExtendedCoverage?: boolean
     certificateCount?: number
   }
@@ -257,24 +255,12 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
     const countryInfo = countryCode ? data[countryCode] : null
 
     if (countryInfo && countryInfo.support !== "none") {
-      const documentIcons = {
-        passport: "🛂",
-        id_card: "🪪",
-        residence_permit: "🏠",
-      }
-
-      const docTypes = countryInfo.documentTypes
-        .map((type: string) => documentIcons[type as keyof typeof documentIcons] || "📄")
-        .join(" ")
-
       let tooltipText = `${countryName}`
 
       // Add certificate count if available
       if (countryInfo.certificateCount) {
         tooltipText += `\n${countryInfo.certificateCount} certificates`
       }
-
-      tooltipText += `\n${docTypes}`
 
       if (countryInfo.dateRange) {
         const fromDate = new Date(countryInfo.dateRange.from).toLocaleDateString()
@@ -319,15 +305,6 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
     <div id="map-container" className="relative w-full h-full overflow-hidden">
       {/* Background with gradient and animated elements */}
       <div className="absolute inset-0 bg-white">
-        {/* Subtle radial overlay for depth */}
-        {/* <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle at center, transparent 0%, transparent 60%, rgba(0,0,0,0.2) 100%)",
-          }}
-        /> */}
-
         {/* Geographic constellation pattern */}
         <div className="absolute inset-0 opacity-5">
           <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
