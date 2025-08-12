@@ -105,6 +105,24 @@ export default function WorldMap({ data = {}, onCountryClick, resetMapView }: Wo
         // Store multiple variations of the country name for better matching
         mapping[countryName] = code
         mapping[countryName.toLowerCase()] = code
+
+        // Handle special cases
+        if (countryName === "United States") {
+          mapping["United States of America"] = code
+          mapping["united states of america"] = code
+        }
+        if (countryName === "United Kingdom") {
+          mapping["UK"] = code
+          mapping["uk"] = code
+        }
+        if (countryName === "Democratic Republic of the Congo") {
+          mapping["Dem. Rep. Congo"] = code
+          mapping["dem. rep. congo"] = code
+        }
+        if (countryName === "Central African Republic") {
+          mapping["Central African Rep."] = code
+          mapping["central african rep."] = code
+        }
       }
     })
 
