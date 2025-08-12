@@ -26,6 +26,7 @@ interface WorldMapProps {
   onCountryClick?: (countryCode: string, countryName: string) => void
   registryUpdateDate?: string
   onCountrySearch?: (countryCode: string) => void
+  resetMapView?: boolean
 }
 
 interface GeographyProperties {
@@ -42,7 +43,7 @@ interface GeographyObject {
   [key: string]: unknown
 }
 
-export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
+export default function WorldMap({ data = {}, onCountryClick, resetMapView }: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState<string>("")
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const [showTooltip, setShowTooltip] = useState(false)
@@ -102,6 +103,14 @@ export default function WorldMap({ data = {}, onCountryClick }: WorldMapProps) {
       }
     }
   }, [targetCenter, targetZoom, mapCenter, mapZoom])
+
+  // Reset map view when requested
+  useEffect(() => {
+    if (resetMapView) {
+      setTargetCenter([20, 0])
+      setTargetZoom(1.5)
+    }
+  }, [resetMapView])
 
   useEffect(() => {
     const updateMapSize = () => {

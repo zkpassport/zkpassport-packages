@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react"
 import { PackagedCertificatesFile } from "@zkpassport/registry"
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
-import { GitCompare, Plus, Minus, Calendar, ExternalLink } from "lucide-react"
+import { GitCompare, Plus, Minus, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
 interface CertificateChange {
@@ -22,12 +22,14 @@ interface RegistryDiffProps {
   beforeRoot: string
   afterRoot: string
   beforeDate?: string
+  afterDate?: string
 }
 
 export default function RegistryDiffSidebar({
   beforeRoot,
   afterRoot,
   beforeDate,
+  afterDate,
 }: RegistryDiffProps) {
   const [beforeData, setBeforeData] = useState<PackagedCertificatesFile | null>(null)
   const [afterData, setAfterData] = useState<PackagedCertificatesFile | null>(null)
@@ -178,12 +180,28 @@ export default function RegistryDiffSidebar({
     .slice(0, 5) // Show top 5 countries
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 border border-blue-200">
+    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <GitCompare className="w-4 h-4" />
-          Recent Update
-        </h4>
+        <div>
+          <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <GitCompare className="w-4 h-4" />
+            <span>Registry Update</span>
+          </h4>
+          {beforeDate && afterDate && (
+            <p className="text-xs text-gray-600 ml-6 mt-0.5">
+              {new Date(beforeDate).toLocaleDateString()} →{" "}
+              {(() => {
+                const afterDateObj = new Date(afterDate)
+                const today = new Date()
+                // Check if afterDate is today or in the future
+                if (afterDateObj.toDateString() === today.toDateString() || afterDateObj > today) {
+                  return "Present"
+                }
+                return afterDateObj.toLocaleDateString()
+              })()}
+            </p>
+          )}
+        </div>
         <Link
           href={`/certificates/diff?before=${beforeRoot}&after=${afterRoot}`}
           className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
@@ -192,16 +210,6 @@ export default function RegistryDiffSidebar({
           <ExternalLink className="w-3 h-3" />
         </Link>
       </div>
-
-      {/* Date Range */}
-      {beforeDate && (
-        <div className="flex items-center gap-1 text-xs text-gray-600 mb-3">
-          <Calendar className="w-3 h-3" />
-          {beforeDate && <span>{new Date(beforeDate).toLocaleDateString()}</span>}
-          {beforeDate && <span>→</span>}
-          {beforeDate && <span>Present</span>}
-        </div>
-      )}
 
       {/* Summary Stats */}
       <div className="flex gap-3 mb-3">
