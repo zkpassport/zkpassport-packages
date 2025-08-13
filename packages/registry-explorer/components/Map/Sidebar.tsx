@@ -145,7 +145,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                             afterRoot={root.root}
                             beforeDate={nextRoot.validFrom.toISOString()}
                             afterDate={root.validFrom.toISOString()}
-                            onCountriesCalculated={index === 0 ? onRecentlyUpdatedCountries : undefined}
+                            onCountriesCalculated={
+                              index === 0 ? onRecentlyUpdatedCountries : undefined
+                            }
                             isLatest={index === 0}
                           />
                         )

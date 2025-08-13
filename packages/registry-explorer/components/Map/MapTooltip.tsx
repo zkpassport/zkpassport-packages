@@ -61,11 +61,13 @@ const MapTooltip = ({ tooltipContent, tooltipPosition }: MapTooltipProps) => {
       {/* Main tooltip container */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden min-w-64 max-w-80">
         {/* Header */}
-        <div className={`px-4 py-2 border-b border-gray-200 dark:border-gray-700 ${
-          tooltipContent.hasRecentUpdate
-            ? "bg-purple-50 dark:bg-purple-900/30"
-            : "bg-blue-50 dark:bg-blue-900/30"
-        }`}>
+        <div
+          className={`px-4 py-2 border-b border-gray-200 dark:border-gray-700 ${
+            tooltipContent.hasRecentUpdate
+              ? "bg-purple-50 dark:bg-purple-900/30"
+              : "bg-blue-50 dark:bg-blue-900/30"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
               {tooltipContent.title}

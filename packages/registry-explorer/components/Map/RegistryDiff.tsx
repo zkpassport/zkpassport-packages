@@ -82,8 +82,11 @@ export default function RegistryDiffSidebar({
   useEffect(() => {
     if (!beforeData || !afterData || !onCountriesCalculated) return
 
-    const diff = calculateCertificateDiff(beforeData.certificates || [], afterData.certificates || [])
-    
+    const diff = calculateCertificateDiff(
+      beforeData.certificates || [],
+      afterData.certificates || [],
+    )
+
     // Group changes by country
     const changesByCountry = new Map<string, { added: number; removed: number }>()
 
