@@ -1,4 +1,3 @@
-import { PackagedCertificate } from "@zkpassport/utils"
 import { CountryData, GeographyObject } from "./types"
 
 // Legend data for private key usage period coverage levels
@@ -115,27 +114,69 @@ export const formatCoverage = (countryInfo: CountryData[string]): string => {
   return "No coverage data"
 }
 
-// Helper function to derive supported document types from certificate tags
-export const getSupportedDocuments = (
-  countryCode: string,
-  certificatesByCountry: Record<string, PackagedCertificate[]>,
-): string[] => {
+// Helper function to derive supported document types
+export const getSupportedDocuments = (countryCode: string): string[] => {
   const documents = new Set<string>()
 
-  // Default to passport as it's the primary document type for most certificates
+  // Countries with ID cards (these are hardcoded as in not sure how to dynamically get this info)
+  const idCardCountries = [
+    // EU countries with ReadID compatible ID cards
+    // Note: These countries may have both compatible and non-compatible ID cards in circulation
+    "BEL",
+    "BGR",
+    "CYP",
+    "ESP",
+    "FRA",
+    "HUN",
+    "ITA",
+    "LUX",
+    "POL",
+    "PRT",
+    "HRV",
+    "CZE",
+    "EST",
+    "ROU",
+    "AUT",
+    "FIN",
+    "SVN",
+    "GRC",
+    "DEU", // Germany: ICAO compliant ID cards since August 2021
+    "SVK",
+    // Non-EU countries with ID cards
+    "BLR",
+    "URY",
+    "ECU",
+    "KAZ",
+    "TUR",
+    "UKR",
+    // Special cases
+    "ISL", // Iceland
+  ]
+
+  // Countries with passport cards (similar to ID cards)
+  const passportCardCountries = ["IRL"]
+
+  // Countries with residence permit support
+  // This is hardcoded from the analytics dashboard
+  const residencePermitCountries = ["GEO", "IRL", "HUN", "PRT", "CYP"]
+
+  // Passports are supported by default
   documents.add("Passport")
 
-  // Check actual certificate tags for this country
-  const countryCerts = certificatesByCountry[countryCode] || []
-  const allTags = countryCerts.flatMap((cert) => cert.tags || [])
+  // Check if country has ID cards
+  if (idCardCountries.includes(countryCode)) {
+    documents.add("ID Card")
+  }
 
-  // Check for specific document type indicators in tags
-  allTags.forEach((tag) => {
-    const tagLower = tag.toLowerCase()
-    if (tagLower.includes("id") && !tagLower.includes("icao")) {
-      documents.add("ID Card")
-    }
-  })
+  // Check if country has passport cards
+  if (passportCardCountries.includes(countryCode)) {
+    documents.add("Passport Card")
+  }
+
+  // Check if country has residence permits
+  if (residencePermitCountries.includes(countryCode)) {
+    documents.add("Residence Permit")
+  }
 
   return Array.from(documents)
 }

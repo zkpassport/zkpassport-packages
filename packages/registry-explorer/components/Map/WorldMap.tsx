@@ -18,12 +18,7 @@ import type { TooltipContent } from "./MapTooltip"
 // World map data URL (Natural Earth 110m resolution)
 const geoUrl = "/countries-110m.json"
 
-export default function WorldMap({
-  data = {},
-  certificatesByCountry = {},
-  onCountryClick,
-  resetMapView,
-}: WorldMapProps) {
+export default function WorldMap({ data = {}, onCountryClick, resetMapView }: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState<TooltipContent>({
     title: "",
     supportedDocuments: [],
@@ -153,7 +148,7 @@ export default function WorldMap({
     const countryInfo = countryCode ? data[countryCode] : null
 
     if (countryInfo && countryInfo.support !== "none" && countryCode) {
-      const supportedDocuments = getSupportedDocuments(countryCode, certificatesByCountry)
+      const supportedDocuments = getSupportedDocuments(countryCode)
       const coverage = formatCoverage(countryInfo)
 
       setTooltipContent({

@@ -151,7 +151,6 @@ function MapPageContent() {
         <div className="flex-1 relative bg-gray-50 overflow-hidden">
           <WorldMap
             data={isLoading ? {} : countryData}
-            certificatesByCountry={certificatesByCountry}
             recentlyUpdatedCountries={recentlyUpdatedCountries}
             registryUpdateDate={
               historicalRoots.length > 0
