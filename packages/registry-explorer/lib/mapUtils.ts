@@ -3,6 +3,7 @@ import { CountryData, GeographyObject } from "./types"
 
 // Legend data for private key usage period coverage levels
 export const COVERAGE_LEGEND_ITEMS = [
+  { color: "#9333ea", label: "Recently Updated" },
   { color: "#1D4ED8", label: "High (90-100%)" },
   { color: "#2563EB", label: "Good (70-90%)" },
   { color: "#3B82F6", label: "Partial (25-70%)" },
@@ -56,6 +57,11 @@ export const getCountryColor = (
   const countryData = data[countryCode]
 
   if (!countryData || countryData.support === "none") return "#374151" // Dark gray for no support
+
+  // Check if country has recent update - if so, use purple
+  if (countryData.hasRecentUpdate) {
+    return "#9333ea" // Purple for recently updated countries
+  }
 
   // Use private key usage period coverage if available, otherwise fall back to certificate count
   if (countryData.privateKeyUsagePeriodCoverage) {

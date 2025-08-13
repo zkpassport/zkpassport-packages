@@ -25,6 +25,7 @@ interface SidebarProps {
   rootsLoading: boolean
   error: string | null
   onCloseCountry: () => void
+  onRecentlyUpdatedCountries?: (countries: Set<string>) => void
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -36,6 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   rootsLoading,
   error,
   onCloseCountry,
+  onRecentlyUpdatedCountries,
 }) => {
   return (
     <div className="w-80 bg-white border-r overflow-y-auto flex-shrink-0">
@@ -143,6 +145,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                             afterRoot={root.root}
                             beforeDate={nextRoot.validFrom.toISOString()}
                             afterDate={root.validFrom.toISOString()}
+                            onCountriesCalculated={index === 0 ? onRecentlyUpdatedCountries : undefined}
+                            isLatest={index === 0}
                           />
                         )
                       })

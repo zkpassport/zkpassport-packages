@@ -25,12 +25,14 @@ export interface CountryData {
       hasPrivateKeyData: boolean
       certificatesWithoutPeriods: number
     }
+    hasRecentUpdate?: boolean
   }
 }
 
 export interface WorldMapProps {
   data?: CountryData
   certificatesByCountry?: Record<string, PackagedCertificate[]>
+  recentlyUpdatedCountries?: Set<string>
   onCountryClick?: (countryCode: string, countryName: string) => void
   registryUpdateDate?: string
   onCountrySearch?: (countryCode: string) => void

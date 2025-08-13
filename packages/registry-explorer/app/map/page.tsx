@@ -20,6 +20,7 @@ function MapPageContent() {
     Record<string, PackagedCertificate[]>
   >({})
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
+  const [recentlyUpdatedCountries, setRecentlyUpdatedCountries] = useState<Set<string>>(new Set())
 
   // Fetch certificates using the hook
   const { certificates, isLoading, error } = useCertificates()
@@ -87,6 +88,7 @@ function MapPageContent() {
                   certificatesWithoutPeriods: countryCoverage.certificatesWithoutPeriods,
                 }
               : undefined,
+            hasRecentUpdate: recentlyUpdatedCountries.has(countryCode),
           }
         })
         setCountryData(newCountryData)
@@ -95,7 +97,7 @@ function MapPageContent() {
     }
 
     processCertificates()
-  }, [certificates])
+  }, [certificates, recentlyUpdatedCountries])
 
   const handleCountryClick = (countryCode: string, countryName: string) => {
     setSelectedCountry({ code: countryCode, name: countryName })
@@ -142,6 +144,7 @@ function MapPageContent() {
           rootsLoading={rootsLoading}
           error={error}
           onCloseCountry={handleCloseCountry}
+          onRecentlyUpdatedCountries={setRecentlyUpdatedCountries}
         />
 
         {/* Map Container */}
@@ -149,6 +152,7 @@ function MapPageContent() {
           <WorldMap
             data={isLoading ? {} : countryData}
             certificatesByCountry={certificatesByCountry}
+            recentlyUpdatedCountries={recentlyUpdatedCountries}
             registryUpdateDate={
               historicalRoots.length > 0
                 ? new Date(

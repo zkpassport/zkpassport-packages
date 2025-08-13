@@ -23,6 +23,8 @@ interface RegistryDiffProps {
   afterRoot: string
   beforeDate?: string
   afterDate?: string
+  onCountriesCalculated?: (countries: Set<string>) => void
+  isLatest?: boolean
 }
 
 export default function RegistryDiffSidebar({
@@ -30,6 +32,8 @@ export default function RegistryDiffSidebar({
   afterRoot,
   beforeDate,
   afterDate,
+  onCountriesCalculated,
+  isLatest = false,
 }: RegistryDiffProps) {
   const [beforeData, setBeforeData] = useState<PackagedCertificatesFile | null>(null)
   const [afterData, setAfterData] = useState<PackagedCertificatesFile | null>(null)
@@ -73,6 +77,37 @@ export default function RegistryDiffSidebar({
 
     fetchCertificateData()
   }, [beforeRoot, afterRoot])
+
+  // Pass the countries with changes to parent
+  useEffect(() => {
+    if (!beforeData || !afterData || !onCountriesCalculated) return
+
+    const diff = calculateCertificateDiff(beforeData.certificates || [], afterData.certificates || [])
+    
+    // Group changes by country
+    const changesByCountry = new Map<string, { added: number; removed: number }>()
+
+    diff.added.forEach((cert) => {
+      const country = cert.country
+      if (!changesByCountry.has(country)) {
+        changesByCountry.set(country, { added: 0, removed: 0 })
+      }
+      changesByCountry.get(country)!.added++
+    })
+
+    diff.removed.forEach((cert) => {
+      const country = cert.country
+      if (!changesByCountry.has(country)) {
+        changesByCountry.set(country, { added: 0, removed: 0 })
+      }
+      changesByCountry.get(country)!.removed++
+    })
+
+    if (changesByCountry.size > 0) {
+      const countries = new Set(changesByCountry.keys())
+      onCountriesCalculated(countries)
+    }
+  }, [beforeData, afterData, onCountriesCalculated])
 
   // Reuse certificate key generation from diff page
   const getCertificateKey = (cert: PackagedCertificate): string => {
@@ -190,15 +225,7 @@ export default function RegistryDiffSidebar({
           {beforeDate && afterDate && (
             <p className="text-xs text-gray-600 ml-6 mt-0.5">
               {new Date(beforeDate).toLocaleDateString()} →{" "}
-              {(() => {
-                const afterDateObj = new Date(afterDate)
-                const today = new Date()
-                // Check if afterDate is today or in the future
-                if (afterDateObj.toDateString() === today.toDateString() || afterDateObj > today) {
-                  return "Present"
-                }
-                return afterDateObj.toLocaleDateString()
-              })()}
+              {isLatest ? "Present" : new Date(afterDate).toLocaleDateString()}
             </p>
           )}
         </div>

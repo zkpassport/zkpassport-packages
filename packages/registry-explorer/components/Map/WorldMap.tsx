@@ -161,6 +161,7 @@ export default function WorldMap({
         supportedDocuments: supportedDocuments,
         coverage: coverage,
         certificateCount: countryInfo.certificateCount || 0,
+        hasRecentUpdate: countryInfo.hasRecentUpdate,
       })
     } else {
       setTooltipContent({
@@ -284,6 +285,11 @@ export default function WorldMap({
                             const countryData = code ? data[code] : null
 
                             if (!countryData) return "#6b7280"
+
+                            // Check if country has recent update - if so, use purple
+                            if (countryData.hasRecentUpdate) {
+                              return "#7c3aed" // Lighter purple for hover
+                            }
 
                             // Use private key usage period coverage for hover colors
                             if (countryData.privateKeyUsagePeriodCoverage) {
