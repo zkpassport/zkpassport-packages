@@ -1,3 +1,4 @@
+import { PackagedCertificate } from "@zkpassport/utils"
 import { CountryData, GeographyObject } from "./types"
 
 // Legend data for private key usage period coverage levels
@@ -86,46 +87,49 @@ export const getCountryColor = (
 }
 
 // Helper function to format coverage information
-export const formatCoverage = (countryInfo: any): string => {
+export const formatCoverage = (countryInfo: CountryData[string]): string => {
   if (countryInfo.privateKeyUsagePeriodCoverage) {
     const coverage = countryInfo.privateKeyUsagePeriodCoverage
-    
+
     if (coverage.percentage === -1) {
       return "No private key data available"
     }
-    
+
     let coverageText = `${coverage.percentage.toFixed(1)}%`
-    
+
     if (!coverage.hasPrivateKeyData) {
       coverageText += " (estimated)"
     }
-    
+
     return coverageText
   } else if (countryInfo.certificateCount) {
     return `${countryInfo.certificateCount} certificates available`
   }
-  
+
   return "No coverage data"
 }
 
 // Helper function to derive supported document types from certificate tags
-export const getSupportedDocuments = (countryCode: string, certificatesByCountry: Record<string, any[]>): string[] => {
+export const getSupportedDocuments = (
+  countryCode: string,
+  certificatesByCountry: Record<string, PackagedCertificate[]>,
+): string[] => {
   const documents = new Set<string>()
-  
+
   // Default to passport as it's the primary document type for most certificates
   documents.add("Passport")
-  
+
   // Check actual certificate tags for this country
   const countryCerts = certificatesByCountry[countryCode] || []
-  const allTags = countryCerts.flatMap(cert => cert.tags || [])
-  
+  const allTags = countryCerts.flatMap((cert) => cert.tags || [])
+
   // Check for specific document type indicators in tags
-  allTags.forEach(tag => {
+  allTags.forEach((tag) => {
     const tagLower = tag.toLowerCase()
-    if (tagLower.includes('id') && !tagLower.includes('icao')) {
+    if (tagLower.includes("id") && !tagLower.includes("icao")) {
       documents.add("ID Card")
     }
   })
-  
+
   return Array.from(documents)
 }

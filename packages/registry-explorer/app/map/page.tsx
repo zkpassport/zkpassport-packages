@@ -163,10 +163,7 @@ function MapPageContent() {
       </div>
 
       {/* Coverage Info Modal */}
-      <CoverageInfoModal
-        isOpen={isInfoModalOpen}
-        onClose={() => setIsInfoModalOpen(false)}
-      />
+      <CoverageInfoModal isOpen={isInfoModalOpen} onClose={() => setIsInfoModalOpen(false)} />
     </div>
   )
 }

@@ -6,19 +6,29 @@ import { RotateCcw } from "lucide-react"
 import { countryCodeAlpha3ToName } from "@zkpassport/utils"
 import { ExtendedGeometryCollection, geoCentroid, GeoGeometryObjects } from "d3-geo"
 import { GeographyObject, WorldMapProps } from "@/lib/types"
-import { formatCoverage, getCountryCode, getCountryColor, getSupportedDocuments } from "@/lib/mapUtils"
+import {
+  formatCoverage,
+  getCountryCode,
+  getCountryColor,
+  getSupportedDocuments,
+} from "@/lib/mapUtils"
 import { MapTooltip, MapLegend, MapSearch } from "./index"
 import type { TooltipContent } from "./MapTooltip"
 
 // World map data URL (Natural Earth 110m resolution)
 const geoUrl = "/countries-110m.json"
 
-export default function WorldMap({ data = {}, certificatesByCountry = {}, onCountryClick, resetMapView }: WorldMapProps) {
+export default function WorldMap({
+  data = {},
+  certificatesByCountry = {},
+  onCountryClick,
+  resetMapView,
+}: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState<TooltipContent>({
     title: "",
     supportedDocuments: [],
     coverage: "",
-    certificateCount: 0
+    certificateCount: 0,
   })
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const [showTooltip, setShowTooltip] = useState(false)
@@ -150,14 +160,14 @@ export default function WorldMap({ data = {}, certificatesByCountry = {}, onCoun
         title: countryName as string,
         supportedDocuments: supportedDocuments,
         coverage: coverage,
-        certificateCount: countryInfo.certificateCount || 0
+        certificateCount: countryInfo.certificateCount || 0,
       })
     } else {
       setTooltipContent({
         title: countryName as string,
         supportedDocuments: [],
         coverage: "No data available",
-        certificateCount: 0
+        certificateCount: 0,
       })
     }
 

@@ -1,4 +1,3 @@
-
 export interface TooltipContent {
   title: string
   supportedDocuments: string[]
@@ -10,40 +9,41 @@ export interface MapTooltipProps {
   tooltipPosition: { x: number; y: number }
 }
 
-const MapTooltip = ({
-  tooltipContent,
-  tooltipPosition,
-}: MapTooltipProps) => {
+const MapTooltip = ({ tooltipContent, tooltipPosition }: MapTooltipProps) => {
   // Helper function to get coverage color and status
   const getCoverageStatus = (coverage: string) => {
     const percentageMatch = coverage.match(/(\d+\.?\d*)%/)
     if (!percentageMatch) {
-      return { 
-        status: "Unknown", 
-        className: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+      return {
+        status: "Unknown",
+        className: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200",
       }
     }
-    
+
     const percentage = parseFloat(percentageMatch[1])
-    if (percentage >= 90) return { 
-      status: "High", 
-      className: "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200" 
-    }
-    if (percentage >= 70) return { 
-      status: "Good", 
-      className: "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200" 
-    }
-    if (percentage >= 25) return { 
-      status: "Partial", 
-      className: "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200" 
-    }
-    if (percentage >= 0) return { 
-      status: "Low", 
-      className: "bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200" 
-    }
-    return { 
-      status: "No data", 
-      className: "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200" 
+    if (percentage >= 90)
+      return {
+        status: "High",
+        className: "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200",
+      }
+    if (percentage >= 70)
+      return {
+        status: "Good",
+        className: "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200",
+      }
+    if (percentage >= 25)
+      return {
+        status: "Partial",
+        className: "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200",
+      }
+    if (percentage >= 0)
+      return {
+        status: "Low",
+        className: "bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200",
+      }
+    return {
+      status: "No data",
+      className: "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200",
     }
   }
 
@@ -65,7 +65,7 @@ const MapTooltip = ({
             {tooltipContent.title}
           </h3>
         </div>
-        
+
         {/* Content */}
         <div className="px-4 py-3 space-y-2">
           {/* Coverage Section */}
@@ -75,7 +75,9 @@ const MapTooltip = ({
                 Coverage:
               </span>
               <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${coverageStatus.className}`}>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${coverageStatus.className}`}
+                >
                   {coverageStatus.status}
                 </span>
               </div>
@@ -84,7 +86,7 @@ const MapTooltip = ({
               {tooltipContent.coverage}
             </div>
           </div>
-          
+
           {/* Certificate Count */}
           {tooltipContent.certificateCount > 0 && (
             <div className="flex items-center justify-between">
@@ -96,7 +98,7 @@ const MapTooltip = ({
               </span>
             </div>
           )}
-          
+
           {/* Supported Documents */}
           {tooltipContent.supportedDocuments.length > 0 && (
             <div>
@@ -116,7 +118,7 @@ const MapTooltip = ({
             </div>
           )}
         </div>
-        
+
         {/* Footer */}
         <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-2 border-t border-gray-200 dark:border-gray-700">
           <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
@@ -124,7 +126,7 @@ const MapTooltip = ({
           </p>
         </div>
       </div>
-      
+
       {/* Tooltip arrow */}
       <div className="absolute -left-2 top-4">
         <div className="w-0 h-0 border-t-8 border-b-8 border-r-8 border-transparent border-r-white dark:border-r-gray-800"></div>
