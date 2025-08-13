@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { PackagedCertificatesFile } from "@zkpassport/registry"
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
@@ -40,7 +40,7 @@ export default function RegistryDiffSidebar({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  useMemo(() => {
     const fetchCertificateData = async () => {
       if (!beforeRoot || !afterRoot) return
 
@@ -218,15 +218,15 @@ export default function RegistryDiffSidebar({
   )
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
+    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <GitCompare className="w-4 h-4" />
             <span>Registry Update</span>
           </h4>
           {beforeDate && afterDate && (
-            <p className="text-xs text-gray-600 ml-6 mt-0.5">
+            <p className="text-xs text-muted-foreground ml-6 mt-0.5">
               {new Date(beforeDate).toLocaleDateString()} →{" "}
               {isLatest ? "Present" : new Date(afterDate).toLocaleDateString()}
             </p>
@@ -234,7 +234,7 @@ export default function RegistryDiffSidebar({
         </div>
         <Link
           href={`/certificates/diff?before=${beforeRoot}&after=${afterRoot}`}
-          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
         >
           View full diff
           <ExternalLink className="w-3 h-3" />
@@ -245,43 +245,53 @@ export default function RegistryDiffSidebar({
       <div className="flex gap-3 mb-3">
         {diff.added.length > 0 && (
           <div className="flex items-center gap-1">
-            <Plus className="w-3 h-3 text-green-600" />
-            <span className="text-sm font-semibold text-green-600">{diff.added.length}</span>
-            <span className="text-xs text-gray-600">certificates added</span>
+            <Plus className="w-3 h-3 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+              {diff.added.length}
+            </span>
+            <span className="text-xs text-muted-foreground">certificates added</span>
           </div>
         )}
         {diff.removed.length > 0 && (
           <div className="flex items-center gap-1">
-            <Minus className="w-3 h-3 text-red-600" />
-            <span className="text-sm font-semibold text-red-600">{diff.removed.length}</span>
-            <span className="text-xs text-gray-600">certificates removed</span>
+            <Minus className="w-3 h-3 text-red-600 dark:text-red-400" />
+            <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+              {diff.removed.length}
+            </span>
+            <span className="text-xs text-muted-foreground">certificates removed</span>
           </div>
         )}
-        {totalChanges === 0 && <span className="text-xs text-gray-500">No changes</span>}
+        {totalChanges === 0 && <span className="text-xs text-muted-foreground">No changes</span>}
       </div>
 
       {/* Countries with changes */}
       {sortedCountries.length > 0 && (
         <div className="space-y-1">
-          <p className="text-xs font-medium text-gray-700 mb-1">Countries affected:</p>
+          <p className="text-xs font-medium text-foreground mb-1">Countries affected:</p>
           {sortedCountries.map(([country, changes]) => (
             <div
               key={country}
-              className="flex items-center justify-between text-xs bg-white/50 rounded px-2 py-1"
+              className="flex items-center justify-between text-xs bg-background/50 dark:bg-background/30 rounded px-2 py-1"
             >
-              <span className="font-medium">{countryCodeAlpha3ToName(country)}</span>
+              <span className="font-medium text-foreground">
+                {countryCodeAlpha3ToName(country)}
+              </span>
               <div className="flex items-center gap-2">
                 {changes.added > 0 && (
-                  <span className="text-green-600 font-medium">+{changes.added}</span>
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    +{changes.added}
+                  </span>
                 )}
                 {changes.removed > 0 && (
-                  <span className="text-red-600 font-medium">-{changes.removed}</span>
+                  <span className="text-red-600 dark:text-red-400 font-medium">
+                    -{changes.removed}
+                  </span>
                 )}
               </div>
             </div>
           ))}
           {changesByCountry.size > 5 && (
-            <p className="text-xs text-gray-500 text-center pt-1">
+            <p className="text-xs text-muted-foreground text-center pt-1">
               +{changesByCountry.size - 5} more countries
             </p>
           )}
@@ -289,16 +299,16 @@ export default function RegistryDiffSidebar({
       )}
 
       {/* Root hashes - compact display */}
-      <div className="mt-3 pt-3 border-t border-blue-200 space-y-1">
+      <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800 space-y-1">
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-gray-600">From:</span>
-          <span className="font-mono text-gray-700 truncate" title={beforeRoot}>
+          <span className="text-muted-foreground">From:</span>
+          <span className="font-mono text-foreground truncate" title={beforeRoot}>
             {beforeRoot.substring(0, 10)}...
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-gray-600">To:</span>
-          <span className="font-mono text-gray-700 truncate" title={afterRoot}>
+          <span className="text-muted-foreground">To:</span>
+          <span className="font-mono text-foreground truncate" title={afterRoot}>
             {afterRoot.substring(0, 10)}...
           </span>
         </div>

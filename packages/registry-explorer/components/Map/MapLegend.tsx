@@ -5,7 +5,7 @@ import { COVERAGE_LEGEND_ITEMS } from "@/lib/mapUtils"
 
 const MapLegend: React.FC = () => {
   return (
-    <LegendContainer title="Coverage">
+    <LegendContainer title="Legend">
       {COVERAGE_LEGEND_ITEMS.map((item, index) => (
         <LegendItem key={index} color={item.color} label={item.label} />
       ))}

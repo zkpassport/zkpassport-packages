@@ -102,28 +102,28 @@ const MapSearch: React.FC<MapSearchProps> = ({
         onChange={(e) => setSearchQuery(e.target.value)}
         onBlur={handleInputBlur}
         onFocus={handleInputFocus}
-        className="w-64 px-4 py-2 pl-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-48 sm:w-56 md:w-64 px-3 md:px-4 py-2 pl-9 md:pl-10 bg-background/95 backdrop-blur-sm border border-border rounded-lg shadow-lg text-sm placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring touch-manipulation"
       />
-      <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+      <Search className="absolute left-2.5 md:left-3 top-2.5 w-4 h-4 text-muted-foreground" />
 
       {/* Search Results Dropdown */}
       {showSearchResults && searchResults.length > 0 && (
-        <div className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50">
+        <div className="absolute top-full mt-2 w-full bg-background rounded-lg shadow-xl border border-border overflow-hidden z-50">
           {searchResults.map((result) => (
             <button
               key={result.code}
               onClick={() => handleResultClick(result)}
-              className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center justify-between group"
+              className="w-full px-3 md:px-4 py-3 text-left hover:bg-muted transition-colors flex items-center justify-between group touch-manipulation"
             >
               <div>
-                <div className="text-sm font-medium text-gray-900">{result.name}</div>
-                <div className="text-xs text-gray-500">{result.code}</div>
+                <div className="text-sm font-medium text-foreground">{result.name}</div>
+                <div className="text-xs text-muted-foreground">{result.code}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-semibold text-blue-600">
+                <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
                   {data[result.code]?.certificateCount || 0}
                 </div>
-                <div className="text-xs text-gray-500">certificates</div>
+                <div className="text-xs text-muted-foreground">certificates</div>
               </div>
             </button>
           ))}

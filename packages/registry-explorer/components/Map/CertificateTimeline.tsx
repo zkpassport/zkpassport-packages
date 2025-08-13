@@ -75,18 +75,20 @@ const CertificateTimeline: React.FC<CertificateTimelineProps> = ({
       <div className="space-y-3 mb-4">
         {/* Coverage Gaps */}
         {certGaps.length > 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div className="bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
             <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-orange-900">Certificate Coverage Gaps</p>
+                <p className="text-sm font-medium text-orange-900 dark:text-orange-200">
+                  Certificate Coverage Gaps
+                </p>
                 <div className="mt-2 space-y-1">
                   {certGaps.map((gap, i) => {
                     const gapDays = Math.ceil(
                       (gap.to.getTime() - gap.from.getTime()) / (1000 * 60 * 60 * 24),
                     )
                     return (
-                      <p key={i} className="text-xs text-orange-700">
+                      <p key={i} className="text-xs text-orange-700 dark:text-orange-300">
                         {gap.from.toLocaleDateString()} to {gap.to.toLocaleDateString()} ({gapDays}{" "}
                         days)
                       </p>
@@ -100,9 +102,9 @@ const CertificateTimeline: React.FC<CertificateTimelineProps> = ({
 
         {/* Certificate Validity Timeline */}
         <div className="mb-4">
-          <p className="text-sm font-medium text-gray-700 mb-4">Certificate Validity Period</p>
+          <p className="text-sm font-medium text-foreground mb-4">Certificate Validity Period</p>
           <div
-            className="relative bg-gray-100 rounded-lg p-2"
+            className="relative bg-muted/30 dark:bg-muted/20 rounded-lg p-2"
             style={{
               height: `${Math.max((sortedCerts.length - 1) * 12 + 17, 60)}px`,
             }}
@@ -131,9 +133,9 @@ const CertificateTimeline: React.FC<CertificateTimelineProps> = ({
         {/* Private Key Usage Period Timeline */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-6">
-            <p className="text-sm font-medium text-gray-700">Private Key Usage Period</p>
+            <p className="text-sm font-medium text-foreground">Private Key Usage Period</p>
             {hasAnyPrivateKeyData && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 {pkCoverage.percentage.toFixed(1)}% coverage
               </span>
             )}
@@ -141,7 +143,7 @@ const CertificateTimeline: React.FC<CertificateTimelineProps> = ({
 
           {/* Legend for private key timeline */}
           {pkCoverage.details.estimatedPeriods.length > 0 && (
-            <div className="flex items-center gap-4 mb-2 text-xs text-gray-600">
+            <div className="flex items-center gap-4 mb-2 text-xs text-muted-foreground">
               <div className="flex items-center gap-1 pb-4">
                 <div className="w-4 h-2 bg-purple-400 rounded-sm border border-purple-600 border-dashed"></div>
                 <span>Estimated (4 years)</span>
@@ -150,7 +152,7 @@ const CertificateTimeline: React.FC<CertificateTimelineProps> = ({
           )}
           <>
             <div
-              className="relative bg-gray-100 rounded-lg p-2"
+              className="relative bg-muted/30 dark:bg-muted/20 rounded-lg p-2"
               style={{
                 height: `${Math.max((sortedCerts.length - 1) * 12 + 17, 60)}px`,
               }}
