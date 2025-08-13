@@ -2,12 +2,11 @@ import { CountryData, GeographyObject } from "./types"
 
 // Legend data for private key usage period coverage levels
 export const COVERAGE_LEGEND_ITEMS = [
-  { color: "#1D4ED8", label: "High (75-100%)" },
-  { color: "#2563EB", label: "Medium-High (50-75%)" },
-  { color: "#3B82F6", label: "Medium-Low (25-50%)" },
+  { color: "#1D4ED8", label: "High (90-100%)" },
+  { color: "#2563EB", label: "Good (70-90%)" },
+  { color: "#3B82F6", label: "Partial (25-70%)" },
   { color: "#93C5FD", label: "Low (1-25%)" },
-  { color: "#374151", label: "No active keys (0%)" },
-  { color: "#374151", label: "No data" },
+  { color: "#374151", label: "No coverage (0%)" },
 ] as const
 
 // Function to get country code from geography object
@@ -59,9 +58,15 @@ export const getCountryColor = (
 
   // Use private key usage period coverage if available, otherwise fall back to certificate count
   if (countryData.privateKeyUsagePeriodCoverage) {
-    const percentage = countryData.privateKeyUsagePeriodCoverage.percentage
+    const coverage = countryData.privateKeyUsagePeriodCoverage
 
-    if (percentage === 0) return "#374151" // Gray for no coverage
+    // Special case: percentage of -1 means no coverage calculation was possible
+    if (coverage.percentage === -1) {
+      return "#9ca3af" // Medium gray for unknown coverage
+    }
+
+    const percentage = coverage.percentage
+    if (percentage === 0) return "#374151" // Dark gray for no coverage
     if (percentage < 25) return "#93C5FD" // Light blue for low coverage
     if (percentage < 50) return "#3B82F6" // Medium blue for medium-low coverage
     if (percentage < 75) return "#2563EB" // Dark blue for medium-high coverage
@@ -78,4 +83,49 @@ export const getCountryColor = (
   if (certCount <= 10) return "#3B82F6" // Blue - good support (11-20 certs)
   if (certCount <= 20) return "#2563EB" // Dark blue - strong support (21-50 certs)
   return "#1D4ED8" // Very dark blue - excellent support (50+ certs)
+}
+
+// Helper function to format coverage information
+export const formatCoverage = (countryInfo: any): string => {
+  if (countryInfo.privateKeyUsagePeriodCoverage) {
+    const coverage = countryInfo.privateKeyUsagePeriodCoverage
+    
+    if (coverage.percentage === -1) {
+      return "No private key data available"
+    }
+    
+    let coverageText = `${coverage.percentage.toFixed(1)}%`
+    
+    if (!coverage.hasPrivateKeyData) {
+      coverageText += " (estimated)"
+    }
+    
+    return coverageText
+  } else if (countryInfo.certificateCount) {
+    return `${countryInfo.certificateCount} certificates available`
+  }
+  
+  return "No coverage data"
+}
+
+// Helper function to derive supported document types from certificate tags
+export const getSupportedDocuments = (countryCode: string, certificatesByCountry: Record<string, any[]>): string[] => {
+  const documents = new Set<string>()
+  
+  // Default to passport as it's the primary document type for most certificates
+  documents.add("Passport")
+  
+  // Check actual certificate tags for this country
+  const countryCerts = certificatesByCountry[countryCode] || []
+  const allTags = countryCerts.flatMap(cert => cert.tags || [])
+  
+  // Check for specific document type indicators in tags
+  allTags.forEach(tag => {
+    const tagLower = tag.toLowerCase()
+    if (tagLower.includes('id') && !tagLower.includes('icao')) {
+      documents.add("ID Card")
+    }
+  })
+  
+  return Array.from(documents)
 }

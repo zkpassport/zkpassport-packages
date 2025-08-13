@@ -16,19 +16,24 @@ interface CoverageGap {
   durationDays: number
 }
 
+interface PeriodDetail {
+  certId: string
+  period: PrivateKeyUsagePeriod
+  startDate: Date
+  endDate: Date
+}
+
 interface CoverageResult {
   percentage: number
   totalDaysInPeriod: number
   coveredDays: number
   gaps: CoverageGap[]
-  hasCriticalGaps: boolean // Gaps longer than 30 days
+  hasGaps: boolean // Gaps longer than 30 days
+  hasPrivateKeyData: boolean // Whether any certificates have private key usage periods
+  certificatesWithoutPeriods: number // Count of certificates missing this data
   details: {
-    periods: Array<{
-      certId: string
-      period: PrivateKeyUsagePeriod
-      startDate: Date
-      endDate: Date
-    }>
+    actualPeriods: PeriodDetail[]
+    estimatedPeriods: PeriodDetail[]
   }
 }
 
@@ -40,16 +45,56 @@ export function calculatePrivateKeyUsagePeriodCoverage(
   certificates: PackagedCertificate[],
   referenceDate: Date = new Date(),
   yearsToAnalyze: number = 10,
+  includeEstimated: boolean = true,
 ): CoverageResult {
   const endDate = Math.floor(referenceDate.getTime() / 1000)
   const startDate = endDate - yearsToAnalyze * 365.25 * 24 * 60 * 60 // 10 years ago in seconds
 
-  // Collect all private key usage periods
-  const periods: Array<{ certId: string; period: PrivateKeyUsagePeriod; range: TimeRange }> = []
+  // Collect actual and estimated private key usage periods separately
+  const actualPeriods: Array<{ certId: string; period: PrivateKeyUsagePeriod; range: TimeRange }> =
+    []
+  const estimatedPeriods: Array<{
+    certId: string
+    period: PrivateKeyUsagePeriod
+    range: TimeRange
+  }> = []
+  let certificatesWithoutPeriods = 0
 
   certificates.forEach((cert) => {
     if (!cert.private_key_usage_period) {
-      return // Skip certificates without private key usage period
+      certificatesWithoutPeriods++
+
+      // Add estimated period if includeEstimated is true
+      if (includeEstimated) {
+        // Estimate private key validity as 4 years (middle of 3-5 year range)
+        const estimatedDuration = 4 * 365 * 24 * 60 * 60 // 4 years in seconds
+        const certStart = cert.validity.not_before
+        const certEnd = cert.validity.not_after
+
+        // Private key typically starts with certificate and lasts 4 years
+        const pkEnd = Math.min(certStart + estimatedDuration, certEnd)
+
+        const estimatedPeriod: PrivateKeyUsagePeriod = {
+          not_before: certStart,
+          not_after: pkEnd,
+        }
+
+        const effectiveStart = certStart
+        const effectiveEnd = pkEnd
+
+        // Only include if the period overlaps with our analysis window
+        if (effectiveEnd >= startDate && effectiveStart <= endDate) {
+          estimatedPeriods.push({
+            certId: cert.subject_key_identifier || "",
+            period: estimatedPeriod,
+            range: {
+              start: Math.max(effectiveStart, startDate),
+              end: Math.min(effectiveEnd, endDate),
+            },
+          })
+        }
+      }
+      return
     }
 
     const period = cert.private_key_usage_period
@@ -60,7 +105,7 @@ export function calculatePrivateKeyUsagePeriodCoverage(
 
     // Only include if the period overlaps with our analysis window
     if (effectiveEnd >= startDate && effectiveStart <= endDate) {
-      periods.push({
+      actualPeriods.push({
         certId: cert.subject_key_identifier || "",
         period,
         range: {
@@ -71,12 +116,15 @@ export function calculatePrivateKeyUsagePeriodCoverage(
     }
   })
 
+  // Combine all periods for coverage calculation
+  const allPeriods = [...actualPeriods, ...estimatedPeriods]
+
   // Sort periods by start time
-  periods.sort((a, b) => a.range.start - b.range.start)
+  allPeriods.sort((a, b) => a.range.start - b.range.start)
 
   // Merge overlapping periods to find coverage
   const mergedRanges: TimeRange[] = []
-  periods.forEach(({ range }) => {
+  allPeriods.forEach(({ range }) => {
     if (mergedRanges.length === 0) {
       mergedRanges.push({ ...range })
     } else {
@@ -128,14 +176,41 @@ export function calculatePrivateKeyUsagePeriodCoverage(
   const coveredDays = Math.ceil(coveredSeconds / (24 * 60 * 60))
   const percentage = totalSeconds > 0 ? (coveredSeconds / totalSeconds) * 100 : 0
 
+  const hasPrivateKeyData = actualPeriods.length > 0
+
+  // If no private key data and not including estimated, return special case
+  if (!hasPrivateKeyData && !includeEstimated) {
+    return {
+      percentage: -1, // Special value to indicate unknown coverage
+      totalDaysInPeriod: totalDays,
+      coveredDays: 0,
+      gaps: [],
+      hasGaps: false,
+      hasPrivateKeyData: false,
+      certificatesWithoutPeriods,
+      details: {
+        actualPeriods: [],
+        estimatedPeriods: [],
+      },
+    }
+  }
+
   return {
     percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
     totalDaysInPeriod: totalDays,
     coveredDays,
     gaps,
-    hasCriticalGaps: gaps.some((gap) => gap.durationDays > 30),
+    hasGaps: gaps.some((gap) => gap.durationDays > 30),
+    hasPrivateKeyData,
+    certificatesWithoutPeriods,
     details: {
-      periods: periods.map((p) => ({
+      actualPeriods: actualPeriods.map((p) => ({
+        certId: p.certId,
+        period: p.period,
+        startDate: new Date(p.range.start * 1000),
+        endDate: new Date(p.range.end * 1000),
+      })),
+      estimatedPeriods: estimatedPeriods.map((p) => ({
         certId: p.certId,
         period: p.period,
         startDate: new Date(p.range.start * 1000),
@@ -144,28 +219,6 @@ export function calculatePrivateKeyUsagePeriodCoverage(
     },
   }
 }
-
-// /**
-//  * Check if a private key is currently active based on its usage period
-//  */
-// function isPrivateKeyActive(
-//   period: PrivateKeyUsagePeriod,
-//   referenceDateUnix: number
-// ): boolean {
-//   // If not_before is set and current date is before it, key is not yet active
-//   if (period.not_before && referenceDateUnix < period.not_before) {
-//     return false;
-//   }
-
-//   // If not_after is set and current date is after it, key has expired
-//   if (period.not_after && referenceDateUnix > period.not_after) {
-//     return false;
-//   }
-
-//   // Key is active if we're within the valid period
-//   return true;
-// }
-
 /**
  * Calculate coverage for all countries based on their certificates' private key usage periods
  */
@@ -181,16 +234,4 @@ export function calculateCountryCoverage(
   })
 
   return coverageMap
-}
-
-/**
- * Get a color based on coverage percentage
- */
-//These will be the blue ones in the utils
-export function getCoverageColor(percentage: number): string {
-  if (percentage === 0) return "#374151" // Gray for no coverage
-  if (percentage < 25) return "#93C5FD" // Red for low coverage
-  if (percentage < 50) return "#3B82F6" // Orange for medium-low coverage
-  if (percentage < 75) return "#2563EB" // Yellow for medium-high coverage
-  return "#1D4ED8" // Green for high coverage
 }

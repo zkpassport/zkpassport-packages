@@ -39,7 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <div className="w-80 bg-white border-r overflow-y-auto flex-shrink-0">
-      <div className="p-4">
+      <div className="p-4 pl-6">
         {selectedCountry && certificatesByCountry[selectedCountry.code] ? (
           // Show country details when selected
           <>

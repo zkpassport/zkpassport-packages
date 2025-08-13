@@ -1,3 +1,4 @@
+import { PackagedCertificate } from "@zkpassport/utils"
 export interface CertificateFilterState {
   searchTerm: string
   selectedCountry: string
@@ -20,13 +21,16 @@ export interface CountryData {
       percentage: number
       coveredDays: number
       totalDaysInPeriod: number
-      hasCriticalGaps: boolean
+      hasGaps: boolean
+      hasPrivateKeyData: boolean
+      certificatesWithoutPeriods: number
     }
   }
 }
 
 export interface WorldMapProps {
   data?: CountryData
+  certificatesByCountry?: Record<string, PackagedCertificate[]>
   onCountryClick?: (countryCode: string, countryName: string) => void
   registryUpdateDate?: string
   onCountrySearch?: (countryCode: string) => void

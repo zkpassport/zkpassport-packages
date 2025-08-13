@@ -7,6 +7,8 @@ import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateR
 import type { PackagedCertificate } from "@zkpassport/utils"
 import { CountryData } from "@/lib/types"
 import { coverageCache } from "@/lib/coverageCache"
+import CoverageInfoModal from "@/components/CoverageInfoModal"
+import { Info } from "lucide-react"
 
 function MapPageContent() {
   const [selectedCountry, setSelectedCountry] = useState<{ code: string; name: string } | null>(
@@ -17,6 +19,7 @@ function MapPageContent() {
   const [certificatesByCountry, setCertificatesByCountry] = useState<
     Record<string, PackagedCertificate[]>
   >({})
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
 
   // Fetch certificates using the hook
   const { certificates, isLoading, error } = useCertificates()
@@ -79,7 +82,9 @@ function MapPageContent() {
                   percentage: countryCoverage.percentage,
                   coveredDays: countryCoverage.coveredDays,
                   totalDaysInPeriod: countryCoverage.totalDaysInPeriod,
-                  hasCriticalGaps: countryCoverage.hasCriticalGaps,
+                  hasGaps: countryCoverage.hasGaps,
+                  hasPrivateKeyData: countryCoverage.hasPrivateKeyData,
+                  certificatesWithoutPeriods: countryCoverage.certificatesWithoutPeriods,
                 }
               : undefined,
           }
@@ -106,11 +111,23 @@ function MapPageContent() {
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex-shrink-0">
-        <div className="container mx-auto">
-          <h1 className="text-2xl font-bold">Certificate Registry Map</h1>
-          <p className="text-gray-600 text-sm mt-1">
-            Interactive map showing countries with supported documents in the ZKPassport registry
-          </p>
+        <div className="container mx-auto flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold">Certificate Registry Map</h1>
+            <p className="text-gray-600 text-sm mt-1">
+              Interactive map showing countries with supported documents in the ZKPassport registry
+            </p>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              onClick={() => setIsInfoModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-400 text-black hover:text-gray-800 hover:bg-blue-100 rounded-md transition-colors"
+              title="How coverage is calculated"
+            >
+              <Info className="w-4 h-4" />
+              How coverage is calculated
+            </button>
+          </div>
         </div>
       </div>
 
@@ -131,6 +148,7 @@ function MapPageContent() {
         <div className="flex-1 relative bg-gray-50 overflow-hidden">
           <WorldMap
             data={isLoading ? {} : countryData}
+            certificatesByCountry={certificatesByCountry}
             registryUpdateDate={
               historicalRoots.length > 0
                 ? new Date(
@@ -143,6 +161,12 @@ function MapPageContent() {
           />
         </div>
       </div>
+
+      {/* Coverage Info Modal */}
+      <CoverageInfoModal
+        isOpen={isInfoModalOpen}
+        onClose={() => setIsInfoModalOpen(false)}
+      />
     </div>
   )
 }

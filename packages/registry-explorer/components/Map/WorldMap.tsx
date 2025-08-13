@@ -6,14 +6,20 @@ import { RotateCcw } from "lucide-react"
 import { countryCodeAlpha3ToName } from "@zkpassport/utils"
 import { ExtendedGeometryCollection, geoCentroid, GeoGeometryObjects } from "d3-geo"
 import { GeographyObject, WorldMapProps } from "@/lib/types"
-import { getCountryCode, getCountryColor } from "@/lib/mapUtils"
+import { formatCoverage, getCountryCode, getCountryColor, getSupportedDocuments } from "@/lib/mapUtils"
 import { MapTooltip, MapLegend, MapSearch } from "./index"
+import type { TooltipContent } from "./MapTooltip"
 
 // World map data URL (Natural Earth 110m resolution)
 const geoUrl = "/countries-110m.json"
 
-export default function WorldMap({ data = {}, onCountryClick, resetMapView }: WorldMapProps) {
-  const [tooltipContent, setTooltipContent] = useState<string>("")
+export default function WorldMap({ data = {}, certificatesByCountry = {}, onCountryClick, resetMapView }: WorldMapProps) {
+  const [tooltipContent, setTooltipContent] = useState<TooltipContent>({
+    title: "",
+    supportedDocuments: [],
+    coverage: "",
+    certificateCount: 0
+  })
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   const [showTooltip, setShowTooltip] = useState(false)
   const [mapWidth, setMapWidth] = useState(800)
@@ -136,31 +142,23 @@ export default function WorldMap({ data = {}, onCountryClick, resetMapView }: Wo
     const countryCode = getCountryCode(geo, data, countryNameToCode)
     const countryInfo = countryCode ? data[countryCode] : null
 
-    if (countryInfo && countryInfo.support !== "none") {
-      let tooltipText = `${countryName}`
+    if (countryInfo && countryInfo.support !== "none" && countryCode) {
+      const supportedDocuments = getSupportedDocuments(countryCode, certificatesByCountry)
+      const coverage = formatCoverage(countryInfo)
 
-      // Add private key usage period coverage if available
-      if (countryInfo.privateKeyUsagePeriodCoverage) {
-        const coverage = countryInfo.privateKeyUsagePeriodCoverage
-        tooltipText += `\n${coverage.percentage.toFixed(1)}% coverage`
-        tooltipText += `\n${coverage.coveredDays}/${coverage.totalDaysInPeriod} days`
-        if (coverage.hasCriticalGaps) {
-          tooltipText += `\n⚠️ Has gaps >30 days`
-        }
-      } else if (countryInfo.certificateCount) {
-        // Fallback to certificate count if no coverage data
-        tooltipText += `\n${countryInfo.certificateCount} certificates`
-      }
-
-      if (countryInfo.dateRange) {
-        const fromDate = new Date(countryInfo.dateRange.from).toLocaleDateString()
-        const toDate = new Date(countryInfo.dateRange.to).toLocaleDateString()
-        tooltipText += `\n${fromDate} - ${toDate}`
-      }
-
-      setTooltipContent(tooltipText)
+      setTooltipContent({
+        title: countryName as string,
+        supportedDocuments: supportedDocuments,
+        coverage: coverage,
+        certificateCount: countryInfo.certificateCount || 0
+      })
     } else {
-      setTooltipContent(countryName as string)
+      setTooltipContent({
+        title: countryName as string,
+        supportedDocuments: [],
+        coverage: "No data available",
+        certificateCount: 0
+      })
     }
 
     setTooltipPosition({ x: event.clientX, y: event.clientY })
@@ -281,21 +279,22 @@ export default function WorldMap({ data = {}, onCountryClick, resetMapView }: Wo
                             if (countryData.privateKeyUsagePeriodCoverage) {
                               const percentage =
                                 countryData.privateKeyUsagePeriodCoverage.percentage
+                              if (percentage === -1) return "#9ca3af" // Unknown coverage
                               if (percentage === 0) return "#6b7280"
                               if (percentage < 25) return "#60A5FA"
-                              if (percentage < 50) return "#2563EB"
-                              if (percentage < 75) return "#1D4ED8"
+                              if (percentage < 70) return "#2563EB"
+                              if (percentage < 90) return "#1D4ED8"
                               return "#1E40AF"
                             }
 
                             // Fallback to certificate count
                             const certCount = countryData.certificateCount || 0
                             if (certCount === 0) return "#6b7280"
-                            if (certCount <= 2) return "#93C5FD"
-                            if (certCount <= 5) return "#60A5FA"
-                            if (certCount <= 10) return "#3B82F6"
-                            if (certCount <= 20) return "#2563EB"
-                            if (certCount <= 50) return "#1D4ED8"
+                            if (certCount <= 1) return "#93C5FD"
+                            if (certCount <= 2) return "#60A5FA"
+                            if (certCount <= 3) return "#3B82F6"
+                            if (certCount <= 4) return "#2563EB"
+                            if (certCount <= 5) return "#1D4ED8"
                             return "#1E40AF"
                           })(),
                           stroke: "#ffffff",
