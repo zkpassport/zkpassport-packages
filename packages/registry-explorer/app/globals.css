@@ -10,6 +10,26 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Mobile-friendly utilities */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Prevent zoom on mobile inputs */
+  @media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="search"] {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer base {
