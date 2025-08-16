@@ -137,7 +137,7 @@ export function publicKeyToBytes(publicKey: ECPublicKey | RSAPublicKey): Uint8Ar
  */
 export async function getCertificateLeafHash(
   cert: PackagedCertificate,
-  options?: { tags?: string[]; type?: number; hashAlgId?: number },
+  options?: { tags?: string[]; type?: number },
 ): Promise<bigint> {
   // Convert tags to byte flags
   const tags = options?.tags
