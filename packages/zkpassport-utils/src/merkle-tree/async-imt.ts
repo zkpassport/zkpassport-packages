@@ -372,4 +372,72 @@ export class AsyncIMT {
 
     return proof.root === node
   }
+
+  /**
+   * Serialize the tree
+   */
+  public serialize(): string[][] {
+    return this._nodes.map((layer) =>
+      layer.map((node) => `0x${node.toString(16).padStart(64, "0")}`),
+    )
+  }
+
+  /**
+   * Load a tree that was previously generated via serialize().
+   * This reconstructs all layers without recomputing hashes.
+   * It is O(n) on the number of stored nodes and should be almost instant
+   * compared to rebuilding via initialize().
+   * @param serialized Matrix as returned by serialize()
+   */
+  public loadFromSerialized(serialized: string[][]): void {
+    if (!Array.isArray(serialized) || serialized.length === 0) {
+      throw new Error("Invalid serialized tree: empty payload")
+    }
+
+    const expectedLayers = this.depth + 1
+    if (serialized.length !== expectedLayers) {
+      throw new Error(
+        `Serialized tree depth mismatch: expected ${expectedLayers} layers, got ${serialized.length}`,
+      )
+    }
+
+    // Rebuild nodes in-place to respect readonly property
+    for (let level = 0; level < serialized.length; level += 1) {
+      const layer = serialized[level]
+      if (!Array.isArray(layer)) {
+        throw new Error(`Invalid serialized tree: layer ${level} is not an array`)
+      }
+      this._nodes[level] = layer.map((node) => BigInt(node))
+    }
+
+    if (!this._nodes[this.depth] || this._nodes[this.depth][0] === undefined) {
+      throw new Error("Invalid serialized tree: missing root")
+    }
+
+    // Zeroes are not required for reading/serialization; initialize placeholders for consistency
+    if (this.zeroes.length !== this.depth) {
+      this.zeroes.length = 0
+      for (let i = 0; i < this.depth; i += 1) this.zeroes.push(0n)
+    }
+  }
+
+  /**
+   * Convenience factory to construct a tree directly from serialized layers.
+   * Depth is derived from the number of layers.
+   * @param serialized Matrix as returned by serialize()
+   * @param arity Arity of the tree (defaults to 2)
+   */
+  public static fromSerialized(
+    hash: IMTAsyncHashFunction,
+    serialized: string[][],
+    arity = 2,
+  ): AsyncIMT {
+    if (!Array.isArray(serialized) || serialized.length === 0) {
+      throw new Error("Invalid serialized tree: empty payload")
+    }
+    const depth = serialized.length - 1
+    const tree = new AsyncIMT(hash, depth, arity)
+    tree.loadFromSerialized(serialized)
+    return tree
+  }
 }
