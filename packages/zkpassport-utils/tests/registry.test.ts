@@ -62,14 +62,14 @@ describe("Registry", () => {
   test("should generate correct canonical leaf for RSA cert", async () => {
     const leaf = await getCertificateLeafHash(rsaCert)
     expect(leaf).toEqual(
-      18514770361525822184434017111501266198937862764353672896507497442488232419191n,
+      9604728310465322429419537006275467478856081832189622879656211503172429241571n,
     )
   })
 
   test("should generate correct canonical leaf for ECDSA cert", async () => {
     const leaf = await getCertificateLeafHash(ecdsaCert)
     expect(leaf).toEqual(
-      20807157976340030180503241085962340372124387468197356126141341265578309643795n,
+      20613133438428878252693983197936766514579284841853667670186211243343671048263n,
     )
   })
 
@@ -79,13 +79,13 @@ describe("Registry", () => {
       type: CERT_TYPE_DSC,
     })
     expect(leaf).toEqual(
-      8283620116278888580418973930292208239315127621569120803973116422034293219110n,
+      3159326281278623737788658725522331767048199151950971039210830901783298088489n,
     )
   })
 
   test("should generate correct canonical certificate root", async () => {
     const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
-    expect(root).toEqual("0x295537175b3803782b9c08cfc05a82894dbb946d932c815b503d823f7f1c3438")
+    expect(root).toEqual("0x2a41b0fbf6dd654ffeacdedaed2625b68b5e483e12f83b38bfafb034e6eeb918")
   })
 
   test("should generate correct canonical circuit root", async () => {

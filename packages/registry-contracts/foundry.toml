@@ -12,9 +12,16 @@ remappings = [
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
+localhost = "http://localhost:8545"
+anvil = "http://localhost:8545"
+anvil-hardhat = "http://localhost:8545"
 
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
+# Disable verification for local chains
+localhost = { key = "dummy", url = "http://localhost:8545" }
+anvil = { key = "dummy", url = "http://localhost:8545" }
+anvil-hardhat = { key = "dummy", url = "http://localhost:8545" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
