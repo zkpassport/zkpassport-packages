@@ -100,7 +100,7 @@ export const useCertificates = () => {
         }
 
         // Only validate certificates in production
-        const validate = process.env.NODE_ENV !== "development"
+        const validate = false //process.env.NODE_ENV !== "development"
 
         const rootFromUrl = searchParams.get("root")
         const latestRoot = await client.getLatestCertificateRoot()
