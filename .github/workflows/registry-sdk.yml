@@ -19,7 +19,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          version: v1.0.0
 
       - name: Build contracts
         run: forge build
@@ -45,7 +45,6 @@ jobs:
         run: bun run check
         working-directory: packages/registry-sdk
 
-      # TODO: Re-enable tests when the CI-specific error is fixed
-      #- name: Run tests
-      #  run: bun run test
-      #  working-directory: packages/registry-sdk
+      - name: Run tests
+        run: bun run test
+        working-directory: packages/registry-sdk
