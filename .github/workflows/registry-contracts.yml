@@ -21,7 +21,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          version: 1.0.0
 
       - name: Show Forge version
         run: forge --version
