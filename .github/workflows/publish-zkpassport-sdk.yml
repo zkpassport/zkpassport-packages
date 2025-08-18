@@ -40,7 +40,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: 1.0.0
+          version: v1.0.0
 
       - name: Build contracts
         if: github.ref == 'refs/heads/main'
