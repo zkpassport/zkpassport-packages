@@ -1,4 +1,4 @@
-import { convertDateBytesToDate, ProofData } from ".."
+import { ProofData } from ".."
 
 export function getCommitmentInFromIntegrityProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
@@ -9,12 +9,7 @@ export function getCommitmentOutFromIntegrityProof(proofData: ProofData): bigint
 }
 
 export function getCurrentDateFromIntegrityProof(proofData: ProofData): Date {
-  const dateBytes = proofData.publicInputs
-    .slice(0, 8)
-    .map((x) => Number(x) - 48)
-    .map((x) => x.toString())
-  const date = convertDateBytesToDate(dateBytes.join(""))
-  return date
+  return new Date(Number(BigInt(proofData.publicInputs[0])) * 1000)
 }
 
 /**
@@ -22,5 +17,5 @@ export function getCurrentDateFromIntegrityProof(proofData: ProofData): Date {
  * @returns The number of public inputs.
  */
 export function getIntegrityProofPublicInputCount(): number {
-  return 10
+  return 3
 }
