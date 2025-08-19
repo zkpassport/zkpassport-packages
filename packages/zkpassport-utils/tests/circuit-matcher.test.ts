@@ -1,4 +1,3 @@
-import { format } from "date-fns"
 import { Alpha3Code } from "i18n-iso-countries"
 import {
   calculateAge,
@@ -24,7 +23,12 @@ import {
 } from "../src/circuit-matcher"
 import { getCountryWeightedSum } from "../src/circuits/country"
 import { HashAlgorithm, PackagedCertificate, Query } from "../src/types"
-import { rightPadArrayWithZeros, rightPadCountryCodeArray } from "../src/utils"
+import {
+  getNowTimestamp,
+  getUnixTimestamp,
+  rightPadArrayWithZeros,
+  rightPadCountryCodeArray,
+} from "../src/utils"
 import rootCerts from "./fixtures/root-certs.json"
 import { PASSPORTS } from "./fixtures/passports"
 import * as fs from "fs"
@@ -191,18 +195,19 @@ describe("Circuit Matcher - RSA", () => {
       rootCerts.certificates as PackagedCertificate[],
     )
     expect(result).toEqual({
-      certificate_registry_root: rootCerts.serialised[rootCerts.serialised.length - 1][0],
-      certificate_registry_index: 258,
+      certificate_registry_root:
+        "0x2a41b0fbf6dd654ffeacdedaed2625b68b5e483e12f83b38bfafb034e6eeb918",
+      certificate_registry_index: 287,
       certificate_registry_hash_path: [
-        "0x1ef9092d9978bd6a41733cd1a577b2cadad11425d42028733db9d8551201e4cd",
-        "0x1b8b21c76093a0eedf558ced39e803d76e329c0182d0b8e34541c581a8ab5655",
-        "0x2d14d1f8b9dc8e3c62acd6f36fe9dbdb2b89625953ae94920a24cb25d6bf36ea",
-        "0x13be98c49cc2374e658a38a9c48fb401e5fc195041b8e11bd9ac25371e1a3ec6",
-        "0x028389c93f935834cf7a8cf79c9a0864f737e4490079295617d8e1016b196d85",
-        "0x17fd463bb4aaa1d9b6c65e1c5b59294817c3f44c989f16487084cfcffd7bc491",
-        "0x2b488545320bec08223db3b62d3b1da13b9cb901850a7f95fb892c91cb5e7032",
-        "0x20fd9c9b4f0c64a4b8858d3d9de5233e332b8a6696687b4a150fbe86f9607eec",
-        "0x032d617f2cdff1603708341269722c6faa76721e87a03df8a1b1d2935ae2a9a8",
+        "0x2ded7dc1d9e5bb388052d79ec9ed64c56ac652dbd2c91dbedd5e4e31e353706a",
+        "0x2ac0fb609fbdf290df143fc7210bac4d202e04397f0edf43536d92e726a8694f",
+        "0x25d9440d2a347f3f819c8da3bce1102f4ce024dd271d8c58370b641c4581ce0d",
+        "0x048b2561026e4db7b39ccdd3c78240e53a57b490e65e3d50650fe627c7034fa2",
+        "0x1828432f93eb254743973f01009be90f980d25d17ca4b06160101a18ce8b1197",
+        "0x1fbd784aa1818582cf3ad31579b24ec2cb7e835ff1dea35e88181cda166e1a1e",
+        "0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76",
+        "0x2d78ed82f93b61ba718b17c2dfe5b52375b4d37cbbed6f1fc98b47614b0cf21b",
+        "0x2f500f712e6cbc5f36ea2a9987485edfac5686184a8e995392fcbefa85c44161",
         "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",
@@ -317,9 +322,10 @@ describe("Circuit Matcher - RSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, 1n, 1n)
+    const timestamp = getNowTimestamp()
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, 1n, 1n, timestamp)
     expect(result).toEqual({
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
@@ -389,10 +395,11 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       age: { gte: 18 },
     }
-    const result = await getAgeCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
+    const timestamp = getNowTimestamp()
+    const result = await getAgeCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n, timestamp)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
       service_scope: "0x2",
@@ -476,17 +483,18 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       birthdate: { gte: new Date("1980-01-01"), lte: new Date("1990-01-01") },
     }
-    const result = await getBirthdateCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
+    const timestamp = getNowTimestamp()
+    const result = await getBirthdateCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n, timestamp)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
       service_scope: "0x2",
       service_subscope: "0x3",
       salt: "0x1",
-      min_date: "19800101",
-      max_date: "19900101",
+      min_date: getUnixTimestamp(new Date("1980-01-01")),
+      max_date: getUnixTimestamp(new Date("1990-01-01")),
     })
   })
 
@@ -494,17 +502,18 @@ describe("Circuit Matcher - RSA", () => {
     const query: Query = {
       expiry_date: { gte: new Date("2025-01-01"), lte: new Date("2035-12-31") },
     }
-    const result = await getExpiryDateCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n)
+    const timestamp = getNowTimestamp()
+    const result = await getExpiryDateCircuitInputs(PASSPORTS.john, query, 1n, 2n, 3n, timestamp)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       comm_in: "0x0c8b1e3be3cbbe1aa1bdbb8d25856aa3fd9af160cd1704a03154b2a67222c65b",
       private_nullifier: "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986",
       service_scope: "0x2",
       service_subscope: "0x3",
       salt: "0x1",
-      min_date: "20250101",
-      max_date: "20351231",
+      min_date: getUnixTimestamp(new Date("2025-01-01")),
+      max_date: getUnixTimestamp(new Date("2035-12-31")),
     })
   })
 })
@@ -532,18 +541,19 @@ describe("Circuit Matcher - ECDSA", () => {
       rootCerts.certificates as PackagedCertificate[],
     )
     expect(result).toEqual({
-      certificate_registry_root: rootCerts.serialised[rootCerts.serialised.length - 1][0],
-      certificate_registry_index: 293,
+      certificate_registry_root:
+        "0x2a41b0fbf6dd654ffeacdedaed2625b68b5e483e12f83b38bfafb034e6eeb918",
+      certificate_registry_index: 78,
       certificate_registry_hash_path: [
-        "0x2236e43b5d98100faa098189bc12d9769d3d380a8876c2a4ae065b482c139f65",
-        "0x0507df769833c883c9ac9cc2fd637fc5eaf58d08df7f8689746319febe49a750",
-        "0x2c1d3591372ced8490d8085ced57e3ff8b4c29856fb0dae6af262189768de6e0",
-        "0x2f11a6c3f0aab0229117f10f622c68c26fc46b99ce6c61023434292aa5b3fd6d",
-        "0x21e0903299ba43197e7df8147cd92a02b93f48748c18ea1566f730762a993111",
-        "0x1d820eb6d153d219da110cc79fe02327c55114e4b06a0f5a66d8f8897ccd1f86",
-        "0x2b488545320bec08223db3b62d3b1da13b9cb901850a7f95fb892c91cb5e7032",
-        "0x20fd9c9b4f0c64a4b8858d3d9de5233e332b8a6696687b4a150fbe86f9607eec",
-        "0x032d617f2cdff1603708341269722c6faa76721e87a03df8a1b1d2935ae2a9a8",
+        "0x0d037c0b40ae8f781ece23ab60a513de6b062005959fd0885485d7bc522df349",
+        "0x079530ded5bc636ef201947239b037fc557cbbbe26420b53b7c7a832526c4170",
+        "0x172f5c40630f71b4fe6862c8c5f5649be366299dc08bb85e2e63454855f4309c",
+        "0x042597efa5d3a47b71ce68507dd30bb286a01e92f7943c65c90fed589ee21cd1",
+        "0x2d094033f68ee899e0c9844b4e653056acd9f28a29ed4e4d24e96a1c01e06575",
+        "0x2f734c2313bd513ea4aa3dc10c0c0cf394f29a4aff06b5f213dea36523175158",
+        "0x26dc3c5803b479d09b4074b0814f72f4a31add165524b3cca5f1241e52daa7f9",
+        "0x2492d25a6ab5771402a95036e91ea9d4a31188b765a48c416ec786fd413c5d1b",
+        "0x113721a85768600c207ccb228c8afbb0001d4935ea8be441698c11750c5a3bf3",
         "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",
@@ -615,9 +625,10 @@ describe("Circuit Matcher - ECDSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, 1n, 1n)
+    const timestamp = getNowTimestamp()
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, 1n, 1n, timestamp)
     expect(result).toEqual({
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
@@ -687,10 +698,11 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       age: { gte: 18 },
     }
-    const result = await getAgeCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
+    const timestamp = getNowTimestamp()
+    const result = await getAgeCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n, timestamp)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
       service_scope: "0x2",
@@ -774,17 +786,18 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       birthdate: { gte: new Date("1980-01-01"), lte: new Date("1990-01-01") },
     }
-    const result = await getBirthdateCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
+    const timestamp = getNowTimestamp()
+    const result = await getBirthdateCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n, timestamp)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
       service_scope: "0x2",
       service_subscope: "0x3",
       salt: "0x1",
-      min_date: "19800101",
-      max_date: "19900101",
+      min_date: getUnixTimestamp(new Date("1980-01-01")),
+      max_date: getUnixTimestamp(new Date("1990-01-01")),
     })
   })
 
@@ -792,17 +805,18 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       expiry_date: { gte: new Date("2025-01-01"), lte: new Date("2035-12-31") },
     }
-    const result = await getExpiryDateCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n)
+    const timestamp = getNowTimestamp()
+    const result = await getExpiryDateCircuitInputs(PASSPORTS.mary, query, 1n, 2n, 3n, timestamp)
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
-      current_date: format(new Date(), "yyyyMMdd"),
+      current_date: timestamp,
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
       service_scope: "0x2",
       service_subscope: "0x3",
       salt: "0x1",
-      min_date: "20250101",
-      max_date: "20351231",
+      min_date: getUnixTimestamp(new Date("2025-01-01")),
+      max_date: getUnixTimestamp(new Date("2035-12-31")),
     })
   })
 })

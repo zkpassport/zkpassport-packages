@@ -8,6 +8,8 @@ export ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-dummy}
 
 export ORACLE_ADDRESS=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 export ORACLE_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+export CERTIFICATE_REGISTRY_ROOT=${CERTIFICATE_REGISTRY_ROOT:-0x2a41b0fbf6dd654ffeacdedaed2625b68b5e483e12f83b38bfafb034e6eeb918}
+export CIRCUIT_REGISTRY_ROOT=${CIRCUIT_REGISTRY_ROOT:-0x068f6e356f993bd2afaf3d3466efff1dd4bc06f61952ac336085b832b93289a7}
 
 # Function to generate SHA-256 hash that works on both macOS and Linux
 generate_sha256() {
@@ -38,7 +40,7 @@ do
 
   # Use the certificates fixture root hash and cid for the last root update
   if [ $i -eq 10 ]; then
-    ROOT="0x23365271ae4d74873e89c8a1457e0bce7bc1a40647b742e9b39ef205cc0d36f2"
+    ROOT=$CERTIFICATE_REGISTRY_ROOT
     CID="0x2faca44e2b6e4e88a8bbba15bc53b0a7604b693c7733d3d4995c445b5a6258a2" # QmRYkZEm7ueX8XT82QuYTdL6iivv3gryoi2jJsPzvsdu6H
     LEAVES_COUNT=5
   fi
@@ -70,7 +72,7 @@ do
 
   # Use the circuit manifest fixture root hash and cid for the last root update
   if [ $i -eq 10 ]; then
-    ROOT="0x068f6e356f993bd2afaf3d3466efff1dd4bc06f61952ac336085b832b93289a7"
+    ROOT=$CIRCUIT_REGISTRY_ROOT
     CID="0xc49583d83cde885ac798b7bd39f9910ba72b72faf27cbda4a5fcf951c3282019" # bafybeigeswb5qpg6rbnmpgfxxu47teilu4vxf6xsps62jjp47fi4gkbade
     LEAVES_COUNT=5
   fi

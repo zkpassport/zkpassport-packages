@@ -251,6 +251,39 @@ export function formatDate(date: Date | string | number) {
   return date
 }
 
+export function getUnixTimestamp(date: Date | string | number): number {
+  if (typeof date === "string" || typeof date === "number") {
+    return Math.floor(new Date(date).getTime() / 1000)
+  }
+  return Math.floor(date.getTime() / 1000)
+}
+
+export function getTodayTimestamp(): number {
+  const today = Date.UTC(
+    new Date().getUTCFullYear(),
+    new Date().getUTCMonth(),
+    new Date().getUTCDate(),
+    0,
+    0,
+    0,
+    0,
+  )
+
+  return Math.floor(today / 1000)
+}
+
+export function getNowTimestamp(): number {
+  const now = Date.UTC(
+    new Date().getUTCFullYear(),
+    new Date().getUTCMonth(),
+    new Date().getUTCDate(),
+    new Date().getUTCHours(),
+    new Date().getUTCMinutes(),
+    new Date().getUTCSeconds(),
+  )
+  return Math.floor(now / 1000)
+}
+
 export function formatQueryResultDates(queryResult: QueryResult) {
   // Iterate over the query result and format the dates
   for (const key in queryResult) {

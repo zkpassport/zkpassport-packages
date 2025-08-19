@@ -244,7 +244,7 @@ export type QueryResult = {
 }
 
 export type AgeCommittedInputs = {
-  currentDate: string
+  currentDateTimestamp: number
   minAge: number
   maxAge: number
 }
@@ -254,9 +254,9 @@ export type CountryCommittedInputs = {
 }
 
 export type DateCommittedInputs = {
-  currentDate: string
-  minDate: string
-  maxDate: string
+  currentDateTimestamp: number
+  minDateTimestamp: number
+  maxDateTimestamp: number
 }
 
 export type DiscloseCommittedInputs = {
