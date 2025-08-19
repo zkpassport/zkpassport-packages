@@ -176,6 +176,25 @@ describe("AsyncOrderedMT (ordered set)", () => {
     expect(proof.root).toEqual(originalRoot)
   })
 
+  test("serialize + initializeAndSort and loadFromSerialized round-trip", async () => {
+    const depth = 5
+    const tree = await AsyncOrderedMT.create(depth, poseidon2)
+    const leaves = [81n, 3n, 9n, 27n];
+    await tree.initializeAndSort(leaves)
+
+    const originalRoot = tree.root
+    const serialized = tree.serialize()
+
+    const restored = await AsyncOrderedMT.fromSerialized(serialized, poseidon2)
+    expect(restored.root).toEqual(originalRoot)
+
+    // Membership proof on restored tree should verify with same root
+    const proof = restored.createMembershipProof(27n)
+    const ok = await AsyncOrderedMT.verifyMembershipProof(proof, poseidon2)
+    expect(ok).toBe(true)
+    expect(proof.root).toEqual(originalRoot)
+  })
+
   test("fromSerialized rejects invalid payloads", async () => {
     const depth = 3
     const tree = await AsyncOrderedMT.create(depth, poseidon2)

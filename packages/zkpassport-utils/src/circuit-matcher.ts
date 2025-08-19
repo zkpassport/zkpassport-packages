@@ -1007,14 +1007,14 @@ export async function getSanctionsExclusionCheckCircuitInputs(
 
   // Only build the merkle trees if they are not provided
   sanctions = sanctions ?? (await SanctionsBuilder.create())
-  const { proofs, rootHash } = await sanctions.getSanctionsMerkleProofs(passport)
+  const { proofs, root } = await sanctions.getSanctionsMerkleProofs(passport)
 
   return {
     dg1: idData.dg1,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     proofs,
-    root_hash: rootHash,
+    root,
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,

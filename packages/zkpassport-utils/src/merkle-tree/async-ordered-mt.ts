@@ -7,7 +7,6 @@ export type MembershipProof = {
   leaf: Node
   leafIndex: number
   siblings: Node[]
-  path: number[] // 0 if leaf was left child, 1 if right child
 }
 
 export type NeighborMembershipProof = {
@@ -127,7 +126,7 @@ export default class AsyncOrderedMT {
       idx >>= 1
     }
 
-    return { root: this.root, leaf, leafIndex: index, siblings, path }
+    return { root: this.root, leaf, leafIndex: index, siblings }
   }
 
   public static async verifyMembershipProof(
@@ -135,9 +134,12 @@ export default class AsyncOrderedMT {
     hash: AsyncHashFunction,
   ): Promise<boolean> {
     let node = proof.leaf
+    // Calculate the path based on the index
+    let path = proof.leafIndex.toString(2).split('').map(Number)
     for (let i = 0; i < proof.siblings.length; i += 1) {
       const sibling = proof.siblings[i]
-      const isRight = proof.path[i] === 1
+      const isRight = path[proof.siblings.length - i - 1] === 1
+      
       node = await hash(isRight ? [sibling, node] : [node, sibling])
     }
     return node === proof.root
