@@ -45,7 +45,7 @@ export default function CoverageInfoModal({ isOpen, onClose }: CoverageInfoModal
             <p className="text-muted-foreground mb-4">
               The map displays how well each country is covered by the cryptographic keys that
               (ZKPassport has in its certificate registry) used to validate passports. It also shows
-              whether those keys have been available continuosly over the{" "}
+              whether those keys have been available continuously over the{" "}
               <span className="font-bold">past 10 years</span>.
             </p>
             <p className="text-muted-foreground mb-4">
@@ -61,7 +61,7 @@ export default function CoverageInfoModal({ isOpen, onClose }: CoverageInfoModal
               <li className="flex items-start">
                 <span className="text-blue-600 mr-2">•</span>
                 <span>
-                  We look at the last 10 years (matching the normal passport validity period)
+                  We look at the last 10 years (matching the usual passport validity period)
                 </span>
               </li>
               <li className="flex items-start">
@@ -130,7 +130,7 @@ export default function CoverageInfoModal({ isOpen, onClose }: CoverageInfoModal
             <h4 className="font-medium mb-2 text-blue-800 dark:text-blue-200">Why This Matters</h4>
             <p className="text-blue-700 dark:text-blue-300 text-sm">
               Continuous coverage means passports can be verified at any point in the past 10 years
-              (the whole lofe of a typical passport.) Gaps mean some passports from certain years
+              (the whole life of a typical passport). Gaps mean some passports from certain years
               might not be verifiable.
             </p>
             <p className="text-blue-700 dark:text-blue-300 text-sm">
