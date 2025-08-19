@@ -157,8 +157,39 @@ export const getSupportedDocuments = (countryCode: string): string[] => {
   const passportCardCountries = ["IRL"]
 
   // Countries with residence permit support
-  // This is hardcoded from the analytics dashboard
-  const residencePermitCountries = ["GEO", "IRL", "HUN", "PRT", "CYP"]
+  // This is hardcoded from the analytics dashboard and PRADO data
+  const residencePermitCountries = [
+    "GEO",
+    "IRL",
+    "CYP",
+    // Switzerland doesn't have electronic national IDs, but it has electronic residence permits
+    "CHE",
+    "BEL",
+    "CYP",
+    "CZE",
+    "DEU",
+    "DNK",
+    "ESP",
+    "EST",
+    "FIN",
+    "FRA",
+    "GRC",
+    "HRV",
+    "HUN",
+    "ITA",
+    "LTU",
+    "LUX",
+    "LVA",
+    "MLT",
+    "NLD",
+    "POL",
+    "PRT",
+    "ROU",
+    "SVK",
+    "SVN",
+    "SWE",
+    "NOR",
+  ]
 
   // Passports are supported by default
   documents.add("Passport")
