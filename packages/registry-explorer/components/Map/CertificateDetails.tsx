@@ -1,4 +1,5 @@
 import { PackagedCertificate } from "@zkpassport/utils"
+import { useMemo } from "react"
 
 const CertificateDetails = ({
   certificatesByCountry,
@@ -8,19 +9,23 @@ const CertificateDetails = ({
   selectedCountry: { code: string; name: string }
 }) => {
   // Group certificates by signature scheme
-  const groupedCertificates = certificatesByCountry[selectedCountry.code].reduce(
-    (acc, cert) => {
-      const key = `${cert.signature_algorithm}-${cert.public_key.type}-${cert.hash_algorithm}${"curve" in cert.public_key && cert.public_key.curve ? `-${cert.public_key.curve}` : ""}`
-      if (!acc[key]) {
-        acc[key] = {
-          cert,
-          count: 0,
-        }
-      }
-      acc[key].count++
-      return acc
-    },
-    {} as Record<string, { cert: PackagedCertificate; count: number }>,
+  const groupedCertificates = useMemo(
+    () =>
+      certificatesByCountry[selectedCountry.code].reduce(
+        (acc, cert) => {
+          const key = `${cert.signature_algorithm}-${cert.public_key.type}-${cert.hash_algorithm}${"curve" in cert.public_key && cert.public_key.curve ? `-${cert.public_key.curve}` : ""}`
+          if (!acc[key]) {
+            acc[key] = {
+              cert,
+              count: 0,
+            }
+          }
+          acc[key].count++
+          return acc
+        },
+        {} as Record<string, { cert: PackagedCertificate; count: number }>,
+      ),
+    [certificatesByCountry, selectedCountry],
   )
 
   return (
@@ -29,7 +34,9 @@ const CertificateDetails = ({
       <div className="space-y-2 pb-4">
         {Object.values(groupedCertificates).map(({ cert, count }) => (
           <div
-            key={`${cert.signature_algorithm}-${cert.public_key.type}-${cert.hash_algorithm}`}
+            key={`${cert.signature_algorithm}-${cert.public_key.type}-${cert.hash_algorithm}-${
+              "curve" in cert.public_key && cert.public_key.curve ? cert.public_key.curve : ""
+            }`}
             className="bg-muted/30 dark:bg-muted/20 rounded p-2"
           >
             <div className="flex items-center justify-between mb-1">
