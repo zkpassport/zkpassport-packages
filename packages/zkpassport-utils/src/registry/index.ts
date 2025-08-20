@@ -137,7 +137,7 @@ export function publicKeyToBytes(publicKey: ECPublicKey | RSAPublicKey): Uint8Ar
  */
 export async function getCertificateLeafHash(
   cert: PackagedCertificate,
-  options?: { tags?: string[]; type?: number; hashAlgId?: number },
+  options?: { tags?: string[]; type?: number },
 ): Promise<bigint> {
   // Convert tags to byte flags
   const tags = options?.tags
@@ -150,12 +150,6 @@ export async function getCertificateLeafHash(
   assert(type >= 0 && type <= 255, `Certificate type must fit in a single byte: ${type}`)
   // Ensure country code is 3 characters
   assert(cert?.country?.length === 3, `Country code must be 3 characters: ${cert?.country}`)
-  // Hash algorithm identifier
-  const hashAlgId = options?.hashAlgId ?? getHashAlgorithmIdentifier(cert?.hash_algorithm)
-  assert(
-    hashAlgId >= 0 && hashAlgId <= 255,
-    `Hash algorithm identifier must fit in a single byte: ${hashAlgId}`,
-  )
   const publicKeyBytes = publicKeyToBytes(cert.public_key)
   // Return the canonical leaf hash of the certificate
   return poseidon2HashAsync([
@@ -167,7 +161,6 @@ export async function getCertificateLeafHash(
           cert.country.charCodeAt(0),
           cert.country.charCodeAt(1),
           cert.country.charCodeAt(2),
-          hashAlgId,
         ]),
         31,
       )[0],

@@ -1,7 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
-import { format } from "date-fns"
 import { Alpha3Code } from "i18n-iso-countries"
 import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
@@ -48,6 +47,7 @@ import {
   fromBytesToBigInt,
   getBitSize,
   getOffsetInArray,
+  getUnixTimestamp,
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
 } from "./utils"
@@ -569,6 +569,7 @@ export async function getIntegrityCheckCircuitInputs(
   passport: PassportViewModel,
   saltIn: bigint,
   saltOut: bigint,
+  currentDateTimestamp: number,
 ) {
   const maxTbsLength = getTBSMaxLen(passport)
   const dscData = getDSCDataInputs(passport, maxTbsLength)
@@ -595,7 +596,7 @@ export async function getIntegrityCheckCircuitInputs(
   )
 
   return {
-    current_date: format(new Date(), "yyyyMMdd"),
+    current_date: currentDateTimestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
     signed_attributes_size: idData.signed_attributes_size,
@@ -767,6 +768,7 @@ export async function getAgeCircuitInputs(
   salt: bigint,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -812,7 +814,7 @@ export async function getAgeCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    current_date: format(new Date(), "yyyyMMdd"),
+    current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1027,6 +1029,7 @@ export async function getBirthdateCircuitInputs(
   salt: bigint,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = getIDDataInputs(passport)
   if (!idData) return null
@@ -1070,15 +1073,14 @@ export async function getBirthdateCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    current_date: format(new Date(), "yyyyMMdd"),
+    current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
-    // "11111111" means the date is ignored
-    min_date: minDate ? format(minDate, "yyyyMMdd") : "1".repeat(8),
-    max_date: maxDate ? format(maxDate, "yyyyMMdd") : "1".repeat(8),
+    min_date: minDate ? getUnixTimestamp(minDate) : 0,
+    max_date: maxDate ? getUnixTimestamp(maxDate) : 0,
   }
 }
 
@@ -1088,6 +1090,7 @@ export async function getExpiryDateCircuitInputs(
   salt: bigint,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = getIDDataInputs(passport)
   if (!idData) return null
@@ -1131,15 +1134,14 @@ export async function getExpiryDateCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    current_date: format(new Date(), "yyyyMMdd"),
+    current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
-    // "11111111" means the date is ignored
-    min_date: minDate ? format(minDate, "yyyyMMdd") : "1".repeat(8),
-    max_date: maxDate ? format(maxDate, "yyyyMMdd") : "1".repeat(8),
+    min_date: minDate ? getUnixTimestamp(minDate) : 0,
+    max_date: maxDate ? getUnixTimestamp(maxDate) : 0,
   }
 }
 

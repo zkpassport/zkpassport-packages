@@ -31,6 +31,7 @@ export function Navigation() {
             </Link>
           </div>
           <nav className="flex items-center gap-4">
+            <NavLink href="/map">Map</NavLink>
             <NavLink href="/certificates">Certificates</NavLink>
             <NavLink href="/certificates/history">Certificate Roots</NavLink>
             <NavLink href="/circuits/history">Circuit Roots</NavLink>
@@ -86,6 +87,13 @@ export function Navigation() {
             }`}
           >
             <nav className="pt-4 pb-2 space-y-2">
+              <NavLink
+                href="/map"
+                className="block py-3 px-2 rounded-md hover:bg-muted transition-colors"
+                onClick={closeMobileMenu}
+              >
+                Map
+              </NavLink>
               <NavLink
                 href="/certificates"
                 className="block py-3 px-2 rounded-md hover:bg-muted transition-colors"

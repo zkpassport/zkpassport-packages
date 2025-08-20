@@ -1,5 +1,5 @@
 import { bigIntToBuffer } from "@zk-kit/utils"
-import { SupportedChain } from "./types"
+import { QueryResult, SupportedChain } from "./types"
 
 export async function loadModule(module: string) {
   try {
@@ -243,6 +243,107 @@ export function getChainDisplayName(chain: SupportedChain): string {
     return "Anvil (local)"
   }
   throw new Error(`Unsupported chain: ${chain}`)
+}
+
+export function areDatesEqual(date1: Date | string | number, date2: Date | string | number) {
+  if (typeof date1 === "string" || typeof date1 === "number") {
+    date1 = new Date(date1)
+  }
+  if (typeof date2 === "string" || typeof date2 === "number") {
+    date2 = new Date(date2)
+  }
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  )
+}
+
+export function formatDate(date: Date | string | number) {
+  if (typeof date === "string" || typeof date === "number") {
+    return new Date(date)
+  }
+  return date
+}
+
+export function getUnixTimestamp(date: Date | string | number): number {
+  if (typeof date === "string" || typeof date === "number") {
+    return Math.floor(new Date(date).getTime() / 1000)
+  }
+  return Math.floor(date.getTime() / 1000)
+}
+
+export function getTodayTimestamp(): number {
+  const today = Date.UTC(
+    new Date().getUTCFullYear(),
+    new Date().getUTCMonth(),
+    new Date().getUTCDate(),
+    0,
+    0,
+    0,
+    0,
+  )
+
+  return Math.floor(today / 1000)
+}
+
+export function getNowTimestamp(): number {
+  const now = Date.UTC(
+    new Date().getUTCFullYear(),
+    new Date().getUTCMonth(),
+    new Date().getUTCDate(),
+    new Date().getUTCHours(),
+    new Date().getUTCMinutes(),
+    new Date().getUTCSeconds(),
+  )
+  return Math.floor(now / 1000)
+}
+
+export function formatQueryResultDates(queryResult: QueryResult) {
+  // Iterate over the query result and format the dates
+  for (const key in queryResult) {
+    const value = queryResult[key as keyof QueryResult]
+
+    // Only format dates for birthdate and expiry_date credentials
+    if ((key === "birthdate" || key === "expiry_date") && value && typeof value === "object") {
+      // Handle eq.expected
+      if ("eq" in value && value.eq) {
+        value.eq.expected = formatDate(value.eq.expected) as any
+      }
+
+      // Handle gte.expected
+      if ("gte" in value && value.gte) {
+        value.gte.expected = formatDate(value.gte.expected) as any
+      }
+
+      // Handle gt.expected
+      if ("gt" in value && value.gt) {
+        value.gt.expected = formatDate(value.gt.expected) as any
+      }
+
+      // Handle lte.expected
+      if ("lte" in value && value.lte) {
+        value.lte.expected = formatDate(value.lte.expected) as any
+      }
+
+      // Handle lt.expected
+      if ("lt" in value && value.lt) {
+        value.lt.expected = formatDate(value.lt.expected) as any
+      }
+
+      // Handle range.expected
+      if ("range" in value && value.range && Array.isArray(value.range.expected)) {
+        const [start, end] = value.range.expected
+        value.range.expected = [formatDate(start), formatDate(end)] as any
+      }
+
+      // Handle disclose.result
+      if ("disclose" in value && value.disclose) {
+        value.disclose.result = formatDate(value.disclose.result) as any
+      }
+    }
+  }
+  return queryResult
 }
 
 export { AggregateError, PromisePool } from "./promise-pool"

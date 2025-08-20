@@ -1,4 +1,4 @@
-import { convertDateBytesToDate, getFormattedDate, ProofData } from "."
+import { ProofData } from "."
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -23,11 +23,7 @@ export function getOuterCircuitInputs(
   circuitRegistryRoot: string,
 ) {
   const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const dateBytes = integrityCheckProof.publicInputs
-    .slice(0, 8)
-    .map((x) => Number(x) - 48)
-    .map((x) => x.toString())
-  const currentDate = convertDateBytesToDate(dateBytes.join(""))
+  const currentDateTimestamp = Number(BigInt(integrityCheckProof.publicInputs[0]))
   const scope = disclosureProofs[0].publicInputs[1]
   const subscope = disclosureProofs[0].publicInputs[2]
   const nullifier = disclosureProofs[0].publicInputs[4]
@@ -36,7 +32,7 @@ export function getOuterCircuitInputs(
   return {
     certificate_registry_root: certificateRegistryRoot,
     circuit_registry_root: circuitRegistryRoot,
-    current_date: getFormattedDate(currentDate),
+    current_date: currentDateTimestamp,
     service_scope: scope,
     service_subscope: subscope,
     param_commitments: paramCommitments,
@@ -89,12 +85,7 @@ export function getCircuitRegistryRootFromOuterProof(proofData: ProofData): bigi
 }
 
 export function getCurrentDateFromOuterProof(proofData: ProofData): Date {
-  const dateBytes = proofData.publicInputs
-    .slice(2, 10)
-    .map((x) => Number(x) - 48)
-    .map((x) => x.toString())
-  const date = convertDateBytesToDate(dateBytes.join(""))
-  return date
+  return new Date(Number(BigInt(proofData.publicInputs[2])) * 1000)
 }
 
 /**
@@ -103,7 +94,7 @@ export function getCurrentDateFromOuterProof(proofData: ProofData): Date {
  * @returns The service scope.
  */
 export function getScopeFromOuterProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[10])
+  return BigInt(proofData.publicInputs[3])
 }
 
 /**
@@ -112,7 +103,7 @@ export function getScopeFromOuterProof(proofData: ProofData): bigint {
  * @returns The service subscope.
  */
 export function getSubscopeFromOuterProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[11])
+  return BigInt(proofData.publicInputs[4])
 }
 
 /**
@@ -130,5 +121,5 @@ export function getNullifierFromOuterProof(proofData: ProofData): bigint {
  * @returns The param commitments.
  */
 export function getParamCommitmentsFromOuterProof(proofData: ProofData): bigint[] {
-  return proofData.publicInputs.slice(12, proofData.publicInputs.length - 1).map(BigInt)
+  return proofData.publicInputs.slice(5, proofData.publicInputs.length - 1).map(BigInt)
 }

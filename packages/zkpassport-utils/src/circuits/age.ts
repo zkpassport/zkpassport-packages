@@ -3,6 +3,7 @@ import { AgeCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { sha256 } from "@noble/hashes/sha2"
 import { ProofType } from "."
+import { numberToBytesBE } from "@noble/curves/utils"
 
 export function getMinAgeFromCommittedInputs(committedInputs: AgeCommittedInputs): number {
   return committedInputs.minAge
@@ -22,19 +23,19 @@ export function getAgeProofPublicInputCount(): number {
 
 /**
  * Get the parameter commitment for the age proof.
- * @param currentDate - The current date (YYYYMMDD)
+ * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)
  * @param minAge - The minimum age.
  * @param maxAge - The maximum age.
  * @returns The parameter commitment.
  */
 export async function getAgeParameterCommitment(
-  currentDate: string,
+  currentDateTimestamp: number,
   minAge: number,
   maxAge: number,
 ): Promise<bigint> {
   const ageParameterCommitment = await poseidon2HashAsync([
     BigInt(ProofType.AGE),
-    ...Array.from(new TextEncoder().encode(currentDate)).map((x) => BigInt(x)),
+    BigInt(currentDateTimestamp),
     BigInt(minAge),
     BigInt(maxAge),
   ])
@@ -43,23 +44,18 @@ export async function getAgeParameterCommitment(
 
 /**
  * Get the EVM parameter commitment for the age proof.
- * @param currentDate - The current date (YYYYMMDD)
+ * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)
  * @param minAge - The minimum age.
  * @param maxAge - The maximum age.
  * @returns The parameter commitment.
  */
 export async function getAgeEVMParameterCommitment(
-  currentDate: string,
+  currentDateTimestamp: number,
   minAge: number,
   maxAge: number,
 ): Promise<bigint> {
   const hash = sha256(
-    new Uint8Array([
-      ProofType.AGE,
-      ...Array.from(new TextEncoder().encode(currentDate)).map((x) => Number(x)),
-      minAge,
-      maxAge,
-    ]),
+    new Uint8Array([ProofType.AGE, ...numberToBytesBE(currentDateTimestamp, 4), minAge, maxAge]),
   )
   const hashBigInt = packBeBytesIntoField(hash, 31)
   return hashBigInt
