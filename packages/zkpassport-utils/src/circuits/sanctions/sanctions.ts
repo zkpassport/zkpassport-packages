@@ -25,8 +25,7 @@ export class SanctionsBuilder {
   }
 
   getRootHash(): Buffer {
-    const rootHash = `0x${this.tree.root.toString(16).padStart(64, '0')}`
-    return Buffer.from(rootHash, "hex")
+    return Buffer.from(this.tree.root.toString(16).padStart(64, "0"), "hex")
   }
 
   getRoot(): string {
@@ -97,6 +96,7 @@ export class SanctionsBuilder {
 
   async getSanctionsEvmParameterCommitment(): Promise<bigint> {
     const rootHash = this.getRootHash()
+
     const rootHashArr: number[] = Array.from(rootHash).map((x) => Number(x))
     const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
     const hash = sha256(new Uint8Array([ProofType.Sanctions_EXCLUSION, ...rootHashNumberArray]))
