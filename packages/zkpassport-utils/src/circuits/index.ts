@@ -1,7 +1,6 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { format } from "date-fns"
 import {
-  convertDateBytesToDate,
   getBindProofPublicInputCount,
   getCountryExclusionProofPublicInputCount,
   getCountryInclusionProofPublicInputCount,
@@ -191,11 +190,11 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
   // TODO: make constants
   switch (circuitName) {
     case "compare_age_evm":
-      return 11
+      return 7
     case "compare_birthdate_evm":
-      return 25
+      return 13
     case "compare_expiry_evm":
-      return 25
+      return 13
     case "disclose_bytes_evm":
       return 181
     case "inclusion_check_issuing_country_evm":
@@ -207,11 +206,11 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
     case "exclusion_check_nationality_evm":
       return 601
     case "compare_age":
-      return 11
+      return 4
     case "compare_birthdate":
-      return 25
+      return 4
     case "compare_expiry":
-      return 25
+      return 4
     case "disclose_bytes":
       return 181
     case "inclusion_check_issuing_country":
@@ -246,10 +245,8 @@ export function getDateBytes(date: Date): Binary {
 export function getCurrentDateFromCommittedInputs(
   committedInputs: DateCommittedInputs | AgeCommittedInputs,
 ): Date {
-  return convertDateBytesToDate(committedInputs.currentDate)
+  return new Date(committedInputs.currentDateTimestamp * 1000)
 }
-
-export const DEFAULT_DATE_VALUE = new Date(Date.UTC(1111, 10, 11))
 
 export enum ProofType {
   DISCLOSE = 0,

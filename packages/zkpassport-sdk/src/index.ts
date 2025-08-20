@@ -66,8 +66,10 @@ import {
   CircuitManifest,
   getCircuitRegistryRootFromOuterProof,
   SupportedChain,
+  areDatesEqual,
+  formatQueryResultDates,
 } from "@zkpassport/utils"
-import { bytesToHex } from "@noble/ciphers/utils"
+import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
@@ -79,7 +81,7 @@ import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
 const VERSION = "0.7.0"
 
-const DEFAULT_DATE_VALUE = new Date(1111, 10, 11)
+const DEFAULT_DATE_VALUE = new Date(0)
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
@@ -534,19 +536,7 @@ export class ZKPassport {
       }
     } else if (request.method === "done") {
       logger.debug(`User sent the query result`)
-      const formattedResult: QueryResult = request.params
-      // Make sure to reconvert the dates to Date objects
-      if (formattedResult.birthdate && formattedResult.birthdate.disclose) {
-        formattedResult.birthdate.disclose.result = new Date(
-          formattedResult.birthdate.disclose.result,
-        )
-      }
-      if (formattedResult.expiry_date && formattedResult.expiry_date.disclose) {
-        formattedResult.expiry_date.disclose.result = new Date(
-          formattedResult.expiry_date.disclose.result,
-        )
-      }
-      this.topicToResults[topic] = formattedResult
+      this.topicToResults[topic] = formatQueryResultDates(request.params)
       // Make sure all the proofs have been received, otherwise we'll handle the result later
       // once the proofs have all been received
       if (this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length) {
@@ -821,8 +811,8 @@ export class ZKPassport {
       if (
         queryResult.birthdate.eq &&
         queryResult.birthdate.eq.result &&
-        queryResult.birthdate.eq.expected.getTime() !== birthdatePassport.getTime() &&
-        queryResult.birthdate.eq.expected.getTime() !== birthdateIDCard.getTime()
+        !areDatesEqual(queryResult.birthdate.eq.expected, birthdatePassport) &&
+        !areDatesEqual(queryResult.birthdate.eq.expected, birthdateIDCard)
       ) {
         console.warn("Birthdate does not match the expected birthdate")
         isCorrect = false
@@ -834,8 +824,8 @@ export class ZKPassport {
       }
       if (
         queryResult.birthdate.disclose &&
-        queryResult.birthdate.disclose.result.getTime() !== birthdatePassport.getTime() &&
-        queryResult.birthdate.disclose.result.getTime() !== birthdateIDCard.getTime()
+        !areDatesEqual(queryResult.birthdate.disclose.result, birthdatePassport) &&
+        !areDatesEqual(queryResult.birthdate.disclose.result, birthdateIDCard)
       ) {
         console.warn("Birthdate does not match the disclosed birthdate in query result")
         isCorrect = false
@@ -852,8 +842,8 @@ export class ZKPassport {
       if (
         queryResult.expiry_date.eq &&
         queryResult.expiry_date.eq.result &&
-        queryResult.expiry_date.eq.expected.getTime() !== expiryDatePassport.getTime() &&
-        queryResult.expiry_date.eq.expected.getTime() !== expiryDateIDCard.getTime()
+        !areDatesEqual(queryResult.expiry_date.eq.expected, expiryDatePassport) &&
+        !areDatesEqual(queryResult.expiry_date.eq.expected, expiryDateIDCard)
       ) {
         console.warn("Expiry date does not match the expected expiry date")
         isCorrect = false
@@ -865,8 +855,8 @@ export class ZKPassport {
       }
       if (
         queryResult.expiry_date.disclose &&
-        queryResult.expiry_date.disclose.result.getTime() !== expiryDatePassport.getTime() &&
-        queryResult.expiry_date.disclose.result.getTime() !== expiryDateIDCard.getTime()
+        !areDatesEqual(queryResult.expiry_date.disclose.result, expiryDatePassport) &&
+        !areDatesEqual(queryResult.expiry_date.disclose.result, expiryDateIDCard)
       ) {
         console.warn("Expiry date does not match the disclosed expiry date in query result")
         isCorrect = false
@@ -1241,8 +1231,8 @@ export class ZKPassport {
       proof.committedInputs?.compare_age as AgeCommittedInputs,
     )
     if (
-      currentDate.getTime() !== today.getTime() &&
-      currentDate.getTime() !== today.getTime() - 86400000
+      !areDatesEqual(currentDate, today) &&
+      !areDatesEqual(currentDate, today.getTime() - 86400000)
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
@@ -1339,7 +1329,7 @@ export class ZKPassport {
       if (
         !queryResult.birthdate.lte &&
         !queryResult.birthdate.range &&
-        maxDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(maxDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Maximum birthdate should be equal to default date value")
         isCorrect = false
@@ -1352,7 +1342,7 @@ export class ZKPassport {
       if (
         !queryResult.birthdate.gte &&
         !queryResult.birthdate.range &&
-        minDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(minDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Minimum birthdate should be equal to default date value")
         isCorrect = false
@@ -1370,8 +1360,8 @@ export class ZKPassport {
       }
     }
     if (
-      currentDate.getTime() !== today.getTime() &&
-      currentDate.getTime() !== today.getTime() - 86400000
+      !areDatesEqual(currentDate, today) &&
+      !areDatesEqual(currentDate, today.getTime() - 86400000)
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
@@ -1468,7 +1458,7 @@ export class ZKPassport {
       if (
         !queryResult.expiry_date.lte &&
         !queryResult.expiry_date.range &&
-        maxDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(maxDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Maximum expiry date should be equal to default date value")
         isCorrect = false
@@ -1481,7 +1471,7 @@ export class ZKPassport {
       if (
         !queryResult.expiry_date.gte &&
         !queryResult.expiry_date.range &&
-        minDate.getTime() != DEFAULT_DATE_VALUE.getTime()
+        !areDatesEqual(minDate, DEFAULT_DATE_VALUE)
       ) {
         console.warn("Minimum expiry date should be equal to default date value")
         isCorrect = false
@@ -1499,8 +1489,8 @@ export class ZKPassport {
       }
     }
     if (
-      currentDate.getTime() !== today.getTime() &&
-      currentDate.getTime() !== today.getTime() - 86400000
+      !areDatesEqual(currentDate, today) &&
+      !areDatesEqual(currentDate, today.getTime() - 86400000)
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
@@ -2032,12 +2022,12 @@ export class ZKPassport {
           const ageCommittedInputs = committedInputs?.compare_age as AgeCommittedInputs
           const ageParameterCommitment = isForEVM
             ? await getAgeEVMParameterCommitment(
-                ageCommittedInputs.currentDate,
+                ageCommittedInputs.currentDateTimestamp,
                 ageCommittedInputs.minAge,
                 ageCommittedInputs.maxAge,
               )
             : await getAgeParameterCommitment(
-                ageCommittedInputs.currentDate,
+                ageCommittedInputs.currentDateTimestamp,
                 ageCommittedInputs.minAge,
                 ageCommittedInputs.maxAge,
               )
@@ -2062,15 +2052,15 @@ export class ZKPassport {
           const birthdateParameterCommitment = isForEVM
             ? await getDateEVMParameterCommitment(
                 ProofType.BIRTHDATE,
-                birthdateCommittedInputs.currentDate,
-                birthdateCommittedInputs.minDate,
-                birthdateCommittedInputs.maxDate,
+                birthdateCommittedInputs.currentDateTimestamp,
+                birthdateCommittedInputs.minDateTimestamp,
+                birthdateCommittedInputs.maxDateTimestamp,
               )
             : await getDateParameterCommitment(
                 ProofType.BIRTHDATE,
-                birthdateCommittedInputs.currentDate,
-                birthdateCommittedInputs.minDate,
-                birthdateCommittedInputs.maxDate,
+                birthdateCommittedInputs.currentDateTimestamp,
+                birthdateCommittedInputs.minDateTimestamp,
+                birthdateCommittedInputs.maxDateTimestamp,
               )
           if (!paramCommitments.includes(birthdateParameterCommitment)) {
             console.warn("This proof does not verify the birthdate")
@@ -2093,15 +2083,15 @@ export class ZKPassport {
           const expiryParameterCommitment = isForEVM
             ? await getDateEVMParameterCommitment(
                 ProofType.EXPIRY_DATE,
-                expiryCommittedInputs.currentDate,
-                expiryCommittedInputs.minDate,
-                expiryCommittedInputs.maxDate,
+                expiryCommittedInputs.currentDateTimestamp,
+                expiryCommittedInputs.minDateTimestamp,
+                expiryCommittedInputs.maxDateTimestamp,
               )
             : await getDateParameterCommitment(
                 ProofType.EXPIRY_DATE,
-                expiryCommittedInputs.currentDate,
-                expiryCommittedInputs.minDate,
-                expiryCommittedInputs.maxDate,
+                expiryCommittedInputs.currentDateTimestamp,
+                expiryCommittedInputs.minDateTimestamp,
+                expiryCommittedInputs.maxDateTimestamp,
               )
           if (!paramCommitments.includes(expiryParameterCommitment)) {
             console.warn("This proof does not verify the expiry date")
@@ -2414,7 +2404,7 @@ export class ZKPassport {
         const paramCommitment = getParameterCommitmentFromDisclosureProof(proofData)
         const committedInputs = proof.committedInputs?.compare_age as AgeCommittedInputs
         const calculatedParamCommitment = await getAgeParameterCommitment(
-          committedInputs.currentDate,
+          committedInputs.currentDateTimestamp,
           committedInputs.minAge,
           committedInputs.maxAge,
         )
@@ -2459,9 +2449,9 @@ export class ZKPassport {
         const committedInputs = proof.committedInputs?.compare_birthdate as DateCommittedInputs
         const calculatedParamCommitment = await getDateParameterCommitment(
           ProofType.BIRTHDATE,
-          committedInputs.currentDate,
-          committedInputs.minDate,
-          committedInputs.maxDate,
+          committedInputs.currentDateTimestamp,
+          committedInputs.minDateTimestamp,
+          committedInputs.maxDateTimestamp,
         )
         if (paramCommitment !== calculatedParamCommitment) {
           console.warn(
@@ -2503,9 +2493,9 @@ export class ZKPassport {
         const committedInputs = proof.committedInputs?.compare_expiry as DateCommittedInputs
         const calculatedParamCommitment = await getDateParameterCommitment(
           ProofType.EXPIRY_DATE,
-          committedInputs.currentDate,
-          committedInputs.minDate,
-          committedInputs.maxDate,
+          committedInputs.currentDateTimestamp,
+          committedInputs.minDateTimestamp,
+          committedInputs.maxDateTimestamp,
         )
         if (paramCommitment !== calculatedParamCommitment) {
           console.warn(
@@ -2789,18 +2779,7 @@ export class ZKPassport {
         verified: false,
       }
     }
-    const formattedResult: QueryResult = queryResult
-    // Make sure to reconvert the dates to Date objects
-    if (formattedResult.birthdate && formattedResult.birthdate.disclose) {
-      formattedResult.birthdate.disclose.result = new Date(
-        formattedResult.birthdate.disclose.result,
-      )
-    }
-    if (formattedResult.expiry_date && formattedResult.expiry_date.disclose) {
-      formattedResult.expiry_date.disclose.result = new Date(
-        formattedResult.expiry_date.disclose.result,
-      )
-    }
+    const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
     const { BarretenbergVerifier } = await import("@aztec/bb.js")
     // Automatically set the writing directory to `/tmp` if it is not provided
@@ -2995,7 +2974,7 @@ export class ZKPassport {
             .join("")
       } else if (circuitName === "compare_age_evm") {
         const value = proof.committedInputs[circuitName] as AgeCommittedInputs
-        const currentDateBytes = Array.from(new TextEncoder().encode(value.currentDate))
+        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 4))
         compressedCommittedInputs =
           ProofType.AGE.toString(16).padStart(2, "0") +
           currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
@@ -3003,9 +2982,9 @@ export class ZKPassport {
           value.maxAge.toString(16).padStart(2, "0")
       } else if (circuitName === "compare_birthdate_evm") {
         const value = proof.committedInputs[circuitName] as DateCommittedInputs
-        const currentDateBytes = Array.from(new TextEncoder().encode(value.currentDate))
-        const minDateBytes = Array.from(new TextEncoder().encode(value.minDate))
-        const maxDateBytes = Array.from(new TextEncoder().encode(value.maxDate))
+        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 4))
+        const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 4))
+        const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 4))
         compressedCommittedInputs =
           ProofType.BIRTHDATE.toString(16).padStart(2, "0") +
           currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
@@ -3013,9 +2992,9 @@ export class ZKPassport {
           maxDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "compare_expiry_evm") {
         const value = proof.committedInputs[circuitName] as DateCommittedInputs
-        const currentDateBytes = Array.from(new TextEncoder().encode(value.currentDate))
-        const minDateBytes = Array.from(new TextEncoder().encode(value.minDate))
-        const maxDateBytes = Array.from(new TextEncoder().encode(value.maxDate))
+        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 4))
+        const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 4))
+        const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 4))
         compressedCommittedInputs =
           ProofType.EXPIRY_DATE.toString(16).padStart(2, "0") +
           currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +

@@ -1,7 +1,7 @@
 import { packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
 import { ProofData, ProofType } from "."
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { sha256 } from "@noble/hashes/sha256"
+import { sha256 } from "@noble/hashes/sha2"
 
 interface DisclosedDataRaw {
   issuingCountry: Uint8Array // 3 bytes

@@ -181,41 +181,53 @@ export type DiscloseFlags = {
   name: boolean
 }
 
-export type QueryResultValue = {
+export type QueryResultValue<T extends IDCredential> = {
   eq?: {
-    expected: any
+    expected: T extends "nationality" | "issuing_country"
+      ? Alpha3Code
+      : T extends "age"
+        ? number
+        : T extends "birthdate" | "expiry_date"
+          ? Date
+          : string
     result: boolean
   }
   gte?: {
-    expected: number | Date
+    expected: T extends "age" ? number : Date
     result: boolean
   }
   gt?: {
-    expected: number | Date
+    expected: T extends "age" ? number : Date
     result: boolean
   }
   lte?: {
-    expected: number | Date
+    expected: T extends "age" ? number : Date
     result: boolean
   }
   lt?: {
-    expected: number | Date
+    expected: T extends "age" ? number : Date
     result: boolean
   }
   range?: {
-    expected: [number | Date, number | Date]
+    expected: [T extends "age" ? number : Date, T extends "age" ? number : Date]
     result: boolean
   }
   in?: {
-    expected: any[]
+    expected: T extends "nationality" | "issuing_country" ? Alpha3Code[] : any[]
     result: boolean
   }
   out?: {
-    expected: any[]
+    expected: T extends "nationality" | "issuing_country" ? Alpha3Code[] : any[]
     result: boolean
   }
   disclose?: {
-    result: any
+    result: T extends "birthdate" | "expiry_date"
+      ? Date
+      : T extends "age"
+        ? number
+        : T extends "nationality" | "issuing_country"
+          ? Alpha3Code
+          : string
   }
 }
 
@@ -227,13 +239,13 @@ export type Query = {
 }
 
 export type QueryResult = {
-  [key in IDCredential]?: QueryResultValue
+  [key in IDCredential]?: QueryResultValue<key>
 } & {
   bind?: BoundData
 }
 
 export type AgeCommittedInputs = {
-  currentDate: string
+  currentDateTimestamp: number
   minAge: number
   maxAge: number
 }
@@ -243,9 +255,9 @@ export type CountryCommittedInputs = {
 }
 
 export type DateCommittedInputs = {
-  currentDate: string
-  minDate: string
-  maxDate: string
+  currentDateTimestamp: number
+  minDateTimestamp: number
+  maxDateTimestamp: number
 }
 
 export type DiscloseCommittedInputs = {

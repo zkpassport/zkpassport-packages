@@ -1,27 +1,16 @@
-import { sha256 } from "@noble/hashes/sha256"
+import { sha256 } from "@noble/hashes/sha2"
 import { DateCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { packBeBytesIntoField } from "../utils"
 import { ProofType } from "."
-
-/**
- * Convert a date string to a Date object
- * @param strDate - The date string to convert (YYYYMMDD)
- * @returns The Date object
- */
-export function convertDateBytesToDate(strDate: string): Date {
-  const year = Number(strDate.slice(0, 4))
-  const month = Number(strDate.slice(4, 6))
-  const day = Number(strDate.slice(6, 8))
-  return new Date(year, month - 1, day)
-}
+import { numberToBytesBE } from "@noble/curves/utils"
 
 export function getMinDateFromCommittedInputs(committedInputs: DateCommittedInputs): Date {
-  return convertDateBytesToDate(committedInputs.minDate)
+  return new Date(committedInputs.minDateTimestamp * 1000)
 }
 
 export function getMaxDateFromCommittedInputs(committedInputs: DateCommittedInputs): Date {
-  return convertDateBytesToDate(committedInputs.maxDate)
+  return new Date(committedInputs.maxDateTimestamp * 1000)
 }
 
 /**
@@ -35,22 +24,22 @@ export function getDateProofPublicInputCount(): number {
 /**
  * Get the parameter commitment for the date proof (birthdate and expiry date alike).
  * @param proofType - The proof type.
- * @param currentDate - The current date (YYYYMMDD)
- * @param minDate - The minimum date (YYYYMMDD)
- * @param maxDate - The maximum date (YYYYMMDD)
+ * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)
+ * @param minDateTimestamp - The minimum date (seconds since UNIX epoch)
+ * @param maxDateTimestamp - The maximum date (seconds since UNIX epoch)
  * @returns The parameter commitment.
  */
 export async function getDateParameterCommitment(
   proofType: ProofType,
-  currentDate: string,
-  minDate: string = "11111111",
-  maxDate: string = "11111111",
+  currentDateTimestamp: number,
+  minDateTimestamp: number,
+  maxDateTimestamp: number,
 ): Promise<bigint> {
   const birthdateParameterCommitment = await poseidon2HashAsync([
     BigInt(proofType),
-    ...Array.from(new TextEncoder().encode(currentDate)).map((x) => BigInt(x)),
-    ...Array.from(new TextEncoder().encode(minDate)).map((x) => BigInt(x)),
-    ...Array.from(new TextEncoder().encode(maxDate)).map((x) => BigInt(x)),
+    BigInt(currentDateTimestamp),
+    BigInt(minDateTimestamp),
+    BigInt(maxDateTimestamp),
   ])
   return birthdateParameterCommitment
 }
@@ -58,23 +47,23 @@ export async function getDateParameterCommitment(
 /**
  * Get the EVM parameter commitment for the date proof (birthdate and expiry date alike).
  * @param proofType - The proof type.
- * @param currentDate - The current date (YYYYMMDD)
- * @param minDate - The minimum date (YYYYMMDD)
- * @param maxDate - The maximum date (YYYYMMDD)
+ * @param timestamp - The current timestamp (seconds since UNIX epoch)
+ * @param minDateTimestamp - The minimum date (seconds since UNIX epoch)
+ * @param maxDateTimestamp - The maximum date (seconds since UNIX epoch)
  * @returns The parameter commitment.
  */
 export async function getDateEVMParameterCommitment(
   proofType: ProofType,
-  currentDate: string,
-  minDate: string = "11111111",
-  maxDate: string = "11111111",
+  currentDateTimestamp: number,
+  minDateTimestamp: number,
+  maxDateTimestamp: number,
 ): Promise<bigint> {
   const hash = sha256(
     new Uint8Array([
       proofType,
-      ...Array.from(new TextEncoder().encode(currentDate)).map((x) => Number(x)),
-      ...Array.from(new TextEncoder().encode(minDate)).map((x) => Number(x)),
-      ...Array.from(new TextEncoder().encode(maxDate)).map((x) => Number(x)),
+      ...numberToBytesBE(currentDateTimestamp, 4),
+      ...numberToBytesBE(minDateTimestamp, 4),
+      ...numberToBytesBE(maxDateTimestamp, 4),
     ]),
   )
   const hashBigInt = packBeBytesIntoField(hash, 31)
