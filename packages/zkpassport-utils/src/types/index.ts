@@ -402,14 +402,12 @@ export type IDDataInputs = {
 
 export type ECDSADSCDataInputs = {
   tbs_certificate: number[]
-  pubkey_offset_in_tbs: number
   dsc_pubkey_x: number[]
   dsc_pubkey_y: number[]
 }
 
 export type RSADSCDataInputs = {
   tbs_certificate: number[]
-  pubkey_offset_in_tbs: number
   dsc_pubkey: number[]
   exponent: number
   dsc_pubkey_redc_param: number[]

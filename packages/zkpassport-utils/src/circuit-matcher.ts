@@ -252,10 +252,6 @@ function getDSCDataInputs(
         passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
         maxTbsLength,
       ),
-      pubkey_offset_in_tbs: getOffsetInArray(
-        passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
-        dscPubkeyX,
-      ),
       dsc_pubkey_x: dscPubkeyX,
       dsc_pubkey_y: dscPubkeyY,
     }
@@ -273,10 +269,6 @@ function getDSCDataInputs(
       tbs_certificate: rightPadArrayWithZeros(
         passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
         maxTbsLength,
-      ),
-      pubkey_offset_in_tbs: getOffsetInArray(
-        passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
-        modulusBytes,
       ),
     }
   }
@@ -514,7 +506,6 @@ export async function getIDDataCircuitInputs(
     return {
       ...inputs,
       tbs_certificate: dscData.tbs_certificate,
-      pubkey_offset_in_tbs: dscData.pubkey_offset_in_tbs,
       dsc_pubkey_x: (dscData as ECDSADSCDataInputs).dsc_pubkey_x,
       dsc_pubkey_y: (dscData as ECDSADSCDataInputs).dsc_pubkey_y,
       sod_signature: processSodSignature(
@@ -535,7 +526,6 @@ export async function getIDDataCircuitInputs(
       ),
       dsc_pubkey_redc_param: (dscData as RSADSCDataInputs).dsc_pubkey_redc_param,
       tbs_certificate: (dscData as RSADSCDataInputs).tbs_certificate,
-      pubkey_offset_in_tbs: (dscData as RSADSCDataInputs).pubkey_offset_in_tbs,
       signed_attributes: idData.signed_attributes,
     }
   }
