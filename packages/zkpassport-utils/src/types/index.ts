@@ -397,7 +397,6 @@ export type IDDataInputs = {
   e_content_size: number
   dg1_offset_in_e_content: number
   signed_attributes: number[]
-  signed_attributes_size: number
   dg1: number[]
 }
 

@@ -224,7 +224,6 @@ describe("Circuit Matcher - RSA", () => {
         PASSPORTS.john.sod.certificate.tbs.bytes.toNumberArray(),
         700,
       ),
-      tbs_certificate_len: 582,
       dsc_signature: PASSPORTS.john.sod.certificate.signature.toNumberArray(),
       csc_pubkey: [
         248, 49, 245, 49, 134, 64, 78, 179, 47, 178, 82, 126, 19, 229, 209, 152, 237, 167, 236, 246,
@@ -268,7 +267,6 @@ describe("Circuit Matcher - RSA", () => {
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         SIGNED_ATTR_INPUT_SIZE,
       ),
-      signed_attributes_size: 104,
       comm_in: "0x088cd37187d223eadf75319fbf8ab0c12625c99e664116d894b2421b21a12771",
       salt_in: "0x1",
       salt_out: "0x1",
@@ -331,7 +329,6 @@ describe("Circuit Matcher - RSA", () => {
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         220,
       ),
-      signed_attributes_size: 104,
       e_content: rightPadArrayWithZeros(
         PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         700,
@@ -582,7 +579,6 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.certificate.tbs.bytes.toNumberArray(),
         700,
       ),
-      tbs_certificate_len: 376,
     })
   })
 
@@ -594,7 +590,6 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         SIGNED_ATTR_INPUT_SIZE,
       ),
-      signed_attributes_size: 104,
       comm_in: "0x2526a295a36f6467bc67c40cfb8f821b53973b40a78ca57530cef35ddd101123",
       salt_in: "0x1",
       salt_out: "0x1",
@@ -634,7 +629,6 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         SIGNED_ATTR_INPUT_SIZE,
       ),
-      signed_attributes_size: 104,
       e_content: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         E_CONTENT_INPUT_SIZE,

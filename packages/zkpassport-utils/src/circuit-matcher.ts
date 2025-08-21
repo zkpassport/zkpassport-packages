@@ -294,7 +294,6 @@ function getIDDataInputs(passport: PassportViewModel): IDDataInputs {
     dg1_offset_in_e_content: dg1Offset,
     // Padded to 200 bytes with 0s
     signed_attributes: rightPadArrayWithZeros(signedAttributes ?? [], SIGNED_ATTR_INPUT_SIZE),
-    signed_attributes_size: signedAttributes.length ?? 0,
     // Padded to 95 bytes with 0s
     dg1: rightPadArrayWithZeros(dg1?.value ?? [], DG1_INPUT_SIZE),
   }
@@ -460,7 +459,6 @@ export async function getDSCCircuitInputs(
         passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
         maxTbsLength,
       ),
-      tbs_certificate_len: passport?.sod.certificate.tbs.bytes.toNumberArray().length,
     }
   } else if (csca.public_key.type === "RSA") {
     const modulusBits = getBitSize(BigInt(csca.public_key.modulus))
@@ -474,7 +472,6 @@ export async function getDSCCircuitInputs(
         passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
         maxTbsLength,
       ),
-      tbs_certificate_len: passport?.sod.certificate.tbs.bytes.toNumberArray().length,
       dsc_signature: passport?.sod.certificate.signature.toNumberArray() ?? [],
       csc_pubkey: modulusBytes,
       csc_pubkey_redc_param: leftPadArrayWithZeros(
@@ -506,7 +503,6 @@ export async function getIDDataCircuitInputs(
   const inputs = {
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
-    signed_attributes_size: idData.signed_attributes_size,
     comm_in: commIn.toHex(),
     salt_in: `0x${saltIn.toString(16)}`,
     salt_out: `0x${saltOut.toString(16)}`,
@@ -526,7 +522,6 @@ export async function getIDDataCircuitInputs(
         passport,
       ),
       signed_attributes: idData.signed_attributes,
-      signed_attributes_size: idData.signed_attributes_size,
     }
   } else if (signatureAlgorithm === "RSA") {
     const pubkeySize = (dscData as RSADSCDataInputs).dsc_pubkey.length
@@ -542,7 +537,6 @@ export async function getIDDataCircuitInputs(
       tbs_certificate: (dscData as RSADSCDataInputs).tbs_certificate,
       pubkey_offset_in_tbs: (dscData as RSADSCDataInputs).pubkey_offset_in_tbs,
       signed_attributes: idData.signed_attributes,
-      signed_attributes_size: idData.signed_attributes_size,
     }
   }
 }
@@ -587,7 +581,6 @@ export async function getIntegrityCheckCircuitInputs(
     current_date: currentDateTimestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
-    signed_attributes_size: idData.signed_attributes_size,
     e_content: idData.e_content,
     e_content_size: idData.e_content_size,
     dg1_offset_in_e_content: idData.dg1_offset_in_e_content,
