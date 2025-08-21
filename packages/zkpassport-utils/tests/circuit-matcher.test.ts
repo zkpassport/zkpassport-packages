@@ -306,7 +306,6 @@ describe("Circuit Matcher - RSA", () => {
         PASSPORTS.john.sod.certificate.tbs.bytes.toNumberArray(),
         700,
       ),
-      pubkey_offset_in_tbs: 199,
       e_content: rightPadArrayWithZeros(
         PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         E_CONTENT_INPUT_SIZE,
@@ -597,7 +596,6 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.certificate.tbs.bytes.toNumberArray(),
         700,
       ),
-      pubkey_offset_in_tbs: 190,
       dsc_pubkey_x: [
         38, 197, 165, 50, 70, 123, 24, 161, 149, 121, 124, 15, 43, 188, 231, 62, 245, 182, 9, 243,
         33, 210, 173, 170, 110, 115, 18, 210, 168, 171, 190, 216,
