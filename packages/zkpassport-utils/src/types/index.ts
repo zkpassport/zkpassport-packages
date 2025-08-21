@@ -397,19 +397,18 @@ export type IDDataInputs = {
   e_content_size: number
   dg1_offset_in_e_content: number
   signed_attributes: number[]
+  signed_attributes_size: number
   dg1: number[]
 }
 
 export type ECDSADSCDataInputs = {
   tbs_certificate: number[]
-  pubkey_offset_in_tbs: number
   dsc_pubkey_x: number[]
   dsc_pubkey_y: number[]
 }
 
 export type RSADSCDataInputs = {
   tbs_certificate: number[]
-  pubkey_offset_in_tbs: number
   dsc_pubkey: number[]
   exponent: number
   dsc_pubkey_redc_param: number[]

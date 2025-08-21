@@ -252,10 +252,6 @@ function getDSCDataInputs(
         passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
         maxTbsLength,
       ),
-      pubkey_offset_in_tbs: getOffsetInArray(
-        passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
-        dscPubkeyX,
-      ),
       dsc_pubkey_x: dscPubkeyX,
       dsc_pubkey_y: dscPubkeyY,
     }
@@ -274,10 +270,6 @@ function getDSCDataInputs(
         passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
         maxTbsLength,
       ),
-      pubkey_offset_in_tbs: getOffsetInArray(
-        passport?.sod.certificate.tbs.bytes.toNumberArray() ?? [],
-        modulusBytes,
-      ),
     }
   }
 }
@@ -294,6 +286,7 @@ function getIDDataInputs(passport: PassportViewModel): IDDataInputs {
     dg1_offset_in_e_content: dg1Offset,
     // Padded to 200 bytes with 0s
     signed_attributes: rightPadArrayWithZeros(signedAttributes ?? [], SIGNED_ATTR_INPUT_SIZE),
+    signed_attributes_size: signedAttributes.length ?? 0,
     // Padded to 95 bytes with 0s
     dg1: rightPadArrayWithZeros(dg1?.value ?? [], DG1_INPUT_SIZE),
   }
@@ -514,7 +507,6 @@ export async function getIDDataCircuitInputs(
     return {
       ...inputs,
       tbs_certificate: dscData.tbs_certificate,
-      pubkey_offset_in_tbs: dscData.pubkey_offset_in_tbs,
       dsc_pubkey_x: (dscData as ECDSADSCDataInputs).dsc_pubkey_x,
       dsc_pubkey_y: (dscData as ECDSADSCDataInputs).dsc_pubkey_y,
       sod_signature: processSodSignature(
@@ -535,7 +527,6 @@ export async function getIDDataCircuitInputs(
       ),
       dsc_pubkey_redc_param: (dscData as RSADSCDataInputs).dsc_pubkey_redc_param,
       tbs_certificate: (dscData as RSADSCDataInputs).tbs_certificate,
-      pubkey_offset_in_tbs: (dscData as RSADSCDataInputs).pubkey_offset_in_tbs,
       signed_attributes: idData.signed_attributes,
     }
   }
@@ -581,6 +572,7 @@ export async function getIntegrityCheckCircuitInputs(
     current_date: currentDateTimestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
+    signed_attributes_size: idData.signed_attributes_size,
     e_content: idData.e_content,
     e_content_size: idData.e_content_size,
     dg1_offset_in_e_content: idData.dg1_offset_in_e_content,
