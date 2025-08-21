@@ -286,6 +286,7 @@ function getIDDataInputs(passport: PassportViewModel): IDDataInputs {
     dg1_offset_in_e_content: dg1Offset,
     // Padded to 200 bytes with 0s
     signed_attributes: rightPadArrayWithZeros(signedAttributes ?? [], SIGNED_ATTR_INPUT_SIZE),
+    signed_attributes_size: signedAttributes.length ?? 0,
     // Padded to 95 bytes with 0s
     dg1: rightPadArrayWithZeros(dg1?.value ?? [], DG1_INPUT_SIZE),
   }
@@ -571,6 +572,7 @@ export async function getIntegrityCheckCircuitInputs(
     current_date: currentDateTimestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
+    signed_attributes_size: idData.signed_attributes_size,
     e_content: idData.e_content,
     e_content_size: idData.e_content_size,
     dg1_offset_in_e_content: idData.dg1_offset_in_e_content,

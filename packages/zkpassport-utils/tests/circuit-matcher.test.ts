@@ -328,6 +328,7 @@ describe("Circuit Matcher - RSA", () => {
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         220,
       ),
+      signed_attributes_size: 104,
       e_content: rightPadArrayWithZeros(
         PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         700,
@@ -627,6 +628,7 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         SIGNED_ATTR_INPUT_SIZE,
       ),
+      signed_attributes_size: 104,
       e_content: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         E_CONTENT_INPUT_SIZE,
