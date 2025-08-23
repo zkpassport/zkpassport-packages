@@ -22,14 +22,16 @@ export type SortedNonMembershipProof = {
 }
 
 const ZERO_NODE: Node = 0n
-export const BN254_MODULUS_MINUS_ONE: Node = BigInt(0x2523648240000001BA344D80000000086121000000000013A700000000000012);
+export const BN254_MODULUS_MINUS_ONE: Node = BigInt(
+  "0x2523648240000001ba344d80000000086121000000000013a700000000000012",
+)
 
 /**
  * Sorted Merkle Set for membership and non-membership proofs.
  * - Leaves are unique and sorted ascending
  * - Membership proof: standard binary Merkle path
  * - Non-membership proof: neighbor membership proofs + ordering (left < target < right)
- *   - every tree by default includes 0 and BN254.MODULUS as leaves, to avoid cases where non membership proofs can be 
+ *   - every tree by default includes 0 and BN254.MODULUS as leaves, to avoid cases where non membership proofs can be
  *     created for the first or last item in the tree.
  */
 export default class AsyncOrderedMT {
@@ -59,7 +61,7 @@ export default class AsyncOrderedMT {
 
   /**
    * Initialize and sort the leaves
-   * @param leafHashes 
+   * @param leafHashes
    */
   public async initializeAndSort(leafHashes: Node[]) {
     const uniqueSorted = Array.from(new Set(leafHashes.map((v) => BigInt(v)))).sort((a, b) =>
@@ -79,8 +81,8 @@ export default class AsyncOrderedMT {
 
     // To get around the edge case where we need to provide a non membership proof for the first item in the tree
     // or the last item in the tree, we will insert 0, and BN254.MODULUS into the tree
-    leafHashes.unshift(0n);
-    leafHashes.push(BN254_MODULUS_MINUS_ONE);
+    leafHashes.unshift(0n)
+    leafHashes.push(BN254_MODULUS_MINUS_ONE)
 
     this.leaves = leafHashes
 
@@ -135,7 +137,7 @@ export default class AsyncOrderedMT {
   ): Promise<boolean> {
     let node = proof.leaf
     // Calculate the path based on the index
-    let path = proof.leafIndex;
+    let path = proof.leafIndex
     for (let i = 0; i < proof.siblings.length; i += 1) {
       const sibling = proof.siblings[i]
       const isRight = (path & 1) === 1
@@ -152,7 +154,10 @@ export default class AsyncOrderedMT {
 
     const left =
       leftIndex !== null
-        ? { leaf: this.leaves[leftIndex], proof: this.createMembershipProof(this.leaves[leftIndex]) }
+        ? {
+            leaf: this.leaves[leftIndex],
+            proof: this.createMembershipProof(this.leaves[leftIndex]),
+          }
         : undefined
     const right =
       rightIndex !== null
@@ -202,7 +207,8 @@ export default class AsyncOrderedMT {
     rightIndex: number | null
   } {
     const numberOfLeaves = this.leaves.length
-    if (numberOfLeaves === 0) return { exists: false, index: null, leftIndex: null, rightIndex: null }
+    if (numberOfLeaves === 0)
+      return { exists: false, index: null, leftIndex: null, rightIndex: null }
 
     let low = 0
     let high = numberOfLeaves
@@ -215,7 +221,7 @@ export default class AsyncOrderedMT {
 
     const pos = low
     const exists = pos < numberOfLeaves && this.leaves[pos] === leaf
-    const leftIndex = (pos - 1) >= 0 ? (exists ? pos - 1 : pos - 1) : null
+    const leftIndex = pos - 1 >= 0 ? (exists ? pos - 1 : pos - 1) : null
     const rightIndex = (exists ? pos + 1 : pos) < numberOfLeaves ? (exists ? pos + 1 : pos) : null
 
     return { exists, index: exists ? pos : null, leftIndex, rightIndex }
@@ -234,9 +240,10 @@ export default class AsyncOrderedMT {
    * Serialize the tree
    */
   public serialize() {
-    return this.layers.map((layer) => layer.map(node => `0x${node.toString(16).padStart(64, '0')}`));
+    return this.layers.map((layer) =>
+      layer.map((node) => `0x${node.toString(16).padStart(64, "0")}`),
+    )
   }
-
 
   public async loadFromSerialized(serialized: string[][]) {
     if (!Array.isArray(serialized) || serialized.length === 0) {
@@ -283,11 +290,9 @@ export default class AsyncOrderedMT {
     this.leaves = l0.slice(0, count)
   }
 
-
-  public static async fromSerialized(serialized: string[][], hash: AsyncHashFunction) { 
+  public static async fromSerialized(serialized: string[][], hash: AsyncHashFunction) {
     const smt = new AsyncOrderedMT(serialized.length - 1, hash)
     await smt.loadFromSerialized(serialized)
     return smt
   }
 }
-

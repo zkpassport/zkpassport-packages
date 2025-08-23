@@ -1,4 +1,9 @@
-import AsyncOrderedMT, { MembershipProof, SortedNonMembershipProof, Node, BN254_MODULUS_MINUS_ONE } from "./async-ordered-mt"
+import AsyncOrderedMT, {
+  MembershipProof,
+  SortedNonMembershipProof,
+  Node,
+  BN254_MODULUS_MINUS_ONE,
+} from "./async-ordered-mt"
 import { poseidon2 } from "./index"
 
 // 2^256 modulus for an alternate hash used in one negative test
@@ -117,7 +122,10 @@ describe("AsyncOrderedMT (ordered set)", () => {
     if (nm.left) {
       nm.left.proof.siblings[0] = nm.left.proof.siblings[0] ^ 1n
     }
-    const ok = await AsyncOrderedMT.verifyNonMembershipProof(nm as SortedNonMembershipProof, poseidon2)
+    const ok = await AsyncOrderedMT.verifyNonMembershipProof(
+      nm as SortedNonMembershipProof,
+      poseidon2,
+    )
     expect(ok).toBe(false)
   })
 
@@ -177,7 +185,7 @@ describe("AsyncOrderedMT (ordered set)", () => {
   test("serialize + initializeAndSort and loadFromSerialized round-trip", async () => {
     const depth = 5
     const tree = await AsyncOrderedMT.create(depth, poseidon2)
-    const leaves = [81n, 3n, 9n, 27n];
+    const leaves = [81n, 3n, 9n, 27n]
     await tree.initializeAndSort(leaves)
 
     const originalRoot = tree.root
@@ -209,5 +217,3 @@ describe("AsyncOrderedMT (ordered set)", () => {
     await expect(AsyncOrderedMT.fromSerialized(bad2, poseidon2)).rejects.toThrow()
   })
 })
-
- 

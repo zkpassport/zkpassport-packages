@@ -2,7 +2,7 @@ import { PassportViewModel } from "@/types"
 import { SanctionsOrderedMerkleTreeProofs, SanctionsProofs } from "./types"
 import { leftPadArrayWithZeros, packBeBytesIntoField, stringToAsciiStringArray } from "@/utils"
 import { sha256 } from "@noble/hashes/sha2"
-import { poseidon2, AsyncOrderedMT} from "@/merkle-tree"
+import { poseidon2, AsyncOrderedMT } from "@/merkle-tree"
 import {
   getBirthdateRange,
   getDocumentNumberRange,
@@ -13,9 +13,7 @@ import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { ProofType } from "@/index"
 
 export class SanctionsBuilder {
-  constructor(
-    private tree: AsyncOrderedMT,
-  ) {}
+  constructor(private tree: AsyncOrderedMT) {}
 
   static async create(): Promise<SanctionsBuilder> {
     const treeData = await import("./trees/Ordered_sanctions.json")
@@ -29,7 +27,7 @@ export class SanctionsBuilder {
   }
 
   getRoot(): string {
-    return `0x${this.tree.root.toString(16).padStart(64, '0')}`
+    return `0x${this.tree.root.toString(16).padStart(64, "0")}`
   }
 
   async getSanctionsMerkleProofs(
@@ -40,8 +38,9 @@ export class SanctionsBuilder {
 
     const nameAndDobProof = this.tree.createNonMembershipProof(nameAndDOBHash)
     const nameAndYobProof = this.tree.createNonMembershipProof(nameAndYobHash)
-    const passportNoAndNationalityProof =
-      this.tree.createNonMembershipProof(documentNumberAndNationalityHash)
+    const passportNoAndNationalityProof = this.tree.createNonMembershipProof(
+      documentNumberAndNationalityHash,
+    )
 
     const root = this.getRoot()
 
@@ -55,38 +54,56 @@ export class SanctionsBuilder {
     const proofs: SanctionsProofs = {
       passport_no_and_nationality_proof: {
         left: {
-          leaf: `0x${sanctionsProofs.passport_no_and_nationality_proof.left?.proof.leaf.toString(16).padStart(64, '0')}`,
-          leaf_index: `0x${sanctionsProofs.passport_no_and_nationality_proof.left?.proof.leafIndex.toString(16).padStart(64, '0')}`,
-          sibling_path: sanctionsProofs.passport_no_and_nationality_proof.left?.proof.siblings.map((x) => `0x${x.toString(16).padStart(64, '0')}`) ?? [],
+          leaf: `0x${sanctionsProofs.passport_no_and_nationality_proof.left?.proof.leaf.toString(16).padStart(64, "0")}`,
+          leaf_index: `0x${sanctionsProofs.passport_no_and_nationality_proof.left?.proof.leafIndex.toString(16).padStart(64, "0")}`,
+          sibling_path:
+            sanctionsProofs.passport_no_and_nationality_proof.left?.proof.siblings.map(
+              (x) => `0x${x.toString(16).padStart(64, "0")}`,
+            ) ?? [],
         },
         right: {
-          leaf: `0x${sanctionsProofs.passport_no_and_nationality_proof.right?.proof.leaf.toString(16).padStart(64, '0')}`,
-          leaf_index: `0x${sanctionsProofs.passport_no_and_nationality_proof.right?.proof.leafIndex.toString(16).padStart(64, '0')}`,
-          sibling_path: sanctionsProofs.passport_no_and_nationality_proof.right?.proof.siblings.map((x) => `0x${x.toString(16).padStart(64, '0')}`) ?? [],
+          leaf: `0x${sanctionsProofs.passport_no_and_nationality_proof.right?.proof.leaf.toString(16).padStart(64, "0")}`,
+          leaf_index: `0x${sanctionsProofs.passport_no_and_nationality_proof.right?.proof.leafIndex.toString(16).padStart(64, "0")}`,
+          sibling_path:
+            sanctionsProofs.passport_no_and_nationality_proof.right?.proof.siblings.map(
+              (x) => `0x${x.toString(16).padStart(64, "0")}`,
+            ) ?? [],
         },
       },
       name_and_dob_proof: {
         left: {
-          leaf: `0x${sanctionsProofs.name_and_dob_proof.left?.proof.leaf.toString(16).padStart(64, '0')}`,
-          leaf_index: `0x${sanctionsProofs.name_and_dob_proof.left?.proof.leafIndex.toString(16).padStart(64, '0')}`,
-          sibling_path: sanctionsProofs.name_and_dob_proof.left?.proof.siblings.map((x) => `0x${x.toString(16).padStart(64, '0')}`) ?? [],
+          leaf: `0x${sanctionsProofs.name_and_dob_proof.left?.proof.leaf.toString(16).padStart(64, "0")}`,
+          leaf_index: `0x${sanctionsProofs.name_and_dob_proof.left?.proof.leafIndex.toString(16).padStart(64, "0")}`,
+          sibling_path:
+            sanctionsProofs.name_and_dob_proof.left?.proof.siblings.map(
+              (x) => `0x${x.toString(16).padStart(64, "0")}`,
+            ) ?? [],
         },
         right: {
-          leaf: `0x${sanctionsProofs.name_and_dob_proof.right?.proof.leaf.toString(16).padStart(64, '0')}`,
-          leaf_index: `0x${sanctionsProofs.name_and_dob_proof.right?.proof.leafIndex.toString(16).padStart(64, '0')}`,
-          sibling_path: sanctionsProofs.name_and_dob_proof.right?.proof.siblings.map((x) => `0x${x.toString(16).padStart(64, '0')}`) ?? [],
+          leaf: `0x${sanctionsProofs.name_and_dob_proof.right?.proof.leaf.toString(16).padStart(64, "0")}`,
+          leaf_index: `0x${sanctionsProofs.name_and_dob_proof.right?.proof.leafIndex.toString(16).padStart(64, "0")}`,
+          sibling_path:
+            sanctionsProofs.name_and_dob_proof.right?.proof.siblings.map(
+              (x) => `0x${x.toString(16).padStart(64, "0")}`,
+            ) ?? [],
         },
       },
       name_and_yob_proof: {
         left: {
-          leaf: `0x${sanctionsProofs.name_and_yob_proof.left?.proof.leaf.toString(16).padStart(64, '0')}`,
-          leaf_index: `0x${sanctionsProofs.name_and_yob_proof.left?.proof.leafIndex.toString(16).padStart(64, '0')}`,
-          sibling_path: sanctionsProofs.name_and_yob_proof.left?.proof.siblings.map((x) => `0x${x.toString(16).padStart(64, '0')}`) ?? [],
+          leaf: `0x${sanctionsProofs.name_and_yob_proof.left?.proof.leaf.toString(16).padStart(64, "0")}`,
+          leaf_index: `0x${sanctionsProofs.name_and_yob_proof.left?.proof.leafIndex.toString(16).padStart(64, "0")}`,
+          sibling_path:
+            sanctionsProofs.name_and_yob_proof.left?.proof.siblings.map(
+              (x) => `0x${x.toString(16).padStart(64, "0")}`,
+            ) ?? [],
         },
         right: {
-          leaf: `0x${sanctionsProofs.name_and_yob_proof.right?.proof.leaf.toString(16).padStart(64, '0')}`,
-          leaf_index: `0x${sanctionsProofs.name_and_yob_proof.right?.proof.leafIndex.toString(16).padStart(64, '0')}`,
-          sibling_path: sanctionsProofs.name_and_yob_proof.right?.proof.siblings.map((x) => `0x${x.toString(16).padStart(64, '0')}`) ?? [],
+          leaf: `0x${sanctionsProofs.name_and_yob_proof.right?.proof.leaf.toString(16).padStart(64, "0")}`,
+          leaf_index: `0x${sanctionsProofs.name_and_yob_proof.right?.proof.leafIndex.toString(16).padStart(64, "0")}`,
+          sibling_path:
+            sanctionsProofs.name_and_yob_proof.right?.proof.siblings.map(
+              (x) => `0x${x.toString(16).padStart(64, "0")}`,
+            ) ?? [],
         },
       },
     }
