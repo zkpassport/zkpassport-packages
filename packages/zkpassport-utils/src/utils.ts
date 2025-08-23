@@ -210,7 +210,6 @@ export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): 
  * @returns
  */
 export function stringToAsciiStringArray(str: string): string[] {
-  // TODO: make more efficient
   const asciiStringArray = []
   for (let i = 0; i < str.length; i++) {
     asciiStringArray.push(BigInt(str.charCodeAt(i)))

@@ -187,7 +187,6 @@ export function getNumberOfPublicInputs(circuitName: string) {
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
-  // TODO: make constants
   switch (circuitName) {
     case "compare_age_evm":
       return 7
