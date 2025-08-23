@@ -1,3 +1,5 @@
+import { TwoLetterCode } from ".."
+
 type NISTCurve =
   | { curve: "P-192"; key_size: 192 }
   | { curve: "P-224"; key_size: 224 }
@@ -75,7 +77,7 @@ export type PackagedCertificate = {
   }
   subject_key_identifier?: string
   authority_key_identifier?: string
-  tags?: string[]
+  tags?: TwoLetterCode[]
   type?: string
 }
 

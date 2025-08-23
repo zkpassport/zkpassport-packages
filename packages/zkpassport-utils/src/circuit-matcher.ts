@@ -28,7 +28,7 @@ import {
   CERTIFICATE_REGISTRY_HEIGHT,
   getCertificateLeafHash,
   getCertificateLeafHashes,
-  tagsArrayToByteFlag,
+  tagsArrayToBitsFlag,
 } from "./registry"
 import type { HashAlgorithm, PackagedCertificate } from "./types"
 import {
@@ -418,7 +418,7 @@ export async function getDSCCircuitInputs(
   const cscaLeaf = await getCertificateLeafHash(csca)
   const leaves = overrideCertLeaves ?? (await getCertificateLeafHashes(certificates))
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
-  const tags = tagsArrayToByteFlag(csca.tags ?? [])
+  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =
     overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
 
@@ -426,7 +426,7 @@ export async function getDSCCircuitInputs(
     certificate_registry_root: merkleProof.root,
     certificate_registry_index: merkleProof.index,
     certificate_registry_hash_path: merkleProof.path,
-    certificate_tags: `0x${tags.toString(16)}`,
+    certificate_tags: tags.map((tag) => `0x${tag.toString(16)}`),
     certificate_type: `0x${CERT_TYPE_CSCA.toString(16)}`,
     country: csca.country,
     salt: `0x${salt.toString(16)}`,
