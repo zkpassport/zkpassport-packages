@@ -46,7 +46,6 @@ import {
   bigintToNumber,
   fromBytesToBigInt,
   getBitSize,
-  getOffsetInArray,
   getUnixTimestamp,
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
