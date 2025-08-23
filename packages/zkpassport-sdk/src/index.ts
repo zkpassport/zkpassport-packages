@@ -1,8 +1,7 @@
-import { Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
+import { Alpha2Code, Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
 import {
   type DisclosableIDCredential,
   type IDCredential,
-  type IDCredentialConfig,
   type IDCredentialValue,
   type NumericalIDCredential,
   type ProofResult,
@@ -63,11 +62,15 @@ import {
   getBindParameterCommitment,
   formatBoundData,
   Service,
-  CircuitManifest,
   getCircuitRegistryRootFromOuterProof,
   SupportedChain,
   areDatesEqual,
   formatQueryResultDates,
+  IDCredentialConfig,
+  ExtendedAlpha2Code,
+  FacematchMode,
+  SanctionsCountries,
+  SanctionsLists,
 } from "@zkpassport/utils"
 import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -79,7 +82,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.7.0"
+const VERSION = "0.8.0"
 
 const DEFAULT_DATE_VALUE = new Date(0)
 
@@ -127,7 +130,7 @@ export type SolidityVerifierParameters = {
   publicInputs: string[]
   committedInputs: string
   committedInputCounts: number[]
-  validityPeriodInDays: number
+  validityPeriodInSeconds: number
   domain: string
   scope: string
   devMode: boolean
@@ -141,7 +144,7 @@ function hasRequestedAccessToField(credentialsRequest: Query, field: IDCredentia
   if (!isDefined) {
     return false
   }
-  for (const key in fieldValue) {
+  for (const key in fieldValue as IDCredentialConfig) {
     if (
       fieldValue[key as keyof typeof fieldValue] !== undefined &&
       fieldValue[key as keyof typeof fieldValue] !== null
@@ -167,7 +170,7 @@ function numericalCompare(
   key: NumericalIDCredential,
   value: number | Date,
   requestId: string,
-  requestIdToConfig: Record<string, Record<string, IDCredentialConfig>>,
+  requestIdToConfig: Record<string, Query>,
 ) {
   requestIdToConfig[requestId][key] = {
     ...requestIdToConfig[requestId][key],
@@ -179,7 +182,7 @@ function rangeCompare(
   key: NumericalIDCredential,
   value: [number | Date, number | Date],
   requestId: string,
-  requestIdToConfig: Record<string, Record<string, IDCredentialConfig>>,
+  requestIdToConfig: Record<string, Query>,
 ) {
   requestIdToConfig[requestId][key] = {
     ...requestIdToConfig[requestId][key],
@@ -192,7 +195,7 @@ function generalCompare(
   key: IDCredential,
   value: any,
   requestId: string,
-  requestIdToConfig: Record<string, Record<string, IDCredentialConfig>>,
+  requestIdToConfig: Record<string, Query>,
 ) {
   requestIdToConfig[requestId][key] = {
     ...requestIdToConfig[requestId][key],
@@ -346,6 +349,23 @@ export type QueryBuilder = {
    */
   bind: (key: keyof BoundData, value: BoundData[keyof BoundData]) => QueryBuilder
   /**
+   * Requires that the ID holder is not part of any of the specified sanction lists.
+   * @param countries The country or list of countries whose sanction lists to check against. Defaults to "all".
+   * e.g. "US", ["US", "GB", "CH", "EU"], "all"
+   * @param lists The specific lists from a given country to check against. Defaults to "all".
+   * e.g. ["OFAC-SDN"], "all"
+   */
+  sanctions: (countries?: SanctionsCountries, lists?: SanctionsLists) => QueryBuilder
+  /**
+   * Requires that the ID holder's face matches the photo on the ID.
+   * @param mode The mode to use for the face match. Defaults to "strict".
+   * @param mode "strict" - The user will have to go through an extensive liveness check to prevent spoofing making it more secure.
+   * Best for high security requirements such as KYC.
+   * @param mode "relaxed" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
+   * Best for lower security requirements that requires fast verification such as age verification.
+   */
+  facematch: (mode?: FacematchMode) => QueryBuilder
+  /**
    * Builds the request.
    *
    * This will return the URL of the request, which you can either encode in a QR code
@@ -357,7 +377,7 @@ export type QueryBuilder = {
 
 export class ZKPassport {
   private domain: string
-  private topicToConfig: Record<string, Record<string, IDCredentialConfig>> = {}
+  private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
     {
@@ -438,8 +458,8 @@ export class ZKPassport {
       this.topicToExpectedProofCount[topic] = 1
       return
     }
-    const fields = Object.keys(this.topicToConfig[topic] as Query).filter((key) =>
-      hasRequestedAccessToField(this.topicToConfig[topic] as Query, key as IDCredential),
+    const fields = Object.keys(this.topicToConfig[topic]).filter((key) =>
+      hasRequestedAccessToField(this.topicToConfig[topic], key as IDCredential),
     )
     const neededCircuits: string[] = []
     // Determine which circuits are needed based on the requested fields
@@ -496,8 +516,14 @@ export class ZKPassport {
         }
       }
     }
-    if ((this.topicToConfig[topic] as Query).bind) {
+    if (this.topicToConfig[topic].bind) {
       neededCircuits.push("bind")
+    }
+    if (this.topicToConfig[topic].sanctions) {
+      neededCircuits.push("sanctions")
+    }
+    if (this.topicToConfig[topic].facematch) {
+      neededCircuits.push("facematch")
     }
     // From the circuits needed, determine the expected proof count
     // There are at least 4 proofs, 3 base proofs and 1 disclosure proof minimum
@@ -627,6 +653,36 @@ export class ZKPassport {
         this.topicToConfig[topic].bind = {
           ...this.topicToConfig[topic].bind,
           [key]: value,
+        }
+        return this.getZkPassportRequest(topic)
+      },
+      sanctions: (countries: SanctionsCountries = "all", lists: SanctionsLists = "all") => {
+        this.topicToConfig[topic].sanctions = {
+          ...this.topicToConfig[topic].sanctions,
+          countries:
+            countries === "all"
+              ? "all"
+              : Array.isArray(countries)
+                ? ([
+                    ...(this.topicToConfig[topic].sanctions?.countries ?? []),
+                    ...countries,
+                  ] as SanctionsCountries)
+                : ([
+                    ...(this.topicToConfig[topic].sanctions?.countries ?? []),
+                    countries,
+                  ] as SanctionsCountries),
+          lists:
+            lists === "all"
+              ? "all"
+              : Array.isArray(lists)
+                ? [...(this.topicToConfig[topic].sanctions?.lists ?? []), ...lists]
+                : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],
+        }
+        return this.getZkPassportRequest(topic)
+      },
+      facematch: (mode: FacematchMode = "strict") => {
+        this.topicToConfig[topic].facematch = {
+          mode,
         }
         return this.getZkPassportRequest(topic)
       },
@@ -2914,13 +2970,13 @@ export class ZKPassport {
 
   public getSolidityVerifierParameters({
     proof,
-    validityPeriodInDays = 7,
+    validityPeriodInSeconds = 7 * 24 * 60 * 60,
     domain,
     scope,
     devMode = false,
   }: {
     proof: ProofResult
-    validityPeriodInDays?: number
+    validityPeriodInSeconds?: number
     domain?: string
     scope?: string
     devMode?: boolean
@@ -3057,7 +3113,7 @@ export class ZKPassport {
       publicInputs: proofData.publicInputs,
       committedInputs: `0x${compressedCommittedInputs}`,
       committedInputCounts: committedInputCountsArray,
-      validityPeriodInDays,
+      validityPeriodInSeconds,
       domain: domain ?? this.domain,
       scope: scope ?? "",
       devMode,
