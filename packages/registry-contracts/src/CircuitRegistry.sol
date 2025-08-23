@@ -9,7 +9,7 @@
 
 pragma solidity ^0.8.20;
 
-import "./RegistryInstance.sol";
+import {RegistryInstance} from "./RegistryInstance.sol";
 
 /**
  * @title CircuitRegistry
