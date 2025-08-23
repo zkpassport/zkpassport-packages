@@ -130,7 +130,7 @@ export type SolidityVerifierParameters = {
   publicInputs: string[]
   committedInputs: string
   committedInputCounts: number[]
-  validityPeriodInDays: number
+  validityPeriodInSeconds: number
   domain: string
   scope: string
   devMode: boolean
@@ -659,13 +659,31 @@ export class ZKPassport {
       sanctions: (countries: SanctionsCountries = "all", lists: SanctionsLists = "all") => {
         this.topicToConfig[topic].sanctions = {
           ...this.topicToConfig[topic].sanctions,
-          countries: countries,
-          lists: lists,
+          countries:
+            countries === "all"
+              ? "all"
+              : Array.isArray(countries)
+                ? ([
+                    ...(this.topicToConfig[topic].sanctions?.countries ?? []),
+                    ...countries,
+                  ] as SanctionsCountries)
+                : ([
+                    ...(this.topicToConfig[topic].sanctions?.countries ?? []),
+                    countries,
+                  ] as SanctionsCountries),
+          lists:
+            lists === "all"
+              ? "all"
+              : Array.isArray(lists)
+                ? [...(this.topicToConfig[topic].sanctions?.lists ?? []), ...lists]
+                : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],
         }
         return this.getZkPassportRequest(topic)
       },
       facematch: (mode: FacematchMode = "strict") => {
-        this.topicToConfig[topic].facematch = mode
+        this.topicToConfig[topic].facematch = {
+          mode,
+        }
         return this.getZkPassportRequest(topic)
       },
       done: () => {
@@ -2952,13 +2970,13 @@ export class ZKPassport {
 
   public getSolidityVerifierParameters({
     proof,
-    validityPeriodInDays = 7,
+    validityPeriodInSeconds = 7 * 24 * 60 * 60,
     domain,
     scope,
     devMode = false,
   }: {
     proof: ProofResult
-    validityPeriodInDays?: number
+    validityPeriodInSeconds?: number
     domain?: string
     scope?: string
     devMode?: boolean
@@ -3095,7 +3113,7 @@ export class ZKPassport {
       publicInputs: proofData.publicInputs,
       committedInputs: `0x${compressedCommittedInputs}`,
       committedInputCounts: committedInputCountsArray,
-      validityPeriodInDays,
+      validityPeriodInSeconds,
       domain: domain ?? this.domain,
       scope: scope ?? "",
       devMode,

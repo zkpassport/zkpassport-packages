@@ -242,13 +242,16 @@ export type SanctionsConfig = {
 }
 
 export type FacematchMode = "strict" | "relaxed"
+export type FacematchConfig = {
+  mode: FacematchMode
+}
 
 export type Query = {
   [key in IDCredential]?: IDCredentialConfig
 } & {
   bind?: BoundData
   sanctions?: SanctionsConfig
-  facematch?: FacematchMode
+  facematch?: FacematchConfig
 }
 
 export type QueryResult = {
@@ -256,21 +259,26 @@ export type QueryResult = {
 } & {
   bind?: BoundData
   sanctions?: {
+    // Indicates if all the sanction checks passed
+    passed: boolean
     countries?: Record<
       ExtendedAlpha2Code,
       {
+        // Indicates if the sanction check for the country's sanction lists passed
         passed: boolean
       }
     >
     lists?: Record<
       string,
       {
+        // Indicates if the sanction check for the list passed
         passed: boolean
       }
     >
   }
   facematch?: {
     mode: FacematchMode
+    // Indicates if the facematch check passed
     passed: boolean
   }
 }
