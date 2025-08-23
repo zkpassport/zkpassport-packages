@@ -258,7 +258,7 @@ export enum ProofType {
   ISSUING_COUNTRY_INCLUSION = 6,
   ISSUING_COUNTRY_EXCLUSION = 7,
   BIND = 8,
-  Sanctions_EXCLUSION = 9,
+  SANCTIONS_EXCLUSION = 9,
 }
 
 export {

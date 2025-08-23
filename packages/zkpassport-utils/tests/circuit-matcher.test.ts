@@ -412,7 +412,14 @@ describe("Circuit Matcher - RSA", () => {
       age: { gte: 18 },
     }
     const timestamp = getNowTimestamp()
-    const result = await getAgeCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE, timestamp)
+    const result = await getAgeCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      timestamp,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       current_date: timestamp,
@@ -524,7 +531,14 @@ describe("Circuit Matcher - RSA", () => {
       birthdate: { gte: new Date("1980-01-01"), lte: new Date("1990-01-01") },
     }
     const timestamp = getNowTimestamp()
-    const result = await getBirthdateCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE, timestamp)
+    const result = await getBirthdateCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      timestamp,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: timestamp,
@@ -543,7 +557,14 @@ describe("Circuit Matcher - RSA", () => {
       expiry_date: { gte: new Date("2025-01-01"), lte: new Date("2035-12-31") },
     }
     const timestamp = getNowTimestamp()
-    const result = await getExpiryDateCircuitInputs(PASSPORTS.john, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE, timestamp)
+    const result = await getExpiryDateCircuitInputs(
+      PASSPORTS.john,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      timestamp,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: timestamp,
@@ -745,7 +766,14 @@ describe("Circuit Matcher - ECDSA", () => {
       age: { gte: 18 },
     }
     const timestamp = getNowTimestamp()
-    const result = await getAgeCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE, timestamp)
+    const result = await getAgeCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      timestamp,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: timestamp,
@@ -857,7 +885,14 @@ describe("Circuit Matcher - ECDSA", () => {
       birthdate: { gte: new Date("1980-01-01"), lte: new Date("1990-01-01") },
     }
     const timestamp = getNowTimestamp()
-    const result = await getBirthdateCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE, timestamp)
+    const result = await getBirthdateCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      timestamp,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: timestamp,
@@ -876,7 +911,14 @@ describe("Circuit Matcher - ECDSA", () => {
       expiry_date: { gte: new Date("2025-01-01"), lte: new Date("2035-12-31") },
     }
     const timestamp = getNowTimestamp()
-    const result = await getExpiryDateCircuitInputs(PASSPORTS.mary, query, SALT, SERVICE_SCOPE, SERVICE_SUBSCOPE, timestamp)
+    const result = await getExpiryDateCircuitInputs(
+      PASSPORTS.mary,
+      query,
+      SALT,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      timestamp,
+    )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       current_date: timestamp,
@@ -892,7 +934,7 @@ describe("Circuit Matcher - ECDSA", () => {
 
   it("should get the correct sanctions exclusion check circuit inputs", async () => {
     const sanctions = await SanctionsBuilder.create()
-    const { proofs, rootHash } = await sanctions.getSanctionsMerkleProofs(PASSPORTS.mary)
+    const { proofs, root } = await sanctions.getSanctionsMerkleProofs(PASSPORTS.mary)
     const result = await getSanctionsExclusionCheckCircuitInputs(
       PASSPORTS.mary,
       SALT,
@@ -904,7 +946,7 @@ describe("Circuit Matcher - ECDSA", () => {
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      root_hash: rootHash,
+      root: root,
       proofs,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
