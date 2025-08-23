@@ -99,7 +99,7 @@ export class SanctionsBuilder {
 
     const rootHashArr: number[] = Array.from(rootHash).map((x) => Number(x))
     const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
-    const hash = sha256(new Uint8Array([ProofType.Sanctions_EXCLUSION, ...rootHashNumberArray]))
+    const hash = sha256(new Uint8Array([ProofType.SANCTIONS_EXCLUSION, ...rootHashNumberArray]))
     const hashBigInt = packBeBytesIntoField(hash, 31)
     return hashBigInt
   }
@@ -109,7 +109,7 @@ export class SanctionsBuilder {
     const rootHashArray = leftPadArrayWithZeros(Array.from(rootHash), 32)
     const rootHashBigIntArray: bigint[] = rootHashArray.map((x) => BigInt(x))
     const hash = await poseidon2HashAsync([
-      BigInt(ProofType.Sanctions_EXCLUSION),
+      BigInt(ProofType.SANCTIONS_EXCLUSION),
       ...rootHashBigIntArray,
     ])
     return hash

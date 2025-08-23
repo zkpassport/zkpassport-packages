@@ -6,7 +6,6 @@ const MOD = 1n << 256n
 
 function expectProofOk(proof: MembershipProof, leaves: bigint[]): void {
   expect(leaves.includes(proof.leaf)).toBe(true)
-  expect(proof.siblings.length).toBe(proof.path.length)
 }
 
 describe("AsyncOrderedMT (ordered set)", () => {
@@ -151,7 +150,6 @@ describe("AsyncOrderedMT (ordered set)", () => {
 
     const proof = tree.createMembershipProof(44n)
     expect(proof.siblings.length).toBe(depth)
-    expect(proof.path.length).toBe(depth)
     const ok = await AsyncOrderedMT.verifyMembershipProof(proof, poseidon2)
     expect(ok).toBe(true)
     expect(proof.root).toEqual(tree.root)

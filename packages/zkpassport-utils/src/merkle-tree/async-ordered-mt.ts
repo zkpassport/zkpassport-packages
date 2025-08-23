@@ -135,11 +135,12 @@ export default class AsyncOrderedMT {
   ): Promise<boolean> {
     let node = proof.leaf
     // Calculate the path based on the index
-    let path = proof.leafIndex.toString(2).split('').map(Number)
+    let path = proof.leafIndex;
     for (let i = 0; i < proof.siblings.length; i += 1) {
       const sibling = proof.siblings[i]
-      const isRight = path[proof.siblings.length - i - 1] === 1
-      
+      const isRight = (path & 1) === 1
+      path >>= 1
+
       node = await hash(isRight ? [sibling, node] : [node, sibling])
     }
     return node === proof.root

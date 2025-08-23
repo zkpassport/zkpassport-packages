@@ -892,7 +892,7 @@ describe("Circuit Matcher - ECDSA", () => {
 
   it("should get the correct sanctions exclusion check circuit inputs", async () => {
     const sanctions = await SanctionsBuilder.create()
-    const { proofs, rootHash } = await sanctions.getSanctionsMerkleProofs(PASSPORTS.mary)
+    const { proofs, root } = await sanctions.getSanctionsMerkleProofs(PASSPORTS.mary)
     const result = await getSanctionsExclusionCheckCircuitInputs(
       PASSPORTS.mary,
       SALT,
@@ -904,7 +904,7 @@ describe("Circuit Matcher - ECDSA", () => {
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
       comm_in: "0x1dcf5c2b156d3c87f57853183dd6afd108cfb59edacfd872925f6daafba0b331",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      root_hash: rootHash,
+      root: root,
       proofs,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
