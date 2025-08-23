@@ -83,7 +83,9 @@ export class SanctionsBuilder {
   }
 }
 
-function formatSanctionsProof(proof: SanctionsOrderedMerkleTreeProofs[keyof SanctionsOrderedMerkleTreeProofs]): CircuitSanctionsProof {
+function formatSanctionsProof(
+  proof: SanctionsOrderedMerkleTreeProofs[keyof SanctionsOrderedMerkleTreeProofs],
+): CircuitSanctionsProof {
   const left = proof.left?.proof
   const right = proof.right?.proof
   return {
