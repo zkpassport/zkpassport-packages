@@ -6,6 +6,7 @@ import {
   PackagedCertificate,
   PackagedCircuit,
   RSAPublicKey,
+  TwoLetterCode,
 } from "../types"
 import { assert, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
@@ -42,6 +43,7 @@ export const CERT_TYPE_CSCA = 1
 export const CERT_TYPE_DSC = 2
 
 /**
+ * @deprecated Used by the old registry
  * Canonical list of tags for packaged certificates
  * This is used to identify the publisher of the masterlist
  * this certificate is from
@@ -61,6 +63,7 @@ export const CERTIFICATE_REGISTRY_ID = 1
 export const CIRCUIT_REGISTRY_ID = 2
 
 /**
+ * @deprecated Use tagsArrayToBitsFlag instead
  * Convert an array of certificate tags to a bigint byte flag
  * Each tag position in PACKAGED_CERTIFICATE_TAGS represents a byte flag
  * ICAO is the LSB (least significant byte)
@@ -81,6 +84,7 @@ export function tagsArrayToByteFlag(tags: string[]): bigint {
 }
 
 /**
+ * @deprecated Use bitsFlagToTagsArray instead
  * Convert a byte flag to an array of certificate tags
  * @param byteFlag bigint representation of byte flags
  * @returns Array of certificate tags
@@ -92,6 +96,39 @@ export function byteFlagToTagsArray(byteFlag: bigint): string[] {
     const mask = 0xffn << BigInt(i * 8)
     if ((byteFlag & mask) === mask) {
       tags.push(PACKAGED_CERTIFICATE_TAGS[i])
+    }
+  }
+  return tags
+}
+
+export function tagsArrayToBitsFlag(tags: TwoLetterCode[], bitSize: number = 253): bigint[] {
+  const possibleTags = Math.pow(26, 2)
+  const numLimbs = Math.ceil(possibleTags / bitSize)
+  const bitsFlags: bigint[] = Array(numLimbs).fill(0n)
+  const START_INDEX = "A".charCodeAt(0)
+  for (const tag of tags) {
+    const bitIndex = (tag.charCodeAt(0) - START_INDEX) * 26 + tag.charCodeAt(1) - START_INDEX
+    const limbIndex = Math.floor(bitIndex / bitSize)
+    bitsFlags[limbIndex] |= 1n << BigInt(bitIndex % bitSize)
+  }
+  return bitsFlags
+}
+
+export function bitsFlagToTagsArray(bitsFlags: bigint[], bitSize: number = 253): TwoLetterCode[] {
+  const possibleTags = Math.pow(26, 2)
+  const numLimbs = Math.ceil(possibleTags / bitSize)
+  const tags: TwoLetterCode[] = []
+  const START_INDEX = "A".charCodeAt(0)
+  for (let i = 0; i < numLimbs; i++) {
+    for (let j = 0; j < bitSize; j++) {
+      const bitIndex = i * bitSize + j
+      const limbIndex = Math.floor(bitIndex / bitSize)
+      if ((bitsFlags[limbIndex] & (1n << BigInt(bitIndex % bitSize))) === 0n) {
+        continue
+      }
+      const firstLetter = String.fromCharCode(Math.floor(bitIndex / 26) + START_INDEX)
+      const secondLetter = String.fromCharCode((bitIndex % 26) + START_INDEX)
+      tags.push(`${firstLetter}${secondLetter}` as TwoLetterCode)
     }
   }
   return tags
@@ -137,14 +174,14 @@ export function publicKeyToBytes(publicKey: ECPublicKey | RSAPublicKey): Uint8Ar
  */
 export async function getCertificateLeafHash(
   cert: PackagedCertificate,
-  options?: { tags?: string[]; type?: number },
+  options?: { tags?: TwoLetterCode[]; type?: number },
 ): Promise<bigint> {
   // Convert tags to byte flags
   const tags = options?.tags
-    ? tagsArrayToByteFlag(options.tags)
+    ? tagsArrayToBitsFlag(options.tags)
     : cert?.tags
-      ? tagsArrayToByteFlag(cert.tags)
-      : 0n
+      ? tagsArrayToBitsFlag(cert.tags)
+      : [0n, 0n, 0n]
   // Certificate type
   const type = options?.type ?? CERT_TYPE_CSCA
   assert(type >= 0 && type <= 255, `Certificate type must fit in a single byte: ${type}`)
@@ -153,7 +190,7 @@ export async function getCertificateLeafHash(
   const publicKeyBytes = publicKeyToBytes(cert.public_key)
   // Return the canonical leaf hash of the certificate
   return poseidon2HashAsync([
-    tags,
+    ...tags,
     BigInt(
       packBeBytesIntoFields(
         new Uint8Array([

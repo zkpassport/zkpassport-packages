@@ -1,4 +1,4 @@
-import type { Alpha3Code } from "i18n-iso-countries"
+import type { Alpha2Code, Alpha3Code } from "i18n-iso-countries"
 import type { SOD } from "../passport"
 import type { CountryName } from "./countries"
 import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
@@ -231,17 +231,56 @@ export type QueryResultValue<T extends IDCredential> = {
   }
 }
 
+export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
+export type SanctionsCountries = ExtendedAlpha2Code[] | ExtendedAlpha2Code | "all"
+// TODO: restrict the type of `lists` to specific sanction list names
+export type SanctionsLists = string[] | "all"
+
+export type SanctionsConfig = {
+  countries?: SanctionsCountries
+  lists?: SanctionsLists
+}
+
+export type FacematchMode = "strict" | "relaxed"
+export type FacematchConfig = {
+  mode: FacematchMode
+}
+
 export type Query = {
   [key in IDCredential]?: IDCredentialConfig
 } & {
   bind?: BoundData
-  sanctions?: boolean
+  sanctions?: SanctionsConfig
+  facematch?: FacematchConfig
 }
 
 export type QueryResult = {
   [key in IDCredential]?: QueryResultValue<key>
 } & {
   bind?: BoundData
+  sanctions?: {
+    // Indicates if all the sanction checks passed
+    passed: boolean
+    countries?: Record<
+      ExtendedAlpha2Code,
+      {
+        // Indicates if the sanction check for the country's sanction lists passed
+        passed: boolean
+      }
+    >
+    lists?: Record<
+      string,
+      {
+        // Indicates if the sanction check for the list passed
+        passed: boolean
+      }
+    >
+  }
+  facematch?: {
+    mode: FacematchMode
+    // Indicates if the facematch check passed
+    passed: boolean
+  }
 }
 
 export type AgeCommittedInputs = {
@@ -310,6 +349,10 @@ export type DisclosureCircuitName =
   | "inclusion_check_nationality_evm"
   | "bind"
   | "bind_evm"
+  | "sanctions"
+  | "sanctions_evm"
+  | "facematch"
+  | "facematch_evm"
 
 export type ProofResult = {
   proof?: string
@@ -402,23 +445,18 @@ export type PassportReaderEvent =
 
 export type IDDataInputs = {
   e_content: number[]
-  e_content_size: number
-  dg1_offset_in_e_content: number
   signed_attributes: number[]
-  signed_attributes_size: number
   dg1: number[]
 }
 
 export type ECDSADSCDataInputs = {
   tbs_certificate: number[]
-  pubkey_offset_in_tbs: number
   dsc_pubkey_x: number[]
   dsc_pubkey_y: number[]
 }
 
 export type RSADSCDataInputs = {
   tbs_certificate: number[]
-  pubkey_offset_in_tbs: number
   dsc_pubkey: number[]
   exponent: number
   dsc_pubkey_redc_param: number[]
@@ -455,6 +493,36 @@ export type Certificate = {
     not_after?: number
   }
 }
+
+export type Letter =
+  | "A"
+  | "B"
+  | "C"
+  | "D"
+  | "E"
+  | "F"
+  | "G"
+  | "H"
+  | "I"
+  | "J"
+  | "K"
+  | "L"
+  | "M"
+  | "N"
+  | "O"
+  | "P"
+  | "Q"
+  | "R"
+  | "S"
+  | "T"
+  | "U"
+  | "V"
+  | "W"
+  | "X"
+  | "Y"
+  | "Z"
+
+export type TwoLetterCode = `${Letter}${Letter}`
 
 export type { CountryName } from "./countries"
 

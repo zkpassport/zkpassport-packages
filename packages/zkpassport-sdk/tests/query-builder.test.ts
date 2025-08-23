@@ -1,10 +1,10 @@
-import { ZKPassport as ZkPassportVerifier } from "../src/index"
+import { QueryBuilder, ZKPassport as ZkPassportVerifier } from "../src/index"
 import { MockWebSocket } from "./helpers/mock-websocket"
 import { Bridge } from "@obsidion/bridge"
 
 describe("Query Builder", () => {
   let zkPassport: ZkPassportVerifier
-  let queryBuilder: any
+  let queryBuilder: QueryBuilder
   let mockBridge: jest.Mocked<Bridge>
 
   beforeEach(async () => {
@@ -23,7 +23,7 @@ describe("Query Builder", () => {
   })
 
   test("should build equality query with validation", async () => {
-    const result = queryBuilder.eq("document_type", "passport").eq("gender", "F").done()
+    const result = queryBuilder.eq("document_type", "passport").eq("gender", "female").done()
 
     expect(result.url).toContain("c=")
     const configPart = result.url.split("c=")[1].split("&")[0]
@@ -32,7 +32,7 @@ describe("Query Builder", () => {
     // Test exact structure and values
     expect(config).toEqual({
       document_type: { eq: "passport" },
-      gender: { eq: "F" },
+      gender: { eq: "female" },
     })
 
     // Test that no unexpected fields are present
@@ -138,6 +138,93 @@ describe("Query Builder", () => {
       name: "Test App",
       logo: "https://test.com/logo.png",
       purpose: "Testing query builder",
+    })
+  })
+
+  test("should build sanctions query defaulting to all countries and lists", async () => {
+    const result = queryBuilder.sanctions().done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+    })
+  })
+
+  test("should build sanctions query for single country", async () => {
+    const result = queryBuilder.sanctions("GB").done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: ["GB"],
+      lists: "all",
+    })
+  })
+
+  test("should build sanctions query for single country with custom list", async () => {
+    const result = queryBuilder.sanctions("US", ["OFAC-SDN"]).done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: ["US"],
+      lists: ["OFAC-SDN"],
+    })
+  })
+
+  test("should build sanctions query for multiple countries", async () => {
+    const result = queryBuilder.sanctions(["US", "GB", "CH", "EU"]).done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: ["US", "GB", "CH", "EU"],
+      lists: "all",
+    })
+  })
+
+  test("should build sanctions query for multiple countries using multiple calls", async () => {
+    const result = queryBuilder
+      .sanctions("US")
+      .sanctions("GB")
+      .sanctions("CH")
+      .sanctions("EU")
+      .done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: ["US", "GB", "CH", "EU"],
+      lists: "all",
+    })
+  })
+
+  test("should build facematch query with strict mode", async () => {
+    const result = queryBuilder.facematch("strict").done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.facematch).toEqual({
+      mode: "strict",
+    })
+  })
+
+  test("should build facematch query with relaxed mode", async () => {
+    const result = queryBuilder.facematch("relaxed").done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.facematch).toEqual({
+      mode: "relaxed",
     })
   })
 })
