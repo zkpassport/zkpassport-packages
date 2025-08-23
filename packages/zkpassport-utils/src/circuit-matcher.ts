@@ -28,7 +28,7 @@ import {
   CERTIFICATE_REGISTRY_HEIGHT,
   getCertificateLeafHash,
   getCertificateLeafHashes,
-  tagsArrayToByteFlag,
+  tagsArrayToBitsFlag,
 } from "./registry"
 import type { HashAlgorithm, PackagedCertificate } from "./types"
 import {
@@ -277,16 +277,12 @@ function getDSCDataInputs(
 function getIDDataInputs(passport: PassportViewModel): IDDataInputs {
   const dg1 = passport?.dataGroups.find((dg) => dg.groupNumber === 1)
   const eContent = passport?.sod.encapContentInfo.eContent.bytes.toNumberArray()
-  const dg1Offset = getOffsetInArray(eContent ?? [], dg1?.hash ?? [])
   const signedAttributes = passport.sod.signerInfo.signedAttrs.bytes.toNumberArray()
   const id_data = {
     // Padded with 0s to make it 700 bytes
     e_content: rightPadArrayWithZeros(eContent ?? [], E_CONTENT_INPUT_SIZE),
-    e_content_size: eContent?.length ?? 0,
-    dg1_offset_in_e_content: dg1Offset,
     // Padded to 200 bytes with 0s
     signed_attributes: rightPadArrayWithZeros(signedAttributes ?? [], SIGNED_ATTR_INPUT_SIZE),
-    signed_attributes_size: signedAttributes.length ?? 0,
     // Padded to 95 bytes with 0s
     dg1: rightPadArrayWithZeros(dg1?.value ?? [], DG1_INPUT_SIZE),
   }
@@ -418,7 +414,7 @@ export async function getDSCCircuitInputs(
   const cscaLeaf = await getCertificateLeafHash(csca)
   const leaves = overrideCertLeaves ?? (await getCertificateLeafHashes(certificates))
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
-  const tags = tagsArrayToByteFlag(csca.tags ?? [])
+  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =
     overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
 
@@ -426,7 +422,7 @@ export async function getDSCCircuitInputs(
     certificate_registry_root: merkleProof.root,
     certificate_registry_index: merkleProof.index,
     certificate_registry_hash_path: merkleProof.path,
-    certificate_tags: `0x${tags.toString(16)}`,
+    certificate_tags: tags.map((tag) => `0x${tag.toString(16)}`),
     certificate_type: `0x${CERT_TYPE_CSCA.toString(16)}`,
     country: csca.country,
     salt: `0x${salt.toString(16)}`,
@@ -572,10 +568,7 @@ export async function getIntegrityCheckCircuitInputs(
     current_date: currentDateTimestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
-    signed_attributes_size: idData.signed_attributes_size,
     e_content: idData.e_content,
-    e_content_size: idData.e_content_size,
-    dg1_offset_in_e_content: idData.dg1_offset_in_e_content,
     comm_in: comm_in.toHex(),
     private_nullifier: privateNullifier.toHex(),
     salt_in: `0x${saltIn.toString(16)}`,

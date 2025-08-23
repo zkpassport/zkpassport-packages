@@ -3,6 +3,8 @@ import {
   calculateCircuitRoot,
   CERT_TYPE_DSC,
   getCertificateLeafHash,
+  tagsArrayToBitsFlag,
+  bitsFlagToTagsArray,
 } from "../src/registry"
 import { PackagedCertificate } from "../src/types"
 import rootCerts from "./fixtures/root-certs.json"
@@ -30,7 +32,7 @@ describe("Registry", () => {
       not_before: 1000000000,
       not_after: 2000000000,
     },
-    tags: ["ICAO", "DE"],
+    tags: ["UN", "DE"],
   }
 
   const ecdsaCert: PackagedCertificate = {
@@ -56,36 +58,72 @@ describe("Registry", () => {
       not_before: 1000000000,
       not_after: 2000000000,
     },
-    tags: ["ICAO", "DE"],
+    tags: ["UN", "DE"],
   }
+
+  test("should generate correct bits flag for tags array", () => {
+    expect(tagsArrayToBitsFlag([])).toEqual([0n, 0n, 0n])
+    expect(tagsArrayToBitsFlag(["AA"])).toEqual([1n, 0n, 0n])
+    expect(tagsArrayToBitsFlag(["AB"])).toEqual([2n, 0n, 0n])
+    expect(tagsArrayToBitsFlag(["AA", "AB"])).toEqual([3n, 0n, 0n])
+    expect(tagsArrayToBitsFlag(["AC"])).toEqual([4n, 0n, 0n])
+    expect(tagsArrayToBitsFlag(["AA", "AB", "AC"])).toEqual([7n, 0n, 0n])
+
+    expect(tagsArrayToBitsFlag(["JR", "JS", "JV"])).toEqual([
+      BigInt("0x1800000000000000000000000000000000000000000000000000000000000000"),
+      4n,
+      0n,
+    ])
+
+    expect(tagsArrayToBitsFlag(["UN"])).toEqual([0n, 0n, BigInt("0x8000000")])
+  })
+
+  test("should generate correct tags array for bits flag", () => {
+    expect(bitsFlagToTagsArray([0n, 0n, 0n])).toEqual([])
+    expect(bitsFlagToTagsArray([1n, 0n, 0n])).toEqual(["AA"])
+    expect(bitsFlagToTagsArray([2n, 0n, 0n])).toEqual(["AB"])
+    expect(bitsFlagToTagsArray([3n, 0n, 0n])).toEqual(["AA", "AB"])
+    expect(bitsFlagToTagsArray([4n, 0n, 0n])).toEqual(["AC"])
+    expect(bitsFlagToTagsArray([7n, 0n, 0n])).toEqual(["AA", "AB", "AC"])
+
+    expect(
+      bitsFlagToTagsArray([
+        BigInt("0x1800000000000000000000000000000000000000000000000000000000000000"),
+        4n,
+        0n,
+      ]),
+    ).toEqual(["JR", "JS", "JV"])
+
+    expect(bitsFlagToTagsArray([0n, 0n, BigInt("0x8000000")])).toEqual(["UN"])
+  })
 
   test("should generate correct canonical leaf for RSA cert", async () => {
     const leaf = await getCertificateLeafHash(rsaCert)
     expect(leaf).toEqual(
-      9604728310465322429419537006275467478856081832189622879656211503172429241571n,
+      10374427192692971605115852434399434992383543572583326103540359782862263554570n,
     )
   })
 
   test("should generate correct canonical leaf for ECDSA cert", async () => {
     const leaf = await getCertificateLeafHash(ecdsaCert)
     expect(leaf).toEqual(
-      20613133438428878252693983197936766514579284841853667670186211243343671048263n,
+      9676427500440764140387924904666461180023752817896651616722688209534314347621n,
     )
   })
 
   test("should generate correct canonical leaf for different publisher and type", async () => {
     const leaf = await getCertificateLeafHash(rsaCert, {
-      tags: ["ICAO"],
+      tags: ["UN"],
       type: CERT_TYPE_DSC,
     })
     expect(leaf).toEqual(
-      3159326281278623737788658725522331767048199151950971039210830901783298088489n,
+      11128308501821901519857638506584544607455540416838544782901445271440127884577n,
     )
   })
 
   test("should generate correct canonical certificate root", async () => {
     const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
-    expect(root).toEqual("0x2a41b0fbf6dd654ffeacdedaed2625b68b5e483e12f83b38bfafb034e6eeb918")
+    expect(root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
   })
 
   test("should generate correct canonical circuit root", async () => {

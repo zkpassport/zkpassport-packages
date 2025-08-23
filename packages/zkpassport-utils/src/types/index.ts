@@ -394,10 +394,7 @@ export type PassportReaderEvent =
 
 export type IDDataInputs = {
   e_content: number[]
-  e_content_size: number
-  dg1_offset_in_e_content: number
   signed_attributes: number[]
-  signed_attributes_size: number
   dg1: number[]
 }
 
@@ -445,6 +442,36 @@ export type Certificate = {
     not_after?: number
   }
 }
+
+export type Letter =
+  | "A"
+  | "B"
+  | "C"
+  | "D"
+  | "E"
+  | "F"
+  | "G"
+  | "H"
+  | "I"
+  | "J"
+  | "K"
+  | "L"
+  | "M"
+  | "N"
+  | "O"
+  | "P"
+  | "Q"
+  | "R"
+  | "S"
+  | "T"
+  | "U"
+  | "V"
+  | "W"
+  | "X"
+  | "Y"
+  | "Z"
+
+export type TwoLetterCode = `${Letter}${Letter}`
 
 export type { CountryName } from "./countries"
 
