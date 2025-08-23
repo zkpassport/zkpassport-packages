@@ -1,4 +1,4 @@
-import type { Alpha3Code } from "i18n-iso-countries"
+import type { Alpha2Code, Alpha3Code } from "i18n-iso-countries"
 import type { SOD } from "../passport"
 import type { CountryName } from "./countries"
 import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
@@ -231,16 +231,48 @@ export type QueryResultValue<T extends IDCredential> = {
   }
 }
 
+export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
+export type SanctionsCountries = ExtendedAlpha2Code[] | ExtendedAlpha2Code | "all" | "recommended"
+// TODO: restrict the type of `lists` to specific sanction list names
+export type SanctionsLists = string[] | "all" | "recommended"
+
+export type SanctionsConfig = {
+  countries?: SanctionsCountries
+  lists?: SanctionsLists
+}
+
+export type FacematchMode = "strict" | "relaxed"
+
 export type Query = {
   [key in IDCredential]?: IDCredentialConfig
 } & {
   bind?: BoundData
+  sanctions?: SanctionsConfig
+  facematch?: FacematchMode
 }
 
 export type QueryResult = {
   [key in IDCredential]?: QueryResultValue<key>
 } & {
   bind?: BoundData
+  sanctions?: {
+    countries?: Record<
+      ExtendedAlpha2Code,
+      {
+        passed: boolean
+      }
+    >
+    lists?: Record<
+      string,
+      {
+        passed: boolean
+      }
+    >
+  }
+  facematch?: {
+    mode: FacematchMode
+    passed: boolean
+  }
 }
 
 export type AgeCommittedInputs = {
@@ -302,6 +334,10 @@ export type DisclosureCircuitName =
   | "inclusion_check_nationality_evm"
   | "bind"
   | "bind_evm"
+  | "sanctions"
+  | "sanctions_evm"
+  | "facematch"
+  | "facematch_evm"
 
 export type ProofResult = {
   proof?: string
