@@ -656,10 +656,7 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      sanctions: (
-        countries: SanctionsCountries = "recommended",
-        lists: SanctionsLists = "recommended",
-      ) => {
+      sanctions: (countries: SanctionsCountries = "all", lists: SanctionsLists = "all") => {
         this.topicToConfig[topic].sanctions = {
           ...this.topicToConfig[topic].sanctions,
           countries: countries,
