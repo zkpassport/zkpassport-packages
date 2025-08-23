@@ -350,10 +350,10 @@ export type QueryBuilder = {
   bind: (key: keyof BoundData, value: BoundData[keyof BoundData]) => QueryBuilder
   /**
    * Requires that the ID holder is not part of any of the specified sanction lists.
-   * @param countries The country or list of countries whose sanction lists to check against. Defaults to "recommended".
-   * e.g. "US", ["US", "GB", "CH", "EU"], "all", "recommended"
-   * @param lists The specific lists from a given country to check against. Defaults to "recommended".
-   * e.g. ["OFAC-SDN"], "all", "recommended"
+   * @param countries The country or list of countries whose sanction lists to check against. Defaults to "all".
+   * e.g. "US", ["US", "GB", "CH", "EU"], "all"
+   * @param lists The specific lists from a given country to check against. Defaults to "all".
+   * e.g. ["OFAC-SDN"], "all"
    */
   sanctions: (countries?: SanctionsCountries, lists?: SanctionsLists) => QueryBuilder
   /**

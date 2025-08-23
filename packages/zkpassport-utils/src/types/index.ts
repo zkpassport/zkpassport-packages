@@ -232,9 +232,9 @@ export type QueryResultValue<T extends IDCredential> = {
 }
 
 export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
-export type SanctionsCountries = ExtendedAlpha2Code[] | ExtendedAlpha2Code | "all" | "recommended"
+export type SanctionsCountries = ExtendedAlpha2Code[] | ExtendedAlpha2Code | "all"
 // TODO: restrict the type of `lists` to specific sanction list names
-export type SanctionsLists = string[] | "all" | "recommended"
+export type SanctionsLists = string[] | "all"
 
 export type SanctionsConfig = {
   countries?: SanctionsCountries
