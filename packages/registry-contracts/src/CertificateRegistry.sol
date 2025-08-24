@@ -178,6 +178,7 @@ contract CertificateRegistry {
             // Ensure validTo is non-zero unless it's the last root
             if (i < roots.length - 1) {
                 require(rootInput.validTo != 0, "Root validTo cannot be zero unless it's the last root");
+                require(rootInput.validTo >= rootInput.validFrom, "Root validTo must be >= validFrom");
             }
 
             // Increment root count and store index mapping
