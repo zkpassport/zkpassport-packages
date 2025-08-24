@@ -83,6 +83,8 @@ const VERSION = "0.8.0"
 
 const DEFAULT_DATE_VALUE = new Date(0)
 
+const DEFAULT_VALIDITY = 7 * 24 * 60 * 60 // 7 days
+
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
   globalThis.Buffer = Buffer as any
@@ -789,8 +791,8 @@ export class ZKPassport {
     this.topicToProofs[topic] = []
     this.topicToExpectedProofCount[topic] = 0
     this.topicToLocalConfig[topic] = {
-      // Default to 6 months
-      validity: validity || 6 * 30 * 24 * 60 * 60,
+      // Default to 7 days
+      validity: validity || DEFAULT_VALIDITY,
       mode: mode || "fast",
       devMode: devMode || false,
     }
@@ -2044,7 +2046,7 @@ export class ZKPassport {
 
         const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const expectedDifference = validity ? validity * 1000 : 180 * 86400000
+        const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
         const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
         if (todayToCurrentDate >= actualDifference) {
           console.warn(
@@ -2397,9 +2399,8 @@ export class ZKPassport {
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
         const currentDate = getCurrentDateFromIntegrityProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const expectedDifference = validity ? validity * 1000 : 180 * 86400000
+        const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
         const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
-        // The ID should not expire within the next 6 months (or whatever the custom value is)
         if (todayToCurrentDate >= actualDifference) {
           console.warn(
             `The date used to check the validity of the ID is older than the validity period`,
@@ -2813,7 +2814,7 @@ export class ZKPassport {
    * @notice Verify the proofs received from the mobile app.
    * @param proofs The proofs to verify.
    * @param queryResult The query result to verify against
-   * @param validity How many seconds ago should have the ID been last scanned by the user?
+   * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param scope Scope this request to a specific use case
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
@@ -2983,7 +2984,7 @@ export class ZKPassport {
 
   public getSolidityVerifierParameters({
     proof,
-    validityPeriodInSeconds = 7 * 24 * 60 * 60,
+    validityPeriodInSeconds = DEFAULT_VALIDITY,
     domain,
     scope,
     devMode = false,
