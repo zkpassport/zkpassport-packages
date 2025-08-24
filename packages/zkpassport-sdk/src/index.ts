@@ -1,4 +1,4 @@
-import { Alpha2Code, Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
+import { Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
 import {
   type DisclosableIDCredential,
   type IDCredential,
@@ -20,14 +20,12 @@ import {
   getCurrentDateFromIntegrityProof,
   DisclosedData,
   formatName,
-  getHostedPackagedCircuitByName,
   Query,
   getNumberOfPublicInputs,
   getParameterCommitmentFromDisclosureProof,
   getCountryParameterCommitment,
   getDiscloseParameterCommitment,
   getDateParameterCommitment,
-  getFormattedDate,
   getCertificateRegistryRootFromOuterProof,
   getParamCommitmentsFromOuterProof,
   AgeCommittedInputs,
@@ -67,7 +65,6 @@ import {
   areDatesEqual,
   formatQueryResultDates,
   IDCredentialConfig,
-  ExtendedAlpha2Code,
   FacematchMode,
   SanctionsCountries,
   SanctionsLists,
@@ -414,11 +411,31 @@ export class ZKPassport {
   private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
   //private wasmVerifierInit: boolean = false
 
+  private normalizeDomain(domain: string) {
+    return (
+      domain
+        .trim()
+        // Remove protocol
+        .replace(/^https?:\/\//, "")
+        // Remove subdomains (keep only root domain - last 2 parts)
+        .replace(/^.*\.([a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+)/, "$1")
+        // Remove trailing slash and anything after it
+        .replace(/\/[^/]*$/, "")
+        // Remove port
+        .replace(/:[0-9]+/, "")
+        // Remove query parameters
+        .replace(/\?.*$/, "")
+        // Remove hash
+        .replace(/#.*$/, "")
+        .toLowerCase()
+    )
+  }
+
   constructor(_domain?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
-    this.domain = _domain || window.location.hostname
+    this.domain = this.normalizeDomain(_domain || window.location.hostname)
   }
 
   private async handleResult(topic: string) {
@@ -520,7 +537,7 @@ export class ZKPassport {
       neededCircuits.push("bind")
     }
     if (this.topicToConfig[topic].sanctions) {
-      neededCircuits.push("sanctions")
+      neededCircuits.push("exclusion_check_sanctions")
     }
     if (this.topicToConfig[topic].facematch) {
       neededCircuits.push("facematch")
@@ -723,7 +740,7 @@ export class ZKPassport {
    * @param logo The logo of your service
    * @param purpose To explain what you want to do with the user's data
    * @param scope Scope this request to a specific use case
-   * @param validity How many days ago should have the ID been last scanned by the user?
+   * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @returns The query builder object.
    */
@@ -773,7 +790,7 @@ export class ZKPassport {
     this.topicToExpectedProofCount[topic] = 0
     this.topicToLocalConfig[topic] = {
       // Default to 6 months
-      validity: validity || 6 * 30,
+      validity: validity || 6 * 30 * 24 * 60 * 60,
       mode: mode || "fast",
       devMode: devMode || false,
     }
@@ -1788,7 +1805,6 @@ export class ZKPassport {
     queryResultErrors: QueryResultErrors,
     key: string,
     scope?: string,
-    chainId?: number,
   ) {
     let isCorrect = true
     if (this.domain && getServiceScopeHash(this.domain) !== BigInt(proofData.publicInputs[1])) {
@@ -2028,18 +2044,16 @@ export class ZKPassport {
 
         const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const differenceInDays = validity ?? 180
-        const expectedDifference = differenceInDays * 86400000
+        const expectedDifference = validity ? validity * 1000 : 180 * 86400000
         const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
-        // The ID should not expire within the next 6 months (or whatever the custom value is)
         if (todayToCurrentDate >= actualDifference) {
           console.warn(
-            `The date used to check the validity of the ID is older than ${differenceInDays} days. You can ask the user to rescan their ID or ask them to disclose their expiry date`,
+            `The date used to check the validity of the ID is older than the validity period`,
           )
           isCorrect = false
           queryResultErrors.outer.date = {
-            expected: `Difference: ${differenceInDays} days`,
-            received: `Difference: ${Math.round(todayToCurrentDate / 86400000)} days`,
+            expected: `Difference: ${validity} seconds`,
+            received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
             message:
               "The date used to check the validity of the ID is older than the validity period",
           }
@@ -2383,18 +2397,17 @@ export class ZKPassport {
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
         const currentDate = getCurrentDateFromIntegrityProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const differenceInDays = validity ?? 180
-        const expectedDifference = differenceInDays * 86400000
+        const expectedDifference = validity ? validity * 1000 : 180 * 86400000
         const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
         // The ID should not expire within the next 6 months (or whatever the custom value is)
         if (todayToCurrentDate >= actualDifference) {
           console.warn(
-            `The date used to check the validity of the ID is older than ${differenceInDays} days. You can ask the user to rescan their ID or ask them to disclose their expiry date`,
+            `The date used to check the validity of the ID is older than the validity period`,
           )
           isCorrect = false
           queryResultErrors.data_check_integrity.date = {
-            expected: `Difference: ${differenceInDays} days`,
-            received: `Difference: ${Math.round(todayToCurrentDate / 86400000)} days`,
+            expected: `Difference: ${validity} seconds`,
+            received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
             message:
               "The date used to check the validity of the ID is older than the validity period",
           }
@@ -2800,7 +2813,7 @@ export class ZKPassport {
    * @notice Verify the proofs received from the mobile app.
    * @param proofs The proofs to verify.
    * @param queryResult The query result to verify against
-   * @param validity How many days ago should have the ID been last scanned by the user?
+   * @param validity How many seconds ago should have the ID been last scanned by the user?
    * @param scope Scope this request to a specific use case
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
@@ -3129,7 +3142,10 @@ export class ZKPassport {
       "base64",
     )
     const pubkey = this.topicToPublicKey[requestId]
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}`
+    // The timestamp is the current time minus the validity period
+    // essentially, the data integrity check proof needs to have been generated after the timestamp
+    const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&d=${timestamp}`
   }
 
   /**
