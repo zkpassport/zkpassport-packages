@@ -253,9 +253,13 @@ export function formatDate(date: Date | string | number) {
 
 export function getUnixTimestamp(date: Date | string | number): number {
   if (typeof date === "string" || typeof date === "number") {
-    return Math.floor(new Date(date).getTime() / 1000)
+    const timestamp = Math.floor(new Date(date).getTime() / 1000)
+    // Adds 1 second to the timestamp as 0 is the ignored value for the date proof
+    return timestamp === 0 ? timestamp + 1 : timestamp
   }
-  return Math.floor(date.getTime() / 1000)
+  const timestamp = Math.floor(date.getTime() / 1000)
+  // Adds 1 second to the timestamp as 0 is the ignored value for the date proof
+  return timestamp === 0 ? timestamp + 1 : timestamp
 }
 
 export function getTodayTimestamp(): number {

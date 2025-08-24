@@ -55,7 +55,7 @@ export async function getAgeEVMParameterCommitment(
   maxAge: number,
 ): Promise<bigint> {
   const hash = sha256(
-    new Uint8Array([ProofType.AGE, ...numberToBytesBE(currentDateTimestamp, 4), minAge, maxAge]),
+    new Uint8Array([ProofType.AGE, ...numberToBytesBE(currentDateTimestamp, 8), minAge, maxAge]),
   )
   const hashBigInt = packBeBytesIntoField(hash, 31)
   return hashBigInt
