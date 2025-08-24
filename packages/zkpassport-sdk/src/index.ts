@@ -68,6 +68,8 @@ import {
   FacematchMode,
   SanctionsCountries,
   SanctionsLists,
+  getBirthdateMinDateTimestamp,
+  getBirthdateMaxDateTimestamp,
 } from "@zkpassport/utils"
 import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -1350,10 +1352,10 @@ export class ZKPassport {
       0,
       0,
     )
-    const minDate = getMinDateFromCommittedInputs(
+    const minDate = getBirthdateMinDateTimestamp(
       proof.committedInputs?.compare_birthdate as DateCommittedInputs,
     )
-    const maxDate = getMaxDateFromCommittedInputs(
+    const maxDate = getBirthdateMaxDateTimestamp(
       proof.committedInputs?.compare_birthdate as DateCommittedInputs,
     )
     const currentDate = getCurrentDateFromCommittedInputs(
@@ -3044,7 +3046,7 @@ export class ZKPassport {
             .join("")
       } else if (circuitName === "compare_age_evm") {
         const value = proof.committedInputs[circuitName] as AgeCommittedInputs
-        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 4))
+        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.AGE.toString(16).padStart(2, "0") +
           currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
@@ -3052,9 +3054,9 @@ export class ZKPassport {
           value.maxAge.toString(16).padStart(2, "0")
       } else if (circuitName === "compare_birthdate_evm") {
         const value = proof.committedInputs[circuitName] as DateCommittedInputs
-        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 4))
-        const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 4))
-        const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 4))
+        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 8))
+        const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 8))
+        const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.BIRTHDATE.toString(16).padStart(2, "0") +
           currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
@@ -3062,9 +3064,9 @@ export class ZKPassport {
           maxDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "compare_expiry_evm") {
         const value = proof.committedInputs[circuitName] as DateCommittedInputs
-        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 4))
-        const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 4))
-        const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 4))
+        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 8))
+        const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 8))
+        const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.EXPIRY_DATE.toString(16).padStart(2, "0") +
           currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +

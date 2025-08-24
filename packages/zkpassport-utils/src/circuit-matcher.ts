@@ -11,6 +11,7 @@ import {
   hashSaltCountrySignedAttrDg1EContentPrivateNullifier,
   hashSaltCountryTbs,
   hashSaltDg1PrivateNullifier,
+  SECONDS_BETWEEN_1900_AND_1970,
 } from "./circuits"
 import { parseDate } from "./circuits/disclose"
 import type { DigestAlgorithm } from "./cms/types"
@@ -1062,8 +1063,11 @@ export async function getBirthdateCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
-    min_date: minDate ? getUnixTimestamp(minDate) : 0,
-    max_date: maxDate ? getUnixTimestamp(maxDate) : 0,
+    // Add the seconds between 1900 and 1970 to the date to get the correct date
+    // This is because the circuit expects the epoch to be 1900 rather than 1970
+    // for min_date and max_date
+    min_date: minDate ? getUnixTimestamp(minDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
+    max_date: maxDate ? getUnixTimestamp(maxDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
   }
 }
 
