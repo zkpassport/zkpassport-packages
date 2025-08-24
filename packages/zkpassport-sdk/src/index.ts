@@ -71,6 +71,8 @@ import {
   FacematchMode,
   SanctionsCountries,
   SanctionsLists,
+  getBirthdateMinDateTimestamp,
+  getBirthdateMaxDateTimestamp,
 } from "@zkpassport/utils"
 import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
