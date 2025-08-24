@@ -39,6 +39,7 @@ import {
   E_CONTENT_INPUT_SIZE,
   getSanctionsExclusionCheckCircuitInputs,
   SanctionsBuilder,
+  SECONDS_BETWEEN_1900_AND_1970,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -541,8 +542,8 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
-      min_date: getUnixTimestamp(new Date("1980-01-01")),
-      max_date: getUnixTimestamp(new Date("1990-01-01")),
+      min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
+      max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
     })
   })
 
@@ -889,8 +890,8 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
-      min_date: getUnixTimestamp(new Date("1980-01-01")),
-      max_date: getUnixTimestamp(new Date("1990-01-01")),
+      min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
+      max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
     })
   })
 
