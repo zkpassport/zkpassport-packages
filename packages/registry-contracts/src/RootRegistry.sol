@@ -20,7 +20,7 @@ contract RootRegistry {
     bool public paused;
 
     // Registry mapping: registry identifier => registry contract address
-    mapping(bytes32 => address) public registries;
+    mapping(bytes32 registryId => IRegistryInstance instance) public registries;
 
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event PausedStatusChanged(bool paused);
@@ -48,13 +48,13 @@ contract RootRegistry {
 
     /**
      * @dev Update a registry contract address
-     * @param registry The registry identifier
-     * @param registryAddress The new registry contract address
+     * @param registryId The registry identifier
+     * @param instance The new registry contract address
      */
-    function updateRegistry(bytes32 registry, address registryAddress) external onlyAdmin whenNotPaused {
-        address oldAddress = registries[registry];
-        registries[registry] = registryAddress;
-        emit RegistryUpdated(registry, oldAddress, registryAddress);
+    function updateRegistry(bytes32 registryId, IRegistryInstance instance) external onlyAdmin whenNotPaused {
+        IRegistryInstance oldInstance = registries[registryId];
+        registries[registryId] = instance;
+        emit RegistryUpdated(registryId, address(oldInstance), address(instance));
     }
 
     function transferAdmin(address newAdmin) external onlyAdmin {
@@ -80,7 +80,7 @@ contract RootRegistry {
         if (paused) return false;
 
         // Return false if registry with this identifier doesn't exist
-        if (registries[registryId] == address(0)) return false;
+        if (address(registries[registryId]) == address(0)) return false;
 
         // Call isRootValid on registry instance
         try IRegistryInstance(registries[registryId]).isRootValid(root) returns (bool valid) {
@@ -100,7 +100,7 @@ contract RootRegistry {
         if (paused) return bytes32(0);
 
         // Return bytes32(0) if registry with this identifier doesn't exist
-        if (registries[registryId] == address(0)) return bytes32(0);
+        if (address(registries[registryId]) == address(0)) return bytes32(0);
 
         // Call latestRoot on registry instance
         try IRegistryInstance(registries[registryId]).latestRoot() returns (bytes32 root) {
@@ -122,7 +122,7 @@ contract RootRegistry {
         if (paused) return false;
 
         // Return false if registry with this identifier doesn't exist
-        if (registries[registryId] == address(0)) return false;
+        if (address(registries[registryId]) == address(0)) return false;
 
         // Call isRootValidAtTimestamp on registry instance
         try IRegistryInstance(registries[registryId]).isRootValidAtTimestamp(root, timestamp) returns (bool valid) {
