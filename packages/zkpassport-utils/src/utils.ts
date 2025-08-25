@@ -203,6 +203,20 @@ export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): 
   return result
 }
 
+/**
+ * Converts a string (or string array) into a hex string array
+ * Useful for going from text to unicode
+ * @param str
+ * @returns
+ */
+export function stringToAsciiStringArray(str: string): string[] {
+  const asciiStringArray = []
+  for (let i = 0; i < str.length; i++) {
+    asciiStringArray.push(BigInt(str.charCodeAt(i)))
+  }
+  return asciiStringArray.map((b) => `0x${b.toString(16)}`)
+}
+
 export function getIdFromChain(chain: SupportedChain): number {
   if (chain === "ethereum_sepolia") {
     return 11155111
