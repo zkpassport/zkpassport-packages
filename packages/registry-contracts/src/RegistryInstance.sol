@@ -12,8 +12,8 @@ pragma solidity ^0.8.20;
 import "./IRegistryInstance.sol";
 
 /**
- * @title Registry
- * @dev ZKPassport Registry
+ * @title RegistryInstance
+ * @dev ZKPassport Registry Instance
  */
 contract RegistryInstance is IRegistryInstance {
     struct HistoricalRoot {
@@ -88,7 +88,7 @@ contract RegistryInstance is IRegistryInstance {
      * @dev Update the latest root with metadata
      * @param newRoot The new root to set as latest
      * @param leaves The number of leaves in the merkle tree
-     * @param cid The IPFS CID of the packaged certificates
+     * @param cid The IPFS CIDv0 of the file packaging the content for this root specific to this registry
      * @param metadata1 Additional metadata (first field)
      * @param metadata2 Additional metadata (second field)
      * @param metadata3 Additional metadata (third field)
@@ -139,7 +139,7 @@ contract RegistryInstance is IRegistryInstance {
      * @dev Update the latest root
      * @param newRoot The new root to set as latest
      * @param leaves The number of leaves in the merkle tree
-     * @param cid The IPFS CID of the packaged certificates
+     * @param cid The IPFS CIDv0 of the file packaging the content for this root specific to this registry
      */
     function updateRoot(bytes32 newRoot, uint256 leaves, bytes32 cid) public {
         updateRootWithMetadata(newRoot, leaves, cid, bytes32(0), bytes32(0), bytes32(0));
