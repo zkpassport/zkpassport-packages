@@ -47,12 +47,23 @@ import {
   bigintToNumber,
   fromBytesToBigInt,
   getBitSize,
-  getOffsetInArray,
   getUnixTimestamp,
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
 } from "./utils"
 import { DSC } from "./passport/dsc"
+import {
+  getBirthdateRange,
+  getDocumentNumberRange,
+  getExpiryDateRange,
+  getFirstNameRange,
+  getFullNameRange,
+  getGenderRange,
+  getLastNameRange,
+  getNationalityRange,
+} from "./passport/getters"
+import { SanctionsBuilder } from "./circuits/sanctions"
+export { SanctionsBuilder }
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
@@ -577,61 +588,6 @@ export async function getIntegrityCheckCircuitInputs(
   }
 }
 
-export function getFirstNameRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  const lastNameStartIndex = isIDCard ? 60 : 5
-  const firstNameStartIndex = getOffsetInArray(mrz.split(""), ["<", "<"], lastNameStartIndex) + 2
-  const firstNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], firstNameStartIndex)
-  // Subtract 2 from the start index to include the two angle brackets
-  return [firstNameStartIndex - 2, firstNameEndIndex]
-}
-
-export function getLastNameRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  const lastNameStartIndex = isIDCard ? 60 : 5
-  const lastNameEndIndex = getOffsetInArray(mrz.split(""), ["<", "<"], lastNameStartIndex)
-  // Add 2 to the end index to include the two angle brackets
-  return [lastNameStartIndex, lastNameEndIndex + 2]
-}
-
-export function getFullNameRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  return [isIDCard ? 60 : 5, isIDCard ? 90 : 44]
-}
-
-function getBirthdateRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  return [isIDCard ? 30 : 57, isIDCard ? 36 : 63]
-}
-
-function getDocumentNumberRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  return [isIDCard ? 5 : 44, isIDCard ? 14 : 53]
-}
-
-function getNationalityRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  return [isIDCard ? 45 : 54, isIDCard ? 48 : 57]
-}
-
-function getExpiryDateRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  return [isIDCard ? 38 : 65, isIDCard ? 44 : 71]
-}
-
-function getGenderRange(passport: PassportViewModel): [number, number] {
-  const mrz = passport?.mrz
-  const isIDCard = mrz.length == 90
-  return [isIDCard ? 37 : 64, isIDCard ? 38 : 65]
-}
-
 export async function getDiscloseCircuitInputs(
   passport: PassportViewModel,
   query: Query,
@@ -1001,6 +957,44 @@ export async function getIssuingCountryExclusionCircuitInputs(
     ),
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
+    service_scope: `0x${service_scope.toString(16)}`,
+    service_subscope: `0x${service_subscope.toString(16)}`,
+    salt: `0x${salt.toString(16)}`,
+  }
+}
+
+export async function getSanctionsExclusionCheckCircuitInputs(
+  passport: PassportViewModel,
+  salt: bigint,
+  service_scope: bigint = 0n,
+  service_subscope: bigint = 0n,
+  sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
+): Promise<any> {
+  const idData = getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1PrivateNullifier(
+    salt,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    privateNullifier.toBigInt(),
+  )
+
+  // Only build the merkle trees if they are not provided
+  sanctions = sanctions ?? (await SanctionsBuilder.create())
+  const { proofs, root } = await sanctions.getSanctionsMerkleProofs(passport)
+
+  return {
+    dg1: idData.dg1,
+    comm_in: commIn.toHex(),
+    private_nullifier: privateNullifier.toHex(),
+    proofs,
+    root,
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,

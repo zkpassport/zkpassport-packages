@@ -188,42 +188,46 @@ export function getNumberOfPublicInputs(circuitName: string) {
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
   switch (circuitName) {
-    case "compare_age_evm":
-      return 11
-    case "compare_birthdate_evm":
-      return 25
-    case "compare_expiry_evm":
-      return 25
-    case "disclose_bytes_evm":
-      return 181
-    case "inclusion_check_issuing_country_evm":
-      return 601
-    case "inclusion_check_nationality_evm":
-      return 601
-    case "exclusion_check_issuing_country_evm":
-      return 601
-    case "exclusion_check_nationality_evm":
-      return 601
     case "compare_age":
       return 4
+    case "compare_age_evm":
+      return 7
     case "compare_birthdate":
       return 4
+    case "compare_birthdate_evm":
+      return 13
     case "compare_expiry":
       return 4
+    case "compare_expiry_evm":
+      return 13
     case "disclose_bytes":
+      return 181
+    case "disclose_bytes_evm":
       return 181
     case "inclusion_check_issuing_country":
       return 201
+    case "inclusion_check_issuing_country_evm":
+      return 601
     case "inclusion_check_nationality":
       return 201
+    case "inclusion_check_nationality_evm":
+      return 601
     case "exclusion_check_issuing_country":
       return 201
+    case "exclusion_check_issuing_country_evm":
+      return 601
     case "exclusion_check_nationality":
       return 201
+    case "exclusion_check_nationality_evm":
+      return 601
     case "bind":
       return 501
     case "bind_evm":
       return 501
+    case "exclusion_check_sanctions":
+      return 33
+    case "exclusion_check_sanctions_evm":
+      return 33
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }
@@ -253,6 +257,7 @@ export enum ProofType {
   ISSUING_COUNTRY_INCLUSION = 6,
   ISSUING_COUNTRY_EXCLUSION = 7,
   BIND = 8,
+  SANCTIONS_EXCLUSION = 9,
 }
 
 export {
