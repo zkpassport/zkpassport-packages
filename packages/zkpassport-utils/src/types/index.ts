@@ -232,7 +232,10 @@ export type QueryResultValue<T extends IDCredential> = {
 }
 
 export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
-export type SanctionsCountries = ExtendedAlpha2Code[] | ExtendedAlpha2Code | "all"
+// Explicit list of supported countries for sanction lists
+// TODO: extend this list as more countries sanction lists are added
+export type SanctionsAlpha2Code = "US" | "GB" | "CH" | "EU"
+export type SanctionsCountries = SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"
 // TODO: restrict the type of `lists` to specific sanction list names
 export type SanctionsLists = string[] | "all"
 
@@ -241,9 +244,24 @@ export type SanctionsConfig = {
   lists?: SanctionsLists
 }
 
+export type SanctionsResult = {
+  // Indicates if all the sanction checks passed
+  passed: boolean
+  // Indicates if the sanction check for the country's sanction lists passed
+  countries?: Record<SanctionsAlpha2Code, { passed: boolean }>
+  // Indicates if the sanction check for the list passed
+  lists?: Record<string, { passed: boolean }>
+}
+
 export type FacematchMode = "strict" | "relaxed"
 export type FacematchConfig = {
   mode: FacematchMode
+}
+
+export type FacematchResult = {
+  mode: FacematchMode
+  // Indicates if the facematch check passed
+  passed: boolean
 }
 
 export type Query = {
@@ -258,29 +276,8 @@ export type QueryResult = {
   [key in IDCredential]?: QueryResultValue<key>
 } & {
   bind?: BoundData
-  sanctions?: {
-    // Indicates if all the sanction checks passed
-    passed: boolean
-    countries?: Record<
-      ExtendedAlpha2Code,
-      {
-        // Indicates if the sanction check for the country's sanction lists passed
-        passed: boolean
-      }
-    >
-    lists?: Record<
-      string,
-      {
-        // Indicates if the sanction check for the list passed
-        passed: boolean
-      }
-    >
-  }
-  facematch?: {
-    mode: FacematchMode
-    // Indicates if the facematch check passed
-    passed: boolean
-  }
+  sanctions?: SanctionsResult
+  facematch?: FacematchResult
 }
 
 export type AgeCommittedInputs = {
@@ -349,8 +346,6 @@ export type DisclosureCircuitName =
   | "inclusion_check_nationality_evm"
   | "bind"
   | "bind_evm"
-  | "sanctions"
-  | "sanctions_evm"
   | "facematch"
   | "facematch_evm"
 
@@ -384,6 +379,7 @@ export type QRCodeData = {
   service: Service | null
   mode: ProofMode
   sdkVersion: string | null
+  timestamp: number | null
 }
 
 export interface JsonRpcRequest {
