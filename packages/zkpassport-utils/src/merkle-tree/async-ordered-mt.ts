@@ -221,7 +221,7 @@ export default class AsyncOrderedMT {
 
     const pos = low
     const exists = pos < numberOfLeaves && this.leaves[pos] === leaf
-    const leftIndex = pos - 1 >= 0 ? (exists ? pos - 1 : pos - 1) : null
+    const leftIndex = pos - 1 >= 0 ? pos - 1 : null
     const rightIndex = (exists ? pos + 1 : pos) < numberOfLeaves ? (exists ? pos + 1 : pos) : null
 
     return { exists, index: exists ? pos : null, leftIndex, rightIndex }
