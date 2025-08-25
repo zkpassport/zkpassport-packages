@@ -4,7 +4,7 @@ import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
 
 // MockRegistry for testing the delegation functionality
-contract MockRegistry {
+contract MockRegistry is IRegistryInstance {
     bool private shouldReturnValid;
 
     constructor(bool _shouldReturnValid) {
@@ -21,6 +21,30 @@ contract MockRegistry {
 
     function setShouldReturnValid(bool _shouldReturnValid) external {
         shouldReturnValid = _shouldReturnValid;
+    }
+
+    function latestRoot() external pure returns (bytes32) {
+        return keccak256("test-root");
+    }
+
+    function rootByIndex(uint256) external pure returns (bytes32) {
+        return keccak256("test-root");
+    }
+
+    function indexByRoot(bytes32) external pure returns (uint256) {
+        return 0;
+    }
+
+    function rootCount() external pure returns (uint256) {
+        return 1;
+    }
+
+    function historicalRoots(bytes32)
+        external
+        pure
+        returns (uint256, uint256, bool, uint256, bytes32, bytes32, bytes32, bytes32)
+    {
+        return (0, 0, false, 0, keccak256("test-root"), bytes32(0), bytes32(0), bytes32(0));
     }
 }
 
@@ -71,17 +95,17 @@ contract RootRegistryTest is Test {
     function testUpdateRegistry() public {
         // Admin updates registry address
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(mockValidRegistry)));
 
         // Check that registry address was updated
-        assertEq(registry.registries(certificateRegistryId), address(mockValidRegistry));
+        assertEq(address(registry.registries(certificateRegistryId)), address(mockValidRegistry));
 
         // Update to a different address
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockInvalidRegistry));
+        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(mockInvalidRegistry)));
 
         // Check that registry address was updated
-        assertEq(registry.registries(certificateRegistryId), address(mockInvalidRegistry));
+        assertEq(address(registry.registries(certificateRegistryId)), address(mockInvalidRegistry));
     }
 
     function testUpdateRegistryEvent() public {
@@ -90,7 +114,7 @@ contract RootRegistryTest is Test {
 
         // Admin updates registry address
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(mockValidRegistry)));
 
         // Get the logs
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -117,7 +141,7 @@ contract RootRegistryTest is Test {
         // User tries to update registry
         vm.prank(user);
         vm.expectRevert("Not authorized: admin only");
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
     }
 
     function testCannotUpdateRegistryWhenPaused() public {
@@ -128,23 +152,23 @@ contract RootRegistryTest is Test {
         // Admin tries to update registry
         vm.prank(admin);
         vm.expectRevert("Contract is paused");
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
     }
 
     function testCanUpdateRegistryToZeroAddress() public {
         // Set up registry with valid mock first
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Verify registry is set
-        assertEq(registry.registries(certificateRegistryId), address(mockValidRegistry));
+        assertEq(address(registry.registries(certificateRegistryId)), address(mockValidRegistry));
 
         // Admin updates registry to zero address to delete the mapping
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(0));
+        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(0)));
 
         // Check that registry address was updated to zero (deleted)
-        assertEq(registry.registries(certificateRegistryId), address(0));
+        assertEq(address(registry.registries(certificateRegistryId)), address(0));
 
         // Verify that isRootValid returns false for the deleted registry
         // This behavior should be the same as for a non-existent registry
@@ -154,14 +178,14 @@ contract RootRegistryTest is Test {
     function testIsRootValid() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid
         assertTrue(registry.isRootValid(certificateRegistryId, testRoot));
 
         // Update registry to invalid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockInvalidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
 
         // Check that root is now invalid
         assertFalse(registry.isRootValid(certificateRegistryId, testRoot));
@@ -178,7 +202,7 @@ contract RootRegistryTest is Test {
     function testIsRootValidWhenPaused() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid
         assertTrue(registry.isRootValid(certificateRegistryId, testRoot));
@@ -194,14 +218,14 @@ contract RootRegistryTest is Test {
     function testIsRootValidAtTimestamp() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid at current timestamp
         assertTrue(registry.isRootValidAtTimestamp(certificateRegistryId, testRoot, block.timestamp));
 
         // Update registry to invalid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockInvalidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
 
         // Check that root is now invalid at current timestamp
         assertFalse(registry.isRootValidAtTimestamp(certificateRegistryId, testRoot, block.timestamp));
@@ -218,7 +242,7 @@ contract RootRegistryTest is Test {
     function testIsRootValidAtTimestampWhenPaused() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid at current timestamp
         assertTrue(registry.isRootValidAtTimestamp(certificateRegistryId, testRoot, block.timestamp));
@@ -241,12 +265,12 @@ contract RootRegistryTest is Test {
 
         // New admin should be able to update registry
         vm.prank(user);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Old admin should no longer be able to update registry
         vm.prank(admin);
         vm.expectRevert("Not authorized: admin only");
-        registry.updateRegistry(circuitRegistryId, address(mockValidRegistry));
+        registry.updateRegistry(circuitRegistryId, mockValidRegistry);
     }
 
     function testCannotTransferAdminToZeroAddress() public {
@@ -282,8 +306,8 @@ contract RootRegistryTest is Test {
     function testMultipleRegistries() public {
         // Set up multiple registries
         vm.startPrank(admin);
-        registry.updateRegistry(certificateRegistryId, address(mockValidRegistry));
-        registry.updateRegistry(circuitRegistryId, address(mockInvalidRegistry));
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
+        registry.updateRegistry(circuitRegistryId, mockInvalidRegistry);
         vm.stopPrank();
 
         // Check that roots are valid/invalid as expected

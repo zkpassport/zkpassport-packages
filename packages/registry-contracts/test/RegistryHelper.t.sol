@@ -19,7 +19,7 @@ contract RegistryHelperTest is Test {
         vm.startPrank(admin);
         registry = new CertificateRegistry(admin, oracle);
         rootRegistry = new RootRegistry(admin);
-        rootRegistry.updateRegistry(CERTIFICATE_REGISTRY_ID, address(registry));
+        rootRegistry.updateRegistry(CERTIFICATE_REGISTRY_ID, registry);
         helper = new RegistryHelper(rootRegistry);
         vm.stopPrank();
     }
