@@ -40,6 +40,7 @@ import {
   getDSCSignatureHashAlgorithm,
   SIGNED_ATTR_INPUT_SIZE,
   E_CONTENT_INPUT_SIZE,
+  SECONDS_BETWEEN_1900_AND_1970,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -487,8 +488,8 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: "0x2",
       service_subscope: "0x3",
       salt: "0x1",
-      min_date: getUnixTimestamp(new Date("1980-01-01")),
-      max_date: getUnixTimestamp(new Date("1990-01-01")),
+      min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
+      max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
     })
   })
 
@@ -784,8 +785,8 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: "0x2",
       service_subscope: "0x3",
       salt: "0x1",
-      min_date: getUnixTimestamp(new Date("1980-01-01")),
-      max_date: getUnixTimestamp(new Date("1990-01-01")),
+      min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
+      max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
     })
   })
 
