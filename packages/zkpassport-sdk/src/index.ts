@@ -70,6 +70,8 @@ import {
   SanctionsLists,
   getBirthdateMinDateTimestamp,
   getBirthdateMaxDateTimestamp,
+  SanctionsCommittedInputs,
+  SanctionsBuilder,
 } from "@zkpassport/utils"
 import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -1828,6 +1830,9 @@ export class ZKPassport {
     if (this.domain && getServiceScopeHash(this.domain) !== BigInt(proofData.publicInputs[1])) {
       console.warn("The proof comes from a different domain than the one expected")
       isCorrect = false
+      if (!queryResultErrors[key as keyof QueryResultErrors]) {
+        queryResultErrors[key as keyof QueryResultErrors] = {}
+      }
       queryResultErrors[key as keyof QueryResultErrors]!.scope = {
         expected: `Scope: ${getServiceScopeHash(this.domain).toString()}`,
         received: `Scope: ${BigInt(proofData.publicInputs[1]).toString()}`,
@@ -1837,6 +1842,9 @@ export class ZKPassport {
     if (scope && getScopeHash(scope) !== BigInt(proofData.publicInputs[2])) {
       console.warn("The proof uses a different scope than the one expected")
       isCorrect = false
+      if (!queryResultErrors[key as keyof QueryResultErrors]) {
+        queryResultErrors[key as keyof QueryResultErrors] = {}
+      }
       queryResultErrors[key as keyof QueryResultErrors]!.scope = {
         expected: `Scope: ${getScopeHash(scope).toString()}`,
         received: `Scope: ${BigInt(proofData.publicInputs[2]).toString()}`,
@@ -1860,6 +1868,9 @@ export class ZKPassport {
       if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
         isCorrect = false
+        if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
+          queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
+        }
         queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
           expected: `A valid root from ZKPassport Registry`,
           received: `Got invalid certificate registry root: ${root}`,
@@ -1870,6 +1881,9 @@ export class ZKPassport {
       console.warn(error)
       console.warn("The ID was signed by an unrecognized root certificate")
       isCorrect = false
+      if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
+        queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
+      }
       queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
         expected: `A valid root from ZKPassport Registry`,
         received: `Got invalid certificate registry root: ${root}`,
@@ -1957,6 +1971,32 @@ export class ZKPassport {
     return { isCorrect, queryResultErrors }
   }
 
+  private async checkSanctionsExclusionPublicInputs(
+    queryResult: QueryResult,
+    root: bigint,
+    sanctionsBuilder: SanctionsBuilder,
+  ) {
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    let isCorrect = true
+    if (queryResult.sanctions && queryResult.sanctions.passed) {
+      // For now it's fixed until we streamline the update of the sanctions registry
+      const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
+      if (root !== BigInt(EXPECTED_ROOT)) {
+        console.warn("Invalid sanctions registry root")
+        isCorrect = false
+        queryResultErrors.sanctions = {
+          ...queryResultErrors.sanctions,
+          eq: {
+            expected: EXPECTED_ROOT,
+            received: root.toString(16),
+            message: "Invalid sanctions registry root",
+          },
+        }
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   private async checkPublicInputs(
     proofs: Array<ProofResult>,
     queryResult: QueryResult,
@@ -1995,6 +2035,7 @@ export class ZKPassport {
         "exclusion_check_issuing_country",
         "inclusion_check_issuing_country",
         "bind",
+        "exclusion_check_sanctions",
       ]
       const getIndex = (proof: ProofResult) => {
         const name = proof.name || ""
@@ -2380,6 +2421,38 @@ export class ZKPassport {
           queryResultErrors = {
             ...queryResultErrors,
             ...queryResultErrorsBind,
+          }
+        } else if (!!committedInputs?.exclusion_check_sanctions) {
+          const sanctionsBuilder = await SanctionsBuilder.create()
+          const exclusionCheckSanctionsCommittedInputs =
+            committedInputs?.exclusion_check_sanctions as SanctionsCommittedInputs
+          const exclusionCheckSanctionsParameterCommitment = isForEVM
+            ? await sanctionsBuilder.getSanctionsEvmParameterCommitment()
+            : await sanctionsBuilder.getSanctionsParameterCommitment()
+          if (!paramCommitments.includes(exclusionCheckSanctionsParameterCommitment)) {
+            console.warn("This proof does not verify the exclusion from the sanction lists")
+            isCorrect = false
+            queryResultErrors.sanctions = {
+              ...queryResultErrors.sanctions,
+              commitment: {
+                expected: `Sanctions parameter commitment: ${exclusionCheckSanctionsParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the exclusion from the sanction lists",
+              },
+            }
+          }
+          const {
+            isCorrect: isCorrectSanctionsExclusion,
+            queryResultErrors: queryResultErrorsSanctionsExclusion,
+          } = await this.checkSanctionsExclusionPublicInputs(
+            queryResult,
+            BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+            sanctionsBuilder,
+          )
+          isCorrect = isCorrect && isCorrectSanctionsExclusion
+          queryResultErrors = {
+            ...queryResultErrors,
+            ...queryResultErrorsSanctionsExclusion,
           }
         }
         uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
@@ -2893,6 +2966,41 @@ export class ZKPassport {
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsBind,
+        }
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+      } else if (proof.name === "exclusion_check_sanctions") {
+        const sanctionsBuilder = await SanctionsBuilder.create()
+        const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
+          ?.exclusion_check_sanctions as SanctionsCommittedInputs
+        const calculatedParamCommitment = await sanctionsBuilder.getSanctionsParameterCommitment()
+        const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
+        if (paramCommittment !== calculatedParamCommitment) {
+          console.warn(
+            "The sanction lists check against do not match the sanction lists from the proof",
+          )
+          isCorrect = false
+          queryResultErrors.sanctions = {
+            ...queryResultErrors.sanctions,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment.toString()}`,
+              received: `Commitment: ${paramCommittment.toString()}`,
+              message:
+                "The sanction lists check against do not match the sanction lists from the proof",
+            },
+          }
+        }
+        const {
+          isCorrect: isCorrectSanctionsExclusion,
+          queryResultErrors: queryResultErrorsSanctionsExclusion,
+        } = await this.checkSanctionsExclusionPublicInputs(
+          queryResult,
+          BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+          sanctionsBuilder,
+        )
+        isCorrect = isCorrect && isCorrectSanctionsExclusion
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsSanctionsExclusion,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       }
