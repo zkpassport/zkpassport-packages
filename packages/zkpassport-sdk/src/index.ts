@@ -358,7 +358,7 @@ export type QueryBuilder = {
    * @param countries The country or list of countries whose sanction lists to check against. Defaults to "all".
    * e.g. "US", ["US", "GB", "CH", "EU"], "all"
    * @param lists The specific lists from a given country to check against. Defaults to "all".
-   * e.g. ["OFAC-SDN"], "all"
+   * e.g. ["OFAC_SDN"], "all"
    */
   sanctions: (countries?: SanctionsCountries, lists?: SanctionsLists) => QueryBuilder
   /**

@@ -166,14 +166,14 @@ describe("Query Builder", () => {
   })
 
   test("should build sanctions query for single country with custom list", async () => {
-    const result = queryBuilder.sanctions("US", ["OFAC-SDN"]).done()
+    const result = queryBuilder.sanctions("US", ["OFAC_SDN"]).done()
 
     const configPart = result.url.split("c=")[1].split("&")[0]
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
       countries: ["US"],
-      lists: ["OFAC-SDN"],
+      lists: ["OFAC_SDN"],
     })
   })
 
