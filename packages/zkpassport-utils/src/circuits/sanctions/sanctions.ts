@@ -124,7 +124,6 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
     passport.mrz.slice(...getNationalityRange(passport)),
   )
 
-  // WORKNOTE: The issue we are having is that these are not aligned with what is being calculated in the circuits for an ID card.
   const nameAndDOBBytes = [...fullNameBytes, ...dateOfBirthBytes]
   const nameAndYobBytes = [...fullNameBytes, ...dateOfBirthBytes.slice(0, 2)]
   const documentNumberAndNationalityBytes = [...documentNumberBytes, ...nationalityBytes]
