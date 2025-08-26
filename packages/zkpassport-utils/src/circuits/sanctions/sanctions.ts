@@ -107,7 +107,13 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   nameAndYobHash: bigint
   documentNumberAndNationalityHash: bigint
 }> {
-  const fullNameBytes = stringToAsciiStringArray(passport.mrz.slice(...getFullNameRange(passport)))
+  let mrzName = passport.mrz.slice(...getFullNameRange(passport))
+  if (mrzName.length < 39) {
+    // Pad the end with the < character
+    mrzName = mrzName.padEnd(39, "<")
+  }
+
+  const fullNameBytes = stringToAsciiStringArray(mrzName)
   const dateOfBirthBytes = stringToAsciiStringArray(
     passport.mrz.slice(...getBirthdateRange(passport)),
   )
