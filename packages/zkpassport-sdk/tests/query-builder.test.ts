@@ -217,14 +217,14 @@ describe("Query Builder", () => {
     })
   })
 
-  test("should build facematch query with relaxed mode", async () => {
-    const result = queryBuilder.facematch("relaxed").done()
+  test("should build facematch query with regular mode", async () => {
+    const result = queryBuilder.facematch("regular").done()
 
     const configPart = result.url.split("c=")[1].split("&")[0]
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.facematch).toEqual({
-      mode: "relaxed",
+      mode: "regular",
     })
   })
 })

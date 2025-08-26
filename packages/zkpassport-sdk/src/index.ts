@@ -359,10 +359,10 @@ export type QueryBuilder = {
   sanctions: (countries?: SanctionsCountries, lists?: SanctionsLists) => QueryBuilder
   /**
    * Requires that the ID holder's face matches the photo on the ID.
-   * @param mode The mode to use for the face match. Defaults to "strict".
+   * @param mode The mode to use for the face match. Defaults to "regular".
    * @param mode "strict" - The user will have to go through an extensive liveness check to prevent spoofing making it more secure.
    * Best for high security requirements such as KYC.
-   * @param mode "relaxed" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
+   * @param mode "regular" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
    * Best for lower security requirements that requires fast verification such as age verification.
    */
   facematch: (mode?: FacematchMode) => QueryBuilder
@@ -701,7 +701,7 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      facematch: (mode: FacematchMode = "strict") => {
+      facematch: (mode: FacematchMode = "regular") => {
         this.topicToConfig[topic].facematch = {
           mode,
         }

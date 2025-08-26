@@ -253,7 +253,7 @@ export type SanctionsResult = {
   lists?: Record<string, { passed: boolean }>
 }
 
-export type FacematchMode = "strict" | "relaxed"
+export type FacematchMode = "strict" | "regular"
 export type FacematchConfig = {
   mode: FacematchMode
 }
