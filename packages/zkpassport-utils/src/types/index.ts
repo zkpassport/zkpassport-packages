@@ -313,12 +313,17 @@ export type BindCommittedInputs = {
   data: BoundData
 }
 
+export type SanctionsCommittedInputs = {
+  rootHash: bigint
+}
+
 export type CommittedInputs =
   | AgeCommittedInputs
   | CountryCommittedInputs
   | DateCommittedInputs
   | DiscloseCommittedInputs
   | BindCommittedInputs
+  | SanctionsCommittedInputs
 
 export type DisclosureCircuitName =
   | "disclose_bytes"

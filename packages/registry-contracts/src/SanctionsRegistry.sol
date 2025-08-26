@@ -12,9 +12,9 @@ pragma solidity ^0.8.20;
 import {RegistryInstance} from "./RegistryInstance.sol";
 
 /**
- * @title CircuitRegistry
- * @dev ZKPassport Circuit Registry
+ * @title SanctionsRegistry
+ * @dev ZKPassport Sanctions Registry
  */
-contract CircuitRegistry is RegistryInstance {
+contract SanctionsRegistry is RegistryInstance {
     constructor(address _admin, address _oracle) RegistryInstance(_admin, _oracle) {}
 }
