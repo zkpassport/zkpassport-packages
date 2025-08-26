@@ -107,7 +107,13 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   nameAndYobHash: bigint
   documentNumberAndNationalityHash: bigint
 }> {
-  const fullNameBytes = stringToAsciiStringArray(passport.mrz.slice(...getFullNameRange(passport)))
+  let mrzName = passport.mrz.slice(...getFullNameRange(passport))
+  if (mrzName.length < 39) {
+    // Pad the end with the < character
+    mrzName = mrzName.padEnd(39, "<")
+  }
+
+  const fullNameBytes = stringToAsciiStringArray(mrzName)
   const dateOfBirthBytes = stringToAsciiStringArray(
     passport.mrz.slice(...getBirthdateRange(passport)),
   )
@@ -118,6 +124,7 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
     passport.mrz.slice(...getNationalityRange(passport)),
   )
 
+  // WORKNOTE: The issue we are having is that these are not aligned with what is being calculated in the circuits for an ID card.
   const nameAndDOBBytes = [...fullNameBytes, ...dateOfBirthBytes]
   const nameAndYobBytes = [...fullNameBytes, ...dateOfBirthBytes.slice(0, 2)]
   const documentNumberAndNationalityBytes = [...documentNumberBytes, ...nationalityBytes]
