@@ -3295,7 +3295,9 @@ export class ZKPassport {
       }
       committedInputs.push({ circuitName, inputs: compressedCommittedInputs })
     }
-    const parameterCommitments = proofData.publicInputs.slice(12, proofData.publicInputs.length - 1)
+    const parameterCommitments = getParamCommitmentsFromOuterProof(proofData).map((x) =>
+      x.toString(16).padStart(64, "0"),
+    )
     let compressedCommittedInputs = ""
     let committedInputCountsArray = []
     for (const commitment of parameterCommitments) {
@@ -3353,7 +3355,7 @@ export class ZKPassport {
     // The timestamp is the current time minus the validity period
     // essentially, the data integrity check proof needs to have been generated after the timestamp
     const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&d=${timestamp}`
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}`
   }
 
   /**
