@@ -128,7 +128,7 @@ describe("Query Builder", () => {
 
     // Verify URL format
     expect(result.url).toMatch(
-      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+&m=[^&]+&v=[^&]+$/,
+      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+&m=[^&]+&v=[^&]+&d=[^&]+$/,
     )
 
     // Verify service info is included
@@ -166,14 +166,14 @@ describe("Query Builder", () => {
   })
 
   test("should build sanctions query for single country with custom list", async () => {
-    const result = queryBuilder.sanctions("US", ["OFAC-SDN"]).done()
+    const result = queryBuilder.sanctions("US", ["OFAC_SDN"]).done()
 
     const configPart = result.url.split("c=")[1].split("&")[0]
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
       countries: ["US"],
-      lists: ["OFAC-SDN"],
+      lists: ["OFAC_SDN"],
     })
   })
 
@@ -206,7 +206,8 @@ describe("Query Builder", () => {
     })
   })
 
-  test("should build facematch query with strict mode", async () => {
+  // TODO: Uncomment this when the facematch is ready
+  /*test("should build facematch query with strict mode", async () => {
     const result = queryBuilder.facematch("strict").done()
 
     const configPart = result.url.split("c=")[1].split("&")[0]
@@ -217,14 +218,14 @@ describe("Query Builder", () => {
     })
   })
 
-  test("should build facematch query with relaxed mode", async () => {
-    const result = queryBuilder.facematch("relaxed").done()
+  test("should build facematch query with regular mode", async () => {
+    const result = queryBuilder.facematch("regular").done()
 
     const configPart = result.url.split("c=")[1].split("&")[0]
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.facematch).toEqual({
-      mode: "relaxed",
+      mode: "regular",
     })
-  })
+  })*/
 })

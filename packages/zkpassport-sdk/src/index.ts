@@ -1,4 +1,4 @@
-import { Alpha2Code, Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
+import { Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
 import {
   type DisclosableIDCredential,
   type IDCredential,
@@ -20,14 +20,12 @@ import {
   getCurrentDateFromIntegrityProof,
   DisclosedData,
   formatName,
-  getHostedPackagedCircuitByName,
   Query,
   getNumberOfPublicInputs,
   getParameterCommitmentFromDisclosureProof,
   getCountryParameterCommitment,
   getDiscloseParameterCommitment,
   getDateParameterCommitment,
-  getFormattedDate,
   getCertificateRegistryRootFromOuterProof,
   getParamCommitmentsFromOuterProof,
   AgeCommittedInputs,
@@ -67,12 +65,13 @@ import {
   areDatesEqual,
   formatQueryResultDates,
   IDCredentialConfig,
-  ExtendedAlpha2Code,
   FacematchMode,
   SanctionsCountries,
   SanctionsLists,
   getBirthdateMinDateTimestamp,
   getBirthdateMaxDateTimestamp,
+  SanctionsCommittedInputs,
+  SanctionsBuilder,
 } from "@zkpassport/utils"
 import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -87,6 +86,8 @@ import { Bridge, BridgeInterface } from "@obsidion/bridge"
 const VERSION = "0.8.0"
 
 const DEFAULT_DATE_VALUE = new Date(0)
+
+const DEFAULT_VALIDITY = 7 * 24 * 60 * 60 // 7 days
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
@@ -110,7 +111,9 @@ export type QueryResultErrors = {
     | "data_check_integrity"
     | "outer"
     | "disclose"
-    | "bind"]: {
+    | "bind"
+    | "facematch"
+    | "sanctions"]: {
     disclose?: QueryResultError<string | number | Date>
     gte?: QueryResultError<number | Date>
     lte?: QueryResultError<number | Date>
@@ -262,7 +265,7 @@ export type QueryBuilderResult = {
       uniqueIdentifier: string | undefined
       verified: boolean
       result: QueryResult
-      queryResultErrors?: QueryResultErrors
+      queryResultErrors?: Partial<QueryResultErrors>
     }) => void,
   ) => void
   /**
@@ -355,18 +358,19 @@ export type QueryBuilder = {
    * @param countries The country or list of countries whose sanction lists to check against. Defaults to "all".
    * e.g. "US", ["US", "GB", "CH", "EU"], "all"
    * @param lists The specific lists from a given country to check against. Defaults to "all".
-   * e.g. ["OFAC-SDN"], "all"
+   * e.g. ["OFAC_SDN"], "all"
    */
   sanctions: (countries?: SanctionsCountries, lists?: SanctionsLists) => QueryBuilder
   /**
    * Requires that the ID holder's face matches the photo on the ID.
-   * @param mode The mode to use for the face match. Defaults to "strict".
+   * @param mode The mode to use for the face match. Defaults to "regular".
    * @param mode "strict" - The user will have to go through an extensive liveness check to prevent spoofing making it more secure.
    * Best for high security requirements such as KYC.
-   * @param mode "relaxed" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
+   * @param mode "regular" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
    * Best for lower security requirements that requires fast verification such as age verification.
    */
-  facematch: (mode?: FacematchMode) => QueryBuilder
+  // TODO: Uncomment this when the facematch is ready
+  // facematch: (mode?: FacematchMode) => QueryBuilder
   /**
    * Builds the request.
    *
@@ -408,7 +412,7 @@ export class ZKPassport {
         uniqueIdentifier: string | undefined
         verified: boolean
         result: QueryResult
-        queryResultErrors?: QueryResultErrors
+        queryResultErrors?: Partial<QueryResultErrors>
       }) => void
     >
   > = {}
@@ -416,11 +420,31 @@ export class ZKPassport {
   private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
   //private wasmVerifierInit: boolean = false
 
+  private normalizeDomain(domain: string) {
+    return (
+      domain
+        .trim()
+        // Remove protocol
+        .replace(/^https?:\/\//, "")
+        // Remove subdomains (keep only root domain - last 2 parts)
+        .replace(/^.*\.([a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+)/, "$1")
+        // Remove trailing slash and anything after it
+        .replace(/\/[^/]*$/, "")
+        // Remove port
+        .replace(/:[0-9]+/, "")
+        // Remove query parameters
+        .replace(/\?.*$/, "")
+        // Remove hash
+        .replace(/#.*$/, "")
+        .toLowerCase()
+    )
+  }
+
   constructor(_domain?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
-    this.domain = _domain || window.location.hostname
+    this.domain = this.normalizeDomain(_domain || window.location.hostname)
   }
 
   private async handleResult(topic: string) {
@@ -522,7 +546,7 @@ export class ZKPassport {
       neededCircuits.push("bind")
     }
     if (this.topicToConfig[topic].sanctions) {
-      neededCircuits.push("sanctions")
+      neededCircuits.push("exclusion_check_sanctions")
     }
     if (this.topicToConfig[topic].facematch) {
       neededCircuits.push("facematch")
@@ -682,12 +706,13 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      facematch: (mode: FacematchMode = "strict") => {
+      // TODO: Uncomment this when the facematch is ready
+      /*facematch: (mode: FacematchMode = "regular") => {
         this.topicToConfig[topic].facematch = {
           mode,
         }
         return this.getZkPassportRequest(topic)
-      },
+      },*/
       done: () => {
         this.setExpectedProofCount(topic)
         return {
@@ -706,7 +731,7 @@ export class ZKPassport {
               uniqueIdentifier: string | undefined
               verified: boolean
               result: QueryResult
-              queryResultErrors?: QueryResultErrors
+              queryResultErrors?: Partial<QueryResultErrors>
             }) => void,
           ) => this.onResultCallbacks[topic].push(callback),
           onReject: (callback: () => void) => this.onRejectCallbacks[topic].push(callback),
@@ -725,7 +750,7 @@ export class ZKPassport {
    * @param logo The logo of your service
    * @param purpose To explain what you want to do with the user's data
    * @param scope Scope this request to a specific use case
-   * @param validity How many days ago should have the ID been last scanned by the user?
+   * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @returns The query builder object.
    */
@@ -774,8 +799,8 @@ export class ZKPassport {
     this.topicToProofs[topic] = []
     this.topicToExpectedProofCount[topic] = 0
     this.topicToLocalConfig[topic] = {
-      // Default to 6 months
-      validity: validity || 6 * 30,
+      // Default to 7 days
+      validity: validity || DEFAULT_VALIDITY,
       mode: mode || "fast",
       devMode: devMode || false,
     }
@@ -808,25 +833,7 @@ export class ZKPassport {
   }
 
   private checkDiscloseBytesPublicInputs(proof: ProofResult, queryResult: QueryResult) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     // We can't be certain that the disclosed data is for a passport or an ID card
     // so we need to check both (unless the document type is revealed)
@@ -847,19 +854,25 @@ export class ZKPassport {
       ) {
         console.warn("Document type does not match the expected document type")
         isCorrect = false
-        queryResultErrors.document_type.eq = {
-          expected: `${queryResult.document_type.eq.expected}`,
-          received: `${disclosedDataPassport.documentType ?? disclosedDataIDCard.documentType}`,
-          message: "Document type does not match the expected document type",
+        queryResultErrors.document_type = {
+          ...queryResultErrors.document_type,
+          eq: {
+            expected: `${queryResult.document_type.eq.expected}`,
+            received: `${disclosedDataPassport.documentType ?? disclosedDataIDCard.documentType}`,
+            message: "Document type does not match the expected document type",
+          },
         }
       }
       if (queryResult.document_type.disclose?.result !== disclosedDataIDCard.documentType) {
         console.warn("Document type does not match the disclosed document type in query result")
         isCorrect = false
-        queryResultErrors.document_type.disclose = {
-          expected: `${queryResult.document_type.disclose?.result}`,
-          received: `${disclosedDataIDCard.documentType ?? disclosedDataPassport.documentType}`,
-          message: "Document type does not match the disclosed document type in query result",
+        queryResultErrors.document_type = {
+          ...queryResultErrors.document_type,
+          disclose: {
+            expected: `${queryResult.document_type.disclose?.result}`,
+            received: `${disclosedDataIDCard.documentType ?? disclosedDataPassport.documentType}`,
+            message: "Document type does not match the disclosed document type in query result",
+          },
         }
       }
     }
@@ -874,10 +887,13 @@ export class ZKPassport {
       ) {
         console.warn("Birthdate does not match the expected birthdate")
         isCorrect = false
-        queryResultErrors.birthdate.eq = {
-          expected: `${queryResult.birthdate.eq.expected.toISOString()}`,
-          received: `${birthdatePassport?.toISOString() ?? birthdateIDCard?.toISOString()}`,
-          message: "Birthdate does not match the expected birthdate",
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          eq: {
+            expected: `${queryResult.birthdate.eq.expected.toISOString()}`,
+            received: `${birthdatePassport?.toISOString() ?? birthdateIDCard?.toISOString()}`,
+            message: "Birthdate does not match the expected birthdate",
+          },
         }
       }
       if (
@@ -887,10 +903,13 @@ export class ZKPassport {
       ) {
         console.warn("Birthdate does not match the disclosed birthdate in query result")
         isCorrect = false
-        queryResultErrors.birthdate.disclose = {
-          expected: `${queryResult.birthdate.disclose.result.toISOString()}`,
-          received: `${birthdatePassport?.toISOString() ?? birthdateIDCard?.toISOString()}`,
-          message: "Birthdate does not match the disclosed birthdate in query result",
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          disclose: {
+            expected: `${queryResult.birthdate.disclose.result.toISOString()}`,
+            received: `${birthdatePassport?.toISOString() ?? birthdateIDCard?.toISOString()}`,
+            message: "Birthdate does not match the disclosed birthdate in query result",
+          },
         }
       }
     }
@@ -905,10 +924,13 @@ export class ZKPassport {
       ) {
         console.warn("Expiry date does not match the expected expiry date")
         isCorrect = false
-        queryResultErrors.expiry_date.eq = {
-          expected: `${queryResult.expiry_date.eq.expected.toISOString()}`,
-          received: `${expiryDatePassport?.toISOString() ?? expiryDateIDCard?.toISOString()}`,
-          message: "Expiry date does not match the expected expiry date",
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          eq: {
+            expected: `${queryResult.expiry_date.eq.expected.toISOString()}`,
+            received: `${expiryDatePassport?.toISOString() ?? expiryDateIDCard?.toISOString()}`,
+            message: "Expiry date does not match the expected expiry date",
+          },
         }
       }
       if (
@@ -918,10 +940,13 @@ export class ZKPassport {
       ) {
         console.warn("Expiry date does not match the disclosed expiry date in query result")
         isCorrect = false
-        queryResultErrors.expiry_date.disclose = {
-          expected: `${queryResult.expiry_date.disclose.result.toISOString()}`,
-          received: `${expiryDatePassport?.toISOString() ?? expiryDateIDCard?.toISOString()}`,
-          message: "Expiry date does not match the disclosed expiry date in query result",
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          disclose: {
+            expected: `${queryResult.expiry_date.disclose.result.toISOString()}`,
+            received: `${expiryDatePassport?.toISOString() ?? expiryDateIDCard?.toISOString()}`,
+            message: "Expiry date does not match the disclosed expiry date in query result",
+          },
         }
       }
     }
@@ -936,10 +961,13 @@ export class ZKPassport {
       ) {
         console.warn("Nationality does not match the expected nationality")
         isCorrect = false
-        queryResultErrors.nationality.eq = {
-          expected: `${queryResult.nationality.eq.expected}`,
-          received: `${nationalityPassport ?? nationalityIDCard}`,
-          message: "Nationality does not match the expected nationality",
+        queryResultErrors.nationality = {
+          ...queryResultErrors.nationality,
+          eq: {
+            expected: `${queryResult.nationality.eq.expected}`,
+            received: `${nationalityPassport ?? nationalityIDCard}`,
+            message: "Nationality does not match the expected nationality",
+          },
         }
       }
       if (
@@ -949,10 +977,13 @@ export class ZKPassport {
       ) {
         console.warn("Nationality does not match the disclosed nationality in query result")
         isCorrect = false
-        queryResultErrors.nationality.disclose = {
-          expected: `${queryResult.nationality.disclose.result}`,
-          received: `${nationalityPassport ?? nationalityIDCard}`,
-          message: "Nationality does not match the disclosed nationality in query result",
+        queryResultErrors.nationality = {
+          ...queryResultErrors.nationality,
+          disclose: {
+            expected: `${queryResult.nationality.disclose.result}`,
+            received: `${nationalityPassport ?? nationalityIDCard}`,
+            message: "Nationality does not match the disclosed nationality in query result",
+          },
         }
       }
     }
@@ -967,10 +998,13 @@ export class ZKPassport {
       ) {
         console.warn("Document number does not match the expected document number")
         isCorrect = false
-        queryResultErrors.document_number.eq = {
-          expected: `${queryResult.document_number.eq.expected}`,
-          received: `${documentNumberPassport ?? documentNumberIDCard}`,
-          message: "Document number does not match the expected document number",
+        queryResultErrors.document_number = {
+          ...queryResultErrors.document_number,
+          eq: {
+            expected: `${queryResult.document_number.eq.expected}`,
+            received: `${documentNumberPassport ?? documentNumberIDCard}`,
+            message: "Document number does not match the expected document number",
+          },
         }
       }
       if (
@@ -980,10 +1014,13 @@ export class ZKPassport {
       ) {
         console.warn("Document number does not match the disclosed document number in query result")
         isCorrect = false
-        queryResultErrors.document_number.disclose = {
-          expected: `${queryResult.document_number.disclose.result}`,
-          received: `${documentNumberPassport ?? documentNumberIDCard}`,
-          message: "Document number does not match the disclosed document number in query result",
+        queryResultErrors.document_number = {
+          ...queryResultErrors.document_number,
+          disclose: {
+            expected: `${queryResult.document_number.disclose.result}`,
+            received: `${documentNumberPassport ?? documentNumberIDCard}`,
+            message: "Document number does not match the disclosed document number in query result",
+          },
         }
       }
     }
@@ -998,10 +1035,13 @@ export class ZKPassport {
       ) {
         console.warn("Gender does not match the expected gender")
         isCorrect = false
-        queryResultErrors.gender.eq = {
-          expected: `${queryResult.gender.eq.expected}`,
-          received: `${genderPassport ?? genderIDCard}`,
-          message: "Gender does not match the expected gender",
+        queryResultErrors.gender = {
+          ...queryResultErrors.gender,
+          eq: {
+            expected: `${queryResult.gender.eq.expected}`,
+            received: `${genderPassport ?? genderIDCard}`,
+            message: "Gender does not match the expected gender",
+          },
         }
       }
       if (
@@ -1011,10 +1051,13 @@ export class ZKPassport {
       ) {
         console.warn("Gender does not match the disclosed gender in query result")
         isCorrect = false
-        queryResultErrors.gender.disclose = {
-          expected: `${queryResult.gender.disclose.result}`,
-          received: `${genderPassport ?? genderIDCard}`,
-          message: "Gender does not match the disclosed gender in query result",
+        queryResultErrors.gender = {
+          ...queryResultErrors.gender,
+          disclose: {
+            expected: `${queryResult.gender.disclose.result}`,
+            received: `${genderPassport ?? genderIDCard}`,
+            message: "Gender does not match the disclosed gender in query result",
+          },
         }
       }
     }
@@ -1029,10 +1072,13 @@ export class ZKPassport {
       ) {
         console.warn("Issuing country does not match the expected issuing country")
         isCorrect = false
-        queryResultErrors.issuing_country.eq = {
-          expected: `${queryResult.issuing_country.eq.expected}`,
-          received: `${issuingCountryPassport ?? issuingCountryIDCard}`,
-          message: "Issuing country does not match the expected issuing country",
+        queryResultErrors.issuing_country = {
+          ...queryResultErrors.issuing_country,
+          eq: {
+            expected: `${queryResult.issuing_country.eq.expected}`,
+            received: `${issuingCountryPassport ?? issuingCountryIDCard}`,
+            message: "Issuing country does not match the expected issuing country",
+          },
         }
       }
       if (
@@ -1042,10 +1088,13 @@ export class ZKPassport {
       ) {
         console.warn("Issuing country does not match the disclosed issuing country in query result")
         isCorrect = false
-        queryResultErrors.issuing_country.disclose = {
-          expected: `${queryResult.issuing_country.disclose.result}`,
-          received: `${issuingCountryPassport ?? issuingCountryIDCard}`,
-          message: "Issuing country does not match the disclosed issuing country in query result",
+        queryResultErrors.issuing_country = {
+          ...queryResultErrors.issuing_country,
+          disclose: {
+            expected: `${queryResult.issuing_country.disclose.result}`,
+            received: `${issuingCountryPassport ?? issuingCountryIDCard}`,
+            message: "Issuing country does not match the disclosed issuing country in query result",
+          },
         }
       }
     }
@@ -1061,10 +1110,13 @@ export class ZKPassport {
       ) {
         console.warn("Fullname does not match the expected fullname")
         isCorrect = false
-        queryResultErrors.fullname.eq = {
-          expected: `${queryResult.fullname.eq.expected}`,
-          received: `${fullnamePassport ?? fullnameIDCard}`,
-          message: "Fullname does not match the expected fullname",
+        queryResultErrors.fullname = {
+          ...queryResultErrors.fullname,
+          eq: {
+            expected: `${queryResult.fullname.eq.expected}`,
+            received: `${fullnamePassport ?? fullnameIDCard}`,
+            message: "Fullname does not match the expected fullname",
+          },
         }
       }
       if (
@@ -1076,10 +1128,13 @@ export class ZKPassport {
       ) {
         console.warn("Fullname does not match the disclosed fullname in query result")
         isCorrect = false
-        queryResultErrors.fullname.disclose = {
-          expected: `${queryResult.fullname.disclose.result}`,
-          received: `${fullnamePassport ?? fullnameIDCard}`,
-          message: "Fullname does not match the disclosed fullname in query result",
+        queryResultErrors.fullname = {
+          ...queryResultErrors.fullname,
+          disclose: {
+            expected: `${queryResult.fullname.disclose.result}`,
+            received: `${fullnamePassport ?? fullnameIDCard}`,
+            message: "Fullname does not match the disclosed fullname in query result",
+          },
         }
       }
     }
@@ -1103,10 +1158,13 @@ export class ZKPassport {
       ) {
         console.warn("Firstname does not match the expected firstname")
         isCorrect = false
-        queryResultErrors.firstname.eq = {
-          expected: `${queryResult.firstname.eq.expected}`,
-          received: `${firstnamePassport ?? firstnameIDCard}`,
-          message: "Firstname does not match the expected firstname",
+        queryResultErrors.firstname = {
+          ...queryResultErrors.firstname,
+          eq: {
+            expected: `${queryResult.firstname.eq.expected}`,
+            received: `${firstnamePassport ?? firstnameIDCard}`,
+            message: "Firstname does not match the expected firstname",
+          },
         }
       }
       if (
@@ -1118,10 +1176,13 @@ export class ZKPassport {
       ) {
         console.warn("Firstname does not match the disclosed firstname in query result")
         isCorrect = false
-        queryResultErrors.firstname.disclose = {
-          expected: `${queryResult.firstname.disclose.result}`,
-          received: `${firstnamePassport ?? firstnameIDCard}`,
-          message: "Firstname does not match the disclosed firstname in query result",
+        queryResultErrors.firstname = {
+          ...queryResultErrors.firstname,
+          disclose: {
+            expected: `${queryResult.firstname.disclose.result}`,
+            received: `${firstnamePassport ?? firstnameIDCard}`,
+            message: "Firstname does not match the disclosed firstname in query result",
+          },
         }
       }
     }
@@ -1144,10 +1205,13 @@ export class ZKPassport {
       ) {
         console.warn("Lastname does not match the expected lastname")
         isCorrect = false
-        queryResultErrors.lastname.eq = {
-          expected: `${queryResult.lastname.eq.expected}`,
-          received: `${lastnamePassport ?? lastnameIDCard}`,
-          message: "Lastname does not match the expected lastname",
+        queryResultErrors.lastname = {
+          ...queryResultErrors.lastname,
+          eq: {
+            expected: `${queryResult.lastname.eq.expected}`,
+            received: `${lastnamePassport ?? lastnameIDCard}`,
+            message: "Lastname does not match the expected lastname",
+          },
         }
       }
       if (
@@ -1159,10 +1223,13 @@ export class ZKPassport {
       ) {
         console.warn("Lastname does not match the disclosed lastname in query result")
         isCorrect = false
-        queryResultErrors.lastname.disclose = {
-          expected: `${queryResult.lastname.disclose.result}`,
-          received: `${lastnamePassport ?? lastnameIDCard}`,
-          message: "Lastname does not match the disclosed lastname in query result",
+        queryResultErrors.lastname = {
+          ...queryResultErrors.lastname,
+          disclose: {
+            expected: `${queryResult.lastname.disclose.result}`,
+            received: `${lastnamePassport ?? lastnameIDCard}`,
+            message: "Lastname does not match the disclosed lastname in query result",
+          },
         }
       }
     }
@@ -1170,25 +1237,7 @@ export class ZKPassport {
   }
 
   private checkAgePublicInputs(proof: ProofResult, queryResult: QueryResult) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
     const today = new Date(
@@ -1214,10 +1263,13 @@ export class ZKPassport {
       ) {
         console.warn("Age is not greater than or equal to the expected age")
         isCorrect = false
-        queryResultErrors.age.gte = {
-          expected: queryResult.age.gte.expected,
-          received: minAge,
-          message: "Age is not greater than or equal to the expected age",
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          gte: {
+            expected: queryResult.age.gte.expected,
+            received: minAge,
+            message: "Age is not greater than or equal to the expected age",
+          },
         }
       }
       if (
@@ -1227,10 +1279,13 @@ export class ZKPassport {
       ) {
         console.warn("Age is not less than the expected age")
         isCorrect = false
-        queryResultErrors.age.lt = {
-          expected: queryResult.age.lt.expected,
-          received: maxAge,
-          message: "Age is not less than the expected age",
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          lt: {
+            expected: queryResult.age.lt.expected,
+            received: maxAge,
+            message: "Age is not less than the expected age",
+          },
         }
       }
       if (queryResult.age.range) {
@@ -1241,29 +1296,38 @@ export class ZKPassport {
         ) {
           console.warn("Age is not in the expected range")
           isCorrect = false
-          queryResultErrors.age.range = {
-            expected: queryResult.age.range.expected,
-            received: [minAge, maxAge],
-            message: "Age is not in the expected range",
+          queryResultErrors.age = {
+            ...queryResultErrors.age,
+            range: {
+              expected: queryResult.age.range.expected,
+              received: [minAge, maxAge],
+              message: "Age is not in the expected range",
+            },
           }
         }
       }
       if (!queryResult.age.lt && !queryResult.age.range && maxAge != 0) {
         console.warn("Maximum age should be equal to 0")
         isCorrect = false
-        queryResultErrors.age.disclose = {
-          expected: 0,
-          received: maxAge,
-          message: "Maximum age should be equal to 0",
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          disclose: {
+            expected: 0,
+            received: maxAge,
+            message: "Maximum age should be equal to 0",
+          },
         }
       }
       if (!queryResult.age.gte && !queryResult.age.range && minAge != 0) {
         console.warn("Minimum age should be equal to 0")
         isCorrect = false
-        queryResultErrors.age.disclose = {
-          expected: 0,
-          received: minAge,
-          message: "Minimum age should be equal to 0",
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          disclose: {
+            expected: 0,
+            received: minAge,
+            message: "Minimum age should be equal to 0",
+          },
         }
       }
       if (
@@ -1272,17 +1336,23 @@ export class ZKPassport {
       ) {
         console.warn("Age does not match the disclosed age in query result")
         isCorrect = false
-        queryResultErrors.age.disclose = {
-          expected: `${minAge}`,
-          received: `${queryResult.age.disclose.result}`,
-          message: "Age does not match the disclosed age in query result",
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          disclose: {
+            expected: `${minAge}`,
+            received: `${queryResult.age.disclose.result}`,
+            message: "Age does not match the disclosed age in query result",
+          },
         }
       }
     } else {
       console.warn("Age is not set in the query result")
       isCorrect = false
-      queryResultErrors.age.disclose = {
-        message: "Age is not set in the query result",
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        disclose: {
+          message: "Age is not set in the query result",
+        },
       }
     }
     const currentDate = getCurrentDateFromCommittedInputs(
@@ -1294,35 +1364,20 @@ export class ZKPassport {
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
-      queryResultErrors.age.disclose = {
-        expected: `${today.toISOString()}`,
-        received: `${currentDate.toISOString()}`,
-        message: "Current date in the proof is too old",
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        disclose: {
+          expected: `${today.toISOString()}`,
+          received: `${currentDate.toISOString()}`,
+          message: "Current date in the proof is too old",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
   }
 
   private checkBirthdatePublicInputs(proof: ProofResult, queryResult: QueryResult) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
     const today = new Date(
@@ -1350,10 +1405,13 @@ export class ZKPassport {
       ) {
         console.warn("Birthdate is not greater than or equal to the expected birthdate")
         isCorrect = false
-        queryResultErrors.birthdate.gte = {
-          expected: queryResult.birthdate.gte.expected,
-          received: minDate,
-          message: "Birthdate is not greater than or equal to the expected birthdate",
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          gte: {
+            expected: queryResult.birthdate.gte.expected,
+            received: minDate,
+            message: "Birthdate is not greater than or equal to the expected birthdate",
+          },
         }
       }
       if (
@@ -1363,10 +1421,13 @@ export class ZKPassport {
       ) {
         console.warn("Birthdate is not less than the expected birthdate")
         isCorrect = false
-        queryResultErrors.birthdate.lte = {
-          expected: queryResult.birthdate.lte.expected,
-          received: maxDate,
-          message: "Birthdate is not less than the expected birthdate",
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          lte: {
+            expected: queryResult.birthdate.lte.expected,
+            received: maxDate,
+            message: "Birthdate is not less than the expected birthdate",
+          },
         }
       }
       if (queryResult.birthdate.range) {
@@ -1377,10 +1438,13 @@ export class ZKPassport {
         ) {
           console.warn("Birthdate is not in the expected range")
           isCorrect = false
-          queryResultErrors.birthdate.range = {
-            expected: queryResult.birthdate.range.expected,
-            received: [minDate, maxDate],
-            message: "Birthdate is not in the expected range",
+          queryResultErrors.birthdate = {
+            ...queryResultErrors.birthdate,
+            range: {
+              expected: queryResult.birthdate.range.expected,
+              received: [minDate, maxDate],
+              message: "Birthdate is not in the expected range",
+            },
           }
         }
       }
@@ -1391,10 +1455,13 @@ export class ZKPassport {
       ) {
         console.warn("Maximum birthdate should be equal to default date value")
         isCorrect = false
-        queryResultErrors.birthdate.disclose = {
-          expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
-          received: `${maxDate.toISOString()}`,
-          message: "Maximum birthdate should be equal to default date value",
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          disclose: {
+            expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
+            received: `${maxDate.toISOString()}`,
+            message: "Maximum birthdate should be equal to default date value",
+          },
         }
       }
       if (
@@ -1404,17 +1471,23 @@ export class ZKPassport {
       ) {
         console.warn("Minimum birthdate should be equal to default date value")
         isCorrect = false
-        queryResultErrors.birthdate.disclose = {
-          expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
-          received: `${minDate.toISOString()}`,
-          message: "Minimum birthdate should be equal to default date value",
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          disclose: {
+            expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
+            received: `${minDate.toISOString()}`,
+            message: "Minimum birthdate should be equal to default date value",
+          },
         }
       }
     } else {
       console.warn("Birthdate is not set in the query result")
       isCorrect = false
-      queryResultErrors.birthdate.disclose = {
-        message: "Birthdate is not set in the query result",
+      queryResultErrors.birthdate = {
+        ...queryResultErrors.birthdate,
+        disclose: {
+          message: "Birthdate is not set in the query result",
+        },
       }
     }
     if (
@@ -1423,35 +1496,20 @@ export class ZKPassport {
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
-      queryResultErrors.age.disclose = {
-        expected: `${today.toISOString()}`,
-        received: `${currentDate.toISOString()}`,
-        message: "Current date in the proof is too old",
+      queryResultErrors.birthdate = {
+        ...queryResultErrors.birthdate,
+        disclose: {
+          expected: `${today.toISOString()}`,
+          received: `${currentDate.toISOString()}`,
+          message: "Current date in the proof is too old",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
   }
 
   private checkExpiryDatePublicInputs(proof: ProofResult, queryResult: QueryResult) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
     const today = new Date(
@@ -1479,10 +1537,13 @@ export class ZKPassport {
       ) {
         console.warn("Expiry date is not greater than or equal to the expected expiry date")
         isCorrect = false
-        queryResultErrors.expiry_date.gte = {
-          expected: queryResult.expiry_date.gte.expected,
-          received: minDate,
-          message: "Expiry date is not greater than or equal to the expected expiry date",
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          gte: {
+            expected: queryResult.expiry_date.gte.expected,
+            received: minDate,
+            message: "Expiry date is not greater than or equal to the expected expiry date",
+          },
         }
       }
       if (
@@ -1492,10 +1553,13 @@ export class ZKPassport {
       ) {
         console.warn("Expiry date is not less than the expected expiry date")
         isCorrect = false
-        queryResultErrors.expiry_date.lte = {
-          expected: queryResult.expiry_date.lte.expected,
-          received: maxDate,
-          message: "Expiry date is not less than the expected expiry date",
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          lte: {
+            expected: queryResult.expiry_date.lte.expected,
+            received: maxDate,
+            message: "Expiry date is not less than the expected expiry date",
+          },
         }
       }
       if (queryResult.expiry_date.range) {
@@ -1506,10 +1570,13 @@ export class ZKPassport {
         ) {
           console.warn("Expiry date is not in the expected range")
           isCorrect = false
-          queryResultErrors.expiry_date.range = {
-            expected: queryResult.expiry_date.range.expected,
-            received: [minDate, maxDate],
-            message: "Expiry date is not in the expected range",
+          queryResultErrors.expiry_date = {
+            ...queryResultErrors.expiry_date,
+            range: {
+              expected: queryResult.expiry_date.range.expected,
+              received: [minDate, maxDate],
+              message: "Expiry date is not in the expected range",
+            },
           }
         }
       }
@@ -1520,10 +1587,13 @@ export class ZKPassport {
       ) {
         console.warn("Maximum expiry date should be equal to default date value")
         isCorrect = false
-        queryResultErrors.expiry_date.disclose = {
-          expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
-          received: `${maxDate.toISOString()}`,
-          message: "Maximum expiry date should be equal to default date value",
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          disclose: {
+            expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
+            received: `${maxDate.toISOString()}`,
+            message: "Maximum expiry date should be equal to default date value",
+          },
         }
       }
       if (
@@ -1533,17 +1603,23 @@ export class ZKPassport {
       ) {
         console.warn("Minimum expiry date should be equal to default date value")
         isCorrect = false
-        queryResultErrors.expiry_date.disclose = {
-          expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
-          received: `${minDate.toISOString()}`,
-          message: "Minimum expiry date should be equal to default date value",
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          disclose: {
+            expected: `${DEFAULT_DATE_VALUE.toISOString()}`,
+            received: `${minDate.toISOString()}`,
+            message: "Minimum expiry date should be equal to default date value",
+          },
         }
       }
     } else {
       console.warn("Expiry date is not set in the query result")
       isCorrect = false
-      queryResultErrors.expiry_date.disclose = {
-        message: "Expiry date is not set in the query result",
+      queryResultErrors.expiry_date = {
+        ...queryResultErrors.expiry_date,
+        disclose: {
+          message: "Expiry date is not set in the query result",
+        },
       }
     }
     if (
@@ -1552,35 +1628,20 @@ export class ZKPassport {
     ) {
       console.warn("Current date in the proof is too old")
       isCorrect = false
-      queryResultErrors.age.disclose = {
-        expected: `${today.toISOString()}`,
-        received: `${currentDate.toISOString()}`,
-        message: "Current date in the proof is too old",
+      queryResultErrors.expiry_date = {
+        ...queryResultErrors.expiry_date,
+        disclose: {
+          expected: `${today.toISOString()}`,
+          received: `${currentDate.toISOString()}`,
+          message: "Current date in the proof is too old",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
   }
 
   private checkNationalityExclusionPublicInputs(queryResult: QueryResult, countryList: string[]) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     if (
       queryResult.nationality &&
@@ -1592,17 +1653,23 @@ export class ZKPassport {
       ) {
         console.warn("Nationality exclusion list does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.nationality.out = {
-          expected: queryResult.nationality.out.expected,
-          received: countryList,
-          message: "Nationality exclusion list does not match the one from the query results",
+        queryResultErrors.nationality = {
+          ...queryResultErrors.nationality,
+          out: {
+            expected: queryResult.nationality.out.expected,
+            received: countryList,
+            message: "Nationality exclusion list does not match the one from the query results",
+          },
         }
       }
     } else if (!queryResult.nationality || !queryResult.nationality.out) {
       console.warn("Nationality exclusion is not set in the query result")
       isCorrect = false
-      queryResultErrors.nationality.out = {
-        message: "Nationality exclusion is not set in the query result",
+      queryResultErrors.nationality = {
+        ...queryResultErrors.nationality,
+        out: {
+          message: "Nationality exclusion is not set in the query result",
+        },
       }
     }
     // Check the countryList is in ascending order
@@ -1614,9 +1681,12 @@ export class ZKPassport {
           "The nationality exclusion list has not been sorted, and thus the proof cannot be trusted",
         )
         isCorrect = false
-        queryResultErrors.nationality.out = {
-          message:
-            "The nationality exclusion list has not been sorted, and thus the proof cannot be trusted",
+        queryResultErrors.nationality = {
+          ...queryResultErrors.nationality,
+          out: {
+            message:
+              "The nationality exclusion list has not been sorted, and thus the proof cannot be trusted",
+          },
         }
       }
     }
@@ -1627,25 +1697,7 @@ export class ZKPassport {
     queryResult: QueryResult,
     countryList: string[],
   ) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
 
     if (
@@ -1658,17 +1710,23 @@ export class ZKPassport {
       ) {
         console.warn("Issuing country exclusion list does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.issuing_country.out = {
-          expected: queryResult.issuing_country.out.expected,
-          received: countryList,
-          message: "Issuing country exclusion list does not match the one from the query results",
+        queryResultErrors.issuing_country = {
+          ...queryResultErrors.issuing_country,
+          out: {
+            expected: queryResult.issuing_country.out.expected,
+            received: countryList,
+            message: "Issuing country exclusion list does not match the one from the query results",
+          },
         }
       }
     } else if (!queryResult.issuing_country || !queryResult.issuing_country.out) {
       console.warn("Issuing country exclusion is not set in the query result")
       isCorrect = false
-      queryResultErrors.issuing_country.out = {
-        message: "Issuing country exclusion is not set in the query result",
+      queryResultErrors.issuing_country = {
+        ...queryResultErrors.issuing_country,
+        out: {
+          message: "Issuing country exclusion is not set in the query result",
+        },
       }
     }
     // Check the countryList is in ascending order
@@ -1680,9 +1738,12 @@ export class ZKPassport {
           "The issuing country exclusion list has not been sorted, and thus the proof cannot be trusted",
         )
         isCorrect = false
-        queryResultErrors.issuing_country.out = {
-          message:
-            "The issuing country exclusion list has not been sorted, and thus the proof cannot be trusted",
+        queryResultErrors.issuing_country = {
+          ...queryResultErrors.issuing_country,
+          out: {
+            message:
+              "The issuing country exclusion list has not been sorted, and thus the proof cannot be trusted",
+          },
         }
       }
     }
@@ -1690,25 +1751,7 @@ export class ZKPassport {
   }
 
   private checkNationalityInclusionPublicInputs(queryResult: QueryResult, countryList: string[]) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     if (
       queryResult.nationality &&
@@ -1718,17 +1761,23 @@ export class ZKPassport {
       if (!queryResult.nationality.in.expected?.every((country) => countryList.includes(country))) {
         console.warn("Nationality inclusion list does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.nationality.in = {
-          expected: queryResult.nationality.in.expected,
-          received: countryList,
-          message: "Nationality inclusion list does not match the one from the query results",
+        queryResultErrors.nationality = {
+          ...queryResultErrors.nationality,
+          in: {
+            expected: queryResult.nationality.in.expected,
+            received: countryList,
+            message: "Nationality inclusion list does not match the one from the query results",
+          },
         }
       }
     } else if (!queryResult.nationality || !queryResult.nationality.in) {
       console.warn("Nationality inclusion is not set in the query result")
       isCorrect = false
-      queryResultErrors.nationality.in = {
-        message: "Nationality inclusion is not set in the query result",
+      queryResultErrors.nationality = {
+        ...queryResultErrors.nationality,
+        in: {
+          message: "Nationality inclusion is not set in the query result",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
@@ -1738,25 +1787,7 @@ export class ZKPassport {
     queryResult: QueryResult,
     countryList: string[],
   ) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
 
     if (
@@ -1769,17 +1800,23 @@ export class ZKPassport {
       ) {
         console.warn("Issuing country inclusion list does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.issuing_country.in = {
-          expected: queryResult.issuing_country.in.expected,
-          received: countryList,
-          message: "Issuing country inclusion list does not match the one from the query results",
+        queryResultErrors.issuing_country = {
+          ...queryResultErrors.issuing_country,
+          in: {
+            expected: queryResult.issuing_country.in.expected,
+            received: countryList,
+            message: "Issuing country inclusion list does not match the one from the query results",
+          },
         }
       }
     } else if (!queryResult.issuing_country || !queryResult.issuing_country.in) {
       console.warn("Issuing country inclusion is not set in the query result")
       isCorrect = false
-      queryResultErrors.issuing_country.in = {
-        message: "Issuing country inclusion is not set in the query result",
+      queryResultErrors.issuing_country = {
+        ...queryResultErrors.issuing_country,
+        in: {
+          message: "Issuing country inclusion is not set in the query result",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
@@ -1787,16 +1824,18 @@ export class ZKPassport {
 
   private checkScopeFromDisclosureProof(
     proofData: ProofData,
-    queryResultErrors: QueryResultErrors,
+    queryResultErrors: Partial<QueryResultErrors>,
     key: string,
     scope?: string,
-    chainId?: number,
   ) {
     let isCorrect = true
     if (this.domain && getServiceScopeHash(this.domain) !== BigInt(proofData.publicInputs[1])) {
       console.warn("The proof comes from a different domain than the one expected")
       isCorrect = false
-      queryResultErrors[key as keyof QueryResultErrors].scope = {
+      if (!queryResultErrors[key as keyof QueryResultErrors]) {
+        queryResultErrors[key as keyof QueryResultErrors] = {}
+      }
+      queryResultErrors[key as keyof QueryResultErrors]!.scope = {
         expected: `Scope: ${getServiceScopeHash(this.domain).toString()}`,
         received: `Scope: ${BigInt(proofData.publicInputs[1]).toString()}`,
         message: "The proof comes from a different domain than the one expected",
@@ -1805,7 +1844,10 @@ export class ZKPassport {
     if (scope && getScopeHash(scope) !== BigInt(proofData.publicInputs[2])) {
       console.warn("The proof uses a different scope than the one expected")
       isCorrect = false
-      queryResultErrors[key as keyof QueryResultErrors].scope = {
+      if (!queryResultErrors[key as keyof QueryResultErrors]) {
+        queryResultErrors[key as keyof QueryResultErrors] = {}
+      }
+      queryResultErrors[key as keyof QueryResultErrors]!.scope = {
         expected: `Scope: ${getScopeHash(scope).toString()}`,
         received: `Scope: ${BigInt(proofData.publicInputs[2]).toString()}`,
         message: "The proof uses a different scope than the one expected",
@@ -1828,6 +1870,9 @@ export class ZKPassport {
       if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
         isCorrect = false
+        if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
+          queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
+        }
         queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
           expected: `A valid root from ZKPassport Registry`,
           received: `Got invalid certificate registry root: ${root}`,
@@ -1838,6 +1883,9 @@ export class ZKPassport {
       console.warn(error)
       console.warn("The ID was signed by an unrecognized root certificate")
       isCorrect = false
+      if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
+        queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
+      }
       queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
         expected: `A valid root from ZKPassport Registry`,
         received: `Got invalid certificate registry root: ${root}`,
@@ -1875,25 +1923,7 @@ export class ZKPassport {
   }
 
   private checkBindPublicInputs(queryResult: QueryResult, boundData: BoundData) {
-    const queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
 
     if (queryResult.bind) {
@@ -1903,19 +1933,25 @@ export class ZKPassport {
       ) {
         console.warn("Bound user address does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.bind.eq = {
-          expected: queryResult.bind.user_address,
-          received: boundData.user_address,
-          message: "Bound user address does not match the one from the query results",
+        queryResultErrors.bind = {
+          ...queryResultErrors.bind,
+          eq: {
+            expected: queryResult.bind.user_address,
+            received: boundData.user_address,
+            message: "Bound user address does not match the one from the query results",
+          },
         }
       }
       if (queryResult.bind.chain !== boundData.chain) {
         console.warn("Bound chain id does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.bind.eq = {
-          expected: queryResult.bind.chain,
-          received: boundData.chain,
-          message: "Bound chain id does not match the one from the query results",
+        queryResultErrors.bind = {
+          ...queryResultErrors.bind,
+          eq: {
+            expected: queryResult.bind.chain,
+            received: boundData.chain,
+            message: "Bound chain id does not match the one from the query results",
+          },
         }
       }
       if (
@@ -1924,10 +1960,39 @@ export class ZKPassport {
       ) {
         console.warn("Bound custom data does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.bind.eq = {
-          expected: queryResult.bind.custom_data,
-          received: boundData.custom_data,
-          message: "Bound custom data does not match the one from the query results",
+        queryResultErrors.bind = {
+          ...queryResultErrors.bind,
+          eq: {
+            expected: queryResult.bind.custom_data,
+            received: boundData.custom_data,
+            message: "Bound custom data does not match the one from the query results",
+          },
+        }
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
+  private async checkSanctionsExclusionPublicInputs(
+    queryResult: QueryResult,
+    root: bigint,
+    sanctionsBuilder: SanctionsBuilder,
+  ) {
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    let isCorrect = true
+    if (queryResult.sanctions && queryResult.sanctions.passed) {
+      // For now it's fixed until we streamline the update of the sanctions registry
+      const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
+      if (root !== BigInt(EXPECTED_ROOT)) {
+        console.warn("Invalid sanctions registry root")
+        isCorrect = false
+        queryResultErrors.sanctions = {
+          ...queryResultErrors.sanctions,
+          eq: {
+            expected: EXPECTED_ROOT,
+            received: root.toString(16),
+            message: "Invalid sanctions registry root",
+          },
         }
       }
     }
@@ -1954,25 +2019,7 @@ export class ZKPassport {
       0,
       0,
     )
-    let queryResultErrors: QueryResultErrors = {
-      sig_check_dsc: {},
-      sig_check_id_data: {},
-      data_check_integrity: {},
-      disclose: {},
-      age: {},
-      birthdate: {},
-      expiry_date: {},
-      document_type: {},
-      issuing_country: {},
-      gender: {},
-      nationality: {},
-      firstname: {},
-      lastname: {},
-      fullname: {},
-      document_number: {},
-      outer: {},
-      bind: {},
-    }
+    let queryResultErrors: Partial<QueryResultErrors> = {}
 
     // Since the order is important for the commitments, we need to sort the proofs
     // by their expected order: root signature check -> ID signature check -> integrity check -> disclosure
@@ -1990,6 +2037,7 @@ export class ZKPassport {
         "exclusion_check_issuing_country",
         "inclusion_check_issuing_country",
         "bind",
+        "exclusion_check_sanctions",
       ]
       const getIndex = (proof: ProofResult) => {
         const name = proof.name || ""
@@ -2030,20 +2078,21 @@ export class ZKPassport {
 
         const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const differenceInDays = validity ?? 180
-        const expectedDifference = differenceInDays * 86400000
+        const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
         const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
-        // The ID should not expire within the next 6 months (or whatever the custom value is)
         if (todayToCurrentDate >= actualDifference) {
           console.warn(
-            `The date used to check the validity of the ID is older than ${differenceInDays} days. You can ask the user to rescan their ID or ask them to disclose their expiry date`,
+            `The date used to check the validity of the ID is older than the validity period`,
           )
           isCorrect = false
-          queryResultErrors.outer.date = {
-            expected: `Difference: ${differenceInDays} days`,
-            received: `Difference: ${Math.round(todayToCurrentDate / 86400000)} days`,
-            message:
-              "The date used to check the validity of the ID is older than the validity period",
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            date: {
+              expected: `Difference: ${validity} seconds`,
+              received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
+              message:
+                "The date used to check the validity of the ID is older than the validity period",
+            },
           }
         }
         const paramCommitments = getParamCommitmentsFromOuterProof(proofData)
@@ -2052,28 +2101,37 @@ export class ZKPassport {
         if (keysInCommittedInputs.length !== paramCommitments.length) {
           console.warn("The proof does not verify all the requested conditions and information")
           isCorrect = false
-          queryResultErrors.outer.commitment = {
-            expected: `Number of parameter commitments: ${paramCommitments.length}`,
-            received: `Number of disclosure proofs provided: ${keysInCommittedInputs.length}`,
-            message: "The proof does not verify all the requested conditions and information",
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            commitment: {
+              expected: `Number of parameter commitments: ${paramCommitments.length}`,
+              received: `Number of disclosure proofs provided: ${keysInCommittedInputs.length}`,
+              message: "The proof does not verify all the requested conditions and information",
+            },
           }
         }
         if (this.domain && getServiceScopeHash(this.domain) !== getScopeFromOuterProof(proofData)) {
           console.warn("The proof comes from a different domain than the one expected")
           isCorrect = false
-          queryResultErrors.outer.scope = {
-            expected: `Scope: ${getServiceScopeHash(this.domain).toString()}`,
-            received: `Scope: ${getScopeFromOuterProof(proofData).toString()}`,
-            message: "The proof comes from a different domain than the one expected",
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            scope: {
+              expected: `Scope: ${getServiceScopeHash(this.domain).toString()}`,
+              received: `Scope: ${getScopeFromOuterProof(proofData).toString()}`,
+              message: "The proof comes from a different domain than the one expected",
+            },
           }
         }
         if (scope && getScopeHash(scope) !== getSubscopeFromOuterProof(proofData)) {
           console.warn("The proof uses a different scope than the one expected")
           isCorrect = false
-          queryResultErrors.outer.scope = {
-            expected: `Scope: ${getScopeHash(scope).toString()}`,
-            received: `Scope: ${getSubscopeFromOuterProof(proofData).toString()}`,
-            message: "The proof uses a different scope than the one expected",
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            scope: {
+              expected: `Scope: ${getScopeHash(scope).toString()}`,
+              received: `Scope: ${getSubscopeFromOuterProof(proofData).toString()}`,
+              message: "The proof uses a different scope than the one expected",
+            },
           }
         }
         if (!!committedInputs?.compare_age) {
@@ -2092,10 +2150,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(ageParameterCommitment)) {
             console.warn("This proof does not verify the age")
             isCorrect = false
-            queryResultErrors.age.commitment = {
-              expected: `Age parameter commitment: ${ageParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the age",
+            queryResultErrors.age = {
+              ...queryResultErrors.age,
+              commitment: {
+                expected: `Age parameter commitment: ${ageParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the age",
+              },
             }
           }
           const { isCorrect: isCorrectAge, queryResultErrors: queryResultErrorsAge } =
@@ -2123,10 +2184,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(birthdateParameterCommitment)) {
             console.warn("This proof does not verify the birthdate")
             isCorrect = false
-            queryResultErrors.birthdate.commitment = {
-              expected: `Birthdate parameter commitment: ${birthdateParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the birthdate",
+            queryResultErrors.birthdate = {
+              ...queryResultErrors.birthdate,
+              commitment: {
+                expected: `Birthdate parameter commitment: ${birthdateParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the birthdate",
+              },
             }
           }
           const { isCorrect: isCorrectBirthdate, queryResultErrors: queryResultErrorsBirthdate } =
@@ -2154,10 +2218,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(expiryParameterCommitment)) {
             console.warn("This proof does not verify the expiry date")
             isCorrect = false
-            queryResultErrors.expiry_date.commitment = {
-              expected: `Expiry date parameter commitment: ${expiryParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the expiry date",
+            queryResultErrors.expiry_date = {
+              ...queryResultErrors.expiry_date,
+              commitment: {
+                expected: `Expiry date parameter commitment: ${expiryParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the expiry date",
+              },
             }
           }
           const { isCorrect: isCorrectExpiryDate, queryResultErrors: queryResultErrorsExpiryDate } =
@@ -2181,10 +2248,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(discloseParameterCommitment)) {
             console.warn("This proof does not verify any of the data disclosed")
             isCorrect = false
-            queryResultErrors.disclose.commitment = {
-              expected: `Disclosure parameter commitment: ${discloseParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify any of the data disclosed",
+            queryResultErrors.disclose = {
+              ...queryResultErrors.disclose,
+              commitment: {
+                expected: `Disclosure parameter commitment: ${discloseParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify any of the data disclosed",
+              },
             }
           }
           const { isCorrect: isCorrectDisclose, queryResultErrors: queryResultErrorsDisclose } =
@@ -2209,10 +2279,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(inclusionCheckNationalityParameterCommitment)) {
             console.warn("This proof does not verify the inclusion of the nationality")
             isCorrect = false
-            queryResultErrors.nationality.commitment = {
-              expected: `Nationality parameter commitment: ${inclusionCheckNationalityParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the inclusion of the nationality",
+            queryResultErrors.nationality = {
+              ...queryResultErrors.nationality,
+              commitment: {
+                expected: `Nationality parameter commitment: ${inclusionCheckNationalityParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the inclusion of the nationality",
+              },
             }
           }
           const countryList = inclusionCheckNationalityCommittedInputs.countries
@@ -2240,10 +2313,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(inclusionCheckIssuingCountryParameterCommitment)) {
             console.warn("This proof does not verify the inclusion of the issuing country")
             isCorrect = false
-            queryResultErrors.issuing_country.commitment = {
-              expected: `Issuing country parameter commitment: ${inclusionCheckIssuingCountryParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the inclusion of the issuing country",
+            queryResultErrors.issuing_country = {
+              ...queryResultErrors.issuing_country,
+              commitment: {
+                expected: `Issuing country parameter commitment: ${inclusionCheckIssuingCountryParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the inclusion of the issuing country",
+              },
             }
           }
           const countryList = inclusionCheckIssuingCountryCommittedInputs.countries
@@ -2271,10 +2347,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(exclusionCheckNationalityParameterCommitment)) {
             console.warn("This proof does not verify the exclusion of the nationality")
             isCorrect = false
-            queryResultErrors.nationality.commitment = {
-              expected: `Nationality parameter commitment: ${exclusionCheckNationalityParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the exclusion of the nationality",
+            queryResultErrors.nationality = {
+              ...queryResultErrors.nationality,
+              commitment: {
+                expected: `Nationality parameter commitment: ${exclusionCheckNationalityParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the exclusion of the nationality",
+              },
             }
           }
           const countryList = exclusionCheckNationalityCommittedInputs.countries
@@ -2302,10 +2381,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(exclusionCheckIssuingCountryParameterCommitment)) {
             console.warn("This proof does not verify the exclusion of the issuing country")
             isCorrect = false
-            queryResultErrors.issuing_country.commitment = {
-              expected: `Issuing country parameter commitment: ${exclusionCheckIssuingCountryParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the exclusion of the issuing country",
+            queryResultErrors.issuing_country = {
+              ...queryResultErrors.issuing_country,
+              commitment: {
+                expected: `Issuing country parameter commitment: ${exclusionCheckIssuingCountryParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the exclusion of the issuing country",
+              },
             }
           }
           const countryList = exclusionCheckIssuingCountryCommittedInputs.countries
@@ -2326,10 +2408,13 @@ export class ZKPassport {
           if (!paramCommitments.includes(bindParameterCommitment)) {
             console.warn("This proof does not verify the bound data")
             isCorrect = false
-            queryResultErrors.bind.commitment = {
-              expected: `Bind parameter commitment: ${bindParameterCommitment.toString()}`,
-              received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
-              message: "This proof does not verify the bound data",
+            queryResultErrors.bind = {
+              ...queryResultErrors.bind,
+              commitment: {
+                expected: `Bind parameter commitment: ${bindParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the bound data",
+              },
             }
           }
           const { isCorrect: isCorrectBind, queryResultErrors: queryResultErrorsBind } =
@@ -2338,6 +2423,38 @@ export class ZKPassport {
           queryResultErrors = {
             ...queryResultErrors,
             ...queryResultErrorsBind,
+          }
+        } else if (!!committedInputs?.exclusion_check_sanctions) {
+          const sanctionsBuilder = await SanctionsBuilder.create()
+          const exclusionCheckSanctionsCommittedInputs =
+            committedInputs?.exclusion_check_sanctions as SanctionsCommittedInputs
+          const exclusionCheckSanctionsParameterCommitment = isForEVM
+            ? await sanctionsBuilder.getSanctionsEvmParameterCommitment()
+            : await sanctionsBuilder.getSanctionsParameterCommitment()
+          if (!paramCommitments.includes(exclusionCheckSanctionsParameterCommitment)) {
+            console.warn("This proof does not verify the exclusion from the sanction lists")
+            isCorrect = false
+            queryResultErrors.sanctions = {
+              ...queryResultErrors.sanctions,
+              commitment: {
+                expected: `Sanctions parameter commitment: ${exclusionCheckSanctionsParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify the exclusion from the sanction lists",
+              },
+            }
+          }
+          const {
+            isCorrect: isCorrectSanctionsExclusion,
+            queryResultErrors: queryResultErrorsSanctionsExclusion,
+          } = await this.checkSanctionsExclusionPublicInputs(
+            queryResult,
+            BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+            sanctionsBuilder,
+          )
+          isCorrect = isCorrect && isCorrectSanctionsExclusion
+          queryResultErrors = {
+            ...queryResultErrors,
+            ...queryResultErrorsSanctionsExclusion,
           }
         }
         uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
@@ -2364,10 +2481,14 @@ export class ZKPassport {
             "Failed to check the link between the certificate signature and ID signature",
           )
           isCorrect = false
-          queryResultErrors.sig_check_id_data.commitment = {
-            expected: `Commitment: ${commitmentOut?.toString() || "undefined"}`,
-            received: `Commitment: ${commitmentIn?.toString() || "undefined"}`,
-            message: "Failed to check the link between the certificate signature and ID signature",
+          queryResultErrors.sig_check_id_data = {
+            ...queryResultErrors.sig_check_id_data,
+            commitment: {
+              expected: `Commitment: ${commitmentOut?.toString() || "undefined"}`,
+              received: `Commitment: ${commitmentIn?.toString() || "undefined"}`,
+              message:
+                "Failed to check the link between the certificate signature and ID signature",
+            },
           }
         }
         commitmentOut = getCommitmentOutFromIDDataProof(proofData)
@@ -2376,29 +2497,33 @@ export class ZKPassport {
         if (commitmentIn !== commitmentOut) {
           console.warn("Failed to check the link between the ID signature and the data signed")
           isCorrect = false
-          queryResultErrors.data_check_integrity.commitment = {
-            expected: `Commitment: ${commitmentOut?.toString() || "undefined"}`,
-            received: `Commitment: ${commitmentIn?.toString() || "undefined"}`,
-            message: "Failed to check the link between the ID signature and the data signed",
+          queryResultErrors.data_check_integrity = {
+            ...queryResultErrors.data_check_integrity,
+            commitment: {
+              expected: `Commitment: ${commitmentOut?.toString() || "undefined"}`,
+              received: `Commitment: ${commitmentIn?.toString() || "undefined"}`,
+              message: "Failed to check the link between the ID signature and the data signed",
+            },
           }
         }
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
         const currentDate = getCurrentDateFromIntegrityProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const differenceInDays = validity ?? 180
-        const expectedDifference = differenceInDays * 86400000
+        const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
         const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
-        // The ID should not expire within the next 6 months (or whatever the custom value is)
         if (todayToCurrentDate >= actualDifference) {
           console.warn(
-            `The date used to check the validity of the ID is older than ${differenceInDays} days. You can ask the user to rescan their ID or ask them to disclose their expiry date`,
+            `The date used to check the validity of the ID is older than the validity period`,
           )
           isCorrect = false
-          queryResultErrors.data_check_integrity.date = {
-            expected: `Difference: ${differenceInDays} days`,
-            received: `Difference: ${Math.round(todayToCurrentDate / 86400000)} days`,
-            message:
-              "The date used to check the validity of the ID is older than the validity period",
+          queryResultErrors.data_check_integrity = {
+            ...queryResultErrors.data_check_integrity,
+            date: {
+              expected: `Difference: ${validity} seconds`,
+              received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
+              message:
+                "The date used to check the validity of the ID is older than the validity period",
+            },
           }
         }
       } else if (proof.name === "disclose_bytes") {
@@ -2408,11 +2533,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and the data to disclose",
           )
           isCorrect = false
-          queryResultErrors.disclose.commitment = {
-            expected: `Commitment: ${commitmentOut?.toString() || "undefined"}`,
-            received: `Commitment: ${commitmentIn?.toString() || "undefined"}`,
-            message:
-              "Failed to check the link between the validity of the ID and the data to disclose",
+          queryResultErrors.disclose = {
+            ...queryResultErrors.disclose,
+            commitment: {
+              expected: `Commitment: ${commitmentOut?.toString() || "undefined"}`,
+              received: `Commitment: ${commitmentIn?.toString() || "undefined"}`,
+              message:
+                "Failed to check the link between the validity of the ID and the data to disclose",
+            },
           }
         }
         const paramCommitment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -2423,10 +2551,13 @@ export class ZKPassport {
         if (paramCommitment !== calculatedParamCommitment) {
           console.warn("The disclosed data does not match the data committed by the proof")
           isCorrect = false
-          queryResultErrors.disclose.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommitment}`,
-            message: "The disclosed data does not match the data committed by the proof",
+          queryResultErrors.disclose = {
+            ...queryResultErrors.disclose,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommitment}`,
+              message: "The disclosed data does not match the data committed by the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2452,11 +2583,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and the age derived from it",
           )
           isCorrect = false
-          queryResultErrors.age.commitment = {
-            expected: `Commitment: ${commitmentOut}`,
-            received: `Commitment: ${commitmentIn}`,
-            message:
-              "Failed to check the link between the validity of the ID and the age derived from it",
+          queryResultErrors.age = {
+            ...queryResultErrors.age,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the age derived from it",
+            },
           }
         }
         const paramCommitment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -2471,11 +2605,14 @@ export class ZKPassport {
             "The conditions for the age check do not match the conditions checked by the proof",
           )
           isCorrect = false
-          queryResultErrors.age.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommitment}`,
-            message:
-              "The conditions for the age check do not match the conditions checked by the proof",
+          queryResultErrors.age = {
+            ...queryResultErrors.age,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommitment}`,
+              message:
+                "The conditions for the age check do not match the conditions checked by the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2496,11 +2633,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and the birthdate derived from it",
           )
           isCorrect = false
-          queryResultErrors.birthdate.commitment = {
-            expected: `Commitment: ${commitmentOut}`,
-            received: `Commitment: ${commitmentIn}`,
-            message:
-              "Failed to check the link between the validity of the ID and the birthdate derived from it",
+          queryResultErrors.birthdate = {
+            ...queryResultErrors.birthdate,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the birthdate derived from it",
+            },
           }
         }
         const paramCommitment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -2516,11 +2656,14 @@ export class ZKPassport {
             "The conditions for the birthdate check do not match the conditions checked by the proof",
           )
           isCorrect = false
-          queryResultErrors.birthdate.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommitment}`,
-            message:
-              "The conditions for the birthdate check do not match the conditions checked by the proof",
+          queryResultErrors.birthdate = {
+            ...queryResultErrors.birthdate,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommitment}`,
+              message:
+                "The conditions for the birthdate check do not match the conditions checked by the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2541,10 +2684,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and its expiry date",
           )
           isCorrect = false
-          queryResultErrors.expiry_date.commitment = {
-            expected: `Commitment: ${commitmentOut}`,
-            received: `Commitment: ${commitmentIn}`,
-            message: "Failed to check the link between the validity of the ID and its expiry date",
+          queryResultErrors.expiry_date = {
+            ...queryResultErrors.expiry_date,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and its expiry date",
+            },
           }
         }
         const paramCommitment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -2560,11 +2707,14 @@ export class ZKPassport {
             "The conditions for the expiry date check do not match the conditions checked by the proof",
           )
           isCorrect = false
-          queryResultErrors.expiry_date.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommitment}`,
-            message:
-              "The conditions for the expiry date check do not match the conditions checked by the proof",
+          queryResultErrors.expiry_date = {
+            ...queryResultErrors.expiry_date,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommitment}`,
+              message:
+                "The conditions for the expiry date check do not match the conditions checked by the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2585,11 +2735,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and the nationality exclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality.commitment = {
-            expected: `Commitment: ${commitmentOut}`,
-            received: `Commitment: ${commitmentIn}`,
-            message:
-              "Failed to check the link between the validity of the ID and the nationality exclusion check",
+          queryResultErrors.nationality = {
+            ...queryResultErrors.nationality,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the nationality exclusion check",
+            },
           }
         }
         const countryList = (
@@ -2606,11 +2759,14 @@ export class ZKPassport {
             "The committed country list for the exclusion check does not match the one from the proof",
           )
           isCorrect = false
-          queryResultErrors.nationality.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommittment}`,
-            message:
-              "The committed country list for the exclusion check does not match the one from the proof",
+          queryResultErrors.nationality = {
+            ...queryResultErrors.nationality,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommittment}`,
+              message:
+                "The committed country list for the exclusion check does not match the one from the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2633,11 +2789,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and the issuing country exclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality.commitment = {
-            expected: `Commitment: ${commitmentOut}`,
-            received: `Commitment: ${commitmentIn}`,
-            message:
-              "Failed to check the link between the validity of the ID and the issuing country exclusion check",
+          queryResultErrors.nationality = {
+            ...queryResultErrors.nationality,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the issuing country exclusion check",
+            },
           }
         }
         const countryList = (
@@ -2654,11 +2813,14 @@ export class ZKPassport {
             "The committed country list for the issuing country exclusion check does not match the one from the proof",
           )
           isCorrect = false
-          queryResultErrors.issuing_country.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommittment}`,
-            message:
-              "The committed country list for the issuing country exclusion check does not match the one from the proof",
+          queryResultErrors.issuing_country = {
+            ...queryResultErrors.issuing_country,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommittment}`,
+              message:
+                "The committed country list for the issuing country exclusion check does not match the one from the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2681,11 +2843,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and the nationality inclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality.commitment = {
-            expected: `Commitment: ${commitmentOut}`,
-            received: `Commitment: ${commitmentIn}`,
-            message:
-              "Failed to check the link between the validity of the ID and the nationality inclusion check",
+          queryResultErrors.nationality = {
+            ...queryResultErrors.nationality,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the nationality inclusion check",
+            },
           }
         }
         const countryList = (
@@ -2702,11 +2867,14 @@ export class ZKPassport {
             "The committed country list for the nationality inclusion check does not match the one from the proof",
           )
           isCorrect = false
-          queryResultErrors.nationality.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommittment}`,
-            message:
-              "The committed country list for the nationality inclusion check does not match the one from the proof",
+          queryResultErrors.nationality = {
+            ...queryResultErrors.nationality,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommittment}`,
+              message:
+                "The committed country list for the nationality inclusion check does not match the one from the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2729,11 +2897,14 @@ export class ZKPassport {
             "Failed to check the link between the validity of the ID and the issuing country inclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality.commitment = {
-            expected: `Commitment: ${commitmentOut}`,
-            received: `Commitment: ${commitmentIn}`,
-            message:
-              "Failed to check the link between the validity of the ID and the issuing country inclusion check",
+          queryResultErrors.nationality = {
+            ...queryResultErrors.nationality,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the issuing country inclusion check",
+            },
           }
         }
         const countryList = (
@@ -2750,11 +2921,14 @@ export class ZKPassport {
             "The committed country list for the issuing country inclusion check does not match the one from the proof",
           )
           isCorrect = false
-          queryResultErrors.issuing_country.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommittment}`,
-            message:
-              "The committed country list for the issuing country inclusion check does not match the one from the proof",
+          queryResultErrors.issuing_country = {
+            ...queryResultErrors.issuing_country,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommittment}`,
+              message:
+                "The committed country list for the issuing country inclusion check does not match the one from the proof",
+            },
           }
         }
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
@@ -2779,10 +2953,13 @@ export class ZKPassport {
         if (paramCommittment !== calculatedParamCommitment) {
           console.warn("The bound data does not match the one from the proof")
           isCorrect = false
-          queryResultErrors.bind.commitment = {
-            expected: `Commitment: ${calculatedParamCommitment}`,
-            received: `Commitment: ${paramCommittment}`,
-            message: "The bound data does not match the one from the proof",
+          queryResultErrors.bind = {
+            ...queryResultErrors.bind,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment}`,
+              received: `Commitment: ${paramCommittment}`,
+              message: "The bound data does not match the one from the proof",
+            },
           }
         }
         const { isCorrect: isCorrectBind, queryResultErrors: queryResultErrorsBind } =
@@ -2791,6 +2968,41 @@ export class ZKPassport {
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsBind,
+        }
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+      } else if (proof.name === "exclusion_check_sanctions") {
+        const sanctionsBuilder = await SanctionsBuilder.create()
+        const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
+          ?.exclusion_check_sanctions as SanctionsCommittedInputs
+        const calculatedParamCommitment = await sanctionsBuilder.getSanctionsParameterCommitment()
+        const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
+        if (paramCommittment !== calculatedParamCommitment) {
+          console.warn(
+            "The sanction lists check against do not match the sanction lists from the proof",
+          )
+          isCorrect = false
+          queryResultErrors.sanctions = {
+            ...queryResultErrors.sanctions,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment.toString()}`,
+              received: `Commitment: ${paramCommittment.toString()}`,
+              message:
+                "The sanction lists check against do not match the sanction lists from the proof",
+            },
+          }
+        }
+        const {
+          isCorrect: isCorrectSanctionsExclusion,
+          queryResultErrors: queryResultErrorsSanctionsExclusion,
+        } = await this.checkSanctionsExclusionPublicInputs(
+          queryResult,
+          BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+          sanctionsBuilder,
+        )
+        isCorrect = isCorrect && isCorrectSanctionsExclusion
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsSanctionsExclusion,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
       }
@@ -2802,7 +3014,7 @@ export class ZKPassport {
    * @notice Verify the proofs received from the mobile app.
    * @param proofs The proofs to verify.
    * @param queryResult The query result to verify against
-   * @param validity How many days ago should have the ID been last scanned by the user?
+   * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param scope Scope this request to a specific use case
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
@@ -2827,7 +3039,7 @@ export class ZKPassport {
   }): Promise<{
     uniqueIdentifier: string | undefined
     verified: boolean
-    queryResultErrors?: QueryResultErrors
+    queryResultErrors?: Partial<QueryResultErrors>
   }> {
     // If no proofs were generated, the results can't be trusted.
     // We still return it but verified will be false
@@ -2850,7 +3062,7 @@ export class ZKPassport {
     })
     let verified = true
     let uniqueIdentifier: string | undefined
-    let queryResultErrors: QueryResultErrors | undefined
+    let queryResultErrors: Partial<QueryResultErrors> | undefined
     const {
       isCorrect,
       uniqueIdentifier: uniqueIdentifierFromPublicInputs,
@@ -2972,7 +3184,7 @@ export class ZKPassport {
 
   public getSolidityVerifierParameters({
     proof,
-    validityPeriodInSeconds = 7 * 24 * 60 * 60,
+    validityPeriodInSeconds = DEFAULT_VALIDITY,
     domain,
     scope,
     devMode = false,
@@ -3131,7 +3343,10 @@ export class ZKPassport {
       "base64",
     )
     const pubkey = this.topicToPublicKey[requestId]
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}`
+    // The timestamp is the current time minus the validity period
+    // essentially, the data integrity check proof needs to have been generated after the timestamp
+    const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&d=${timestamp}`
   }
 
   /**
