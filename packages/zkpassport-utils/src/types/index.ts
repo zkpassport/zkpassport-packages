@@ -234,9 +234,10 @@ export type QueryResultValue<T extends IDCredential> = {
 export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
 // Explicit list of supported countries for sanction lists
 // TODO: extend this list as more countries sanction lists are added
+// For now we only support the US sanction list (OFAC_SDN)
+// but the ones below will be added very soon
 export type SanctionsAlpha2Code = "US" | "GB" | "CH" | "EU"
 export type SanctionsCountries = SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"
-// TODO: restrict the type of `lists` to specific sanction list names
 export type SanctionsLists = string[] | "all"
 
 export type SanctionsConfig = {
