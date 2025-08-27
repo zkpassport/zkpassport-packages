@@ -1975,7 +1975,7 @@ export class ZKPassport {
 
   private async checkSanctionsExclusionPublicInputs(
     queryResult: QueryResult,
-    root: bigint,
+    root: string,
     sanctionsBuilder: SanctionsBuilder,
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
@@ -1983,14 +1983,14 @@ export class ZKPassport {
     if (queryResult.sanctions && queryResult.sanctions.passed) {
       // For now it's fixed until we streamline the update of the sanctions registry
       const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
-      if (root !== BigInt(EXPECTED_ROOT)) {
+      if (root !== EXPECTED_ROOT) {
         console.warn("Invalid sanctions registry root")
         isCorrect = false
         queryResultErrors.sanctions = {
           ...queryResultErrors.sanctions,
           eq: {
             expected: EXPECTED_ROOT,
-            received: root.toString(16),
+            received: root,
             message: "Invalid sanctions registry root",
           },
         }
@@ -2448,7 +2448,7 @@ export class ZKPassport {
             queryResultErrors: queryResultErrorsSanctionsExclusion,
           } = await this.checkSanctionsExclusionPublicInputs(
             queryResult,
-            BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+            exclusionCheckSanctionsCommittedInputs.rootHash,
             sanctionsBuilder,
           )
           isCorrect = isCorrect && isCorrectSanctionsExclusion
@@ -2996,7 +2996,7 @@ export class ZKPassport {
           queryResultErrors: queryResultErrorsSanctionsExclusion,
         } = await this.checkSanctionsExclusionPublicInputs(
           queryResult,
-          BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+          exclusionCheckSanctionsCommittedInputs.rootHash,
           sanctionsBuilder,
         )
         isCorrect = isCorrect && isCorrectSanctionsExclusion
@@ -3171,7 +3171,7 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0x62e33cC35e29130e135341586e8Cf9C2BAbFB3eE",
+        address: "0xBec82dec0747C9170D760D5aba9cc44929B17C05",
       }
     } else if (network === "local_anvil") {
       return {
@@ -3281,6 +3281,13 @@ export class ZKPassport {
         compressedCommittedInputs =
           ProofType.BIND.toString(16).padStart(2, "0") +
           rightPadArrayWithZeros(formatBoundData(value.data), 500)
+            .map((x) => x.toString(16).padStart(2, "0"))
+            .join("")
+      } else if (circuitName === "exclusion_check_sanctions_evm") {
+        const value = proof.committedInputs[circuitName] as SanctionsCommittedInputs
+        compressedCommittedInputs =
+          ProofType.SANCTIONS_EXCLUSION.toString(16).padStart(2, "0") +
+          Array.from(numberToBytesBE(BigInt(value.rootHash), 32))
             .map((x) => x.toString(16).padStart(2, "0"))
             .join("")
       } else {

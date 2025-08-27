@@ -315,7 +315,7 @@ export type BindCommittedInputs = {
 }
 
 export type SanctionsCommittedInputs = {
-  rootHash: bigint
+  rootHash: string
 }
 
 export type CommittedInputs =
