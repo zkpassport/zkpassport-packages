@@ -181,7 +181,7 @@ export function getNumberOfPublicInputs(circuitName: string) {
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
     const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
-    return 13 + disclosureProofCount
+    return 6 + disclosureProofCount
   }
   return 0
 }

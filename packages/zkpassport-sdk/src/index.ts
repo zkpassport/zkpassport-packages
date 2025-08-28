@@ -1975,7 +1975,7 @@ export class ZKPassport {
 
   private async checkSanctionsExclusionPublicInputs(
     queryResult: QueryResult,
-    root: bigint,
+    root: string,
     sanctionsBuilder: SanctionsBuilder,
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
@@ -1983,14 +1983,14 @@ export class ZKPassport {
     if (queryResult.sanctions && queryResult.sanctions.passed) {
       // For now it's fixed until we streamline the update of the sanctions registry
       const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
-      if (root !== BigInt(EXPECTED_ROOT)) {
+      if (root !== EXPECTED_ROOT) {
         console.warn("Invalid sanctions registry root")
         isCorrect = false
         queryResultErrors.sanctions = {
           ...queryResultErrors.sanctions,
           eq: {
             expected: EXPECTED_ROOT,
-            received: root.toString(16),
+            received: root,
             message: "Invalid sanctions registry root",
           },
         }
@@ -2448,7 +2448,7 @@ export class ZKPassport {
             queryResultErrors: queryResultErrorsSanctionsExclusion,
           } = await this.checkSanctionsExclusionPublicInputs(
             queryResult,
-            BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+            exclusionCheckSanctionsCommittedInputs.rootHash,
             sanctionsBuilder,
           )
           isCorrect = isCorrect && isCorrectSanctionsExclusion
@@ -2996,7 +2996,7 @@ export class ZKPassport {
           queryResultErrors: queryResultErrorsSanctionsExclusion,
         } = await this.checkSanctionsExclusionPublicInputs(
           queryResult,
-          BigInt(exclusionCheckSanctionsCommittedInputs.rootHash),
+          exclusionCheckSanctionsCommittedInputs.rootHash,
           sanctionsBuilder,
         )
         isCorrect = isCorrect && isCorrectSanctionsExclusion
@@ -3171,7 +3171,7 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0x62e33cC35e29130e135341586e8Cf9C2BAbFB3eE",
+        address: "0xBec82dec0747C9170D760D5aba9cc44929B17C05",
       }
     } else if (network === "local_anvil") {
       return {
@@ -3283,12 +3283,21 @@ export class ZKPassport {
           rightPadArrayWithZeros(formatBoundData(value.data), 500)
             .map((x) => x.toString(16).padStart(2, "0"))
             .join("")
+      } else if (circuitName === "exclusion_check_sanctions_evm") {
+        const value = proof.committedInputs[circuitName] as SanctionsCommittedInputs
+        compressedCommittedInputs =
+          ProofType.SANCTIONS_EXCLUSION.toString(16).padStart(2, "0") +
+          Array.from(numberToBytesBE(BigInt(value.rootHash), 32))
+            .map((x) => x.toString(16).padStart(2, "0"))
+            .join("")
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
       }
       committedInputs.push({ circuitName, inputs: compressedCommittedInputs })
     }
-    const parameterCommitments = proofData.publicInputs.slice(12, proofData.publicInputs.length - 1)
+    const parameterCommitments = getParamCommitmentsFromOuterProof(proofData).map((x) =>
+      x.toString(16).padStart(64, "0"),
+    )
     let compressedCommittedInputs = ""
     let committedInputCountsArray = []
     for (const commitment of parameterCommitments) {
@@ -3346,7 +3355,7 @@ export class ZKPassport {
     // The timestamp is the current time minus the validity period
     // essentially, the data integrity check proof needs to have been generated after the timestamp
     const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&d=${timestamp}`
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}`
   }
 
   /**
