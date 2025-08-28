@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/sdk",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Privacy-preserving identity verification using passports and ID cards",
   "author": "ZKPassport",
   "license": "Apache-2.0",

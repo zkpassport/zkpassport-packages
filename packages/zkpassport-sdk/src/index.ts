@@ -426,8 +426,6 @@ export class ZKPassport {
         .trim()
         // Remove protocol
         .replace(/^https?:\/\//, "")
-        // Remove subdomains (keep only root domain - last 2 parts)
-        .replace(/^.*\.([a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+)/, "$1")
         // Remove trailing slash and anything after it
         .replace(/\/[^/]*$/, "")
         // Remove port
