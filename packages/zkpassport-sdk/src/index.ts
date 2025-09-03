@@ -369,8 +369,7 @@ export type QueryBuilder = {
    * @param mode "regular" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
    * Best for lower security requirements that requires fast verification such as age verification.
    */
-  // TODO: Uncomment this when the facematch is ready
-  // facematch: (mode?: FacematchMode) => QueryBuilder
+  facematch: (mode?: FacematchMode) => QueryBuilder
   /**
    * Builds the request.
    *
@@ -704,13 +703,12 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      // TODO: Uncomment this when the facematch is ready
-      /*facematch: (mode: FacematchMode = "regular") => {
+      facematch: (mode: FacematchMode = "regular") => {
         this.topicToConfig[topic].facematch = {
           mode,
         }
         return this.getZkPassportRequest(topic)
-      },*/
+      },
       done: () => {
         this.setExpectedProofCount(topic)
         return {
