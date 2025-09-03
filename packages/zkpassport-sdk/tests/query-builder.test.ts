@@ -206,8 +206,7 @@ describe("Query Builder", () => {
     })
   })
 
-  // TODO: Uncomment this when the facematch is ready
-  /*test("should build facematch query with strict mode", async () => {
+  test("should build facematch query with strict mode", async () => {
     const result = queryBuilder.facematch("strict").done()
 
     const configPart = result.url.split("c=")[1].split("&")[0]
@@ -227,5 +226,5 @@ describe("Query Builder", () => {
     expect(config.facematch).toEqual({
       mode: "regular",
     })
-  })*/
+  })
 })
