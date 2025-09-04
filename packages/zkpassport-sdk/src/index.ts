@@ -362,6 +362,7 @@ export type QueryBuilder = {
    */
   sanctions: (countries?: SanctionsCountries, lists?: SanctionsLists) => QueryBuilder
   /**
+   * This feature is not available yet in the public release of the app.
    * Requires that the ID holder's face matches the photo on the ID.
    * @param mode The mode to use for the face match. Defaults to "regular".
    * @param mode "strict" - The user will have to go through an extensive liveness check to prevent spoofing making it more secure.

@@ -191,15 +191,15 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
     case "compare_age":
       return 4
     case "compare_age_evm":
-      return 7
+      return 11
     case "compare_birthdate":
       return 4
     case "compare_birthdate_evm":
-      return 13
+      return 25
     case "compare_expiry":
       return 4
     case "compare_expiry_evm":
-      return 13
+      return 25
     case "disclose_bytes":
       return 181
     case "disclose_bytes_evm":
