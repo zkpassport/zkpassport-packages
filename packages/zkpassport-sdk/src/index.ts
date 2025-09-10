@@ -302,17 +302,23 @@ export type QueryBuilder = {
    */
   gte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
   /**
+   * Requires this attribute to be greater than the provided value.
+   * @param key The attribute to compare.
+   * @param value The value of the attribute you require.
+   */
+  gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
+  /**
    * Requires this attribute to be less than or equal to the provided value.
    * @param key The attribute to compare.
    * @param value The value of the attribute you require.
    */
-  lte: <T extends "birthdate" | "expiry_date">(key: T, value: IDCredentialValue<T>) => QueryBuilder
+  lte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
   /**
    * Requires this attribute to be less than the provided value.
    * @param key The attribute to compare.
    * @param value The value of the attribute you require.
    */
-  lt: <T extends "age">(key: T, value: IDCredentialValue<T>) => QueryBuilder
+  lt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
   /**
    * Requires this attribute to be included in the provided range.
    * @param key The attribute to compare.
@@ -636,16 +642,41 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      /*gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
-        numericalCompare('gt', key, value, topic, this.topicToConfig)
+      gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
+        if (key === "age" && typeof value === "number") {
+          // Add 1 to the age as the circuit bounds are inclusive
+          numericalCompare("gte", key, value + 1, topic, this.topicToConfig)
+        } else if ((key === "birthdate" || key === "expiry_date") && value instanceof Date) {
+          // Add 1 day to the date as the circuit bounds are inclusive
+          numericalCompare(
+            "gte",
+            key,
+            new Date((value as Date).setDate((value as Date).getDate() + 1)),
+            topic,
+            this.topicToConfig,
+          )
+        }
+
         return this.getZkPassportRequest(topic)
-      },*/
-      lte: <T extends "birthdate" | "expiry_date">(key: T, value: IDCredentialValue<T>) => {
+      },
+      lte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
         numericalCompare("lte", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
-      lt: <T extends "age">(key: T, value: IDCredentialValue<T>) => {
-        numericalCompare("lt", key, value, topic, this.topicToConfig)
+      lt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
+        if (key === "age" && typeof value === "number") {
+          // Subtract 1 from the age as the circuit bounds are inclusive
+          numericalCompare("lte", key, value - 1, topic, this.topicToConfig)
+        } else if ((key === "birthdate" || key === "expiry_date") && value instanceof Date) {
+          // Subtract 1 day from the date as the circuit bounds are inclusive
+          numericalCompare(
+            "lte",
+            key,
+            new Date((value as Date).setDate((value as Date).getDate() - 1)),
+            topic,
+            this.topicToConfig,
+          )
+        }
         return this.getZkPassportRequest(topic)
       },
       range: <T extends NumericalIDCredential>(

@@ -47,7 +47,7 @@ describe("Query Builder", () => {
 
     expect(config.age).toEqual({
       gte: 18,
-      lt: 65,
+      lte: 64,
     })
   })
 
@@ -138,6 +138,76 @@ describe("Query Builder", () => {
       name: "Test App",
       logo: "https://test.com/logo.png",
       purpose: "Testing query builder",
+    })
+  })
+
+  test("should handle all bounds for age queries", async () => {
+    const inclusive = queryBuilder.gte("age", 18).lte("age", 25).done()
+    const exclusive = queryBuilder.gt("age", 18).lt("age", 25).done()
+
+    const configPartInclusive = inclusive.url.split("c=")[1].split("&")[0]
+    const configInclusive = JSON.parse(Buffer.from(configPartInclusive, "base64").toString())
+
+    expect(configInclusive.age).toEqual({
+      gte: 18,
+      lte: 25,
+    })
+
+    const configPartExclusive = exclusive.url.split("c=")[1].split("&")[0]
+    const configExclusive = JSON.parse(Buffer.from(configPartExclusive, "base64").toString())
+
+    expect(configExclusive.age).toEqual({
+      gte: 19,
+      lte: 24,
+    })
+  })
+
+  test("should handle all bounds for birthdate queries", async () => {
+    const inclusive = queryBuilder
+      .gte("birthdate", new Date("2024-01-01"))
+      .lte("birthdate", new Date("2024-12-31"))
+      .done()
+    const exclusive = queryBuilder
+      .gt("birthdate", new Date("2024-01-01"))
+      .lt("birthdate", new Date("2024-12-31"))
+      .done()
+
+    const configPartInclusive = inclusive.url.split("c=")[1].split("&")[0]
+    const configInclusive = JSON.parse(Buffer.from(configPartInclusive, "base64").toString())
+    const configPartExclusive = exclusive.url.split("c=")[1].split("&")[0]
+    const configExclusive = JSON.parse(Buffer.from(configPartExclusive, "base64").toString())
+
+    expect(configInclusive.birthdate).toEqual({
+      gte: new Date("2024-01-01").toISOString(),
+      lte: new Date("2024-12-31").toISOString(),
+    })
+    expect(configExclusive.birthdate).toEqual({
+      gte: new Date("2024-01-02").toISOString(),
+      lte: new Date("2024-12-30").toISOString(),
+    })
+  })
+
+  test("should handle all bounds for expiry_date queries", async () => {
+    const inclusive = queryBuilder
+      .gte("expiry_date", new Date("2024-01-01"))
+      .lte("expiry_date", new Date("2024-12-31"))
+      .done()
+    const exclusive = queryBuilder
+      .gt("expiry_date", new Date("2024-01-01"))
+      .lt("expiry_date", new Date("2024-12-31"))
+      .done()
+
+    const configPartInclusive = inclusive.url.split("c=")[1].split("&")[0]
+    const configInclusive = JSON.parse(Buffer.from(configPartInclusive, "base64").toString())
+    const configPartExclusive = exclusive.url.split("c=")[1].split("&")[0]
+    const configExclusive = JSON.parse(Buffer.from(configPartExclusive, "base64").toString())
+    expect(configInclusive.expiry_date).toEqual({
+      gte: new Date("2024-01-01").toISOString(),
+      lte: new Date("2024-12-31").toISOString(),
+    })
+    expect(configExclusive.expiry_date).toEqual({
+      gte: new Date("2024-01-02").toISOString(),
+      lte: new Date("2024-12-30").toISOString(),
     })
   })
 
