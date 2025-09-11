@@ -17,16 +17,26 @@ export function getMaxDateFromCommittedInputs(committedInputs: DateCommittedInpu
   return new Date(committedInputs.maxDateTimestamp * 1000)
 }
 
-export function getBirthdateMinDateTimestamp(committedInputs: DateCommittedInputs): Date {
-  return new Date(
-    getMinDateFromCommittedInputs(committedInputs).getTime() + SECONDS_BETWEEN_1900_AND_1970 * 1000,
-  )
+export function getBirthdateMinDateTimestamp(
+  committedInputs: DateCommittedInputs,
+  offset = SECONDS_BETWEEN_1900_AND_1970,
+): Date {
+  const timestamp = getMinDateFromCommittedInputs(committedInputs).getTime()
+  if (timestamp === 0) {
+    return new Date(0)
+  }
+  return new Date(getMinDateFromCommittedInputs(committedInputs).getTime() + offset * 1000)
 }
 
-export function getBirthdateMaxDateTimestamp(committedInputs: DateCommittedInputs): Date {
-  return new Date(
-    getMaxDateFromCommittedInputs(committedInputs).getTime() + SECONDS_BETWEEN_1900_AND_1970 * 1000,
-  )
+export function getBirthdateMaxDateTimestamp(
+  committedInputs: DateCommittedInputs,
+  offset = SECONDS_BETWEEN_1900_AND_1970,
+): Date {
+  const timestamp = getMaxDateFromCommittedInputs(committedInputs).getTime()
+  if (timestamp === 0) {
+    return new Date(0)
+  }
+  return new Date(getMaxDateFromCommittedInputs(committedInputs).getTime() + offset * 1000)
 }
 
 /**
@@ -43,6 +53,7 @@ export function getDateProofPublicInputCount(): number {
  * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)
  * @param minDateTimestamp - The minimum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
  * @param maxDateTimestamp - The maximum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
+ * @param birthdateOffset - The offset to add to the min and max date timestamps if the proof type is birthdate, defaults to SECONDS_BETWEEN_1900_AND_1970
  * @returns The parameter commitment.
  */
 export async function getDateParameterCommitment(
@@ -50,15 +61,16 @@ export async function getDateParameterCommitment(
   currentDateTimestamp: number,
   minDateTimestamp: number,
   maxDateTimestamp: number,
+  birthdateOffset = SECONDS_BETWEEN_1900_AND_1970,
 ): Promise<bigint> {
   const birthdateParameterCommitment = await poseidon2HashAsync([
     BigInt(proofType),
     BigInt(currentDateTimestamp),
     proofType === ProofType.BIRTHDATE && minDateTimestamp !== 0
-      ? BigInt(minDateTimestamp) + BigInt(SECONDS_BETWEEN_1900_AND_1970)
+      ? BigInt(minDateTimestamp) + BigInt(birthdateOffset)
       : BigInt(minDateTimestamp),
     proofType === ProofType.BIRTHDATE && maxDateTimestamp !== 0
-      ? BigInt(maxDateTimestamp) + BigInt(SECONDS_BETWEEN_1900_AND_1970)
+      ? BigInt(maxDateTimestamp) + BigInt(birthdateOffset)
       : BigInt(maxDateTimestamp),
   ])
   return birthdateParameterCommitment
@@ -70,6 +82,7 @@ export async function getDateParameterCommitment(
  * @param timestamp - The current timestamp (seconds since UNIX epoch)
  * @param minDateTimestamp - The minimum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
  * @param maxDateTimestamp - The maximum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
+ * @param birthdateOffset - The offset to add to the min and max date timestamps if the proof type is birthdate, defaults to SECONDS_BETWEEN_1900_AND_1970
  * @returns The parameter commitment.
  */
 export async function getDateEVMParameterCommitment(
@@ -77,6 +90,7 @@ export async function getDateEVMParameterCommitment(
   currentDateTimestamp: number,
   minDateTimestamp: number,
   maxDateTimestamp: number,
+  birthdateOffset = SECONDS_BETWEEN_1900_AND_1970,
 ): Promise<bigint> {
   const hash = sha256(
     new Uint8Array([
@@ -84,13 +98,13 @@ export async function getDateEVMParameterCommitment(
       ...numberToBytesBE(currentDateTimestamp, 8),
       ...numberToBytesBE(
         proofType === ProofType.BIRTHDATE && minDateTimestamp !== 0
-          ? minDateTimestamp + SECONDS_BETWEEN_1900_AND_1970
+          ? minDateTimestamp + birthdateOffset
           : minDateTimestamp,
         8,
       ),
       ...numberToBytesBE(
         proofType === ProofType.BIRTHDATE && maxDateTimestamp !== 0
-          ? maxDateTimestamp + SECONDS_BETWEEN_1900_AND_1970
+          ? maxDateTimestamp + birthdateOffset
           : maxDateTimestamp,
         8,
       ),
