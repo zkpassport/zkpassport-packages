@@ -47,7 +47,7 @@ describe("Query Builder", () => {
 
     expect(config.age).toEqual({
       gte: 18,
-      lte: 64,
+      lt: 65,
     })
   })
 
@@ -141,73 +141,85 @@ describe("Query Builder", () => {
     })
   })
 
-  test("should handle all bounds for age queries", async () => {
-    const inclusive = queryBuilder.gte("age", 18).lte("age", 25).done()
-    const exclusive = queryBuilder.gt("age", 18).lt("age", 25).done()
+  test("should handle inclusive bounds for age queries", async () => {
+    const result = queryBuilder.gte("age", 18).lte("age", 25).done()
 
-    const configPartInclusive = inclusive.url.split("c=")[1].split("&")[0]
-    const configInclusive = JSON.parse(Buffer.from(configPartInclusive, "base64").toString())
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
-    expect(configInclusive.age).toEqual({
+    expect(config.age).toEqual({
       gte: 18,
       lte: 25,
     })
+  })
 
-    const configPartExclusive = exclusive.url.split("c=")[1].split("&")[0]
-    const configExclusive = JSON.parse(Buffer.from(configPartExclusive, "base64").toString())
+  test("should handle exclusive bounds for age queries", async () => {
+    const result = queryBuilder.gt("age", 18).lt("age", 25).done()
 
-    expect(configExclusive.age).toEqual({
-      gte: 19,
-      lte: 24,
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.age).toEqual({
+      gt: 18,
+      lt: 25,
     })
   })
 
-  test("should handle all bounds for birthdate queries", async () => {
-    const inclusive = queryBuilder
+  test("should handle inclusive bounds for birthdate queries", async () => {
+    const result = queryBuilder
       .gte("birthdate", new Date("2024-01-01"))
       .lte("birthdate", new Date("2024-12-31"))
       .done()
-    const exclusive = queryBuilder
-      .gt("birthdate", new Date("2024-01-01"))
-      .lt("birthdate", new Date("2024-12-31"))
-      .done()
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
-    const configPartInclusive = inclusive.url.split("c=")[1].split("&")[0]
-    const configInclusive = JSON.parse(Buffer.from(configPartInclusive, "base64").toString())
-    const configPartExclusive = exclusive.url.split("c=")[1].split("&")[0]
-    const configExclusive = JSON.parse(Buffer.from(configPartExclusive, "base64").toString())
-
-    expect(configInclusive.birthdate).toEqual({
+    expect(config.birthdate).toEqual({
       gte: new Date("2024-01-01").toISOString(),
       lte: new Date("2024-12-31").toISOString(),
     })
-    expect(configExclusive.birthdate).toEqual({
-      gte: new Date("2024-01-02").toISOString(),
-      lte: new Date("2024-12-30").toISOString(),
+  })
+
+  test("should handle exclusive bounds for birthdate queries", async () => {
+    const result = queryBuilder
+      .gt("birthdate", new Date("2024-01-01"))
+      .lt("birthdate", new Date("2024-12-31"))
+      .done()
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.birthdate).toEqual({
+      gt: new Date("2024-01-01").toISOString(),
+      lt: new Date("2024-12-31").toISOString(),
     })
   })
 
-  test("should handle all bounds for expiry_date queries", async () => {
-    const inclusive = queryBuilder
+  test("should handle inclusive bounds for expiry_date queries", async () => {
+    const result = queryBuilder
       .gte("expiry_date", new Date("2024-01-01"))
       .lte("expiry_date", new Date("2024-12-31"))
       .done()
-    const exclusive = queryBuilder
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.expiry_date).toEqual({
+      gte: new Date("2024-01-01").toISOString(),
+      lte: new Date("2024-12-31").toISOString(),
+    })
+  })
+
+  test("should handle exclusive bounds for expiry_date queries", async () => {
+    const result = queryBuilder
       .gt("expiry_date", new Date("2024-01-01"))
       .lt("expiry_date", new Date("2024-12-31"))
       .done()
 
-    const configPartInclusive = inclusive.url.split("c=")[1].split("&")[0]
-    const configInclusive = JSON.parse(Buffer.from(configPartInclusive, "base64").toString())
-    const configPartExclusive = exclusive.url.split("c=")[1].split("&")[0]
-    const configExclusive = JSON.parse(Buffer.from(configPartExclusive, "base64").toString())
-    expect(configInclusive.expiry_date).toEqual({
-      gte: new Date("2024-01-01").toISOString(),
-      lte: new Date("2024-12-31").toISOString(),
-    })
-    expect(configExclusive.expiry_date).toEqual({
-      gte: new Date("2024-01-02").toISOString(),
-      lte: new Date("2024-12-30").toISOString(),
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.expiry_date).toEqual({
+      gt: new Date("2024-01-01").toISOString(),
+      lt: new Date("2024-12-31").toISOString(),
     })
   })
 
