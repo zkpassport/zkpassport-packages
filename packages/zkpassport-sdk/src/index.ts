@@ -84,7 +84,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.8.4"
+const VERSION = "0.8.5"
 
 const DEFAULT_DATE_VALUE = new Date(0)
 
@@ -497,12 +497,27 @@ export class ZKPassport {
     for (const field of fields) {
       for (const key in this.topicToConfig[topic][field as IDCredential]) {
         switch (key) {
-          case "eq":
           case "disclose":
             if (field !== "age" && !neededCircuits.includes("disclose_bytes")) {
               neededCircuits.push("disclose_bytes")
             } else if (field === "age" && !neededCircuits.includes("compare_age")) {
               neededCircuits.push("compare_age")
+            }
+            break
+          case "eq":
+            if (
+              field !== "age" &&
+              field !== "birthdate" &&
+              field !== "expiry_date" &&
+              !neededCircuits.includes("disclose_bytes")
+            ) {
+              neededCircuits.push("disclose_bytes")
+            } else if (field === "age" && !neededCircuits.includes("compare_age")) {
+              neededCircuits.push("compare_age")
+            } else if (field === "birthdate" && !neededCircuits.includes("compare_birthdate")) {
+              neededCircuits.push("compare_birthdate")
+            } else if (field === "expiry_date" && !neededCircuits.includes("compare_expiry")) {
+              neededCircuits.push("compare_expiry")
             }
             break
           case "gte":
@@ -1310,7 +1325,13 @@ export class ZKPassport {
           }
         }
       }
-      if (!queryResult.age.lt && !queryResult.age.range && maxAge != 0) {
+      if (
+        !queryResult.age.lt &&
+        !queryResult.age.lte &&
+        !queryResult.age.eq &&
+        !queryResult.age.range &&
+        maxAge != 0
+      ) {
         console.warn("Maximum age should be equal to 0")
         isCorrect = false
         queryResultErrors.age = {
@@ -1322,7 +1343,13 @@ export class ZKPassport {
           },
         }
       }
-      if (!queryResult.age.gte && !queryResult.age.range && minAge != 0) {
+      if (
+        !queryResult.age.gte &&
+        !queryResult.age.gt &&
+        !queryResult.age.eq &&
+        !queryResult.age.range &&
+        minAge != 0
+      ) {
         console.warn("Minimum age should be equal to 0")
         isCorrect = false
         queryResultErrors.age = {
@@ -1456,6 +1483,8 @@ export class ZKPassport {
       }
       if (
         !queryResult.birthdate.lte &&
+        !queryResult.birthdate.lt &&
+        !queryResult.birthdate.eq &&
         !queryResult.birthdate.range &&
         !areDatesEqual(maxDate, DEFAULT_DATE_VALUE)
       ) {
@@ -1472,6 +1501,8 @@ export class ZKPassport {
       }
       if (
         !queryResult.birthdate.gte &&
+        !queryResult.birthdate.gt &&
+        !queryResult.birthdate.eq &&
         !queryResult.birthdate.range &&
         !areDatesEqual(minDate, DEFAULT_DATE_VALUE)
       ) {
@@ -1588,6 +1619,8 @@ export class ZKPassport {
       }
       if (
         !queryResult.expiry_date.lte &&
+        !queryResult.expiry_date.lt &&
+        !queryResult.expiry_date.eq &&
         !queryResult.expiry_date.range &&
         !areDatesEqual(maxDate, DEFAULT_DATE_VALUE)
       ) {
@@ -1604,6 +1637,8 @@ export class ZKPassport {
       }
       if (
         !queryResult.expiry_date.gte &&
+        !queryResult.expiry_date.gt &&
+        !queryResult.expiry_date.eq &&
         !queryResult.expiry_date.range &&
         !areDatesEqual(minDate, DEFAULT_DATE_VALUE)
       ) {
