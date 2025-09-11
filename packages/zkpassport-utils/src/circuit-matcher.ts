@@ -769,7 +769,8 @@ export async function getAgeCircuitInputs(
   let maxAge = 0
   if (query.age) {
     if (query.age.gt) {
-      minAge = query.age.gt as number
+      // Add 1 to the age as the circuit bounds are inclusive
+      minAge = (query.age.gt as number) + 1
     } else if (query.age.gte) {
       minAge = query.age.gte as number
     } else if (query.age.range) {
@@ -784,7 +785,8 @@ export async function getAgeCircuitInputs(
     }
 
     if (query.age.lt) {
-      maxAge = query.age.lt as number
+      // Subtract 1 from the age as the circuit bounds are inclusive
+      maxAge = (query.age.lt as number) - 1
     } else if (query.age.lte) {
       maxAge = query.age.lte as number
     }
@@ -1028,7 +1030,10 @@ export async function getBirthdateCircuitInputs(
   let maxDate: Date | undefined
   if (query.birthdate) {
     if (query.birthdate.gt) {
-      minDate = query.birthdate.gt as Date
+      // Add 1 day to the date as the circuit bounds are inclusive
+      minDate = new Date(
+        (query.birthdate.gt as Date).setDate((query.birthdate.gt as Date).getDate() + 1),
+      )
     } else if (query.birthdate.gte) {
       minDate = query.birthdate.gte as Date
     } else if (query.birthdate.range) {
@@ -1043,7 +1048,10 @@ export async function getBirthdateCircuitInputs(
     }
 
     if (query.birthdate.lt) {
-      maxDate = query.birthdate.lt as Date
+      // Subtract 1 day from the date as the circuit bounds are inclusive
+      maxDate = new Date(
+        (query.birthdate.lt as Date).setDate((query.birthdate.lt as Date).getDate() - 1),
+      )
     } else if (query.birthdate.lte) {
       maxDate = query.birthdate.lte as Date
     }
@@ -1092,7 +1100,10 @@ export async function getExpiryDateCircuitInputs(
   let maxDate: Date | undefined
   if (query.expiry_date) {
     if (query.expiry_date.gt) {
-      minDate = query.expiry_date.gt as Date
+      // Add 1 day to the date as the circuit bounds are inclusive
+      minDate = new Date(
+        (query.expiry_date.gt as Date).setDate((query.expiry_date.gt as Date).getDate() + 1),
+      )
     } else if (query.expiry_date.gte) {
       minDate = query.expiry_date.gte as Date
     } else if (query.expiry_date.range) {
@@ -1107,7 +1118,10 @@ export async function getExpiryDateCircuitInputs(
     }
 
     if (query.expiry_date.lt) {
-      maxDate = query.expiry_date.lt as Date
+      // Subtract 1 day from the date as the circuit bounds are inclusive
+      maxDate = new Date(
+        (query.expiry_date.lt as Date).setDate((query.expiry_date.lt as Date).getDate() - 1),
+      )
     } else if (query.expiry_date.lte) {
       maxDate = query.expiry_date.lte as Date
     }

@@ -72,6 +72,7 @@ import {
   getBirthdateMaxDateTimestamp,
   SanctionsCommittedInputs,
   SanctionsBuilder,
+  SECONDS_BETWEEN_1900_AND_1970,
 } from "@zkpassport/utils"
 import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
@@ -83,7 +84,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.8.0"
+const VERSION = "0.8.4"
 
 const DEFAULT_DATE_VALUE = new Date(0)
 
@@ -302,17 +303,23 @@ export type QueryBuilder = {
    */
   gte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
   /**
+   * Requires this attribute to be greater than the provided value.
+   * @param key The attribute to compare.
+   * @param value The value of the attribute you require.
+   */
+  gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
+  /**
    * Requires this attribute to be less than or equal to the provided value.
    * @param key The attribute to compare.
    * @param value The value of the attribute you require.
    */
-  lte: <T extends "birthdate" | "expiry_date">(key: T, value: IDCredentialValue<T>) => QueryBuilder
+  lte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
   /**
    * Requires this attribute to be less than the provided value.
    * @param key The attribute to compare.
    * @param value The value of the attribute you require.
    */
-  lt: <T extends "age">(key: T, value: IDCredentialValue<T>) => QueryBuilder
+  lt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => QueryBuilder
   /**
    * Requires this attribute to be included in the provided range.
    * @param key The attribute to compare.
@@ -636,15 +643,15 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      /*gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
-        numericalCompare('gt', key, value, topic, this.topicToConfig)
+      gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
+        numericalCompare("gt", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
-      },*/
-      lte: <T extends "birthdate" | "expiry_date">(key: T, value: IDCredentialValue<T>) => {
+      },
+      lte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
         numericalCompare("lte", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
-      lt: <T extends "age">(key: T, value: IDCredentialValue<T>) => {
+      lt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
         numericalCompare("lt", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
@@ -1387,9 +1394,11 @@ export class ZKPassport {
     )
     const minDate = getBirthdateMinDateTimestamp(
       proof.committedInputs?.compare_birthdate as DateCommittedInputs,
+      -1 * SECONDS_BETWEEN_1900_AND_1970,
     )
     const maxDate = getBirthdateMaxDateTimestamp(
       proof.committedInputs?.compare_birthdate as DateCommittedInputs,
+      -1 * SECONDS_BETWEEN_1900_AND_1970,
     )
     const currentDate = getCurrentDateFromCommittedInputs(
       proof.committedInputs?.compare_birthdate as DateCommittedInputs,
@@ -1398,7 +1407,7 @@ export class ZKPassport {
       if (
         queryResult.birthdate.gte &&
         queryResult.birthdate.gte.result &&
-        minDate !== queryResult.birthdate.gte.expected
+        !areDatesEqual(minDate, queryResult.birthdate.gte.expected)
       ) {
         console.warn("Birthdate is not greater than or equal to the expected birthdate")
         isCorrect = false
@@ -1414,7 +1423,7 @@ export class ZKPassport {
       if (
         queryResult.birthdate.lte &&
         queryResult.birthdate.lte.result &&
-        maxDate !== queryResult.birthdate.lte.expected
+        !areDatesEqual(maxDate, queryResult.birthdate.lte.expected)
       ) {
         console.warn("Birthdate is not less than the expected birthdate")
         isCorrect = false
@@ -1430,8 +1439,8 @@ export class ZKPassport {
       if (queryResult.birthdate.range) {
         if (
           queryResult.birthdate.range.result &&
-          (minDate !== queryResult.birthdate.range.expected[0] ||
-            maxDate !== queryResult.birthdate.range.expected[1])
+          (!areDatesEqual(minDate, queryResult.birthdate.range.expected[0]) ||
+            !areDatesEqual(maxDate, queryResult.birthdate.range.expected[1]))
         ) {
           console.warn("Birthdate is not in the expected range")
           isCorrect = false
@@ -1530,7 +1539,7 @@ export class ZKPassport {
       if (
         queryResult.expiry_date.gte &&
         queryResult.expiry_date.gte.result &&
-        minDate !== queryResult.expiry_date.gte.expected
+        !areDatesEqual(minDate, queryResult.expiry_date.gte.expected)
       ) {
         console.warn("Expiry date is not greater than or equal to the expected expiry date")
         isCorrect = false
@@ -1546,7 +1555,7 @@ export class ZKPassport {
       if (
         queryResult.expiry_date.lte &&
         queryResult.expiry_date.lte.result &&
-        maxDate !== queryResult.expiry_date.lte.expected
+        !areDatesEqual(maxDate, queryResult.expiry_date.lte.expected)
       ) {
         console.warn("Expiry date is not less than the expected expiry date")
         isCorrect = false
@@ -1562,8 +1571,8 @@ export class ZKPassport {
       if (queryResult.expiry_date.range) {
         if (
           queryResult.expiry_date.range.result &&
-          (minDate !== queryResult.expiry_date.range.expected[0] ||
-            maxDate !== queryResult.expiry_date.range.expected[1])
+          (!areDatesEqual(minDate, queryResult.expiry_date.range.expected[0]) ||
+            !areDatesEqual(maxDate, queryResult.expiry_date.range.expected[1]))
         ) {
           console.warn("Expiry date is not in the expected range")
           isCorrect = false
@@ -2171,12 +2180,14 @@ export class ZKPassport {
                 birthdateCommittedInputs.currentDateTimestamp,
                 birthdateCommittedInputs.minDateTimestamp,
                 birthdateCommittedInputs.maxDateTimestamp,
+                0,
               )
             : await getDateParameterCommitment(
                 ProofType.BIRTHDATE,
                 birthdateCommittedInputs.currentDateTimestamp,
                 birthdateCommittedInputs.minDateTimestamp,
                 birthdateCommittedInputs.maxDateTimestamp,
+                0,
               )
           if (!paramCommitments.includes(birthdateParameterCommitment)) {
             console.warn("This proof does not verify the birthdate")
@@ -2647,6 +2658,7 @@ export class ZKPassport {
           committedInputs.currentDateTimestamp,
           committedInputs.minDateTimestamp,
           committedInputs.maxDateTimestamp,
+          0,
         )
         if (paramCommitment !== calculatedParamCommitment) {
           console.warn(
