@@ -1,5 +1,6 @@
 import { bigIntToBuffer } from "@zk-kit/utils"
 import { QueryResult, SupportedChain } from "./types"
+import { hexToBytes } from "@noble/hashes/utils"
 
 export async function loadModule(module: string) {
   try {
@@ -347,6 +348,10 @@ export function formatQueryResultDates(queryResult: QueryResult) {
     }
   }
   return queryResult
+}
+
+export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
+  return hexToBytes(n.toString(16).padStart(len * 2, "0"))
 }
 
 export { AggregateError, PromisePool } from "./promise-pool"

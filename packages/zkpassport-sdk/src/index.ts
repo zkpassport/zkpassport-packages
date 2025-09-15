@@ -73,8 +73,9 @@ import {
   SanctionsCommittedInputs,
   SanctionsBuilder,
   SECONDS_BETWEEN_1900_AND_1970,
+  numberToBytesBE,
 } from "@zkpassport/utils"
-import { bytesToHex, numberToBytesBE } from "@noble/ciphers/utils"
+import { bytesToHex } from "@noble/ciphers/utils"
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
