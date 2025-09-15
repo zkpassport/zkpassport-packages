@@ -1,9 +1,8 @@
 import { sha256 } from "@noble/hashes/sha2"
 import { DateCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { packBeBytesIntoField } from "../utils"
+import { packBeBytesIntoField, numberToBytesBE } from "../utils"
 import { ProofType } from "."
-import { numberToBytesBE } from "@noble/ciphers/utils"
 
 export const SECONDS_BETWEEN_1900_AND_1970 = Math.floor(
   Math.abs(Date.UTC(1900, 0, 1, 0, 0, 0)) / 1000,
