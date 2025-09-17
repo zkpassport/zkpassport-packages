@@ -85,7 +85,7 @@ import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 
-const VERSION = "0.8.5"
+const VERSION = "0.8.7"
 
 const DEFAULT_DATE_VALUE = new Date(0)
 
@@ -3216,7 +3216,7 @@ export class ZKPassport {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0xBec82dec0747C9170D760D5aba9cc44929B17C05",
+        address: "0xE486bdA3e2f8a6e00c6E2d3a4ADb0A7aa7b1cEe9",
       }
     } else if (network === "local_anvil") {
       return {
