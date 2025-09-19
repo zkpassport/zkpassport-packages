@@ -1,6 +1,13 @@
 import { bigIntToBuffer } from "@zk-kit/utils"
 import { QueryResult, SupportedChain } from "./types"
 import { hexToBytes } from "@noble/hashes/utils"
+import {
+  HASH_ALGORITHM_SHA1,
+  HASH_ALGORITHM_SHA224,
+  HASH_ALGORITHM_SHA256,
+  HASH_ALGORITHM_SHA384,
+  HASH_ALGORITHM_SHA512,
+} from "./registry"
 
 export async function loadModule(module: string) {
   try {
@@ -352,6 +359,27 @@ export function formatQueryResultDates(queryResult: QueryResult) {
 
 export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
   return hexToBytes(n.toString(16).padStart(len * 2, "0"))
+}
+
+/**
+ * Get the hash algorithm identifier from the length of the hash
+ * Since only SHA1 and SHA2s are used, we can use the length to determine the hash algorithm safely
+ * @param length - The length of the hash
+ * @returns The hash algorithm identifier
+ */
+export function getHashAlgorithmIdentifierFromLength(length: number): number {
+  if (length === 20) {
+    return HASH_ALGORITHM_SHA1
+  } else if (length === 28) {
+    return HASH_ALGORITHM_SHA224
+  } else if (length === 32) {
+    return HASH_ALGORITHM_SHA256
+  } else if (length === 48) {
+    return HASH_ALGORITHM_SHA384
+  } else if (length === 64) {
+    return HASH_ALGORITHM_SHA512
+  }
+  throw new Error(`Unsupported hash algorithm length: ${length}`)
 }
 
 export { AggregateError, PromisePool } from "./promise-pool"

@@ -444,6 +444,8 @@ export type IDDataInputs = {
   e_content: number[]
   signed_attributes: number[]
   dg1: number[]
+  dg2_hash_normalized: bigint
+  dg2_hash_type: number
 }
 
 export type ECDSADSCDataInputs = {

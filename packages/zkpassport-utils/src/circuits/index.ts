@@ -85,14 +85,23 @@ export async function hashSaltCountrySignedAttrDg1EContentPrivateNullifier(
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
 
-export async function hashSaltDg1PrivateNullifier(
+export async function normalizeDg2Hash(dg2Hash: number[]): Promise<bigint> {
+  const packedDg2Hash = packBeBytesIntoFields(new Uint8Array(dg2Hash), 31)
+  return poseidon2HashAsync(packedDg2Hash.map((x) => BigInt(x)))
+}
+
+export async function hashSaltDg1Dg2HashPrivateNullifier(
   salt: bigint,
   dg1: Binary,
+  dg2HashNormalized: bigint,
+  dg2HashType: number,
   privateNullifier: bigint,
 ): Promise<Binary> {
   const result: bigint[] = []
   result.push(salt)
   result.push(...packBeBytesIntoFields(dg1.toUInt8Array(), 31).map((x) => BigInt(x)))
+  result.push(dg2HashNormalized)
+  result.push(BigInt(dg2HashType))
   result.push(privateNullifier)
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
