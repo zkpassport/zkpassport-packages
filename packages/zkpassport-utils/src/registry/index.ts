@@ -27,9 +27,9 @@ export const CIRCUIT_REGISTRY_HEIGHT = 12
  * Canonical hash algorithm identifiers for the certificate registry
  */
 export const HASH_ALGORITHM_SHA1 = 1
-export const HASH_ALGORITHM_SHA256 = 2
-export const HASH_ALGORITHM_SHA384 = 3
-export const HASH_ALGORITHM_SHA224 = 4
+export const HASH_ALGORITHM_SHA224 = 2
+export const HASH_ALGORITHM_SHA256 = 3
+export const HASH_ALGORITHM_SHA384 = 4
 export const HASH_ALGORITHM_SHA512 = 5
 
 /**
