@@ -13,14 +13,6 @@ export function getMaxAgeFromCommittedInputs(committedInputs: AgeCommittedInputs
 }
 
 /**
- * Get the number of public inputs for the age proof.
- * @returns The number of public inputs.
- */
-export function getAgeProofPublicInputCount(): number {
-  return 5
-}
-
-/**
  * Get the parameter commitment for the age proof.
  * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)
  * @param minAge - The minimum age.

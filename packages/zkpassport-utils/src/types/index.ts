@@ -521,6 +521,13 @@ export type Letter =
 
 export type TwoLetterCode = `${Letter}${Letter}`
 
+export enum NullifierType {
+  NON_SALTED = 0,
+  SALTED = 1,
+  NON_SALTED_MOCK = 2,
+  SALTED_MOCK = 3,
+}
+
 export type { CountryName } from "./countries"
 
 export type {
