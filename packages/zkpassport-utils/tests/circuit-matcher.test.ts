@@ -70,6 +70,8 @@ const SERVICE_SCOPE = 2n
 const EXPECTED_SERVICE_SCOPE = "0x2"
 const SERVICE_SUBSCOPE = 3n
 const EXPECTED_SERVICE_SUBSCOPE = "0x3"
+const NULLIFIER_SECRET = 0n
+const EXPECTED_NULLIFIER_SECRET = "0x0"
 
 describe("Circuit Matcher - General", () => {
   it("should detect if CSCA certificate is supported", () => {
@@ -380,6 +382,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -398,6 +401,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -415,6 +419,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
@@ -432,6 +437,7 @@ describe("Circuit Matcher - RSA", () => {
       salt: EXPECTED_SALT,
       min_age_required: 18,
       max_age_required: 0,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -443,6 +449,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -457,6 +464,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -468,6 +476,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -485,6 +494,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -496,6 +506,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -510,6 +521,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -521,6 +533,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -537,6 +550,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -549,6 +563,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
@@ -566,6 +581,7 @@ describe("Circuit Matcher - RSA", () => {
       salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -578,6 +594,7 @@ describe("Circuit Matcher - RSA", () => {
       PASSPORTS.john,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
@@ -595,6 +612,7 @@ describe("Circuit Matcher - RSA", () => {
       salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 })
@@ -752,6 +770,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -770,6 +789,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -787,6 +807,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
@@ -804,6 +825,7 @@ describe("Circuit Matcher - ECDSA", () => {
       salt: EXPECTED_SALT,
       min_age_required: 18,
       max_age_required: 0,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -815,6 +837,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -829,6 +852,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -840,6 +864,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -857,6 +882,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -868,6 +894,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -882,6 +909,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -893,6 +921,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
     )
@@ -909,6 +938,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -921,6 +951,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
@@ -938,6 +969,7 @@ describe("Circuit Matcher - ECDSA", () => {
       salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -950,6 +982,7 @@ describe("Circuit Matcher - ECDSA", () => {
       PASSPORTS.mary,
       query,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
@@ -967,6 +1000,7 @@ describe("Circuit Matcher - ECDSA", () => {
       salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 
@@ -976,6 +1010,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getSanctionsExclusionCheckCircuitInputs(
       PASSPORTS.mary,
       SALT,
+      NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       sanctions,
@@ -992,6 +1027,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       salt: EXPECTED_SALT,
+      nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
 })
