@@ -1219,3 +1219,47 @@ export async function getBindCircuitInputs(
     salt: `0x${salt.toString(16)}`,
   }
 }
+
+export async function getFacematchCircuitInputs(
+  passport: PassportViewModel,
+  query: Query,
+  salt: bigint,
+  service_scope: bigint = 0n,
+  service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
+): Promise<any> {
+  const idData = await getIDDataInputs(passport)
+  if (!idData) throw new Error("Error getting ID data inputs")
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salt,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
+
+  if (!query.facematch) throw new Error("Facematch query is required")
+
+  return {
+    dg1: idData.dg1,
+    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_type: idData.dg2_hash_type,
+    current_date: currentDateTimestamp,
+    comm_in: commIn.toHex(),
+    private_nullifier: privateNullifier.toHex(),
+    service_scope: `0x${service_scope.toString(16)}`,
+    service_subscope: `0x${service_subscope.toString(16)}`,
+    salt: `0x${salt.toString(16)}`,
+    // FACEMATCH_MODE_REGULAR (1) or FACEMATCH_MODE_STRICT (2)
+    facematch_mode: query.facematch.mode === "regular" ? 1 : 2,
+    // APP_ATTEST_ENV_DEVELOPMENT (0) or APP_ATTEST_ENV_PRODUCTION (1)
+    environment: 1,
+  }
+}

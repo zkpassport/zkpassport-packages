@@ -211,6 +211,27 @@ export function packBeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): 
   return result
 }
 
+export function packLeBytesIntoFields(bytes: Uint8Array, maxChunkSize: number): string[] {
+  if (bytes.length === 0) return []
+  const totalFields = Math.ceil(bytes.length / maxChunkSize)
+  const result = new Array(totalFields)
+  let byteIndex = 0
+  // Pack all fields in little-endian order
+  for (let fieldIndex = 0; fieldIndex < totalFields; fieldIndex++) {
+    const remainingBytes = bytes.length - byteIndex
+    const chunkSize = Math.min(maxChunkSize, remainingBytes)
+    // Pack bytes in little-endian order (reverse the chunk)
+    let value = 0n
+    for (let i = chunkSize - 1; i >= 0; i--) {
+      value = (value << 8n) | BigInt(bytes[byteIndex + i]!)
+    }
+    byteIndex += chunkSize
+    const hex = value.toString(16)
+    result[fieldIndex] = "0x" + hex
+  }
+  return result
+}
+
 /**
  * Converts a string (or string array) into a hex string array
  * Useful for going from text to unicode
