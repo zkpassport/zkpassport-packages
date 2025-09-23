@@ -1229,7 +1229,7 @@ export async function getFacematchCircuitInputs(
   currentDateTimestamp: number,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
-  if (!idData) return null
+  if (!idData) throw new Error("Error getting ID data inputs")
   const privateNullifier = await calculatePrivateNullifier(
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
     Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
@@ -1245,9 +1245,7 @@ export async function getFacematchCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
-  if (!query.facematch) {
-    throw new Error("Facematch query is required")
-  }
+  if (!query.facematch) throw new Error("Facematch query is required")
 
   return {
     dg1: idData.dg1,
