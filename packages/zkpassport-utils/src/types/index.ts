@@ -302,6 +302,13 @@ export type DiscloseCommittedInputs = {
   disclosedBytes: number[]
 }
 
+export type FacematchCommittedInputs = {
+  rootKeyLeaf: string
+  environment: "development" | "production"
+  appId: string
+  mode: FacematchMode
+}
+
 export type SupportedChain = "ethereum_sepolia" | "local_anvil"
 
 export type BoundData = {

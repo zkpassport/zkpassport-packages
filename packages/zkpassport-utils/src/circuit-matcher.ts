@@ -1246,6 +1246,7 @@ export async function getFacematchCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
@@ -1283,5 +1284,6 @@ export async function getFacematchCircuitInputs(
     facematch_mode: query.facematch.mode === "regular" ? 1 : 2,
     // APP_ATTEST_ENV_DEVELOPMENT (0) or APP_ATTEST_ENV_PRODUCTION (1)
     environment: 1,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
