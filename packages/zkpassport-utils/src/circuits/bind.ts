@@ -14,14 +14,6 @@ export function getBoundDataFromCommittedInputs(committedInputs: BindCommittedIn
   return committedInputs.data
 }
 
-/**
- * Get the number of public inputs for the bind proof.
- * @returns The number of public inputs.
- */
-export function getBindProofPublicInputCount(): number {
-  return 5
-}
-
 export enum BoundDataIdentifier {
   USER_ADDRESS = 1,
   CHAIN_ID = 2,

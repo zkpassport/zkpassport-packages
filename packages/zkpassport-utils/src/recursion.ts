@@ -1,4 +1,4 @@
-import { ProofData } from "."
+import { NullifierType, ProofData } from "."
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -26,7 +26,8 @@ export function getOuterCircuitInputs(
   const currentDateTimestamp = Number(BigInt(integrityCheckProof.publicInputs[0]))
   const scope = disclosureProofs[0].publicInputs[1]
   const subscope = disclosureProofs[0].publicInputs[2]
-  const nullifier = disclosureProofs[0].publicInputs[4]
+  const nullifierType = disclosureProofs[0].publicInputs[4]
+  const nullifier = disclosureProofs[0].publicInputs[5]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[3])
 
   return {
@@ -37,6 +38,7 @@ export function getOuterCircuitInputs(
     service_subscope: subscope,
     param_commitments: paramCommitments,
     scoped_nullifier: nullifier,
+    nullifier_type: nullifierType,
     csc_to_dsc_proof: {
       vkey: cscToDscProof.vkey,
       proof: cscToDscProof.proof,
@@ -104,6 +106,20 @@ export function getScopeFromOuterProof(proofData: ProofData): bigint {
  */
 export function getSubscopeFromOuterProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[4])
+}
+
+export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierType {
+  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  if (nullifierType === 0n) {
+    return NullifierType.NON_SALTED
+  } else if (nullifierType === 1n) {
+    return NullifierType.SALTED
+  } else if (nullifierType === 2n) {
+    return NullifierType.NON_SALTED_MOCK
+  } else if (nullifierType === 3n) {
+    return NullifierType.SALTED_MOCK
+  }
+  throw new Error("Invalid nullifier type")
 }
 
 /**

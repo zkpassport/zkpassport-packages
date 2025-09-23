@@ -324,22 +324,6 @@ export function createDisclosedDataRaw(data: {
 }
 
 /**
- * Get the number of public inputs for the disclose bytes proof.
- * @returns The number of public inputs.
- */
-export function getDiscloseBytesProofPublicInputCount(): number {
-  return 5
-}
-
-/**
- * Get the number of public inputs for the disclose flags proof.
- * @returns The number of public inputs.
- */
-export function getDiscloseFlagsProofPublicInputCount(): number {
-  return 73
-}
-
-/**
  * Get the parameter commitment for the disclose proof.
  * @param discloseMask - The disclose mask.
  * @param disclosedBytes - The disclosed bytes.

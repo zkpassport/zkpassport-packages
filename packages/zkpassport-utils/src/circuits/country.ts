@@ -34,22 +34,6 @@ export function getCountryListFromCommittedInputs(
 }
 
 /**
- * Get the number of public inputs for the country exclusion proof.
- * @returns The number of public inputs.
- */
-export function getCountryExclusionProofPublicInputCount(): number {
-  return 5
-}
-
-/**
- * Get the number of public inputs for the country inclusion proof.
- * @returns The number of public inputs.
- */
-export function getCountryInclusionProofPublicInputCount(): number {
-  return 5
-}
-
-/**
  * Get the parameter commitment for the country proof (inclusion and exclusion alike).
  * @param proofType - The proof type.
  * @param countries - The list of countries.

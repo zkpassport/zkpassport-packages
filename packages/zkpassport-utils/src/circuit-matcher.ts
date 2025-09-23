@@ -597,6 +597,7 @@ export async function getDiscloseCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
 ) {
@@ -688,6 +689,7 @@ export async function getDiscloseCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -695,6 +697,7 @@ export async function getDiscloseFlagsCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
 ): Promise<any> {
@@ -736,6 +739,7 @@ export async function getDiscloseFlagsCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -757,6 +761,7 @@ export async function getAgeCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
@@ -819,6 +824,7 @@ export async function getAgeCircuitInputs(
     salt: `0x${salt.toString(16)}`,
     min_age_required: minAge,
     max_age_required: maxAge,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -834,6 +840,7 @@ export async function getNationalityInclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
 ): Promise<any> {
@@ -864,6 +871,7 @@ export async function getNationalityInclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -871,6 +879,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
 ): Promise<any> {
@@ -901,6 +910,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -908,6 +918,7 @@ export async function getNationalityExclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
 ): Promise<any> {
@@ -948,6 +959,7 @@ export async function getNationalityExclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -955,6 +967,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
 ): Promise<any> {
@@ -995,12 +1008,14 @@ export async function getIssuingCountryExclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
 export async function getSanctionsExclusionCheckCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
@@ -1037,6 +1052,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -1044,6 +1060,7 @@ export async function getBirthdateCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
@@ -1109,6 +1126,7 @@ export async function getBirthdateCircuitInputs(
     // for min_date and max_date
     min_date: minDate ? getUnixTimestamp(minDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
     max_date: maxDate ? getUnixTimestamp(maxDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -1116,6 +1134,7 @@ export async function getExpiryDateCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
@@ -1178,6 +1197,7 @@ export async function getExpiryDateCircuitInputs(
     salt: `0x${salt.toString(16)}`,
     min_date: minDate ? getUnixTimestamp(minDate) : 0,
     max_date: maxDate ? getUnixTimestamp(maxDate) : 0,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -1185,6 +1205,7 @@ export async function getBindCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
 ): Promise<any> {
@@ -1217,6 +1238,7 @@ export async function getBindCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     salt: `0x${salt.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
 
@@ -1224,6 +1246,7 @@ export async function getFacematchCircuitInputs(
   passport: PassportViewModel,
   query: Query,
   salt: bigint,
+  nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
@@ -1261,5 +1284,6 @@ export async function getFacematchCircuitInputs(
     facematch_mode: query.facematch.mode === "regular" ? 1 : 2,
     // APP_ATTEST_ENV_DEVELOPMENT (0) or APP_ATTEST_ENV_PRODUCTION (1)
     environment: 1,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }

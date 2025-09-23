@@ -1,26 +1,14 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { format } from "date-fns"
-import {
-  getBindProofPublicInputCount,
-  getCountryExclusionProofPublicInputCount,
-  getCountryInclusionProofPublicInputCount,
-  getIDDataProofPublicInputCount,
-  packBeBytesIntoFields,
-  packLeBytesIntoFields,
-} from ".."
+import { getIDDataProofPublicInputCount, packBeBytesIntoFields, packLeBytesIntoFields } from ".."
 import { Binary } from "../binary"
 import {
   AgeCommittedInputs,
   DateCommittedInputs,
   DisclosureCircuitName,
+  NullifierType,
   PackagedCircuit,
 } from "../types"
-import { getAgeProofPublicInputCount } from "./age"
-import { getDateProofPublicInputCount } from "./date"
-import {
-  getDiscloseBytesProofPublicInputCount,
-  getDiscloseFlagsProofPublicInputCount,
-} from "./disclose"
 import { getDSCProofPublicInputCount } from "./dsc"
 import { getIntegrityProofPublicInputCount } from "./integrity"
 
@@ -115,16 +103,30 @@ export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
 }
 
-export function getParameterCommitmentFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+export function getNullifierTypeFromDisclosureProof(proofData: ProofData): NullifierType {
+  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  if (nullifierType === 0n) {
+    return NullifierType.NON_SALTED
+  } else if (nullifierType === 1n) {
+    return NullifierType.SALTED
+  } else if (nullifierType === 2n) {
+    return NullifierType.NON_SALTED_MOCK
+  } else if (nullifierType === 3n) {
+    return NullifierType.SALTED_MOCK
+  }
+  throw new Error("Invalid nullifier type")
 }
 
-export function getServiceSubScopeFromDisclosureProof(proofData: ProofData): bigint {
+export function getParameterCommitmentFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
 }
 
-export function getServiceScopeFromDisclosureProof(proofData: ProofData): bigint {
+export function getServiceSubScopeFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 4])
+}
+
+export function getServiceScopeFromDisclosureProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 5])
 }
 
 export function getCommitmentInFromDisclosureProof(proofData: ProofData): bigint {
@@ -169,35 +171,20 @@ export async function getHostedPackagedCircuitByName(
  * @returns The number of public inputs.
  */
 export function getNumberOfPublicInputs(circuitName: string) {
-  if (circuitName.startsWith("disclose_bytes")) {
-    return getDiscloseBytesProofPublicInputCount()
-  } else if (circuitName.startsWith("disclose_flags")) {
-    return getDiscloseFlagsProofPublicInputCount()
-  } else if (circuitName.startsWith("compare_age")) {
-    return getAgeProofPublicInputCount()
-  } else if (
-    circuitName.startsWith("compare_birthdate") ||
-    circuitName.startsWith("compare_expiry")
-  ) {
-    return getDateProofPublicInputCount()
-  } else if (circuitName.startsWith("exclusion_check")) {
-    return getCountryExclusionProofPublicInputCount()
-  } else if (circuitName.startsWith("inclusion_check")) {
-    return getCountryInclusionProofPublicInputCount()
-  } else if (circuitName.startsWith("data_check_integrity")) {
+  if (circuitName.startsWith("data_check_integrity")) {
     return getIntegrityProofPublicInputCount()
   } else if (circuitName.startsWith("sig_check_id_data")) {
     return getIDDataProofPublicInputCount()
   } else if (circuitName.startsWith("sig_check_dsc")) {
     return getDSCProofPublicInputCount()
-  } else if (circuitName.startsWith("bind")) {
-    return getBindProofPublicInputCount()
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
     const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
-    return 6 + disclosureProofCount
+    return 7 + disclosureProofCount
   }
-  return 0
+  // Any other circuits are assumed to be disclosure circuits
+  // which have a universal interface of 6 public inputs
+  return 6
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
@@ -242,6 +229,10 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
       return 33
     case "exclusion_check_sanctions_evm":
       return 33
+    case "facematch":
+      return 5
+    case "facematch_evm":
+      return 67
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }
@@ -272,7 +263,7 @@ export enum ProofType {
   ISSUING_COUNTRY_EXCLUSION = 7,
   BIND = 8,
   SANCTIONS_EXCLUSION = 9,
-  FACEMATCH = 11,
+  FACEMATCH = 10,
 }
 
 export {

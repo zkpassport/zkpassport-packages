@@ -39,14 +39,6 @@ export function getBirthdateMaxDateTimestamp(
 }
 
 /**
- * Get the number of public inputs for the date proof.
- * @returns The number of public inputs.
- */
-export function getDateProofPublicInputCount(): number {
-  return 5
-}
-
-/**
  * Get the parameter commitment for the date proof (birthdate and expiry date alike).
  * @param proofType - The proof type.
  * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)

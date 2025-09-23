@@ -302,6 +302,13 @@ export type DiscloseCommittedInputs = {
   disclosedBytes: number[]
 }
 
+export type FacematchCommittedInputs = {
+  rootKeyLeaf: string
+  environment: "development" | "production"
+  appId: string
+  mode: FacematchMode
+}
+
 export type SupportedChain = "ethereum_sepolia" | "local_anvil"
 
 export type BoundData = {
@@ -522,6 +529,13 @@ export type Letter =
   | "Z"
 
 export type TwoLetterCode = `${Letter}${Letter}`
+
+export enum NullifierType {
+  NON_SALTED = 0,
+  SALTED = 1,
+  NON_SALTED_MOCK = 2,
+  SALTED_MOCK = 3,
+}
 
 export type { CountryName } from "./countries"
 
