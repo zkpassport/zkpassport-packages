@@ -263,7 +263,7 @@ export enum ProofType {
   ISSUING_COUNTRY_EXCLUSION = 7,
   BIND = 8,
   SANCTIONS_EXCLUSION = 9,
-  FACEMATCH = 11,
+  FACEMATCH = 10,
 }
 
 export {
