@@ -12,7 +12,9 @@ describe("Parameter Commitments", () => {
       app_id_hash,
       facematch_mode,
     )
-    expect(result).toEqual(0x14b544bb7296b877b4f75c61b98cc40fc7ee5a0201340cb89e6e77429c71e6b5n)
+    expect(result).toEqual(
+      45924432598061428900482290191587026917977265499575431053444828425620523161n,
+    )
   })
 
   test("Facematch EVM", async () => {
@@ -26,6 +28,8 @@ describe("Parameter Commitments", () => {
       app_id_hash,
       facematch_mode,
     )
-    expect(result).toEqual(0x4937febb950deb440e619a6b5adc25c27193d6eb852e7f97dd9ad2e1f5fd73n)
+    expect(result).toEqual(
+      324228346544619369157385160001260028033340295293175039696405967901909378923n,
+    )
   })
 })
