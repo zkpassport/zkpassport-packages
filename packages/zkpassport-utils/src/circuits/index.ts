@@ -1,6 +1,6 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { format } from "date-fns"
-import { getIDDataProofPublicInputCount, packBeBytesIntoFields } from ".."
+import { getIDDataProofPublicInputCount, packBeBytesIntoFields, packLeBytesIntoFields } from ".."
 import { Binary } from "../binary"
 import {
   AgeCommittedInputs,
@@ -75,8 +75,12 @@ export async function hashSaltCountrySignedAttrDg1EContentPrivateNullifier(
 }
 
 export async function normalizeDg2Hash(dg2Hash: number[]): Promise<bigint> {
-  const packedDg2Hash = packBeBytesIntoFields(new Uint8Array(dg2Hash), 31)
-  return poseidon2HashAsync(packedDg2Hash.map((x) => BigInt(x)))
+  return packLeBytesAndHashPoseidon2(new Uint8Array(dg2Hash))
+}
+
+export async function packLeBytesAndHashPoseidon2(input: Uint8Array): Promise<bigint> {
+  const packedInput = packLeBytesIntoFields(input, 31)
+  return poseidon2HashAsync(packedInput.map((x) => BigInt(x)))
 }
 
 export async function hashSaltDg1Dg2HashPrivateNullifier(
@@ -255,6 +259,7 @@ export enum ProofType {
   ISSUING_COUNTRY_EXCLUSION = 7,
   BIND = 8,
   SANCTIONS_EXCLUSION = 9,
+  FACEMATCH = 11,
 }
 
 export {
@@ -275,3 +280,4 @@ export * from "./id-data"
 export * from "./integrity"
 export * from "./vkey"
 export * from "./bind"
+export * from "./facematch"
