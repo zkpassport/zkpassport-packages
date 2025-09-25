@@ -173,7 +173,9 @@ export class SolidityVerifier {
         compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.appId), 32))
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
-        compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
+        // TODO: Uncomment this when the facematch mode is properly supported
+        // compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
+        compressedCommittedInputs += "01"
         console.log("facematch_evm compressedCommittedInputs")
         console.log(compressedCommittedInputs)
       } else {

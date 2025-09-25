@@ -20,6 +20,7 @@ import {
   FacematchMode,
   SanctionsCountries,
   SanctionsLists,
+  NullifierType,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
@@ -609,6 +610,7 @@ export class ZKPassport {
     writingDirectory?: string
   }): Promise<{
     uniqueIdentifier: string | undefined
+    uniqueIdentifierType: NullifierType | undefined
     verified: boolean
     queryResultErrors?: Partial<QueryResultErrors>
   }> {
@@ -617,6 +619,7 @@ export class ZKPassport {
     if (!proofs || proofs.length === 0) {
       return {
         uniqueIdentifier: undefined,
+        uniqueIdentifierType: undefined,
         verified: false,
       }
     }
@@ -633,10 +636,12 @@ export class ZKPassport {
     })
     let verified = true
     let uniqueIdentifier: string | undefined
+    let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined
     const {
       isCorrect,
       uniqueIdentifier: uniqueIdentifierFromPublicInputs,
+      uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
       queryResultErrors: queryResultErrorsFromPublicInputs,
     } = await PublicInputChecker.checkPublicInputs(
       this.domain,
@@ -646,14 +651,17 @@ export class ZKPassport {
       scope,
     )
     uniqueIdentifier = uniqueIdentifierFromPublicInputs
+    uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
     verified = isCorrect
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
     if (
       uniqueIdentifier &&
-      (BigInt(uniqueIdentifier) === BigInt(1) || BigInt(uniqueIdentifier) === BigInt(0)) &&
+      uniqueIdentifierType &&
+      (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
+        uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
       !devMode
     ) {
-      // If the unique identifier is 0 (old ZKR proofs) or 1 (new ZKR proofs) and it is not in dev mode,
+      // If the unique identifier type is a mock nullifier and it is not in dev mode,
       // the proofs are considered invalid as these are mock proofs only meant
       // for testing purposes
       verified = false
@@ -728,7 +736,8 @@ export class ZKPassport {
     }
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
-    return { uniqueIdentifier, verified, queryResultErrors }
+    uniqueIdentifierType = verified ? uniqueIdentifierType : undefined
+    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
   }
 
   public getSolidityVerifierDetails(network: SupportedChain): {

@@ -54,10 +54,21 @@ import {
   SanctionsCommittedInputs,
   SanctionsBuilder,
   SECONDS_BETWEEN_1900_AND_1970,
+  FacematchCommittedInputs,
+  getFacematchEvmParameterCommitment,
+  getFacematchParameterCommitment,
+  NullifierType,
+  getNullifierTypeFromOuterProof,
+  getNullifierTypeFromDisclosureProof,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
 import { RegistryClient } from "@zkpassport/registry"
-import { DEFAULT_DATE_VALUE, DEFAULT_VALIDITY } from "./constants"
+import {
+  APPLE_APP_ATTEST_ROOT_KEY_HASH,
+  DEFAULT_DATE_VALUE,
+  DEFAULT_VALIDITY,
+  ZKPASSPORT_APP_ID_HASH,
+} from "./constants"
 
 export class PublicInputChecker {
   public static checkDiscloseBytesPublicInputs(proof: ProofResult, queryResult: QueryResult) {
@@ -1256,6 +1267,59 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
+  public static async checkFacematchPublicInputs(
+    queryResult: QueryResult,
+    facematchCommittedInputs: FacematchCommittedInputs,
+  ) {
+    let isCorrect = true
+    let queryResultErrors: Partial<QueryResultErrors> = {}
+    if (queryResult.facematch && queryResult.facematch.passed) {
+      // TODO: Make sure to compare against the latest root from Apple or Google
+      // depending on the OS used to generate the proof
+      if (facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH) {
+        console.warn("Invalid facematch root key hash")
+        isCorrect = false
+        queryResultErrors.facematch = {
+          ...queryResultErrors.facematch,
+          eq: {
+            expected: APPLE_APP_ATTEST_ROOT_KEY_HASH,
+            received: facematchCommittedInputs.rootKeyLeaf,
+            message: "Invalid facematch root key hash",
+          },
+        }
+      }
+      const EXPECTED_ENVIRONMENT = "production"
+      if (facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT) {
+        console.warn("Invalid facematch environment, it should be production")
+        isCorrect = false
+        queryResultErrors.facematch = {
+          ...queryResultErrors.facematch,
+          eq: {
+            expected: EXPECTED_ENVIRONMENT,
+            received: facematchCommittedInputs.environment,
+            message: "Invalid facematch environment, it should be production",
+          },
+        }
+      }
+      if (facematchCommittedInputs.appId !== ZKPASSPORT_APP_ID_HASH) {
+        console.warn(
+          "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
+        )
+        isCorrect = false
+        queryResultErrors.facematch = {
+          ...queryResultErrors.facematch,
+          eq: {
+            expected: ZKPASSPORT_APP_ID_HASH,
+            received: facematchCommittedInputs.appId,
+            message:
+              "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
+          },
+        }
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   public static async checkPublicInputs(
     domain: string,
     proofs: Array<ProofResult>,
@@ -1267,6 +1331,7 @@ export class PublicInputChecker {
     let commitmentOut: bigint | undefined
     let isCorrect = true
     let uniqueIdentifier: string | undefined
+    let uniqueIdentifierType: NullifierType | undefined
     const currentTime = new Date()
     const today = new Date(
       currentTime.getFullYear(),
@@ -1296,6 +1361,7 @@ export class PublicInputChecker {
         "inclusion_check_issuing_country",
         "bind",
         "exclusion_check_sanctions",
+        "facematch",
       ]
       const getIndex = (proof: ProofResult) => {
         const name = proof.name || ""
@@ -1716,8 +1782,43 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsSanctionsExclusion,
           }
+        } else if (!!committedInputs?.facematch) {
+          const facematchCommittedInputs = committedInputs?.facematch as FacematchCommittedInputs
+          const facematchParameterCommitment = isForEVM
+            ? await getFacematchEvmParameterCommitment(
+                BigInt(facematchCommittedInputs.rootKeyLeaf),
+                facematchCommittedInputs.environment === "development" ? 0n : 1n,
+                BigInt(facematchCommittedInputs.appId),
+                facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+              )
+            : await getFacematchParameterCommitment(
+                BigInt(facematchCommittedInputs.rootKeyLeaf),
+                facematchCommittedInputs.environment === "development" ? 0n : 1n,
+                BigInt(facematchCommittedInputs.appId),
+                facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+              )
+          if (!paramCommitments.includes(facematchParameterCommitment)) {
+            console.warn("This proof does not verify FaceMatch")
+            isCorrect = false
+            queryResultErrors.facematch = {
+              ...queryResultErrors.facematch,
+              commitment: {
+                expected: `Facematch parameter commitment: ${facematchParameterCommitment.toString()}`,
+                received: `Parameter commitments included: ${paramCommitments.join(", ")}`,
+                message: "This proof does not verify FaceMatch",
+              },
+            }
+          }
+          const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
+            await this.checkFacematchPublicInputs(queryResult, facematchCommittedInputs)
+          isCorrect = isCorrect && isCorrectFacematch
+          queryResultErrors = {
+            ...queryResultErrors,
+            ...queryResultErrorsFacematch,
+          }
         }
         uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromOuterProof(proofData)
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
@@ -1842,6 +1943,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "compare_age") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -1892,6 +1994,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "compare_birthdate") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -1950,6 +2053,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "compare_expiry") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -2007,6 +2111,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "exclusion_check_nationality") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -2067,6 +2172,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "exclusion_check_issuing_country") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -2127,6 +2233,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "inclusion_check_nationality") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -2187,6 +2294,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "inclusion_check_issuing_country") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -2247,6 +2355,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "bind") {
         const bindCommittedInputs = proof.committedInputs?.bind as BindCommittedInputs
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -2273,6 +2382,7 @@ export class PublicInputChecker {
           ...queryResultErrorsBind,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "exclusion_check_sanctions") {
         const sanctionsBuilder = await SanctionsBuilder.create()
         const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
@@ -2308,8 +2418,42 @@ export class PublicInputChecker {
           ...queryResultErrorsSanctionsExclusion,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
+      } else if (proof.name === "facematch") {
+        const facematchCommittedInputs = proof.committedInputs
+          ?.facematch as FacematchCommittedInputs
+        const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
+        const calculatedParamCommitment = await getFacematchParameterCommitment(
+          BigInt(facematchCommittedInputs.rootKeyLeaf),
+          facematchCommittedInputs.environment === "development" ? 0n : 1n,
+          BigInt(facematchCommittedInputs.appId),
+          // TODO: Uncomment this when the facematch mode is properly supported
+          // facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+          1n,
+        )
+        if (paramCommittment !== calculatedParamCommitment) {
+          console.warn("The FaceMatch verification does not match the ones from the proof")
+          isCorrect = false
+          queryResultErrors.facematch = {
+            ...queryResultErrors.facematch,
+            commitment: {
+              expected: `Commitment: ${calculatedParamCommitment.toString()}`,
+              received: `Commitment: ${paramCommittment.toString()}`,
+              message: "The FaceMatch verification does not match the ones from the proof",
+            },
+          }
+        }
+        const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
+          await this.checkFacematchPublicInputs(queryResult, facematchCommittedInputs)
+        isCorrect = isCorrect && isCorrectFacematch
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsFacematch,
+        }
+        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       }
     }
-    return { isCorrect, uniqueIdentifier, queryResultErrors }
+    return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }
   }
 }
