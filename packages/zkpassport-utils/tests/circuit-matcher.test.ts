@@ -395,8 +395,7 @@ describe("Circuit Matcher - RSA", () => {
       ],
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -429,8 +428,7 @@ describe("Circuit Matcher - RSA", () => {
       current_date: timestamp,
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -458,8 +456,7 @@ describe("Circuit Matcher - RSA", () => {
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -488,8 +485,7 @@ describe("Circuit Matcher - RSA", () => {
       ),
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -515,8 +511,7 @@ describe("Circuit Matcher - RSA", () => {
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -544,8 +539,7 @@ describe("Circuit Matcher - RSA", () => {
       ),
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -573,8 +567,7 @@ describe("Circuit Matcher - RSA", () => {
       current_date: timestamp,
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -604,8 +597,7 @@ describe("Circuit Matcher - RSA", () => {
       current_date: timestamp,
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -783,8 +775,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ],
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -817,8 +808,7 @@ describe("Circuit Matcher - ECDSA", () => {
       current_date: timestamp,
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -846,8 +836,7 @@ describe("Circuit Matcher - ECDSA", () => {
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -876,8 +865,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ),
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -903,8 +891,7 @@ describe("Circuit Matcher - ECDSA", () => {
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -932,8 +919,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ),
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -961,8 +947,7 @@ describe("Circuit Matcher - ECDSA", () => {
       current_date: timestamp,
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: 3,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -992,8 +977,7 @@ describe("Circuit Matcher - ECDSA", () => {
       current_date: timestamp,
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
@@ -1019,8 +1003,7 @@ describe("Circuit Matcher - ECDSA", () => {
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized:
-        "5151499478991301833156025595048985053689893395646836724335623777508747990769",
+      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
       dg2_hash_type: HASH_ALGORITHM_SHA256,
       root: root,
       proofs,

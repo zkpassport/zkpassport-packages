@@ -332,6 +332,7 @@ export type CommittedInputs =
   | DiscloseCommittedInputs
   | BindCommittedInputs
   | SanctionsCommittedInputs
+  | FacematchCommittedInputs
 
 export type DisclosureCircuitName =
   | "disclose_bytes"

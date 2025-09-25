@@ -137,5 +137,5 @@ export function getNullifierFromOuterProof(proofData: ProofData): bigint {
  * @returns The param commitments.
  */
 export function getParamCommitmentsFromOuterProof(proofData: ProofData): bigint[] {
-  return proofData.publicInputs.slice(5, proofData.publicInputs.length - 1).map(BigInt)
+  return proofData.publicInputs.slice(5, proofData.publicInputs.length - 2).map(BigInt)
 }
