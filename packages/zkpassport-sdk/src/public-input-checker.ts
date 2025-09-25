@@ -1789,13 +1789,17 @@ export class PublicInputChecker {
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appId),
-                facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                // TODO: Uncomment this when the facematch mode is properly supported
+                // facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                1n,
               )
             : await getFacematchParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appId),
-                facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                // TODO: Uncomment this when the facematch mode is properly supported
+                // facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                1n,
               )
           if (!paramCommitments.includes(facematchParameterCommitment)) {
             console.warn("This proof does not verify FaceMatch")
