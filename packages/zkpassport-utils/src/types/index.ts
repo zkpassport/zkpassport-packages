@@ -373,6 +373,7 @@ export type Service = {
   logo: string
   purpose: string
   scope?: string
+  projectID?: string
   chainId?: number
   cloudProverUrl?: string
   bridgeUrl?: string
