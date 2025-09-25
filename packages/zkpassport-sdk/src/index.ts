@@ -770,6 +770,7 @@ export class ZKPassport {
    * @param logo The logo of your service
    * @param purpose To explain what you want to do with the user's data
    * @param scope Scope this request to a specific use case
+   * @param projectID The project ID of your service
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @returns The query builder object.
@@ -779,6 +780,7 @@ export class ZKPassport {
     logo,
     purpose,
     scope,
+    projectID,
     mode,
     validity,
     devMode,
@@ -792,6 +794,7 @@ export class ZKPassport {
     purpose: string
     scope?: string
     mode?: ProofMode
+    projectID?: string
     validity?: number
     devMode?: boolean
     topicOverride?: string
@@ -813,6 +816,7 @@ export class ZKPassport {
       logo,
       purpose,
       scope,
+      projectID,
       cloudProverUrl,
       bridgeUrl,
     }
