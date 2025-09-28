@@ -681,7 +681,7 @@ export async function getDiscloseCircuitInputs(
   }
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     disclose_mask: discloseMask,
     comm_in: commIn.toHex(),
@@ -731,7 +731,7 @@ export async function getDiscloseFlagsCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     disclose_flags: discloseFlags,
     comm_in: commIn.toHex(),
@@ -814,7 +814,7 @@ export async function getAgeCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -863,7 +863,7 @@ export async function getNationalityInclusionCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     country_list: padCountryList(query.nationality?.in ?? []),
     comm_in: commIn.toHex(),
@@ -902,7 +902,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     country_list: padCountryList(query.issuing_country?.in ?? []),
     comm_in: commIn.toHex(),
@@ -947,7 +947,7 @@ export async function getNationalityExclusionCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -996,7 +996,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1043,7 +1043,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
@@ -1113,7 +1113,7 @@ export async function getBirthdateCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1187,7 +1187,7 @@ export async function getExpiryDateCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1230,7 +1230,7 @@ export async function getBindCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     comm_in: commIn.toHex(),
     data: rightPadArrayWithZeros(data, 500),
@@ -1272,7 +1272,7 @@ export async function getFacematchCircuitInputs(
 
   return {
     dg1: idData.dg1,
-    dg2_hash_normalized: idData.dg2_hash_normalized.toString(),
+    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
