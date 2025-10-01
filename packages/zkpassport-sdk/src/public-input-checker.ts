@@ -67,7 +67,9 @@ import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   DEFAULT_DATE_VALUE,
   DEFAULT_VALIDITY,
-  ZKPASSPORT_APP_ID_HASH,
+  GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+  ZKPASSPORT_ANDROID_APP_ID_HASH,
+  ZKPASSPORT_IOS_APP_ID_HASH,
 } from "./constants"
 
 export class PublicInputChecker {
@@ -1274,15 +1276,17 @@ export class PublicInputChecker {
     let isCorrect = true
     let queryResultErrors: Partial<QueryResultErrors> = {}
     if (queryResult.facematch && queryResult.facematch.passed) {
-      // TODO: Make sure to compare against the latest root from Apple or Google
-      // depending on the OS used to generate the proof
-      if (facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH) {
+      // Check if the root key is either from Apple (iOS) or Google (Android)
+      if (
+        facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
+        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH
+      ) {
         console.warn("Invalid facematch root key hash")
         isCorrect = false
         queryResultErrors.facematch = {
           ...queryResultErrors.facematch,
           eq: {
-            expected: APPLE_APP_ATTEST_ROOT_KEY_HASH,
+            expected: `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or ${GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH} (Android)`,
             received: facematchCommittedInputs.rootKeyLeaf,
             message: "Invalid facematch root key hash",
           },
@@ -1301,7 +1305,10 @@ export class PublicInputChecker {
           },
         }
       }
-      if (facematchCommittedInputs.appId !== ZKPASSPORT_APP_ID_HASH) {
+      if (
+        facematchCommittedInputs.appId !== ZKPASSPORT_IOS_APP_ID_HASH &&
+        facematchCommittedInputs.appId !== ZKPASSPORT_ANDROID_APP_ID_HASH
+      ) {
         console.warn(
           "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
         )
@@ -1309,7 +1316,7 @@ export class PublicInputChecker {
         queryResultErrors.facematch = {
           ...queryResultErrors.facematch,
           eq: {
-            expected: ZKPASSPORT_APP_ID_HASH,
+            expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
             received: facematchCommittedInputs.appId,
             message:
               "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
@@ -1789,17 +1796,13 @@ export class PublicInputChecker {
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appId),
-                // TODO: Uncomment this when the facematch mode is properly supported
-                // facematchCommittedInputs.mode === "regular" ? 1n : 2n,
-                1n,
+                facematchCommittedInputs.mode === "regular" ? 1n : 2n,
               )
             : await getFacematchParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appId),
-                // TODO: Uncomment this when the facematch mode is properly supported
-                // facematchCommittedInputs.mode === "regular" ? 1n : 2n,
-                1n,
+                facematchCommittedInputs.mode === "regular" ? 1n : 2n,
               )
           if (!paramCommitments.includes(facematchParameterCommitment)) {
             console.warn("This proof does not verify FaceMatch")
@@ -2423,7 +2426,7 @@ export class PublicInputChecker {
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
-      } else if (proof.name === "facematch") {
+      } else if (proof.name?.startsWith("facematch") && !proof.name?.endsWith("_evm")) {
         const facematchCommittedInputs = proof.committedInputs
           ?.facematch as FacematchCommittedInputs
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -2431,9 +2434,7 @@ export class PublicInputChecker {
           BigInt(facematchCommittedInputs.rootKeyLeaf),
           facematchCommittedInputs.environment === "development" ? 0n : 1n,
           BigInt(facematchCommittedInputs.appId),
-          // TODO: Uncomment this when the facematch mode is properly supported
-          // facematchCommittedInputs.mode === "regular" ? 1n : 2n,
-          1n,
+          facematchCommittedInputs.mode === "regular" ? 1n : 2n,
         )
         if (paramCommittment !== calculatedParamCommitment) {
           console.warn("The FaceMatch verification does not match the ones from the proof")

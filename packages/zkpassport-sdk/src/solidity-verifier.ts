@@ -161,7 +161,7 @@ export class SolidityVerifier {
           Array.from(numberToBytesBE(BigInt(value.rootHash), 32))
             .map((x) => x.toString(16).padStart(2, "0"))
             .join("")
-      } else if (circuitName === "facematch_evm") {
+      } else if (circuitName.startsWith("facematch") && circuitName.endsWith("_evm")) {
         const value = proof.committedInputs[circuitName] as FacematchCommittedInputs
         compressedCommittedInputs += ProofType.FACEMATCH.toString(16).padStart(2, "0")
         compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.rootKeyLeaf), 32))
@@ -171,8 +171,7 @@ export class SolidityVerifier {
         compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.appId), 32))
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
-        // TODO: Uncomment this when the facematch mode is properly supported
-        // compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
+        compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
         compressedCommittedInputs += "01"
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
