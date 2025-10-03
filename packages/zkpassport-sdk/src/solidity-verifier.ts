@@ -42,7 +42,7 @@ export class SolidityVerifier {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0xf7480fd0A9289c062C52532f11D31e0b7A30ABe3",
+        address: "0xf36cdd408d28fe57Ee7060951098a84F72945705",
       }
     } else if (network === "local_anvil") {
       return {
@@ -161,7 +161,7 @@ export class SolidityVerifier {
           Array.from(numberToBytesBE(BigInt(value.rootHash), 32))
             .map((x) => x.toString(16).padStart(2, "0"))
             .join("")
-      } else if (circuitName === "facematch_evm") {
+      } else if (circuitName.startsWith("facematch") && circuitName.endsWith("_evm")) {
         const value = proof.committedInputs[circuitName] as FacematchCommittedInputs
         compressedCommittedInputs += ProofType.FACEMATCH.toString(16).padStart(2, "0")
         compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.rootKeyLeaf), 32))
@@ -171,9 +171,7 @@ export class SolidityVerifier {
         compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.appId), 32))
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
-        // TODO: Uncomment this when the facematch mode is properly supported
-        // compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
-        compressedCommittedInputs += "01"
+        compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
       }
@@ -214,16 +212,22 @@ export class SolidityVerifier {
       }
     }
     const params: SolidityVerifierParameters = {
-      // Make sure the vkeyHash is 32 bytes
-      vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
-      proof: `0x${proofData.proof.join("")}`,
-      publicInputs: proofData.publicInputs,
-      committedInputs: `0x${compressedCommittedInputs}`,
-      committedInputCounts: committedInputCountsArray,
-      validityPeriodInSeconds,
-      domain,
-      scope: scope ?? "",
-      devMode,
+      proofVerificationData: {
+        // Make sure the vkeyHash is 32 bytes
+        vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
+        proof: `0x${proofData.proof.join("")}`,
+        publicInputs: proofData.publicInputs,
+      },
+      commitments: {
+        committedInputs: `0x${compressedCommittedInputs}`,
+        committedInputCounts: committedInputCountsArray,
+      },
+      serviceConfig: {
+        validityPeriodInSeconds,
+        domain,
+        scope: scope ?? "",
+        devMode,
+      },
     }
     return params
   }
