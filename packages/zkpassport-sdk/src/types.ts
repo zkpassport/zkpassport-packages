@@ -43,16 +43,28 @@ export type QueryResultErrors = {
   }
 }
 
-export type SolidityVerifierParameters = {
+export type SolidityProofVerificationData = {
   vkeyHash: string
   proof: string
   publicInputs: string[]
+}
+
+export type SolidityCommitments = {
   committedInputs: string
   committedInputCounts: number[]
+}
+
+export type SolidityServiceConfig = {
   validityPeriodInSeconds: number
   domain: string
   scope: string
   devMode: boolean
+}
+
+export type SolidityVerifierParameters = {
+  proofVerificationData: SolidityProofVerificationData
+  commitments: SolidityCommitments
+  serviceConfig: SolidityServiceConfig
 }
 
 export type QueryBuilderResult = {

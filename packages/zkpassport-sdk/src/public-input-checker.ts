@@ -78,14 +78,11 @@ export class PublicInputChecker {
     let isCorrect = true
     // We can't be certain that the disclosed data is for a passport or an ID card
     // so we need to check both (unless the document type is revealed)
-    const disclosedDataPassport = DisclosedData.fromDisclosedBytes(
-      (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs).disclosedBytes!,
-      "passport",
-    )
-    const disclosedDataIDCard = DisclosedData.fromDisclosedBytes(
-      (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs).disclosedBytes!,
-      "id_card",
-    )
+    const disclosedBytes =
+      (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs).disclosedBytes ??
+      (proof.committedInputs?.disclose_bytes_evm as DiscloseCommittedInputs).disclosedBytes!
+    const disclosedDataPassport = DisclosedData.fromDisclosedBytes(disclosedBytes, "passport")
+    const disclosedDataIDCard = DisclosedData.fromDisclosedBytes(disclosedBytes, "id_card")
     if (queryResult.document_type) {
       // Document type is always at the same index in the disclosed data
       if (
@@ -491,10 +488,12 @@ export class PublicInputChecker {
       0,
     )
     const minAge = getMinAgeFromCommittedInputs(
-      proof.committedInputs?.compare_age as AgeCommittedInputs,
+      (proof.committedInputs?.compare_age as AgeCommittedInputs) ??
+        (proof.committedInputs?.compare_age_evm as AgeCommittedInputs),
     )
     const maxAge = getMaxAgeFromCommittedInputs(
-      proof.committedInputs?.compare_age as AgeCommittedInputs,
+      (proof.committedInputs?.compare_age as AgeCommittedInputs) ??
+        (proof.committedInputs?.compare_age_evm as AgeCommittedInputs),
     )
     if (queryResult.age) {
       if (
@@ -609,7 +608,8 @@ export class PublicInputChecker {
       }
     }
     const currentDate = getCurrentDateFromCommittedInputs(
-      proof.committedInputs?.compare_age as AgeCommittedInputs,
+      (proof.committedInputs?.compare_age as AgeCommittedInputs) ??
+        (proof.committedInputs?.compare_age_evm as AgeCommittedInputs),
     )
     if (
       !areDatesEqual(currentDate, today) &&
@@ -642,15 +642,18 @@ export class PublicInputChecker {
       0,
     )
     const minDate = getBirthdateMinDateTimestamp(
-      proof.committedInputs?.compare_birthdate as DateCommittedInputs,
+      (proof.committedInputs?.compare_birthdate as DateCommittedInputs) ??
+        (proof.committedInputs?.compare_birthdate_evm as DateCommittedInputs),
       -1 * SECONDS_BETWEEN_1900_AND_1970,
     )
     const maxDate = getBirthdateMaxDateTimestamp(
-      proof.committedInputs?.compare_birthdate as DateCommittedInputs,
+      (proof.committedInputs?.compare_birthdate as DateCommittedInputs) ??
+        (proof.committedInputs?.compare_birthdate_evm as DateCommittedInputs),
       -1 * SECONDS_BETWEEN_1900_AND_1970,
     )
     const currentDate = getCurrentDateFromCommittedInputs(
-      proof.committedInputs?.compare_birthdate as DateCommittedInputs,
+      (proof.committedInputs?.compare_birthdate as DateCommittedInputs) ??
+        (proof.committedInputs?.compare_birthdate_evm as DateCommittedInputs),
     )
     if (queryResult.birthdate) {
       if (
@@ -780,13 +783,16 @@ export class PublicInputChecker {
       0,
     )
     const minDate = getMinDateFromCommittedInputs(
-      proof.committedInputs?.compare_expiry as DateCommittedInputs,
+      (proof.committedInputs?.compare_expiry as DateCommittedInputs) ??
+        (proof.committedInputs?.compare_expiry_evm as DateCommittedInputs),
     )
     const maxDate = getMaxDateFromCommittedInputs(
-      proof.committedInputs?.compare_expiry as DateCommittedInputs,
+      (proof.committedInputs?.compare_expiry as DateCommittedInputs) ??
+        (proof.committedInputs?.compare_expiry_evm as DateCommittedInputs),
     )
     const currentDate = getCurrentDateFromCommittedInputs(
-      proof.committedInputs?.compare_expiry as DateCommittedInputs,
+      (proof.committedInputs?.compare_expiry as DateCommittedInputs) ??
+        (proof.committedInputs?.compare_expiry_evm as DateCommittedInputs),
     )
     if (queryResult.expiry_date) {
       if (
@@ -1293,6 +1299,12 @@ export class PublicInputChecker {
         }
       }
       const EXPECTED_ENVIRONMENT = "production"
+      console.log("facematchCommittedInputs.environment", facematchCommittedInputs.environment)
+      console.log("EXPECTED_ENVIRONMENT", EXPECTED_ENVIRONMENT)
+      console.log(
+        "facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT",
+        facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT,
+      )
       if (facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT) {
         console.warn("Invalid facematch environment, it should be production")
         isCorrect = false
@@ -1465,8 +1477,10 @@ export class PublicInputChecker {
             },
           }
         }
-        if (!!committedInputs?.compare_age) {
-          const ageCommittedInputs = committedInputs?.compare_age as AgeCommittedInputs
+        if (!!committedInputs?.compare_age || !!committedInputs?.compare_age_evm) {
+          const ageCommittedInputs =
+            (committedInputs?.compare_age as AgeCommittedInputs) ??
+            (committedInputs?.compare_age_evm as AgeCommittedInputs)
           const ageParameterCommitment = isForEVM
             ? await getAgeEVMParameterCommitment(
                 ageCommittedInputs.currentDateTimestamp,
@@ -1497,8 +1511,11 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsAge,
           }
-        } else if (!!committedInputs?.compare_birthdate) {
-          const birthdateCommittedInputs = committedInputs?.compare_birthdate as DateCommittedInputs
+        }
+        if (!!committedInputs?.compare_birthdate || !!committedInputs?.compare_birthdate_evm) {
+          const birthdateCommittedInputs =
+            (committedInputs?.compare_birthdate as DateCommittedInputs) ??
+            (committedInputs?.compare_birthdate_evm as DateCommittedInputs)
           const birthdateParameterCommitment = isForEVM
             ? await getDateEVMParameterCommitment(
                 ProofType.BIRTHDATE,
@@ -1533,8 +1550,11 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsBirthdate,
           }
-        } else if (!!committedInputs?.compare_expiry) {
-          const expiryCommittedInputs = committedInputs?.compare_expiry as DateCommittedInputs
+        }
+        if (!!committedInputs?.compare_expiry || !!committedInputs?.compare_expiry_evm) {
+          const expiryCommittedInputs =
+            (committedInputs?.compare_expiry as DateCommittedInputs) ??
+            (committedInputs?.compare_expiry_evm as DateCommittedInputs)
           const expiryParameterCommitment = isForEVM
             ? await getDateEVMParameterCommitment(
                 ProofType.EXPIRY_DATE,
@@ -1567,8 +1587,11 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsExpiryDate,
           }
-        } else if (!!committedInputs?.disclose_bytes) {
-          const discloseCommittedInputs = committedInputs?.disclose_bytes as DiscloseCommittedInputs
+        }
+        if (!!committedInputs?.disclose_bytes || !!committedInputs?.disclose_bytes_evm) {
+          const discloseCommittedInputs =
+            (committedInputs?.disclose_bytes as DiscloseCommittedInputs) ??
+            (committedInputs?.disclose_bytes_evm as DiscloseCommittedInputs)
           const discloseParameterCommitment = isForEVM
             ? await getDiscloseEVMParameterCommitment(
                 discloseCommittedInputs.discloseMask,
@@ -1597,9 +1620,14 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsDisclose,
           }
-        } else if (!!committedInputs?.inclusion_check_nationality) {
+        }
+        if (
+          !!committedInputs?.inclusion_check_nationality ||
+          !!committedInputs?.inclusion_check_nationality_evm
+        ) {
           const inclusionCheckNationalityCommittedInputs =
-            committedInputs?.inclusion_check_nationality as CountryCommittedInputs
+            (committedInputs?.inclusion_check_nationality as CountryCommittedInputs) ??
+            (committedInputs?.inclusion_check_nationality_evm as CountryCommittedInputs)
           const inclusionCheckNationalityParameterCommitment = isForEVM
             ? await getCountryEVMParameterCommitment(
                 ProofType.NATIONALITY_INCLUSION,
@@ -1631,9 +1659,14 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsNationalityInclusion,
           }
-        } else if (!!committedInputs?.inclusion_check_issuing_country) {
+        }
+        if (
+          !!committedInputs?.inclusion_check_issuing_country ||
+          !!committedInputs?.inclusion_check_issuing_country_evm
+        ) {
           const inclusionCheckIssuingCountryCommittedInputs =
-            committedInputs?.inclusion_check_issuing_country as CountryCommittedInputs
+            (committedInputs?.inclusion_check_issuing_country as CountryCommittedInputs) ??
+            (committedInputs?.inclusion_check_issuing_country_evm as CountryCommittedInputs)
           const inclusionCheckIssuingCountryParameterCommitment = isForEVM
             ? await getCountryEVMParameterCommitment(
                 ProofType.ISSUING_COUNTRY_INCLUSION,
@@ -1665,9 +1698,14 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsIssuingCountryInclusion,
           }
-        } else if (!!committedInputs?.exclusion_check_nationality) {
+        }
+        if (
+          !!committedInputs?.exclusion_check_nationality ||
+          !!committedInputs?.exclusion_check_nationality_evm
+        ) {
           const exclusionCheckNationalityCommittedInputs =
-            committedInputs?.exclusion_check_nationality as CountryCommittedInputs
+            (committedInputs?.exclusion_check_nationality as CountryCommittedInputs) ??
+            (committedInputs?.exclusion_check_nationality_evm as CountryCommittedInputs)
           const exclusionCheckNationalityParameterCommitment = isForEVM
             ? await getCountryEVMParameterCommitment(
                 ProofType.NATIONALITY_EXCLUSION,
@@ -1699,9 +1737,14 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsNationalityExclusion,
           }
-        } else if (!!committedInputs?.exclusion_check_issuing_country) {
+        }
+        if (
+          !!committedInputs?.exclusion_check_issuing_country ||
+          !!committedInputs?.exclusion_check_issuing_country_evm
+        ) {
           const exclusionCheckIssuingCountryCommittedInputs =
-            committedInputs?.exclusion_check_issuing_country as CountryCommittedInputs
+            (committedInputs?.exclusion_check_issuing_country as CountryCommittedInputs) ??
+            (committedInputs?.exclusion_check_issuing_country_evm as CountryCommittedInputs)
           const exclusionCheckIssuingCountryParameterCommitment = isForEVM
             ? await getCountryEVMParameterCommitment(
                 ProofType.ISSUING_COUNTRY_EXCLUSION,
@@ -1733,8 +1776,11 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsIssuingCountryExclusion,
           }
-        } else if (!!committedInputs?.bind) {
-          const bindCommittedInputs = committedInputs?.bind as BindCommittedInputs
+        }
+        if (!!committedInputs?.bind || !!committedInputs?.bind_evm) {
+          const bindCommittedInputs =
+            (committedInputs?.bind as BindCommittedInputs) ??
+            (committedInputs?.bind_evm as BindCommittedInputs)
           const bindParameterCommitment = isForEVM
             ? await getBindEVMParameterCommitment(formatBoundData(bindCommittedInputs.data))
             : await getBindParameterCommitment(formatBoundData(bindCommittedInputs.data))
@@ -1757,10 +1803,15 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsBind,
           }
-        } else if (!!committedInputs?.exclusion_check_sanctions) {
+        }
+        if (
+          !!committedInputs?.exclusion_check_sanctions ||
+          !!committedInputs?.exclusion_check_sanctions_evm
+        ) {
           const sanctionsBuilder = await SanctionsBuilder.create()
           const exclusionCheckSanctionsCommittedInputs =
-            committedInputs?.exclusion_check_sanctions as SanctionsCommittedInputs
+            (committedInputs?.exclusion_check_sanctions as SanctionsCommittedInputs) ??
+            (committedInputs?.exclusion_check_sanctions_evm as SanctionsCommittedInputs)
           const exclusionCheckSanctionsParameterCommitment = isForEVM
             ? await sanctionsBuilder.getSanctionsEvmParameterCommitment()
             : await sanctionsBuilder.getSanctionsParameterCommitment()
@@ -1789,8 +1840,11 @@ export class PublicInputChecker {
             ...queryResultErrors,
             ...queryResultErrorsSanctionsExclusion,
           }
-        } else if (!!committedInputs?.facematch) {
-          const facematchCommittedInputs = committedInputs?.facematch as FacematchCommittedInputs
+        }
+        if (!!committedInputs?.facematch || !!committedInputs?.facematch_evm) {
+          const facematchCommittedInputs =
+            (committedInputs?.facematch as FacematchCommittedInputs) ??
+            (committedInputs?.facematch_evm as FacematchCommittedInputs)
           const facematchParameterCommitment = isForEVM
             ? await getFacematchEvmParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),

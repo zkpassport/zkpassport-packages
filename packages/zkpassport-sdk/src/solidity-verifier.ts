@@ -42,7 +42,7 @@ export class SolidityVerifier {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0xf7480fd0A9289c062C52532f11D31e0b7A30ABe3",
+        address: "0xf36cdd408d28fe57Ee7060951098a84F72945705",
       }
     } else if (network === "local_anvil") {
       return {
@@ -172,7 +172,6 @@ export class SolidityVerifier {
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
         compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
-        compressedCommittedInputs += "01"
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
       }
@@ -213,16 +212,22 @@ export class SolidityVerifier {
       }
     }
     const params: SolidityVerifierParameters = {
-      // Make sure the vkeyHash is 32 bytes
-      vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
-      proof: `0x${proofData.proof.join("")}`,
-      publicInputs: proofData.publicInputs,
-      committedInputs: `0x${compressedCommittedInputs}`,
-      committedInputCounts: committedInputCountsArray,
-      validityPeriodInSeconds,
-      domain,
-      scope: scope ?? "",
-      devMode,
+      proofVerificationData: {
+        // Make sure the vkeyHash is 32 bytes
+        vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
+        proof: `0x${proofData.proof.join("")}`,
+        publicInputs: proofData.publicInputs,
+      },
+      commitments: {
+        committedInputs: `0x${compressedCommittedInputs}`,
+        committedInputCounts: committedInputCountsArray,
+      },
+      serviceConfig: {
+        validityPeriodInSeconds,
+        domain,
+        scope: scope ?? "",
+        devMode,
+      },
     }
     return params
   }
