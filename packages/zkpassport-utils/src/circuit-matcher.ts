@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2"
 import { AsnParser } from "@peculiar/asn1-schema"
-import { AuthorityKeyIdentifier, PrivateKeyUsagePeriod } from "@peculiar/asn1-x509"
+import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { Alpha3Code } from "i18n-iso-countries"
 import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
@@ -156,14 +156,14 @@ export function getCscaForPassport(
 ): PackagedCertificate | null {
   const extensions = dsc.tbs.extensions
 
-  let notBefore: number | undefined
+  /*let notBefore: number | undefined
   let notAfter: number | undefined
   const pkupBuffer = extensions.get("privateKeyUsagePeriod")?.value.toBuffer()
   if (pkupBuffer) {
     const pkup = AsnParser.parse(pkupBuffer, PrivateKeyUsagePeriod)
     notBefore = (pkup.notBefore?.getTime() ?? 0) / 1000
     notAfter = (pkup.notAfter?.getTime() ?? 0) / 1000
-  }
+  }*/
 
   let authorityKeyIdentifier: string | undefined
   const akiBuffer = extensions.get("authorityKeyIdentifier")?.value.toBuffer()
@@ -183,7 +183,7 @@ export function getCscaForPassport(
     )
   }
 
-  const checkAgainstPrivateKeyUsagePeriod = (cert: PackagedCertificate) => {
+  /*const checkAgainstPrivateKeyUsagePeriod = (cert: PackagedCertificate) => {
     return (
       cert.private_key_usage_period &&
       cert.private_key_usage_period?.not_before &&
@@ -193,18 +193,19 @@ export function getCscaForPassport(
       notBefore >= (cert.private_key_usage_period?.not_before || 0) &&
       notAfter <= (cert.private_key_usage_period?.not_after || 0)
     )
-  }
+  }*/
 
   // First try to find the CSC by looking at the authority key identifier
   // which should uniquely identify the CSC that signed the DSC
-  let validCertificates = certificates.filter((cert) => {
+  const validCertificates = certificates.filter((cert) => {
     return (
       cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
       checkAgainstAuthorityKeyIdentifier(cert)
     )
   })
 
-  if (validCertificates.length === 0) {
+  // Using the private key usage period is not really reliable, so we don't use it
+  /*if (validCertificates.length === 0) {
     // If no certificate was found in the previous step, we use find the CSCs which
     // could have signed the DSCs according to their private key usage period
     validCertificates = certificates.filter((cert) => {
@@ -213,7 +214,7 @@ export function getCscaForPassport(
         checkAgainstPrivateKeyUsagePeriod(cert)
       )
     })
-  }
+  }*/
 
   if (validCertificates.length === 0) {
     return null

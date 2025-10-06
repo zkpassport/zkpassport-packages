@@ -1299,12 +1299,6 @@ export class PublicInputChecker {
         }
       }
       const EXPECTED_ENVIRONMENT = "production"
-      console.log("facematchCommittedInputs.environment", facematchCommittedInputs.environment)
-      console.log("EXPECTED_ENVIRONMENT", EXPECTED_ENVIRONMENT)
-      console.log(
-        "facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT",
-        facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT,
-      )
       if (facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT) {
         console.warn("Invalid facematch environment, it should be production")
         isCorrect = false
