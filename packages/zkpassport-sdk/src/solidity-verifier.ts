@@ -168,7 +168,12 @@ export class SolidityVerifier {
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
         compressedCommittedInputs += value.environment === "development" ? "00" : "01"
-        compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.appId), 32))
+        compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.appIdHash), 32))
+          .map((x) => x.toString(16).padStart(2, "0"))
+          .join("")
+        compressedCommittedInputs += Array.from(
+          numberToBytesBE(BigInt(value.integrityPubkeyHash), 32),
+        )
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
         compressedCommittedInputs += value.mode === "regular" ? "01" : "02"

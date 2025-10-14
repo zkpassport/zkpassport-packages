@@ -230,9 +230,9 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
     case "exclusion_check_sanctions_evm":
       return 33
     case "facematch":
-      return 5
+      return 6
     case "facematch_evm":
-      return 67
+      return 99
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }

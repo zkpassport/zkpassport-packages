@@ -305,7 +305,8 @@ export type DiscloseCommittedInputs = {
 export type FacematchCommittedInputs = {
   rootKeyLeaf: string
   environment: "development" | "production"
-  appId: string
+  appIdHash: string
+  integrityPubkeyHash: string
   mode: FacematchMode
 }
 
