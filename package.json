@@ -1,16 +1,6 @@
 {
   "name": "zkpassport-packages",
   "version": "0.1.0",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "bun run -F @zkpassport/utils build && bun run -F '*' build",
-    "test": "bun run -F '*' test",
-    "check": "bun run -F '*' check",
-    "format": "bun run -F '*' format"
-  },
   "devDependencies": {
     "@types/debug": "^4.1.12",
     "@types/jest": "^30.0.0",
@@ -19,5 +9,15 @@
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0"
   },
-  "packageManager": "bun@1.2.13"
+  "packageManager": "bun@1.2.13",
+  "private": true,
+  "scripts": {
+    "build": "bun run -F @zkpassport/utils build && bun run -F '*' build",
+    "test": "bun run -F '*' test",
+    "check": "bun run -F '*' check",
+    "format": "bun run -F '*' format"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

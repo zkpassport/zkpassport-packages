@@ -32,3 +32,4 @@ broadcast/
 *.eslintcache
 *.tsbuildinfo
 next-env.d.ts
+.github/test-ci-locally.sh
