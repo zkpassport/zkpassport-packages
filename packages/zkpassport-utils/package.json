@@ -112,7 +112,6 @@
     "i18n-iso-countries": "^7.13.0"
   },
   "devDependencies": {
-    "@stylistic/eslint-plugin": "^5.1.0",
     "@typescript-eslint/eslint-plugin": "^8.36.0",
     "@typescript-eslint/parser": "^8.36.0"
   },

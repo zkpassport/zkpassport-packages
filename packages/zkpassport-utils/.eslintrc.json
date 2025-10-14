@@ -1,7 +1,7 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint", "prettier", "@stylistic"],
+  "plugins": ["@typescript-eslint", "prettier"],
   "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
   "env": {
     "browser": true,
@@ -21,12 +21,6 @@
         "destructuredArrayIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
         "ignoreRestSiblings": true
-      }
-    ],
-    "@stylistic/lines-between-class-members": [
-      "error",
-      {
-        "enforce": [{ "blankLine": "always", "prev": "method", "next": "method" }]
       }
     ],
     "@typescript-eslint/no-explicit-any": "off"
