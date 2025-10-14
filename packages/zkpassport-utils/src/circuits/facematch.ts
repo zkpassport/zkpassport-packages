@@ -8,6 +8,8 @@ import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 const GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH =
   8544227306600425492560068004835614964118871262589609739238120993689090208159n
 
+const ANDROID_APP_ID_HASH = 0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615dn
+
 /**
  * Get the parameter commitment for the facematch proof
  * @param rootKeyLeaf - Root key leaf
@@ -27,7 +29,8 @@ export async function getFacematchParameterCommitment(
     rootKeyLeaf,
     environment,
     appIdHash,
-    GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
+    // This is only set for Android, otherwise it is 0
+    appIdHash === ANDROID_APP_ID_HASH ? GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH : 0n,
     facematchMode,
   ])
   return parameterCommitment
@@ -53,7 +56,11 @@ export async function getFacematchEvmParameterCommitment(
       ...numberToBytesBE(rootKeyLeaf, 32),
       ...numberToBytesBE(environment, 1),
       ...numberToBytesBE(appIdHash, 32),
-      ...numberToBytesBE(GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH, 32),
+      ...numberToBytesBE(
+        // This is only set for Android, otherwise it is 0
+        appIdHash === ANDROID_APP_ID_HASH ? GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH : 0n,
+        32,
+      ),
       ...numberToBytesBE(facematchMode, 1),
     ]),
   )
