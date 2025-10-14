@@ -1312,8 +1312,8 @@ export class PublicInputChecker {
         }
       }
       if (
-        facematchCommittedInputs.appId !== ZKPASSPORT_IOS_APP_ID_HASH &&
-        facematchCommittedInputs.appId !== ZKPASSPORT_ANDROID_APP_ID_HASH
+        facematchCommittedInputs.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
+        facematchCommittedInputs.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
       ) {
         console.warn(
           "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
@@ -1323,7 +1323,7 @@ export class PublicInputChecker {
           ...queryResultErrors.facematch,
           eq: {
             expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
-            received: facematchCommittedInputs.appId,
+            received: facematchCommittedInputs.appIdHash,
             message:
               "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
           },
@@ -1843,13 +1843,13 @@ export class PublicInputChecker {
             ? await getFacematchEvmParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
-                BigInt(facematchCommittedInputs.appId),
+                BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
               )
             : await getFacematchParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
-                BigInt(facematchCommittedInputs.appId),
+                BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
               )
           if (!paramCommitments.includes(facematchParameterCommitment)) {
@@ -2481,7 +2481,7 @@ export class PublicInputChecker {
         const calculatedParamCommitment = await getFacematchParameterCommitment(
           BigInt(facematchCommittedInputs.rootKeyLeaf),
           facematchCommittedInputs.environment === "development" ? 0n : 1n,
-          BigInt(facematchCommittedInputs.appId),
+          BigInt(facematchCommittedInputs.appIdHash),
           facematchCommittedInputs.mode === "regular" ? 1n : 2n,
         )
         if (paramCommittment !== calculatedParamCommitment) {
