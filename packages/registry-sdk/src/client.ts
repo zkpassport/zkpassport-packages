@@ -18,6 +18,7 @@ import debug from "debug"
 import {
   CIRCUIT_MANIFEST_URL_TEMPLATE,
   DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
+  DEFAULT_RETRY_COUNT,
   GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE,
   GET_HISTORICAL_ROOTS_SIGNATURE,
   GET_LATEST_ROOT_DETAILS_SIGNATURE,
@@ -30,6 +31,7 @@ import {
 } from "./constants"
 import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
 import { normaliseHash, strip0x } from "./utils"
+import { withRetry } from "@zkpassport/utils"
 
 const log = debug("zkpassport:registry")
 
@@ -109,6 +111,7 @@ export class RegistryClient {
     hash: string,
     cid?: string,
   ) => string
+  private readonly retryCount: number
 
   constructor({
     rpcUrl,
@@ -118,6 +121,7 @@ export class RegistryClient {
     packagedCertsUrlGenerator,
     circuitManifestUrlGenerator,
     packagedCircuitUrlGenerator,
+    retryCount,
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
     this.chainId = chainId
@@ -133,6 +137,7 @@ export class RegistryClient {
       circuitManifestUrlGenerator || chainConfig?.circuitManifestUrlGenerator
     this.packagedCircuitUrlGenerator =
       packagedCircuitUrlGenerator || chainConfig?.packagedCircuitUrlGenerator
+    this.retryCount = retryCount || DEFAULT_RETRY_COUNT
   }
 
   /**
@@ -197,7 +202,7 @@ export class RegistryClient {
 
     const url = this.packagedCertsUrlGenerator(this.chainId, root)
     log("Getting certificates from:", url)
-    const response = await fetch(url)
+    const response = await withRetry(() => fetch(url), this.retryCount)
     if (!response.ok) {
       throw new Error(
         `Failed to get certificates for root ${root}: ${response.status} ${response.statusText}`,
@@ -425,7 +430,7 @@ export class RegistryClient {
 
     const url = this.circuitManifestUrlGenerator(this.chainId, { root, version })
     log("Getting circuit manifest from:", url)
-    const response = await fetch(url)
+    const response = await withRetry(() => fetch(url), this.retryCount)
     if (!response.ok) {
       throw new Error(
         `Failed to get circuit manifest for root ${root}: ${response.status} ${response.statusText}`,
@@ -504,7 +509,7 @@ export class RegistryClient {
 
     const url = this.packagedCircuitUrlGenerator(this.chainId, circuitHash)
     log("Getting packaged circuit from:", url)
-    const response = await fetch(url)
+    const response = await withRetry(() => fetch(url), this.retryCount)
     if (!response.ok) {
       throw new Error(
         `Failed to get packaged circuit for ${circuit}: ${response.status} ${response.statusText}`,
@@ -705,7 +710,7 @@ export class RegistryClient {
         const response = await import("./document-support-rules.json")
         DOCUMENT_SUPPORT_RULES_CACHE = response.default
       } else {
-        const response = await fetch(DOCUMENT_SUPPORT_RULES_URL)
+        const response = await withRetry(() => fetch(DOCUMENT_SUPPORT_RULES_URL), this.retryCount)
         DOCUMENT_SUPPORT_RULES_CACHE = await response.json()
       }
     }
@@ -797,17 +802,21 @@ export class RegistryClient {
     return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
   }
 
-  private rpcRequest(to: string, data: any): Promise<Response> {
-    return fetch(this.rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: Math.floor(Math.random() * 1000000),
-        method: "eth_call",
-        params: [{ to, data }, "latest"],
-      }),
-    })
+  private async rpcRequest(to: string, data: any): Promise<Response> {
+    return withRetry(
+      () =>
+        fetch(this.rpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: Math.floor(Math.random() * 1000000),
+            method: "eth_call",
+            params: [{ to, data }, "latest"],
+          }),
+        }),
+      this.retryCount,
+    )
   }
 
   private async _handleRootDetailsResponse(response: Response): Promise<RootDetails> {

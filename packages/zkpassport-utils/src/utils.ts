@@ -404,3 +404,28 @@ export function getHashAlgorithmIdentifierFromLength(length: number): number {
 }
 
 export { AggregateError, PromisePool } from "./promise-pool"
+
+export async function withRetry<T>(
+  operation: () => Promise<T>,
+  retryCount: number = 3,
+): Promise<T> {
+  let lastError: any
+  for (let attempt = 0; attempt <= retryCount; attempt++) {
+    try {
+      const result = await operation()
+      return result
+    } catch (error) {
+      lastError = error
+      const isLastAttempt = attempt === retryCount
+
+      if (isLastAttempt) {
+        throw error
+      }
+
+      // Exponential backoff: 100ms, 200ms, 400ms, etc.
+      const delay = Math.min(100 * Math.pow(2, attempt), 5000)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+  throw lastError
+}

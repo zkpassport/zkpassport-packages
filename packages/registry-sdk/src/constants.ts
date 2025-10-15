@@ -1,6 +1,11 @@
 import { normaliseHash } from "./utils"
 
 /**
+ * Default number of retries for fetching data
+ */
+export const DEFAULT_RETRY_COUNT = 3
+
+/**
  * Certificate Registry ID
  * Used to identify the certificate registry in the root registry
  */

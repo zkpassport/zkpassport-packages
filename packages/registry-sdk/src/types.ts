@@ -41,6 +41,11 @@ export interface RegistryClientOptions {
    * Packaged circuit file URL generator
    */
   packagedCircuitUrlGenerator?: (chainId: number, hash: string, cid?: string) => string
+
+  /**
+   * Number of retries for fetching data, default is 3
+   */
+  retryCount?: number
 }
 
 /**

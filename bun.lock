@@ -54,7 +54,7 @@
     },
     "packages/registry-sdk": {
       "name": "@zkpassport/registry",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "dependencies": {
         "@zkpassport/utils": "workspace:*",
         "debug": "^4.4.0",
@@ -95,7 +95,7 @@
     },
     "packages/zkpassport-utils": {
       "name": "@zkpassport/utils",
-      "version": "0.25.1",
+      "version": "0.25.2",
       "dependencies": {
         "@lapo/asn1js": "^2.0.4",
         "@noble/ciphers": "^1.0.0",
