@@ -31,7 +31,7 @@
     "sdk"
   ],
   "dependencies": {
-    "@aztec/bb.js": "1.0.0-nightly.20250723",
+    "@aztec/bb.js": "2.0.3",
     "@noble/ciphers": "^1.2.1",
     "@noble/hashes": "^1.7.2",
     "@noble/secp256k1": "^2.2.3",

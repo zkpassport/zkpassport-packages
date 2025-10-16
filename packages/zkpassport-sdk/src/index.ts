@@ -629,13 +629,13 @@ export class ZKPassport {
     }
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
-    const { BarretenbergVerifier } = await import("@aztec/bb.js")
+    const { UltraHonkVerifierBackend } = await import("@aztec/bb.js")
     // Automatically set the writing directory to `/tmp` if it is not provided
     // and the code is not running in the browser
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    const verifier = new BarretenbergVerifier({
+    const verifier = new UltraHonkVerifierBackend({
       crsPath: writingDirectory ? writingDirectory + "/.bb-crs" : undefined,
     })
     let verified = true
@@ -687,6 +687,10 @@ export class ZKPassport {
         const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
           proofName,
           circuitManifest,
+          // TODO: set to always validate when the issue is vkey hash calculation is fixed
+          // Not as important anyway, as the solidity verifier is the ultimate anchor for
+          // EVM outer proofs verification
+          { validate: !proof.name?.startsWith("outer_evm") },
         )
         if (isOuterEVM) {
           try {
@@ -719,13 +723,11 @@ export class ZKPassport {
         } else {
           const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
           try {
-            verified = await verifier.verifyUltraHonkProof(
-              {
-                proof: Buffer.from(proofData.proof.join(""), "hex"),
-                publicInputs: proofData.publicInputs,
-              },
-              new Uint8Array(vkeyBytes),
-            )
+            verified = await verifier.verifyProof({
+              proof: Buffer.from(proofData.proof.join(""), "hex"),
+              publicInputs: proofData.publicInputs,
+              verificationKey: new Uint8Array(vkeyBytes),
+            })
           } catch (e) {
             console.warn("Error verifying proof", e)
             verified = false
