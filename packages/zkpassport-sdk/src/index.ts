@@ -682,7 +682,7 @@ export class ZKPassport {
       })
       for (const proof of proofs) {
         const isOuterEVM = proof.name?.startsWith("outer_evm_")
-        const proofName = isOuterEVM ? proof.name!.replace("outer_evm_", "outer_") : proof.name!
+        const proofName = proof.name!
         const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
         const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
           proofName,
@@ -690,7 +690,7 @@ export class ZKPassport {
           // TODO: set to always validate when the issue is vkey hash calculation is fixed
           // Not as important anyway, as the solidity verifier is the ultimate anchor for
           // EVM outer proofs verification
-          { validate: !proof.name?.startsWith("outer_evm") },
+          { validate: !isOuterEVM },
         )
         if (isOuterEVM) {
           try {
