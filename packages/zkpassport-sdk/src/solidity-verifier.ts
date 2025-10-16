@@ -42,7 +42,7 @@ export class SolidityVerifier {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0xf36cdd408d28fe57Ee7060951098a84F72945705",
+        address: "0x3101Bad9eA5fACadA5554844a1a88F7Fe48D4DE0",
       }
     } else if (network === "local_anvil") {
       return {
