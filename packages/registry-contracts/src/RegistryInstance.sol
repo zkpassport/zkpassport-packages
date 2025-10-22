@@ -220,7 +220,7 @@ contract RegistryInstance is IRegistryInstance {
     }
 
     /**
-     * @dev Check if a root is valid (i.e. is the latest root)
+     * @dev Check if a root is valid (i.e. not revoked and either the latest or an historical root)
      * @param root The root to check
      * @return valid True if the root is valid
      */
@@ -229,11 +229,15 @@ contract RegistryInstance is IRegistryInstance {
         if (paused) {
             return false;
         }
-        // Return true if the root is the latest root
-        if (latestRoot == root) {
-            return true;
+
+        // Check if root exists
+        if (indexByRoot[root] == 0) {
+            return false; // Root doesn't exist
         }
-        return false;
+
+        // Check if root is revoked
+        HistoricalRoot memory rootData = historicalRoots[root];
+        return !rootData.revoked;
     }
 
     /**

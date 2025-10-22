@@ -114,6 +114,7 @@ describe("Registry", () => {
         return originalFetch(input, init)
       }
     }
+    // @ts-expect-error - preconnect is not a property of the original fetch
     mockFetch.preconnect = originalFetch.preconnect
     globalThis.fetch = mockFetch
   })
@@ -231,6 +232,11 @@ describe("Registry", () => {
       const valid = await registry.isCertificateRootValid(INVALID_HASH)
       expect(valid).toBe(false)
     })
+  })
+
+  it("should check if an old certificate root is valid", async () => {
+    const valid = await registry.isCertificateRootValid(CERTIFICATE_GENESIS_ROOT)
+    expect(valid).toBe(true)
   })
 
   describe("CircuitRegistry", () => {
@@ -387,6 +393,11 @@ describe("Registry", () => {
     it("should check if a circuit root is invalid", async () => {
       const valid = await registry.isCircuitRootValid(INVALID_HASH)
       expect(valid).toBe(false)
+    })
+
+    it("should check if an old circuit root is valid", async () => {
+      const valid = await registry.isCircuitRootValid(CIRCUIT_GENESIS_ROOT)
+      expect(valid).toBe(true)
     })
   })
 
