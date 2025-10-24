@@ -3,11 +3,15 @@ import { CircuitSanctionsProof, SanctionsOrderedMerkleTreeProofs, SanctionsProof
 import { leftPadArrayWithZeros, packBeBytesIntoField, stringToAsciiStringArray } from "@/utils"
 import { sha256 } from "@noble/hashes/sha2"
 import { poseidon2, AsyncOrderedMT } from "@/merkle-tree"
+import { SortedNonMembershipProof } from "@/merkle-tree/async-ordered-mt"
 import {
   getBirthdateRange,
   getDocumentNumberRange,
+  getFirstNameRange,
   getFullNameRange,
   getNationalityRange,
+  getSecondNameRange,
+  getThirdNameRange,
 } from "@/passport/getters"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { ProofType } from "@/index"
@@ -16,9 +20,9 @@ export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
 
   static async create(): Promise<SanctionsBuilder> {
-    const treeData = await import("./trees/Ordered_sanctions.json")
+    const treeData = await import("./trees/all_sanctions_tree.json")
 
-    const tree = await AsyncOrderedMT.fromSerialized(treeData.default, poseidon2)
+    const tree = await AsyncOrderedMT.fromSerialized(treeData.default as string[][], poseidon2)
     return new SanctionsBuilder(tree)
   }
 
@@ -33,11 +37,28 @@ export class SanctionsBuilder {
   async getSanctionsMerkleProofs(
     passport: PassportViewModel,
   ): Promise<{ proofs: SanctionsProofs; root: string }> {
-    const { nameAndDOBHash, nameAndYobHash, documentNumberAndNationalityHash } =
-      await getSanctionsHashesFromIdData(passport)
+    const {
+      name1Hash,
+      name2Hash,
+      name3Hash,
+      name1AndDOBHash,
+      name2AndDOBHash,
+      name3AndDOBHash,
+      name1AndYobHash,
+      name2AndYobHash,
+      name3AndYobHash,
+      documentNumberAndNationalityHash,
+    } = await getSanctionsHashesFromIdData(passport)
 
-    const nameAndDobProof = this.tree.createNonMembershipProof(nameAndDOBHash)
-    const nameAndYobProof = this.tree.createNonMembershipProof(nameAndYobHash)
+    const name1Proof = this.tree.createNonMembershipProof(name1Hash)
+    const name2Proof = this.tree.createNonMembershipProof(name2Hash)
+    const name3Proof = this.tree.createNonMembershipProof(name3Hash)
+    const name1AndDobProof = this.tree.createNonMembershipProof(name1AndDOBHash)
+    const name2AndDobProof = this.tree.createNonMembershipProof(name2AndDOBHash)
+    const name3AndDobProof = this.tree.createNonMembershipProof(name3AndDOBHash)
+    const name1AndYobProof = this.tree.createNonMembershipProof(name1AndYobHash)
+    const name2AndYobProof = this.tree.createNonMembershipProof(name2AndYobHash)
+    const name3AndYobProof = this.tree.createNonMembershipProof(name3AndYobHash)
     const passportNoAndNationalityProof = this.tree.createNonMembershipProof(
       documentNumberAndNationalityHash,
     )
@@ -45,47 +66,52 @@ export class SanctionsBuilder {
     const root = this.getRoot()
 
     const sanctionsProofs: SanctionsOrderedMerkleTreeProofs = {
+      name_proofs: [name1Proof, name2Proof, name3Proof],
+      name_and_dob_proofs: [name1AndDobProof, name2AndDobProof, name3AndDobProof],
+      name_and_yob_proofs: [name1AndYobProof, name2AndYobProof, name3AndYobProof],
       passport_no_and_nationality_proof: passportNoAndNationalityProof,
-      name_and_dob_proof: nameAndDobProof,
-      name_and_yob_proof: nameAndYobProof,
     }
 
     const proofs: SanctionsProofs = {
+      name_proofs: sanctionsProofs.name_proofs.map((proof) => formatSanctionsProof(proof)),
+      name_and_dob_proofs: sanctionsProofs.name_and_dob_proofs.map((proof) =>
+        formatSanctionsProof(proof),
+      ),
+      name_and_yob_proofs: sanctionsProofs.name_and_yob_proofs.map((proof) =>
+        formatSanctionsProof(proof),
+      ),
       passport_no_and_nationality_proof: formatSanctionsProof(
         sanctionsProofs.passport_no_and_nationality_proof,
       ),
-      name_and_dob_proof: formatSanctionsProof(sanctionsProofs.name_and_dob_proof),
-      name_and_yob_proof: formatSanctionsProof(sanctionsProofs.name_and_yob_proof),
     }
 
     return { proofs, root }
   }
 
-  async getSanctionsEvmParameterCommitment(): Promise<bigint> {
+  async getSanctionsEvmParameterCommitment(isStrict: boolean): Promise<bigint> {
     const rootHash = this.getRootHash()
 
     const rootHashArr: number[] = Array.from(rootHash).map((x) => Number(x))
     const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
-    const hash = sha256(new Uint8Array([ProofType.SANCTIONS_EXCLUSION, ...rootHashNumberArray]))
+    const hash = sha256(
+      new Uint8Array([ProofType.SANCTIONS_EXCLUSION, ...rootHashNumberArray, isStrict ? 1 : 0]),
+    )
     const hashBigInt = packBeBytesIntoField(hash, 31)
     return hashBigInt
   }
 
-  async getSanctionsParameterCommitment(): Promise<bigint> {
+  async getSanctionsParameterCommitment(isStrict: boolean): Promise<bigint> {
     const rootHash = this.getRootHash()
-    const rootHashArray = leftPadArrayWithZeros(Array.from(rootHash), 32)
-    const rootHashBigIntArray: bigint[] = rootHashArray.map((x) => BigInt(x))
     const hash = await poseidon2HashAsync([
       BigInt(ProofType.SANCTIONS_EXCLUSION),
-      ...rootHashBigIntArray,
+      BigInt(`0x${rootHash.toString("hex")}`),
+      isStrict ? 1n : 0n,
     ])
     return hash
   }
 }
 
-function formatSanctionsProof(
-  proof: SanctionsOrderedMerkleTreeProofs[keyof SanctionsOrderedMerkleTreeProofs],
-): CircuitSanctionsProof {
+function formatSanctionsProof(proof: SortedNonMembershipProof): CircuitSanctionsProof {
   const left = proof.left?.proof
   const right = proof.right?.proof
   return {
@@ -102,18 +128,54 @@ function formatSanctionsProof(
   }
 }
 
+export function getNameCombinations(passport: PassportViewModel): string[] {
+  const [fullNameStartIndex, fullNameEndIndex] = getFullNameRange(passport)
+  let firstNameEndIndex = Math.min(getFirstNameRange(passport)[1], fullNameEndIndex)
+  if (firstNameEndIndex < 0) {
+    firstNameEndIndex = fullNameEndIndex
+  }
+  const name1 = passport.mrz.slice(fullNameStartIndex, firstNameEndIndex).padEnd(39, "<")
+  let secondNameEndIndex =
+    firstNameEndIndex === fullNameEndIndex
+      ? fullNameEndIndex
+      : Math.min(getSecondNameRange(passport)[1], fullNameEndIndex)
+  if (secondNameEndIndex < 0) {
+    secondNameEndIndex = fullNameEndIndex
+  }
+  const name2 = passport.mrz.slice(fullNameStartIndex, secondNameEndIndex).padEnd(39, "<")
+  let thirdNameEndIndex =
+    secondNameEndIndex === fullNameEndIndex
+      ? fullNameEndIndex
+      : Math.min(getThirdNameRange(passport)[1], fullNameEndIndex)
+  if (thirdNameEndIndex < 0) {
+    thirdNameEndIndex = fullNameEndIndex
+  }
+  const name3 = passport.mrz.slice(fullNameStartIndex, thirdNameEndIndex).padEnd(39, "<")
+  return [name1, name2, name3]
+}
+
 async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promise<{
-  nameAndDOBHash: bigint
-  nameAndYobHash: bigint
+  name1Hash: bigint
+  name2Hash: bigint
+  name3Hash: bigint
+  name1AndDOBHash: bigint
+  name1AndYobHash: bigint
+  name2AndDOBHash: bigint
+  name2AndYobHash: bigint
+  name3AndDOBHash: bigint
+  name3AndYobHash: bigint
   documentNumberAndNationalityHash: bigint
 }> {
-  let mrzName = passport.mrz.slice(...getFullNameRange(passport))
-  if (mrzName.length < 39) {
-    // Pad the end with the < character
-    mrzName = mrzName.padEnd(39, "<")
-  }
+  const [name1, name2, name3] = getNameCombinations(passport)
 
-  const fullNameBytes = stringToAsciiStringArray(mrzName)
+  const name1Bytes = stringToAsciiStringArray(name1)
+  const name2Bytes = stringToAsciiStringArray(name2)
+  const name3Bytes = stringToAsciiStringArray(name3)
+
+  const name1Hash = await poseidon2(name1Bytes)
+  const name2Hash = await poseidon2(name2Bytes)
+  const name3Hash = await poseidon2(name3Bytes)
+
   const dateOfBirthBytes = stringToAsciiStringArray(
     passport.mrz.slice(...getBirthdateRange(passport)),
   )
@@ -124,17 +186,32 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
     passport.mrz.slice(...getNationalityRange(passport)),
   )
 
-  const nameAndDOBBytes = [...fullNameBytes, ...dateOfBirthBytes]
-  const nameAndYobBytes = [...fullNameBytes, ...dateOfBirthBytes.slice(0, 2)]
+  const name1AndDOBBytes = [...name1Bytes, ...dateOfBirthBytes]
+  const name1AndYobBytes = [...name1Bytes, ...dateOfBirthBytes.slice(0, 2)]
+  const name2AndDOBBytes = [...name2Bytes, ...dateOfBirthBytes]
+  const name2AndYobBytes = [...name2Bytes, ...dateOfBirthBytes.slice(0, 2)]
+  const name3AndDOBBytes = [...name3Bytes, ...dateOfBirthBytes]
+  const name3AndYobBytes = [...name3Bytes, ...dateOfBirthBytes.slice(0, 2)]
   const documentNumberAndNationalityBytes = [...documentNumberBytes, ...nationalityBytes]
 
-  const nameAndDOBHash = await poseidon2(nameAndDOBBytes)
-  const nameAndYobHash = await poseidon2(nameAndYobBytes)
+  const name1AndDOBHash = await poseidon2(name1AndDOBBytes)
+  const name1AndYobHash = await poseidon2(name1AndYobBytes)
+  const name2AndDOBHash = await poseidon2(name2AndDOBBytes)
+  const name2AndYobHash = await poseidon2(name2AndYobBytes)
+  const name3AndDOBHash = await poseidon2(name3AndDOBBytes)
+  const name3AndYobHash = await poseidon2(name3AndYobBytes)
   const documentNumberAndNationalityHash = await poseidon2(documentNumberAndNationalityBytes)
 
   return {
-    nameAndDOBHash,
-    nameAndYobHash,
+    name1Hash,
+    name2Hash,
+    name3Hash,
+    name1AndDOBHash,
+    name1AndYobHash,
+    name2AndDOBHash,
+    name2AndYobHash,
+    name3AndDOBHash,
+    name3AndYobHash,
     documentNumberAndNationalityHash,
   }
 }

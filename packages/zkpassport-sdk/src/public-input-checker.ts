@@ -1807,8 +1807,12 @@ export class PublicInputChecker {
             (committedInputs?.exclusion_check_sanctions as SanctionsCommittedInputs) ??
             (committedInputs?.exclusion_check_sanctions_evm as SanctionsCommittedInputs)
           const exclusionCheckSanctionsParameterCommitment = isForEVM
-            ? await sanctionsBuilder.getSanctionsEvmParameterCommitment()
-            : await sanctionsBuilder.getSanctionsParameterCommitment()
+            ? await sanctionsBuilder.getSanctionsEvmParameterCommitment(
+                exclusionCheckSanctionsCommittedInputs.isStrict,
+              )
+            : await sanctionsBuilder.getSanctionsParameterCommitment(
+                exclusionCheckSanctionsCommittedInputs.isStrict,
+              )
           if (!paramCommitments.includes(exclusionCheckSanctionsParameterCommitment)) {
             console.warn("This proof does not verify the exclusion from the sanction lists")
             isCorrect = false
@@ -2442,7 +2446,9 @@ export class PublicInputChecker {
         const sanctionsBuilder = await SanctionsBuilder.create()
         const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
           ?.exclusion_check_sanctions as SanctionsCommittedInputs
-        const calculatedParamCommitment = await sanctionsBuilder.getSanctionsParameterCommitment()
+        const calculatedParamCommitment = await sanctionsBuilder.getSanctionsParameterCommitment(
+          exclusionCheckSanctionsCommittedInputs.isStrict,
+        )
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
         if (paramCommittment !== calculatedParamCommitment) {
           console.warn(

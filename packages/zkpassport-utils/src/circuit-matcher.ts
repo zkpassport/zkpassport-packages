@@ -1015,6 +1015,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
 
 export async function getSanctionsExclusionCheckCircuitInputs(
   passport: PassportViewModel,
+  isStrict: boolean,
   salt: bigint,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
@@ -1049,6 +1050,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     proofs,
+    is_strict: isStrict ? 1 : 0,
     root,
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
