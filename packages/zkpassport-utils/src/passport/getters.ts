@@ -11,6 +11,22 @@ export function getFirstNameRange(passport: PassportViewModel): [number, number]
   return [firstNameStartIndex - 2, firstNameEndIndex]
 }
 
+export function getSecondNameRange(passport: PassportViewModel): [number, number] {
+  const mrz = passport?.mrz
+  const secondNameStartIndex = getFirstNameRange(passport)[1] + 1
+  const secondNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], secondNameStartIndex)
+  // Subtract 1 from the start index to include the two angle brackets
+  return [secondNameStartIndex - 1, secondNameEndIndex]
+}
+
+export function getThirdNameRange(passport: PassportViewModel): [number, number] {
+  const mrz = passport?.mrz
+  const thirdNameStartIndex = getSecondNameRange(passport)[1] + 1
+  const thirdNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], thirdNameStartIndex)
+  // Subtract 1 from the start index to include the two angle brackets
+  return [thirdNameStartIndex - 1, thirdNameEndIndex]
+}
+
 export function getLastNameRange(passport: PassportViewModel): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
