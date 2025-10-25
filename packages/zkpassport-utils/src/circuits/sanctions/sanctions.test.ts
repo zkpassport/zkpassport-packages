@@ -1,5 +1,5 @@
 import { PASSPORTS } from "../../../tests/fixtures/passports"
-import { getNameCombinations } from "./sanctions"
+import { getNameCombinations, processName } from "./sanctions"
 
 describe("Sanctions", () => {
   test("should get the correct name combinations for passport", () => {
@@ -135,5 +135,14 @@ describe("Sanctions", () => {
       "DOE<<SUPERCALIFRAGILISTICEXPIA<<<<<<<<<",
       "DOE<<SUPERCALIFRAGILISTICEXPIA<<<<<<<<<",
     ])
+  })
+
+  test("should process the name correctly", () => {
+    expect(processName("DOE<JOHN<MILLER<<<<<<<<<<<<<<<<<<<<<<<<")).toEqual(
+      "DOE<<JOHN<MILLER<<<<<<<<<<<<<<<<<<<<<<<",
+    )
+    expect(processName("DOE<<JOHN<MILLER<<<<<<<<<<<<<<<<<<<<<<<")).toEqual(
+      "DOE<<JOHN<MILLER<<<<<<<<<<<<<<<<<<<<<<<",
+    )
   })
 })

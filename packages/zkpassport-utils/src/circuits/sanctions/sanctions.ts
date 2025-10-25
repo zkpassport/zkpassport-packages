@@ -128,6 +128,23 @@ function formatSanctionsProof(proof: SortedNonMembershipProof): CircuitSanctions
   }
 }
 
+export function processName(name: string): string {
+  let formattedName = name
+  // Gets the index of the full name separator (<<)
+  let fullNameEndIndex = name.match(/[A-Z]<<[A-Z]/)?.index ?? -1
+  // If no full name separator is found, get the index of the first singular separator (<)
+  if (fullNameEndIndex < 0) {
+    fullNameEndIndex = name.match(/[A-Z]<[A-Z]/)?.index ?? -1
+    // Replace the singular separator with the full name separator
+    if (fullNameEndIndex >= 0) {
+      formattedName =
+        // Make sure to drop the last character of the name to keep the same length
+        name.slice(0, fullNameEndIndex + 1) + "<<" + name.slice(fullNameEndIndex + 2, -1)
+    }
+  }
+  return formattedName
+}
+
 export function getNameCombinations(passport: PassportViewModel): string[] {
   const [fullNameStartIndex, fullNameEndIndex] = getFullNameRange(passport)
   let firstNameEndIndex = Math.min(getFirstNameRange(passport)[1], fullNameEndIndex)
@@ -151,7 +168,7 @@ export function getNameCombinations(passport: PassportViewModel): string[] {
     thirdNameEndIndex = fullNameEndIndex
   }
   const name3 = passport.mrz.slice(fullNameStartIndex, thirdNameEndIndex).padEnd(39, "<")
-  return [name1, name2, name3]
+  return [processName(name1), processName(name2), processName(name3)]
 }
 
 async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promise<{
