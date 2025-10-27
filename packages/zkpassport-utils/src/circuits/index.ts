@@ -271,7 +271,7 @@ export enum ProofType {
 }
 
 export const ProofTypeLength = {
-  [ProofType.DISCLOSE]: { evm: 180, standard: 180 },
+  [ProofType.DISCLOSE]: { evm: 180, standard: 4 },
   [ProofType.AGE]: { evm: 10, standard: 3 },
   [ProofType.BIRTHDATE]: { evm: 24, standard: 3 },
   [ProofType.EXPIRY_DATE]: { evm: 24, standard: 3 },
@@ -279,7 +279,7 @@ export const ProofTypeLength = {
   [ProofType.NATIONALITY_EXCLUSION]: { evm: 600, standard: 200 },
   [ProofType.ISSUING_COUNTRY_INCLUSION]: { evm: 600, standard: 200 },
   [ProofType.ISSUING_COUNTRY_EXCLUSION]: { evm: 600, standard: 200 },
-  [ProofType.BIND]: { evm: 509, standard: 509 },
+  [ProofType.BIND]: { evm: 509, standard: 17 },
   [ProofType.SANCTIONS_EXCLUSION]: { evm: 33, standard: 2 },
   [ProofType.FACEMATCH]: { evm: 98, standard: 5 },
 }

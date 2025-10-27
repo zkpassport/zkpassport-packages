@@ -3,6 +3,7 @@ import {
   leftPadArrayWithZeros,
   numberToBytesBE,
   packBeBytesIntoField,
+  packBeBytesIntoFields,
   rightPadArrayWithZeros,
 } from "../utils"
 import { BindCommittedInputs, BoundData } from "../types"
@@ -72,7 +73,7 @@ export async function getBindParameterCommitment(
   const bindParameterCommitment = await poseidon2HashAsync([
     BigInt(ProofType.BIND),
     BigInt(ProofTypeLength[ProofType.BIND].standard),
-    ...paddedDataBytes.map((x) => BigInt(x)),
+    ...packBeBytesIntoFields(new Uint8Array(paddedDataBytes), 31).map((x) => BigInt(x)),
   ])
   return bindParameterCommitment
 }
