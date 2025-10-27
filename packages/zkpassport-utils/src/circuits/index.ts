@@ -188,51 +188,55 @@ export function getNumberOfPublicInputs(circuitName: string) {
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
+  // The hash for the parameter commitment is over single bytes for EVM circuits,
+  // so the size needs to be encoded over 2 bytes to give enough room (i.e. 2^16)
+  // For standard circuits, the hash is over fields, so we just need one field for the length
+  const typeAndLengthSize = circuitName.endsWith("evm") ? 3 : 2
   switch (circuitName) {
     case "compare_age":
-      return 4
+      return ProofTypeLength[ProofType.AGE].standard + typeAndLengthSize
     case "compare_age_evm":
-      return 11
+      return ProofTypeLength[ProofType.AGE].evm + typeAndLengthSize
     case "compare_birthdate":
-      return 4
+      return ProofTypeLength[ProofType.BIRTHDATE].standard + typeAndLengthSize
     case "compare_birthdate_evm":
-      return 25
+      return ProofTypeLength[ProofType.BIRTHDATE].evm + typeAndLengthSize
     case "compare_expiry":
-      return 4
+      return ProofTypeLength[ProofType.EXPIRY_DATE].standard + typeAndLengthSize
     case "compare_expiry_evm":
-      return 25
+      return ProofTypeLength[ProofType.EXPIRY_DATE].evm + typeAndLengthSize
     case "disclose_bytes":
-      return 181
+      return ProofTypeLength[ProofType.DISCLOSE].standard + typeAndLengthSize
     case "disclose_bytes_evm":
-      return 181
+      return ProofTypeLength[ProofType.DISCLOSE].evm + typeAndLengthSize
     case "inclusion_check_issuing_country":
-      return 201
+      return ProofTypeLength[ProofType.ISSUING_COUNTRY_INCLUSION].standard + typeAndLengthSize
     case "inclusion_check_issuing_country_evm":
-      return 601
+      return ProofTypeLength[ProofType.ISSUING_COUNTRY_INCLUSION].evm + typeAndLengthSize
     case "inclusion_check_nationality":
-      return 201
+      return ProofTypeLength[ProofType.NATIONALITY_INCLUSION].standard + typeAndLengthSize
     case "inclusion_check_nationality_evm":
-      return 601
+      return ProofTypeLength[ProofType.NATIONALITY_INCLUSION].evm + typeAndLengthSize
     case "exclusion_check_issuing_country":
-      return 201
+      return ProofTypeLength[ProofType.ISSUING_COUNTRY_EXCLUSION].standard + typeAndLengthSize
     case "exclusion_check_issuing_country_evm":
-      return 601
+      return ProofTypeLength[ProofType.ISSUING_COUNTRY_EXCLUSION].evm + typeAndLengthSize
     case "exclusion_check_nationality":
-      return 201
+      return ProofTypeLength[ProofType.NATIONALITY_EXCLUSION].standard + typeAndLengthSize
     case "exclusion_check_nationality_evm":
-      return 601
+      return ProofTypeLength[ProofType.NATIONALITY_EXCLUSION].evm + typeAndLengthSize
     case "bind":
-      return 501
+      return ProofTypeLength[ProofType.BIND].standard + typeAndLengthSize
     case "bind_evm":
-      return 501
+      return ProofTypeLength[ProofType.BIND].evm + typeAndLengthSize
     case "exclusion_check_sanctions":
-      return 33
+      return ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard + typeAndLengthSize
     case "exclusion_check_sanctions_evm":
-      return 33
+      return ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm + typeAndLengthSize
     case "facematch":
-      return 6
+      return ProofTypeLength[ProofType.FACEMATCH].standard + typeAndLengthSize
     case "facematch_evm":
-      return 99
+      return ProofTypeLength[ProofType.FACEMATCH].evm + typeAndLengthSize
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }
@@ -264,6 +268,20 @@ export enum ProofType {
   BIND = 8,
   SANCTIONS_EXCLUSION = 9,
   FACEMATCH = 10,
+}
+
+export const ProofTypeLength = {
+  [ProofType.DISCLOSE]: { evm: 180, standard: 180 },
+  [ProofType.AGE]: { evm: 10, standard: 3 },
+  [ProofType.BIRTHDATE]: { evm: 24, standard: 3 },
+  [ProofType.EXPIRY_DATE]: { evm: 24, standard: 3 },
+  [ProofType.NATIONALITY_INCLUSION]: { evm: 600, standard: 200 },
+  [ProofType.NATIONALITY_EXCLUSION]: { evm: 600, standard: 200 },
+  [ProofType.ISSUING_COUNTRY_INCLUSION]: { evm: 600, standard: 200 },
+  [ProofType.ISSUING_COUNTRY_EXCLUSION]: { evm: 600, standard: 200 },
+  [ProofType.BIND]: { evm: 509, standard: 509 },
+  [ProofType.SANCTIONS_EXCLUSION]: { evm: 33, standard: 2 },
+  [ProofType.FACEMATCH]: { evm: 98, standard: 5 },
 }
 
 export {

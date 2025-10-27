@@ -1,5 +1,5 @@
-import { packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
-import { ProofData, ProofType } from "."
+import { numberToBytesBE, packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
+import { ProofData, ProofType, ProofTypeLength } from "."
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { sha256 } from "@noble/hashes/sha2"
 
@@ -335,6 +335,7 @@ export async function getDiscloseParameterCommitment(
 ): Promise<bigint> {
   const parameterCommitment = await poseidon2HashAsync([
     BigInt(ProofType.DISCLOSE),
+    BigInt(ProofTypeLength[ProofType.DISCLOSE].standard),
     ...discloseMask.map((x) => BigInt(x)),
     ...disclosedBytes.map((x) => BigInt(x)),
   ])
@@ -354,6 +355,7 @@ export async function getDiscloseEVMParameterCommitment(
   const hash = sha256(
     new Uint8Array([
       ProofType.DISCLOSE,
+      ...numberToBytesBE(ProofTypeLength[ProofType.DISCLOSE].evm, 2),
       ...discloseMask.map((x) => Number(x)),
       ...disclosedBytes.map((x) => Number(x)),
     ]),

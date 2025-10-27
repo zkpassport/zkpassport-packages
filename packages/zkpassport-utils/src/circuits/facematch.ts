@@ -1,5 +1,5 @@
 import { sha256 } from "@noble/hashes/sha2"
-import { ProofType } from "."
+import { ProofType, ProofTypeLength } from "."
 import { numberToBytesBE, packBeBytesIntoField } from "../utils"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 
@@ -26,6 +26,7 @@ export async function getFacematchParameterCommitment(
 ): Promise<bigint> {
   const parameterCommitment = await poseidon2HashAsync([
     BigInt(ProofType.FACEMATCH),
+    BigInt(ProofTypeLength[ProofType.FACEMATCH].standard),
     rootKeyLeaf,
     environment,
     appIdHash,
@@ -53,6 +54,7 @@ export async function getFacematchEvmParameterCommitment(
   const hash = sha256(
     new Uint8Array([
       ProofType.FACEMATCH,
+      ...numberToBytesBE(ProofTypeLength[ProofType.FACEMATCH].evm, 2),
       ...numberToBytesBE(rootKeyLeaf, 32),
       ...numberToBytesBE(environment, 1),
       ...numberToBytesBE(appIdHash, 32),

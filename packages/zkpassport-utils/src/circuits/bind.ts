@@ -1,13 +1,14 @@
 import {
   getIdFromChain,
   leftPadArrayWithZeros,
+  numberToBytesBE,
   packBeBytesIntoField,
   rightPadArrayWithZeros,
 } from "../utils"
 import { BindCommittedInputs, BoundData } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { sha256 } from "@noble/hashes/sha2"
-import { ProofType } from "."
+import { ProofType, ProofTypeLength } from "."
 import { Binary } from "../binary"
 
 export function getBoundDataFromCommittedInputs(committedInputs: BindCommittedInputs): BoundData {
@@ -51,8 +52,8 @@ export function formatBoundData(boundData: BoundData): number[] {
       ...customData,
     ]
   }
-  if (data.length > 500) {
-    throw new Error(`Data is too long: ${data.length} > 500`)
+  if (data.length > 509) {
+    throw new Error(`Data is too long: ${data.length} > 509`)
   }
   return data
 }
@@ -65,11 +66,12 @@ export function formatBoundData(boundData: BoundData): number[] {
  */
 export async function getBindParameterCommitment(
   data: number[],
-  maxLength: number = 500,
+  maxLength: number = 509,
 ): Promise<bigint> {
   const paddedDataBytes = rightPadArrayWithZeros(data, maxLength)
   const bindParameterCommitment = await poseidon2HashAsync([
     BigInt(ProofType.BIND),
+    BigInt(ProofTypeLength[ProofType.BIND].standard),
     ...paddedDataBytes.map((x) => BigInt(x)),
   ])
   return bindParameterCommitment
@@ -83,10 +85,16 @@ export async function getBindParameterCommitment(
  */
 export async function getBindEVMParameterCommitment(
   data: number[],
-  maxLength: number = 500,
+  maxLength: number = 509,
 ): Promise<bigint> {
   const paddedDataBytes = rightPadArrayWithZeros(data, maxLength)
-  const hash = sha256(new Uint8Array([ProofType.BIND, ...paddedDataBytes]))
+  const hash = sha256(
+    new Uint8Array([
+      ProofType.BIND,
+      ...numberToBytesBE(ProofTypeLength[ProofType.BIND].evm, 2),
+      ...paddedDataBytes,
+    ]),
+  )
   const hashBigInt = packBeBytesIntoField(hash, 31)
   return hashBigInt
 }
