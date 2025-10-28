@@ -10,7 +10,7 @@ import {
   getCommitmentOutFromIntegrityProof,
   getCommitmentInFromDisclosureProof,
   getMerkleRootFromDSCProof,
-  getCurrentDateFromIntegrityProof,
+  getCurrentDateFromDisclosureProof,
   DisclosedData,
   formatName,
   getNumberOfPublicInputs,
@@ -1333,6 +1333,42 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
+  private static async checkCurrentDate(
+    circuitName: keyof QueryResultErrors,
+    proofData: ProofData,
+    validity: number,
+    queryResultErrors: Partial<QueryResultErrors>,
+  ) {
+    const currentTime = new Date()
+    const today = new Date(
+      currentTime.getFullYear(),
+      currentTime.getMonth(),
+      currentTime.getDate(),
+      0,
+      0,
+      0,
+      0,
+    )
+    const currentDate = getCurrentDateFromDisclosureProof(proofData)
+    const todayToCurrentDate = today.getTime() - currentDate.getTime()
+    const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
+    const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
+    let isCorrect = true
+    if (todayToCurrentDate >= actualDifference) {
+      console.warn("The date used to check the validity of the ID falls out of the validity period")
+      isCorrect = false
+      if (!queryResultErrors[circuitName as keyof QueryResultErrors]) {
+        queryResultErrors[circuitName as keyof QueryResultErrors] = {}
+      }
+      queryResultErrors[circuitName as keyof QueryResultErrors]!.date = {
+        expected: `Difference: ${validity} seconds`,
+        received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
+        message: "The date used to check the validity of the ID falls out of the validity period",
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   public static async checkPublicInputs(
     domain: string,
     proofs: Array<ProofResult>,
@@ -1477,15 +1513,10 @@ export class PublicInputChecker {
             (committedInputs?.compare_age_evm as AgeCommittedInputs)
           const ageParameterCommitment = isForEVM
             ? await getAgeEVMParameterCommitment(
-                ageCommittedInputs.currentDateTimestamp,
                 ageCommittedInputs.minAge,
                 ageCommittedInputs.maxAge,
               )
-            : await getAgeParameterCommitment(
-                ageCommittedInputs.currentDateTimestamp,
-                ageCommittedInputs.minAge,
-                ageCommittedInputs.maxAge,
-              )
+            : await getAgeParameterCommitment(ageCommittedInputs.minAge, ageCommittedInputs.maxAge)
           if (!paramCommitments.includes(ageParameterCommitment)) {
             console.warn("This proof does not verify the age")
             isCorrect = false
@@ -1513,17 +1544,13 @@ export class PublicInputChecker {
           const birthdateParameterCommitment = isForEVM
             ? await getDateEVMParameterCommitment(
                 ProofType.BIRTHDATE,
-                birthdateCommittedInputs.currentDateTimestamp,
                 birthdateCommittedInputs.minDateTimestamp,
                 birthdateCommittedInputs.maxDateTimestamp,
-                0,
               )
             : await getDateParameterCommitment(
                 ProofType.BIRTHDATE,
-                birthdateCommittedInputs.currentDateTimestamp,
                 birthdateCommittedInputs.minDateTimestamp,
                 birthdateCommittedInputs.maxDateTimestamp,
-                0,
               )
           if (!paramCommitments.includes(birthdateParameterCommitment)) {
             console.warn("This proof does not verify the birthdate")
@@ -1558,7 +1585,6 @@ export class PublicInputChecker {
               )
             : await getDateParameterCommitment(
                 ProofType.EXPIRY_DATE,
-                expiryCommittedInputs.currentDateTimestamp,
                 expiryCommittedInputs.minDateTimestamp,
                 expiryCommittedInputs.maxDateTimestamp,
               )
@@ -1927,25 +1953,6 @@ export class PublicInputChecker {
           }
         }
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
-        const currentDate = getCurrentDateFromIntegrityProof(proofData)
-        const todayToCurrentDate = today.getTime() - currentDate.getTime()
-        const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
-        const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
-        if (todayToCurrentDate >= actualDifference) {
-          console.warn(
-            `The date used to check the validity of the ID is older than the validity period`,
-          )
-          isCorrect = false
-          queryResultErrors.data_check_integrity = {
-            ...queryResultErrors.data_check_integrity,
-            date: {
-              expected: `Difference: ${validity} seconds`,
-              received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
-              message:
-                "The date used to check the validity of the ID is older than the validity period",
-            },
-          }
-        }
       } else if (proof.name === "disclose_bytes") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -2001,6 +2008,18 @@ export class PublicInputChecker {
           ...queryResultErrorsDisclose,
           ...queryResultErrorsScope,
         }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "disclose",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "compare_age") {
@@ -2023,7 +2042,6 @@ export class PublicInputChecker {
         const paramCommitment = getParameterCommitmentFromDisclosureProof(proofData)
         const committedInputs = proof.committedInputs?.compare_age as AgeCommittedInputs
         const calculatedParamCommitment = await getAgeParameterCommitment(
-          committedInputs.currentDateTimestamp,
           committedInputs.minAge,
           committedInputs.maxAge,
         )
@@ -2052,6 +2070,18 @@ export class PublicInputChecker {
           ...queryResultErrorsAge,
           ...queryResultErrorsScope,
         }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "age",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "compare_birthdate") {
@@ -2075,7 +2105,6 @@ export class PublicInputChecker {
         const committedInputs = proof.committedInputs?.compare_birthdate as DateCommittedInputs
         const calculatedParamCommitment = await getDateParameterCommitment(
           ProofType.BIRTHDATE,
-          committedInputs.currentDateTimestamp,
           committedInputs.minDateTimestamp,
           committedInputs.maxDateTimestamp,
           0,
@@ -2111,6 +2140,18 @@ export class PublicInputChecker {
           ...queryResultErrorsBirthdate,
           ...queryResultErrorsScope,
         }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "birthdate",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "compare_expiry") {
@@ -2134,7 +2175,6 @@ export class PublicInputChecker {
         const committedInputs = proof.committedInputs?.compare_expiry as DateCommittedInputs
         const calculatedParamCommitment = await getDateParameterCommitment(
           ProofType.EXPIRY_DATE,
-          committedInputs.currentDateTimestamp,
           committedInputs.minDateTimestamp,
           committedInputs.maxDateTimestamp,
         )
@@ -2168,6 +2208,18 @@ export class PublicInputChecker {
           ...queryResultErrors,
           ...queryResultErrorsExpiryDate,
           ...queryResultErrorsScope,
+        }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "expiry_date",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
@@ -2230,6 +2282,18 @@ export class PublicInputChecker {
           ...queryResultErrorsNationalityExclusion,
           ...queryResultErrorsScope,
         }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "nationality",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "exclusion_check_issuing_country") {
@@ -2290,6 +2354,18 @@ export class PublicInputChecker {
           ...queryResultErrors,
           ...queryResultErrorsIssuingCountryExclusion,
           ...queryResultErrorsScope,
+        }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "issuing_country",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
@@ -2352,6 +2428,18 @@ export class PublicInputChecker {
           ...queryResultErrorsNationalityInclusion,
           ...queryResultErrorsScope,
         }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "nationality",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "inclusion_check_issuing_country") {
@@ -2413,6 +2501,18 @@ export class PublicInputChecker {
           ...queryResultErrorsIssuingCountryInclusion,
           ...queryResultErrorsScope,
         }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "issuing_country",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "bind") {
@@ -2439,6 +2539,18 @@ export class PublicInputChecker {
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsBind,
+        }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "bind",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
@@ -2478,6 +2590,18 @@ export class PublicInputChecker {
           ...queryResultErrors,
           ...queryResultErrorsSanctionsExclusion,
         }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "sanctions",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
+        }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name?.startsWith("facematch") && !proof.name?.endsWith("_evm")) {
@@ -2508,6 +2632,18 @@ export class PublicInputChecker {
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsFacematch,
+        }
+        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
+          await this.checkCurrentDate(
+            "facematch",
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
+          )
+        isCorrect = isCorrect && isCorrectCurrentDate
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCurrentDate,
         }
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
