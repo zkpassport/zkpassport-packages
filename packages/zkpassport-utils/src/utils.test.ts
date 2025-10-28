@@ -1,4 +1,4 @@
-import { packBeBytesIntoFields } from "./utils"
+import { packBeBitsIntoField, packBeBytesIntoFields } from "./utils"
 
 const PUBKEY_BYTES = [
   0x40, 0x5d, 0xd3, 0xb8, 0x01, 0xcb, 0xc8, 0xe2, 0x37, 0x62, 0x0d, 0x8d, 0xd9, 0xad, 0xc2, 0x95,
@@ -103,5 +103,14 @@ describe("Utils", () => {
       "0x51fb2297b7ffc0deeb3a1b27effc6b6cae87ec4262fcfd075f5554475547a3",
       "0x405dd3b801cbc8e237620d8dd9adc295",
     ])
+  })
+
+  test("packBeBitsIntoField should correctly pack bits into a field", () => {
+    const bits = Array.from({ length: 90 }, () => 0)
+    bits[0] = 1
+    bits[1] = 1
+    bits[2] = 1
+    const result = packBeBitsIntoField(bits, 253)
+    expect(result).toEqual(BigInt("0x038000000000000000000000"))
   })
 })

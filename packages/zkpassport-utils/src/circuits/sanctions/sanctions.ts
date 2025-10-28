@@ -1,6 +1,11 @@
 import { PassportViewModel } from "@/types"
 import { CircuitSanctionsProof, SanctionsOrderedMerkleTreeProofs, SanctionsProofs } from "./types"
-import { leftPadArrayWithZeros, packBeBytesIntoField, stringToAsciiStringArray } from "@/utils"
+import {
+  leftPadArrayWithZeros,
+  numberToBytesBE,
+  packBeBytesIntoField,
+  stringToAsciiStringArray,
+} from "@/utils"
 import { sha256 } from "@noble/hashes/sha2"
 import { poseidon2, AsyncOrderedMT } from "@/merkle-tree"
 import { SortedNonMembershipProof } from "@/merkle-tree/async-ordered-mt"
@@ -14,7 +19,7 @@ import {
   getThirdNameRange,
 } from "@/passport/getters"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { ProofType } from "@/index"
+import { ProofType, ProofTypeLength } from "@/index"
 
 export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
@@ -94,7 +99,12 @@ export class SanctionsBuilder {
     const rootHashArr: number[] = Array.from(rootHash).map((x) => Number(x))
     const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
     const hash = sha256(
-      new Uint8Array([ProofType.SANCTIONS_EXCLUSION, ...rootHashNumberArray, isStrict ? 1 : 0]),
+      new Uint8Array([
+        ProofType.SANCTIONS_EXCLUSION,
+        ...numberToBytesBE(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm, 2),
+        ...rootHashNumberArray,
+        isStrict ? 1 : 0,
+      ]),
     )
     const hashBigInt = packBeBytesIntoField(hash, 31)
     return hashBigInt
@@ -104,6 +114,7 @@ export class SanctionsBuilder {
     const rootHash = this.getRootHash()
     const hash = await poseidon2HashAsync([
       BigInt(ProofType.SANCTIONS_EXCLUSION),
+      BigInt(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard),
       BigInt(`0x${rootHash.toString("hex")}`),
       isStrict ? 1n : 0n,
     ])
