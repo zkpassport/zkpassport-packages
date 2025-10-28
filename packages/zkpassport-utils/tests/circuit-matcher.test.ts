@@ -72,6 +72,7 @@ const SERVICE_SUBSCOPE = 3n
 const EXPECTED_SERVICE_SUBSCOPE = "0x3"
 const NULLIFIER_SECRET = 0n
 const EXPECTED_NULLIFIER_SECRET = "0x0"
+const CURRENT_DATE = getNowTimestamp()
 
 describe("Circuit Matcher - General", () => {
   it("should detect if CSCA certificate is supported", () => {
@@ -333,10 +334,8 @@ describe("Circuit Matcher - RSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const timestamp = getNowTimestamp()
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, SALT, SALT, timestamp)
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, SALT, SALT)
     expect(result).toEqual({
-      current_date: timestamp,
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
@@ -385,9 +384,11 @@ describe("Circuit Matcher - RSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      current_date: CURRENT_DATE,
       disclose_mask: [
         0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -450,9 +451,11 @@ describe("Circuit Matcher - RSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
@@ -476,9 +479,11 @@ describe("Circuit Matcher - RSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       // Notice how the country code are sorted compared to above
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
@@ -505,9 +510,11 @@ describe("Circuit Matcher - RSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
       private_nullifier: EXPECTED_NULLIFIER,
@@ -531,9 +538,11 @@ describe("Circuit Matcher - RSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
@@ -713,10 +722,8 @@ describe("Circuit Matcher - ECDSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const timestamp = getNowTimestamp()
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, SALT, SALT, timestamp)
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, SALT, SALT)
     expect(result).toEqual({
-      current_date: timestamp,
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
@@ -765,9 +772,11 @@ describe("Circuit Matcher - ECDSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       disclose_mask: [
         0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -793,7 +802,6 @@ describe("Circuit Matcher - ECDSA", () => {
     const query: Query = {
       age: { gte: 18 },
     }
-    const timestamp = getNowTimestamp()
     const result = await getAgeCircuitInputs(
       PASSPORTS.mary,
       query,
@@ -801,11 +809,11 @@ describe("Circuit Matcher - ECDSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
-      timestamp,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
-      current_date: timestamp,
+      current_date: CURRENT_DATE,
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
       dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
@@ -830,9 +838,11 @@ describe("Circuit Matcher - ECDSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
@@ -856,9 +866,11 @@ describe("Circuit Matcher - ECDSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       // Notice how the country code are sorted compared to above
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
@@ -885,9 +897,11 @@ describe("Circuit Matcher - ECDSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
@@ -911,9 +925,11 @@ describe("Circuit Matcher - ECDSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
@@ -998,10 +1014,12 @@ describe("Circuit Matcher - ECDSA", () => {
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
+      CURRENT_DATE,
       sanctions,
     )
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      current_date: CURRENT_DATE,
       is_strict: 1,
       comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
       private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
