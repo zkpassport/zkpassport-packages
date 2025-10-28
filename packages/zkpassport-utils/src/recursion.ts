@@ -23,12 +23,12 @@ export function getOuterCircuitInputs(
   circuitRegistryRoot: string,
 ) {
   const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const currentDateTimestamp = Number(BigInt(integrityCheckProof.publicInputs[0]))
-  const scope = disclosureProofs[0].publicInputs[1]
-  const subscope = disclosureProofs[0].publicInputs[2]
-  const nullifierType = disclosureProofs[0].publicInputs[4]
-  const nullifier = disclosureProofs[0].publicInputs[5]
-  const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[3])
+  const currentDateTimestamp = Number(BigInt(disclosureProofs[0].publicInputs[1]))
+  const scope = disclosureProofs[0].publicInputs[2]
+  const subscope = disclosureProofs[0].publicInputs[3]
+  const nullifierType = disclosureProofs[0].publicInputs[5]
+  const nullifier = disclosureProofs[0].publicInputs[6]
+  const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
     certificate_registry_root: certificateRegistryRoot,
@@ -59,8 +59,7 @@ export function getOuterCircuitInputs(
     integrity_check_proof: {
       vkey: integrityCheckProof.vkey,
       proof: integrityCheckProof.proof,
-      // Only keep the commitments from the public inputs
-      public_inputs: integrityCheckProof.publicInputs.slice(-2),
+      public_inputs: integrityCheckProof.publicInputs,
       key_hash: integrityCheckProof.keyHash,
       tree_hash_path: integrityCheckProof.treeHashPath,
       tree_index: integrityCheckProof.treeIndex,

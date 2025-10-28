@@ -115,30 +115,24 @@ export class SolidityVerifier {
             .join("")
       } else if (circuitName === "compare_age_evm") {
         const value = proof.committedInputs[circuitName] as AgeCommittedInputs
-        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.AGE.toString(16).padStart(2, "0") +
-          currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
           value.minAge.toString(16).padStart(2, "0") +
           value.maxAge.toString(16).padStart(2, "0")
       } else if (circuitName === "compare_birthdate_evm") {
         const value = proof.committedInputs[circuitName] as DateCommittedInputs
-        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 8))
         const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 8))
         const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.BIRTHDATE.toString(16).padStart(2, "0") +
-          currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
           minDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
           maxDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "compare_expiry_evm") {
         const value = proof.committedInputs[circuitName] as DateCommittedInputs
-        const currentDateBytes = Array.from(numberToBytesBE(value.currentDateTimestamp, 8))
         const minDateBytes = Array.from(numberToBytesBE(value.minDateTimestamp, 8))
         const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.EXPIRY_DATE.toString(16).padStart(2, "0") +
-          currentDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
           minDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
           maxDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "disclose_bytes_evm") {

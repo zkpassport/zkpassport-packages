@@ -556,7 +556,6 @@ export async function getIntegrityCheckCircuitInputs(
   passport: PassportViewModel,
   saltIn: bigint,
   saltOut: bigint,
-  currentDateTimestamp: number,
 ) {
   const maxTbsLength = getTBSMaxLen(passport)
   const dscData = getDSCDataInputs(passport, maxTbsLength)
@@ -583,7 +582,6 @@ export async function getIntegrityCheckCircuitInputs(
   )
 
   return {
-    current_date: currentDateTimestamp,
     dg1: idData.dg1,
     signed_attributes: idData.signed_attributes,
     e_content: idData.e_content,
@@ -601,6 +599,7 @@ export async function getDiscloseCircuitInputs(
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ) {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -681,6 +680,7 @@ export async function getDiscloseCircuitInputs(
     }
   }
   return {
+    current_date: currentDateTimestamp,
     dg1: idData.dg1,
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
@@ -844,6 +844,7 @@ export async function getNationalityInclusionCircuitInputs(
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -867,6 +868,7 @@ export async function getNationalityInclusionCircuitInputs(
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     country_list: padCountryList(query.nationality?.in ?? []),
+    current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -883,6 +885,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -906,6 +909,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     country_list: padCountryList(query.issuing_country?.in ?? []),
+    current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -922,6 +926,7 @@ export async function getNationalityExclusionCircuitInputs(
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -950,6 +955,7 @@ export async function getNationalityExclusionCircuitInputs(
     dg1: idData.dg1,
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
+    current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
       countryList.sort((a, b) => a - b),
@@ -971,6 +977,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -999,6 +1006,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
     dg1: idData.dg1,
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
+    current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
       countryList.sort((a, b) => a - b),
@@ -1020,6 +1028,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
   sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
@@ -1047,6 +1056,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
     dg1: idData.dg1,
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
+    current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     private_nullifier: privateNullifier.toHex(),
     proofs,
@@ -1211,6 +1221,7 @@ export async function getBindCircuitInputs(
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
+  currentDateTimestamp: number,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1235,6 +1246,7 @@ export async function getBindCircuitInputs(
     dg1: idData.dg1,
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
+    current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     data: rightPadArrayWithZeros(data, 509),
     private_nullifier: privateNullifier.toHex(),
