@@ -19,15 +19,10 @@ export function getMaxAgeFromCommittedInputs(committedInputs: AgeCommittedInputs
  * @param maxAge - The maximum age.
  * @returns The parameter commitment.
  */
-export async function getAgeParameterCommitment(
-  currentDateTimestamp: number,
-  minAge: number,
-  maxAge: number,
-): Promise<bigint> {
+export async function getAgeParameterCommitment(minAge: number, maxAge: number): Promise<bigint> {
   const ageParameterCommitment = await poseidon2HashAsync([
     BigInt(ProofType.AGE),
     BigInt(ProofTypeLength[ProofType.AGE].standard),
-    BigInt(currentDateTimestamp),
     BigInt(minAge),
     BigInt(maxAge),
   ])
@@ -36,13 +31,11 @@ export async function getAgeParameterCommitment(
 
 /**
  * Get the EVM parameter commitment for the age proof.
- * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)
  * @param minAge - The minimum age.
  * @param maxAge - The maximum age.
  * @returns The parameter commitment.
  */
 export async function getAgeEVMParameterCommitment(
-  currentDateTimestamp: number,
   minAge: number,
   maxAge: number,
 ): Promise<bigint> {
@@ -50,7 +43,6 @@ export async function getAgeEVMParameterCommitment(
     new Uint8Array([
       ProofType.AGE,
       ...numberToBytesBE(ProofTypeLength[ProofType.AGE].evm, 2),
-      ...numberToBytesBE(currentDateTimestamp, 8),
       minAge,
       maxAge,
     ]),

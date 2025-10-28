@@ -41,7 +41,6 @@ export function getBirthdateMaxDateTimestamp(
 /**
  * Get the parameter commitment for the date proof (birthdate and expiry date alike).
  * @param proofType - The proof type.
- * @param currentDateTimestamp - The current timestamp (seconds since UNIX epoch)
  * @param minDateTimestamp - The minimum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
  * @param maxDateTimestamp - The maximum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
  * @param birthdateOffset - The offset to add to the min and max date timestamps if the proof type is birthdate, defaults to SECONDS_BETWEEN_1900_AND_1970
@@ -49,7 +48,6 @@ export function getBirthdateMaxDateTimestamp(
  */
 export async function getDateParameterCommitment(
   proofType: ProofType,
-  currentDateTimestamp: number,
   minDateTimestamp: number,
   maxDateTimestamp: number,
   birthdateOffset = SECONDS_BETWEEN_1900_AND_1970,
@@ -57,7 +55,6 @@ export async function getDateParameterCommitment(
   const birthdateParameterCommitment = await poseidon2HashAsync([
     BigInt(proofType),
     BigInt(ProofTypeLength[proofType].standard),
-    BigInt(currentDateTimestamp),
     proofType === ProofType.BIRTHDATE && minDateTimestamp !== 0
       ? BigInt(minDateTimestamp) + BigInt(birthdateOffset)
       : BigInt(minDateTimestamp),
@@ -71,7 +68,6 @@ export async function getDateParameterCommitment(
 /**
  * Get the EVM parameter commitment for the date proof (birthdate and expiry date alike).
  * @param proofType - The proof type.
- * @param timestamp - The current timestamp (seconds since UNIX epoch)
  * @param minDateTimestamp - The minimum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
  * @param maxDateTimestamp - The maximum date (seconds since UNIX epoch) - if birthdate, add SECONDS_BETWEEN_1900_AND_1970 to get the correct date
  * @param birthdateOffset - The offset to add to the min and max date timestamps if the proof type is birthdate, defaults to SECONDS_BETWEEN_1900_AND_1970
@@ -79,7 +75,6 @@ export async function getDateParameterCommitment(
  */
 export async function getDateEVMParameterCommitment(
   proofType: ProofType,
-  currentDateTimestamp: number,
   minDateTimestamp: number,
   maxDateTimestamp: number,
   birthdateOffset = SECONDS_BETWEEN_1900_AND_1970,
@@ -88,7 +83,6 @@ export async function getDateEVMParameterCommitment(
     new Uint8Array([
       proofType,
       ...numberToBytesBE(ProofTypeLength[proofType].evm, 2),
-      ...numberToBytesBE(currentDateTimestamp, 8),
       ...numberToBytesBE(
         proofType === ProofType.BIRTHDATE && minDateTimestamp !== 0
           ? minDateTimestamp + birthdateOffset

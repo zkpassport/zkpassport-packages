@@ -133,6 +133,10 @@ export function getCommitmentInFromDisclosureProof(proofData: ProofData): bigint
   return BigInt(proofData.publicInputs[0])
 }
 
+export function getCurrentDateFromDisclosureProof(proofData: ProofData): Date {
+  return new Date(Number(BigInt(proofData.publicInputs[1])) * 1000)
+}
+
 export async function getHostedPackagedCircuitByNameAndHash(
   name: string,
   vkeyHash: string,
@@ -272,9 +276,9 @@ export enum ProofType {
 
 export const ProofTypeLength = {
   [ProofType.DISCLOSE]: { evm: 180, standard: 4 },
-  [ProofType.AGE]: { evm: 10, standard: 3 },
-  [ProofType.BIRTHDATE]: { evm: 24, standard: 3 },
-  [ProofType.EXPIRY_DATE]: { evm: 24, standard: 3 },
+  [ProofType.AGE]: { evm: 2, standard: 2 },
+  [ProofType.BIRTHDATE]: { evm: 16, standard: 2 },
+  [ProofType.EXPIRY_DATE]: { evm: 16, standard: 2 },
   [ProofType.NATIONALITY_INCLUSION]: { evm: 600, standard: 200 },
   [ProofType.NATIONALITY_EXCLUSION]: { evm: 600, standard: 200 },
   [ProofType.ISSUING_COUNTRY_INCLUSION]: { evm: 600, standard: 200 },
