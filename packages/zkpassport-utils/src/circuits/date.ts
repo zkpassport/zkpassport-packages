@@ -2,7 +2,7 @@ import { sha256 } from "@noble/hashes/sha2"
 import { DateCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { packBeBytesIntoField, numberToBytesBE } from "../utils"
-import { ProofType } from "."
+import { ProofType, ProofTypeLength } from "."
 
 export const SECONDS_BETWEEN_1900_AND_1970 = Math.floor(
   Math.abs(Date.UTC(1900, 0, 1, 0, 0, 0)) / 1000,
@@ -56,6 +56,7 @@ export async function getDateParameterCommitment(
 ): Promise<bigint> {
   const birthdateParameterCommitment = await poseidon2HashAsync([
     BigInt(proofType),
+    BigInt(ProofTypeLength[proofType].standard),
     BigInt(currentDateTimestamp),
     proofType === ProofType.BIRTHDATE && minDateTimestamp !== 0
       ? BigInt(minDateTimestamp) + BigInt(birthdateOffset)
@@ -86,6 +87,7 @@ export async function getDateEVMParameterCommitment(
   const hash = sha256(
     new Uint8Array([
       proofType,
+      ...numberToBytesBE(ProofTypeLength[proofType].evm, 2),
       ...numberToBytesBE(currentDateTimestamp, 8),
       ...numberToBytesBE(
         proofType === ProofType.BIRTHDATE && minDateTimestamp !== 0

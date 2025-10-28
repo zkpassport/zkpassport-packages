@@ -1236,7 +1236,7 @@ export async function getBindCircuitInputs(
     dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
     dg2_hash_type: idData.dg2_hash_type,
     comm_in: commIn.toHex(),
-    data: rightPadArrayWithZeros(data, 500),
+    data: rightPadArrayWithZeros(data, 509),
     private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,

@@ -188,6 +188,15 @@ export function packBeBytesIntoField(x: Uint8Array, maxFieldSize: number): bigin
   return result
 }
 
+export function packBeBitsIntoField(x: number[], maxFieldSize: number): bigint {
+  let result: bigint = BigInt(0)
+  for (let i = 0; i < Math.min(maxFieldSize, x.length); i++) {
+    result *= BigInt(2)
+    result += BigInt(x[i])
+  }
+  return result
+}
+
 /**
  * Packs bytes into field elements using big-endian encoding, matching the Noir pack_be_bytes_into_fields function
  * Note: A 254 bit field can hold up to 31 bytes

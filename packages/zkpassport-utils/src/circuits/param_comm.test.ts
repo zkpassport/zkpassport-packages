@@ -1,3 +1,4 @@
+import { getDiscloseParameterCommitment } from "./disclose"
 import { getFacematchEvmParameterCommitment, getFacematchParameterCommitment } from "./facematch"
 
 describe("Parameter Commitments", () => {
@@ -13,7 +14,7 @@ describe("Parameter Commitments", () => {
       facematch_mode,
     )
     expect(result).toEqual(
-      18781977658900217807729652323720086742038791533874656202517487673446923876941n,
+      17383518782000629355431899258197281410942500696842135446165121988567400919786n,
     )
   })
 
@@ -29,7 +30,20 @@ describe("Parameter Commitments", () => {
       facematch_mode,
     )
     expect(result).toEqual(
-      366329357101019667307473300914159986036044903049612771710662888740630360798n,
+      63633384777712081687217140413633142258647169827991817671047913477052352468n,
+    )
+  })
+
+  test("Disclose", async () => {
+    const sampleDG1 =
+      "P<AUSSILVERHAND<<JOHNNY<<<<<<<<<<<<<<<<<<<<<PA1234567_AUS881112_M300101_<CYBERCITY<<<<<<\0\0"
+    const discloseMask = Array.from({ length: 90 }, () => 1)
+    const result = await getDiscloseParameterCommitment(
+      discloseMask,
+      sampleDG1.split("").map((x) => x.charCodeAt(0)),
+    )
+    expect(result).toEqual(
+      BigInt("0x10e0ee79b56de1ef2bad643678d973fe883d9d022be50e6f0627b57a66241e16"),
     )
   })
 })
