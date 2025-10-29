@@ -4,7 +4,7 @@
     "module": "es2022",
     "moduleResolution": "bundler",
     "rootDir": "./src",
-    "outDir": "./dist/tsc",
+    "outDir": "./dist/esm",
     "baseUrl": ".",
     "paths": {
       "@zkpassport/utils": ["../zkpassport-utils/src/index.ts"],

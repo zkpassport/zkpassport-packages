@@ -12,7 +12,7 @@
   "packageManager": "bun@1.2.13",
   "private": true,
   "scripts": {
-    "build": "bun run -F @zkpassport/utils build && bun run -F '*' build",
+    "build": "tsc -b -v",
     "test": "bun run -F '*' test",
     "check": "bun run -F '*' check",
     "format": "bun run -F '*' format"
