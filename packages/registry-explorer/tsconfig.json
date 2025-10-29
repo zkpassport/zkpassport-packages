@@ -28,8 +28,14 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./*", "../zkpassport-utils/src/*"],
       "@/components/*": ["./components/*"],
+      "@/utils": ["../zkpassport-utils/src/utils"],
+      "@/merkle-tree": ["../zkpassport-utils/src/merkle-tree"],
+      "@/types": ["../zkpassport-utils/src/types"],
+      "@/passport": ["../zkpassport-utils/src/passport"],
+      "@/circuits": ["../zkpassport-utils/src/circuits"],
+      "@/index": ["../zkpassport-utils/src/index"],
       "@zkpassport/registry": ["../registry-sdk/src/index.ts"],
       "@zkpassport/registry/*": ["../registry-sdk/src/*"],
       "@zkpassport/utils": ["../zkpassport-utils/src/index.ts"],
