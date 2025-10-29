@@ -7,15 +7,6 @@
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"]
-      // "@/types": ["./types/index"],
-      // "@/utils": ["./utils"],
-      // "@/passport": ["./passport"],
-      // "@/passport/getters": ["./passport/getters"],
-      // "@/merkle-tree": ["./merkle-tree/index"],
-      // "@/merkle-tree/async-ordered-mt": ["./merkle-tree/async-ordered-mt"],
-      // "@/merkle-tree/poseidon2": ["./merkle-tree/poseidon2"],
-      // "@/index": ["./index"],
-      // "@/circuits": ["./circuits"]
     },
     "strict": true,
     "esModuleInterop": true,
@@ -28,6 +19,6 @@
     "importHelpers": true,
     "composite": true
   },
-  "include": ["src/**/*", "src/circuits/sanctions/trees/all_sanctions_tree.json"],
+  "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts"]
 }
