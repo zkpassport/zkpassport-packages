@@ -334,7 +334,12 @@ describe("Circuit Matcher - RSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, SALT, SALT)
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, SALT, {
+      dg1Salt: SALT,
+      expiryDateSalt: SALT,
+      dg2HashSalt: SALT,
+      privateNullifierSalt: SALT,
+    })
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
       signed_attributes: rightPadArrayWithZeros(
@@ -380,7 +385,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getDiscloseCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -418,7 +423,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getAgeCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -447,7 +452,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getNationalityInclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -475,7 +480,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getNationalityExclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -506,7 +511,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getIssuingCountryInclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -534,7 +539,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getIssuingCountryExclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -565,7 +570,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getBirthdateCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -595,7 +600,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getExpiryDateCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -722,7 +727,12 @@ describe("Circuit Matcher - ECDSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, SALT, SALT)
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, SALT, {
+      dg1Salt: SALT,
+      expiryDateSalt: SALT,
+      dg2HashSalt: SALT,
+      privateNullifierSalt: SALT,
+    })
     expect(result).toEqual({
       dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
       signed_attributes: rightPadArrayWithZeros(
@@ -768,7 +778,12 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getDiscloseCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      {
+        dg1Salt: SALT,
+        expiryDateSalt: SALT,
+        dg2HashSalt: SALT,
+        privateNullifierSalt: SALT,
+      },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -805,7 +820,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getAgeCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -834,7 +849,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getNationalityInclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -862,7 +877,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getNationalityExclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -893,7 +908,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getIssuingCountryInclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -921,7 +936,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getIssuingCountryExclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -952,7 +967,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getBirthdateCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -982,7 +997,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getExpiryDateCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -1010,7 +1025,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getSanctionsExclusionCheckCircuitInputs(
       PASSPORTS.mary,
       true,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,

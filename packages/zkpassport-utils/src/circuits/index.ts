@@ -2,13 +2,7 @@ import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { format } from "date-fns"
 import { getIDDataProofPublicInputCount, packBeBytesIntoFields, packLeBytesIntoFields } from ".."
 import { Binary } from "../binary"
-import {
-  AgeCommittedInputs,
-  DateCommittedInputs,
-  DisclosureCircuitName,
-  NullifierType,
-  PackagedCircuit,
-} from "../types"
+import { DisclosureCircuitName, NullifierType, PackagedCircuit, SaltedValue } from "../types"
 import { getDSCProofPublicInputCount } from "./dsc"
 import { getIntegrityProofPublicInputCount } from "./integrity"
 
@@ -84,18 +78,29 @@ export async function packLeBytesAndHashPoseidon2(input: Uint8Array): Promise<bi
 }
 
 export async function hashSaltDg1Dg2HashPrivateNullifier(
-  salt: bigint,
+  salts: {
+    dg1Salt: bigint
+    expiryDateSalt: bigint
+    dg2HashSalt: bigint
+    privateNullifierSalt: bigint
+  },
   dg1: Binary,
+  expiryDate: string,
   dg2HashNormalized: bigint,
   dg2HashType: number,
   privateNullifier: bigint,
 ): Promise<Binary> {
   const result: bigint[] = []
-  result.push(salt)
-  result.push(...packBeBytesIntoFields(dg1.toUInt8Array(), 31).map((x) => BigInt(x)))
-  result.push(dg2HashNormalized)
-  result.push(BigInt(dg2HashType))
-  result.push(privateNullifier)
+  result.push(await SaltedValue.fromValue(salts.dg1Salt, dg1.toNumberArray()).getHash())
+  result.push(
+    await SaltedValue.fromValue(
+      salts.expiryDateSalt,
+      expiryDate.split("").map((char) => char.charCodeAt(0)),
+    ).getHash(),
+  )
+  result.push(await SaltedValue.fromValue(salts.dg2HashSalt, dg2HashNormalized).getHash())
+  result.push(await SaltedValue.fromValue(salts.dg2HashSalt, BigInt(dg2HashType)).getHash())
+  result.push(await SaltedValue.fromValue(salts.privateNullifierSalt, privateNullifier).getHash())
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
 
@@ -252,12 +257,6 @@ export function getFormattedDate(date: Date): string {
 
 export function getDateBytes(date: Date): Binary {
   return Binary.from(new TextEncoder().encode(getFormattedDate(date)))
-}
-
-export function getCurrentDateFromCommittedInputs(
-  committedInputs: DateCommittedInputs | AgeCommittedInputs,
-): Date {
-  return new Date(committedInputs.currentDateTimestamp * 1000)
 }
 
 export enum ProofType {
