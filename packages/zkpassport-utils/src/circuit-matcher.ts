@@ -32,9 +32,8 @@ import {
   getCertificateLeafHashes,
   tagsArrayToBitsFlag,
 } from "./registry"
-import type { HashAlgorithm, PackagedCertificate } from "./types"
+import type { HashAlgorithm, IntegrityToDisclosureSalts, PackagedCertificate } from "./types"
 import {
-  DiscloseFlags,
   ECDSADSCDataInputs,
   IDCredential,
   IDDataInputs,
@@ -42,6 +41,7 @@ import {
   Query,
   RSADSCDataInputs,
   RSAPublicKey,
+  SaltedValue,
 } from "./types"
 import {
   bigintToBytes,
@@ -555,7 +555,7 @@ export function getDSCCountry(dsc: DSC): string {
 export async function getIntegrityCheckCircuitInputs(
   passport: PassportViewModel,
   saltIn: bigint,
-  saltOut: bigint,
+  saltsOut: IntegrityToDisclosureSalts,
 ) {
   const maxTbsLength = getTBSMaxLen(passport)
   const dscData = getDSCDataInputs(passport, maxTbsLength)
@@ -581,21 +581,62 @@ export async function getIntegrityCheckCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
+  const saltedDg1 = SaltedValue.fromValue(saltsOut.dg1Salt, idData.dg1)
+  const saltedPrivateNullifier = SaltedValue.fromValue(
+    saltsOut.privateNullifierSalt,
+    privateNullifier.toBigInt(),
+  )
+
   return {
-    dg1: idData.dg1,
+    salted_dg1: saltedDg1.formatForInput(),
+    salted_private_nullifier: saltedPrivateNullifier.formatForInput(),
+    expiry_date_salt: `0x${saltsOut.expiryDateSalt.toString(16)}`,
+    dg2_hash_salt: `0x${saltsOut.dg2HashSalt.toString(16)}`,
     signed_attributes: idData.signed_attributes,
     e_content: idData.e_content,
     comm_in: comm_in.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     salt_in: `0x${saltIn.toString(16)}`,
-    salt_out: `0x${saltOut.toString(16)}`,
+  }
+}
+
+export async function getSaltedValuesForDisclosureCircuit(
+  passport: PassportViewModel,
+  idData: IDDataInputs,
+  privateNullifier: Binary,
+  salts: IntegrityToDisclosureSalts,
+  hideSensitiveInputs: boolean = false,
+) {
+  const saltedDg1 = SaltedValue.fromValue(salts.dg1Salt, idData.dg1)
+  const saltedPrivateNullifier = SaltedValue.fromValue(
+    salts.privateNullifierSalt,
+    privateNullifier.toBigInt(),
+  )
+  const saltedExpiryDate = SaltedValue.fromValue(
+    salts.expiryDateSalt,
+    passport.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+  )
+  const saltedDg2Hash = SaltedValue.fromValue(salts.dg2HashSalt, idData.dg2_hash_normalized)
+  const saltedDg2HashType = SaltedValue.fromValue(salts.dg2HashSalt, BigInt(idData.dg2_hash_type))
+  return {
+    salted_dg1: hideSensitiveInputs
+      ? SaltedValue.fromHash(
+          await saltedDg1.getHash(),
+          Array.from({ length: 95 }, () => 0),
+        ).formatForInput()
+      : saltedDg1.formatForInput(),
+    salted_private_nullifier: hideSensitiveInputs
+      ? SaltedValue.fromHash(await saltedPrivateNullifier.getHash(), 0n).formatForInput()
+      : saltedPrivateNullifier.formatForInput(),
+    salted_expiry_date: saltedExpiryDate.formatForInput(),
+    salted_dg2_hash: saltedDg2Hash.formatForInput(),
+    salted_dg2_hash_type: saltedDg2HashType.formatForInput(),
   }
 }
 
 export async function getDiscloseCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -611,8 +652,9 @@ export async function getDiscloseCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -681,65 +723,11 @@ export async function getDiscloseCircuitInputs(
   }
   return {
     current_date: currentDateTimestamp,
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     disclose_mask: discloseMask,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
-    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
-  }
-}
-
-export async function getDiscloseFlagsCircuitInputs(
-  passport: PassportViewModel,
-  query: Query,
-  salt: bigint,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-): Promise<any> {
-  const idData = await getIDDataInputs(passport)
-  if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
-  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    idData.dg2_hash_normalized,
-    idData.dg2_hash_type,
-    privateNullifier.toBigInt(),
-  )
-
-  const discloseFlags: DiscloseFlags = {
-    issuing_country: query.issuing_country?.disclose ?? false,
-    nationality: query.nationality?.disclose ?? false,
-    document_type: query.document_type?.disclose ?? false,
-    document_number: query.document_number?.disclose ?? false,
-    date_of_expiry: query.expiry_date?.disclose ?? false,
-    date_of_birth: query.birthdate?.disclose ?? false,
-    gender: query.gender?.disclose ?? false,
-    name: query.fullname?.disclose ?? false,
-  }
-
-  return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
-    disclose_flags: discloseFlags,
-    comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
-    service_scope: `0x${service_scope.toString(16)}`,
-    service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
@@ -761,7 +749,7 @@ export function calculateAge(passport: PassportViewModel): number {
 export async function getAgeCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -777,8 +765,9 @@ export async function getAgeCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -814,15 +803,11 @@ export async function getAgeCircuitInputs(
   }
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     min_age_required: minAge,
     max_age_required: maxAge,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
@@ -840,7 +825,7 @@ function padCountryList(countryList: string[]): string[] {
 export async function getNationalityInclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -856,24 +841,21 @@ export async function getNationalityInclusionCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
   )
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     country_list: padCountryList(query.nationality?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
@@ -881,7 +863,7 @@ export async function getNationalityInclusionCircuitInputs(
 export async function getIssuingCountryInclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -897,24 +879,21 @@ export async function getIssuingCountryInclusionCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
   )
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     country_list: padCountryList(query.issuing_country?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
@@ -922,7 +901,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
 export async function getNationalityExclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -938,8 +917,9 @@ export async function getNationalityExclusionCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -952,9 +932,7 @@ export async function getNationalityExclusionCircuitInputs(
   }
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -962,10 +940,8 @@ export async function getNationalityExclusionCircuitInputs(
       200,
     ),
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
@@ -973,7 +949,7 @@ export async function getNationalityExclusionCircuitInputs(
 export async function getIssuingCountryExclusionCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -989,8 +965,9 @@ export async function getIssuingCountryExclusionCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -1003,9 +980,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   }
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1013,10 +988,8 @@ export async function getIssuingCountryExclusionCircuitInputs(
       200,
     ),
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
@@ -1024,7 +997,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
 export async function getSanctionsExclusionCheckCircuitInputs(
   passport: PassportViewModel,
   isStrict: boolean,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -1041,8 +1014,9 @@ export async function getSanctionsExclusionCheckCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -1053,18 +1027,14 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   const { proofs, root } = await sanctions.getSanctionsMerkleProofs(passport)
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     proofs,
     is_strict: isStrict ? 1 : 0,
     root,
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
@@ -1072,7 +1042,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
 export async function getBirthdateCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -1088,8 +1058,9 @@ export async function getBirthdateCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -1125,15 +1096,11 @@ export async function getBirthdateCircuitInputs(
   }
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     // Add the seconds between 1900 and 1970 to the date to get the correct date
     // This is because the circuit expects the epoch to be 1900 rather than 1970
     // for min_date and max_date
@@ -1146,7 +1113,7 @@ export async function getBirthdateCircuitInputs(
 export async function getExpiryDateCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
@@ -1162,8 +1129,9 @@ export async function getExpiryDateCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -1199,15 +1167,11 @@ export async function getExpiryDateCircuitInputs(
   }
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     min_date: minDate ? getUnixTimestamp(minDate) : 0,
     max_date: maxDate ? getUnixTimestamp(maxDate) : 0,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
@@ -1217,11 +1181,12 @@ export async function getExpiryDateCircuitInputs(
 export async function getBindCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  hideSensitiveInputs: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1233,8 +1198,9 @@ export async function getBindCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -1243,16 +1209,18 @@ export async function getBindCircuitInputs(
   const data = formatBoundData(query.bind ?? {})
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      hideSensitiveInputs,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     data: rightPadArrayWithZeros(data, 509),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
   }
 }
@@ -1260,11 +1228,12 @@ export async function getBindCircuitInputs(
 export async function getFacematchCircuitInputs(
   passport: PassportViewModel,
   query: Query,
-  salt: bigint,
+  salts: IntegrityToDisclosureSalts,
   nullifierSecret: bigint = 0n,
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  hideSensitiveInputs: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) throw new Error("Error getting ID data inputs")
@@ -1276,8 +1245,9 @@ export async function getFacematchCircuitInputs(
     ),
   )
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salt,
+    salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
     idData.dg2_hash_normalized,
     idData.dg2_hash_type,
     privateNullifier.toBigInt(),
@@ -1286,15 +1256,17 @@ export async function getFacematchCircuitInputs(
   if (!query.facematch) throw new Error("Facematch query is required")
 
   return {
-    dg1: idData.dg1,
-    dg2_hash_normalized: `0x${idData.dg2_hash_normalized.toString(16)}`,
-    dg2_hash_type: idData.dg2_hash_type,
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      hideSensitiveInputs,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    private_nullifier: privateNullifier.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
-    salt: `0x${salt.toString(16)}`,
     // FACEMATCH_MODE_REGULAR (1) or FACEMATCH_MODE_STRICT (2)
     facematch_mode: query.facematch.mode === "regular" ? 1 : 2,
     // APP_ATTEST_ENV_DEVELOPMENT (0) or APP_ATTEST_ENV_PRODUCTION (1)

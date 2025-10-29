@@ -2,6 +2,8 @@ import type { Alpha2Code, Alpha3Code } from "i18n-iso-countries"
 import type { SOD } from "../passport"
 import type { CountryName } from "./countries"
 import type { DigestAlgorithm, SignatureAlgorithm } from "../cms/types"
+import { poseidon2HashAsync } from "@zkpassport/poseidon2"
+import { packBeBytesIntoFields } from "@/utils"
 export type { DigestAlgorithm, SignatureAlgorithm }
 
 export type SavedPassport = {
@@ -282,7 +284,6 @@ export type QueryResult = {
 }
 
 export type AgeCommittedInputs = {
-  currentDateTimestamp: number
   minAge: number
   maxAge: number
 }
@@ -292,7 +293,6 @@ export type CountryCommittedInputs = {
 }
 
 export type DateCommittedInputs = {
-  currentDateTimestamp: number
   minDateTimestamp: number
   maxDateTimestamp: number
 }
@@ -539,6 +539,65 @@ export enum NullifierType {
   SALTED = 1,
   NON_SALTED_MOCK = 2,
   SALTED_MOCK = 3,
+}
+
+export class SaltedValue<T extends number | string | bigint | Array<number>> {
+  constructor(
+    public value: T,
+    public salt: bigint,
+    public hash: bigint,
+  ) {
+    this.value = value
+    this.salt = salt
+    this.hash = hash
+  }
+
+  static fromValue<T extends number | string | bigint | Array<number>>(
+    salt: bigint,
+    value: T,
+  ): SaltedValue<T> {
+    return new SaltedValue(value, salt, BigInt(0))
+  }
+
+  static fromHash<T extends number | string | bigint | Array<number>>(
+    hash: bigint,
+    defaultValue: T,
+  ): SaltedValue<T> {
+    return new SaltedValue(defaultValue, BigInt(0), hash)
+  }
+
+  async getHash(): Promise<bigint> {
+    if (this.hash !== BigInt(0)) {
+      return this.hash
+    }
+    if (Array.isArray(this.value)) {
+      const packedValue = packBeBytesIntoFields(new Uint8Array(this.value), 31).map((x) =>
+        BigInt(x),
+      )
+      return await poseidon2HashAsync([this.salt, ...packedValue])
+    } else {
+      return await poseidon2HashAsync([this.salt, BigInt(this.value)])
+    }
+  }
+
+  formatForInput(): {
+    value: string | number[]
+    salt: string
+    hash: string
+  } {
+    return {
+      value: Array.isArray(this.value) ? this.value : `0x${BigInt(this.value).toString(16)}`,
+      salt: `0x${this.salt.toString(16)}`,
+      hash: `0x${this.hash.toString(16)}`,
+    }
+  }
+}
+
+export type IntegrityToDisclosureSalts = {
+  dg1Salt: bigint
+  expiryDateSalt: bigint
+  dg2HashSalt: bigint
+  privateNullifierSalt: bigint
 }
 
 export type { CountryName } from "./countries"

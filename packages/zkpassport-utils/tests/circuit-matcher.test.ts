@@ -19,7 +19,7 @@ import {
   isIDSupported,
 } from "../src/circuit-matcher"
 import { getCountryWeightedSum } from "../src/circuits/country"
-import { HashAlgorithm, PackagedCertificate, Query } from "../src/types"
+import { HashAlgorithm, PackagedCertificate, Query, SaltedValue } from "../src/types"
 import {
   getNowTimestamp,
   getUnixTimestamp,
@@ -62,6 +62,8 @@ function getDSCs() {
 }
 
 const EXPECTED_NULLIFIER = "0x25d736ccb33e663ca64bf23add154cb740c5fa863b518da3c1a584f856b48986"
+const EXPECTED_NULLIFIER_ECDSA =
+  "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b"
 
 // Global constants
 const SALT = 1n
@@ -334,9 +336,17 @@ describe("Circuit Matcher - RSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, SALT, SALT)
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.john, SALT, {
+      dg1Salt: SALT,
+      expiryDateSalt: SALT,
+      dg2HashSalt: SALT,
+      privateNullifierSalt: SALT,
+    })
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      ).formatForInput(),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         220,
@@ -346,9 +356,10 @@ describe("Circuit Matcher - RSA", () => {
         700,
       ),
       comm_in: "0x1d483dee098c59f3641a5ba2948db5e65ca250d3224cf214edfb9219ceffd0a5",
-      private_nullifier: EXPECTED_NULLIFIER,
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      expiry_date_salt: `0x${SALT.toString(16)}`,
+      dg2_hash_salt: `0x${SALT.toString(16)}`,
       salt_in: EXPECTED_SALT,
-      salt_out: EXPECTED_SALT,
     })
   })
 
@@ -380,27 +391,36 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getDiscloseCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       disclose_mask: [
         0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       ],
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -418,22 +438,31 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getAgeCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, 95),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: timestamp,
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       min_age_required: 18,
       max_age_required: 0,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
@@ -447,23 +476,32 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getNationalityInclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -475,26 +513,35 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getNationalityExclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       // Notice how the country code are sorted compared to above
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -506,23 +553,32 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getIssuingCountryInclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -534,25 +590,34 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getIssuingCountryExclusionCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -565,22 +630,31 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getBirthdateCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: timestamp,
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
@@ -595,22 +669,31 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getExpiryDateCircuitInputs(
       PASSPORTS.john,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.john.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.john.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: timestamp,
-      comm_in: "0x2c96a495652362df5165a7de773e56f8fa15b4d8323cb8a40c37244b9ac26911",
-      private_nullifier: EXPECTED_NULLIFIER,
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x0968fbc5ed611aea6929163f84e8d105106485df7d11e9d993bcfc9a0f3dc9bd",
+      salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
@@ -722,9 +805,17 @@ describe("Circuit Matcher - ECDSA", () => {
   })
 
   it("should get the right integrity check circuit inputs", async () => {
-    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, SALT, SALT)
+    const result = await getIntegrityCheckCircuitInputs(PASSPORTS.mary, SALT, {
+      dg1Salt: SALT,
+      expiryDateSalt: SALT,
+      dg2HashSalt: SALT,
+      privateNullifierSalt: SALT,
+    })
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
         SIGNED_ATTR_INPUT_SIZE,
@@ -734,9 +825,13 @@ describe("Circuit Matcher - ECDSA", () => {
         E_CONTENT_INPUT_SIZE,
       ),
       comm_in: "0x18a9c4f5e92fd5e7005bd17bb32d4f95655396e3538c3f3e510cad664f6d7321",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
+      expiry_date_salt: `0x${SALT.toString(16)}`,
+      dg2_hash_salt: `0x${SALT.toString(16)}`,
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
       salt_in: EXPECTED_SALT,
-      salt_out: EXPECTED_SALT,
     })
   })
 
@@ -768,27 +863,44 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getDiscloseCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      {
+        dg1Salt: SALT,
+        expiryDateSalt: SALT,
+        dg2HashSalt: SALT,
+        privateNullifierSalt: SALT,
+      },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       disclose_mask: [
         0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       ],
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -805,22 +917,34 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getAgeCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       min_age_required: 18,
       max_age_required: 0,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
@@ -834,23 +958,35 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getNationalityInclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -862,26 +998,38 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getNationalityExclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       // Notice how the country code are sorted compared to above
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -893,23 +1041,35 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getIssuingCountryInclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -921,25 +1081,37 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getIssuingCountryExclusionCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
@@ -952,22 +1124,34 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getBirthdateCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: timestamp,
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: 3,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
@@ -982,22 +1166,34 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getExpiryDateCircuitInputs(
       PASSPORTS.mary,
       query,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       timestamp,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: timestamp,
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
@@ -1010,7 +1206,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getSanctionsExclusionCheckCircuitInputs(
       PASSPORTS.mary,
       true,
-      SALT,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
       NULLIFIER_SECRET,
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
@@ -1018,18 +1214,30 @@ describe("Circuit Matcher - ECDSA", () => {
       sanctions,
     )
     expect(result).toEqual({
-      dg1: rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, 95),
+      salted_dg1: SaltedValue.fromValue(
+        SALT,
+        rightPadArrayWithZeros(PASSPORTS.mary.dataGroups[0].value, DG1_INPUT_SIZE),
+      ).formatForInput(),
+      salted_expiry_date: SaltedValue.fromValue(
+        SALT,
+        PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+      ).formatForInput(),
       current_date: CURRENT_DATE,
       is_strict: 1,
-      comm_in: "0x205b6d3101f9e196a658fa95f8064690c39171d8b972500c8939603be2a231a9",
-      private_nullifier: "0x114650503358000aedd93c72f5f7b71018e26110dce3aec53760e59dfd722d5b",
-      dg2_hash_normalized: "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-      dg2_hash_type: HASH_ALGORITHM_SHA256,
+      comm_in: "0x068a6174dfe5cbd439ca9097479bc6dc66c3ed912fba74e26fef02efd106bb5b",
+      salted_private_nullifier: SaltedValue.fromValue(
+        SALT,
+        EXPECTED_NULLIFIER_ECDSA,
+      ).formatForInput(),
+      salted_dg2_hash: SaltedValue.fromValue(
+        SALT,
+        "0xb63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
+      ).formatForInput(),
+      salted_dg2_hash_type: SaltedValue.fromValue(SALT, HASH_ALGORITHM_SHA256).formatForInput(),
       root: root,
       proofs,
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
-      salt: EXPECTED_SALT,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
   })
