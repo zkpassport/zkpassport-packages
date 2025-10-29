@@ -7,15 +7,21 @@
     "@types/node": "^24.0.13",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
-    "tsup": "^8.5.0"
+    "tsup": "^8.5.0",
+    "turbo": "^2.5.8"
   },
   "packageManager": "bun@1.2.13",
   "private": true,
   "scripts": {
-    "build": "tsc -b -v",
-    "test": "bun run -F '*' test",
-    "check": "bun run -F '*' check",
-    "format": "bun run -F '*' format"
+    "types": "turbo run types",
+    "build": "turbo run build",
+    "build:esm": "turbo run build:esm",
+    "build:cjs": "turbo run build:cjs",
+    "dev:build": "turbo run dev:build",
+    "test": "turbo run test",
+    "check": "turbo run check",
+    "format": "turbo run format",
+    "clean": "turbo run clean && rimraf node_modules/.cache"
   },
   "workspaces": [
     "packages/*"
