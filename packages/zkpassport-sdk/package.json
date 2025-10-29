@@ -6,24 +6,31 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/esm/index.js",
-  "types": "./dist/esm/index.d.ts",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
     }
   },
   "scripts": {
+    "types": "tsc -b",
+    "build:esm": "tsup --config tsup.config.ts",
+    "build:cjs": "tsup --config tsup.config.ts",
+    "build": "tsup --config tsup.config.ts",
+    "dev:build": "DEV_BUILD=true tsup --config tsup.config.ts",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test",
     "coverage": "bun test --coverage",
     "check": "tsc --noEmit && prettier -c src tests",
     "format": "prettier -c -w src tests",
-    "build": "tsc -b",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
   "files": [
     "dist/esm",
-    "dist/cjs"
+    "dist/cjs",
+    "dist/types"
   ],
   "keywords": [
     "zkpassport",

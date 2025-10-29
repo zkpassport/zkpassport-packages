@@ -3,92 +3,116 @@
   "version": "0.28.0",
   "type": "module",
   "main": "./dist/esm/index.js",
-  "types": "./dist/esm/index.d.ts",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
     },
     "./binary": {
+      "types": "./dist/types/binary/index.d.ts",
       "import": "./dist/esm/binary/index.js",
       "require": "./dist/cjs/binary/index.cjs"
     },
     "./cms": {
+      "types": "./dist/types/cms/index.d.ts",
       "import": "./dist/esm/cms/index.js",
       "require": "./dist/cjs/cms/index.cjs"
     },
     "./asn": {
+      "types": "./dist/types/cms/asn.d.ts",
       "import": "./dist/esm/cms/asn.js",
       "require": "./dist/cjs/cms/asn.cjs"
     },
     "./country": {
+      "types": "./dist/types/country/country.d.ts",
       "import": "./dist/esm/country/country.js",
       "require": "./dist/cjs/country/country.cjs"
     },
     "./rsa": {
+      "types": "./dist/types/rsa.d.ts",
       "import": "./dist/esm/rsa.js",
       "require": "./dist/cjs/rsa.cjs"
     },
     "./circuits": {
+      "types": "./dist/types/circuits/index.d.ts",
       "import": "./dist/esm/circuits/index.js",
       "require": "./dist/cjs/circuits/index.cjs"
     },
     "./circuit-matcher": {
+      "types": "./dist/types/circuit-matcher.d.ts",
       "import": "./dist/esm/circuit-matcher.js",
       "require": "./dist/cjs/circuit-matcher.cjs"
     },
     "./constants": {
+      "types": "./dist/types/constants/index.d.ts",
       "import": "./dist/esm/constants/index.js",
       "require": "./dist/cjs/constants/index.cjs"
     },
     "./merkle-tree": {
+      "types": "./dist/types/merkle-tree/index.d.ts",
       "import": "./dist/esm/merkle-tree/index.js",
       "require": "./dist/cjs/merkle-tree/index.cjs"
     },
     "./passport-reader": {
+      "types": "./dist/types/passport/index.d.ts",
       "import": "./dist/esm/passport/index.js",
       "require": "./dist/cjs/passport/index.cjs"
     },
     "./passport": {
+      "types": "./dist/types/passport/index.d.ts",
       "import": "./dist/esm/passport/index.js",
       "require": "./dist/cjs/passport/index.cjs"
     },
     "./utils": {
+      "types": "./dist/types/utils.d.ts",
       "import": "./dist/esm/utils.js",
       "require": "./dist/cjs/utils.cjs"
     },
     "./barrett-reduction": {
+      "types": "./dist/types/barrett-reduction.d.ts",
       "import": "./dist/esm/barrett-reduction.js",
       "require": "./dist/cjs/barrett-reduction.cjs"
     },
     "./csc-manager": {
+      "types": "./dist/types/csc-manager.d.ts",
       "import": "./dist/esm/csc-manager.js",
       "require": "./dist/cjs/csc-manager.cjs"
     },
     "./recursion": {
+      "types": "./dist/types/recursion.d.ts",
       "import": "./dist/esm/recursion.js",
       "require": "./dist/cjs/recursion.cjs"
     },
     "./registry": {
+      "types": "./dist/types/registry/index.d.ts",
       "import": "./dist/esm/registry/index.js",
       "require": "./dist/cjs/registry/index.cjs"
     },
     "./types": {
+      "types": "./dist/types/types/index.d.ts",
       "import": "./dist/esm/types/index.js",
       "require": "./dist/cjs/types/index.cjs"
     }
   },
   "scripts": {
+    "types": "tsc -b",
+    "build:esm": "tsup --config tsup.config.ts",
+    "build:cjs": "tsup --config tsup.config.ts",
+    "build": "tsup --config tsup.config.ts",
+    "dev:build": "DEV_BUILD=true tsup --config tsup.config.ts",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test src tests",
     "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests && eslint src --ext .ts",
     "format": "prettier -c -w src tests && eslint src --ext .ts --fix",
-    "build": "tsc -b",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
   "files": [
     "dist/esm",
-    "dist/cjs"
+    "dist/cjs",
+    "dist/types"
   ],
   "keywords": [
     "zkpassport",

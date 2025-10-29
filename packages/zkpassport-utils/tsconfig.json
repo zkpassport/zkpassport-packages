@@ -3,7 +3,9 @@
     "target": "es2022",
     "module": "es2022",
     "moduleResolution": "bundler",
-    "outDir": "./dist/esm",
+    "rootDir": "./src",
+    "outDir": "./dist/types",
+    "declarationDir": "./dist/types",
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"]
@@ -11,6 +13,8 @@
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "isolatedModules": true,
