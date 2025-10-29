@@ -19,12 +19,7 @@ const nextConfig = {
     // Add alias resolution for @zkpassport/utils package
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@/utils": path.resolve(__dirname, "../zkpassport-utils/src/utils"),
-      "@/merkle-tree": path.resolve(__dirname, "../zkpassport-utils/src/merkle-tree"),
-      "@/types": path.resolve(__dirname, "../zkpassport-utils/src/types"),
-      "@/passport": path.resolve(__dirname, "../zkpassport-utils/src/passport"),
-      "@/circuits": path.resolve(__dirname, "../zkpassport-utils/src/circuits"),
-      "@/index": path.resolve(__dirname, "../zkpassport-utils/src/index"),
+      "@zkpassport/utils": path.resolve(__dirname, "../zkpassport-utils/src"),
     }
 
     return config
