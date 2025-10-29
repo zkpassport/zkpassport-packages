@@ -22,7 +22,6 @@ import {
   getParamCommitmentsFromOuterProof,
   AgeCommittedInputs,
   DiscloseCommittedInputs,
-  getCurrentDateFromCommittedInputs,
   getMinAgeFromCommittedInputs,
   getMaxAgeFromCommittedInputs,
   getAgeParameterCommitment,
@@ -607,9 +606,8 @@ export class PublicInputChecker {
         },
       }
     }
-    const currentDate = getCurrentDateFromCommittedInputs(
-      (proof.committedInputs?.compare_age as AgeCommittedInputs) ??
-        (proof.committedInputs?.compare_age_evm as AgeCommittedInputs),
+    const currentDate = getCurrentDateFromDisclosureProof(
+      getProofData(proof.proof!, getNumberOfPublicInputs("compare_age")),
     )
     if (
       !areDatesEqual(currentDate, today) &&
@@ -650,10 +648,6 @@ export class PublicInputChecker {
       (proof.committedInputs?.compare_birthdate as DateCommittedInputs) ??
         (proof.committedInputs?.compare_birthdate_evm as DateCommittedInputs),
       -1 * SECONDS_BETWEEN_1900_AND_1970,
-    )
-    const currentDate = getCurrentDateFromCommittedInputs(
-      (proof.committedInputs?.compare_birthdate as DateCommittedInputs) ??
-        (proof.committedInputs?.compare_birthdate_evm as DateCommittedInputs),
     )
     if (queryResult.birthdate) {
       if (
@@ -752,21 +746,6 @@ export class PublicInputChecker {
         },
       }
     }
-    if (
-      !areDatesEqual(currentDate, today) &&
-      !areDatesEqual(currentDate, today.getTime() - 86400000)
-    ) {
-      console.warn("Current date in the proof is too old")
-      isCorrect = false
-      queryResultErrors.birthdate = {
-        ...queryResultErrors.birthdate,
-        disclose: {
-          expected: `${today.toISOString()}`,
-          received: `${currentDate.toISOString()}`,
-          message: "Current date in the proof is too old",
-        },
-      }
-    }
     return { isCorrect, queryResultErrors }
   }
 
@@ -787,10 +766,6 @@ export class PublicInputChecker {
         (proof.committedInputs?.compare_expiry_evm as DateCommittedInputs),
     )
     const maxDate = getMaxDateFromCommittedInputs(
-      (proof.committedInputs?.compare_expiry as DateCommittedInputs) ??
-        (proof.committedInputs?.compare_expiry_evm as DateCommittedInputs),
-    )
-    const currentDate = getCurrentDateFromCommittedInputs(
       (proof.committedInputs?.compare_expiry as DateCommittedInputs) ??
         (proof.committedInputs?.compare_expiry_evm as DateCommittedInputs),
     )
@@ -888,21 +863,6 @@ export class PublicInputChecker {
         ...queryResultErrors.expiry_date,
         disclose: {
           message: "Expiry date is not set in the query result",
-        },
-      }
-    }
-    if (
-      !areDatesEqual(currentDate, today) &&
-      !areDatesEqual(currentDate, today.getTime() - 86400000)
-    ) {
-      console.warn("Current date in the proof is too old")
-      isCorrect = false
-      queryResultErrors.expiry_date = {
-        ...queryResultErrors.expiry_date,
-        disclose: {
-          expected: `${today.toISOString()}`,
-          received: `${currentDate.toISOString()}`,
-          message: "Current date in the proof is too old",
         },
       }
     }
@@ -1579,7 +1539,6 @@ export class PublicInputChecker {
           const expiryParameterCommitment = isForEVM
             ? await getDateEVMParameterCommitment(
                 ProofType.EXPIRY_DATE,
-                expiryCommittedInputs.currentDateTimestamp,
                 expiryCommittedInputs.minDateTimestamp,
                 expiryCommittedInputs.maxDateTimestamp,
               )
