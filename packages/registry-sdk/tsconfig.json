@@ -4,7 +4,12 @@
     "module": "es2022",
     "moduleResolution": "bundler",
     "rootDir": "./src",
+    "outDir": "./dist/tsc",
     "baseUrl": ".",
+    "paths": {
+      "@zkpassport/utils": ["../zkpassport-utils/src/index.ts"],
+      "@zkpassport/utils/*": ["../zkpassport-utils/src/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
@@ -12,8 +17,10 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "experimentalDecorators": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "composite": true
   },
   "include": ["src", "src/**/*.json"],
-  "exclude": ["**/*.test.ts"]
+  "exclude": ["**/*.test.ts"],
+  "references": [{ "path": "../zkpassport-utils" }]
 }
