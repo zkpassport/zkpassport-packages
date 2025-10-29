@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/zkpassport-utils" },
+    { "path": "./packages/registry-sdk" },
+    { "path": "./packages/zkpassport-sdk" },
+    { "path": "./packages/registry-explorer" }
+  ]
+}
+

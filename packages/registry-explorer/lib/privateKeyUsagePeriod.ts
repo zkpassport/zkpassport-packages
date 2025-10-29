@@ -1,29 +1,29 @@
 import { PackagedCertificate } from "@zkpassport/utils"
 
-interface PrivateKeyUsagePeriod {
+export interface PrivateKeyUsagePeriod {
   not_before?: number
   not_after?: number
 }
 
-interface TimeRange {
+export interface TimeRange {
   start: number
   end: number
 }
 
-interface CoverageGap {
+export interface CoverageGap {
   start: Date
   end: Date
   durationDays: number
 }
 
-interface PeriodDetail {
+export interface PeriodDetail {
   certId: string
   period: PrivateKeyUsagePeriod
   startDate: Date
   endDate: Date
 }
 
-interface CoverageResult {
+export interface CoverageResult {
   percentage: number
   totalDaysInPeriod: number
   coveredDays: number

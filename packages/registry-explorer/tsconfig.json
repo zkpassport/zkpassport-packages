@@ -12,11 +12,16 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "isolatedModules": true,
-    "noEmit": true,
+    "outDir": "./dist/esm",
+    "declaration": true,
     "jsx": "preserve",
     "noImplicitAny": true,
     "strictNullChecks": true,
     "incremental": true,
+    "composite": true,
+    "baseUrl": ".",
+    "experimentalDecorators": true,
+
     "plugins": [
       {
         "name": "next"
@@ -24,14 +29,29 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@/components/*": ["./components/*"]
+      "@/components/*": ["./components/*"],
+      "@zkpassport/registry": ["../registry-sdk/src/index.ts"],
+      "@zkpassport/registry/*": ["../registry-sdk/src/*"],
+      "@zkpassport/utils": ["../zkpassport-utils/src/index.ts"],
+      "@zkpassport/utils/country": ["../zkpassport-utils/src/country/country.ts"],
+      "@zkpassport/utils/types": ["../zkpassport-utils/src/types/index.ts"],
+      "@zkpassport/utils/*": ["../zkpassport-utils/src/*"]
     },
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "noEmit": true
   },
   "ts-node": {
     "experimentalResolver": true,
     "files": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    {
+      "path": "../zkpassport-utils"
+    },
+    {
+      "path": "../registry-sdk"
+    }
+  ]
 }

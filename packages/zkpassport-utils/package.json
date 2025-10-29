@@ -83,7 +83,7 @@
     "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests && eslint src --ext .ts",
     "format": "prettier -c -w src tests && eslint src --ext .ts --fix",
-    "build": "tsup",
+    "build": "tsc -b",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
   "files": [

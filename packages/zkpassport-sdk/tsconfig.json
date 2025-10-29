@@ -9,7 +9,7 @@
     "module": "es2020",
     "moduleResolution": "node",
     "rootDir": "./src",
-    "outDir": "./dist/tsc",
+    "outDir": "./dist/esm",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],

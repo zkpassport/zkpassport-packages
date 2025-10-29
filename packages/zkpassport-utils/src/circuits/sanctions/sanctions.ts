@@ -20,14 +20,13 @@ import {
 } from "@/passport/getters"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { ProofType, ProofTypeLength } from "@/index"
+import { treeData } from "./trees/all_sanctions_tree"
 
 export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
 
   static async create(): Promise<SanctionsBuilder> {
-    const treeData = await import("./trees/all_sanctions_tree.json")
-
-    const tree = await AsyncOrderedMT.fromSerialized(treeData.default as string[][], poseidon2)
+    const tree = await AsyncOrderedMT.fromSerialized(treeData as string[][], poseidon2)
     return new SanctionsBuilder(tree)
   }
 
