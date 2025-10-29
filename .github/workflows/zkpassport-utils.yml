@@ -18,21 +18,22 @@ jobs:
         with:
           bun-version: 1.2.22
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-bun-zkpassport-utils-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-zkpassport-utils
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Setup Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Build
+        run: bun run build --filter=@zkpassport/utils
+
       - name: Run checks
-        run: bun run check
-        working-directory: packages/zkpassport-utils
+        run: bun run check --filter=@zkpassport/utils
 
       - name: Run tests
-        run: bun run test
-        working-directory: packages/zkpassport-utils
+        run: bun run test --filter=@zkpassport/utils
