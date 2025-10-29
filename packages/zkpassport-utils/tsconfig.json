@@ -4,6 +4,7 @@
     "module": "es2022",
     "moduleResolution": "bundler",
     "rootDir": "./src",
+    "outDir": "./dist/tsc",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
@@ -17,8 +18,9 @@
     "isolatedModules": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
-    "importHelpers": true
+    "importHelpers": true,
+    "composite": true
   },
-  "include": ["src"],
+  "include": ["src", "src/**/*.json"],
   "exclude": ["**/*.test.ts"]
 }
