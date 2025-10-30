@@ -5,6 +5,7 @@ import {
   numberToBytesBE,
   packBeBytesIntoField,
   stringToAsciiStringArray,
+  withRetry,
 } from "@/utils"
 import { sha256 } from "@noble/hashes/sha2"
 import { poseidon2, AsyncOrderedMT } from "@/merkle-tree"
@@ -25,9 +26,11 @@ export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
 
   static async create(): Promise<SanctionsBuilder> {
-    const treeData = await import("./trees/all_sanctions_tree.json")
+    const treeData = await withRetry(() =>
+      fetch("https://cdn.zkpassport.id/sanctions/all_sanctions_tree.json.gz"),
+    ).then((res) => res.json())
 
-    const tree = await AsyncOrderedMT.fromSerialized(treeData.default as string[][], poseidon2)
+    const tree = await AsyncOrderedMT.fromSerialized(treeData as string[][], poseidon2)
     return new SanctionsBuilder(tree)
   }
 

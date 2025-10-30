@@ -15,6 +15,12 @@ export type OuterCircuitProof = {
   treeIndex: string
 }
 
+function getDisclosureProofWithNonZeroNullifier(
+  disclosureProofs: OuterCircuitProof[],
+): OuterCircuitProof | undefined {
+  return disclosureProofs.find((proof) => BigInt(proof.publicInputs[6]) !== 0n)
+}
+
 export function getOuterCircuitInputs(
   cscToDscProof: OuterCircuitProof,
   dscToIdDataProof: OuterCircuitProof,
@@ -22,12 +28,17 @@ export function getOuterCircuitInputs(
   disclosureProofs: OuterCircuitProof[],
   circuitRegistryRoot: string,
 ) {
+  const disclosureProofWithNonZeroNullifier =
+    getDisclosureProofWithNonZeroNullifier(disclosureProofs)
+  if (!disclosureProofWithNonZeroNullifier) {
+    throw new Error("No disclosure proof with non-zero nullifier found")
+  }
   const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const currentDateTimestamp = Number(BigInt(disclosureProofs[0].publicInputs[1]))
-  const scope = disclosureProofs[0].publicInputs[2]
-  const subscope = disclosureProofs[0].publicInputs[3]
-  const nullifierType = disclosureProofs[0].publicInputs[5]
-  const nullifier = disclosureProofs[0].publicInputs[6]
+  const currentDateTimestamp = Number(BigInt(disclosureProofWithNonZeroNullifier.publicInputs[1]))
+  const scope = disclosureProofWithNonZeroNullifier.publicInputs[2]
+  const subscope = disclosureProofWithNonZeroNullifier.publicInputs[3]
+  const nullifierType = disclosureProofWithNonZeroNullifier.publicInputs[5]
+  const nullifier = disclosureProofWithNonZeroNullifier.publicInputs[6]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
@@ -67,9 +78,9 @@ export function getOuterCircuitInputs(
     disclosure_proofs: disclosureProofs.map((proof) => ({
       vkey: proof.vkey,
       proof: proof.proof,
-      // Only keep the commitment in from the public inputs
+      // Only keep the commitment in and the nullifier from the public inputs
       // all the rest are passed directly as public inputs to the outer circuit
-      public_inputs: proof.publicInputs.slice(0, 1),
+      public_inputs: [proof.publicInputs[0], proof.publicInputs[6]],
       key_hash: proof.keyHash,
       tree_hash_path: proof.treeHashPath,
       tree_index: proof.treeIndex,
