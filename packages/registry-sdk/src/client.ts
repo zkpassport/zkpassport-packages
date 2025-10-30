@@ -690,7 +690,7 @@ export class RegistryClient {
   async isDocumentSupported(
     countryCode: string,
     issueDate: number,
-    expirtyDate: number,
+    expiryDate: number,
     type?: string,
   ): Promise<number> {
     // Check if there is a certificate available in the registry
@@ -707,7 +707,7 @@ export class RegistryClient {
           // Compute the private key usage period if not provided.
           // A certificate should be valid till "the issue date of last passport + its validity"
           // i.e they are used for singing from `not_before` to `not_after - documentValidityDuration`
-          const documentValidityDuration = expirtyDate - issueDate
+          const documentValidityDuration = expiryDate - issueDate
           privateKeyUsagePeriodStart = c.validity.not_before
           privateKeyUsagePeriodEnd = c.validity.not_after - documentValidityDuration
         }
