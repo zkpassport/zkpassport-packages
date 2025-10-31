@@ -59,6 +59,8 @@ import {
   NullifierType,
   getNullifierTypeFromOuterProof,
   getNullifierTypeFromDisclosureProof,
+  getServiceScopeFromDisclosureProof,
+  getServiceSubScopeFromDisclosureProof,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
 import { RegistryClient } from "@zkpassport/registry"
@@ -606,24 +608,6 @@ export class PublicInputChecker {
         },
       }
     }
-    const currentDate = getCurrentDateFromDisclosureProof(
-      getProofData(proof.proof!, getNumberOfPublicInputs("compare_age")),
-    )
-    if (
-      !areDatesEqual(currentDate, today) &&
-      !areDatesEqual(currentDate, today.getTime() - 86400000)
-    ) {
-      console.warn("Current date in the proof is too old")
-      isCorrect = false
-      queryResultErrors.age = {
-        ...queryResultErrors.age,
-        disclose: {
-          expected: `${today.toISOString()}`,
-          received: `${currentDate.toISOString()}`,
-          message: "Current date in the proof is too old",
-        },
-      }
-    }
     return { isCorrect, queryResultErrors }
   }
 
@@ -1065,7 +1049,7 @@ export class PublicInputChecker {
     scope?: string,
   ) {
     let isCorrect = true
-    if (domain && getServiceScopeHash(domain) !== BigInt(proofData.publicInputs[1])) {
+    if (domain && getServiceScopeHash(domain) !== getServiceScopeFromDisclosureProof(proofData)) {
       console.warn("The proof comes from a different domain than the one expected")
       isCorrect = false
       if (!queryResultErrors[key as keyof QueryResultErrors]) {
@@ -1077,7 +1061,7 @@ export class PublicInputChecker {
         message: "The proof comes from a different domain than the one expected",
       }
     }
-    if (scope && getScopeHash(scope) !== BigInt(proofData.publicInputs[2])) {
+    if (scope && getScopeHash(scope) !== getServiceSubScopeFromDisclosureProof(proofData)) {
       console.warn("The proof uses a different scope than the one expected")
       isCorrect = false
       if (!queryResultErrors[key as keyof QueryResultErrors]) {

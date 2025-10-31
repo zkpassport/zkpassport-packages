@@ -214,8 +214,19 @@ export type QueryBuilder = {
    * e.g. "US", ["US", "GB", "CH", "EU"], "all"
    * @param lists The specific lists from a given country to check against. Defaults to "all".
    * e.g. ["OFAC_SDN"], "all"
+   * @param options The options to use for the sanction check.
+   * @param options.strict Whether to use a strict sanction check. Defaults to false.
+   *
+   * If set to true, this means the checks will be done against just the lastname and firstname,
+   * while when set to false, matches will need to include either the date of birth and name or
+   * the passport number and nationality.
+   * Strict mode has therefore a higher false positive rate but is harder to evade.
    */
-  sanctions: (countries?: SanctionsCountries, lists?: SanctionsLists) => QueryBuilder
+  sanctions: (
+    countries?: SanctionsCountries,
+    lists?: SanctionsLists,
+    options?: { strict?: boolean },
+  ) => QueryBuilder
   /**
    * This feature is not available yet in the public release of the app.
    * Requires that the ID holder's face matches the photo on the ID.
