@@ -25,10 +25,10 @@ jobs:
             echo "skip_scope=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Check if publish is true
-        if: steps.check_type.outputs.publish == 'true'
-        run: echo "publish is true"
+      - name: Check if skip_scope is true
+        if: steps.check_type.outputs.skip_scope == 'true'
+        run: echo "skip_scope is true"
 
-      - name: Check if publish is false
-        if: steps.check_type.outputs.publish == 'false'
-        run: echo "publish is false"
+      - name: Check if skip_scope is false
+        if: steps.check_type.outputs.skip_scope == 'false'
+        run: echo "skip_scope is false"
