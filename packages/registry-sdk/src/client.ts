@@ -77,18 +77,6 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   },
 }
 
-const DOCUMENT_SUPPORT_RULES_URL =
-  "https://raw.githubusercontent.com/zkpassport/zkpassport-packages/main/packages/registry-sdk/src/document-support-rules.json"
-
-let DOCUMENT_SUPPORT_RULES_CACHE:
-  | {
-      countryCode: string
-      issueDateFrom: number
-      issueDateTo: number
-      supported: number
-    }[]
-  | null = null
-
 /**
  * Client for interacting with the ZKPassport Registry
  */
@@ -697,36 +685,14 @@ export class RegistryClient {
    *
    * @param countryCode The country code of the document
    * @param issueDate The issue date of the document
-   * @returns 0 if the document is not supported, 0.5 if it is likely to be supported, 1 if it is supported
+   * @returns 0 if the document is not supported, 1 if it is likely to be supported
    */
   async isDocumentSupported(
     countryCode: string,
     issueDate: number,
-    expirtyDate: number,
+    expiryDate: number,
     type?: string,
   ): Promise<number> {
-    if (!DOCUMENT_SUPPORT_RULES_CACHE) {
-      if ((globalThis as any)?.env?.USE_LOCAL_DOCUMENT_SUPPORT_RULES) {
-        const response = await import("./document-support-rules.json")
-        DOCUMENT_SUPPORT_RULES_CACHE = response.default
-      } else {
-        const response = await withRetry(() => fetch(DOCUMENT_SUPPORT_RULES_URL), this.retryCount)
-        DOCUMENT_SUPPORT_RULES_CACHE = await response.json()
-      }
-    }
-
-    // Check if the document is in the custom rules list
-    const customRule = DOCUMENT_SUPPORT_RULES_CACHE!.find(
-      (d) =>
-        d.countryCode === countryCode &&
-        (d.issueDateFrom && d.issueDateTo
-          ? d.issueDateFrom <= issueDate && d.issueDateTo >= issueDate
-          : true),
-    )
-    if (customRule !== undefined) {
-      return customRule.supported
-    }
-
     // Check if there is a certificate available in the registry
     const certificates = await this.getCertificates()
 
@@ -741,7 +707,7 @@ export class RegistryClient {
           // Compute the private key usage period if not provided.
           // A certificate should be valid till "the issue date of last passport + its validity"
           // i.e they are used for singing from `not_before` to `not_after - documentValidityDuration`
-          const documentValidityDuration = expirtyDate - issueDate
+          const documentValidityDuration = expiryDate - issueDate
           privateKeyUsagePeriodStart = c.validity.not_before
           privateKeyUsagePeriodEnd = c.validity.not_after - documentValidityDuration
         }
@@ -753,7 +719,7 @@ export class RegistryClient {
         )
       })
 
-    if (hasValidCertificate) return 0.5 // likely supported
+    if (hasValidCertificate) return 1 // likely supported
 
     return 0 // not supported
   }
