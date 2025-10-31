@@ -63,10 +63,10 @@ function normalizeCountry(country: CountryName | Alpha3Code) {
   if (country === "Zero Knowledge Republic") {
     return "ZKR"
   }
-  let normalizedCountry: Alpha3Code | "ZKR" | undefined
+  let normalizedCountry: Alpha3Code | "ZKR" | undefined = undefined
   const alpha3 = getAlpha3Code(country as CountryName, "en") as Alpha3Code | "ZKR" | undefined
   normalizedCountry = alpha3 || (country as Alpha3Code) || "ZKR"
-  return normalizedCountry
+  return normalizedCountry as Alpha3Code | "ZKR"
 }
 
 function numericalCompare(
@@ -646,7 +646,7 @@ export class ZKPassport {
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
-    let queryResultErrors: Partial<QueryResultErrors> | undefined
+    let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
     const {
       isCorrect,
       uniqueIdentifier: uniqueIdentifierFromPublicInputs,

@@ -1236,7 +1236,7 @@ export class PublicInputChecker {
     facematchCommittedInputs: FacematchCommittedInputs,
   ) {
     let isCorrect = true
-    let queryResultErrors: Partial<QueryResultErrors> = {}
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     if (queryResult.facematch && queryResult.facematch.passed) {
       // Check if the root key is either from Apple (iOS) or Google (Android)
       if (

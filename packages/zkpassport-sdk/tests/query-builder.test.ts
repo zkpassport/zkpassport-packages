@@ -1,18 +1,13 @@
 import { QueryBuilder, ZKPassport as ZkPassportVerifier } from "../src/index"
 import { MockWebSocket } from "./helpers/mock-websocket"
-import { Bridge } from "@obsidion/bridge"
 
 describe("Query Builder", () => {
   let zkPassport: ZkPassportVerifier
   let queryBuilder: QueryBuilder
-  let mockBridge: jest.Mocked<Bridge>
 
   beforeEach(async () => {
     // Clear any previous mock states
     MockWebSocket.clearHub()
-
-    // Get the mocked Bridge instance
-    mockBridge = new Bridge() as jest.Mocked<Bridge>
 
     zkPassport = new ZkPassportVerifier("localhost")
     queryBuilder = await zkPassport.request({

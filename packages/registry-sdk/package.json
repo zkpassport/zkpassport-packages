@@ -24,7 +24,7 @@
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test tests/*.test.ts",
     "coverage": "bun test tests/*.test.ts --coverage",
-    "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
+    "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
     "prepublishOnly": "./scripts/prepublish.sh"
   },

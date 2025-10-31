@@ -1,0 +1,111 @@
+name: Check Large Files
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+# Cancel in-progress runs when a new workflow with the same group name is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-file-sizes:
+    name: Check for Large Files (>5MB)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for files larger than 5MB
+        run: |
+          #!/bin/bash
+          set -e
+
+          # Threshold in bytes (5MB)
+          THRESHOLD=$((5 * 1024 * 1024))
+          MAX_SIZE_MB=5
+
+          # Get base branch (default to main if not set)
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "Checking files in commits from $BASE_BRANCH to $HEAD_SHA"
+          echo "Maximum allowed file size: ${MAX_SIZE_MB}MB"
+          echo ""
+
+          # Get all commits in the PR
+          COMMITS=$(git rev-list origin/$BASE_BRANCH..$HEAD_SHA)
+
+          if [ -z "$COMMITS" ]; then
+            echo "No commits found in this PR"
+            exit 0
+          fi
+
+          LARGE_FILES_FOUND=0
+
+          # Check each commit
+          for commit in $COMMITS; do
+            echo "Checking commit: $commit"
+
+            # Get parent commit (if exists)
+            parent=$(git rev-parse --verify --quiet "${commit}^" || echo "")
+
+            if [ -z "$parent" ]; then
+              # First commit - compare against empty tree
+              parent="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+            fi
+
+            # Get all files added or modified in this commit with their blob hashes
+            while IFS= read -r line; do
+              # Parse diff-tree output: old_mode new_mode old_blob new_blob status file_path
+              old_mode=$(echo "$line" | awk '{print $1}')
+              new_mode=$(echo "$line" | awk '{print $2}')
+              old_blob=$(echo "$line" | awk '{print $3}')
+              new_blob=$(echo "$line" | awk '{print $4}')
+              status=$(echo "$line" | awk '{print $5}')
+              file_path=$(echo "$line" | cut -d' ' -f6-)
+
+              # Only check added or modified files
+              if [[ "$status" == "A" || "$status" == "M" ]]; then
+                # Get the size of the new blob
+                if [ "$new_blob" != "0000000000000000000000000000000000000000" ]; then
+                  size=$(git cat-file -s "$new_blob" 2>/dev/null || echo "0")
+
+                  if [ "$size" -gt "$THRESHOLD" ]; then
+                    size_mb=$(echo "scale=2; $size / 1024 / 1024" | bc)
+                    echo "❌ LARGE FILE DETECTED!"
+                    echo "   File: $file_path"
+                    echo "   Size: ${size_mb}MB (exceeds ${MAX_SIZE_MB}MB limit)"
+                    echo "   Commit: $commit"
+                    echo "   GitHub URL: ${{ github.event.repository.html_url }}/commit/$commit"
+                    echo ""
+                    LARGE_FILES_FOUND=1
+                  fi
+                fi
+              fi
+            done < <(git diff-tree -r --raw --no-commit-id "$parent" "$commit" 2>/dev/null)
+          done
+
+          if [ "$LARGE_FILES_FOUND" -eq 1 ]; then
+            echo ""
+            echo "════════════════════════════════════════════════════════════════"
+            echo "❌ ERROR: Large files detected in this PR"
+            echo "════════════════════════════════════════════════════════════════"
+            echo ""
+            echo "Individual files in commits must not exceed ${MAX_SIZE_MB}MB."
+            echo "Please remove or reduce the size of the large files listed above."
+            echo ""
+            echo "Tips:"
+            echo "  - Use Git LFS for large binary files"
+            echo "  - Compress large files before committing"
+            echo "  - Split large files into smaller chunks"
+            echo "  - Consider if the file should be committed at all"
+            echo ""
+            exit 1
+          else
+            echo "✅ All files are within the size limit"
+          fi
+

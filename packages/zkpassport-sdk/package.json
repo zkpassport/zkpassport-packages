@@ -16,6 +16,7 @@
   },
   "scripts": {
     "types": "tsc -b",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "build:esm": "tsup --config tsup.config.ts",
     "build:cjs": "tsup --config tsup.config.ts",
     "build": "tsup --config tsup.config.ts",
@@ -23,7 +24,7 @@
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test",
     "coverage": "bun test --coverage",
-    "check": "tsc --noEmit && prettier -c src tests",
+    "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
     "prepublishOnly": "./scripts/prepublish.sh"
   },
