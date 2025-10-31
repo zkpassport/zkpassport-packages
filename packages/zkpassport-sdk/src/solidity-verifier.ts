@@ -232,7 +232,6 @@ export class SolidityVerifier {
       },
       commitments: {
         committedInputs: `0x${compressedCommittedInputs}`,
-        committedInputCounts: committedInputCountsArray,
       },
       serviceConfig: {
         validityPeriodInSeconds,

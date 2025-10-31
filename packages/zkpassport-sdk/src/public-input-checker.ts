@@ -1195,7 +1195,7 @@ export class PublicInputChecker {
 
   public static async checkSanctionsExclusionPublicInputs(
     queryResult: QueryResult,
-    root: string,
+    sanctionsCommittedInputs: SanctionsCommittedInputs,
     sanctionsBuilder: SanctionsBuilder,
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
@@ -1203,15 +1203,27 @@ export class PublicInputChecker {
     if (queryResult.sanctions && queryResult.sanctions.passed) {
       // For now it's fixed until we streamline the update of the sanctions registry
       const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
-      if (root !== EXPECTED_ROOT) {
+      if (sanctionsCommittedInputs.rootHash !== EXPECTED_ROOT) {
         console.warn("Invalid sanctions registry root")
         isCorrect = false
         queryResultErrors.sanctions = {
           ...queryResultErrors.sanctions,
           eq: {
             expected: EXPECTED_ROOT,
-            received: root,
+            received: sanctionsCommittedInputs.rootHash,
             message: "Invalid sanctions registry root",
+          },
+        }
+      }
+      if (queryResult.sanctions.isStrict !== sanctionsCommittedInputs.isStrict) {
+        console.warn("Invalid sanctions strict mode")
+        isCorrect = false
+        queryResultErrors.sanctions = {
+          ...queryResultErrors.sanctions,
+          eq: {
+            expected: queryResult.sanctions.isStrict.toString(),
+            received: sanctionsCommittedInputs.isStrict.toString(),
+            message: "Invalid sanctions strict mode",
           },
         }
       }
@@ -1799,7 +1811,7 @@ export class PublicInputChecker {
             queryResultErrors: queryResultErrorsSanctionsExclusion,
           } = await this.checkSanctionsExclusionPublicInputs(
             queryResult,
-            exclusionCheckSanctionsCommittedInputs.rootHash,
+            exclusionCheckSanctionsCommittedInputs,
             sanctionsBuilder,
           )
           isCorrect = isCorrect && isCorrectSanctionsExclusion
@@ -2525,7 +2537,7 @@ export class PublicInputChecker {
           queryResultErrors: queryResultErrorsSanctionsExclusion,
         } = await this.checkSanctionsExclusionPublicInputs(
           queryResult,
-          exclusionCheckSanctionsCommittedInputs.rootHash,
+          exclusionCheckSanctionsCommittedInputs,
           sanctionsBuilder,
         )
         isCorrect = isCorrect && isCorrectSanctionsExclusion
