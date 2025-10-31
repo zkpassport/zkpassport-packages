@@ -51,7 +51,6 @@ export type SolidityProofVerificationData = {
 
 export type SolidityCommitments = {
   committedInputs: string
-  committedInputCounts: number[]
 }
 
 export type SolidityServiceConfig = {
