@@ -479,7 +479,8 @@ export class PublicInputChecker {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
-    const today = new Date(
+    // TODO: Fix unused variable
+    const _today = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
       currentTime.getDate(),
@@ -615,7 +616,8 @@ export class PublicInputChecker {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
-    const today = new Date(
+    // TODO: Fix unused variable
+    const _today = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
       currentTime.getDate(),
@@ -737,7 +739,8 @@ export class PublicInputChecker {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
-    const today = new Date(
+    // TODO: Fix unused variable
+    const _today = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
       currentTime.getDate(),

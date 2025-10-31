@@ -21,7 +21,6 @@ import {
 } from "@/passport/getters"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { ProofType, ProofTypeLength } from "@/index"
-import { treeData } from "./trees/all_sanctions_tree"
 
 export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
