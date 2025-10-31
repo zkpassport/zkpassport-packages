@@ -10,13 +10,18 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     }
   },
   "scripts": {
-    "types": "tsc -b",
+    "types": "tsc -b && ../../scripts/copy-dts.sh",
     "build:esm": "tsup --config tsup.config.ts",
     "build:cjs": "tsup --config tsup.config.ts",
     "build": "tsup --config tsup.config.ts",

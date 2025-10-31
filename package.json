@@ -13,10 +13,7 @@
   "packageManager": "bun@1.2.13",
   "private": true,
   "scripts": {
-    "types": "turbo run types",
-    "build": "turbo run build",
-    "build:esm": "turbo run build:esm",
-    "build:cjs": "turbo run build:cjs",
+    "build": "turbo run types && turbo run build",
     "dev:build": "turbo run dev:build",
     "test": "turbo run test",
     "check": "turbo run check",
