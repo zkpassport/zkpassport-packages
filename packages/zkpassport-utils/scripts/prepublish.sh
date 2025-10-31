@@ -5,5 +5,8 @@ set -e
 # Run shared prepublish checks
 ../../scripts/prepublish.sh
 
-# Check, test and build package
-bun run check && bun run test && bun run build
+# Clean, check, test, and build package
+bun run clean
+bun run check
+bun run test
+bun run build
