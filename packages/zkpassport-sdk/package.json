@@ -21,14 +21,12 @@
   },
   "scripts": {
     "types": "tsc -b && ../../scripts/copy-dts.sh",
-    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
-    "build:esm": "tsup --config tsup.config.ts",
-    "build:cjs": "tsup --config tsup.config.ts",
-    "build": "tsup --config tsup.config.ts",
-    "dev:build": "DEV_BUILD=true tsup --config tsup.config.ts",
+    "build": "bun run types && tsup --config tsup.config.ts",
+    "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test",
     "coverage": "bun test --coverage",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
     "prepublishOnly": "./scripts/prepublish.sh"
