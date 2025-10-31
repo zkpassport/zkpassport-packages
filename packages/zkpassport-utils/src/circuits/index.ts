@@ -123,15 +123,15 @@ export function getNullifierTypeFromDisclosureProof(proofData: ProofData): Nulli
 }
 
 export function getParameterCommitmentFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
+  return BigInt(proofData.publicInputs[4])
 }
 
 export function getServiceSubScopeFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 4])
+  return BigInt(proofData.publicInputs[3])
 }
 
 export function getServiceScopeFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 5])
+  return BigInt(proofData.publicInputs[2])
 }
 
 export function getCommitmentInFromDisclosureProof(proofData: ProofData): bigint {
@@ -192,8 +192,8 @@ export function getNumberOfPublicInputs(circuitName: string) {
     return 7 + disclosureProofCount
   }
   // Any other circuits are assumed to be disclosure circuits
-  // which have a universal interface of 6 public inputs
-  return 6
+  // which have a universal interface of 7 public inputs
+  return 7
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {

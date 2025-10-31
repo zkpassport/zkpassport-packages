@@ -14,6 +14,7 @@ import {
   numberToBytesBE,
   ProofResult,
   ProofType,
+  ProofTypeLength,
   rightPadArrayWithZeros,
   SanctionsCommittedInputs,
   SupportedChain,
@@ -42,7 +43,7 @@ export class SolidityVerifier {
     if (network === "ethereum_sepolia") {
       return {
         ...baseConfig,
-        address: "0x3101Bad9eA5fACadA5554844a1a88F7Fe48D4DE0",
+        address: "0x0b05F45ff2F431a136eE8e708458286eC02b0d00",
       }
     } else if (network === "local_anvil") {
       return {
@@ -107,6 +108,7 @@ export class SolidityVerifier {
         })()
         compressedCommittedInputs =
           proofType.toString(16).padStart(2, "0") +
+          ProofTypeLength[proofType].evm.toString(16).padStart(4, "0") +
           rightPadArrayWithZeros(
             formattedCountries.map((c) => Array.from(new TextEncoder().encode(c))).flat(),
             600,
@@ -117,6 +119,7 @@ export class SolidityVerifier {
         const value = proof.committedInputs[circuitName] as AgeCommittedInputs
         compressedCommittedInputs =
           ProofType.AGE.toString(16).padStart(2, "0") +
+          ProofTypeLength[ProofType.AGE].evm.toString(16).padStart(4, "0") +
           value.minAge.toString(16).padStart(2, "0") +
           value.maxAge.toString(16).padStart(2, "0")
       } else if (circuitName === "compare_birthdate_evm") {
@@ -125,6 +128,7 @@ export class SolidityVerifier {
         const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.BIRTHDATE.toString(16).padStart(2, "0") +
+          ProofTypeLength[ProofType.BIRTHDATE].evm.toString(16).padStart(4, "0") +
           minDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
           maxDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "compare_expiry_evm") {
@@ -133,31 +137,40 @@ export class SolidityVerifier {
         const maxDateBytes = Array.from(numberToBytesBE(value.maxDateTimestamp, 8))
         compressedCommittedInputs =
           ProofType.EXPIRY_DATE.toString(16).padStart(2, "0") +
+          ProofTypeLength[ProofType.EXPIRY_DATE].evm.toString(16).padStart(4, "0") +
           minDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("") +
           maxDateBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "disclose_bytes_evm") {
         const value = proof.committedInputs[circuitName] as DiscloseCommittedInputs
         compressedCommittedInputs =
           ProofType.DISCLOSE.toString(16).padStart(2, "0") +
+          ProofTypeLength[ProofType.DISCLOSE].evm.toString(16).padStart(4, "0") +
           value.discloseMask.map((x) => x.toString(16).padStart(2, "0")).join("") +
           value.disclosedBytes.map((x) => x.toString(16).padStart(2, "0")).join("")
       } else if (circuitName === "bind_evm") {
         const value = proof.committedInputs[circuitName] as BindCommittedInputs
         compressedCommittedInputs =
           ProofType.BIND.toString(16).padStart(2, "0") +
-          rightPadArrayWithZeros(formatBoundData(value.data), 500)
+          ProofTypeLength[ProofType.BIND].evm.toString(16).padStart(4, "0") +
+          rightPadArrayWithZeros(formatBoundData(value.data), 509)
             .map((x) => x.toString(16).padStart(2, "0"))
             .join("")
       } else if (circuitName === "exclusion_check_sanctions_evm") {
         const value = proof.committedInputs[circuitName] as SanctionsCommittedInputs
-        compressedCommittedInputs =
-          ProofType.SANCTIONS_EXCLUSION.toString(16).padStart(2, "0") +
-          Array.from(numberToBytesBE(BigInt(value.rootHash), 32))
-            .map((x) => x.toString(16).padStart(2, "0"))
-            .join("")
+        compressedCommittedInputs += ProofType.SANCTIONS_EXCLUSION.toString(16).padStart(2, "0")
+        compressedCommittedInputs += ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm
+          .toString(16)
+          .padStart(4, "0")
+        compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.rootHash), 32))
+          .map((x) => x.toString(16).padStart(2, "0"))
+          .join("")
+        compressedCommittedInputs += value.isStrict ? "01" : "00"
       } else if (circuitName.startsWith("facematch") && circuitName.endsWith("_evm")) {
         const value = proof.committedInputs[circuitName] as FacematchCommittedInputs
         compressedCommittedInputs += ProofType.FACEMATCH.toString(16).padStart(2, "0")
+        compressedCommittedInputs += ProofTypeLength[ProofType.FACEMATCH].evm
+          .toString(16)
+          .padStart(4, "0")
         compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.rootKeyLeaf), 32))
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
