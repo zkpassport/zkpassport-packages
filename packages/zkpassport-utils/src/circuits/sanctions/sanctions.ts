@@ -26,6 +26,7 @@ export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
 
   static async create(): Promise<SanctionsBuilder> {
+    // TODO: Consider a caching strategy for this
     const treeData = await withRetry(() =>
       fetch("https://cdn.zkpassport.id/sanctions/all_sanctions_tree.json.gz", {
         headers: {
