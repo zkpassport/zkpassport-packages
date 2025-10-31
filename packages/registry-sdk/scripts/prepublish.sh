@@ -2,8 +2,8 @@
 
 set -e
 
-# Require bun publish
-bun -e "process.env.npm_config_user_agent?.startsWith('bun/') || (console.error('Must use bun publish'), process.exit(1))"
+# Run shared prepublish checks
+../../scripts/prepublish.sh
 
 # Sync workspace dependencies
 cd ../..
