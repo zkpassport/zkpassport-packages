@@ -11,12 +11,13 @@
     "rootDir": "./src",
     "outDir": "./dist/types",
     "declarationDir": "./dist/types",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
     "declaration": true,
-    "declarationMap": true,
+    "declarationMap": false,
     "emitDeclarationOnly": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,

@@ -11,7 +11,7 @@ export default defineConfig(
     outDir: `dist/${format}`,
     outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
     splitting: false,
-    sourcemap: true,
+    sourcemap: false,
     treeshake: !isDev,
     // For release builds, externalize workspace deps so outputs stay modular
     // For dev builds, inline them for instant edits

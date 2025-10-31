@@ -6,6 +6,7 @@
     "rootDir": "./src",
     "outDir": "./dist/types",
     "declarationDir": "./dist/types",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
     "baseUrl": "./src",
     "paths": {
       "@/*": ["./*"]
@@ -13,7 +14,7 @@
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
-    "declarationMap": true,
+    "declarationMap": false,
     "emitDeclarationOnly": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,

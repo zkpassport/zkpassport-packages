@@ -8,7 +8,7 @@ export default defineConfig({
   dts: false, // Types are handled by tsc -b
   clean: true,
   splitting: false,
-  sourcemap: true,
+  sourcemap: false,
   treeshake: true,
   external: [
     // Externalize workspace dependencies for release builds

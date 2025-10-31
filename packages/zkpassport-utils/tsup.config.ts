@@ -28,7 +28,7 @@ export default defineConfig(
     outDir: `dist/${format}`,
     outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
     splitting: false,
-    sourcemap: true,
+    sourcemap: false,
     treeshake: !isDev,
     // No workspace dependencies to externalize for utils (it's the base package)
   })),

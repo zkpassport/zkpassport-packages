@@ -13,6 +13,7 @@
     "moduleResolution": "Bundler",
     "isolatedModules": true,
     "outDir": "./dist/esm",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
     "declaration": true,
     "jsx": "preserve",
     "noImplicitAny": true,
