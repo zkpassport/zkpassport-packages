@@ -433,7 +433,11 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      sanctions: (countries: SanctionsCountries = "all", lists: SanctionsLists = "all") => {
+      sanctions: (
+        countries: SanctionsCountries = "all",
+        lists: SanctionsLists = "all",
+        options: { strict?: boolean } = { strict: false },
+      ) => {
         this.topicToConfig[topic].sanctions = {
           ...this.topicToConfig[topic].sanctions,
           countries:
@@ -454,6 +458,7 @@ export class ZKPassport {
               : Array.isArray(lists)
                 ? [...(this.topicToConfig[topic].sanctions?.lists ?? []), ...lists]
                 : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],
+          strict: options.strict ?? false,
         }
         return this.getZkPassportRequest(topic)
       },
@@ -792,7 +797,7 @@ export class ZKPassport {
     // The timestamp is the current time minus the validity period
     // essentially, the data integrity check proof needs to have been generated after the timestamp
     const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}`
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
   }
 
   /**

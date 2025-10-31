@@ -236,8 +236,6 @@ export type QueryResultValue<T extends IDCredential> = {
 export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
 // Explicit list of supported countries for sanction lists
 // TODO: extend this list as more countries sanction lists are added
-// For now we only support the US sanction list (OFAC_SDN)
-// but the ones below will be added very soon
 export type SanctionsAlpha2Code = "US" | "GB" | "CH" | "EU"
 export type SanctionsCountries = SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"
 export type SanctionsLists = string[] | "all"
@@ -245,6 +243,7 @@ export type SanctionsLists = string[] | "all"
 export type SanctionsConfig = {
   countries?: SanctionsCountries
   lists?: SanctionsLists
+  strict?: boolean
 }
 
 export type SanctionsResult = {
@@ -254,6 +253,8 @@ export type SanctionsResult = {
   countries?: Record<SanctionsAlpha2Code, { passed: boolean }>
   // Indicates if the sanction check for the list passed
   lists?: Record<string, { passed: boolean }>
+  // Indicates if the sanction check was done in strict mode
+  isStrict: boolean
 }
 
 export type FacematchMode = "strict" | "regular"
@@ -392,6 +393,7 @@ export type QRCodeData = {
   mode: ProofMode
   sdkVersion: string | null
   timestamp: number | null
+  devMode: boolean | null
 }
 
 export interface JsonRpcRequest {
