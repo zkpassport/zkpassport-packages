@@ -128,7 +128,7 @@ describe("Query Builder", () => {
 
     // Verify URL format
     expect(result.url).toMatch(
-      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+$/,
+      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+&dev=[^&]+$/,
     )
 
     // Verify service info is included
@@ -232,6 +232,24 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: "all",
       lists: "all",
+      strict: false,
+    })
+  })
+
+  test("should build sanctions query with strict mode", async () => {
+    const result = queryBuilder
+      .sanctions("all", "all", {
+        strict: true,
+      })
+      .done()
+
+    const configPart = result.url.split("c=")[1].split("&")[0]
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+      strict: true,
     })
   })
 
@@ -244,6 +262,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["GB"],
       lists: "all",
+      strict: false,
     })
   })
 
@@ -256,6 +275,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US"],
       lists: ["OFAC_SDN"],
+      strict: false,
     })
   })
 
@@ -268,6 +288,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US", "GB", "CH", "EU"],
       lists: "all",
+      strict: false,
     })
   })
 
@@ -285,6 +306,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US", "GB", "CH", "EU"],
       lists: "all",
+      strict: false,
     })
   })
 
