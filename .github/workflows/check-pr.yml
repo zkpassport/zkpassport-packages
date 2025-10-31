@@ -1,0 +1,47 @@
+name: "Check PR"
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+  main:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      # For ci/build types: scope is optional
+      - name: Validate PR title (ci/build - no scope required)
+        if: startsWith(github.event.pull_request.title, 'ci:') || startsWith(github.event.pull_request.title, 'build:')
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            ci
+            build
+          requireScope: false
+          scopes: |
+            (registry|explorer|registry-sdk|sdk|utils|workspace)(,(registry|explorer|registry-sdk|sdk|utils|workspace))*
+          subjectPattern: ^[A-Z].+$
+          subjectPatternError: |
+            The subject must start with an uppercase letter.
+
+      # For all other types: scope is required
+      - name: Validate PR title (all other types - scope required)
+        if: (!(startsWith(github.event.pull_request.title, 'ci:') || startsWith(github.event.pull_request.title, 'build:')))
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          requireScope: true
+          scopes: |
+            (registry|explorer|registry-sdk|sdk|utils|workspace)(,(registry|explorer|registry-sdk|sdk|utils|workspace))*
+          subjectPattern: ^[A-Z].+$
+          subjectPatternError: |
+            The subject must start with an uppercase letter.
