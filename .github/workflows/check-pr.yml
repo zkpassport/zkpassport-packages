@@ -15,13 +15,39 @@ jobs:
     name: Validate PR title
     runs-on: ubuntu-latest
     steps:
-      - uses: amannn/action-semantic-pull-request@v5
+      - name: Check if PR title starts with build or ci
+        id: check_type
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if [[ "$TITLE" =~ ^(build|ci): ]]; then
+            echo "skip_scope=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_scope=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate PR title (build/ci without scope)
+        if: steps.check_type.outputs.skip_scope == 'true'
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            build
+            ci
+          requireScope: false
+          subjectPattern: ^[A-Z].+$
+          subjectPatternError: |
+            The subject must start with an uppercase letter.
+
+      - name: Validate PR title (all other types with scope)
+        if: steps.check_type.outputs.skip_scope == 'false'
+        uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           requireScope: true
           scopes: |
-            (registry|explorer|registry-sdk|sdk|utils)(,(registry|explorer|registry-sdk|sdk|utils))*
+            (registry|explorer|registry-sdk|sdk|utils|workspace)(,(registry|explorer|registry-sdk|sdk|utils|workspace))*
           subjectPattern: ^[A-Z].+$
           subjectPatternError: |
             The subject must start with an uppercase letter.
