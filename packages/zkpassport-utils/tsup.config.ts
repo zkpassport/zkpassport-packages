@@ -30,6 +30,7 @@ export default defineConfig(
     splitting: false,
     sourcemap: false,
     treeshake: !isDev,
+    minify: !isDev,
     // No workspace dependencies to externalize for utils (it's the base package)
   })),
 )
