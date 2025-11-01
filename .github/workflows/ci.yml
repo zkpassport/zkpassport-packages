@@ -86,3 +86,18 @@ jobs:
       - name: Ensure workspace dependencies are synced
         run: bash scripts/sync-workspace-deps.sh check
 
+  large-file-check:
+    name: Large File Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history to compare with trunk
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y bc
+
+      - name: Check for large files
+        run: bash scripts/find-large-file-commits.sh
+
