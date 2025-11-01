@@ -1201,6 +1201,7 @@ describe("Circuit Matcher - ECDSA", () => {
   })
 
   it("should get the correct sanctions exclusion check circuit inputs", async () => {
+    // TODO: Download serialised sanctions tree from a CDN via a test script in advance and remove 30s timeout
     const sanctions = await SanctionsBuilder.create()
     const { proofs, root } = await sanctions.getSanctionsMerkleProofs(PASSPORTS.mary)
     const result = await getSanctionsExclusionCheckCircuitInputs(
@@ -1240,5 +1241,5 @@ describe("Circuit Matcher - ECDSA", () => {
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
     })
-  })
+  }, 30000)
 })
