@@ -2,7 +2,8 @@ name: Registry Contracts
 
 on:
   push:
-  pull_request:
+    branches: [main]
+  pull_request_target:
     types: [opened, reopened, ready_for_review]
 
 env:

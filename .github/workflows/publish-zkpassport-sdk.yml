@@ -2,6 +2,7 @@ name: Publish ZKPassport SDK
 
 on:
   push:
+    branches: [main]
     paths:
       - packages/zkpassport-sdk/package.json
 
