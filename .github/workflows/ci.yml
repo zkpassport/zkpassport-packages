@@ -2,10 +2,8 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - develop
-  pull_request:
+    branches: [main]
+  pull_request_target:
     types: [opened, reopened, ready_for_review, synchronize]
 
 # Cancel in-progress runs when a new workflow with the same group name is triggered
@@ -20,8 +18,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
@@ -47,16 +43,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Build all packages
+      - name: Build
         run: bun run build
 
-      - name: Run type checks
+      - name: Check
         run: bun run check
 
-      - name: Run tests
+      - name: Test
         run: bun run test
 
-  dependency-check:
+  dependency-sync-check:
     name: Dependency Sync Check
     runs-on: ubuntu-latest
     steps:
@@ -73,6 +69,4 @@ jobs:
 
       - name: Ensure workspace dependencies are synced
         run: bash scripts/sync-workspace-deps.sh check
-
-
 
