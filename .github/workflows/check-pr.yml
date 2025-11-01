@@ -1,18 +1,15 @@
-name: "Check PR"
+name: Check PR title
 
 on:
   pull_request_target:
-    types:
-      - opened
-      - edited
-      - synchronize
+    types: [opened, reopened, edited, synchronize]
 
 permissions:
   pull-requests: read
 
 jobs:
   main:
-    name: Validate PR title
+    name: Check PR title
     runs-on: ubuntu-latest
     steps:
       # For ci/build types: scope is optional
