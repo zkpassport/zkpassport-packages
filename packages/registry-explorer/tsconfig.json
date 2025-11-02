@@ -22,12 +22,7 @@
     "composite": true,
     "baseUrl": ".",
     "experimentalDecorators": true,
-
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*", "../zkpassport-utils/src/*", "../zkpassport-registry/src/*"],
       "@zkpassport/registry": ["../registry-sdk/src/index.ts"],
@@ -39,12 +34,5 @@
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["dist", "node_modules"],
-  "references": [
-    {
-      "path": "../zkpassport-utils"
-    },
-    {
-      "path": "../registry-sdk"
-    }
-  ]
+  "references": [{ "path": "../zkpassport-utils" }, { "path": "../registry-sdk" }]
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { PackagedCertificatesFile } from "@zkpassport/registry"
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
@@ -78,6 +78,60 @@ export default function RegistryDiffSidebar({
     fetchCertificateData()
   }, [beforeRoot, afterRoot])
 
+  // Reuse certificate key generation from diff page
+  const getCertificateKey = useCallback((cert: PackagedCertificate): string => {
+    const publicKeyParts = []
+    if (cert.public_key?.type === "RSA") {
+      publicKeyParts.push(cert.public_key.type, cert.public_key.modulus, cert.public_key.exponent)
+    } else if (cert.public_key?.type === "EC") {
+      publicKeyParts.push(
+        cert.public_key.type,
+        cert.public_key.curve,
+        cert.public_key.public_key_x,
+        cert.public_key.public_key_y,
+      )
+    }
+    const parts = [cert.country, cert.signature_algorithm, cert.hash_algorithm, ...publicKeyParts]
+    return parts.join("|")
+  }, [])
+
+  // Calculate diff
+  const calculateCertificateDiff = useCallback(
+    (beforeCerts: PackagedCertificate[], afterCerts: PackagedCertificate[]): CertificateDiff => {
+      const beforeMap = new Map<string, PackagedCertificate>()
+      const afterMap = new Map<string, PackagedCertificate>()
+
+      beforeCerts.forEach((cert) => {
+        const key = getCertificateKey(cert)
+        if (key) beforeMap.set(key, cert)
+      })
+
+      afterCerts.forEach((cert) => {
+        const key = getCertificateKey(cert)
+        if (key) afterMap.set(key, cert)
+      })
+
+      const added: PackagedCertificate[] = []
+      const removed: PackagedCertificate[] = []
+      const modified: CertificateChange[] = []
+
+      afterMap.forEach((cert, id) => {
+        if (!beforeMap.has(id)) {
+          added.push(cert)
+        }
+      })
+
+      beforeMap.forEach((beforeCert, id) => {
+        if (!afterMap.has(id)) {
+          removed.push(beforeCert)
+        }
+      })
+
+      return { added, removed, modified }
+    },
+    [getCertificateKey],
+  )
+
   // Pass the countries with changes to parent
   useEffect(() => {
     if (!beforeData || !afterData || !onCountriesCalculated) return
@@ -110,61 +164,7 @@ export default function RegistryDiffSidebar({
       const countries = new Set(changesByCountry.keys())
       onCountriesCalculated(countries)
     }
-  }, [beforeData, afterData, onCountriesCalculated])
-
-  // Reuse certificate key generation from diff page
-  const getCertificateKey = (cert: PackagedCertificate): string => {
-    const publicKeyParts = []
-    if (cert.public_key?.type === "RSA") {
-      publicKeyParts.push(cert.public_key.type, cert.public_key.modulus, cert.public_key.exponent)
-    } else if (cert.public_key?.type === "EC") {
-      publicKeyParts.push(
-        cert.public_key.type,
-        cert.public_key.curve,
-        cert.public_key.public_key_x,
-        cert.public_key.public_key_y,
-      )
-    }
-    const parts = [cert.country, cert.signature_algorithm, cert.hash_algorithm, ...publicKeyParts]
-    return parts.join("|")
-  }
-
-  // Calculate diff
-  const calculateCertificateDiff = (
-    beforeCerts: PackagedCertificate[],
-    afterCerts: PackagedCertificate[],
-  ): CertificateDiff => {
-    const beforeMap = new Map<string, PackagedCertificate>()
-    const afterMap = new Map<string, PackagedCertificate>()
-
-    beforeCerts.forEach((cert) => {
-      const key = getCertificateKey(cert)
-      if (key) beforeMap.set(key, cert)
-    })
-
-    afterCerts.forEach((cert) => {
-      const key = getCertificateKey(cert)
-      if (key) afterMap.set(key, cert)
-    })
-
-    const added: PackagedCertificate[] = []
-    const removed: PackagedCertificate[] = []
-    const modified: CertificateChange[] = []
-
-    afterMap.forEach((cert, id) => {
-      if (!beforeMap.has(id)) {
-        added.push(cert)
-      }
-    })
-
-    beforeMap.forEach((beforeCert, id) => {
-      if (!afterMap.has(id)) {
-        removed.push(beforeCert)
-      }
-    })
-
-    return { added, removed, modified }
-  }
+  }, [beforeData, afterData, onCountriesCalculated, calculateCertificateDiff])
 
   if (isLoading) {
     return (
