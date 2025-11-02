@@ -1,16 +1,6 @@
 {
   "name": "zkpassport-packages",
   "version": "0.1.0",
-  "devDependencies": {
-    "@types/debug": "^4.1.12",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^24.0.13",
-    "prettier": "^3.6.2",
-    "rimraf": "^6.0.1",
-    "tsup": "^8.5.0",
-    "turbo": "^2.5.8"
-  },
-  "packageManager": "bun@1.2.13",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -22,5 +12,16 @@
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.13",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.0",
+    "turbo": "^2.5.8",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "bun@1.2.13"
 }

@@ -20,8 +20,8 @@
     }
   },
   "scripts": {
-    "types": "tsc -b && ../../scripts/copy-dts.sh",
-    "build": "bun run types && tsup --config tsup.config.ts",
+    "build": "bun run build:types && tsup --config tsup.config.ts",
+    "build:types": "tsc -b && ../../scripts/copy-dts.sh",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test",
@@ -57,8 +57,13 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
     "@types/pako": "^2.0.3",
-    "@types/ws": "^8.5.12"
+    "@types/ws": "^8.5.12",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6"
   },
   "packageManager": "bun@1.2.13"
 }

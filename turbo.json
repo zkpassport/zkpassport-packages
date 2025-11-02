@@ -2,21 +2,9 @@
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
   "tasks": {
-    "types": {
-      "dependsOn": ["^types"],
-      "outputs": ["dist/types/**/*.d.ts", "dist/types/**/*.d.mts", "dist/types/**/*.d.cts", "tsconfig.tsbuildinfo"]
-    },
-    "build:esm": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/esm/**", "dist/cjs/**"]
-    },
-    "build:cjs": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/esm/**", "dist/cjs/**"]
-    },
     "build": {
-      "dependsOn": ["^build", "types"],
-      "outputs": ["dist/**"]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**"]
     },
     "dev:build": {
       "dependsOn": ["^dev:build"],

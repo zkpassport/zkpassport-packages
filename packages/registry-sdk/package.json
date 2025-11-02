@@ -21,8 +21,8 @@
     }
   },
   "scripts": {
-    "types": "tsc -b && ../../scripts/copy-dts.sh",
-    "build": "bun run types && tsup --config tsup.config.ts",
+    "build": "bun run build:types && tsup --config tsup.config.ts",
+    "build:types": "tsc -b && ../../scripts/copy-dts.sh",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test tests/*.test.ts",
@@ -43,6 +43,7 @@
     "circuit registry"
   ],
   "dependencies": {
+    "@zkpassport/poseidon2": "^0.6.2",
     "@zkpassport/utils": "workspace:*",
     "debug": "^4.4.0",
     "tslib": "^2.8.1"
