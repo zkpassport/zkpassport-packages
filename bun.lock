@@ -98,6 +98,9 @@
         "@types/pako": "^2.0.3",
         "@types/ws": "^8.5.12",
       },
+      "peerDependencies": {
+        "typescript": "^5.0.0",
+      },
     },
     "packages/zkpassport-utils": {
       "name": "@zkpassport/utils",

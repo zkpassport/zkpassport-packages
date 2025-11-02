@@ -29,7 +29,7 @@
     "coverage": "bun test tests/*.test.ts --coverage",
     "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
-    "prepublishOnly": "./scripts/prepublish.sh"
+    "prepublishOnly": "../../scripts/prepublish.sh"
   },
   "files": [
     "dist/esm",
@@ -54,5 +54,5 @@
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
-  "packageManager": "bun@1.2.13"
+  "packageManager": "bun@1.3.1"
 }

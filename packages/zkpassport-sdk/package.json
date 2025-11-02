@@ -29,7 +29,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
-    "prepublishOnly": "./scripts/prepublish.sh"
+    "prepublishOnly": "../../scripts/prepublish.sh"
   },
   "files": [
     "dist/esm",
@@ -60,5 +60,8 @@
     "@types/pako": "^2.0.3",
     "@types/ws": "^8.5.12"
   },
-  "packageManager": "bun@1.2.13"
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "bun@1.3.1"
 }

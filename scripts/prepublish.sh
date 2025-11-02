@@ -13,3 +13,10 @@ bun -e "process.env.npm_config_user_agent?.startsWith('bun/') || (console.error(
 
 # Sync workspace dependencies
 (cd $(git rev-parse --show-toplevel) && scripts/sync-workspace-deps.sh)
+
+# Build and test all packages
+echo "📦 Building all packages..."
+(cd ../.. && bun run clean && bun run build && bun run check && bun run test)
+
+# Validate package
+../../scripts/validate-package.sh
