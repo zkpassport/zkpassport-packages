@@ -7,7 +7,7 @@
     "skipLibCheck": true,
     "target": "es2020",
     "module": "es2020",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "rootDir": "./src",
     "outDir": "./dist/types",
     "declarationDir": "./dist/types",
