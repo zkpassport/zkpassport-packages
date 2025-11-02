@@ -3,7 +3,7 @@ name: Tests
 on:
   push:
     branches: [main]
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, ready_for_review, synchronize]
 
 # Cancel in-progress runs when a new workflow with the same group name is triggered
