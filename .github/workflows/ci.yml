@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
+        run: sudo apt-get install -y lsof jq zsh
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -94,9 +94,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Need full history to compare with trunk
-
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y bc
 
       - name: Check for large files
         run: bash scripts/find-large-file-commits.sh
