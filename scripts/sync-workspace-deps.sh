@@ -1,9 +1,12 @@
 #!/bin/bash
 
+# Sync workspace dependencies
+# This script ensures bun.lock contains the latest workspace dependency versions
+# This is what `bun publish` uses when replacing "workspace:*" in package.json
+
 set -e
 
-# Ensure bun.lock contains the latest workspace dependency versions
-# This is what `bun publish` uses when replacing "workspace:*" in package.json
+echo "Ensuring workspace dependencies are synced"
 (cd packages/zkpassport-sdk && bun update @zkpassport/registry @zkpassport/utils)
 (cd packages/registry-sdk && bun update @zkpassport/utils)
 
