@@ -27,3 +27,4 @@ if [[ "$VERSION" =~ -([a-zA-Z0-9]+) ]] && [[ "$TAG" == "latest" ]]; then
   exit 1
 fi
 
+(cd ../.. && scripts/sync-workspace-deps.sh)
