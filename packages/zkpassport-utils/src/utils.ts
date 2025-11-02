@@ -9,15 +9,6 @@ import {
   HASH_ALGORITHM_SHA512,
 } from "./registry"
 
-export async function loadModule(module: string) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require(module)
-  } catch {
-    return undefined
-  }
-}
-
 /**
  * Convert a little-endian buffer into a BigInt.
  * @param buf - The little-endian buffer to convert.

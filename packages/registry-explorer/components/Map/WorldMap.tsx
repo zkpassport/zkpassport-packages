@@ -215,7 +215,7 @@ export default function WorldMap({ data = {}, onCountryClick, resetMapView }: Wo
       window.removeEventListener("resize", updateMapSize)
       clearTimeout(timeoutId)
     }
-  }, [])
+  }, [isMobile])
 
   // Build dynamic country name to code mapping from certificate data
   const countryNameToCode = useMemo(() => {

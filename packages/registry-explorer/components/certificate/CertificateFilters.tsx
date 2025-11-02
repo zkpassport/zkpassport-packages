@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { CertificateFilterState } from "@/lib/types"
-import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
+import { countryCodeAlpha3ToName } from "@zkpassport/utils"
 
 interface CertificateFiltersProps {
   filterState: CertificateFilterState

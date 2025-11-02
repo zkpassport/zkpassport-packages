@@ -1,24 +1,29 @@
 {
   "compilerOptions": {
-    "target": "es2022",
-    "module": "es2022",
+    "target": "es2020",
+    "module": "es2020",
     "moduleResolution": "bundler",
     "rootDir": "./src",
-    "baseUrl": ".",
+    "outDir": "./dist/types",
+    "declarationDir": "./dist/types",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
+    "baseUrl": "./src",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/types": ["src/types/index.ts"]
+      "@/*": ["./*"]
     },
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
+    "declarationMap": false,
+    "emitDeclarationOnly": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "isolatedModules": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
-    "importHelpers": true
+    "importHelpers": true,
+    "composite": true
   },
-  "include": ["src"],
-  "exclude": ["**/*.test.ts"]
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
 }

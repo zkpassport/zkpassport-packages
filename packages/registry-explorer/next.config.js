@@ -1,3 +1,5 @@
+const path = require("path")
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config, {}) => {
@@ -13,6 +15,12 @@ const nextConfig = {
       test: /\.wasm$/,
       type: "asset/resource",
     })
+
+    // Add alias resolution for @zkpassport/utils package
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@zkpassport/utils": path.resolve(__dirname, "../zkpassport-utils/src"),
+    }
 
     return config
   },

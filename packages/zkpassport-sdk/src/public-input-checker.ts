@@ -479,7 +479,8 @@ export class PublicInputChecker {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
-    const today = new Date(
+    // TODO: Fix unused variable
+    const _today = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
       currentTime.getDate(),
@@ -615,7 +616,8 @@ export class PublicInputChecker {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
-    const today = new Date(
+    // TODO: Fix unused variable
+    const _today = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
       currentTime.getDate(),
@@ -737,7 +739,8 @@ export class PublicInputChecker {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
-    const today = new Date(
+    // TODO: Fix unused variable
+    const _today = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
       currentTime.getDate(),
@@ -1236,7 +1239,7 @@ export class PublicInputChecker {
     facematchCommittedInputs: FacematchCommittedInputs,
   ) {
     let isCorrect = true
-    let queryResultErrors: Partial<QueryResultErrors> = {}
+    const queryResultErrors: Partial<QueryResultErrors> = {}
     if (queryResult.facematch && queryResult.facematch.passed) {
       // Check if the root key is either from Apple (iOS) or Google (Android)
       if (

@@ -2,6 +2,7 @@ name: Publish ZKPassport SDK
 
 on:
   push:
+    branches: [main]
     paths:
       - packages/zkpassport-sdk/package.json
 
@@ -34,7 +35,7 @@ jobs:
 
       - name: Install system dependencies
         if: github.ref == 'refs/heads/main'
-        run: sudo apt-get update && sudo apt-get install -y lsof jq zsh
+        run: sudo apt-get update && sudo apt-get install -y lsof jq
 
       - name: Install Foundry
         if: github.ref == 'refs/heads/main'
@@ -42,10 +43,18 @@ jobs:
         with:
           version: v1.0.0
 
-      - name: Build contracts
+      - name: Setup Turbo cache
         if: github.ref == 'refs/heads/main'
-        run: forge build
-        working-directory: packages/registry-contracts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Build package
+        if: github.ref == 'refs/heads/main'
+        run: bun run build --filter=@zkpassport/sdk
 
       - name: Check if version is published to npm
         if: github.ref == 'refs/heads/main'

@@ -1,5 +1,5 @@
 import type { PackagedCertificate } from "@zkpassport/utils"
-import { countryCodeAlpha3ToName } from "@zkpassport/utils/country"
+import { countryCodeAlpha3ToName } from "@zkpassport/utils"
 import { formatTimestamp, truncate, isRSA, isECDSA } from "@/lib/certificate-utils"
 import { Button } from "@/components/ui/button"
 

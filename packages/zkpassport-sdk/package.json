@@ -6,24 +6,35 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/esm/index.js",
-  "types": "./dist/esm/index.d.ts",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     }
   },
   "scripts": {
+    "build": "bun run build:types && tsup --config tsup.config.ts",
+    "build:types": "tsc -b && ../../scripts/copy-dts.sh",
+    "dev:build": "DEV_BUILD=true bun run build",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test",
     "coverage": "bun test --coverage",
-    "check": "tsc --noEmit && prettier -c src tests",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
+    "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
-    "build": "tsup",
-    "prepublishOnly": "./scripts/prepublish.sh"
+    "prepublishOnly": "../../scripts/prepublish.sh"
   },
   "files": [
     "dist/esm",
-    "dist/cjs"
+    "dist/cjs",
+    "dist/types"
   ],
   "keywords": [
     "zkpassport",
@@ -41,6 +52,7 @@
     "buffer": "^6.0.3",
     "i18n-iso-countries": "^7.12.0",
     "pako": "^2.1.0",
+    "tslib": "^2.8.1",
     "viem": "^2.27.2",
     "ws": "^8.18.0"
   },
@@ -48,5 +60,8 @@
     "@types/pako": "^2.0.3",
     "@types/ws": "^8.5.12"
   },
-  "packageManager": "bun@1.2.13"
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "bun@1.3.1"
 }

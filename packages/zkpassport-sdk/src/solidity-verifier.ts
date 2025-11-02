@@ -73,8 +73,8 @@ export class SolidityVerifier {
       )
     }
     const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
-    let committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
-    let committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
+    const committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
+    const committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
     for (const key in proof.committedInputs) {
       const committedInputCount = getCommittedInputCount(key as DisclosureCircuitName)
       const circuitName = key as DisclosureCircuitName
@@ -193,7 +193,7 @@ export class SolidityVerifier {
       x.toString(16).padStart(64, "0"),
     )
     let compressedCommittedInputs = ""
-    let committedInputCountsArray = []
+    const committedInputCountsArray = []
     for (const commitment of parameterCommitments) {
       const committedInput = committedInputs.find((x) => {
         const rawHashedInputs = sha256(hexToBytes(x.inputs))

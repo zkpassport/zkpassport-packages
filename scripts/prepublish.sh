@@ -1,23 +1,22 @@
 #!/bin/bash
 
-# Prepublish checks for all packages
-# This script should be called from package prepublish hooks
+# Prepublish script for all TS lib packages
+# This script should only be called from package prepublish hooks
 
 set -e
 
-# Require bun publish
+# Ensure script is being run with `bun publish` (not `npm publish`)
 bun -e "process.env.npm_config_user_agent?.startsWith('bun/') || (console.error('ERROR: Must use bun publish'), process.exit(1))"
 
-# Check for prerelease version being published to 'latest' tag
-VERSION=$(node -p "require('./package.json').version")
-TAG="${npm_config_tag:-latest}"
+# Check for prerelease version accidentally being published to 'latest' tag
+../../scripts/check-prerelease-tag.sh
 
-if [[ "$VERSION" =~ -([a-zA-Z0-9]+) ]] && [[ "$TAG" == "latest" ]]; then
-  echo "ERROR: Attempting to publish prerelease version '$VERSION' to 'latest' tag"
-  echo "Prerelease versions should be published with an explicit tag, e.g.:"
-  echo "  bun publish --tag beta"
-  echo "  bun publish --tag alpha"
-  echo "  bun publish --tag next"
-  exit 1
-fi
+# Sync workspace dependencies
+(cd $(git rev-parse --show-toplevel) && scripts/sync-workspace-deps.sh)
 
+# Build and test all packages
+echo "📦 Building all packages..."
+(cd ../.. && bun run clean && bun run build && bun run check && bun run test)
+
+# Validate package
+../../scripts/validate-package.sh

@@ -1,23 +1,33 @@
 {
   "name": "zkpassport-packages",
   "version": "0.1.0",
-  "devDependencies": {
-    "@types/debug": "^4.1.12",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^24.0.13",
-    "prettier": "^3.6.2",
-    "rimraf": "^6.0.1",
-    "tsup": "^8.5.0"
-  },
-  "packageManager": "bun@1.2.13",
   "private": true,
   "scripts": {
-    "build": "bun run -F @zkpassport/utils build && bun run -F '*' build",
-    "test": "bun run -F '*' test",
-    "check": "bun run -F '*' check",
-    "format": "bun run -F '*' format"
+    "build": "turbo run build",
+    "build:types": "turbo run build:types",
+    "dev:build": "turbo run dev:build",
+    "test": "turbo run test",
+    "check": "turbo run check",
+    "format": "turbo run format",
+    "clean": "turbo run clean && rimraf node_modules/.cache"
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
+    "@types/debug": "^4.1.12",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.13",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.0",
+    "turbo": "^2.6.0",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "bun@1.3.1"
 }
