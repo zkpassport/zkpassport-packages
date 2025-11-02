@@ -107,7 +107,6 @@ function generalCompare(
   }
 }
 
-export type * from "@zkpassport/utils"
 export {
   SANCTIONED_COUNTRIES,
   EU_COUNTRIES,
@@ -115,6 +114,8 @@ export {
   SCHENGEN_COUNTRIES,
   ASEAN_COUNTRIES,
   MERCOSUR_COUNTRIES,
+  ProofType,
+  ProofTypeLength,
 } from "@zkpassport/utils"
 
 export * from "./types"

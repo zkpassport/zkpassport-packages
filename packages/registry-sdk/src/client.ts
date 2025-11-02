@@ -369,7 +369,7 @@ export class RegistryClient {
     }
     const rpcData = await response.json()
     if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    log(`Got latest circuit root!!!: ${rpcData.result}`)
+    log(`Got latest circuit root: ${rpcData.result}`)
     return rpcData.result
   }
 
@@ -621,7 +621,7 @@ export class RegistryClient {
       }
       return this._handleRootDetailsResponse(response)
     }
-    log("Getting latest circuit root details... <3")
+    log("Getting latest circuit root details")
     const response = await this.rpcRequest(
       this.registryHelper,
       GET_LATEST_ROOT_DETAILS_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
