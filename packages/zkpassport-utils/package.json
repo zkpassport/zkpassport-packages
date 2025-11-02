@@ -177,8 +177,8 @@
     }
   },
   "scripts": {
-    "types": "tsc -b && ../../scripts/copy-dts.sh",
-    "build": "bun run types && tsup --config tsup.config.ts",
+    "build": "bun run build:types && tsup --config tsup.config.ts",
+    "build:types": "tsc -b && ../../scripts/copy-dts.sh",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test src tests",

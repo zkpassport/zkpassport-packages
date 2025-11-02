@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
+    "build:types": "turbo run build:types",
     "dev:build": "turbo run dev:build",
     "test": "turbo run test",
     "check": "turbo run check",
@@ -25,7 +26,7 @@
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",
-    "turbo": "^2.5.8",
+    "turbo": "^2.6.0",
     "typescript": "^5.0.0"
   },
   "packageManager": "bun@1.2.13"
