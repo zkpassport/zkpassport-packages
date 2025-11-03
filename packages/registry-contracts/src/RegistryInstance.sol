@@ -42,13 +42,13 @@ contract RegistryInstance is IRegistryInstance {
     address public admin;
     address public oracle;
     bool public paused;
-    RootValidationMode public rootValidationMode;
-
     bytes32 public latestRoot;
     mapping(bytes32 => HistoricalRoot) public historicalRoots;
     uint256 public rootCount;
     mapping(uint256 => bytes32) public rootByIndex;
     mapping(bytes32 => uint256) public indexByRoot;
+    RootValidationMode public rootValidationMode;
+    uint256 public validityWindowSecs;
 
     event RegistryDeployed(address indexed admin, address indexed oracle, uint256 timestamp);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
@@ -57,6 +57,7 @@ contract RegistryInstance is IRegistryInstance {
     event RootUpdated(bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 timestamp, uint256 indexed rootIndex);
     event RootRevocationStatusChanged(bytes32 indexed root, bool revoked, uint256 timestamp);
     event RootValidationModeChanged(RootValidationMode indexed oldMode, RootValidationMode indexed newMode);
+    event ValidityWindowChanged(uint256 oldWindowSecs, uint256 newWindowSecs);
 
     /**
      * @dev Constructor
@@ -226,7 +227,7 @@ contract RegistryInstance is IRegistryInstance {
     /**
      * @dev Check if a root is valid
      * @param root The root to check
-     * @param timestamp The timestamp to check validity for (only used in TIMESTAMP_BASED mode)
+     * @param timestamp The timestamp to check validity for (used in VALID_AT_TIMESTAMP and VALID_WITHIN_WINDOW modes)
      * @return valid True if the root is valid
      */
     function isRootValid(bytes32 root, uint256 timestamp) external view returns (bool) {
@@ -243,23 +244,33 @@ contract RegistryInstance is IRegistryInstance {
         // LATEST_AND_PREVIOUS mode: check if root is either the latest or previous root
         else if (rootValidationMode == RootValidationMode.LATEST_AND_PREVIOUS) {
             // Return true if root is the latest root and is not revoked
-            if (latestRoot == root) {
-                return !historicalRoots[root].revoked;
-            }
+            if (latestRoot == root) return !historicalRoots[root].revoked;
             // Return true if root is the previous root (if it exists) and is not revoked
             if (rootCount >= 2) {
                 return rootByIndex[rootCount - 1] == root && !historicalRoots[root].revoked;
             }
             return false;
         }
-        // TIMESTAMP_BASED mode: check if root was valid at the given timestamp
-        else if (rootValidationMode == RootValidationMode.TIMESTAMP_BASED) {
+        // VALID_AT_TIMESTAMP mode: check if root was valid at the given timestamp
+        else if (rootValidationMode == RootValidationMode.VALID_AT_TIMESTAMP) {
             HistoricalRoot memory rootData = historicalRoots[root];
             // Return true if root was valid at the given timestamp and is not revoked
             return
                 timestamp >= rootData.validFrom &&
                 (rootData.validTo == 0 || timestamp <= rootData.validTo) &&
                 !rootData.revoked;
+        }
+        // VALID_WITHIN_WINDOW mode: check if root was valid within the last X seconds
+        else if (rootValidationMode == RootValidationMode.VALID_WITHIN_WINDOW) {
+            // Return true if root is the latest root and is not revoked
+            if (latestRoot == root) return !historicalRoots[root].revoked;
+            // For other roots, check if they were valid within the validity window
+            HistoricalRoot memory rootData = historicalRoots[root];
+            // Return false if revoked
+            if (rootData.revoked) return false;
+            // Check if root's validity period overlaps with [timestamp - validityWindowSecs, timestamp]
+            uint256 windowStart = timestamp - validityWindowSecs;
+            return rootData.validFrom <= timestamp && (rootData.validTo == 0 || rootData.validTo >= windowStart);
         }
         // Unknown mode: return false
         return false;
@@ -346,5 +357,15 @@ contract RegistryInstance is IRegistryInstance {
         RootValidationMode oldMode = rootValidationMode;
         rootValidationMode = newMode;
         emit RootValidationModeChanged(oldMode, newMode);
+    }
+
+    /**
+     * @dev Set the validity window for VALID_WITHIN_WINDOW validation mode
+     * @param newWindowSecs The new window in seconds
+     */
+    function setValidityWindow(uint256 newWindowSecs) external onlyAdmin {
+        uint256 oldWindowSecs = validityWindowSecs;
+        validityWindowSecs = newWindowSecs;
+        emit ValidityWindowChanged(oldWindowSecs, newWindowSecs);
     }
 }

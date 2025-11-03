@@ -559,11 +559,11 @@ contract CertificateRegistryTest is Test {
         // Check initial mode is LATEST_ONLY
         assertEq(uint256(registry.rootValidationMode()), uint256(IRegistryInstance.RootValidationMode.LATEST_ONLY));
 
-        // Admin changes mode to TIMESTAMP_BASED
+        // Admin changes mode to VALID_AT_TIMESTAMP
         vm.prank(admin);
-        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.VALID_AT_TIMESTAMP);
         assertEq(
-            uint256(registry.rootValidationMode()), uint256(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED)
+            uint256(registry.rootValidationMode()), uint256(IRegistryInstance.RootValidationMode.VALID_AT_TIMESTAMP)
         );
 
         // Admin changes mode to LATEST_AND_PREVIOUS
@@ -578,12 +578,12 @@ contract CertificateRegistryTest is Test {
         // User tries to set mode
         vm.prank(user);
         vm.expectRevert("Not authorized: admin only");
-        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.VALID_AT_TIMESTAMP);
 
         // Oracle tries to set mode
         vm.prank(oracle);
         vm.expectRevert("Not authorized: admin only");
-        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.VALID_AT_TIMESTAMP);
     }
 
     function testLatestAndPreviousModeWithSingleRoot() public {
@@ -672,9 +672,9 @@ contract CertificateRegistryTest is Test {
         assertTrue(registry.isRootValid(testRoot2, block.timestamp)); // Previous
         assertFalse(registry.isRootValid(testRoot1, block.timestamp)); // Older
 
-        // Switch to TIMESTAMP_BASED mode
+        // Switch to VALID_AT_TIMESTAMP mode
         vm.prank(admin);
-        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.VALID_AT_TIMESTAMP);
         // Only testRoot3 should be valid at the current timestamp because it's the latest
         assertTrue(registry.isRootValid(testRoot3, block.timestamp));
         // testRoot2 and testRoot1 are not valid at current timestamp because their validTo has passed
@@ -773,9 +773,109 @@ contract CertificateRegistryTest is Test {
         assertFalse(registry.isRootValid(testRoot2, block.timestamp)); // Previous but revoked
         assertTrue(registry.isRootValid(testRoot3, block.timestamp)); // Latest is not revoked
 
-        // In TIMESTAMP_BASED mode, testRoot2 should be invalid (revoked)
+        // In VALID_AT_TIMESTAMP mode, testRoot2 should be invalid (revoked)
         vm.prank(admin);
-        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.VALID_AT_TIMESTAMP);
         assertFalse(registry.isRootValid(testRoot2, block.timestamp)); // Revoked
+    }
+
+    function testValidWithinWindowMode() public {
+        // Set up a validity window of 300 seconds (5 minutes) and set mode to VALID_WITHIN_WINDOW
+        uint256 windowSize = 300;
+        vm.prank(admin);
+        registry.setValidityWindow(windowSize);
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.VALID_WITHIN_WINDOW);
+
+        // Time tracking
+        uint256 t0 = block.timestamp; // Start at 1000
+
+        // Create first root at t0 (valid from t0 to t1-1)
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+
+        // Create second root at t0 + 200 (valid from t0+200 to t2-1)
+        uint256 t1 = t0 + 200;
+        vm.warp(t1);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+
+        // Create third root at t0 + 500 (valid from t0+500 onwards, this is the latest)
+        uint256 t2 = t0 + 500;
+        vm.warp(t2);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+
+        // Move to t0 + 700 for testing
+        uint256 testTime = t0 + 700;
+        vm.warp(testTime);
+
+        // At testTime (t0 + 700), window is [testTime - 300, testTime] = [t0 + 400, t0 + 700]
+        // testRoot1: validFrom=t0=1000, validTo=t1-1=1199
+        //   - Root ended at t0+199, which is before window start (t0+400)
+        //   - Should be INVALID (outside window)
+        assertFalse(registry.isRootValid(testRoot1, testTime), "testRoot1 should be invalid (ended before window)");
+
+        // testRoot2: validFrom=t1=1200, validTo=t2-1=1499
+        //   - Root valid from t0+200 to t0+499
+        //   - Window is [t0+400, t0+700]
+        //   - Overlap: [t0+400, t0+499]
+        //   - Should be VALID (overlaps with window)
+        assertTrue(registry.isRootValid(testRoot2, testTime), "testRoot2 should be valid (overlaps with window)");
+
+        // testRoot3: validFrom=t2=1500, validTo=0 (latest root)
+        //   - Latest root should always be valid (ignoring window)
+        assertTrue(registry.isRootValid(testRoot3, testTime), "testRoot3 should be valid (latest root)");
+
+        // Test at a later time where even testRoot2 falls outside the window
+        uint256 laterTime = t0 + 10000; // Window: [t0+700, t0+10000]
+        vm.warp(laterTime);
+
+        // testRoot1: validTo = t0+199, window start = t0+700
+        //   - Ended way before window
+        //   - Should be INVALID
+        assertFalse(registry.isRootValid(testRoot1, laterTime), "testRoot1 should be invalid at later time");
+
+        // testRoot2: validTo = t0+499, window start = t0+700
+        //   - Ended before window start
+        //   - Should be INVALID
+        assertFalse(registry.isRootValid(testRoot2, laterTime), "testRoot2 should be invalid (ended before window)");
+
+        // testRoot3: latest root
+        //   - Should still be VALID
+        assertTrue(registry.isRootValid(testRoot3, laterTime), "testRoot3 should still be valid (latest root)");
+
+        // Test revocation: revoke testRoot2 and check it's invalid even within its window
+        uint256 midTime = t0 + 450; // Window: [t0+150, t0+450], testRoot2 should normally be valid here
+        vm.warp(midTime);
+
+        // Before revocation, testRoot2 should be valid
+        assertTrue(registry.isRootValid(testRoot2, midTime), "testRoot2 should be valid before revocation");
+
+        // Revoke testRoot2
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot2, true);
+
+        // After revocation, testRoot2 should be invalid even though it's within the window
+        assertFalse(registry.isRootValid(testRoot2, midTime), "testRoot2 should be invalid after revocation");
+
+        // Test that revoked latest root is also invalid
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot3, true);
+        assertFalse(registry.isRootValid(testRoot3, laterTime), "testRoot3 should be invalid when revoked");
+
+        // Test edge case: root's validTo is exactly at window start
+        // Create testRoot2 again (unrevoke it first for clarity)
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot2, false);
+
+        // At time where validTo of testRoot2 (t0+499) equals window start (timestamp - 300)
+        // timestamp = t0 + 499 + 300 = t0 + 799
+        uint256 edgeTime = t0 + 799;
+        vm.warp(edgeTime);
+        // Window: [t0+499, t0+799]
+        // testRoot2 validTo: t0+499
+        // validTo (t0+499) >= windowStart (t0+499) should be true
+        assertTrue(registry.isRootValid(testRoot2, edgeTime), "testRoot2 should be valid when validTo equals window start");
     }
 }
