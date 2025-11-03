@@ -57,6 +57,21 @@ contract RootRegistry {
         emit RegistryUpdated(registryId, address(oldInstance), address(instance));
     }
 
+    /**
+     * @dev Delete a registry
+     * @param registryId The registry identifier to delete
+     */
+    function deleteRegistry(bytes32 registryId) external onlyAdmin whenNotPaused {
+        IRegistryInstance oldInstance = registries[registryId];
+        require(address(oldInstance) != address(0), "Registry does not exist");
+        delete registries[registryId];
+        emit RegistryUpdated(registryId, address(oldInstance), address(0));
+    }
+
+    /**
+     * @dev Transfer the admin role to a new address
+     * @param newAdmin The new admin address
+     */
     function transferAdmin(address newAdmin) external onlyAdmin {
         require(newAdmin != address(0), "Admin cannot be zero address");
         address oldAdmin = admin;
@@ -64,6 +79,10 @@ contract RootRegistry {
         emit AdminUpdated(oldAdmin, newAdmin);
     }
 
+    /**
+     * @dev Set the paused state of the contract
+     * @param _paused True to pause the contract, false to unpause
+     */
     function setPaused(bool _paused) external onlyAdmin {
         paused = _paused;
         emit PausedStatusChanged(_paused);
@@ -73,9 +92,10 @@ contract RootRegistry {
      * @dev Check if a root is valid for a specific registry
      * @param registryId The registry identifier
      * @param root The root to check
+     * @param timestamp The timestamp to check validity for (how this is validated depends on the registry's validation mode)
      * @return valid True if the root is valid
      */
-    function isRootValid(bytes32 registryId, bytes32 root) external view returns (bool) {
+    function isRootValid(bytes32 registryId, bytes32 root, uint256 timestamp) external view returns (bool) {
         // Return false if contract is paused
         if (paused) return false;
 
@@ -83,7 +103,7 @@ contract RootRegistry {
         if (address(registries[registryId]) == address(0)) return false;
 
         // Call isRootValid on registry instance
-        try IRegistryInstance(registries[registryId]).isRootValid(root) returns (bool valid) {
+        try IRegistryInstance(registries[registryId]).isRootValid(root, timestamp) returns (bool valid) {
             return valid;
         } catch {
             return false;
@@ -102,7 +122,7 @@ contract RootRegistry {
         // Return bytes32(0) if registry with this identifier doesn't exist
         if (address(registries[registryId]) == address(0)) return bytes32(0);
 
-        // Call latestRoot on registry instance
+        // Return the latest root from the registry instance
         try IRegistryInstance(registries[registryId]).latestRoot() returns (bytes32 root) {
             return root;
         } catch {

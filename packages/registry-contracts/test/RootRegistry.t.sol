@@ -11,7 +11,7 @@ contract MockRegistry is IRegistryInstance {
         shouldReturnValid = _shouldReturnValid;
     }
 
-    function isRootValid(bytes32) external view returns (bool) {
+    function isRootValid(bytes32, uint256) external view returns (bool) {
         return shouldReturnValid;
     }
 
@@ -46,6 +46,10 @@ contract MockRegistry is IRegistryInstance {
     {
         return (0, 0, false, 0, keccak256("test-root"), bytes32(0), bytes32(0), bytes32(0));
     }
+
+    function rootValidationMode() external pure returns (RootValidationMode) {
+        return RootValidationMode.LATEST_ONLY;
+    }
 }
 
 contract RootRegistryTest is Test {
@@ -56,9 +60,9 @@ contract RootRegistryTest is Test {
     address public admin = address(1);
     address public user = address(2);
 
-    bytes32 public certificateRegistryId = keccak256("zkpassport-certificate-registry");
-    bytes32 public circuitRegistryId = keccak256("zkpassport-circuit-registry");
-    bytes32 public testRoot = keccak256("test-root");
+    bytes32 public constant certificateRegistryId = keccak256("zkpassport-certificate-registry");
+    bytes32 public constant circuitRegistryId = keccak256("zkpassport-circuit-registry");
+    bytes32 public constant testRoot = keccak256("test-root");
 
     function setUp() public {
         vm.prank(admin);
@@ -165,14 +169,14 @@ contract RootRegistryTest is Test {
 
         // Admin updates registry to zero address to delete the mapping
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(0)));
+        registry.deleteRegistry(certificateRegistryId);
 
         // Check that registry address was updated to zero (deleted)
         assertEq(address(registry.registries(certificateRegistryId)), address(0));
 
         // Verify that isRootValid returns false for the deleted registry
         // This behavior should be the same as for a non-existent registry
-        assertFalse(registry.isRootValid(certificateRegistryId, testRoot));
+        assertFalse(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
     }
 
     function testIsRootValid() public {
@@ -181,14 +185,14 @@ contract RootRegistryTest is Test {
         registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid
-        assertTrue(registry.isRootValid(certificateRegistryId, testRoot));
+        assertTrue(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
 
         // Update registry to invalid mock
         vm.prank(admin);
         registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
 
         // Check that root is now invalid
-        assertFalse(registry.isRootValid(certificateRegistryId, testRoot));
+        assertFalse(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
     }
 
     function testIsRootValidWithNonExistentRegistry() public view {
@@ -196,7 +200,7 @@ contract RootRegistryTest is Test {
         bytes32 nonExistentRegistryId = keccak256("non-existent-registry");
 
         // Check that root is invalid for non-existent registry
-        assertFalse(registry.isRootValid(nonExistentRegistryId, testRoot));
+        assertFalse(registry.isRootValid(nonExistentRegistryId, testRoot, block.timestamp));
     }
 
     function testIsRootValidWhenPaused() public {
@@ -205,14 +209,14 @@ contract RootRegistryTest is Test {
         registry.updateRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid
-        assertTrue(registry.isRootValid(certificateRegistryId, testRoot));
+        assertTrue(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
 
         // Pause the contract
         vm.prank(admin);
         registry.setPaused(true);
 
         // Check that root is now invalid
-        assertFalse(registry.isRootValid(certificateRegistryId, testRoot));
+        assertFalse(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
     }
 
     function testIsRootValidAtTimestamp() public {
@@ -311,14 +315,14 @@ contract RootRegistryTest is Test {
         vm.stopPrank();
 
         // Check that roots are valid/invalid as expected
-        assertTrue(registry.isRootValid(certificateRegistryId, testRoot));
-        assertFalse(registry.isRootValid(circuitRegistryId, testRoot));
+        assertTrue(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
+        assertFalse(registry.isRootValid(circuitRegistryId, testRoot, block.timestamp));
 
         // Update mockInvalidRegistry to return valid
         mockInvalidRegistry.setShouldReturnValid(true);
 
         // Check that roots are now both valid
-        assertTrue(registry.isRootValid(certificateRegistryId, testRoot));
-        assertTrue(registry.isRootValid(circuitRegistryId, testRoot));
+        assertTrue(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
+        assertTrue(registry.isRootValid(circuitRegistryId, testRoot, block.timestamp));
     }
 }

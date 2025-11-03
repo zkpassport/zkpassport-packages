@@ -42,6 +42,7 @@ contract RegistryInstance is IRegistryInstance {
     address public admin;
     address public oracle;
     bool public paused;
+    RootValidationMode public rootValidationMode;
 
     bytes32 public latestRoot;
     mapping(bytes32 => HistoricalRoot) public historicalRoots;
@@ -54,11 +55,12 @@ contract RegistryInstance is IRegistryInstance {
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
     event PausedStatusChanged(bool paused);
     event RootUpdated(bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 timestamp, uint256 indexed rootIndex);
-    event RootRevoked(bytes32 indexed root, uint256 timestamp);
-    event RootUnrevoked(bytes32 indexed root, uint256 timestamp);
+    event RootRevocationStatusChanged(bytes32 indexed root, bool revoked, uint256 timestamp);
+    event RootValidationModeChanged(RootValidationMode indexed oldMode, RootValidationMode indexed newMode);
 
     /**
      * @dev Constructor
+     * @param _admin The initial admin address
      * @param _oracle The initial oracle address
      */
     constructor(address _admin, address _oracle) {
@@ -66,6 +68,7 @@ contract RegistryInstance is IRegistryInstance {
         require(_oracle != address(0), "Oracle cannot be zero address");
         admin = _admin;
         oracle = _oracle;
+        rootValidationMode = RootValidationMode.LATEST_ONLY;
         emit RegistryDeployed(admin, oracle, block.timestamp);
     }
 
@@ -221,20 +224,38 @@ contract RegistryInstance is IRegistryInstance {
     }
 
     /**
-     * @dev Check if a root is valid (i.e. is the latest root)
+     * @dev Check if a root is valid
      * @param root The root to check
+     * @param timestamp The timestamp to check validity for (only used in TIMESTAMP_BASED mode)
      * @return valid True if the root is valid
      */
-    function isRootValid(bytes32 root) external view returns (bool) {
+    function isRootValid(bytes32 root, uint256 timestamp) external view returns (bool) {
         // Return false if contract is paused
         if (paused) {
             return false;
         }
-        // Return true if the root is the latest root
-        if (latestRoot == root) {
-            return true;
+
+        if (rootValidationMode == RootValidationMode.LATEST_ONLY) {
+            // Return true if the root is the latest root
+            if (latestRoot == root) {
+                return true;
+            }
+            return false;
+        } else {
+            // TIMESTAMP_BASED mode: check if root was valid at the given timestamp
+            // Check if root exists
+            if (indexByRoot[root] == 0) {
+                return false; // Root doesn't exist
+            }
+
+            HistoricalRoot memory rootData = historicalRoots[root];
+
+            // Check validity period
+            bool withinValidPeriod =
+                timestamp >= rootData.validFrom && (rootData.validTo == 0 || timestamp <= rootData.validTo);
+
+            return !rootData.revoked && withinValidPeriod;
         }
-        return false;
     }
 
     /**
@@ -275,12 +296,7 @@ contract RegistryInstance is IRegistryInstance {
         // Only emit event if status is changing
         if (historicalRoots[root].revoked != revoked) {
             historicalRoots[root].revoked = revoked;
-
-            if (revoked) {
-                emit RootRevoked(root, block.timestamp);
-            } else {
-                emit RootUnrevoked(root, block.timestamp);
-            }
+            emit RootRevocationStatusChanged(root, revoked, block.timestamp);
         }
     }
 
@@ -313,5 +329,15 @@ contract RegistryInstance is IRegistryInstance {
     function setPaused(bool _paused) external onlyAdmin {
         paused = _paused;
         emit PausedStatusChanged(_paused);
+    }
+
+    /**
+     * @dev Set the root validation mode
+     * @param newMode The new validation mode
+     */
+    function setRootValidationMode(RootValidationMode newMode) external onlyAdmin {
+        RootValidationMode oldMode = rootValidationMode;
+        rootValidationMode = newMode;
+        emit RootValidationModeChanged(oldMode, newMode);
     }
 }
