@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request_target:
     types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
 
 # Cancel in-progress runs when a new workflow with the same group name is triggered
 concurrency:
