@@ -231,31 +231,38 @@ contract RegistryInstance is IRegistryInstance {
      */
     function isRootValid(bytes32 root, uint256 timestamp) external view returns (bool) {
         // Return false if contract is paused
-        if (paused) {
-            return false;
-        }
+        if (paused) return false;
+        // Return false if root doesn't exist
+        if (indexByRoot[root] == 0) return false; // Root doesn't exist
 
+        // LATEST_ONLY mode: check if root is the latest root
         if (rootValidationMode == RootValidationMode.LATEST_ONLY) {
-            // Return true if the root is the latest root
+            // Return true if root is the latest root and is not revoked
+            return latestRoot == root && !historicalRoots[root].revoked;
+        }
+        // LATEST_AND_PREVIOUS mode: check if root is either the latest or previous root
+        else if (rootValidationMode == RootValidationMode.LATEST_AND_PREVIOUS) {
+            // Return true if root is the latest root and is not revoked
             if (latestRoot == root) {
-                return true;
+                return !historicalRoots[root].revoked;
+            }
+            // Return true if root is the previous root (if it exists) and is not revoked
+            if (rootCount >= 2) {
+                return rootByIndex[rootCount - 1] == root && !historicalRoots[root].revoked;
             }
             return false;
-        } else {
-            // TIMESTAMP_BASED mode: check if root was valid at the given timestamp
-            // Check if root exists
-            if (indexByRoot[root] == 0) {
-                return false; // Root doesn't exist
-            }
-
-            HistoricalRoot memory rootData = historicalRoots[root];
-
-            // Check validity period
-            bool withinValidPeriod =
-                timestamp >= rootData.validFrom && (rootData.validTo == 0 || timestamp <= rootData.validTo);
-
-            return !rootData.revoked && withinValidPeriod;
         }
+        // TIMESTAMP_BASED mode: check if root was valid at the given timestamp
+        else if (rootValidationMode == RootValidationMode.TIMESTAMP_BASED) {
+            HistoricalRoot memory rootData = historicalRoots[root];
+            // Return true if root was valid at the given timestamp and is not revoked
+            return
+                timestamp >= rootData.validFrom &&
+                (rootData.validTo == 0 || timestamp <= rootData.validTo) &&
+                !rootData.revoked;
+        }
+        // Unknown mode: return false
+        return false;
     }
 
     /**

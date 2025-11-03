@@ -2,6 +2,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/CertificateRegistry.sol";
+import "../src/IRegistryInstance.sol";
 
 contract CertificateRegistryTest is Test {
     CertificateRegistry public registry;
@@ -552,5 +553,229 @@ contract CertificateRegistryTest is Test {
         vm.prank(oracle);
         vm.expectRevert("Contract is paused");
         registry.setRevocationStatus(testRoot1, true);
+    }
+
+    function testSetRootValidationMode() public {
+        // Check initial mode is LATEST_ONLY
+        assertEq(uint256(registry.rootValidationMode()), uint256(IRegistryInstance.RootValidationMode.LATEST_ONLY));
+
+        // Admin changes mode to TIMESTAMP_BASED
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        assertEq(
+            uint256(registry.rootValidationMode()), uint256(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED)
+        );
+
+        // Admin changes mode to LATEST_AND_PREVIOUS
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS);
+        assertEq(
+            uint256(registry.rootValidationMode()), uint256(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS)
+        );
+    }
+
+    function testOnlyAdminCanSetRootValidationMode() public {
+        // User tries to set mode
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin only");
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+
+        // Oracle tries to set mode
+        vm.prank(oracle);
+        vm.expectRevert("Not authorized: admin only");
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+    }
+
+    function testLatestAndPreviousModeWithSingleRoot() public {
+        // Set mode to LATEST_AND_PREVIOUS
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS);
+
+        // Set initial root
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+
+        // Only the latest root should be valid
+        assertTrue(registry.isRootValid(testRoot1, block.timestamp));
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp));
+    }
+
+    function testLatestAndPreviousModeWithTwoRoots() public {
+        // Set mode to LATEST_AND_PREVIOUS
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS);
+
+        // Set first root
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+
+        // Move time forward
+        vm.warp(block.timestamp + 100);
+
+        // Set second root
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+
+        // Both latest (testRoot2) and previous (testRoot1) should be valid
+        assertTrue(registry.isRootValid(testRoot2, block.timestamp)); // Latest
+        assertTrue(registry.isRootValid(testRoot1, block.timestamp)); // Previous
+        assertFalse(registry.isRootValid(testRoot3, block.timestamp)); // Non-existent
+    }
+
+    function testLatestAndPreviousModeWithThreeRoots() public {
+        // Set mode to LATEST_AND_PREVIOUS
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS);
+
+        // Set first root
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+
+        // Move time forward and set second root
+        vm.warp(block.timestamp + 100);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+
+        // Move time forward and set third root
+        vm.warp(block.timestamp + 100);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+
+        // Only latest (testRoot3) and previous (testRoot2) should be valid
+        assertTrue(registry.isRootValid(testRoot3, block.timestamp)); // Latest
+        assertTrue(registry.isRootValid(testRoot2, block.timestamp)); // Previous
+        assertFalse(registry.isRootValid(testRoot1, block.timestamp)); // Older than previous
+    }
+
+    function testLatestAndPreviousModeSwitchingBehavior() public {
+        // Set three roots
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        vm.warp(block.timestamp + 100);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        vm.warp(block.timestamp + 100);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+
+        // In LATEST_ONLY mode, only testRoot3 should be valid
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_ONLY);
+        assertTrue(registry.isRootValid(testRoot3, block.timestamp));
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp));
+        assertFalse(registry.isRootValid(testRoot1, block.timestamp));
+
+        // Switch to LATEST_AND_PREVIOUS mode
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS);
+        assertTrue(registry.isRootValid(testRoot3, block.timestamp)); // Latest
+        assertTrue(registry.isRootValid(testRoot2, block.timestamp)); // Previous
+        assertFalse(registry.isRootValid(testRoot1, block.timestamp)); // Older
+
+        // Switch to TIMESTAMP_BASED mode
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        // Only testRoot3 should be valid at the current timestamp because it's the latest
+        assertTrue(registry.isRootValid(testRoot3, block.timestamp));
+        // testRoot2 and testRoot1 are not valid at current timestamp because their validTo has passed
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp));
+        assertFalse(registry.isRootValid(testRoot1, block.timestamp));
+    }
+
+    function testLatestAndPreviousModeWithNoRoots() public view {
+        // Set mode to LATEST_AND_PREVIOUS (mode doesn't matter when there are no roots)
+        // No roots have been set
+        // All roots should be invalid
+        assertFalse(registry.isRootValid(testRoot1, block.timestamp));
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp));
+    }
+
+    function testRevokedRootInLatestOnlyMode() public {
+        // Set mode to LATEST_ONLY
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_ONLY);
+
+        // Set initial root
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+
+        // Verify root is valid
+        assertTrue(registry.isRootValid(testRoot1, block.timestamp));
+
+        // Revoke the root
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot1, true);
+
+        // Verify root is no longer valid even though it's the latest
+        assertFalse(registry.isRootValid(testRoot1, block.timestamp));
+    }
+
+    function testRevokedRootInLatestAndPreviousMode() public {
+        // Set mode to LATEST_AND_PREVIOUS
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS);
+
+        // Set first root
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+
+        // Move time forward and set second root
+        vm.warp(block.timestamp + 100);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+
+        // Both roots should be valid
+        assertTrue(registry.isRootValid(testRoot2, block.timestamp)); // Latest
+        assertTrue(registry.isRootValid(testRoot1, block.timestamp)); // Previous
+
+        // Revoke the latest root
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot2, true);
+
+        // Latest root should now be invalid
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp));
+        // Previous root should still be valid
+        assertTrue(registry.isRootValid(testRoot1, block.timestamp));
+
+        // Revoke the previous root as well
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot1, true);
+
+        // Both roots should now be invalid
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp));
+        assertFalse(registry.isRootValid(testRoot1, block.timestamp));
+    }
+
+    function testRevokedRootInAllModes() public {
+        // Set three roots
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        vm.warp(block.timestamp + 100);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        vm.warp(block.timestamp + 100);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+
+        // Revoke testRoot2
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot2, true);
+
+        // In LATEST_ONLY mode, testRoot2 should be invalid (not latest + revoked)
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_ONLY);
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp));
+        assertTrue(registry.isRootValid(testRoot3, block.timestamp)); // Latest is not revoked
+
+        // In LATEST_AND_PREVIOUS mode, testRoot2 should be invalid (is previous but revoked)
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.LATEST_AND_PREVIOUS);
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp)); // Previous but revoked
+        assertTrue(registry.isRootValid(testRoot3, block.timestamp)); // Latest is not revoked
+
+        // In TIMESTAMP_BASED mode, testRoot2 should be invalid (revoked)
+        vm.prank(admin);
+        registry.setRootValidationMode(IRegistryInstance.RootValidationMode.TIMESTAMP_BASED);
+        assertFalse(registry.isRootValid(testRoot2, block.timestamp)); // Revoked
     }
 }

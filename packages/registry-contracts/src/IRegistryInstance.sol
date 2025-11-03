@@ -16,6 +16,7 @@ pragma solidity ^0.8.20;
 interface IRegistryInstance {
     enum RootValidationMode {
         LATEST_ONLY,
+        LATEST_AND_PREVIOUS,
         TIMESTAMP_BASED
     }
     function latestRoot() external view returns (bytes32);
