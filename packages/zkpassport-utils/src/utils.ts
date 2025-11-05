@@ -247,30 +247,43 @@ export function stringToAsciiStringArray(str: string): string[] {
 }
 
 export function getIdFromChain(chain: SupportedChain): number {
-  if (chain === "ethereum_sepolia") {
-    return 11155111
-  } else if (chain === "local_anvil") {
-    return 31337
+  switch (chain) {
+    case "ethereum":
+      return 1
+    case "ethereum_sepolia":
+      return 11155111
+    case "local":
+      // Default chain id used by Anvil
+      return 31337
+    default:
+      throw new Error(`Unsupported chain: ${chain}`)
   }
-  throw new Error(`Unsupported chain: ${chain}`)
 }
 
 export function getChainFromId(chainId: number): SupportedChain {
-  if (chainId === 11155111) {
-    return "ethereum_sepolia"
-  } else if (chainId === 31337) {
-    return "local_anvil"
+  switch (chainId) {
+    case 1:
+      return "ethereum"
+    case 11155111:
+      return "ethereum_sepolia"
+    case 31337:
+      return "local"
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`)
   }
-  throw new Error(`Unsupported chain ID: ${chainId}`)
 }
 
 export function getChainDisplayName(chain: SupportedChain): string {
-  if (chain === "ethereum_sepolia") {
-    return "Ethereum Sepolia"
-  } else if (chain === "local_anvil") {
-    return "Anvil (local)"
+  switch (chain) {
+    case "ethereum":
+      return "Ethereum"
+    case "ethereum_sepolia":
+      return "Ethereum Sepolia"
+    case "local":
+      return "Local"
+    default:
+      throw new Error(`Unsupported chain: ${chain}`)
   }
-  throw new Error(`Unsupported chain: ${chain}`)
 }
 
 export function areDatesEqual(date1: Date | string | number, date2: Date | string | number) {

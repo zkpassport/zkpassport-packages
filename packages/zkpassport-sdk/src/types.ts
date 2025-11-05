@@ -49,10 +49,6 @@ export type SolidityProofVerificationData = {
   publicInputs: string[]
 }
 
-export type SolidityCommitments = {
-  committedInputs: string
-}
-
 export type SolidityServiceConfig = {
   validityPeriodInSeconds: number
   domain: string
@@ -61,8 +57,9 @@ export type SolidityServiceConfig = {
 }
 
 export type SolidityVerifierParameters = {
+  version: string
   proofVerificationData: SolidityProofVerificationData
-  commitments: SolidityCommitments
+  committedInputs: string
   serviceConfig: SolidityServiceConfig
 }
 

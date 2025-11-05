@@ -25,7 +25,20 @@ import { sha256 } from "@noble/hashes/sha2"
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 
+const NETWORK_TO_ADDRESS: Record<SupportedChain, `0x${string}`> = {
+  ethereum: "0x0",
+  ethereum_sepolia: "0x0b05F45ff2F431a136eE8e708458286eC02b0d00",
+  local: "0x0",
+}
+
 export class SolidityVerifier {
+  /**
+   * Get the details for the Solidity verifier contract for a given network.
+   * Rather than using the chain id directly, we restrict to the actual networks
+   * supported by ZKPassport.
+   * @param network The network to get the details for
+   * @returns The address, function name, and ABI for the verifier contract
+   */
   public static getDetails(network: SupportedChain): {
     address: `0x${string}`
     functionName: string
@@ -37,23 +50,29 @@ export class SolidityVerifier {
     }[]
   } {
     const baseConfig = {
-      functionName: "verifyProof",
+      functionName: "verify",
       abi: ZKPassportVerifierAbi.abi as any,
     }
-    if (network === "ethereum_sepolia") {
-      return {
-        ...baseConfig,
-        address: "0x0b05F45ff2F431a136eE8e708458286eC02b0d00",
-      }
-    } else if (network === "local_anvil") {
-      return {
-        ...baseConfig,
-        address: "0x0",
-      }
+    if (!NETWORK_TO_ADDRESS[network]) {
+      throw new Error(`Unsupported network: ${network}`)
     }
-    throw new Error(`Unsupported network: ${network}`)
+    return {
+      ...baseConfig,
+      address: NETWORK_TO_ADDRESS[network],
+    }
   }
 
+  /**
+   * Format the proof for the Solidity verifier contract.
+   * @param proof The proof to format
+   * @param validityPeriodInSeconds The validity period in seconds
+   * @param domain The domain to use for the service config
+   * @param scope The scope to use for the service config
+   * @param devMode Whether to use the dev mode
+   * Note that on mainnets, the dev mode will be ignored as verification
+   * will always fail for mock passports. It only applies to testnets.
+   * @returns The parameters for the Solidity verifier contract
+   */
   public static getParameters({
     proof,
     validityPeriodInSeconds = DEFAULT_VALIDITY,
@@ -224,15 +243,16 @@ export class SolidityVerifier {
       }
     }
     const params: SolidityVerifierParameters = {
+      // TODO: Settle on which versioning format to pass
+      // depending on the actual circuit version
+      version: proof.version!,
       proofVerificationData: {
         // Make sure the vkeyHash is 32 bytes
         vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
         proof: `0x${proofData.proof.join("")}`,
         publicInputs: proofData.publicInputs,
       },
-      commitments: {
-        committedInputs: `0x${compressedCommittedInputs}`,
-      },
+      committedInputs: `0x${compressedCommittedInputs}`,
       serviceConfig: {
         validityPeriodInSeconds,
         domain,

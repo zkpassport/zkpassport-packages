@@ -311,7 +311,7 @@ export type FacematchCommittedInputs = {
   mode: FacematchMode
 }
 
-export type SupportedChain = "ethereum_sepolia" | "local_anvil"
+export type SupportedChain = "ethereum" | "ethereum_sepolia" | "local"
 
 export type BoundData = {
   user_address?: string
