@@ -15,7 +15,7 @@ import {
   getDocumentNumberRange,
   getFirstNameRange,
   getFullNameRange,
-  getNationalityRange,
+  getNationality,
   getSecondNameRange,
   getThirdNameRange,
 } from "@/passport/getters"
@@ -218,9 +218,7 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   const documentNumberBytes = stringToAsciiStringArray(
     passport.mrz.slice(...getDocumentNumberRange(passport)),
   )
-  const nationalityBytes = stringToAsciiStringArray(
-    passport.mrz.slice(...getNationalityRange(passport)),
-  )
+  const nationalityBytes = stringToAsciiStringArray(getNationality(passport))
 
   const name1AndDOBBytes = [...name1Bytes, ...dateOfBirthBytes]
   const name1AndYobBytes = [...name1Bytes, ...dateOfBirthBytes.slice(0, 2)]

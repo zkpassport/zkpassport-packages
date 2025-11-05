@@ -60,6 +60,15 @@ export function getNationalityRange(passport: PassportViewModel): [number, numbe
   return [isIDCard ? 45 : 54, isIDCard ? 48 : 57]
 }
 
+export function getNationality(passport: PassportViewModel): string {
+  const mrz = passport?.mrz
+  const countryCode = mrz.slice(...getNationalityRange(passport))
+  if (countryCode === "D<<") {
+    return "DEU"
+  }
+  return countryCode
+}
+
 export function getExpiryDateRange(passport: PassportViewModel): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
