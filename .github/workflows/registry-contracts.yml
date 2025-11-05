@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    name: Tests
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
