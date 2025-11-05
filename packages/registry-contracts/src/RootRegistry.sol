@@ -17,27 +17,36 @@ import "./IRegistryInstance.sol";
  */
 contract RootRegistry {
     address public admin;
+    address public guardian;
     bool public paused;
 
     // Registry mapping: registry identifier => registry contract address
     mapping(bytes32 registryId => IRegistryInstance instance) public registries;
 
+    // Events
+    event RootRegistryDeployed(address indexed admin, address indexed guardian);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
-    event PausedStatusChanged(bool paused);
+    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     event RegistryUpdated(bytes32 indexed registry, address indexed oldAddress, address indexed newAddress);
-    event RootRegistryDeployed(address indexed admin, uint256 timestamp);
+    event PausedStatusChanged(bool paused);
 
     /**
      * @dev Constructor
      */
-    constructor(address _admin) {
+    constructor(address _admin, address _guardian) {
         require(_admin != address(0), "Admin cannot be zero address");
         admin = _admin;
-        emit RootRegistryDeployed(admin, block.timestamp);
+        guardian = _guardian;
+        emit RootRegistryDeployed(admin, guardian);
     }
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Not authorized: admin only");
+        _;
+    }
+
+    modifier onlyGuardian() {
+        require(msg.sender == guardian, "Not authorized: guardian only");
         _;
     }
 
@@ -80,12 +89,42 @@ contract RootRegistry {
     }
 
     /**
+     * @dev Transfer the guardian role to a new address
+     * @param newGuardian The new guardian address
+     */
+    function transferGuardian(address newGuardian) external onlyAdmin {
+        address oldGuardian = guardian;
+        guardian = newGuardian;
+        emit GuardianUpdated(oldGuardian, newGuardian);
+    }
+
+    /**
      * @dev Set the paused state of the contract
      * @param _paused True to pause the contract, false to unpause
      */
-    function setPaused(bool _paused) external onlyAdmin {
+    function setPaused(bool _paused) external onlyGuardian {
         paused = _paused;
         emit PausedStatusChanged(_paused);
+    }
+
+    /**
+     * @dev Get the latest root for a specific registry
+     * @param registryId The registry identifier
+     * @return root The latest root, or bytes32(0) if registry doesn't exist or call fails
+     */
+    function latestRoot(bytes32 registryId) external view returns (bytes32) {
+        // Return bytes32(0) if contract is paused
+        if (paused) return bytes32(0);
+
+        // Return bytes32(0) if registry with this identifier doesn't exist
+        if (address(registries[registryId]) == address(0)) return bytes32(0);
+
+        // Return the latest root from the registry instance
+        try IRegistryInstance(registries[registryId]).latestRoot() returns (bytes32 root) {
+            return root;
+        } catch {
+            return bytes32(0);
+        }
     }
 
     /**
@@ -107,26 +146,6 @@ contract RootRegistry {
             return valid;
         } catch {
             return false;
-        }
-    }
-
-    /**
-     * @dev Get the latest root for a specific registry
-     * @param registryId The registry identifier
-     * @return root The latest root, or bytes32(0) if registry doesn't exist or call fails
-     */
-    function latestRoot(bytes32 registryId) external view returns (bytes32) {
-        // Return bytes32(0) if contract is paused
-        if (paused) return bytes32(0);
-
-        // Return bytes32(0) if registry with this identifier doesn't exist
-        if (address(registries[registryId]) == address(0)) return bytes32(0);
-
-        // Return the latest root from the registry instance
-        try IRegistryInstance(registries[registryId]).latestRoot() returns (bytes32 root) {
-            return root;
-        } catch {
-            return bytes32(0);
         }
     }
 
