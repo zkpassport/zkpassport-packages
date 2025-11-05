@@ -143,4 +143,4 @@ export const GET_ROOT_DETAILS_BY_ROOT_SIGNATURE = "0xbb3dd539"
 /**
  * Function signature for isRootValid(bytes32,bytes32,uint256)
  */
-export const IS_ROOT_VALID_SIGNATURE = "0x83578c11"
+export const IS_ROOT_VALID_SIGNATURE = "0x2aae4296"
