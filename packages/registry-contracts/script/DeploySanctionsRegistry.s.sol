@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
 import {SanctionsRegistry} from "../src/SanctionsRegistry.sol";
+import {RootValidationMode} from "../src/IRegistryInstance.sol";
 
 contract DeploySanctionsRegistryScript is Script {
     SanctionsRegistry public registry;
@@ -17,8 +18,13 @@ contract DeploySanctionsRegistryScript is Script {
         require(adminAddress != address(0), "SANCTIONS_REGISTRY_ADMIN_ADDRESS must be set");
         require(oracleAddress != address(0), "SANCTIONS_REGISTRY_ORACLE_ADDRESS must be set");
 
+        uint256 sanctionsRegistryHeight = 18;
+        uint256 validityWindowSecs = 3600; // 1 hour
+
         vm.startBroadcast();
-        registry = new SanctionsRegistry(adminAddress, oracleAddress);
+        registry = new SanctionsRegistry(
+            adminAddress, oracleAddress, sanctionsRegistryHeight, RootValidationMode.LATEST_ONLY, validityWindowSecs
+        );
         vm.stopBroadcast();
 
         console.log("SanctionsRegistry deployed at:", address(registry));

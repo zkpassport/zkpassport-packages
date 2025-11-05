@@ -2,6 +2,7 @@ pragma solidity ^0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
 import {CircuitRegistry} from "../src/CircuitRegistry.sol";
+import {RootValidationMode} from "../src/IRegistryInstance.sol";
 
 contract DeployCircuitRegistryScript is Script {
     CircuitRegistry public registry;
@@ -15,8 +16,13 @@ contract DeployCircuitRegistryScript is Script {
         require(adminAddress != address(0), "CIRCUIT_REGISTRY_ADMIN_ADDRESS must be set");
         require(oracleAddress != address(0), "CIRCUIT_REGISTRY_ORACLE_ADDRESS must be set");
 
+        uint256 circuitRegistryHeight = 12;
+        uint256 validityWindowSecs = 3600; // 1 hour
+
         vm.startBroadcast();
-        registry = new CircuitRegistry(adminAddress, oracleAddress);
+        registry = new CircuitRegistry(
+            adminAddress, oracleAddress, circuitRegistryHeight, RootValidationMode.LATEST_ONLY, validityWindowSecs
+        );
         vm.stopBroadcast();
 
         console.log("CircuitRegistry deployed at:", address(registry));
