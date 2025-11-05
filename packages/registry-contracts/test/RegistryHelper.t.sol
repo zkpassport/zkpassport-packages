@@ -4,6 +4,8 @@ import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
 import "../src/CertificateRegistry.sol";
 import "../src/RegistryHelper.sol";
+import {RootValidationMode} from "../src/IRegistryInstance.sol";
+import {TestConstants} from "./TestConstants.sol";
 
 contract RegistryHelperTest is Test {
     bytes32 constant CERTIFICATE_REGISTRY_ID = 0x0000000000000000000000000000000000000000000000000000000000000001;
@@ -14,11 +16,18 @@ contract RegistryHelperTest is Test {
 
     address admin = address(0x1);
     address oracle = address(0x2);
+    address guardian = address(0x3);
 
     function setUp() public {
         vm.startPrank(admin);
-        registry = new CertificateRegistry(admin, oracle);
-        rootRegistry = new RootRegistry(admin);
+        registry = new CertificateRegistry(
+            admin,
+            oracle,
+            TestConstants.DEFAULT_TREE_HEIGHT,
+            TestConstants.DEFAULT_VALIDATION_MODE,
+            TestConstants.DEFAULT_VALIDITY_WINDOW
+        );
+        rootRegistry = new RootRegistry(admin, guardian);
         rootRegistry.updateRegistry(CERTIFICATE_REGISTRY_ID, registry);
         helper = new RegistryHelper(rootRegistry);
         vm.stopPrank();

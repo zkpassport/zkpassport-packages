@@ -10,11 +10,12 @@
 pragma solidity ^0.8.20;
 
 import {RegistryInstance} from "./RegistryInstance.sol";
+import {RootValidationMode} from "./IRegistryInstance.sol";
 
 /**
  * @title CertificateRegistry
  * @dev ZKPassport Certificate Registry
  */
 contract CertificateRegistry is RegistryInstance {
-    constructor(address _admin, address _oracle) RegistryInstance(_admin, _oracle) {}
+    constructor(address _admin, address _oracle, uint256 _treeHeight, RootValidationMode _rootValidationMode, uint256 _validityWindowSecs) RegistryInstance(_admin, _oracle, _treeHeight, _rootValidationMode, _validityWindowSecs) {}
 }

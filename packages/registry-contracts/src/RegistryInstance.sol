@@ -42,35 +42,45 @@ contract RegistryInstance is IRegistryInstance {
     address public admin;
     address public oracle;
     bool public paused;
-    bytes32 public latestRoot;
-    mapping(bytes32 => HistoricalRoot) public historicalRoots;
+
     uint256 public rootCount;
-    mapping(uint256 => bytes32) public rootByIndex;
-    mapping(bytes32 => uint256) public indexByRoot;
+    uint256 public treeHeight;
+    bytes32 public latestRoot;
     RootValidationMode public rootValidationMode;
     uint256 public validityWindowSecs;
 
-    event RegistryDeployed(address indexed admin, address indexed oracle, uint256 timestamp);
+    mapping(bytes32 => HistoricalRoot) public historicalRoots;
+    mapping(uint256 => bytes32) public rootByIndex;
+    mapping(bytes32 => uint256) public indexByRoot;
+    mapping(bytes32 => bytes32) public config;
+
+    // Events
+    event RegistryDeployed(address indexed admin, address indexed oracle, uint256 treeHeight, RootValidationMode rootValidationMode, uint256 validityWindowSecs);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
-    event PausedStatusChanged(bool paused);
-    event RootUpdated(bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 timestamp, uint256 indexed rootIndex);
-    event RootRevocationStatusChanged(bytes32 indexed root, bool revoked, uint256 timestamp);
+    event RootUpdated(bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 indexed rootIndex, uint256 validFrom, uint256 validTo);
+    event RootRevocationStatusChanged(bytes32 indexed root, bool revoked);
     event RootValidationModeChanged(RootValidationMode indexed oldMode, RootValidationMode indexed newMode);
     event ValidityWindowChanged(uint256 oldWindowSecs, uint256 newWindowSecs);
+    event PausedStatusChanged(bool paused);
 
     /**
      * @dev Constructor
      * @param _admin The initial admin address
      * @param _oracle The initial oracle address
+     * @param _treeHeight The Merkle tree height
+     * @param _rootValidationMode The initial root validation mode
+     * @param _validityWindowSecs The initial validity window in seconds
      */
-    constructor(address _admin, address _oracle) {
+    constructor(address _admin, address _oracle, uint256 _treeHeight, RootValidationMode _rootValidationMode, uint256 _validityWindowSecs) {
         require(_admin != address(0), "Admin cannot be zero address");
         require(_oracle != address(0), "Oracle cannot be zero address");
         admin = _admin;
         oracle = _oracle;
-        rootValidationMode = RootValidationMode.LATEST_ONLY;
-        emit RegistryDeployed(admin, oracle, block.timestamp);
+        treeHeight = _treeHeight;
+        rootValidationMode = _rootValidationMode;
+        validityWindowSecs = _validityWindowSecs;
+        emit RegistryDeployed(admin, oracle, treeHeight, rootValidationMode, validityWindowSecs);
     }
 
     modifier onlyAdmin() {
@@ -136,7 +146,7 @@ contract RegistryInstance is IRegistryInstance {
         });
 
         latestRoot = newRoot;
-        emit RootUpdated(oldRoot, newRoot, currentTime, rootCount);
+        emit RootUpdated(oldRoot, newRoot, rootCount, currentTime, 0);
     }
 
     /**
@@ -205,7 +215,7 @@ contract RegistryInstance is IRegistryInstance {
             });
 
             // Emit event for this root with proper oldRoot sequencing
-            emit RootUpdated(previousRoot, rootInput.root, rootInput.validFrom, rootCount);
+            emit RootUpdated(previousRoot, rootInput.root, rootCount, rootInput.validFrom, rootInput.validTo);
 
             // Update previous root for the next iteration
             previousRoot = rootInput.root;
@@ -314,7 +324,7 @@ contract RegistryInstance is IRegistryInstance {
         // Only emit event if status is changing
         if (historicalRoots[root].revoked != revoked) {
             historicalRoots[root].revoked = revoked;
-            emit RootRevocationStatusChanged(root, revoked, block.timestamp);
+            emit RootRevocationStatusChanged(root, revoked);
         }
     }
 

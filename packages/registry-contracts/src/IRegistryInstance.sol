@@ -14,18 +14,6 @@ pragma solidity ^0.8.20;
  * @dev Interface for a registry instance
  */
 interface IRegistryInstance {
-    // Root validation modes
-    enum RootValidationMode {
-        // Is root the latest root?
-        LATEST_ONLY,
-        // Is root either the latest or previous root?
-        LATEST_AND_PREVIOUS,
-        // Is root valid at timestamp T? i.e. validFrom <= T <= validTo
-        VALID_AT_TIMESTAMP,
-        // Is root valid within the last W seconds from timestamp T? i.e. validFrom <= T AND T-W <= validTo
-        VALID_WITHIN_WINDOW
-    }
-
     function latestRoot() external view returns (bytes32);
     function historicalRoots(bytes32 root)
         external
@@ -46,4 +34,16 @@ interface IRegistryInstance {
     function rootValidationMode() external view returns (RootValidationMode);
     function isRootValid(bytes32 root, uint256 timestamp) external view returns (bool);
     function isRootValidAtTimestamp(bytes32 root, uint256 timestamp) external view returns (bool);
+}
+
+// Root validation modes
+enum RootValidationMode {
+    // Is root the latest root?
+    LATEST_ONLY,
+    // Is root either the latest or previous root?
+    LATEST_AND_PREVIOUS,
+    // Is root valid at timestamp T? i.e. validFrom <= T <= validTo
+    VALID_AT_TIMESTAMP,
+    // Is root valid within the last W seconds from timestamp T? i.e. validFrom <= T AND T-W <= validTo
+    VALID_WITHIN_WINDOW
 }
