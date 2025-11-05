@@ -17,5 +17,11 @@ import {RootValidationMode} from "./IRegistryInstance.sol";
  * @dev ZKPassport Sanctions Registry
  */
 contract SanctionsRegistry is RegistryInstance {
-    constructor(address _admin, address _oracle, uint256 _treeHeight, RootValidationMode _rootValidationMode, uint256 _validityWindowSecs) RegistryInstance(_admin, _oracle, _treeHeight, _rootValidationMode, _validityWindowSecs) {}
+    constructor(
+        address _admin,
+        address _oracle,
+        uint256 _treeHeight,
+        RootValidationMode _rootValidationMode,
+        uint256 _validityWindowSecs
+    ) RegistryInstance(_admin, _oracle, _treeHeight, _rootValidationMode, _validityWindowSecs) {}
 }

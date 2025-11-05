@@ -587,16 +587,12 @@ contract RegistryInstanceTest is Test {
         // Admin changes mode to VALID_AT_TIMESTAMP
         vm.prank(admin);
         registry.setRootValidationMode(RootValidationMode.VALID_AT_TIMESTAMP);
-        assertEq(
-            uint256(registry.rootValidationMode()), uint256(RootValidationMode.VALID_AT_TIMESTAMP)
-        );
+        assertEq(uint256(registry.rootValidationMode()), uint256(RootValidationMode.VALID_AT_TIMESTAMP));
 
         // Admin changes mode to LATEST_AND_PREVIOUS
         vm.prank(admin);
         registry.setRootValidationMode(RootValidationMode.LATEST_AND_PREVIOUS);
-        assertEq(
-            uint256(registry.rootValidationMode()), uint256(RootValidationMode.LATEST_AND_PREVIOUS)
-        );
+        assertEq(uint256(registry.rootValidationMode()), uint256(RootValidationMode.LATEST_AND_PREVIOUS));
     }
 
     function testOnlyAdminCanSetRootValidationMode() public {
@@ -901,6 +897,8 @@ contract RegistryInstanceTest is Test {
         // Window: [t0+499, t0+799]
         // testRoot2 validTo: t0+499
         // validTo (t0+499) >= windowStart (t0+499) should be true
-        assertTrue(registry.isRootValid(testRoot2, edgeTime), "testRoot2 should be valid when validTo equals window start");
+        assertTrue(
+            registry.isRootValid(testRoot2, edgeTime), "testRoot2 should be valid when validTo equals window start"
+        );
     }
 }

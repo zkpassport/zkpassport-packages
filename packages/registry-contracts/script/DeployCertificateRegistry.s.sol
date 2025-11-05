@@ -21,11 +21,7 @@ contract DeployCertificateRegistryScript is Script {
 
         vm.startBroadcast();
         registry = new CertificateRegistry(
-            adminAddress,
-            oracleAddress,
-            certificateRegistryHeight,
-            RootValidationMode.LATEST_ONLY,
-            validityWindowSecs
+            adminAddress, oracleAddress, certificateRegistryHeight, RootValidationMode.LATEST_ONLY, validityWindowSecs
         );
         vm.stopBroadcast();
 

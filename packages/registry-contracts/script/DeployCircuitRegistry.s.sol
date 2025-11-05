@@ -21,11 +21,7 @@ contract DeployCircuitRegistryScript is Script {
 
         vm.startBroadcast();
         registry = new CircuitRegistry(
-            adminAddress,
-            oracleAddress,
-            circuitRegistryHeight,
-            RootValidationMode.LATEST_ONLY,
-            validityWindowSecs
+            adminAddress, oracleAddress, circuitRegistryHeight, RootValidationMode.LATEST_ONLY, validityWindowSecs
         );
         vm.stopBroadcast();
 

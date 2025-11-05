@@ -23,11 +23,7 @@ contract DeploySanctionsRegistryScript is Script {
 
         vm.startBroadcast();
         registry = new SanctionsRegistry(
-            adminAddress,
-            oracleAddress,
-            sanctionsRegistryHeight,
-            RootValidationMode.LATEST_ONLY,
-            validityWindowSecs
+            adminAddress, oracleAddress, sanctionsRegistryHeight, RootValidationMode.LATEST_ONLY, validityWindowSecs
         );
         vm.stopBroadcast();
 
