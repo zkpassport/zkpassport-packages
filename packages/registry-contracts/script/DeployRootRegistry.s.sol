@@ -13,9 +13,8 @@ contract DeployRootRegistryScript is Script {
         address adminAddress = vm.envAddress("ROOT_REGISTRY_ADMIN_ADDRESS");
         require(adminAddress != address(0), "ROOT_REGISTRY_ADMIN_ADDRESS must be set");
 
-        // Get the root registry guardian address from env
-        address guardianAddress = vm.envAddress("ROOT_REGISTRY_GUARDIAN_ADDRESS");
-        require(guardianAddress != address(0), "ROOT_REGISTRY_GUARDIAN_ADDRESS must be set");
+        // Get the root registry guardian address from env (defaults to address(0) if not set)
+        address guardianAddress = vm.envOr("ROOT_REGISTRY_GUARDIAN_ADDRESS", address(0));
 
         vm.startBroadcast();
         registry = new RootRegistry(adminAddress, guardianAddress);

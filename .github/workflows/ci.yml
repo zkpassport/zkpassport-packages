@@ -3,9 +3,8 @@ name: Tests
 on:
   push:
     branches: [main]
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
-  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -32,7 +31,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-
 
@@ -44,8 +43,6 @@ jobs:
         with:
           path: .turbo
           key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
 
       - name: Build
         run: bun run build
@@ -72,12 +69,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
 
       - name: Ensure workspace dependencies are synced
         run: bash scripts/sync-workspace-deps.sh check

@@ -152,15 +152,18 @@ export class RegistryClient {
    * Check if a certificate root is valid
    *
    * @param root The root hash to check
+   * @param timestamp Optional timestamp to check validity for (defaults to current time)
    * @returns True if the root is valid, false otherwise
    */
-  async isCertificateRootValid(root: string): Promise<boolean> {
+  async isCertificateRootValid(root: string, timestamp?: number): Promise<boolean> {
     root = normaliseHash(root)
+    const ts = timestamp ?? Math.floor(Date.now() / 1000)
     const response = await this.rpcRequest(
       this.rootRegistry,
       IS_ROOT_VALID_SIGNATURE +
         CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0") +
-        strip0x(root),
+        strip0x(root) +
+        ts.toString(16).padStart(64, "0"),
     )
     if (!response.ok) {
       throw new Error(
@@ -377,13 +380,18 @@ export class RegistryClient {
    * Check if a circuit root is valid
    *
    * @param root The root hash to check
+   * @param timestamp Optional timestamp to check validity for (defaults to current time)
    * @returns True if the root is valid, false otherwise
    */
-  async isCircuitRootValid(root: string): Promise<boolean> {
+  async isCircuitRootValid(root: string, timestamp?: number): Promise<boolean> {
     root = normaliseHash(root)
+    const ts = timestamp ?? Math.floor(Date.now() / 1000)
     const response = await this.rpcRequest(
       this.rootRegistry,
-      IS_ROOT_VALID_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") + strip0x(root),
+      IS_ROOT_VALID_SIGNATURE +
+        CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") +
+        strip0x(root) +
+        ts.toString(16).padStart(64, "0"),
     )
     if (!response.ok) {
       throw new Error(
