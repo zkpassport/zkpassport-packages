@@ -31,6 +31,19 @@ interface IRegistryInstance {
     function rootCount() external view returns (uint256);
     function rootByIndex(uint256 index) external view returns (bytes32);
     function indexByRoot(bytes32 root) external view returns (uint256);
-    function isRootValid(bytes32 root) external view returns (bool);
+    function rootValidationMode() external view returns (RootValidationMode);
+    function isRootValid(bytes32 root, uint256 timestamp) external view returns (bool);
     function isRootValidAtTimestamp(bytes32 root, uint256 timestamp) external view returns (bool);
+}
+
+// Root validation modes
+enum RootValidationMode {
+    // Is root the latest root?
+    LATEST_ONLY,
+    // Is root either the latest or previous root?
+    LATEST_AND_PREVIOUS,
+    // Is root valid at timestamp T? i.e. validFrom <= T <= validTo
+    VALID_AT_TIMESTAMP,
+    // Is root valid within the last W seconds from timestamp T? i.e. validFrom <= T AND T-W <= validTo
+    VALID_WITHIN_WINDOW
 }

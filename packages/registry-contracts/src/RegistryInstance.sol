@@ -43,30 +43,58 @@ contract RegistryInstance is IRegistryInstance {
     address public oracle;
     bool public paused;
 
-    bytes32 public latestRoot;
-    mapping(bytes32 => HistoricalRoot) public historicalRoots;
     uint256 public rootCount;
+    uint256 public treeHeight;
+    bytes32 public latestRoot;
+    RootValidationMode public rootValidationMode;
+    uint256 public validityWindowSecs;
+
+    mapping(bytes32 => HistoricalRoot) public historicalRoots;
     mapping(uint256 => bytes32) public rootByIndex;
     mapping(bytes32 => uint256) public indexByRoot;
+    mapping(bytes32 => bytes32) public config;
 
-    event RegistryDeployed(address indexed admin, address indexed oracle, uint256 timestamp);
+    // Events
+    event RegistryDeployed(
+        address indexed admin,
+        address indexed oracle,
+        uint256 treeHeight,
+        RootValidationMode rootValidationMode,
+        uint256 validityWindowSecs
+    );
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
+    event RootUpdated(
+        bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 indexed rootIndex, uint256 validFrom, uint256 validTo
+    );
+    event RootRevocationStatusChanged(bytes32 indexed root, bool revoked);
+    event RootValidationModeChanged(RootValidationMode indexed oldMode, RootValidationMode indexed newMode);
+    event ValidityWindowChanged(uint256 oldWindowSecs, uint256 newWindowSecs);
     event PausedStatusChanged(bool paused);
-    event RootUpdated(bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 timestamp, uint256 indexed rootIndex);
-    event RootRevoked(bytes32 indexed root, uint256 timestamp);
-    event RootUnrevoked(bytes32 indexed root, uint256 timestamp);
 
     /**
      * @dev Constructor
+     * @param _admin The initial admin address
      * @param _oracle The initial oracle address
+     * @param _treeHeight The Merkle tree height
+     * @param _rootValidationMode The initial root validation mode
+     * @param _validityWindowSecs The initial validity window in seconds
      */
-    constructor(address _admin, address _oracle) {
+    constructor(
+        address _admin,
+        address _oracle,
+        uint256 _treeHeight,
+        RootValidationMode _rootValidationMode,
+        uint256 _validityWindowSecs
+    ) {
         require(_admin != address(0), "Admin cannot be zero address");
         require(_oracle != address(0), "Oracle cannot be zero address");
         admin = _admin;
         oracle = _oracle;
-        emit RegistryDeployed(admin, oracle, block.timestamp);
+        treeHeight = _treeHeight;
+        rootValidationMode = _rootValidationMode;
+        validityWindowSecs = _validityWindowSecs;
+        emit RegistryDeployed(admin, oracle, treeHeight, rootValidationMode, validityWindowSecs);
     }
 
     modifier onlyAdmin() {
@@ -132,7 +160,7 @@ contract RegistryInstance is IRegistryInstance {
         });
 
         latestRoot = newRoot;
-        emit RootUpdated(oldRoot, newRoot, currentTime, rootCount);
+        emit RootUpdated(oldRoot, newRoot, rootCount, currentTime, 0);
     }
 
     /**
@@ -201,7 +229,7 @@ contract RegistryInstance is IRegistryInstance {
             });
 
             // Emit event for this root with proper oldRoot sequencing
-            emit RootUpdated(previousRoot, rootInput.root, rootInput.validFrom, rootCount);
+            emit RootUpdated(previousRoot, rootInput.root, rootCount, rootInput.validFrom, rootInput.validTo);
 
             // Update previous root for the next iteration
             previousRoot = rootInput.root;
@@ -221,19 +249,52 @@ contract RegistryInstance is IRegistryInstance {
     }
 
     /**
-     * @dev Check if a root is valid (i.e. is the latest root)
+     * @dev Check if a root is valid
      * @param root The root to check
+     * @param timestamp The timestamp to check validity for (used in VALID_AT_TIMESTAMP and VALID_WITHIN_WINDOW modes)
      * @return valid True if the root is valid
      */
-    function isRootValid(bytes32 root) external view returns (bool) {
+    function isRootValid(bytes32 root, uint256 timestamp) external view returns (bool) {
         // Return false if contract is paused
-        if (paused) {
+        if (paused) return false;
+        // Return false if root doesn't exist
+        if (indexByRoot[root] == 0) return false; // Root doesn't exist
+
+        // LATEST_ONLY mode: check if root is the latest root
+        if (rootValidationMode == RootValidationMode.LATEST_ONLY) {
+            // Return true if root is the latest root and is not revoked
+            return latestRoot == root && !historicalRoots[root].revoked;
+        }
+        // LATEST_AND_PREVIOUS mode: check if root is either the latest or previous root
+        else if (rootValidationMode == RootValidationMode.LATEST_AND_PREVIOUS) {
+            // Return true if root is the latest root and is not revoked
+            if (latestRoot == root) return !historicalRoots[root].revoked;
+            // Return true if root is the previous root (if it exists) and is not revoked
+            if (rootCount >= 2) {
+                return rootByIndex[rootCount - 1] == root && !historicalRoots[root].revoked;
+            }
             return false;
         }
-        // Return true if the root is the latest root
-        if (latestRoot == root) {
-            return true;
+        // VALID_AT_TIMESTAMP mode: check if root was valid at the given timestamp
+        else if (rootValidationMode == RootValidationMode.VALID_AT_TIMESTAMP) {
+            HistoricalRoot memory rootData = historicalRoots[root];
+            // Return true if root was valid at the given timestamp and is not revoked
+            return timestamp >= rootData.validFrom && (rootData.validTo == 0 || timestamp <= rootData.validTo)
+                && !rootData.revoked;
         }
+        // VALID_WITHIN_WINDOW mode: check if root was valid within the last X seconds
+        else if (rootValidationMode == RootValidationMode.VALID_WITHIN_WINDOW) {
+            // Return true if root is the latest root and is not revoked
+            if (latestRoot == root) return !historicalRoots[root].revoked;
+            // For other roots, check if they were valid within the validity window
+            HistoricalRoot memory rootData = historicalRoots[root];
+            // Return false if revoked
+            if (rootData.revoked) return false;
+            // Check if root's validity period overlaps with [timestamp - validityWindowSecs, timestamp]
+            uint256 windowStart = timestamp - validityWindowSecs;
+            return rootData.validFrom <= timestamp && (rootData.validTo == 0 || rootData.validTo >= windowStart);
+        }
+        // Unknown mode: return false
         return false;
     }
 
@@ -275,12 +336,7 @@ contract RegistryInstance is IRegistryInstance {
         // Only emit event if status is changing
         if (historicalRoots[root].revoked != revoked) {
             historicalRoots[root].revoked = revoked;
-
-            if (revoked) {
-                emit RootRevoked(root, block.timestamp);
-            } else {
-                emit RootUnrevoked(root, block.timestamp);
-            }
+            emit RootRevocationStatusChanged(root, revoked);
         }
     }
 
@@ -313,5 +369,25 @@ contract RegistryInstance is IRegistryInstance {
     function setPaused(bool _paused) external onlyAdmin {
         paused = _paused;
         emit PausedStatusChanged(_paused);
+    }
+
+    /**
+     * @dev Set the root validation mode
+     * @param newMode The new validation mode
+     */
+    function setRootValidationMode(RootValidationMode newMode) external onlyAdmin {
+        RootValidationMode oldMode = rootValidationMode;
+        rootValidationMode = newMode;
+        emit RootValidationModeChanged(oldMode, newMode);
+    }
+
+    /**
+     * @dev Set the validity window for VALID_WITHIN_WINDOW validation mode
+     * @param newWindowSecs The new window in seconds
+     */
+    function setValidityWindow(uint256 newWindowSecs) external onlyAdmin {
+        uint256 oldWindowSecs = validityWindowSecs;
+        validityWindowSecs = newWindowSecs;
+        emit ValidityWindowChanged(oldWindowSecs, newWindowSecs);
     }
 }
