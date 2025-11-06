@@ -10,15 +10,15 @@ echo "🔍 Validating package..."
 
 # Pack the package
 echo "📦 Packing package..."
-PKG=$(npm pack --silent)
+PKG=$(bun pm pack --quiet | xargs)
+trap 'rm "$PKG"' EXIT
 
 # Run publint validation
 echo "🔍 Running publint..."
-npx publint "$PKG"
+bunx publint "$PKG"
 
 # Run @arethetypeswrong/cli validation
 echo "🔍 Running @arethetypeswrong/cli..."
-npx @arethetypeswrong/cli "$PKG"
+bunx @arethetypeswrong/cli "$PKG" --profile node16 -f table-flipped
 
 echo "✅ Package validation complete: $PKG"
-

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    // Target and Module
+    "target": "es2020",
+    "module": "es2020",
+    "moduleResolution": "bundler",
+
+    // Type Checking
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    // Emit
+    "declaration": true,
+    "declarationMap": false,
+    "emitDeclarationOnly": true,
+
+    // Interop Constraints
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+
+    // Language and Environment
+    "experimentalDecorators": true,
+
+    // Projects
+    "composite": true,
+    "importHelpers": true
+  }
+}
