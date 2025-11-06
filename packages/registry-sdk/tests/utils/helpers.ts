@@ -230,7 +230,7 @@ export async function startAnvil({
   if (verbose) console.log("Deploying contracts...")
   let deployOutput = ""
   try {
-    deployOutput = execSync(`script/bash/deploy.sh`, {
+    deployOutput = execSync(`script/test/deploy.sh`, {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, RPC_URL },
@@ -257,18 +257,18 @@ export async function startAnvil({
   const helperAddress = deployOutput.match(/RegistryHelper deployed at: (0x[a-fA-F0-9]{40})/)?.[1]
   if (!helperAddress) throw new Error("Could not extract helper address from deployment output")
 
-  // Update roots
-  if (verbose) console.log("Updating roots...")
+  // Seed registries with test data
+  if (verbose) console.log("Seeding registries...")
   try {
-    const updateRootsOutput = execSync(`script/bash/update-roots.sh`, {
+    const seedOutput = execSync(`script/test/seed-registries.sh`, {
       encoding: "utf-8",
       stdio: ["ignore", verbose ? "inherit" : "ignore", "pipe"],
       env: { ...process.env, RPC_URL },
       cwd: CONTRACTS_DIR,
     })
-    verboseLog(updateRootsOutput)
+    verboseLog(seedOutput)
   } catch (error: any) {
-    console.error("Error updating roots")
+    console.error("Error seeding registries")
     if (error.stdout) {
       console.error(error.stdout.toString())
     }
