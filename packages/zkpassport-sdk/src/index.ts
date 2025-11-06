@@ -116,6 +116,7 @@ export {
   MERCOSUR_COUNTRIES,
   ProofType,
   ProofTypeLength,
+  type ProofResult,
 } from "@zkpassport/utils"
 
 export * from "./types"
@@ -136,7 +137,6 @@ export class ZKPassport {
   private topicToRequestReceived: Record<string, boolean> = {}
   private topicToService: Record<string, Service> = {}
   private topicToProofs: Record<string, Array<ProofResult>> = {}
-  private topicToExpectedProofCount: Record<string, number> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
 
@@ -211,104 +211,7 @@ export class ZKPassport {
       ),
     )
     // Clear the expected proof count and failed proof count
-    delete this.topicToExpectedProofCount[topic]
     delete this.topicToFailedProofCount[topic]
-  }
-
-  private setExpectedProofCount(topic: string) {
-    // If the mode is not fast, we'll receive only 1 compressed proof
-    if (this.topicToLocalConfig[topic].mode !== "fast") {
-      this.topicToExpectedProofCount[topic] = 1
-      return
-    }
-    const fields = Object.keys(this.topicToConfig[topic]).filter((key) =>
-      hasRequestedAccessToField(this.topicToConfig[topic], key as IDCredential),
-    )
-    const neededCircuits: string[] = []
-    // Determine which circuits are needed based on the requested fields
-    for (const field of fields) {
-      for (const key in this.topicToConfig[topic][field as IDCredential]) {
-        switch (key) {
-          case "disclose":
-            if (field !== "age" && !neededCircuits.includes("disclose_bytes")) {
-              neededCircuits.push("disclose_bytes")
-            } else if (field === "age" && !neededCircuits.includes("compare_age")) {
-              neededCircuits.push("compare_age")
-            }
-            break
-          case "eq":
-            if (
-              field !== "age" &&
-              field !== "birthdate" &&
-              field !== "expiry_date" &&
-              !neededCircuits.includes("disclose_bytes")
-            ) {
-              neededCircuits.push("disclose_bytes")
-            } else if (field === "age" && !neededCircuits.includes("compare_age")) {
-              neededCircuits.push("compare_age")
-            } else if (field === "birthdate" && !neededCircuits.includes("compare_birthdate")) {
-              neededCircuits.push("compare_birthdate")
-            } else if (field === "expiry_date" && !neededCircuits.includes("compare_expiry")) {
-              neededCircuits.push("compare_expiry")
-            }
-            break
-          case "gte":
-          case "gt":
-          case "lte":
-          case "lt":
-          case "range":
-            if (field === "age" && !neededCircuits.includes("compare_age")) {
-              neededCircuits.push("compare_age")
-            } else if (field === "expiry_date" && !neededCircuits.includes("compare_expiry")) {
-              neededCircuits.push("compare_expiry")
-            } else if (field === "birthdate" && !neededCircuits.includes("compare_birthdate")) {
-              neededCircuits.push("compare_birthdate")
-            }
-            break
-          case "in":
-            if (
-              field === "nationality" &&
-              !neededCircuits.includes("inclusion_check_nationality")
-            ) {
-              neededCircuits.push("inclusion_check_nationality")
-            } else if (
-              field === "issuing_country" &&
-              !neededCircuits.includes("inclusion_check_issuing_country")
-            ) {
-              neededCircuits.push("inclusion_check_issuing_country")
-            }
-            break
-          case "out":
-            if (
-              field === "nationality" &&
-              !neededCircuits.includes("exclusion_check_nationality")
-            ) {
-              neededCircuits.push("exclusion_check_nationality")
-            } else if (
-              field === "issuing_country" &&
-              !neededCircuits.includes("exclusion_check_issuing_country")
-            ) {
-              neededCircuits.push("exclusion_check_issuing_country")
-            }
-            break
-        }
-      }
-    }
-    if (this.topicToConfig[topic].bind) {
-      neededCircuits.push("bind")
-    }
-    if (this.topicToConfig[topic].sanctions) {
-      neededCircuits.push("exclusion_check_sanctions")
-    }
-    if (this.topicToConfig[topic].facematch) {
-      neededCircuits.push("facematch")
-    }
-    // From the circuits needed, determine the expected proof count
-    // There are at least 4 proofs, 3 base proofs and 1 disclosure proof minimum
-    // Each separate needed circuit adds 1 disclosure proof
-    this.topicToExpectedProofCount[topic] =
-      neededCircuits.length === 0 ? 4 : 3 + neededCircuits.length
-    this.topicToFailedProofCount[topic] = 0
   }
 
   /**
@@ -334,7 +237,8 @@ export class ZKPassport {
       // we can handle the result now
       if (
         this.topicToResults[topic] &&
-        this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length
+        request.params.total ===
+          this.topicToProofs[topic].length + this.topicToFailedProofCount[topic]
       ) {
         await this.handleResult(topic)
       }
@@ -343,7 +247,11 @@ export class ZKPassport {
       this.topicToResults[topic] = formatQueryResultDates(request.params)
       // Make sure all the proofs have been received, otherwise we'll handle the result later
       // once the proofs have all been received
-      if (this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length) {
+      if (
+        this.topicToProofs[topic].length > 0 &&
+        this.topicToProofs[topic].length + this.topicToFailedProofCount[topic] ===
+          this.topicToProofs[topic][0].total
+      ) {
         await this.handleResult(topic)
       }
     } else if (request.method === "error") {
@@ -351,21 +259,20 @@ export class ZKPassport {
       if (error && error === "This ID is not supported yet") {
         // This means the user has an ID that is not supported yet
         // So we won't receive any proofs and we can handle the result now
-        this.topicToExpectedProofCount[topic] = 0
-        this.topicToFailedProofCount[topic] += this.topicToExpectedProofCount[topic]
         if (this.topicToResults[topic]) {
           await this.handleResult(topic)
         }
       } else if (error && error.startsWith("Cannot generate proof")) {
         // This means one of the disclosure proofs failed to be generated
-        // So we need to remove one from the expected proof count
-        this.topicToExpectedProofCount[topic] -= 1
+        // So we need to keep track of the failed proof count
         this.topicToFailedProofCount[topic] += 1
         // If the expected proof count is now equal to the number of proofs received
         // and the results were received, we can handle the result now
         if (
           this.topicToResults[topic] &&
-          this.topicToExpectedProofCount[topic] === this.topicToProofs[topic].length
+          this.topicToProofs[topic].length > 0 &&
+          this.topicToProofs[topic].length + this.topicToFailedProofCount[topic] ===
+            this.topicToProofs[topic][0].total
         ) {
           await this.handleResult(topic)
         }
@@ -470,7 +377,6 @@ export class ZKPassport {
         return this.getZkPassportRequest(topic)
       },
       done: () => {
-        this.setExpectedProofCount(topic)
         return {
           url: this._getUrl(topic),
           requestId: topic,
@@ -557,7 +463,6 @@ export class ZKPassport {
       bridgeUrl,
     }
     this.topicToProofs[topic] = []
-    this.topicToExpectedProofCount[topic] = 0
     this.topicToLocalConfig[topic] = {
       // Default to 7 days
       validity: validity || DEFAULT_VALIDITY,
@@ -823,7 +728,6 @@ export class ZKPassport {
     delete this.topicToConfig[requestId]
     delete this.topicToLocalConfig[requestId]
     delete this.topicToProofs[requestId]
-    delete this.topicToExpectedProofCount[requestId]
     delete this.topicToFailedProofCount[requestId]
     delete this.topicToResults[requestId]
     this.onRequestReceivedCallbacks[requestId] = []

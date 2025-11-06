@@ -369,6 +369,10 @@ export type ProofResult = {
   committedInputs?: {
     [circuitName in DisclosureCircuitName]?: CommittedInputs
   }
+  // Index of the proof in the proof set
+  index?: number
+  // Total number of proofs in the proof set
+  total?: number
 }
 
 export type Service = {
