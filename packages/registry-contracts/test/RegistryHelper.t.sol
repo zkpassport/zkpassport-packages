@@ -6,17 +6,23 @@ import "../src/CertificateRegistry.sol";
 import "../src/RegistryHelper.sol";
 import {RootValidationMode} from "../src/IRegistryInstance.sol";
 import {TestConstants} from "./TestConstants.sol";
+import {MockRegistry} from "./MockRegistry.sol";
 
 contract RegistryHelperTest is Test {
     bytes32 constant CERTIFICATE_REGISTRY_ID = 0x0000000000000000000000000000000000000000000000000000000000000001;
+    bytes32 constant MOCK_REGISTRY_ID = 0x0000000000000000000000000000000000000000000000000000000000000002;
 
     RootRegistry public rootRegistry;
     CertificateRegistry public registry;
     RegistryHelper public helper;
+    MockRegistry public mockValidRegistry;
+    MockRegistry public mockInvalidRegistry;
 
     address admin = address(0x1);
     address oracle = address(0x2);
     address guardian = address(0x3);
+
+    bytes32 public constant testRoot = keccak256("test-root");
 
     function setUp() public {
         vm.startPrank(admin);
@@ -31,6 +37,9 @@ contract RegistryHelperTest is Test {
         rootRegistry.updateRegistry(CERTIFICATE_REGISTRY_ID, registry);
         helper = new RegistryHelper(rootRegistry);
         vm.stopPrank();
+
+        mockValidRegistry = new MockRegistry(true);
+        mockInvalidRegistry = new MockRegistry(false);
     }
 
     function testGetHistoricalRootsEmptyRegistry() public view {
@@ -304,5 +313,89 @@ contract RegistryHelperTest is Test {
         // Test with empty registry and valid root hash
         vm.expectRevert("Root not found");
         helper.getRootDetailsByRoot(CERTIFICATE_REGISTRY_ID, bytes32(uint256(1)));
+    }
+
+    function testIsRootValidAtTimestamp() public {
+        // Set up registry with valid mock
+        vm.prank(admin);
+        rootRegistry.updateRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
+
+        // Check that root is valid at current timestamp
+        assertTrue(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
+
+        // Update registry to invalid mock
+        vm.prank(admin);
+        rootRegistry.updateRegistry(MOCK_REGISTRY_ID, mockInvalidRegistry);
+
+        // Check that root is now invalid at current timestamp
+        assertFalse(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
+    }
+
+    function testIsRootValidAtTimestampWithNonExistentRegistry() public view {
+        // Use a registry identifier that is guaranteed to be non-existent
+        bytes32 nonExistentRegistryId = keccak256("non-existent-registry");
+
+        // Check that root is invalid for non-existent registry
+        assertFalse(helper.isRootValidAtTimestamp(nonExistentRegistryId, testRoot, block.timestamp));
+    }
+
+    function testIsRootValidAtTimestampWhenPaused() public {
+        // Set up registry with valid mock
+        vm.prank(admin);
+        rootRegistry.updateRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
+
+        // Check that root is valid at current timestamp
+        assertTrue(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
+
+        // Pause the contract
+        vm.prank(guardian);
+        rootRegistry.setPaused(true);
+
+        // Check that root is now invalid at current timestamp
+        assertFalse(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
+    }
+
+    function testIsRootValidAtTimestampWithTimeWarp() public {
+        // Create two roots at different timestamps
+        bytes32 root1 = bytes32(uint256(1));
+        bytes32 root2 = bytes32(uint256(2));
+        bytes32 ipfsCid1 = bytes32(uint256(100));
+        bytes32 ipfsCid2 = bytes32(uint256(200));
+
+        // Set initial timestamp
+        uint256 timestamp1 = 1000;
+        vm.warp(timestamp1);
+
+        // Add first root at timestamp 1000
+        vm.prank(oracle);
+        registry.updateRoot(root1, bytes32(0), timestamp1, 100, ipfsCid1);
+
+        // Add second root at timestamp 2000 (this will set root1's validTo to 1999)
+        uint256 timestamp2 = 2000;
+        vm.warp(timestamp2);
+        vm.prank(oracle);
+        registry.updateRoot(root2, root1, timestamp2, 200, ipfsCid2);
+
+        // Test root1 at timestamp 1500 (should be valid)
+        uint256 testTimestamp = 1500;
+        assertTrue(
+            helper.isRootValidAtTimestamp(CERTIFICATE_REGISTRY_ID, root1, testTimestamp),
+            "Root1 should be valid at timestamp 1500"
+        );
+
+        // Warp to a time when root1 is no longer valid (timestamp2 or later)
+        vm.warp(2500);
+
+        // Test root1 at timestamp 2500 (should be invalid - after its validTo of 1999)
+        assertFalse(
+            helper.isRootValidAtTimestamp(CERTIFICATE_REGISTRY_ID, root1, 2500),
+            "Root1 should be invalid at timestamp 2500"
+        );
+
+        // Test root2 at timestamp 2500 (should be valid)
+        assertTrue(
+            helper.isRootValidAtTimestamp(CERTIFICATE_REGISTRY_ID, root2, 2500),
+            "Root2 should be valid at timestamp 2500"
+        );
     }
 }

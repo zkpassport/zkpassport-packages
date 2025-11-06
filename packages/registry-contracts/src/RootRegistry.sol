@@ -148,26 +148,4 @@ contract RootRegistry {
             return false;
         }
     }
-
-    /**
-     * @dev Check if a root is valid at a given timestamp for a specific registry
-     * @param registryId The registry identifier
-     * @param root The root to check
-     * @param timestamp The timestamp to check validity for
-     * @return valid True if the root is valid at the given timestamp
-     */
-    function isRootValidAtTimestamp(bytes32 registryId, bytes32 root, uint256 timestamp) external view returns (bool) {
-        // Return false if contract is paused
-        if (paused) return false;
-
-        // Return false if registry with this identifier doesn't exist
-        if (address(registries[registryId]) == address(0)) return false;
-
-        // Call isRootValidAtTimestamp on registry instance
-        try IRegistryInstance(registries[registryId]).isRootValidAtTimestamp(root, timestamp) returns (bool valid) {
-            return valid;
-        } catch {
-            return false;
-        }
-    }
 }
