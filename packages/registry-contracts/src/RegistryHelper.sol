@@ -232,4 +232,28 @@ contract RegistryHelper {
         IRegistryInstance registry = IRegistryInstance(rootRegistry.registries(registryId));
         return registry.rootCount();
     }
+
+    /**
+     * @dev Check if a root is valid at a given timestamp for a specific registry
+     * @param registryId The registry identifier
+     * @param root The root to check
+     * @param timestamp The timestamp to check validity for
+     * @return valid True if the root is valid at the given timestamp, false otherwise.
+     */
+    function isRootValidAtTimestamp(bytes32 registryId, bytes32 root, uint256 timestamp) external view returns (bool) {
+        // Return false if root registry is paused
+        if (rootRegistry.paused()) return false;
+
+        // Return false if registry with this identifier doesn't exist
+        if (address(rootRegistry.registries(registryId)) == address(0)) return false;
+
+        // Call isRootValidAtTimestamp on registry instance
+        try IRegistryInstance(rootRegistry.registries(registryId)).isRootValidAtTimestamp(root, timestamp) returns (
+            bool valid
+        ) {
+            return valid;
+        } catch {
+            return false;
+        }
+    }
 }

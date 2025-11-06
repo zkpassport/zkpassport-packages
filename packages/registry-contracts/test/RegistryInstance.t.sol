@@ -95,7 +95,7 @@ contract RegistryInstanceTest is Test {
     function testUpdateRoot() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
         assertEq(registry.latestRoot(), testRoot1);
         assertEq(registry.rootCount(), 1);
         assertEq(registry.rootByIndex(1), testRoot1);
@@ -127,7 +127,7 @@ contract RegistryInstanceTest is Test {
         vm.warp(timestamp1 + 100);
 
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
         assertEq(registry.latestRoot(), testRoot2);
         assertEq(registry.rootCount(), 2);
         assertEq(registry.rootByIndex(2), testRoot2);
@@ -151,7 +151,9 @@ contract RegistryInstanceTest is Test {
     function testUpdateRootWithMetadata() public {
         // Set a root with specific metadata
         vm.prank(oracle);
-        registry.updateRootWithMetadata(testRoot1, 100, testIpfsCid1, testMetadata1, testMetadata2, testMetadata3);
+        registry.updateRootWithMetadata(
+            testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1, testMetadata1, testMetadata2, testMetadata3
+        );
 
         // Verify the root was set correctly
         assertEq(registry.latestRoot(), testRoot1);
@@ -184,7 +186,9 @@ contract RegistryInstanceTest is Test {
     function testUpdateRootWithMetadataHistoricalRoots() public {
         // First root with metadata
         vm.prank(oracle);
-        registry.updateRootWithMetadata(testRoot1, 100, testIpfsCid1, testMetadata1, testMetadata2, testMetadata3);
+        registry.updateRootWithMetadata(
+            testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1, testMetadata1, testMetadata2, testMetadata3
+        );
 
         uint256 timestamp1 = block.timestamp;
         vm.warp(timestamp1 + 100);
@@ -192,7 +196,14 @@ contract RegistryInstanceTest is Test {
         // Second root with different metadata
         vm.prank(oracle);
         registry.updateRootWithMetadata(
-            testRoot2, 200, testIpfsCid2, bytes32(uint256(1)), bytes32(uint256(2)), bytes32(uint256(3))
+            testRoot2,
+            testRoot1,
+            block.timestamp,
+            200,
+            testIpfsCid2,
+            bytes32(uint256(1)),
+            bytes32(uint256(2)),
+            bytes32(uint256(3))
         );
 
         // Verify first root becomes historical with proper validTo
@@ -220,21 +231,32 @@ contract RegistryInstanceTest is Test {
     function testUpdateRootWithMetadataMultipleRoots() public {
         // First root
         vm.prank(oracle);
-        registry.updateRootWithMetadata(testRoot1, 100, testIpfsCid1, testMetadata1, testMetadata2, testMetadata3);
+        registry.updateRootWithMetadata(
+            testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1, testMetadata1, testMetadata2, testMetadata3
+        );
 
         vm.warp(block.timestamp + 100);
 
         // Second root
         vm.prank(oracle);
         registry.updateRootWithMetadata(
-            testRoot2, 200, testIpfsCid2, bytes32(uint256(1)), bytes32(uint256(2)), bytes32(uint256(3))
+            testRoot2,
+            testRoot1,
+            block.timestamp,
+            200,
+            testIpfsCid2,
+            bytes32(uint256(1)),
+            bytes32(uint256(2)),
+            bytes32(uint256(3))
         );
 
         vm.warp(block.timestamp + 100);
 
         // Third root with zero metadata
         vm.prank(oracle);
-        registry.updateRootWithMetadata(testRoot3, 300, testIpfsCid3, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            testRoot3, testRoot2, block.timestamp, 300, testIpfsCid3, bytes32(0), bytes32(0), bytes32(0)
+        );
 
         // Verify third root is now latest
         assertEq(registry.latestRoot(), testRoot3);
@@ -272,7 +294,7 @@ contract RegistryInstanceTest is Test {
     function testOracleCanUpdateRoot() public {
         // Oracle updates the root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
         assertEq(registry.latestRoot(), testRoot1);
 
         // Oracle updates to a new root
@@ -280,7 +302,7 @@ contract RegistryInstanceTest is Test {
         vm.warp(timestamp1 + 100);
 
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
         assertEq(registry.latestRoot(), testRoot2);
     }
 
@@ -288,7 +310,7 @@ contract RegistryInstanceTest is Test {
         // Admin tries to update root
         vm.prank(admin);
         vm.expectRevert("Not authorized: oracle only");
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
     }
 
     function testIsRootValidAtTimestamp() public {
@@ -296,7 +318,7 @@ contract RegistryInstanceTest is Test {
 
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Move time forward
         vm.warp(timestamp1 + 100);
@@ -304,7 +326,7 @@ contract RegistryInstanceTest is Test {
 
         // Update to a new root
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
 
         // Move time forward again
         vm.warp(timestamp2 + 100);
@@ -312,7 +334,7 @@ contract RegistryInstanceTest is Test {
 
         // Update to a third root
         vm.prank(oracle);
-        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+        registry.updateRoot(testRoot3, testRoot2, block.timestamp, 300, testIpfsCid3);
 
         // Test validity at different timestamps
 
@@ -340,7 +362,7 @@ contract RegistryInstanceTest is Test {
 
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Move time forward
         vm.warp(initialTimestamp + 100);
@@ -348,7 +370,7 @@ contract RegistryInstanceTest is Test {
 
         // Update to a new root
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
 
         // Revoke the first root
         vm.prank(oracle);
@@ -366,7 +388,7 @@ contract RegistryInstanceTest is Test {
     function testOracleCanRevokeRoot() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Oracle revokes the root
         vm.prank(oracle);
@@ -383,7 +405,7 @@ contract RegistryInstanceTest is Test {
     function testAdminCannotRevokeRoot() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Admin tries to revoke root
         vm.prank(admin);
@@ -394,7 +416,7 @@ contract RegistryInstanceTest is Test {
     function testUnrevokeRoot() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Revoke the root
         vm.prank(oracle);
@@ -422,7 +444,7 @@ contract RegistryInstanceTest is Test {
     function testOracleCanUnrevokeRoot() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Oracle revokes the root
         vm.prank(oracle);
@@ -450,13 +472,13 @@ contract RegistryInstanceTest is Test {
 
         // New oracle should be able to update roots
         vm.prank(newOracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
         assertEq(registry.latestRoot(), testRoot1);
 
         // Old oracle should no longer be able to update roots
         vm.prank(oracle);
         vm.expectRevert("Not authorized: oracle only");
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
     }
 
     function testOnlyAdminCanSetOracle() public {
@@ -475,13 +497,13 @@ contract RegistryInstanceTest is Test {
         // User tries to update root
         vm.prank(user);
         vm.expectRevert("Not authorized: oracle only");
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
     }
 
     function testOnlyOracleCanSetRevocationStatus() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // User tries to revoke root
         vm.prank(user);
@@ -492,7 +514,7 @@ contract RegistryInstanceTest is Test {
     function testCannotUpdateToZeroRoot() public {
         vm.prank(oracle);
         vm.expectRevert("Root cannot be zero");
-        registry.updateRoot(bytes32(0), 100, testIpfsCid1);
+        registry.updateRoot(bytes32(0), bytes32(0), block.timestamp, 100, testIpfsCid1);
     }
 
     function testCannotSetRevocationStatusOfNonExistentRoot() public {
@@ -504,7 +526,7 @@ contract RegistryInstanceTest is Test {
     function testNoChangeIfSettingSameRevocationStatus() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Set revocation status to true
         vm.prank(oracle);
@@ -534,7 +556,7 @@ contract RegistryInstanceTest is Test {
     function testPauseAffectsRootValidity() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Verify root is valid
         assertTrue(registry.isRootValidAtTimestamp(testRoot1, block.timestamp));
@@ -562,13 +584,13 @@ contract RegistryInstanceTest is Test {
         // Try to update root while paused
         vm.prank(oracle);
         vm.expectRevert("Contract is paused");
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
     }
 
     function testCannotSetRevocationStatusWhenPaused() public {
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Pause the contract
         vm.prank(admin);
@@ -614,7 +636,7 @@ contract RegistryInstanceTest is Test {
 
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Only the latest root should be valid
         assertTrue(registry.isRootValid(testRoot1, block.timestamp));
@@ -628,14 +650,14 @@ contract RegistryInstanceTest is Test {
 
         // Set first root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Move time forward
         vm.warp(block.timestamp + 100);
 
         // Set second root
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
 
         // Both latest (testRoot2) and previous (testRoot1) should be valid
         assertTrue(registry.isRootValid(testRoot2, block.timestamp)); // Latest
@@ -650,17 +672,17 @@ contract RegistryInstanceTest is Test {
 
         // Set first root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Move time forward and set second root
         vm.warp(block.timestamp + 100);
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
 
         // Move time forward and set third root
         vm.warp(block.timestamp + 100);
         vm.prank(oracle);
-        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+        registry.updateRoot(testRoot3, testRoot2, block.timestamp, 300, testIpfsCid3);
 
         // Only latest (testRoot3) and previous (testRoot2) should be valid
         assertTrue(registry.isRootValid(testRoot3, block.timestamp)); // Latest
@@ -671,13 +693,13 @@ contract RegistryInstanceTest is Test {
     function testLatestAndPreviousModeSwitchingBehavior() public {
         // Set three roots
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
         vm.warp(block.timestamp + 100);
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
         vm.warp(block.timestamp + 100);
         vm.prank(oracle);
-        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+        registry.updateRoot(testRoot3, testRoot2, block.timestamp, 300, testIpfsCid3);
 
         // In LATEST_ONLY mode, only testRoot3 should be valid
         vm.prank(admin);
@@ -718,7 +740,7 @@ contract RegistryInstanceTest is Test {
 
         // Set initial root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Verify root is valid
         assertTrue(registry.isRootValid(testRoot1, block.timestamp));
@@ -738,12 +760,12 @@ contract RegistryInstanceTest is Test {
 
         // Set first root
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Move time forward and set second root
         vm.warp(block.timestamp + 100);
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
 
         // Both roots should be valid
         assertTrue(registry.isRootValid(testRoot2, block.timestamp)); // Latest
@@ -770,13 +792,13 @@ contract RegistryInstanceTest is Test {
     function testRevokedRootInAllModes() public {
         // Set three roots
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
         vm.warp(block.timestamp + 100);
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
         vm.warp(block.timestamp + 100);
         vm.prank(oracle);
-        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+        registry.updateRoot(testRoot3, testRoot2, block.timestamp, 300, testIpfsCid3);
 
         // Revoke testRoot2
         vm.prank(oracle);
@@ -813,19 +835,19 @@ contract RegistryInstanceTest is Test {
 
         // Create first root at t0 (valid from t0 to t1-1)
         vm.prank(oracle);
-        registry.updateRoot(testRoot1, 100, testIpfsCid1);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
         // Create second root at t0 + 200 (valid from t0+200 to t2-1)
         uint256 t1 = t0 + 200;
         vm.warp(t1);
         vm.prank(oracle);
-        registry.updateRoot(testRoot2, 200, testIpfsCid2);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
 
         // Create third root at t0 + 500 (valid from t0+500 onwards, this is the latest)
         uint256 t2 = t0 + 500;
         vm.warp(t2);
         vm.prank(oracle);
-        registry.updateRoot(testRoot3, 300, testIpfsCid3);
+        registry.updateRoot(testRoot3, testRoot2, block.timestamp, 300, testIpfsCid3);
 
         // Move to t0 + 700 for testing
         uint256 testTime = t0 + 700;
@@ -900,5 +922,37 @@ contract RegistryInstanceTest is Test {
         assertTrue(
             registry.isRootValid(testRoot2, edgeTime), "testRoot2 should be valid when validTo equals window start"
         );
+    }
+
+    function testCanUpdateFirstRootWithZeroCurrentRoot() public {
+        // First root should be updated with bytes32(0) as currentRoot
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
+        assertEq(registry.latestRoot(), testRoot1);
+        assertEq(registry.rootCount(), 1);
+    }
+
+    function testCannotUpdateRootWithWrongCurrentRoot() public {
+        // Set initial root
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
+        assertEq(registry.latestRoot(), testRoot1);
+
+        vm.warp(block.timestamp + 1);
+
+        // Try to update with wrong currentRoot
+        vm.prank(oracle);
+        vm.expectRevert("Current root mismatch");
+        registry.updateRoot(testRoot2, bytes32(0), block.timestamp, 200, testIpfsCid2); // Should fail because currentRoot should be testRoot1
+
+        // Try to update with wrong currentRoot (using testRoot2 when it should be testRoot1)
+        vm.prank(oracle);
+        vm.expectRevert("Current root mismatch");
+        registry.updateRoot(testRoot2, testRoot2, block.timestamp, 200, testIpfsCid2);
+
+        // Update with correct currentRoot should work
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
+        assertEq(registry.latestRoot(), testRoot2);
     }
 }

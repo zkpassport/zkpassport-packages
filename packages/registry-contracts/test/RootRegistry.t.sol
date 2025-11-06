@@ -2,55 +2,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
-
-// MockRegistry for testing the delegation functionality
-contract MockRegistry is IRegistryInstance {
-    bool private shouldReturnValid;
-
-    constructor(bool _shouldReturnValid) {
-        shouldReturnValid = _shouldReturnValid;
-    }
-
-    function isRootValid(bytes32, uint256) external view returns (bool) {
-        return shouldReturnValid;
-    }
-
-    function isRootValidAtTimestamp(bytes32, uint256) external view returns (bool) {
-        return shouldReturnValid;
-    }
-
-    function setShouldReturnValid(bool _shouldReturnValid) external {
-        shouldReturnValid = _shouldReturnValid;
-    }
-
-    function latestRoot() external pure returns (bytes32) {
-        return keccak256("test-root");
-    }
-
-    function rootByIndex(uint256) external pure returns (bytes32) {
-        return keccak256("test-root");
-    }
-
-    function indexByRoot(bytes32) external pure returns (uint256) {
-        return 0;
-    }
-
-    function rootCount() external pure returns (uint256) {
-        return 1;
-    }
-
-    function historicalRoots(bytes32)
-        external
-        pure
-        returns (uint256, uint256, bool, uint256, bytes32, bytes32, bytes32, bytes32)
-    {
-        return (0, 0, false, 0, keccak256("test-root"), bytes32(0), bytes32(0), bytes32(0));
-    }
-
-    function rootValidationMode() external pure returns (RootValidationMode) {
-        return RootValidationMode.LATEST_ONLY;
-    }
-}
+import "./MockRegistry.sol";
 
 contract RootRegistryTest is Test {
     RootRegistry public registry;
@@ -222,46 +174,6 @@ contract RootRegistryTest is Test {
         assertFalse(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
     }
 
-    function testIsRootValidAtTimestamp() public {
-        // Set up registry with valid mock
-        vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
-
-        // Check that root is valid at current timestamp
-        assertTrue(registry.isRootValidAtTimestamp(certificateRegistryId, testRoot, block.timestamp));
-
-        // Update registry to invalid mock
-        vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
-
-        // Check that root is now invalid at current timestamp
-        assertFalse(registry.isRootValidAtTimestamp(certificateRegistryId, testRoot, block.timestamp));
-    }
-
-    function testIsRootValidAtTimestampWithNonExistentRegistry() public view {
-        // Use a registry identifier that is guaranteed to be non-existent
-        bytes32 nonExistentRegistryId = keccak256("non-existent-registry");
-
-        // Check that root is invalid for non-existent registry
-        assertFalse(registry.isRootValidAtTimestamp(nonExistentRegistryId, testRoot, block.timestamp));
-    }
-
-    function testIsRootValidAtTimestampWhenPaused() public {
-        // Set up registry with valid mock
-        vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
-
-        // Check that root is valid at current timestamp
-        assertTrue(registry.isRootValidAtTimestamp(certificateRegistryId, testRoot, block.timestamp));
-
-        // Pause the contract
-        vm.prank(guardian);
-        registry.setPaused(true);
-
-        // Check that root is now invalid at current timestamp
-        assertFalse(registry.isRootValidAtTimestamp(certificateRegistryId, testRoot, block.timestamp));
-    }
-
     function testTransferAdmin() public {
         // Admin transfers admin role
         vm.prank(admin);
@@ -287,7 +199,7 @@ contract RootRegistryTest is Test {
         registry.transferAdmin(address(0));
     }
 
-    function testOnlyGuardianCanPause() public {
+    function testOnlyAdminOrGuardianCanPause() public {
         // Guardian can pause
         vm.prank(guardian);
         registry.setPaused(true);
@@ -298,14 +210,29 @@ contract RootRegistryTest is Test {
         registry.setPaused(false);
         assertFalse(registry.paused());
 
+        // Admin can also pause
+        vm.prank(admin);
+        registry.setPaused(true);
+        assertTrue(registry.paused());
+
+        // Admin can unpause
+        vm.prank(admin);
+        registry.setPaused(false);
+        assertFalse(registry.paused());
+
         // User cannot pause
         vm.prank(user);
-        vm.expectRevert("Not authorized: guardian only");
+        vm.expectRevert("Not authorized: admin or guardian only");
         registry.setPaused(true);
     }
 
     function testTransferGuardian() public {
-        // Admin transfers guardian role
+        // User cannot pause
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin or guardian only");
+        registry.setPaused(true);
+
+        // Admin transfers guardian role to user
         vm.prank(admin);
         registry.transferGuardian(user);
 
@@ -319,7 +246,7 @@ contract RootRegistryTest is Test {
 
         // Old guardian should no longer be able to pause
         vm.prank(guardian);
-        vm.expectRevert("Not authorized: guardian only");
+        vm.expectRevert("Not authorized: admin or guardian only");
         registry.setPaused(false);
     }
 

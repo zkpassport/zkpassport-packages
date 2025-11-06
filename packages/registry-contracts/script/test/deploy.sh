@@ -1,8 +1,13 @@
-#!/bin/zsh
+#!/bin/bash
+
+# Test deployment script for integration tests
+# ⚠️  FOR TESTING ONLY - DO NOT USE IN PRODUCTION ⚠️
+# This script deploys contracts to a local Anvil instance for testing purposes
 
 set -e
 
-export CHAIN_ID=${CHAIN_ID:-31337}
+# Hardcoded for test environment
+export CHAIN_ID=31337
 export RPC_URL=${RPC_URL:-http://localhost:8545}
 export ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-dummy}
 
@@ -32,11 +37,6 @@ export SANCTIONS_REGISTRY_ORACLE_PRIVATE_KEY=${SANCTIONS_REGISTRY_ORACLE_PRIVATE
 REGISTRY_ID_CERTIFICATE_REGISTRY=0x0000000000000000000000000000000000000000000000000000000000000001
 REGISTRY_ID_CIRCUIT_REGISTRY=0x0000000000000000000000000000000000000000000000000000000000000002
 REGISTRY_ID_SANCTIONS_REGISTRY=0x0000000000000000000000000000000000000000000000000000000000000003
-
-if [ $CHAIN_ID -eq 11155111 ]; then
-  echo "Deploying to Sepolia! Press any key to continue..."
-  read -k1
-fi
 
 # Deploy the RootRegistry contract
 echo "Deploying RootRegistry..."
@@ -82,3 +82,4 @@ cast send $ROOT_REGISTRY_ADDRESS "updateRegistry(bytes32,address)" $REGISTRY_ID_
 # Verify it's added to the RootRegistry
 CHECK_SANCTIONS_REGISTRY_ADDRESS=$(cast call $ROOT_REGISTRY_ADDRESS "registries(bytes32)" $REGISTRY_ID_SANCTIONS_REGISTRY --rpc-url $RPC_URL)
 echo "Checked SanctionsRegistry address: $CHECK_SANCTIONS_REGISTRY_ADDRESS"
+
