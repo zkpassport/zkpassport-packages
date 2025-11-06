@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.30.2",
+  "version": "0.31.0",
   "type": "module",
   "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
