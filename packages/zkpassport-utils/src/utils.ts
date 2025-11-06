@@ -285,7 +285,6 @@ export function getChainDisplayName(chain: SupportedChain): string {
       throw new Error(`Unsupported chain: ${chain}`)
   }
 }
-
 export function areDatesEqual(date1: Date | string | number, date2: Date | string | number) {
   if (typeof date1 === "string" || typeof date1 === "number") {
     date1 = new Date(date1)
