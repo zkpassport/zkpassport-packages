@@ -3,194 +3,92 @@
   "version": "0.30.2",
   "type": "module",
   "main": "./dist/esm/index.js",
-  "types": "./dist/types/index.d.ts",
+  "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/esm/index.js"
-      },
-      "require": {
-        "types": "./dist/types/index.d.cts",
-        "default": "./dist/cjs/index.cjs"
-      }
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
     },
     "./binary": {
-      "import": {
-        "types": "./dist/types/binary/index.d.ts",
-        "default": "./dist/esm/binary/index.js"
-      },
-      "require": {
-        "types": "./dist/types/binary/index.d.cts",
-        "default": "./dist/cjs/binary/index.cjs"
-      }
+      "import": "./dist/esm/binary/index.js",
+      "require": "./dist/cjs/binary/index.cjs"
     },
     "./cms": {
-      "import": {
-        "types": "./dist/types/cms/index.d.ts",
-        "default": "./dist/esm/cms/index.js"
-      },
-      "require": {
-        "types": "./dist/types/cms/index.d.cts",
-        "default": "./dist/cjs/cms/index.cjs"
-      }
+      "import": "./dist/esm/cms/index.js",
+      "require": "./dist/cjs/cms/index.cjs"
     },
     "./asn": {
-      "import": {
-        "types": "./dist/types/cms/asn.d.ts",
-        "default": "./dist/esm/cms/asn.js"
-      },
-      "require": {
-        "types": "./dist/types/cms/asn.d.cts",
-        "default": "./dist/cjs/cms/asn.cjs"
-      }
+      "import": "./dist/esm/cms/asn.js",
+      "require": "./dist/cjs/cms/asn.cjs"
     },
     "./country": {
-      "import": {
-        "types": "./dist/types/country/country.d.ts",
-        "default": "./dist/esm/country/country.js"
-      },
-      "require": {
-        "types": "./dist/types/country/country.d.cts",
-        "default": "./dist/cjs/country/country.cjs"
-      }
+      "import": "./dist/esm/country/country.js",
+      "require": "./dist/cjs/country/country.cjs"
     },
     "./rsa": {
-      "import": {
-        "types": "./dist/types/rsa.d.ts",
-        "default": "./dist/esm/rsa.js"
-      },
-      "require": {
-        "types": "./dist/types/rsa.d.cts",
-        "default": "./dist/cjs/rsa.cjs"
-      }
+      "import": "./dist/esm/rsa.js",
+      "require": "./dist/cjs/rsa.cjs"
     },
     "./circuits": {
-      "import": {
-        "types": "./dist/types/circuits/index.d.ts",
-        "default": "./dist/esm/circuits/index.js"
-      },
-      "require": {
-        "types": "./dist/types/circuits/index.d.cts",
-        "default": "./dist/cjs/circuits/index.cjs"
-      }
+      "import": "./dist/esm/circuits/index.js",
+      "require": "./dist/cjs/circuits/index.cjs"
     },
     "./circuit-matcher": {
-      "import": {
-        "types": "./dist/types/circuit-matcher.d.ts",
-        "default": "./dist/esm/circuit-matcher.js"
-      },
-      "require": {
-        "types": "./dist/types/circuit-matcher.d.cts",
-        "default": "./dist/cjs/circuit-matcher.cjs"
-      }
+      "import": "./dist/esm/circuit-matcher.js",
+      "require": "./dist/cjs/circuit-matcher.cjs"
     },
     "./constants": {
-      "import": {
-        "types": "./dist/types/constants/index.d.ts",
-        "default": "./dist/esm/constants/index.js"
-      },
-      "require": {
-        "types": "./dist/types/constants/index.d.cts",
-        "default": "./dist/cjs/constants/index.cjs"
-      }
+      "import": "./dist/esm/constants/index.js",
+      "require": "./dist/cjs/constants/index.cjs"
     },
     "./merkle-tree": {
-      "import": {
-        "types": "./dist/types/merkle-tree/index.d.ts",
-        "default": "./dist/esm/merkle-tree/index.js"
-      },
-      "require": {
-        "types": "./dist/types/merkle-tree/index.d.cts",
-        "default": "./dist/cjs/merkle-tree/index.cjs"
-      }
+      "import": "./dist/esm/merkle-tree/index.js",
+      "require": "./dist/cjs/merkle-tree/index.cjs"
     },
     "./passport-reader": {
-      "import": {
-        "types": "./dist/types/passport/index.d.ts",
-        "default": "./dist/esm/passport/index.js"
-      },
-      "require": {
-        "types": "./dist/types/passport/index.d.cts",
-        "default": "./dist/cjs/passport/index.cjs"
-      }
+      "import": "./dist/esm/passport/index.js",
+      "require": "./dist/cjs/passport/index.cjs"
     },
     "./passport": {
-      "import": {
-        "types": "./dist/types/passport/index.d.ts",
-        "default": "./dist/esm/passport/index.js"
-      },
-      "require": {
-        "types": "./dist/types/passport/index.d.cts",
-        "default": "./dist/cjs/passport/index.cjs"
-      }
+      "import": "./dist/esm/passport/index.js",
+      "require": "./dist/cjs/passport/index.cjs"
     },
     "./utils": {
-      "import": {
-        "types": "./dist/types/utils.d.ts",
-        "default": "./dist/esm/utils.js"
-      },
-      "require": {
-        "types": "./dist/types/utils.d.cts",
-        "default": "./dist/cjs/utils.cjs"
-      }
+      "import": "./dist/esm/utils.js",
+      "require": "./dist/cjs/utils.cjs"
     },
     "./barrett-reduction": {
-      "import": {
-        "types": "./dist/types/barrett-reduction.d.ts",
-        "default": "./dist/esm/barrett-reduction.js"
-      },
-      "require": {
-        "types": "./dist/types/barrett-reduction.d.cts",
-        "default": "./dist/cjs/barrett-reduction.cjs"
-      }
+      "import": "./dist/esm/barrett-reduction.js",
+      "require": "./dist/cjs/barrett-reduction.cjs"
     },
     "./recursion": {
-      "import": {
-        "types": "./dist/types/recursion.d.ts",
-        "default": "./dist/esm/recursion.js"
-      },
-      "require": {
-        "types": "./dist/types/recursion.d.cts",
-        "default": "./dist/cjs/recursion.cjs"
-      }
+      "import": "./dist/esm/recursion.js",
+      "require": "./dist/cjs/recursion.cjs"
     },
     "./registry": {
-      "import": {
-        "types": "./dist/types/registry/index.d.ts",
-        "default": "./dist/esm/registry/index.js"
-      },
-      "require": {
-        "types": "./dist/types/registry/index.d.cts",
-        "default": "./dist/cjs/registry/index.cjs"
-      }
+      "import": "./dist/esm/registry/index.js",
+      "require": "./dist/cjs/registry/index.cjs"
     },
     "./types": {
-      "import": {
-        "types": "./dist/types/types/index.d.ts",
-        "default": "./dist/esm/types/index.js"
-      },
-      "require": {
-        "types": "./dist/types/types/index.d.cts",
-        "default": "./dist/cjs/types/index.cjs"
-      }
+      "import": "./dist/esm/types/index.js",
+      "require": "./dist/cjs/types/index.cjs"
     }
   },
   "scripts": {
     "build": "bun run build:types && tsup --config tsup.config.ts",
-    "build:types": "tsc -b && ../../scripts/copy-dts.sh",
+    "build:types": "tsc -b && tsc-alias -v -p tsconfig.json -f",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test src tests",
     "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests && eslint src --ext .ts",
     "format": "prettier -c -w src tests && eslint src --ext .ts --fix",
+    "validate-package": "../../scripts/validate-package.sh",
     "prepublishOnly": "../../scripts/prepublish.sh"
   },
   "files": [
     "dist/esm",
-    "dist/cjs",
-    "dist/types"
+    "dist/cjs"
   ],
   "keywords": [
     "zkpassport",

@@ -28,6 +28,7 @@ broadcast/
 *.a
 *.so
 *.zip
+*.tgz
 *.bak
 *.eslintcache
 *.tsbuildinfo
