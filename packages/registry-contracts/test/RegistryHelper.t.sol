@@ -55,7 +55,9 @@ contract RegistryHelperTest is Test {
         bytes32 ipfsCid1 = bytes32(uint256(100));
 
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root1, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root1, bytes32(0), block.timestamp, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0)
+        );
 
         (RegistryHelper.RootDetails[] memory roots, bool isLastPage) =
             helper.getHistoricalRoots(CERTIFICATE_REGISTRY_ID, 1, 10);
@@ -77,11 +79,19 @@ contract RegistryHelperTest is Test {
         bytes32 ipfsCid3 = bytes32(uint256(300));
 
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root1, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root1, bytes32(0), block.timestamp, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0)
+        );
+        vm.warp(block.timestamp + 1);
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root2, 200, ipfsCid2, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root2, root1, block.timestamp, 200, ipfsCid2, bytes32(0), bytes32(0), bytes32(0)
+        );
+        vm.warp(block.timestamp + 1);
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root3, 300, ipfsCid3, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root3, root2, block.timestamp, 300, ipfsCid3, bytes32(0), bytes32(0), bytes32(0)
+        );
 
         (RegistryHelper.RootDetails[] memory roots, bool isLastPage) =
             helper.getHistoricalRoots(CERTIFICATE_REGISTRY_ID, 1, 10);
@@ -115,7 +125,11 @@ contract RegistryHelperTest is Test {
             ipfsCids[i] = bytes32(uint256(100 + i));
 
             vm.prank(oracle);
-            registry.updateRootWithMetadata(roots[i], 100 + i, ipfsCids[i], bytes32(0), bytes32(0), bytes32(0));
+            bytes32 currentRoot = i == 0 ? bytes32(0) : roots[i - 1];
+            registry.updateRootWithMetadata(
+                roots[i], currentRoot, block.timestamp, 100 + i, ipfsCids[i], bytes32(0), bytes32(0), bytes32(0)
+            );
+            if (i < 4) vm.warp(block.timestamp + 1);
         }
 
         // Test first page with 2 items per page
@@ -164,7 +178,11 @@ contract RegistryHelperTest is Test {
             ipfsCids[i] = bytes32(uint256(100 + i));
 
             vm.prank(oracle);
-            registry.updateRootWithMetadata(roots[i], 100 + i, ipfsCids[i], bytes32(0), bytes32(0), bytes32(0));
+            bytes32 currentRoot = i == 0 ? bytes32(0) : roots[i - 1];
+            registry.updateRootWithMetadata(
+                roots[i], currentRoot, block.timestamp, 100 + i, ipfsCids[i], bytes32(0), bytes32(0), bytes32(0)
+            );
+            if (i < 4) vm.warp(block.timestamp + 1);
         }
 
         // Test getting roots by hash
@@ -199,9 +217,14 @@ contract RegistryHelperTest is Test {
         bytes32 ipfsCid2 = bytes32(uint256(200));
 
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root1, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root1, bytes32(0), block.timestamp, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0)
+        );
+        vm.warp(block.timestamp + 1);
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root2, 200, ipfsCid2, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root2, root1, block.timestamp, 200, ipfsCid2, bytes32(0), bytes32(0), bytes32(0)
+        );
 
         RegistryHelper.RootDetails memory latest = helper.getLatestRootDetails(CERTIFICATE_REGISTRY_ID);
 
@@ -220,15 +243,21 @@ contract RegistryHelperTest is Test {
         bytes32[] memory roots = new bytes32[](3);
         bytes32[] memory ipfsCids = new bytes32[](3);
         uint256[] memory leaves = new uint256[](3);
+        uint256[] memory timestamps = new uint256[](3);
 
         // Create 3 roots with different metadata
         for (uint256 i = 0; i < 3; i++) {
             roots[i] = bytes32(uint256(i + 1));
             ipfsCids[i] = bytes32(uint256(100 + i));
             leaves[i] = 50 + i * 10;
+            timestamps[i] = block.timestamp;
 
             vm.prank(oracle);
-            registry.updateRootWithMetadata(roots[i], leaves[i], ipfsCids[i], bytes32(0), bytes32(0), bytes32(0));
+            bytes32 currentRoot = i == 0 ? bytes32(0) : roots[i - 1];
+            registry.updateRootWithMetadata(
+                roots[i], currentRoot, timestamps[i], leaves[i], ipfsCids[i], bytes32(0), bytes32(0), bytes32(0)
+            );
+            if (i < 2) vm.warp(block.timestamp + 1);
         }
 
         // Test getting root by index
@@ -239,7 +268,7 @@ contract RegistryHelperTest is Test {
         assertEq(details.root, roots[1]);
         assertEq(details.leaves, leaves[1]);
         assertEq(details.cid, ipfsCids[1]);
-        assertEq(details.validFrom, block.timestamp);
+        assertEq(details.validFrom, timestamps[1]);
         assertFalse(details.revoked);
     }
 
@@ -248,7 +277,9 @@ contract RegistryHelperTest is Test {
         bytes32 ipfsCid1 = bytes32(uint256(100));
 
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root1, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root1, bytes32(0), block.timestamp, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0)
+        );
 
         // Test with index 0 (invalid, as indexing starts at 1)
         vm.expectRevert();
@@ -270,15 +301,21 @@ contract RegistryHelperTest is Test {
         bytes32[] memory roots = new bytes32[](3);
         bytes32[] memory ipfsCids = new bytes32[](3);
         uint256[] memory leaves = new uint256[](3);
+        uint256[] memory timestamps = new uint256[](3);
 
         // Create 3 roots with different metadata
         for (uint256 i = 0; i < 3; i++) {
             roots[i] = bytes32(uint256(i + 1));
             ipfsCids[i] = bytes32(uint256(100 + i));
             leaves[i] = 50 + i * 10;
+            timestamps[i] = block.timestamp;
 
             vm.prank(oracle);
-            registry.updateRootWithMetadata(roots[i], leaves[i], ipfsCids[i], bytes32(0), bytes32(0), bytes32(0));
+            bytes32 currentRoot = i == 0 ? bytes32(0) : roots[i - 1];
+            registry.updateRootWithMetadata(
+                roots[i], currentRoot, timestamps[i], leaves[i], ipfsCids[i], bytes32(0), bytes32(0), bytes32(0)
+            );
+            if (i < 2) vm.warp(block.timestamp + 1);
         }
 
         // Test getting root by hash for the second root
@@ -289,7 +326,7 @@ contract RegistryHelperTest is Test {
         assertEq(details.root, roots[1]);
         assertEq(details.leaves, leaves[1]);
         assertEq(details.cid, ipfsCids[1]);
-        assertEq(details.validFrom, block.timestamp);
+        assertEq(details.validFrom, timestamps[1]);
         assertFalse(details.revoked);
     }
 
@@ -298,7 +335,9 @@ contract RegistryHelperTest is Test {
         bytes32 ipfsCid1 = bytes32(uint256(100));
 
         vm.prank(oracle);
-        registry.updateRootWithMetadata(root1, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0));
+        registry.updateRootWithMetadata(
+            root1, bytes32(0), block.timestamp, 100, ipfsCid1, bytes32(0), bytes32(0), bytes32(0)
+        );
 
         // Test with zero root hash
         vm.expectRevert("Root hash cannot be zero");

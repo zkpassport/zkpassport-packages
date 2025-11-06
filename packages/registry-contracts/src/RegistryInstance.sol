@@ -65,7 +65,7 @@ contract RegistryInstance is IRegistryInstance {
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
     event RootUpdated(
-        bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 indexed rootIndex, uint256 validFrom, uint256 validTo
+        bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 indexed rootIndex, uint256 validFrom, uint256 leaves
     );
     event RootRevocationStatusChanged(bytes32 indexed root, bool revoked);
     event RootValidationModeChanged(RootValidationMode indexed oldMode, RootValidationMode indexed newMode);
@@ -115,14 +115,18 @@ contract RegistryInstance is IRegistryInstance {
     /**
      * @dev Update the latest root with metadata
      * @param newRoot The new root to set as latest
-     * @param leaves The number of leaves in the merkle tree
-     * @param cid The IPFS CIDv0 of the file packaging the content for this root specific to this registry
-     * @param metadata1 Additional metadata (first field)
-     * @param metadata2 Additional metadata (second field)
-     * @param metadata3 Additional metadata (third field)
+     * @param currentRoot The expected current root (must match latestRoot, or bytes32(0) for first update)
+     * @param timestamp The timestamp of the root update
+     * @param leaves The number of leaves in the merkle tree for this root
+     * @param cid The IPFS CIDv0 of the file packaging the content for this root
+     * @param metadata1 Additional metadata 1 (optional)
+     * @param metadata2 Additional metadata 2 (optional)
+     * @param metadata3 Additional metadata 3 (optional)
      */
     function updateRootWithMetadata(
         bytes32 newRoot,
+        bytes32 currentRoot,
+        uint256 timestamp,
         uint256 leaves,
         bytes32 cid,
         bytes32 metadata1,
@@ -132,9 +136,9 @@ contract RegistryInstance is IRegistryInstance {
         require(newRoot != bytes32(0), "Root cannot be zero");
         require(indexByRoot[newRoot] == 0, "Root already exists");
         require(leaves > 0, "Leaves count must be greater than zero");
+        require(currentRoot == latestRoot, "Current root mismatch");
 
         bytes32 oldRoot = latestRoot;
-        uint256 currentTime = block.timestamp;
 
         // Increment root count and store index mapping
         rootCount++;
@@ -142,14 +146,16 @@ contract RegistryInstance is IRegistryInstance {
         indexByRoot[newRoot] = rootCount;
 
         if (oldRoot != bytes32(0)) {
-            // Update the validity period of the previous root
             HistoricalRoot storage oldRootData = historicalRoots[oldRoot];
-            oldRootData.validTo = currentTime - 1;
+            // Ensure timestamp is after previous root's validFrom
+            require(timestamp > oldRootData.validFrom, "Timestamp must be after previous root validFrom");
+            // Update the validity period of the previous root
+            oldRootData.validTo = timestamp - 1;
         }
 
         // Set up the new root's historical data
         historicalRoots[newRoot] = HistoricalRoot({
-            validFrom: currentTime,
+            validFrom: timestamp,
             validTo: 0, // Special case for latest root
             revoked: false,
             leaves: leaves,
@@ -160,17 +166,19 @@ contract RegistryInstance is IRegistryInstance {
         });
 
         latestRoot = newRoot;
-        emit RootUpdated(oldRoot, newRoot, rootCount, currentTime, 0);
+        emit RootUpdated(oldRoot, newRoot, rootCount, timestamp, leaves);
     }
 
     /**
-     * @dev Update the latest root
+     * @dev Update the latest root (using explicit timestamp and current root check safeguard)
      * @param newRoot The new root to set as latest
+     * @param currentRoot The expected current root (must match latestRoot, or bytes32(0) for first update)
+     * @param timestamp The timestamp of the root update used for validity
      * @param leaves The number of leaves in the merkle tree
      * @param cid The IPFS CIDv0 of the file packaging the content for this root specific to this registry
      */
-    function updateRoot(bytes32 newRoot, uint256 leaves, bytes32 cid) public {
-        updateRootWithMetadata(newRoot, leaves, cid, bytes32(0), bytes32(0), bytes32(0));
+    function updateRoot(bytes32 newRoot, bytes32 currentRoot, uint256 timestamp, uint256 leaves, bytes32 cid) public {
+        updateRootWithMetadata(newRoot, currentRoot, timestamp, leaves, cid, bytes32(0), bytes32(0), bytes32(0));
     }
 
     /**
@@ -229,7 +237,7 @@ contract RegistryInstance is IRegistryInstance {
             });
 
             // Emit event for this root with proper oldRoot sequencing
-            emit RootUpdated(previousRoot, rootInput.root, rootCount, rootInput.validFrom, rootInput.validTo);
+            emit RootUpdated(previousRoot, rootInput.root, rootCount, rootInput.validFrom, rootInput.leaves);
 
             // Update previous root for the next iteration
             previousRoot = rootInput.root;

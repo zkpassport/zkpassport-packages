@@ -54,4 +54,3 @@ contract MockRegistry is IRegistryInstance {
         return RootValidationMode.LATEST_ONLY;
     }
 }
-
