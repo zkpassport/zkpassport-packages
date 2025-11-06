@@ -45,8 +45,8 @@ contract RootRegistry {
         _;
     }
 
-    modifier onlyGuardian() {
-        require(msg.sender == guardian, "Not authorized: guardian only");
+    modifier onlyAdminOrGuardian() {
+        require(msg.sender == admin || msg.sender == guardian, "Not authorized: admin or guardian only");
         _;
     }
 
@@ -102,7 +102,7 @@ contract RootRegistry {
      * @dev Set the paused state of the contract
      * @param _paused True to pause the contract, false to unpause
      */
-    function setPaused(bool _paused) external onlyGuardian {
+    function setPaused(bool _paused) external onlyAdminOrGuardian {
         paused = _paused;
         emit PausedStatusChanged(_paused);
     }
@@ -143,28 +143,6 @@ contract RootRegistry {
 
         // Call isRootValid on registry instance
         try IRegistryInstance(registries[registryId]).isRootValid(root, timestamp) returns (bool valid) {
-            return valid;
-        } catch {
-            return false;
-        }
-    }
-
-    /**
-     * @dev Check if a root is valid at a given timestamp for a specific registry
-     * @param registryId The registry identifier
-     * @param root The root to check
-     * @param timestamp The timestamp to check validity for
-     * @return valid True if the root is valid at the given timestamp
-     */
-    function isRootValidAtTimestamp(bytes32 registryId, bytes32 root, uint256 timestamp) external view returns (bool) {
-        // Return false if contract is paused
-        if (paused) return false;
-
-        // Return false if registry with this identifier doesn't exist
-        if (address(registries[registryId]) == address(0)) return false;
-
-        // Call isRootValidAtTimestamp on registry instance
-        try IRegistryInstance(registries[registryId]).isRootValidAtTimestamp(root, timestamp) returns (bool valid) {
             return valid;
         } catch {
             return false;
