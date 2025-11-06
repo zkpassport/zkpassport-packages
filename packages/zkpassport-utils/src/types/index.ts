@@ -311,7 +311,7 @@ export type FacematchCommittedInputs = {
   mode: FacematchMode
 }
 
-export type SupportedChain = "ethereum_sepolia" | "local_anvil"
+export type SupportedChain = "ethereum" | "ethereum_sepolia" | "local"
 
 export type BoundData = {
   user_address?: string
@@ -369,6 +369,10 @@ export type ProofResult = {
   committedInputs?: {
     [circuitName in DisclosureCircuitName]?: CommittedInputs
   }
+  // Index of the proof in the proof set
+  index?: number
+  // Total number of proofs in the proof set
+  total?: number
 }
 
 export type Service = {

@@ -45,7 +45,7 @@ export class SolidityVerifier {
         ...baseConfig,
         address: "0x0b05F45ff2F431a136eE8e708458286eC02b0d00",
       }
-    } else if (network === "local_anvil") {
+    } else if (network === "local") {
       return {
         ...baseConfig,
         address: "0x0",
