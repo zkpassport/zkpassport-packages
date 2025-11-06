@@ -287,7 +287,7 @@ contract RootRegistryTest is Test {
         registry.transferAdmin(address(0));
     }
 
-    function testOnlyGuardianCanPause() public {
+    function testOnlyAdminOrGuardianCanPause() public {
         // Guardian can pause
         vm.prank(guardian);
         registry.setPaused(true);
@@ -298,14 +298,29 @@ contract RootRegistryTest is Test {
         registry.setPaused(false);
         assertFalse(registry.paused());
 
+        // Admin can also pause
+        vm.prank(admin);
+        registry.setPaused(true);
+        assertTrue(registry.paused());
+
+        // Admin can unpause
+        vm.prank(admin);
+        registry.setPaused(false);
+        assertFalse(registry.paused());
+
         // User cannot pause
         vm.prank(user);
-        vm.expectRevert("Not authorized: guardian only");
+        vm.expectRevert("Not authorized: admin or guardian only");
         registry.setPaused(true);
     }
 
     function testTransferGuardian() public {
-        // Admin transfers guardian role
+        // User cannot pause
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin or guardian only");
+        registry.setPaused(true);
+
+        // Admin transfers guardian role to user
         vm.prank(admin);
         registry.transferGuardian(user);
 
@@ -319,7 +334,7 @@ contract RootRegistryTest is Test {
 
         // Old guardian should no longer be able to pause
         vm.prank(guardian);
-        vm.expectRevert("Not authorized: guardian only");
+        vm.expectRevert("Not authorized: admin or guardian only");
         registry.setPaused(false);
     }
 

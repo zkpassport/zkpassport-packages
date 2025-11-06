@@ -45,8 +45,8 @@ contract RootRegistry {
         _;
     }
 
-    modifier onlyGuardian() {
-        require(msg.sender == guardian, "Not authorized: guardian only");
+    modifier onlyAdminOrGuardian() {
+        require(msg.sender == admin || msg.sender == guardian, "Not authorized: admin or guardian only");
         _;
     }
 
@@ -102,7 +102,7 @@ contract RootRegistry {
      * @dev Set the paused state of the contract
      * @param _paused True to pause the contract, false to unpause
      */
-    function setPaused(bool _paused) external onlyGuardian {
+    function setPaused(bool _paused) external onlyAdminOrGuardian {
         paused = _paused;
         emit PausedStatusChanged(_paused);
     }
