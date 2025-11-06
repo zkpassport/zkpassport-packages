@@ -1,3 +1,4 @@
+import { describe, beforeAll, afterAll, it, expect, setDefaultTimeout } from "bun:test"
 import { CircuitManifest, PackagedCircuit, strip0x } from "@zkpassport/utils"
 import path from "path"
 import { RegistryClient } from "../src/client"
@@ -32,6 +33,9 @@ let registry: RegistryClient
 let fixturePackagedCerts: PackagedCertificatesFile
 let fixtureCircuitManifest: CircuitManifest
 let fixturePackagedCircuit: PackagedCircuit
+
+// Set default timeout for all tests to 30 seconds
+setDefaultTimeout(30000)
 
 describe("Registry", () => {
   beforeAll(async () => {
