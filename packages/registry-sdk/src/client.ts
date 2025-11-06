@@ -705,8 +705,8 @@ export class RegistryClient {
     const certificates = await this.getCertificates()
 
     const hasValidCertificate = certificates.certificates
-      .filter((c) => c.country === countryCode)
-      .some((c) => {
+      .filter((c: PackagedCertificate) => c.country === countryCode)
+      .some((c: PackagedCertificate) => {
         // Check if the issue date falls within the private key usage period
         let privateKeyUsagePeriodStart = c.private_key_usage_period?.not_before
         let privateKeyUsagePeriodEnd = c.private_key_usage_period?.not_after

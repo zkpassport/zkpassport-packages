@@ -6,29 +6,23 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/esm/index.js",
-  "types": "./dist/types/index.d.ts",
+  "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/esm/index.js"
-      },
-      "require": {
-        "types": "./dist/types/index.d.cts",
-        "default": "./dist/cjs/index.cjs"
-      }
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
     }
   },
   "scripts": {
     "build": "bun run build:types && tsup --config tsup.config.ts",
-    "build:types": "tsc -b && ../../scripts/copy-dts.sh",
+    "build:types": "tsc -b && tsc-alias -v -p tsconfig.json -f",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test",
     "coverage": "bun test --coverage",
-    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
+    "validate-package": "../../scripts/validate-package.sh",
     "prepublishOnly": "../../scripts/prepublish.sh"
   },
   "files": [

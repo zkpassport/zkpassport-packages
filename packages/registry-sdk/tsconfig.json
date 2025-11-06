@@ -1,27 +1,16 @@
 {
+  "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
-    "target": "es2020",
-    "module": "es2020",
-    "moduleResolution": "bundler",
     "rootDir": "./src",
-    "outDir": "./dist/types",
-    "declarationDir": "./dist/types",
+    "outDir": "./dist",
+    "declarationDir": "./dist/esm",
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
-    "baseUrl": ".",
-    "strict": true,
-    "esModuleInterop": true,
-    "declaration": true,
-    "declarationMap": false,
-    "emitDeclarationOnly": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "experimentalDecorators": true,
-    "forceConsistentCasingInFileNames": true,
-    "importHelpers": true,
-    "composite": true
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
-  "include": ["src", "src/**/*.json"],
+  "include": ["src/**/*.ts", "src/**/*.json"],
   "exclude": ["**/*.test.ts"],
   "references": [{ "path": "../zkpassport-utils" }]
 }
