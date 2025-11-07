@@ -7,7 +7,7 @@
 
 */
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 
 import {RegistryInstance} from "./RegistryInstance.sol";
 import {RootValidationMode} from "./IRegistryInstance.sol";

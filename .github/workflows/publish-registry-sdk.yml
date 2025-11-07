@@ -41,7 +41,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.1.0
+          version: v1.4.4
 
       - name: Setup Turbo cache
         if: github.ref == 'refs/heads/main'
