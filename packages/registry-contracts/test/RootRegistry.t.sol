@@ -9,9 +9,9 @@ contract RootRegistryTest is Test {
     MockRegistry public mockValidRegistry;
     MockRegistry public mockInvalidRegistry;
 
-    address public admin = address(1);
-    address public guardian = address(2);
-    address public user = address(3);
+    address public admin = makeAddr("admin");
+    address public guardian = makeAddr("guardian");
+    address public user = makeAddr("user");
 
     bytes32 public constant certificateRegistryId = keccak256("zkpassport-certificate-registry");
     bytes32 public constant circuitRegistryId = keccak256("zkpassport-circuit-registry");
@@ -239,15 +239,15 @@ contract RootRegistryTest is Test {
         registry.pause();
     }
 
-    function testTransferGuardian() public {
+    function testSetGuardian() public {
         // User cannot pause
         vm.prank(user);
         vm.expectRevert("Not authorized: admin or guardian only");
         registry.pause();
 
-        // Admin transfers guardian role to user
+        // Admin sets guardian role to user
         vm.prank(admin);
-        registry.transferGuardian(user);
+        registry.setGuardian(user);
 
         // Check that guardian was updated
         assertEq(registry.guardian(), user);
@@ -263,7 +263,7 @@ contract RootRegistryTest is Test {
         registry.pause();
     }
 
-    function testCanTransferGuardianToZeroAddress() public {
+    function testCanSetGuardianToZeroAddress() public {
         // Verify guardian is set initially
         assertEq(registry.guardian(), guardian);
 
@@ -271,24 +271,24 @@ contract RootRegistryTest is Test {
         vm.expectEmit(true, true, false, false);
         emit GuardianUpdated(guardian, address(0));
 
-        // Admin transfers guardian role to zero address (removing the role)
+        // Admin sets guardian role to zero address (removing the role)
         vm.prank(admin);
-        registry.transferGuardian(address(0));
+        registry.setGuardian(address(0));
 
         // Check that guardian was updated to zero
         assertEq(registry.guardian(), address(0));
     }
 
-    function testOnlyAdminCanTransferGuardian() public {
-        // User tries to transfer guardian
+    function testOnlyAdminCanSetGuardian() public {
+        // User tries to set guardian
         vm.prank(user);
         vm.expectRevert("Not authorized: admin only");
-        registry.transferGuardian(user);
+        registry.setGuardian(user);
 
-        // Guardian tries to transfer guardian
+        // Guardian tries to set guardian
         vm.prank(guardian);
         vm.expectRevert("Not authorized: admin only");
-        registry.transferGuardian(user);
+        registry.setGuardian(user);
     }
 
     function testGuardianCannotAddRegistry() public {

@@ -110,10 +110,10 @@ contract RootRegistry {
     }
 
     /**
-     * @dev Transfer the guardian role to a new address
+     * @dev Set the guardian address
      * @param newGuardian The new guardian address
      */
-    function transferGuardian(address newGuardian) external onlyAdmin {
+    function setGuardian(address newGuardian) external onlyAdmin {
         address oldGuardian = guardian;
         guardian = newGuardian;
         emit GuardianUpdated(oldGuardian, newGuardian);
