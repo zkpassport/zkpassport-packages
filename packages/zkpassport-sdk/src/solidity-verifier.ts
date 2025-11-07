@@ -17,19 +17,12 @@ import {
   ProofTypeLength,
   rightPadArrayWithZeros,
   SanctionsCommittedInputs,
-  SupportedChain,
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
 import { DEFAULT_VALIDITY } from "./constants"
 import { sha256 } from "@noble/hashes/sha2"
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
-
-const NETWORK_TO_ADDRESS: Record<SupportedChain, `0x${string}`> = {
-  ethereum: "0x0",
-  ethereum_sepolia: "0x0b05F45ff2F431a136eE8e708458286eC02b0d00",
-  local: "0x0",
-}
 
 export class SolidityVerifier {
   /**
@@ -39,7 +32,7 @@ export class SolidityVerifier {
    * @param network The network to get the details for
    * @returns The address, function name, and ABI for the verifier contract
    */
-  public static getDetails(network: SupportedChain): {
+  public static getDetails(): {
     address: `0x${string}`
     functionName: string
     abi: {
@@ -53,12 +46,10 @@ export class SolidityVerifier {
       functionName: "verify",
       abi: ZKPassportVerifierAbi.abi as any,
     }
-    if (!NETWORK_TO_ADDRESS[network]) {
-      throw new Error(`Unsupported network: ${network}`)
-    }
     return {
       ...baseConfig,
-      address: NETWORK_TO_ADDRESS[network],
+      // The Root Verifier has a deterministic address on all networks
+      address: "0x1D000001000EFD9a6371f4d90bB8920D5431c0D8",
     }
   }
 
@@ -242,10 +233,18 @@ export class SolidityVerifier {
         throw new Error(`Invalid commitment: ${commitment}`)
       }
     }
+    const versionParts = proof.version?.split(".").map((x) => Number(x))
+    if (!versionParts || versionParts.length !== 3) {
+      throw new Error("Invalid version format")
+    }
+    const versionBytes = new Uint8Array([
+      ...numberToBytesBE(versionParts[0], 2),
+      ...numberToBytesBE(versionParts[1], 2),
+      ...numberToBytesBE(versionParts[2], 2),
+    ])
+    const versionBytes32 = `0x${bytesToHex(versionBytes).padEnd(64, "0")}`
     const params: SolidityVerifierParameters = {
-      // TODO: Settle on which versioning format to pass
-      // depending on the actual circuit version
-      version: proof.version!,
+      version: versionBytes32,
       proofVerificationData: {
         // Make sure the vkeyHash is 32 bytes
         vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,

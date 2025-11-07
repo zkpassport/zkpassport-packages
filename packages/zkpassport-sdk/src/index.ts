@@ -14,7 +14,6 @@ import {
   ProofMode,
   BoundData,
   Service,
-  SupportedChain,
   formatQueryResultDates,
   FacematchMode,
   SanctionsCountries,
@@ -589,8 +588,7 @@ export class ZKPassport {
           try {
             const { createPublicClient, http } = await import("viem")
             const { sepolia } = await import("viem/chains")
-            const { address, abi, functionName } =
-              this.getSolidityVerifierDetails("ethereum_sepolia")
+            const { address, abi, functionName } = this.getSolidityVerifierDetails()
             const client = createPublicClient({
               chain: sepolia,
               transport: http("https://ethereum-sepolia-rpc.publicnode.com"),
@@ -639,7 +637,7 @@ export class ZKPassport {
     return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
   }
 
-  public getSolidityVerifierDetails(network: SupportedChain): {
+  public getSolidityVerifierDetails(): {
     address: `0x${string}`
     functionName: string
     abi: {
@@ -649,7 +647,7 @@ export class ZKPassport {
       outputs: { name: string; type: string; internalType: string }[]
     }[]
   } {
-    return SolidityVerifier.getDetails(network)
+    return SolidityVerifier.getDetails()
   }
 
   public getSolidityVerifierParameters({
