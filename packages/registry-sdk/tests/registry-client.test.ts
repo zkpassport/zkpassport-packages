@@ -395,31 +395,58 @@ describe("Registry", () => {
   })
 
   describe("Document support", () => {
-    it("should return the correct document support level for a given country and type", () => {
-      expect(registry.isDocumentSupported("USA", "passport")).toBe(DocumentSupport.FULL_SUPPORT)
-      expect(registry.isDocumentSupported("USA", "id_card")).toBe(DocumentSupport.NOT_SUPPORTED)
-      expect(registry.isDocumentSupported("USA", "residence_permit")).toBe(
+    it("should return the correct document support level for a given country and type", async () => {
+      const today = new Date("2025-11-07")
+      expect(await registry.isDocumentSupported("USA", today, "passport")).toBe(
+        DocumentSupport.FULL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("USA", today, "id_card")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+      expect(await registry.isDocumentSupported("USA", today, "residence_permit")).toBe(
         DocumentSupport.NOT_SUPPORTED,
       )
 
-      expect(registry.isDocumentSupported("FRA", "passport")).toBe(DocumentSupport.FULL_SUPPORT)
-      expect(registry.isDocumentSupported("FRA", "id_card")).toBe(DocumentSupport.PARTIAL_SUPPORT)
-      expect(registry.isDocumentSupported("FRA", "residence_permit")).toBe(
+      expect(await registry.isDocumentSupported("FRA", today, "passport")).toBe(
+        DocumentSupport.FULL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("FRA", today, "id_card")).toBe(
+        DocumentSupport.PARTIAL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("FRA", today, "residence_permit")).toBe(
         DocumentSupport.PARTIAL_SUPPORT,
       )
 
-      expect(registry.isDocumentSupported("IND", "passport")).toBe(
+      expect(await registry.isDocumentSupported("IND", today, "passport")).toBe(
         DocumentSupport.TENTATIVE_SUPPORT,
       )
-      expect(registry.isDocumentSupported("IND", "id_card")).toBe(DocumentSupport.NOT_SUPPORTED)
-      expect(registry.isDocumentSupported("IND", "residence_permit")).toBe(
+      expect(await registry.isDocumentSupported("IND", today, "id_card")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+      expect(await registry.isDocumentSupported("IND", today, "residence_permit")).toBe(
         DocumentSupport.NOT_SUPPORTED,
       )
 
-      expect(registry.isDocumentSupported("IDN", "passport")).toBe(DocumentSupport.PARTIAL_SUPPORT)
-      expect(registry.isDocumentSupported("IDN", "id_card")).toBe(DocumentSupport.NOT_SUPPORTED)
-      expect(registry.isDocumentSupported("IDN", "residence_permit")).toBe(
+      expect(await registry.isDocumentSupported("IDN", today, "passport")).toBe(
+        DocumentSupport.PARTIAL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("IDN", today, "id_card")).toBe(
         DocumentSupport.NOT_SUPPORTED,
+      )
+      expect(await registry.isDocumentSupported("IDN", today, "residence_permit")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+    })
+
+    it("should return unsupported for passport if no valid certificate is found", async () => {
+      // India only started issuing electronic passports in 2025, so there should be no valid certificate before that
+      expect(await registry.isDocumentSupported("IND", new Date("2022-01-01"), "passport")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+
+      // On the other hand, there should be a valid certificate for mid 2025
+      expect(await registry.isDocumentSupported("IND", new Date("2025-06-01"), "passport")).toBe(
+        DocumentSupport.TENTATIVE_SUPPORT,
       )
     })
   })

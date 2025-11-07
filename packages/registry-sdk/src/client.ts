@@ -699,13 +699,34 @@ export class RegistryClient {
    * Check if a document is likely to be supported for proving
    *
    * @param country The Alpha3 country code of the document
+   * @param issueDate The issue date of the document
    * @param type The type of the document (passport, id_card, residence_permit)
    * @returns The document support level (NOT_SUPPORTED, TENTATIVE_SUPPORT, PARTIAL_SUPPORT, GOOD_SUPPORT, FULL_SUPPORT)
    */
-  isDocumentSupported(
+  async isDocumentSupported(
     country: string,
+    issueDate?: Date,
     type: "passport" | "id_card" | "residence_permit" = "passport",
-  ): DocumentSupport {
+  ): Promise<DocumentSupport> {
+    if (issueDate) {
+      const certificates = await this.getCertificates()
+
+      const hasValidCertificate = certificates.certificates
+        .filter((c) => c.country === country)
+        .some((c) => {
+          // Check if the issue date is after the validity start date of
+          // one of the certificates of the issuing country
+          return Math.floor(issueDate.getTime() / 1000) >= c.validity.not_before
+        })
+
+      if (!hasValidCertificate) {
+        // Stop here if no valid certificate is found
+        // and return NOT_SUPPORTED.
+        return DocumentSupport.NOT_SUPPORTED
+      }
+      // Otherwise, continue with the rest of the logic.
+    }
+
     const countrySupport = documentSupportRules.find(
       (rule: DocumentSupportRule) => rule.country === country,
     )
