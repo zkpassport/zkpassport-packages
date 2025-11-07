@@ -56,7 +56,7 @@ forge script script/DeployCertificateRegistry.s.sol:DeployCertificateRegistryScr
 CERTIFICATE_REGISTRY_ADDRESS=$(cat broadcast/DeployCertificateRegistry.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 echo "CertificateRegistry deployed at: $CERTIFICATE_REGISTRY_ADDRESS"
 # Add the CertificateRegistry address to the RootRegistry
-cast send $ROOT_REGISTRY_ADDRESS "updateRegistry(bytes32,address)" $REGISTRY_ID_CERTIFICATE_REGISTRY $CERTIFICATE_REGISTRY_ADDRESS --rpc-url $RPC_URL --private-key $ROOT_REGISTRY_ADMIN_PRIVATE_KEY
+cast send $ROOT_REGISTRY_ADDRESS "addRegistry(bytes32,address)" $REGISTRY_ID_CERTIFICATE_REGISTRY $CERTIFICATE_REGISTRY_ADDRESS --rpc-url $RPC_URL --private-key $ROOT_REGISTRY_ADMIN_PRIVATE_KEY
 # Verify it's added to the RootRegistry
 CHECK_CERTIFICATE_REGISTRY_ADDRESS=$(cast call $ROOT_REGISTRY_ADDRESS "registries(bytes32)" $REGISTRY_ID_CERTIFICATE_REGISTRY --rpc-url $RPC_URL)
 echo "Checked CertificateRegistry address: $CHECK_CERTIFICATE_REGISTRY_ADDRESS"
@@ -67,7 +67,7 @@ forge script script/DeployCircuitRegistry.s.sol:DeployCircuitRegistryScript --rp
 CIRCUIT_REGISTRY_ADDRESS=$(cat broadcast/DeployCircuitRegistry.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 echo "CircuitRegistry deployed at: $CIRCUIT_REGISTRY_ADDRESS"
 # Add the CircuitRegistry address to the RootRegistry
-cast send $ROOT_REGISTRY_ADDRESS "updateRegistry(bytes32,address)" $REGISTRY_ID_CIRCUIT_REGISTRY $CIRCUIT_REGISTRY_ADDRESS --rpc-url $RPC_URL --private-key $ROOT_REGISTRY_ADMIN_PRIVATE_KEY
+cast send $ROOT_REGISTRY_ADDRESS "addRegistry(bytes32,address)" $REGISTRY_ID_CIRCUIT_REGISTRY $CIRCUIT_REGISTRY_ADDRESS --rpc-url $RPC_URL --private-key $ROOT_REGISTRY_ADMIN_PRIVATE_KEY
 # Verify it's added to the RootRegistry
 CHECK_CIRCUIT_REGISTRY_ADDRESS=$(cast call $ROOT_REGISTRY_ADDRESS "registries(bytes32)" $REGISTRY_ID_CIRCUIT_REGISTRY --rpc-url $RPC_URL)
 echo "Checked CircuitRegistry address: $CHECK_CIRCUIT_REGISTRY_ADDRESS"
@@ -78,7 +78,7 @@ forge script script/DeploySanctionsRegistry.s.sol:DeploySanctionsRegistryScript 
 SANCTIONS_REGISTRY_ADDRESS=$(cat broadcast/DeploySanctionsRegistry.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 echo "SanctionsRegistry deployed at: $SANCTIONS_REGISTRY_ADDRESS"
 # Add the SanctionsRegistry address to the RootRegistry
-cast send $ROOT_REGISTRY_ADDRESS "updateRegistry(bytes32,address)" $REGISTRY_ID_SANCTIONS_REGISTRY $SANCTIONS_REGISTRY_ADDRESS --rpc-url $RPC_URL --private-key $ROOT_REGISTRY_ADMIN_PRIVATE_KEY
+cast send $ROOT_REGISTRY_ADDRESS "addRegistry(bytes32,address)" $REGISTRY_ID_SANCTIONS_REGISTRY $SANCTIONS_REGISTRY_ADDRESS --rpc-url $RPC_URL --private-key $ROOT_REGISTRY_ADMIN_PRIVATE_KEY
 # Verify it's added to the RootRegistry
 CHECK_SANCTIONS_REGISTRY_ADDRESS=$(cast call $ROOT_REGISTRY_ADDRESS "registries(bytes32)" $REGISTRY_ID_SANCTIONS_REGISTRY --rpc-url $RPC_URL)
 echo "Checked SanctionsRegistry address: $CHECK_SANCTIONS_REGISTRY_ADDRESS"

@@ -90,7 +90,7 @@ contract RootRegistryTest is Test {
         vm.prank(admin);
         registry.addRegistry(certificateRegistryId, mockValidRegistry);
 
-       // Check that registry address was added
+        // Check that registry address was added
         assertEq(address(registry.registries(certificateRegistryId)), address(mockValidRegistry));
         // Verify counter was incremented
         assertEq(registry.registryCount(), 1);
@@ -349,7 +349,6 @@ contract RootRegistryTest is Test {
         // Verify admin is set correctly
         assertEq(registryWithNoGuardian.admin(), admin);
     }
-
 
     function testRegistryCounter() public {
         // Initially, counter should be 0
