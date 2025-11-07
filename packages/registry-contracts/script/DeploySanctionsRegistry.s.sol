@@ -12,23 +12,19 @@ contract DeploySanctionsRegistryScript is Script {
     function setUp() public {}
 
     function run() public {
-        // Get the initial admin and oracle addresses from env
+        // Get the initial admin, oracle, and guardian addresses from env
         address adminAddress = vm.envAddress("SANCTIONS_REGISTRY_ADMIN_ADDRESS");
-        address oracleAddress = vm.envAddress("SANCTIONS_REGISTRY_ORACLE_ADDRESS");
+        address oracleAddress = vm.envOr("SANCTIONS_REGISTRY_ORACLE_ADDRESS", address(0));
+        address guardianAddress = vm.envOr("SANCTIONS_REGISTRY_GUARDIAN_ADDRESS", address(0));
         require(adminAddress != address(0), "SANCTIONS_REGISTRY_ADMIN_ADDRESS must be set");
-        require(oracleAddress != address(0), "SANCTIONS_REGISTRY_ORACLE_ADDRESS must be set");
-
-        uint256 sanctionsRegistryHeight = 18;
-        uint256 validityWindowSecs = 3600; // 1 hour
 
         vm.startBroadcast();
-        registry = new SanctionsRegistry(
-            adminAddress, oracleAddress, sanctionsRegistryHeight, RootValidationMode.LATEST_ONLY, validityWindowSecs
-        );
+        registry = new SanctionsRegistry(adminAddress, oracleAddress, guardianAddress);
         vm.stopBroadcast();
 
         console.log("SanctionsRegistry deployed at:", address(registry));
         console.log("Admin:", registry.admin());
         console.log("Oracle:", registry.oracle());
+        console.log("Guardian:", registry.guardian());
     }
 }

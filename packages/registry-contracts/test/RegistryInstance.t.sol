@@ -11,6 +11,8 @@ contract RegistryInstanceTest is Test {
     address public user = address(2);
     address public oracle = address(3);
     address public newOracle = address(4);
+    address public guardian = address(5);
+    address public newGuardian = address(6);
     bytes32 public testRoot1 = keccak256("test-root-1");
     bytes32 public testRoot2 = keccak256("test-root-2");
     bytes32 public testRoot3 = keccak256("test-root-3");
@@ -21,11 +23,24 @@ contract RegistryInstanceTest is Test {
     bytes32 public testMetadata2 = keccak256("metadata-2");
     bytes32 public testMetadata3 = keccak256("metadata-3");
 
+    // Events
+    event RegistryDeployed(
+        address indexed admin,
+        address indexed oracle,
+        address indexed guardian,
+        uint256 treeHeight,
+        RootValidationMode rootValidationMode,
+        uint256 validityWindowSecs
+    );
+    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
+    event PausedStatusChanged(bool paused);
+
     function setUp() public {
         vm.prank(admin);
         registry = new RegistryInstance(
             admin,
             oracle,
+            guardian,
             TestConstants.DEFAULT_TREE_HEIGHT,
             TestConstants.DEFAULT_VALIDATION_MODE,
             TestConstants.DEFAULT_VALIDITY_WINDOW
@@ -33,35 +48,31 @@ contract RegistryInstanceTest is Test {
     }
 
     function testDeploymentEvent() public {
-        // Deploy a new registry to capture the event
-        vm.recordLogs();
-        vm.prank(admin);
-        new RegistryInstance(
+        // Expect the RegistryDeployed event
+        vm.expectEmit(true, true, true, true);
+        emit RegistryDeployed(
             admin,
             oracle,
+            guardian,
             TestConstants.DEFAULT_TREE_HEIGHT,
             TestConstants.DEFAULT_VALIDATION_MODE,
             TestConstants.DEFAULT_VALIDITY_WINDOW
         );
 
-        // Get the logs
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // Deploy a new registry
+        vm.prank(admin);
+        new RegistryInstance(
+            admin,
+            oracle,
+            guardian,
+            TestConstants.DEFAULT_TREE_HEIGHT,
+            TestConstants.DEFAULT_VALIDATION_MODE,
+            TestConstants.DEFAULT_VALIDITY_WINDOW
+        );
+    }
 
-        // Find the RegistryDeployed event
-        bool found = false;
-        for (uint256 i = 0; i < entries.length; i++) {
-            // The event signature is the first topic
-            if (entries[i].topics[0] == keccak256("RegistryDeployed(address,address,uint256,uint8,uint256)")) {
-                // The admin address is the second topic (indexed parameter)
-                assertEq(address(uint160(uint256(entries[i].topics[1]))), admin);
-                // The oracle address is the third topic (indexed parameter)
-                assertEq(address(uint160(uint256(entries[i].topics[2]))), oracle);
-                found = true;
-                break;
-            }
-        }
-
-        assertTrue(found, "RegistryDeployed event not emitted");
+    function testConstructorSetsGuardian() public view {
+        assertEq(registry.guardian(), guardian);
     }
 
     function testConstructorSetsOracle() public view {
@@ -74,6 +85,7 @@ contract RegistryInstanceTest is Test {
         new RegistryInstance(
             address(0),
             oracle,
+            guardian,
             TestConstants.DEFAULT_TREE_HEIGHT,
             TestConstants.DEFAULT_VALIDATION_MODE,
             TestConstants.DEFAULT_VALIDITY_WINDOW
@@ -86,10 +98,24 @@ contract RegistryInstanceTest is Test {
         new RegistryInstance(
             admin,
             address(0),
+            guardian,
             TestConstants.DEFAULT_TREE_HEIGHT,
             TestConstants.DEFAULT_VALIDATION_MODE,
             TestConstants.DEFAULT_VALIDITY_WINDOW
         );
+    }
+
+    function testCanDeployWithZeroGuardian() public {
+        vm.prank(admin);
+        RegistryInstance newRegistry = new RegistryInstance(
+            admin,
+            oracle,
+            address(0),
+            TestConstants.DEFAULT_TREE_HEIGHT,
+            TestConstants.DEFAULT_VALIDATION_MODE,
+            TestConstants.DEFAULT_VALIDITY_WINDOW
+        );
+        assertEq(newRegistry.guardian(), address(0));
     }
 
     function testUpdateRoot() public {
@@ -377,39 +403,36 @@ contract RegistryInstanceTest is Test {
         registry.setRevocationStatus(testRoot1, true);
 
         // Check that the root is marked as revoked
-        (,, bool revoked,,,,,) = registry.historicalRoots(testRoot1);
-        assertTrue(revoked);
+        assertTrue(registry.isRootRevoked(testRoot1));
 
         // Check that the revoked root is no longer valid at any timestamp
         assertFalse(registry.isRootValidAtTimestamp(testRoot1, initialTimestamp));
         assertFalse(registry.isRootValidAtTimestamp(testRoot1, midTimestamp - 1));
     }
 
-    function testOracleCanRevokeRoot() public {
+    function testOnlyAdminOrOracleCanRevokeRoot() public {
         // Set initial root
         vm.prank(oracle);
         registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
-        // Oracle revokes the root
+        // Oracle can revoke root
         vm.prank(oracle);
         registry.setRevocationStatus(testRoot1, true);
 
         // Check that the root is marked as revoked
-        (,, bool revoked,,,,,) = registry.historicalRoots(testRoot1);
-        assertTrue(revoked);
+        assertTrue(registry.isRootRevoked(testRoot1));
 
         // Check that the revoked root is no longer valid
         assertFalse(registry.isRootValidAtTimestamp(testRoot1, block.timestamp));
-    }
 
-    function testAdminCannotRevokeRoot() public {
-        // Set initial root
-        vm.prank(oracle);
-        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
-
-        // Admin tries to revoke root
+        // Admin can unrevoke root (since modifier is onlyAdminOrOracle)
         vm.prank(admin);
-        vm.expectRevert("Not authorized: oracle only");
+        registry.setRevocationStatus(testRoot1, false);
+        assertFalse(registry.isRootRevoked(testRoot1));
+
+        // User cannot revoke root
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin or oracle only");
         registry.setRevocationStatus(testRoot1, true);
     }
 
@@ -423,8 +446,7 @@ contract RegistryInstanceTest is Test {
         registry.setRevocationStatus(testRoot1, true);
 
         // Check that the root is marked as revoked
-        (,, bool revoked,,,,,) = registry.historicalRoots(testRoot1);
-        assertTrue(revoked);
+        assertTrue(registry.isRootRevoked(testRoot1));
 
         // Check that the root is not valid
         assertFalse(registry.isRootValidAtTimestamp(testRoot1, block.timestamp));
@@ -434,8 +456,7 @@ contract RegistryInstanceTest is Test {
         registry.setRevocationStatus(testRoot1, false);
 
         // Check that the root is no longer marked as revoked
-        (,, revoked,,,,,) = registry.historicalRoots(testRoot1);
-        assertFalse(revoked);
+        assertFalse(registry.isRootRevoked(testRoot1));
 
         // Check that the root is valid again
         assertTrue(registry.isRootValidAtTimestamp(testRoot1, block.timestamp));
@@ -455,8 +476,7 @@ contract RegistryInstanceTest is Test {
         registry.setRevocationStatus(testRoot1, false);
 
         // Check that the root is no longer marked as revoked
-        (,, bool revoked,,,,,) = registry.historicalRoots(testRoot1);
-        assertFalse(revoked);
+        assertFalse(registry.isRootRevoked(testRoot1));
 
         // Check that the root is valid again
         assertTrue(registry.isRootValidAtTimestamp(testRoot1, block.timestamp));
@@ -500,14 +520,24 @@ contract RegistryInstanceTest is Test {
         registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
     }
 
-    function testOnlyOracleCanSetRevocationStatus() public {
+    function testOnlyAdminOrOracleCanSetRevocationStatus() public {
         // Set initial root
         vm.prank(oracle);
         registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
 
-        // User tries to revoke root
+        // Admin can set revocation status
+        vm.prank(admin);
+        registry.setRevocationStatus(testRoot1, true);
+        assertTrue(registry.isRootRevoked(testRoot1));
+
+        // Oracle can set revocation status
+        vm.prank(oracle);
+        registry.setRevocationStatus(testRoot1, false);
+        assertFalse(registry.isRootRevoked(testRoot1));
+
+        // User cannot set revocation status
         vm.prank(user);
-        vm.expectRevert("Not authorized: oracle only");
+        vm.expectRevert("Not authorized: admin or oracle only");
         registry.setRevocationStatus(testRoot1, true);
     }
 
@@ -537,8 +567,7 @@ contract RegistryInstanceTest is Test {
         registry.setRevocationStatus(testRoot1, true);
 
         // Check that the root is still revoked
-        (,, bool revoked,,,,,) = registry.historicalRoots(testRoot1);
-        assertTrue(revoked);
+        assertTrue(registry.isRootRevoked(testRoot1));
 
         // Set revocation status to false
         vm.prank(oracle);
@@ -549,8 +578,7 @@ contract RegistryInstanceTest is Test {
         registry.setRevocationStatus(testRoot1, false);
 
         // Check that the root is still not revoked
-        (,, revoked,,,,,) = registry.historicalRoots(testRoot1);
-        assertFalse(revoked);
+        assertFalse(registry.isRootRevoked(testRoot1));
     }
 
     function testPauseAffectsRootValidity() public {
@@ -563,14 +591,14 @@ contract RegistryInstanceTest is Test {
 
         // Pause the contract
         vm.prank(admin);
-        registry.setPaused(true);
+        registry.pause();
 
         // Verify root is no longer valid when contract is paused
         assertFalse(registry.isRootValidAtTimestamp(testRoot1, block.timestamp));
 
         // Unpause the contract
         vm.prank(admin);
-        registry.setPaused(false);
+        registry.unpause();
 
         // Verify root is valid again
         assertTrue(registry.isRootValidAtTimestamp(testRoot1, block.timestamp));
@@ -579,7 +607,7 @@ contract RegistryInstanceTest is Test {
     function testCannotUpdateRootWhenPaused() public {
         // Pause the contract
         vm.prank(admin);
-        registry.setPaused(true);
+        registry.pause();
 
         // Try to update root while paused
         vm.prank(oracle);
@@ -587,19 +615,196 @@ contract RegistryInstanceTest is Test {
         registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
     }
 
-    function testCannotSetRevocationStatusWhenPaused() public {
-        // Set initial root
-        vm.prank(oracle);
-        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
-
-        // Pause the contract
+    function testAdminCanPause() public {
+        // Admin pauses the contract
         vm.prank(admin);
-        registry.setPaused(true);
+        registry.pause();
+        assertTrue(registry.paused());
+    }
 
-        // Try to set revocation status while paused
+    function testAdminCanUnpause() public {
+        // Admin pauses the contract
+        vm.prank(admin);
+        registry.pause();
+        assertTrue(registry.paused());
+
+        // Admin unpauses the contract
+        vm.prank(admin);
+        registry.unpause();
+        assertFalse(registry.paused());
+    }
+
+    function testGuardianCanPause() public {
+        // Guardian pauses the contract
+        vm.prank(guardian);
+        registry.pause();
+        assertTrue(registry.paused());
+    }
+
+    function testGuardianCannotUnpause() public {
+        // Admin pauses the contract
+        vm.prank(admin);
+        registry.pause();
+        assertTrue(registry.paused());
+
+        // Guardian tries to unpause the contract
+        vm.prank(guardian);
+        vm.expectRevert("Not authorized: admin only");
+        registry.unpause();
+    }
+
+    function testUserCannotPause() public {
+        // User tries to pause the contract
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin or guardian only");
+        registry.pause();
+    }
+
+    function testUserCannotUnpause() public {
+        // Admin pauses the contract
+        vm.prank(admin);
+        registry.pause();
+
+        // User tries to unpause the contract
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin only");
+        registry.unpause();
+    }
+
+    function testOracleCannotPause() public {
+        // Oracle tries to pause the contract
         vm.prank(oracle);
-        vm.expectRevert("Contract is paused");
-        registry.setRevocationStatus(testRoot1, true);
+        vm.expectRevert("Not authorized: admin or guardian only");
+        registry.pause();
+    }
+
+    function testOracleCannotUnpause() public {
+        // Admin pauses the contract
+        vm.prank(admin);
+        registry.pause();
+
+        // Oracle tries to unpause the contract
+        vm.prank(oracle);
+        vm.expectRevert("Not authorized: admin only");
+        registry.unpause();
+    }
+
+    function testSetGuardian() public {
+        // Admin sets a new guardian
+        vm.prank(admin);
+        registry.setGuardian(newGuardian);
+
+        // Check that the guardian was updated
+        assertEq(registry.guardian(), newGuardian);
+
+        // New guardian should be able to pause
+        vm.prank(newGuardian);
+        registry.pause();
+        assertTrue(registry.paused());
+
+        // Old guardian should no longer be able to unpause (but they couldn't anyway)
+        vm.prank(admin);
+        registry.unpause();
+
+        vm.prank(guardian);
+        vm.expectRevert("Not authorized: admin or guardian only");
+        registry.pause();
+        assertFalse(registry.paused());
+    }
+
+    function testOnlyAdminCanSetGuardian() public {
+        // Oracle tries to set guardian
+        vm.prank(oracle);
+        vm.expectRevert("Not authorized: admin only");
+        registry.setGuardian(newGuardian);
+
+        // Guardian tries to set guardian
+        vm.prank(guardian);
+        vm.expectRevert("Not authorized: admin only");
+        registry.setGuardian(newGuardian);
+
+        // User tries to set guardian
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin only");
+        registry.setGuardian(newGuardian);
+    }
+
+    function testSetGuardianToZeroAddress() public {
+        // Verify guardian is set initially
+        assertEq(registry.guardian(), guardian);
+
+        // Admin sets guardian to zero address (removing the role)
+        vm.prank(admin);
+        registry.setGuardian(address(0));
+
+        // Check that the guardian was updated
+        assertEq(registry.guardian(), address(0));
+    }
+
+    function testGuardianUpdatedEvent() public {
+        // Expect the GuardianUpdated event
+        vm.expectEmit(true, true, false, false);
+        emit GuardianUpdated(guardian, newGuardian);
+
+        // Admin sets a new guardian
+        vm.prank(admin);
+        registry.setGuardian(newGuardian);
+    }
+
+    function testPauseEmitsEvent() public {
+        // Expect the PausedStatusChanged event
+        vm.expectEmit(false, false, false, true);
+        emit PausedStatusChanged(true);
+
+        // Admin pauses the contract
+        vm.prank(admin);
+        registry.pause();
+    }
+
+    function testUnpauseEmitsEvent() public {
+        // Pause first
+        vm.prank(admin);
+        registry.pause();
+
+        // Expect the PausedStatusChanged event
+        vm.expectEmit(false, false, false, true);
+        emit PausedStatusChanged(false);
+
+        // Admin unpauses the contract
+        vm.prank(admin);
+        registry.unpause();
+    }
+
+    function testPauseAndUnpauseMultipleTimes() public {
+        // First pause
+        vm.prank(admin);
+        registry.pause();
+        assertTrue(registry.paused());
+
+        // First unpause
+        vm.prank(admin);
+        registry.unpause();
+        assertFalse(registry.paused());
+
+        // Second pause by guardian
+        vm.prank(guardian);
+        registry.pause();
+        assertTrue(registry.paused());
+
+        // Second unpause
+        vm.prank(admin);
+        registry.unpause();
+        assertFalse(registry.paused());
+
+        // Third pause
+        vm.prank(admin);
+        registry.pause();
+        assertTrue(registry.paused());
+
+        // Third unpause
+        vm.prank(admin);
+        registry.unpause();
+        assertFalse(registry.paused());
     }
 
     function testSetRootValidationMode() public {
@@ -617,15 +822,20 @@ contract RegistryInstanceTest is Test {
         assertEq(uint256(registry.rootValidationMode()), uint256(RootValidationMode.LATEST_AND_PREVIOUS));
     }
 
-    function testOnlyAdminCanSetRootValidationMode() public {
-        // User tries to set mode
-        vm.prank(user);
-        vm.expectRevert("Not authorized: admin only");
+    function testOnlyAdminOrOracleCanSetRootValidationMode() public {
+        // Admin can set mode
+        vm.prank(admin);
         registry.setRootValidationMode(RootValidationMode.VALID_AT_TIMESTAMP);
+        assertEq(uint256(registry.rootValidationMode()), uint256(RootValidationMode.VALID_AT_TIMESTAMP));
 
-        // Oracle tries to set mode
+        // Oracle can set mode
         vm.prank(oracle);
-        vm.expectRevert("Not authorized: admin only");
+        registry.setRootValidationMode(RootValidationMode.LATEST_AND_PREVIOUS);
+        assertEq(uint256(registry.rootValidationMode()), uint256(RootValidationMode.LATEST_AND_PREVIOUS));
+
+        // User cannot set mode
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin or oracle only");
         registry.setRootValidationMode(RootValidationMode.VALID_AT_TIMESTAMP);
     }
 
