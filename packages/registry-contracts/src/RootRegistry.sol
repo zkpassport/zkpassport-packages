@@ -67,9 +67,8 @@ contract RootRegistry {
     function addRegistry(bytes32 registryId, IRegistryInstance registryAddress) external onlyAdmin {
         require(address(registryAddress) != address(0), "Registry address cannot be zero address");
         require(address(registries[registryId]) == address(0), "Registry already exists");
-
-        registries[registryId] = registryAddress;
         registryCount++;
+        registries[registryId] = registryAddress;
         emit RegistryAdded(registryId, address(registryAddress));
     }
 
@@ -93,8 +92,8 @@ contract RootRegistry {
     function removeRegistry(bytes32 registryId) external onlyAdmin {
         IRegistryInstance registryAddress = registries[registryId];
         require(address(registryAddress) != address(0), "Registry does not exist");
-        delete registries[registryId];
         registryCount--;
+        delete registries[registryId];
         emit RegistryRemoved(registryId, address(registryAddress));
     }
 
