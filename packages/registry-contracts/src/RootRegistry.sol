@@ -26,6 +26,9 @@ contract RootRegistry {
     // Counter for the number of active registries
     uint256 public registryCount;
 
+    // Config mapping: config key => config value
+    mapping(bytes32 key => bytes32 value) public config;
+
     // Events
     event RootRegistryDeployed(address indexed admin, address indexed guardian);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
@@ -34,6 +37,7 @@ contract RootRegistry {
     event RegistryUpdated(bytes32 indexed registryId, address indexed oldAddress, address indexed newAddress);
     event RegistryRemoved(bytes32 indexed registryId, address indexed registryAddress);
     event PausedStatusChanged(bool paused);
+    event ConfigUpdated(bytes32 indexed key, bytes32 oldValue, bytes32 newValue);
 
     /**
      * @dev Constructor
@@ -122,6 +126,17 @@ contract RootRegistry {
     function setPaused(bool _paused) external onlyAdminOrGuardian {
         paused = _paused;
         emit PausedStatusChanged(_paused);
+    }
+
+    /**
+     * @dev Update a config value
+     * @param key The config key
+     * @param value The config value
+     */
+    function updateConfig(bytes32 key, bytes32 value) external onlyAdmin {
+        bytes32 oldValue = config[key];
+        config[key] = value;
+        emit ConfigUpdated(key, oldValue, value);
     }
 
     /**

@@ -25,6 +25,7 @@ contract RootRegistryTest is Test {
     event RegistryUpdated(bytes32 indexed registryId, address indexed oldAddress, address indexed newAddress);
     event RegistryRemoved(bytes32 indexed registryId, address indexed registryAddress);
     event PausedStatusChanged(bool paused);
+    event ConfigUpdated(bytes32 indexed key, bytes32 oldValue, bytes32 newValue);
 
     function setUp() public {
         vm.prank(admin);
@@ -416,5 +417,76 @@ contract RootRegistryTest is Test {
         vm.prank(admin);
         vm.expectRevert("Registry address cannot be zero address");
         registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(0)));
+    }
+
+    function testUpdateConfig() public {
+        bytes32 configKey = keccak256("test-config-key");
+        bytes32 configValue = keccak256("test-config-value");
+
+        // Initially, config should be zero
+        assertEq(registry.config(configKey), bytes32(0));
+
+        // Expect the ConfigUpdated event
+        vm.expectEmit(true, false, false, true);
+        emit ConfigUpdated(configKey, bytes32(0), configValue);
+
+        // Admin updates config
+        vm.prank(admin);
+        registry.updateConfig(configKey, configValue);
+
+        // Check that config was updated
+        assertEq(registry.config(configKey), configValue);
+    }
+
+    function testUpdateConfigMultipleTimes() public {
+        bytes32 configKey = keccak256("test-config-key");
+        bytes32 configValue1 = keccak256("test-config-value-1");
+        bytes32 configValue2 = keccak256("test-config-value-2");
+
+        // Admin updates config first time
+        vm.prank(admin);
+        registry.updateConfig(configKey, configValue1);
+        assertEq(registry.config(configKey), configValue1);
+
+        // Expect the ConfigUpdated event with old value
+        vm.expectEmit(true, false, false, true);
+        emit ConfigUpdated(configKey, configValue1, configValue2);
+
+        // Admin updates config second time
+        vm.prank(admin);
+        registry.updateConfig(configKey, configValue2);
+        assertEq(registry.config(configKey), configValue2);
+    }
+
+    function testOnlyAdminCanUpdateConfig() public {
+        bytes32 configKey = keccak256("test-config-key");
+        bytes32 configValue = keccak256("test-config-value");
+
+        // User tries to update config
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin only");
+        registry.updateConfig(configKey, configValue);
+
+        // Guardian tries to update config
+        vm.prank(guardian);
+        vm.expectRevert("Not authorized: admin only");
+        registry.updateConfig(configKey, configValue);
+    }
+
+    function testMultipleConfigKeys() public {
+        bytes32 configKey1 = keccak256("test-config-key-1");
+        bytes32 configKey2 = keccak256("test-config-key-2");
+        bytes32 configValue1 = keccak256("test-config-value-1");
+        bytes32 configValue2 = keccak256("test-config-value-2");
+
+        // Admin updates multiple config keys
+        vm.startPrank(admin);
+        registry.updateConfig(configKey1, configValue1);
+        registry.updateConfig(configKey2, configValue2);
+        vm.stopPrank();
+
+        // Check that both configs were updated independently
+        assertEq(registry.config(configKey1), configValue1);
+        assertEq(registry.config(configKey2), configValue2);
     }
 }
