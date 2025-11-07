@@ -423,6 +423,31 @@ contract RootRegistryTest is Test {
         registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(0)));
     }
 
+    function testOnlyAdminCanUnpause() public {
+        // Admin pauses the contract
+        vm.prank(admin);
+        registry.pause();
+        assertTrue(registry.paused());
+
+        // User cannot unpause
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin only");
+        registry.unpause();
+
+        // Guardian cannot unpause
+        vm.prank(guardian);
+        vm.expectRevert("Not authorized: admin only");
+        registry.unpause();
+
+        // Contract should still be paused
+        assertTrue(registry.paused());
+
+        // Only admin can unpause
+        vm.prank(admin);
+        registry.unpause();
+        assertFalse(registry.paused());
+    }
+
     function testUpdateConfig() public {
         bytes32 configKey = keccak256("test-config-key");
         bytes32 configValue = keccak256("test-config-value");
@@ -460,31 +485,6 @@ contract RootRegistryTest is Test {
         vm.prank(admin);
         registry.updateConfig(configKey, configValue2);
         assertEq(registry.config(configKey), configValue2);
-    }
-
-    function testOnlyAdminCanUnpause() public {
-        // Admin pauses the contract
-        vm.prank(admin);
-        registry.pause();
-        assertTrue(registry.paused());
-
-        // User cannot unpause
-        vm.prank(user);
-        vm.expectRevert("Not authorized: admin only");
-        registry.unpause();
-
-        // Guardian cannot unpause
-        vm.prank(guardian);
-        vm.expectRevert("Not authorized: admin only");
-        registry.unpause();
-
-        // Contract should still be paused
-        assertTrue(registry.paused());
-
-        // Only admin can unpause
-        vm.prank(admin);
-        registry.unpause();
-        assertFalse(registry.paused());
     }
 
     function testOnlyAdminCanUpdateConfig() public {
