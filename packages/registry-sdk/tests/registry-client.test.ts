@@ -2,7 +2,7 @@ import { describe, beforeAll, afterAll, it, expect, setDefaultTimeout } from "bu
 import { CircuitManifest, PackagedCircuit, strip0x } from "@zkpassport/utils"
 import path from "path"
 import { RegistryClient } from "../src/client"
-import { PackagedCertificatesFile } from "../src/types"
+import { DocumentSupport, PackagedCertificatesFile } from "../src/types"
 import {
   CERTIFICATE_FIXTURES_CID,
   CERTIFICATE_FIXTURES_ROOT,
@@ -395,27 +395,32 @@ describe("Registry", () => {
   })
 
   describe("Document support", () => {
-    it("should return 1 if a certificate is available", async () => {
-      const issueDate = Math.floor(new Date("2013-01-01").getTime() / 1000)
-      const expirtyDate = Math.floor(new Date("2023-01-01").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("AUS", issueDate, expirtyDate)
-      expect(supported).toBe(1)
-    })
+    it("should return the correct document support level for a given country and type", () => {
+      expect(registry.isDocumentSupported("USA", "passport")).toBe(DocumentSupport.FULL_SUPPORT)
+      expect(registry.isDocumentSupported("USA", "id_card")).toBe(DocumentSupport.NOT_SUPPORTED)
+      expect(registry.isDocumentSupported("USA", "residence_permit")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
 
-    it("should return 0 if issue date is before the private key usage period mentioned in the certificate", async () => {
-      const issueDate = Math.floor(new Date("2009-02-26").getTime() / 1000)
-      const expirtyDate = Math.floor(new Date("2019-02-26").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("AUS", issueDate, expirtyDate)
-      expect(supported).toBe(0)
-    })
+      expect(registry.isDocumentSupported("FRA", "passport")).toBe(DocumentSupport.FULL_SUPPORT)
+      expect(registry.isDocumentSupported("FRA", "id_card")).toBe(DocumentSupport.PARTIAL_SUPPORT)
+      expect(registry.isDocumentSupported("FRA", "residence_permit")).toBe(
+        DocumentSupport.PARTIAL_SUPPORT,
+      )
 
-    it("should return 1 if issue date is within the private key usage period computed from document validity", async () => {
-      // ITA certificate is missing private_key_usage_period, but should valid till 2017 for signing
-      // assuming 10 year validity for issued documents
-      const issueDate = Math.floor(new Date("2017-01-01").getTime() / 1000)
-      const expirtyDate = Math.floor(new Date("2027-01-01").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("ITA", issueDate, expirtyDate)
-      expect(supported).toBe(1)
+      expect(registry.isDocumentSupported("IND", "passport")).toBe(
+        DocumentSupport.TENTATIVE_SUPPORT,
+      )
+      expect(registry.isDocumentSupported("IND", "id_card")).toBe(DocumentSupport.NOT_SUPPORTED)
+      expect(registry.isDocumentSupported("IND", "residence_permit")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+
+      expect(registry.isDocumentSupported("IDN", "passport")).toBe(DocumentSupport.PARTIAL_SUPPORT)
+      expect(registry.isDocumentSupported("IDN", "id_card")).toBe(DocumentSupport.NOT_SUPPORTED)
+      expect(registry.isDocumentSupported("IDN", "residence_permit")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
     })
   })
 })
