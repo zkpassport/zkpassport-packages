@@ -9,7 +9,7 @@
 
 pragma solidity ^0.8.30;
 
-import "./IRegistryInstance.sol";
+import {IRegistryInstance, RootValidationMode} from "./IRegistryInstance.sol";
 
 /**
  * @title RegistryInstance

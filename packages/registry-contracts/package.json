@@ -6,7 +6,7 @@
     "dev": "script/bash/run-and-deploy.sh",
     "build": "forge build",
     "test": "forge test",
-    "check": "forge fmt --check",
+    "check": "forge fmt --check && forge lint src",
     "format": "forge fmt"
   }
 }

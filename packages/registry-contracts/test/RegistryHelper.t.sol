@@ -4,7 +4,6 @@ import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
 import "../src/CertificateRegistry.sol";
 import "../src/RegistryHelper.sol";
-import {RootValidationMode} from "../src/IRegistryInstance.sol";
 import {TestConstants} from "./TestConstants.sol";
 import {MockRegistry} from "./MockRegistry.sol";
 

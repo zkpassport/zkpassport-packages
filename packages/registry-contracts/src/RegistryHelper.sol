@@ -9,8 +9,8 @@
 
 pragma solidity ^0.8.30;
 
-import "./IRegistryInstance.sol";
-import "./RootRegistry.sol";
+import {IRegistryInstance} from "./IRegistryInstance.sol";
+import {RootRegistry} from "./RootRegistry.sol";
 
 /**
  * @title RegistryHelper
@@ -183,13 +183,7 @@ contract RegistryHelper {
             registry.historicalRoots(root);
 
         return RootDetails({
-            index: index,
-            root: root,
-            validFrom: validFrom,
-            validTo: validTo,
-            revoked: revoked,
-            leaves: leaves,
-            cid: cid
+            index: index, root: root, validFrom: validFrom, validTo: validTo, revoked: revoked, leaves: leaves, cid: cid
         });
     }
 
@@ -212,13 +206,7 @@ contract RegistryHelper {
             registry.historicalRoots(root);
 
         return RootDetails({
-            index: index,
-            root: root,
-            validFrom: validFrom,
-            validTo: validTo,
-            revoked: revoked,
-            leaves: leaves,
-            cid: cid
+            index: index, root: root, validFrom: validFrom, validTo: validTo, revoked: revoked, leaves: leaves, cid: cid
         });
     }
 

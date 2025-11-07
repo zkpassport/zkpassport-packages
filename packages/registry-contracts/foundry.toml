@@ -9,6 +9,10 @@ remappings = [
     "forge-std/=lib/forge-std/src/",
 ]
 
+[lint]
+lint_on_build = false
+exclude_lints = ["screaming-snake-case-immutable", "unwrapped-modifier-logic"]
+
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
