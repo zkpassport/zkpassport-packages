@@ -4,11 +4,13 @@ out = "out"
 libs = ["lib"]
 # Lock the Solidity compiler version to 0.8.30
 solc = "0.8.30"
+# Enable the optimizer
 optimizer = true
 optimizer_runs = 200
-remappings = [
-    "forge-std/=lib/forge-std/src/",
-]
+# Ensure deterministic init code hash
+bytecode_hash = "none"
+# Remappings
+remappings = ["forge-std/=lib/forge-std/src/"]
 
 [lint]
 lint_on_build = false
