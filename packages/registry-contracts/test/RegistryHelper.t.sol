@@ -25,13 +25,7 @@ contract RegistryHelperTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        registry = new CertificateRegistry(
-            admin,
-            oracle,
-            TestConstants.DEFAULT_TREE_HEIGHT,
-            TestConstants.DEFAULT_VALIDATION_MODE,
-            TestConstants.DEFAULT_VALIDITY_WINDOW
-        );
+        registry = new CertificateRegistry(admin, oracle);
         rootRegistry = new RootRegistry(admin, guardian);
         rootRegistry.addRegistry(CERTIFICATE_REGISTRY_ID, registry);
         helper = new RegistryHelper(rootRegistry);

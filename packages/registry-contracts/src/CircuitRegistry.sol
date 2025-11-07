@@ -17,11 +17,7 @@ import {RootValidationMode} from "./IRegistryInstance.sol";
  * @dev ZKPassport Circuit Registry
  */
 contract CircuitRegistry is RegistryInstance {
-    constructor(
-        address _admin,
-        address _oracle,
-        uint256 _treeHeight,
-        RootValidationMode _rootValidationMode,
-        uint256 _validityWindowSecs
-    ) RegistryInstance(_admin, _oracle, _treeHeight, _rootValidationMode, _validityWindowSecs) {}
+    constructor(address _admin, address _oracle)
+        RegistryInstance(_admin, _oracle, 12, RootValidationMode.VALID_WITHIN_WINDOW, 86400)
+    {}
 }
