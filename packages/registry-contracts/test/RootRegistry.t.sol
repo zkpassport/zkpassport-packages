@@ -17,6 +17,15 @@ contract RootRegistryTest is Test {
     bytes32 public constant circuitRegistryId = keccak256("zkpassport-circuit-registry");
     bytes32 public constant testRoot = keccak256("test-root");
 
+    // Events from RootRegistry
+    event RootRegistryDeployed(address indexed admin, address indexed guardian);
+    event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
+    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
+    event RegistryAdded(bytes32 indexed registryId, address indexed registryAddress);
+    event RegistryUpdated(bytes32 indexed registryId, address indexed oldAddress, address indexed newAddress);
+    event RegistryRemoved(bytes32 indexed registryId, address indexed registryAddress);
+    event PausedStatusChanged(bool paused);
+
     function setUp() public {
         vm.prank(admin);
         registry = new RootRegistry(admin, guardian);
@@ -25,119 +34,117 @@ contract RootRegistryTest is Test {
         mockInvalidRegistry = new MockRegistry(false);
     }
 
-    function testDeploymentEvent() public {
-        // Deploy a new registry to capture the event
-        vm.recordLogs();
+    function testDeployment() public {
+        // Expect the RootRegistryDeployed event
+        vm.expectEmit(true, true, false, false);
+        emit RootRegistryDeployed(admin, guardian);
+
+        // Deploy a new root registry
         vm.prank(admin);
-        new RootRegistry(admin, guardian);
+        RootRegistry newRegistry = new RootRegistry(admin, guardian);
 
-        // Get the logs
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // Verify initialization
+        assertEq(newRegistry.admin(), admin);
+        assertEq(newRegistry.guardian(), guardian);
+        assertEq(newRegistry.registryCount(), 0);
+    }
 
-        // Find the RootRegistryDeployed event
-        bool found = false;
-        for (uint256 i = 0; i < entries.length; i++) {
-            // The event signature is the first topic
-            if (entries[i].topics[0] == keccak256("RootRegistryDeployed(address,address)")) {
-                // The admin address is the second topic (indexed parameter)
-                assertEq(address(uint160(uint256(entries[i].topics[1]))), admin);
-                // The guardian address is the third topic (indexed parameter)
-                assertEq(address(uint160(uint256(entries[i].topics[2]))), guardian);
-                found = true;
-                break;
-            }
-        }
+    function testAddRegistry() public {
+        // Expect the RegistryAdded event
+        vm.expectEmit(true, true, false, false);
+        emit RegistryAdded(certificateRegistryId, address(mockValidRegistry));
 
-        assertTrue(found, "RootRegistryDeployed event not emitted");
+        // Admin adds registry
+        vm.prank(admin);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+
+        // Check that registry address was added
+        assertEq(address(registry.registries(certificateRegistryId)), address(mockValidRegistry));
+        // Check that counter was incremented
+        assertEq(registry.registryCount(), 1);
     }
 
     function testUpdateRegistry() public {
-        // Admin updates registry address
+        // Admin adds registry
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(mockValidRegistry)));
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+        assertEq(registry.registryCount(), 1);
 
-        // Check that registry address was updated
-        assertEq(address(registry.registries(certificateRegistryId)), address(mockValidRegistry));
+        // Expect the RegistryUpdated event
+        vm.expectEmit(true, true, true, false);
+        emit RegistryUpdated(certificateRegistryId, address(mockValidRegistry), address(mockInvalidRegistry));
 
         // Update to a different address
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(mockInvalidRegistry)));
+        registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
 
         // Check that registry address was updated
         assertEq(address(registry.registries(certificateRegistryId)), address(mockInvalidRegistry));
+        // Check that counter remains the same when updating existing registry
+        assertEq(registry.registryCount(), 1);
     }
 
-    function testUpdateRegistryEvent() public {
-        // Record logs
-        vm.recordLogs();
-
-        // Admin updates registry address
+    function testRemoveRegistry() public {
+        // Admin adds registry
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(mockValidRegistry)));
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
 
-        // Get the logs
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+       // Check that registry address was added
+        assertEq(address(registry.registries(certificateRegistryId)), address(mockValidRegistry));
+        // Verify counter was incremented
+        assertEq(registry.registryCount(), 1);
 
-        // Find the RegistryUpdated event
-        bool found = false;
-        for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == keccak256("RegistryUpdated(bytes32,address,address)")) {
-                // The registry identifier is the second topic (indexed parameter)
-                assertEq(bytes32(entries[i].topics[1]), certificateRegistryId);
-                // The old address is the third topic (indexed parameter)
-                assertEq(address(uint160(uint256(entries[i].topics[2]))), address(0));
-                // The new address is the fourth topic (indexed parameter)
-                assertEq(address(uint160(uint256(entries[i].topics[3]))), address(mockValidRegistry));
-                found = true;
-                break;
-            }
-        }
+        // Expect the RegistryRemoved event
+        vm.expectEmit(true, true, false, false);
+        emit RegistryRemoved(certificateRegistryId, address(mockValidRegistry));
 
-        assertTrue(found, "RegistryUpdated event not emitted");
+        // Admin removes registry
+        vm.prank(admin);
+        registry.removeRegistry(certificateRegistryId);
+
+        // Check that registry address was removed
+        assertEq(address(registry.registries(certificateRegistryId)), address(0));
+        // Check that counter was decremented
+        assertEq(registry.registryCount(), 0);
+
+        // Verify that isRootValid returns false for the removed registry
+        // This behavior should be the same as for a non-existent registry
+        assertFalse(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
+    }
+
+    function testOnlyAdminCanAddRegistry() public {
+        // User tries to add registry
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin only");
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
     }
 
     function testOnlyAdminCanUpdateRegistry() public {
+        // First add a registry
+        vm.prank(admin);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+
         // User tries to update registry
         vm.prank(user);
         vm.expectRevert("Not authorized: admin only");
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
+        registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
     }
 
-    function testCannotUpdateRegistryWhenPaused() public {
-        // Pause the contract
-        vm.prank(guardian);
-        registry.setPaused(true);
-
-        // Admin tries to update registry
+    function testOnlyAdminCanRemoveRegistry() public {
+        // First add a registry
         vm.prank(admin);
-        vm.expectRevert("Contract is paused");
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
-    }
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
 
-    function testCanUpdateRegistryToZeroAddress() public {
-        // Set up registry with valid mock first
-        vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
-
-        // Verify registry is set
-        assertEq(address(registry.registries(certificateRegistryId)), address(mockValidRegistry));
-
-        // Admin updates registry to zero address to delete the mapping
-        vm.prank(admin);
-        registry.deleteRegistry(certificateRegistryId);
-
-        // Check that registry address was updated to zero (deleted)
-        assertEq(address(registry.registries(certificateRegistryId)), address(0));
-
-        // Verify that isRootValid returns false for the deleted registry
-        // This behavior should be the same as for a non-existent registry
-        assertFalse(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
+        // User tries to remove registry
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin only");
+        registry.removeRegistry(certificateRegistryId);
     }
 
     function testIsRootValid() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid
         assertTrue(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
@@ -161,7 +168,7 @@ contract RootRegistryTest is Test {
     function testIsRootValidWhenPaused() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
 
         // Check that root is valid
         assertTrue(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
@@ -182,14 +189,14 @@ contract RootRegistryTest is Test {
         // Check that admin was updated
         assertEq(registry.admin(), user);
 
-        // New admin should be able to update registry
+        // New admin should be able to add registry
         vm.prank(user);
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
 
-        // Old admin should no longer be able to update registry
+        // Old admin should no longer be able to add registry
         vm.prank(admin);
         vm.expectRevert("Not authorized: admin only");
-        registry.updateRegistry(circuitRegistryId, mockValidRegistry);
+        registry.addRegistry(circuitRegistryId, mockValidRegistry);
     }
 
     function testCannotTransferAdminToZeroAddress() public {
@@ -254,6 +261,10 @@ contract RootRegistryTest is Test {
         // Verify guardian is set initially
         assertEq(registry.guardian(), guardian);
 
+        // Expect the GuardianUpdated event
+        vm.expectEmit(true, true, false, false);
+        emit GuardianUpdated(guardian, address(0));
+
         // Admin transfers guardian role to zero address (removing the role)
         vm.prank(admin);
         registry.transferGuardian(address(0));
@@ -274,11 +285,22 @@ contract RootRegistryTest is Test {
         registry.transferGuardian(user);
     }
 
+    function testGuardianCannotAddRegistry() public {
+        // Guardian tries to add registry
+        vm.prank(guardian);
+        vm.expectRevert("Not authorized: admin only");
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+    }
+
     function testGuardianCannotUpdateRegistry() public {
+        // First add a registry
+        vm.prank(admin);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+
         // Guardian tries to update registry
         vm.prank(guardian);
         vm.expectRevert("Not authorized: admin only");
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
+        registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
     }
 
     function testGuardianCannotTransferAdmin() public {
@@ -291,9 +313,12 @@ contract RootRegistryTest is Test {
     function testMultipleRegistries() public {
         // Set up multiple registries
         vm.startPrank(admin);
-        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
-        registry.updateRegistry(circuitRegistryId, mockInvalidRegistry);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+        registry.addRegistry(circuitRegistryId, mockInvalidRegistry);
         vm.stopPrank();
+
+        // Check that counter is 2
+        assertEq(registry.registryCount(), 2);
 
         // Check that roots are valid/invalid as expected
         assertTrue(registry.isRootValid(certificateRegistryId, testRoot, block.timestamp));
@@ -319,29 +344,77 @@ contract RootRegistryTest is Test {
         assertEq(registryWithNoGuardian.admin(), admin);
     }
 
-    function testGuardianEventWhenTransferringToZero() public {
-        // Record logs
-        vm.recordLogs();
 
-        // Admin transfers guardian to zero
+    function testRegistryCounter() public {
+        // Initially, counter should be 0
+        assertEq(registry.registryCount(), 0);
+
+        // Add first registry
         vm.prank(admin);
-        registry.transferGuardian(address(0));
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+        assertEq(registry.registryCount(), 1);
 
-        // Get the logs
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // Add second registry
+        vm.prank(admin);
+        registry.addRegistry(circuitRegistryId, mockInvalidRegistry);
+        assertEq(registry.registryCount(), 2);
 
-        // Find the GuardianUpdated event
-        bool found = false;
-        for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == keccak256("GuardianUpdated(address,address)")) {
-                // The old guardian is the second topic
-                assertEq(address(uint160(uint256(entries[i].topics[1]))), guardian);
-                // The new guardian is the third topic
-                assertEq(address(uint160(uint256(entries[i].topics[2]))), address(0));
-                found = true;
-                break;
-            }
-        }
-        assertTrue(found, "GuardianUpdated event not emitted");
+        // Update existing registry (counter should not change)
+        vm.prank(admin);
+        registry.updateRegistry(certificateRegistryId, mockInvalidRegistry);
+        assertEq(registry.registryCount(), 2);
+
+        // Remove one registry
+        vm.prank(admin);
+        registry.removeRegistry(certificateRegistryId);
+        assertEq(registry.registryCount(), 1);
+
+        // Remove second registry
+        vm.prank(admin);
+        registry.removeRegistry(circuitRegistryId);
+        assertEq(registry.registryCount(), 0);
+    }
+
+    function testCannotAddExistingRegistry() public {
+        // Add registry
+        vm.prank(admin);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+
+        // Try to add the same registry again
+        vm.prank(admin);
+        vm.expectRevert("Registry already exists");
+        registry.addRegistry(certificateRegistryId, mockInvalidRegistry);
+    }
+
+    function testCannotUpdateNonExistentRegistry() public {
+        // Try to update a registry that doesn't exist
+        vm.prank(admin);
+        vm.expectRevert("Registry does not exist");
+        registry.updateRegistry(certificateRegistryId, mockValidRegistry);
+    }
+
+    function testCannotDeleteNonExistentRegistry() public {
+        // Try to delete a registry that doesn't exist
+        vm.prank(admin);
+        vm.expectRevert("Registry does not exist");
+        registry.removeRegistry(certificateRegistryId);
+    }
+
+    function testCannotAddZeroAddress() public {
+        // Try to add a zero address registry
+        vm.prank(admin);
+        vm.expectRevert("Registry address cannot be zero address");
+        registry.addRegistry(certificateRegistryId, IRegistryInstance(address(0)));
+    }
+
+    function testCannotUpdateToZeroAddress() public {
+        // Add registry first
+        vm.prank(admin);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+
+        // Try to update to zero address
+        vm.prank(admin);
+        vm.expectRevert("Registry address cannot be zero address");
+        registry.updateRegistry(certificateRegistryId, IRegistryInstance(address(0)));
     }
 }

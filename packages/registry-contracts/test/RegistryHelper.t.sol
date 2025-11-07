@@ -34,7 +34,7 @@ contract RegistryHelperTest is Test {
             TestConstants.DEFAULT_VALIDITY_WINDOW
         );
         rootRegistry = new RootRegistry(admin, guardian);
-        rootRegistry.updateRegistry(CERTIFICATE_REGISTRY_ID, registry);
+        rootRegistry.addRegistry(CERTIFICATE_REGISTRY_ID, registry);
         helper = new RegistryHelper(rootRegistry);
         vm.stopPrank();
 
@@ -357,7 +357,7 @@ contract RegistryHelperTest is Test {
     function testIsRootValidAtTimestamp() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        rootRegistry.updateRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
+        rootRegistry.addRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
 
         // Check that root is valid at current timestamp
         assertTrue(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
@@ -381,7 +381,7 @@ contract RegistryHelperTest is Test {
     function testIsRootValidAtTimestampWhenPaused() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        rootRegistry.updateRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
+        rootRegistry.addRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
 
         // Check that root is valid at current timestamp
         assertTrue(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));

@@ -23,11 +23,16 @@ contract RootRegistry {
     // Registry mapping: registry identifier => registry contract address
     mapping(bytes32 registryId => IRegistryInstance instance) public registries;
 
+    // Counter for the number of active registries
+    uint256 public registryCount;
+
     // Events
     event RootRegistryDeployed(address indexed admin, address indexed guardian);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
-    event RegistryUpdated(bytes32 indexed registry, address indexed oldAddress, address indexed newAddress);
+    event RegistryAdded(bytes32 indexed registryId, address indexed registryAddress);
+    event RegistryUpdated(bytes32 indexed registryId, address indexed oldAddress, address indexed newAddress);
+    event RegistryRemoved(bytes32 indexed registryId, address indexed registryAddress);
     event PausedStatusChanged(bool paused);
 
     /**
@@ -50,31 +55,43 @@ contract RootRegistry {
         _;
     }
 
-    modifier whenNotPaused() {
-        require(!paused, "Contract is paused");
-        _;
-    }
-
     /**
-     * @dev Update a registry contract address
+     * @dev Add a new registry
      * @param registryId The registry identifier
-     * @param instance The new registry contract address
+     * @param registryAddress The registry address
      */
-    function updateRegistry(bytes32 registryId, IRegistryInstance instance) external onlyAdmin whenNotPaused {
-        IRegistryInstance oldInstance = registries[registryId];
-        registries[registryId] = instance;
-        emit RegistryUpdated(registryId, address(oldInstance), address(instance));
+    function addRegistry(bytes32 registryId, IRegistryInstance registryAddress) external onlyAdmin {
+        require(address(registryAddress) != address(0), "Registry address cannot be zero address");
+        require(address(registries[registryId]) == address(0), "Registry already exists");
+
+        registries[registryId] = registryAddress;
+        registryCount++;
+        emit RegistryAdded(registryId, address(registryAddress));
     }
 
     /**
-     * @dev Delete a registry
-     * @param registryId The registry identifier to delete
+     * @dev Update an existing registry
+     * @param registryId The registry identifier
+     * @param newAddress The new registry address
      */
-    function deleteRegistry(bytes32 registryId) external onlyAdmin whenNotPaused {
-        IRegistryInstance oldInstance = registries[registryId];
-        require(address(oldInstance) != address(0), "Registry does not exist");
+    function updateRegistry(bytes32 registryId, IRegistryInstance newAddress) external onlyAdmin {
+        require(address(newAddress) != address(0), "Registry address cannot be zero address");
+        IRegistryInstance oldAddress = registries[registryId];
+        require(address(oldAddress) != address(0), "Registry does not exist");
+        registries[registryId] = newAddress;
+        emit RegistryUpdated(registryId, address(oldAddress), address(newAddress));
+    }
+
+    /**
+     * @dev Remove an existing registry
+     * @param registryId The registry identifier
+     */
+    function removeRegistry(bytes32 registryId) external onlyAdmin {
+        IRegistryInstance registryAddress = registries[registryId];
+        require(address(registryAddress) != address(0), "Registry does not exist");
         delete registries[registryId];
-        emit RegistryUpdated(registryId, address(oldInstance), address(0));
+        registryCount--;
+        emit RegistryRemoved(registryId, address(registryAddress));
     }
 
     /**
@@ -108,14 +125,11 @@ contract RootRegistry {
     }
 
     /**
-     * @dev Get the latest root for a specific registry
+     * @dev Get the latest root of a specific registry
      * @param registryId The registry identifier
      * @return root The latest root, or bytes32(0) if registry doesn't exist or call fails
      */
     function latestRoot(bytes32 registryId) external view returns (bytes32) {
-        // Return bytes32(0) if contract is paused
-        if (paused) return bytes32(0);
-
         // Return bytes32(0) if registry with this identifier doesn't exist
         if (address(registries[registryId]) == address(0)) return bytes32(0);
 
