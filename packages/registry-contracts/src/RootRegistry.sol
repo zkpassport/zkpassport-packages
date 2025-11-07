@@ -120,15 +120,6 @@ contract RootRegistry {
     }
 
     /**
-     * @dev Set the paused state of the contract
-     * @param _paused True to pause the contract, false to unpause
-     */
-    function setPaused(bool _paused) external onlyAdminOrGuardian {
-        paused = _paused;
-        emit PausedStatusChanged(_paused);
-    }
-
-    /**
      * @dev Update a config value
      * @param key The config key
      * @param value The config value
@@ -137,6 +128,24 @@ contract RootRegistry {
         bytes32 oldValue = config[key];
         config[key] = value;
         emit ConfigUpdated(key, oldValue, value);
+    }
+
+    /**
+     * @dev Pause the root registry
+     * @notice Only admin or guardian can pause the root registry
+     */
+    function pause() external onlyAdminOrGuardian {
+        paused = true;
+        emit PausedStatusChanged(true);
+    }
+
+    /**
+     * @dev Unpause the root registry
+     * @notice Only admin can unpause the root registry
+     */
+    function unpause() external onlyAdmin {
+        paused = false;
+        emit PausedStatusChanged(false);
     }
 
     /**

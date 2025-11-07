@@ -388,7 +388,7 @@ contract RegistryHelperTest is Test {
 
         // Pause the contract
         vm.prank(guardian);
-        rootRegistry.setPaused(true);
+        rootRegistry.pause();
 
         // Check that root is now invalid at current timestamp
         assertFalse(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
