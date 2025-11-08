@@ -29,9 +29,16 @@ import {
   PACKAGED_CIRCUIT_URL_TEMPLATE,
   REGISTRIES_MAPPING_SIGNATURE,
 } from "./constants"
-import { PackagedCertificatesFile, RegistryClientOptions, RootDetails } from "./types"
+import {
+  DocumentSupport,
+  DocumentSupportRule,
+  PackagedCertificatesFile,
+  RegistryClientOptions,
+  RootDetails,
+} from "./types"
 import { normaliseHash, strip0x } from "./utils"
 import { withRetry } from "@zkpassport/utils"
+import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
 
@@ -691,45 +698,43 @@ export class RegistryClient {
   /**
    * Check if a document is likely to be supported for proving
    *
-   * @param countryCode The country code of the document
+   * @param country The Alpha3 country code of the document
    * @param issueDate The issue date of the document
-   * @returns 0 if the document is not supported, 1 if it is likely to be supported
+   * @param type The type of the document (passport, id_card, residence_permit)
+   * @returns The document support level (NOT_SUPPORTED, TENTATIVE_SUPPORT, PARTIAL_SUPPORT, GOOD_SUPPORT, FULL_SUPPORT)
    */
   async isDocumentSupported(
-    countryCode: string,
-    issueDate: number,
-    expiryDate: number,
-    type?: string,
-  ): Promise<number> {
-    // Check if there is a certificate available in the registry
-    const certificates = await this.getCertificates()
+    country: string,
+    issueDate?: Date,
+    type: "passport" | "id_card" | "residence_permit" = "passport",
+  ): Promise<DocumentSupport> {
+    if (issueDate) {
+      const certificates = await this.getCertificates()
 
-    const hasValidCertificate = certificates.certificates
-      .filter((c: PackagedCertificate) => c.country === countryCode)
-      .some((c: PackagedCertificate) => {
-        // Check if the issue date falls within the private key usage period
-        let privateKeyUsagePeriodStart = c.private_key_usage_period?.not_before
-        let privateKeyUsagePeriodEnd = c.private_key_usage_period?.not_after
+      const hasValidCertificate = certificates.certificates
+        .filter((c) => c.country === country)
+        .some((c) => {
+          // Check if the issue date is after the validity start date of
+          // one of the certificates of the issuing country
+          return Math.floor(issueDate.getTime() / 1000) >= c.validity.not_before
+        })
 
-        if (!privateKeyUsagePeriodStart || !privateKeyUsagePeriodEnd) {
-          // Compute the private key usage period if not provided.
-          // A certificate should be valid till "the issue date of last passport + its validity"
-          // i.e they are used for singing from `not_before` to `not_after - documentValidityDuration`
-          const documentValidityDuration = expiryDate - issueDate
-          privateKeyUsagePeriodStart = c.validity.not_before
-          privateKeyUsagePeriodEnd = c.validity.not_after - documentValidityDuration
-        }
+      if (!hasValidCertificate) {
+        // Stop here if no valid certificate is found
+        // and return NOT_SUPPORTED.
+        return DocumentSupport.NOT_SUPPORTED
+      }
+      // Otherwise, continue with the rest of the logic.
+    }
 
-        return (
-          issueDate >= privateKeyUsagePeriodStart! &&
-          issueDate <= privateKeyUsagePeriodEnd! &&
-          (type ? c.type === type : true)
-        )
-      })
-
-    if (hasValidCertificate) return 1 // likely supported
-
-    return 0 // not supported
+    const countrySupport = documentSupportRules.find(
+      (rule: DocumentSupportRule) => rule.country === country,
+    )
+    if (countrySupport) {
+      return countrySupport[`${type}_support`] as DocumentSupport
+    } else {
+      return DocumentSupport.NOT_SUPPORTED
+    }
   }
 
   /**

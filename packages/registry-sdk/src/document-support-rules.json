@@ -1,68 +1,776 @@
 [
   {
-    "countryCode": "RUS",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 0.5
+    "country": "RUS",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
   },
   {
-    "countryCode": "JPN",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 1
+    "country": "JPN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
   },
   {
-    "countryCode": "GBR",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 1
+    "country": "GBR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
   },
   {
-    "countryCode": "IDN",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 0.5
+    "country": "IDN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
   },
   {
-    "countryCode": "NGA",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 0.5
+    "country": "NGA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
   },
   {
-    "countryCode": "DEU",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 1
+    "country": "DEU",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
   },
   {
-    "countryCode": "EST",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 1
+    "country": "EST",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
   },
   {
-    "countryCode": "SGP",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 1
+    "country": "LVA",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
   },
   {
-    "countryCode": "VNM",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 0
+    "country": "SGP",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
   },
   {
-    "countryCode": "TUR",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 0.5
+    "country": "VNM",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
   },
   {
-    "countryCode": "THA",
-    "issueDateFrom": 0,
-    "issueDateTo": 0,
-    "supported": 0.5
+    "country": "TUR",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "THA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "BRA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "ARG",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "AUT",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "FRA",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "PRT",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "ESP",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "IRL",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "ITA",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "CHE",
+    "id_card_support": 0,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "BEL",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "LUX",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "NLD",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "POL",
+    "id_card_support": 0.25,
+    "residence_permit_support": 0.25,
+    "passport_support": 1
+  },
+  {
+    "country": "DNK",
+    "id_card_support": 0,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "SWE",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "NOR",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "SVN",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "CZE",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "NOR",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "LTU",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 0.5
+  },
+  {
+    "country": "FIN",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "MEX",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "IND",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "PAK",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "IRN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "GRC",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "ROU",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "KAZ",
+    "id_card_support": 0.25,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "BLR",
+    "id_card_support": 0.25,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "MAR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "DZA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "URY",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "PRY",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "CHL",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "PER",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "ECU",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "PAN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "VEN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0
+  },
+  {
+    "country": "COL",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "CRI",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "USA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "CAN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "GHA",
+    "id_card_support": 0.25,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "SEN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "ETH",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "JOR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "OMN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "CHN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "KOR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "PRK",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "UAE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "ARE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "ISR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "SAU",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "AUS",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "NZL",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "MYS",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "TWN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "PHL",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "UZB",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "UZB",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "TKM",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "TJK",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "GEO",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "ARM",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "AZE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "CYP",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "RKS",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "MNE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "ALB",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "HRV",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "SRB",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "HUN",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0.5,
+    "passport_support": 1
+  },
+  {
+    "country": "MDA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0
+  },
+  {
+    "country": "UKR",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "BGR",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "LIE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "VAT",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "SMR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "JAM",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "SLE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "BEN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "CMR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "KEN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "UGA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "RWA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "TZA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "ZWE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "BWA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "YEM",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "LBN",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "QAT",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "KWT",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "IRQ",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "PSE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "ISL",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "MCO",
+    "id_card_support": 0.5,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "MNG",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "AND",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "ATG",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "BHR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "BRB",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "BLZ",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "BIH",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 1
+  },
+  {
+    "country": "BMU",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "DMA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "CIV",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "NPL",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "MKD",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "KNA",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "VCT",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.5
+  },
+  {
+    "country": "SYC",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "SYR",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "BHS",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "GMB",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.75
+  },
+  {
+    "country": "ZWE",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
+  },
+  {
+    "country": "TLS",
+    "id_card_support": 0,
+    "residence_permit_support": 0,
+    "passport_support": 0.25
   }
 ]
