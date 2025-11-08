@@ -17,7 +17,6 @@ import {
   ProofTypeLength,
   rightPadArrayWithZeros,
   SanctionsCommittedInputs,
-  SupportedChain,
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
 import { DEFAULT_VALIDITY } from "./constants"
@@ -26,7 +25,14 @@ import { bytesToHex, hexToBytes } from "@noble/hashes/utils"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 
 export class SolidityVerifier {
-  public static getDetails(network: SupportedChain): {
+  /**
+   * Get the details for the Solidity verifier contract for a given network.
+   * Rather than using the chain id directly, we restrict to the actual networks
+   * supported by ZKPassport.
+   * @param network The network to get the details for
+   * @returns The address, function name, and ABI for the verifier contract
+   */
+  public static getDetails(): {
     address: `0x${string}`
     functionName: string
     abi: {
@@ -37,23 +43,27 @@ export class SolidityVerifier {
     }[]
   } {
     const baseConfig = {
-      functionName: "verifyProof",
+      functionName: "verify",
       abi: ZKPassportVerifierAbi.abi as any,
     }
-    if (network === "ethereum_sepolia") {
-      return {
-        ...baseConfig,
-        address: "0x0b05F45ff2F431a136eE8e708458286eC02b0d00",
-      }
-    } else if (network === "local") {
-      return {
-        ...baseConfig,
-        address: "0x0",
-      }
+    return {
+      ...baseConfig,
+      // The Root Verifier has a deterministic address on all networks
+      address: "0x1D000001000EFD9a6371f4d90bB8920D5431c0D8",
     }
-    throw new Error(`Unsupported network: ${network}`)
   }
 
+  /**
+   * Format the proof for the Solidity verifier contract.
+   * @param proof The proof to format
+   * @param validityPeriodInSeconds The validity period in seconds
+   * @param domain The domain to use for the service config
+   * @param scope The scope to use for the service config
+   * @param devMode Whether to use the dev mode
+   * Note that on mainnets, the dev mode will be ignored as verification
+   * will always fail for mock passports. It only applies to testnets.
+   * @returns The parameters for the Solidity verifier contract
+   */
   public static getParameters({
     proof,
     validityPeriodInSeconds = DEFAULT_VALIDITY,
@@ -223,16 +233,25 @@ export class SolidityVerifier {
         throw new Error(`Invalid commitment: ${commitment}`)
       }
     }
+    const versionParts = proof.version?.split(".").map((x) => Number(x))
+    if (!versionParts || versionParts.length !== 3) {
+      throw new Error("Invalid version format")
+    }
+    const versionBytes = new Uint8Array([
+      ...numberToBytesBE(versionParts[0], 2),
+      ...numberToBytesBE(versionParts[1], 2),
+      ...numberToBytesBE(versionParts[2], 2),
+    ])
+    const versionBytes32 = `0x${bytesToHex(versionBytes).padEnd(64, "0")}`
     const params: SolidityVerifierParameters = {
+      version: versionBytes32,
       proofVerificationData: {
         // Make sure the vkeyHash is 32 bytes
         vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
         proof: `0x${proofData.proof.join("")}`,
         publicInputs: proofData.publicInputs,
       },
-      commitments: {
-        committedInputs: `0x${compressedCommittedInputs}`,
-      },
+      committedInputs: `0x${compressedCommittedInputs}`,
       serviceConfig: {
         validityPeriodInSeconds,
         domain,
