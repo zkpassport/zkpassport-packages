@@ -246,45 +246,51 @@ export function stringToAsciiStringArray(str: string): string[] {
   return asciiStringArray.map((b) => `0x${b.toString(16)}`)
 }
 
+const CHAIN_IDS = {
+  // Mainnets
+  ethereum: 1,
+  base: 8453,
+  arbitrum: 42161,
+  optimism: 10,
+  polygon: 137,
+  celo: 42220,
+  gnosis: 100,
+  scroll: 534352,
+  linea: 59144,
+  world_chain: 480,
+  // Testnets
+  ethereum_sepolia: 11155111,
+  base_sepolia: 84532,
+  arbitrum_sepolia: 421614,
+  polygon_amoy: 80002,
+  celo_sepolia: 11142220,
+  gnosis_chiado: 10200,
+  scroll_sepolia: 534351,
+  linea_sepolia: 59141,
+  world_chain_sepolia: 4801,
+  local: 31337,
+}
+
 export function getIdFromChain(chain: SupportedChain): number {
-  switch (chain) {
-    case "ethereum":
-      return 1
-    case "ethereum_sepolia":
-      return 11155111
-    case "local":
-      // Default chain id used by Anvil
-      return 31337
-    default:
-      throw new Error(`Unsupported chain: ${chain}`)
+  if (!CHAIN_IDS[chain]) {
+    throw new Error(`Unsupported chain: ${chain}`)
   }
+  return CHAIN_IDS[chain]
 }
 
 export function getChainFromId(chainId: number): SupportedChain {
-  switch (chainId) {
-    case 1:
-      return "ethereum"
-    case 11155111:
-      return "ethereum_sepolia"
-    case 31337:
-      return "local"
-    default:
-      throw new Error(`Unsupported chain ID: ${chainId}`)
+  for (const chain in CHAIN_IDS) {
+    if (CHAIN_IDS[chain as SupportedChain] === chainId) {
+      return chain as SupportedChain
+    }
   }
+  throw new Error(`Unsupported chain ID: ${chainId}`)
 }
 
 export function getChainDisplayName(chain: SupportedChain): string {
-  switch (chain) {
-    case "ethereum":
-      return "Ethereum"
-    case "ethereum_sepolia":
-      return "Ethereum Sepolia"
-    case "local":
-      return "Local"
-    default:
-      throw new Error(`Unsupported chain: ${chain}`)
-  }
+  return chain.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
 }
+
 export function areDatesEqual(date1: Date | string | number, date2: Date | string | number) {
   if (typeof date1 === "string" || typeof date1 === "number") {
     date1 = new Date(date1)
