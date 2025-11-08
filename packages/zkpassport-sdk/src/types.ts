@@ -9,6 +9,7 @@ import {
   DisclosableIDCredential,
   FacematchMode,
   ProofResult,
+  SupportedChain,
 } from "@zkpassport/utils"
 
 export type QueryResultError<T> = {
@@ -203,7 +204,14 @@ export type QueryBuilder = {
    * @param key The key of the value to bind.
    * @param value The value to bind the request to.
    */
-  bind: (key: keyof BoundData, value: BoundData[keyof BoundData]) => QueryBuilder
+  bind: <T extends keyof BoundData>(
+    key: T,
+    value: T extends "chain"
+      ? SupportedChain
+      : T extends "user_address"
+        ? `0x${string}`
+        : string | undefined,
+  ) => QueryBuilder
   /**
    * Requires that the ID holder is not part of any of the specified sanction lists.
    * @param countries The country or list of countries whose sanction lists to check against. Defaults to "all".

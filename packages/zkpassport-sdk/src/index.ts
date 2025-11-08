@@ -19,6 +19,7 @@ import {
   SanctionsCountries,
   SanctionsLists,
   NullifierType,
+  SupportedChain,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
@@ -315,7 +316,14 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      bind: (key: keyof BoundData, value: BoundData[keyof BoundData]) => {
+      bind: <T extends keyof BoundData>(
+        key: T,
+        value: T extends "chain"
+          ? SupportedChain
+          : T extends "user_address"
+            ? `0x${string}`
+            : string | undefined,
+      ) => {
         this.topicToConfig[topic].bind = {
           ...this.topicToConfig[topic].bind,
           [key]: value,
