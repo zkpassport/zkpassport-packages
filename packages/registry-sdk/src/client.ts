@@ -51,7 +51,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   // Ethereum Mainnet
   1: {
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x0000000000000000000000000000000000000000",
+    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0x0000000000000000000000000000000000000000",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
@@ -60,8 +60,8 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   // Sepolia Testnet
   11155111: {
     rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0xB6bF4a45D5Ed1363C45BD0e4cbaDCcd48F8D3FaB",
-    registryHelper: "0x5b3318632f71ba1017cca8f995aac33a847ef127",
+    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
+    registryHelper: "0x0ea1dBf32763D2Bab8bf7C33d6c17771506510D6",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,

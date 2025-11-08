@@ -366,6 +366,7 @@ export class ZKPassport {
         return this.getZkPassportRequest(topic)
       },
       done: () => {
+        this.topicToFailedProofCount[topic] = 0
         return {
           url: this._getUrl(topic),
           requestId: topic,
