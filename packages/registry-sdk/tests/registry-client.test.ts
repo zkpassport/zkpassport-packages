@@ -2,7 +2,7 @@ import { describe, beforeAll, afterAll, it, expect, setDefaultTimeout } from "bu
 import { CircuitManifest, PackagedCircuit, strip0x } from "@zkpassport/utils"
 import path from "path"
 import { RegistryClient } from "../src/client"
-import { PackagedCertificatesFile } from "../src/types"
+import { DocumentSupport, PackagedCertificatesFile } from "../src/types"
 import {
   CERTIFICATE_FIXTURES_CID,
   CERTIFICATE_FIXTURES_ROOT,
@@ -395,27 +395,59 @@ describe("Registry", () => {
   })
 
   describe("Document support", () => {
-    it("should return 1 if a certificate is available", async () => {
-      const issueDate = Math.floor(new Date("2013-01-01").getTime() / 1000)
-      const expirtyDate = Math.floor(new Date("2023-01-01").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("AUS", issueDate, expirtyDate)
-      expect(supported).toBe(1)
+    it("should return the correct document support level for a given country and type", async () => {
+      const today = new Date("2025-11-07")
+      expect(await registry.isDocumentSupported("USA", today, "passport")).toBe(
+        DocumentSupport.FULL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("USA", today, "id_card")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+      expect(await registry.isDocumentSupported("USA", today, "residence_permit")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+
+      expect(await registry.isDocumentSupported("FRA", today, "passport")).toBe(
+        DocumentSupport.FULL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("FRA", today, "id_card")).toBe(
+        DocumentSupport.PARTIAL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("FRA", today, "residence_permit")).toBe(
+        DocumentSupport.PARTIAL_SUPPORT,
+      )
+
+      expect(await registry.isDocumentSupported("IND", today, "passport")).toBe(
+        DocumentSupport.TENTATIVE_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("IND", today, "id_card")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+      expect(await registry.isDocumentSupported("IND", today, "residence_permit")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+
+      expect(await registry.isDocumentSupported("IDN", today, "passport")).toBe(
+        DocumentSupport.PARTIAL_SUPPORT,
+      )
+      expect(await registry.isDocumentSupported("IDN", today, "id_card")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
+      expect(await registry.isDocumentSupported("IDN", today, "residence_permit")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
     })
 
-    it("should return 0 if issue date is before the private key usage period mentioned in the certificate", async () => {
-      const issueDate = Math.floor(new Date("2009-02-26").getTime() / 1000)
-      const expirtyDate = Math.floor(new Date("2019-02-26").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("AUS", issueDate, expirtyDate)
-      expect(supported).toBe(0)
-    })
+    it("should return unsupported for passport if no valid certificate is found", async () => {
+      // India only started issuing electronic passports in 2025, so there should be no valid certificate before that
+      expect(await registry.isDocumentSupported("IND", new Date("2022-01-01"), "passport")).toBe(
+        DocumentSupport.NOT_SUPPORTED,
+      )
 
-    it("should return 1 if issue date is within the private key usage period computed from document validity", async () => {
-      // ITA certificate is missing private_key_usage_period, but should valid till 2017 for signing
-      // assuming 10 year validity for issued documents
-      const issueDate = Math.floor(new Date("2017-01-01").getTime() / 1000)
-      const expirtyDate = Math.floor(new Date("2027-01-01").getTime() / 1000)
-      const supported = await registry.isDocumentSupported("ITA", issueDate, expirtyDate)
-      expect(supported).toBe(1)
+      // On the other hand, there should be a valid certificate for mid 2025
+      expect(await registry.isDocumentSupported("IND", new Date("2025-06-01"), "passport")).toBe(
+        DocumentSupport.TENTATIVE_SUPPORT,
+      )
     })
   })
 })
