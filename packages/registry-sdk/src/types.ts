@@ -97,3 +97,18 @@ export interface PackagedCertificatesFile {
   certificates: PackagedCertificate[]
   serialised: any[]
 }
+
+export enum DocumentSupport {
+  NOT_SUPPORTED = 0,
+  TENTATIVE_SUPPORT = 0.25,
+  PARTIAL_SUPPORT = 0.5,
+  GOOD_SUPPORT = 0.75,
+  FULL_SUPPORT = 1,
+}
+
+export type DocumentSupportRule = {
+  country: string
+  id_card_support: DocumentSupport
+  residence_permit_support: DocumentSupport
+  passport_support: DocumentSupport
+}
