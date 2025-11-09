@@ -2,12 +2,19 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-solc = "0.8.20"
+# Lock the Solidity compiler version to 0.8.30
+solc = "0.8.30"
+# Enable the optimizer
 optimizer = true
 optimizer_runs = 200
-remappings = [
-    "forge-std/=lib/forge-std/src/",
-]
+# Ensure deterministic init code hash
+bytecode_hash = "none"
+# Remappings
+remappings = ["forge-std/=lib/forge-std/src/"]
+
+[lint]
+lint_on_build = false
+exclude_lints = ["screaming-snake-case-immutable", "unwrapped-modifier-logic"]
 
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"

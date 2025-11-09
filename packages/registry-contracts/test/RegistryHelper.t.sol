@@ -1,10 +1,9 @@
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 
 import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
 import "../src/CertificateRegistry.sol";
 import "../src/RegistryHelper.sol";
-import {RootValidationMode} from "../src/IRegistryInstance.sol";
 import {TestConstants} from "./TestConstants.sol";
 import {MockRegistry} from "./MockRegistry.sol";
 
@@ -26,15 +25,9 @@ contract RegistryHelperTest is Test {
 
     function setUp() public {
         vm.startPrank(admin);
-        registry = new CertificateRegistry(
-            admin,
-            oracle,
-            TestConstants.DEFAULT_TREE_HEIGHT,
-            TestConstants.DEFAULT_VALIDATION_MODE,
-            TestConstants.DEFAULT_VALIDITY_WINDOW
-        );
+        registry = new CertificateRegistry(admin, oracle, guardian);
         rootRegistry = new RootRegistry(admin, guardian);
-        rootRegistry.updateRegistry(CERTIFICATE_REGISTRY_ID, registry);
+        rootRegistry.addRegistry(CERTIFICATE_REGISTRY_ID, registry);
         helper = new RegistryHelper(rootRegistry);
         vm.stopPrank();
 
@@ -357,7 +350,7 @@ contract RegistryHelperTest is Test {
     function testIsRootValidAtTimestamp() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        rootRegistry.updateRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
+        rootRegistry.addRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
 
         // Check that root is valid at current timestamp
         assertTrue(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
@@ -381,14 +374,14 @@ contract RegistryHelperTest is Test {
     function testIsRootValidAtTimestampWhenPaused() public {
         // Set up registry with valid mock
         vm.prank(admin);
-        rootRegistry.updateRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
+        rootRegistry.addRegistry(MOCK_REGISTRY_ID, mockValidRegistry);
 
         // Check that root is valid at current timestamp
         assertTrue(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));
 
         // Pause the contract
         vm.prank(guardian);
-        rootRegistry.setPaused(true);
+        rootRegistry.pause();
 
         // Check that root is now invalid at current timestamp
         assertFalse(helper.isRootValidAtTimestamp(MOCK_REGISTRY_ID, testRoot, block.timestamp));

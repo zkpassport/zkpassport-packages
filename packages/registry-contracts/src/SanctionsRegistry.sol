@@ -7,7 +7,7 @@
 
 */
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 
 import {RegistryInstance} from "./RegistryInstance.sol";
 import {RootValidationMode} from "./IRegistryInstance.sol";
@@ -17,11 +17,7 @@ import {RootValidationMode} from "./IRegistryInstance.sol";
  * @dev ZKPassport Sanctions Registry
  */
 contract SanctionsRegistry is RegistryInstance {
-    constructor(
-        address _admin,
-        address _oracle,
-        uint256 _treeHeight,
-        RootValidationMode _rootValidationMode,
-        uint256 _validityWindowSecs
-    ) RegistryInstance(_admin, _oracle, _treeHeight, _rootValidationMode, _validityWindowSecs) {}
+    constructor(address _admin, address _oracle, address _guardian)
+        RegistryInstance(_admin, _oracle, _guardian, 18, RootValidationMode.VALID_WITHIN_WINDOW, 86400)
+    {}
 }

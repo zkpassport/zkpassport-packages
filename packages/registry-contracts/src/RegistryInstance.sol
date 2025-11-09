@@ -7,9 +7,9 @@
 
 */
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.30;
 
-import "./IRegistryInstance.sol";
+import {IRegistryInstance, RootValidationMode} from "./IRegistryInstance.sol";
 
 /**
  * @title RegistryInstance
@@ -41,6 +41,7 @@ contract RegistryInstance is IRegistryInstance {
 
     address public admin;
     address public oracle;
+    address public guardian;
     bool public paused;
 
     uint256 public rootCount;
@@ -58,12 +59,14 @@ contract RegistryInstance is IRegistryInstance {
     event RegistryDeployed(
         address indexed admin,
         address indexed oracle,
+        address indexed guardian,
         uint256 treeHeight,
         RootValidationMode rootValidationMode,
         uint256 validityWindowSecs
     );
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
+    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     event RootUpdated(
         bytes32 indexed oldRoot, bytes32 indexed newRoot, uint256 indexed rootIndex, uint256 validFrom, uint256 leaves
     );
@@ -76,6 +79,7 @@ contract RegistryInstance is IRegistryInstance {
      * @dev Constructor
      * @param _admin The initial admin address
      * @param _oracle The initial oracle address
+     * @param _guardian The initial guardian address
      * @param _treeHeight The Merkle tree height
      * @param _rootValidationMode The initial root validation mode
      * @param _validityWindowSecs The initial validity window in seconds
@@ -83,6 +87,7 @@ contract RegistryInstance is IRegistryInstance {
     constructor(
         address _admin,
         address _oracle,
+        address _guardian,
         uint256 _treeHeight,
         RootValidationMode _rootValidationMode,
         uint256 _validityWindowSecs
@@ -91,10 +96,11 @@ contract RegistryInstance is IRegistryInstance {
         require(_oracle != address(0), "Oracle cannot be zero address");
         admin = _admin;
         oracle = _oracle;
+        guardian = _guardian;
         treeHeight = _treeHeight;
         rootValidationMode = _rootValidationMode;
         validityWindowSecs = _validityWindowSecs;
-        emit RegistryDeployed(admin, oracle, treeHeight, rootValidationMode, validityWindowSecs);
+        emit RegistryDeployed(admin, oracle, guardian, treeHeight, rootValidationMode, validityWindowSecs);
     }
 
     modifier onlyAdmin() {
@@ -104,6 +110,16 @@ contract RegistryInstance is IRegistryInstance {
 
     modifier onlyOracle() {
         require(msg.sender == oracle, "Not authorized: oracle only");
+        _;
+    }
+
+    modifier onlyAdminOrOracle() {
+        require(msg.sender == admin || msg.sender == oracle, "Not authorized: admin or oracle only");
+        _;
+    }
+
+    modifier onlyAdminOrGuardian() {
+        require(msg.sender == admin || msg.sender == guardian, "Not authorized: admin or guardian only");
         _;
     }
 
@@ -265,6 +281,7 @@ contract RegistryInstance is IRegistryInstance {
     function isRootValid(bytes32 root, uint256 timestamp) external view returns (bool) {
         // Return false if contract is paused
         if (paused) return false;
+
         // Return false if root doesn't exist
         if (indexByRoot[root] == 0) return false; // Root doesn't exist
 
@@ -314,9 +331,7 @@ contract RegistryInstance is IRegistryInstance {
      */
     function isRootValidAtTimestamp(bytes32 root, uint256 timestamp) external view returns (bool) {
         // Return false if contract is paused
-        if (paused) {
-            return false;
-        }
+        if (paused) return false;
 
         // Check if root exists
         if (indexByRoot[root] == 0) {
@@ -333,11 +348,22 @@ contract RegistryInstance is IRegistryInstance {
     }
 
     /**
+     * @dev Check if a root is revoked
+     * @param root The root to check
+     * @return revoked True if the root is revoked, false otherwise
+     */
+    function isRootRevoked(bytes32 root) external view returns (bool) {
+        // Return false if root doesn't exist
+        if (indexByRoot[root] == 0) return false;
+        return historicalRoots[root].revoked;
+    }
+
+    /**
      * @dev Set the revocation status of a root
      * @param root The root to update
      * @param revoked The new revocation status
      */
-    function setRevocationStatus(bytes32 root, bool revoked) external onlyOracle whenNotPaused {
+    function setRevocationStatus(bytes32 root, bool revoked) external onlyAdminOrOracle {
         require(root != bytes32(0), "Root cannot be zero");
         require(indexByRoot[root] != 0, "Root does not exist");
 
@@ -349,14 +375,23 @@ contract RegistryInstance is IRegistryInstance {
     }
 
     /**
-     * @dev Set the oracle address
-     * @param newOracle The new oracle address
+     * @dev Set the root validation mode
+     * @param newMode The new validation mode
      */
-    function setOracle(address newOracle) external onlyAdmin {
-        require(newOracle != address(0), "Oracle cannot be zero address");
-        address oldOracle = oracle;
-        oracle = newOracle;
-        emit OracleUpdated(oldOracle, newOracle);
+    function setRootValidationMode(RootValidationMode newMode) external onlyAdminOrOracle {
+        RootValidationMode oldMode = rootValidationMode;
+        rootValidationMode = newMode;
+        emit RootValidationModeChanged(oldMode, newMode);
+    }
+
+    /**
+     * @dev Set the validity window for VALID_WITHIN_WINDOW validation mode
+     * @param newWindowSecs The new window in seconds
+     */
+    function setValidityWindow(uint256 newWindowSecs) external onlyAdminOrOracle {
+        uint256 oldWindowSecs = validityWindowSecs;
+        validityWindowSecs = newWindowSecs;
+        emit ValidityWindowChanged(oldWindowSecs, newWindowSecs);
     }
 
     /**
@@ -371,31 +406,41 @@ contract RegistryInstance is IRegistryInstance {
     }
 
     /**
-     * @dev Set the paused state of the contract
-     * @param _paused True to pause the contract, false to unpause
+     * @dev Set the oracle address
+     * @param newOracle The new oracle address
      */
-    function setPaused(bool _paused) external onlyAdmin {
-        paused = _paused;
-        emit PausedStatusChanged(_paused);
+    function setOracle(address newOracle) external onlyAdmin {
+        require(newOracle != address(0), "Oracle cannot be zero address");
+        address oldOracle = oracle;
+        oracle = newOracle;
+        emit OracleUpdated(oldOracle, newOracle);
     }
 
     /**
-     * @dev Set the root validation mode
-     * @param newMode The new validation mode
+     * @dev Set the guardian address
+     * @param newGuardian The new guardian address
      */
-    function setRootValidationMode(RootValidationMode newMode) external onlyAdmin {
-        RootValidationMode oldMode = rootValidationMode;
-        rootValidationMode = newMode;
-        emit RootValidationModeChanged(oldMode, newMode);
+    function setGuardian(address newGuardian) external onlyAdmin {
+        address oldGuardian = guardian;
+        guardian = newGuardian;
+        emit GuardianUpdated(oldGuardian, newGuardian);
     }
 
     /**
-     * @dev Set the validity window for VALID_WITHIN_WINDOW validation mode
-     * @param newWindowSecs The new window in seconds
+     * @dev Pause the registry
+     * @notice Only admin or guardian can pause the registry
      */
-    function setValidityWindow(uint256 newWindowSecs) external onlyAdmin {
-        uint256 oldWindowSecs = validityWindowSecs;
-        validityWindowSecs = newWindowSecs;
-        emit ValidityWindowChanged(oldWindowSecs, newWindowSecs);
+    function pause() external onlyAdminOrGuardian {
+        paused = true;
+        emit PausedStatusChanged(true);
+    }
+
+    /**
+     * @dev Unpause the registry
+     * @notice Only admin can unpause the registry
+     */
+    function unpause() external onlyAdmin {
+        paused = false;
+        emit PausedStatusChanged(false);
     }
 }

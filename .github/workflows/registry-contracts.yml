@@ -22,23 +22,25 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.1.0
+          version: v1.4.4
 
       - name: Show Forge version
         run: forge --version
         working-directory: packages/registry-contracts
 
       - name: Run checks
-        run: forge fmt --check
         id: check
+        run: |
+          forge fmt --check
+          forge lint src
         working-directory: packages/registry-contracts
 
       - name: Build contracts
-        run: forge build --sizes
         id: build
+        run: forge build --sizes
         working-directory: packages/registry-contracts
 
       - name: Run tests
-        run: forge test -vvv
         id: test
+        run: forge test -vvv
         working-directory: packages/registry-contracts
