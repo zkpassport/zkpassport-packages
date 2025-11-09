@@ -2603,8 +2603,10 @@ export class PublicInputChecker {
           ...queryResultErrors,
           ...queryResultErrorsCurrentDate,
         }
-        uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
-        uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
+        // Don't use the nullifier from the proof for FaceMatch as it may be 0
+        // but will always come with at least one other disclosure proof with a non-zero nullifier
+        // uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
+        // uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       }
     }
     return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }

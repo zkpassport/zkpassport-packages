@@ -64,7 +64,7 @@
     },
     "packages/registry-sdk": {
       "name": "@zkpassport/registry",
-      "version": "0.11.3",
+      "version": "0.12.0",
       "dependencies": {
         "@zkpassport/poseidon2": "^0.6.2",
         "@zkpassport/utils": "workspace:*",
@@ -81,7 +81,7 @@
     },
     "packages/zkpassport-sdk": {
       "name": "@zkpassport/sdk",
-      "version": "0.11.0",
+      "version": "0.12.2",
       "dependencies": {
         "@aztec/bb.js": "2.0.3",
         "@noble/ciphers": "^1.2.1",
@@ -107,7 +107,7 @@
     },
     "packages/zkpassport-utils": {
       "name": "@zkpassport/utils",
-      "version": "0.30.3",
+      "version": "0.31.1",
       "dependencies": {
         "@lapo/asn1js": "^2.0.4",
         "@noble/ciphers": "^1.0.0",

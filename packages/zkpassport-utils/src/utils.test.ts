@@ -1,4 +1,10 @@
-import { packBeBitsIntoField, packBeBytesIntoFields } from "./utils"
+import {
+  getChainDisplayName,
+  getChainFromId,
+  getIdFromChain,
+  packBeBitsIntoField,
+  packBeBytesIntoFields,
+} from "./utils"
 
 const PUBKEY_BYTES = [
   0x40, 0x5d, 0xd3, 0xb8, 0x01, 0xcb, 0xc8, 0xe2, 0x37, 0x62, 0x0d, 0x8d, 0xd9, 0xad, 0xc2, 0x95,
@@ -112,5 +118,75 @@ describe("Utils", () => {
     bits[2] = 1
     const result = packBeBitsIntoField(bits, 253)
     expect(result).toEqual(BigInt("0x038000000000000000000000"))
+  })
+
+  test("getChainFromId should correctly get chain from id", () => {
+    expect(getChainFromId(1)).toBe("ethereum")
+    expect(getChainFromId(8453)).toBe("base")
+    expect(getChainFromId(42161)).toBe("arbitrum")
+    expect(getChainFromId(10)).toBe("optimism")
+    expect(getChainFromId(137)).toBe("polygon")
+    expect(getChainFromId(42220)).toBe("celo")
+    expect(getChainFromId(100)).toBe("gnosis")
+    expect(getChainFromId(534352)).toBe("scroll")
+    expect(getChainFromId(59144)).toBe("linea")
+    expect(getChainFromId(480)).toBe("world_chain")
+    expect(getChainFromId(11155111)).toBe("ethereum_sepolia")
+    expect(getChainFromId(84532)).toBe("base_sepolia")
+    expect(getChainFromId(421614)).toBe("arbitrum_sepolia")
+    expect(getChainFromId(80002)).toBe("polygon_amoy")
+    expect(getChainFromId(11142220)).toBe("celo_sepolia")
+    expect(getChainFromId(10200)).toBe("gnosis_chiado")
+    expect(getChainFromId(534351)).toBe("scroll_sepolia")
+    expect(getChainFromId(59141)).toBe("linea_sepolia")
+    expect(getChainFromId(4801)).toBe("world_chain_sepolia")
+    expect(getChainFromId(31337)).toBe("local")
+    expect(() => getChainFromId(10000)).toThrow("Unsupported chain ID: 10000")
+  })
+
+  test("getIdFromChain should correctly get chain id from chain", () => {
+    expect(getIdFromChain("ethereum")).toBe(1)
+    expect(getIdFromChain("base")).toBe(8453)
+    expect(getIdFromChain("arbitrum")).toBe(42161)
+    expect(getIdFromChain("optimism")).toBe(10)
+    expect(getIdFromChain("polygon")).toBe(137)
+    expect(getIdFromChain("celo")).toBe(42220)
+    expect(getIdFromChain("gnosis")).toBe(100)
+    expect(getIdFromChain("scroll")).toBe(534352)
+    expect(getIdFromChain("linea")).toBe(59144)
+    expect(getIdFromChain("world_chain")).toBe(480)
+    expect(getIdFromChain("ethereum_sepolia")).toBe(11155111)
+    expect(getIdFromChain("base_sepolia")).toBe(84532)
+    expect(getIdFromChain("arbitrum_sepolia")).toBe(421614)
+    expect(getIdFromChain("polygon_amoy")).toBe(80002)
+    expect(getIdFromChain("celo_sepolia")).toBe(11142220)
+    expect(getIdFromChain("gnosis_chiado")).toBe(10200)
+    expect(getIdFromChain("scroll_sepolia")).toBe(534351)
+    expect(getIdFromChain("linea_sepolia")).toBe(59141)
+    expect(getIdFromChain("world_chain_sepolia")).toBe(4801)
+    expect(getIdFromChain("local")).toBe(31337)
+  })
+
+  test("getChainDisplayName should correctly get chain display name", () => {
+    expect(getChainDisplayName("ethereum")).toBe("Ethereum")
+    expect(getChainDisplayName("base")).toBe("Base")
+    expect(getChainDisplayName("arbitrum")).toBe("Arbitrum")
+    expect(getChainDisplayName("optimism")).toBe("Optimism")
+    expect(getChainDisplayName("polygon")).toBe("Polygon")
+    expect(getChainDisplayName("celo")).toBe("Celo")
+    expect(getChainDisplayName("gnosis")).toBe("Gnosis")
+    expect(getChainDisplayName("scroll")).toBe("Scroll")
+    expect(getChainDisplayName("linea")).toBe("Linea")
+    expect(getChainDisplayName("world_chain")).toBe("World Chain")
+    expect(getChainDisplayName("ethereum_sepolia")).toBe("Ethereum Sepolia")
+    expect(getChainDisplayName("base_sepolia")).toBe("Base Sepolia")
+    expect(getChainDisplayName("arbitrum_sepolia")).toBe("Arbitrum Sepolia")
+    expect(getChainDisplayName("polygon_amoy")).toBe("Polygon Amoy")
+    expect(getChainDisplayName("celo_sepolia")).toBe("Celo Sepolia")
+    expect(getChainDisplayName("gnosis_chiado")).toBe("Gnosis Chiado")
+    expect(getChainDisplayName("scroll_sepolia")).toBe("Scroll Sepolia")
+    expect(getChainDisplayName("linea_sepolia")).toBe("Linea Sepolia")
+    expect(getChainDisplayName("world_chain_sepolia")).toBe("World Chain Sepolia")
+    expect(getChainDisplayName("local")).toBe("Local")
   })
 })

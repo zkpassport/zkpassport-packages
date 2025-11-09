@@ -311,7 +311,29 @@ export type FacematchCommittedInputs = {
   mode: FacematchMode
 }
 
-export type SupportedChain = "ethereum" | "ethereum_sepolia" | "local"
+export type SupportedChain =
+  // Mainnets
+  | "ethereum"
+  | "base"
+  | "arbitrum"
+  | "optimism"
+  | "polygon"
+  | "celo"
+  | "gnosis"
+  | "scroll"
+  | "linea"
+  | "world_chain"
+  // Testnets
+  | "ethereum_sepolia"
+  | "base_sepolia"
+  | "arbitrum_sepolia"
+  | "polygon_amoy"
+  | "celo_sepolia"
+  | "gnosis_chiado"
+  | "scroll_sepolia"
+  | "linea_sepolia"
+  | "world_chain_sepolia"
+  | "local"
 
 export type BoundData = {
   user_address?: string
