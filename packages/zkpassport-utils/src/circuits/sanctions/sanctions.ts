@@ -49,6 +49,7 @@ export class SanctionsBuilder {
 
   async getSanctionsMerkleProofs(
     passport: PassportViewModel,
+    strict: boolean,
   ): Promise<{ proofs: SanctionsProofs; root: string }> {
     const {
       name1Hash,
@@ -63,9 +64,20 @@ export class SanctionsBuilder {
       documentNumberAndNationalityHash,
     } = await getSanctionsHashesFromIdData(passport)
 
-    const name1Proof = this.tree.createNonMembershipProof(name1Hash)
-    const name2Proof = this.tree.createNonMembershipProof(name2Hash)
-    const name3Proof = this.tree.createNonMembershipProof(name3Hash)
+    // If the mode is not strict, we use an "empty" non-membership proof (i.e. proving 1 is not in the tree)
+    // just so it doesn't fail cause the person is actually sanctioned by name only
+    // while the check is not enabled if not in strict mode
+    // The circuit will ignore name proofs when not in strict mode
+    const name1Proof = strict
+      ? this.tree.createNonMembershipProof(name1Hash)
+      : this.tree.createNonMembershipProof(1n)
+    const name2Proof = strict
+      ? this.tree.createNonMembershipProof(name2Hash)
+      : this.tree.createNonMembershipProof(1n)
+    const name3Proof = strict
+      ? this.tree.createNonMembershipProof(name3Hash)
+      : this.tree.createNonMembershipProof(1n)
+
     const name1AndDobProof = this.tree.createNonMembershipProof(name1AndDOBHash)
     const name2AndDobProof = this.tree.createNonMembershipProof(name2AndDOBHash)
     const name3AndDobProof = this.tree.createNonMembershipProof(name3AndDOBHash)
