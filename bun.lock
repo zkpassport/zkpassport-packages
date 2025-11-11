@@ -87,7 +87,7 @@
         "@noble/ciphers": "^1.2.1",
         "@noble/hashes": "^1.7.2",
         "@noble/secp256k1": "^2.2.3",
-        "@obsidion/bridge": "^0.11.1",
+        "@obsidion/bridge": "^0.11.2",
         "@zkpassport/registry": "workspace:*",
         "@zkpassport/utils": "workspace:*",
         "buffer": "^6.0.3",
@@ -302,7 +302,7 @@
 
     "@nolyfill/is-core-module": ["@nolyfill/is-core-module@1.0.39", "", {}, "sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA=="],
 
-    "@obsidion/bridge": ["@obsidion/bridge@0.11.1", "", { "dependencies": { "@noble/ciphers": "^1.2.1", "@noble/hashes": "^1.8.0", "@noble/secp256k1": "^2.2.3", "@types/pako": "^2.0.3", "debug": "^4.3.4", "pako": "^2.1.0", "ws": "^8.16.0" }, "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-sZqRclzLehWODtsFgyg4W3L+ojW+DQl1YcPq/Vq4O7RlW0w5ZWtqq9yTRN6zjWhOo1hIA6xkeanjqZ3z6Rfn2Q=="],
+    "@obsidion/bridge": ["@obsidion/bridge@0.11.2", "", { "dependencies": { "@noble/ciphers": "^1.2.1", "@noble/hashes": "^1.8.0", "@noble/secp256k1": "^2.2.3", "@types/pako": "^2.0.3", "debug": "^4.3.4", "pako": "^2.1.0", "ws": "^8.16.0" }, "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-IX5g2c6TF9xKGFgnQBAq4TJLns+W2SfDgndE1orsLIQCRJ8UKsu5Mt+RwbI6sDu7PxVveZvmLEaiXhJl7NhJaQ=="],
 
     "@peculiar/asn1-cms": ["@peculiar/asn1-cms@2.5.0", "", { "dependencies": { "@peculiar/asn1-schema": "^2.5.0", "@peculiar/asn1-x509": "^2.5.0", "@peculiar/asn1-x509-attr": "^2.5.0", "asn1js": "^3.0.6", "tslib": "^2.8.1" } }, "sha512-p0SjJ3TuuleIvjPM4aYfvYw8Fk1Hn/zAVyPJZTtZ2eE9/MIer6/18ROxX6N/e6edVSfvuZBqhxAj3YgsmSjQ/A=="],
 
