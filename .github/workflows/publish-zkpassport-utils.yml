@@ -43,6 +43,11 @@ jobs:
         with:
           version: v1.4.4
 
+      - name: Install Foundry dependencies
+        if: github.ref == 'refs/heads/main'
+        run: forge install
+        working-directory: packages/registry-contracts
+
       - name: Setup Turbo cache
         if: github.ref == 'refs/heads/main'
         uses: actions/cache@v4
