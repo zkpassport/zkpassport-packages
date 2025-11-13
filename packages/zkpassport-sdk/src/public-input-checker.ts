@@ -80,8 +80,8 @@ export class PublicInputChecker {
     // We can't be certain that the disclosed data is for a passport or an ID card
     // so we need to check both (unless the document type is revealed)
     const disclosedBytes =
-      (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs).disclosedBytes ??
-      (proof.committedInputs?.disclose_bytes_evm as DiscloseCommittedInputs).disclosedBytes!
+      (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs)?.disclosedBytes ??
+      (proof.committedInputs?.disclose_bytes_evm as DiscloseCommittedInputs)?.disclosedBytes
     const disclosedDataPassport = DisclosedData.fromDisclosedBytes(disclosedBytes, "passport")
     const disclosedDataIDCard = DisclosedData.fromDisclosedBytes(disclosedBytes, "id_card")
     if (queryResult.document_type) {
