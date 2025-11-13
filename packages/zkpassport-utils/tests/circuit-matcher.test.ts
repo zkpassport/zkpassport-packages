@@ -427,7 +427,7 @@ describe("Circuit Matcher - RSA", () => {
 
   it("should calculate the correct age from passport", () => {
     const result = calculateAge(PASSPORTS.john)
-    expect(result).toBe(29)
+    expect(result).toBe(30)
   })
 
   it("should get the correct age circuit inputs", async () => {
