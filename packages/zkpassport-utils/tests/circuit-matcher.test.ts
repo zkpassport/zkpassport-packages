@@ -273,6 +273,7 @@ describe("Circuit Matcher - RSA", () => {
         69, 114, 173, 18, 116, 85, 147, 110, 175, 128, 173, 176, 234, 234, 179, 232, 160, 56,
       ],
       exponent: 65537,
+      pss_salt_len: 0,
     })
   })
 
@@ -327,6 +328,7 @@ describe("Circuit Matcher - RSA", () => {
         PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         E_CONTENT_INPUT_SIZE,
       ),
+      pss_salt_len: 0,
     })
   })
 
