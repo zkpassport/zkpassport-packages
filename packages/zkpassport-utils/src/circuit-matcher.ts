@@ -503,11 +503,12 @@ export async function getDSCCircuitInputs(
           .toUpperCase()
           .replace("SHA", "SHA-") as HashAlgorithm
         const fallBackSaltLength = hashAlgorithm ? getHashAlgorithmLength(hashAlgorithm) : 32
-        return (
-          getRSAPSSParams(
-            passport.sod.certificate.signatureAlgorithm.parameters?.toBuffer() as BufferSource,
-          )?.saltLength ?? fallBackSaltLength
-        )
+        const rsaPssParams = passport.sod.certificate.signatureAlgorithm.parameters
+          ? getRSAPSSParams(
+              passport.sod.certificate.signatureAlgorithm.parameters?.toBuffer() as BufferSource,
+            )
+          : null
+        return rsaPssParams?.saltLength ?? fallBackSaltLength
       }
       return 0
     })()
@@ -593,11 +594,12 @@ export async function getIDDataCircuitInputs(
         const hashAlgorithm = getSodSignatureAlgorithmHashAlgorithm(passport)
           .toUpperCase()
           .replace("SHA", "SHA-") as HashAlgorithm
-        return (
-          getRSAPSSParams(
-            passport.sod.signerInfo.signatureAlgorithm.parameters?.toBuffer() as BufferSource,
-          )?.saltLength ?? getHashAlgorithmLength(hashAlgorithm)
-        )
+        const rsaPssParams = passport.sod.signerInfo.signatureAlgorithm.parameters
+          ? getRSAPSSParams(
+              passport.sod.signerInfo.signatureAlgorithm.parameters?.toBuffer() as BufferSource,
+            )
+          : null
+        return rsaPssParams?.saltLength ?? getHashAlgorithmLength(hashAlgorithm)
       }
       return 0
     })()
