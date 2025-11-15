@@ -1,5 +1,5 @@
 import { bigIntToBuffer } from "@zk-kit/utils"
-import { QueryResult, SupportedChain } from "./types"
+import { HashAlgorithm, QueryResult, SupportedChain } from "./types"
 import { hexToBytes } from "@noble/hashes/utils"
 import {
   HASH_ALGORITHM_SHA1,
@@ -398,6 +398,21 @@ export function formatQueryResultDates(queryResult: QueryResult) {
 
 export function numberToBytesBE(n: number | bigint, len: number): Uint8Array {
   return hexToBytes(n.toString(16).padStart(len * 2, "0"))
+}
+
+export function getHashAlgorithmLength(hashAlgorithm: HashAlgorithm): number {
+  if (hashAlgorithm === "SHA-1") {
+    return 20
+  } else if (hashAlgorithm === "SHA-224") {
+    return 28
+  } else if (hashAlgorithm === "SHA-256") {
+    return 32
+  } else if (hashAlgorithm === "SHA-384") {
+    return 48
+  } else if (hashAlgorithm === "SHA-512") {
+    return 64
+  }
+  throw new Error(`Unsupported hash algorithm: ${hashAlgorithm}`)
 }
 
 /**

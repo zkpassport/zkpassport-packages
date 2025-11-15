@@ -16,7 +16,13 @@ import {
 } from "./circuits"
 import { parseDate } from "./circuits/disclose"
 import type { DigestAlgorithm } from "./cms/types"
-import { getBitSizeFromCurve, getCurveParams, getECDSAInfo, getRSAInfo } from "./cms/utils"
+import {
+  getBitSizeFromCurve,
+  getCurveParams,
+  getECDSAInfo,
+  getRSAInfo,
+  getRSAPSSParams,
+} from "./cms/utils"
 import { DG1_INPUT_SIZE, E_CONTENT_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
 import { countryCodeAlpha2ToAlpha3 } from "./country/country"
 import { computeMerkleProof } from "./merkle-tree"
@@ -49,6 +55,7 @@ import {
   fromBytesToBigInt,
   getBitSize,
   getHashAlgorithmIdentifierFromLength,
+  getHashAlgorithmLength,
   getUnixTimestamp,
   leftPadArrayWithZeros,
   rightPadArrayWithZeros,
@@ -414,6 +421,23 @@ export function processSodSignature(signature: number[], passport: PassportViewM
   }
 }
 
+export function getDSCSignatureAlgorithmHashAlgorithm(passport: PassportViewModel): string {
+  const signatureAlgorithm = passport.sod.certificate.signatureAlgorithm.name.toLowerCase()
+  if (signatureAlgorithm.includes("sha1")) {
+    return "sha1"
+  } else if (signatureAlgorithm.includes("sha224")) {
+    return "sha224"
+  } else if (signatureAlgorithm.includes("sha256")) {
+    return "sha256"
+  } else if (signatureAlgorithm.includes("sha384")) {
+    return "sha384"
+  } else if (signatureAlgorithm.includes("sha512")) {
+    return "sha512"
+  } else {
+    return "sha256"
+  }
+}
+
 export async function getDSCCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
@@ -473,6 +497,20 @@ export async function getDSCCircuitInputs(
       bigintToBytes(BigInt(csca.public_key.modulus)),
       Math.ceil(modulusBits / 8),
     )
+    const saltLength = (() => {
+      if (csca.signature_algorithm === "RSA-PSS") {
+        const hashAlgorithm = getDSCSignatureAlgorithmHashAlgorithm(passport)
+          .toUpperCase()
+          .replace("SHA", "SHA-") as HashAlgorithm
+        const fallBackSaltLength = hashAlgorithm ? getHashAlgorithmLength(hashAlgorithm) : 32
+        return (
+          getRSAPSSParams(
+            passport.sod.certificate.signatureAlgorithm.parameters?.toBuffer() as BufferSource,
+          )?.saltLength ?? fallBackSaltLength
+        )
+      }
+      return 0
+    })()
     return {
       ...inputs,
       tbs_certificate: rightPadArrayWithZeros(
@@ -486,7 +524,26 @@ export async function getDSCCircuitInputs(
         Math.ceil(modulusBits / 8) + 1,
       ),
       exponent: csca.public_key.exponent,
+      pss_salt_len: saltLength,
     }
+  }
+}
+
+export function getSodSignatureAlgorithmHashAlgorithm(passport: PassportViewModel): string {
+  const signatureAlgorithm = passport.sod.signerInfo.signatureAlgorithm.name.toLowerCase()
+  const saHashAlgorithm = passport.sod.signerInfo.digestAlgorithm.toLowerCase().replace("-", "")
+  if (signatureAlgorithm.includes("sha1")) {
+    return "sha1"
+  } else if (signatureAlgorithm.includes("sha224")) {
+    return "sha224"
+  } else if (signatureAlgorithm.includes("sha256")) {
+    return "sha256"
+  } else if (signatureAlgorithm.includes("sha384")) {
+    return "sha384"
+  } else if (signatureAlgorithm.includes("sha512")) {
+    return "sha512"
+  } else {
+    return saHashAlgorithm
   }
 }
 
@@ -531,6 +588,19 @@ export async function getIDDataCircuitInputs(
     }
   } else if (signatureAlgorithm === "RSA") {
     const pubkeySize = (dscData as RSADSCDataInputs).dsc_pubkey.length
+    const saltLength = (() => {
+      if (passport.sod.signerInfo.signatureAlgorithm.name.toLowerCase().includes("pss")) {
+        const hashAlgorithm = getSodSignatureAlgorithmHashAlgorithm(passport)
+          .toUpperCase()
+          .replace("SHA", "SHA-") as HashAlgorithm
+        return (
+          getRSAPSSParams(
+            passport.sod.signerInfo.signatureAlgorithm.parameters?.toBuffer() as BufferSource,
+          )?.saltLength ?? getHashAlgorithmLength(hashAlgorithm)
+        )
+      }
+      return 0
+    })()
     return {
       ...inputs,
       dsc_pubkey: (dscData as RSADSCDataInputs).dsc_pubkey,
@@ -542,6 +612,7 @@ export async function getIDDataCircuitInputs(
       dsc_pubkey_redc_param: (dscData as RSADSCDataInputs).dsc_pubkey_redc_param,
       tbs_certificate: (dscData as RSADSCDataInputs).tbs_certificate,
       signed_attributes: idData.signed_attributes,
+      pss_salt_len: saltLength,
     }
   }
 }
