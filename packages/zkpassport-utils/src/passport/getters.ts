@@ -5,17 +5,28 @@ export function getFirstNameRange(passport: PassportViewModel): [number, number]
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   const lastNameStartIndex = isIDCard ? 60 : 5
-  const firstNameStartIndex = getOffsetInArray(mrz.split(""), ["<", "<"], lastNameStartIndex) + 2
+  let firstNameStartIndex = getOffsetInArray(mrz.split(""), ["<", "<"], lastNameStartIndex) + 2
+  let isWithoutFullNameSeparator = false
+  // If the character at firstNameStartIndex is an angle bracket (<), it means the passport has no full name separator
+  // as we have hit the < right padding (e.g. Malaysian passports)
+  if (
+    firstNameStartIndex > 0 &&
+    firstNameStartIndex < mrz.length &&
+    mrz[firstNameStartIndex] === "<"
+  ) {
+    firstNameStartIndex = getOffsetInArray(mrz.split(""), ["<"], lastNameStartIndex) + 1
+    isWithoutFullNameSeparator = true
+  }
   const firstNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], firstNameStartIndex)
   // Subtract 2 from the start index to include the two angle brackets
-  return [firstNameStartIndex - 2, firstNameEndIndex]
+  return [firstNameStartIndex - (isWithoutFullNameSeparator ? 1 : 2), firstNameEndIndex]
 }
 
 export function getSecondNameRange(passport: PassportViewModel): [number, number] {
   const mrz = passport?.mrz
   const secondNameStartIndex = getFirstNameRange(passport)[1] + 1
   const secondNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], secondNameStartIndex)
-  // Subtract 1 from the start index to include the two angle brackets
+  // Subtract 1 from the start index to include the angle bracket
   return [secondNameStartIndex - 1, secondNameEndIndex]
 }
 
@@ -23,7 +34,7 @@ export function getThirdNameRange(passport: PassportViewModel): [number, number]
   const mrz = passport?.mrz
   const thirdNameStartIndex = getSecondNameRange(passport)[1] + 1
   const thirdNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], thirdNameStartIndex)
-  // Subtract 1 from the start index to include the two angle brackets
+  // Subtract 1 from the start index to include the angle bracket
   return [thirdNameStartIndex - 1, thirdNameEndIndex]
 }
 
