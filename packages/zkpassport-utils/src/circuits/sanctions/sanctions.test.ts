@@ -145,4 +145,16 @@ describe("Sanctions", () => {
       "DOE<<JOHN<MILLER<<<<<<<<<<<<<<<<<<<<<<<",
     )
   })
+
+  test("should get the correct name combinations for passports without full name separator", () => {
+    const passport = PASSPORTS.john
+    passport.mrz =
+      "P<ZKRSMITH<MARY<MILLER<<<<<<<<<<<<<<<<<<<<<<ZP2222222_ZKR750302_F300101_<<<<<<<<<<<<<<<<"
+    const nameCombinations = getNameCombinations(passport)
+    expect(nameCombinations).toEqual([
+      "SMITH<<MARY<<<<<<<<<<<<<<<<<<<<<<<<<<<<",
+      "SMITH<<MARY<MILLER<<<<<<<<<<<<<<<<<<<<<",
+      "SMITH<<MARY<MILLER<<<<<<<<<<<<<<<<<<<<<",
+    ])
+  })
 })
