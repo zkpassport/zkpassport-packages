@@ -1,4 +1,4 @@
-import { Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
+import i18n from "i18n-iso-countries";
 import {
   type DisclosableIDCredential,
   type IDCredential,
@@ -22,14 +22,17 @@ import {
   formatQueryResultDates,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
-import i18en from "i18n-iso-countries/langs/en.json"
-import { Buffer } from "buffer/"
+import i18en from "i18n-iso-countries/langs/en.json";
+import { Buffer } from "buffer"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 import { QueryBuilder, QueryResultErrors } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { DEFAULT_VALIDITY, VERSION } from "./constants"
+
+const { getAlpha3Code, registerLocale } = i18n;
+type Alpha3Code = ReturnType<typeof i18n.getAlpha3Code>;
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
