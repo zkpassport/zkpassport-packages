@@ -22,7 +22,10 @@ import {
   formatQueryResultDates,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
-import i18en from "i18n-iso-countries/langs/en.json";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url)
+const i18en = require("i18n-iso-countries/langs/en.json")
+
 import { Buffer } from "buffer"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
