@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
     "declarationDir": "./dist/esm",
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
@@ -10,7 +10,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.json"],
-  "exclude": ["**/*.test.ts"],
+  "include": ["src/**/*.ts", "src/**/*.json", "tests/**/*.ts"],
   "references": [{ "path": "../zkpassport-utils" }, { "path": "../registry-sdk" }]
 }

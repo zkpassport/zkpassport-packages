@@ -1,5 +1,6 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { Binary } from "@zkpassport/utils"
+import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
   buildMerkleTreeFromCerts,
@@ -32,9 +33,8 @@ import {
 import {
   DocumentSupport,
   DocumentSupportRule,
-  PackagedCertificatesFile,
   RegistryClientOptions,
-  RootDetails,
+  type RootDetails,
 } from "./types"
 import { normaliseHash, strip0x } from "./utils"
 import { withRetry } from "@zkpassport/utils"
@@ -781,7 +781,7 @@ export class RegistryClient {
     return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
   }
 
-  private async rpcRequest(to: string, data: any): Promise<Response> {
+  private async rpcRequest(to: string, data: string): Promise<Response> {
     return withRetry(
       () =>
         fetch(this.rpcUrl, {
