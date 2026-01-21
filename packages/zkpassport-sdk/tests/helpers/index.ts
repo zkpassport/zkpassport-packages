@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export { mockWebSocket, MockWebSocket } from "./mock-websocket"
 
 export const waitForCallback = <T = any>(

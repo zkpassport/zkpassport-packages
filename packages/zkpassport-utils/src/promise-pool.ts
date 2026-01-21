@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // Promise pool for controlled concurrency
 export class PromisePool {
   private queue: (() => Promise<void>)[] = []

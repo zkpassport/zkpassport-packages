@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { bigIntToBuffer } from "@zk-kit/utils"
 import { HashAlgorithm, QueryResult, SupportedChain } from "./types"
 import { hexToBytes } from "@noble/hashes/utils"

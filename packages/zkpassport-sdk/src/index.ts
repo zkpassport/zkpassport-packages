@@ -33,9 +33,9 @@ import { DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
-  globalThis.Buffer = Buffer as any
+  globalThis.Buffer = Buffer as any // eslint-disable-line
   if (typeof window !== "undefined") {
-    window.Buffer = Buffer as any
+    window.Buffer = Buffer as any // eslint-disable-line
   }
 }
 
@@ -79,7 +79,7 @@ function rangeCompare(
 function generalCompare(
   fnName: "in" | "out" | "eq",
   key: IDCredential,
-  value: any,
+  value: any, // eslint-disable-line
   requestId: string,
   requestIdToConfig: Record<string, Query>,
 ) {
@@ -496,6 +496,7 @@ export class ZKPassport {
       logger.debug("Secure channel established")
       await Promise.all(this.onRequestReceivedCallbacks[topic].map((callback) => callback()))
     })
+    // eslint-disable-next-line
     bridge.onSecureMessage(async (message: any) => {
       logger.debug("Received message:", message)
       this.handleEncryptedMessage(topic, message)

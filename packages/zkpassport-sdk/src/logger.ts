@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export const customLogger = {
   debug: (message: string, ...args: any[]) => console.debug(message, ...args),
   info: (message: string, ...args: any[]) => console.info(message, ...args),
