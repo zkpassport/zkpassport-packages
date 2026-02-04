@@ -26,7 +26,7 @@ export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:3000/certificates
  */
 export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string, cid?: string) => {
   if (cid) {
-    return `https://ipfs.infura.io/ipfs/${cid}`
+    return `https://ipfs.zkpassport.id/ipfs/${cid}`
   }
   root = normaliseHash(root)
   if (chainId === 1) {
@@ -74,7 +74,7 @@ export const CIRCUIT_MANIFEST_URL_TEMPLATE = (
       return `${CIRCUIT_URL_DEV}/by-version/${version}/manifest.json`
     }
   } else if (cid) {
-    return `https://ipfs.infura.io/ipfs/${cid}`
+    return `https://ipfs.zkpassport.id/ipfs/${cid}`
   } else {
     throw new Error("No root, version or cid provided")
   }
@@ -88,7 +88,7 @@ export const CIRCUIT_MANIFEST_URL_TEMPLATE = (
  */
 export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid?: string) => {
   if (cid) {
-    return `https://ipfs.infura.io/ipfs/${cid}`
+    return `https://ipfs.zkpassport.id/ipfs/${cid}`
   }
   hash = normaliseHash(hash)
   if (chainId === 1) {
