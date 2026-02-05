@@ -4,7 +4,7 @@ import { Binary } from "../../src/binary"
 import johnSODJson from "./john-miller-smith-rsa-2048-sha256.json"
 import marySODJson from "./mary-miller-smith-ecdsa-p256-sha256.json"
 import { SOD } from "../../src"
-import { sha256, sha384, sha512 } from "@noble/hashes/sha2"
+import { sha256, sha384, sha512 } from "@noble/hashes/sha2.js"
 
 const hash = (hashAlgorithm: DigestAlgorithm, msg: Uint8Array) => {
   switch (hashAlgorithm) {

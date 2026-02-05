@@ -1,6 +1,6 @@
 import { bigIntToBuffer } from "@zk-kit/utils"
 import { HashAlgorithm, QueryResult, SupportedChain } from "./types"
-import { hexToBytes } from "@noble/hashes/utils"
+import { hexToBytes } from "@noble/hashes/utils.js"
 import {
   HASH_ALGORITHM_SHA1,
   HASH_ALGORITHM_SHA224,
