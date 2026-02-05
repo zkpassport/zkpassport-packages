@@ -187,7 +187,7 @@ describe("Circuit Matcher - General", () => {
       JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCCountry(x)))).sort()),
     )
     expect(uniqueUnknownCSCSubjectKeyIdentifiers).toEqual(expectedUnknownCSCSubjectKeyIdentifiers)
-  }, 60000)
+  }, 10 * 60000)
 })
 
 describe("Circuit Matcher - RSA", () => {

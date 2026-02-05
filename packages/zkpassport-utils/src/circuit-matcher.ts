@@ -284,7 +284,6 @@ export async function getCscaForPassportAsync(
 
     try {
       const isValid = await verifyDscSignature(dsc, cert)
-      console.log(`Certificate ${cert.subject_key_identifier} signature verification result: ${isValid}`)
       if (isValid) {
         return cert
       }
