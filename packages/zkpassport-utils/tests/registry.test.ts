@@ -26,12 +26,13 @@ describe("Registry", () => {
       not_before: 1000000000,
       not_after: 2000000000,
     },
-    subject_key_identifier: "0x1111",
-    authority_key_identifier: "0x2222",
     private_key_usage_period: {
       not_before: 1000000000,
       not_after: 2000000000,
     },
+    subject_key_identifier: "0x1111",
+    authority_key_identifier: "0x2222",
+    fingerprint: "0x0111111111111111111111111111111111111111111111111111111111111111",
     tags: ["UN", "DE"],
   }
 
@@ -52,12 +53,13 @@ describe("Registry", () => {
       not_before: 1000000000,
       not_after: 2000000000,
     },
-    subject_key_identifier: "0x1111",
-    authority_key_identifier: "0x2222",
     private_key_usage_period: {
       not_before: 1000000000,
       not_after: 2000000000,
     },
+    subject_key_identifier: "0x1111",
+    authority_key_identifier: "0x2222",
+    fingerprint: "0x0222222222222222222222222222222222222222222222222222222222222222",
     tags: ["UN", "DE"],
   }
 
@@ -100,14 +102,14 @@ describe("Registry", () => {
   test("should generate correct canonical leaf for RSA cert", async () => {
     const leaf = await getCertificateLeafHash(rsaCert)
     expect(leaf).toEqual(
-      10374427192692971605115852434399434992383543572583326103540359782862263554570n,
+      18821076869038301219571401322686721036085203437552110369443322053623613446966n,
     )
   })
 
   test("should generate correct canonical leaf for ECDSA cert", async () => {
     const leaf = await getCertificateLeafHash(ecdsaCert)
     expect(leaf).toEqual(
-      9676427500440764140387924904666461180023752817896651616722688209534314347621n,
+      14965224189996577667331983147414903016849320294809859715118036488072996530241n,
     )
   })
 
@@ -117,18 +119,29 @@ describe("Registry", () => {
       type: CERT_TYPE_DSC,
     })
     expect(leaf).toEqual(
-      11128308501821901519857638506584544607455540416838544782901445271440127884577n,
+      17732559635977458050578953956465414663427303613303769254065708457591008172683n,
     )
   })
 
   test("should generate correct canonical certificate root", async () => {
     const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
-    expect(root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
+    expect(root).toEqual("0x05cf26993daa7e1fcf55394a3768caf8419910447533781d90769bf9f8052386")
   })
 
   test("should generate correct canonical circuit root", async () => {
     const hashes = Object.values(circuitManifest.circuits).map((circuit) => circuit.hash)
     const root = await calculateCircuitRoot({ hashes })
     expect(root).toEqual(circuitManifest.root)
+  })
+
+  test("should correctly convert timestamp to 4 byte array and back again", () => {
+    const timestamp = 1768823285
+    const expiry = new Uint8Array(4)
+    expiry[0] = (timestamp >> 24) & 0xff
+    expiry[1] = (timestamp >> 16) & 0xff
+    expiry[2] = (timestamp >> 8) & 0xff
+    expiry[3] = timestamp & 0xff
+    expect(expiry).toEqual(new Uint8Array([105, 110, 25, 245]))
+    expect(BigInt(`0x${Buffer.from(expiry).toString("hex")}`)).toEqual(BigInt(timestamp))
   })
 })

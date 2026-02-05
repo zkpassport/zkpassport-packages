@@ -182,12 +182,24 @@ export async function getCertificateLeafHash(
     : cert?.tags
       ? tagsArrayToBitsFlag(cert.tags)
       : [0n, 0n, 0n]
+  // Tags must be exactly 3 fields
+  assert(tags.length === 3, `Tags must be exactly 3 fields`)
   // Certificate type
   const type = options?.type ?? CERT_TYPE_CSCA
   assert(type >= 0 && type <= 255, `Certificate type must fit in a single byte: ${type}`)
   // Ensure country code is 3 characters
   assert(cert?.country?.length === 3, `Country code must be 3 characters: ${cert?.country}`)
   const publicKeyBytes = publicKeyToBytes(cert.public_key)
+  // Fingerprint (Poseidon2 hash of certificate DER bytes)
+  assert(cert.fingerprint !== undefined, `Certificate fingerprint required`)
+  const fingerprint = BigInt(cert.fingerprint!)
+  // Certificate expiry (validity.not_after timestamp represented as 4 bytes / 32 bits)
+  const expiry = new Uint8Array(4)
+  expiry[0] = (cert.validity.not_after >> 24) & 0xff
+  expiry[1] = (cert.validity.not_after >> 16) & 0xff
+  expiry[2] = (cert.validity.not_after >> 8) & 0xff
+  expiry[3] = cert.validity.not_after & 0xff
+
   // Return the canonical leaf hash of the certificate
   return poseidon2HashAsync([
     ...tags,
@@ -198,10 +210,12 @@ export async function getCertificateLeafHash(
           cert.country.charCodeAt(0),
           cert.country.charCodeAt(1),
           cert.country.charCodeAt(2),
+          ...expiry,
         ]),
         31,
       )[0],
     ),
+    fingerprint,
     ...packBeBytesIntoFields(publicKeyBytes, 31).map((hex) => BigInt(hex)),
   ])
 }

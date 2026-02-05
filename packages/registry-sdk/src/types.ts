@@ -94,8 +94,17 @@ export interface RootDetails {
 }
 
 export interface PackagedCertificatesFile {
+  // Version of the packaged certificates format (defaults to 0 if not set)
+  version: number
+  // Timestamp when the package was created and the certificates were validated
+  timestamp: number
+  // Merkle root of the certificates tree
+  root: string
+  // Array of packaged certificates
   certificates: PackagedCertificate[]
-  serialised: any[]
+  // The serialised ordered Merkle tree of certificates
+  // Each row represents a level of the tree, with each entry being a node
+  serialised?: string[][]
 }
 
 export enum DocumentSupport {

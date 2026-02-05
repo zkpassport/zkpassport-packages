@@ -77,6 +77,7 @@ export type PackagedCertificate = {
   }
   subject_key_identifier?: string
   authority_key_identifier?: string
+  fingerprint?: string
   tags?: TwoLetterCode[]
   type?: string
 }
