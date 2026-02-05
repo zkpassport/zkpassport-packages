@@ -6,7 +6,7 @@
  *
  * Supports:
  * - ECDSA with NIST curves (P-192, P-224, P-256, P-384, P-521)
- * - ECDSA with Brainpool curves (r1 and t1 variants)
+ * - ECDSA with Brainpool curves (r1 variants)
  * - RSA with PKCS#1 v1.5 padding
  * - RSA-PSS
  *
@@ -43,22 +43,10 @@ const brainpoolP160r1_CURVE: WeierstrassOpts<bigint> = {
   b: BRAINPOOL_CURVES.brainpoolP160r1.b,
   n: BRAINPOOL_CURVES.brainpoolP160r1.n,
   h: BigInt(1),
-  Gx: BigInt("0xBED5AF16EA3F6A4F62938C4631EB5AF7BDBCDBC3"),
-  Gy: BigInt("0x1667CB477A1A8EC338F94741669C976316DA6321"),
+  Gx: BigInt("0xbed5af16ea3f6a4f62938c4631eb5af7bdbcdbc3"),
+  Gy: BigInt("0x1667cb477a1a8ec338f94741669c976316da6321"),
 }
 const brainpoolP160r1Custom: ECDSA = ecdsa(weierstrass(brainpoolP160r1_CURVE), sha1)
-
-// brainpoolP160t1
-const brainpoolP160t1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP160t1.p,
-  a: BRAINPOOL_CURVES.brainpoolP160t1.a,
-  b: BRAINPOOL_CURVES.brainpoolP160t1.b,
-  n: BRAINPOOL_CURVES.brainpoolP160t1.n,
-  h: BigInt(1),
-  Gx: BigInt("0xB199B13B9B34EFC1397E64BAEB05ACC265FF2378"),
-  Gy: BigInt("0xADD6718B7C7C1961F0991B842443772152C9E0AD"),
-}
-const brainpoolP160t1Custom: ECDSA = ecdsa(weierstrass(brainpoolP160t1_CURVE), sha1)
 
 // brainpoolP192r1
 const brainpoolP192r1_CURVE: WeierstrassOpts<bigint> = {
@@ -67,22 +55,10 @@ const brainpoolP192r1_CURVE: WeierstrassOpts<bigint> = {
   b: BRAINPOOL_CURVES.brainpoolP192r1.b,
   n: BRAINPOOL_CURVES.brainpoolP192r1.n,
   h: BigInt(1),
-  Gx: BigInt("0xC0A0647EAAB6A48753B033C56CB0F0900A2F5C4853375FD6"),
-  Gy: BigInt("0x14B690866ABD5BB88B5F4828C1490002E6773FA2FA299B8F"),
+  Gx: BigInt("0xc0a0647eaab6a48753b033c56cb0f0900a2f5c4853375fd6"),
+  Gy: BigInt("0x14b690866abd5bb88b5f4828c1490002e6773fa2fa299b8f"),
 }
 const brainpoolP192r1Custom: ECDSA = ecdsa(weierstrass(brainpoolP192r1_CURVE), sha1)
-
-// brainpoolP192t1
-const brainpoolP192t1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP192t1.p,
-  a: BRAINPOOL_CURVES.brainpoolP192t1.a,
-  b: BRAINPOOL_CURVES.brainpoolP192t1.b,
-  n: BRAINPOOL_CURVES.brainpoolP192t1.n,
-  h: BigInt(1),
-  Gx: BigInt("0x3AE9E58C82F63C30282E1FE7BBF43FA72C446AF6F4618129"),
-  Gy: BigInt("0x097E2C5667C2223A902AB5CA449D0084B7E5B3DE7CCC01C9"),
-}
-const brainpoolP192t1Custom: ECDSA = ecdsa(weierstrass(brainpoolP192t1_CURVE), sha1)
 
 // brainpoolP224r1
 const brainpoolP224r1_CURVE: WeierstrassOpts<bigint> = {
@@ -91,90 +67,11 @@ const brainpoolP224r1_CURVE: WeierstrassOpts<bigint> = {
   b: BRAINPOOL_CURVES.brainpoolP224r1.b,
   n: BRAINPOOL_CURVES.brainpoolP224r1.n,
   h: BigInt(1),
-  Gx: BigInt("0x0D9029AD2C7E5CF4340823B2A87DC68C9E4CE3174C1E6EFDEE12C07D"),
-  Gy: BigInt("0x58AA56F772C0726F24C6B89E4ECDAC24354B9E99CAA3F6D3761402CD"),
+  Gx: BigInt("0xd9029ad2c7e5cf4340823b2a87dc68c9e4ce3174c1e6efdee12c07d"),
+  Gy: BigInt("0x58aa56f772c0726f24c6b89e4ecdac24354b9e99caa3f6d3761402cd"),
 }
 const brainpoolP224r1Custom: ECDSA = ecdsa(weierstrass(brainpoolP224r1_CURVE), sha224)
 
-// brainpoolP224t1
-const brainpoolP224t1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP224t1.p,
-  a: BRAINPOOL_CURVES.brainpoolP224t1.a,
-  b: BRAINPOOL_CURVES.brainpoolP224t1.b,
-  n: BRAINPOOL_CURVES.brainpoolP224t1.n,
-  h: BigInt(1),
-  Gx: BigInt("0x6AB1E344CE25FF3896424E7FFE14762ECB49F8928AC0C76029B4D580"),
-  Gy: BigInt("0x0374E9F5143E568CD23F3F4D7C0D4B1E41C8CC0D1C6ABD5F1A46DB4C"),
-}
-const brainpoolP224t1Custom: ECDSA = ecdsa(weierstrass(brainpoolP224t1_CURVE), sha224)
-
-// brainpoolP256t1
-const brainpoolP256t1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP256t1.p,
-  a: BRAINPOOL_CURVES.brainpoolP256t1.a,
-  b: BRAINPOOL_CURVES.brainpoolP256t1.b,
-  n: BRAINPOOL_CURVES.brainpoolP256t1.n,
-  h: BigInt(1),
-  Gx: BigInt("0xA3E8EB3CC1CFE7B7732213B23A656149AFA142C47AAFBC2B79A191562E1305F4"),
-  Gy: BigInt("0x2D996C823439C56D7F7B22E14644417E69BCB6DE39D027001DABE8F35B25C9BE"),
-}
-const brainpoolP256t1Custom: ECDSA = ecdsa(weierstrass(brainpoolP256t1_CURVE), sha256)
-
-// brainpoolP320r1
-const brainpoolP320r1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP320r1.p,
-  a: BRAINPOOL_CURVES.brainpoolP320r1.a,
-  b: BRAINPOOL_CURVES.brainpoolP320r1.b,
-  n: BRAINPOOL_CURVES.brainpoolP320r1.n,
-  h: BigInt(1),
-  Gx: BigInt("0x43BD7E9AFB53D8B85289BCC48EE5BFE6F20137D10A087EB6E7871E2A10A599C710AF8D0D39E20611"),
-  Gy: BigInt("0x14FDD05545EC1CC8AB4093247F77275E0743FFED117182EAA9C77877AAAC6AC7D35245D1692E8EE1"),
-}
-const brainpoolP320r1Custom: ECDSA = ecdsa(weierstrass(brainpoolP320r1_CURVE), sha256)
-
-// brainpoolP320t1
-const brainpoolP320t1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP320t1.p,
-  a: BRAINPOOL_CURVES.brainpoolP320t1.a,
-  b: BRAINPOOL_CURVES.brainpoolP320t1.b,
-  n: BRAINPOOL_CURVES.brainpoolP320t1.n,
-  h: BigInt(1),
-  Gx: BigInt("0x925BE9FB01AFC6FB4D3E7D4990010F813408AB106C4F09CB7EE07868CC136FFF3357F624A21BED52"),
-  Gy: BigInt("0x63BA3A7A27483EBF6671DBEF7ABB30EBEE084E58A0B077AD42A5A0989D1EE71B1B9BC0455FB0D2C3"),
-}
-const brainpoolP320t1Custom: ECDSA = ecdsa(weierstrass(brainpoolP320t1_CURVE), sha256)
-
-// brainpoolP384t1
-const brainpoolP384t1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP384t1.p,
-  a: BRAINPOOL_CURVES.brainpoolP384t1.a,
-  b: BRAINPOOL_CURVES.brainpoolP384t1.b,
-  n: BRAINPOOL_CURVES.brainpoolP384t1.n,
-  h: BigInt(1),
-  Gx: BigInt(
-    "0x18DE98B02DB9A306F2AFCD7235F72A819B80AB12EBD653172476FECD462AABFFC4FF191B946A5F54D8D0AA2F418808CC",
-  ),
-  Gy: BigInt(
-    "0x25AB056962D30651A114AFD2755AD336747F93475B7A1FCA3B88F2B6A208CCFE469408584DC2B2912675BF5B9E582928",
-  ),
-}
-const brainpoolP384t1Custom: ECDSA = ecdsa(weierstrass(brainpoolP384t1_CURVE), sha384)
-
-// brainpoolP512t1
-const brainpoolP512t1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP512t1.p,
-  a: BRAINPOOL_CURVES.brainpoolP512t1.a,
-  b: BRAINPOOL_CURVES.brainpoolP512t1.b,
-  n: BRAINPOOL_CURVES.brainpoolP512t1.n,
-  h: BigInt(1),
-  Gx: BigInt(
-    "0x640ECE5C12788717B9C1BA06CBC2A6FEBA85842458C56DDE9DB1758D39C0313D82BA51735CDB3EA499AA77A7D6943A64F7A3F25FE26F06B51BAA2696FA9035DA",
-  ),
-  Gy: BigInt(
-    "0x5B534BD595F5AF0FA2C892376C84ACE1BB4E3019B71634C01131159CAE03CEE9D9932184BEEF216BD71DF2DADF86A627306ECFF96DBB8BACE198B61E00F8B332",
-  ),
-}
-const brainpoolP512t1Custom: ECDSA = ecdsa(weierstrass(brainpoolP512t1_CURVE), sha512)
 
 // P-192 custom curve (not in @noble/curves)
 const p192_CURVE: WeierstrassOpts<bigint> = {
@@ -183,8 +80,8 @@ const p192_CURVE: WeierstrassOpts<bigint> = {
   b: NIST_CURVES["P-192"].b,
   n: NIST_CURVES["P-192"].n,
   h: BigInt(1),
-  Gx: BigInt("0x188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012"),
-  Gy: BigInt("0x07192B95FFC8DA78631011ED6B24CDD573F977A11E794811"),
+  Gx: BigInt("0x188da80eb03090f67cbf20eb43a18800f4ff0afd82ff1012"),
+  Gy: BigInt("0x07192b95ffc8da78631011ed6b24cdd573f977a11e794811"),
 }
 const p192Custom: ECDSA = ecdsa(weierstrass(p192_CURVE), sha1)
 
@@ -195,8 +92,8 @@ const p224_CURVE: WeierstrassOpts<bigint> = {
   b: NIST_CURVES["P-224"].b,
   n: NIST_CURVES["P-224"].n,
   h: BigInt(1),
-  Gx: BigInt("0xB70E0CBD6BB4BF7F321390B94A03C1D356C21122343280D6115C1D21"),
-  Gy: BigInt("0xBD376388B5F723FB4C22DFE6CD4375A05A07476444D5819985007E34"),
+  Gx: BigInt("0xb70e0cbd6bb4bf7f321390b94a03c1d356c21122343280d6115c1d21"),
+  Gy: BigInt("0xbd376388b5f723fb4c22dfe6cd4375a05a07476444d5819985007e34"),
 }
 const p224Custom: ECDSA = ecdsa(weierstrass(p224_CURVE), sha224)
 
@@ -208,19 +105,11 @@ const ECDSA_CURVES: Record<string, ECDSA> = {
   "P-384": p384,
   "P-521": p521,
   "brainpoolP160r1": brainpoolP160r1Custom,
-  "brainpoolP160t1": brainpoolP160t1Custom,
   "brainpoolP192r1": brainpoolP192r1Custom,
-  "brainpoolP192t1": brainpoolP192t1Custom,
   "brainpoolP224r1": brainpoolP224r1Custom,
-  "brainpoolP224t1": brainpoolP224t1Custom,
   "brainpoolP256r1": brainpoolP256r1,
-  "brainpoolP256t1": brainpoolP256t1Custom,
-  "brainpoolP320r1": brainpoolP320r1Custom,
-  "brainpoolP320t1": brainpoolP320t1Custom,
   "brainpoolP384r1": brainpoolP384r1,
-  "brainpoolP384t1": brainpoolP384t1Custom,
   "brainpoolP512r1": brainpoolP512r1,
-  "brainpoolP512t1": brainpoolP512t1Custom,
 }
 
 /**
@@ -300,8 +189,8 @@ function parseECDSASignature(signature: Uint8Array, byteSize: number): Uint8Arra
 /**
  * Verify an ECDSA signature
  */
-function verifyECDSASignature(
-  tbsHash: Uint8Array,
+export function verifyECDSASignature(
+  digest: Uint8Array,
   signature: Uint8Array,
   publicKey: ECPublicKey,
 ): boolean {
@@ -329,7 +218,7 @@ function verifyECDSASignature(
     uncompressedPubKey.set(xPadded, 1)
     uncompressedPubKey.set(yPadded, 1 + byteSize)
 
-    return curve.verify(parsedSignature, tbsHash, uncompressedPubKey, {
+    return curve.verify(parsedSignature, digest, uncompressedPubKey, {
       prehash: false,
       lowS: false,
     })
@@ -338,33 +227,55 @@ function verifyECDSASignature(
   }
 }
 
+// Hash algorithms supported by Web Crypto for RSA signatures
+// Note: SHA-1 and SHA-224 are NOT supported by Web Crypto
+const WEB_CRYPTO_SUPPORTED_HASH_ALGORITHMS: HashAlgorithm[] = ["SHA-256", "SHA-384", "SHA-512"]
+
 /**
  * Verify an RSA signature using Web Crypto API (works in browser, Node.js, and React Native with polyfill)
- * Falls back to manual verification if Web Crypto is not available
+ * Falls back to manual verification if Web Crypto is not available or if the hash algorithm is not supported
+ *
+ * @param message - The original message bytes (unhashed)
+ * @param digest - The pre-computed hash of the message (used for manual verification)
+ * @param signature - The signature to verify
+ * @param publicKey - The RSA public key
+ * @param hashAlgorithm - The hash algorithm to use
+ * @param isPSS - Whether to use RSA-PSS padding
  */
-async function verifyRSASignature(
-  tbsHash: Uint8Array,
+export async function verifyRSASignature(
+  message: Uint8Array,
+  digest: Uint8Array,
   signature: Uint8Array,
   publicKey: RSAPublicKey,
   hashAlgorithm: HashAlgorithm,
   isPSS: boolean,
 ): Promise<boolean> {
   try {
-    // Try Web Crypto API first (available in browsers, Node.js 15+, and React Native with polyfill)
-    const crypto = getCryptoSubtle()
-    if (crypto) {
-      return await verifyRSAWithWebCrypto(
-        tbsHash,
-        signature,
-        publicKey,
-        hashAlgorithm,
-        isPSS,
-        crypto,
-      )
+    // Check if the hash algorithm is supported by Web Crypto
+    // SHA-1 and SHA-224 are NOT supported, so use manual verification directly
+    const isWebCryptoSupported = WEB_CRYPTO_SUPPORTED_HASH_ALGORITHMS.includes(hashAlgorithm)
+
+    if (isWebCryptoSupported) {
+      // Try Web Crypto API first (available in browsers, Node.js 15+, and React Native with polyfill)
+      const crypto = getCryptoSubtle()
+      if (crypto) {
+        // Web Crypto expects the original data (not the hash) and will hash it internally
+        return await verifyRSAWithWebCrypto(
+          message,
+          signature,
+          publicKey,
+          hashAlgorithm,
+          isPSS,
+          crypto,
+        )
+      }
     }
 
-    // Fallback to manual RSA verification for environments without Web Crypto
-    return verifyRSAManual(tbsHash, signature, publicKey, hashAlgorithm, isPSS)
+    // Fallback to manual RSA verification for:
+    // - Environments without Web Crypto
+    // - Unsupported hash algorithms (SHA-1, SHA-224)
+    // Manual verification uses the pre-computed hash
+    return verifyRSAManual(digest, signature, publicKey, hashAlgorithm, isPSS)
   } catch {
     return false
   }
@@ -397,9 +308,17 @@ function getCryptoSubtle(): SubtleCrypto | null {
 
 /**
  * Verify RSA signature using Web Crypto API
+ * Web Crypto expects the original data (not the hash) and will hash it internally
+ *
+ * @param message - The original message bytes (unhashed)
+ * @param signature - The signature to verify
+ * @param publicKey - The RSA public key
+ * @param hashAlgorithm - The hash algorithm that Web Crypto will use internally
+ * @param isPSS - Whether to use RSA-PSS padding
+ * @param crypto - The SubtleCrypto instance
  */
 async function verifyRSAWithWebCrypto(
-  tbsHash: Uint8Array,
+  message: Uint8Array,
   signature: Uint8Array,
   publicKey: RSAPublicKey,
   hashAlgorithm: HashAlgorithm,
@@ -420,7 +339,6 @@ async function verifyRSAWithWebCrypto(
   )
   for (let i = exponentBytes.length - 1; i >= 0; i--) {
     exponentBytes[i] = exponent & 0xff
-    // exponent >>>= 8 would work for positive numbers but we need to handle larger values
   }
   if (exponent > 0xff) exponentBytes[exponentBytes.length - 2] = (exponent >> 8) & 0xff
   if (exponent > 0xffff) exponentBytes[exponentBytes.length - 3] = (exponent >> 16) & 0xff
@@ -458,24 +376,15 @@ async function verifyRSAWithWebCrypto(
 
   try {
     const key = await crypto.importKey("jwk", jwk, algorithm, false, ["verify"])
-    // Note: Web Crypto expects the original message, not the hash, for verification
-    // But since we're passing prehashed data, we need to pass the hash directly
-    // This is a limitation - Web Crypto doesn't support prehashed verification directly
-    // So we'll reconstruct the data that produces this hash (which we can't do)
-    // Instead, for RSA we need to verify against the raw signature using the hash
-
-    // For RSA, the signature is over the hash, so we can verify directly
-    // However, Web Crypto's verify expects the original message
-    // We need to use a different approach - verify by doing the RSA operation manually
-    // or pass the TBS bytes directly
-
-    // Actually, for proper verification, we need the original TBS bytes, not just the hash
-    // This function receives the hash, but for Web Crypto we'd need the original data
-    // Let's fallback to manual verification for prehashed data
+    // Web Crypto will internally hash the message using the specified hashAlgorithm
+    // and then verify the signature against that hash
     const signatureBuffer = new Uint8Array(signature).buffer
-    const dataBuffer = new Uint8Array(tbsHash).buffer
-    return await crypto.verify(verifyAlgorithm, key, signatureBuffer, dataBuffer)
-  } catch {
+    const dataBuffer = new Uint8Array(message).buffer
+    const result = await crypto.verify(verifyAlgorithm, key, signatureBuffer, dataBuffer)
+    return result
+  } catch (e) {
+    // This can fail for unsupported algorithms (e.g., SHA-224 is not supported by Web Crypto for RSA)
+    // or for invalid keys/signatures - continue to next algorithm in the brute force loop
     return false
   }
 }
@@ -505,9 +414,10 @@ function getHashLength(hashAlgorithm: HashAlgorithm): number {
 /**
  * Manual RSA signature verification (fallback when Web Crypto is not available)
  * This implements RSA PKCS#1 v1.5 and PSS verification using bigint arithmetic
+ * Based on RFC 8017 and RustCrypto/RSA implementation patterns
  */
 function verifyRSAManual(
-  tbsHash: Uint8Array,
+  digest: Uint8Array,
   signature: Uint8Array,
   publicKey: RSAPublicKey,
   hashAlgorithm: HashAlgorithm,
@@ -516,6 +426,20 @@ function verifyRSAManual(
   try {
     const modulus = BigInt(publicKey.modulus)
     const exponent = BigInt(publicKey.exponent)
+    const modulusBytes = Math.ceil(publicKey.key_size / 8)
+
+    // Step 1: Signature length check (RFC 8017 Section 8.2.2 Step 1)
+    // The signature must be exactly k octets, where k is the length of the modulus in bytes
+    if (signature.length !== modulusBytes) {
+      // Try to handle signatures that are shorter (missing leading zeros)
+      if (signature.length < modulusBytes) {
+        const paddedSig = new Uint8Array(modulusBytes)
+        paddedSig.set(signature, modulusBytes - signature.length)
+        signature = paddedSig
+      } else {
+        return false
+      }
+    }
 
     // Convert signature to bigint
     let sigInt = BigInt(0)
@@ -523,11 +447,15 @@ function verifyRSAManual(
       sigInt = (sigInt << BigInt(8)) | BigInt(byte)
     }
 
-    // RSA operation: m = s^e mod n
+    // Step 2: Check signature is in valid range [0, n-1]
+    if (sigInt >= modulus) {
+      return false
+    }
+
+    // Step 3: RSA verification primitive RSAVP1: m = s^e mod n
     const message = modPow(sigInt, exponent, modulus)
 
-    // Convert message back to bytes
-    const modulusBytes = Math.ceil(publicKey.key_size / 8)
+    // Convert message back to bytes (I2OSP - Integer to Octet String Primitive)
     const messageBytes = new Uint8Array(modulusBytes)
     let temp = message
     for (let i = modulusBytes - 1; i >= 0; i--) {
@@ -536,9 +464,10 @@ function verifyRSAManual(
     }
 
     if (isPSS) {
-      return verifyPSSPadding(messageBytes, tbsHash, hashAlgorithm, publicKey.key_size)
+      // PSS verification with auto salt length detection
+      return verifyPSSPadding(messageBytes, digest, hashAlgorithm, publicKey.key_size)
     } else {
-      return verifyPKCS1Padding(messageBytes, tbsHash, hashAlgorithm)
+      return verifyPKCS1Padding(messageBytes, digest, hashAlgorithm)
     }
   } catch {
     return false
@@ -585,8 +514,35 @@ const DIGEST_INFO_PREFIXES: Record<HashAlgorithm, Uint8Array> = {
   ]),
 }
 
+// Minimum padding length for PKCS#1 v1.5 (RFC 8017 Section 9.2)
+// The padding string PS must be at least 8 bytes
+const MIN_PKCS1_PADDING_LENGTH = 8
+
+// DigestInfo prefixes WITHOUT NULL parameter (some implementations omit it)
+// This is for compatibility - some signers produce signatures without the NULL
+const DIGEST_INFO_PREFIXES_NO_NULL: Record<HashAlgorithm, Uint8Array> = {
+  "SHA-1": new Uint8Array([0x30, 0x1f, 0x30, 0x07, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x04, 0x14]),
+  "SHA-224": new Uint8Array([
+    0x30, 0x2b, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x04,
+    0x1c,
+  ]),
+  "SHA-256": new Uint8Array([
+    0x30, 0x2f, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x04,
+    0x20,
+  ]),
+  "SHA-384": new Uint8Array([
+    0x30, 0x3f, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x04,
+    0x30,
+  ]),
+  "SHA-512": new Uint8Array([
+    0x30, 0x4f, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x04,
+    0x40,
+  ]),
+}
+
 /**
- * Verify PKCS#1 v1.5 padding
+ * Verify PKCS#1 v1.5 padding according to RFC 8017 Section 8.2.2
+ * EMSA-PKCS1-v1_5 verification
  */
 function verifyPKCS1Padding(
   decryptedMessage: Uint8Array,
@@ -594,127 +550,186 @@ function verifyPKCS1Padding(
   hashAlgorithm: HashAlgorithm,
 ): boolean {
   // PKCS#1 v1.5 format: 0x00 0x01 [0xFF padding] 0x00 [DigestInfo] [Hash]
+  // Step 1: Check the first two bytes
   if (decryptedMessage[0] !== 0x00 || decryptedMessage[1] !== 0x01) {
     return false
   }
 
-  // Find the 0x00 separator after the padding
+  // Step 2: Find the 0x00 separator after the padding
   let separatorIndex = 2
   while (separatorIndex < decryptedMessage.length && decryptedMessage[separatorIndex] === 0xff) {
     separatorIndex++
   }
 
+  // Step 3: Check minimum padding length (RFC 8017 requires at least 8 bytes of 0xFF)
+  const paddingLength = separatorIndex - 2
+  if (paddingLength < MIN_PKCS1_PADDING_LENGTH) {
+    return false
+  }
+
+  // Step 4: Check the 0x00 separator exists
   if (separatorIndex >= decryptedMessage.length || decryptedMessage[separatorIndex] !== 0x00) {
     return false
   }
 
   separatorIndex++ // Move past the 0x00 separator
 
+  // Step 5: Extract and verify DigestInfo + Hash
   const digestInfo = decryptedMessage.slice(separatorIndex)
-  const prefix = DIGEST_INFO_PREFIXES[hashAlgorithm]
 
+  // Try with standard DigestInfo prefix (with NULL parameter)
+  const prefixWithNull = DIGEST_INFO_PREFIXES[hashAlgorithm]
+  if (verifyDigestInfo(digestInfo, expectedHash, prefixWithNull)) {
+    return true
+  }
+
+  // Try with DigestInfo prefix without NULL parameter (for compatibility)
+  const prefixNoNull = DIGEST_INFO_PREFIXES_NO_NULL[hashAlgorithm]
+  if (verifyDigestInfo(digestInfo, expectedHash, prefixNoNull)) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Verify DigestInfo structure matches the expected prefix and hash
+ */
+function verifyDigestInfo(
+  digestInfo: Uint8Array,
+  expectedHash: Uint8Array,
+  prefix: Uint8Array,
+): boolean {
   if (digestInfo.length !== prefix.length + expectedHash.length) {
     return false
   }
 
+  let result = 0
+
   // Check prefix
   for (let i = 0; i < prefix.length; i++) {
-    if (digestInfo[i] !== prefix[i]) {
-      return false
-    }
+    result |= digestInfo[i] ^ prefix[i]
   }
 
   // Check hash
   for (let i = 0; i < expectedHash.length; i++) {
-    if (digestInfo[prefix.length + i] !== expectedHash[i]) {
-      return false
-    }
+    result |= digestInfo[prefix.length + i] ^ expectedHash[i]
   }
 
-  return true
+  return result === 0
 }
 
 /**
- * Verify PSS padding (simplified implementation)
- * Note: This is a simplified implementation that may not cover all edge cases
+ * Verify PSS padding according to RFC 8017 Section 9.1.2
+ * EMSA-PSS-VERIFY operation with auto salt length detection
  */
 function verifyPSSPadding(
   em: Uint8Array,
   mHash: Uint8Array,
   hashAlgorithm: HashAlgorithm,
-  emBits: number,
+  modBits: number,
 ): boolean {
   const hashFunc = HASH_FUNCTIONS[hashAlgorithm]
   const hLen = getHashLength(hashAlgorithm)
-  const sLen = hLen // Salt length = hash length (common default)
+
+  // emBits = modBits - 1 (RFC 8017 Section 8.1.2)
+  const emBits = modBits - 1
   const emLen = Math.ceil(emBits / 8)
 
-  // Check minimum length
-  if (emLen < hLen + sLen + 2) {
+  // Step 3: Check minimum length
+  // emLen must be at least hLen + sLen + 2, but we don't know sLen yet
+  // Minimum is when sLen = 0: emLen >= hLen + 2
+  if (emLen < hLen + 2) {
     return false
   }
 
-  // Check trailing byte
-  if (em[emLen - 1] !== 0xbc) {
+  // Adjust EM if it's longer than emLen (can happen with certain key sizes)
+  const emToUse = em.length > emLen ? em.slice(em.length - emLen) : em
+  if (emToUse.length < emLen) {
     return false
   }
 
-  // Split EM into maskedDB and H
+  // Step 4: Check trailing byte (rightmost octet must be 0xbc)
+  if (emToUse[emLen - 1] !== 0xbc) {
+    return false
+  }
+
+  // Step 5: Split EM into maskedDB and H
   const dbLen = emLen - hLen - 1
-  const maskedDB = em.slice(0, dbLen)
-  const H = em.slice(dbLen, dbLen + hLen)
+  const maskedDB = emToUse.slice(0, dbLen)
+  const H = emToUse.slice(dbLen, dbLen + hLen)
 
-  // Check leading bits of maskedDB
+  // Step 6: Check leading bits of maskedDB
+  // The leftmost 8*emLen - emBits bits must be zero
   const leadingBits = 8 * emLen - emBits
-  const mask = 0xff >> leadingBits
-  if ((maskedDB[0] & ~mask) !== 0) {
+  const topMask = 0xff >> leadingBits
+  if ((maskedDB[0] & ~topMask) !== 0) {
     return false
   }
 
-  // Generate dbMask using MGF1
+  // Step 7: Generate dbMask using MGF1
   const dbMask = mgf1(H, dbLen, hashFunc)
 
-  // Recover DB = maskedDB XOR dbMask
+  // Step 8: Recover DB = maskedDB XOR dbMask
   const DB = new Uint8Array(dbLen)
   for (let i = 0; i < dbLen; i++) {
     DB[i] = maskedDB[i] ^ dbMask[i]
   }
 
-  // Clear leading bits
-  DB[0] &= mask
+  // Step 9: Clear the leftmost 8*emLen - emBits bits
+  DB[0] &= topMask
 
-  // Check DB format: should be [0x00...] 0x01 [salt]
-  const psLen = dbLen - sLen - 1
-  for (let i = 0; i < psLen; i++) {
-    if (DB[i] !== 0x00) {
+  // Step 10: Find the 0x01 separator and auto-detect salt length
+  // DB format: [0x00...] 0x01 [salt]
+  // Find the position of 0x01 separator
+  let separatorPos = -1
+  for (let i = 0; i < dbLen; i++) {
+    if (DB[i] === 0x01) {
+      separatorPos = i
+      break
+    } else if (DB[i] !== 0x00) {
+      // All bytes before 0x01 must be 0x00
       return false
     }
   }
-  if (DB[psLen] !== 0x01) {
+
+  if (separatorPos === -1) {
     return false
   }
 
-  const salt = DB.slice(dbLen - sLen)
+  // Auto-detected salt length
+  const sLen = dbLen - separatorPos - 1
 
-  // Compute H' = Hash(0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || 0x00 || mHash || salt)
+  // Sanity check: salt length should not be negative
+  if (sLen < 0) {
+    return false
+  }
+
+  // Step 11: Extract salt
+  const salt = DB.slice(separatorPos + 1)
+
+  // Step 12: Compute M' = (0x00 * 8) || mHash || salt
   const mPrime = new Uint8Array(8 + hLen + sLen)
-  // First 8 bytes are 0x00
+  // First 8 bytes are 0x00 (already initialized to zero)
   mPrime.set(mHash, 8)
-  mPrime.set(salt, 8 + hLen)
+  if (sLen > 0) {
+    mPrime.set(salt, 8 + hLen)
+  }
 
+  // Step 13: Compute H' = Hash(M')
   const HPrime = hashFunc(mPrime)
 
-  // Compare H and H'
+  // Step 14: Compare H and H' using constant-time comparison
   if (H.length !== HPrime.length) {
     return false
   }
+
+  let result = 0
   for (let i = 0; i < H.length; i++) {
-    if (H[i] !== HPrime[i]) {
-      return false
-    }
+    result |= H[i] ^ HPrime[i]
   }
 
-  return true
+  return result === 0
 }
 
 /**
@@ -788,7 +803,10 @@ export async function verifyDscSignature(dsc: DSC, csc: PackagedCertificate): Pr
       }
     } else {
       const rsaPublicKey = csc.public_key as RSAPublicKey
-      if (await verifyRSASignature(tbsHash, signature, rsaPublicKey, hashAlgorithm, isPSS)) {
+      // Pass both tbsBytes (for Web Crypto) and tbsHash (for manual verification)
+      if (
+        await verifyRSASignature(tbsBytes, tbsHash, signature, rsaPublicKey, hashAlgorithm, isPSS)
+      ) {
         return true
       }
     }
@@ -837,7 +855,10 @@ export async function verifyDscSignatureWithTbs(
       }
     } else {
       const rsaPublicKey = csc.public_key as RSAPublicKey
-      if (await verifyRSASignature(tbsHash, signature, rsaPublicKey, hashAlgorithm, isPSS)) {
+      // Pass both tbsBytes (for Web Crypto) and tbsHash (for manual verification)
+      if (
+        await verifyRSASignature(tbsBytes, tbsHash, signature, rsaPublicKey, hashAlgorithm, isPSS)
+      ) {
         return true
       }
     }

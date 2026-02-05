@@ -3,7 +3,7 @@ import {
   calculateAge,
   getAgeCircuitInputs,
   getBirthdateCircuitInputs,
-  getCscaForPassport,
+  getCscaForPassportAsync,
   getDSCCircuitInputs,
   getDSCCountry,
   getDiscloseCircuitInputs,
@@ -41,6 +41,7 @@ import {
   SanctionsBuilder,
   SECONDS_BETWEEN_1900_AND_1970,
   HASH_ALGORITHM_SHA256,
+  SOD,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -104,7 +105,7 @@ describe("Circuit Matcher - General", () => {
   })
 
   // Skipped because it requires the DSC list which is not commited to the repo
-  it.skip("should find the CSCs of all the DSCs", () => {
+  it.skip("should find the CSCs of all the DSCs", async () => {
     const dscs = getDSCs()
     const expectedUnknownCSCSubjectKeyIdentifiers = [
       "45728821c8fbff1153455807ad09ed5e868035e8",
@@ -122,7 +123,7 @@ describe("Circuit Matcher - General", () => {
       if (isSupported) {
         supportedDSCs.push(dsc)
       }
-      const result = getCscaForPassport(dsc, rootCerts.certificates as PackagedCertificate[])
+      const result = await getCscaForPassportAsync(dsc, rootCerts.certificates as PackagedCertificate[], false)
       if (!result) {
         const akiBuffer = dsc.tbs.extensions.get("authorityKeyIdentifier")?.value.toBuffer()
         if (akiBuffer) {
@@ -186,7 +187,7 @@ describe("Circuit Matcher - General", () => {
       JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCCountry(x)))).sort()),
     )
     expect(uniqueUnknownCSCSubjectKeyIdentifiers).toEqual(expectedUnknownCSCSubjectKeyIdentifiers)
-  })
+  }, 60000)
 })
 
 describe("Circuit Matcher - RSA", () => {
@@ -195,8 +196,8 @@ describe("Circuit Matcher - RSA", () => {
     expect(result).toBe(true)
   })
 
-  it("should get the correct CSCA for the passport", () => {
-    const result = getCscaForPassport(
+  it("should get the correct CSCA for the passport", async () => {
+    const result = await getCscaForPassportAsync(
       PASSPORTS.john.sod.certificate,
       rootCerts.certificates as PackagedCertificate[],
     )
@@ -709,8 +710,8 @@ describe("Circuit Matcher - ECDSA", () => {
     expect(result).toBe(true)
   })
 
-  it("should get the correct CSCA for the passport", () => {
-    const result = getCscaForPassport(
+  it("should get the correct CSCA for the passport", async () => {
+    const result = await getCscaForPassportAsync(
       PASSPORTS.mary.sod.certificate,
       rootCerts.certificates as PackagedCertificate[],
     )

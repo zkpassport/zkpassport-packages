@@ -176,6 +176,7 @@ export function getCscaForPassport(
 function getCscaCandidates(
   dsc: DSC,
   certificates: PackagedCertificate[],
+  skipAKIMatching: boolean = false,
 ): {
   akiMatchedCert: PackagedCertificate | null
   countryCerts: PackagedCertificate[]
@@ -208,7 +209,7 @@ function getCscaCandidates(
 
   // First try to find the CSC by looking at the authority key identifier
   // which should uniquely identify the CSC that signed the DSC
-  const validCertificates = countryCerts.filter(checkAgainstAuthorityKeyIdentifier)
+  const validCertificates = skipAKIMatching ? [] : countryCerts.filter(checkAgainstAuthorityKeyIdentifier)
 
   let akiMatchedCert: PackagedCertificate | null = null
 
@@ -251,15 +252,17 @@ function getCscaCandidates(
  *
  * @param dsc - The Document Signer Certificate to find the parent CSC for
  * @param certificates - Array of all available CSC certificates
+ * @param skipAKIMatching - Whether to skip AKI/SKI matching and only use country-wide search
  * @returns The matching CSC certificate, or null if none found
  */
 export async function getCscaForPassportAsync(
   dsc: DSC,
   certificates: PackagedCertificate[],
+  skipAKIMatching: boolean = false,
 ): Promise<PackagedCertificate | null> {
   const { verifyDscSignature } = await import("./signature-verification")
 
-  const { akiMatchedCert, countryCerts } = getCscaCandidates(dsc, certificates)
+  const { akiMatchedCert, countryCerts } = getCscaCandidates(dsc, certificates, skipAKIMatching)
 
   // Step 1: If we found a certificate via AKI/SKI matching, verify the signature
   if (akiMatchedCert) {
@@ -281,6 +284,7 @@ export async function getCscaForPassportAsync(
 
     try {
       const isValid = await verifyDscSignature(dsc, cert)
+      console.log(`Certificate ${cert.subject_key_identifier} signature verification result: ${isValid}`)
       if (isValid) {
         return cert
       }
