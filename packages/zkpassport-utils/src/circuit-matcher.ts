@@ -38,7 +38,12 @@ import {
   getCertificateLeafHashes,
   tagsArrayToBitsFlag,
 } from "./registry"
-import type { HashAlgorithm, IntegrityToDisclosureSalts, PackagedCertificate } from "./types"
+import type {
+  HashAlgorithm,
+  IntegrityToDisclosureSalts,
+  PackagedCertificate,
+  PackagedCertificatesFile,
+} from "./types"
 import {
   ECDSADSCDataInputs,
   IDCredential,
@@ -441,7 +446,7 @@ export function getDSCSignatureAlgorithmHashAlgorithm(passport: PassportViewMode
 export async function getDSCCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
-  certificates: PackagedCertificate[],
+  packagedCerts: PackagedCertificatesFile,
   overrideCertLeaves?: bigint[],
   overrideMerkleProof?: {
     root: string | HexString
@@ -450,11 +455,13 @@ export async function getDSCCircuitInputs(
   },
 ) {
   // Get the CSCA for this passport's DSC
-  const csca = getCscaForPassport(passport.sod.certificate, certificates)
+  const csca = getCscaForPassport(passport.sod.certificate, packagedCerts.certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
   // Generate the certificate registry merkle proof
   const cscaLeaf = await getCertificateLeafHash(csca)
-  const leaves = overrideCertLeaves ?? (await getCertificateLeafHashes(certificates))
+  const leaves =
+    overrideCertLeaves ??
+    (await getCertificateLeafHashes(packagedCerts.certificates, packagedCerts?.version || 0))
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
   const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =

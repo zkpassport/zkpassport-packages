@@ -1,5 +1,5 @@
 import { RegistryClient } from "../src/client"
-import type { PackagedCertificatesFile } from "../src/types"
+import type { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import FakeTimers from "@sinonjs/fake-timers"
 import type { InstalledClock } from "@sinonjs/fake-timers"
 

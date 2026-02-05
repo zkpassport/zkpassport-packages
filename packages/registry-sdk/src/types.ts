@@ -1,5 +1,3 @@
-import type { PackagedCertificate } from "@zkpassport/utils/types"
-
 /**
  * Registry client configuration options
  */
@@ -91,20 +89,6 @@ export interface RootDetails {
    * Index of the root in the registry
    */
   index?: number
-}
-
-export interface PackagedCertificatesFile {
-  // Version of the packaged certificates format (defaults to 0 if not set)
-  version: number
-  // Timestamp when the package was created and the certificates were validated
-  timestamp: number
-  // Merkle root of the certificates tree
-  root: string
-  // Array of packaged certificates
-  certificates: PackagedCertificate[]
-  // The serialised ordered Merkle tree of certificates
-  // Each row represents a level of the tree, with each entry being a node
-  serialised?: string[][]
 }
 
 export enum DocumentSupport {

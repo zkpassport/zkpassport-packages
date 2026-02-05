@@ -640,6 +640,7 @@ export type {
   CurveName,
   SignatureAlgorithmType,
   PackagedCertificate,
+  PackagedCertificatesFile,
   CircuitManifest,
   CircuitManifestEntry,
 } from "./registry"

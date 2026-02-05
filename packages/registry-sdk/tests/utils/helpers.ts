@@ -3,7 +3,7 @@ import { ChildProcess, execSync, spawn } from "child_process"
 import fs from "fs"
 import keccak256 from "keccak256"
 import path from "path"
-import { PackagedCertificatesFile } from "../../src/types"
+import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 
 // Configuration
 export const CHAIN_ID = 31337

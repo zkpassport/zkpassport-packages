@@ -8,6 +8,7 @@ import {
 } from "../src/registry"
 import { PackagedCertificate } from "../src/types"
 import rootCerts from "./fixtures/root-certs.json"
+import rootCertsV1 from "./fixtures/root-certs-v1.json"
 import circuitManifest from "./fixtures/manifest.json"
 
 describe("Registry", () => {
@@ -99,22 +100,52 @@ describe("Registry", () => {
     expect(bitsFlagToTagsArray([0n, 0n, BigInt("0x8000000")])).toEqual(["UN"])
   })
 
-  test("should generate correct canonical leaf for RSA cert", async () => {
+  test("should generate correct canonical leaf for RSA cert (version 0)", async () => {
     const leaf = await getCertificateLeafHash(rsaCert)
+    expect(leaf).toEqual(
+      10374427192692971605115852434399434992383543572583326103540359782862263554570n,
+    )
+  })
+
+  test("should generate correct canonical leaf for ECDSA cert (version 0)", async () => {
+    const leaf = await getCertificateLeafHash(ecdsaCert)
+    expect(leaf).toEqual(
+      9676427500440764140387924904666461180023752817896651616722688209534314347621n,
+    )
+  })
+
+  test("should generate correct canonical leaf for different publisher and type (version 0)", async () => {
+    const leaf = await getCertificateLeafHash(rsaCert, {
+      tags: ["UN"],
+      type: CERT_TYPE_DSC,
+    })
+    expect(leaf).toEqual(
+      11128308501821901519857638506584544607455540416838544782901445271440127884577n,
+    )
+  })
+
+  test("should generate correct canonical certificate root (version 0)", async () => {
+    const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
+    expect(root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
+  })
+
+  test("should generate correct canonical leaf for RSA cert (version 1)", async () => {
+    const leaf = await getCertificateLeafHash(rsaCert, { version: 1 })
     expect(leaf).toEqual(
       18821076869038301219571401322686721036085203437552110369443322053623613446966n,
     )
   })
 
-  test("should generate correct canonical leaf for ECDSA cert", async () => {
-    const leaf = await getCertificateLeafHash(ecdsaCert)
+  test("should generate correct canonical leaf for ECDSA cert (version 1)", async () => {
+    const leaf = await getCertificateLeafHash(ecdsaCert, { version: 1 })
     expect(leaf).toEqual(
       14965224189996577667331983147414903016849320294809859715118036488072996530241n,
     )
   })
 
-  test("should generate correct canonical leaf for different publisher and type", async () => {
+  test("should generate correct canonical leaf for different publisher and type (version 1)", async () => {
     const leaf = await getCertificateLeafHash(rsaCert, {
+      version: 1,
       tags: ["UN"],
       type: CERT_TYPE_DSC,
     })
@@ -123,9 +154,12 @@ describe("Registry", () => {
     )
   })
 
-  test("should generate correct canonical certificate root", async () => {
-    const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
-    expect(root).toEqual("0x05cf26993daa7e1fcf55394a3768caf8419910447533781d90769bf9f8052386")
+  test("should generate correct canonical certificate root (version 1)", async () => {
+    const root = await calculateCertificateRoot(
+      rootCertsV1.certificates as PackagedCertificate[],
+      1,
+    )
+    expect(root).toEqual("0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062")
   })
 
   test("should generate correct canonical circuit root", async () => {

@@ -8,7 +8,7 @@ import { ArrowLeft, AlertCircle, GitCompare, ArrowUpDown } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
-import { PackagedCertificatesFile } from "@zkpassport/registry"
+import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
 

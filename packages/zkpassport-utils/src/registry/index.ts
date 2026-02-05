@@ -4,6 +4,7 @@ import {
   CircuitManifest,
   ECPublicKey,
   PackagedCertificate,
+  PackagedCertificatesFile,
   PackagedCircuit,
   RSAPublicKey,
   TwoLetterCode,
@@ -174,8 +175,11 @@ export function publicKeyToBytes(publicKey: ECPublicKey | RSAPublicKey): Uint8Ar
  */
 export async function getCertificateLeafHash(
   cert: PackagedCertificate,
-  options?: { tags?: TwoLetterCode[]; type?: number },
+  options?: { tags?: TwoLetterCode[]; type?: number; version?: number },
 ): Promise<bigint> {
+  // Leaf node hash calculation based on Packaged Certificates file format version
+  const version = options?.version ?? 0
+  assert(version === 0 || version === 1, `Unsupported Packaged Certificates version: ${version}`)
   // Convert tags to byte flags
   const tags = options?.tags
     ? tagsArrayToBitsFlag(options.tags)
@@ -190,34 +194,59 @@ export async function getCertificateLeafHash(
   // Ensure country code is 3 characters
   assert(cert?.country?.length === 3, `Country code must be 3 characters: ${cert?.country}`)
   const publicKeyBytes = publicKeyToBytes(cert.public_key)
-  // Fingerprint (Poseidon2 hash of certificate DER bytes)
-  assert(cert.fingerprint !== undefined, `Certificate fingerprint required`)
-  const fingerprint = BigInt(cert.fingerprint!)
-  // Certificate expiry (validity.not_after timestamp represented as 4 bytes / 32 bits)
-  const expiry = new Uint8Array(4)
-  expiry[0] = (cert.validity.not_after >> 24) & 0xff
-  expiry[1] = (cert.validity.not_after >> 16) & 0xff
-  expiry[2] = (cert.validity.not_after >> 8) & 0xff
-  expiry[3] = cert.validity.not_after & 0xff
 
-  // Return the canonical leaf hash of the certificate
-  return poseidon2HashAsync([
-    ...tags,
-    BigInt(
-      packBeBytesIntoFields(
-        new Uint8Array([
-          type,
-          cert.country.charCodeAt(0),
-          cert.country.charCodeAt(1),
-          cert.country.charCodeAt(2),
-          ...expiry,
-        ]),
-        31,
-      )[0],
-    ),
-    fingerprint,
-    ...packBeBytesIntoFields(publicKeyBytes, 31).map((hex) => BigInt(hex)),
-  ])
+  // Version 0 leaf hash calculation
+  if (version === 0) {
+    // Return the version 0 canonical leaf hash of the certificate
+    return poseidon2HashAsync([
+      ...tags,
+      BigInt(
+        packBeBytesIntoFields(
+          new Uint8Array([
+            type,
+            cert.country.charCodeAt(0),
+            cert.country.charCodeAt(1),
+            cert.country.charCodeAt(2),
+          ]),
+          31,
+        )[0],
+      ),
+      ...packBeBytesIntoFields(publicKeyBytes, 31).map((hex) => BigInt(hex)),
+    ])
+  }
+
+  // Version 1 leaf hash calculation
+  else if (version === 1) {
+    // Fingerprint (Poseidon2 hash of certificate DER bytes)
+    assert(cert.fingerprint !== undefined, `Certificate fingerprint required`)
+    const fingerprint = BigInt(cert.fingerprint!)
+    // Certificate expiry (validity.not_after timestamp represented as 4 bytes / 32 bits)
+    const expiry = new Uint8Array(4)
+    expiry[0] = (cert.validity.not_after >> 24) & 0xff
+    expiry[1] = (cert.validity.not_after >> 16) & 0xff
+    expiry[2] = (cert.validity.not_after >> 8) & 0xff
+    expiry[3] = cert.validity.not_after & 0xff
+    // Return the version 1 canonical leaf hash of the certificate
+    return poseidon2HashAsync([
+      ...tags,
+      BigInt(
+        packBeBytesIntoFields(
+          new Uint8Array([
+            type,
+            cert.country.charCodeAt(0),
+            cert.country.charCodeAt(1),
+            cert.country.charCodeAt(2),
+            ...expiry,
+          ]),
+          31,
+        )[0],
+      ),
+      fingerprint,
+      ...packBeBytesIntoFields(publicKeyBytes, 31).map((hex) => BigInt(hex)),
+    ])
+  } else {
+    throw new Error(`Unsupported Packaged Certificates version: ${version}`)
+  }
 }
 
 /**
@@ -225,8 +254,11 @@ export async function getCertificateLeafHash(
  * @param certs Array of packaged certificates
  * @returns Array of leaf hashes as bigints
  */
-export async function getCertificateLeafHashes(certs: PackagedCertificate[]): Promise<bigint[]> {
-  const leaves = await Promise.all(certs.map((c) => getCertificateLeafHash(c)))
+export async function getCertificateLeafHashes(
+  certs: PackagedCertificate[],
+  version: number = 0,
+): Promise<bigint[]> {
+  const leaves = await Promise.all(certs.map((c) => getCertificateLeafHash(c, { version })))
   leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
   return leaves
 }
@@ -238,8 +270,9 @@ export async function getCertificateLeafHashes(certs: PackagedCertificate[]): Pr
  */
 export async function buildMerkleTreeFromCerts(
   certs: PackagedCertificate[],
+  version: number = 0,
 ): Promise<AsyncMerkleTree> {
-  const leaves = await getCertificateLeafHashes(certs)
+  const leaves = await getCertificateLeafHashes(certs, version)
   const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
   await tree.initialize(0n, leaves)
   return tree
@@ -248,10 +281,21 @@ export async function buildMerkleTreeFromCerts(
 /**
  * Calculate the canonical certificate root from packaged certificates
  * @param certs Array of packaged certificates
+ * @param version Version of the packaged certificates file format (defaults to 0 if not specified)
  * @returns Certificate root used in the Certificate Registry
  */
-export async function calculateCertificateRoot(certs: PackagedCertificate[]) {
-  const tree = await buildMerkleTreeFromCerts(certs)
+export async function calculateCertificateRoot(certs: PackagedCertificate[], version: number = 0) {
+  const tree = await buildMerkleTreeFromCerts(certs, version)
+  return tree.root
+}
+
+/**
+ * Calculate the canonical certificate root from a packaged certificates file
+ * @param packagedCerts Packaged certificates file
+ * @returns Certificate root used in the Certificate Registry
+ */
+export async function calculatePackagedCertificatesRoot(packagedCerts: PackagedCertificatesFile) {
+  const tree = await buildMerkleTreeFromCerts(packagedCerts.certificates, packagedCerts.version)
   return tree.root
 }
 
