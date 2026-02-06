@@ -5,7 +5,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev:build": "turbo run dev:build",
-    "validate-package": "turbo run validate-package",
+    "validate-packages": "turbo run validate-package",
     "test": "turbo run test",
     "check": "turbo run check",
     "format": "turbo run format",
