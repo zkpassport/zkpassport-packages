@@ -278,8 +278,9 @@ function getCryptoSubtle(): SubtleCrypto | null {
     return globalThis.crypto.subtle
   }
   // Node.js
-  if (typeof globalThis !== "undefined" && (globalThis as any).crypto?.webcrypto?.subtle) {
-    return (globalThis as any).crypto.webcrypto.subtle
+  const g = globalThis as unknown as { crypto?: { webcrypto?: { subtle?: SubtleCrypto } } }
+  if (typeof globalThis !== "undefined" && g.crypto?.webcrypto?.subtle) {
+    return g.crypto.webcrypto.subtle
   }
   return null
 }
