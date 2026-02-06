@@ -37,7 +37,6 @@ import {
 } from "./types"
 import { normaliseHash, strip0x } from "./utils"
 import { withRetry } from "@zkpassport/utils"
-import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
