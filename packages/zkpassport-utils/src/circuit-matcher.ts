@@ -209,7 +209,9 @@ function getCscaCandidates(
 
   // First try to find the CSC by looking at the authority key identifier
   // which should uniquely identify the CSC that signed the DSC
-  const validCertificates = skipAKIMatching ? [] : countryCerts.filter(checkAgainstAuthorityKeyIdentifier)
+  const validCertificates = skipAKIMatching
+    ? []
+    : countryCerts.filter(checkAgainstAuthorityKeyIdentifier)
 
   let akiMatchedCert: PackagedCertificate | null = null
 

@@ -48,7 +48,6 @@ const brainpoolP224r1_CURVE: WeierstrassOpts<bigint> = {
 }
 const brainpoolP224r1Custom: ECDSA = ecdsa(weierstrass(brainpoolP224r1_CURVE), sha224)
 
-
 // P-192 custom curve (not in @noble/curves)
 const p192_CURVE: WeierstrassOpts<bigint> = {
   p: NIST_CURVES["P-192"].p,
@@ -356,7 +355,7 @@ async function verifyRSAWithWebCrypto(
     const dataBuffer = new Uint8Array(message).buffer
     const result = await crypto.verify(verifyAlgorithm, key, signatureBuffer, dataBuffer)
     return result
-  } catch (e) {
+  } catch {
     // This can fail for unsupported algorithms (e.g., SHA-224 is not supported by Web Crypto for RSA)
     // or for invalid keys/signatures - continue to next algorithm in the brute force loop
     return false
@@ -495,7 +494,9 @@ const MIN_PKCS1_PADDING_LENGTH = 8
 // DigestInfo prefixes WITHOUT NULL parameter (some implementations omit it)
 // This is for compatibility - some signers produce signatures without the NULL
 const DIGEST_INFO_PREFIXES_NO_NULL: Record<HashAlgorithm, Uint8Array> = {
-  "SHA-1": new Uint8Array([0x30, 0x1f, 0x30, 0x07, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x04, 0x14]),
+  "SHA-1": new Uint8Array([
+    0x30, 0x1f, 0x30, 0x07, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x04, 0x14,
+  ]),
   "SHA-224": new Uint8Array([
     0x30, 0x2b, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x04,
     0x1c,
