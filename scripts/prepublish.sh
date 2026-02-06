@@ -21,8 +21,7 @@ fi
 
 # Build and test all packages
 echo "📦 Building all packages..."
-# (cd ../.. && bun run clean && bun run build && bun run check && bun run test)
-bun run build
+(cd ../.. && bun run clean && bun run build && bun run check && bun run test)
 
 # Validate package
-# ../../scripts/validate-package.sh
+../../scripts/validate-package.sh
