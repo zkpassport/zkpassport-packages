@@ -36,30 +36,6 @@ const HASH_FUNCTIONS: Record<HashAlgorithm, HashFunction> = {
 // Define brainpool curves that are not in @noble/curves/misc
 // Using the constants already defined in cms/constants.ts
 
-// brainpoolP160r1
-const brainpoolP160r1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP160r1.p,
-  a: BRAINPOOL_CURVES.brainpoolP160r1.a,
-  b: BRAINPOOL_CURVES.brainpoolP160r1.b,
-  n: BRAINPOOL_CURVES.brainpoolP160r1.n,
-  h: BigInt(1),
-  Gx: BigInt("0xbed5af16ea3f6a4f62938c4631eb5af7bdbcdbc3"),
-  Gy: BigInt("0x1667cb477a1a8ec338f94741669c976316da6321"),
-}
-const brainpoolP160r1Custom: ECDSA = ecdsa(weierstrass(brainpoolP160r1_CURVE), sha1)
-
-// brainpoolP192r1
-const brainpoolP192r1_CURVE: WeierstrassOpts<bigint> = {
-  p: BRAINPOOL_CURVES.brainpoolP192r1.p,
-  a: BRAINPOOL_CURVES.brainpoolP192r1.a,
-  b: BRAINPOOL_CURVES.brainpoolP192r1.b,
-  n: BRAINPOOL_CURVES.brainpoolP192r1.n,
-  h: BigInt(1),
-  Gx: BigInt("0xc0a0647eaab6a48753b033c56cb0f0900a2f5c4853375fd6"),
-  Gy: BigInt("0x14b690866abd5bb88b5f4828c1490002e6773fa2fa299b8f"),
-}
-const brainpoolP192r1Custom: ECDSA = ecdsa(weierstrass(brainpoolP192r1_CURVE), sha1)
-
 // brainpoolP224r1
 const brainpoolP224r1_CURVE: WeierstrassOpts<bigint> = {
   p: BRAINPOOL_CURVES.brainpoolP224r1.p,
@@ -104,8 +80,6 @@ const ECDSA_CURVES: Record<string, ECDSA> = {
   "P-256": p256,
   "P-384": p384,
   "P-521": p521,
-  "brainpoolP160r1": brainpoolP160r1Custom,
-  "brainpoolP192r1": brainpoolP192r1Custom,
   "brainpoolP224r1": brainpoolP224r1Custom,
   "brainpoolP256r1": brainpoolP256r1,
   "brainpoolP384r1": brainpoolP384r1,
@@ -282,6 +256,19 @@ export async function verifyRSASignature(
 }
 
 /**
+ * Convert a number to big-endian bytes (minimal representation, no leading zeros)
+ */
+function numberToBytesBE(num: number): Uint8Array {
+  if (num === 0) return new Uint8Array([0])
+  const bytes: number[] = []
+  while (num > 0) {
+    bytes.unshift(num & 0xff)
+    num = num >>> 8
+  }
+  return new Uint8Array(bytes)
+}
+
+/**
  * Get the SubtleCrypto interface from various environments
  */
 function getCryptoSubtle(): SubtleCrypto | null {
@@ -326,23 +313,10 @@ async function verifyRSAWithWebCrypto(
   crypto: SubtleCrypto,
 ): Promise<boolean> {
   // Convert modulus to ArrayBuffer
-  const modulusHex = publicKey.modulus.replace("0x", "")
-  const modulusBytes = new Uint8Array(modulusHex.length / 2)
-  for (let i = 0; i < modulusBytes.length; i++) {
-    modulusBytes[i] = parseInt(modulusHex.substring(i * 2, i * 2 + 2), 16)
-  }
+  const modulusBytes = new Uint8Array(Buffer.from(publicKey.modulus.replace("0x", ""), "hex"))
 
-  // Convert exponent to ArrayBuffer
-  const exponent = publicKey.exponent
-  const exponentBytes = new Uint8Array(
-    exponent <= 0xff ? 1 : exponent <= 0xffff ? 2 : exponent <= 0xffffff ? 3 : 4,
-  )
-  for (let i = exponentBytes.length - 1; i >= 0; i--) {
-    exponentBytes[i] = exponent & 0xff
-  }
-  if (exponent > 0xff) exponentBytes[exponentBytes.length - 2] = (exponent >> 8) & 0xff
-  if (exponent > 0xffff) exponentBytes[exponentBytes.length - 3] = (exponent >> 16) & 0xff
-  if (exponent > 0xffffff) exponentBytes[exponentBytes.length - 4] = (exponent >> 24) & 0xff
+  // Convert exponent to big-endian bytes
+  const exponentBytes = numberToBytesBE(publicKey.exponent)
 
   // Create JWK for the public key
   const jwk: JsonWebKey = {
