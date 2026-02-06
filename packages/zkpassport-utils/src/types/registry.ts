@@ -98,20 +98,6 @@ export type PackagedCertificate = {
   type?: string
 }
 
-/**
- * Structure of the packaged certificates file output
- */
-export type PackagedCertificatesFile = {
-  /** Version of the packaged certificates file format */
-  version: number
-  /** Unix timestamp of when the certificates were packaged (used for certificate expiry checks) */
-  timestamp: number
-  /** Array of packaged certificates */
-  certificates: PackagedCertificate[]
-  /** Serialized merkle tree data */
-  serialised: Record<string, any>
-}
-
 export type CircuitManifestEntry = { hash: string; size: number }
 
 export type CircuitManifest = {
