@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import type { Alpha2Code, Alpha3Code } from "i18n-iso-countries"
 import type { SOD } from "../passport"
 import type { CountryName } from "./countries"

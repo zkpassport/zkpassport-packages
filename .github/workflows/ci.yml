@@ -59,6 +59,9 @@ jobs:
       - name: Test
         run: bun run test
 
+      - name: Validate packages
+        run: bun run validate-packages
+
   dependency-sync-check:
     name: Dependency Sync Check
     runs-on: ubuntu-latest

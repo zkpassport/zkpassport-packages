@@ -1,5 +1,6 @@
 import { describe, beforeAll, afterAll, it, expect, setDefaultTimeout } from "bun:test"
-import { CircuitManifest, PackagedCircuit, strip0x } from "@zkpassport/utils"
+import { strip0x } from "@zkpassport/utils"
+import { CircuitManifest, PackagedCircuit } from "@zkpassport/utils/types"
 import type { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import path from "path"
 import { RegistryClient } from "../src/client"
