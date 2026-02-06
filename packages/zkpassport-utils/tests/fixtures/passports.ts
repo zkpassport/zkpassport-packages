@@ -1,23 +1,10 @@
-import { DigestAlgorithm, PassportViewModel } from "../../src/types"
+import { PassportViewModel } from "../../src/types"
 import { Binary } from "../../src/binary"
 
 import johnSODJson from "./john-miller-smith-rsa-2048-sha256.json"
 import marySODJson from "./mary-miller-smith-ecdsa-p256-sha256.json"
 import { SOD } from "../../src"
-import { sha256, sha384, sha512 } from "@noble/hashes/sha2.js"
-
-const hash = (hashAlgorithm: DigestAlgorithm, msg: Uint8Array) => {
-  switch (hashAlgorithm) {
-    case "SHA256":
-      return sha256(msg)
-    case "SHA384":
-      return sha384(msg)
-    case "SHA512":
-      return sha512(msg)
-    default:
-      throw new Error(`Unsupported hash algorithm: ${hashAlgorithm}`)
-  }
-}
+import { sha256 } from "@noble/hashes/sha2.js"
 
 const johnSOD = SOD.fromDER(Binary.fromBase64(johnSODJson.encoded))
 // John Miller Smith's MRZ
@@ -35,6 +22,7 @@ export const PASSPORTS: {
   [key: string]: PassportViewModel
 } = {
   john: {
+    dateOfIssue: "941112",
     appVersion: "",
     mrz: johnMRZ,
     name: "John Smith",
@@ -73,6 +61,7 @@ export const PASSPORTS: {
     sod: johnSOD,
   },
   mary: {
+    dateOfIssue: "730302",
     appVersion: "",
     mrz: maryMRZ,
     name: "Mary Smith",

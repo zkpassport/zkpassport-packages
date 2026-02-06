@@ -1,5 +1,3 @@
-import type { PackagedCertificate } from "@zkpassport/utils/types"
-
 /**
  * Registry client configuration options
  */
@@ -91,11 +89,6 @@ export interface RootDetails {
    * Index of the root in the registry
    */
   index?: number
-}
-
-export interface PackagedCertificatesFile {
-  certificates: PackagedCertificate[]
-  serialised: any[]
 }
 
 export enum DocumentSupport {

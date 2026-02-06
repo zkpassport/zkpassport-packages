@@ -4,6 +4,11 @@
   "description": "Registry SDK for interacting with the ZKPassport Registry",
   "author": "ZKPassport",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkpassport/zkpassport-packages",
+    "directory": "packages/registry-sdk"
+  },
   "type": "module",
   "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
@@ -15,8 +20,7 @@
     }
   },
   "scripts": {
-    "build": "bun run build:types && tsup --config tsup.config.ts",
-    "build:types": "tsc -b && tsc-alias -v -p tsconfig.json -f",
+    "build": "tsup --config tsup.config.ts",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test tests/*.test.ts",
