@@ -1,6 +1,6 @@
 # ZKPassport Monorepo
 
-ZKPassport allows privacy-preserving identity verification using passports and ID cards. This monorepo contains the components of the ZKPassport project:
+This monorepo contains the components of the ZKPassport project:
 
  - **Registry Contracts**: Smart contracts for the onchain registry
  - **Registry SDK**: JavaScript SDK for interacting with the registry
@@ -13,9 +13,9 @@ ZKPassport allows privacy-preserving identity verification using passports and I
 ```
 zkpassport-packages/
 ├── packages/
-│   ├── registry-contracts/     # Registry smart contracts
-│   ├── registry-sdk/           # Registry JS SDK for querying the registry
-│   ├── registry-explorer/      # Registry Explorer web app for exploring the registry
-│   ├── zkpassport-sdk/         # SDK for integrating with ZKPassport
-│   └── zkpassport-utils/       # Shared utilities packages
+│   ├── registry-contracts/     # Registry Contracts
+│   ├── registry-sdk/           # Registry SDK
+│   ├── registry-explorer/      # Registry Explorer
+│   ├── zkpassport-sdk/         # ZKPassport SDK
+│   └── zkpassport-utils/       # ZKPassport Utils
 ```
