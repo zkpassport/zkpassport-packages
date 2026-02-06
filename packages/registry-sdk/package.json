@@ -4,6 +4,11 @@
   "description": "Registry SDK for interacting with the ZKPassport Registry",
   "author": "ZKPassport",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkpassport/zkpassport-packages",
+    "directory": "packages/registry-sdk"
+  },
   "type": "module",
   "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
