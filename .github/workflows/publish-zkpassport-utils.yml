@@ -2,7 +2,7 @@ name: Publish ZKPassport Utils
 
 on:
   push:
-    branches: [main, me/auto-publish-oidc] # TODO: remove test branch after verifying OIDC publish
+    branches: [main]
     paths:
       - packages/zkpassport-utils/package.json
 
@@ -10,9 +10,11 @@ jobs:
   publish:
     name: Publish Utils
     runs-on: ubuntu-latest
+    environment: npm-publish
     permissions:
+      id-token: write  # Required for OIDC
       contents: read
-      id-token: write # Required for npm provenance
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,7 +64,7 @@ jobs:
       - name: Setup Node.js for npm publish
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Check if version is published to npm
@@ -77,10 +79,11 @@ jobs:
       - name: Publish new version to npm
         if: steps.version_check.outputs.publish == 'true'
         run: |
-          TARBALL=$(bun pack)
+          ../../scripts/prepublish.sh
+          PKG=$(bun pm pack --quiet | xargs)
           if [[ "${{ steps.version_check.outputs.version }}" =~ [0-9]+\.[0-9]+\.[0-9]+\- ]]; then
-            npm publish "$TARBALL" --provenance --access public --tag beta
+            npm publish "$PKG" --ignore-scripts --provenance --access public --tag beta
           else
-            npm publish "$TARBALL" --provenance --access public
+            npm publish "$PKG" --ignore-scripts --provenance --access public
           fi
         working-directory: packages/zkpassport-utils

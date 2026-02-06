@@ -1,6 +1,11 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.32.1-beta.1",
+  "version": "0.32.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkpassport/zkpassport-packages",
+    "directory": "packages/zkpassport-utils"
+  },
   "type": "module",
   "main": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
