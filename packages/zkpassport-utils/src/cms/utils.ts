@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { ECParameters } from "@peculiar/asn1-ecc"
 import { RSAPublicKey, RsaSaPssParams } from "@peculiar/asn1-rsa"
 import { AsnParser } from "@peculiar/asn1-schema"

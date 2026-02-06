@@ -15,8 +15,7 @@
     }
   },
   "scripts": {
-    "build": "bun run build:types && tsup --config tsup.config.ts",
-    "build:types": "tsc -b && tsc-alias -v -p tsconfig.json -f",
+    "build": "tsup --config tsup.config.ts",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test tests/*.test.ts",
