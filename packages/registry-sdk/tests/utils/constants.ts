@@ -1,6 +1,6 @@
 // The root hash of the packaged certificates fixture: tests/fixtures/certificates.json
 export const CERTIFICATE_FIXTURES_ROOT =
-  "0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686"
+  "0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062"
 
 // The CIDv0 of the packaged certificates fixture: tests/fixtures/certificates.json
 export const CERTIFICATE_FIXTURES_CID = "QmRYkZEm7ueX8XT82QuYTdL6iivv3gryoi2jJsPzvsdu6H"

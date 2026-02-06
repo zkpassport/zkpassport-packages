@@ -64,6 +64,20 @@ export type CurveName = NISTCurveName | BrainpoolCurveName
 
 export type SignatureAlgorithmType = "RSA" | "RSA-PSS" | "ECDSA"
 
+export type PackagedCertificatesFile = {
+  // Version of the packaged certificates format (defaults to 0 if not set)
+  version: number
+  // Timestamp when the package was created and the certificates were validated
+  timestamp: number
+  // Merkle root of the certificates tree
+  root: string
+  // Array of packaged certificates
+  certificates: PackagedCertificate[]
+  // The serialised ordered Merkle tree of certificates
+  // Each row represents a level of the tree, with each entry being a node
+  serialised?: string[][]
+}
+
 export type PackagedCertificate = {
   country: string
   signature_algorithm: SignatureAlgorithmType
@@ -79,22 +93,9 @@ export type PackagedCertificate = {
   }
   subject_key_identifier?: string
   authority_key_identifier?: string
+  fingerprint?: string
   tags?: TwoLetterCode[]
   type?: string
-}
-
-/**
- * Structure of the packaged certificates file output
- */
-export type PackagedCertificatesFile = {
-  /** Version of the packaged certificates file format */
-  version: number
-  /** Unix timestamp of when the certificates were packaged (used for certificate expiry checks) */
-  timestamp: number
-  /** Array of packaged certificates */
-  certificates: PackagedCertificate[]
-  /** Serialized merkle tree data */
-  serialised: Record<string, any>
 }
 
 export type CircuitManifestEntry = { hash: string; size: number }

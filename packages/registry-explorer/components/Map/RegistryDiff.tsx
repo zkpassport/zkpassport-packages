@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { PackagedCertificatesFile } from "@zkpassport/registry"
+import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
 import { GitCompare, Plus, Minus, ExternalLink } from "lucide-react"

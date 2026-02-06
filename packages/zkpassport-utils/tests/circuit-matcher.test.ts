@@ -19,7 +19,13 @@ import {
   isIDSupported,
 } from "../src/circuit-matcher"
 import { getCountryWeightedSum } from "../src/circuits/country"
-import { HashAlgorithm, PackagedCertificate, Query, SaltedValue } from "../src/types"
+import {
+  HashAlgorithm,
+  PackagedCertificate,
+  PackagedCertificatesFile,
+  Query,
+  SaltedValue,
+} from "../src/types"
 import {
   getNowTimestamp,
   getUnixTimestamp,
@@ -214,11 +220,11 @@ describe("Circuit Matcher - RSA", () => {
     )
   })
 
-  it("should get the correct DSC circuit inputs", async () => {
+  it("should get the correct DSC circuit inputs (version 0)", async () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.john,
       1n,
-      rootCerts.certificates as PackagedCertificate[],
+      rootCerts as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
@@ -728,11 +734,11 @@ describe("Circuit Matcher - ECDSA", () => {
     )
   })
 
-  it("should get the correct DSC circuit inputs", async () => {
+  it("should get the correct DSC circuit inputs (version 0)", async () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.mary,
       1n,
-      rootCerts.certificates as PackagedCertificate[],
+      rootCerts as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
