@@ -4,18 +4,19 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "build:types": "turbo run build:types",
     "dev:build": "turbo run dev:build",
     "validate-package": "turbo run validate-package",
     "test": "turbo run test",
     "check": "turbo run check",
     "format": "turbo run format",
-    "clean": "turbo run clean && rimraf node_modules/.cache"
+    "clean": "turbo run clean && rimraf .turbo node_modules/.cache",
+    "clean:deep": "turbo run clean && rimraf .turbo **/node_modules && bun i"
   },
   "workspaces": [
     "packages/*"
   ],
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
     "@types/bun": "^1.3.1",
     "@types/debug": "^4.1.12",
     "@types/jest": "^30.0.0",
@@ -27,8 +28,8 @@
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
     "prettier": "^3.6.2",
+    "publint": "^0.3.17",
     "rimraf": "^6.0.1",
-    "tsc-alias": "^1.8.16",
     "tsup": "^8.5.0",
     "turbo": "^2.6.0",
     "typescript": "^5.0.0"

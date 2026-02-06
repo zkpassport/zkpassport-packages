@@ -6,9 +6,6 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "out/**"]
     },
-    "build:types": {
-      "outputs": ["dist/**"]
-    },
     "dev:build": {
       "dependsOn": ["^dev:build"],
       "cache": false

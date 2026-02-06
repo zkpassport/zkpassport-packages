@@ -10,5 +10,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["src/**/*.ts", "tests/**/*.json", "tests/**/*.ts"]
+  // "include" controls type-checking only; build output is controlled by tsup.config.ts entry points
+  "include": ["src/**/*.ts", "tests/**/*.json", "tests/**/*.ts", "tsup.config.ts"]
 }
