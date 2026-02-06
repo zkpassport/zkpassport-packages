@@ -279,16 +279,6 @@ function getCryptoSubtle(): SubtleCrypto | null {
   if (typeof globalThis !== "undefined" && (globalThis as any).crypto?.webcrypto?.subtle) {
     return (globalThis as any).crypto.webcrypto.subtle
   }
-  // Try to import Node.js crypto
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodeCrypto = require("crypto")
-    if (nodeCrypto.webcrypto?.subtle) {
-      return nodeCrypto.webcrypto.subtle
-    }
-  } catch {
-    // Ignore
-  }
   return null
 }
 
