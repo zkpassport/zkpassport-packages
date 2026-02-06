@@ -77,9 +77,10 @@ jobs:
       - name: Publish new version to npm
         if: steps.version_check.outputs.publish == 'true'
         run: |
+          TARBALL=$(bun pack)
           if [[ "${{ steps.version_check.outputs.version }}" =~ [0-9]+\.[0-9]+\.[0-9]+\- ]]; then
-            npm publish --provenance --access public --tag beta
+            npm publish "$TARBALL" --provenance --access public --tag beta
           else
-            npm publish --provenance --access public
+            npm publish "$TARBALL" --provenance --access public
           fi
         working-directory: packages/zkpassport-utils

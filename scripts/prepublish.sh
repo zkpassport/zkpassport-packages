@@ -5,8 +5,15 @@
 
 set -e
 
-# Ensure script is being run with `bun publish` (not `npm publish`)
-bun -e "process.env.npm_config_user_agent?.startsWith('bun/') || (console.error('ERROR: Must use bun publish'), process.exit(1))"
+# Block direct publish — must use `bun pack` then `npm publish <tarball>`
+# (bun pack resolves workspace:* refs, npm publish handles OIDC provenance)
+node -e "
+  if (process.env.npm_command === 'publish') {
+    console.error('ERROR: Direct publish is not allowed.');
+    console.error('Use: bun pack && npm publish <tarball> --provenance --access public');
+    process.exit(1);
+  }
+"
 
 # Check for prerelease version accidentally being published to 'latest' tag
 ../../scripts/check-prerelease-tag.sh
