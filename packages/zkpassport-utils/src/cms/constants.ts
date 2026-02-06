@@ -1,7 +1,5 @@
 import type { HashAlgorithm } from "../types"
-import { p256 } from "@noble/curves/p256"
-import { p384 } from "@noble/curves/p384"
-import { p521 } from "@noble/curves/p521"
+import { p256, p384, p521 } from "@noble/curves/nist.js"
 
 export const HASH_OIDS = {
   "1.3.14.3.2.26": "SHA-1",
@@ -95,22 +93,22 @@ export const NIST_CURVES = {
     p: 0xffffffffffffffffffffffffffffffff000000000000000000000001n,
   },
   "P-256": {
-    a: p256.CURVE.a,
-    b: p256.CURVE.b,
-    n: p256.CURVE.n,
-    p: p256.CURVE.Fp.ORDER,
+    a: p256.Point.CURVE().a,
+    b: p256.Point.CURVE().b,
+    n: p256.Point.CURVE().n,
+    p: p256.Point.CURVE().p,
   },
   "P-384": {
-    a: p384.CURVE.a,
-    b: p384.CURVE.b,
-    n: p384.CURVE.n,
-    p: p384.CURVE.Fp.ORDER,
+    a: p384.Point.CURVE().a,
+    b: p384.Point.CURVE().b,
+    n: p384.Point.CURVE().n,
+    p: p384.Point.CURVE().p,
   },
   "P-521": {
-    a: p521.CURVE.a,
-    b: p521.CURVE.b,
-    n: p521.CURVE.n,
-    p: p521.CURVE.Fp.ORDER,
+    a: p521.Point.CURVE().a,
+    b: p521.Point.CURVE().b,
+    n: p521.Point.CURVE().n,
+    p: p521.Point.CURVE().p,
   },
 }
 
