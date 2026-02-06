@@ -7,7 +7,7 @@ import {
 } from "../utils"
 import { ProofData, ProofType, ProofTypeLength } from "."
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { sha256 } from "@noble/hashes/sha2"
+import { sha256 } from "@noble/hashes/sha2.js"
 
 interface DisclosedDataRaw {
   issuingCountry: Uint8Array // 3 bytes
