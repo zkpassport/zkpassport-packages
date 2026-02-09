@@ -71,6 +71,7 @@ import {
   DEFAULT_DATE_VALUE,
   DEFAULT_VALIDITY,
   GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+  GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
 } from "./constants"
@@ -1246,14 +1247,15 @@ export class PublicInputChecker {
       // Check if the root key is either from Apple (iOS) or Google (Android)
       if (
         facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
-        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH
+        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH &&
+        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH
       ) {
         console.warn("Invalid facematch root key hash")
         isCorrect = false
         queryResultErrors.facematch = {
           ...queryResultErrors.facematch,
           eq: {
-            expected: `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or ${GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH} (Android)`,
+            expected: `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or ${GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH} (Android) or ${GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH} (Android)`,
             received: facematchCommittedInputs.rootKeyLeaf,
             message: "Invalid facematch root key hash",
           },
