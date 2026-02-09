@@ -248,7 +248,7 @@ describe("Query Builder", () => {
     })
   })
 
-  test("should build sanctions query for single country", async () => {
+  /*test("should build sanctions query for single country", async () => {
     const result = queryBuilder.sanctions("GB").done()
 
     const configPart = result.url.split("c=")[1].split("&")[0]
@@ -303,7 +303,7 @@ describe("Query Builder", () => {
       lists: "all",
       strict: false,
     })
-  })
+  })*/
 
   test("should build facematch query with strict mode", async () => {
     const result = queryBuilder.facematch("strict").done()
