@@ -1,5 +1,5 @@
 import { RegistryClient } from "../src/client"
-import type { PackagedCertificatesFile } from "../src/types"
+import type { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import FakeTimers from "@sinonjs/fake-timers"
 import type { InstalledClock } from "@sinonjs/fake-timers"
 
@@ -12,6 +12,8 @@ describe("Retry Logic", () => {
   const MOCK_RPC_URL = "https://mock-rpc.example.com"
 
   const mockPackagedCerts: PackagedCertificatesFile = {
+    version: 1,
+    timestamp: 1768823285,
     certificates: [
       {
         country: "USA",
@@ -59,7 +61,7 @@ describe("Retry Logic", () => {
     it("should retry on TypeError (network error) and succeed", async () => {
       clock = FakeTimers.install()
 
-      globalThis.fetch = async (input: RequestInfo | URL) => {
+      globalThis.fetch = (async (input: RequestInfo | URL): Promise<Response> => {
         const url = input.toString()
         attemptCount++
 
@@ -83,7 +85,7 @@ describe("Retry Logic", () => {
           )
         }
         return new Response("Not found", { status: 404 })
-      }
+      }) as typeof fetch
 
       const certPromise = registry.getCertificates(MOCK_ROOT, { validate: false })
       await clock.runAllAsync()
@@ -96,10 +98,10 @@ describe("Retry Logic", () => {
     it("should fail after exhausting all retries", async () => {
       clock = FakeTimers.install()
 
-      globalThis.fetch = async () => {
+      globalThis.fetch = (async (_: RequestInfo | URL): Promise<Response> => {
         attemptCount++
         throw new TypeError("Network request failed")
-      }
+      }) as typeof fetch
 
       const certPromise = registry.getCertificates(MOCK_ROOT, { validate: false })
 
@@ -119,14 +121,15 @@ describe("Retry Logic", () => {
 
       // Track setTimeout calls to verify exponential backoff
       const originalSetTimeout = globalThis.setTimeout
-      globalThis.setTimeout = ((callback: any, delay?: number) => {
+      // @ts-expect-error - setTimeout is mocked
+      globalThis.setTimeout = (callback: TimerHandler, delay?: number) => {
         if (delay !== undefined) {
           timerDelays.push(delay)
         }
         return originalSetTimeout(callback, delay)
-      }) as any
+      }
 
-      globalThis.fetch = async (input: RequestInfo | URL) => {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
         const url = input.toString()
         attemptCount++
 
@@ -138,7 +141,7 @@ describe("Retry Logic", () => {
           return new Response(JSON.stringify(mockPackagedCerts), { status: 200 })
         }
         return new Response("OK", { status: 200 })
-      }
+      }) as typeof fetch
 
       const certPromise = registry.getCertificates(MOCK_ROOT, { validate: false })
       await clock.runAllAsync()
@@ -165,10 +168,10 @@ describe("Retry Logic", () => {
         retryCount: 1,
       })
 
-      globalThis.fetch = async () => {
+      globalThis.fetch = (async (_: RequestInfo | URL): Promise<Response> => {
         attemptCount++
         throw new TypeError("Network error")
-      }
+      }) as typeof fetch
 
       const certPromise = registrySingleRetry.getCertificates(MOCK_ROOT, { validate: false })
 
@@ -190,10 +193,10 @@ describe("Retry Logic", () => {
         retryCount: 5,
       })
 
-      globalThis.fetch = async () => {
+      globalThis.fetch = (async (_: RequestInfo | URL): Promise<Response> => {
         attemptCount++
         throw new TypeError("Network error")
-      }
+      }) as typeof fetch
 
       const certPromise = registryManyRetries.getCertificates(MOCK_ROOT, { validate: false })
 
@@ -208,7 +211,7 @@ describe("Retry Logic", () => {
     it("should retry RPC requests on network errors", async () => {
       clock = FakeTimers.install()
 
-      globalThis.fetch = async (input: RequestInfo | URL) => {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
         const url = input.toString()
         attemptCount++
 
@@ -226,7 +229,7 @@ describe("Retry Logic", () => {
           )
         }
         return new Response("OK", { status: 200 })
-      }
+      }) as typeof fetch
 
       const rootPromise = registry.getLatestCertificateRoot()
       await clock.runAllAsync()
@@ -252,7 +255,7 @@ describe("Retry Logic", () => {
         },
       }
 
-      globalThis.fetch = async (input: RequestInfo | URL) => {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
         const url = input.toString()
         attemptCount++
 
@@ -277,7 +280,7 @@ describe("Retry Logic", () => {
         }
 
         return new Response("Not Found", { status: 404 })
-      }
+      }) as typeof fetch
 
       const manifestPromise = registry.getCircuitManifest(MOCK_ROOT, { validate: false })
       await clock.runAllAsync()

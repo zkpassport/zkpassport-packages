@@ -1,4 +1,6 @@
-import { sha256 } from "@noble/hashes/sha2"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { sha256 } from "@noble/hashes/sha2.js"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { Alpha3Code } from "i18n-iso-countries"
@@ -38,7 +40,12 @@ import {
   getCertificateLeafHashes,
   tagsArrayToBitsFlag,
 } from "./registry"
-import type { HashAlgorithm, IntegrityToDisclosureSalts, PackagedCertificate } from "./types"
+import type {
+  HashAlgorithm,
+  IntegrityToDisclosureSalts,
+  PackagedCertificate,
+  PackagedCertificatesFile,
+} from "./types"
 import {
   ECDSADSCDataInputs,
   IDCredential,
@@ -157,20 +164,32 @@ export function getTBSMaxLen(passport: PassportViewModel): number {
   }
 }
 
+/**
+ * @deprecated Use getCscaForPassportAsync instead for more reliable certificate matching.
+ * This synchronous version uses only AKI/SKI matching without signature verification.
+ */
 export function getCscaForPassport(
   dsc: DSC,
   certificates: PackagedCertificate[],
 ): PackagedCertificate | null {
-  const extensions = dsc.tbs.extensions
+  const { akiMatchedCert } = getCscaCandidates(dsc, certificates)
+  return akiMatchedCert
+}
 
-  /*let notBefore: number | undefined
-  let notAfter: number | undefined
-  const pkupBuffer = extensions.get("privateKeyUsagePeriod")?.value.toBuffer()
-  if (pkupBuffer) {
-    const pkup = AsnParser.parse(pkupBuffer, PrivateKeyUsagePeriod)
-    notBefore = (pkup.notBefore?.getTime() ?? 0) / 1000
-    notAfter = (pkup.notAfter?.getTime() ?? 0) / 1000
-  }*/
+/**
+ * Find CSC candidates for a DSC using AKI/SKI matching
+ * Returns both the best AKI match and all certificates from the same country
+ */
+function getCscaCandidates(
+  dsc: DSC,
+  certificates: PackagedCertificate[],
+  skipAKIMatching: boolean = false,
+): {
+  akiMatchedCert: PackagedCertificate | null
+  countryCerts: PackagedCertificate[]
+  formattedCountry: string
+} {
+  const extensions = dsc.tbs.extensions
 
   let authorityKeyIdentifier: string | undefined
   const akiBuffer = extensions.get("authorityKeyIdentifier")?.value.toBuffer()
@@ -190,44 +209,22 @@ export function getCscaForPassport(
     )
   }
 
-  /*const checkAgainstPrivateKeyUsagePeriod = (cert: PackagedCertificate) => {
-    return (
-      cert.private_key_usage_period &&
-      cert.private_key_usage_period?.not_before &&
-      cert.private_key_usage_period?.not_after &&
-      notBefore &&
-      notAfter &&
-      notBefore >= (cert.private_key_usage_period?.not_before || 0) &&
-      notAfter <= (cert.private_key_usage_period?.not_after || 0)
-    )
-  }*/
+  // Get all certificates from the same country
+  const countryCerts = certificates.filter((cert) => {
+    return cert.country.toLowerCase() === formattedCountry.toLowerCase()
+  })
 
   // First try to find the CSC by looking at the authority key identifier
   // which should uniquely identify the CSC that signed the DSC
-  const validCertificates = certificates.filter((cert) => {
-    return (
-      cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
-      checkAgainstAuthorityKeyIdentifier(cert)
-    )
-  })
+  const validCertificates = skipAKIMatching
+    ? []
+    : countryCerts.filter(checkAgainstAuthorityKeyIdentifier)
 
-  // Using the private key usage period is not really reliable, so we don't use it
-  /*if (validCertificates.length === 0) {
-    // If no certificate was found in the previous step, we use find the CSCs which
-    // could have signed the DSCs according to their private key usage period
-    validCertificates = certificates.filter((cert) => {
-      return (
-        cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
-        checkAgainstPrivateKeyUsagePeriod(cert)
-      )
-    })
-  }*/
+  let akiMatchedCert: PackagedCertificate | null = null
 
-  if (validCertificates.length === 0) {
-    return null
-  } else if (validCertificates.length === 1) {
-    return validCertificates[0]
-  } else {
+  if (validCertificates.length === 1) {
+    akiMatchedCert = validCertificates[0]
+  } else if (validCertificates.length > 1) {
     // Support edge cases where multiple CSCs with the same characteristics are found
     const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
       if (cert.signature_algorithm === "RSA-PSS") {
@@ -239,15 +236,77 @@ export function getCscaForPassport(
       }
       return false
     }
-    return (
+    akiMatchedCert =
       validCertificates.find((cert) => {
         return (
           cert.hash_algorithm.replace("-", "").toLowerCase() ===
             getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
         )
-      }) ?? null
-    )
+      }) ?? validCertificates[0]
   }
+
+  return { akiMatchedCert, countryCerts, formattedCountry }
+}
+
+/**
+ * Find the CSC (Country Signing Certificate) that signed the given DSC (Document Signer Certificate).
+ *
+ * This function uses a three-tier fallback mechanism:
+ * 1. AKI/SKI matching: First tries to match the DSC's Authority Key Identifier with
+ *    a CSC's Subject Key Identifier, then verifies the signature.
+ * 2. Country-wide search: If AKI/SKI match fails signature verification, searches all
+ *    CSCs from the same country and verifies signatures.
+ * 3. Fallback: If all signature verifications fail, returns the original AKI/SKI match
+ *    (which may still be correct despite verification failure due to algorithm mismatches).
+ *
+ * @param dsc - The Document Signer Certificate to find the parent CSC for
+ * @param certificates - Array of all available CSC certificates
+ * @param skipAKIMatching - Whether to skip AKI/SKI matching and only use country-wide search
+ * @returns The matching CSC certificate, or null if none found
+ */
+export async function getCscaForPassportAsync(
+  dsc: DSC,
+  certificates: PackagedCertificate[],
+  skipAKIMatching: boolean = false,
+): Promise<PackagedCertificate | null> {
+  const { verifyDscSignature } = await import("./signature-verification")
+
+  const { akiMatchedCert, countryCerts } = getCscaCandidates(dsc, certificates, skipAKIMatching)
+
+  // Step 1: If we found a certificate via AKI/SKI matching, verify the signature
+  if (akiMatchedCert) {
+    try {
+      const isValid = await verifyDscSignature(dsc, akiMatchedCert)
+      if (isValid) {
+        return akiMatchedCert
+      }
+    } catch {
+      // Signature verification failed, continue to fallback
+    }
+  }
+
+  // Step 2: If AKI/SKI match failed or no match found, try all certificates from the same country
+  // This handles cases where the AKI/SKI might be wrong or missing
+  for (const cert of countryCerts) {
+    // Skip the one we already tried
+    if (cert === akiMatchedCert) continue
+
+    try {
+      const isValid = await verifyDscSignature(dsc, cert)
+      if (isValid) {
+        return cert
+      }
+    } catch {
+      // Continue to next certificate
+    }
+  }
+
+  // Step 3: If all signature verifications failed, return the original AKI/SKI match
+  // This is a fallback for edge cases where:
+  // - The signature algorithm parameters might be incorrectly declared
+  // - Our verification implementation might not support some edge cases
+  // - The certificate data might be malformed but still valid
+  return akiMatchedCert
 }
 
 function getDSCDataInputs(
@@ -393,7 +452,7 @@ export function getScopeHash(value?: string): bigint {
     return 0n
   }
   // Hash the value using SHA256 and truncate to 31 bytes (248 bits)
-  const sha2Hash = sha256(value).slice(0, 31)
+  const sha2Hash = sha256(new TextEncoder().encode(value)).slice(0, 31)
   // Convert the hash to a bigint
   const bytes = fromBytesToBigInt(Array.from(sha2Hash))
   return bytes
@@ -441,7 +500,7 @@ export function getDSCSignatureAlgorithmHashAlgorithm(passport: PassportViewMode
 export async function getDSCCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
-  certificates: PackagedCertificate[],
+  packagedCerts: PackagedCertificatesFile,
   overrideCertLeaves?: bigint[],
   overrideMerkleProof?: {
     root: string | HexString
@@ -449,12 +508,14 @@ export async function getDSCCircuitInputs(
     path: (string | HexString)[]
   },
 ) {
-  // Get the CSCA for this passport's DSC
-  const csca = getCscaForPassport(passport.sod.certificate, certificates)
+  // Get the CSCA for this passport's DSC using the async version with signature verification fallback
+  const csca = await getCscaForPassportAsync(passport.sod.certificate, packagedCerts.certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
   // Generate the certificate registry merkle proof
   const cscaLeaf = await getCertificateLeafHash(csca)
-  const leaves = overrideCertLeaves ?? (await getCertificateLeafHashes(certificates))
+  const leaves =
+    overrideCertLeaves ??
+    (await getCertificateLeafHashes(packagedCerts.certificates, packagedCerts?.version || 0))
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
   const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =

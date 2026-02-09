@@ -1,8 +1,10 @@
 import { describe, beforeAll, afterAll, it, expect, setDefaultTimeout } from "bun:test"
-import { CircuitManifest, PackagedCircuit, strip0x } from "@zkpassport/utils"
+import { strip0x } from "@zkpassport/utils"
+import { CircuitManifest, PackagedCircuit } from "@zkpassport/utils/types"
+import type { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import path from "path"
 import { RegistryClient } from "../src/client"
-import { DocumentSupport, PackagedCertificatesFile } from "../src/types"
+import { DocumentSupport } from "../src/types"
 import {
   CERTIFICATE_FIXTURES_CID,
   CERTIFICATE_FIXTURES_ROOT,
@@ -157,7 +159,7 @@ describe("Registry", () => {
       const latestRoot = await registry.getLatestCertificateRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
       const packagedCerts = await registry.getCertificates(latestRoot)
-      const valid = await registry.validateCertificates(packagedCerts.certificates, latestRoot)
+      const valid = await registry.validateCertificates(packagedCerts, latestRoot)
       expect(valid).toBe(true)
     })
 
@@ -165,7 +167,7 @@ describe("Registry", () => {
       const latestRoot = await registry.getLatestCertificateRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
       const packagedCerts = await registry.getCertificates(latestRoot)
-      const valid = await registry.validateCertificates(packagedCerts.certificates, INVALID_HASH)
+      const valid = await registry.validateCertificates(packagedCerts, INVALID_HASH)
       expect(valid).toBe(false)
     })
 

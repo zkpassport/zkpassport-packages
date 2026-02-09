@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import {
   AgeCommittedInputs,
   BindCommittedInputs,
@@ -20,8 +22,8 @@ import {
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
 import { DEFAULT_VALIDITY } from "./constants"
-import { sha256 } from "@noble/hashes/sha2"
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils"
+import { sha256 } from "@noble/hashes/sha2.js"
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 
 export class SolidityVerifier {

@@ -1,16 +1,19 @@
 {
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
     "declarationDir": "./dist/esm",
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
     "baseUrl": "./src",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@zkpassport/utils": ["../zkpassport-utils/src/index.ts"],
+      "@zkpassport/utils/*": ["../zkpassport-utils/src/*"],
+      "@zkpassport/registry": ["../registry-sdk/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.json"],
-  "exclude": ["**/*.test.ts"],
+  // "include" controls type-checking only; build output is controlled by tsup.config.ts entry points
+  "include": ["src/**/*.ts", "src/**/*.json", "tests/**/*.ts", "tsup.config.ts"],
   "references": [{ "path": "../zkpassport-utils" }, { "path": "../registry-sdk" }]
 }

@@ -1,5 +1,6 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { Binary } from "@zkpassport/utils"
+import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
   buildMerkleTreeFromCerts,
@@ -11,7 +12,6 @@ import {
 import type {
   CircuitManifest,
   CircuitManifestEntry,
-  PackagedCertificate,
   PackagedCircuit,
 } from "@zkpassport/utils/types"
 import debug from "debug"
@@ -32,9 +32,8 @@ import {
 import {
   DocumentSupport,
   DocumentSupportRule,
-  PackagedCertificatesFile,
   RegistryClientOptions,
-  RootDetails,
+  type RootDetails,
 } from "./types"
 import { normaliseHash, strip0x } from "./utils"
 import { withRetry } from "@zkpassport/utils"
@@ -216,7 +215,7 @@ export class RegistryClient {
       throw new Error("Invalid serialised certificates tree returned")
 
     if (validate) {
-      const valid = await this.validateCertificates(data.certificates, root)
+      const valid = await this.validateCertificates(data, root)
       if (!valid) throw new Error(`Validation failed for packaged certificates: ${root}`)
     }
     return data
@@ -225,9 +224,15 @@ export class RegistryClient {
   /**
    * Validate certificates against a root hash
    */
-  async validateCertificates(certificates: PackagedCertificate[], root: string): Promise<boolean> {
+  async validateCertificates(
+    packagedCerts: PackagedCertificatesFile,
+    root: string,
+  ): Promise<boolean> {
     try {
-      const { root: calculatedRoot } = await buildMerkleTreeFromCerts(certificates)
+      const { root: calculatedRoot } = await buildMerkleTreeFromCerts(
+        packagedCerts.certificates,
+        packagedCerts.version,
+      )
       const expectedRootHash = root.startsWith("0x") ? root : `0x${root}`
       const valid = calculatedRoot.toLowerCase() === expectedRootHash.toLowerCase()
       if (valid) {
@@ -781,7 +786,7 @@ export class RegistryClient {
     return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
   }
 
-  private async rpcRequest(to: string, data: any): Promise<Response> {
+  private async rpcRequest(to: string, data: string): Promise<Response> {
     return withRetry(
       () =>
         fetch(this.rpcUrl, {

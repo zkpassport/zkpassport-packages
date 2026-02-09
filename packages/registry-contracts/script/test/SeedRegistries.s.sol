@@ -32,7 +32,7 @@ import {RegistryInstance} from "../../src/RegistryInstance.sol";
 contract SeedRegistriesScript is Script {
     // These are the test fixture roots and CIDs from registry-sdk
     bytes32 constant DEFAULT_CERTIFICATE_REGISTRY_ROOT =
-        0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686;
+        0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062;
     bytes32 constant DEFAULT_CIRCUIT_REGISTRY_ROOT = 0x068f6e356f993bd2afaf3d3466efff1dd4bc06f61952ac336085b832b93289a7;
     bytes32 constant DEFAULT_SANCTIONS_REGISTRY_ROOT =
         0x099699583ea7729a4a05821667645e927b74feb4e6e5382c6e4370e35ed2b23c;
