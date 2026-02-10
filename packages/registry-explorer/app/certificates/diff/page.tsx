@@ -460,10 +460,15 @@ function CertificateDiffContent() {
             fieldChanges: fieldChanges.length > 0 ? fieldChanges : undefined,
           }
 
-          if (afterTags.length > beforeTags.length) {
+          const addedTags = afterTags.filter((t) => !beforeTags.includes(t))
+          const removedTags = beforeTags.filter((t) => !afterTags.includes(t))
+
+          if (addedTags.length > 0 && removedTags.length === 0) {
+            // Only new tags were added — pure trust increase
             change.changeType = "trust_increased"
             diff.trustIncreased.push(change)
-          } else if (afterTags.length < beforeTags.length) {
+          } else if (removedTags.length > 0 && addedTags.length === 0) {
+            // Only existing tags were removed — pure trust decrease
             change.changeType = "trust_decreased"
             diff.trustDecreased.push(change)
           } else {
