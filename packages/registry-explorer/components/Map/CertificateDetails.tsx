@@ -13,7 +13,7 @@ const CertificateDetails = ({
     () =>
       certificatesByCountry[selectedCountry.code].reduce(
         (acc, cert) => {
-          const key = `${cert.signature_algorithm}-${cert.public_key.type}-${cert.hash_algorithm}${"curve" in cert.public_key && cert.public_key.curve ? `-${cert.public_key.curve}` : ""}`
+          const key = `${cert.signature_algorithm}-${cert.public_key.type}${"curve" in cert.public_key && cert.public_key.curve ? `-${cert.public_key.curve}` : ""}`
           if (!acc[key]) {
             acc[key] = {
               cert,
@@ -34,7 +34,7 @@ const CertificateDetails = ({
       <div className="space-y-2 pb-4">
         {Object.values(groupedCertificates).map(({ cert, count }) => (
           <div
-            key={`${cert.signature_algorithm}-${cert.public_key.type}-${cert.hash_algorithm}-${
+            key={`${cert.signature_algorithm}-${cert.public_key.type}-${
               "curve" in cert.public_key && cert.public_key.curve ? cert.public_key.curve : ""
             }`}
             className="bg-muted/30 dark:bg-muted/20 rounded p-2"
@@ -63,7 +63,6 @@ const CertificateDetails = ({
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              {cert.hash_algorithm}{" "}
               {"curve" in cert.public_key && cert.public_key.curve && `• ${cert.public_key.curve}`}
             </p>
           </div>

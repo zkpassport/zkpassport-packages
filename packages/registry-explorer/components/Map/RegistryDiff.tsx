@@ -91,7 +91,7 @@ export default function RegistryDiffSidebar({
         cert.public_key.public_key_y,
       )
     }
-    const parts = [cert.country, cert.signature_algorithm, cert.hash_algorithm, ...publicKeyParts]
+    const parts = [cert.country, cert.signature_algorithm, ...publicKeyParts]
     return parts.join("|")
   }, [])
 

@@ -67,12 +67,18 @@ export type SignatureAlgorithmType = "RSA" | "RSA-PSS" | "ECDSA"
 export type PackagedCertificatesFile = {
   // Version of the packaged certificates format (defaults to 0 if not set)
   version: number
+  // Network (if not present then "mainnet" is assumed)
+  network?: string
   // Timestamp when the package was created and the certificates were validated
   timestamp: number
   // Merkle root of the certificates tree
   root: string
+  // Previous root hash (if any)
+  previous_root?: string
   // Array of packaged certificates
   certificates: PackagedCertificate[]
+  // Array of masterlist file hashes
+  masterlists: string[]
   // The serialised ordered Merkle tree of certificates
   // Each row represents a level of the tree, with each entry being a node
   serialised?: string[][]
@@ -81,7 +87,7 @@ export type PackagedCertificatesFile = {
 export type PackagedCertificate = {
   country: string
   signature_algorithm: SignatureAlgorithmType
-  hash_algorithm: HashAlgorithm
+  // hash_algorithm: HashAlgorithm
   public_key: ECPublicKey | RSAPublicKey
   validity: {
     not_before: number

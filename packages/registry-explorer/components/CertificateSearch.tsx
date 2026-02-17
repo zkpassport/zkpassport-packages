@@ -23,7 +23,7 @@ export default function CertificateSearch() {
     error,
     filterState,
     uniqueCountries,
-    uniqueHashAlgorithms,
+    // uniqueHashAlgorithms,
     uniqueCurves,
     updateFilter,
     currentRoot,
@@ -332,7 +332,7 @@ export default function CertificateSearch() {
             <CertificateFilters
               filterState={filterState}
               uniqueCountries={uniqueCountries}
-              uniqueHashAlgorithms={uniqueHashAlgorithms}
+              // uniqueHashAlgorithms={uniqueHashAlgorithms}
               uniqueCurves={uniqueCurves}
               onFilterChange={updateFilter}
             />

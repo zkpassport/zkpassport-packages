@@ -214,8 +214,13 @@ export class RegistryClient {
     if (!data.serialised || !Array.isArray(data.serialised))
       throw new Error("Invalid serialised certificates tree returned")
 
+    // Normalise fingerprints
+    for (const cert of data.certificates) {
+      if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
+    }
+
     if (validate) {
-      const valid = await this.validateCertificates(data, root)
+      const valid = await RegistryClient.validateCertificates(data, root)
       if (!valid) throw new Error(`Validation failed for packaged certificates: ${root}`)
     }
     return data
@@ -224,7 +229,7 @@ export class RegistryClient {
   /**
    * Validate certificates against a root hash
    */
-  async validateCertificates(
+  static async validateCertificates(
     packagedCerts: PackagedCertificatesFile,
     root: string,
   ): Promise<boolean> {

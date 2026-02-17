@@ -89,6 +89,7 @@ const ccAlpha3ToName = {
   "ESP": "Spain",
   "EST": "Estonia",
   "ETH": "Ethiopia",
+  "EUR": "European Union",
   "FIN": "Finland",
   "FJI": "Fiji",
   "FLK": "Falkland Islands",
@@ -250,6 +251,7 @@ const ccAlpha3ToName = {
   "UGA": "Uganda",
   "UKR": "Ukraine",
   "UMI": "United States Minor Outlying Islands",
+  "UNO": "United Nations",
   "URY": "Uruguay",
   "USA": "United States",
   "UZB": "Uzbekistan",
@@ -263,11 +265,13 @@ const ccAlpha3ToName = {
   "WLF": "Wallis and Futuna",
   "WSM": "Samoa",
   "XKX": "Kosovo",
+  "XOM": "Order of Malta",
   "YEM": "Yemen",
   "ZAF": "South Africa",
   "ZMB": "Zambia",
   "ZWE": "Zimbabwe",
   "ZKR": "Zero Knowledge Republic",
+  "ZZZ": "ZZZ",
 }
 
 const ccAlpha2ToAlpha3 = {
@@ -339,6 +343,7 @@ const ccAlpha2ToAlpha3 = {
   ER: "ERI",
   EE: "EST",
   ET: "ETH",
+  EU: "EUR",
   FK: "FLK",
   FO: "FRO",
   FJ: "FJI",
@@ -497,6 +502,7 @@ const ccAlpha2ToAlpha3 = {
   GB: "GBR",
   US: "USA",
   UM: "UMI",
+  UN: "UNO",
   UY: "URY",
   UZ: "UZB",
   VU: "VUT",
@@ -522,7 +528,9 @@ const ccAlpha2ToAlpha3 = {
   SX: "SXM",
   SS: "SSD",
   XK: "XKK",
+  XO: "XOM",
   ZK: "ZKR",
+  ZZ: "ZZZ",
 }
 
 const ccAlpha3ToAlpha2 = {
@@ -594,6 +602,7 @@ const ccAlpha3ToAlpha2 = {
   ERI: "ER",
   EST: "EE",
   ETH: "ET",
+  EUR: "EU",
   FLK: "FK",
   FRO: "FO",
   FJI: "FJ",
@@ -752,6 +761,7 @@ const ccAlpha3ToAlpha2 = {
   GBR: "GB",
   USA: "US",
   UMI: "UM",
+  UNO: "UN",
   URY: "UY",
   UZB: "UZ",
   VUT: "VU",
@@ -777,5 +787,7 @@ const ccAlpha3ToAlpha2 = {
   SXM: "SX",
   SSD: "SS",
   XKK: "XK",
+  XOM: "XO",
   ZKR: "ZK",
+  ZZZ: "ZZ",
 }

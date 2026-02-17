@@ -22,7 +22,9 @@ interface CertificateRootCardProps {
 export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRootCardProps) {
   const [copied, setCopied] = useState(false)
   const { root, revoked, validFrom, validTo, cid, leaves, isLatest, index } = rootDetails
-
+  // print unix timestamp from date string
+  console.log(rootDetails.root)
+  console.log(rootDetails.validFrom.getTime())
   function formatCid(cid: string): string {
     if (!cid) return ""
     return `${cid.slice(0, 10)}...${cid.slice(-8)}`

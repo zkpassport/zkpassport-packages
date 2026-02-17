@@ -282,7 +282,7 @@ export async function buildMerkleTreeFromCerts(
  * Calculate the canonical certificate root from packaged certificates
  * @param certs Array of packaged certificates
  * @param version Version of the packaged certificates file format (defaults to 0 if not specified)
- * @returns Certificate root used in the Certificate Registry
+ * @returns Certificate root as a hex string ("0x" followed by 64 zero-prefix-padded hex chars)
  */
 export async function calculateCertificateRoot(certs: PackagedCertificate[], version: number = 0) {
   const tree = await buildMerkleTreeFromCerts(certs, version)

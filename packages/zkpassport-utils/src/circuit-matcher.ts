@@ -53,7 +53,7 @@ import {
   PassportViewModel,
   Query,
   RSADSCDataInputs,
-  RSAPublicKey,
+  // RSAPublicKey,
   SaltedValue,
 } from "./types"
 import {
@@ -83,7 +83,7 @@ export { SanctionsBuilder }
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
-const SUPPORTED_HASH_ALGORITHMS_USE: HashAlgorithm[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]
+// const SUPPORTED_HASH_ALGORITHMS_USE: HashAlgorithm[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]
 
 // TODO: Improve this with a structured list of supported signature algorithms
 export function isSignatureAlgorithmSupported(
@@ -115,26 +115,26 @@ export function isSignatureAlgorithmSupported(
   return false
 }
 
-/**
- * Check if a CSCA is supported by our circuits, based on the signature algorithm and hash algorithm
- * @param csca The CSCA packaged certificate to check
- * @returns True if the CSCA is supported, false otherwise
- */
-export function isCscaSupported(csca: PackagedCertificate): boolean {
-  if (csca.signature_algorithm == "RSA") {
-    return (
-      (csca.public_key.key_size === 1024 ||
-        csca.public_key.key_size === 2048 ||
-        csca.public_key.key_size === 3072 ||
-        csca.public_key.key_size === 4096) &&
-      (csca.public_key as RSAPublicKey).exponent < 131072 &&
-      SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
-    )
-  } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
-    return SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
-  }
-  return false
-}
+// /**
+//  * Check if a CSCA is supported by our circuits, based on the signature algorithm and hash algorithm
+//  * @param csca The CSCA packaged certificate to check
+//  * @returns True if the CSCA is supported, false otherwise
+//  */
+// export function isCscaSupported(csca: PackagedCertificate): boolean {
+//   if (csca.signature_algorithm == "RSA") {
+//     return (
+//       (csca.public_key.key_size === 1024 ||
+//         csca.public_key.key_size === 2048 ||
+//         csca.public_key.key_size === 3072 ||
+//         csca.public_key.key_size === 4096) &&
+//       (csca.public_key as RSAPublicKey).exponent < 131072 &&
+//       SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
+//     )
+//   } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
+//     return SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
+//   }
+//   return false
+// }
 
 export function isDSCSupported(dsc: DSC): boolean {
   const hashAlgorithm = getDSCSignatureHashAlgorithm(dsc)
@@ -225,24 +225,24 @@ function getCscaCandidates(
   if (validCertificates.length === 1) {
     akiMatchedCert = validCertificates[0]
   } else if (validCertificates.length > 1) {
-    // Support edge cases where multiple CSCs with the same characteristics are found
-    const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
-      if (cert.signature_algorithm === "RSA-PSS") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("pss")
-      } else if (cert.signature_algorithm === "RSA") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("rsa")
-      } else if (cert.signature_algorithm === "ECDSA") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("ecdsa")
-      }
-      return false
-    }
-    akiMatchedCert =
-      validCertificates.find((cert) => {
-        return (
-          cert.hash_algorithm.replace("-", "").toLowerCase() ===
-            getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
-        )
-      }) ?? validCertificates[0]
+    // // Support edge cases where multiple CSCs with the same characteristics are found
+    // const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
+    //   if (cert.signature_algorithm === "RSA-PSS") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("pss")
+    //   } else if (cert.signature_algorithm === "RSA") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("rsa")
+    //   } else if (cert.signature_algorithm === "ECDSA") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("ecdsa")
+    //   }
+    //   return false
+    // }
+    // akiMatchedCert =
+    //   validCertificates.find((cert) => {
+    //     return (
+    //       cert.hash_algorithm.replace("-", "").toLowerCase() ===
+    //         getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
+    //     )
+    //   }) ?? validCertificates[0]
   }
 
   return { akiMatchedCert, countryCerts, formattedCountry }

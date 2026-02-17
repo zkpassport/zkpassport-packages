@@ -32,7 +32,7 @@ export const useCertificates = () => {
 
   // Metadata derived from certificates
   const [uniqueCountries, setUniqueCountries] = useState<string[]>([])
-  const [uniqueHashAlgorithms, setUniqueHashAlgorithms] = useState<string[]>([])
+  // const [uniqueHashAlgorithms, setUniqueHashAlgorithms] = useState<string[]>([])
   const [uniqueCurves, setUniqueCurves] = useState<string[]>([])
 
   // Memoize updateFilter to prevent re-creation on every render
@@ -129,11 +129,11 @@ export const useCertificates = () => {
           return nameA.localeCompare(nameB)
         }) as string[]
 
-        // TODO: Consider implementing a more efficient way to do this
-        // Extract unique hash algorithms
-        const uniqueHashAlgorithms = [
-          ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.hash_algorithm)),
-        ] as string[]
+        // // TODO: Consider implementing a more efficient way to do this
+        // // Extract unique hash algorithms
+        // const uniqueHashAlgorithms = [
+        //   ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.hash_algorithm)),
+        // ] as string[]
 
         // TODO: Consider implementing a more efficient way to do this
         // Extract unique ECDSA curves
@@ -146,7 +146,7 @@ export const useCertificates = () => {
         ] as string[]
 
         setUniqueCountries(countryList)
-        setUniqueHashAlgorithms(uniqueHashAlgorithms.sort())
+        // setUniqueHashAlgorithms(uniqueHashAlgorithms.sort())
         setUniqueCurves(uniqueCurvesList.sort())
 
         // Set initial filtered certificates based on data and URL parameters
@@ -196,9 +196,9 @@ export const useCertificates = () => {
         filterState.selectedCountry === "all" || cert.country === filterState.selectedCountry
 
       // Filter by hash algorithm
-      const hashAlgorithmMatch =
-        filterState.selectedHashAlgorithm === "all" ||
-        cert.hash_algorithm === filterState.selectedHashAlgorithm
+      // const hashAlgorithmMatch =
+      //   filterState.selectedHashAlgorithm === "all" ||
+      //   cert.hash_algorithm === filterState.selectedHashAlgorithm
 
       // Filter by signature type
       let signatureTypeMatch = true
@@ -230,7 +230,7 @@ export const useCertificates = () => {
       return (
         searchTermMatch &&
         countryMatch &&
-        hashAlgorithmMatch &&
+        // hashAlgorithmMatch &&
         signatureTypeMatch &&
         rsaTypeMatch &&
         curveMatch
@@ -247,7 +247,7 @@ export const useCertificates = () => {
     error,
     filterState,
     uniqueCountries,
-    uniqueHashAlgorithms,
+    // uniqueHashAlgorithms,
     uniqueCurves,
     updateFilter,
     currentRoot,

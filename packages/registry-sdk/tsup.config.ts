@@ -15,9 +15,9 @@ export default defineConfig(
     outDir: `dist/${format}`,
     outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
     splitting: false,
-    sourcemap: false,
+    sourcemap: true,
     treeshake: !isDev,
-    minify: !isDev,
+    minify: false,
     // For release builds, externalize workspace deps so outputs stay modular
     // For dev builds, inline them for instant edits
     ...(isDev ? { noExternal: [/@zkpassport\/.*/] } : { external: ["@zkpassport/utils"] }),

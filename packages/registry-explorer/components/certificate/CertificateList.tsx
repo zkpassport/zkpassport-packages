@@ -134,7 +134,7 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
             </div>
 
             {/* Hash Algorithm */}
-            <div className="flex flex-wrap gap-y-2">
+            {/* <div className="flex flex-wrap gap-y-2">
               <div className="w-full sm:w-1/3 text-sm font-medium text-gray-500 dark:text-gray-400">
                 Hash Algorithm
               </div>
@@ -143,7 +143,7 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
                   {cert.hash_algorithm}
                 </code>
               </div>
-            </div>
+            </div> */}
 
             {/* RSA Specific Fields */}
             {isRSA(cert) && (

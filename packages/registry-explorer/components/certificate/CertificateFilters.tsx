@@ -12,7 +12,7 @@ import { countryCodeAlpha3ToName } from "@zkpassport/utils"
 interface CertificateFiltersProps {
   filterState: CertificateFilterState
   uniqueCountries: string[]
-  uniqueHashAlgorithms: string[]
+  // uniqueHashAlgorithms: string[]
   uniqueCurves: string[]
   onFilterChange: (key: keyof CertificateFilterState, value: string) => void
 }
@@ -20,7 +20,7 @@ interface CertificateFiltersProps {
 export function CertificateFilters({
   filterState,
   uniqueCountries,
-  uniqueHashAlgorithms,
+  // uniqueHashAlgorithms,
   uniqueCurves,
   onFilterChange,
 }: CertificateFiltersProps) {
@@ -90,7 +90,7 @@ export function CertificateFilters({
         <div className="border-t border-gray-100 dark:border-gray-700 pt-5">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Hash Algorithm Filter */}
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Hash Algorithm
               </label>
@@ -112,7 +112,7 @@ export function CertificateFilters({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
 
             {/* Signature Type Filter */}
             <div className="space-y-2">
