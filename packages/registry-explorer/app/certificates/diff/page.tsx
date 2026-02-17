@@ -4,7 +4,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LoadingAnimation } from "@/components/LoadingAnimation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, AlertCircle, GitCompare, ArrowUpDown } from "lucide-react"
+import {
+  ArrowLeft,
+  AlertCircle,
+  GitCompare,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
@@ -12,6 +19,7 @@ import {
   countryCodeAlpha3ToName,
   PackagedCertificate,
   PackagedCertificatesFile,
+  strip0x,
 } from "@zkpassport/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
 
@@ -157,6 +165,85 @@ const CATEGORY_CONFIG: Record<
 const normalizeTags = (tags?: string[]): string[] =>
   (tags || []).map((tag: string) => (tag === "ICAO" ? "UN" : tag))
 
+import { BRAINPOOL_CURVES_ABBR as BRAINPOOL_ABBR } from "@zkpassport/utils"
+
+/**
+ * Normalise a hash to a 64 character lowercase hex string
+ * @param hash - The hash to normalise
+ * @returns The normalised hash
+ */
+export function normaliseHash(hash: string | bigint): string {
+  if (typeof hash === "bigint") {
+    return `0x${hash.toString(16).toLowerCase().padStart(64, "0")}`
+  }
+  return `0x${strip0x(hash).toLowerCase().padStart(64, "0")}`
+}
+
+// ─── Reusable masterlist tags component ──────────────────────────────────────
+
+/** Renders masterlist tags with color-coded diffs (added / removed / unchanged). */
+function MasterlistTags({
+  oldTags,
+  newTags,
+  tags,
+  showLabel = false,
+  className = "",
+}: {
+  /** Previous tags (for diff mode) */
+  oldTags?: string[]
+  /** New tags (for diff mode) */
+  newTags?: string[]
+  /** Plain tags when there is no diff */
+  tags?: string[]
+  /** Whether to prefix with "Masterlists:" label */
+  showLabel?: boolean
+  className?: string
+}) {
+  // Diff mode: oldTags & newTags are both provided
+  if (oldTags && newTags) {
+    const removedTags = oldTags.filter((t) => !newTags.includes(t))
+    const addedTags = newTags.filter((t) => !oldTags.includes(t))
+    const unchangedTags = oldTags.filter((t) => newTags.includes(t))
+    const allTags = [
+      ...removedTags.map((tag) => ({ tag, type: "removed" as const })),
+      ...addedTags.map((tag) => ({ tag, type: "added" as const })),
+      ...unchangedTags.map((tag) => ({ tag, type: "unchanged" as const })),
+    ]
+
+    if (allTags.length === 0)
+      return showLabel ? <span className={className}>Masterlists: None</span> : null
+
+    return (
+      <span className={className}>
+        {showLabel && <span className="font-medium">Masterlists: </span>}
+        {allTags.map(({ tag, type }, i) => (
+          <span key={`${tag}-${i}`}>
+            {type === "removed" && (
+              <span className="text-red-600 dark:text-red-400 line-through">{tag}</span>
+            )}
+            {type === "added" && (
+              <span className="text-green-600 dark:text-green-500 font-bold">{tag}</span>
+            )}
+            {type === "unchanged" && <span>{tag}</span>}
+            {i < allTags.length - 1 && ", "}
+          </span>
+        ))}
+      </span>
+    )
+  }
+
+  // Plain mode: just show the tags
+  const normalised = normalizeTags(tags)
+  if (normalised.length === 0) return null
+
+  return (
+    <span className={className}>
+      {showLabel && <span className="font-medium">Masterlists: </span>}
+      {normalised.join(", ")}
+    </span>
+  )
+}
+
 /** Compare every field *except* tags & fingerprint between two certs */
 const detectFieldChanges = (
   before: PackagedCertificate,
@@ -282,6 +369,20 @@ function CertificateDiffContent() {
     setVisibleTypes((prev) => ({ ...prev, [type]: !prev[type] }))
   }
 
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+
+  const toggleCard = (id: string) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
   // ── Fetch certificate data from root hashes ──────────────────────────────
 
   useEffect(() => {
@@ -329,6 +430,13 @@ function CertificateDiffContent() {
           beforeResponse.json(),
           afterResponse.json(),
         ])
+        // Normalise fingerprints
+        for (const cert of beforeData.certificates) {
+          if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
+        }
+        for (const cert of afterData.certificates) {
+          if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
+        }
 
         const extractRootFromData = (data: PackagedCertificatesFile): string | null => {
           const serialised = data.serialised as unknown as string[] | string[][]
@@ -494,139 +602,200 @@ function CertificateDiffContent() {
     const config = CATEGORY_CONFIG[change.changeType]
     const cert = change.certificate
 
+    // Stable unique ID for expand/collapse state
+    const cardId = cert.fingerprint
+      ? `${change.changeType}-${cert.fingerprint}`
+      : `${change.changeType}-${cert.country}-${cert.signature_algorithm}-${cert.validity?.not_before || ""}`
+    const isExpanded = expandedCards.has(cardId)
+
+    // Concise algorithm + key description for summary line
+    const algoDesc = (() => {
+      const algo = cert.signature_algorithm || ""
+      if (cert.public_key?.type === "EC") {
+        const curve = cert.public_key.curve || ""
+        const displayCurve = BRAINPOOL_ABBR[curve as keyof typeof BRAINPOOL_ABBR] ?? curve
+        return `${algo} - ${displayCurve}`.trim()
+      }
+      if (cert.public_key?.type === "RSA") return `${algo} ${cert.public_key.key_size || ""}`.trim()
+      return algo || "Unknown"
+    })()
+
+    // Validity period for summary
+    const validityStr =
+      cert.validity?.not_before && cert.validity?.not_after
+        ? `${new Date(cert.validity.not_before * 1000).toLocaleDateString("en-GB")} to ${new Date(cert.validity.not_after * 1000).toLocaleDateString("en-GB")}`
+        : ""
+
+    const countryName = countryCodeAlpha3ToName(cert.country)
+
+    // Compute effective old/new tags for the MasterlistTags component:
+    // - "added" certs: all tags are new (green)
+    // - "removed"/"expired" certs: all tags are removed (red strikethrough)
+    // - trust changes: use the change's oldTags/newTags directly
+    const certTags = normalizeTags(cert.tags)
+    const effectiveOldTags =
+      change.oldTags ??
+      (change.changeType === "added"
+        ? []
+        : change.changeType === "removed" || change.changeType === "expired"
+          ? certTags
+          : undefined)
+    const effectiveNewTags =
+      change.newTags ??
+      (change.changeType === "added"
+        ? certTags
+        : change.changeType === "removed" || change.changeType === "expired"
+          ? []
+          : undefined)
+
     return (
-      <div
-        key={cert.fingerprint || Math.random()}
-        className={`p-3 border rounded-lg text-sm ${config.bg} ${config.border}`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <span className={`${config.color} ${config.darkColor} font-bold`}>{config.icon}</span>
-            <span className="font-medium">{config.label}</span>
-          </div>
-          {cert.validity?.not_after && (
-            <div className="text-xs text-muted-foreground">
-              Expiry:{" "}
-              {new Date(cert.validity.not_after * 1000).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Certificate details */}
-        <div className="space-y-2">
-          <div>
-            <span className="text-lg font-bold">{countryCodeAlpha3ToName(cert.country)} </span>{" "}
-            <span className="text-medium">({cert.country})</span>
-          </div>
-          <div className="text-sm">
-            {cert.signature_algorithm} {cert.public_key?.key_size || "Unknown Key Size"}
-          </div>
-          {cert.validity?.not_before && cert.validity?.not_after && (
-            <div className="text-xs text-muted-foreground">
-              Validity Period:{" "}
-              {new Date(cert.validity.not_before * 1000).toLocaleDateString("en-GB")} to{" "}
-              {new Date(cert.validity.not_after * 1000).toLocaleDateString("en-GB")}
-            </div>
-          )}
-          {cert.public_key && (
-            <div className="text-xs text-muted-foreground space-y-1 mt-1">
-              <div className="font-medium">
-                {cert.public_key.type === "RSA" && "RSA Public Key"}
-                {cert.public_key.type === "EC" &&
-                  `EC Public Key (${cert.public_key.curve || "Unknown Curve"})`}
-              </div>
-              {cert.public_key.type === "RSA" && (
-                <>
-                  <div className="font-mono break-all text-[10px]">
-                    <span className="font-semibold">n:</span> {cert.public_key.modulus}
-                  </div>
-                  <div className="font-mono break-all text-[10px]">
-                    <span className="font-semibold">e:</span> {cert.public_key.exponent}
-                  </div>
-                </>
-              )}
-              {cert.public_key.type === "EC" && (
-                <>
-                  <div className="font-mono break-all text-[10px]">
-                    <span className="font-semibold">x:</span> {cert.public_key.public_key_x}
-                  </div>
-                  <div className="font-mono break-all text-[10px]">
-                    <span className="font-semibold">y:</span> {cert.public_key.public_key_y}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-          {cert.fingerprint && (
-            <div className="text-xs text-muted-foreground font-mono break-all">
-              Fingerprint: {cert.fingerprint}
-            </div>
-          )}
-          {cert.authority_key_identifier && (
-            <div className="text-xs text-muted-foreground font-mono break-all">
-              AKI: {cert.authority_key_identifier}
-            </div>
-          )}
-          {cert.subject_key_identifier && (
-            <div className="text-xs text-muted-foreground font-mono break-all">
-              SKI: {cert.subject_key_identifier}
-            </div>
-          )}
-        </div>
-
-        {/* Tags diff for trust-related changes */}
-        {change.oldTags && change.newTags ? (
-          <div className="mt-2">
-            <span className="font-medium">Tags:</span>{" "}
-            {(() => {
-              const removedTags = change.oldTags!.filter((tag) => !change.newTags!.includes(tag))
-              const addedTags = change.newTags!.filter((tag) => !change.oldTags!.includes(tag))
-              const unchangedTags = change.oldTags!.filter((tag) => change.newTags!.includes(tag))
-              const allTags = [
-                ...removedTags.map((tag) => ({ tag, type: "removed" as const })),
-                ...addedTags.map((tag) => ({ tag, type: "added" as const })),
-                ...unchangedTags.map((tag) => ({ tag, type: "unchanged" as const })),
-              ]
-              if (allTags.length === 0) return "None"
-              return allTags.map(({ tag, type }, i) => (
-                <span key={`${tag}-${i}`}>
-                  {type === "removed" && (
-                    <span className="text-red-600 dark:text-red-400 line-through">{tag}</span>
-                  )}
-                  {type === "added" && (
-                    <span className="text-green-600 dark:text-green-500 font-bold">{tag}</span>
-                  )}
-                  {type === "unchanged" && <span>{tag}</span>}
-                  {i < allTags.length - 1 && ", "}
+      <div key={cardId} className={`border rounded-lg text-sm ${config.bg} ${config.border}`}>
+        {/* Header row — always visible, clickable to toggle */}
+        <button
+          onClick={() => toggleCard(cardId)}
+          className="w-full p-3 flex items-center gap-2 text-left cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <span className={`${config.color} ${config.darkColor} font-bold flex-shrink-0`}>
+            {config.icon}
+          </span>
+          <span className={`font-medium flex-shrink-0 ${config.color} ${config.darkColor}`}>
+            {config.label}
+          </span>
+          {/* Summary text — only when collapsed */}
+          {!isExpanded && (
+            <>
+              <span className="flex-1 min-w-0 truncate">
+                <span className="font-semibold">
+                  {countryName} ({cert.country})
                 </span>
-              ))
-            })()}
-          </div>
-        ) : cert.tags && cert.tags.length > 0 ? (
-          <div className="mt-2">
-            <span className="font-medium">Tags:</span> {normalizeTags(cert.tags).join(", ")}
-          </div>
-        ) : null}
+                {algoDesc && (
+                  <span className="text-muted-foreground">
+                    {"  -  "}
+                    {algoDesc}
+                  </span>
+                )}
+                {validityStr && (
+                  <span className="text-muted-foreground">
+                    {"  -  "}
+                    {validityStr}
+                  </span>
+                )}
+              </span>
+              {/* Right-aligned masterlist tags with diff colors */}
+              <MasterlistTags
+                oldTags={effectiveOldTags}
+                newTags={effectiveNewTags}
+                tags={cert.tags}
+                className="flex-shrink-0 text-xs text-muted-foreground"
+              />
+            </>
+          )}
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4 flex-shrink-0 ml-auto text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          )}
+        </button>
 
-        {/* Field changes (for "other" category, or additional changes alongside trust) */}
-        {change.fieldChanges && change.fieldChanges.length > 0 && (
-          <div className="mt-2 space-y-1">
-            <span className="font-medium text-xs">Field changes:</span>
-            {change.fieldChanges.map((fc, i) => (
-              <div key={i} className="text-xs">
-                <span className="font-medium">{fc.field}:</span>{" "}
-                <span className="text-red-600 dark:text-red-400 line-through">{fc.oldValue}</span>
-                {" → "}
-                <span className="text-green-600 dark:text-green-500 font-semibold">
-                  {fc.newValue}
-                </span>
+        {/* Expanded details */}
+        {isExpanded && (
+          <div className="px-3 pb-3">
+            <div className="space-y-2">
+              {/* Certificate core info */}
+              <div>
+                <span className="text-lg font-bold">{countryName} </span>{" "}
+                <span className="text-medium">({cert.country})</span>
               </div>
-            ))}
+              <div className="text-sm">
+                {cert.signature_algorithm} {cert.public_key?.key_size || "Unknown Key Size"}
+              </div>
+              {cert.validity?.not_before && cert.validity?.not_after && (
+                <div className="text-xs text-muted-foreground">
+                  Validity Period:{" "}
+                  {new Date(cert.validity.not_before * 1000).toLocaleDateString("en-GB")} to{" "}
+                  {new Date(cert.validity.not_after * 1000).toLocaleDateString("en-GB")}
+                </div>
+              )}
+
+              {/* Public key details */}
+              {cert.public_key && (
+                <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                  <div className="font-medium">
+                    {cert.public_key.type === "RSA" && "RSA Public Key"}
+                    {cert.public_key.type === "EC" &&
+                      `EC Public Key (${cert.public_key.curve || "Unknown Curve"})`}
+                  </div>
+                  {cert.public_key.type === "RSA" && (
+                    <>
+                      <div className="font-mono break-all text-[10px]">
+                        <span className="font-semibold">n:</span> {cert.public_key.modulus}
+                      </div>
+                      <div className="font-mono break-all text-[10px]">
+                        <span className="font-semibold">e:</span> {cert.public_key.exponent}
+                      </div>
+                    </>
+                  )}
+                  {cert.public_key.type === "EC" && (
+                    <>
+                      <div className="font-mono break-all text-[10px]">
+                        <span className="font-semibold">x:</span> {cert.public_key.public_key_x}
+                      </div>
+                      <div className="font-mono break-all text-[10px]">
+                        <span className="font-semibold">y:</span> {cert.public_key.public_key_y}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Identifiers */}
+              {cert.fingerprint && (
+                <div className="text-xs text-muted-foreground font-mono break-all">
+                  Fingerprint: {cert.fingerprint}
+                </div>
+              )}
+              {cert.authority_key_identifier && (
+                <div className="text-xs text-muted-foreground font-mono break-all">
+                  AKI: {cert.authority_key_identifier}
+                </div>
+              )}
+              {cert.subject_key_identifier && (
+                <div className="text-xs text-muted-foreground font-mono break-all">
+                  SKI: {cert.subject_key_identifier}
+                </div>
+              )}
+
+              {/* Tags diff for trust-related changes */}
+              {(effectiveOldTags && effectiveNewTags) || (cert.tags && cert.tags.length > 0) ? (
+                <div className="mt-2">
+                  <MasterlistTags
+                    oldTags={effectiveOldTags}
+                    newTags={effectiveNewTags}
+                    tags={cert.tags}
+                    showLabel
+                  />
+                </div>
+              ) : null}
+
+              {/* Field changes */}
+              {change.fieldChanges && change.fieldChanges.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <span className="font-medium text-xs">Field changes:</span>
+                  {change.fieldChanges.map((fc, i) => (
+                    <div key={i} className="text-xs">
+                      <span className="font-medium">{fc.field}:</span>{" "}
+                      <span className="text-red-600 dark:text-red-400 line-through">
+                        {fc.oldValue}
+                      </span>
+                      {" → "}
+                      <span className="text-green-600 dark:text-green-500 font-semibold">
+                        {fc.newValue}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
