@@ -2,7 +2,7 @@ import { isECDSA, isRSA, isRSAPKCS, isRSAPSS } from "@/lib/certificate-utils"
 import { CertificateFilterState } from "@/lib/types"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import type { ECPublicKey, PackagedCertificate } from "@zkpassport/utils"
-import { countryCodeAlpha3ToName } from "@zkpassport/utils"
+import { countryCodeAlpha3ToName, countryCodeAlpha3ToAlpha2 } from "@zkpassport/utils"
 import debug from "debug"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
@@ -182,14 +182,17 @@ export const useCertificates = () => {
     if (certificates.length === 0) return
 
     const filtered = certificates.filter((cert) => {
-      // Filter by search term (case insensitive)
+      const term = filterState.searchTerm.toLowerCase()
+      const alpha2 = countryCodeAlpha3ToAlpha2(cert.country)?.toLowerCase() ?? ""
       const searchTermMatch =
-        filterState.searchTerm === "" ||
-        cert.subject_key_identifier?.toLowerCase().includes(filterState.searchTerm.toLowerCase()) ||
-        cert.signature_algorithm.toLowerCase().includes(filterState.searchTerm.toLowerCase()) ||
-        countryCodeAlpha3ToName(cert.country)
-          .toLowerCase()
-          .includes(filterState.searchTerm.toLowerCase())
+        term === "" ||
+        cert.country.toLowerCase().includes(term) ||
+        alpha2.includes(term) ||
+        countryCodeAlpha3ToName(cert.country)?.toLowerCase().includes(term) ||
+        cert.subject_key_identifier?.toLowerCase().includes(term) ||
+        cert.authority_key_identifier?.toLowerCase().includes(term) ||
+        cert.fingerprint?.toLowerCase().includes(term) ||
+        cert.signature_algorithm.toLowerCase().includes(term)
 
       // Filter by country
       const countryMatch =

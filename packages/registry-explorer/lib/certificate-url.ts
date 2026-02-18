@@ -7,7 +7,7 @@
  */
 export const PACKAGED_CERTIFICATES_URL_MAINNET = "https://certificates.zkpassport.id/mainnet"
 export const PACKAGED_CERTIFICATES_URL_SEPOLIA = "https://certificates.zkpassport.id/sepolia"
-export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:3000/certificates"
+export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:8000/root"
 
 /**
  * Default chain ID for certificate URLs (Sepolia testnet)

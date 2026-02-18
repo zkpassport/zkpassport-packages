@@ -364,7 +364,8 @@ export default function CertificateSearch() {
             {filteredCertificates.length > 0 && (
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 Showing {filteredCertificates.length}{" "}
-                {filteredCertificates.length === 1 ? "certificate" : "certificates"}
+                {filteredCertificates.length === 1 ? "certificate" : "certificates"} across{" "}
+                {new Set(filteredCertificates.map((c) => c.country)).size} countries
               </div>
             )}
           </div>
