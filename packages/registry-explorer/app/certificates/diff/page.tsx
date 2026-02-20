@@ -11,10 +11,12 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, useMemo, Suspense } from "react"
 import {
   countryCodeAlpha3ToName,
   PackagedCertificate,
@@ -22,6 +24,7 @@ import {
   strip0x,
 } from "@zkpassport/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
+import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -367,6 +370,41 @@ function CertificateDiffContent() {
 
   const toggleVisibility = (type: ChangeCategory) => {
     setVisibleTypes((prev) => ({ ...prev, [type]: !prev[type] }))
+  }
+
+  const { roots: historicalRoots } = useHistoricalCertificateRoots()
+
+  // Chronological order (oldest first) — the hook returns newest-first
+  const chronoRoots = useMemo(() => [...historicalRoots].reverse(), [historicalRoots])
+
+  const beforeIdx = chronoRoots.findIndex(
+    (r) => normaliseHash(r.root) === normaliseHash(beforeRoot || ""),
+  )
+  const afterIdx = chronoRoots.findIndex(
+    (r) => normaliseHash(r.root) === normaliseHash(afterRoot || ""),
+  )
+
+  const canGoPrevious = beforeIdx > 0
+  const canGoNext = afterIdx >= 0 && afterIdx < chronoRoots.length - 1
+
+  const navigateToPreviousDiff = () => {
+    if (canGoPrevious) {
+      const newBefore = chronoRoots[beforeIdx - 1].root
+      const newAfter = chronoRoots[beforeIdx].root
+      router.push(
+        `/certificates/diff?before=${encodeURIComponent(newBefore)}&after=${encodeURIComponent(newAfter)}`,
+      )
+    }
+  }
+
+  const navigateToNextDiff = () => {
+    if (canGoNext) {
+      const newBefore = chronoRoots[afterIdx].root
+      const newAfter = chronoRoots[afterIdx + 1].root
+      router.push(
+        `/certificates/diff?before=${encodeURIComponent(newBefore)}&after=${encodeURIComponent(newAfter)}`,
+      )
+    }
   }
 
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
@@ -926,13 +964,37 @@ function CertificateDiffContent() {
 
   return (
     <div className="container mx-auto py-6 px-4 sm:py-10">
-      <div className="flex items-center gap-4 mb-5">
+      <div className="flex items-center justify-between mb-5">
         <Button variant="outline" size="sm" asChild>
           <Link href="/certificates/history">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to History
           </Link>
         </Button>
+        {chronoRoots.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={navigateToPreviousDiff}
+              disabled={!canGoPrevious}
+              title="Previous diff (older)"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={navigateToNextDiff}
+              disabled={!canGoNext}
+              title="Next diff (newer)"
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {diffState.error && (

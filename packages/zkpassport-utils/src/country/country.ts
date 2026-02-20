@@ -260,7 +260,7 @@ const ccAlpha3ToName = {
   "VEN": "Venezuela",
   "VGB": "British Virgin Islands",
   "VIR": "Virgin Islands",
-  "VNM": "Viet Nam",
+  "VNM": "Vietnam",
   "VUT": "Vanuatu",
   "WLF": "Wallis and Futuna",
   "WSM": "Samoa",

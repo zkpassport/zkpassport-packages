@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 
 export default function CertificateSearch() {
   const router = useRouter()
@@ -46,11 +47,30 @@ export default function CertificateSearch() {
   // Handle root change
   const handleRootChange = (value: string) => {
     if (value === "latest") {
-      // Navigate to the certificates page without a root parameter
       router.push("/certificates")
     } else {
-      // Navigate to the certificates page with the selected root
       router.push(`/certificates?root=${value}`)
+    }
+  }
+
+  const currentRootIndex = availableRoots.findIndex((r) => r.root === currentRoot)
+  const isGenesisRoot = currentRootIndex === 0
+
+  const navigateToPreviousRoot = () => {
+    if (currentRootIndex > 0) {
+      const prevRoot = availableRoots[currentRootIndex - 1].root
+      router.push(`/certificates?root=${prevRoot}`)
+    }
+  }
+
+  const navigateToNextRoot = () => {
+    if (currentRootIndex >= 0 && currentRootIndex < availableRoots.length - 1) {
+      const nextIndex = currentRootIndex + 1
+      if (nextIndex === availableRoots.length - 1) {
+        router.push("/certificates")
+      } else {
+        router.push(`/certificates?root=${availableRoots[nextIndex].root}`)
+      }
     }
   }
 
@@ -131,31 +151,79 @@ export default function CertificateSearch() {
                 >
                   Select Root:
                 </label>
-                <div className="w-full sm:w-64">
-                  <Select
-                    value={isLatestRoot ? "latest" : currentRoot}
-                    onValueChange={handleRootChange}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigateToPreviousRoot}
+                    disabled={isGenesisRoot || currentRootIndex < 0}
+                    title="Previous root (older)"
                   >
-                    <SelectTrigger className="w-full bg-white dark:bg-gray-700">
-                      <SelectValue placeholder="Select a root" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="latest" className="cursor-pointer">
-                        Latest Root
-                      </SelectItem>
-                      {[...availableRoots].reverse().map((rootDetails) => (
-                        <SelectItem
-                          key={rootDetails.root}
-                          value={rootDetails.root}
-                          disabled={rootDetails.root === currentRoot}
-                          className="cursor-pointer"
-                        >
-                          {rootDetails.root.substring(0, 10)}... (
-                          {rootDetails.validFrom.toLocaleDateString()})
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
+                    Previous
+                  </Button>
+                  <div className="w-full sm:w-64">
+                    <Select
+                      value={isLatestRoot ? "latest" : currentRoot}
+                      onValueChange={handleRootChange}
+                    >
+                      <SelectTrigger className="w-full bg-white dark:bg-gray-700">
+                        <SelectValue placeholder="Select a root" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="latest" className="cursor-pointer">
+                          Latest Root
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        {[...availableRoots].reverse().map((rootDetails) => (
+                          <SelectItem
+                            key={rootDetails.root}
+                            value={rootDetails.root}
+                            disabled={rootDetails.root === currentRoot}
+                            className="cursor-pointer"
+                          >
+                            {rootDetails.root.substring(0, 10)}... (
+                            {rootDetails.validFrom.toLocaleDateString()})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={navigateToNextRoot}
+                    disabled={isLatestRoot || currentRootIndex < 0}
+                    title="Next root (newer)"
+                  >
+                    Next
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 ml-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Button>
                 </div>
               </div>
             )}

@@ -136,7 +136,7 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
         <div
           className="pointer-events-none absolute inset-0 transition-opacity group-hover:opacity-150"
           style={{
-            background: `linear-gradient(to right, ${tint}18, transparent 60%)`,
+            background: `linear-gradient(to left, ${tint}18, transparent 60%)`,
           }}
         />
       )}
@@ -149,9 +149,9 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
           <span
             className="pointer-events-none absolute top-1/2 -translate-y-1/2 select-none text-[128px] leading-none opacity-[0.2] transition-opacity group-hover:opacity-[0.6]"
             style={{
-              left: SQUARE_FLAGS.has(cert.country) ? "-1.8rem" : "-0.5rem",
-              maskImage: "linear-gradient(to right, black 30%, transparent)",
-              WebkitMaskImage: "linear-gradient(to right, black 30%, transparent)",
+              right: SQUARE_FLAGS.has(cert.country) ? "-1.8rem" : "-0.5rem",
+              maskImage: "linear-gradient(to left, black 0%, transparent 50%)",
+              WebkitMaskImage: "linear-gradient(to left, black 0%, transparent 50%)",
             }}
             aria-hidden="true"
           >
