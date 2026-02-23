@@ -539,6 +539,7 @@ function CertificateDiffContent() {
   const calculateCertificateDiff = (
     beforeCerts: PackagedCertificate[],
     afterCerts: PackagedCertificate[],
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     afterTimestamp?: number,
   ): CertificateDiff => {
     const beforeMap = new Map<string, PackagedCertificate>()
@@ -573,16 +574,15 @@ function CertificateDiffContent() {
     beforeMap.forEach((beforeCert, fp) => {
       if (!afterMap.has(fp)) {
         // Fingerprint gone → expired or removed
-        const isExpired =
-          afterTimestamp != null &&
-          beforeCert.validity?.not_after != null &&
-          beforeCert.validity.not_after <= afterTimestamp
-
-        if (isExpired) {
-          diff.expired.push({ certificate: beforeCert, changeType: "expired" })
-        } else {
-          diff.removed.push({ certificate: beforeCert, changeType: "removed" })
-        }
+        // const isExpired =
+        //   afterTimestamp != null &&
+        //   beforeCert.validity?.not_after != null &&
+        //   beforeCert.validity.not_after <= afterTimestamp
+        // if (isExpired) {
+        // diff.expired.push({ certificate: beforeCert, changeType: "expired" })
+        // } else {
+        diff.removed.push({ certificate: beforeCert, changeType: "removed" })
+        // }
       } else {
         // Present in both → check what changed
         const afterCert = afterMap.get(fp)!
@@ -665,6 +665,8 @@ function CertificateDiffContent() {
         : ""
 
     const countryName = countryCodeAlpha3ToName(cert.country)
+    const isExpiredNow =
+      cert.validity?.not_after != null && cert.validity.not_after * 1000 < Date.now()
 
     // Compute effective old/new tags for the MasterlistTags component:
     // - "added" certs: all tags are new (green)
@@ -718,6 +720,11 @@ function CertificateDiffContent() {
                     {validityStr}
                   </span>
                 )}
+                {isExpiredNow && (
+                  <span className="ml-2 inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
+                    Expired
+                  </span>
+                )}
               </span>
               {/* Right-aligned masterlist tags with diff colors */}
               <MasterlistTags
@@ -748,10 +755,17 @@ function CertificateDiffContent() {
                 {cert.signature_algorithm} {cert.public_key?.key_size || "Unknown Key Size"}
               </div>
               {cert.validity?.not_before && cert.validity?.not_after && (
-                <div className="text-xs text-muted-foreground">
-                  Validity Period:{" "}
-                  {new Date(cert.validity.not_before * 1000).toLocaleDateString("en-GB")} to{" "}
-                  {new Date(cert.validity.not_after * 1000).toLocaleDateString("en-GB")}
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span>
+                    Validity Period:{" "}
+                    {new Date(cert.validity.not_before * 1000).toLocaleDateString("en-GB")} to{" "}
+                    {new Date(cert.validity.not_after * 1000).toLocaleDateString("en-GB")}
+                  </span>
+                  {isExpiredNow && (
+                    <span className="inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
+                      Expired
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -981,7 +995,7 @@ function CertificateDiffContent() {
               title="Previous diff (older)"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
+              Older
             </Button>
             <Button
               variant="outline"
@@ -990,7 +1004,7 @@ function CertificateDiffContent() {
               disabled={!canGoNext}
               title="Next diff (newer)"
             >
-              Next
+              Newer
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>

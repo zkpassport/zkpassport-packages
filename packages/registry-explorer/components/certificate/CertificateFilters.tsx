@@ -48,7 +48,7 @@ export function CertificateFilters({
           </div>
           <Input
             type="text"
-            placeholder="Search by public key, SKI, AKI, or country..."
+            placeholder="Search by country, SKI, or public key..."
             value={filterState.searchTerm}
             onChange={(e) => onFilterChange("searchTerm", e.target.value)}
             className="pl-10 w-full focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700"

@@ -271,7 +271,6 @@ const ccAlpha3ToName = {
   "ZMB": "Zambia",
   "ZWE": "Zimbabwe",
   "ZKR": "Zero Knowledge Republic",
-  "ZZZ": "ZZZ",
 }
 
 const ccAlpha2ToAlpha3 = {
@@ -530,7 +529,6 @@ const ccAlpha2ToAlpha3 = {
   XK: "XKK",
   XO: "XOM",
   ZK: "ZKR",
-  ZZ: "ZZZ",
 }
 
 const ccAlpha3ToAlpha2 = {
@@ -789,5 +787,4 @@ const ccAlpha3ToAlpha2 = {
   XKK: "XK",
   XOM: "XO",
   ZKR: "ZK",
-  ZZZ: "ZZ",
 }
