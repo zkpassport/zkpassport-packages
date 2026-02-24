@@ -72,11 +72,11 @@ describe("Registry", () => {
     const mockFetch = async (input: string | URL | Request, init?: RequestInit) => {
       const url: string = typeof input === "string" ? input : input.toString()
       // Return valid packaged certificates
-      if (url.endsWith(`/certificates/${CERTIFICATE_FIXTURES_ROOT}.json`)) {
+      if (url.endsWith(`/root/${CERTIFICATE_FIXTURES_ROOT}.json`)) {
         return new Response(JSON.stringify(fixturePackagedCerts), { status: 200 })
       }
       // Return invalid packaged certificates
-      else if (url.endsWith(`/certificates/${INVALID_HASH}.json`)) {
+      else if (url.endsWith(`/root/${INVALID_HASH}.json`)) {
         return new Response(
           JSON.stringify({
             certificates: fixturePackagedCerts.certificates.slice(1),
@@ -159,7 +159,7 @@ describe("Registry", () => {
       const latestRoot = await registry.getLatestCertificateRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
       const packagedCerts = await registry.getCertificates(latestRoot)
-      const valid = await registry.validateCertificates(packagedCerts, latestRoot)
+      const valid = await RegistryClient.validateCertificates(packagedCerts, latestRoot)
       expect(valid).toBe(true)
     })
 
@@ -167,7 +167,7 @@ describe("Registry", () => {
       const latestRoot = await registry.getLatestCertificateRoot()
       expect(latestRoot).toBe(CERTIFICATE_FIXTURES_ROOT)
       const packagedCerts = await registry.getCertificates(latestRoot)
-      const valid = await registry.validateCertificates(packagedCerts, INVALID_HASH)
+      const valid = await RegistryClient.validateCertificates(packagedCerts, INVALID_HASH)
       expect(valid).toBe(false)
     })
 

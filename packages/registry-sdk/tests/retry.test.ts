@@ -14,6 +14,8 @@ describe("Retry Logic", () => {
   const mockPackagedCerts: PackagedCertificatesFile = {
     version: 1,
     timestamp: 1768823285,
+    root: MOCK_ROOT,
+    masterlists: [],
     certificates: [
       {
         country: "USA",
@@ -31,7 +33,6 @@ describe("Retry Logic", () => {
           key_size: 4096,
         },
         signature_algorithm: "RSA",
-        hash_algorithm: "SHA-256",
       },
     ],
     serialised: [],
@@ -71,7 +72,7 @@ describe("Retry Logic", () => {
         }
 
         // Succeed on 3rd attempt
-        if (url.includes("/certificates/")) {
+        if (url.includes("/root/")) {
           return new Response(JSON.stringify(mockPackagedCerts), { status: 200 })
         }
         if (url.includes(MOCK_RPC_URL)) {
@@ -137,7 +138,7 @@ describe("Retry Logic", () => {
           throw new TypeError("Network error")
         }
 
-        if (url.includes("/certificates/")) {
+        if (url.includes("/root/")) {
           return new Response(JSON.stringify(mockPackagedCerts), { status: 200 })
         }
         return new Response("OK", { status: 200 })
