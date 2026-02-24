@@ -27,7 +27,9 @@ sleep 1
 
 # Run the deployment and seeding scripts
 ./script/test/deploy.sh
-./script/test/seed-registries.sh
+if [[ " $* " != *" --no-seed "* ]]; then
+  ./script/test/seed-registries.sh
+fi
 
 echo "Test environment ready!"
 echo "Anvil is running on http://localhost:8545 (Chain ID: 31337)"
