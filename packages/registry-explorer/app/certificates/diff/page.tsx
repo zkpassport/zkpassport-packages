@@ -21,8 +21,9 @@ import {
   countryCodeAlpha3ToName,
   PackagedCertificate,
   PackagedCertificatesFile,
-  strip0x,
+  BRAINPOOL_CURVES_ABBR as BRAINPOOL_ABBR,
 } from "@zkpassport/utils"
+import { normalizeHash } from "@/lib/utils"
 import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
 import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
 
@@ -167,20 +168,6 @@ const CATEGORY_CONFIG: Record<
 /** Normalise legacy "ICAO" tag to "UN" */
 const normalizeTags = (tags?: string[]): string[] =>
   (tags || []).map((tag: string) => (tag === "ICAO" ? "UN" : tag))
-
-import { BRAINPOOL_CURVES_ABBR as BRAINPOOL_ABBR } from "@zkpassport/utils"
-
-/**
- * Normalise a hash to a 64 character lowercase hex string
- * @param hash - The hash to normalise
- * @returns The normalised hash
- */
-export function normaliseHash(hash: string | bigint): string {
-  if (typeof hash === "bigint") {
-    return `0x${hash.toString(16).toLowerCase().padStart(64, "0")}`
-  }
-  return `0x${strip0x(hash).toLowerCase().padStart(64, "0")}`
-}
 
 // ─── Reusable masterlist tags component ──────────────────────────────────────
 
@@ -378,10 +365,10 @@ function CertificateDiffContent() {
   const chronoRoots = useMemo(() => [...historicalRoots].reverse(), [historicalRoots])
 
   const beforeIdx = chronoRoots.findIndex(
-    (r) => normaliseHash(r.root) === normaliseHash(beforeRoot || ""),
+    (r) => normalizeHash(r.root) === normalizeHash(beforeRoot || ""),
   )
   const afterIdx = chronoRoots.findIndex(
-    (r) => normaliseHash(r.root) === normaliseHash(afterRoot || ""),
+    (r) => normalizeHash(r.root) === normalizeHash(afterRoot || ""),
   )
 
   const canGoPrevious = beforeIdx > 0
@@ -470,10 +457,10 @@ function CertificateDiffContent() {
         ])
         // Normalise fingerprints
         for (const cert of beforeData.certificates) {
-          if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
+          if (cert.fingerprint) cert.fingerprint = normalizeHash(cert.fingerprint)
         }
         for (const cert of afterData.certificates) {
-          if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
+          if (cert.fingerprint) cert.fingerprint = normalizeHash(cert.fingerprint)
         }
 
         const extractRootFromData = (data: PackagedCertificatesFile): string | null => {

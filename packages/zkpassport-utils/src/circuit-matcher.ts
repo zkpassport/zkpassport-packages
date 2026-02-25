@@ -115,26 +115,25 @@ export function isSignatureAlgorithmSupported(
   return false
 }
 
-// /**
-//  * Check if a CSCA is supported by our circuits, based on the signature algorithm and hash algorithm
-//  * @param csca The CSCA packaged certificate to check
-//  * @returns True if the CSCA is supported, false otherwise
-//  */
-// export function isCscaSupported(csca: PackagedCertificate): boolean {
-//   if (csca.signature_algorithm == "RSA") {
-//     return (
-//       (csca.public_key.key_size === 1024 ||
-//         csca.public_key.key_size === 2048 ||
-//         csca.public_key.key_size === 3072 ||
-//         csca.public_key.key_size === 4096) &&
-//       (csca.public_key as RSAPublicKey).exponent < 131072 &&
-//       SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
-//     )
-//   } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
-//     return SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
-//   }
-//   return false
-// }
+/**
+ * Check if a CSCA is supported by our circuits, based on the signature algorithm and hash algorithm
+ * @param csca The CSCA packaged certificate to check
+ * @returns True if the CSCA is supported, false otherwise
+ */
+export function isCscaSupported(csca: PackagedCertificate): boolean {
+  if (csca.signature_algorithm == "RSA") {
+    return (
+      (csca.public_key.key_size === 1024 ||
+        csca.public_key.key_size === 2048 ||
+        csca.public_key.key_size === 3072 ||
+        csca.public_key.key_size === 4096) &&
+      csca.public_key.exponent < 131072
+    )
+  } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
+    return true
+  }
+  return false
+}
 
 export function isDSCSupported(dsc: DSC): boolean {
   const hashAlgorithm = getDSCSignatureHashAlgorithm(dsc)
