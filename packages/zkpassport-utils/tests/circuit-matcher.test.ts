@@ -47,7 +47,6 @@ import {
   SanctionsBuilder,
   SECONDS_BETWEEN_1900_AND_1970,
   HASH_ALGORITHM_SHA256,
-  SOD,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -224,7 +223,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.john,
       1n,
-      rootCerts as PackagedCertificatesFile,
+      rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
@@ -738,7 +737,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.mary,
       1n,
-      rootCerts as PackagedCertificatesFile,
+      rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
