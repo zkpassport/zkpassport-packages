@@ -628,6 +628,8 @@ function CertificateDiffContent() {
         : ""
 
     const countryName = countryCodeAlpha3ToName(cert.country)
+    const showExpiredBadge =
+      cert.validity?.not_after != null && Date.now() > cert.validity.not_after * 1000
     // Compute effective old/new tags for the MasterlistTags component:
     // - "added" certs: all tags are new (green)
     // - "removed" certs: all tags are removed (red strikethrough)
@@ -672,6 +674,11 @@ function CertificateDiffContent() {
                     {validityStr}
                   </span>
                 )}
+                {showExpiredBadge && (
+                  <span className="relative -top-[2px] ml-2 inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100/75 text-red-700/75 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
+                    Expired
+                  </span>
+                )}
               </span>
               {/* Right-aligned masterlist tags with diff colors */}
               <MasterlistTags
@@ -708,6 +715,11 @@ function CertificateDiffContent() {
                     {new Date(cert.validity.not_before * 1000).toLocaleDateString("en-GB")} to{" "}
                     {new Date(cert.validity.not_after * 1000).toLocaleDateString("en-GB")}
                   </span>
+                  {showExpiredBadge && (
+                    <span className="relative -top-[2px] inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100/75 text-red-700/75 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
+                      Expired
+                    </span>
+                  )}
                 </div>
               )}
 
