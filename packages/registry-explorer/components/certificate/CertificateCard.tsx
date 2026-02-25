@@ -186,7 +186,7 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
           )}
 
           {isExpired && (
-            <span className="ml-2 inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
+            <span className="ml-2 inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100/75 text-red-700/75 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
               Expired
             </span>
           )}
@@ -194,16 +194,22 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
           <span className="flex-1" />
 
           {tags.length > 0 && (
-            <span className="hidden sm:flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
-              <Globe size={12} className="text-gray-500 dark:text-gray-500 mr-[2px]" />
-              {tags.join(" ")}
+            <span className="relative z-10 hidden sm:flex flex-shrink-0 items-center gap-[3px]">
+              {tags.map((tag, index) => (
+                <span
+                  key={`${tag}-${index}`}
+                  className="inline-flex items-center rounded-[4px] border border-gray-300 dark:border-gray-500 bg-gray-100/75 dark:bg-gray-700/75 px-1 py-[1px] text-[10px] leading-none font-medium text-gray-700 dark:text-gray-100"
+                >
+                  {tag}
+                </span>
+              ))}
             </span>
           )}
 
           {isExpanded ? (
-            <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <ChevronUp className="-ml-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <ChevronDown className="-ml-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
           )}
         </button>
 
