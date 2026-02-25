@@ -62,8 +62,8 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
 
   return (
     <div className="space-y-1.5">
-      {certificates.map((cert, index) => (
-        <CertificateCard key={cert.fingerprint || index} cert={cert} />
+      {certificates.map((cert) => (
+        <CertificateCard key={cert.fingerprint} cert={cert} />
       ))}
     </div>
   )

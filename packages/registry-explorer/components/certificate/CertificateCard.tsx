@@ -113,7 +113,7 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
   const flag = countryFlag(cert.country)
   const tint = flagColor(cert.country)
   const cardBorderBackground = tint
-    ? `linear-gradient(to right, #b2b2b2 0%, ${tint} 65%, ${tint} 100%)`
+    ? `linear-gradient(to right, rgba(0, 0, 0, 0.20) 0%, rgba(0, 0, 0, 0.20) 65%, ${tint} 85%, ${tint} 100%)`
     : "#e5e7eb"
 
   const algoDesc = (() => {
@@ -154,11 +154,11 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
         >
           {flag && (
             <span
-              className="pointer-events-none absolute top-1/2 -translate-y-1/2 select-none text-[128px] leading-none opacity-[0.2] transition-opacity group-hover:opacity-[0.6]"
+              className="pointer-events-none absolute top-1/2 -translate-y-1/2 select-none text-[128px] leading-none opacity-[0.3] transition-opacity group-hover:opacity-[0.6]"
               style={{
                 right: SQUARE_FLAGS.has(cert.country) ? "-1.8rem" : "-0.5rem",
-                maskImage: "linear-gradient(to left, black 0%, black 72%, transparent 84%)",
-                WebkitMaskImage: "linear-gradient(to left, black 0%, black 72%, transparent 84%)",
+                maskImage: "linear-gradient(to left, black 0%, transparent 90%)",
+                WebkitMaskImage: "linear-gradient(to left, black 0%, transparent 90%)",
               }}
               aria-hidden="true"
             >
