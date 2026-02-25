@@ -112,6 +112,9 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
   const tags = normalizeTags(cert.tags)
   const flag = countryFlag(cert.country)
   const tint = flagColor(cert.country)
+  const cardBorderBackground = tint
+    ? `linear-gradient(to right, #b2b2b2 0%, ${tint} 65%, ${tint} 100%)`
+    : "#e5e7eb"
 
   const algoDesc = (() => {
     if (isECDSA(cert)) {
@@ -131,206 +134,209 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
   const isExpired = cert.validity?.not_after ? cert.validity.not_after * 1000 < Date.now() : false
 
   return (
-    <div className="group relative bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-shadow hover:shadow-md">
-      {tint && (
-        <div
-          className="pointer-events-none absolute inset-0 transition-opacity group-hover:opacity-150"
-          style={{
-            background: `linear-gradient(to left, ${tint}18, transparent 60%)`,
-          }}
-        />
-      )}
-      {/* Collapsed header row */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="relative w-full p-3 sm:p-4 flex items-center gap-2 sm:gap-3 text-left cursor-pointer transition-colors"
-      >
-        {flag && (
-          <span
-            className="pointer-events-none absolute top-1/2 -translate-y-1/2 select-none text-[128px] leading-none opacity-[0.2] transition-opacity group-hover:opacity-[0.6]"
+    <div
+      className="group relative rounded-lg overflow-hidden transition-shadow hover:shadow-md p-px"
+      style={{ background: cardBorderBackground }}
+    >
+      <div className="relative bg-white dark:bg-gray-800 rounded-[calc(0.5rem-1px)] overflow-hidden">
+        {tint && (
+          <div
+            className="pointer-events-none absolute inset-0 transition-opacity group-hover:opacity-150"
             style={{
-              right: SQUARE_FLAGS.has(cert.country) ? "-1.8rem" : "-0.5rem",
-              maskImage: "linear-gradient(to left, black 0%, transparent 50%)",
-              WebkitMaskImage: "linear-gradient(to left, black 0%, transparent 50%)",
+              background: `linear-gradient(to left, ${tint}18, transparent 60%)`,
             }}
-            aria-hidden="true"
-          >
-            {flag}
-          </span>
+          />
         )}
-        <FileCheck size={14} className="flex-shrink-0 text-muted-foreground" />
-
-        <span
-          className="font-semibold text-sm text-gray-900 dark:text-white flex-shrink-0"
-          style={{ textShadow: "1px 1px 4px white, 1px 1px 1px white" }}
+        {/* Collapsed header row */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="relative w-full p-3 sm:p-4 flex items-center gap-2 sm:gap-3 text-left cursor-pointer transition-colors"
         >
-          {countryName} <span className="font-normal text-muted-foreground">({cert.country})</span>
-        </span>
+          {flag && (
+            <span
+              className="pointer-events-none absolute top-1/2 -translate-y-1/2 select-none text-[128px] leading-none opacity-[0.2] transition-opacity group-hover:opacity-[0.6]"
+              style={{
+                right: SQUARE_FLAGS.has(cert.country) ? "-1.8rem" : "-0.5rem",
+                maskImage: "linear-gradient(to left, black 0%, black 72%, transparent 84%)",
+                WebkitMaskImage: "linear-gradient(to left, black 0%, black 72%, transparent 84%)",
+              }}
+              aria-hidden="true"
+            >
+              {flag}
+            </span>
+          )}
+          <FileCheck size={14} className="flex-shrink-0 text-muted-foreground" />
 
-        <Badge variant="outline" className="flex-shrink-0 text-[10px] px-1.5 py-0 cursor-pointer">
-          {algoDesc}
-        </Badge>
-
-        {validityStr && (
-          <span className="hidden lg:inline text-xs text-muted-foreground truncate">
-            {validityStr}
-          </span>
-        )}
-
-        {isExpired && (
-          <Badge
-            variant="destructive"
-            className="flex-shrink-0 text-[10px] px-1.5 py-0 cursor-pointer"
+          <span
+            className="font-semibold text-sm text-gray-900 dark:text-white flex-shrink-0"
+            style={{ textShadow: "1px 1px 4px white, 1px 1px 1px white" }}
           >
-            Expired
-          </Badge>
-        )}
-
-        <span className="flex-1" />
-
-        {tags.length > 0 && (
-          <span className="hidden sm:flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
-            <Globe size={12} className="text-gray-500 dark:text-gray-500 mr-[2px]" />
-            {tags.join(" ")}
+            {countryName}{" "}
+            <span className="font-normal text-muted-foreground">({cert.country})</span>
           </span>
-        )}
 
-        {isExpanded ? (
-          <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-        )}
-      </button>
+          <Badge variant="outline" className="flex-shrink-0 text-[10px] px-1.5 py-0 cursor-pointer">
+            {algoDesc}
+          </Badge>
 
-      {/* Expanded details */}
-      {isExpanded && (
-        <div className="px-4 sm:px-5 py-4">
-          {/* Top section: overview */}
-          <div className="flex gap-6">
-            <div className="flex items-center gap-2">
-              <Shield size={24} className="text-gray-400 dark:text-gray-600 flex-shrink-0" />
-              <div>
-                <div className="text-xs font-medium text-muted-foreground">Algorithm</div>
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {cert.signature_algorithm}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Key size={24} className="text-gray-400 dark:text-gray-600 flex-shrink-0" />
-              <div>
-                <div className="text-xs font-medium text-muted-foreground">Key</div>
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {cert.public_key.type} {cert.public_key.key_size}
-                  {isECDSA(cert) && cert.public_key.curve && (
-                    <span className="text-muted-foreground"> ({cert.public_key.curve})</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Clock size={24} className="text-gray-400 dark:text-gray-600 flex-shrink-0" />
-              <div>
-                <div className="text-xs font-medium text-muted-foreground">Validity</div>
-                <div className="text-sm text-gray-900 dark:text-gray-100">
-                  {formatTimestamp(cert.validity.not_before)}
-                  <span className="text-muted-foreground mx-1">to</span>
-                  {formatTimestamp(cert.validity.not_after)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Public key details */}
-          {isRSA(cert) && (
-            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-5">
-              <span className="font-medium flex-shrink-0">Public Key</span>
-              <span className="flex items-center gap-1.5">
-                <span className="font-medium">n:</span>
-                <code className="font-mono text-[11px]">
-                  {truncateHex(cert.public_key.modulus)}
-                </code>
-                <CopyButton text={cert.public_key.modulus} label="Copy modulus" />
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="font-medium">e:</span>
-                <code className="font-mono text-[11px]">{cert.public_key.exponent}</code>
-              </span>
-            </div>
+          {validityStr && (
+            <span className="hidden lg:inline text-xs text-muted-foreground truncate">
+              {validityStr}
+            </span>
           )}
 
-          {isECDSA(cert) && (
-            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-5">
-              <span className="font-medium flex-shrink-0">Public Key</span>
-              {cert.public_key.public_key_x && (
-                <span className="flex items-center gap-1.5">
-                  <span className="font-medium">x:</span>
-                  <code className="font-mono text-[11px]">
-                    {truncateHex(cert.public_key.public_key_x)}
-                  </code>
-                  <CopyButton text={cert.public_key.public_key_x} label="Copy X coordinate" />
-                </span>
-              )}
-              {cert.public_key.public_key_y && (
-                <span className="flex items-center gap-1.5">
-                  <span className="font-medium">y:</span>
-                  <code className="font-mono text-[11px]">
-                    {truncateHex(cert.public_key.public_key_y)}
-                  </code>
-                  <CopyButton text={cert.public_key.public_key_y} label="Copy Y coordinate" />
-                </span>
-              )}
-            </div>
+          {isExpired && (
+            <span className="ml-2 inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
+              Expired
+            </span>
           )}
 
-          {/* Identifiers */}
-          {(cert.subject_key_identifier || cert.authority_key_identifier || cert.fingerprint) && (
-            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground mt-1.5">
-              {cert.fingerprint && (
-                <span className="flex items-center gap-1.5">
-                  <span className="font-medium">Fingerprint:</span>
-                  <code className="font-mono text-[11px]">{truncateHex(cert.fingerprint)}</code>
-                  <CopyButton text={cert.fingerprint} label="Copy fingerprint" />
-                </span>
-              )}
-              {cert.subject_key_identifier && (
-                <span className="flex items-center gap-1.5">
-                  <span className="font-medium">SKI:</span>
-                  <code className="font-mono text-[11px]">
-                    {truncateHex(cert.subject_key_identifier)}
-                  </code>
-                  <CopyButton
-                    text={cert.subject_key_identifier}
-                    label="Copy subject key identifier"
-                  />
-                </span>
-              )}
-              {cert.authority_key_identifier && (
-                <span className="flex items-center gap-1.5">
-                  <span className="font-medium">AKI:</span>
-                  <code className="font-mono text-[11px]">
-                    {truncateHex(cert.authority_key_identifier)}
-                  </code>
-                  <CopyButton
-                    text={cert.authority_key_identifier}
-                    label="Copy authority key identifier"
-                  />
-                </span>
-              )}
-            </div>
-          )}
+          <span className="flex-1" />
 
           {tags.length > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-4">
-              <Globe size={12} className="flex-shrink-0" />
-              <span className="font-medium">Masterlists:</span>
-              <span>{tags.join(", ")}</span>
-            </div>
+            <span className="hidden sm:flex flex-shrink-0 items-center gap-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+              <Globe size={12} className="text-gray-500 dark:text-gray-500 mr-[2px]" />
+              {tags.join(" ")}
+            </span>
           )}
-        </div>
-      )}
+
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          )}
+        </button>
+
+        {/* Expanded details */}
+        {isExpanded && (
+          <div className="px-4 sm:px-5 py-4">
+            {/* Top section: overview */}
+            <div className="flex gap-6">
+              <div className="flex items-center gap-2">
+                <Shield size={24} className="text-gray-400 dark:text-gray-600 flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground">Algorithm</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {cert.signature_algorithm}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Key size={24} className="text-gray-400 dark:text-gray-600 flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground">Key</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {cert.public_key.type} {cert.public_key.key_size}
+                    {isECDSA(cert) && cert.public_key.curve && (
+                      <span className="text-muted-foreground"> ({cert.public_key.curve})</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Clock size={24} className="text-gray-400 dark:text-gray-600 flex-shrink-0" />
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground">Validity</div>
+                  <div className="text-sm text-gray-900 dark:text-gray-100">
+                    {formatTimestamp(cert.validity.not_before)}
+                    <span className="text-muted-foreground mx-1">to</span>
+                    {formatTimestamp(cert.validity.not_after)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Public key details */}
+            {isRSA(cert) && (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-5">
+                <span className="font-medium flex-shrink-0">Public Key</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="font-medium">n:</span>
+                  <code className="font-mono text-[11px]">
+                    {truncateHex(cert.public_key.modulus)}
+                  </code>
+                  <CopyButton text={cert.public_key.modulus} label="Copy modulus" />
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="font-medium">e:</span>
+                  <code className="font-mono text-[11px]">{cert.public_key.exponent}</code>
+                </span>
+              </div>
+            )}
+
+            {isECDSA(cert) && (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-5">
+                <span className="font-medium flex-shrink-0">Public Key</span>
+                {cert.public_key.public_key_x && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium">x:</span>
+                    <code className="font-mono text-[11px]">
+                      {truncateHex(cert.public_key.public_key_x)}
+                    </code>
+                    <CopyButton text={cert.public_key.public_key_x} label="Copy X coordinate" />
+                  </span>
+                )}
+                {cert.public_key.public_key_y && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium">y:</span>
+                    <code className="font-mono text-[11px]">
+                      {truncateHex(cert.public_key.public_key_y)}
+                    </code>
+                    <CopyButton text={cert.public_key.public_key_y} label="Copy Y coordinate" />
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Identifiers */}
+            {(cert.subject_key_identifier || cert.authority_key_identifier || cert.fingerprint) && (
+              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground mt-1.5">
+                {cert.fingerprint && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium">Fingerprint:</span>
+                    <code className="font-mono text-[11px]">{truncateHex(cert.fingerprint)}</code>
+                    <CopyButton text={cert.fingerprint} label="Copy fingerprint" />
+                  </span>
+                )}
+                {cert.subject_key_identifier && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium">SKI:</span>
+                    <code className="font-mono text-[11px]">
+                      {truncateHex(cert.subject_key_identifier)}
+                    </code>
+                    <CopyButton
+                      text={cert.subject_key_identifier}
+                      label="Copy subject key identifier"
+                    />
+                  </span>
+                )}
+                {cert.authority_key_identifier && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-medium">AKI:</span>
+                    <code className="font-mono text-[11px]">
+                      {truncateHex(cert.authority_key_identifier)}
+                    </code>
+                    <CopyButton
+                      text={cert.authority_key_identifier}
+                      label="Copy authority key identifier"
+                    />
+                  </span>
+                )}
+              </div>
+            )}
+
+            {tags.length > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-4">
+                <Globe size={12} className="flex-shrink-0" />
+                <span className="font-medium">Masterlists:</span>
+                <span>{tags.join(", ")}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

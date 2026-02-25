@@ -43,7 +43,6 @@ interface DiffState {
 type ChangeCategory =
   | "added"
   | "removed"
-  | "expired"
   | "trust_increased"
   | "trust_decreased"
   | "trust_changed"
@@ -67,7 +66,6 @@ interface CertificateChange {
 interface CertificateDiff {
   added: CertificateChange[]
   removed: CertificateChange[]
-  expired: CertificateChange[]
   trustIncreased: CertificateChange[]
   trustDecreased: CertificateChange[]
   trustChanged: CertificateChange[]
@@ -78,7 +76,6 @@ interface CertificateDiff {
 
 const CATEGORY_ORDER: ChangeCategory[] = [
   "added",
-  "expired",
   "removed",
   "trust_increased",
   "trust_decreased",
@@ -115,15 +112,6 @@ const CATEGORY_CONFIG: Record<
     darkColor: "dark:text-red-400",
     bg: "bg-red-50 dark:bg-red-900/20",
     border: "border-red-200 dark:border-red-800",
-  },
-  expired: {
-    label: "Expired",
-    summarySign: "−",
-    icon: "⏱",
-    color: "text-orange-600",
-    darkColor: "dark:text-orange-400",
-    bg: "bg-orange-50 dark:bg-orange-900/20",
-    border: "border-orange-200 dark:border-orange-800",
   },
   trust_increased: {
     label: "Trust Increased",
@@ -310,8 +298,6 @@ const getDiffCategory = (diff: CertificateDiff, category: ChangeCategory): Certi
       return diff.added
     case "removed":
       return diff.removed
-    case "expired":
-      return diff.expired
     case "trust_increased":
       return diff.trustIncreased
     case "trust_decreased":
@@ -348,7 +334,6 @@ function CertificateDiffContent() {
   const [visibleTypes, setVisibleTypes] = useState<Record<ChangeCategory, boolean>>({
     added: true,
     removed: true,
-    expired: true,
     trust_increased: true,
     trust_decreased: true,
     trust_changed: true,
@@ -543,7 +528,6 @@ function CertificateDiffContent() {
     const diff: CertificateDiff = {
       added: [],
       removed: [],
-      expired: [],
       trustIncreased: [],
       trustDecreased: [],
       trustChanged: [],
@@ -557,19 +541,11 @@ function CertificateDiffContent() {
       }
     })
 
-    // Removed / expired / modified: iterate before list
+    // Removed / modified: iterate before list
     beforeMap.forEach((beforeCert, fp) => {
       if (!afterMap.has(fp)) {
-        // Fingerprint gone → expired or removed
-        // const isExpired =
-        //   afterTimestamp != null &&
-        //   beforeCert.validity?.not_after != null &&
-        //   beforeCert.validity.not_after <= afterTimestamp
-        // if (isExpired) {
-        // diff.expired.push({ certificate: beforeCert, changeType: "expired" })
-        // } else {
+        // Fingerprint gone → removed
         diff.removed.push({ certificate: beforeCert, changeType: "removed" })
-        // }
       } else {
         // Present in both → check what changed
         const afterCert = afterMap.get(fp)!
@@ -652,28 +628,17 @@ function CertificateDiffContent() {
         : ""
 
     const countryName = countryCodeAlpha3ToName(cert.country)
-    const isExpiredNow =
-      cert.validity?.not_after != null && cert.validity.not_after * 1000 < Date.now()
-
     // Compute effective old/new tags for the MasterlistTags component:
     // - "added" certs: all tags are new (green)
-    // - "removed"/"expired" certs: all tags are removed (red strikethrough)
+    // - "removed" certs: all tags are removed (red strikethrough)
     // - trust changes: use the change's oldTags/newTags directly
     const certTags = normalizeTags(cert.tags)
     const effectiveOldTags =
       change.oldTags ??
-      (change.changeType === "added"
-        ? []
-        : change.changeType === "removed" || change.changeType === "expired"
-          ? certTags
-          : undefined)
+      (change.changeType === "added" ? [] : change.changeType === "removed" ? certTags : undefined)
     const effectiveNewTags =
       change.newTags ??
-      (change.changeType === "added"
-        ? certTags
-        : change.changeType === "removed" || change.changeType === "expired"
-          ? []
-          : undefined)
+      (change.changeType === "added" ? certTags : change.changeType === "removed" ? [] : undefined)
 
     return (
       <div key={cardId} className={`border rounded-lg text-sm ${config.bg} ${config.border}`}>
@@ -705,11 +670,6 @@ function CertificateDiffContent() {
                   <span className="text-muted-foreground">
                     {"  -  "}
                     {validityStr}
-                  </span>
-                )}
-                {isExpiredNow && (
-                  <span className="ml-2 inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
-                    Expired
                   </span>
                 )}
               </span>
@@ -748,11 +708,6 @@ function CertificateDiffContent() {
                     {new Date(cert.validity.not_before * 1000).toLocaleDateString("en-GB")} to{" "}
                     {new Date(cert.validity.not_after * 1000).toLocaleDateString("en-GB")}
                   </span>
-                  {isExpiredNow && (
-                    <span className="inline-flex items-center px-[3px] py-[2px] rounded text-[8px] leading-none font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800">
-                      Expired
-                    </span>
-                  )}
                 </div>
               )}
 
