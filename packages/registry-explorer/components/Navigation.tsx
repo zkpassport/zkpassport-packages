@@ -21,7 +21,7 @@ export function Navigation() {
     <header className="border-b border-border">
       <div className="container mx-auto p-4">
         {/* Desktop header */}
-        <div className="hidden md:flex justify-between items-center">
+        <div className="hidden lg:flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Link href="/" className="flex items-center gap-2 font-bold text-lg">
               <Image src="/favicon.png" alt="ZKPassport" width={26} height={26} />
@@ -41,7 +41,7 @@ export function Navigation() {
         </div>
 
         {/* Mobile header */}
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2 font-bold" onClick={closeMobileMenu}>
               <Image src="/favicon.png" alt="ZKPassport" width={24} height={24} />
