@@ -1,12 +1,12 @@
 import {
-  calculateCertificateRoot,
   calculateCircuitRoot,
   CERT_TYPE_DSC,
   getCertificateLeafHash,
   tagsArrayToBitsFlag,
   bitsFlagToTagsArray,
+  calculatePackagedCertificatesRoot,
 } from "../src/registry"
-import { PackagedCertificate } from "../src/types"
+import { PackagedCertificate, PackagedCertificatesFile } from "../src/types"
 import rootCerts from "./fixtures/root-certs.json"
 import rootCertsV1 from "./fixtures/root-certs-v1.json"
 import circuitManifest from "./fixtures/manifest.json"
@@ -15,7 +15,6 @@ describe("Registry", () => {
   const rsaCert: PackagedCertificate = {
     country: "XYZ",
     signature_algorithm: "RSA",
-    hash_algorithm: "SHA-256",
     public_key: {
       type: "RSA",
       modulus:
@@ -40,7 +39,6 @@ describe("Registry", () => {
   const ecdsaCert: PackagedCertificate = {
     country: "XYZ",
     signature_algorithm: "ECDSA",
-    hash_algorithm: "SHA-256",
     public_key: {
       type: "EC",
       curve: "P-384",
@@ -125,7 +123,13 @@ describe("Registry", () => {
   })
 
   test("should generate correct canonical certificate root (version 0)", async () => {
-    const root = await calculateCertificateRoot(rootCerts.certificates as PackagedCertificate[])
+    const root = await calculatePackagedCertificatesRoot({
+      version: 0,
+      timestamp: 0,
+      root: "",
+      masterlists: [],
+      certificates: rootCerts.certificates as PackagedCertificate[],
+    })
     expect(root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
   })
 
@@ -155,10 +159,7 @@ describe("Registry", () => {
   })
 
   test("should generate correct canonical certificate root (version 1)", async () => {
-    const root = await calculateCertificateRoot(
-      rootCertsV1.certificates as PackagedCertificate[],
-      1,
-    )
+    const root = await calculatePackagedCertificatesRoot(rootCertsV1 as PackagedCertificatesFile)
     expect(root).toEqual("0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062")
   })
 
