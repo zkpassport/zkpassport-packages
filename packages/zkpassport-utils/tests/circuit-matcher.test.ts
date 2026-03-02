@@ -81,6 +81,7 @@ const EXPECTED_SERVICE_SUBSCOPE = "0x3"
 const NULLIFIER_SECRET = 0n
 const EXPECTED_NULLIFIER_SECRET = "0x0"
 const CURRENT_DATE = getNowTimestamp()
+const AGE_TEST_DATE = new Date("2026-01-01")
 
 describe("Circuit Matcher - General", () => {
   it("should detect if CSCA certificate is supported", () => {
@@ -442,7 +443,7 @@ describe("Circuit Matcher - RSA", () => {
   })
 
   it("should calculate the correct age from passport", () => {
-    const result = calculateAge(PASSPORTS.john)
+    const result = calculateAge(PASSPORTS.john, AGE_TEST_DATE)
     expect(result).toBe(30)
   })
 
@@ -922,7 +923,7 @@ describe("Circuit Matcher - ECDSA", () => {
   })
 
   it("should calculate the correct age from passport", () => {
-    const result = calculateAge(PASSPORTS.mary)
+    const result = calculateAge(PASSPORTS.mary, AGE_TEST_DATE)
     expect(result).toBe(50)
   })
 

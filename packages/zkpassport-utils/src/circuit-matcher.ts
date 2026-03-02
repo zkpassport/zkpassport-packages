@@ -865,11 +865,11 @@ export async function getDiscloseCircuitInputs(
   }
 }
 
-export function calculateAge(passport: PassportViewModel): number {
+export function calculateAge(passport: PassportViewModel, now?: Date): number {
   const birthdate = passport.dateOfBirth
   if (!birthdate) return 0
   const birthdateDate = parseDate(new TextEncoder().encode(birthdate))
-  const currentDate = new Date()
+  const currentDate = now ?? new Date()
 
   let age = currentDate.getFullYear() - birthdateDate.getFullYear()
   const monthDiff = currentDate.getMonth() - birthdateDate.getMonth()
