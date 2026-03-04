@@ -2,7 +2,7 @@ pragma solidity ^0.8.30;
 
 import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
-import "../src/CertificateRegistry.sol";
+import "../src/registries/CertificateRegistry.sol";
 import "../src/RegistryHelper.sol";
 import {TestConstants} from "./TestConstants.sol";
 import {MockRegistry} from "./MockRegistry.sol";

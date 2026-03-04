@@ -9,8 +9,8 @@
 
 pragma solidity ^0.8.30;
 
-import {RegistryInstance} from "./RegistryInstance.sol";
-import {RootValidationMode} from "./IRegistryInstance.sol";
+import {RegistryInstance} from "../RegistryInstance.sol";
+import {RootValidationMode} from "../IRegistryInstance.sol";
 
 /**
  * @title CircuitRegistry

@@ -11,10 +11,19 @@ optimizer_runs = 200
 bytecode_hash = "none"
 # Remappings
 remappings = ["forge-std/=lib/forge-std/src/"]
+# File system permissions
+fs_permissions = [{ access = "read-write", path = "./deployments"}]
 
 [lint]
 lint_on_build = false
 exclude_lints = ["screaming-snake-case-immutable", "unwrapped-modifier-logic"]
+
+[fmt]
+# tab_width = 4
+ignore = [
+  "src/mocks",
+  "src/lib/Constants.sol"
+]
 
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
