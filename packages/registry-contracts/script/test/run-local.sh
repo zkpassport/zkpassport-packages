@@ -26,8 +26,11 @@ trap cleanup EXIT SIGINT SIGTERM
 sleep 1
 
 # Run the deployment and seeding scripts
-./script/test/deploy.sh
-./script/test/seed-registries.sh
+source ./script/test/deploy-root-registry.sh
+source ./script/test/deploy-root-verifier.sh
+if [[ " $* " != *" --no-seed "* ]]; then
+  source ./script/test/seed-registries.sh
+fi
 
 echo "Test environment ready!"
 echo "Anvil is running on http://localhost:8545 (Chain ID: 31337)"

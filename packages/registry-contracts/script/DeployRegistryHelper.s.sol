@@ -1,3 +1,10 @@
+/*
+ * DeployRegistryHelper.s.sol
+ *
+ * Deploys the registry helper, a read-only utility contract for querying
+ * data across the root registry's sub-registries.
+ */
+
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";

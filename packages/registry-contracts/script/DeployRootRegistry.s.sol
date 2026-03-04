@@ -1,3 +1,10 @@
+/*
+ * DeployRootRegistry.s.sol
+ *
+ * Deploys the root registry, which serves as the top-level registry that tracks
+ * all sub-registries (certificates, circuits, sanctions, etc.).
+ */
+
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";

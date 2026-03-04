@@ -239,7 +239,7 @@ export async function startAnvil({
   if (verbose) console.log("Deploying contracts...")
   let deployOutput = ""
   try {
-    deployOutput = execSync(`script/test/deploy.sh`, {
+    deployOutput = execSync(`script/test/deploy-root-registry.sh`, {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, RPC_URL },

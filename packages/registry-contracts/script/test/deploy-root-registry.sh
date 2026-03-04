@@ -2,7 +2,8 @@
 
 # Test deployment script for integration tests
 # ⚠️  FOR TESTING ONLY - DO NOT USE IN PRODUCTION ⚠️
-# This script deploys contracts to a local Anvil instance for testing purposes
+# This script deploys the RootRegistry, RegistryHelper, and sub-registries (CertificateRegistry, CircuitRegistry, and SanctionsRegistry)
+# to a local Anvil instance for testing purposes
 
 set -e
 
