@@ -76,12 +76,18 @@ contract ProtocolController {
     }
 
     modifier onlyAdminOrRootRegistryOperator() {
-        require(msg.sender == admin || msg.sender == rootRegistryOperator, "Not authorized: admin or root registry operator only");
+        require(
+            msg.sender == admin || msg.sender == rootRegistryOperator,
+            "Not authorized: admin or root registry operator only"
+        );
         _;
     }
 
     modifier onlyAdminOrRootVerifierOperator() {
-        require(msg.sender == admin || msg.sender == rootVerifierOperator, "Not authorized: admin or root verifier operator only");
+        require(
+            msg.sender == admin || msg.sender == rootVerifierOperator,
+            "Not authorized: admin or root verifier operator only"
+        );
         _;
     }
 
@@ -125,11 +131,17 @@ contract ProtocolController {
 
     // ===== Root Registry Operator functions =====
 
-    function rootRegistry_addRegistry(bytes32 registryId, address registryAddress) external onlyAdminOrRootRegistryOperator {
+    function rootRegistry_addRegistry(bytes32 registryId, address registryAddress)
+        external
+        onlyAdminOrRootRegistryOperator
+    {
         rootRegistry.addRegistry(registryId, registryAddress);
     }
 
-    function rootRegistry_updateRegistry(bytes32 registryId, address newAddress) external onlyAdminOrRootRegistryOperator {
+    function rootRegistry_updateRegistry(bytes32 registryId, address newAddress)
+        external
+        onlyAdminOrRootRegistryOperator
+    {
         rootRegistry.updateRegistry(registryId, newAddress);
     }
 
@@ -155,7 +167,10 @@ contract ProtocolController {
 
     // ===== Root Verifier Operator functions =====
 
-    function rootVerifier_addSubVerifier(bytes32 version, address subVerifier) external onlyAdminOrRootVerifierOperator {
+    function rootVerifier_addSubVerifier(bytes32 version, address subVerifier)
+        external
+        onlyAdminOrRootVerifierOperator
+    {
         rootVerifier.addSubVerifier(version, subVerifier);
     }
 
@@ -163,7 +178,10 @@ contract ProtocolController {
         rootVerifier.removeSubVerifier(version);
     }
 
-    function rootVerifier_updateSubVerifier(bytes32 version, address newSubVerifier) external onlyAdminOrRootVerifierOperator {
+    function rootVerifier_updateSubVerifier(bytes32 version, address newSubVerifier)
+        external
+        onlyAdminOrRootVerifierOperator
+    {
         rootVerifier.updateSubVerifier(version, newSubVerifier);
     }
 

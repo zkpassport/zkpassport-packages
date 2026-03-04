@@ -43,7 +43,9 @@ contract ProtocolControllerTest is Test {
 
     function testDeployRevertsWithZeroAdmin() public {
         vm.expectRevert("Admin cannot be zero address");
-        new ProtocolController(address(0), address(rootRegistry), registryOperator, address(rootVerifier), verifierOperator);
+        new ProtocolController(
+            address(0), address(rootRegistry), registryOperator, address(rootVerifier), verifierOperator
+        );
     }
 
     // ===== Admin: two-step admin transfer =====

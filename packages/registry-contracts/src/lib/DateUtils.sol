@@ -12,7 +12,7 @@ pragma solidity ^0.8.30;
 library DateUtils {
     function isDateValid(uint256 timestamp, uint256 validityPeriodInSeconds) internal view returns (bool) {
         uint256 validityPeriodTimestamp = timestamp + validityPeriodInSeconds;
-        return
-            block.timestamp >= timestamp && validityPeriodTimestamp > timestamp && validityPeriodTimestamp > block.timestamp;
+        return block.timestamp >= timestamp && validityPeriodTimestamp > timestamp
+            && validityPeriodTimestamp > block.timestamp;
     }
 }

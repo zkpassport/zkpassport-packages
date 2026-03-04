@@ -32,11 +32,7 @@ contract DeployProtocolControllerScript is Script {
 
         vm.startBroadcast();
         controller = new ProtocolController(
-            adminAddress,
-            rootRegistry,
-            rootRegistryOperator,
-            rootVerifier,
-            rootVerifierOperator
+            adminAddress, rootRegistry, rootRegistryOperator, rootVerifier, rootVerifierOperator
         );
         vm.stopBroadcast();
 

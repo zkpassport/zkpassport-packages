@@ -28,68 +28,84 @@ library InputsExtractor {
         if (!isIDCard) {
             disclosedData.name = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_NAME_INDEX:MRZIndex.PASSPORT_MRZ_NAME_INDEX
-                    + MRZLength.PASSPORT_MRZ_NAME_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_NAME_LENGTH
+                ]
             );
             disclosedData.issuingCountry = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_ISSUING_COUNTRY_INDEX:MRZIndex.PASSPORT_MRZ_ISSUING_COUNTRY_INDEX
-                    + MRZLength.PASSPORT_MRZ_ISSUING_COUNTRY_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_ISSUING_COUNTRY_LENGTH
+                ]
             );
             disclosedData.nationality = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_NATIONALITY_INDEX:MRZIndex.PASSPORT_MRZ_NATIONALITY_INDEX
-                    + MRZLength.PASSPORT_MRZ_NATIONALITY_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_NATIONALITY_LENGTH
+                ]
             );
             disclosedData.gender = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_GENDER_INDEX:MRZIndex.PASSPORT_MRZ_GENDER_INDEX
-                    + MRZLength.PASSPORT_MRZ_GENDER_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_GENDER_LENGTH
+                ]
             );
             disclosedData.birthDate = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_BIRTHDATE_INDEX:MRZIndex.PASSPORT_MRZ_BIRTHDATE_INDEX
-                    + MRZLength.PASSPORT_MRZ_BIRTHDATE_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_BIRTHDATE_LENGTH
+                ]
             );
             disclosedData.expiryDate = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_EXPIRY_DATE_INDEX:MRZIndex.PASSPORT_MRZ_EXPIRY_DATE_INDEX
-                    + MRZLength.PASSPORT_MRZ_EXPIRY_DATE_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_EXPIRY_DATE_LENGTH
+                ]
             );
             disclosedData.documentNumber = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_DOCUMENT_NUMBER_INDEX:MRZIndex.PASSPORT_MRZ_DOCUMENT_NUMBER_INDEX
-                    + MRZLength.PASSPORT_MRZ_DOCUMENT_NUMBER_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_DOCUMENT_NUMBER_LENGTH
+                ]
             );
             disclosedData.documentType = string(
                 discloseBytes[MRZIndex.PASSPORT_MRZ_DOCUMENT_TYPE_INDEX:MRZIndex.PASSPORT_MRZ_DOCUMENT_TYPE_INDEX
-                    + MRZLength.PASSPORT_MRZ_DOCUMENT_TYPE_LENGTH]
+                            + MRZLength.PASSPORT_MRZ_DOCUMENT_TYPE_LENGTH
+                ]
             );
         } else {
             disclosedData.name = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_NAME_INDEX:MRZIndex.ID_CARD_MRZ_NAME_INDEX
-                    + MRZLength.ID_CARD_MRZ_NAME_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_NAME_LENGTH
+                ]
             );
             disclosedData.issuingCountry = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_ISSUING_COUNTRY_INDEX:MRZIndex.ID_CARD_MRZ_ISSUING_COUNTRY_INDEX
-                    + MRZLength.ID_CARD_MRZ_ISSUING_COUNTRY_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_ISSUING_COUNTRY_LENGTH
+                ]
             );
             disclosedData.nationality = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_NATIONALITY_INDEX:MRZIndex.ID_CARD_MRZ_NATIONALITY_INDEX
-                    + MRZLength.ID_CARD_MRZ_NATIONALITY_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_NATIONALITY_LENGTH
+                ]
             );
             disclosedData.gender = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_GENDER_INDEX:MRZIndex.ID_CARD_MRZ_GENDER_INDEX
-                    + MRZLength.ID_CARD_MRZ_GENDER_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_GENDER_LENGTH
+                ]
             );
             disclosedData.birthDate = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_BIRTHDATE_INDEX:MRZIndex.ID_CARD_MRZ_BIRTHDATE_INDEX
-                    + MRZLength.ID_CARD_MRZ_BIRTHDATE_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_BIRTHDATE_LENGTH
+                ]
             );
             disclosedData.expiryDate = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_EXPIRY_DATE_INDEX:MRZIndex.ID_CARD_MRZ_EXPIRY_DATE_INDEX
-                    + MRZLength.ID_CARD_MRZ_EXPIRY_DATE_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_EXPIRY_DATE_LENGTH
+                ]
             );
             disclosedData.documentNumber = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_DOCUMENT_NUMBER_INDEX:MRZIndex.ID_CARD_MRZ_DOCUMENT_NUMBER_INDEX
-                    + MRZLength.ID_CARD_MRZ_DOCUMENT_NUMBER_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_DOCUMENT_NUMBER_LENGTH
+                ]
             );
             disclosedData.documentType = string(
                 discloseBytes[MRZIndex.ID_CARD_MRZ_DOCUMENT_TYPE_INDEX:MRZIndex.ID_CARD_MRZ_DOCUMENT_TYPE_INDEX
-                    + MRZLength.ID_CARD_MRZ_DOCUMENT_TYPE_LENGTH]
+                            + MRZLength.ID_CARD_MRZ_DOCUMENT_TYPE_LENGTH
+                ]
             );
         }
     }

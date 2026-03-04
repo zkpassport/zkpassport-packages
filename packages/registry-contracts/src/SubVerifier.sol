@@ -99,7 +99,8 @@ contract SubVerifier {
         bytes32 scopeHash = StringUtils.isEmpty(scope) ? bytes32(0) : sha256(abi.encodePacked(scope)) >> 8;
         bytes32 subscopeHash = StringUtils.isEmpty(subscope) ? bytes32(0) : sha256(abi.encodePacked(subscope)) >> 8;
         return
-            publicInputs[PublicInput.SCOPE_INDEX] == scopeHash && publicInputs[PublicInput.SUBSCOPE_INDEX] == subscopeHash;
+            publicInputs[PublicInput.SCOPE_INDEX] == scopeHash
+                && publicInputs[PublicInput.SUBSCOPE_INDEX] == subscopeHash;
     }
 
     function _verifyCommittedInputs(bytes32[] memory paramCommitments, bytes calldata committedInputs) internal pure {
@@ -154,7 +155,9 @@ contract SubVerifier {
         );
 
         _validateCircuitRoot(
-            rootRegistry, params.proofVerificationData.publicInputs[PublicInput.CIRCUIT_REGISTRY_ROOT_INDEX], currentTimestamp
+            rootRegistry,
+            params.proofVerificationData.publicInputs[PublicInput.CIRCUIT_REGISTRY_ROOT_INDEX],
+            currentTimestamp
         );
 
         require(
@@ -163,13 +166,15 @@ contract SubVerifier {
         );
 
         require(
-            _verifyScopes(params.proofVerificationData.publicInputs, params.serviceConfig.domain, params.serviceConfig.scope),
+            _verifyScopes(
+                params.proofVerificationData.publicInputs, params.serviceConfig.domain, params.serviceConfig.scope
+            ),
             "Invalid domain or scope"
         );
 
         _verifyCommittedInputs(
             params.proofVerificationData
-                .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length - 2],
+            .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length - 2],
             params.committedInputs
         );
 
@@ -178,8 +183,8 @@ contract SubVerifier {
         );
 
         require(
-            (nullifierType != NullifierType.NON_SALTED_MOCK_NULLIFIER && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER)
-                || params.serviceConfig.devMode,
+            (nullifierType != NullifierType.NON_SALTED_MOCK_NULLIFIER
+                    && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER) || params.serviceConfig.devMode,
             "Mock proofs are only allowed in dev mode"
         );
 
@@ -188,8 +193,8 @@ contract SubVerifier {
             "Salted nullifiers are not supported for now"
         );
 
-        isValid =
-            IProofVerifier(verifier).verify(params.proofVerificationData.proof, params.proofVerificationData.publicInputs);
+        isValid = IProofVerifier(verifier)
+            .verify(params.proofVerificationData.proof, params.proofVerificationData.publicInputs);
 
         uint256 uniqueIdentifierIndex = params.proofVerificationData.publicInputs.length - 1;
         uniqueIdentifier = params.proofVerificationData.publicInputs[uniqueIdentifierIndex];

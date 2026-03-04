@@ -204,7 +204,11 @@ contract VerifierHelper {
         return isCountryInOrOut(countryList, ProofType.ISSUING_COUNTRY_INCLUSION, committedInputs);
     }
 
-    function isNationalityOut(string[] memory countryList, bytes calldata committedInputs) external pure returns (bool) {
+    function isNationalityOut(string[] memory countryList, bytes calldata committedInputs)
+        external
+        pure
+        returns (bool)
+    {
         return isCountryInOrOut(countryList, ProofType.NATIONALITY_EXCLUSION, committedInputs);
     }
 
@@ -239,7 +243,10 @@ contract VerifierHelper {
         return rootRegistry.isRootValid(RegistryID.SANCTIONS, proofSanctionsRoot, currentTimestamp);
     }
 
-    function enforceSanctionsRoot(uint256 currentTimestamp, bool isStrict, bytes calldata committedInputs) external view {
+    function enforceSanctionsRoot(uint256 currentTimestamp, bool isStrict, bytes calldata committedInputs)
+        external
+        view
+    {
         bool isValid = _isSanctionsRootValid(currentTimestamp, isStrict, committedInputs);
         require(isValid, "Invalid sanctions registry root");
     }
@@ -263,9 +270,11 @@ contract VerifierHelper {
         bool isCorrectAppIdHash = (appIdHash == AppAttest.IOS_APP_ID_HASH && (os == OS.IOS || os == OS.ANY))
             || (appIdHash == AppAttest.ANDROID_APP_ID_HASH && (os == OS.ANDROID || os == OS.ANY));
         bool isCorrectIntegrityPublicKeyHash = (integrityPublicKeyHash == bytes32(0) && (os == OS.IOS || os == OS.ANY))
-            || (integrityPublicKeyHash == AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH && (os == OS.ANDROID || os == OS.ANY));
+            || (integrityPublicKeyHash == AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH
+                && (os == OS.ANDROID || os == OS.ANY));
         return
-            isProduction && isCorrectMode && isCorrectRootKeyHash && isCorrectAppIdHash && isCorrectIntegrityPublicKeyHash;
+            isProduction && isCorrectMode && isCorrectRootKeyHash && isCorrectAppIdHash
+                && isCorrectIntegrityPublicKeyHash;
     }
 
     function getProofTimestamp(bytes32[] calldata publicInputs) external pure returns (uint256) {
@@ -280,6 +289,7 @@ contract VerifierHelper {
         bytes32 scopeHash = StringUtils.isEmpty(scope) ? bytes32(0) : sha256(abi.encodePacked(scope)) >> 8;
         bytes32 subscopeHash = StringUtils.isEmpty(subscope) ? bytes32(0) : sha256(abi.encodePacked(subscope)) >> 8;
         return
-            publicInputs[PublicInput.SCOPE_INDEX] == scopeHash && publicInputs[PublicInput.SUBSCOPE_INDEX] == subscopeHash;
+            publicInputs[PublicInput.SCOPE_INDEX] == scopeHash
+                && publicInputs[PublicInput.SUBSCOPE_INDEX] == subscopeHash;
     }
 }
