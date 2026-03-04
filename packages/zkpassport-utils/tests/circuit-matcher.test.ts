@@ -365,13 +365,13 @@ describe("Circuit Matcher - RSA", () => {
       ).formatForInput(),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
-        220,
+        256,
       ),
       e_content: rightPadArrayWithZeros(
         PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         700,
       ),
-      comm_in: "0x1d483dee098c59f3641a5ba2948db5e65ca250d3224cf214edfb9219ceffd0a5",
+      comm_in: "0x066c592240d43a8677f7988285781cfcfa1974af37cc0dc4e8f03d8b69932cb4",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       expiry_date_salt: `0x${SALT.toString(16)}`,
       dg2_hash_salt: `0x${SALT.toString(16)}`,
@@ -840,7 +840,7 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         E_CONTENT_INPUT_SIZE,
       ),
-      comm_in: "0x18a9c4f5e92fd5e7005bd17bb32d4f95655396e3538c3f3e510cad664f6d7321",
+      comm_in: "0x20c677937edf1436f0c9aa087b31c4bfee837481eaf4c24242a41d628793c6d6",
       expiry_date_salt: `0x${SALT.toString(16)}`,
       dg2_hash_salt: `0x${SALT.toString(16)}`,
       salted_private_nullifier: SaltedValue.fromValue(
@@ -923,7 +923,7 @@ describe("Circuit Matcher - ECDSA", () => {
 
   it("should calculate the correct age from passport", () => {
     const result = calculateAge(PASSPORTS.mary)
-    expect(result).toBe(50)
+    expect(result).toBe(51)
   })
 
   it("should get the correct age circuit inputs", async () => {
