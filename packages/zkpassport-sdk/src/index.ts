@@ -353,8 +353,9 @@ export class ZKPassport {
       ) => {
         this.topicToConfig[topic].sanctions = {
           ...this.topicToConfig[topic].sanctions,
-          countries:
-            countries === "all"
+          countries,
+          // TODO: enable this once the circuits support custom lists
+          /*countries === "all"
               ? "all"
               : Array.isArray(countries)
                 ? ([
@@ -364,13 +365,14 @@ export class ZKPassport {
                 : ([
                     ...(this.topicToConfig[topic].sanctions?.countries ?? []),
                     countries,
-                  ] as SanctionsCountries),
-          lists:
-            lists === "all"
+                  ] as SanctionsCountries),*/
+          lists,
+          // TODO: enable this once the circuits support custom lists
+          /*lists === "all"
               ? "all"
               : Array.isArray(lists)
                 ? [...(this.topicToConfig[topic].sanctions?.lists ?? []), ...lists]
-                : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],
+                : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],*/
           strict: options.strict ?? false,
         }
         return this.getZkPassportRequest(topic)

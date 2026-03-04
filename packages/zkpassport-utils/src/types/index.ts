@@ -239,8 +239,8 @@ export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
 // Explicit list of supported countries for sanction lists
 // TODO: extend this list as more countries sanction lists are added
 export type SanctionsAlpha2Code = "US" | "GB" | "CH" | "EU"
-export type SanctionsCountries = SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"
-export type SanctionsLists = string[] | "all"
+export type SanctionsCountries = /*SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"*/ "all" // TODO: enable this once the circuits support custom lists
+export type SanctionsLists = /*string[] | "all"*/ "all" // TODO: enable this once the circuits support custom lists
 
 export type SanctionsConfig = {
   countries?: SanctionsCountries
