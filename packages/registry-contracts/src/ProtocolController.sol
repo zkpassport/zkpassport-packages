@@ -55,6 +55,12 @@ contract ProtocolController {
     event RootRegistryOperatorUpdated(address indexed oldOperator, address indexed newOperator);
     event RootVerifierOperatorUpdated(address indexed oldOperator, address indexed newOperator);
 
+    /// @dev Constructor to initialize the protocol controller
+    /// @param _admin The admin address
+    /// @param _rootRegistry The RootRegistry contract address
+    /// @param _rootRegistryOperator The operator address for the RootRegistry
+    /// @param _rootVerifier The RootVerifier contract address
+    /// @param _rootVerifierOperator The operator address for the RootVerifier
     constructor(
         address _admin,
         address _rootRegistry,
@@ -93,12 +99,14 @@ contract ProtocolController {
 
     // ===== Admin functions =====
 
+    /// @notice Initiates a two-step admin transfer to a new address
     function transferAdmin(address newAdmin) external onlyAdmin {
         require(newAdmin != address(0), "Admin cannot be zero address");
         pendingAdmin = newAdmin;
         emit AdminTransferStarted(admin, newAdmin);
     }
 
+    /// @notice Completes the admin transfer; must be called by the pending admin
     function acceptAdmin() external {
         require(msg.sender == pendingAdmin, "Not authorized: pending admin only");
         address oldAdmin = admin;
@@ -107,26 +115,28 @@ contract ProtocolController {
         emit AdminTransferred(oldAdmin, msg.sender);
     }
 
+    /// @notice Restores admin of the RootRegistry contract from this controller back to the admin
+    function restoreRootRegistryAdmin() external onlyAdmin {
+        rootRegistry.transferAdmin(admin);
+    }
+
+    /// @notice Restores admin of the RootVerifier contract from this controller back to the admin
+    function restoreRootVerifierAdmin() external onlyAdmin {
+        rootVerifier.transferAdmin(admin);
+    }
+
+    /// @notice Sets the operator address for the RootRegistry
     function setRootRegistryOperator(address newOperator) external onlyAdmin {
         address oldOperator = rootRegistryOperator;
         rootRegistryOperator = newOperator;
         emit RootRegistryOperatorUpdated(oldOperator, newOperator);
     }
 
+    /// @notice Sets the operator address for the RootVerifier
     function setRootVerifierOperator(address newOperator) external onlyAdmin {
         address oldOperator = rootVerifierOperator;
         rootVerifierOperator = newOperator;
         emit RootVerifierOperatorUpdated(oldOperator, newOperator);
-    }
-
-    /// @notice Restores admin of the RootRegistry contract from this controller back to the admin.
-    function restoreRootRegistryAdmin() external onlyAdmin {
-        rootRegistry.transferAdmin(admin);
-    }
-
-    /// @notice Restores admin of the RootVerifier contract from this controller back to the admin.
-    function restoreRootVerifierAdmin() external onlyAdmin {
-        rootVerifier.transferAdmin(admin);
     }
 
     // ===== Root Registry Operator functions =====
