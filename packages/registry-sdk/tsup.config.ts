@@ -4,7 +4,7 @@ const isDev = process.env.DEV_BUILD === "true"
 
 export default defineConfig(
   (["esm", "cjs"] as const).map((format) => ({
-    entry: ["src/index.ts"],
+    entry: ["src/index.ts", "src/mock-client.ts"],
     dts: {
       compilerOptions: {
         composite: false,

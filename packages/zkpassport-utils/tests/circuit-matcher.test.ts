@@ -1228,6 +1228,7 @@ describe("Circuit Matcher - ECDSA", () => {
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
+      undefined, // oprfProof
       sanctions,
     )
     expect(result).toEqual({

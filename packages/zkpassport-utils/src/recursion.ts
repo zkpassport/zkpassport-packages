@@ -119,7 +119,7 @@ export function getSubscopeFromOuterProof(proofData: ProofData): bigint {
 }
 
 export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -138,6 +138,10 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
  * @returns The scoped nullifier.
  */
 export function getNullifierFromOuterProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+}
+
+export function getOprfPkHashFromOuterProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
 }
 

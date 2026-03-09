@@ -11,6 +11,7 @@ import {
   formatBoundData,
   getCommittedInputCount,
   getNumberOfPublicInputs,
+  getOprfPkHashFromOuterProof,
   getParamCommitmentsFromOuterProof,
   getProofData,
   numberToBytesBE,
@@ -84,7 +85,7 @@ export class SolidityVerifier {
         "This proof cannot be verified on an EVM chain. Please make sure to use the `compressed-evm` mode.",
       )
     }
-    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!), 4)
     const committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
     const committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
     for (const key in proof.committedInputs) {
@@ -245,6 +246,7 @@ export class SolidityVerifier {
       ...numberToBytesBE(versionParts[2], 2),
     ])
     const versionBytes32 = `0x${bytesToHex(versionBytes).padEnd(64, "0")}`
+    const oprfPkHash = getOprfPkHashFromOuterProof(proofData)
     const params: SolidityVerifierParameters = {
       version: versionBytes32,
       proofVerificationData: {
@@ -260,6 +262,7 @@ export class SolidityVerifier {
         scope: scope ?? "",
         devMode,
       },
+      oprfPkHash: `0x${oprfPkHash.toString(16).padStart(64, "0")}`,
     }
     return params
   }

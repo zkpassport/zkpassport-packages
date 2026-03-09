@@ -3,6 +3,7 @@ import {
   IDCredential,
   IDCredentialValue,
   NumericalIDCredential,
+  NullifierType,
   QueryResult,
   SanctionsCountries,
   SanctionsLists,
@@ -64,6 +65,8 @@ export type SolidityVerifierParameters = {
   proofVerificationData: SolidityProofVerificationData
   committedInputs: string
   serviceConfig: SolidityServiceConfig
+  /** Hash of the OPRF public key used in the proof. Check this against the OPRF key registry on-chain. Zero for non-salted nullifiers. */
+  oprfPkHash: string
 }
 
 export type QueryBuilderResult = {
@@ -115,6 +118,7 @@ export type QueryBuilderResult = {
   onResult: (
     callback: (response: {
       uniqueIdentifier: string | undefined
+      uniqueIdentifierType: NullifierType | undefined
       verified: boolean
       result: QueryResult
       queryResultErrors?: Partial<QueryResultErrors>

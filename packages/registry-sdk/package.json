@@ -17,6 +17,10 @@
     ".": {
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
+    },
+    "./mock": {
+      "import": "./dist/esm/mock-client.js",
+      "require": "./dist/cjs/mock-client.cjs"
     }
   },
   "scripts": {
