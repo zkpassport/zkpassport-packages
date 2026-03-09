@@ -123,6 +123,7 @@
         "@peculiar/asn1-schema": "^2.3.15",
         "@peculiar/asn1-x509": "^2.3.15",
         "@peculiar/x509": "^1.12.3",
+        "@taceo/oprf-client": "^0.8.0",
         "@zk-kit/utils": "^1.2.1",
         "@zkpassport/poseidon2": "^0.6.2",
         "date-fns": "^4.1.0",
@@ -476,6 +477,12 @@
     "@swc/counter": ["@swc/counter@0.1.3", "", {}, "sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ=="],
 
     "@swc/helpers": ["@swc/helpers@0.5.5", "", { "dependencies": { "@swc/counter": "^0.1.3", "tslib": "^2.4.0" } }, "sha512-KGYxvIOXcceOAbEk4bi/dVLEK9z8sZ0uBB3Il5b1rhfClSpcX0yfRO0KmTkqR2cnQDymwLB+25ZyMzICg/cm/A=="],
+
+    "@taceo/oprf-client": ["@taceo/oprf-client@0.8.0", "", { "dependencies": { "@noble/curves": "^2.0.1", "@taceo/oprf-core": "0.4.0" } }, "sha512-JgA3MDUcDSE/64nteiW94gbuC54vA1LGBZikK7au5VDYeFt01M1IPBT8LKYu1gro1LgYap2QyDpJN+Cz+IJtFw=="],
+
+    "@taceo/oprf-core": ["@taceo/oprf-core@0.4.0", "", { "dependencies": { "@noble/curves": "^2.0.1", "@noble/hashes": "^2.0.1", "@taceo/poseidon2": "0.2.0" } }, "sha512-Mlo2pjb8O9HDGvjpcun06ZWrW7oBblQESr9EDhW1WvHLDkKDgdlKdx43EVzJMGHcFXaVT4/1MnC1De/5KTQTNg=="],
+
+    "@taceo/poseidon2": ["@taceo/poseidon2@0.2.0", "", { "dependencies": { "@noble/curves": "^2.0.1" } }, "sha512-+EyFO7zaRrlsdzNEvzTLELDkrgjUgZgSlxGUSQghmmtlZ14nZklYX7D+gecyOkVe/47AGDtA+uZ9sdXiNB8rng=="],
 
     "@trysound/sax": ["@trysound/sax@0.2.0", "", {}, "sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA=="],
 

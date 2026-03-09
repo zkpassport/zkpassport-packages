@@ -105,11 +105,15 @@ export async function hashSaltDg1Dg2HashPrivateNullifier(
 }
 
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+}
+
+export function getOprfPkHashFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
 }
 
 export function getNullifierTypeFromDisclosureProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
