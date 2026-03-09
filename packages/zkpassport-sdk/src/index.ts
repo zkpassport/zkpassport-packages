@@ -128,6 +128,7 @@ export class ZKPassport {
       validity: number
       mode: ProofMode
       devMode: boolean
+      uniqueIdentifierType: NullifierType
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -147,6 +148,7 @@ export class ZKPassport {
     Array<
       (response: {
         uniqueIdentifier: string | undefined
+        uniqueIdentifierType: NullifierType | undefined
         verified: boolean
         result: QueryResult
         queryResultErrors?: Partial<QueryResultErrors>
@@ -187,7 +189,7 @@ export class ZKPassport {
     // Clear the results straight away to avoid concurrency issues
     delete this.topicToResults[topic]
     // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
-    const { uniqueIdentifier, verified, queryResultErrors } = await this.verify({
+    const { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors } = await this.verify({
       proofs: this.topicToProofs[topic],
       queryResult: result,
       validity: this.topicToLocalConfig[topic]?.validity,
@@ -202,6 +204,7 @@ export class ZKPassport {
           // If there are failed proofs, we don't return the unique identifier
           // and we set the verified result to false
           uniqueIdentifier: hasFailedProofs ? undefined : uniqueIdentifier,
+          uniqueIdentifierType: hasFailedProofs ? undefined : uniqueIdentifierType,
           verified: hasFailedProofs ? false : verified,
           result,
           queryResultErrors,
@@ -399,6 +402,7 @@ export class ZKPassport {
           onResult: (
             callback: (response: {
               uniqueIdentifier: string | undefined
+              uniqueIdentifierType: NullifierType | undefined
               verified: boolean
               result: QueryResult
               queryResultErrors?: Partial<QueryResultErrors>
@@ -434,6 +438,7 @@ export class ZKPassport {
     mode,
     validity,
     devMode,
+    uniqueIdentifierType,
     topicOverride,
     keyPairOverride,
     cloudProverUrl,
@@ -447,6 +452,7 @@ export class ZKPassport {
     projectID?: string
     validity?: number
     devMode?: boolean
+    uniqueIdentifierType?: NullifierType
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
     cloudProverUrl?: string
@@ -476,6 +482,7 @@ export class ZKPassport {
       validity: validity || DEFAULT_VALIDITY,
       mode: mode || "fast",
       devMode: devMode || false,
+      uniqueIdentifierType: uniqueIdentifierType ?? NullifierType.NON_SALTED,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -711,7 +718,8 @@ export class ZKPassport {
     // The timestamp is the current time minus the validity period
     // essentially, the data integrity check proof needs to have been generated after the timestamp
     const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
+    const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
+    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}&nt=${nullifierType}`
   }
 
   /**

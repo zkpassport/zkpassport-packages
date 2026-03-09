@@ -3,6 +3,7 @@ import {
   IDCredential,
   IDCredentialValue,
   NumericalIDCredential,
+  NullifierType,
   QueryResult,
   SanctionsCountries,
   SanctionsLists,
@@ -109,6 +110,7 @@ export type QueryBuilderResult = {
   onResult: (
     callback: (response: {
       uniqueIdentifier: string | undefined
+      uniqueIdentifierType: NullifierType | undefined
       verified: boolean
       result: QueryResult
       queryResultErrors?: Partial<QueryResultErrors>
