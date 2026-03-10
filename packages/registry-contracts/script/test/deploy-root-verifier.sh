@@ -48,7 +48,7 @@ HELPER_COUNT=$(cast call $ROOT_VERIFIER_ADDRESS "helperCount()" --rpc-url $RPC_U
 echo "Verified helperCount: $HELPER_COUNT"
 
 # Check for deployment artifact
-if [ -f deployments/verifier-deployment-$CHAIN_ID.json ]; then
+if [ -f deployments/addresses-$CHAIN_ID.json ]; then
   echo ""
-  echo "Deployment artifact written to deployments/verifier-deployment-$CHAIN_ID.json"
+  echo "Deployment artifact written to deployments/addresses-$CHAIN_ID.json"
 fi

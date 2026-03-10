@@ -28,6 +28,7 @@ sleep 1
 # Run the deployment and seeding scripts
 source ./script/test/deploy-root-registry.sh
 source ./script/test/deploy-root-verifier.sh
+source ./script/test/deploy-protocol-controller.sh
 if [[ " $* " != *" --no-seed "* ]]; then
   source ./script/test/seed-registries.sh
 fi

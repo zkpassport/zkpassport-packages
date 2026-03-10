@@ -7,8 +7,9 @@
 
 pragma solidity ^0.8.30;
 
-import {Script, console} from "forge-std/Script.sol";
+import {console} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
+import {DeployBase} from "./DeployBase.s.sol";
 import {HonkVerifier} from "../src/mocks/MockHonkVerifier.sol";
 import {RootRegistry} from "../src/RootRegistry.sol";
 import {RootVerifier} from "../src/RootVerifier.sol";
@@ -16,7 +17,7 @@ import {SubVerifier} from "../src/SubVerifier.sol";
 import {VerifierHelper} from "../src/VerifierHelper.sol";
 import {ProofVerifier} from "../src/lib/Types.sol";
 
-contract DeployRootVerifierScript is Script {
+contract DeployRootVerifierScript is DeployBase {
     using stdJson for string;
 
     bytes32 public SUB_VERIFIER_VERSION;
@@ -95,20 +96,19 @@ contract DeployRootVerifierScript is Script {
 
         vm.stopBroadcast();
 
-        // Write deployment JSON artifact
-        string memory mainJson = "main";
-        vm.serializeUint(mainJson, "chain_id", block.chainid);
-        vm.serializeUint(mainJson, "timestamp", block.timestamp);
-        vm.serializeAddress(mainJson, "root_verifier", address(rootVerifier));
+        _writeVerifierAddresses(rootVerifier, subVerifier, helper);
+    }
+
+    function _writeVerifierAddresses(RootVerifier rootVerifier, SubVerifier subVerifier, VerifierHelper helper)
+        internal
+    {
         uint256 v = uint256(SUB_VERIFIER_VERSION);
         string memory versionStr = string.concat(
             vm.toString(uint16(v >> 240)), ".", vm.toString(uint16(v >> 224)), ".", vm.toString(uint16(v >> 208))
         );
-        vm.serializeString(mainJson, "sub_verifier_version", versionStr);
-        vm.serializeAddress(mainJson, "sub_verifier", address(subVerifier));
-        vm.serializeAddress(mainJson, "verifier_helper", address(helper));
 
-        string memory pvJson = "proof_verifiers";
+        // Build proof_verifiers object
+        string memory pvJson = "pv";
         vm.serializeAddress(pvJson, "outer_count_4", proofVerifiers[0]);
         vm.serializeAddress(pvJson, "outer_count_5", proofVerifiers[1]);
         vm.serializeAddress(pvJson, "outer_count_6", proofVerifiers[2]);
@@ -119,18 +119,23 @@ contract DeployRootVerifierScript is Script {
         vm.serializeAddress(pvJson, "outer_count_11", proofVerifiers[7]);
         vm.serializeAddress(pvJson, "outer_count_12", proofVerifiers[8]);
         pvJson = vm.serializeAddress(pvJson, "outer_count_13", proofVerifiers[9]);
-        mainJson = vm.serializeString(mainJson, "proof_verifiers", pvJson);
-        string memory finalJson = vm.serializeString(mainJson, "main", mainJson);
 
-        string memory deploymentsDir = "./deployments";
-        if (!vm.exists(deploymentsDir)) {
-            vm.createDir(deploymentsDir, true);
-        }
+        // Build version object: { subverifier, helper, proof_verifiers }
+        string memory versionJson = "version";
+        vm.serializeAddress(versionJson, "subverifier", address(subVerifier));
+        vm.serializeAddress(versionJson, "helper", address(helper));
+        versionJson = vm.serializeString(versionJson, "proof_verifiers", pvJson);
 
-        string memory chainId = vm.toString(block.chainid);
-        string memory outputPath =
-            string.concat(deploymentsDir, "/verifier-deployment-v", versionStr, "-", chainId, ".json");
-        vm.writeJson(finalJson, outputPath);
-        console.log("Deployment addresses written to:", outputPath);
+        // Wrap in subverifiers: { "<version>": { ... } }
+        string memory subverifiersJson = "subverifiers";
+        subverifiersJson = vm.serializeString(subverifiersJson, versionStr, versionJson);
+
+        // Build root_verifier section
+        string memory section = "root_verifier";
+        vm.serializeAddress(section, "address", address(rootVerifier));
+        vm.serializeString(section, "subverifiers", subverifiersJson);
+        section = vm.serializeUint(section, "deployed_at", block.timestamp);
+
+        _writeToAddresses("root_verifier", section);
     }
 }

@@ -6,10 +6,14 @@
 
 pragma solidity ^0.8.30;
 
-import {Script, console} from "forge-std/Script.sol";
+import {console} from "forge-std/Script.sol";
+import {stdJson} from "forge-std/StdJson.sol";
+import {DeployBase} from "./DeployBase.s.sol";
 import {ProtocolController} from "../src/ProtocolController.sol";
 
-contract DeployProtocolControllerScript is Script {
+contract DeployProtocolControllerScript is DeployBase {
+    using stdJson for string;
+
     ProtocolController public controller;
 
     function setUp() public {}
@@ -42,5 +46,16 @@ contract DeployProtocolControllerScript is Script {
         console.log("Root Registry Operator:", controller.rootRegistryOperator());
         console.log("Root Verifier:", address(controller.rootVerifier()));
         console.log("Root Verifier Operator:", controller.rootVerifierOperator());
+
+        string memory section = "protocol_controller";
+        vm.serializeAddress(section, "address", address(controller));
+        vm.serializeAddress(section, "admin", adminAddress);
+        vm.serializeAddress(section, "root_registry", rootRegistry);
+        vm.serializeAddress(section, "root_registry_operator", rootRegistryOperator);
+        vm.serializeAddress(section, "root_verifier", rootVerifier);
+        vm.serializeAddress(section, "root_verifier_operator", rootVerifierOperator);
+        section = vm.serializeUint(section, "deployed_at", block.timestamp);
+
+        _writeToAddresses("protocol_controller", section);
     }
 }

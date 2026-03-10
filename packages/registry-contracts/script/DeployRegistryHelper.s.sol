@@ -7,11 +7,12 @@
 
 pragma solidity ^0.8.30;
 
-import {Script, console} from "forge-std/Script.sol";
+import {console} from "forge-std/Script.sol";
+import {DeployBase} from "./DeployBase.s.sol";
 import {RegistryHelper} from "../src/RegistryHelper.sol";
 import {RootRegistry} from "../src/RootRegistry.sol";
 
-contract DeployRegistryHelperScript is Script {
+contract DeployRegistryHelperScript is DeployBase {
     RegistryHelper public helper;
 
     function setUp() public {}
@@ -26,5 +27,16 @@ contract DeployRegistryHelperScript is Script {
         vm.stopBroadcast();
         console.log("RegistryHelper deployed at:", address(helper));
         console.log("RegistryHelper using RootRegistry at:", rootRegistryAddress);
+
+        // Upsert helper address into root_registry section
+        _ensureDeploymentsDir();
+        string memory path = _addressesFilePath();
+        if (!vm.exists(path)) {
+            vm.writeJson("{}", path);
+        }
+        vm.writeJson(
+            string.concat('"', vm.toString(address(helper)), '"'), path, ".root_registry.helper"
+        );
+        console.log("Updated addresses file:", path);
     }
 }

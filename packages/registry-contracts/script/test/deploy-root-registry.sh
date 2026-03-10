@@ -51,6 +51,11 @@ forge script script/DeployRegistryHelper.s.sol:DeployRegistryHelperScript --rpc-
 REGISTRY_HELPER_ADDRESS=$(cat broadcast/DeployRegistryHelper.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 echo "RegistryHelper deployed at: $REGISTRY_HELPER_ADDRESS"
 
+if [[ " $* " == *" --skip-registries "* ]]; then
+  echo "Skipping registry deployments..."
+  return
+fi
+
 # Deploy the CertificateRegistry contract
 echo "Deploying CertificateRegistry..."
 forge script script/DeployCertificateRegistry.s.sol:DeployCertificateRegistryScript --rpc-url $RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast
