@@ -34,9 +34,7 @@ contract DeployRegistryHelperScript is DeployBase {
         if (!vm.exists(path)) {
             vm.writeJson("{}", path);
         }
-        vm.writeJson(
-            string.concat('"', vm.toString(address(helper)), '"'), path, ".root_registry.helper"
-        );
+        vm.writeJson(string.concat('"', vm.toString(address(helper)), '"'), path, ".root_registry.helper");
         console.log("Updated addresses file:", path);
     }
 }
