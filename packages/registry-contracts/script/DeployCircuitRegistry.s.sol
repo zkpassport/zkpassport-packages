@@ -1,7 +1,13 @@
+/*
+ * DeployCircuitRegistry.s.sol
+ *
+ * Deploys the circuit registry.
+ */
+
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {CircuitRegistry} from "../src/CircuitRegistry.sol";
+import {CircuitRegistry} from "../src/registries/CircuitRegistry.sol";
 import {RootValidationMode} from "../src/IRegistryInstance.sol";
 
 contract DeployCircuitRegistryScript is Script {

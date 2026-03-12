@@ -200,6 +200,38 @@ contract RootRegistryTest is Test {
         registry.addRegistry(circuitRegistryId, mockValidRegistry);
     }
 
+    function testTransferAdminRoundTrip() public {
+        address multisig = makeAddr("multisig");
+
+        // Admin (acting as initial deployer) transfers to multisig
+        vm.prank(admin);
+        registry.transferAdmin(multisig);
+        assertEq(registry.admin(), multisig);
+
+        // Old admin can no longer act
+        vm.prank(admin);
+        vm.expectRevert("Not authorized: admin only");
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+
+        // Multisig can act
+        vm.prank(multisig);
+        registry.addRegistry(certificateRegistryId, mockValidRegistry);
+
+        // Multisig transfers back to original admin
+        vm.prank(multisig);
+        registry.transferAdmin(admin);
+        assertEq(registry.admin(), admin);
+
+        // Original admin can act again
+        vm.prank(admin);
+        registry.addRegistry(circuitRegistryId, mockValidRegistry);
+
+        // Multisig can no longer act
+        vm.prank(multisig);
+        vm.expectRevert("Not authorized: admin only");
+        registry.addRegistry(keccak256("another"), mockValidRegistry);
+    }
+
     function testCannotTransferAdminToZeroAddress() public {
         // Admin tries to transfer admin role to zero address
         vm.prank(admin);

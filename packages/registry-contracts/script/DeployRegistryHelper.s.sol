@@ -1,10 +1,18 @@
+/*
+ * DeployRegistryHelper.s.sol
+ *
+ * Deploys the registry helper, a read-only utility contract for querying
+ * data across the root registry's sub-registries.
+ */
+
 pragma solidity ^0.8.30;
 
-import {Script, console} from "forge-std/Script.sol";
+import {console} from "forge-std/Script.sol";
+import {DeployBase} from "./DeployBase.s.sol";
 import {RegistryHelper} from "../src/RegistryHelper.sol";
 import {RootRegistry} from "../src/RootRegistry.sol";
 
-contract DeployRegistryHelperScript is Script {
+contract DeployRegistryHelperScript is DeployBase {
     RegistryHelper public helper;
 
     function setUp() public {}
@@ -19,5 +27,7 @@ contract DeployRegistryHelperScript is Script {
         vm.stopBroadcast();
         console.log("RegistryHelper deployed at:", address(helper));
         console.log("RegistryHelper using RootRegistry at:", rootRegistryAddress);
+
+        _writeToAddresses("root_registry.helper", string.concat('"', vm.toString(address(helper)), '"'));
     }
 }
