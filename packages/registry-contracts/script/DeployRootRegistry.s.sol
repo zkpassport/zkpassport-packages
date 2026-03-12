@@ -1,8 +1,10 @@
 /*
  * DeployRootRegistry.s.sol
  *
- * Deploys the root registry, which serves as the top-level registry that tracks
- * all sub-registries (certificates, circuits, sanctions, etc.).
+ * ⚠️  FOR LOCAL TESTING ONLY — DO NOT USE IN PRODUCTION ⚠️
+ *
+ * Deploys the root registry using a plain CREATE. The production RootRegistry
+ * is deployed via a CREATE2 factory with a salt to get a universal multichain address.
  */
 
 pragma solidity ^0.8.30;

@@ -1,8 +1,11 @@
 /*
  * DeployRootVerifier.s.sol
  *
- * Deploys the ZKPassport root verifier, verifier helper, a subverifier, and proof verifiers
- * for outer circuits (supporting 4-13 subproofs).
+ * ⚠️  FOR LOCAL TESTING ONLY — DO NOT USE IN PRODUCTION ⚠️
+ *
+ * Deploys the ZKPassport root verifier, verifier helper, a subverifier, and mock
+ * proof verifiers using a plain CREATE. The production RootVerifier is deployed
+ * via a CREATE2 factory with a salt to get a universal multichain address.
  */
 
 pragma solidity ^0.8.30;
