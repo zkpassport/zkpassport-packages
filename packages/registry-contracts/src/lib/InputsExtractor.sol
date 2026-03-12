@@ -19,6 +19,10 @@ import {
 } from "./Constants.sol";
 import {DisclosedData, ProofType, FaceMatchMode, Environment, BoundDataIdentifier} from "./Types.sol";
 
+/**
+ * @title InputsExtractor
+ * @dev Utility functions for extracting inputs from committed inputs
+ */
 library InputsExtractor {
     function getDisclosedData(bytes calldata discloseBytes, bool isIDCard)
         public
@@ -144,6 +148,8 @@ library InputsExtractor {
             uint16 length = uint16(bytes2(committedInputs[offset + 1:offset + 3]));
             offset += 3;
             if (proofType == retrievedProofType && length == CommittedInputLen.COMPARE_EXPIRY) {
+                // Get rid of the padding 0s bytes as the timestamp is contained within the first 64 bits
+                // i.e. 256 - 64 = 192
                 minDate = uint256(bytes32(committedInputs[offset:offset + TIMESTAMP_LENGTH])) >> 192;
                 maxDate =
                     uint256(bytes32(committedInputs[offset + TIMESTAMP_LENGTH:offset + TIMESTAMP_LENGTH * 2])) >> 192;
@@ -190,6 +196,9 @@ library InputsExtractor {
             offset += 3;
             if (proofType == retrievedProofType && length == CommittedInputLen.INCL_NATIONALITY) {
                 for (uint256 j = 0; j < COUNTRY_LIST_LENGTH; j++) {
+                    // The circuit constrains that once we've reached the first `0`,
+                    // we won't encounter any further nonzero values.
+                    // We don't need to include the padding bytes
                     if (committedInputs[offset] == 0) return j;
                     offset += 3;
                 }
@@ -297,6 +306,8 @@ library InputsExtractor {
             } else if (data[offset] == bytes1(uint8(BoundDataIdentifier.CHAIN_ID))) {
                 uint16 chainIdLength = uint16(bytes2(data[offset + 1:offset + 3]));
                 require(chainIdLength <= 32, "Chain id length too long");
+                // bytes32 right pads while we want to left pad
+                // so we shift the bytes to the right by 256 - (chainIdLength * 8)
                 chainId = uint256(bytes32(data[offset + 3:offset + 3 + chainIdLength]) >> (256 - (chainIdLength * 8)));
                 offset += 2 + chainIdLength + 1;
             } else if (data[offset] == bytes1(uint8(BoundDataIdentifier.CUSTOM_DATA))) {
@@ -304,7 +315,9 @@ library InputsExtractor {
                 customData = string(data[offset + 3:offset + 3 + customDataLength]);
                 offset += 2 + customDataLength + 1;
             } else {
+                // Check that the data length is valid
                 require(offset > 0 && offset <= BOUND_DATA_LENGTH, "Invalid data length");
+                // Check that the padding is valid
                 for (uint256 i = offset; i < BOUND_DATA_LENGTH; i++) {
                     require(data[i] == 0, "Invalid padding");
                 }
