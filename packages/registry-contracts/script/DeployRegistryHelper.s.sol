@@ -28,13 +28,6 @@ contract DeployRegistryHelperScript is DeployBase {
         console.log("RegistryHelper deployed at:", address(helper));
         console.log("RegistryHelper using RootRegistry at:", rootRegistryAddress);
 
-        // Upsert helper address into root_registry section
-        _ensureDeploymentsDir();
-        string memory path = _addressesFilePath();
-        if (!vm.exists(path)) {
-            vm.writeJson("{}", path);
-        }
-        vm.writeJson(string.concat('"', vm.toString(address(helper)), '"'), path, ".root_registry.helper");
-        console.log("Updated addresses file:", path);
+        _writeToAddresses("root_registry.helper", string.concat('"', vm.toString(address(helper)), '"'));
     }
 }
