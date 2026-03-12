@@ -16,7 +16,7 @@ fs_permissions = [{ access = "read-write", path = "./deployments"}]
 
 [lint]
 lint_on_build = false
-exclude_lints = ["screaming-snake-case-immutable", "unwrapped-modifier-logic"]
+exclude_lints = ["mixed-case-function", "screaming-snake-case-immutable", "unwrapped-modifier-logic"]
 
 [fmt]
 # tab_width = 4
