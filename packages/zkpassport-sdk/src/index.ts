@@ -24,12 +24,17 @@ import {
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
-import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 import { QueryBuilder, QueryResultErrors } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { DEFAULT_VALIDITY, VERSION } from "./constants"
+import {
+  getCachedCircuitManifest,
+  getCachedPackagedCircuit,
+  getCachedVerifierBackend,
+  warmupVerificationResources,
+} from "./verification-resources"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
@@ -180,6 +185,28 @@ export class ZKPassport {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
+  }
+
+  /**
+   * Preload the verifier backend and optional registry-backed circuit metadata.
+   *
+   * This is primarily useful for server runtimes that want to remove the cold-start
+   * cost from the first verification request.
+   */
+  public static async warmupVerification({
+    version,
+    writingDirectory,
+    circuitNames,
+  }: {
+    version?: string
+    writingDirectory?: string
+    circuitNames?: string[]
+  } = {}) {
+    await warmupVerificationResources({
+      version,
+      writingDirectory,
+      circuitNames,
+    })
   }
 
   private async handleResult(topic: string) {
@@ -549,15 +576,11 @@ export class ZKPassport {
     }
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
-    const { UltraHonkVerifierBackend } = await import("@aztec/bb.js")
     // Automatically set the writing directory to `/tmp` if it is not provided
     // and the code is not running in the browser
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    const verifier = new UltraHonkVerifierBackend({
-      crsPath: writingDirectory ? writingDirectory + "/.bb-crs" : undefined,
-    })
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -595,22 +618,22 @@ export class ZKPassport {
     }
     // Only proceed with the proof verification if the public inputs are correct
     if (verified) {
-      const registryClient = new RegistryClient({ chainId: 11155111 })
-      const circuitManifest = await registryClient.getCircuitManifest(undefined, {
+      const verifier = await getCachedVerifierBackend(writingDirectory)
+      const circuitManifest = await getCachedCircuitManifest(
         // We assume all proofs have the same version
-        version: proofs[0].version,
-      })
+        proofs[0].version,
+      )
       for (const proof of proofs) {
         const isOuterEVM = proof.name?.startsWith("outer_evm_")
         const proofName = proof.name!
         const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
-        const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
+        const hostedPackagedCircuit = await getCachedPackagedCircuit(
           proofName,
           circuitManifest,
           // TODO: set to always validate when the issue is vkey hash calculation is fixed
           // Not as important anyway, as the solidity verifier is the ultimate anchor for
           // EVM outer proofs verification
-          { validate: !isOuterEVM },
+          !isOuterEVM,
         )
         if (isOuterEVM) {
           try {
