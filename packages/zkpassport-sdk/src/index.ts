@@ -121,6 +121,7 @@ export * from "./types"
 
 export class ZKPassport {
   private domain: string
+  private apiUrl: string | null
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -175,14 +176,16 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string) {
+  constructor(_domain?: string, options?: { apiUrl?: string }) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
+    this.apiUrl = options?.apiUrl ?? null
   }
 
   private async handleResult(topic: string) {
+    logger.debug("Starting verification for topic:", topic)
     const result = this.topicToResults[topic]
     // Clear the results straight away to avoid concurrency issues
     delete this.topicToResults[topic]
@@ -194,6 +197,46 @@ export class ZKPassport {
       scope: this.topicToService[topic]?.scope,
       devMode: this.topicToLocalConfig[topic]?.devMode,
     })
+    logger.debug("Verification complete, verified:", verified)
+    // `verified` only indicates whether the proofs that were successfully received passed verification.
+    // However, some proofs may have failed to generate on the mobile device (e.g. "Cannot generate proof").
+    // We must also check that no proofs were lost — if any failed to generate, the overall result is invalid.
+    const finalVerified = this.topicToFailedProofCount[topic] > 0 ? false : verified
+    // Send proof data to external API if verification succeeded
+    if (finalVerified && this.apiUrl) {
+      try {
+        const proofs = this.topicToProofs[topic].map((p) => ({
+          proof: p.proof,
+          vkeyHash: p.vkeyHash,
+          version: p.version,
+          name: p.name,
+          index: p.index,
+          total: p.total,
+          committedInputs: p.committedInputs,
+        }))
+        const response = await fetch(this.apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            domain: this.domain,
+            proofs,
+            queryResult: result,
+            uniqueIdentifier,
+            scope: this.topicToService[topic]?.scope,
+            sdkVersion: VERSION,
+          }),
+        })
+        if (!response.ok) {
+          logger.warn("API request failed with status:", response.status)
+        } else {
+          logger.debug("API response status:", response.status)
+        }
+      } catch (e) {
+        logger.debug("API call failed:", e)
+      }
+    } else if (!finalVerified) {
+      logger.debug("Verification failed, skipping API call")
+    }
     delete this.topicToProofs[topic]
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
     await Promise.all(
