@@ -189,6 +189,7 @@ export class ZKPassport {
     // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
     const { uniqueIdentifier, verified, queryResultErrors } = await this.verify({
       proofs: this.topicToProofs[topic],
+      originalQuery: this.topicToConfig[topic],
       queryResult: result,
       validity: this.topicToLocalConfig[topic]?.validity,
       scope: this.topicToService[topic]?.scope,
@@ -387,6 +388,7 @@ export class ZKPassport {
         this.topicToFailedProofCount[topic] = 0
         return {
           url: this._getUrl(topic),
+          query: this.topicToConfig[topic],
           requestId: topic,
           onRequestReceived: (callback: () => void) =>
             this.onRequestReceivedCallbacks[topic].push(callback),
@@ -509,6 +511,7 @@ export class ZKPassport {
   /**
    * @notice Verify the proofs received from the mobile app.
    * @param proofs The proofs to verify.
+   * @param originalQuery The original query that was sent to the mobile app.
    * @param queryResult The query result to verify against
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param scope Scope this request to a specific use case
@@ -520,6 +523,7 @@ export class ZKPassport {
    */
   public async verify({
     proofs,
+    originalQuery,
     queryResult,
     validity,
     scope,
@@ -527,6 +531,7 @@ export class ZKPassport {
     writingDirectory,
   }: {
     proofs: Array<ProofResult>
+    originalQuery: Query
     queryResult: QueryResult
     validity?: number
     scope?: string
@@ -570,6 +575,7 @@ export class ZKPassport {
     } = await PublicInputChecker.checkPublicInputs(
       this.domain,
       proofs,
+      originalQuery,
       formattedResult,
       validity,
       scope,

@@ -10,6 +10,7 @@ import {
   FacematchMode,
   ProofResult,
   SupportedChain,
+  Query,
 } from "@zkpassport/utils"
 
 export type QueryResultError<T> = {
@@ -72,6 +73,10 @@ export type QueryBuilderResult = {
    * to this URL on your website if they're visiting your website on their phone.
    */
   url: string
+  /**
+   * The query object.
+   */
+  query: Query
   /**
    * The id of the request.
    */
