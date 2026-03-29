@@ -928,7 +928,7 @@ export class PublicInputChecker {
       isCorrect = false
       queryResultErrors.age = {
         ...queryResultErrors.age,
-        gte: {
+        gt: {
           expected: originalQuery.age?.gt,
           received: queryResult.age.gt.expected,
           message: "Age gt does not match the original query",
@@ -1162,7 +1162,7 @@ export class PublicInputChecker {
       isCorrect = false
       queryResultErrors.birthdate = {
         ...queryResultErrors.birthdate,
-        gte: {
+        gt: {
           expected: originalQuery.birthdate?.gt,
           received: queryResult.birthdate.gt.expected,
           message: "Birthdate gt does not match the original query",
@@ -1374,7 +1374,7 @@ export class PublicInputChecker {
       isCorrect = false
       queryResultErrors.expiry_date = {
         ...queryResultErrors.expiry_date,
-        gte: {
+        gt: {
           expected: originalQuery.expiry_date?.gt,
           received: queryResult.expiry_date.gt.expected,
           message: "Expiry date gt does not match the original query",

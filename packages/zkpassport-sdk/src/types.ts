@@ -32,6 +32,7 @@ export type QueryResultErrors = {
     | "sanctions"]: {
     disclose?: QueryResultError<string | number | Date>
     gte?: QueryResultError<number | Date>
+    gt?: QueryResultError<number | Date>
     lte?: QueryResultError<number | Date>
     lt?: QueryResultError<number | Date>
     range?: QueryResultError<[number | Date, number | Date]>
