@@ -26,7 +26,12 @@ import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
-import { QueryBuilder, QueryResultErrors } from "./types"
+import {
+  QueryBuilder,
+  QueryBuilderResult,
+  OfflineQueryBuilderResult,
+  QueryResultErrors,
+} from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { DEFAULT_VALIDITY, VERSION } from "./constants"
@@ -280,7 +285,9 @@ export class ZKPassport {
     }
   }
 
-  private getZkPassportRequest(topic: string): QueryBuilder {
+  private getZkPassportRequest<T extends "online" | "offline" = "online">(
+    topic: string,
+  ): QueryBuilder<T> {
     return {
       eq: <T extends IDCredential>(key: T, value: IDCredentialValue<T>) => {
         if (key === "issuing_country" || key === "nationality") {
@@ -384,8 +391,13 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      done: () => {
+      done: (() => {
         this.topicToFailedProofCount[topic] = 0
+        if (topic === "offline-query") {
+          const query = this.topicToConfig[topic]
+          delete this.topicToConfig[topic]
+          return { query }
+        }
         return {
           url: this._getUrl(topic),
           query: this.topicToConfig[topic],
@@ -412,7 +424,7 @@ export class ZKPassport {
           isBridgeConnected: () => this.topicToBridge[topic].isBridgeConnected(),
           requestReceived: () => this.topicToRequestReceived[topic] === true,
         }
-      },
+      }) as () => T extends "online" ? QueryBuilderResult : OfflineQueryBuilderResult,
     }
   }
 
@@ -454,6 +466,10 @@ export class ZKPassport {
     cloudProverUrl?: string
     bridgeUrl?: string
   }): Promise<QueryBuilder> {
+    if (topicOverride === "offline-query") {
+      throw new Error("You cannot override the topic with 'offline-query'")
+    }
+
     const bridge = await Bridge.create({
       keyPair: keyPairOverride,
       bridgeId: topicOverride,
@@ -506,6 +522,19 @@ export class ZKPassport {
       this.handleEncryptedMessage(topic, message)
     })
     return this.getZkPassportRequest(topic)
+  }
+
+  /**
+   * @notice Create a new offline query
+   * Unlike request(), this function does not connect to the bridge.
+   * It returns only the query object and no callbacks and no URL.
+   * This can be useful to recreate the same query server-side when calling `verify()`
+   * to ensure the original query wasn't tampered with.
+   * @returns The query builder object.
+   */
+  public createQuery(): QueryBuilder<"offline"> {
+    this.topicToConfig["offline-query"] = {}
+    return this.getZkPassportRequest("offline-query")
   }
 
   /**

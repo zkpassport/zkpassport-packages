@@ -140,7 +140,11 @@ export type QueryBuilderResult = {
   requestReceived: () => boolean
 }
 
-export type QueryBuilder = {
+export type OfflineQueryBuilderResult = {
+  query: Query
+}
+
+export type QueryBuilder<T extends "online" | "offline" = "online"> = {
   /**
    * Requires this attribute to be equal to the provided value.
    * @param key The attribute to compare.
@@ -254,5 +258,5 @@ export type QueryBuilder = {
    * or provide as a link to the user if they're visiting your website on their phone.
    * It also returns all the callbacks you can use to handle the user's response.
    */
-  done: () => QueryBuilderResult
+  done: () => T extends "online" ? QueryBuilderResult : OfflineQueryBuilderResult
 }
