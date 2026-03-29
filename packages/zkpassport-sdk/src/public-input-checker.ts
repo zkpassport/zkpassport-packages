@@ -810,6 +810,22 @@ export class PublicInputChecker {
         }
       }
       if (
+        queryResult.age.gt &&
+        queryResult.age.gt.result &&
+        minAge !== (queryResult.age.gt.expected as number)
+      ) {
+        console.warn("Age is not greater than the expected age")
+        isCorrect = false
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          gt: {
+            expected: queryResult.age.gt.expected,
+            received: minAge,
+            message: "Age is not greater than the expected age",
+          },
+        }
+      }
+      if (
         queryResult.age.lt &&
         queryResult.age.lt.result &&
         maxAge !== (queryResult.age.lt.expected as number)
@@ -822,6 +838,39 @@ export class PublicInputChecker {
             expected: queryResult.age.lt.expected,
             received: maxAge,
             message: "Age is not less than the expected age",
+          },
+        }
+      }
+      if (
+        queryResult.age.lte &&
+        queryResult.age.lte.result &&
+        maxAge !== (queryResult.age.lte.expected as number)
+      ) {
+        console.warn("Age is not less than or equal to the expected age")
+        isCorrect = false
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          lte: {
+            expected: queryResult.age.lte.expected,
+            received: maxAge,
+            message: "Age is not less than or equal to the expected age",
+          },
+        }
+      }
+      if (
+        queryResult.age.eq &&
+        queryResult.age.eq.result &&
+        (minAge !== (queryResult.age.eq.expected as number) ||
+          maxAge !== (queryResult.age.eq.expected as number))
+      ) {
+        console.warn("Age does not match the expected age")
+        isCorrect = false
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          eq: {
+            expected: queryResult.age.eq.expected,
+            received: minAge !== (queryResult.age.eq.expected as number) ? minAge : maxAge,
+            message: "Age does not match the expected age",
           },
         }
       }
@@ -1821,32 +1870,23 @@ export class PublicInputChecker {
     let isCorrect = true
 
     if (queryResult.bind) {
+      const bindMismatches: string[] = []
       if (
         queryResult.bind.user_address?.toLowerCase().replace("0x", "") !==
         boundData.user_address?.toLowerCase().replace("0x", "")
       ) {
         console.warn("Bound user address does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.bind = {
-          ...queryResultErrors.bind,
-          eq: {
-            expected: queryResult.bind.user_address,
-            received: boundData.user_address,
-            message: "Bound user address does not match the one from the query results",
-          },
-        }
+        bindMismatches.push(
+          `user_address: expected ${queryResult.bind.user_address}, received ${boundData.user_address}`,
+        )
       }
       if (queryResult.bind.chain !== boundData.chain) {
         console.warn("Bound chain id does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.bind = {
-          ...queryResultErrors.bind,
-          eq: {
-            expected: queryResult.bind.chain,
-            received: boundData.chain,
-            message: "Bound chain id does not match the one from the query results",
-          },
-        }
+        bindMismatches.push(
+          `chain: expected ${queryResult.bind.chain}, received ${boundData.chain}`,
+        )
       }
       if (
         queryResult.bind.custom_data?.trim().toLowerCase() !==
@@ -1854,12 +1894,17 @@ export class PublicInputChecker {
       ) {
         console.warn("Bound custom data does not match the one from the query results")
         isCorrect = false
+        bindMismatches.push(
+          `custom_data: expected ${queryResult.bind.custom_data}, received ${boundData.custom_data}`,
+        )
+      }
+      if (bindMismatches.length > 0) {
         queryResultErrors.bind = {
           ...queryResultErrors.bind,
           eq: {
-            expected: queryResult.bind.custom_data,
-            received: boundData.custom_data,
-            message: "Bound custom data does not match the one from the query results",
+            expected: `${queryResult.bind.user_address}, ${queryResult.bind.chain}, ${queryResult.bind.custom_data}`,
+            received: `${boundData.user_address}, ${boundData.chain}, ${boundData.custom_data}`,
+            message: `Bound data does not match: ${bindMismatches.join("; ")}`,
           },
         }
       }
@@ -2036,9 +2081,8 @@ export class PublicInputChecker {
     const currentDate = getCurrentDateFromDisclosureProof(proofData)
     const todayToCurrentDate = today.getTime() - currentDate.getTime()
     const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
-    const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
     let isCorrect = true
-    if (todayToCurrentDate >= actualDifference) {
+    if (todayToCurrentDate >= expectedDifference) {
       console.warn("The date used to check the validity of the ID falls out of the validity period")
       isCorrect = false
       if (!queryResultErrors[circuitName as keyof QueryResultErrors]) {
@@ -2992,8 +3036,8 @@ export class PublicInputChecker {
             "Failed to check the link between the validity of the ID and the issuing country exclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality = {
-            ...queryResultErrors.nationality,
+          queryResultErrors.issuing_country = {
+            ...queryResultErrors.issuing_country,
             commitment: {
               expected: `Commitment: ${commitmentOut}`,
               received: `Commitment: ${commitmentIn}`,
@@ -3031,7 +3075,7 @@ export class PublicInputChecker {
             domain,
             proofData,
             queryResultErrors,
-            "nationality",
+            "issuing_country",
             scope,
           )
         const {
@@ -3138,8 +3182,8 @@ export class PublicInputChecker {
             "Failed to check the link between the validity of the ID and the issuing country inclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality = {
-            ...queryResultErrors.nationality,
+          queryResultErrors.issuing_country = {
+            ...queryResultErrors.issuing_country,
             commitment: {
               expected: `Commitment: ${commitmentOut}`,
               received: `Commitment: ${commitmentIn}`,
@@ -3177,7 +3221,7 @@ export class PublicInputChecker {
             domain,
             proofData,
             queryResultErrors,
-            "nationality",
+            "issuing_country",
             scope,
           )
         const {
@@ -3205,6 +3249,19 @@ export class PublicInputChecker {
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "bind") {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn("Failed to check the link between the validity of the ID and the bound data")
+          isCorrect = false
+          queryResultErrors.bind = {
+            ...queryResultErrors.bind,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message: "Failed to check the link between the validity of the ID and the bound data",
+            },
+          }
+        }
         const bindCommittedInputs = proof.committedInputs?.bind as BindCommittedInputs
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
         const calculatedParamCommitment = await getBindParameterCommitment(
@@ -3222,12 +3279,15 @@ export class PublicInputChecker {
             },
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(domain, proofData, queryResultErrors, "bind", scope)
         const { isCorrect: isCorrectBind, queryResultErrors: queryResultErrorsBind } =
           this.checkBindPublicInputs(originalQuery, queryResult, bindCommittedInputs.data)
-        isCorrect = isCorrect && isCorrectBind
+        isCorrect = isCorrect && isCorrectBind && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsBind,
+          ...queryResultErrorsScope,
         }
         const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
           await this.checkCurrentDate(
@@ -3244,6 +3304,22 @@ export class PublicInputChecker {
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "exclusion_check_sanctions") {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn(
+            "Failed to check the link between the validity of the ID and the sanctions exclusion check",
+          )
+          isCorrect = false
+          queryResultErrors.sanctions = {
+            ...queryResultErrors.sanctions,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the sanctions exclusion check",
+            },
+          }
+        }
         const sanctionsBuilder = await SanctionsBuilder.create()
         const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
           ?.exclusion_check_sanctions as SanctionsCommittedInputs
@@ -3266,6 +3342,14 @@ export class PublicInputChecker {
             },
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(
+            domain,
+            proofData,
+            queryResultErrors,
+            "sanctions",
+            scope,
+          )
         const {
           isCorrect: isCorrectSanctionsExclusion,
           queryResultErrors: queryResultErrorsSanctionsExclusion,
@@ -3275,10 +3359,11 @@ export class PublicInputChecker {
           exclusionCheckSanctionsCommittedInputs,
           sanctionsBuilder,
         )
-        isCorrect = isCorrect && isCorrectSanctionsExclusion
+        isCorrect = isCorrect && isCorrectSanctionsExclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsSanctionsExclusion,
+          ...queryResultErrorsScope,
         }
         const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
           await this.checkCurrentDate(
@@ -3295,6 +3380,22 @@ export class PublicInputChecker {
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name?.startsWith("facematch") && !proof.name?.endsWith("_evm")) {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn(
+            "Failed to check the link between the validity of the ID and the facematch check",
+          )
+          isCorrect = false
+          queryResultErrors.facematch = {
+            ...queryResultErrors.facematch,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the facematch check",
+            },
+          }
+        }
         const facematchCommittedInputs = proof.committedInputs
           ?.facematch as FacematchCommittedInputs
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -3316,16 +3417,25 @@ export class PublicInputChecker {
             },
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(
+            domain,
+            proofData,
+            queryResultErrors,
+            "facematch",
+            scope,
+          )
         const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
           await this.checkFacematchPublicInputs(
             originalQuery,
             queryResult,
             facematchCommittedInputs,
           )
-        isCorrect = isCorrect && isCorrectFacematch
+        isCorrect = isCorrect && isCorrectFacematch && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsFacematch,
+          ...queryResultErrorsScope,
         }
         const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
           await this.checkCurrentDate(

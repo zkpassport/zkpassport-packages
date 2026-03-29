@@ -987,6 +987,112 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
         "Age does not match the disclosed age",
       )
     })
+
+    test("passes when committed minAge matches queryResult gt", () => {
+      const proof = makeAgeProof(17, 0)
+      const originalQuery: Query = { age: { gt: 17 } }
+      const queryResult: QueryResult = {
+        age: { gt: { expected: 17, result: true } },
+      }
+      const { isCorrect } = PublicInputChecker.checkAgePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when committed minAge does not match queryResult gt expected", () => {
+      const proof = makeAgeProof(15, 0) // committed says 15
+      const originalQuery: Query = { age: { gt: 17 } }
+      const queryResult: QueryResult = {
+        age: { gt: { expected: 17, result: true } }, // queryResult says 17
+      }
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkAgePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.gt).toBeDefined()
+      expect(queryResultErrors.age!.gt!.message).toContain("not greater than")
+    })
+
+    test("passes when committed maxAge matches queryResult lte", () => {
+      const proof = makeAgeProof(0, 65)
+      const originalQuery: Query = { age: { lte: 65 } }
+      const queryResult: QueryResult = {
+        age: { lte: { expected: 65, result: true } },
+      }
+      const { isCorrect } = PublicInputChecker.checkAgePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when committed maxAge does not match queryResult lte expected", () => {
+      const proof = makeAgeProof(0, 70) // committed says 70
+      const originalQuery: Query = { age: { lte: 65 } }
+      const queryResult: QueryResult = {
+        age: { lte: { expected: 65, result: true } }, // queryResult says 65
+      }
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkAgePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.lte).toBeDefined()
+      expect(queryResultErrors.age!.lte!.message).toContain("not less than or equal")
+    })
+
+    test("passes when committed minAge and maxAge match queryResult eq", () => {
+      const proof = makeAgeProof(25, 25)
+      const originalQuery: Query = { age: { eq: 25 } }
+      const queryResult: QueryResult = {
+        age: { eq: { expected: 25, result: true } },
+      }
+      const { isCorrect } = PublicInputChecker.checkAgePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when committed minAge does not match queryResult eq expected", () => {
+      const proof = makeAgeProof(20, 25) // minAge != expected
+      const originalQuery: Query = { age: { eq: 25 } }
+      const queryResult: QueryResult = {
+        age: { eq: { expected: 25, result: true } },
+      }
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkAgePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.eq).toBeDefined()
+      expect(queryResultErrors.age!.eq!.message).toContain("does not match the expected age")
+    })
+
+    test("fails when committed maxAge does not match queryResult eq expected", () => {
+      const proof = makeAgeProof(25, 30) // maxAge != expected
+      const originalQuery: Query = { age: { eq: 25 } }
+      const queryResult: QueryResult = {
+        age: { eq: { expected: 25, result: true } },
+      }
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkAgePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.eq).toBeDefined()
+      expect(queryResultErrors.age!.eq!.message).toContain("does not match the expected age")
+    })
   })
 
   describe("checkBirthdatePublicInputs", () => {
@@ -1384,6 +1490,28 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       )
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.bind?.eq).toBeDefined()
+    })
+
+    test("captures all mismatches in a single error when multiple fields differ", () => {
+      // originalQuery matches queryResult so the originalQuery check doesn't overwrite
+      const oq: Query = {
+        bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
+      }
+      const queryResult: QueryResult = {
+        bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
+      }
+      // boundData (committed inputs) differs from queryResult on all fields
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
+        oq,
+        queryResult,
+        { user_address: "0xccc", chain: "arbitrum", custom_data: "baz" },
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.bind?.eq).toBeDefined()
+      // The combined error message should mention all three mismatched fields
+      expect(queryResultErrors.bind!.eq!.message).toContain("user_address")
+      expect(queryResultErrors.bind!.eq!.message).toContain("chain")
+      expect(queryResultErrors.bind!.eq!.message).toContain("custom_data")
     })
   })
 
@@ -2112,6 +2240,205 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(queryResultErrors.sig_check_dsc?.certificate?.message).toContain(
         "unrecognized root certificate",
       )
+    })
+  })
+
+  describe("non-outer proof path - bind commitment chain and scope", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const commitment = 100n
+    const nullifier = 42n
+
+    function makeBindProof(commitmentIn: bigint, scope: bigint = domainScopeHash): ProofResult {
+      return {
+        name: "bind",
+        proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, nullifier]),
+        total: 1,
+        committedInputs: {
+          bind: {
+            data: { user_address: "0xabc", chain: "ethereum", custom_data: "test" },
+          },
+        },
+      }
+    }
+
+    test("fails when bind proof commitmentIn does not match integrity commitmentOut", async () => {
+      const proofs = [makeBindProof(999n)] // wrong commitmentIn
+      const originalQuery: Query = {
+        bind: { user_address: "0xabc", chain: "ethereum", custom_data: "test" },
+      }
+      const queryResult: QueryResult = {
+        bind: { user_address: "0xabc", chain: "ethereum", custom_data: "test" },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.bind?.commitment).toBeDefined()
+      expect(queryResultErrors.bind!.commitment!.message).toContain("bound data")
+    })
+
+    test("fails when bind proof domain scope does not match expected", async () => {
+      const wrongScope = getServiceScopeHash("wrong-domain.com")
+      const proofs = [makeBindProof(commitment, wrongScope)]
+      const originalQuery: Query = {
+        bind: { user_address: "0xabc", chain: "ethereum", custom_data: "test" },
+      }
+      const queryResult: QueryResult = {
+        bind: { user_address: "0xabc", chain: "ethereum", custom_data: "test" },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.bind?.scope).toBeDefined()
+      expect(queryResultErrors.bind!.scope!.message).toContain("different domain")
+    })
+  })
+
+  describe("non-outer proof path - sanctions commitment chain and scope", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const commitment = 100n
+    const nullifier = 42n
+
+    function makeSanctionsProof(
+      commitmentIn: bigint,
+      scope: bigint = domainScopeHash,
+    ): ProofResult {
+      return {
+        name: "exclusion_check_sanctions",
+        proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, nullifier]),
+        total: 1,
+        committedInputs: {
+          exclusion_check_sanctions: { rootHash: "abc", isStrict: false },
+        },
+      }
+    }
+
+    test("fails when sanctions proof commitmentIn does not match", async () => {
+      const proofs = [makeSanctionsProof(999n)]
+      const originalQuery: Query = {
+        sanctions: { countries: "all", lists: "all", strict: false },
+      }
+      const queryResult: QueryResult = {
+        sanctions: { passed: true, isStrict: false },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.sanctions?.commitment).toBeDefined()
+    })
+
+    test("fails when sanctions proof domain scope does not match expected", async () => {
+      const wrongScope = getServiceScopeHash("wrong-domain.com")
+      const proofs = [makeSanctionsProof(commitment, wrongScope)]
+      const originalQuery: Query = {
+        sanctions: { countries: "all", lists: "all", strict: false },
+      }
+      const queryResult: QueryResult = {
+        sanctions: { passed: true, isStrict: false },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.sanctions?.scope).toBeDefined()
+      expect(queryResultErrors.sanctions!.scope!.message).toContain("different domain")
+    })
+  })
+
+  describe("non-outer proof path - facematch commitment chain and scope", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const commitment = 100n
+
+    function makeFacematchProof(
+      commitmentIn: bigint,
+      scope: bigint = domainScopeHash,
+    ): ProofResult {
+      return {
+        name: "facematch_1234",
+        proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, 0n]),
+        total: 1,
+        committedInputs: {
+          facematch: {
+            rootKeyLeaf: APPLE_APP_ATTEST_ROOT_KEY_HASH,
+            environment: "production",
+            appIdHash: ZKPASSPORT_IOS_APP_ID_HASH,
+            mode: "regular",
+            integrityPubkeyHash: "0x0",
+          },
+        },
+      }
+    }
+
+    test("fails when facematch proof commitmentIn does not match", async () => {
+      const proofs = [makeFacematchProof(999n)]
+      const originalQuery: Query = { facematch: { mode: "regular" } }
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.commitment).toBeDefined()
+    })
+
+    test("fails when facematch proof domain scope does not match expected", async () => {
+      const wrongScope = getServiceScopeHash("wrong-domain.com")
+      const proofs = [makeFacematchProof(commitment, wrongScope)]
+      const originalQuery: Query = { facematch: { mode: "regular" } }
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.scope).toBeDefined()
+      expect(queryResultErrors.facematch!.scope!.message).toContain("different domain")
     })
   })
 })
