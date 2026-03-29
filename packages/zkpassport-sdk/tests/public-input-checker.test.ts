@@ -2060,6 +2060,143 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(queryResultErrors.age?.date).toBeUndefined()
     })
+
+    test("fails when proof date is exactly at the validity boundary", async () => {
+      const validitySeconds = 86400 // 1 day
+      // Proof date exactly `validitySeconds` ago: todayToCurrentDate == expectedDifference
+      // The condition is `>=`, so this should fail
+      const boundaryTs = BigInt(getTodayTimestamp() - validitySeconds)
+      const proofs: ProofResult[] = [
+        {
+          name: "compare_age",
+          proof: buildProofHex([commitment, boundaryTs, domainScopeHash, 0n, 0n, 0n, nullifier]),
+          total: 1,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        validitySeconds,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.date?.message).toContain("validity period")
+    })
+
+    test("passes when proof date is 1 second before the validity boundary", async () => {
+      const validitySeconds = 86400 // 1 day
+      // Proof date (validitySeconds - 1) ago: todayToCurrentDate < expectedDifference
+      const justInsideTs = BigInt(getTodayTimestamp() - validitySeconds + 1)
+      const proofs: ProofResult[] = [
+        {
+          name: "compare_age",
+          proof: buildProofHex([commitment, justInsideTs, domainScopeHash, 0n, 0n, 0n, nullifier]),
+          total: 1,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        validitySeconds,
+      )
+
+      expect(queryResultErrors.age?.date).toBeUndefined()
+    })
+  })
+
+  describe("outer proof path - current date validation", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const nullifier = 42n
+
+    // Outer proof public inputs for `outer_4` (1 disclosure proof → 8 public inputs):
+    // [certRegistryRoot, circuitRegistryRoot, currentDate, serviceScope, subscope,
+    //  paramCommitment, nullifierType, nullifier]
+    function makeOuterProof(currentDateTs: bigint): ProofResult {
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n, // certRegistryRoot (mocked)
+          2n, // circuitRegistryRoot (mocked)
+          currentDateTs,
+          domainScopeHash,
+          0n, // subscope
+          0n, // paramCommitment (will fail param check, but we're testing date)
+          0n, // nullifierType
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: {},
+      }
+    }
+
+    test("fails when outer proof date is too old", async () => {
+      const oldTs = BigInt(getTodayTimestamp() - 86400 * 30) // 30 days ago
+      const proofs = [makeOuterProof(oldTs)]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400, // 1 day validity
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.date?.message).toContain("validity period")
+    })
+
+    test("passes when outer proof date is within validity period", async () => {
+      const recentTs = BigInt(getTodayTimestamp())
+      const proofs = [makeOuterProof(recentTs)]
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400 * 365, // large validity
+      )
+
+      expect(queryResultErrors.outer?.date).toBeUndefined()
+    })
+
+    test("fails when outer proof date is exactly at the validity boundary", async () => {
+      const validitySeconds = 86400
+      const boundaryTs = BigInt(getTodayTimestamp() - validitySeconds)
+      const proofs = [makeOuterProof(boundaryTs)]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        validitySeconds,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.date?.message).toContain("validity period")
+    })
   })
 
   describe("non-outer proof path - nullifier extraction", () => {

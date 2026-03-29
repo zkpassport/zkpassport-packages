@@ -2181,8 +2181,7 @@ export class PublicInputChecker {
         const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
         const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
-        const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
-        if (todayToCurrentDate >= actualDifference) {
+        if (todayToCurrentDate >= expectedDifference) {
           console.warn(
             `The date used to check the validity of the ID is older than the validity period`,
           )
