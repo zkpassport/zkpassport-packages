@@ -327,3 +327,119 @@ describe("Query Builder", () => {
     })
   })
 })
+
+describe("createQuery (offline mode)", () => {
+  let zkPassport: ZkPassportVerifier
+
+  beforeEach(() => {
+    zkPassport = new ZkPassportVerifier("localhost")
+  })
+
+  test("done() returns only { query } without url or callbacks", () => {
+    const result = zkPassport.createQuery().eq("nationality", "FRA").done()
+
+    expect(result.query).toBeDefined()
+    // Should NOT have online-mode properties
+    expect((result as Record<string, unknown>).url).toBeUndefined()
+    expect((result as Record<string, unknown>).requestId).toBeUndefined()
+    expect((result as Record<string, unknown>).onResult).toBeUndefined()
+    expect((result as Record<string, unknown>).onReject).toBeUndefined()
+    expect((result as Record<string, unknown>).onError).toBeUndefined()
+    expect((result as Record<string, unknown>).onBridgeConnect).toBeUndefined()
+    expect((result as Record<string, unknown>).onRequestReceived).toBeUndefined()
+    expect((result as Record<string, unknown>).onGeneratingProof).toBeUndefined()
+    expect((result as Record<string, unknown>).onProofGenerated).toBeUndefined()
+    expect((result as Record<string, unknown>).isBridgeConnected).toBeUndefined()
+    expect((result as Record<string, unknown>).requestReceived).toBeUndefined()
+  })
+
+  test("should build equality query", () => {
+    const result = zkPassport
+      .createQuery()
+      .eq("document_type", "passport")
+      .eq("gender", "female")
+      .done()
+
+    expect(result.query).toEqual({
+      document_type: { eq: "passport" },
+      gender: { eq: "female" },
+    })
+  })
+
+  test("should build age comparison query", () => {
+    const result = zkPassport.createQuery().gte("age", 18).lt("age", 65).done()
+
+    expect(result.query.age).toEqual({
+      gte: 18,
+      lt: 65,
+    })
+  })
+
+  test("should build disclosure request", () => {
+    const result = zkPassport.createQuery().disclose("fullname").disclose("birthdate").done()
+
+    expect(result.query).toEqual({
+      fullname: { disclose: true },
+      birthdate: { disclose: true },
+    })
+  })
+
+  test("should build nationality inclusion/exclusion query", () => {
+    const result = zkPassport
+      .createQuery()
+      .in("nationality", ["FRA", "DEU"])
+      .out("issuing_country", ["USA"])
+      .done()
+
+    expect(result.query.nationality).toEqual({ in: ["FRA", "DEU"] })
+    expect(result.query.issuing_country).toEqual({ out: ["USA"] })
+  })
+
+  test("should build combined query", () => {
+    const result = zkPassport
+      .createQuery()
+      .eq("document_type", "passport")
+      .gte("age", 18)
+      .disclose("fullname")
+      .in("nationality", ["FRA", "DEU"])
+      .sanctions()
+      .done()
+
+    expect(result.query).toEqual({
+      document_type: { eq: "passport" },
+      age: { gte: 18 },
+      fullname: { disclose: true },
+      nationality: { in: ["FRA", "DEU"] },
+      sanctions: { countries: "all", lists: "all", strict: false },
+    })
+  })
+
+  test("should build sanctions query with strict mode", () => {
+    const result = zkPassport.createQuery().sanctions("all", "all", { strict: true }).done()
+
+    expect(result.query.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+      strict: true,
+    })
+  })
+
+  test("should build bind query", () => {
+    const result = zkPassport
+      .createQuery()
+      .bind("user_address", "0x1234abcd")
+      .bind("chain", "ethereum")
+      .done()
+
+    expect(result.query.bind).toEqual({
+      user_address: "0x1234abcd",
+      chain: "ethereum",
+    })
+  })
+
+  test("should build facematch query", () => {
+    const result = zkPassport.createQuery().facematch("strict").done()
+
+    expect(result.query.facematch).toEqual({ mode: "strict" })
+  })
+})

@@ -26,7 +26,12 @@ import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
 import { RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
-import { QueryBuilder, QueryResultErrors } from "./types"
+import {
+  QueryBuilder,
+  QueryBuilderResult,
+  OfflineQueryBuilderResult,
+  QueryResultErrors,
+} from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { DEFAULT_VALIDITY, VERSION } from "./constants"
@@ -189,6 +194,7 @@ export class ZKPassport {
     // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
     const { uniqueIdentifier, verified, queryResultErrors } = await this.verify({
       proofs: this.topicToProofs[topic],
+      originalQuery: this.topicToConfig[topic],
       queryResult: result,
       validity: this.topicToLocalConfig[topic]?.validity,
       scope: this.topicToService[topic]?.scope,
@@ -279,7 +285,9 @@ export class ZKPassport {
     }
   }
 
-  private getZkPassportRequest(topic: string): QueryBuilder {
+  private getZkPassportRequest<T extends "online" | "offline" = "online">(
+    topic: string,
+  ): QueryBuilder<T> {
     return {
       eq: <T extends IDCredential>(key: T, value: IDCredentialValue<T>) => {
         if (key === "issuing_country" || key === "nationality") {
@@ -383,10 +391,16 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      done: () => {
+      done: (() => {
         this.topicToFailedProofCount[topic] = 0
+        if (topic === "offline-query") {
+          const query = this.topicToConfig[topic]
+          delete this.topicToConfig[topic]
+          return { query }
+        }
         return {
           url: this._getUrl(topic),
+          query: this.topicToConfig[topic],
           requestId: topic,
           onRequestReceived: (callback: () => void) =>
             this.onRequestReceivedCallbacks[topic].push(callback),
@@ -410,7 +424,7 @@ export class ZKPassport {
           isBridgeConnected: () => this.topicToBridge[topic].isBridgeConnected(),
           requestReceived: () => this.topicToRequestReceived[topic] === true,
         }
-      },
+      }) as () => T extends "online" ? QueryBuilderResult : OfflineQueryBuilderResult,
     }
   }
 
@@ -452,6 +466,10 @@ export class ZKPassport {
     cloudProverUrl?: string
     bridgeUrl?: string
   }): Promise<QueryBuilder> {
+    if (topicOverride === "offline-query") {
+      throw new Error("You cannot override the topic with 'offline-query'")
+    }
+
     const bridge = await Bridge.create({
       keyPair: keyPairOverride,
       bridgeId: topicOverride,
@@ -507,8 +525,22 @@ export class ZKPassport {
   }
 
   /**
+   * @notice Create a new offline query
+   * Unlike request(), this function does not connect to the bridge.
+   * It returns only the query object and no callbacks and no URL.
+   * This can be useful to recreate the same query server-side when calling `verify()`
+   * to ensure the original query wasn't tampered with.
+   * @returns The query builder object.
+   */
+  public createQuery(): QueryBuilder<"offline"> {
+    this.topicToConfig["offline-query"] = {}
+    return this.getZkPassportRequest("offline-query")
+  }
+
+  /**
    * @notice Verify the proofs received from the mobile app.
    * @param proofs The proofs to verify.
+   * @param originalQuery The original query that was sent to the mobile app.
    * @param queryResult The query result to verify against
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param scope Scope this request to a specific use case
@@ -520,6 +552,7 @@ export class ZKPassport {
    */
   public async verify({
     proofs,
+    originalQuery,
     queryResult,
     validity,
     scope,
@@ -527,6 +560,7 @@ export class ZKPassport {
     writingDirectory,
   }: {
     proofs: Array<ProofResult>
+    originalQuery: Query
     queryResult: QueryResult
     validity?: number
     scope?: string
@@ -570,6 +604,7 @@ export class ZKPassport {
     } = await PublicInputChecker.checkPublicInputs(
       this.domain,
       proofs,
+      originalQuery,
       formattedResult,
       validity,
       scope,

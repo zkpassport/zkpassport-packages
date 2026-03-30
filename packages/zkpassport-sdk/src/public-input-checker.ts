@@ -63,6 +63,7 @@ import {
   getNullifierTypeFromDisclosureProof,
   getServiceScopeFromDisclosureProof,
   getServiceSubScopeFromDisclosureProof,
+  Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
 import { RegistryClient } from "@zkpassport/registry"
@@ -77,7 +78,11 @@ import {
 } from "./constants"
 
 export class PublicInputChecker {
-  public static checkDiscloseBytesPublicInputs(proof: ProofResult, queryResult: QueryResult) {
+  public static checkDiscloseBytesPublicInputs(
+    proof: ProofResult,
+    originalQuery: Query,
+    queryResult: QueryResult,
+  ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     // We can't be certain that the disclosed data is for a passport or an ID card
@@ -114,6 +119,34 @@ export class PublicInputChecker {
             expected: `${queryResult.document_type.disclose?.result}`,
             received: `${disclosedDataIDCard.documentType ?? disclosedDataPassport.documentType}`,
             message: "Document type does not match the disclosed document type in query result",
+          },
+        }
+      }
+      if (
+        queryResult.document_type.eq &&
+        (originalQuery.document_type?.eq === undefined ||
+          queryResult.document_type.eq.expected !== originalQuery.document_type.eq)
+      ) {
+        console.warn("Document type eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.document_type = {
+          ...queryResultErrors.document_type,
+          eq: {
+            expected: `${originalQuery.document_type?.eq}`,
+            received: `${queryResult.document_type.eq.expected}`,
+            message: "Document type eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.document_type.disclose && !originalQuery.document_type?.disclose) {
+        console.warn("Document type disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.document_type = {
+          ...queryResultErrors.document_type,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.document_type.disclose.result}`,
+            message: "Document type disclose is not in the original query",
           },
         }
       }
@@ -154,6 +187,34 @@ export class PublicInputChecker {
           },
         }
       }
+      if (
+        queryResult.birthdate.eq &&
+        (originalQuery.birthdate?.eq === undefined ||
+          !areDatesEqual(queryResult.birthdate.eq.expected, originalQuery.birthdate.eq as Date))
+      ) {
+        console.warn("Birthdate eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          eq: {
+            expected: `${(originalQuery.birthdate?.eq as Date)?.toISOString?.() ?? "undefined"}`,
+            received: `${queryResult.birthdate.eq.expected.toISOString()}`,
+            message: "Birthdate eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.birthdate.disclose && !originalQuery.birthdate?.disclose) {
+        console.warn("Birthdate disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.birthdate = {
+          ...queryResultErrors.birthdate,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.birthdate.disclose.result}`,
+            message: "Birthdate disclose is not in the original query",
+          },
+        }
+      }
     }
     if (queryResult.expiry_date) {
       const expiryDatePassport = disclosedDataPassport.dateOfExpiry
@@ -188,6 +249,34 @@ export class PublicInputChecker {
             expected: `${queryResult.expiry_date.disclose.result.toISOString()}`,
             received: `${expiryDatePassport?.toISOString() ?? expiryDateIDCard?.toISOString()}`,
             message: "Expiry date does not match the disclosed expiry date in query result",
+          },
+        }
+      }
+      if (
+        queryResult.expiry_date.eq &&
+        (originalQuery.expiry_date?.eq === undefined ||
+          !areDatesEqual(queryResult.expiry_date.eq.expected, originalQuery.expiry_date.eq as Date))
+      ) {
+        console.warn("Expiry date eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          eq: {
+            expected: `${(originalQuery.expiry_date?.eq as Date)?.toISOString?.() ?? "undefined"}`,
+            received: `${queryResult.expiry_date.eq.expected.toISOString()}`,
+            message: "Expiry date eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.expiry_date.disclose && !originalQuery.expiry_date?.disclose) {
+        console.warn("Expiry date disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.expiry_date = {
+          ...queryResultErrors.expiry_date,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.expiry_date.disclose.result}`,
+            message: "Expiry date disclose is not in the original query",
           },
         }
       }
@@ -228,6 +317,34 @@ export class PublicInputChecker {
           },
         }
       }
+      if (
+        queryResult.nationality.eq &&
+        (originalQuery.nationality?.eq === undefined ||
+          queryResult.nationality.eq.expected !== originalQuery.nationality.eq)
+      ) {
+        console.warn("Nationality eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.nationality = {
+          ...queryResultErrors.nationality,
+          eq: {
+            expected: `${originalQuery.nationality?.eq}`,
+            received: `${queryResult.nationality.eq.expected}`,
+            message: "Nationality eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.nationality.disclose && !originalQuery.nationality?.disclose) {
+        console.warn("Nationality disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.nationality = {
+          ...queryResultErrors.nationality,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.nationality.disclose.result}`,
+            message: "Nationality disclose is not in the original query",
+          },
+        }
+      }
     }
     if (queryResult.document_number) {
       const documentNumberPassport = disclosedDataPassport.documentNumber
@@ -262,6 +379,34 @@ export class PublicInputChecker {
             expected: `${queryResult.document_number.disclose.result}`,
             received: `${documentNumberPassport ?? documentNumberIDCard}`,
             message: "Document number does not match the disclosed document number in query result",
+          },
+        }
+      }
+      if (
+        queryResult.document_number.eq &&
+        (originalQuery.document_number?.eq === undefined ||
+          queryResult.document_number.eq.expected !== originalQuery.document_number.eq)
+      ) {
+        console.warn("Document number eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.document_number = {
+          ...queryResultErrors.document_number,
+          eq: {
+            expected: `${originalQuery.document_number?.eq}`,
+            received: `${queryResult.document_number.eq.expected}`,
+            message: "Document number eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.document_number.disclose && !originalQuery.document_number?.disclose) {
+        console.warn("Document number disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.document_number = {
+          ...queryResultErrors.document_number,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.document_number.disclose.result}`,
+            message: "Document number disclose is not in the original query",
           },
         }
       }
@@ -302,6 +447,34 @@ export class PublicInputChecker {
           },
         }
       }
+      if (
+        queryResult.gender.eq &&
+        (originalQuery.gender?.eq === undefined ||
+          queryResult.gender.eq.expected !== originalQuery.gender.eq)
+      ) {
+        console.warn("Gender eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.gender = {
+          ...queryResultErrors.gender,
+          eq: {
+            expected: `${originalQuery.gender?.eq}`,
+            received: `${queryResult.gender.eq.expected}`,
+            message: "Gender eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.gender.disclose && !originalQuery.gender?.disclose) {
+        console.warn("Gender disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.gender = {
+          ...queryResultErrors.gender,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.gender.disclose.result}`,
+            message: "Gender disclose is not in the original query",
+          },
+        }
+      }
     }
     if (queryResult.issuing_country) {
       const issuingCountryPassport = disclosedDataPassport.issuingCountry
@@ -336,6 +509,34 @@ export class PublicInputChecker {
             expected: `${queryResult.issuing_country.disclose.result}`,
             received: `${issuingCountryPassport ?? issuingCountryIDCard}`,
             message: "Issuing country does not match the disclosed issuing country in query result",
+          },
+        }
+      }
+      if (
+        queryResult.issuing_country.eq &&
+        (originalQuery.issuing_country?.eq === undefined ||
+          queryResult.issuing_country.eq.expected !== originalQuery.issuing_country.eq)
+      ) {
+        console.warn("Issuing country eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.issuing_country = {
+          ...queryResultErrors.issuing_country,
+          eq: {
+            expected: `${originalQuery.issuing_country?.eq}`,
+            received: `${queryResult.issuing_country.eq.expected}`,
+            message: "Issuing country eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.issuing_country.disclose && !originalQuery.issuing_country?.disclose) {
+        console.warn("Issuing country disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.issuing_country = {
+          ...queryResultErrors.issuing_country,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.issuing_country.disclose.result}`,
+            message: "Issuing country disclose is not in the original query",
           },
         }
       }
@@ -376,6 +577,35 @@ export class PublicInputChecker {
             expected: `${queryResult.fullname.disclose.result}`,
             received: `${fullnamePassport ?? fullnameIDCard}`,
             message: "Fullname does not match the disclosed fullname in query result",
+          },
+        }
+      }
+      if (
+        queryResult.fullname.eq &&
+        (originalQuery.fullname?.eq === undefined ||
+          formatName(queryResult.fullname.eq.expected).toLowerCase() !==
+            formatName(originalQuery.fullname.eq as string).toLowerCase())
+      ) {
+        console.warn("Fullname eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.fullname = {
+          ...queryResultErrors.fullname,
+          eq: {
+            expected: `${originalQuery.fullname?.eq}`,
+            received: `${queryResult.fullname.eq.expected}`,
+            message: "Fullname eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.fullname.disclose && !originalQuery.fullname?.disclose) {
+        console.warn("Fullname disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.fullname = {
+          ...queryResultErrors.fullname,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.fullname.disclose.result}`,
+            message: "Fullname disclose is not in the original query",
           },
         }
       }
@@ -427,6 +657,35 @@ export class PublicInputChecker {
           },
         }
       }
+      if (
+        queryResult.firstname.eq &&
+        (originalQuery.firstname?.eq === undefined ||
+          formatName(queryResult.firstname.eq.expected).toLowerCase() !==
+            formatName(originalQuery.firstname.eq as string).toLowerCase())
+      ) {
+        console.warn("Firstname eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.firstname = {
+          ...queryResultErrors.firstname,
+          eq: {
+            expected: `${originalQuery.firstname?.eq}`,
+            received: `${queryResult.firstname.eq.expected}`,
+            message: "Firstname eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.firstname.disclose && !originalQuery.firstname?.disclose) {
+        console.warn("Firstname disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.firstname = {
+          ...queryResultErrors.firstname,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.firstname.disclose.result}`,
+            message: "Firstname disclose is not in the original query",
+          },
+        }
+      }
     }
     if (queryResult.lastname) {
       // If fullname was not revealed, then the name could be either the first name or last name
@@ -474,11 +733,44 @@ export class PublicInputChecker {
           },
         }
       }
+      if (
+        queryResult.lastname.eq &&
+        (originalQuery.lastname?.eq === undefined ||
+          formatName(queryResult.lastname.eq.expected).toLowerCase() !==
+            formatName(originalQuery.lastname.eq as string).toLowerCase())
+      ) {
+        console.warn("Lastname eq does not match the original query")
+        isCorrect = false
+        queryResultErrors.lastname = {
+          ...queryResultErrors.lastname,
+          eq: {
+            expected: `${originalQuery.lastname?.eq}`,
+            received: `${queryResult.lastname.eq.expected}`,
+            message: "Lastname eq does not match the original query",
+          },
+        }
+      }
+      if (queryResult.lastname.disclose && !originalQuery.lastname?.disclose) {
+        console.warn("Lastname disclose is not in the original query")
+        isCorrect = false
+        queryResultErrors.lastname = {
+          ...queryResultErrors.lastname,
+          disclose: {
+            expected: "Not requested in original query",
+            received: `${queryResult.lastname.disclose.result}`,
+            message: "Lastname disclose is not in the original query",
+          },
+        }
+      }
     }
     return { isCorrect, queryResultErrors }
   }
 
-  public static checkAgePublicInputs(proof: ProofResult, queryResult: QueryResult) {
+  public static checkAgePublicInputs(
+    proof: ProofResult,
+    originalQuery: Query,
+    queryResult: QueryResult,
+  ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
@@ -518,6 +810,22 @@ export class PublicInputChecker {
         }
       }
       if (
+        queryResult.age.gt &&
+        queryResult.age.gt.result &&
+        minAge !== (queryResult.age.gt.expected as number)
+      ) {
+        console.warn("Age is not greater than the expected age")
+        isCorrect = false
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          gt: {
+            expected: queryResult.age.gt.expected,
+            received: minAge,
+            message: "Age is not greater than the expected age",
+          },
+        }
+      }
+      if (
         queryResult.age.lt &&
         queryResult.age.lt.result &&
         maxAge !== (queryResult.age.lt.expected as number)
@@ -530,6 +838,39 @@ export class PublicInputChecker {
             expected: queryResult.age.lt.expected,
             received: maxAge,
             message: "Age is not less than the expected age",
+          },
+        }
+      }
+      if (
+        queryResult.age.lte &&
+        queryResult.age.lte.result &&
+        maxAge !== (queryResult.age.lte.expected as number)
+      ) {
+        console.warn("Age is not less than or equal to the expected age")
+        isCorrect = false
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          lte: {
+            expected: queryResult.age.lte.expected,
+            received: maxAge,
+            message: "Age is not less than or equal to the expected age",
+          },
+        }
+      }
+      if (
+        queryResult.age.eq &&
+        queryResult.age.eq.result &&
+        (minAge !== (queryResult.age.eq.expected as number) ||
+          maxAge !== (queryResult.age.eq.expected as number))
+      ) {
+        console.warn("Age does not match the expected age")
+        isCorrect = false
+        queryResultErrors.age = {
+          ...queryResultErrors.age,
+          eq: {
+            expected: queryResult.age.eq.expected,
+            received: minAge !== (queryResult.age.eq.expected as number) ? minAge : maxAge,
+            message: "Age does not match the expected age",
           },
         }
       }
@@ -612,10 +953,120 @@ export class PublicInputChecker {
         },
       }
     }
+    if (
+      queryResult.age?.gte &&
+      (originalQuery.age?.gte === undefined ||
+        queryResult.age.gte.expected !== originalQuery.age.gte)
+    ) {
+      console.warn("Age gte does not match the original query")
+      isCorrect = false
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        gte: {
+          expected: originalQuery.age?.gte,
+          received: queryResult.age.gte.expected,
+          message: "Age gte does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.age?.gt &&
+      (originalQuery.age?.gt === undefined || queryResult.age.gt.expected !== originalQuery.age.gt)
+    ) {
+      console.warn("Age gt does not match the original query")
+      isCorrect = false
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        gt: {
+          expected: originalQuery.age?.gt,
+          received: queryResult.age.gt.expected,
+          message: "Age gt does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.age?.lt &&
+      (originalQuery.age?.lt === undefined || queryResult.age.lt.expected !== originalQuery.age.lt)
+    ) {
+      console.warn("Age lt does not match the original query")
+      isCorrect = false
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        lt: {
+          expected: originalQuery.age?.lt,
+          received: queryResult.age.lt.expected,
+          message: "Age lt does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.age?.lte &&
+      (originalQuery.age?.lte === undefined ||
+        queryResult.age.lte.expected !== originalQuery.age.lte)
+    ) {
+      console.warn("Age lte does not match the original query")
+      isCorrect = false
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        lte: {
+          expected: originalQuery.age?.lte,
+          received: queryResult.age.lte.expected,
+          message: "Age lte does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.age?.eq &&
+      (originalQuery.age?.eq === undefined || queryResult.age.eq.expected !== originalQuery.age.eq)
+    ) {
+      console.warn("Age eq does not match the original query")
+      isCorrect = false
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        eq: {
+          expected: originalQuery.age?.eq,
+          received: queryResult.age.eq.expected,
+          message: "Age eq does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.age?.range &&
+      (originalQuery.age?.range === undefined ||
+        queryResult.age.range.expected[0] !== originalQuery.age.range[0] ||
+        queryResult.age.range.expected[1] !== originalQuery.age.range[1])
+    ) {
+      console.warn("Age range does not match the original query")
+      isCorrect = false
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        range: {
+          expected: originalQuery.age?.range,
+          received: queryResult.age.range.expected,
+          message: "Age range does not match the original query",
+        },
+      }
+    }
+    if (queryResult.age?.disclose && !originalQuery.age?.disclose) {
+      console.warn("Age disclose is not in the original query")
+      isCorrect = false
+      queryResultErrors.age = {
+        ...queryResultErrors.age,
+        disclose: {
+          expected: "Not requested in original query",
+          received: `${queryResult.age.disclose.result}`,
+          message: "Age disclose is not in the original query",
+        },
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
-  public static checkBirthdatePublicInputs(proof: ProofResult, queryResult: QueryResult) {
+  public static checkBirthdatePublicInputs(
+    proof: ProofResult,
+    originalQuery: Query,
+    queryResult: QueryResult,
+  ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
@@ -735,10 +1186,101 @@ export class PublicInputChecker {
         },
       }
     }
+    if (
+      queryResult.birthdate?.gte &&
+      (originalQuery.birthdate?.gte === undefined ||
+        !areDatesEqual(queryResult.birthdate.gte.expected, originalQuery.birthdate.gte as Date))
+    ) {
+      console.warn("Birthdate gte does not match the original query")
+      isCorrect = false
+      queryResultErrors.birthdate = {
+        ...queryResultErrors.birthdate,
+        gte: {
+          expected: originalQuery.birthdate?.gte,
+          received: queryResult.birthdate.gte.expected,
+          message: "Birthdate gte does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.birthdate?.gt &&
+      (originalQuery.birthdate?.gt === undefined ||
+        !areDatesEqual(queryResult.birthdate.gt.expected, originalQuery.birthdate.gt as Date))
+    ) {
+      console.warn("Birthdate gt does not match the original query")
+      isCorrect = false
+      queryResultErrors.birthdate = {
+        ...queryResultErrors.birthdate,
+        gt: {
+          expected: originalQuery.birthdate?.gt,
+          received: queryResult.birthdate.gt.expected,
+          message: "Birthdate gt does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.birthdate?.lte &&
+      (originalQuery.birthdate?.lte === undefined ||
+        !areDatesEqual(queryResult.birthdate.lte.expected, originalQuery.birthdate.lte as Date))
+    ) {
+      console.warn("Birthdate lte does not match the original query")
+      isCorrect = false
+      queryResultErrors.birthdate = {
+        ...queryResultErrors.birthdate,
+        lte: {
+          expected: originalQuery.birthdate?.lte,
+          received: queryResult.birthdate.lte.expected,
+          message: "Birthdate lte does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.birthdate?.lt &&
+      (originalQuery.birthdate?.lt === undefined ||
+        !areDatesEqual(queryResult.birthdate.lt.expected, originalQuery.birthdate.lt as Date))
+    ) {
+      console.warn("Birthdate lt does not match the original query")
+      isCorrect = false
+      queryResultErrors.birthdate = {
+        ...queryResultErrors.birthdate,
+        lt: {
+          expected: originalQuery.birthdate?.lt,
+          received: queryResult.birthdate.lt.expected,
+          message: "Birthdate lt does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.birthdate?.range &&
+      (originalQuery.birthdate?.range === undefined ||
+        !areDatesEqual(
+          queryResult.birthdate.range.expected[0],
+          originalQuery.birthdate.range[0] as Date,
+        ) ||
+        !areDatesEqual(
+          queryResult.birthdate.range.expected[1],
+          originalQuery.birthdate.range[1] as Date,
+        ))
+    ) {
+      console.warn("Birthdate range does not match the original query")
+      isCorrect = false
+      queryResultErrors.birthdate = {
+        ...queryResultErrors.birthdate,
+        range: {
+          expected: originalQuery.birthdate?.range,
+          received: queryResult.birthdate.range.expected,
+          message: "Birthdate range does not match the original query",
+        },
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
-  public static checkExpiryDatePublicInputs(proof: ProofResult, queryResult: QueryResult) {
+  public static checkExpiryDatePublicInputs(
+    proof: ProofResult,
+    originalQuery: Query,
+    queryResult: QueryResult,
+  ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
     const currentTime = new Date()
@@ -856,10 +1398,98 @@ export class PublicInputChecker {
         },
       }
     }
+    if (
+      queryResult.expiry_date?.gte &&
+      (originalQuery.expiry_date?.gte === undefined ||
+        !areDatesEqual(queryResult.expiry_date.gte.expected, originalQuery.expiry_date.gte as Date))
+    ) {
+      console.warn("Expiry date gte does not match the original query")
+      isCorrect = false
+      queryResultErrors.expiry_date = {
+        ...queryResultErrors.expiry_date,
+        gte: {
+          expected: originalQuery.expiry_date?.gte,
+          received: queryResult.expiry_date.gte.expected,
+          message: "Expiry date gte does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.expiry_date?.gt &&
+      (originalQuery.expiry_date?.gt === undefined ||
+        !areDatesEqual(queryResult.expiry_date.gt.expected, originalQuery.expiry_date.gt as Date))
+    ) {
+      console.warn("Expiry date gt does not match the original query")
+      isCorrect = false
+      queryResultErrors.expiry_date = {
+        ...queryResultErrors.expiry_date,
+        gt: {
+          expected: originalQuery.expiry_date?.gt,
+          received: queryResult.expiry_date.gt.expected,
+          message: "Expiry date gt does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.expiry_date?.lte &&
+      (originalQuery.expiry_date?.lte === undefined ||
+        !areDatesEqual(queryResult.expiry_date.lte.expected, originalQuery.expiry_date.lte as Date))
+    ) {
+      console.warn("Expiry date lte does not match the original query")
+      isCorrect = false
+      queryResultErrors.expiry_date = {
+        ...queryResultErrors.expiry_date,
+        lte: {
+          expected: originalQuery.expiry_date?.lte,
+          received: queryResult.expiry_date.lte.expected,
+          message: "Expiry date lte does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.expiry_date?.lt &&
+      (originalQuery.expiry_date?.lt === undefined ||
+        !areDatesEqual(queryResult.expiry_date.lt.expected, originalQuery.expiry_date.lt as Date))
+    ) {
+      console.warn("Expiry date lt does not match the original query")
+      isCorrect = false
+      queryResultErrors.expiry_date = {
+        ...queryResultErrors.expiry_date,
+        lt: {
+          expected: originalQuery.expiry_date?.lt,
+          received: queryResult.expiry_date.lt.expected,
+          message: "Expiry date lt does not match the original query",
+        },
+      }
+    }
+    if (
+      queryResult.expiry_date?.range &&
+      (originalQuery.expiry_date?.range === undefined ||
+        !areDatesEqual(
+          queryResult.expiry_date.range.expected[0],
+          originalQuery.expiry_date.range[0] as Date,
+        ) ||
+        !areDatesEqual(
+          queryResult.expiry_date.range.expected[1],
+          originalQuery.expiry_date.range[1] as Date,
+        ))
+    ) {
+      console.warn("Expiry date range does not match the original query")
+      isCorrect = false
+      queryResultErrors.expiry_date = {
+        ...queryResultErrors.expiry_date,
+        range: {
+          expected: originalQuery.expiry_date?.range,
+          received: queryResult.expiry_date.range.expected,
+          message: "Expiry date range does not match the original query",
+        },
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
   public static checkNationalityExclusionPublicInputs(
+    originalQuery: Query,
     queryResult: QueryResult,
     countryList: string[],
   ) {
@@ -912,10 +1542,31 @@ export class PublicInputChecker {
         }
       }
     }
+    if (
+      queryResult.nationality?.out &&
+      (originalQuery.nationality?.out === undefined ||
+        queryResult.nationality.out.expected?.length !==
+          (originalQuery.nationality.out as string[]).length ||
+        !queryResult.nationality.out.expected?.every((country) =>
+          (originalQuery.nationality!.out as string[]).includes(country),
+        ))
+    ) {
+      console.warn("Nationality exclusion list does not match the original query")
+      isCorrect = false
+      queryResultErrors.nationality = {
+        ...queryResultErrors.nationality,
+        out: {
+          expected: originalQuery.nationality?.out as string[],
+          received: queryResult.nationality.out.expected,
+          message: "Nationality exclusion list does not match the original query",
+        },
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
   public static checkIssuingCountryExclusionPublicInputs(
+    originalQuery: Query,
     queryResult: QueryResult,
     countryList: string[],
   ) {
@@ -969,10 +1620,31 @@ export class PublicInputChecker {
         }
       }
     }
+    if (
+      queryResult.issuing_country?.out &&
+      (originalQuery.issuing_country?.out === undefined ||
+        queryResult.issuing_country.out.expected?.length !==
+          (originalQuery.issuing_country.out as string[]).length ||
+        !queryResult.issuing_country.out.expected?.every((country) =>
+          (originalQuery.issuing_country!.out as string[]).includes(country),
+        ))
+    ) {
+      console.warn("Issuing country exclusion list does not match the original query")
+      isCorrect = false
+      queryResultErrors.issuing_country = {
+        ...queryResultErrors.issuing_country,
+        out: {
+          expected: originalQuery.issuing_country?.out as string[],
+          received: queryResult.issuing_country.out.expected,
+          message: "Issuing country exclusion list does not match the original query",
+        },
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
   public static checkNationalityInclusionPublicInputs(
+    originalQuery: Query,
     queryResult: QueryResult,
     countryList: string[],
   ) {
@@ -1005,10 +1677,31 @@ export class PublicInputChecker {
         },
       }
     }
+    if (
+      queryResult.nationality?.in &&
+      (originalQuery.nationality?.in === undefined ||
+        queryResult.nationality.in.expected?.length !==
+          (originalQuery.nationality.in as string[]).length ||
+        !queryResult.nationality.in.expected?.every((country) =>
+          (originalQuery.nationality!.in as string[]).includes(country),
+        ))
+    ) {
+      console.warn("Nationality inclusion list does not match the original query")
+      isCorrect = false
+      queryResultErrors.nationality = {
+        ...queryResultErrors.nationality,
+        in: {
+          expected: originalQuery.nationality?.in as string[],
+          received: queryResult.nationality.in.expected,
+          message: "Nationality inclusion list does not match the original query",
+        },
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
   public static checkIssuingCountryInclusionPublicInputs(
+    originalQuery: Query,
     queryResult: QueryResult,
     countryList: string[],
   ) {
@@ -1041,6 +1734,26 @@ export class PublicInputChecker {
         ...queryResultErrors.issuing_country,
         in: {
           message: "Issuing country inclusion is not set in the query result",
+        },
+      }
+    }
+    if (
+      queryResult.issuing_country?.in &&
+      (originalQuery.issuing_country?.in === undefined ||
+        queryResult.issuing_country.in.expected?.length !==
+          (originalQuery.issuing_country.in as string[]).length ||
+        !queryResult.issuing_country.in.expected?.every((country) =>
+          (originalQuery.issuing_country!.in as string[]).includes(country),
+        ))
+    ) {
+      console.warn("Issuing country inclusion list does not match the original query")
+      isCorrect = false
+      queryResultErrors.issuing_country = {
+        ...queryResultErrors.issuing_country,
+        in: {
+          expected: originalQuery.issuing_country?.in as string[],
+          received: queryResult.issuing_country.in.expected,
+          message: "Issuing country inclusion list does not match the original query",
         },
       }
     }
@@ -1148,37 +1861,32 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
-  public static checkBindPublicInputs(queryResult: QueryResult, boundData: BoundData) {
+  public static checkBindPublicInputs(
+    originalQuery: Query,
+    queryResult: QueryResult,
+    boundData: BoundData,
+  ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
 
     if (queryResult.bind) {
+      const bindMismatches: string[] = []
       if (
         queryResult.bind.user_address?.toLowerCase().replace("0x", "") !==
         boundData.user_address?.toLowerCase().replace("0x", "")
       ) {
         console.warn("Bound user address does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.bind = {
-          ...queryResultErrors.bind,
-          eq: {
-            expected: queryResult.bind.user_address,
-            received: boundData.user_address,
-            message: "Bound user address does not match the one from the query results",
-          },
-        }
+        bindMismatches.push(
+          `user_address: expected ${queryResult.bind.user_address}, received ${boundData.user_address}`,
+        )
       }
       if (queryResult.bind.chain !== boundData.chain) {
         console.warn("Bound chain id does not match the one from the query results")
         isCorrect = false
-        queryResultErrors.bind = {
-          ...queryResultErrors.bind,
-          eq: {
-            expected: queryResult.bind.chain,
-            received: boundData.chain,
-            message: "Bound chain id does not match the one from the query results",
-          },
-        }
+        bindMismatches.push(
+          `chain: expected ${queryResult.bind.chain}, received ${boundData.chain}`,
+        )
       }
       if (
         queryResult.bind.custom_data?.trim().toLowerCase() !==
@@ -1186,20 +1894,46 @@ export class PublicInputChecker {
       ) {
         console.warn("Bound custom data does not match the one from the query results")
         isCorrect = false
+        bindMismatches.push(
+          `custom_data: expected ${queryResult.bind.custom_data}, received ${boundData.custom_data}`,
+        )
+      }
+      if (bindMismatches.length > 0) {
         queryResultErrors.bind = {
           ...queryResultErrors.bind,
           eq: {
-            expected: queryResult.bind.custom_data,
-            received: boundData.custom_data,
-            message: "Bound custom data does not match the one from the query results",
+            expected: `${queryResult.bind.user_address}, ${queryResult.bind.chain}, ${queryResult.bind.custom_data}`,
+            received: `${boundData.user_address}, ${boundData.chain}, ${boundData.custom_data}`,
+            message: `Bound data does not match: ${bindMismatches.join("; ")}`,
           },
         }
+      }
+    }
+    if (
+      queryResult.bind &&
+      (originalQuery.bind === undefined ||
+        queryResult.bind.user_address?.toLowerCase().replace("0x", "") !==
+          originalQuery.bind.user_address?.toLowerCase().replace("0x", "") ||
+        queryResult.bind.chain !== originalQuery.bind.chain ||
+        queryResult.bind.custom_data?.trim().toLowerCase() !==
+          originalQuery.bind.custom_data?.trim().toLowerCase())
+    ) {
+      console.warn("Bound data does not match the original query")
+      isCorrect = false
+      queryResultErrors.bind = {
+        ...queryResultErrors.bind,
+        eq: {
+          expected: `${originalQuery.bind?.user_address}, ${originalQuery.bind?.chain}, ${originalQuery.bind?.custom_data}`,
+          received: `${queryResult.bind.user_address}, ${queryResult.bind.chain}, ${queryResult.bind.custom_data}`,
+          message: "Bound data does not match the original query",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
   }
 
   public static async checkSanctionsExclusionPublicInputs(
+    originalQuery: Query,
     queryResult: QueryResult,
     sanctionsCommittedInputs: SanctionsCommittedInputs,
     sanctionsBuilder: SanctionsBuilder,
@@ -1234,10 +1968,27 @@ export class PublicInputChecker {
         }
       }
     }
+    if (
+      queryResult.sanctions &&
+      (originalQuery.sanctions === undefined ||
+        queryResult.sanctions.isStrict !== (originalQuery.sanctions.strict ?? false))
+    ) {
+      console.warn("Sanctions config does not match the original query")
+      isCorrect = false
+      queryResultErrors.sanctions = {
+        ...queryResultErrors.sanctions,
+        eq: {
+          expected: `strict: ${originalQuery.sanctions?.strict ?? false}`,
+          received: `strict: ${queryResult.sanctions.isStrict}`,
+          message: "Sanctions config does not match the original query",
+        },
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
   public static async checkFacematchPublicInputs(
+    originalQuery: Query,
     queryResult: QueryResult,
     facematchCommittedInputs: FacematchCommittedInputs,
   ) {
@@ -1292,6 +2043,21 @@ export class PublicInputChecker {
           },
         }
       }
+      if (
+        facematchCommittedInputs.mode !== queryResult.facematch?.mode ||
+        facematchCommittedInputs.mode !== originalQuery.facematch?.mode
+      ) {
+        console.warn("Invalid facematch mode")
+        isCorrect = false
+        queryResultErrors.facematch = {
+          ...queryResultErrors.facematch,
+          eq: {
+            expected: originalQuery.facematch?.mode,
+            received: facematchCommittedInputs.mode,
+            message: "Invalid facematch mode",
+          },
+        }
+      }
     }
     return { isCorrect, queryResultErrors }
   }
@@ -1315,9 +2081,8 @@ export class PublicInputChecker {
     const currentDate = getCurrentDateFromDisclosureProof(proofData)
     const todayToCurrentDate = today.getTime() - currentDate.getTime()
     const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
-    const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
     let isCorrect = true
-    if (todayToCurrentDate >= actualDifference) {
+    if (todayToCurrentDate >= expectedDifference) {
       console.warn("The date used to check the validity of the ID falls out of the validity period")
       isCorrect = false
       if (!queryResultErrors[circuitName as keyof QueryResultErrors]) {
@@ -1335,6 +2100,7 @@ export class PublicInputChecker {
   public static async checkPublicInputs(
     domain: string,
     proofs: Array<ProofResult>,
+    originalQuery: Query,
     queryResult: QueryResult,
     validity?: number,
     scope?: string,
@@ -1415,8 +2181,7 @@ export class PublicInputChecker {
         const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
         const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
-        const actualDifference = today.getTime() - (today.getTime() - expectedDifference)
-        if (todayToCurrentDate >= actualDifference) {
+        if (todayToCurrentDate >= expectedDifference) {
           console.warn(
             `The date used to check the validity of the ID is older than the validity period`,
           )
@@ -1493,7 +2258,7 @@ export class PublicInputChecker {
             }
           }
           const { isCorrect: isCorrectAge, queryResultErrors: queryResultErrorsAge } =
-            this.checkAgePublicInputs(proof, queryResult)
+            this.checkAgePublicInputs(proof, originalQuery, queryResult)
           isCorrect = isCorrect && isCorrectAge
           queryResultErrors = {
             ...queryResultErrors,
@@ -1528,7 +2293,7 @@ export class PublicInputChecker {
             }
           }
           const { isCorrect: isCorrectBirthdate, queryResultErrors: queryResultErrorsBirthdate } =
-            this.checkBirthdatePublicInputs(proof, queryResult)
+            this.checkBirthdatePublicInputs(proof, originalQuery, queryResult)
           isCorrect = isCorrect && isCorrectBirthdate
           queryResultErrors = {
             ...queryResultErrors,
@@ -1563,7 +2328,7 @@ export class PublicInputChecker {
             }
           }
           const { isCorrect: isCorrectExpiryDate, queryResultErrors: queryResultErrorsExpiryDate } =
-            this.checkExpiryDatePublicInputs(proof, queryResult)
+            this.checkExpiryDatePublicInputs(proof, originalQuery, queryResult)
           isCorrect = isCorrect && isCorrectExpiryDate
           queryResultErrors = {
             ...queryResultErrors,
@@ -1596,7 +2361,7 @@ export class PublicInputChecker {
             }
           }
           const { isCorrect: isCorrectDisclose, queryResultErrors: queryResultErrorsDisclose } =
-            this.checkDiscloseBytesPublicInputs(proof, queryResult)
+            this.checkDiscloseBytesPublicInputs(proof, originalQuery, queryResult)
           isCorrect = isCorrect && isCorrectDisclose
           queryResultErrors = {
             ...queryResultErrors,
@@ -1635,7 +2400,7 @@ export class PublicInputChecker {
           const {
             isCorrect: isCorrectNationalityInclusion,
             queryResultErrors: queryResultErrorsNationalityInclusion,
-          } = this.checkNationalityInclusionPublicInputs(queryResult, countryList)
+          } = this.checkNationalityInclusionPublicInputs(originalQuery, queryResult, countryList)
           isCorrect = isCorrect && isCorrectNationalityInclusion
           queryResultErrors = {
             ...queryResultErrors,
@@ -1674,7 +2439,7 @@ export class PublicInputChecker {
           const {
             isCorrect: isCorrectIssuingCountryInclusion,
             queryResultErrors: queryResultErrorsIssuingCountryInclusion,
-          } = this.checkIssuingCountryInclusionPublicInputs(queryResult, countryList)
+          } = this.checkIssuingCountryInclusionPublicInputs(originalQuery, queryResult, countryList)
           isCorrect = isCorrect && isCorrectIssuingCountryInclusion
           queryResultErrors = {
             ...queryResultErrors,
@@ -1713,7 +2478,7 @@ export class PublicInputChecker {
           const {
             isCorrect: isCorrectNationalityExclusion,
             queryResultErrors: queryResultErrorsNationalityExclusion,
-          } = this.checkNationalityExclusionPublicInputs(queryResult, countryList)
+          } = this.checkNationalityExclusionPublicInputs(originalQuery, queryResult, countryList)
           isCorrect = isCorrect && isCorrectNationalityExclusion
           queryResultErrors = {
             ...queryResultErrors,
@@ -1752,7 +2517,7 @@ export class PublicInputChecker {
           const {
             isCorrect: isCorrectIssuingCountryExclusion,
             queryResultErrors: queryResultErrorsIssuingCountryExclusion,
-          } = this.checkIssuingCountryExclusionPublicInputs(queryResult, countryList)
+          } = this.checkIssuingCountryExclusionPublicInputs(originalQuery, queryResult, countryList)
           isCorrect = isCorrect && isCorrectIssuingCountryExclusion
           queryResultErrors = {
             ...queryResultErrors,
@@ -1779,7 +2544,7 @@ export class PublicInputChecker {
             }
           }
           const { isCorrect: isCorrectBind, queryResultErrors: queryResultErrorsBind } =
-            this.checkBindPublicInputs(queryResult, bindCommittedInputs.data)
+            this.checkBindPublicInputs(originalQuery, queryResult, bindCommittedInputs.data)
           isCorrect = isCorrect && isCorrectBind
           queryResultErrors = {
             ...queryResultErrors,
@@ -1817,6 +2582,7 @@ export class PublicInputChecker {
             isCorrect: isCorrectSanctionsExclusion,
             queryResultErrors: queryResultErrorsSanctionsExclusion,
           } = await this.checkSanctionsExclusionPublicInputs(
+            originalQuery,
             queryResult,
             exclusionCheckSanctionsCommittedInputs,
             sanctionsBuilder,
@@ -1857,7 +2623,11 @@ export class PublicInputChecker {
             }
           }
           const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
-            await this.checkFacematchPublicInputs(queryResult, facematchCommittedInputs)
+            await this.checkFacematchPublicInputs(
+              originalQuery,
+              queryResult,
+              facematchCommittedInputs,
+            )
           isCorrect = isCorrect && isCorrectFacematch
           queryResultErrors = {
             ...queryResultErrors,
@@ -1963,7 +2733,7 @@ export class PublicInputChecker {
           ...queryResultErrorsScope,
         }
         const { isCorrect: isCorrectDisclose, queryResultErrors: queryResultErrorsDisclose } =
-          this.checkDiscloseBytesPublicInputs(proof, queryResult)
+          this.checkDiscloseBytesPublicInputs(proof, originalQuery, queryResult)
         isCorrect = isCorrect && isCorrectDisclose && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2025,7 +2795,7 @@ export class PublicInputChecker {
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
           this.checkScopeFromDisclosureProof(domain, proofData, queryResultErrors, "age", scope)
         const { isCorrect: isCorrectAge, queryResultErrors: queryResultErrorsAge } =
-          this.checkAgePublicInputs(proof, queryResult)
+          this.checkAgePublicInputs(proof, originalQuery, queryResult)
         isCorrect = isCorrect && isCorrectAge && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2095,7 +2865,7 @@ export class PublicInputChecker {
             scope,
           )
         const { isCorrect: isCorrectBirthdate, queryResultErrors: queryResultErrorsBirthdate } =
-          this.checkBirthdatePublicInputs(proof, queryResult)
+          this.checkBirthdatePublicInputs(proof, originalQuery, queryResult)
         isCorrect = isCorrect && isCorrectBirthdate && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2164,7 +2934,7 @@ export class PublicInputChecker {
             scope,
           )
         const { isCorrect: isCorrectExpiryDate, queryResultErrors: queryResultErrorsExpiryDate } =
-          this.checkExpiryDatePublicInputs(proof, queryResult)
+          this.checkExpiryDatePublicInputs(proof, originalQuery, queryResult)
         isCorrect = isCorrect && isCorrectExpiryDate && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2237,7 +3007,7 @@ export class PublicInputChecker {
         const {
           isCorrect: isCorrectNationalityExclusion,
           queryResultErrors: queryResultErrorsNationalityExclusion,
-        } = this.checkNationalityExclusionPublicInputs(queryResult, countryList)
+        } = this.checkNationalityExclusionPublicInputs(originalQuery, queryResult, countryList)
         isCorrect = isCorrect && isCorrectNationalityExclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2265,8 +3035,8 @@ export class PublicInputChecker {
             "Failed to check the link between the validity of the ID and the issuing country exclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality = {
-            ...queryResultErrors.nationality,
+          queryResultErrors.issuing_country = {
+            ...queryResultErrors.issuing_country,
             commitment: {
               expected: `Commitment: ${commitmentOut}`,
               received: `Commitment: ${commitmentIn}`,
@@ -2304,13 +3074,13 @@ export class PublicInputChecker {
             domain,
             proofData,
             queryResultErrors,
-            "nationality",
+            "issuing_country",
             scope,
           )
         const {
           isCorrect: isCorrectIssuingCountryExclusion,
           queryResultErrors: queryResultErrorsIssuingCountryExclusion,
-        } = this.checkIssuingCountryExclusionPublicInputs(queryResult, countryList)
+        } = this.checkIssuingCountryExclusionPublicInputs(originalQuery, queryResult, countryList)
         isCorrect = isCorrect && isCorrectIssuingCountryExclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2383,7 +3153,7 @@ export class PublicInputChecker {
         const {
           isCorrect: isCorrectNationalityInclusion,
           queryResultErrors: queryResultErrorsNationalityInclusion,
-        } = this.checkNationalityInclusionPublicInputs(queryResult, countryList)
+        } = this.checkNationalityInclusionPublicInputs(originalQuery, queryResult, countryList)
         isCorrect = isCorrect && isCorrectNationalityInclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2411,8 +3181,8 @@ export class PublicInputChecker {
             "Failed to check the link between the validity of the ID and the issuing country inclusion check",
           )
           isCorrect = false
-          queryResultErrors.nationality = {
-            ...queryResultErrors.nationality,
+          queryResultErrors.issuing_country = {
+            ...queryResultErrors.issuing_country,
             commitment: {
               expected: `Commitment: ${commitmentOut}`,
               received: `Commitment: ${commitmentIn}`,
@@ -2450,13 +3220,13 @@ export class PublicInputChecker {
             domain,
             proofData,
             queryResultErrors,
-            "nationality",
+            "issuing_country",
             scope,
           )
         const {
           isCorrect: isCorrectIssuingCountryInclusion,
           queryResultErrors: queryResultErrorsIssuingCountryInclusion,
-        } = this.checkIssuingCountryInclusionPublicInputs(queryResult, countryList)
+        } = this.checkIssuingCountryInclusionPublicInputs(originalQuery, queryResult, countryList)
         isCorrect = isCorrect && isCorrectIssuingCountryInclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
@@ -2478,6 +3248,19 @@ export class PublicInputChecker {
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "bind") {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn("Failed to check the link between the validity of the ID and the bound data")
+          isCorrect = false
+          queryResultErrors.bind = {
+            ...queryResultErrors.bind,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message: "Failed to check the link between the validity of the ID and the bound data",
+            },
+          }
+        }
         const bindCommittedInputs = proof.committedInputs?.bind as BindCommittedInputs
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
         const calculatedParamCommitment = await getBindParameterCommitment(
@@ -2495,12 +3278,15 @@ export class PublicInputChecker {
             },
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(domain, proofData, queryResultErrors, "bind", scope)
         const { isCorrect: isCorrectBind, queryResultErrors: queryResultErrorsBind } =
-          this.checkBindPublicInputs(queryResult, bindCommittedInputs.data)
-        isCorrect = isCorrect && isCorrectBind
+          this.checkBindPublicInputs(originalQuery, queryResult, bindCommittedInputs.data)
+        isCorrect = isCorrect && isCorrectBind && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsBind,
+          ...queryResultErrorsScope,
         }
         const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
           await this.checkCurrentDate(
@@ -2517,6 +3303,22 @@ export class PublicInputChecker {
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name === "exclusion_check_sanctions") {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn(
+            "Failed to check the link between the validity of the ID and the sanctions exclusion check",
+          )
+          isCorrect = false
+          queryResultErrors.sanctions = {
+            ...queryResultErrors.sanctions,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the sanctions exclusion check",
+            },
+          }
+        }
         const sanctionsBuilder = await SanctionsBuilder.create()
         const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
           ?.exclusion_check_sanctions as SanctionsCommittedInputs
@@ -2539,18 +3341,28 @@ export class PublicInputChecker {
             },
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(
+            domain,
+            proofData,
+            queryResultErrors,
+            "sanctions",
+            scope,
+          )
         const {
           isCorrect: isCorrectSanctionsExclusion,
           queryResultErrors: queryResultErrorsSanctionsExclusion,
         } = await this.checkSanctionsExclusionPublicInputs(
+          originalQuery,
           queryResult,
           exclusionCheckSanctionsCommittedInputs,
           sanctionsBuilder,
         )
-        isCorrect = isCorrect && isCorrectSanctionsExclusion
+        isCorrect = isCorrect && isCorrectSanctionsExclusion && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsSanctionsExclusion,
+          ...queryResultErrorsScope,
         }
         const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
           await this.checkCurrentDate(
@@ -2567,6 +3379,22 @@ export class PublicInputChecker {
         uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       } else if (proof.name?.startsWith("facematch") && !proof.name?.endsWith("_evm")) {
+        commitmentIn = getCommitmentInFromDisclosureProof(proofData)
+        if (commitmentIn !== commitmentOut) {
+          console.warn(
+            "Failed to check the link between the validity of the ID and the facematch check",
+          )
+          isCorrect = false
+          queryResultErrors.facematch = {
+            ...queryResultErrors.facematch,
+            commitment: {
+              expected: `Commitment: ${commitmentOut}`,
+              received: `Commitment: ${commitmentIn}`,
+              message:
+                "Failed to check the link between the validity of the ID and the facematch check",
+            },
+          }
+        }
         const facematchCommittedInputs = proof.committedInputs
           ?.facematch as FacematchCommittedInputs
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -2588,12 +3416,25 @@ export class PublicInputChecker {
             },
           }
         }
+        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+          this.checkScopeFromDisclosureProof(
+            domain,
+            proofData,
+            queryResultErrors,
+            "facematch",
+            scope,
+          )
         const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
-          await this.checkFacematchPublicInputs(queryResult, facematchCommittedInputs)
-        isCorrect = isCorrect && isCorrectFacematch
+          await this.checkFacematchPublicInputs(
+            originalQuery,
+            queryResult,
+            facematchCommittedInputs,
+          )
+        isCorrect = isCorrect && isCorrectFacematch && isCorrectScope
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsFacematch,
+          ...queryResultErrorsScope,
         }
         const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
           await this.checkCurrentDate(
