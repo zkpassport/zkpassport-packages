@@ -66,7 +66,6 @@ import {
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
-import { RegistryClient } from "@zkpassport/registry"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   DEFAULT_DATE_VALUE,
@@ -76,6 +75,7 @@ import {
   ZKPASSPORT_ANDROID_APP_ID_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
 } from "./constants"
+import { getCachedRootValidity } from "./verification-resources"
 
 export class PublicInputChecker {
   public static checkDiscloseBytesPublicInputs(
@@ -1837,10 +1837,7 @@ export class PublicInputChecker {
   ) {
     let isCorrect = true
     try {
-      // Maintained certificate registry settled onchain
-      // Here we use Ethereum Sepolia
-      const registryClient = new RegistryClient({ chainId: 11155111 })
-      const isValid = await registryClient.isCertificateRootValid(root)
+      const isValid = await getCachedRootValidity("certificate", root)
       if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
         isCorrect = false
@@ -1872,8 +1869,7 @@ export class PublicInputChecker {
   public static async checkCircuitRegistryRoot(root: string, queryResultErrors: any) {
     let isCorrect = true
     try {
-      const registryClient = new RegistryClient({ chainId: 11155111 })
-      const isValid = await registryClient.isCircuitRootValid(root)
+      const isValid = await getCachedRootValidity("circuit", root)
       if (!isValid) {
         console.warn("The proof uses unrecognized circuits")
         isCorrect = false
