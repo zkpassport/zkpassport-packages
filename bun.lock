@@ -67,7 +67,7 @@
     },
     "packages/registry-sdk": {
       "name": "@zkpassport/registry",
-      "version": "0.13.0",
+      "version": "0.13.1",
       "dependencies": {
         "@zkpassport/poseidon2": "^0.6.2",
         "@zkpassport/utils": "workspace:*",
