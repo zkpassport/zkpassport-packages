@@ -110,7 +110,10 @@ export class PublicInputChecker {
           },
         }
       }
-      if (queryResult.document_type.disclose?.result !== disclosedDataIDCard.documentType) {
+      if (
+        queryResult.document_type.disclose &&
+        queryResult.document_type.disclose.result !== disclosedDataIDCard.documentType
+      ) {
         console.warn("Document type does not match the disclosed document type in query result")
         isCorrect = false
         queryResultErrors.document_type = {
@@ -812,7 +815,7 @@ export class PublicInputChecker {
       if (
         queryResult.age.gt &&
         queryResult.age.gt.result &&
-        minAge !== (queryResult.age.gt.expected as number)
+        minAge !== (queryResult.age.gt.expected as number) + 1
       ) {
         console.warn("Age is not greater than the expected age")
         isCorrect = false
@@ -828,7 +831,7 @@ export class PublicInputChecker {
       if (
         queryResult.age.lt &&
         queryResult.age.lt.result &&
-        maxAge !== (queryResult.age.lt.expected as number)
+        maxAge !== (queryResult.age.lt.expected as number) - 1
       ) {
         console.warn("Age is not less than the expected age")
         isCorrect = false
@@ -1106,6 +1109,22 @@ export class PublicInputChecker {
           },
         }
       }
+      if (queryResult.birthdate.gt && queryResult.birthdate.gt.result) {
+        const expectedPlusOneDay = new Date(queryResult.birthdate.gt.expected as Date)
+        expectedPlusOneDay.setDate(expectedPlusOneDay.getDate() + 1)
+        if (!areDatesEqual(minDate, expectedPlusOneDay)) {
+          console.warn("Birthdate is not greater than the expected birthdate")
+          isCorrect = false
+          queryResultErrors.birthdate = {
+            ...queryResultErrors.birthdate,
+            gt: {
+              expected: queryResult.birthdate.gt.expected,
+              received: minDate,
+              message: "Birthdate is not greater than the expected birthdate",
+            },
+          }
+        }
+      }
       if (
         queryResult.birthdate.lte &&
         queryResult.birthdate.lte.result &&
@@ -1120,6 +1139,22 @@ export class PublicInputChecker {
             received: maxDate,
             message: "Birthdate is not less than the expected birthdate",
           },
+        }
+      }
+      if (queryResult.birthdate.lt && queryResult.birthdate.lt.result) {
+        const expectedMinusOneDay = new Date(queryResult.birthdate.lt.expected as Date)
+        expectedMinusOneDay.setDate(expectedMinusOneDay.getDate() - 1)
+        if (!areDatesEqual(maxDate, expectedMinusOneDay)) {
+          console.warn("Birthdate is not less than the expected birthdate")
+          isCorrect = false
+          queryResultErrors.birthdate = {
+            ...queryResultErrors.birthdate,
+            lt: {
+              expected: queryResult.birthdate.lt.expected,
+              received: maxDate,
+              message: "Birthdate is not less than the expected birthdate",
+            },
+          }
         }
       }
       if (queryResult.birthdate.range) {
@@ -2274,11 +2309,13 @@ export class PublicInputChecker {
                 ProofType.BIRTHDATE,
                 birthdateCommittedInputs.minDateTimestamp,
                 birthdateCommittedInputs.maxDateTimestamp,
+                0,
               )
             : await getDateParameterCommitment(
                 ProofType.BIRTHDATE,
                 birthdateCommittedInputs.minDateTimestamp,
                 birthdateCommittedInputs.maxDateTimestamp,
+                0,
               )
           if (!paramCommitments.includes(birthdateParameterCommitment)) {
             console.warn("This proof does not verify the birthdate")

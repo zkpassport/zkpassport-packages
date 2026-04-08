@@ -869,7 +869,7 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     })
 
     test("passes when committed maxAge matches queryResult lt", () => {
-      const proof = makeAgeProof(0, 65)
+      const proof = makeAgeProof(0, 64)
       const originalQuery: Query = { age: { lt: 65 } }
       const queryResult: QueryResult = {
         age: { lt: { expected: 65, result: true } },
@@ -989,7 +989,7 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     })
 
     test("passes when committed minAge matches queryResult gt", () => {
-      const proof = makeAgeProof(17, 0)
+      const proof = makeAgeProof(18, 0)
       const originalQuery: Query = { age: { gt: 17 } }
       const queryResult: QueryResult = {
         age: { gt: { expected: 17, result: true } },
@@ -1175,6 +1175,64 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       )
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.birthdate?.lte).toBeDefined()
+    })
+
+    test("passes when committed minDate matches queryResult gt (offset by +1 day)", () => {
+      const proof = makeBirthdateProof(new Date("1995-01-02"), null)
+      const originalQuery: Query = { birthdate: { gt: new Date("1995-01-01") } }
+      const queryResult: QueryResult = {
+        birthdate: { gt: { expected: new Date("1995-01-01"), result: true } },
+      }
+      const { isCorrect } = PublicInputChecker.checkBirthdatePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when committed minDate does not match queryResult gt expected +1 day", () => {
+      const proof = makeBirthdateProof(new Date("1995-01-01"), null)
+      const originalQuery: Query = { birthdate: { gt: new Date("1995-01-01") } }
+      const queryResult: QueryResult = {
+        birthdate: { gt: { expected: new Date("1995-01-01"), result: true } },
+      }
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkBirthdatePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.birthdate?.gt).toBeDefined()
+    })
+
+    test("passes when committed maxDate matches queryResult lt (offset by -1 day)", () => {
+      const proof = makeBirthdateProof(null, new Date("1997-12-30"))
+      const originalQuery: Query = { birthdate: { lt: new Date("1997-12-31") } }
+      const queryResult: QueryResult = {
+        birthdate: { lt: { expected: new Date("1997-12-31"), result: true } },
+      }
+      const { isCorrect } = PublicInputChecker.checkBirthdatePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when committed maxDate does not match queryResult lt expected -1 day", () => {
+      const proof = makeBirthdateProof(null, new Date("1997-12-31"))
+      const originalQuery: Query = { birthdate: { lt: new Date("1997-12-31") } }
+      const queryResult: QueryResult = {
+        birthdate: { lt: { expected: new Date("1997-12-31"), result: true } },
+      }
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkBirthdatePublicInputs(
+        proof,
+        originalQuery,
+        queryResult,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.birthdate?.lt).toBeDefined()
     })
 
     test("fails when birthdate is not set in queryResult", () => {
