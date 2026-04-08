@@ -110,7 +110,10 @@ export class PublicInputChecker {
           },
         }
       }
-      if (queryResult.document_type.disclose && queryResult.document_type.disclose.result !== disclosedDataIDCard.documentType) {
+      if (
+        queryResult.document_type.disclose &&
+        queryResult.document_type.disclose.result !== disclosedDataIDCard.documentType
+      ) {
         console.warn("Document type does not match the disclosed document type in query result")
         isCorrect = false
         queryResultErrors.document_type = {
