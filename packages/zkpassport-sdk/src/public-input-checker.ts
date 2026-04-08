@@ -812,7 +812,7 @@ export class PublicInputChecker {
       if (
         queryResult.age.gt &&
         queryResult.age.gt.result &&
-        minAge !== (queryResult.age.gt.expected as number)
+        minAge !== (queryResult.age.gt.expected as number) + 1
       ) {
         console.warn("Age is not greater than the expected age")
         isCorrect = false
@@ -828,7 +828,7 @@ export class PublicInputChecker {
       if (
         queryResult.age.lt &&
         queryResult.age.lt.result &&
-        maxAge !== (queryResult.age.lt.expected as number)
+        maxAge !== (queryResult.age.lt.expected as number) - 1
       ) {
         console.warn("Age is not less than the expected age")
         isCorrect = false

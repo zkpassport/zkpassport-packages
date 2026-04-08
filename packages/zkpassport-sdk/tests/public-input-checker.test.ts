@@ -869,7 +869,7 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     })
 
     test("passes when committed maxAge matches queryResult lt", () => {
-      const proof = makeAgeProof(0, 65)
+      const proof = makeAgeProof(0, 64)
       const originalQuery: Query = { age: { lt: 65 } }
       const queryResult: QueryResult = {
         age: { lt: { expected: 65, result: true } },
@@ -989,7 +989,7 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     })
 
     test("passes when committed minAge matches queryResult gt", () => {
-      const proof = makeAgeProof(17, 0)
+      const proof = makeAgeProof(18, 0)
       const originalQuery: Query = { age: { gt: 17 } }
       const queryResult: QueryResult = {
         age: { gt: { expected: 17, result: true } },
