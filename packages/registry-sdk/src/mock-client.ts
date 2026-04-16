@@ -12,7 +12,10 @@ export class MockRegistryClient extends RegistryClient {
 
   constructor(options: Partial<RegistryClientOptions> & { baseUrl?: string } = {}) {
     super({ chainId: 11155111, ...options })
-    this.mockBaseUrl = options.baseUrl ?? "http://192.168.0.247:1234"
+    const envMockRegistryUrl = (globalThis as { MOCK_REGISTRY_URL?: string })?.MOCK_REGISTRY_URL
+    this.mockBaseUrl = options.baseUrl ?? envMockRegistryUrl ?? "http://localhost:8080"
+
+    console.log("Mock Registry Base URL:", this.mockBaseUrl)
   }
 
   override async getCircuitManifest(

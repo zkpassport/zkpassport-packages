@@ -25,8 +25,8 @@ import {
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
-import { RegistryClient } from "@zkpassport/registry"
-// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
+// import { RegistryClient } from "@zkpassport/registry"
+import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -409,7 +409,7 @@ export class ZKPassport {
 
         const localConfig = this.topicToLocalConfig[topic]
         const query = this.topicToConfig[topic]
-        const hasStrictFacematch = !!query.facematch && query.facematch?.mode === "strict"
+        const hasStrictFacematch = !!query.facematch
 
         // If nullifier type wasn't explicitly set, default to SALTED only for strict facematch
         if (localConfig.uniqueIdentifierType === undefined) {

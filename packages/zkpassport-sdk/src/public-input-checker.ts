@@ -70,8 +70,8 @@ import {
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
-import { RegistryClient } from "@zkpassport/registry"
-// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
+// import { RegistryClient } from "@zkpassport/registry"
+import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   DEFAULT_DATE_VALUE,
