@@ -238,10 +238,10 @@ export class ZKPassport {
           logger.debug("API response status:", response.status)
         }
       } catch (e) {
-        logger.debug("API call failed:", e)
+        logger.warn("API call failed:", e)
       }
     } else if (!finalVerified) {
-      logger.debug("Verification failed, skipping API call")
+      logger.debug("Skipping API call, verification failed or proofs missing")
     }
     delete this.topicToProofs[topic]
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
