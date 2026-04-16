@@ -10,6 +10,7 @@ import {
   FacematchMode,
   ProofResult,
   SupportedChain,
+  Query,
 } from "@zkpassport/utils"
 
 export type QueryResultError<T> = {
@@ -31,6 +32,7 @@ export type QueryResultErrors = {
     | "sanctions"]: {
     disclose?: QueryResultError<string | number | Date>
     gte?: QueryResultError<number | Date>
+    gt?: QueryResultError<number | Date>
     lte?: QueryResultError<number | Date>
     lt?: QueryResultError<number | Date>
     range?: QueryResultError<[number | Date, number | Date]>
@@ -72,6 +74,10 @@ export type QueryBuilderResult = {
    * to this URL on your website if they're visiting your website on their phone.
    */
   url: string
+  /**
+   * The query object.
+   */
+  query: Query
   /**
    * The id of the request.
    */
@@ -134,7 +140,11 @@ export type QueryBuilderResult = {
   requestReceived: () => boolean
 }
 
-export type QueryBuilder = {
+export type OfflineQueryBuilderResult = {
+  query: Query
+}
+
+export type QueryBuilder<T extends "online" | "offline" = "online"> = {
   /**
    * Requires this attribute to be equal to the provided value.
    * @param key The attribute to compare.
@@ -248,5 +258,5 @@ export type QueryBuilder = {
    * or provide as a link to the user if they're visiting your website on their phone.
    * It also returns all the callbacks you can use to handle the user's response.
    */
-  done: () => QueryBuilderResult
+  done: () => T extends "online" ? QueryBuilderResult : OfflineQueryBuilderResult
 }

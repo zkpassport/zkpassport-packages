@@ -1,4 +1,4 @@
-const BARRETT_REDUCTION_OVERFLOW_BITS = 4n
+const BARRETT_REDUCTION_OVERFLOW_BITS = 6n
 
 function getMinNumberOfBits(num: bigint): number {
   return num.toString(2).length
