@@ -5,6 +5,7 @@ import {
   ECPublicKey,
   PackagedCertificate,
   PackagedCertificatesFile,
+  PackagedCertificatesFileV1,
   PackagedCircuit,
   IntermediateCertificateRevocation,
   RSAPublicKey,
@@ -363,12 +364,18 @@ export async function buildMerkleTreeFromMasterlists(
 /**
  * Calculate the canonical certificate root from a packaged certificates file.
  *
- * The composite root is computed as:
+ * Version 0 (legacy): the certificate root is simply the certificate merkle tree root.
+ * Revocations and masterlists are not part of the v0 schema. Returned as-is for backward
+ * compatibility with previously published v0 root files.
+ *
+ * Version 1: the composite root (state_root) binds the certificate, revocation, and masterlist
+ * merkle trees together with the schema version and timestamp:
  *   certificate_root = H(packed(schema_version | timestamp), state_root)
  *   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
- *
  * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
- * concatenated and packed into a single field via packBeBytesIntoFields(_, 31)[0].
+ * concatenated and packed into a single 31-byte field. H is Poseidon2.
+ *
+ * If `version` is not set on the input it defaults to 0.
  *
  * @param packagedCerts Packaged certificates file
  * @returns Certificate root used in the Certificate Registry, as a 0x-prefixed 32-byte hex string
@@ -376,9 +383,21 @@ export async function buildMerkleTreeFromMasterlists(
 export async function calculatePackagedCertificatesRoot(
   packagedCerts: PackagedCertificatesFile,
 ): Promise<string> {
-  const certTree = await buildMerkleTreeFromCerts(packagedCerts.certificates, packagedCerts.version)
-  const revTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
-  const mlTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
+  // Default to v0 if `version` is not set on the input.
+  const schemaVersion = packagedCerts.version ?? 0
+  const certTree = await buildMerkleTreeFromCerts(packagedCerts.certificates, schemaVersion)
+
+  // Version 0: certificate root is just the certificate Merkle tree root (legacy behaviour).
+  // Revocations and masterlists are not part of the v0 schema.
+  if (schemaVersion !== 1) {
+    return certTree.root
+  }
+
+  // Version 1: composite root over (certificate, revocation, masterlist) trees,
+  // cryptographically bound to the schema version and timestamp.
+  const v1 = packagedCerts as PackagedCertificatesFileV1
+  const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
+  const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
 
   const stateRoot = await poseidon2HashAsync([
     BigInt(certTree.root),
@@ -386,8 +405,7 @@ export async function calculatePackagedCertificatesRoot(
     BigInt(mlTree.root),
   ])
 
-  const schemaVersion = packagedCerts.version
-  const timestamp = packagedCerts.timestamp
+  const timestamp = v1.timestamp
   assert(
     schemaVersion >= 0 && schemaVersion <= 0xffff,
     `Schema version must fit in 2 bytes: ${schemaVersion}`,

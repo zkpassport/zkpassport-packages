@@ -1,7 +1,10 @@
 import { describe, beforeAll, afterAll, it, expect, setDefaultTimeout } from "bun:test"
 import { strip0x } from "@zkpassport/utils"
-import { CircuitManifest, PackagedCircuit } from "@zkpassport/utils/types"
-import type { PackagedCertificatesFile } from "@zkpassport/utils/types"
+import {
+  CircuitManifest,
+  PackagedCircuit,
+  type PackagedCertificatesFileV1,
+} from "@zkpassport/utils/types"
 import path from "path"
 import { RegistryClient } from "../src/client"
 import { DocumentSupport } from "../src/types"
@@ -32,7 +35,7 @@ import {
 
 let anvil: AnvilInstance
 let registry: RegistryClient
-let fixturePackagedCerts: PackagedCertificatesFile
+let fixturePackagedCerts: PackagedCertificatesFileV1
 let fixtureCircuitManifest: CircuitManifest
 let fixturePackagedCircuit: PackagedCircuit
 
@@ -79,8 +82,9 @@ describe("Registry", () => {
       else if (url.endsWith(`/root/${INVALID_HASH}.json`)) {
         return new Response(
           JSON.stringify({
+            version: fixturePackagedCerts.version,
             certificates: fixturePackagedCerts.certificates.slice(1),
-            serialised: fixturePackagedCerts.serialised,
+            certificates_serialised: fixturePackagedCerts.certificates_serialised,
           }),
           { status: 200 },
         )

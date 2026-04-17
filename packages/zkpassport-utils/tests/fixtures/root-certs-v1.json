@@ -1,8 +1,7 @@
 {
   "version": 1,
   "timestamp": 1768823285,
-  "root": "0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062",
-  "masterlists": [],
+  "root": "0x084064244243723dd8affffc6406c4241c1e09d2ec4cc376e31db6846a33423b",
   "certificates": [
     {
       "country": "AGO",
@@ -518,8 +517,7 @@
       "tags": ["CH", "DE", "HU", "IT", "NL", "SE"]
     }
   ],
-  "revocations": [],
-  "serialised": [
+  "certificates_serialised": [
     [
       "0x009951263933be5c915c2003e4c76123e3a2705c9dfa83fcb01161f23275302a",
       "0x05dabae8bc4f735bc246b56e974edddc93c7d70293b880a7b40e13851a9e0fb6",
@@ -603,5 +601,11 @@
     ["0x0196ec7df4a917b2e88155becbfbc38dd6e44c1bfa4d2179d31a7f2a90a97231"],
     ["0x2abef2ad091c7390907eb674e704c63ffa187987d9c6204490886fdf282433be"],
     ["0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062"]
-  ]
+  ],
+  "masterlists": [
+    "0x1111111111111111111111111111111111111111111111111111111111111111",
+    "0x2222222222222222222222222222222222222222222222222222222222222222",
+    "0x3333333333333333333333333333333333333333333333333333333333333333"
+  ],
+  "revocations": []
 }

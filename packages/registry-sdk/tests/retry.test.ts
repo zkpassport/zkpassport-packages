@@ -16,6 +16,7 @@ describe("Retry Logic", () => {
     timestamp: 1768823285,
     root: MOCK_ROOT,
     masterlists: [],
+    revocations: [],
     certificates: [
       {
         country: "USA",
@@ -35,7 +36,7 @@ describe("Retry Logic", () => {
         signature_algorithm: "RSA",
       },
     ],
-    serialised: [],
+    certificates_serialised: [],
   }
 
   beforeEach(() => {

@@ -448,24 +448,8 @@ function CertificateDiffContent() {
           if (cert.fingerprint) cert.fingerprint = normalizeHash(cert.fingerprint)
         }
 
-        const extractRootFromData = (data: PackagedCertificatesFile): string | null => {
-          const serialised = data.serialised as unknown as string[] | string[][]
-          if (Array.isArray(serialised) && serialised.length > 0) {
-            let root = serialised[serialised.length - 1]
-            if (Array.isArray(root) && root.length === 1) {
-              root = root[0]
-            }
-            return typeof root === "string" ? root : null
-          }
-          return null
-        }
-
-        const beforeRootHash = beforeRoot.startsWith("http")
-          ? extractRootFromData(beforeData)
-          : beforeRoot
-        const afterRootHash = afterRoot.startsWith("http")
-          ? extractRootFromData(afterData)
-          : afterRoot
+        const beforeRootHash = beforeRoot.startsWith("http") ? beforeData.root : beforeRoot
+        const afterRootHash = afterRoot.startsWith("http") ? afterData.root : afterRoot
 
         setDiffState({
           beforeData,

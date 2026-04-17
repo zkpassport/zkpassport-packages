@@ -211,7 +211,9 @@ export class RegistryClient {
     // Handle invalid responses
     if (!data.certificates || !Array.isArray(data.certificates))
       throw new Error("Invalid certificates returned")
-    if (!data.serialised || !Array.isArray(data.serialised))
+    const serialisedCerts =
+      data.version === 0 ? data.serialised : data.certificates_serialised
+    if (!serialisedCerts || !Array.isArray(serialisedCerts))
       throw new Error("Invalid serialised certificates tree returned")
 
     // Normalise fingerprints

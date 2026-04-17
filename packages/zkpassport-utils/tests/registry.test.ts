@@ -132,11 +132,9 @@ describe("Registry", () => {
       version: 0,
       timestamp: 0,
       root: "",
-      masterlists: [],
-      revocations: [],
       certificates: rootCerts.certificates as PackagedCertificate[],
     })
-    expect(root).toEqual("0x1b99d6aaddef53a19ff04a171f7f9837f28f99a221da1511fde39cd07ff0435e")
+    expect(root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
   })
 
   test("should generate correct canonical leaf for RSA cert (version 1)", async () => {
@@ -166,7 +164,7 @@ describe("Registry", () => {
 
   test("should generate correct canonical certificate root (version 1)", async () => {
     const root = await calculatePackagedCertificatesRoot(rootCertsV1 as PackagedCertificatesFile)
-    expect(root).toEqual("0x1b4971838403a66da804ebb947287acf8bb70840a107fe186f07998a70ef6219")
+    expect(root).toEqual("0x084064244243723dd8affffc6406c4241c1e09d2ec4cc376e31db6846a33423b")
   })
 
   test("should produce a different root when the timestamp changes", async () => {
@@ -177,7 +175,7 @@ describe("Registry", () => {
       timestamp: (base.timestamp ?? 0) + 1,
     })
     expect(bumped).not.toEqual(original)
-    expect(bumped).toEqual("0x0b9fd1ba043f2db9482e23f1660e914bf8d70cddebd43eb0b8c9f41c6a5eeb7f")
+    expect(bumped).toEqual("0x07372826926b337faaff0dfa000f83f6a37ca6676c06a49faca115f31b8eb06c")
   })
 
   test("should generate correct canonical empty revocation merkle root", async () => {
