@@ -107,7 +107,7 @@ export type PackagedCertificatesFileV1 = PackagedCertificatesFileBase & {
   // Each row represents a level of the tree, with each entry being a node
   certificates_serialised?: string[][]
   // Array of intermediate certificate revocations (CSCA fingerprint + DSC serial)
-  revocations: IntermediateCertificateRevocation[]
+  revocations?: IntermediateCertificateRevocation[]
   // The serialised ordered Merkle tree of revocations
   // Each row represents a level of the tree, with each entry being a node
   revocations_serialised?: string[][]

@@ -58,7 +58,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   1: {
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0x0000000000000000000000000000000000000000",
+    registryHelper: "0xF115F54D458f49d30Ae3dDD362BCAB18Fadf6372",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
@@ -206,13 +206,15 @@ export class RegistryClient {
       )
     }
     const data = (await response.json()) as PackagedCertificatesFile
-    log(`Got ${data.certificates?.length || 0} packaged certificates`)
+    if (!data.version) data.version = 0
+    log(
+      `Got ${data.certificates?.length || 0} packaged certificates (schema version ${data.version})`,
+    )
 
     // Handle invalid responses
     if (!data.certificates || !Array.isArray(data.certificates))
       throw new Error("Invalid certificates returned")
-    const serialisedCerts =
-      data.version === 0 ? data.serialised : data.certificates_serialised
+    const serialisedCerts = data.version === 0 ? data.serialised : data.certificates_serialised
     if (!serialisedCerts || !Array.isArray(serialisedCerts))
       throw new Error("Invalid serialised certificates tree returned")
 

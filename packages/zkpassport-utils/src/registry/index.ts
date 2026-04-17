@@ -389,40 +389,42 @@ export async function calculatePackagedCertificatesRoot(
 
   // Version 0: certificate root is just the certificate Merkle tree root (legacy behaviour).
   // Revocations and masterlists are not part of the v0 schema.
-  if (schemaVersion !== 1) {
+  if (schemaVersion === 0) {
     return certTree.root
+  } else if (schemaVersion === 1) {
+    // Version 1: composite root over (certificate, revocation, masterlist) trees,
+    // cryptographically bound to the schema version and timestamp.
+    const v1 = packagedCerts as PackagedCertificatesFileV1
+    const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
+    const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
+
+    const stateRoot = await poseidon2HashAsync([
+      BigInt(certTree.root),
+      BigInt(revTree.root),
+      BigInt(mlTree.root),
+    ])
+
+    const timestamp = v1.timestamp
+    assert(
+      schemaVersion >= 0 && schemaVersion <= 0xffff,
+      `Schema version must fit in 2 bytes: ${schemaVersion}`,
+    )
+    assert(timestamp >= 0 && timestamp <= 0xffffffff, `Timestamp must fit in 4 bytes: ${timestamp}`)
+    const meta = new Uint8Array([
+      (schemaVersion >> 8) & 0xff,
+      schemaVersion & 0xff,
+      (timestamp >> 24) & 0xff,
+      (timestamp >> 16) & 0xff,
+      (timestamp >> 8) & 0xff,
+      timestamp & 0xff,
+    ])
+    const packedMeta = BigInt(packBeBytesIntoFields(meta, 31)[0])
+
+    const root = await poseidon2HashAsync([packedMeta, stateRoot])
+    return `0x${root.toString(16).padStart(64, "0")}`
+  } else {
+    throw new Error(`Unsupported Packaged Certificates schema version: ${schemaVersion}`)
   }
-
-  // Version 1: composite root over (certificate, revocation, masterlist) trees,
-  // cryptographically bound to the schema version and timestamp.
-  const v1 = packagedCerts as PackagedCertificatesFileV1
-  const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
-  const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
-
-  const stateRoot = await poseidon2HashAsync([
-    BigInt(certTree.root),
-    BigInt(revTree.root),
-    BigInt(mlTree.root),
-  ])
-
-  const timestamp = v1.timestamp
-  assert(
-    schemaVersion >= 0 && schemaVersion <= 0xffff,
-    `Schema version must fit in 2 bytes: ${schemaVersion}`,
-  )
-  assert(timestamp >= 0 && timestamp <= 0xffffffff, `Timestamp must fit in 4 bytes: ${timestamp}`)
-  const meta = new Uint8Array([
-    (schemaVersion >> 8) & 0xff,
-    schemaVersion & 0xff,
-    (timestamp >> 24) & 0xff,
-    (timestamp >> 16) & 0xff,
-    (timestamp >> 8) & 0xff,
-    timestamp & 0xff,
-  ])
-  const packedMeta = BigInt(packBeBytesIntoFields(meta, 31)[0])
-
-  const root = await poseidon2HashAsync([packedMeta, stateRoot])
-  return `0x${root.toString(16).padStart(64, "0")}`
 }
 
 /**

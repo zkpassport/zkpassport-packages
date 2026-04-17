@@ -15,7 +15,7 @@ export const CERTIFICATE_REGISTRY_ID = 1
  * Packaged certificates URLs
  */
 export const PACKAGED_CERTIFICATES_URL_MAINNET = "https://certificates.zkpassport.id/mainnet"
-export const PACKAGED_CERTIFICATES_URL_SEPOLIA = "https://certificates.zkpassport.id/sepolia"
+export const PACKAGED_CERTIFICATES_URL_SEPOLIA = "https://certificates.zkpassport.id/testnet"
 export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:8000/root"
 
 /**
