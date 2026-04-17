@@ -25,8 +25,11 @@ export function Navigation() {
           <div className="flex items-center gap-2">
             <Link href="/" className="flex items-center gap-2 font-bold text-lg">
               <Image src="/favicon.png" alt="ZKPassport" width={26} height={26} />
-              <span className="whitespace-nowrap text-xs sm:text-base md:text-lg">
-                ZKPassport Registry Explorer
+              <span className="whitespace-nowrap text-xs sm:text-base md:text-lg flex items-baseline gap-2">
+                <span className="tracking-tight">ZKPassport</span>
+                <span className="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-700 dark:from-blue-300 dark:via-blue-400 dark:to-indigo-400 bg-clip-text text-transparent tracking-tight">
+                  Registry Explorer
+                </span>
               </span>
             </Link>
           </div>
@@ -43,9 +46,18 @@ export function Navigation() {
         {/* Mobile header */}
         <div className="lg:hidden">
           <div className="flex justify-between items-center">
-            <Link href="/" className="flex items-center gap-2 font-bold" onClick={closeMobileMenu}>
+            <Link
+              href="/"
+              className="flex items-center gap-2 font-bold"
+              onClick={closeMobileMenu}
+            >
               <Image src="/favicon.png" alt="ZKPassport" width={24} height={24} />
-              <span className="text-sm">ZKPassport Registry Explorer</span>
+              <span className="text-sm flex items-baseline gap-1.5">
+                <span className="tracking-tight">ZKPassport</span>
+                <span className="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-700 dark:from-blue-300 dark:via-blue-400 dark:to-indigo-400 bg-clip-text text-transparent tracking-tight">
+                  Registry Explorer
+                </span>
+              </span>
             </Link>
 
             <div className="flex items-center gap-2">
