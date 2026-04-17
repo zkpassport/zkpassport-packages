@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select"
 import { CertificateFilterState } from "@/lib/types"
 import { countryCodeAlpha3ToName } from "@zkpassport/utils"
+import { SearchIcon } from "./StatsCardIcons"
 
 interface CertificateFiltersProps {
   filterState: CertificateFilterState
@@ -25,26 +26,15 @@ export function CertificateFilters({
   onFilterChange,
 }: CertificateFiltersProps) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Search */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Search</label>
-        <div className="relative rounded-md shadow-sm">
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          Search
+        </label>
+        <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <SearchIcon className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
           </div>
           <Input
             type="text"
@@ -57,10 +47,10 @@ export function CertificateFilters({
       </div>
 
       {/* Country + Signature Type + conditional filters on one line */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Filter by Country
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Country
           </label>
           <Select
             value={filterState.selectedCountry}
@@ -84,8 +74,8 @@ export function CertificateFilters({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className="space-y-1.5">
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Signature Type
           </label>
           <Select
@@ -116,8 +106,8 @@ export function CertificateFilters({
         </div>
 
         {filterState.selectedSignatureType === "rsa" && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               RSA Type
             </label>
             <Select
@@ -143,8 +133,8 @@ export function CertificateFilters({
         )}
 
         {filterState.selectedSignatureType === "ecdsa" && (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               Curve
             </label>
             <Select

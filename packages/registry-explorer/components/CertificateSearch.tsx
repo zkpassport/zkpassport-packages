@@ -14,6 +14,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import {
+  TotalCertificatesIcon,
+  CountriesIcon,
+  RSACertificatesIcon,
+  ECDSACertificatesIcon,
+  SelectedRootIcon,
+  CopyIcon,
+  PreviousRootIcon,
+  NextRootIcon,
+  FilterCertificatesIcon,
+} from "./certificate/StatsCardIcons"
 
 export default function CertificateSearch() {
   const router = useRouter()
@@ -86,57 +97,34 @@ export default function CertificateSearch() {
 
       {/* Root Information */}
       {currentRoot && (
-        <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
-          <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
-            <div className="flex items-start sm:items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5 sm:mt-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                />
-              </svg>
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 lg:space-x-6">
+            <div className="flex items-start sm:items-center min-w-0 flex-1">
+              <SelectedRootIcon
+                className="h-4 w-4 mr-2.5 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5 sm:mt-0"
+                strokeWidth={1.5}
+              />
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Selected Root
                 </h2>
-                <div className="flex items-center flex-wrap gap-2 mt-1">
+                <div className="flex items-center flex-wrap gap-2 mt-0.5">
                   <code className="text-xs sm:text-sm font-mono text-gray-900 dark:text-white break-all">
                     <span className="sm:hidden">{currentRoot.substring(0, 20)}...</span>
                     <span className="hidden sm:inline">{currentRoot}</span>
                   </code>
                   <button
-                    className="flex-shrink-0 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                    className="flex-shrink-0 text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
                     onClick={() => {
                       navigator.clipboard.writeText(currentRoot)
                     }}
                     title="Copy root hash to clipboard"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-                      />
-                    </svg>
+                    <CopyIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </button>
                   {isLatestRoot && (
-                    <span className="text-xs font-mono font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
-                      Latest Root
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                      Latest
                     </span>
                   )}
                 </div>
@@ -144,87 +132,53 @@ export default function CertificateSearch() {
             </div>
 
             {availableRoots.length > 0 && (
-              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                <label
-                  htmlFor="rootSelector"
-                  className="text-sm font-medium text-gray-500 dark:text-gray-400 flex-shrink-0"
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={navigateToPreviousRoot}
+                  disabled={isGenesisRoot || currentRootIndex < 0}
+                  title="Previous root (older)"
+                  className="h-8 w-8 p-0"
                 >
-                  Select Root:
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={navigateToPreviousRoot}
-                    disabled={isGenesisRoot || currentRootIndex < 0}
-                    title="Previous root (older)"
+                  <PreviousRootIcon className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+                <div className="w-full sm:w-56">
+                  <Select
+                    value={isLatestRoot ? "latest" : currentRoot}
+                    onValueChange={handleRootChange}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 mr-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 19l-7-7 7-7"
-                      />
-                    </svg>
-                    Previous
-                  </Button>
-                  <div className="w-full sm:w-64">
-                    <Select
-                      value={isLatestRoot ? "latest" : currentRoot}
-                      onValueChange={handleRootChange}
-                    >
-                      <SelectTrigger className="w-full bg-white dark:bg-gray-700">
-                        <SelectValue placeholder="Select a root" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="latest" className="cursor-pointer">
-                          Latest Root
+                    <SelectTrigger className="w-full h-8 text-xs bg-white dark:bg-gray-700">
+                      <SelectValue placeholder="Select a root" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="latest" className="cursor-pointer text-xs">
+                        Latest Root
+                      </SelectItem>
+                      {[...availableRoots].reverse().map((rootDetails) => (
+                        <SelectItem
+                          key={rootDetails.root}
+                          value={rootDetails.root}
+                          disabled={rootDetails.root === currentRoot}
+                          className="cursor-pointer text-xs"
+                        >
+                          {rootDetails.root.substring(0, 10)}... (
+                          {rootDetails.validFrom.toLocaleDateString()})
                         </SelectItem>
-                        {[...availableRoots].reverse().map((rootDetails) => (
-                          <SelectItem
-                            key={rootDetails.root}
-                            value={rootDetails.root}
-                            disabled={rootDetails.root === currentRoot}
-                            className="cursor-pointer"
-                          >
-                            {rootDetails.root.substring(0, 10)}... (
-                            {rootDetails.validFrom.toLocaleDateString()})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={navigateToNextRoot}
-                    disabled={isLatestRoot || currentRootIndex < 0}
-                    title="Next root (newer)"
-                  >
-                    Next
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 ml-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Button>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={navigateToNextRoot}
+                  disabled={isLatestRoot || currentRootIndex < 0}
+                  title="Next root (newer)"
+                  className="h-8 w-8 p-0"
+                >
+                  <NextRootIcon className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
               </div>
             )}
           </div>
@@ -235,165 +189,83 @@ export default function CertificateSearch() {
       <div className="container mx-auto">
         <div className="space-y-6 sm:space-y-8">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                    <svg
-                      className="h-6 w-6 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        Total Certificates
-                      </dt>
-                      <dd>
-                        <div className="text-lg font-medium text-gray-900 dark:text-white">
-                          {certificates.length}
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none px-4 py-3 sm:px-5 sm:py-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
+                    Total Certificates
+                  </dt>
+                  <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                    {certificates.length}
+                  </dd>
                 </div>
+                <TotalCertificatesIcon
+                  className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0 ml-3"
+                  strokeWidth={1.5}
+                />
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
-                    <svg
-                      className="h-6 w-6 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        Countries
-                      </dt>
-                      <dd>
-                        <div className="text-lg font-medium text-gray-900 dark:text-white">
-                          {uniqueCountries.length}
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none px-4 py-3 sm:px-5 sm:py-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
+                    Countries
+                  </dt>
+                  <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                    {uniqueCountries.length}
+                  </dd>
                 </div>
+                <CountriesIcon
+                  className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0 ml-3"
+                  strokeWidth={1.5}
+                />
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-                    <svg
-                      className="h-6 w-6 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        RSA Certificates
-                      </dt>
-                      <dd>
-                        <div className="text-lg font-medium text-gray-900 dark:text-white">
-                          {certificates.filter((cert) => isRSA(cert)).length}
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none px-4 py-3 sm:px-5 sm:py-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
+                    RSA Certificates
+                  </dt>
+                  <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                    {certificates.filter((cert) => isRSA(cert)).length}
+                  </dd>
                 </div>
+                <RSACertificatesIcon
+                  className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0 ml-3"
+                  strokeWidth={1.5}
+                />
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 bg-teal-500 rounded-md p-3">
-                    <svg
-                      className="h-6 w-6 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                        ECDSA Certificates
-                      </dt>
-                      <dd>
-                        <div className="text-lg font-medium text-gray-900 dark:text-white">
-                          {certificates.filter((cert) => isECDSA(cert)).length}
-                        </div>
-                      </dd>
-                    </dl>
-                  </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm dark:shadow-none px-4 py-3 sm:px-5 sm:py-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
+                    ECDSA Certificates
+                  </dt>
+                  <dd className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                    {certificates.filter((cert) => isECDSA(cert)).length}
+                  </dd>
                 </div>
+                <ECDSACertificatesIcon
+                  className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0 ml-3"
+                  strokeWidth={1.5}
+                />
               </div>
             </div>
           </div>
 
           {/* Search and Filter Section with Card UI */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-semibold mb-5 text-gray-900 dark:text-white flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2 text-blue-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                />
-              </svg>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm dark:shadow-none border border-gray-200 dark:border-gray-700 px-4 py-4 sm:px-5 sm:py-5">
+            <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center mb-4">
+              <FilterCertificatesIcon
+                className="h-4 w-4 mr-2 text-gray-400 dark:text-gray-500"
+                strokeWidth={1.5}
+              />
               Filter Certificates
             </h2>
 
