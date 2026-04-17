@@ -3,16 +3,23 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react"
 
 type Theme = "light" | "dark" | "system"
+type ResolvedTheme = "light" | "dark"
 
 interface ThemeContextType {
   theme: Theme
+  resolvedTheme: ResolvedTheme
   setTheme: (theme: Theme) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+function getSystemTheme(): ResolvedTheme {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("system")
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light")
 
   useEffect(() => {
     const storedTheme = localStorage.getItem("theme") as Theme
@@ -25,19 +32,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = window.document.documentElement
-
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-
-      root.classList.remove("light", "dark")
-      root.classList.add(systemTheme)
-      return
-    }
+    const applied: ResolvedTheme = theme === "system" ? getSystemTheme() : theme
 
     root.classList.remove("light", "dark")
-    root.classList.add(theme)
+    root.classList.add(applied)
+    setResolvedTheme(applied)
+  }, [theme])
+
+  useEffect(() => {
+    if (theme !== "system") return
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    const handleChange = () => {
+      const root = window.document.documentElement
+      const applied: ResolvedTheme = getSystemTheme()
+      root.classList.remove("light", "dark")
+      root.classList.add(applied)
+      setResolvedTheme(applied)
+    }
+
+    mediaQuery.addEventListener("change", handleChange)
+    return () => mediaQuery.removeEventListener("change", handleChange)
   }, [theme])
 
   const setThemeWithStorage = (newTheme: Theme) => {
@@ -46,7 +61,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme: setThemeWithStorage }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme: setThemeWithStorage }}>
       {children}
     </ThemeContext.Provider>
   )
