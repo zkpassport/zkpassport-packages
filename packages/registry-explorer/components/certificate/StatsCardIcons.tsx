@@ -1,8 +1,10 @@
 import {
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Copy,
   FileBadge,
+  Github,
   Globe,
   KeyRound,
   KeySquare,
@@ -24,3 +26,6 @@ export const NextRootIcon: LucideIcon = ChevronRight
 
 export const FilterCertificatesIcon: LucideIcon = SlidersHorizontal
 export const SearchIcon: LucideIcon = Search
+
+export const DocsIcon: LucideIcon = BookOpen
+export const GitHubIcon: LucideIcon = Github
