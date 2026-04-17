@@ -168,8 +168,7 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
           <FileCheck size={14} className="flex-shrink-0 text-muted-foreground" />
 
           <span
-            className="font-semibold text-sm text-gray-900 dark:text-white flex-shrink-0"
-            style={{ textShadow: "1px 1px 4px white, 1px 1px 1px white" }}
+            className="font-semibold text-sm text-gray-900 dark:text-white flex-shrink-0 [text-shadow:1px_1px_4px_white,1px_1px_1px_white] dark:[text-shadow:1px_1px_4px_#1f2937,1px_1px_1px_#1f2937]"
           >
             {countryName}{" "}
             <span className="font-normal text-muted-foreground">({cert.country})</span>
