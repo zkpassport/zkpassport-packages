@@ -5,6 +5,7 @@ import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
   buildMerkleTreeFromCerts,
   calculateCircuitRoot,
+  calculatePackagedCertificatesRoot,
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
   hexToCidv0,
@@ -238,17 +239,14 @@ export class RegistryClient {
     root: string,
   ): Promise<boolean> {
     try {
-      const { root: calculatedRoot } = await buildMerkleTreeFromCerts(
-        packagedCerts.certificates,
-        packagedCerts.version,
-      )
-      const expectedRootHash = root.startsWith("0x") ? root : `0x${root}`
-      const valid = calculatedRoot.toLowerCase() === expectedRootHash.toLowerCase()
+      const calculatedRoot = await calculatePackagedCertificatesRoot(packagedCerts)
+      const expectedRoot = normaliseHash(root)
+      const valid = calculatedRoot.toLowerCase() === expectedRoot.toLowerCase()
       if (valid) {
         log(`Validated packaged certificates against root ${calculatedRoot}`)
       } else {
         log(
-          `Error validating packaged certificates. Expected: ${expectedRootHash} Got: ${calculatedRoot}`,
+          `Error validating packaged certificates. Expected: ${expectedRoot} Got: ${calculatedRoot}`,
         )
       }
       return valid
