@@ -18,13 +18,14 @@ export interface RegistryInfo {
 }
 
 export const useRegistryInfo = () => {
-  const { chainId } = useNetwork()
+  const { chainId, isReady } = useNetwork()
   const [registryInfo, setRegistryInfo] = useState<RegistryInfo>({
     isLoading: true,
     error: null,
   })
 
   useEffect(() => {
+    if (!isReady) return
     const fetchRegistryInfo = async () => {
       setRegistryInfo({ isLoading: true, error: null })
       try {
@@ -98,7 +99,7 @@ export const useRegistryInfo = () => {
     }
 
     fetchRegistryInfo()
-  }, [chainId])
+  }, [chainId, isReady])
 
   return registryInfo
 }

@@ -57,6 +57,12 @@ interface NetworkContextType {
   setChainId: (chainId: number) => void
   availableNetworks: NetworkOption[]
   currentNetwork: NetworkOption
+  // False until the persisted network selection has been resolved from
+  // localStorage on the client. Consumers that perform network-dependent
+  // side effects (e.g. RPC calls) should wait until this is true to avoid
+  // firing requests against a stale default chainId and racing the eventual
+  // hydrated value.
+  isReady: boolean
 }
 
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined)
@@ -70,6 +76,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const [chainId, setChainIdState] = useState<number>(() =>
     getDefaultChainId(computeAvailableNetworks(false)),
   )
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
     const networks = computeAvailableNetworks(isRunningOnLocalhost())
@@ -79,10 +86,11 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     const storedNum = stored !== null ? Number(stored) : NaN
     if (Number.isFinite(storedNum) && networks.some((n) => n.id === storedNum)) {
       setChainIdState(storedNum)
-      return
+    } else {
+      // Fall back to env default (which may now include Local on localhost)
+      setChainIdState(getDefaultChainId(networks))
     }
-    // Fall back to env default (which may now include Local on localhost)
-    setChainIdState(getDefaultChainId(networks))
+    setIsReady(true)
   }, [])
 
   const setChainId = useCallback(
@@ -103,8 +111,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       setChainId,
       availableNetworks,
       currentNetwork,
+      isReady,
     }
-  }, [chainId, availableNetworks, setChainId])
+  }, [chainId, availableNetworks, setChainId, isReady])
 
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>
 }

@@ -13,7 +13,7 @@ const log = debug("explorer")
 export const useCertificates = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { chainId } = useNetwork()
+  const { chainId, isReady } = useNetwork()
   const [certificates, setCertificates] = useState<PackagedCertificate[]>([])
   const [filteredCertificates, setFilteredCertificates] = useState<PackagedCertificate[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -79,6 +79,7 @@ export const useCertificates = () => {
 
   // Use the RegistryClient to fetch certificates
   useEffect(() => {
+    if (!isReady) return
     const fetchCertificates = async () => {
       setIsLoading(true)
       setError(null)
@@ -174,7 +175,7 @@ export const useCertificates = () => {
     }
 
     fetchCertificates()
-  }, [searchParams, chainId])
+  }, [searchParams, chainId, isReady])
 
   // Apply filters when filter state changes
   useEffect(() => {

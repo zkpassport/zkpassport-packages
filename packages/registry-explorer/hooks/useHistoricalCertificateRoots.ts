@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react"
 const log = debug("explorer")
 
 export function useHistoricalCertificateRoots() {
-  const { chainId } = useNetwork()
+  const { chainId, isReady } = useNetwork()
   const [roots, setRoots] = useState<RootDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -14,6 +14,7 @@ export function useHistoricalCertificateRoots() {
 
   // Use the RegistryClient to fetch historical roots
   const fetchRoots = useCallback(async () => {
+    if (!isReady) return
     setIsLoading(true)
     setError(null)
 
@@ -43,7 +44,7 @@ export function useHistoricalCertificateRoots() {
     } finally {
       setIsLoading(false)
     }
-  }, [chainId])
+  }, [chainId, isReady])
 
   // Load the roots on component mount
   useEffect(() => {
