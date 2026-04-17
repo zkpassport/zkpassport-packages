@@ -24,8 +24,9 @@ import {
   BRAINPOOL_CURVES_ABBR as BRAINPOOL_ABBR,
 } from "@zkpassport/utils"
 import { normalizeHash } from "@/lib/utils"
-import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
+import { getCertificateUrl } from "@/lib/certificate-url"
 import { useHistoricalCertificateRoots } from "@/hooks/useHistoricalCertificateRoots"
+import { useNetwork } from "@/components/NetworkProvider"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -317,6 +318,7 @@ const getTotalChanges = (diff: CertificateDiff): number =>
 function CertificateDiffContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { chainId } = useNetwork()
   const beforeRoot = searchParams.get("before")
   const afterRoot = searchParams.get("after")
 
@@ -407,7 +409,6 @@ function CertificateDiffContent() {
 
       setDiffState((prev) => ({ ...prev, isLoading: true, error: null }))
 
-      const chainId = getChainId()
       const beforeUrl = beforeRoot.startsWith("http")
         ? beforeRoot
         : beforeRoot.endsWith(".json")
@@ -471,7 +472,7 @@ function CertificateDiffContent() {
     }
 
     fetchCertificateData()
-  }, [beforeRoot, afterRoot])
+  }, [beforeRoot, afterRoot, chainId])
 
   // ── Utility ──────────────────────────────────────────────────────────────
 

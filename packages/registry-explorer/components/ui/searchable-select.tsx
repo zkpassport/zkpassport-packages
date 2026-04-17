@@ -37,6 +37,7 @@ export function SearchableSelect({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
+  const listboxId = React.useId()
 
   const selectedOption = React.useMemo(
     () => options.find((option) => option.value === value),
@@ -63,7 +64,12 @@ export function SearchableSelect({
   React.useEffect(() => {
     if (open) {
       setSearch("")
-      setActiveIndex(Math.max(0, filteredOptions.findIndex((o) => o.value === value)))
+      setActiveIndex(
+        Math.max(
+          0,
+          filteredOptions.findIndex((o) => o.value === value),
+        ),
+      )
       requestAnimationFrame(() => inputRef.current?.focus())
     }
     // We intentionally only react to `open` toggling so the search resets on each open.
@@ -76,9 +82,7 @@ export function SearchableSelect({
 
   React.useEffect(() => {
     if (!open || !listRef.current) return
-    const activeEl = listRef.current.querySelector<HTMLElement>(
-      `[data-index="${activeIndex}"]`,
-    )
+    const activeEl = listRef.current.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
     if (activeEl) {
       activeEl.scrollIntoView({ block: "nearest" })
     }
@@ -112,6 +116,7 @@ export function SearchableSelect({
         type="button"
         role="combobox"
         aria-expanded={open}
+        aria-controls={listboxId}
         aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
@@ -140,7 +145,12 @@ export function SearchableSelect({
               className="flex h-9 w-full bg-transparent py-2 pl-2 text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>
-          <div ref={listRef} role="listbox" className="max-h-[260px] overflow-y-auto p-1">
+          <div
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            className="max-h-[260px] overflow-y-auto p-1"
+          >
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">{emptyMessage}</div>
             ) : (
@@ -160,9 +170,7 @@ export function SearchableSelect({
                       isActive && "bg-accent text-accent-foreground",
                     )}
                   >
-                    {isSelected && (
-                      <Check className="absolute left-2 h-4 w-4" strokeWidth={1.5} />
-                    )}
+                    {isSelected && <Check className="absolute left-2 h-4 w-4" strokeWidth={1.5} />}
                     <span className="truncate">{option.label}</span>
                   </div>
                 )

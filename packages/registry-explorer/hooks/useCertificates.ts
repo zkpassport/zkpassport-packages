@@ -1,3 +1,4 @@
+import { getEnvOverridesForChain, useNetwork } from "@/components/NetworkProvider"
 import { isECDSA, isRSA, isRSAPKCS, isRSAPSS } from "@/lib/certificate-utils"
 import { CertificateFilterState } from "@/lib/types"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
@@ -12,6 +13,7 @@ const log = debug("explorer")
 export const useCertificates = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { chainId } = useNetwork()
   const [certificates, setCertificates] = useState<PackagedCertificate[]>([])
   const [filteredCertificates, setFilteredCertificates] = useState<PackagedCertificate[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -82,12 +84,9 @@ export const useCertificates = () => {
       setError(null)
 
       try {
-        // Create a registry client instance
         const client = new RegistryClient({
-          chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 31337),
-          rpcUrl: process.env.NEXT_PUBLIC_ETH_RPC_URL,
-          rootRegistry: process.env.NEXT_PUBLIC_ROOT_REGISTRY_ADDRESS,
-          registryHelper: process.env.NEXT_PUBLIC_REGISTRY_HELPER_ADDRESS,
+          chainId,
+          ...getEnvOverridesForChain(chainId),
         })
 
         // Fetch all available roots
@@ -175,7 +174,7 @@ export const useCertificates = () => {
     }
 
     fetchCertificates()
-  }, [searchParams]) // Only depend on searchParams since we're no longer accepting useApi parameter
+  }, [searchParams, chainId])
 
   // Apply filters when filter state changes
   useEffect(() => {

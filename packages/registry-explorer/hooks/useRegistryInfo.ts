@@ -1,3 +1,4 @@
+import { getEnvOverridesForChain, useNetwork } from "@/components/NetworkProvider"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import debug from "debug"
 import { useEffect, useState } from "react"
@@ -17,6 +18,7 @@ export interface RegistryInfo {
 }
 
 export const useRegistryInfo = () => {
+  const { chainId } = useNetwork()
   const [registryInfo, setRegistryInfo] = useState<RegistryInfo>({
     isLoading: true,
     error: null,
@@ -24,13 +26,11 @@ export const useRegistryInfo = () => {
 
   useEffect(() => {
     const fetchRegistryInfo = async () => {
+      setRegistryInfo({ isLoading: true, error: null })
       try {
-        // Create a registry client instance
         const client = new RegistryClient({
-          chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 31337),
-          rpcUrl: process.env.NEXT_PUBLIC_ETH_RPC_URL,
-          rootRegistry: process.env.NEXT_PUBLIC_ROOT_REGISTRY_ADDRESS,
-          registryHelper: process.env.NEXT_PUBLIC_REGISTRY_HELPER_ADDRESS,
+          chainId,
+          ...getEnvOverridesForChain(chainId),
         })
 
         // Initialize with basic info
@@ -98,7 +98,7 @@ export const useRegistryInfo = () => {
     }
 
     fetchRegistryInfo()
-  }, [])
+  }, [chainId])
 
   return registryInfo
 }

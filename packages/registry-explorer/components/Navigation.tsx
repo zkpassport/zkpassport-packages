@@ -1,6 +1,7 @@
 "use client"
 
 import { NavLink } from "@/components/NavLink"
+import { NetworkSwitcher } from "@/components/NetworkSwitcher"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import Image from "next/image"
 import Link from "next/link"
@@ -39,6 +40,7 @@ export function Navigation() {
             <NavLink href="/certificates/history">Certificate Roots</NavLink>
             <NavLink href="/circuits/history">Circuit Roots</NavLink>
             <NavLink href="/overview">Overview</NavLink>
+            <NetworkSwitcher />
             <ThemeToggle />
           </nav>
         </div>
@@ -46,11 +48,7 @@ export function Navigation() {
         {/* Mobile header */}
         <div className="lg:hidden">
           <div className="flex justify-between items-center">
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-bold"
-              onClick={closeMobileMenu}
-            >
+            <Link href="/" className="flex items-center gap-2 font-bold" onClick={closeMobileMenu}>
               <Image src="/favicon.png" alt="ZKPassport" width={24} height={24} />
               <span className="text-sm flex items-baseline gap-1.5">
                 <span className="tracking-tight">ZKPassport</span>
@@ -61,6 +59,7 @@ export function Navigation() {
             </Link>
 
             <div className="flex items-center gap-2">
+              <NetworkSwitcher />
               <ThemeToggle />
               <button
                 onClick={toggleMobileMenu}

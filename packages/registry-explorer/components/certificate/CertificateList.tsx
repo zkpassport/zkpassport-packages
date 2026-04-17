@@ -63,8 +63,16 @@ export function CertificateList({ certificates, isLoading }: CertificateListProp
   return (
     <div className="space-y-1.5">
       {certificates.map((cert) => (
-        <CertificateCard key={cert.fingerprint} cert={cert} />
+        <CertificateCard key={getCertificateKey(cert)} cert={cert} />
       ))}
     </div>
   )
+}
+
+/**
+ * Stable content-derived key so React preserves component state (e.g.
+ * expanded/collapsed) across filtering and reordering.
+ */
+function getCertificateKey(cert: PackagedCertificate): string {
+  return cert.fingerprint ?? JSON.stringify(cert).replace(/\s+/g, "")
 }
