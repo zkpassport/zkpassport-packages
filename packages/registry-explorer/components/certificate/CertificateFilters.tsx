@@ -6,8 +6,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { CertificateFilterState } from "@/lib/types"
 import { countryCodeAlpha3ToName } from "@zkpassport/utils"
+import { useMemo } from "react"
 import { SearchIcon } from "./StatsCardIcons"
 
 interface CertificateFiltersProps {
@@ -25,6 +27,19 @@ export function CertificateFilters({
   uniqueCurves,
   onFilterChange,
 }: CertificateFiltersProps) {
+  const countryOptions = useMemo(
+    () => [
+      { value: "all", label: "All Countries" },
+      ...uniqueCountries
+        .map((country) => ({
+          value: country,
+          label: countryCodeAlpha3ToName(country) ?? country,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    ],
+    [uniqueCountries],
+  )
+
   return (
     <div className="space-y-4">
       {/* Search */}
@@ -52,26 +67,15 @@ export function CertificateFilters({
           <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Country
           </label>
-          <Select
+          <SearchableSelect
             value={filterState.selectedCountry}
             onValueChange={(value) => onFilterChange("selectedCountry", value)}
-          >
-            <SelectTrigger className="w-full bg-white dark:bg-gray-700">
-              <SelectValue placeholder="Select country" />
-            </SelectTrigger>
-            <SelectContent>
-              <div className="max-h-[300px] overflow-y-auto">
-                <SelectItem value="all" className="cursor-pointer">
-                  All Countries
-                </SelectItem>
-                {uniqueCountries.map((country) => (
-                  <SelectItem key={country} value={country} className="cursor-pointer">
-                    {countryCodeAlpha3ToName(country)}
-                  </SelectItem>
-                ))}
-              </div>
-            </SelectContent>
-          </Select>
+            options={countryOptions}
+            placeholder="Select country"
+            searchPlaceholder="Search countries..."
+            emptyMessage="No countries found."
+            className="bg-white dark:bg-gray-700"
+          />
         </div>
 
         <div className="space-y-1.5">
