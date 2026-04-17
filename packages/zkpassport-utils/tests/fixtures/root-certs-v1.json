@@ -518,6 +518,7 @@
       "tags": ["CH", "DE", "HU", "IT", "NL", "SE"]
     }
   ],
+  "revocations": [],
   "serialised": [
     [
       "0x009951263933be5c915c2003e4c76123e3a2705c9dfa83fcb01161f23275302a",

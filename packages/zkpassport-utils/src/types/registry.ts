@@ -67,21 +67,35 @@ export type SignatureAlgorithmType = "RSA" | "RSA-PSS" | "ECDSA"
 export type PackagedCertificatesFile = {
   // Version of the packaged certificates format (defaults to 0 if not set)
   version: number
-  // Network (if not present then "mainnet" is assumed)
-  network?: string
+  // Environment (Omit for production)
+  environment?: string
   // Timestamp when the package was created and the certificates were validated
   timestamp: number
-  // Merkle root of the certificates tree
+  // Certificate root committed to the Certificate Registry, derived as:
+  //   certificate_root       = H(packed(schema_version | timestamp), state_root)
+  //   state_root = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+  // where `schema_version` (2 BE bytes) and `timestamp` (4 BE bytes) are concatenated and
+  // packed into a single 31-byte field, and H is Poseidon2.
+  // Computed by `calculatePackagedCertificatesRoot`.
   root: string
   // Previous root hash (if any)
   previous_root?: string
   // Array of packaged certificates
   certificates: PackagedCertificate[]
+  // Array of intermediate certificate revocations (CSCA fingerprint + DSC serial)
+  revocations: IntermediateCertificateRevocation[]
   // Array of masterlist file hashes
   masterlists: string[]
   // The serialised ordered Merkle tree of certificates
   // Each row represents a level of the tree, with each entry being a node
   serialised?: string[][]
+}
+
+export type IntermediateCertificateRevocation = {
+  // Fingerprint of the issuing CSCA (Poseidon2 hash of the CSCA DER bytes)
+  fingerprint: string
+  // Serial number of the revoked intermediate (DSC) certificate
+  serial: string
 }
 
 export type PackagedCertificate = {

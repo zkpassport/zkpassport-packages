@@ -643,6 +643,7 @@ export type {
   SignatureAlgorithmType,
   PackagedCertificate,
   PackagedCertificatesFile,
+  IntermediateCertificateRevocation,
   CircuitManifest,
   CircuitManifestEntry,
 } from "./registry"

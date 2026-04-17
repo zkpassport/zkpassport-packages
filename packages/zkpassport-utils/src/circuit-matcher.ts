@@ -35,7 +35,7 @@ import {
 } from "./passport/passport-reader"
 import {
   CERT_TYPE_CSCA,
-  CERTIFICATE_REGISTRY_HEIGHT,
+  CERTIFICATE_MERKLE_TREE_HEIGHT,
   getCertificateLeafHash,
   getCertificateLeafHashes,
   tagsArrayToBitsFlag,
@@ -518,7 +518,7 @@ export async function getDSCCircuitInputs(
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
   const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =
-    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
+    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT))
 
   const inputs = {
     certificate_registry_root: merkleProof.root,

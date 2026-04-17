@@ -5,6 +5,11 @@ import {
   tagsArrayToBitsFlag,
   bitsFlagToTagsArray,
   calculatePackagedCertificatesRoot,
+  buildMerkleTreeFromRevocations,
+  buildMerkleTreeFromMasterlists,
+  getRevocationLeafHash,
+  REVOCATION_MERKLE_TREE_HEIGHT,
+  MASTERLIST_MERKLE_TREE_HEIGHT,
 } from "../src/registry"
 import { PackagedCertificate, PackagedCertificatesFile } from "../src/types"
 import rootCerts from "./fixtures/root-certs.json"
@@ -128,9 +133,10 @@ describe("Registry", () => {
       timestamp: 0,
       root: "",
       masterlists: [],
+      revocations: [],
       certificates: rootCerts.certificates as PackagedCertificate[],
     })
-    expect(root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
+    expect(root).toEqual("0x1b99d6aaddef53a19ff04a171f7f9837f28f99a221da1511fde39cd07ff0435e")
   })
 
   test("should generate correct canonical leaf for RSA cert (version 1)", async () => {
@@ -160,7 +166,49 @@ describe("Registry", () => {
 
   test("should generate correct canonical certificate root (version 1)", async () => {
     const root = await calculatePackagedCertificatesRoot(rootCertsV1 as PackagedCertificatesFile)
-    expect(root).toEqual("0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062")
+    expect(root).toEqual("0x1b4971838403a66da804ebb947287acf8bb70840a107fe186f07998a70ef6219")
+  })
+
+  test("should produce a different root when the timestamp changes", async () => {
+    const base = rootCertsV1 as PackagedCertificatesFile
+    const original = await calculatePackagedCertificatesRoot(base)
+    const bumped = await calculatePackagedCertificatesRoot({
+      ...base,
+      timestamp: (base.timestamp ?? 0) + 1,
+    })
+    expect(bumped).not.toEqual(original)
+    expect(bumped).toEqual("0x0b9fd1ba043f2db9482e23f1660e914bf8d70cddebd43eb0b8c9f41c6a5eeb7f")
+  })
+
+  test("should generate correct canonical empty revocation merkle root", async () => {
+    expect(REVOCATION_MERKLE_TREE_HEIGHT).toEqual(16)
+    const tree = await buildMerkleTreeFromRevocations([])
+    expect(tree.root).toEqual("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3")
+  })
+
+  test("should generate correct canonical empty masterlist merkle root", async () => {
+    expect(MASTERLIST_MERKLE_TREE_HEIGHT).toEqual(8)
+    const tree = await buildMerkleTreeFromMasterlists([])
+    expect(tree.root).toEqual("0x067243231eddf4222f3911defbba7705aff06ed45960b27f6f91319196ef97e1")
+  })
+
+  test("should generate correct canonical leaf for a revocation", async () => {
+    const leaf = await getRevocationLeafHash({
+      fingerprint: "0x0111111111111111111111111111111111111111111111111111111111111111",
+      serial: "0x123456789",
+    })
+    expect(leaf).toEqual(
+      13990255848651186378069007785567735998009942597416055104842294652882335587883n,
+    )
+  })
+
+  test("should generate correct canonical masterlist merkle root for sample hashes", async () => {
+    const tree = await buildMerkleTreeFromMasterlists([
+      "0x0111111111111111111111111111111111111111111111111111111111111111",
+      "0x0222222222222222222222222222222222222222222222222222222222222222",
+      "0x0333333333333333333333333333333333333333333333333333333333333333",
+    ])
+    expect(tree.root).toEqual("0x1774e846051ef6eb05fa02a96e571659a3a0fbca6885136d4ee4012276453795")
   })
 
   test("should generate correct canonical circuit root", async () => {

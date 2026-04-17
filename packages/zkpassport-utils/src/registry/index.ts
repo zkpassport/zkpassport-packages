@@ -6,6 +6,7 @@ import {
   PackagedCertificate,
   PackagedCertificatesFile,
   PackagedCircuit,
+  IntermediateCertificateRevocation,
   RSAPublicKey,
   TwoLetterCode,
 } from "../types"
@@ -15,9 +16,19 @@ import { computeMerkleProof } from ".."
 export { cidv0ToHex, hexToCidv0 } from "./cid"
 
 /**
- * Canonical merkle tree height for the certificate registry
+ * Canonical height of the certificate merkle tree (in the Certificate Registry)
  */
-export const CERTIFICATE_REGISTRY_HEIGHT = 16
+export const CERTIFICATE_MERKLE_TREE_HEIGHT = 16
+
+/**
+ * Canonical height of the revocation merkle tree (in the Certificate Registry)
+ */
+export const REVOCATION_MERKLE_TREE_HEIGHT = 16
+
+/**
+ * Canonical height of the masterlist merkle tree (in the Certificate Registry)
+ */
+export const MASTERLIST_MERKLE_TREE_HEIGHT = 8
 
 /**
  * Canonical merkle tree height for the circuit registry
@@ -273,19 +284,127 @@ export async function buildMerkleTreeFromCerts(
   version: number = 0,
 ): Promise<AsyncMerkleTree> {
   const leaves = await getCertificateLeafHashes(certs, version)
-  const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
+  const tree = new AsyncMerkleTree(CERTIFICATE_MERKLE_TREE_HEIGHT, 2)
   await tree.initialize(0n, leaves)
   return tree
 }
 
 /**
- * Calculate the canonical certificate root from a packaged certificates file
- * @param packagedCerts Packaged certificates file
- * @returns Certificate root used in the Certificate Registry
+ * Canonically generate a leaf hash for an intermediate certificate revocation.
+ * The leaf is computed as `H(fingerprint, H(serial))` where:
+ *  - `fingerprint` is the Poseidon2 fingerprint of the issuing CSCA
+ *  - `serial` is the revoked DSC serial number, hex-encoded
+ * @param rev Intermediate certificate revocation entry
+ * @returns Leaf hash as a bigint
  */
-export async function calculatePackagedCertificatesRoot(packagedCerts: PackagedCertificatesFile) {
-  const tree = await buildMerkleTreeFromCerts(packagedCerts.certificates, packagedCerts.version)
-  return tree.root
+export async function getRevocationLeafHash(
+  rev: IntermediateCertificateRevocation,
+): Promise<bigint> {
+  assert(rev.fingerprint !== undefined, `Revocation fingerprint required`)
+  assert(rev.serial !== undefined, `Revocation serial required`)
+  assert(
+    typeof rev.fingerprint === "string" && rev.fingerprint.startsWith("0x"),
+    `Revocation fingerprint must be a 0x-prefixed hex string: ${rev.fingerprint}`,
+  )
+  assert(
+    typeof rev.serial === "string" && rev.serial.startsWith("0x"),
+    `Revocation serial must be a 0x-prefixed hex string: ${rev.serial}`,
+  )
+  const serialBytes = Binary.from(rev.serial).toUInt8Array()
+  const serialHash = await poseidon2HashAsync(
+    packBeBytesIntoFields(serialBytes, 31).map((hex) => BigInt(hex)),
+  )
+  return poseidon2HashAsync([BigInt(rev.fingerprint), serialHash])
+}
+
+/**
+ * Canonically generate merkle tree leaf hashes from intermediate certificate revocations
+ * @param revocations Array of intermediate certificate revocations
+ * @returns Array of leaf hashes as bigints, sorted ascending
+ */
+export async function getRevocationLeafHashes(
+  revocations: IntermediateCertificateRevocation[],
+): Promise<bigint[]> {
+  const leaves = await Promise.all(revocations.map((r) => getRevocationLeafHash(r)))
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  return leaves
+}
+
+/**
+ * Canonically build a merkle tree from intermediate certificate revocations
+ * @param revocations Array of intermediate certificate revocations
+ * @returns AsyncMerkleTree
+ */
+export async function buildMerkleTreeFromRevocations(
+  revocations: IntermediateCertificateRevocation[],
+): Promise<AsyncMerkleTree> {
+  const leaves = await getRevocationLeafHashes(revocations)
+  const tree = new AsyncMerkleTree(REVOCATION_MERKLE_TREE_HEIGHT, 2)
+  await tree.initialize(0n, leaves)
+  return tree
+}
+
+/**
+ * Canonically build a merkle tree from masterlist file hashes.
+ * Each masterlist entry is a Poseidon2 hash.
+ * @param masterlists Array of masterlist file hashes (as hex strings or bigint-compatible strings)
+ * @returns AsyncMerkleTree
+ */
+export async function buildMerkleTreeFromMasterlists(
+  masterlists: string[],
+): Promise<AsyncMerkleTree> {
+  const leaves = masterlists.map((h) => BigInt(h))
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  const tree = new AsyncMerkleTree(MASTERLIST_MERKLE_TREE_HEIGHT, 2)
+  await tree.initialize(0n, leaves)
+  return tree
+}
+
+/**
+ * Calculate the canonical certificate root from a packaged certificates file.
+ *
+ * The composite root is computed as:
+ *   certificate_root = H(packed(schema_version | timestamp), state_root)
+ *   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+ *
+ * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
+ * concatenated and packed into a single field via packBeBytesIntoFields(_, 31)[0].
+ *
+ * @param packagedCerts Packaged certificates file
+ * @returns Certificate root used in the Certificate Registry, as a 0x-prefixed 32-byte hex string
+ */
+export async function calculatePackagedCertificatesRoot(
+  packagedCerts: PackagedCertificatesFile,
+): Promise<string> {
+  const certTree = await buildMerkleTreeFromCerts(packagedCerts.certificates, packagedCerts.version)
+  const revTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
+  const mlTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
+
+  const stateRoot = await poseidon2HashAsync([
+    BigInt(certTree.root),
+    BigInt(revTree.root),
+    BigInt(mlTree.root),
+  ])
+
+  const schemaVersion = packagedCerts.version
+  const timestamp = packagedCerts.timestamp
+  assert(
+    schemaVersion >= 0 && schemaVersion <= 0xffff,
+    `Schema version must fit in 2 bytes: ${schemaVersion}`,
+  )
+  assert(timestamp >= 0 && timestamp <= 0xffffffff, `Timestamp must fit in 4 bytes: ${timestamp}`)
+  const meta = new Uint8Array([
+    (schemaVersion >> 8) & 0xff,
+    schemaVersion & 0xff,
+    (timestamp >> 24) & 0xff,
+    (timestamp >> 16) & 0xff,
+    (timestamp >> 8) & 0xff,
+    timestamp & 0xff,
+  ])
+  const packedMeta = BigInt(packBeBytesIntoFields(meta, 31)[0])
+
+  const root = await poseidon2HashAsync([packedMeta, stateRoot])
+  return `0x${root.toString(16).padStart(64, "0")}`
 }
 
 /**
