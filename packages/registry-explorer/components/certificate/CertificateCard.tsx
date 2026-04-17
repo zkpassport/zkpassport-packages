@@ -113,8 +113,8 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
   const flag = countryFlag(cert.country)
   const tint = flagColor(cert.country)
   const cardBorderBackground = tint
-    ? `linear-gradient(to right, rgba(0, 0, 0, 0.20) 0%, rgba(0, 0, 0, 0.20) 65%, ${tint} 85%, ${tint} 100%)`
-    : "#e5e7eb"
+    ? `linear-gradient(to right, var(--card-border-base) 0%, var(--card-border-base) 65%, ${tint} 85%, ${tint} 100%)`
+    : "var(--card-border-base)"
 
   const algoDesc = (() => {
     if (isECDSA(cert)) {
@@ -135,7 +135,7 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
 
   return (
     <div
-      className="group relative rounded-lg overflow-hidden transition-shadow hover:shadow-md p-px"
+      className="group relative rounded-lg overflow-hidden transition-shadow hover:shadow-md p-px [--card-border-base:rgba(0,0,0,0.17)] dark:[--card-border-base:#374151]"
       style={{ background: cardBorderBackground }}
     >
       <div className="relative bg-white dark:bg-gray-800 rounded-[calc(0.5rem-1px)] overflow-hidden">
@@ -172,7 +172,10 @@ export function CertificateCard({ cert }: { cert: PackagedCertificate }) {
             <span className="font-normal text-muted-foreground">({cert.country})</span>
           </span>
 
-          <Badge variant="outline" className="flex-shrink-0 text-[10px] px-1.5 py-0 cursor-pointer">
+          <Badge
+            variant="outline"
+            className="flex-shrink-0 text-[10px] px-1.5 py-0 cursor-pointer transition-none"
+          >
             {algoDesc}
           </Badge>
 

@@ -141,7 +141,7 @@ export default function CertificateSearch() {
                   onClick={navigateToPreviousRoot}
                   disabled={isGenesisRoot || currentRootIndex < 0}
                   title="Previous root (older)"
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 transition-none"
                 >
                   <PreviousRootIcon className="h-4 w-4" strokeWidth={1.5} />
                 </Button>
@@ -150,7 +150,7 @@ export default function CertificateSearch() {
                     value={isLatestRoot ? "latest" : currentRoot}
                     onValueChange={handleRootChange}
                   >
-                    <SelectTrigger className="w-full h-8 text-xs bg-white dark:bg-gray-700">
+                    <SelectTrigger className="w-full h-8 text-xs bg-white dark:bg-gray-700 transition-none">
                       <SelectValue placeholder="Select a root" />
                     </SelectTrigger>
                     <SelectContent>
@@ -177,7 +177,7 @@ export default function CertificateSearch() {
                   onClick={navigateToNextRoot}
                   disabled={isLatestRoot || currentRootIndex < 0}
                   title="Next root (newer)"
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 transition-none"
                 >
                   <NextRootIcon className="h-4 w-4" strokeWidth={1.5} />
                 </Button>
