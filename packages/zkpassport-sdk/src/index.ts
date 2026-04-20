@@ -34,6 +34,7 @@ import {
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
+import { submitProof } from "./dashboard-api"
 import { DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -126,7 +127,7 @@ export * from "./types"
 
 export class ZKPassport {
   private domain: string
-  private apiUrl: string | null
+  private projectId: string | null
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -181,12 +182,12 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string, options?: { apiUrl?: string }) {
+  constructor(_domain?: string, options?: { projectId?: string }) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.apiUrl = options?.apiUrl ?? null
+    this.projectId = options?.projectId ?? null
   }
 
   private async handleResult(topic: string) {
@@ -208,38 +209,16 @@ export class ZKPassport {
     // However, some proofs may have failed to generate on the mobile device (e.g. "Cannot generate proof").
     // We must also check that no proofs were lost — if any failed to generate, the overall result is invalid.
     const finalVerified = this.topicToFailedProofCount[topic] > 0 ? false : verified
-    // Send proof data to external API if verification succeeded
-    if (finalVerified && this.apiUrl) {
-      try {
-        const proofs = this.topicToProofs[topic].map((p) => ({
-          proof: p.proof,
-          vkeyHash: p.vkeyHash,
-          version: p.version,
-          name: p.name,
-          index: p.index,
-          total: p.total,
-          committedInputs: p.committedInputs,
-        }))
-        const response = await fetch(this.apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            domain: this.domain,
-            proofs,
-            queryResult: result,
-            uniqueIdentifier,
-            scope: this.topicToService[topic]?.scope,
-            sdkVersion: VERSION,
-          }),
-        })
-        if (!response.ok) {
-          logger.warn("API request failed with status:", response.status)
-        } else {
-          logger.debug("API response status:", response.status)
-        }
-      } catch (e) {
-        logger.warn("API call failed:", e)
-      }
+    // Send proof data to the dashboard API if verification succeeded and a projectId is configured
+    if (finalVerified && this.projectId) {
+      await submitProof({
+        projectId: this.projectId,
+        domain: this.domain,
+        proofs: this.topicToProofs[topic],
+        queryResult: result,
+        uniqueIdentifier,
+        scope: this.topicToService[topic]?.scope,
+      })
     } else if (!finalVerified) {
       logger.debug("Skipping API call, verification failed or proofs missing")
     }
