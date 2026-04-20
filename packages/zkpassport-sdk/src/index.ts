@@ -127,7 +127,8 @@ export * from "./types"
 
 export class ZKPassport {
   private domain: string
-  private projectId: string | null
+  private projectId: string | undefined
+  private apiUrl: string | undefined
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -182,12 +183,13 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string, options?: { projectId?: string }) {
+  constructor(_domain?: string, options?: { projectId?: string; apiUrl?: string }) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.projectId = options?.projectId ?? null
+    this.projectId = options?.projectId
+    this.apiUrl = options?.apiUrl
   }
 
   private async handleResult(topic: string) {
@@ -218,6 +220,7 @@ export class ZKPassport {
         queryResult: result,
         uniqueIdentifier,
         scope: this.topicToService[topic]?.scope,
+        apiUrl: this.apiUrl,
       })
     } else if (!finalVerified) {
       logger.debug("Skipping API call, verification failed or proofs missing")
