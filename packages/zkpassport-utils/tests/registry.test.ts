@@ -5,13 +5,19 @@ import {
   tagsArrayToBitsFlag,
   bitsFlagToTagsArray,
   calculatePackagedCertificatesRoot,
+  buildMerkleTreeFromCerts,
   buildMerkleTreeFromRevocations,
   buildMerkleTreeFromMasterlists,
+  createPackagedCertificatesFile,
   getRevocationLeafHash,
   REVOCATION_MERKLE_TREE_HEIGHT,
   MASTERLIST_MERKLE_TREE_HEIGHT,
 } from "../src/registry"
-import { PackagedCertificate, PackagedCertificatesFile } from "../src/types"
+import {
+  PackagedCertificate,
+  PackagedCertificatesFile,
+  PackagedCertificatesFileV1,
+} from "../src/types"
 import rootCerts from "./fixtures/root-certs.json"
 import rootCertsV1 from "./fixtures/root-certs-v1.json"
 import circuitManifest from "./fixtures/manifest.json"
@@ -213,6 +219,117 @@ describe("Registry", () => {
     const hashes = Object.values(circuitManifest.circuits).map((circuit) => circuit.hash)
     const root = await calculateCircuitRoot({ hashes })
     expect(root).toEqual(circuitManifest.root)
+  })
+
+  test("createPackagedCertificatesFile should produce a v1 file matching the fixture", async () => {
+    const fixture = rootCertsV1 as PackagedCertificatesFileV1
+    const file = await createPackagedCertificatesFile({
+      timestamp: fixture.timestamp,
+      certificates: fixture.certificates,
+      masterlists: fixture.masterlists,
+      revocations: fixture.revocations ?? [],
+    })
+
+    expect(file.version).toEqual(1)
+    expect(file.timestamp).toEqual(fixture.timestamp)
+    expect(file.root).toEqual("0x23e802a448e80b578b81ed587e325cd0dcfb0dac0e6cc6dd6464012fdcdcfd2d")
+    expect(file.root).toEqual(fixture.root)
+    expect(file.certificates).toBe(fixture.certificates)
+    expect(file.masterlists).toEqual(fixture.masterlists)
+    expect(file.revocations).toEqual(fixture.revocations ?? [])
+    expect(file.certificates_serialised).toEqual(fixture.certificates_serialised)
+    // Empty revocations tree's top row is the canonical empty revocation merkle root
+    expect(file.revocations_serialised?.[file.revocations_serialised.length - 1]?.[0]).toEqual(
+      "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
+    )
+    // The factory output round-trips through calculatePackagedCertificatesRoot
+    const recomputed = await calculatePackagedCertificatesRoot(file)
+    expect(recomputed).toEqual(file.root)
+    // Optional fields are omitted when not provided
+    expect(file.previous_root).toBeUndefined()
+    expect(file.environment).toBeUndefined()
+  })
+
+  test("createPackagedCertificatesFile should respect optional fields and non-empty revocations", async () => {
+    const fixture = rootCertsV1 as PackagedCertificatesFileV1
+    const revocations = [
+      {
+        fingerprint: "0x0111111111111111111111111111111111111111111111111111111111111111",
+        serial: "0x123456789",
+      },
+    ]
+    const file = await createPackagedCertificatesFile({
+      timestamp: fixture.timestamp,
+      certificates: fixture.certificates,
+      masterlists: fixture.masterlists,
+      revocations,
+      previous_root: "0x0aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+      environment: "test",
+    })
+
+    expect(file.previous_root).toEqual(
+      "0x0aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+    )
+    expect(file.environment).toEqual("test")
+    expect(file.revocations).toEqual(revocations)
+    // Adding revocations must change the canonical root
+    expect(file.root).not.toEqual(fixture.root)
+    // The factory output round-trips through calculatePackagedCertificatesRoot
+    const recomputed = await calculatePackagedCertificatesRoot(file)
+    expect(recomputed).toEqual(file.root)
+  })
+
+  test("buildMerkleTreeFromCerts should produce the canonical v0 root", async () => {
+    const tree = await buildMerkleTreeFromCerts(rootCerts.certificates as PackagedCertificate[], 0)
+    expect(tree.root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
+  })
+
+  test("buildMerkleTreeFromCerts should produce the canonical v1 root and serialised tree", async () => {
+    const fixture = rootCertsV1 as PackagedCertificatesFileV1
+    const tree = await buildMerkleTreeFromCerts(fixture.certificates, 1)
+    expect(tree.root).toEqual("0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062")
+    expect(tree.serialize()).toEqual(fixture.certificates_serialised)
+  })
+
+  test("buildMerkleTreeFromMasterlists should be sort-invariant and deterministic", async () => {
+    const a = await buildMerkleTreeFromMasterlists([
+      "0x0333333333333333333333333333333333333333333333333333333333333333",
+      "0x0111111111111111111111111111111111111111111111111111111111111111",
+      "0x0222222222222222222222222222222222222222222222222222222222222222",
+    ])
+    const b = await buildMerkleTreeFromMasterlists([
+      "0x0111111111111111111111111111111111111111111111111111111111111111",
+      "0x0222222222222222222222222222222222222222222222222222222222222222",
+      "0x0333333333333333333333333333333333333333333333333333333333333333",
+    ])
+    expect(a.root).toEqual(b.root)
+    expect(a.root).toEqual("0x1774e846051ef6eb05fa02a96e571659a3a0fbca6885136d4ee4012276453795")
+  })
+
+  test("buildMerkleTreeFromMasterlists should accept a single leaf and produce a well-formed root", async () => {
+    const tree = await buildMerkleTreeFromMasterlists([
+      "0x0111111111111111111111111111111111111111111111111111111111111111",
+    ])
+    expect(tree.root).toMatch(/^0x[0-9a-f]{64}$/)
+  })
+
+  test("buildMerkleTreeFromRevocations should be deterministic and differ from the empty-tree root", async () => {
+    const revocations = [
+      {
+        fingerprint: "0x0111111111111111111111111111111111111111111111111111111111111111",
+        serial: "0x123456789",
+      },
+      {
+        fingerprint: "0x0222222222222222222222222222222222222222222222222222222222222222",
+        serial: "0xdeadbeef",
+      },
+    ]
+    const a = await buildMerkleTreeFromRevocations(revocations)
+    const b = await buildMerkleTreeFromRevocations(revocations)
+    expect(a.root).toEqual(b.root)
+    const empty = await buildMerkleTreeFromRevocations([])
+    expect(a.root).not.toEqual(empty.root)
+    expect(a.root).toMatch(/^0x[0-9a-f]{64}$/)
   })
 
   test("should correctly convert timestamp to 4 byte array and back again", () => {
