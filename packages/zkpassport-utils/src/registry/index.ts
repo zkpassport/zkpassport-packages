@@ -537,6 +537,36 @@ export async function buildMerkleTreeFromMasterlists(
 }
 
 /**
+ * BN254 (alt_bn128) scalar field modulus. Every Poseidon2 input/output (including every
+ * canonical Merkle root in this module) MUST be strictly less than this value, otherwise
+ * the in-circuit reduction silently wraps the value mod p.
+ */
+export const BN254_FIELD_MODULUS =
+  21888242871839275222246405745257275088548364400416034343698204186575808495617n
+
+/**
+ * Strictly parse a Merkle root supplied as a `0x`-prefixed hex string and validate that
+ * it lies in the BN254 scalar field. Used at the public boundary of root-combining
+ * helpers so callers cannot pass a non-canonical encoding (missing prefix, oversized,
+ * non-hex characters) or a value that would silently wrap mod p inside Poseidon2.
+ *
+ * Accepted: `string` matching `^0x[0-9a-fA-F]{1,64}$` whose numeric value is in
+ * `[0, BN254_FIELD_MODULUS)`.
+ *
+ * Throws on anything else.
+ */
+export function parseMerkleRoot(label: string, value: string): bigint {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{1,64}$/.test(value)) {
+    throw new Error(`${label} must be a 0x-prefixed hex string of at most 64 hex chars: ${value}`)
+  }
+  const bn = BigInt(value)
+  if (bn >= BN254_FIELD_MODULUS) {
+    throw new Error(`${label} must be in [0, BN254_FIELD_MODULUS): ${bn}`)
+  }
+  return bn
+}
+
+/**
  * Combine the certificate, revocation, and masterlist Merkle roots into the canonical
  * version 1 certificate root, cryptographically bound to the schema version and timestamp:
  *
@@ -545,6 +575,10 @@ export async function buildMerkleTreeFromMasterlists(
  *
  * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
  * concatenated and packed into a single 31-byte field. H is Poseidon2.
+ *
+ * Each root MUST be a `0x`-prefixed hex string in the BN254 scalar field. Any other
+ * encoding (missing prefix, non-hex characters, > 64 hex chars, or a value `>= p`)
+ * throws via {@link parseMerkleRoot}.
  *
  * @returns Certificate root as a 0x-prefixed 32-byte hex string
  */
@@ -557,23 +591,26 @@ async function combineCertificateRootV1(args: {
 }): Promise<string> {
   const { certificateRoot, revocationRoot, masterlistRoot, schemaVersion, timestamp } = args
   assert(
-    schemaVersion >= 0 && schemaVersion <= 0xffff,
-    `Schema version must fit in 2 bytes: ${schemaVersion}`,
+    Number.isInteger(schemaVersion) && schemaVersion >= 0 && schemaVersion <= 0xffff,
+    `Schema version must be an integer that fits in 2 bytes: ${schemaVersion}`,
   )
-  assert(timestamp >= 0 && timestamp <= 0xffffffff, `Timestamp must fit in 4 bytes: ${timestamp}`)
+  assert(
+    Number.isInteger(timestamp) && timestamp >= 0 && timestamp <= 0xffffffff,
+    `Timestamp must be an integer that fits in 4 bytes: ${timestamp}`,
+  )
 
-  const stateRoot = await poseidon2HashAsync([
-    BigInt(certificateRoot),
-    BigInt(revocationRoot),
-    BigInt(masterlistRoot),
-  ])
+  const certBn = parseMerkleRoot("certificateRoot", certificateRoot)
+  const revBn = parseMerkleRoot("revocationRoot", revocationRoot)
+  const mlBn = parseMerkleRoot("masterlistRoot", masterlistRoot)
+
+  const stateRoot = await poseidon2HashAsync([certBn, revBn, mlBn])
 
   const meta = new Uint8Array([
-    (schemaVersion >> 8) & 0xff,
+    (schemaVersion >>> 8) & 0xff,
     schemaVersion & 0xff,
-    (timestamp >> 24) & 0xff,
-    (timestamp >> 16) & 0xff,
-    (timestamp >> 8) & 0xff,
+    (timestamp >>> 24) & 0xff,
+    (timestamp >>> 16) & 0xff,
+    (timestamp >>> 8) & 0xff,
     timestamp & 0xff,
   ])
   const packedMeta = BigInt(packBeBytesIntoFields(meta, 31)[0])
