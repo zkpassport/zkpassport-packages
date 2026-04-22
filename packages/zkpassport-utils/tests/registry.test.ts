@@ -285,6 +285,83 @@ describe("Registry", () => {
     expect(recomputed).toEqual(file.root)
   })
 
+  test("createPackagedCertificatesFile should build a v1 file from fully inline fixtures", async () => {
+    const certificates: PackagedCertificate[] = [ecdsaCert, rsaCert]
+    const masterlists: string[] = [
+      "0x1111111111111111111111111111111111111111111111111111111111111111",
+      "0x2222222222222222222222222222222222222222222222222222222222222222",
+      "0x3333333333333333333333333333333333333333333333333333333333333333",
+    ]
+    const revocations: IntermediateCertificateRevocation[] = [
+      { fingerprint: rsaCert.fingerprint as string, serial: "0xdeadbeef" },
+      { fingerprint: ecdsaCert.fingerprint as string, serial: "0xc0ffee" },
+    ]
+    const timestamp = 1700000000
+
+    const file = await createPackagedCertificatesFile({
+      timestamp,
+      certificates,
+      masterlists,
+      revocations,
+    })
+
+    // Top-level shape and field passthrough
+    expect(file.version).toEqual(1)
+    expect(file.timestamp).toEqual(timestamp)
+    expect(file.certificates).toBe(certificates)
+    expect(file.masterlists).toBe(masterlists)
+    expect(file.revocations).toBe(revocations)
+    expect(file.root).toMatch(/^0x[0-9a-f]{64}$/)
+
+    // Serialised certificate tree matches the canonical builder for the same inputs
+    const certTree = await buildMerkleTreeFromCerts(certificates, 1)
+    expect(file.certificates_serialised).toEqual(certTree.serialize())
+    // Top row of the serialised certificate tree is the certificate Merkle root
+    expect(file.certificates_serialised?.[file.certificates_serialised.length - 1]?.[0]).toEqual(
+      certTree.root,
+    )
+    expect(certTree.root).toEqual(
+      "0x2cc6d5bba2957520fe874578f49c5da18306c1f8fd635cc9a7aee4f1f3930872",
+    )
+
+    // Serialised revocation tree matches the canonical builder for the same inputs
+    const revTree = await buildMerkleTreeFromRevocations(revocations)
+    expect(file.revocations_serialised).toEqual(revTree.serialize())
+    expect(file.revocations_serialised?.[file.revocations_serialised.length - 1]?.[0]).toEqual(
+      revTree.root,
+    )
+    expect(revTree.root).toEqual(
+      "0x2fb75c45991bb2b257712c225dffa4f66a740795a7cb708bb32edf4917bf00b2",
+    )
+
+    const mlTree = await buildMerkleTreeFromMasterlists(masterlists)
+    expect(mlTree.root).toEqual(
+      "0x26c5a3b813c6e608c414262037c1b538f1d7fd62e31c60c1098281597effbeca",
+    )
+
+    // Mutating any commitment input must change the canonical root
+    const withoutRevocations = await createPackagedCertificatesFile({
+      timestamp,
+      certificates,
+      masterlists,
+      revocations: [],
+    })
+    expect(withoutRevocations.root).not.toEqual(file.root)
+    expect(withoutRevocations.previous_root).toBeUndefined()
+    expect(withoutRevocations.environment).toBeUndefined()
+
+    const withDifferentTimestamp = await createPackagedCertificatesFile({
+      timestamp: timestamp + 1,
+      certificates,
+      masterlists,
+      revocations,
+    })
+    expect(withDifferentTimestamp.root).not.toEqual(file.root)
+
+    // Final certificate root
+    expect(file.root).toEqual("0x172a1b36046d20a9c05c9e620338487db32a3bc64c08268b5228fd685393ea50")
+  })
+
   test("buildMerkleTreeFromCerts should produce the canonical v0 root", async () => {
     const tree = await buildMerkleTreeFromCerts(rootCerts.certificates as PackagedCertificate[], 0)
     expect(tree.root).toEqual("0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686")
