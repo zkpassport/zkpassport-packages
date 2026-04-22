@@ -13,6 +13,8 @@ import {
 } from "../types"
 import { assert, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
+import { AsyncIMT, poseidon2 } from "../merkle-tree"
+import type { IMTMerkleProof } from "../merkle-tree/async-imt"
 import { computeMerkleProof } from ".."
 export { cidv0ToHex, hexToCidv0 } from "./cid"
 
@@ -35,6 +37,15 @@ export const MASTERLIST_MERKLE_TREE_HEIGHT = 8 // Max leaves: 2^8 = 256
  * Canonical merkle tree height for the circuit registry
  */
 export const CIRCUIT_REGISTRY_HEIGHT = 12 // Max leaves: 2^12 = 4096
+
+/**
+ * Canonical zero leaf used to pad empty slots in every ordered Merkle tree maintained
+ * by the registry (certificates, revocations, masterlists, circuits). The same value
+ * is also hashed up the tree to derive the per-level zero values used as siblings for
+ * missing children. Using this constant everywhere keeps roots reproducible: changing
+ * it would change every canonical root.
+ */
+export const MERKLE_TREE_ZERO_VALUE = 0n
 
 /**
  * Canonical hash algorithm identifiers for the certificate registry
@@ -286,7 +297,7 @@ export async function buildMerkleTreeFromCerts(
 ): Promise<AsyncMerkleTree> {
   const leaves = await getCertificateLeafHashes(certs, version)
   const tree = new AsyncMerkleTree(CERTIFICATE_MERKLE_TREE_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
   return tree
 }
 
@@ -341,8 +352,172 @@ export async function buildMerkleTreeFromRevocations(
 ): Promise<AsyncMerkleTree> {
   const leaves = await getRevocationLeafHashes(revocations)
   const tree = new AsyncMerkleTree(REVOCATION_MERKLE_TREE_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
   return tree
+}
+
+/**
+ * Exclusion (non-membership) proof against an ordered Merkle tree.
+ *
+ * The ordered tree commits to a strictly ascending sequence of committed leaves packed
+ * left-to-right starting at index 0; every slot beyond the committed range is the
+ * canonical zero leaf (the same `zeroValue` the tree was initialised with). To prove
+ * that `targetLeaf` is NOT in the tree, the prover supplies inclusion proofs for the
+ * two adjacent leaves that bracket the target:
+ *
+ *   `lowerProof.leaf < targetLeaf < upperProof.leaf`
+ *   `upperProof.leafIndex - lowerProof.leafIndex === 1`
+ *
+ * Boundary cases are encoded as follows so that verification needs no out-of-band
+ * knowledge of the total committed leaf count:
+ *
+ *  - `lowerProof === null`: `targetLeaf` sorts before every committed leaf.
+ *    The verifier requires `upperProof.leafIndex === 0`, `upperProof.leaf !== 0`
+ *    (otherwise the tree is empty and the bound is degenerate), and
+ *    `targetLeaf < upperProof.leaf`.
+ *
+ *  - `upperProof.leaf === 0n`: `targetLeaf` sorts after every committed leaf.
+ *    The verifier requires `upperProof.leafIndex === lowerProof.leafIndex + 1`
+ *    (consecutive) and `lowerProof.leaf < targetLeaf`. Under the canonical
+ *    left-to-right packing invariant, an empty slot at index `k+1` implies all
+ *    slots `> k` are empty, so no committed leaf can equal `targetLeaf`.
+ *
+ * Soundness assumes the verified `root` belongs to a canonically-built ordered tree
+ * (no zero gaps among committed leaves). `buildMerkleTreeFromRevocations` enforces
+ * this by construction.
+ */
+export type OrderedMerkleExclusionProof = {
+  /** Ordered Merkle tree root the exclusion is proven against (0x-prefixed 32-byte hex). */
+  root: string
+  /** Target leaf hash asserted to be absent from the tree. */
+  targetLeaf: bigint
+  /** Inclusion proof for the largest leaf strictly less than `targetLeaf`, or `null`
+   * when `targetLeaf` sorts before every committed leaf. */
+  lowerProof: IMTMerkleProof | null
+  /** Inclusion proof for the leaf immediately after `lowerProof`. Either the smallest
+   * committed leaf strictly greater than `targetLeaf` (interior case), or the canonical
+   * zero leaf at the next padding slot (after-the-end case). When `lowerProof` is `null`,
+   * this is the inclusion proof at index 0. Always present. */
+  upperProof: IMTMerkleProof
+}
+
+/**
+ * Build an {@link OrderedMerkleExclusionProof} for the canonical revocation tree.
+ *
+ * Returns `null` when `targetLeaf` is already a committed member — in an ordered tree
+ * there is no strict bracket `lower < target < upper` around a value that equals one
+ * of the leaves.
+ *
+ * Internally the IMT is initialised with one trailing sentinel zero leaf so that
+ * `createProof` works at index `N` for the after-the-end case. Appending an explicit
+ * zero at the first padding slot does not change any internal hash and therefore does
+ * not change the canonical `root` (which is identical to `buildMerkleTreeFromRevocations`).
+ */
+export async function buildRevocationExclusionProof(
+  sortedLeaves: bigint[],
+  targetLeaf: bigint,
+): Promise<OrderedMerkleExclusionProof | null> {
+  // The construction relies on (a) strictly ascending committed leaves and
+  // (b) at least one free slot for the trailing zero sentinel.
+  for (let i = 1; i < sortedLeaves.length; i++) {
+    assert(
+      sortedLeaves[i - 1] < sortedLeaves[i],
+      `sortedLeaves must be strictly ascending; violation at index ${i}`,
+    )
+  }
+  assert(
+    sortedLeaves.length < 2 ** REVOCATION_MERKLE_TREE_HEIGHT,
+    `tree is full; cannot append zero sentinel for after-the-end exclusion proofs`,
+  )
+  // Membership ⇒ no exclusion proof can exist in an ordered tree.
+  if (sortedLeaves.includes(targetLeaf)) return null
+
+  const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
+  await imt.initialize(MERKLE_TREE_ZERO_VALUE, [...sortedLeaves, MERKLE_TREE_ZERO_VALUE])
+  const root = `0x${(imt.root as bigint).toString(16).padStart(64, "0")}`
+  const upperIdx = sortedLeaves.findIndex((l) => l > targetLeaf)
+
+  if (upperIdx === -1) {
+    // After the last committed leaf: lower at N-1, upper at N (zero sentinel).
+    return {
+      root,
+      targetLeaf,
+      lowerProof: imt.createProof(sortedLeaves.length - 1),
+      upperProof: imt.createProof(sortedLeaves.length),
+    }
+  }
+  if (upperIdx === 0) {
+    // Before the first committed leaf: only upper, anchored at index 0.
+    return {
+      root,
+      targetLeaf,
+      lowerProof: null,
+      upperProof: imt.createProof(0),
+    }
+  }
+  // Interior bracket.
+  return {
+    root,
+    targetLeaf,
+    lowerProof: imt.createProof(upperIdx - 1),
+    upperProof: imt.createProof(upperIdx),
+  }
+}
+
+/**
+ * Verify an {@link OrderedMerkleExclusionProof} against the canonical revocation tree.
+ *
+ * Returns `true` iff every required structural and ordering constraint holds:
+ *  - `upperProof` is present, verifies (Poseidon2), and its root matches `proof.root`.
+ *  - When `lowerProof === null` (left boundary):
+ *      `upperProof.leafIndex === 0`,
+ *      `upperProof.leaf !== 0n` (tree must have at least one committed leaf),
+ *      `upperProof.leaf > targetLeaf`.
+ *  - When `lowerProof !== null`:
+ *      `lowerProof` verifies, root matches,
+ *      `lowerProof.leaf !== 0n` (must be a real committed leaf, not zero padding),
+ *      `lowerProof.leaf < targetLeaf`,
+ *      `upperProof.leafIndex - lowerProof.leafIndex === 1`,
+ *      AND either `upperProof.leaf > targetLeaf` (interior case) or
+ *      `upperProof.leaf === 0n` (after-the-end case; canonical zero padding).
+ *
+ * Soundness assumes `proof.root` came from a canonically-built ordered tree.
+ */
+export async function verifyRevocationExclusionProof(
+  proof: OrderedMerkleExclusionProof,
+): Promise<boolean> {
+  const { root, targetLeaf, lowerProof, upperProof } = proof
+
+  const proofRootMatches = (p: IMTMerkleProof) =>
+    `0x${(p.root as bigint).toString(16).padStart(64, "0")}` === root
+
+  // Upper is always required.
+  if (!proofRootMatches(upperProof)) return false
+  if (!(await AsyncIMT.verifyProof(upperProof, poseidon2))) return false
+  const upperLeaf = upperProof.leaf as bigint
+
+  if (lowerProof === null) {
+    // Left boundary: upper anchored at index 0 with target < upper.leaf.
+    if (upperProof.leafIndex !== 0) return false
+    if (upperLeaf === MERKLE_TREE_ZERO_VALUE) return false // empty tree ⇒ degenerate
+    return upperLeaf > targetLeaf
+  }
+
+  // Both proofs supplied. Lower must verify, share the root, and be a real
+  // (non-zero) committed leaf strictly less than the target.
+  if (!proofRootMatches(lowerProof)) return false
+  if (!(await AsyncIMT.verifyProof(lowerProof, poseidon2))) return false
+  const lowerLeaf = lowerProof.leaf as bigint
+  if (lowerLeaf === MERKLE_TREE_ZERO_VALUE) return false
+  if (!(lowerLeaf < targetLeaf)) return false
+
+  // Lower and upper must be at consecutive slots.
+  if (upperProof.leafIndex - lowerProof.leafIndex !== 1) return false
+
+  // Either the interior case (strict upper bound) or the after-the-end case
+  // (next slot is the canonical zero padding).
+  if (upperLeaf === MERKLE_TREE_ZERO_VALUE) return true
+  return upperLeaf > targetLeaf
 }
 
 /**
@@ -357,7 +532,7 @@ export async function buildMerkleTreeFromMasterlists(
   const leaves = masterlists.map((h) => BigInt(h))
   leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
   const tree = new AsyncMerkleTree(MASTERLIST_MERKLE_TREE_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
   return tree
 }
 
@@ -547,7 +722,7 @@ export async function calculateCircuitRoot(
   leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
   // Build the merkle tree and return the root
   const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
   return tree.root
 }
 

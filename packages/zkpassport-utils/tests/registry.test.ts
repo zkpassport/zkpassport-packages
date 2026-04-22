@@ -8,9 +8,12 @@ import {
   buildMerkleTreeFromCerts,
   buildMerkleTreeFromRevocations,
   buildMerkleTreeFromMasterlists,
+  buildRevocationExclusionProof,
   createPackagedCertificatesFile,
   getRevocationLeafHash,
   getRevocationLeafHashes,
+  verifyRevocationExclusionProof,
+  MERKLE_TREE_ZERO_VALUE,
   REVOCATION_MERKLE_TREE_HEIGHT,
   MASTERLIST_MERKLE_TREE_HEIGHT,
 } from "../src/registry"
@@ -374,7 +377,7 @@ describe("Registry", () => {
     expect(sortedLeaves).not.toContain(targetLeaf)
 
     const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
-    await imt.initialize(0n, sortedLeaves)
+    await imt.initialize(MERKLE_TREE_ZERO_VALUE, sortedLeaves)
     expect(`0x${(imt.root as bigint).toString(16).padStart(64, "0")}`).toEqual(canonicalTree.root)
 
     // Find the bracket [lower, upper] of consecutive sorted leaves such that
@@ -403,6 +406,17 @@ describe("Registry", () => {
     expect(upperProof.leafIndex - lowerProof.leafIndex).toEqual(1)
     expect(lowerProof.leaf).toEqual(sortedLeaves[lowerIndex])
     expect(upperProof.leaf).toEqual(sortedLeaves[upperIndex])
+
+    // The same proof, packaged through the public `OrderedMerkleExclusionProof` API,
+    // must verify end-to-end via `verifyRevocationExclusionProof`.
+    expect(
+      await verifyRevocationExclusionProof({
+        root: canonicalTree.root,
+        targetLeaf,
+        lowerProof,
+        upperProof,
+      }),
+    ).toBe(true)
 
     // Sanity: the same procedure must NOT find a bracket for any leaf that IS in the tree
     // (because that leaf is itself a member of `sortedLeaves`, so no strict-greater entry
@@ -448,7 +462,7 @@ describe("Registry", () => {
     expect(targetLeaf < sortedLeaves[0]).toBe(true)
 
     const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
-    await imt.initialize(0n, sortedLeaves)
+    await imt.initialize(MERKLE_TREE_ZERO_VALUE, sortedLeaves)
     expect(`0x${(imt.root as bigint).toString(16).padStart(64, "0")}`).toEqual(canonicalTree.root)
 
     // Boundary exclusion proof for the start: an inclusion proof for the smallest
@@ -462,6 +476,17 @@ describe("Registry", () => {
     expect(firstProof.leafIndex).toEqual(0)
     expect(firstProof.leaf).toEqual(sortedLeaves[0])
     expect(targetLeaf < (firstProof.leaf as bigint)).toBe(true)
+
+    // The canonical left-boundary `OrderedMerkleExclusionProof` (lowerProof === null,
+    // upperProof anchored at index 0) must verify end-to-end via the public verifier.
+    expect(
+      await verifyRevocationExclusionProof({
+        root: canonicalTree.root,
+        targetLeaf,
+        lowerProof: null,
+        upperProof: firstProof,
+      }),
+    ).toBe(true)
   })
 
   test("should produce a valid exclusion proof for a revocation that would sort after the last leaf", async () => {
@@ -499,22 +524,132 @@ describe("Registry", () => {
     expect(sortedLeaves).not.toContain(targetLeaf)
     expect(targetLeaf > sortedLeaves[lastIndex]).toBe(true)
 
+    // Reinitialise the IMT with a trailing zero sentinel so we can produce an inclusion
+    // proof for the canonical empty slot at index N. Adding an explicit zero at the
+    // first padding slot is a no-op for every internal hash, so the root is unchanged.
     const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
-    await imt.initialize(0n, sortedLeaves)
+    await imt.initialize(MERKLE_TREE_ZERO_VALUE, [...sortedLeaves, MERKLE_TREE_ZERO_VALUE])
     expect(`0x${(imt.root as bigint).toString(16).padStart(64, "0")}`).toEqual(canonicalTree.root)
 
     // Boundary exclusion proof for the end: an inclusion proof for the largest committed
-    // leaf at index N-1, paired with the strict inequality leaves[N-1] < target. Since the
-    // tree is ordered ascending and the next slot (index N) is the canonical zero leaf in
-    // the padded ordered tree, no leaf greater than leaves[N-1] can be present.
+    // leaf at index N-1, paired with an inclusion proof for the zero sentinel at index N.
+    // Strict inequality leaves[N-1] < target combined with the next slot being zero proves
+    // (under the canonical left-to-right packing invariant) that no leaf > leaves[N-1] can
+    // be present.
     const lastProof = imt.createProof(lastIndex)
+    const zeroSentinelProof = imt.createProof(sortedLeaves.length)
     expect(await AsyncIMT.verifyProof(lastProof, poseidon2)).toBe(true)
+    expect(await AsyncIMT.verifyProof(zeroSentinelProof, poseidon2)).toBe(true)
     expect(`0x${(lastProof.root as bigint).toString(16).padStart(64, "0")}`).toEqual(
       canonicalTree.root,
     )
     expect(lastProof.leafIndex).toEqual(lastIndex)
     expect(lastProof.leaf).toEqual(sortedLeaves[lastIndex])
+    expect(zeroSentinelProof.leafIndex).toEqual(sortedLeaves.length)
+    expect(zeroSentinelProof.leaf).toEqual(MERKLE_TREE_ZERO_VALUE)
     expect((lastProof.leaf as bigint) < targetLeaf).toBe(true)
+
+    // The canonical right-boundary `OrderedMerkleExclusionProof` (lowerProof at index N-1,
+    // upperProof at index N with leaf === 0) must verify end-to-end via the public verifier.
+    expect(
+      await verifyRevocationExclusionProof({
+        root: canonicalTree.root,
+        targetLeaf,
+        lowerProof: lastProof,
+        upperProof: zeroSentinelProof,
+      }),
+    ).toBe(true)
+  })
+
+  test("should be impossible to construct an exclusion proof for a revocation that IS in the tree", async () => {
+    // CSCA fingerprints lifted from tests/fixtures/root-certs-v1.json
+    const cscaA = "0x111a08ff123a169cf2a0830649262c875eaa9544d707a9bd0ba2a92e9dfe1eba"
+    const cscaB = "0x2215b0e6cb4d3e69e722c6895caa0ed7285a12a109a055b0c80902200267460b"
+    const cscaC = "0x109141f99baa5abcf790ee60daab9a7138e975114fb7676c06897b9185cd2330"
+
+    const revocations: IntermediateCertificateRevocation[] = [
+      { fingerprint: cscaA, serial: "0x01" },
+      { fingerprint: cscaA, serial: "0x02" },
+      { fingerprint: cscaB, serial: "0xdeadbeef" },
+      { fingerprint: cscaC, serial: "0xc0ffee" },
+      { fingerprint: cscaC, serial: "0x123456789" },
+    ]
+    const sortedLeaves = await getRevocationLeafHashes(revocations)
+    expect(sortedLeaves).toEqual([
+      BigInt("0x053bc9678a8f01ad58f2acc59925c50b2d8a8b9993fab1178fcd43016ab9c170"),
+      BigInt("0x0b1fadc15e4accd2b1497f1a24d53cb9ea351b37a0ff7764ff8a549cab6d3d68"),
+      BigInt("0x0ea11af40acaaaae4bc5b22cb4c96578b2abb776f814fe2651241e64cd8d7901"),
+      BigInt("0x0f25f3969dea458b5a7b1fce2ad3d403841034925d5ca2b01366ad1de089da44"),
+      BigInt("0x1aec4655a439d7a81fa0faae6a80c0d5092c3e61bde594738e214e48e0fd742c"),
+    ])
+    const canonicalTree = await buildMerkleTreeFromRevocations(revocations)
+
+    // Sanity: the canonical builder DOES produce a valid exclusion proof for a known
+    // non-member, demonstrating that the negative result below is not a vacuous failure.
+    const nonMember = await getRevocationLeafHash({
+      fingerprint: cscaA,
+      serial: "0x99887766554433221100",
+    })
+    const validProof = await buildRevocationExclusionProof(sortedLeaves, nonMember)
+    expect(validProof).not.toBeNull()
+    expect(await verifyRevocationExclusionProof(validProof!)).toBe(true)
+
+    // For every committed leaf, the canonical builder MUST refuse to produce an
+    // exclusion proof. There is no strict bracket `lower < target < upper` around
+    // a value that equals one of the leaves in an ordered tree.
+    for (let i = 0; i < sortedLeaves.length; i++) {
+      const memberLeaf = sortedLeaves[i]
+      const refused = await buildRevocationExclusionProof(sortedLeaves, memberLeaf)
+      expect(refused).toBeNull()
+    }
+
+    // Adversarial attempt 1: skip the target's own slot and supply inclusion proofs for
+    // its left and right siblings. Each inclusion proof verifies, the strict inequalities
+    // hold, but the indices differ by 2, not 1, so the verifier rejects the proof.
+    const memberIdx = 2
+    const memberLeaf = sortedLeaves[memberIdx]
+    const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
+    await imt.initialize(MERKLE_TREE_ZERO_VALUE, sortedLeaves)
+    expect(`0x${(imt.root as bigint).toString(16).padStart(64, "0")}`).toEqual(canonicalTree.root)
+    const skipBracketProof = {
+      root: canonicalTree.root,
+      targetLeaf: memberLeaf,
+      lowerProof: imt.createProof(memberIdx - 1),
+      upperProof: imt.createProof(memberIdx + 1),
+    }
+    expect(await AsyncIMT.verifyProof(skipBracketProof.lowerProof, poseidon2)).toBe(true)
+    expect(await AsyncIMT.verifyProof(skipBracketProof.upperProof, poseidon2)).toBe(true)
+    expect(skipBracketProof.lowerProof.leaf < memberLeaf).toBe(true)
+    expect(skipBracketProof.upperProof.leaf > memberLeaf).toBe(true)
+    expect(await verifyRevocationExclusionProof(skipBracketProof)).toBe(false)
+
+    // Adversarial attempt 2: pretend the member sorts before the first leaf by
+    // providing only an upper inclusion proof at index 0. Strict inequality
+    // upperProof.leaf > targetLeaf fails because they reference the same leaf.
+    const firstLeaf = sortedLeaves[0]
+    const fakeBeforeStartProof = {
+      root: canonicalTree.root,
+      targetLeaf: firstLeaf,
+      lowerProof: null,
+      upperProof: imt.createProof(0),
+    }
+    expect(await verifyRevocationExclusionProof(fakeBeforeStartProof)).toBe(false)
+
+    // Adversarial attempt 3: pretend a non-last member sorts after the last leaf by
+    // supplying a lower proof at the second-to-last index and an upper proof at the
+    // last index (whose leaf is non-zero). The verifier requires the after-the-end
+    // case to have `upperProof.leaf === 0` (canonical zero padding), so the proof
+    // fails because the supplied upper leaf is the largest committed leaf and is
+    // smaller than the (forged) target.
+    const fakeAfterEndProof = {
+      root: canonicalTree.root,
+      // Pick a target larger than the second-to-last leaf so lowerProof.leaf < target,
+      // and equal to the actual last leaf so the verifier sees a member.
+      targetLeaf: sortedLeaves[sortedLeaves.length - 1],
+      lowerProof: imt.createProof(sortedLeaves.length - 2),
+      upperProof: imt.createProof(sortedLeaves.length - 1),
+    }
+    expect(await verifyRevocationExclusionProof(fakeAfterEndProof)).toBe(false)
   })
 
   test("should correctly convert timestamp to 4 byte array and back again", () => {
