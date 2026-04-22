@@ -164,7 +164,7 @@ describe("Registry", () => {
 
   test("should generate correct canonical certificate root (version 1)", async () => {
     const root = await calculatePackagedCertificatesRoot(rootCertsV1 as PackagedCertificatesFile)
-    expect(root).toEqual("0x084064244243723dd8affffc6406c4241c1e09d2ec4cc376e31db6846a33423b")
+    expect(root).toEqual("0x23e802a448e80b578b81ed587e325cd0dcfb0dac0e6cc6dd6464012fdcdcfd2d")
   })
 
   test("should produce a different root when the timestamp changes", async () => {
@@ -175,13 +175,13 @@ describe("Registry", () => {
       timestamp: (base.timestamp ?? 0) + 1,
     })
     expect(bumped).not.toEqual(original)
-    expect(bumped).toEqual("0x07372826926b337faaff0dfa000f83f6a37ca6676c06a49faca115f31b8eb06c")
+    expect(bumped).toEqual("0x249e47097c0687530399eb710b72fe55575c2bda4999fcaa4f7bb2ebb2b3e0e3")
   })
 
   test("should generate correct canonical empty revocation merkle root", async () => {
-    expect(REVOCATION_MERKLE_TREE_HEIGHT).toEqual(16)
+    expect(REVOCATION_MERKLE_TREE_HEIGHT).toEqual(14)
     const tree = await buildMerkleTreeFromRevocations([])
-    expect(tree.root).toEqual("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3")
+    expect(tree.root).toEqual("0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a")
   })
 
   test("should generate correct canonical empty masterlist merkle root", async () => {

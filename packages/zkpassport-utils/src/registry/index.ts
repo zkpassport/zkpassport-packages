@@ -19,22 +19,22 @@ export { cidv0ToHex, hexToCidv0 } from "./cid"
 /**
  * Canonical height of the certificate merkle tree (in the Certificate Registry)
  */
-export const CERTIFICATE_MERKLE_TREE_HEIGHT = 16
+export const CERTIFICATE_MERKLE_TREE_HEIGHT = 16 // Max leaves: 2^16 = 65536
 
 /**
  * Canonical height of the revocation merkle tree (in the Certificate Registry)
  */
-export const REVOCATION_MERKLE_TREE_HEIGHT = 16
+export const REVOCATION_MERKLE_TREE_HEIGHT = 14 // Max leaves: 2^14 = 16384
 
 /**
  * Canonical height of the masterlist merkle tree (in the Certificate Registry)
  */
-export const MASTERLIST_MERKLE_TREE_HEIGHT = 8
+export const MASTERLIST_MERKLE_TREE_HEIGHT = 8 // Max leaves: 2^8 = 256
 
 /**
  * Canonical merkle tree height for the circuit registry
  */
-export const CIRCUIT_REGISTRY_HEIGHT = 12
+export const CIRCUIT_REGISTRY_HEIGHT = 12 // Max leaves: 2^12 = 4096
 
 /**
  * Canonical hash algorithm identifiers for the certificate registry
