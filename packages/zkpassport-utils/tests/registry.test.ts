@@ -10,10 +10,13 @@ import {
   buildMerkleTreeFromMasterlists,
   createPackagedCertificatesFile,
   getRevocationLeafHash,
+  getRevocationLeafHashes,
   REVOCATION_MERKLE_TREE_HEIGHT,
   MASTERLIST_MERKLE_TREE_HEIGHT,
 } from "../src/registry"
+import { AsyncIMT, poseidon2 } from "../src/merkle-tree"
 import {
+  IntermediateCertificateRevocation,
   PackagedCertificate,
   PackagedCertificatesFile,
   PackagedCertificatesFileV1,
@@ -330,6 +333,188 @@ describe("Registry", () => {
     const empty = await buildMerkleTreeFromRevocations([])
     expect(a.root).not.toEqual(empty.root)
     expect(a.root).toMatch(/^0x[0-9a-f]{64}$/)
+  })
+
+  test("should produce a valid exclusion proof for a revocation absent from the ordered tree", async () => {
+    // CSCA fingerprints lifted from tests/fixtures/root-certs-v1.json
+    const cscaA = "0x111a08ff123a169cf2a0830649262c875eaa9544d707a9bd0ba2a92e9dfe1eba"
+    const cscaB = "0x2215b0e6cb4d3e69e722c6895caa0ed7285a12a109a055b0c80902200267460b"
+    const cscaC = "0x109141f99baa5abcf790ee60daab9a7138e975114fb7676c06897b9185cd2330"
+
+    // A small revocation set that, after Poseidon2 + sort, will leave gaps for an exclusion proof.
+    const revocations: IntermediateCertificateRevocation[] = [
+      { fingerprint: cscaA, serial: "0x01" },
+      { fingerprint: cscaA, serial: "0x02" },
+      { fingerprint: cscaB, serial: "0xdeadbeef" },
+      { fingerprint: cscaC, serial: "0xc0ffee" },
+      { fingerprint: cscaC, serial: "0x123456789" },
+    ]
+
+    // The target revocation under cscaA with a made-up serial is NOT in the set above.
+    const target: IntermediateCertificateRevocation = {
+      fingerprint: cscaA,
+      serial: "0x99887766554433221100",
+    }
+    const targetLeaf = await getRevocationLeafHash(target)
+
+    // Canonical revocation tree (the artefact a verifier would commit to).
+    const canonicalTree = await buildMerkleTreeFromRevocations(revocations)
+
+    // Reconstruct the same tree with AsyncIMT so we can produce + verify inclusion proofs.
+    // Both trees use Poseidon2, arity 2, and the same height + ordering, so their roots match.
+    const sortedLeaves = await getRevocationLeafHashes(revocations)
+    // Inline fixture: the canonical sorted Poseidon2 leaf hashes for the revocation set above.
+    expect(sortedLeaves).toEqual([
+      BigInt("0x053bc9678a8f01ad58f2acc59925c50b2d8a8b9993fab1178fcd43016ab9c170"),
+      BigInt("0x0b1fadc15e4accd2b1497f1a24d53cb9ea351b37a0ff7764ff8a549cab6d3d68"),
+      BigInt("0x0ea11af40acaaaae4bc5b22cb4c96578b2abb776f814fe2651241e64cd8d7901"),
+      BigInt("0x0f25f3969dea458b5a7b1fce2ad3d403841034925d5ca2b01366ad1de089da44"),
+      BigInt("0x1aec4655a439d7a81fa0faae6a80c0d5092c3e61bde594738e214e48e0fd742c"),
+    ])
+    expect(sortedLeaves).not.toContain(targetLeaf)
+
+    const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
+    await imt.initialize(0n, sortedLeaves)
+    expect(`0x${(imt.root as bigint).toString(16).padStart(64, "0")}`).toEqual(canonicalTree.root)
+
+    // Find the bracket [lower, upper] of consecutive sorted leaves such that
+    // sortedLeaves[lower] < targetLeaf < sortedLeaves[upper]. In an ordered
+    // Merkle tree this bracket constitutes a proof of non-membership: there is
+    // no room for the target leaf between two adjacent committed leaves.
+    const upperIndex = sortedLeaves.findIndex((leaf) => leaf > targetLeaf)
+    expect(upperIndex).toBeGreaterThan(0)
+    expect(upperIndex).toBeLessThan(sortedLeaves.length)
+    const lowerIndex = upperIndex - 1
+    expect(sortedLeaves[lowerIndex] < targetLeaf).toBe(true)
+    expect(sortedLeaves[upperIndex] > targetLeaf).toBe(true)
+
+    // Inclusion proofs for the two bracketing leaves.
+    const lowerProof = imt.createProof(lowerIndex)
+    const upperProof = imt.createProof(upperIndex)
+
+    // Both proofs must verify, share the same root as the canonical tree, and refer
+    // to consecutive leaf positions for the bracket to constitute an exclusion proof.
+    expect(await AsyncIMT.verifyProof(lowerProof, poseidon2)).toBe(true)
+    expect(await AsyncIMT.verifyProof(upperProof, poseidon2)).toBe(true)
+    expect(lowerProof.root).toEqual(upperProof.root)
+    expect(`0x${(lowerProof.root as bigint).toString(16).padStart(64, "0")}`).toEqual(
+      canonicalTree.root,
+    )
+    expect(upperProof.leafIndex - lowerProof.leafIndex).toEqual(1)
+    expect(lowerProof.leaf).toEqual(sortedLeaves[lowerIndex])
+    expect(upperProof.leaf).toEqual(sortedLeaves[upperIndex])
+
+    // Sanity: the same procedure must NOT find a bracket for any leaf that IS in the tree
+    // (because that leaf is itself a member of `sortedLeaves`, so no strict-greater entry
+    // can be paired with a strict-lesser entry around it).
+    const memberLeaf = sortedLeaves[2]
+    const memberUpperIndex = sortedLeaves.findIndex((leaf) => leaf > memberLeaf)
+    expect(sortedLeaves[memberUpperIndex - 1]).not.toBeLessThan(memberLeaf)
+  })
+
+  test("should produce a valid exclusion proof for a revocation that would sort before the first leaf", async () => {
+    // CSCA fingerprints lifted from tests/fixtures/root-certs-v1.json
+    const cscaA = "0x111a08ff123a169cf2a0830649262c875eaa9544d707a9bd0ba2a92e9dfe1eba"
+    const cscaB = "0x2215b0e6cb4d3e69e722c6895caa0ed7285a12a109a055b0c80902200267460b"
+    const cscaC = "0x109141f99baa5abcf790ee60daab9a7138e975114fb7676c06897b9185cd2330"
+
+    const revocations: IntermediateCertificateRevocation[] = [
+      { fingerprint: cscaA, serial: "0x01" },
+      { fingerprint: cscaA, serial: "0x02" },
+      { fingerprint: cscaB, serial: "0xdeadbeef" },
+      { fingerprint: cscaC, serial: "0xc0ffee" },
+      { fingerprint: cscaC, serial: "0x123456789" },
+    ]
+    const sortedLeaves = await getRevocationLeafHashes(revocations)
+    // Inline fixture: the canonical sorted Poseidon2 leaf hashes for the revocation set above.
+    // Pinning the full array makes the exclusion proof's bounding inequality exact.
+    expect(sortedLeaves).toEqual([
+      BigInt("0x053bc9678a8f01ad58f2acc59925c50b2d8a8b9993fab1178fcd43016ab9c170"),
+      BigInt("0x0b1fadc15e4accd2b1497f1a24d53cb9ea351b37a0ff7764ff8a549cab6d3d68"),
+      BigInt("0x0ea11af40acaaaae4bc5b22cb4c96578b2abb776f814fe2651241e64cd8d7901"),
+      BigInt("0x0f25f3969dea458b5a7b1fce2ad3d403841034925d5ca2b01366ad1de089da44"),
+      BigInt("0x1aec4655a439d7a81fa0faae6a80c0d5092c3e61bde594738e214e48e0fd742c"),
+    ])
+    const canonicalTree = await buildMerkleTreeFromRevocations(revocations)
+
+    // Hardcoded fixture: serial 0x00000010 under cscaA hashes to a leaf strictly below the
+    // smallest committed leaf, so it cannot exist in the ordered tree.
+    const target: IntermediateCertificateRevocation = { fingerprint: cscaA, serial: "0x00000010" }
+    const targetLeaf = await getRevocationLeafHash(target)
+    expect(targetLeaf).toEqual(
+      BigInt("0x02801ec5f6a8fa249b152de3bbeff03f579d2788d727ed3ff3a23f8e6ccd0799"),
+    )
+    expect(sortedLeaves).not.toContain(targetLeaf)
+    expect(targetLeaf < sortedLeaves[0]).toBe(true)
+
+    const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
+    await imt.initialize(0n, sortedLeaves)
+    expect(`0x${(imt.root as bigint).toString(16).padStart(64, "0")}`).toEqual(canonicalTree.root)
+
+    // Boundary exclusion proof for the start: an inclusion proof for the smallest
+    // committed leaf at index 0, paired with the strict inequality target < leaves[0].
+    // Since the tree is ordered ascending, no leaf smaller than leaves[0] can be present.
+    const firstProof = imt.createProof(0)
+    expect(await AsyncIMT.verifyProof(firstProof, poseidon2)).toBe(true)
+    expect(`0x${(firstProof.root as bigint).toString(16).padStart(64, "0")}`).toEqual(
+      canonicalTree.root,
+    )
+    expect(firstProof.leafIndex).toEqual(0)
+    expect(firstProof.leaf).toEqual(sortedLeaves[0])
+    expect(targetLeaf < (firstProof.leaf as bigint)).toBe(true)
+  })
+
+  test("should produce a valid exclusion proof for a revocation that would sort after the last leaf", async () => {
+    const cscaA = "0x111a08ff123a169cf2a0830649262c875eaa9544d707a9bd0ba2a92e9dfe1eba"
+    const cscaB = "0x2215b0e6cb4d3e69e722c6895caa0ed7285a12a109a055b0c80902200267460b"
+    const cscaC = "0x109141f99baa5abcf790ee60daab9a7138e975114fb7676c06897b9185cd2330"
+
+    const revocations: IntermediateCertificateRevocation[] = [
+      { fingerprint: cscaA, serial: "0x01" },
+      { fingerprint: cscaA, serial: "0x02" },
+      { fingerprint: cscaB, serial: "0xdeadbeef" },
+      { fingerprint: cscaC, serial: "0xc0ffee" },
+      { fingerprint: cscaC, serial: "0x123456789" },
+    ]
+    const sortedLeaves = await getRevocationLeafHashes(revocations)
+    // Inline fixture: the canonical sorted Poseidon2 leaf hashes for the revocation set above.
+    // Pinning the full array makes the exclusion proof's bounding inequality exact.
+    expect(sortedLeaves).toEqual([
+      BigInt("0x053bc9678a8f01ad58f2acc59925c50b2d8a8b9993fab1178fcd43016ab9c170"),
+      BigInt("0x0b1fadc15e4accd2b1497f1a24d53cb9ea351b37a0ff7764ff8a549cab6d3d68"),
+      BigInt("0x0ea11af40acaaaae4bc5b22cb4c96578b2abb776f814fe2651241e64cd8d7901"),
+      BigInt("0x0f25f3969dea458b5a7b1fce2ad3d403841034925d5ca2b01366ad1de089da44"),
+      BigInt("0x1aec4655a439d7a81fa0faae6a80c0d5092c3e61bde594738e214e48e0fd742c"),
+    ])
+    const canonicalTree = await buildMerkleTreeFromRevocations(revocations)
+    const lastIndex = sortedLeaves.length - 1
+
+    // Hardcoded fixture: serial 0x00000004 under cscaA hashes to a leaf strictly above the
+    // largest committed leaf, so it cannot exist in the ordered tree.
+    const target: IntermediateCertificateRevocation = { fingerprint: cscaA, serial: "0x00000004" }
+    const targetLeaf = await getRevocationLeafHash(target)
+    expect(targetLeaf).toEqual(
+      BigInt("0x2213b4afd8dd24eed1374554561d9d70be229127b978eba6e480872b6193296b"),
+    )
+    expect(sortedLeaves).not.toContain(targetLeaf)
+    expect(targetLeaf > sortedLeaves[lastIndex]).toBe(true)
+
+    const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
+    await imt.initialize(0n, sortedLeaves)
+    expect(`0x${(imt.root as bigint).toString(16).padStart(64, "0")}`).toEqual(canonicalTree.root)
+
+    // Boundary exclusion proof for the end: an inclusion proof for the largest committed
+    // leaf at index N-1, paired with the strict inequality leaves[N-1] < target. Since the
+    // tree is ordered ascending and the next slot (index N) is the canonical zero leaf in
+    // the padded ordered tree, no leaf greater than leaves[N-1] can be present.
+    const lastProof = imt.createProof(lastIndex)
+    expect(await AsyncIMT.verifyProof(lastProof, poseidon2)).toBe(true)
+    expect(`0x${(lastProof.root as bigint).toString(16).padStart(64, "0")}`).toEqual(
+      canonicalTree.root,
+    )
+    expect(lastProof.leafIndex).toEqual(lastIndex)
+    expect(lastProof.leaf).toEqual(sortedLeaves[lastIndex])
+    expect((lastProof.leaf as bigint) < targetLeaf).toBe(true)
   })
 
   test("should correctly convert timestamp to 4 byte array and back again", () => {
