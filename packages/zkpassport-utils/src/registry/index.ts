@@ -567,8 +567,10 @@ export function parseMerkleRoot(label: string, value: string): bigint {
 }
 
 /**
- * Combine the certificate, revocation, and masterlist Merkle roots into the canonical
- * version 1 certificate root, cryptographically bound to the schema version and timestamp:
+ * Calculate the certificate root (version 1)
+ *
+ * Combines the certificate tree, revocation tree, and masterlist tree merkle roots into a state root,
+ * which is then hashed with the schema version and timestamp to get the certificate root:
  *
  *   certificate_root = H(packed(schema_version | timestamp), state_root)
  *   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
@@ -582,7 +584,7 @@ export function parseMerkleRoot(label: string, value: string): bigint {
  *
  * @returns Certificate root as a 0x-prefixed 32-byte hex string
  */
-async function combineCertificateRootV1(args: {
+async function calculateCertificateRootV1(args: {
   certificateRoot: string
   revocationRoot: string
   masterlistRoot: string
@@ -627,7 +629,7 @@ async function combineCertificateRootV1(args: {
  * compatibility with previously published v0 root files.
  *
  * Version 1: the composite root (state_root) binds the certificate, revocation, and masterlist
- * merkle trees together with the schema version and timestamp. See `combineCertificateRootV1`.
+ * merkle trees together with the schema version and timestamp. See `calculateCertificateRootV1`.
  *   certificate_root = H(packed(schema_version | timestamp), state_root)
  *   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
  * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
@@ -653,7 +655,7 @@ export async function calculatePackagedCertificatesRoot(
     const v1 = packagedCerts as PackagedCertificatesFileV1
     const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
     const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
-    return combineCertificateRootV1({
+    return calculateCertificateRootV1({
       certificateRoot: certTree.root,
       revocationRoot: revTree.root,
       masterlistRoot: mlTree.root,
@@ -716,7 +718,7 @@ export async function createPackagedCertificatesFile(
   const revTree = await buildMerkleTreeFromRevocations(revocations)
   const mlTree = await buildMerkleTreeFromMasterlists(input.masterlists)
 
-  const root = await combineCertificateRootV1({
+  const root = await calculateCertificateRootV1({
     certificateRoot: certTree.root,
     revocationRoot: revTree.root,
     masterlistRoot: mlTree.root,
