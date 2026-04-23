@@ -758,6 +758,14 @@ export class RegistryClient {
   }
 
   /**
+   * Get the address of the Registry Helper
+   * @returns The address of the Registry Helper
+   */
+  getRegistryHelperAddress(): string {
+    return this.registryHelper
+  }
+
+  /**
    * Get the address of the Certificate Registry
    * @returns The address of the Certificate Registry
    */
