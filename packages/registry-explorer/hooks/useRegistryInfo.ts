@@ -1,4 +1,4 @@
-import { getEnvOverridesForChain, useNetwork } from "@/components/NetworkProvider"
+import { getNetworkOverrides, useNetwork } from "@/components/NetworkProvider"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import debug from "debug"
 import { useEffect, useState } from "react"
@@ -18,7 +18,7 @@ export interface RegistryInfo {
 }
 
 export const useRegistryInfo = () => {
-  const { chainId, isReady } = useNetwork()
+  const { chainId, currentNetwork, isReady } = useNetwork()
   const [registryInfo, setRegistryInfo] = useState<RegistryInfo>({
     isLoading: true,
     error: null,
@@ -31,7 +31,7 @@ export const useRegistryInfo = () => {
       try {
         const client = new RegistryClient({
           chainId,
-          ...getEnvOverridesForChain(chainId),
+          ...getNetworkOverrides(currentNetwork),
         })
 
         // Initialize with basic info
@@ -99,7 +99,7 @@ export const useRegistryInfo = () => {
     }
 
     fetchRegistryInfo()
-  }, [chainId, isReady])
+  }, [chainId, currentNetwork, isReady])
 
   return registryInfo
 }

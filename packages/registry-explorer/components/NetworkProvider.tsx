@@ -10,19 +10,49 @@ import {
   useState,
 } from "react"
 
-export interface NetworkOption {
-  id: number
-  label: string
-  shortLabel: string
+export interface NetworkOverrides {
+  rpcUrl?: string
+  rootRegistry?: string
+  registryHelper?: string
 }
 
-const MAINNET: NetworkOption = { id: 1, label: "Mainnet", shortLabel: "Mainnet" }
-const SEPOLIA: NetworkOption = { id: 11155111, label: "Testnet", shortLabel: "Testnet" }
-const LOCAL: NetworkOption = { id: 31337, label: "Local", shortLabel: "Local" }
+export interface NetworkOption {
+  // Unique selection key for this network option. May differ from chainId
+  // when multiple options target the same chain (e.g. Testnet vs Testnet B
+  // both on Sepolia but with different registry contracts).
+  id: number
+  // The actual EVM chain id used for RPC and contract lookups.
+  chainId: number
+  label: string
+  shortLabel: string
+  // Per-option overrides applied on top of the SDK's CHAIN_CONFIG (and any
+  // env overrides for the same chain id). Use to point a network option at
+  // alternate registry deployments on the same chain.
+  overrides?: NetworkOverrides
+}
+
+const MAINNET: NetworkOption = { id: 1, chainId: 1, label: "Mainnet", shortLabel: "Mainnet" }
+const SEPOLIA: NetworkOption = {
+  id: 2,
+  chainId: 11155111,
+  label: "Testnet",
+  shortLabel: "Testnet",
+}
+const TESTNET_B: NetworkOption = {
+  id: 3,
+  chainId: 11155111,
+  label: "Testnet B",
+  shortLabel: "Testnet B",
+  overrides: {
+    rootRegistry: "0x7bF6A8A5fD3cA008760ff91691DdEE5F0FcaCf85",
+    registryHelper: "0xF7A4230eD310764427908236329Af1E04f86b0fe",
+  },
+}
+const LOCAL: NetworkOption = { id: 31337, chainId: 31337, label: "Local", shortLabel: "Local" }
 
 const ENV_CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 0)
 
-const BASE_NETWORKS: NetworkOption[] = [MAINNET, SEPOLIA]
+const BASE_NETWORKS: NetworkOption[] = [MAINNET, SEPOLIA, TESTNET_B]
 
 function isLocalhostHostname(hostname: string): boolean {
   return (
@@ -45,7 +75,7 @@ function computeAvailableNetworks(onLocalhost: boolean): NetworkOption[] {
 
 const STORAGE_KEY = "network"
 
-function getDefaultChainId(networks: NetworkOption[]): number {
+function getDefaultNetworkId(networks: NetworkOption[]): number {
   if (ENV_CHAIN_ID && networks.some((n) => n.id === ENV_CHAIN_ID)) {
     return ENV_CHAIN_ID
   }
@@ -53,10 +83,13 @@ function getDefaultChainId(networks: NetworkOption[]): number {
 }
 
 interface NetworkContextType {
+  // Actual EVM chain id of the currently selected network option.
   chainId: number
-  setChainId: (chainId: number) => void
-  availableNetworks: NetworkOption[]
+  // Currently selected network option (drives chainId, label, overrides).
   currentNetwork: NetworkOption
+  // Select a network by its option id (NetworkOption.id).
+  setNetwork: (networkId: number) => void
+  availableNetworks: NetworkOption[]
   // False until the persisted network selection has been resolved from
   // localStorage on the client. Consumers that perform network-dependent
   // side effects (e.g. RPC calls) should wait until this is true to avoid
@@ -73,8 +106,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const [availableNetworks, setAvailableNetworks] = useState<NetworkOption[]>(() =>
     computeAvailableNetworks(false),
   )
-  const [chainId, setChainIdState] = useState<number>(() =>
-    getDefaultChainId(computeAvailableNetworks(false)),
+  const [networkId, setNetworkIdState] = useState<number>(() =>
+    getDefaultNetworkId(computeAvailableNetworks(false)),
   )
   const [isReady, setIsReady] = useState(false)
 
@@ -85,35 +118,34 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     const stored = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null
     const storedNum = stored !== null ? Number(stored) : NaN
     if (Number.isFinite(storedNum) && networks.some((n) => n.id === storedNum)) {
-      setChainIdState(storedNum)
+      setNetworkIdState(storedNum)
     } else {
-      // Fall back to env default (which may now include Local on localhost)
-      setChainIdState(getDefaultChainId(networks))
+      setNetworkIdState(getDefaultNetworkId(networks))
     }
     setIsReady(true)
   }, [])
 
-  const setChainId = useCallback(
+  const setNetwork = useCallback(
     (next: number) => {
       if (!availableNetworks.some((n) => n.id === next)) return
       if (typeof window !== "undefined") {
         localStorage.setItem(STORAGE_KEY, String(next))
       }
-      setChainIdState(next)
+      setNetworkIdState(next)
     },
     [availableNetworks],
   )
 
   const value = useMemo<NetworkContextType>(() => {
-    const currentNetwork = availableNetworks.find((n) => n.id === chainId) ?? availableNetworks[0]
+    const currentNetwork = availableNetworks.find((n) => n.id === networkId) ?? availableNetworks[0]
     return {
-      chainId,
-      setChainId,
-      availableNetworks,
+      chainId: currentNetwork.chainId,
       currentNetwork,
+      setNetwork,
+      availableNetworks,
       isReady,
     }
-  }, [chainId, availableNetworks, setChainId, isReady])
+  }, [networkId, availableNetworks, setNetwork, isReady])
 
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>
 }
@@ -131,15 +163,24 @@ export function useNetwork() {
  * matches NEXT_PUBLIC_CHAIN_ID. This preserves local Anvil overrides while
  * letting Mainnet/Sepolia rely on the SDK's built-in CHAIN_CONFIG.
  */
-export function getEnvOverridesForChain(chainId: number): {
-  rpcUrl?: string
-  rootRegistry?: string
-  registryHelper?: string
-} {
+export function getEnvOverridesForChain(chainId: number): NetworkOverrides {
   if (!ENV_CHAIN_ID || chainId !== ENV_CHAIN_ID) return {}
   return {
     rpcUrl: process.env.NEXT_PUBLIC_ETH_RPC_URL,
     rootRegistry: process.env.NEXT_PUBLIC_ROOT_REGISTRY_ADDRESS,
     registryHelper: process.env.NEXT_PUBLIC_REGISTRY_HELPER_ADDRESS,
+  }
+}
+
+/**
+ * Returns the combined RegistryClient overrides for a network option:
+ * env overrides (matched by chain id) merged with the option's own
+ * overrides, with the option's overrides taking precedence.
+ */
+export function getNetworkOverrides(network: NetworkOption): NetworkOverrides {
+  const envOverrides = getEnvOverridesForChain(network.chainId)
+  return {
+    ...envOverrides,
+    ...(network.overrides ?? {}),
   }
 }

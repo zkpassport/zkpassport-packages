@@ -1,4 +1,4 @@
-import { getEnvOverridesForChain, useNetwork } from "@/components/NetworkProvider"
+import { getNetworkOverrides, useNetwork } from "@/components/NetworkProvider"
 import { isECDSA, isRSA, isRSAPKCS, isRSAPSS } from "@/lib/certificate-utils"
 import { CertificateFilterState } from "@/lib/types"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
@@ -13,7 +13,7 @@ const log = debug("explorer")
 export const useCertificates = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { chainId, isReady } = useNetwork()
+  const { chainId, currentNetwork, isReady } = useNetwork()
   const [certificates, setCertificates] = useState<PackagedCertificate[]>([])
   const [filteredCertificates, setFilteredCertificates] = useState<PackagedCertificate[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -87,7 +87,7 @@ export const useCertificates = () => {
       try {
         const client = new RegistryClient({
           chainId,
-          ...getEnvOverridesForChain(chainId),
+          ...getNetworkOverrides(currentNetwork),
         })
 
         // Fetch all available roots
@@ -175,7 +175,7 @@ export const useCertificates = () => {
     }
 
     fetchCertificates()
-  }, [searchParams, chainId, isReady])
+  }, [searchParams, chainId, currentNetwork, isReady])
 
   // Apply filters when filter state changes
   useEffect(() => {

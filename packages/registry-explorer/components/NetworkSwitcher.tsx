@@ -15,7 +15,7 @@ interface NetworkSwitcherProps {
 }
 
 export function NetworkSwitcher({ className }: NetworkSwitcherProps) {
-  const { chainId, setChainId, availableNetworks, currentNetwork, isReady } = useNetwork()
+  const { setNetwork, availableNetworks, currentNetwork, isReady } = useNetwork()
 
   // Avoid flashing the SSR-default network (Mainnet) before the persisted
   // selection has been resolved from localStorage on the client.
@@ -33,7 +33,7 @@ export function NetworkSwitcher({ className }: NetworkSwitcherProps) {
   }
 
   return (
-    <Select value={String(chainId)} onValueChange={(v) => setChainId(Number(v))}>
+    <Select value={String(currentNetwork.id)} onValueChange={(v) => setNetwork(Number(v))}>
       <SelectTrigger
         className={`[min-width:130px] h-9 w-auto gap-2 rounded-full border-border bg-background px-3 text-sm font-medium cursor-pointer ${className ?? ""}`}
         aria-label="Select network"

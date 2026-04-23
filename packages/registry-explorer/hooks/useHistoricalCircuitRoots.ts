@@ -1,4 +1,4 @@
-import { getEnvOverridesForChain, useNetwork } from "@/components/NetworkProvider"
+import { getNetworkOverrides, useNetwork } from "@/components/NetworkProvider"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import debug from "debug"
 import { useCallback, useEffect, useState } from "react"
@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react"
 const log = debug("explorer")
 
 export function useHistoricalCircuitRoots() {
-  const { chainId, isReady } = useNetwork()
+  const { chainId, currentNetwork, isReady } = useNetwork()
   const [roots, setRoots] = useState<RootDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +21,7 @@ export function useHistoricalCircuitRoots() {
     try {
       const client = new RegistryClient({
         chainId,
-        ...getEnvOverridesForChain(chainId),
+        ...getNetworkOverrides(currentNetwork),
       })
       const allRoots = await client.getAllHistoricalCircuitRoots(
         100,
@@ -44,7 +44,7 @@ export function useHistoricalCircuitRoots() {
     } finally {
       setIsLoading(false)
     }
-  }, [chainId, isReady])
+  }, [chainId, currentNetwork, isReady])
 
   // Load the roots on component mount
   useEffect(() => {
