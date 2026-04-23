@@ -21,12 +21,11 @@ import {
   ECDSACertificatesIcon,
   SelectedRootIcon,
   CopyIcon,
-  PreviousRootIcon,
-  NextRootIcon,
   FilterCertificatesIcon,
   DocsIcon,
   GitHubIcon,
 } from "./certificate/StatsCardIcons"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 export default function CertificateSearch() {
   const router = useRouter()
@@ -141,9 +140,9 @@ export default function CertificateSearch() {
                   onClick={navigateToPreviousRoot}
                   disabled={isGenesisRoot || currentRootIndex < 0}
                   title="Previous root (older)"
-                  className="h-8 w-8 p-0 transition-none"
                 >
-                  <PreviousRootIcon className="h-4 w-4" strokeWidth={1.5} />
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Older
                 </Button>
                 <div className="w-full sm:w-56">
                   <Select
@@ -177,9 +176,9 @@ export default function CertificateSearch() {
                   onClick={navigateToNextRoot}
                   disabled={isLatestRoot || currentRootIndex < 0}
                   title="Next root (newer)"
-                  className="h-8 w-8 p-0 transition-none"
                 >
-                  <NextRootIcon className="h-4 w-4" strokeWidth={1.5} />
+                  Newer
+                  <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
             )}
