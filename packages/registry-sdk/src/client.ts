@@ -835,9 +835,12 @@ export class RegistryClient {
       const revoked = parseInt(result.slice(256, 320), 16) === 1
       const leaves = parseInt(result.slice(320, 384), 16)
       const cid = hexToCidv0(`0x${result.slice(384, 448)}`)
-      const metadata1 = `0x${result.slice(448, 512)}`
-      const metadata2 = `0x${result.slice(512, 576)}`
-      const metadata3 = `0x${result.slice(576, 640)}`
+      const metadata1Raw = result.slice(448, 512)
+      const metadata2Raw = result.slice(512, 576)
+      const metadata3Raw = result.slice(576, 640)
+      const metadata1 = metadata1Raw === "" ? undefined : `0x${metadata1Raw}`
+      const metadata2 = metadata2Raw === "" ? undefined : `0x${metadata2Raw}`
+      const metadata3 = metadata3Raw === "" ? undefined : `0x${metadata3Raw}`
       return {
         index,
         root,
@@ -846,9 +849,9 @@ export class RegistryClient {
         revoked,
         leaves,
         cid,
-        metadata1,
-        metadata2,
-        metadata3,
+        ...(metadata1 !== undefined && { metadata1 }),
+        ...(metadata2 !== undefined && { metadata2 }),
+        ...(metadata3 !== undefined && { metadata3 }),
         isLatest: validTo === undefined ? true : false,
       }
     } else throw new Error("No result returned from node")
@@ -904,9 +907,12 @@ export class RegistryClient {
         const revoked = parseInt(arrayData.slice(startIndex + 256, startIndex + 320), 16) === 1
         const leaves = parseInt(arrayData.slice(startIndex + 320, startIndex + 384), 16)
         const cid = hexToCidv0(`0x${arrayData.slice(startIndex + 384, startIndex + 448)}`)
-        const metadata1 = `0x${arrayData.slice(startIndex + 448, startIndex + 512)}`
-        const metadata2 = `0x${arrayData.slice(startIndex + 512, startIndex + 576)}`
-        const metadata3 = `0x${arrayData.slice(startIndex + 576, startIndex + 640)}`
+        const metadata1Raw = arrayData.slice(startIndex + 448, startIndex + 512)
+        const metadata2Raw = arrayData.slice(startIndex + 512, startIndex + 576)
+        const metadata3Raw = arrayData.slice(startIndex + 576, startIndex + 640)
+        const metadata1 = metadata1Raw === "" ? undefined : `0x${metadata1Raw}`
+        const metadata2 = metadata2Raw === "" ? undefined : `0x${metadata2Raw}`
+        const metadata3 = metadata3Raw === "" ? undefined : `0x${metadata3Raw}`
         rootDetails.push({
           root,
           validFrom,
@@ -914,9 +920,9 @@ export class RegistryClient {
           revoked,
           cid,
           leaves,
-          metadata1,
-          metadata2,
-          metadata3,
+          ...(metadata1 !== undefined && { metadata1 }),
+          ...(metadata2 !== undefined && { metadata2 }),
+          ...(metadata3 !== undefined && { metadata3 }),
           isLatest: i === arrayLength - 1 && isLastPage,
           index,
         })
