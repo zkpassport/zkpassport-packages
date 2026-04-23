@@ -74,7 +74,7 @@ type PackagedCertificatesFileBase = {
   timestamp: number
   // Certificate root commitment published to the Certificate Registry, derived as:
   //   certificate_root = H(packed(schema_version | timestamp), state_root)
-  //   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+  //   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
   // where `schema_version` (2 BE bytes) and `timestamp` (4 BE bytes) are concatenated and
   // packed into a single 31-byte field, and H is Poseidon2.
   // Computed by `calculatePackagedCertificatesRoot`.

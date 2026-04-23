@@ -573,7 +573,7 @@ export function parseMerkleRoot(label: string, value: string): bigint {
  * which is then hashed with the schema version and timestamp to get the certificate root:
  *
  *   certificate_root = H(packed(schema_version | timestamp), state_root)
- *   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+ *   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
  *
  * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
  * concatenated and packed into a single 31-byte field. H is Poseidon2.
@@ -635,7 +635,7 @@ async function calculateCertificateRootV1(args: {
  * Version 1: the composite root (state_root) binds the certificate, revocation, and masterlist
  * merkle trees together with the schema version and timestamp. See `calculateCertificateRootV1`.
  *   certificate_root = H(packed(schema_version | timestamp), state_root)
- *   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+ *   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
  * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
  * concatenated and packed into a single 31-byte field. H is Poseidon2.
  *
@@ -659,7 +659,7 @@ export async function calculatePackagedCertificatesRoot(
   // Version 1: the composite root (state_root) binds the certificate, revocation, and masterlist
   // merkle trees together with the schema version and timestamp. See `calculateCertificateRootV1`.
   //   certificate_root = H(packed(schema_version | timestamp), state_root)
-  //   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+  //   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
   // `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
   // concatenated and packed into a single 31-byte field. H is Poseidon2.
   else if (schemaVersion === 1) {
@@ -682,7 +682,7 @@ export async function calculatePackagedCertificatesRoot(
 /**
  * Calculate the canonical v1 state root from a packaged certificates file.
  *
- *   state_root = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+ *   state_root = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
  *
  * Unlike {@link calculatePackagedCertificatesRoot}, this is independent of the file's
  * `timestamp` and `schema_version`, so it stays stable across re-publishes that contain

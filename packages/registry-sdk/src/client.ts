@@ -814,7 +814,9 @@ export class RegistryClient {
     const data = await response.json()
     if (data.error) throw new Error(`Error from node: ${data.error.message}`)
     if (data.result) {
-      // The result is an ABI-encoded RootDetails struct
+      // The result is an ABI-encoded RootDetails struct with 10 x bytes32-aligned words:
+      //   [0]=index, [1]=root, [2]=validFrom, [3]=validTo, [4]=revoked,
+      //   [5]=leaves, [6]=cid, [7]=metadata1, [8]=metadata2, [9]=metadata3
       const result = data.result.slice(2) // Remove '0x' prefix
       // Each field in the struct is 32 bytes (64 hex chars)
       const index = parseInt(result.slice(0, 64), 16)
@@ -825,6 +827,9 @@ export class RegistryClient {
       const revoked = parseInt(result.slice(256, 320), 16) === 1
       const leaves = parseInt(result.slice(320, 384), 16)
       const cid = hexToCidv0(`0x${result.slice(384, 448)}`)
+      const metadata1 = `0x${result.slice(448, 512)}`
+      const metadata2 = `0x${result.slice(512, 576)}`
+      const metadata3 = `0x${result.slice(576, 640)}`
       return {
         index,
         root,
@@ -833,6 +838,9 @@ export class RegistryClient {
         revoked,
         leaves,
         cid,
+        metadata1,
+        metadata2,
+        metadata3,
         isLatest: validTo === undefined ? true : false,
       }
     } else throw new Error("No result returned from node")
@@ -869,10 +877,14 @@ export class RegistryClient {
       //   bool revoked;
       //   uint256 leaves;
       //   bytes32 cid;
+      //   bytes32 metadata1;
+      //   bytes32 metadata2;
+      //   bytes32 metadata3;
       // }
+      const FIELDS_PER_ROOT = 10
       for (let i = 0; i < arrayLength; i++) {
-        // The RootDetails struct in the helper contract has 7 fields (32 bytes each)
-        const startIndex = 64 + i * 7 * 64 // 64 hex chars per 32 bytes
+        // The RootDetails struct in the helper contract has 10 fields (32 bytes each)
+        const startIndex = 64 + i * FIELDS_PER_ROOT * 64 // 64 hex chars per 32 bytes
 
         const index = parseInt(arrayData.slice(startIndex, startIndex + 64), 16)
         const root = `0x${arrayData.slice(startIndex + 64, startIndex + 128)}`
@@ -884,6 +896,9 @@ export class RegistryClient {
         const revoked = parseInt(arrayData.slice(startIndex + 256, startIndex + 320), 16) === 1
         const leaves = parseInt(arrayData.slice(startIndex + 320, startIndex + 384), 16)
         const cid = hexToCidv0(`0x${arrayData.slice(startIndex + 384, startIndex + 448)}`)
+        const metadata1 = `0x${arrayData.slice(startIndex + 448, startIndex + 512)}`
+        const metadata2 = `0x${arrayData.slice(startIndex + 512, startIndex + 576)}`
+        const metadata3 = `0x${arrayData.slice(startIndex + 576, startIndex + 640)}`
         rootDetails.push({
           root,
           validFrom,
@@ -891,6 +906,9 @@ export class RegistryClient {
           revoked,
           cid,
           leaves,
+          metadata1,
+          metadata2,
+          metadata3,
           isLatest: i === arrayLength - 1 && isLastPage,
           index,
         })
