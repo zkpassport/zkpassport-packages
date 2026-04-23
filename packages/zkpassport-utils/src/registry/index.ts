@@ -582,16 +582,17 @@ export function parseMerkleRoot(label: string, value: string): bigint {
  * encoding (missing prefix, non-hex characters, > 64 hex chars, or a value `>= p`)
  * throws via {@link parseMerkleRoot}.
  *
- * @returns Certificate root as a 0x-prefixed 32-byte hex string
+ * @returns An object with both the canonical `certificateRoot` and the intermediate
+ *          `stateRoot`, each as a 0x-prefixed 32-byte hex string.
  */
 async function calculateCertificateRootV1(args: {
+  schemaVersion: number
+  timestamp: number
   certificateRoot: string
   revocationRoot: string
   masterlistRoot: string
-  schemaVersion: number
-  timestamp: number
-}): Promise<string> {
-  const { certificateRoot, revocationRoot, masterlistRoot, schemaVersion, timestamp } = args
+}): Promise<{ certificateRoot: string; stateRoot: string }> {
+  const { schemaVersion, timestamp, certificateRoot, revocationRoot, masterlistRoot } = args
   assert(
     Number.isInteger(schemaVersion) && schemaVersion >= 0 && schemaVersion <= 0xffff,
     `Schema version must be an integer that fits in 2 bytes: ${schemaVersion}`,
@@ -605,7 +606,7 @@ async function calculateCertificateRootV1(args: {
   const revBn = parseMerkleRoot("revocationRoot", revocationRoot)
   const mlBn = parseMerkleRoot("masterlistRoot", masterlistRoot)
 
-  const stateRoot = await poseidon2HashAsync([certBn, revBn, mlBn])
+  const stateRootBn = await poseidon2HashAsync([certBn, revBn, mlBn])
 
   const meta = new Uint8Array([
     (schemaVersion >>> 8) & 0xff,
@@ -617,8 +618,11 @@ async function calculateCertificateRootV1(args: {
   ])
   const packedMeta = BigInt(packBeBytesIntoFields(meta, 31)[0])
 
-  const root = await poseidon2HashAsync([packedMeta, stateRoot])
-  return `0x${root.toString(16).padStart(64, "0")}`
+  const certRootBn = await poseidon2HashAsync([packedMeta, stateRootBn])
+  return {
+    certificateRoot: `0x${certRootBn.toString(16).padStart(64, "0")}`,
+    stateRoot: `0x${stateRootBn.toString(16).padStart(64, "0")}`,
+  }
 }
 
 /**
@@ -651,20 +655,64 @@ export async function calculatePackagedCertificatesRoot(
   // Revocations and masterlists are not part of the v0 schema.
   if (schemaVersion === 0) {
     return certTree.root
-  } else if (schemaVersion === 1) {
+  }
+  // Version 1: the composite root (state_root) binds the certificate, revocation, and masterlist
+  // merkle trees together with the schema version and timestamp. See `calculateCertificateRootV1`.
+  //   certificate_root = H(packed(schema_version | timestamp), state_root)
+  //   state_root       = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+  // `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
+  // concatenated and packed into a single 31-byte field. H is Poseidon2.
+  else if (schemaVersion === 1) {
     const v1 = packagedCerts as PackagedCertificatesFileV1
     const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
     const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
-    return calculateCertificateRootV1({
+    const { certificateRoot } = await calculateCertificateRootV1({
+      schemaVersion,
+      timestamp: v1.timestamp,
       certificateRoot: certTree.root,
       revocationRoot: revTree.root,
       masterlistRoot: mlTree.root,
-      schemaVersion,
-      timestamp: v1.timestamp,
     })
+    return certificateRoot
   } else {
     throw new Error(`Unsupported Packaged Certificates schema version: ${schemaVersion}`)
   }
+}
+
+/**
+ * Calculate the canonical v1 state root from a packaged certificates file.
+ *
+ *   state_root = H(certificate_merkle_root, revocation_merkle_root, masterlist_merkle_root)
+ *
+ * Unlike {@link calculatePackagedCertificatesRoot}, this is independent of the file's
+ * `timestamp` and `schema_version`, so it stays stable across re-publishes that contain
+ * the same set of certificates, revocations, and masterlists.
+ *
+ * Only supported for schema version 1 (v0 has no concept of a state root).
+ *
+ * @param packagedCerts Packaged certificates file (must be v1)
+ * @returns State root as a 0x-prefixed 32-byte hex string
+ */
+export async function calculatePackagedCertificatesStateRoot(
+  packagedCerts: PackagedCertificatesFile,
+): Promise<string> {
+  const schemaVersion = packagedCerts.version ?? 0
+  if (schemaVersion !== 1) {
+    throw new Error(
+      `calculatePackagedCertificatesStateRoot only supports schema version 1, got ${schemaVersion}`,
+    )
+  }
+  const v1 = packagedCerts as PackagedCertificatesFileV1
+  const certTree = await buildMerkleTreeFromCerts(v1.certificates, schemaVersion)
+  const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
+  const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
+
+  const certBn = parseMerkleRoot("certificateRoot", certTree.root)
+  const revBn = parseMerkleRoot("revocationRoot", revTree.root)
+  const mlBn = parseMerkleRoot("masterlistRoot", mlTree.root)
+
+  const stateRootBn = await poseidon2HashAsync([certBn, revBn, mlBn])
+  return `0x${stateRootBn.toString(16).padStart(64, "0")}`
 }
 
 /**
@@ -686,16 +734,11 @@ export type CreatePackagedCertificatesFileInput = {
 }
 
 /**
- * Factory that produces a fully-formed {@link PackagedCertificatesFileV1} from the inputs
+ * Factory that produces a {@link PackagedCertificatesFileV1} from the inputs
  * required to build it.
  *
- * The factory builds the certificate, revocation, and masterlist Merkle trees exactly once and
- * reuses them both to compute the canonical `root` and to populate `certificates_serialised`
- * and `revocations_serialised`. This guarantees the returned file is internally consistent by
- * construction (i.e. `calculatePackagedCertificatesRoot(file) === file.root`).
- *
  * @param input Inputs required to build the file. See {@link CreatePackagedCertificatesFileInput}.
- * @returns A fully-formed v1 packaged certificates file.
+ * @returns A packaged certificates file.
  */
 export async function createPackagedCertificatesFile(
   input: CreatePackagedCertificatesFileInput,
@@ -710,7 +753,6 @@ export async function createPackagedCertificatesFile(
     input.timestamp >= 0 && input.timestamp <= 0xffffffff,
     `Timestamp must fit in 4 bytes: ${input.timestamp}`,
   )
-
   const schemaVersion = 1
   const revocations = input.revocations ?? []
 
@@ -718,26 +760,26 @@ export async function createPackagedCertificatesFile(
   const revTree = await buildMerkleTreeFromRevocations(revocations)
   const mlTree = await buildMerkleTreeFromMasterlists(input.masterlists)
 
-  const root = await calculateCertificateRootV1({
+  const { certificateRoot: root } = await calculateCertificateRootV1({
+    schemaVersion,
+    timestamp: input.timestamp,
     certificateRoot: certTree.root,
     revocationRoot: revTree.root,
     masterlistRoot: mlTree.root,
-    schemaVersion,
-    timestamp: input.timestamp,
   })
 
   const file: PackagedCertificatesFileV1 = {
     version: 1,
     timestamp: input.timestamp,
+    ...(input.environment !== undefined && { environment: input.environment }),
     root,
+    ...(input.previous_root !== undefined && { previous_root: input.previous_root }),
     certificates: input.certificates,
     certificates_serialised: certTree.serialize(),
-    revocations,
-    revocations_serialised: revTree.serialize(),
+    ...(input.revocations !== undefined && { revocations }),
+    ...(input.revocations !== undefined && { revocations_serialised: revTree.serialize() }),
     masterlists: input.masterlists,
   }
-  if (input.previous_root !== undefined) file.previous_root = input.previous_root
-  if (input.environment !== undefined) file.environment = input.environment
   return file
 }
 
