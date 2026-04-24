@@ -85,7 +85,7 @@ export class SolidityVerifier {
         "This proof cannot be verified on an EVM chain. Please make sure to use the `compressed-evm` mode.",
       )
     }
-    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!), 4)
+    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
     const committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
     const committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
     for (const key in proof.committedInputs) {

@@ -679,7 +679,7 @@ export class ZKPassport {
       for (const proof of proofs) {
         const isOuterEVM = proof.name?.startsWith("outer_evm_")
         const proofName = proof.name!
-        const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName), 4)
+        const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
         const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
           proofName,
           circuitManifest,

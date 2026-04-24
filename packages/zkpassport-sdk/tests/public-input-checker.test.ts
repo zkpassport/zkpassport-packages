@@ -1742,13 +1742,12 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
  * Build a synthetic proof hex string from an array of field values (bigints).
  * Each field becomes a 32-byte big-endian hex chunk.
  * `publicInputs` are placed first, followed by `dummyProofFieldCount` zero fields.
- * A 4-byte header is prepended to match the Noir proof format consumed by
- * `getProofData` (which skips the first 4 bytes).
+ * Layout: [public_inputs][proof_body] — no prefix (matches normalised format
+ * consumed by `getProofData` with default offset 0).
  */
 function buildProofHex(publicInputs: bigint[], dummyProofFieldCount = 10): string {
   const fields = [...publicInputs, ...new Array(dummyProofFieldCount).fill(0n)]
-  const header = "00000000"
-  return header + fields.map((v) => BigInt(v).toString(16).padStart(64, "0")).join("")
+  return fields.map((v) => BigInt(v).toString(16).padStart(64, "0")).join("")
 }
 
 /** Get today at midnight (matching what checkPublicInputs uses) */

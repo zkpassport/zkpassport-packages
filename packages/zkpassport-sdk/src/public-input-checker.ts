@@ -1882,6 +1882,7 @@ export class PublicInputChecker {
       if (!isValid) {
         console.warn("The proof uses unrecognized circuits")
         isCorrect = false
+        if (!queryResultErrors.outer) queryResultErrors.outer = {}
         queryResultErrors.outer.circuit = {
           expected: `A valid circuit from ZKPassport Registry`,
           received: `Got invalid circuit registry root: ${root}`,
@@ -1892,6 +1893,7 @@ export class PublicInputChecker {
       console.warn(error)
       console.warn("The proof uses unrecognized circuits")
       isCorrect = false
+      if (!queryResultErrors.outer) queryResultErrors.outer = {}
       queryResultErrors.outer.circuit = {
         expected: `A valid circuit from ZKPassport Registry`,
         received: `Got invalid circuit registry root: ${root}`,
@@ -2190,7 +2192,7 @@ export class PublicInputChecker {
     })
 
     for (const proof of sortedProofs!) {
-      const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!), 4)
+      const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
       if (proof.name?.startsWith("outer")) {
         const isForEVM = proof.name?.startsWith("outer_evm")
         const certificateRegistryRoot = getCertificateRegistryRootFromOuterProof(proofData)
@@ -3522,7 +3524,6 @@ export class PublicInputChecker {
           const dpData = getProofData(
             disclosureProof.proof as string,
             getNumberOfPublicInputs(disclosureProof.name!),
-            4,
           )
           const proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
           if (proofPkHash !== expectedPkHash) {

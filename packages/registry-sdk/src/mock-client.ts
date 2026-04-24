@@ -44,4 +44,8 @@ export class MockRegistryClient extends RegistryClient {
     }
     return circuit
   }
+
+  override async isCircuitRootValid(_root: string, _timestamp?: number): Promise<boolean> {
+    return true
+  }
 }
