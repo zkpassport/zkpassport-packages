@@ -195,7 +195,7 @@ export function getNumberOfPublicInputs(circuitName: string) {
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
     const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
-    return 7 + disclosureProofCount
+    return 8 + disclosureProofCount
   }
   // Any other circuits are assumed to be disclosure circuits
   // which have a universal interface of 8 public inputs

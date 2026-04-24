@@ -39,6 +39,7 @@ export function getOuterCircuitInputs(
   const subscope = disclosureProofWithNonZeroNullifier.publicInputs[3]
   const nullifierType = disclosureProofWithNonZeroNullifier.publicInputs[5]
   const nullifier = disclosureProofWithNonZeroNullifier.publicInputs[6]
+  const oprfPkHash = disclosureProofWithNonZeroNullifier.publicInputs[7]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
@@ -50,6 +51,7 @@ export function getOuterCircuitInputs(
     param_commitments: paramCommitments,
     scoped_nullifier: nullifier,
     nullifier_type: nullifierType,
+    oprf_pk_hash: oprfPkHash,
     csc_to_dsc_proof: {
       vkey: cscToDscProof.vkey,
       proof: cscToDscProof.proof,
