@@ -66,16 +66,8 @@ export async function getOprfPublicKey(keyId: string, services?: string[]): Prom
       if (!response.ok) {
         throw new Error(`OPRF node returned ${response.status}`)
       }
-      const data = await response.json()
-      // Handle both wire format (array ["x", "y"]) and object format ({x, y})
-      if (Array.isArray(data)) {
-        return { x: BigInt(data[0]), y: BigInt(data[1]) }
-      }
-      if (data.key) {
-        const key = Array.isArray(data.key) ? data.key : data.key
-        return { x: BigInt(key[0]), y: BigInt(key[1]) }
-      }
-      return { x: BigInt(data.x), y: BigInt(data.y) }
+      const { key } = (await response.json()) as { key: [string, string]; epoch: number }
+      return { x: BigInt(key[0]), y: BigInt(key[1]) }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
     }
