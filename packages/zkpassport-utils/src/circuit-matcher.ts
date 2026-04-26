@@ -78,6 +78,7 @@ import {
   getLastNameRange,
   getNationalityRange,
 } from "./passport/getters"
+import { type OPRFProof, OPRF_ZERO_PROOF } from "./oprf"
 import { SanctionsBuilder } from "./circuits/sanctions"
 export { SanctionsBuilder }
 
@@ -775,7 +776,12 @@ export async function getDiscloseCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ) {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -863,6 +869,7 @@ export async function getDiscloseCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -888,7 +895,12 @@ export async function getAgeCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -945,6 +957,7 @@ export async function getAgeCircuitInputs(
     min_age_required: minAge,
     max_age_required: maxAge,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -964,7 +977,12 @@ export async function getNationalityInclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -991,6 +1009,7 @@ export async function getNationalityInclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1002,7 +1021,12 @@ export async function getIssuingCountryInclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1029,6 +1053,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1040,7 +1065,12 @@ export async function getNationalityExclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1077,6 +1107,7 @@ export async function getNationalityExclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1088,6 +1119,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1125,6 +1157,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1136,8 +1169,13 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1170,6 +1208,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1181,7 +1220,12 @@ export async function getBirthdateCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1241,6 +1285,7 @@ export async function getBirthdateCircuitInputs(
     min_date: minDate ? getUnixTimestamp(minDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
     max_date: maxDate ? getUnixTimestamp(maxDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1252,7 +1297,12 @@ export async function getExpiryDateCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1309,6 +1359,7 @@ export async function getExpiryDateCircuitInputs(
     min_date: minDate ? getUnixTimestamp(minDate) : 0,
     max_date: maxDate ? getUnixTimestamp(maxDate) : 0,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1320,6 +1371,7 @@ export async function getBindCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   hideSensitiveInputs: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
@@ -1356,6 +1408,7 @@ export async function getBindCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1387,7 +1440,8 @@ export async function getFacematchCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
-  if (!query.facematch) throw new Error("Facematch query is required")
+  // Default to regular mode when facematch is auto-generated (e.g. for SALTED nullifier without explicit facematch query)
+  const facematchMode = query.facematch?.mode ?? "regular"
 
   return {
     ...(await getSaltedValuesForDisclosureCircuit(
@@ -1402,9 +1456,46 @@ export async function getFacematchCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     // FACEMATCH_MODE_REGULAR (1) or FACEMATCH_MODE_STRICT (2)
-    facematch_mode: query.facematch.mode === "regular" ? 1 : 2,
+    facematch_mode: facematchMode === "regular" ? 1 : 2,
     // APP_ATTEST_ENV_DEVELOPMENT (0) or APP_ATTEST_ENV_PRODUCTION (1)
     environment: 1,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+  }
+}
+
+/**
+ * Generate circuit inputs for the oprf_auth circuit.
+ * This circuit proves the blinded OPRF query was derived from the committed DG2 hash.
+ */
+export async function getOprfAuthCircuitInputs(
+  passport: PassportViewModel,
+  salts: IntegrityToDisclosureSalts,
+  beta: bigint,
+): Promise<any> {
+  const idData = await getIDDataInputs(passport)
+  if (!idData) throw new Error("Error getting ID data inputs")
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
+
+  return {
+    inputs: {
+      ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+      comm_in: commIn.toHex(),
+      beta: `0x${beta.toString(16)}`,
+    },
+    privateNullifier: privateNullifier.toBigInt(),
   }
 }

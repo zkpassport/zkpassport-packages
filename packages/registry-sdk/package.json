@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/registry",
-  "version": "0.13.1",
+  "version": "0.14.0-beta.1",
   "description": "Registry SDK for interacting with the ZKPassport Registry",
   "author": "ZKPassport",
   "license": "Apache-2.0",
@@ -17,6 +17,10 @@
     ".": {
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
+    },
+    "./mock": {
+      "import": "./dist/esm/mock-client.js",
+      "require": "./dist/cjs/mock-client.cjs"
     }
   },
   "scripts": {

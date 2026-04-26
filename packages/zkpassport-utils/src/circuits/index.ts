@@ -105,11 +105,15 @@ export async function hashSaltDg1Dg2HashPrivateNullifier(
 }
 
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+}
+
+export function getOprfPkHashFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
 }
 
 export function getNullifierTypeFromDisclosureProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -186,14 +190,16 @@ export function getNumberOfPublicInputs(circuitName: string) {
     return getIDDataProofPublicInputCount()
   } else if (circuitName.startsWith("sig_check_dsc")) {
     return getDSCProofPublicInputCount()
+  } else if (circuitName.startsWith("oprf_auth")) {
+    return 3
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
     const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
-    return 7 + disclosureProofCount
+    return 8 + disclosureProofCount
   }
   // Any other circuits are assumed to be disclosure circuits
-  // which have a universal interface of 7 public inputs
-  return 7
+  // which have a universal interface of 8 public inputs
+  return 8
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
