@@ -1,9 +1,22 @@
+/*
+ * DeployRootRegistry.s.sol
+ *
+ * ⚠️  FOR LOCAL TESTING ONLY — DO NOT USE IN PRODUCTION ⚠️
+ *
+ * Deploys the root registry using a plain CREATE. The production RootRegistry
+ * is deployed via a CREATE2 factory with a salt to get a universal multichain address.
+ */
+
 pragma solidity ^0.8.30;
 
-import {Script, console} from "forge-std/Script.sol";
+import {console} from "forge-std/Script.sol";
+import {stdJson} from "forge-std/StdJson.sol";
+import {DeployBase} from "./DeployBase.s.sol";
 import {RootRegistry} from "../src/RootRegistry.sol";
 
-contract DeployRootRegistryScript is Script {
+contract DeployRootRegistryScript is DeployBase {
+    using stdJson for string;
+
     RootRegistry public registry;
 
     function setUp() public {}
@@ -23,5 +36,13 @@ contract DeployRootRegistryScript is Script {
         console.log("RootRegistry deployed at:", address(registry));
         console.log("Admin:", registry.admin());
         console.log("Guardian:", registry.guardian());
+
+        string memory section = "root_registry";
+        vm.serializeAddress(section, "address", address(registry));
+        vm.serializeAddress(section, "admin", adminAddress);
+        vm.serializeAddress(section, "guardian", guardianAddress);
+        section = vm.serializeUint(section, "deployed_at", block.timestamp);
+
+        _writeToAddresses("root_registry", section);
     }
 }

@@ -2,7 +2,8 @@
 
 # Test deployment script for integration tests
 # ⚠️  FOR TESTING ONLY - DO NOT USE IN PRODUCTION ⚠️
-# This script deploys contracts to a local Anvil instance for testing purposes
+# This script deploys the RootRegistry, RegistryHelper, and sub-registries (CertificateRegistry, CircuitRegistry, and SanctionsRegistry)
+# to a local Anvil instance for testing purposes
 
 set -e
 
@@ -49,6 +50,11 @@ echo "Deploying RegistryHelper..."
 forge script script/DeployRegistryHelper.s.sol:DeployRegistryHelperScript --rpc-url $RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast
 REGISTRY_HELPER_ADDRESS=$(cat broadcast/DeployRegistryHelper.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 echo "RegistryHelper deployed at: $REGISTRY_HELPER_ADDRESS"
+
+if [[ " $* " == *" --skip-registries "* ]]; then
+  echo "Skipping registry deployments..."
+  return
+fi
 
 # Deploy the CertificateRegistry contract
 echo "Deploying CertificateRegistry..."
