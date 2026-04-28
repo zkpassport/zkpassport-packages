@@ -3,7 +3,6 @@ import { Binary } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
-  buildMerkleTreeFromCerts,
   calculateCircuitRoot,
   calculatePackagedCertificatesRoot,
   CERTIFICATE_REGISTRY_ID,

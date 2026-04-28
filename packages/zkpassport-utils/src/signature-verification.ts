@@ -743,19 +743,6 @@ export async function verifyDscSignature(dsc: DSC, csc: PackagedCertificate): Pr
   const keySizeBits = csc.public_key.key_size
   const hashAlgorithmsToTry = getHashAlgorithmsForKeySize(keySizeBits)
 
-  // // Try the declared hash algorithm first if available
-  // const declaredHashAlg = dsc.signatureAlgorithm.name.toLowerCase().replace("-", "")
-  // if (declaredHashAlg && !hashAlgorithmsToTry.includes(declaredHashAlg)) {
-  //   hashAlgorithmsToTry.unshift(declaredHashAlg)
-  // } else if (declaredHashAlg) {
-  //   // Move declared algorithm to front
-  //   const index = hashAlgorithmsToTry.indexOf(declaredHashAlg)
-  //   if (index > 0) {
-  //     hashAlgorithmsToTry.splice(index, 1)
-  //     hashAlgorithmsToTry.unshift(declaredHashAlg)
-  //   }
-  // }
-
   // Try each hash algorithm
   for (const hashAlgorithm of hashAlgorithmsToTry) {
     const hashFunc = HASH_FUNCTIONS[hashAlgorithm]
@@ -796,18 +783,6 @@ export async function verifyDscSignatureWithTbs(
 
   const keySizeBits = csc.public_key.key_size
   const hashAlgorithmsToTry = getHashAlgorithmsForKeySize(keySizeBits)
-
-  // Try the declared hash algorithm first
-  // const declaredHashAlg = csc.hash_algorithm
-  // if (declaredHashAlg) {
-  //   const index = hashAlgorithmsToTry.indexOf(declaredHashAlg)
-  //   if (index > 0) {
-  //     hashAlgorithmsToTry.splice(index, 1)
-  //     hashAlgorithmsToTry.unshift(declaredHashAlg)
-  //   } else if (index === -1) {
-  //     hashAlgorithmsToTry.unshift(declaredHashAlg)
-  //   }
-  // }
 
   for (const hashAlgorithm of hashAlgorithmsToTry) {
     const hashFunc = HASH_FUNCTIONS[hashAlgorithm]

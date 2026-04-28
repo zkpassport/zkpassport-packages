@@ -17,7 +17,7 @@ export default defineConfig(
     splitting: false,
     sourcemap: true,
     treeshake: !isDev,
-    minify: false,
+    minify: !isDev,
     // For release builds, externalize workspace deps so outputs stay modular
     // For dev builds, inline them for instant edits
     ...(isDev ? { noExternal: [/@zkpassport\/.*/] } : { external: ["@zkpassport/utils"] }),
