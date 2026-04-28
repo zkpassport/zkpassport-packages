@@ -1,7 +1,13 @@
+/*
+ * DeployCertificateRegistry.s.sol
+ *
+ * Deploys the certificate registry.
+ */
+
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {CertificateRegistry} from "../src/CertificateRegistry.sol";
+import {CertificateRegistry} from "../src/registries/CertificateRegistry.sol";
 import {RootValidationMode} from "../src/IRegistryInstance.sol";
 
 contract DeployCertificateRegistryScript is Script {

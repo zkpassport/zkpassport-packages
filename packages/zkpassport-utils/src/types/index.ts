@@ -422,6 +422,8 @@ export type QRCodeData = {
   sdkVersion: string | null
   timestamp: number | null
   devMode: boolean | null
+  uniqueIdentifierType: NullifierType | null
+  oprfKeyId: string | null
 }
 
 export interface JsonRpcRequest {

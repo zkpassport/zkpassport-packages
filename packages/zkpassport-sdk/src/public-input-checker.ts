@@ -63,10 +63,15 @@ import {
   getNullifierTypeFromDisclosureProof,
   getServiceScopeFromDisclosureProof,
   getServiceSubScopeFromDisclosureProof,
+  getOprfPkHashFromDisclosureProof,
+  OPRF_DEFAULT_KEY_ID,
+  getOprfPublicKey,
+  hashOprfPublicKey,
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
 import { RegistryClient } from "@zkpassport/registry"
+// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   DEFAULT_DATE_VALUE,
@@ -1877,6 +1882,7 @@ export class PublicInputChecker {
       if (!isValid) {
         console.warn("The proof uses unrecognized circuits")
         isCorrect = false
+        if (!queryResultErrors.outer) queryResultErrors.outer = {}
         queryResultErrors.outer.circuit = {
           expected: `A valid circuit from ZKPassport Registry`,
           received: `Got invalid circuit registry root: ${root}`,
@@ -1887,6 +1893,7 @@ export class PublicInputChecker {
       console.warn(error)
       console.warn("The proof uses unrecognized circuits")
       isCorrect = false
+      if (!queryResultErrors.outer) queryResultErrors.outer = {}
       queryResultErrors.outer.circuit = {
         expected: `A valid circuit from ZKPassport Registry`,
         received: `Got invalid circuit registry root: ${root}`,
@@ -2139,6 +2146,7 @@ export class PublicInputChecker {
     queryResult: QueryResult,
     validity?: number,
     scope?: string,
+    oprfKeyId?: string,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -3491,6 +3499,44 @@ export class PublicInputChecker {
         // uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       }
     }
+
+    // Verify OPRF public key if the proof uses a salted nullifier
+    if (
+      isCorrect &&
+      uniqueIdentifierType &&
+      (uniqueIdentifierType === NullifierType.SALTED ||
+        uniqueIdentifierType === NullifierType.SALTED_MOCK)
+    ) {
+      try {
+        const oprfPk = await getOprfPublicKey(oprfKeyId ?? OPRF_DEFAULT_KEY_ID)
+        const expectedPkHash = await hashOprfPublicKey(oprfPk)
+
+        // Find a disclosure proof to extract oprfPkHash from
+        const disclosureProof = sortedProofs.find(
+          (p) =>
+            p.name &&
+            !p.name.startsWith("sig_check_") &&
+            !p.name.startsWith("data_check_") &&
+            !p.name.startsWith("outer") &&
+            !p.name.startsWith("facematch"),
+        )
+        if (disclosureProof) {
+          const dpData = getProofData(
+            disclosureProof.proof as string,
+            getNumberOfPublicInputs(disclosureProof.name!),
+          )
+          const proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
+          if (proofPkHash !== expectedPkHash) {
+            console.warn("OPRF public key hash mismatch: proof uses an unknown OPRF key")
+            isCorrect = false
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to verify OPRF public key:", error)
+        isCorrect = false
+      }
+    }
+
     return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }
   }
 }

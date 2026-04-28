@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright © 2025 ZKPassport
+// Copyright © 2026 ZKPassport
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";

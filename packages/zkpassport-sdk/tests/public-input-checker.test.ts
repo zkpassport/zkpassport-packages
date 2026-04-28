@@ -1742,6 +1742,8 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
  * Build a synthetic proof hex string from an array of field values (bigints).
  * Each field becomes a 32-byte big-endian hex chunk.
  * `publicInputs` are placed first, followed by `dummyProofFieldCount` zero fields.
+ * Layout: [public_inputs][proof_body] — no prefix (matches normalised format
+ * consumed by `getProofData` with default offset 0).
  */
 function buildProofHex(publicInputs: bigint[], dummyProofFieldCount = 10): string {
   const fields = [...publicInputs, ...new Array(dummyProofFieldCount).fill(0n)]

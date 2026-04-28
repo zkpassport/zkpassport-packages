@@ -20,11 +20,13 @@ import {
   getProofData,
   getNumberOfPublicInputs,
   formatQueryResultDates,
+  OPRF_DEFAULT_KEY_ID,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
 import { RegistryClient } from "@zkpassport/registry"
+// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -133,6 +135,8 @@ export class ZKPassport {
       validity: number
       mode: ProofMode
       devMode: boolean
+      uniqueIdentifierType: NullifierType | undefined
+      oprfKeyId: string | null
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -152,6 +156,7 @@ export class ZKPassport {
     Array<
       (response: {
         uniqueIdentifier: string | undefined
+        uniqueIdentifierType: NullifierType | undefined
         verified: boolean
         result: QueryResult
         queryResultErrors?: Partial<QueryResultErrors>
@@ -192,14 +197,16 @@ export class ZKPassport {
     // Clear the results straight away to avoid concurrency issues
     delete this.topicToResults[topic]
     // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
-    const { uniqueIdentifier, verified, queryResultErrors } = await this.verify({
-      proofs: this.topicToProofs[topic],
-      originalQuery: this.topicToConfig[topic],
-      queryResult: result,
-      validity: this.topicToLocalConfig[topic]?.validity,
-      scope: this.topicToService[topic]?.scope,
-      devMode: this.topicToLocalConfig[topic]?.devMode,
-    })
+    const { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors } =
+      await this.verify({
+        proofs: this.topicToProofs[topic],
+        originalQuery: this.topicToConfig[topic],
+        queryResult: result,
+        validity: this.topicToLocalConfig[topic]?.validity,
+        scope: this.topicToService[topic]?.scope,
+        devMode: this.topicToLocalConfig[topic]?.devMode,
+        oprfKeyId: this.topicToLocalConfig[topic]?.oprfKeyId ?? undefined,
+      })
     delete this.topicToProofs[topic]
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
     await Promise.all(
@@ -208,6 +215,7 @@ export class ZKPassport {
           // If there are failed proofs, we don't return the unique identifier
           // and we set the verified result to false
           uniqueIdentifier: hasFailedProofs ? undefined : uniqueIdentifier,
+          uniqueIdentifierType: hasFailedProofs ? undefined : uniqueIdentifierType,
           verified: hasFailedProofs ? false : verified,
           result,
           queryResultErrors,
@@ -398,6 +406,28 @@ export class ZKPassport {
           delete this.topicToConfig[topic]
           return { query }
         }
+
+        const localConfig = this.topicToLocalConfig[topic]
+        const query = this.topicToConfig[topic]
+        const hasStrictFacematch = !!query.facematch && query.facematch?.mode === "strict"
+
+        // If nullifier type wasn't explicitly set, default to SALTED only for strict facematch
+        if (localConfig.uniqueIdentifierType === undefined) {
+          if (hasStrictFacematch) {
+            localConfig.uniqueIdentifierType = NullifierType.SALTED
+            if (!localConfig.oprfKeyId) {
+              localConfig.oprfKeyId = OPRF_DEFAULT_KEY_ID
+            }
+          }
+        }
+
+        // Validate: SALTED requires strict facematch
+        if (localConfig.uniqueIdentifierType === NullifierType.SALTED && !hasStrictFacematch) {
+          throw new Error(
+            "Salted nullifier requires strict facematch. Add .facematch('strict') to your query or remove the salted nullifier option.",
+          )
+        }
+
         return {
           url: this._getUrl(topic),
           query: this.topicToConfig[topic],
@@ -413,6 +443,7 @@ export class ZKPassport {
           onResult: (
             callback: (response: {
               uniqueIdentifier: string | undefined
+              uniqueIdentifierType: NullifierType | undefined
               verified: boolean
               result: QueryResult
               queryResultErrors?: Partial<QueryResultErrors>
@@ -448,6 +479,8 @@ export class ZKPassport {
     mode,
     validity,
     devMode,
+    uniqueIdentifierType,
+    oprfKeyId,
     topicOverride,
     keyPairOverride,
     cloudProverUrl,
@@ -461,6 +494,8 @@ export class ZKPassport {
     projectID?: string
     validity?: number
     devMode?: boolean
+    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
+    oprfKeyId?: string
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
     cloudProverUrl?: string
@@ -494,6 +529,8 @@ export class ZKPassport {
       validity: validity || DEFAULT_VALIDITY,
       mode: mode || "fast",
       devMode: devMode || false,
+      uniqueIdentifierType: oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType,
+      oprfKeyId: oprfKeyId ?? null,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -558,6 +595,7 @@ export class ZKPassport {
     scope,
     devMode = false,
     writingDirectory,
+    oprfKeyId,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -566,6 +604,7 @@ export class ZKPassport {
     scope?: string
     devMode?: boolean
     writingDirectory?: string
+    oprfKeyId?: string
   }): Promise<{
     uniqueIdentifier: string | undefined
     uniqueIdentifierType: NullifierType | undefined
@@ -583,15 +622,16 @@ export class ZKPassport {
     }
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
-    const { UltraHonkVerifierBackend } = await import("@aztec/bb.js")
+    const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js")
     // Automatically set the writing directory to `/tmp` if it is not provided
     // and the code is not running in the browser
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    const verifier = new UltraHonkVerifierBackend({
+    const barretenberg = await Barretenberg.new({
       crsPath: writingDirectory ? writingDirectory + "/.bb-crs" : undefined,
     })
+    const verifier = new UltraHonkVerifierBackend(barretenberg)
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -608,6 +648,7 @@ export class ZKPassport {
       formattedResult,
       validity,
       scope,
+      oprfKeyId,
     )
     uniqueIdentifier = uniqueIdentifierFromPublicInputs
     uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
@@ -643,8 +684,6 @@ export class ZKPassport {
           proofName,
           circuitManifest,
           // TODO: set to always validate when the issue is vkey hash calculation is fixed
-          // Not as important anyway, as the solidity verifier is the ultimate anchor for
-          // EVM outer proofs verification
           { validate: !isOuterEVM },
         )
         if (isOuterEVM) {
@@ -683,7 +722,7 @@ export class ZKPassport {
               verificationKey: new Uint8Array(vkeyBytes),
             })
           } catch (e) {
-            console.warn("Error verifying proof", e)
+            console.warn(`Error verifying proof ${proofName}`, e)
             verified = false
           }
         }
@@ -694,6 +733,7 @@ export class ZKPassport {
         }
       }
     }
+
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
     uniqueIdentifierType = verified ? uniqueIdentifierType : undefined
@@ -746,7 +786,16 @@ export class ZKPassport {
     // The timestamp is the current time minus the validity period
     // essentially, the data integrity check proof needs to have been generated after the timestamp
     const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
-    return `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
+    const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
+    const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
+    let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
+    if (nullifierType) {
+      url += `&nt=${nullifierType}`
+    }
+    if (oprfKeyId) {
+      url += `&oprf_k=${oprfKeyId}`
+    }
+    return url
   }
 
   /**

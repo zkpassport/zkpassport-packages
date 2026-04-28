@@ -26,9 +26,11 @@ trap cleanup EXIT SIGINT SIGTERM
 sleep 1
 
 # Run the deployment and seeding scripts
-./script/test/deploy.sh
+source ./script/test/deploy-root-registry.sh
+source ./script/test/deploy-root-verifier.sh
+source ./script/test/deploy-protocol-controller.sh
 if [[ " $* " != *" --no-seed "* ]]; then
-  ./script/test/seed-registries.sh
+  source ./script/test/seed-registries.sh
 fi
 
 echo "Test environment ready!"

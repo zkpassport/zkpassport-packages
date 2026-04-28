@@ -11,6 +11,7 @@ import {
   formatBoundData,
   getCommittedInputCount,
   getNumberOfPublicInputs,
+  getOprfPkHashFromOuterProof,
   getParamCommitmentsFromOuterProof,
   getProofData,
   numberToBytesBE,
@@ -245,6 +246,7 @@ export class SolidityVerifier {
       ...numberToBytesBE(versionParts[2], 2),
     ])
     const versionBytes32 = `0x${bytesToHex(versionBytes).padEnd(64, "0")}`
+    const oprfPkHash = getOprfPkHashFromOuterProof(proofData)
     const params: SolidityVerifierParameters = {
       version: versionBytes32,
       proofVerificationData: {
@@ -260,6 +262,7 @@ export class SolidityVerifier {
         scope: scope ?? "",
         devMode,
       },
+      oprfPkHash: `0x${oprfPkHash.toString(16).padStart(64, "0")}`,
     }
     return params
   }
