@@ -34,6 +34,6 @@ export default defineConfig(
     splitting: false,
     sourcemap: true,
     treeshake: !isDev,
-    minify: false,
+    minify: !isDev,
   })),
 )
