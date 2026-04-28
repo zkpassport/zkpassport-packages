@@ -1,8 +1,9 @@
+import { getNetworkOverrides, useNetwork } from "@/components/NetworkProvider"
 import { isECDSA, isRSA, isRSAPKCS, isRSAPSS } from "@/lib/certificate-utils"
 import { CertificateFilterState } from "@/lib/types"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import type { ECPublicKey, PackagedCertificate } from "@zkpassport/utils"
-import { countryCodeAlpha3ToName } from "@zkpassport/utils"
+import { countryCodeAlpha3ToName, countryCodeAlpha3ToAlpha2 } from "@zkpassport/utils"
 import debug from "debug"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
@@ -12,6 +13,7 @@ const log = debug("explorer")
 export const useCertificates = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { chainId, currentNetwork, isReady } = useNetwork()
   const [certificates, setCertificates] = useState<PackagedCertificate[]>([])
   const [filteredCertificates, setFilteredCertificates] = useState<PackagedCertificate[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true)
@@ -32,7 +34,7 @@ export const useCertificates = () => {
 
   // Metadata derived from certificates
   const [uniqueCountries, setUniqueCountries] = useState<string[]>([])
-  const [uniqueHashAlgorithms, setUniqueHashAlgorithms] = useState<string[]>([])
+  // const [uniqueHashAlgorithms, setUniqueHashAlgorithms] = useState<string[]>([])
   const [uniqueCurves, setUniqueCurves] = useState<string[]>([])
 
   // Memoize updateFilter to prevent re-creation on every render
@@ -77,17 +79,15 @@ export const useCertificates = () => {
 
   // Use the RegistryClient to fetch certificates
   useEffect(() => {
+    if (!isReady) return
     const fetchCertificates = async () => {
       setIsLoading(true)
       setError(null)
 
       try {
-        // Create a registry client instance
         const client = new RegistryClient({
-          chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 31337),
-          rpcUrl: process.env.NEXT_PUBLIC_ETH_RPC_URL,
-          rootRegistry: process.env.NEXT_PUBLIC_ROOT_REGISTRY_ADDRESS,
-          registryHelper: process.env.NEXT_PUBLIC_REGISTRY_HELPER_ADDRESS,
+          chainId,
+          ...getNetworkOverrides(currentNetwork),
         })
 
         // Fetch all available roots
@@ -129,11 +129,11 @@ export const useCertificates = () => {
           return nameA.localeCompare(nameB)
         }) as string[]
 
-        // TODO: Consider implementing a more efficient way to do this
-        // Extract unique hash algorithms
-        const uniqueHashAlgorithms = [
-          ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.hash_algorithm)),
-        ] as string[]
+        // // TODO: Consider implementing a more efficient way to do this
+        // // Extract unique hash algorithms
+        // const uniqueHashAlgorithms = [
+        //   ...new Set(packagedCerts.map((cert: PackagedCertificate) => cert.hash_algorithm)),
+        // ] as string[]
 
         // TODO: Consider implementing a more efficient way to do this
         // Extract unique ECDSA curves
@@ -146,7 +146,7 @@ export const useCertificates = () => {
         ] as string[]
 
         setUniqueCountries(countryList)
-        setUniqueHashAlgorithms(uniqueHashAlgorithms.sort())
+        // setUniqueHashAlgorithms(uniqueHashAlgorithms.sort())
         setUniqueCurves(uniqueCurvesList.sort())
 
         // Set initial filtered certificates based on data and URL parameters
@@ -175,30 +175,33 @@ export const useCertificates = () => {
     }
 
     fetchCertificates()
-  }, [searchParams]) // Only depend on searchParams since we're no longer accepting useApi parameter
+  }, [searchParams, chainId, currentNetwork, isReady])
 
   // Apply filters when filter state changes
   useEffect(() => {
     if (certificates.length === 0) return
 
     const filtered = certificates.filter((cert) => {
-      // Filter by search term (case insensitive)
+      const term = filterState.searchTerm.toLowerCase()
+      const alpha2 = countryCodeAlpha3ToAlpha2(cert.country)?.toLowerCase() ?? ""
       const searchTermMatch =
-        filterState.searchTerm === "" ||
-        cert.subject_key_identifier?.toLowerCase().includes(filterState.searchTerm.toLowerCase()) ||
-        cert.signature_algorithm.toLowerCase().includes(filterState.searchTerm.toLowerCase()) ||
-        countryCodeAlpha3ToName(cert.country)
-          .toLowerCase()
-          .includes(filterState.searchTerm.toLowerCase())
+        term === "" ||
+        cert.country.toLowerCase().includes(term) ||
+        alpha2.includes(term) ||
+        countryCodeAlpha3ToName(cert.country)?.toLowerCase().includes(term) ||
+        cert.subject_key_identifier?.toLowerCase().includes(term) ||
+        cert.authority_key_identifier?.toLowerCase().includes(term) ||
+        cert.fingerprint?.toLowerCase().includes(term) ||
+        cert.signature_algorithm.toLowerCase().includes(term)
 
       // Filter by country
       const countryMatch =
         filterState.selectedCountry === "all" || cert.country === filterState.selectedCountry
 
       // Filter by hash algorithm
-      const hashAlgorithmMatch =
-        filterState.selectedHashAlgorithm === "all" ||
-        cert.hash_algorithm === filterState.selectedHashAlgorithm
+      // const hashAlgorithmMatch =
+      //   filterState.selectedHashAlgorithm === "all" ||
+      //   cert.hash_algorithm === filterState.selectedHashAlgorithm
 
       // Filter by signature type
       let signatureTypeMatch = true
@@ -230,7 +233,7 @@ export const useCertificates = () => {
       return (
         searchTermMatch &&
         countryMatch &&
-        hashAlgorithmMatch &&
+        // hashAlgorithmMatch &&
         signatureTypeMatch &&
         rsaTypeMatch &&
         curveMatch
@@ -247,7 +250,7 @@ export const useCertificates = () => {
     error,
     filterState,
     uniqueCountries,
-    uniqueHashAlgorithms,
+    // uniqueHashAlgorithms,
     uniqueCurves,
     updateFilter,
     currentRoot,

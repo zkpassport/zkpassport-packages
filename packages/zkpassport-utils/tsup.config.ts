@@ -33,7 +33,7 @@ export default defineConfig(
     outDir: `dist/${format}`,
     outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
     splitting: false,
-    sourcemap: false,
+    sourcemap: true,
     treeshake: !isDev,
     minify: !isDev,
   })),

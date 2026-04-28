@@ -35,7 +35,7 @@ import {
 } from "./passport/passport-reader"
 import {
   CERT_TYPE_CSCA,
-  CERTIFICATE_REGISTRY_HEIGHT,
+  CERTIFICATE_MERKLE_TREE_HEIGHT,
   getCertificateLeafHash,
   getCertificateLeafHashes,
   tagsArrayToBitsFlag,
@@ -53,7 +53,6 @@ import {
   PassportViewModel,
   Query,
   RSADSCDataInputs,
-  RSAPublicKey,
   SaltedValue,
 } from "./types"
 import {
@@ -84,7 +83,6 @@ export { SanctionsBuilder }
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
-const SUPPORTED_HASH_ALGORITHMS_USE: HashAlgorithm[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]
 
 // TODO: Improve this with a structured list of supported signature algorithms
 export function isSignatureAlgorithmSupported(
@@ -128,11 +126,10 @@ export function isCscaSupported(csca: PackagedCertificate): boolean {
         csca.public_key.key_size === 2048 ||
         csca.public_key.key_size === 3072 ||
         csca.public_key.key_size === 4096) &&
-      (csca.public_key as RSAPublicKey).exponent < 131072 &&
-      SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
+      csca.public_key.exponent < 131072
     )
   } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
-    return SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
+    return true
   }
   return false
 }
@@ -226,24 +223,24 @@ function getCscaCandidates(
   if (validCertificates.length === 1) {
     akiMatchedCert = validCertificates[0]
   } else if (validCertificates.length > 1) {
-    // Support edge cases where multiple CSCs with the same characteristics are found
-    const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
-      if (cert.signature_algorithm === "RSA-PSS") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("pss")
-      } else if (cert.signature_algorithm === "RSA") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("rsa")
-      } else if (cert.signature_algorithm === "ECDSA") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("ecdsa")
-      }
-      return false
-    }
-    akiMatchedCert =
-      validCertificates.find((cert) => {
-        return (
-          cert.hash_algorithm.replace("-", "").toLowerCase() ===
-            getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
-        )
-      }) ?? validCertificates[0]
+    // // Support edge cases where multiple CSCs with the same characteristics are found
+    // const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
+    //   if (cert.signature_algorithm === "RSA-PSS") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("pss")
+    //   } else if (cert.signature_algorithm === "RSA") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("rsa")
+    //   } else if (cert.signature_algorithm === "ECDSA") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("ecdsa")
+    //   }
+    //   return false
+    // }
+    // akiMatchedCert =
+    //   validCertificates.find((cert) => {
+    //     return (
+    //       cert.hash_algorithm.replace("-", "").toLowerCase() ===
+    //         getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
+    //     )
+    //   }) ?? validCertificates[0]
   }
 
   return { akiMatchedCert, countryCerts, formattedCountry }
@@ -520,7 +517,7 @@ export async function getDSCCircuitInputs(
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
   const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =
-    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
+    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT))
 
   const inputs = {
     certificate_registry_root: merkleProof.root,
@@ -873,11 +870,11 @@ export async function getDiscloseCircuitInputs(
   }
 }
 
-export function calculateAge(passport: PassportViewModel): number {
+export function calculateAge(passport: PassportViewModel, now?: Date): number {
   const birthdate = passport.dateOfBirth
   if (!birthdate) return 0
   const birthdateDate = parseDate(new TextEncoder().encode(birthdate))
-  const currentDate = new Date()
+  const currentDate = now ?? new Date()
 
   let age = currentDate.getFullYear() - birthdateDate.getFullYear()
   const monthDiff = currentDate.getMonth() - birthdateDate.getMonth()

@@ -3,8 +3,8 @@ import { Binary } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
-  buildMerkleTreeFromCerts,
   calculateCircuitRoot,
+  calculatePackagedCertificatesRoot,
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
   hexToCidv0,
@@ -58,7 +58,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   1: {
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0x0000000000000000000000000000000000000000",
+    registryHelper: "0x8C93bB3a7ED88dA0647Ea53f8cd3f57832a513Cd",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
@@ -67,7 +67,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
   11155111: {
     rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0x0ea1dBf32763D2Bab8bf7C33d6c17771506510D6",
+    registryHelper: "0x6Ee299B1E8049fadc3494f1110A3479f5BE8EC0e",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
@@ -206,16 +206,25 @@ export class RegistryClient {
       )
     }
     const data = (await response.json()) as PackagedCertificatesFile
-    log(`Got ${data.certificates?.length || 0} packaged certificates`)
+    if (!data.version) data.version = 0
+    log(
+      `Got ${data.certificates?.length || 0} packaged certificates (schema version ${data.version})`,
+    )
 
     // Handle invalid responses
     if (!data.certificates || !Array.isArray(data.certificates))
       throw new Error("Invalid certificates returned")
-    if (!data.serialised || !Array.isArray(data.serialised))
+    const serialisedCerts = data.version === 0 ? data.serialised : data.certificates_serialised
+    if (!serialisedCerts || !Array.isArray(serialisedCerts))
       throw new Error("Invalid serialised certificates tree returned")
 
+    // Normalise fingerprints
+    for (const cert of data.certificates) {
+      if (cert.fingerprint) cert.fingerprint = normaliseHash(cert.fingerprint)
+    }
+
     if (validate) {
-      const valid = await this.validateCertificates(data, root)
+      const valid = await RegistryClient.validateCertificates(data, root)
       if (!valid) throw new Error(`Validation failed for packaged certificates: ${root}`)
     }
     return data
@@ -224,22 +233,19 @@ export class RegistryClient {
   /**
    * Validate certificates against a root hash
    */
-  async validateCertificates(
+  static async validateCertificates(
     packagedCerts: PackagedCertificatesFile,
     root: string,
   ): Promise<boolean> {
     try {
-      const { root: calculatedRoot } = await buildMerkleTreeFromCerts(
-        packagedCerts.certificates,
-        packagedCerts.version,
-      )
-      const expectedRootHash = root.startsWith("0x") ? root : `0x${root}`
-      const valid = calculatedRoot.toLowerCase() === expectedRootHash.toLowerCase()
+      const calculatedRoot = await calculatePackagedCertificatesRoot(packagedCerts)
+      const expectedRoot = normaliseHash(root)
+      const valid = calculatedRoot.toLowerCase() === expectedRoot.toLowerCase()
       if (valid) {
         log(`Validated packaged certificates against root ${calculatedRoot}`)
       } else {
         log(
-          `Error validating packaged certificates. Expected: ${expectedRootHash} Got: ${calculatedRoot}`,
+          `Error validating packaged certificates. Expected: ${expectedRoot} Got: ${calculatedRoot}`,
         )
       }
       return valid
@@ -751,6 +757,14 @@ export class RegistryClient {
   }
 
   /**
+   * Get the address of the Registry Helper
+   * @returns The address of the Registry Helper
+   */
+  getRegistryHelperAddress(): string {
+    return this.registryHelper
+  }
+
+  /**
    * Get the address of the Certificate Registry
    * @returns The address of the Certificate Registry
    */
@@ -807,7 +821,9 @@ export class RegistryClient {
     const data = await response.json()
     if (data.error) throw new Error(`Error from node: ${data.error.message}`)
     if (data.result) {
-      // The result is an ABI-encoded RootDetails struct
+      // The result is an ABI-encoded RootDetails struct with 10 x bytes32-aligned words:
+      //   [0]=index, [1]=root, [2]=validFrom, [3]=validTo, [4]=revoked,
+      //   [5]=leaves, [6]=cid, [7]=metadata1, [8]=metadata2, [9]=metadata3
       const result = data.result.slice(2) // Remove '0x' prefix
       // Each field in the struct is 32 bytes (64 hex chars)
       const index = parseInt(result.slice(0, 64), 16)
@@ -818,6 +834,12 @@ export class RegistryClient {
       const revoked = parseInt(result.slice(256, 320), 16) === 1
       const leaves = parseInt(result.slice(320, 384), 16)
       const cid = hexToCidv0(`0x${result.slice(384, 448)}`)
+      const metadata1Raw = result.slice(448, 512)
+      const metadata2Raw = result.slice(512, 576)
+      const metadata3Raw = result.slice(576, 640)
+      const metadata1 = metadata1Raw === "" ? undefined : `0x${metadata1Raw}`
+      const metadata2 = metadata2Raw === "" ? undefined : `0x${metadata2Raw}`
+      const metadata3 = metadata3Raw === "" ? undefined : `0x${metadata3Raw}`
       return {
         index,
         root,
@@ -826,6 +848,9 @@ export class RegistryClient {
         revoked,
         leaves,
         cid,
+        ...(metadata1 !== undefined && { metadata1 }),
+        ...(metadata2 !== undefined && { metadata2 }),
+        ...(metadata3 !== undefined && { metadata3 }),
         isLatest: validTo === undefined ? true : false,
       }
     } else throw new Error("No result returned from node")
@@ -862,10 +887,14 @@ export class RegistryClient {
       //   bool revoked;
       //   uint256 leaves;
       //   bytes32 cid;
+      //   bytes32 metadata1;
+      //   bytes32 metadata2;
+      //   bytes32 metadata3;
       // }
+      const FIELDS_PER_ROOT = 10
       for (let i = 0; i < arrayLength; i++) {
-        // The RootDetails struct in the helper contract has 7 fields (32 bytes each)
-        const startIndex = 64 + i * 7 * 64 // 64 hex chars per 32 bytes
+        // The RootDetails struct in the helper contract has 10 fields (32 bytes each)
+        const startIndex = 64 + i * FIELDS_PER_ROOT * 64 // 64 hex chars per 32 bytes
 
         const index = parseInt(arrayData.slice(startIndex, startIndex + 64), 16)
         const root = `0x${arrayData.slice(startIndex + 64, startIndex + 128)}`
@@ -877,6 +906,12 @@ export class RegistryClient {
         const revoked = parseInt(arrayData.slice(startIndex + 256, startIndex + 320), 16) === 1
         const leaves = parseInt(arrayData.slice(startIndex + 320, startIndex + 384), 16)
         const cid = hexToCidv0(`0x${arrayData.slice(startIndex + 384, startIndex + 448)}`)
+        const metadata1Raw = arrayData.slice(startIndex + 448, startIndex + 512)
+        const metadata2Raw = arrayData.slice(startIndex + 512, startIndex + 576)
+        const metadata3Raw = arrayData.slice(startIndex + 576, startIndex + 640)
+        const metadata1 = metadata1Raw === "" ? undefined : `0x${metadata1Raw}`
+        const metadata2 = metadata2Raw === "" ? undefined : `0x${metadata2Raw}`
+        const metadata3 = metadata3Raw === "" ? undefined : `0x${metadata3Raw}`
         rootDetails.push({
           root,
           validFrom,
@@ -884,6 +919,9 @@ export class RegistryClient {
           revoked,
           cid,
           leaves,
+          ...(metadata1 !== undefined && { metadata1 }),
+          ...(metadata2 !== undefined && { metadata2 }),
+          ...(metadata3 !== undefined && { metadata3 }),
           isLatest: i === arrayLength - 1 && isLastPage,
           index,
         })

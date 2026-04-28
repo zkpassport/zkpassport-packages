@@ -1,9 +1,12 @@
-import { CircuitManifest, PackagedCircuit, PackagedCertificatesFile } from "@zkpassport/utils/types"
+import {
+  CircuitManifest,
+  PackagedCircuit,
+  PackagedCertificatesFileV1,
+} from "@zkpassport/utils/types"
 import { ChildProcess, execSync, spawn } from "child_process"
 import fs from "fs"
 import keccak256 from "keccak256"
 import path from "path"
-import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 
 // Configuration
 export const CHAIN_ID = 31337
@@ -314,7 +317,7 @@ export function getEthereumFunctionSelector(functionSignature: string): string {
   return "0x" + Buffer.from(hash.slice(0, 4)).toString("hex")
 }
 
-export function loadPackagedCertificatesFile(filePath: string): PackagedCertificatesFile {
+export function loadPackagedCertificatesFile(filePath: string): PackagedCertificatesFileV1 {
   try {
     // Read and parse file
     const fileData = fs.readFileSync(filePath, "utf8")

@@ -347,6 +347,53 @@ contract RegistryHelperTest is Test {
         helper.getRootDetailsByRoot(CERTIFICATE_REGISTRY_ID, bytes32(uint256(1)));
     }
 
+    function testRootDetailsIncludesMetadataFields() public {
+        bytes32 root1 = bytes32(uint256(1));
+        bytes32 root2 = bytes32(uint256(2));
+        bytes32 ipfsCid1 = bytes32(uint256(100));
+        bytes32 ipfsCid2 = bytes32(uint256(200));
+        bytes32 m1a = bytes32(uint256(0xaaaa));
+        bytes32 m2a = bytes32(uint256(0xbbbb));
+        bytes32 m3a = bytes32(uint256(0xcccc));
+        bytes32 m1b = bytes32(uint256(0xdddd));
+        bytes32 m2b = bytes32(uint256(0xeeee));
+        bytes32 m3b = bytes32(uint256(0xffff));
+
+        vm.prank(oracle);
+        registry.updateRootWithMetadata(root1, bytes32(0), block.timestamp, 100, ipfsCid1, m1a, m2a, m3a);
+        vm.warp(block.timestamp + 1);
+        vm.prank(oracle);
+        registry.updateRootWithMetadata(root2, root1, block.timestamp, 200, ipfsCid2, m1b, m2b, m3b);
+
+        // getRootDetailsByRoot exposes metadata
+        RegistryHelper.RootDetails memory byRoot = helper.getRootDetailsByRoot(CERTIFICATE_REGISTRY_ID, root1);
+        assertEq(byRoot.metadata1, m1a);
+        assertEq(byRoot.metadata2, m2a);
+        assertEq(byRoot.metadata3, m3a);
+
+        // getRootDetailsByIndex exposes metadata
+        RegistryHelper.RootDetails memory byIndex = helper.getRootDetailsByIndex(CERTIFICATE_REGISTRY_ID, 2);
+        assertEq(byIndex.metadata1, m1b);
+        assertEq(byIndex.metadata2, m2b);
+        assertEq(byIndex.metadata3, m3b);
+
+        // getLatestRootDetails exposes metadata
+        RegistryHelper.RootDetails memory latest = helper.getLatestRootDetails(CERTIFICATE_REGISTRY_ID);
+        assertEq(latest.metadata1, m1b);
+        assertEq(latest.metadata2, m2b);
+        assertEq(latest.metadata3, m3b);
+
+        // getHistoricalRoots exposes metadata for each entry
+        (RegistryHelper.RootDetails[] memory page,) = helper.getHistoricalRoots(CERTIFICATE_REGISTRY_ID, 1, 10);
+        assertEq(page.length, 2);
+        assertEq(page[0].metadata1, m1a);
+        assertEq(page[0].metadata2, m2a);
+        assertEq(page[0].metadata3, m3a);
+        assertEq(page[1].metadata1, m1b);
+        assertEq(page[1].metadata2, m2b);
+        assertEq(page[1].metadata3, m3b);
+    }
+
     function testIsRootValidAtTimestamp() public {
         // Set up registry with valid mock
         vm.prank(admin);

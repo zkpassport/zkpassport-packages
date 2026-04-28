@@ -82,6 +82,7 @@ const EXPECTED_SERVICE_SUBSCOPE = "0x3"
 const NULLIFIER_SECRET = 0n
 const EXPECTED_NULLIFIER_SECRET = "0x0"
 const CURRENT_DATE = getNowTimestamp()
+const AGE_TEST_DATE = new Date("2026-01-01")
 
 describe("Circuit Matcher - General", () => {
   it("should detect if CSCA certificate is supported", () => {
@@ -224,7 +225,7 @@ describe("Circuit Matcher - RSA", () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.john,
       1n,
-      rootCerts as PackagedCertificatesFile,
+      rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
@@ -444,7 +445,7 @@ describe("Circuit Matcher - RSA", () => {
   })
 
   it("should calculate the correct age from passport", () => {
-    const result = calculateAge(PASSPORTS.john)
+    const result = calculateAge(PASSPORTS.john, AGE_TEST_DATE)
     expect(result).toBe(30)
   })
 
@@ -746,7 +747,7 @@ describe("Circuit Matcher - ECDSA", () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.mary,
       1n,
-      rootCerts as PackagedCertificatesFile,
+      rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
@@ -932,8 +933,8 @@ describe("Circuit Matcher - ECDSA", () => {
   })
 
   it("should calculate the correct age from passport", () => {
-    const result = calculateAge(PASSPORTS.mary)
-    expect(result).toBe(51)
+    const result = calculateAge(PASSPORTS.mary, AGE_TEST_DATE)
+    expect(result).toBe(50)
   })
 
   it("should get the correct age circuit inputs", async () => {

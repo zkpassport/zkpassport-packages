@@ -32,8 +32,6 @@ function MapPageContent() {
   useEffect(() => {
     const processCertificates = async () => {
       if (certificates && certificates.length > 0) {
-        console.log("Processing certificates:", certificates.length)
-
         // Group certificates by country
         const certsByCountry: Record<string, PackagedCertificate[]> = {}
         certificates.forEach((cert) => {
@@ -43,7 +41,6 @@ function MapPageContent() {
           certsByCountry[cert.country].push(cert)
         })
         setCertificatesByCountry(certsByCountry)
-        console.log("Certificates by country:", Object.keys(certsByCountry).length, "countries")
 
         // Convert to Map for coverage calculation
         const certsByCountryMap = new Map(Object.entries(certsByCountry))
@@ -92,7 +89,6 @@ function MapPageContent() {
           }
         })
         setCountryData(newCountryData)
-        console.log("Country data created with coverage:", newCountryData)
       }
     }
 

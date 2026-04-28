@@ -1,4 +1,5 @@
 import { DebugInitializer } from "@/components/DebugInitializer"
+import { NetworkProvider } from "@/components/NetworkProvider"
 import { ThemeProvider } from "@/components/ThemeProvider"
 import type { Metadata } from "next"
 import localFont from "next/font/local"
@@ -88,8 +89,10 @@ export default function RootLayout({
       >
         <DebugInitializer />
         <ThemeProvider>
-          <Navigation />
-          <main>{children}</main>
+          <NetworkProvider>
+            <Navigation />
+            <main>{children}</main>
+          </NetworkProvider>
         </ThemeProvider>
       </body>
     </html>

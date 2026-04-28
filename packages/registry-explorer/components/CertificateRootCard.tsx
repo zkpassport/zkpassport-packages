@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { RootDetails } from "@zkpassport/registry"
-import { Copy, GitCompare } from "lucide-react"
+import { Copy, FileText, GitCompare } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -51,7 +51,7 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg font-mono">
-            {isLatest ? "Current Root" : "Historical Root"}
+            {isLatest ? "Current Root" : isGenesisRoot ? "Genesis Root" : "Historical Root"}
           </CardTitle>
           <div className="flex items-center gap-2">
             {revoked && <Badge variant="destructive">Revoked</Badge>}
@@ -121,8 +121,11 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
         </div>
       </CardContent>
       <CardFooter className="flex gap-2">
-        <Button asChild className="flex-1">
-          <Link href={`/certificates?root=${encodeURIComponent(root)}`}>Show Certificates</Link>
+        <Button asChild variant="outline" className="flex-1">
+          <Link href={`/certificates?root=${encodeURIComponent(root)}`}>
+            <FileText className="h-4 w-4 mr-2" />
+            Show Certificates
+          </Link>
         </Button>
         {previousRoot && (
           <Button asChild variant="outline" className="flex-1">

@@ -15,8 +15,8 @@ export const CERTIFICATE_REGISTRY_ID = 1
  * Packaged certificates URLs
  */
 export const PACKAGED_CERTIFICATES_URL_MAINNET = "https://certificates.zkpassport.id/mainnet"
-export const PACKAGED_CERTIFICATES_URL_SEPOLIA = "https://certificates.zkpassport.id/sepolia"
-export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:3000/certificates"
+export const PACKAGED_CERTIFICATES_URL_SEPOLIA = "https://certificates.zkpassport.id/testnet"
+export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:8000/root"
 
 /**
  * Packaged certificates URL generator
@@ -43,7 +43,7 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
  */
 export const CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
 export const CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia"
-export const CIRCUIT_URL_DEV = "http://localhost:3000"
+export const CIRCUIT_URL_DEV = "http://localhost:8000"
 
 /**
  * Circuit manifest URL generator

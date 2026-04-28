@@ -5,24 +5,47 @@ import {
   ECPublicKey,
   PackagedCertificate,
   PackagedCertificatesFile,
+  PackagedCertificatesFileV1,
   PackagedCircuit,
+  IntermediateCertificateRevocation,
   RSAPublicKey,
   TwoLetterCode,
 } from "../types"
 import { assert, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
+import { AsyncIMT, poseidon2 } from "../merkle-tree"
+import type { IMTMerkleProof } from "../merkle-tree/async-imt"
 import { computeMerkleProof } from ".."
 export { cidv0ToHex, hexToCidv0 } from "./cid"
 
 /**
- * Canonical merkle tree height for the certificate registry
+ * Canonical height of the certificate merkle tree (in the Certificate Registry)
  */
-export const CERTIFICATE_REGISTRY_HEIGHT = 16
+export const CERTIFICATE_MERKLE_TREE_HEIGHT = 16 // Max leaves: 2^16 = 65536
+
+/**
+ * Canonical height of the revocation merkle tree (in the Certificate Registry)
+ */
+export const REVOCATION_MERKLE_TREE_HEIGHT = 14 // Max leaves: 2^14 = 16384
+
+/**
+ * Canonical height of the masterlist merkle tree (in the Certificate Registry)
+ */
+export const MASTERLIST_MERKLE_TREE_HEIGHT = 8 // Max leaves: 2^8 = 256
 
 /**
  * Canonical merkle tree height for the circuit registry
  */
-export const CIRCUIT_REGISTRY_HEIGHT = 12
+export const CIRCUIT_REGISTRY_HEIGHT = 12 // Max leaves: 2^12 = 4096
+
+/**
+ * Canonical zero leaf used to pad empty slots in every ordered Merkle tree maintained
+ * by the registry (certificates, revocations, masterlists, circuits). The same value
+ * is also hashed up the tree to derive the per-level zero values used as siblings for
+ * missing children. Using this constant everywhere keeps roots reproducible: changing
+ * it would change every canonical root.
+ */
+export const MERKLE_TREE_ZERO_VALUE = 0n
 
 /**
  * Canonical hash algorithm identifiers for the certificate registry
@@ -273,30 +296,491 @@ export async function buildMerkleTreeFromCerts(
   version: number = 0,
 ): Promise<AsyncMerkleTree> {
   const leaves = await getCertificateLeafHashes(certs, version)
-  const tree = new AsyncMerkleTree(CERTIFICATE_REGISTRY_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
+  const tree = new AsyncMerkleTree(CERTIFICATE_MERKLE_TREE_HEIGHT, 2)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
   return tree
 }
 
 /**
- * Calculate the canonical certificate root from packaged certificates
- * @param certs Array of packaged certificates
- * @param version Version of the packaged certificates file format (defaults to 0 if not specified)
- * @returns Certificate root used in the Certificate Registry
+ * Canonically generate a leaf hash for an intermediate certificate revocation.
+ * The leaf is computed as `H(fingerprint, H(serial))` where:
+ *  - `fingerprint` is the Poseidon2 fingerprint of the issuing CSCA
+ *  - `serial` is the revoked DSC serial number, hex-encoded
+ * @param rev Intermediate certificate revocation entry
+ * @returns Leaf hash as a bigint
  */
-export async function calculateCertificateRoot(certs: PackagedCertificate[], version: number = 0) {
-  const tree = await buildMerkleTreeFromCerts(certs, version)
-  return tree.root
+export async function getRevocationLeafHash(
+  rev: IntermediateCertificateRevocation,
+): Promise<bigint> {
+  assert(rev.fingerprint !== undefined, `Revocation fingerprint required`)
+  assert(rev.serial !== undefined, `Revocation serial required`)
+  assert(
+    typeof rev.fingerprint === "string" && rev.fingerprint.startsWith("0x"),
+    `Revocation fingerprint must be a 0x-prefixed hex string: ${rev.fingerprint}`,
+  )
+  assert(
+    typeof rev.serial === "string" && rev.serial.startsWith("0x"),
+    `Revocation serial must be a 0x-prefixed hex string: ${rev.serial}`,
+  )
+  const serialBytes = Binary.from(rev.serial).toUInt8Array()
+  const serialHash = await poseidon2HashAsync(
+    packBeBytesIntoFields(serialBytes, 31).map((hex) => BigInt(hex)),
+  )
+  return poseidon2HashAsync([BigInt(rev.fingerprint), serialHash])
 }
 
 /**
- * Calculate the canonical certificate root from a packaged certificates file
- * @param packagedCerts Packaged certificates file
- * @returns Certificate root used in the Certificate Registry
+ * Canonically generate merkle tree leaf hashes from intermediate certificate revocations
+ * @param revocations Array of intermediate certificate revocations
+ * @returns Array of leaf hashes as bigints, sorted ascending
  */
-export async function calculatePackagedCertificatesRoot(packagedCerts: PackagedCertificatesFile) {
-  const tree = await buildMerkleTreeFromCerts(packagedCerts.certificates, packagedCerts.version)
-  return tree.root
+export async function getRevocationLeafHashes(
+  revocations: IntermediateCertificateRevocation[],
+): Promise<bigint[]> {
+  const leaves = await Promise.all(revocations.map((r) => getRevocationLeafHash(r)))
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  return leaves
+}
+
+/**
+ * Canonically build a merkle tree from intermediate certificate revocations
+ * @param revocations Array of intermediate certificate revocations
+ * @returns AsyncMerkleTree
+ */
+export async function buildMerkleTreeFromRevocations(
+  revocations: IntermediateCertificateRevocation[],
+): Promise<AsyncMerkleTree> {
+  const leaves = await getRevocationLeafHashes(revocations)
+  const tree = new AsyncMerkleTree(REVOCATION_MERKLE_TREE_HEIGHT, 2)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
+  return tree
+}
+
+/**
+ * Exclusion (non-membership) proof against an ordered Merkle tree.
+ *
+ * The ordered tree commits to a strictly ascending sequence of committed leaves packed
+ * left-to-right starting at index 0; every slot beyond the committed range is the
+ * canonical zero leaf (the same `zeroValue` the tree was initialised with). To prove
+ * that `targetLeaf` is NOT in the tree, the prover supplies inclusion proofs for the
+ * two adjacent leaves that bracket the target:
+ *
+ *   `lowerProof.leaf < targetLeaf < upperProof.leaf`
+ *   `upperProof.leafIndex - lowerProof.leafIndex === 1`
+ *
+ * Boundary cases are encoded as follows so that verification needs no out-of-band
+ * knowledge of the total committed leaf count:
+ *
+ *  - `lowerProof === null`: `targetLeaf` sorts before every committed leaf.
+ *    The verifier requires `upperProof.leafIndex === 0`, `upperProof.leaf !== 0`
+ *    (otherwise the tree is empty and the bound is degenerate), and
+ *    `targetLeaf < upperProof.leaf`.
+ *
+ *  - `upperProof.leaf === 0n`: `targetLeaf` sorts after every committed leaf.
+ *    The verifier requires `upperProof.leafIndex === lowerProof.leafIndex + 1`
+ *    (consecutive) and `lowerProof.leaf < targetLeaf`. Under the canonical
+ *    left-to-right packing invariant, an empty slot at index `k+1` implies all
+ *    slots `> k` are empty, so no committed leaf can equal `targetLeaf`.
+ *
+ * Soundness assumes the verified `root` belongs to a canonically-built ordered tree
+ * (no zero gaps among committed leaves). `buildMerkleTreeFromRevocations` enforces
+ * this by construction.
+ */
+export type OrderedMerkleExclusionProof = {
+  /** Ordered Merkle tree root the exclusion is proven against (0x-prefixed 32-byte hex). */
+  root: string
+  /** Target leaf hash asserted to be absent from the tree. */
+  targetLeaf: bigint
+  /** Inclusion proof for the largest leaf strictly less than `targetLeaf`, or `null`
+   * when `targetLeaf` sorts before every committed leaf. */
+  lowerProof: IMTMerkleProof | null
+  /** Inclusion proof for the leaf immediately after `lowerProof`. Either the smallest
+   * committed leaf strictly greater than `targetLeaf` (interior case), or the canonical
+   * zero leaf at the next padding slot (after-the-end case). When `lowerProof` is `null`,
+   * this is the inclusion proof at index 0. Always present. */
+  upperProof: IMTMerkleProof
+}
+
+/**
+ * Build an {@link OrderedMerkleExclusionProof} for the canonical revocation tree.
+ *
+ * Returns `null` when `targetLeaf` is already a committed member — in an ordered tree
+ * there is no strict bracket `lower < target < upper` around a value that equals one
+ * of the leaves.
+ *
+ * Internally the IMT is initialised with one trailing sentinel zero leaf so that
+ * `createProof` works at index `N` for the after-the-end case. Appending an explicit
+ * zero at the first padding slot does not change any internal hash and therefore does
+ * not change the canonical `root` (which is identical to `buildMerkleTreeFromRevocations`).
+ */
+export async function buildRevocationExclusionProof(
+  sortedLeaves: bigint[],
+  targetLeaf: bigint,
+): Promise<OrderedMerkleExclusionProof | null> {
+  // The construction relies on (a) strictly ascending committed leaves and
+  // (b) at least one free slot for the trailing zero sentinel.
+  for (let i = 1; i < sortedLeaves.length; i++) {
+    assert(
+      sortedLeaves[i - 1] < sortedLeaves[i],
+      `sortedLeaves must be strictly ascending; violation at index ${i}`,
+    )
+  }
+  assert(
+    sortedLeaves.length < 2 ** REVOCATION_MERKLE_TREE_HEIGHT,
+    `tree is full; cannot append zero sentinel for after-the-end exclusion proofs`,
+  )
+  // Membership ⇒ no exclusion proof can exist in an ordered tree.
+  if (sortedLeaves.includes(targetLeaf)) return null
+
+  const imt = new AsyncIMT(poseidon2, REVOCATION_MERKLE_TREE_HEIGHT, 2)
+  await imt.initialize(MERKLE_TREE_ZERO_VALUE, [...sortedLeaves, MERKLE_TREE_ZERO_VALUE])
+  const root = `0x${(imt.root as bigint).toString(16).padStart(64, "0")}`
+  const upperIdx = sortedLeaves.findIndex((l) => l > targetLeaf)
+
+  if (upperIdx === -1) {
+    // After the last committed leaf: lower at N-1, upper at N (zero sentinel).
+    return {
+      root,
+      targetLeaf,
+      lowerProof: imt.createProof(sortedLeaves.length - 1),
+      upperProof: imt.createProof(sortedLeaves.length),
+    }
+  }
+  if (upperIdx === 0) {
+    // Before the first committed leaf: only upper, anchored at index 0.
+    return {
+      root,
+      targetLeaf,
+      lowerProof: null,
+      upperProof: imt.createProof(0),
+    }
+  }
+  // Interior bracket.
+  return {
+    root,
+    targetLeaf,
+    lowerProof: imt.createProof(upperIdx - 1),
+    upperProof: imt.createProof(upperIdx),
+  }
+}
+
+/**
+ * Verify an {@link OrderedMerkleExclusionProof} against the canonical revocation tree.
+ *
+ * Returns `true` iff every required structural and ordering constraint holds:
+ *  - `upperProof` is present, verifies (Poseidon2), and its root matches `proof.root`.
+ *  - When `lowerProof === null` (left boundary):
+ *      `upperProof.leafIndex === 0`,
+ *      `upperProof.leaf !== 0n` (tree must have at least one committed leaf),
+ *      `upperProof.leaf > targetLeaf`.
+ *  - When `lowerProof !== null`:
+ *      `lowerProof` verifies, root matches,
+ *      `lowerProof.leaf !== 0n` (must be a real committed leaf, not zero padding),
+ *      `lowerProof.leaf < targetLeaf`,
+ *      `upperProof.leafIndex - lowerProof.leafIndex === 1`,
+ *      AND either `upperProof.leaf > targetLeaf` (interior case) or
+ *      `upperProof.leaf === 0n` (after-the-end case; canonical zero padding).
+ *
+ * Soundness assumes `proof.root` came from a canonically-built ordered tree.
+ */
+export async function verifyRevocationExclusionProof(
+  proof: OrderedMerkleExclusionProof,
+): Promise<boolean> {
+  const { root, targetLeaf, lowerProof, upperProof } = proof
+
+  const proofRootMatches = (p: IMTMerkleProof) =>
+    `0x${(p.root as bigint).toString(16).padStart(64, "0")}` === root
+
+  // Upper is always required.
+  if (!proofRootMatches(upperProof)) return false
+  if (!(await AsyncIMT.verifyProof(upperProof, poseidon2))) return false
+  const upperLeaf = upperProof.leaf as bigint
+
+  if (lowerProof === null) {
+    // Left boundary: upper anchored at index 0 with target < upper.leaf.
+    if (upperProof.leafIndex !== 0) return false
+    if (upperLeaf === MERKLE_TREE_ZERO_VALUE) return false // empty tree ⇒ degenerate
+    return upperLeaf > targetLeaf
+  }
+
+  // Both proofs supplied. Lower must verify, share the root, and be a real
+  // (non-zero) committed leaf strictly less than the target.
+  if (!proofRootMatches(lowerProof)) return false
+  if (!(await AsyncIMT.verifyProof(lowerProof, poseidon2))) return false
+  const lowerLeaf = lowerProof.leaf as bigint
+  if (lowerLeaf === MERKLE_TREE_ZERO_VALUE) return false
+  if (!(lowerLeaf < targetLeaf)) return false
+
+  // Lower and upper must be at consecutive slots.
+  if (upperProof.leafIndex - lowerProof.leafIndex !== 1) return false
+
+  // Either the interior case (strict upper bound) or the after-the-end case
+  // (next slot is the canonical zero padding).
+  if (upperLeaf === MERKLE_TREE_ZERO_VALUE) return true
+  return upperLeaf > targetLeaf
+}
+
+/**
+ * Canonically build a merkle tree from masterlist file hashes.
+ * Each masterlist entry is a Poseidon2 hash.
+ * @param masterlists Array of masterlist file hashes (as hex strings or bigint-compatible strings)
+ * @returns AsyncMerkleTree
+ */
+export async function buildMerkleTreeFromMasterlists(
+  masterlists: string[],
+): Promise<AsyncMerkleTree> {
+  const leaves = masterlists.map((h) => BigInt(h))
+  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
+  const tree = new AsyncMerkleTree(MASTERLIST_MERKLE_TREE_HEIGHT, 2)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
+  return tree
+}
+
+/**
+ * BN254 (alt_bn128) scalar field modulus. Every Poseidon2 input/output (including every
+ * canonical Merkle root in this module) MUST be strictly less than this value, otherwise
+ * the in-circuit reduction silently wraps the value mod p.
+ */
+export const BN254_FIELD_MODULUS =
+  21888242871839275222246405745257275088548364400416034343698204186575808495617n
+
+/**
+ * Strictly parse a Merkle root supplied as a `0x`-prefixed hex string and validate that
+ * it lies in the BN254 scalar field. Used at the public boundary of root-combining
+ * helpers so callers cannot pass a non-canonical encoding (missing prefix, oversized,
+ * non-hex characters) or a value that would silently wrap mod p inside Poseidon2.
+ *
+ * Accepted: `string` matching `^0x[0-9a-fA-F]{1,64}$` whose numeric value is in
+ * `[0, BN254_FIELD_MODULUS)`.
+ *
+ * Throws on anything else.
+ */
+export function parseMerkleRoot(label: string, value: string): bigint {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{1,64}$/.test(value)) {
+    throw new Error(`${label} must be a 0x-prefixed hex string of at most 64 hex chars: ${value}`)
+  }
+  const bn = BigInt(value)
+  if (bn >= BN254_FIELD_MODULUS) {
+    throw new Error(`${label} must be in [0, BN254_FIELD_MODULUS): ${bn}`)
+  }
+  return bn
+}
+
+/**
+ * Calculate the certificate root (version 1)
+ *
+ * Combines the certificate tree, revocation tree, and masterlist tree merkle roots into a state root,
+ * which is then hashed with the schema version and timestamp to get the certificate root:
+ *
+ *   certificate_root = H(packed(schema_version | timestamp), state_root)
+ *   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
+ *
+ * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
+ * concatenated and packed into a single 31-byte field. H is Poseidon2.
+ *
+ * Each root MUST be a `0x`-prefixed hex string in the BN254 scalar field. Any other
+ * encoding (missing prefix, non-hex characters, > 64 hex chars, or a value `>= p`)
+ * throws via {@link parseMerkleRoot}.
+ *
+ * @returns An object with both the canonical `certificateRoot` and the intermediate
+ *          `stateRoot`, each as a 0x-prefixed 32-byte hex string.
+ */
+async function calculateCertificateRootV1(args: {
+  schemaVersion: number
+  timestamp: number
+  certificateRoot: string
+  revocationRoot: string
+  masterlistRoot: string
+}): Promise<{ certificateRoot: string; stateRoot: string }> {
+  const { schemaVersion, timestamp, certificateRoot, revocationRoot, masterlistRoot } = args
+  assert(
+    Number.isInteger(schemaVersion) && schemaVersion >= 0 && schemaVersion <= 0xffff,
+    `Schema version must be an integer that fits in 2 bytes: ${schemaVersion}`,
+  )
+  assert(
+    Number.isInteger(timestamp) && timestamp >= 0 && timestamp <= 0xffffffff,
+    `Timestamp must be an integer that fits in 4 bytes: ${timestamp}`,
+  )
+
+  const certBn = parseMerkleRoot("certificateRoot", certificateRoot)
+  const revBn = parseMerkleRoot("revocationRoot", revocationRoot)
+  const mlBn = parseMerkleRoot("masterlistRoot", masterlistRoot)
+
+  const stateRootBn = await poseidon2HashAsync([certBn, revBn, mlBn])
+
+  const meta = new Uint8Array([
+    (schemaVersion >>> 8) & 0xff,
+    schemaVersion & 0xff,
+    (timestamp >>> 24) & 0xff,
+    (timestamp >>> 16) & 0xff,
+    (timestamp >>> 8) & 0xff,
+    timestamp & 0xff,
+  ])
+  const packedMeta = BigInt(packBeBytesIntoFields(meta, 31)[0])
+
+  const certRootBn = await poseidon2HashAsync([packedMeta, stateRootBn])
+  return {
+    certificateRoot: `0x${certRootBn.toString(16).padStart(64, "0")}`,
+    stateRoot: `0x${stateRootBn.toString(16).padStart(64, "0")}`,
+  }
+}
+
+/**
+ * Calculate the canonical certificate root from a packaged certificates file.
+ *
+ * Version 0 (legacy): the certificate root is simply the certificate merkle tree root.
+ * Revocations and masterlists are not part of the v0 schema. Returned as-is for backward
+ * compatibility with previously published v0 root files.
+ *
+ * Version 1: the composite root (state_root) binds the certificate, revocation, and masterlist
+ * merkle trees together with the schema version and timestamp. See `calculateCertificateRootV1`.
+ *   certificate_root = H(packed(schema_version | timestamp), state_root)
+ *   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
+ * `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
+ * concatenated and packed into a single 31-byte field. H is Poseidon2.
+ *
+ * If `version` is not set on the input it defaults to 0.
+ *
+ * @param packagedCerts Packaged certificates file
+ * @returns Certificate root used in the Certificate Registry, as a 0x-prefixed 32-byte hex string
+ */
+export async function calculatePackagedCertificatesRoot(
+  packagedCerts: PackagedCertificatesFile,
+): Promise<string> {
+  // Default to v0 if `version` is not set on the input.
+  const schemaVersion = packagedCerts.version ?? 0
+  const certTree = await buildMerkleTreeFromCerts(packagedCerts.certificates, schemaVersion)
+
+  // Version 0: certificate root is just the certificate Merkle tree root (legacy behaviour).
+  // Revocations and masterlists are not part of the v0 schema.
+  if (schemaVersion === 0) {
+    return certTree.root
+  }
+  // Version 1: the composite root (state_root) binds the certificate, revocation, and masterlist
+  // merkle trees together with the schema version and timestamp. See `calculateCertificateRootV1`.
+  //   certificate_root = H(packed(schema_version | timestamp), state_root)
+  //   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
+  // `schema_version` is encoded as 2 big-endian bytes and `timestamp` as 4 big-endian bytes,
+  // concatenated and packed into a single 31-byte field. H is Poseidon2.
+  else if (schemaVersion === 1) {
+    const v1 = packagedCerts as PackagedCertificatesFileV1
+    const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
+    const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
+    const { certificateRoot } = await calculateCertificateRootV1({
+      schemaVersion,
+      timestamp: v1.timestamp,
+      certificateRoot: certTree.root,
+      revocationRoot: revTree.root,
+      masterlistRoot: mlTree.root,
+    })
+    return certificateRoot
+  } else {
+    throw new Error(`Unsupported Packaged Certificates schema version: ${schemaVersion}`)
+  }
+}
+
+/**
+ * Calculate the canonical v1 state root from a packaged certificates file.
+ *
+ *   state_root = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
+ *
+ * Unlike {@link calculatePackagedCertificatesRoot}, this is independent of the file's
+ * `timestamp` and `schema_version`, so it stays stable across re-publishes that contain
+ * the same set of certificates, revocations, and masterlists.
+ *
+ * Only supported for schema version 1 (v0 has no concept of a state root).
+ *
+ * @param packagedCerts Packaged certificates file (must be v1)
+ * @returns State root as a 0x-prefixed 32-byte hex string
+ */
+export async function calculatePackagedCertificatesStateRoot(
+  packagedCerts: PackagedCertificatesFile,
+): Promise<string> {
+  const schemaVersion = packagedCerts.version ?? 0
+  if (schemaVersion !== 1) {
+    throw new Error(
+      `calculatePackagedCertificatesStateRoot only supports schema version 1, got ${schemaVersion}`,
+    )
+  }
+  const v1 = packagedCerts as PackagedCertificatesFileV1
+  const certTree = await buildMerkleTreeFromCerts(v1.certificates, schemaVersion)
+  const revTree = await buildMerkleTreeFromRevocations(v1.revocations ?? [])
+  const mlTree = await buildMerkleTreeFromMasterlists(v1.masterlists ?? [])
+
+  const certBn = parseMerkleRoot("certificateRoot", certTree.root)
+  const revBn = parseMerkleRoot("revocationRoot", revTree.root)
+  const mlBn = parseMerkleRoot("masterlistRoot", mlTree.root)
+
+  const stateRootBn = await poseidon2HashAsync([certBn, revBn, mlBn])
+  return `0x${stateRootBn.toString(16).padStart(64, "0")}`
+}
+
+/**
+ * Input for {@link createPackagedCertificatesFile}.
+ */
+export type CreatePackagedCertificatesFileInput = {
+  // Timestamp when the package was created and the certificates were validated (Unix seconds)
+  timestamp: number
+  // Certificates to include in the certificate Merkle tree
+  certificates: PackagedCertificate[]
+  // Masterlist file hashes (Poseidon2 hashes of the upstream masterlist files)
+  masterlists: string[]
+  // Intermediate (DSC) certificate revocations. Defaults to `[]` when omitted.
+  revocations?: IntermediateCertificateRevocation[]
+  // Previous root hash, if any (used for chaining published roots)
+  previous_root?: string
+  // Environment label (omit for production)
+  environment?: string
+}
+
+/**
+ * Factory that produces a {@link PackagedCertificatesFileV1} from the inputs
+ * required to build it.
+ *
+ * @param input Inputs required to build the file. See {@link CreatePackagedCertificatesFileInput}.
+ * @returns A packaged certificates file.
+ */
+export async function createPackagedCertificatesFile(
+  input: CreatePackagedCertificatesFileInput,
+): Promise<PackagedCertificatesFileV1> {
+  assert(Array.isArray(input.certificates), "certificates must be an array")
+  assert(Array.isArray(input.masterlists), "masterlists must be an array")
+  assert(
+    input.revocations === undefined || Array.isArray(input.revocations),
+    "revocations must be an array when provided",
+  )
+  assert(
+    input.timestamp >= 0 && input.timestamp <= 0xffffffff,
+    `Timestamp must fit in 4 bytes: ${input.timestamp}`,
+  )
+  const schemaVersion = 1
+  const revocations = input.revocations ?? []
+
+  const certTree = await buildMerkleTreeFromCerts(input.certificates, schemaVersion)
+  const revTree = await buildMerkleTreeFromRevocations(revocations)
+  const mlTree = await buildMerkleTreeFromMasterlists(input.masterlists)
+
+  const { certificateRoot: root } = await calculateCertificateRootV1({
+    schemaVersion,
+    timestamp: input.timestamp,
+    certificateRoot: certTree.root,
+    revocationRoot: revTree.root,
+    masterlistRoot: mlTree.root,
+  })
+
+  const file: PackagedCertificatesFileV1 = {
+    version: 1,
+    timestamp: input.timestamp,
+    ...(input.environment !== undefined && { environment: input.environment }),
+    root,
+    ...(input.previous_root !== undefined && { previous_root: input.previous_root }),
+    certificates: input.certificates,
+    certificates_serialised: certTree.serialize(),
+    ...(input.revocations !== undefined && { revocations }),
+    ...(input.revocations !== undefined && { revocations_serialised: revTree.serialize() }),
+    masterlists: input.masterlists,
+  }
+  return file
 }
 
 /**
@@ -319,7 +803,7 @@ export async function calculateCircuitRoot(
   leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
   // Build the merkle tree and return the root
   const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
-  await tree.initialize(0n, leaves)
+  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
   return tree.root
 }
 
