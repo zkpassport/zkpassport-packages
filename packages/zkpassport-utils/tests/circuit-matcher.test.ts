@@ -47,6 +47,7 @@ import {
   SanctionsBuilder,
   SECONDS_BETWEEN_1900_AND_1970,
   HASH_ALGORITHM_SHA256,
+  OPRF_ZERO_PROOF,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -438,6 +439,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -482,6 +484,7 @@ describe("Circuit Matcher - RSA", () => {
       min_age_required: 18,
       max_age_required: 0,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -519,6 +522,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -559,6 +563,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -596,6 +601,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -635,6 +641,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -674,6 +681,7 @@ describe("Circuit Matcher - RSA", () => {
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -713,6 +721,7 @@ describe("Circuit Matcher - RSA", () => {
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 })
@@ -918,6 +927,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -964,6 +974,7 @@ describe("Circuit Matcher - ECDSA", () => {
       min_age_required: 18,
       max_age_required: 0,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1004,6 +1015,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1047,6 +1059,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1087,6 +1100,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1129,6 +1143,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1171,6 +1186,7 @@ describe("Circuit Matcher - ECDSA", () => {
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1213,6 +1229,7 @@ describe("Circuit Matcher - ECDSA", () => {
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1228,6 +1245,7 @@ describe("Circuit Matcher - ECDSA", () => {
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
+      undefined, // oprfProof
       sanctions,
     )
     expect(result).toEqual({
@@ -1256,6 +1274,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   }, 30000)
 })
