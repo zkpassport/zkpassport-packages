@@ -412,14 +412,14 @@ export class ZKPassport {
         const hasStrictFacematch = !!query.facematch && query.facematch?.mode === "strict"
 
         // If nullifier type wasn't explicitly set, default to SALTED only for strict facematch
-        if (localConfig.uniqueIdentifierType === undefined) {
-          if (hasStrictFacematch) {
-            localConfig.uniqueIdentifierType = NullifierType.SALTED
-            if (!localConfig.oprfKeyId) {
-              localConfig.oprfKeyId = OPRF_DEFAULT_KEY_ID
-            }
-          }
-        }
+        // if (localConfig.uniqueIdentifierType === undefined) {
+        //   if (hasStrictFacematch) {
+        //     localConfig.uniqueIdentifierType = NullifierType.SALTED
+        //     if (!localConfig.oprfKeyId) {
+        //       localConfig.oprfKeyId = OPRF_DEFAULT_KEY_ID
+        //     }
+        //   }
+        // }
 
         // Validate: SALTED requires strict facematch
         if (localConfig.uniqueIdentifierType === NullifierType.SALTED && !hasStrictFacematch) {
