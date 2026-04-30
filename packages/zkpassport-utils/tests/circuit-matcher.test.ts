@@ -19,20 +19,14 @@ import {
   isIDSupported,
 } from "../src/circuit-matcher"
 import { getCountryWeightedSum } from "../src/circuits/country"
-import {
-  HashAlgorithm,
-  PackagedCertificate,
-  PackagedCertificatesFile,
-  Query,
-  SaltedValue,
-} from "../src/types"
+import { PackagedCertificate, PackagedCertificatesFile, Query, SaltedValue } from "../src/types"
 import {
   getNowTimestamp,
   getUnixTimestamp,
   rightPadArrayWithZeros,
   rightPadCountryCodeArray,
 } from "../src/utils"
-import rootCerts from "./fixtures/root-certs.json"
+import rootCerts from "./fixtures/root-certs-v1.json"
 import { PASSPORTS } from "./fixtures/passports"
 import * as fs from "fs"
 import * as path from "path"
@@ -221,27 +215,29 @@ describe("Circuit Matcher - RSA", () => {
     )
   })
 
-  it("should get the correct DSC circuit inputs (version 0)", async () => {
+  it("should get the correct DSC circuit inputs (v1)", async () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.john,
-      1n,
+      SALT,
       rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
-        "0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686",
-      certificate_registry_index: 27,
-      certificate_registry_hash_path: [
-        "0x038860266a94ae2e8e75440aeb9fc84c76f955ccd2f8c36fb2ed877b987b5264",
-        "0x068bbd63fce0a679241e6043fbb81175af121a815ac5b3a60d509bc59359fdc8",
-        "0x2bc71ccf3c260ac168b6570b48557bc1a525b112d363c301a9f4f077438be7c8",
-        "0x27224886a5904396ae237f3c0e72ef355b852fdf99f651ac6dc0d1291cdea397",
-        "0x22018039fc6e653e9bb060764b5bf8aafc15649eed23da280877f2e7ce0f6135",
-        "0x280dc086c7c4b7a0afb3d548d50c5146ade59af1427fbfea637c73545fdee3b4",
-        "0x16a5bcee967bab146942c7fa1162f57d68dee31c0c4fb2bf95072420c6ee3cec",
-        "0x154589905ec323398c4807a142b7e1cb3da7ceebd5a2d3f66b664a45195cccc4",
-        "0x293253daf30e54c4d3217ff258fa39e2d402839c3a62fdaac641b70012a8dba1",
-        "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
+        "0x2e31e60b172bbbef37071cfdf0868a719ef5915889ac8aa569079a7024646beb",
+      schema_version: 1,
+      timestamp: 1777479919,
+      certificate_tree_index: 58,
+      certificate_tree_hash_path: [
+        "0x06f2199ef234deaa4520c258449bf237ab806af48a712dee92de2650790d3900",
+        "0x1bad03d629ab2dfba81c876504a1f3d7dfcc4b1e2b63290fb6884e079044d14a",
+        "0x11112d24b8b00d5cb4c7b9500fab7fbfe15957d89dde26b597bb057bd28d76ff",
+        "0x10c35f3a3d7e271c2a9c0c749ab7a76c0a4b5c1530735dd5d998ff98601b908d",
+        "0x0b78cbdc0d1fa4562fe02bb3dd87646653ed7be964aca72438c7277bbf63c925",
+        "0x142b9df6debe700863e5918a1668d89b2e6628d283500b54795a2ac94ac93c20",
+        "0x10e832d41b85edd8011807afd0b7c191779706b4ae7f9415af6c88f0058d9cc8",
+        "0x1a69a25d7b30b15536ddab5e97e9e9949ce2fd76160a086ebdfdf655dae00e30",
+        "0x0952b729198e5022c82d955334d10d78529231113f43717952de782da604f1eb",
+        "0x0eea4b8543612a163faf06cfb528f58d8f814b166083333adac8912a26e805e5",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",
         "0x0d07f6e7a8a0e9199d6d92801fff867002ff5b4808962f9da2ba5ce1bdd26a73",
@@ -249,9 +245,13 @@ describe("Circuit Matcher - RSA", () => {
         "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
         "0x2b9cdd484c5ba1e4d6efcc3f18734b5ac4c4a0b9102e2aeb48521a661d3feee9",
       ],
-      certificate_tags: ["0x0", "0x0", "0x0"],
+      certificate_tags: ["0x0", "0x0", "0x80000000000000000000000000000"],
       certificate_type: "0x1",
       country: "ZKR",
+      csc_expiry: 2061209141,
+      csc_fingerprint: "0x0dd2bf5d3816bb67f72edea08f534c00eb2ce039578a4e012d6892e28187db62",
+      revocation_tree_root: "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
+      masterlist_tree_root: "0x23018223bd4413ac3342f1affbd3efe17b73d247ddc24de02915437b13e02f01",
       salt: EXPECTED_SALT,
       tbs_certificate: rightPadArrayWithZeros(
         PASSPORTS.john.sod.certificate.tbs.bytes.toNumberArray(),
@@ -743,27 +743,29 @@ describe("Circuit Matcher - ECDSA", () => {
     )
   })
 
-  it("should get the correct DSC circuit inputs (version 0)", async () => {
+  it("should get the correct DSC circuit inputs (v1)", async () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.mary,
-      1n,
+      SALT,
       rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
-        "0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686",
-      certificate_registry_index: 262,
-      certificate_registry_hash_path: [
-        "0x290e5b8d9077a166021683044903547e099d380e1154b1dad47bed0afb81b3ab",
-        "0x0d8a623b25ac76db51b642c936370503d962fa7c12662610ab8a003f65a988a7",
-        "0x0f8dac8f390b0c0ec79e1bebc94bed62e48f2f0e53b4784e8c9d7780e9a7e983",
-        "0x10ca1baaecad377d89f157b4534d71a420a3af09af7d029312a1ff3e7f7fc359",
-        "0x303bf1f60e83fe4759f3c18f8e3e62c9a58bd58dcfffac39e39373e53e7eb661",
-        "0x082870b2cf8641796d129e068db3da5e6b9ba679b8f13a4a53b5d788f8468ecc",
-        "0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76",
-        "0x2d78ed82f93b61ba718b17c2dfe5b52375b4d37cbbed6f1fc98b47614b0cf21b",
-        "0x24e1fdbff4c4928ea658a446dd5c069bc97354be11b8de098de61adb6bc8405f",
-        "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
+        "0x2e31e60b172bbbef37071cfdf0868a719ef5915889ac8aa569079a7024646beb",
+      schema_version: 1,
+      timestamp: 1777479919,
+      certificate_tree_index: 449,
+      certificate_tree_hash_path: [
+        "0x27ae678cdb6b674c1546b059d49e3f8bba9352a5dad2d4bc03bc74cc5d341fa5",
+        "0x11608995fd95f128bbbfff2c8f7b63fdf415ef9a697a67bdd65a7eed2a6470f7",
+        "0x0b4e02f9cd11836ea25d95ef6a19ffe0a09b54f90c5f18f97e04acc0d95e7d42",
+        "0x250ec5b49b5e4c84a828701bb9a7802eede1c7c8bc89353e3e690bc649195751",
+        "0x097a5ff36adbfebcc9ede200fce54fd06f3797a287ed88cb1931a13b6fb08374",
+        "0x1dd262044d4c3f9d228cc5a5af4af10844bd6611af3b1f9f1d1c608aa2785067",
+        "0x1b6e36ec3d3c85fa98efde0703363ec2f18ceb692676d20ab92530c2626dfffc",
+        "0x2b2ef19c1a13651b00de3a5ea0cad2278c3b5cffe68a100110c4b907b61e88db",
+        "0x2994751fabd15f4159d5009a2c95aa4a1525e14b6f1456ccaa5e5e858c7b2ba6",
+        "0x0eea4b8543612a163faf06cfb528f58d8f814b166083333adac8912a26e805e5",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",
         "0x0d07f6e7a8a0e9199d6d92801fff867002ff5b4808962f9da2ba5ce1bdd26a73",
@@ -771,9 +773,13 @@ describe("Circuit Matcher - ECDSA", () => {
         "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
         "0x2b9cdd484c5ba1e4d6efcc3f18734b5ac4c4a0b9102e2aeb48521a661d3feee9",
       ],
-      certificate_tags: ["0x0", "0x0", "0x0"],
+      certificate_tags: ["0x0", "0x0", "0x80000000000000000000000000000"],
       certificate_type: "0x1",
       country: "ZKR",
+      csc_expiry: 2061209142,
+      csc_fingerprint: "0x0a5ff627895f7b54499fb864b0250acfd5f209cb2934af4d964e862a67d01010",
+      revocation_tree_root: "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
+      masterlist_tree_root: "0x23018223bd4413ac3342f1affbd3efe17b73d247ddc24de02915437b13e02f01",
       salt: EXPECTED_SALT,
       csc_pubkey_x: [
         100, 67, 3, 43, 184, 208, 212, 7, 28, 252, 194, 241, 65, 191, 163, 215, 48, 51, 138, 76,

@@ -176,7 +176,7 @@ describe("Registry", () => {
 
   test("should generate correct canonical certificate root (version 1)", async () => {
     const root = await calculatePackagedCertificatesRoot(rootCertsV1 as PackagedCertificatesFile)
-    expect(root).toEqual("0x23e802a448e80b578b81ed587e325cd0dcfb0dac0e6cc6dd6464012fdcdcfd2d")
+    expect(root).toEqual("0x2e31e60b172bbbef37071cfdf0868a719ef5915889ac8aa569079a7024646beb")
   })
 
   test("should produce a different root when the timestamp changes", async () => {
@@ -187,7 +187,7 @@ describe("Registry", () => {
       timestamp: (base.timestamp ?? 0) + 1,
     })
     expect(bumped).not.toEqual(original)
-    expect(bumped).toEqual("0x249e47097c0687530399eb710b72fe55575c2bda4999fcaa4f7bb2ebb2b3e0e3")
+    expect(bumped).toEqual("0x045a73b45907a6ab508256f4181b8afd9a63454a363774f80f3f08fa0361a306")
   })
 
   test("should generate correct canonical empty revocation merkle root", async () => {
@@ -238,7 +238,7 @@ describe("Registry", () => {
 
     expect(file.version).toEqual(1)
     expect(file.timestamp).toEqual(fixture.timestamp)
-    expect(file.root).toEqual("0x23e802a448e80b578b81ed587e325cd0dcfb0dac0e6cc6dd6464012fdcdcfd2d")
+    expect(file.root).toEqual("0x2e31e60b172bbbef37071cfdf0868a719ef5915889ac8aa569079a7024646beb")
     expect(file.root).toEqual(fixture.root)
     expect(file.certificates).toBe(fixture.certificates)
     expect(file.masterlists).toEqual(fixture.masterlists)
@@ -370,7 +370,7 @@ describe("Registry", () => {
   test("buildMerkleTreeFromCerts should produce the canonical v1 root and serialised tree", async () => {
     const fixture = rootCertsV1 as PackagedCertificatesFileV1
     const tree = await buildMerkleTreeFromCerts(fixture.certificates, 1)
-    expect(tree.root).toEqual("0x2b49d7ddaec2fa540efec3311af6223cfd19d3a9e9314e10039f9fae0747f062")
+    expect(tree.root).toEqual("0x262fde787e0055a157c6d229620775d479c0e1d1b2410af62d41c01948f05795")
     expect(tree.serialize()).toEqual(fixture.certificates_serialised)
   })
 

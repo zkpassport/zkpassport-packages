@@ -34,6 +34,8 @@ import {
   getSodSignatureAlgorithmType,
 } from "./passport/passport-reader"
 import {
+  buildMerkleTreeFromMasterlists,
+  buildMerkleTreeFromRevocations,
   CERT_TYPE_CSCA,
   CERTIFICATE_MERKLE_TREE_HEIGHT,
   getCertificateLeafHash,
@@ -506,26 +508,41 @@ export async function getDSCCircuitInputs(
     path: (string | HexString)[]
   },
 ) {
+  if (packagedCerts.version !== 1) {
+    throw new Error(
+      `getDSCCircuitInputs requires v1 packaged certificates (got version ${packagedCerts.version ?? 0})`,
+    )
+  }
+  const schemaVersion = packagedCerts.version
   // Get the CSCA for this passport's DSC using the async version with signature verification fallback
   const csca = await getCscaForPassportAsync(passport.sod.certificate, packagedCerts.certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
-  // Generate the certificate registry merkle proof
-  const cscaLeaf = await getCertificateLeafHash(csca)
+  // Generate the certificate tree merkle proof
+  const cscaLeaf = await getCertificateLeafHash(csca, { version: schemaVersion })
   const leaves =
     overrideCertLeaves ??
-    (await getCertificateLeafHashes(packagedCerts.certificates, packagedCerts?.version || 0))
+    (await getCertificateLeafHashes(packagedCerts.certificates, schemaVersion))
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
   const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =
     overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT))
 
+  const revocationTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
+  const masterlistTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
+
   const inputs = {
-    certificate_registry_root: merkleProof.root,
-    certificate_registry_index: merkleProof.index,
-    certificate_registry_hash_path: merkleProof.path,
+    certificate_registry_root: packagedCerts.root,
+    schema_version: schemaVersion,
+    timestamp: packagedCerts.timestamp,
+    certificate_tree_index: merkleProof.index,
+    certificate_tree_hash_path: merkleProof.path,
     certificate_tags: tags.map((tag) => `0x${tag.toString(16)}`),
     certificate_type: `0x${CERT_TYPE_CSCA.toString(16)}`,
     country: csca.country,
+    csc_expiry: csca.validity.not_after,
+    csc_fingerprint: csca.fingerprint!,
+    revocation_tree_root: revocationTree.root,
+    masterlist_tree_root: masterlistTree.root,
     salt: `0x${salt.toString(16)}`,
   }
 
