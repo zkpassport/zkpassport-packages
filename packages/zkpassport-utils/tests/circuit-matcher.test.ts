@@ -84,7 +84,6 @@ describe("Circuit Matcher - General", () => {
     let totalUnsupported = 0
     for (const certificate of certificates) {
       const result = isCscaSupported(certificate as PackagedCertificate)
-      const isUnsupportedHashAlgorithm = (certificate.hash_algorithm as HashAlgorithm) === "SHA-224"
       const isUnsupportedExponent =
         certificate.public_key.type === "RSA" &&
         certificate.public_key.exponent &&
@@ -95,8 +94,7 @@ describe("Circuit Matcher - General", () => {
         certificate.public_key.key_size !== 2048 &&
         certificate.public_key.key_size !== 3072 &&
         certificate.public_key.key_size !== 4096
-      const isUnsupported =
-        isUnsupportedHashAlgorithm || isUnsupportedExponent || isUnsupportedKeySize
+      const isUnsupported = isUnsupportedExponent || isUnsupportedKeySize
       if (isUnsupported) {
         totalUnsupported++
       }
