@@ -1873,7 +1873,11 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
-  public static async checkCircuitRegistryRoot(root: string, queryResultErrors: any, devMode?: boolean) {
+  public static async checkCircuitRegistryRoot(
+    root: string,
+    queryResultErrors: any,
+    devMode?: boolean,
+  ) {
     let isCorrect = true
     try {
       const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
@@ -2215,7 +2219,11 @@ export class PublicInputChecker {
         const {
           isCorrect: isCorrectCircuitRegistryRoot,
           queryResultErrors: queryResultErrorsCircuitRegistryRoot,
-        } = await this.checkCircuitRegistryRoot(circuitRegistryRoot.toString(16), queryResultErrors, devMode)
+        } = await this.checkCircuitRegistryRoot(
+          circuitRegistryRoot.toString(16),
+          queryResultErrors,
+          devMode,
+        )
         isCorrect = isCorrect && isCorrectCircuitRegistryRoot
         queryResultErrors = {
           ...queryResultErrors,
