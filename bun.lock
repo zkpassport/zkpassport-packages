@@ -67,7 +67,7 @@
     },
     "packages/registry-sdk": {
       "name": "@zkpassport/registry",
-      "version": "0.14.0-beta.3",
+      "version": "0.14.0-beta.4",
       "dependencies": {
         "@zkpassport/poseidon2": "^0.6.2",
         "@zkpassport/utils": "workspace:*",
@@ -84,7 +84,7 @@
     },
     "packages/zkpassport-sdk": {
       "name": "@zkpassport/sdk",
-      "version": "0.14.0-beta.2",
+      "version": "0.14.0-beta.3",
       "dependencies": {
         "@aztec/bb.js": "4.2.0-aztecnr-rc.2",
         "@noble/ciphers": "^1.2.1",

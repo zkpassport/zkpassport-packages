@@ -649,6 +649,7 @@ export class ZKPassport {
       validity,
       scope,
       oprfKeyId,
+      devMode,
     )
     uniqueIdentifier = uniqueIdentifierFromPublicInputs
     uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
@@ -671,7 +672,7 @@ export class ZKPassport {
     }
     // Only proceed with the proof verification if the public inputs are correct
     if (verified) {
-      const registryClient = new RegistryClient({ chainId: 11155111 })
+      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
       const circuitManifest = await registryClient.getCircuitManifest(undefined, {
         // We assume all proofs have the same version
         version: proofs[0].version,

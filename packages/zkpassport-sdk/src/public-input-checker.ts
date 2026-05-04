@@ -1839,12 +1839,11 @@ export class PublicInputChecker {
     root: string,
     queryResultErrors: any,
     outer?: boolean,
+    devMode?: boolean,
   ) {
     let isCorrect = true
     try {
-      // Maintained certificate registry settled onchain
-      // Here we use Ethereum Sepolia
-      const registryClient = new RegistryClient({ chainId: 11155111 })
+      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
       const isValid = await registryClient.isCertificateRootValid(root)
       if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
@@ -1874,10 +1873,14 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
-  public static async checkCircuitRegistryRoot(root: string, queryResultErrors: any) {
+  public static async checkCircuitRegistryRoot(
+    root: string,
+    queryResultErrors: any,
+    devMode?: boolean,
+  ) {
     let isCorrect = true
     try {
-      const registryClient = new RegistryClient({ chainId: 11155111 })
+      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
       const isValid = await registryClient.isCircuitRootValid(root)
       if (!isValid) {
         console.warn("The proof uses unrecognized circuits")
@@ -2147,6 +2150,7 @@ export class PublicInputChecker {
     validity?: number,
     scope?: string,
     oprfKeyId?: string,
+    devMode?: boolean,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -2203,6 +2207,7 @@ export class PublicInputChecker {
           certificateRegistryRoot.toString(16),
           queryResultErrors,
           true,
+          devMode,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
@@ -2214,7 +2219,11 @@ export class PublicInputChecker {
         const {
           isCorrect: isCorrectCircuitRegistryRoot,
           queryResultErrors: queryResultErrorsCircuitRegistryRoot,
-        } = await this.checkCircuitRegistryRoot(circuitRegistryRoot.toString(16), queryResultErrors)
+        } = await this.checkCircuitRegistryRoot(
+          circuitRegistryRoot.toString(16),
+          queryResultErrors,
+          devMode,
+        )
         isCorrect = isCorrect && isCorrectCircuitRegistryRoot
         queryResultErrors = {
           ...queryResultErrors,
@@ -2691,6 +2700,7 @@ export class PublicInputChecker {
           merkleRoot.toString(16),
           queryResultErrors,
           false,
+          devMode,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
