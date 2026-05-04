@@ -42,7 +42,7 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
  * Circuit URLs
  */
 export const CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
-export const CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/sepolia"
+export const CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/testnet"
 export const CIRCUIT_URL_DEV = "http://localhost:8000"
 
 /**
