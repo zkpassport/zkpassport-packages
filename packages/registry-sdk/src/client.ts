@@ -202,7 +202,7 @@ export class RegistryClient {
     const response = await withRetry(() => fetch(url), this.retryCount)
     if (!response.ok) {
       throw new Error(
-        `Failed to get certificates for root ${root}: ${response.status} ${response.statusText}`,
+        `Failed to get certificates for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
       )
     }
     const data = (await response.json()) as PackagedCertificatesFile
@@ -447,7 +447,7 @@ export class RegistryClient {
     const response = await withRetry(() => fetch(url), this.retryCount)
     if (!response.ok) {
       throw new Error(
-        `Failed to get circuit manifest for root ${root}: ${response.status} ${response.statusText}`,
+        `Failed to get circuit manifest for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
       )
     }
     const data = (await response.json()) as CircuitManifest
