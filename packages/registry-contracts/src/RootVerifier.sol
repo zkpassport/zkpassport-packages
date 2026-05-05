@@ -39,9 +39,6 @@ contract RootVerifier {
     // Config mapping
     mapping(bytes32 key => bytes32 value) public config;
 
-    // Hash of the OPRF public key for the global default OPRF key.
-    bytes32 public defaultOPRFPubKeyHash;
-
     // Events
     event RootVerifierDeployed(address admin, address guardian, address rootRegistry);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
@@ -55,23 +52,19 @@ contract RootVerifier {
     event HelperUpdated(bytes32 indexed version, address indexed oldHelper, address indexed newHelper);
     event PausedStatusChanged(bool paused);
     event ConfigUpdated(bytes32 indexed key, bytes32 oldValue, bytes32 newValue);
-    event DefaultOPRFPubKeyHashUpdated(bytes32 oldHash, bytes32 newHash);
 
     /**
      * @notice Constructor
      * @param _admin The admin address
      * @param _guardian The guardian address
      * @param _rootRegistry The root registry address
-     * @param _defaultOPRFPubKeyHash Hash of the global default OPRF public key
      */
-    constructor(address _admin, address _guardian, RootRegistry _rootRegistry, bytes32 _defaultOPRFPubKeyHash) {
+    constructor(address _admin, address _guardian, RootRegistry _rootRegistry) {
         require(_admin != address(0), "Admin cannot be zero address");
         admin = _admin;
         guardian = _guardian;
         rootRegistry = _rootRegistry;
-        defaultOPRFPubKeyHash = _defaultOPRFPubKeyHash;
         emit RootVerifierDeployed(admin, guardian, address(_rootRegistry));
-        emit DefaultOPRFPubKeyHashUpdated(bytes32(0), _defaultOPRFPubKeyHash);
     }
 
     /**
@@ -241,16 +234,6 @@ contract RootVerifier {
         bytes32 oldValue = config[key];
         config[key] = value;
         emit ConfigUpdated(key, oldValue, value);
-    }
-
-    /**
-     * @notice Update the default OPRF public key hash
-     * @param newHash The new default OPRF public key hash
-     */
-    function setDefaultOPRFPubKeyHash(bytes32 newHash) external onlyAdmin {
-        bytes32 oldHash = defaultOPRFPubKeyHash;
-        defaultOPRFPubKeyHash = newHash;
-        emit DefaultOPRFPubKeyHashUpdated(oldHash, newHash);
     }
 
     /**

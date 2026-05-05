@@ -18,7 +18,7 @@ contract ProtocolControllerTest is Test {
 
     function setUp() public {
         rootRegistry = new RootRegistry(address(this), address(0));
-        rootVerifier = new RootVerifier(address(this), address(0), RootRegistry(address(0)), bytes32(0));
+        rootVerifier = new RootVerifier(address(this), address(0), RootRegistry(address(0)));
         controller = new ProtocolController({
             _admin: admin,
             _rootRegistry: address(rootRegistry),
@@ -406,7 +406,7 @@ contract ProtocolControllerTest is Test {
     function testRootVerifierAdminTransferToControllerAndBack() public {
         address multisig = makeAddr("multisig");
 
-        RootVerifier freshVerifier = new RootVerifier(multisig, address(0), RootRegistry(address(0)), bytes32(0));
+        RootVerifier freshVerifier = new RootVerifier(multisig, address(0), RootRegistry(address(0)));
         assertEq(freshVerifier.admin(), multisig);
 
         ProtocolController ctrl = new ProtocolController({
