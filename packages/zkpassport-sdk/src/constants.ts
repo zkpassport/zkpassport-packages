@@ -2,6 +2,9 @@ export const VERSION = "0.12.0"
 export const DEFAULT_VALIDITY = 7 * 24 * 60 * 60 // 7 days
 export const DEFAULT_DATE_VALUE = new Date(0)
 
+// 32-byte zero value, formatted as a 0x-prefixed hex string.
+export const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
 // This is the app id hash for the ZKPassport app
 // i.e. hash of `YL5MS3Z639.app.zkpassport.zkpassport`
 export const ZKPASSPORT_IOS_APP_ID_HASH =

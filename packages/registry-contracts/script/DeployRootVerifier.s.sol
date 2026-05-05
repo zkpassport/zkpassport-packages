@@ -57,11 +57,14 @@ contract DeployRootVerifierScript is DeployBase {
         RootRegistry rootRegistry = RootRegistry(vm.envAddress("ROOT_REGISTRY_ADDRESS"));
         require(address(rootRegistry) != address(0), "ROOT_REGISTRY_ADDRESS must be set");
 
+        bytes32 defaultOPRFPubKeyHash = vm.envOr("DEFAULT_OPRF_PUB_KEY_HASH", bytes32(0));
+
         vm.startBroadcast();
 
         // Deploy the root verifier
         console.log("Deploying RootVerifier...");
-        RootVerifier rootVerifier = new RootVerifier(adminAddress, guardianAddress, rootRegistry);
+        RootVerifier rootVerifier =
+            new RootVerifier(adminAddress, guardianAddress, rootRegistry, defaultOPRFPubKeyHash);
         console.log("RootVerifier deployed at:", address(rootVerifier));
 
         // Deploy the sub verifier

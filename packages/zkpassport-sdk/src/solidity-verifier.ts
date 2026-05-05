@@ -11,7 +11,6 @@ import {
   formatBoundData,
   getCommittedInputCount,
   getNumberOfPublicInputs,
-  getOprfPkHashFromOuterProof,
   getParamCommitmentsFromOuterProof,
   getProofData,
   numberToBytesBE,
@@ -22,7 +21,7 @@ import {
   SanctionsCommittedInputs,
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
-import { DEFAULT_VALIDITY } from "./constants"
+import { DEFAULT_VALIDITY, ZERO_BYTES32 } from "./constants"
 import { sha256 } from "@noble/hashes/sha2.js"
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
@@ -73,12 +72,14 @@ export class SolidityVerifier {
     domain,
     scope,
     devMode = false,
+    oprfPubKeyHash,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain: string
     scope?: string
     devMode?: boolean
+    oprfPubKeyHash?: string
   }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
@@ -246,7 +247,6 @@ export class SolidityVerifier {
       ...numberToBytesBE(versionParts[2], 2),
     ])
     const versionBytes32 = `0x${bytesToHex(versionBytes).padEnd(64, "0")}`
-    const oprfPkHash = getOprfPkHashFromOuterProof(proofData)
     const params: SolidityVerifierParameters = {
       version: versionBytes32,
       proofVerificationData: {
@@ -261,8 +261,8 @@ export class SolidityVerifier {
         domain,
         scope: scope ?? "",
         devMode,
+        oprfPubKeyHash: oprfPubKeyHash ?? ZERO_BYTES32,
       },
-      oprfPkHash: `0x${oprfPkHash.toString(16).padStart(64, "0")}`,
     }
     return params
   }

@@ -142,6 +142,30 @@ contract SubVerifier {
         require(index == paramCommitments.length, "Invalid parameter commitments");
     }
 
+    /**
+     * @notice For salted (OPRF-derived) nullifier proofs, asserts the proof's oprf_pk_hash
+     *         matches the expected OPRF public key hash. No-op for non-salted proofs.
+     * @dev The expected hash is the service's `serviceConfig.oprfPubKeyHash` if non-zero,
+     *      otherwise the protocol-wide `RootVerifier.defaultOPRFPubKeyHash()`.
+     * @param publicInputs The public inputs of the proof
+     * @param nullifierType The nullifier type extracted from the proof's public inputs
+     * @param serviceOPRFPubKeyHash The service's OPRF public key hash override (bytes32(0) means use protocol default)
+     */
+    function _verifyOPRFPubKeyHash(
+        bytes32[] calldata publicInputs,
+        NullifierType nullifierType,
+        bytes32 serviceOPRFPubKeyHash
+    ) internal view {
+        if (
+            nullifierType != NullifierType.SALTED_NULLIFIER && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER
+        ) {
+            return;
+        }
+        bytes32 expected =
+            serviceOPRFPubKeyHash != bytes32(0) ? serviceOPRFPubKeyHash : rootVerifier.defaultOPRFPubKeyHash();
+        require(publicInputs[publicInputs.length - 1] == expected, "Invalid OPRF public key");
+    }
+
     function _getProofVerifier(bytes32 vkeyHash) internal view returns (address) {
         address verifier = proofVerifiers[vkeyHash];
         require(verifier != address(0), "Verifier not found");
@@ -217,15 +241,16 @@ contract SubVerifier {
         );
 
         // Verifies the commitments against the committed inputs
+        // Trailing public inputs (in order): [length-3] nullifier_type, [length-2] scoped_nullifier, [length-1] oprf_pk_hash.
         _verifyCommittedInputs(
             // Extracts the commitments from the public inputs
             params.proofVerificationData
-            .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length - 2],
+            .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length - 3],
             params.committedInputs
         );
 
         NullifierType nullifierType = NullifierType(
-            uint256(params.proofVerificationData.publicInputs[params.proofVerificationData.publicInputs.length - 2])
+            uint256(params.proofVerificationData.publicInputs[params.proofVerificationData.publicInputs.length - 3])
         );
 
         // Allow mock proofs in dev mode
@@ -237,12 +262,14 @@ contract SubVerifier {
             "Mock proofs are only allowed in dev mode"
         );
 
-        // For now, only non-salted nullifiers are supported
-        // but salted nullifiers can be used in dev mode
-        // They will be later once a proper registration mechanism is implemented
         require(
-            nullifierType == NullifierType.NON_SALTED_NULLIFIER || params.serviceConfig.devMode,
-            "Salted nullifiers are not supported for now"
+            nullifierType == NullifierType.NON_SALTED_NULLIFIER || nullifierType == NullifierType.SALTED_NULLIFIER
+                || params.serviceConfig.devMode,
+            "Unsupported nullifier type"
+        );
+
+        _verifyOPRFPubKeyHash(
+            params.proofVerificationData.publicInputs, nullifierType, params.serviceConfig.oprfPubKeyHash
         );
 
         // Call the proof verifier for the given Outer Circuit to verify if the actual proof is valid
@@ -250,7 +277,8 @@ contract SubVerifier {
             .verify(params.proofVerificationData.proof, params.proofVerificationData.publicInputs);
 
         // Get the unique identifier from the public inputs
-        uint256 uniqueIdentifierIndex = params.proofVerificationData.publicInputs.length - 1;
+        // Layout: [length-3] nullifier_type, [length-2] scoped_nullifier, [length-1] oprf_pk_hash
+        uint256 uniqueIdentifierIndex = params.proofVerificationData.publicInputs.length - 2;
         uniqueIdentifier = params.proofVerificationData.publicInputs[uniqueIdentifierIndex];
 
         // Return the validity of the proof verification and the unique identifier
