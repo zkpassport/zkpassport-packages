@@ -42,18 +42,13 @@ contract SubVerifier {
      * @dev Constructor
      * @param _admin The admin address
      * @param _rootVerifier The address of the ZKPassport root verifier
-     * @param _defaultOPRFPubKeyHash The protocol-default OPRF public key hash this SubVerifier
-     *        version trusts. Pass bytes32(0) pre-DKG; admin can update later via
-     *        setDefaultOPRFPubKeyHash.
      */
-    constructor(address _admin, RootVerifier _rootVerifier, bytes32 _defaultOPRFPubKeyHash) {
+    constructor(address _admin, RootVerifier _rootVerifier) {
         require(_admin != address(0), "Admin cannot be zero address");
         admin = _admin;
         require(address(_rootVerifier) != address(0), "Root verifier cannot be zero address");
         rootVerifier = _rootVerifier;
-        defaultOPRFPubKeyHash = _defaultOPRFPubKeyHash;
         emit SubVerifierDeployed(admin, address(_rootVerifier));
-        emit DefaultOPRFPubKeyHashUpdated(bytes32(0), _defaultOPRFPubKeyHash);
     }
 
     modifier onlyAdmin() {
@@ -175,9 +170,7 @@ contract SubVerifier {
         NullifierType nullifierType,
         bytes32 serviceOPRFPubKeyHash
     ) internal view {
-        if (
-            nullifierType != NullifierType.SALTED_NULLIFIER && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER
-        ) {
+        if (nullifierType != NullifierType.SALTED_NULLIFIER && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER) {
             return;
         }
         bytes32 expected = serviceOPRFPubKeyHash != bytes32(0) ? serviceOPRFPubKeyHash : defaultOPRFPubKeyHash;
