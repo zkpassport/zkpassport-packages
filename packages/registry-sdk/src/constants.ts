@@ -29,7 +29,7 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
     return `https://ipfs.zkpassport.id/ipfs/${cid}`
   }
   root = normaliseHash(root)
-  if (chainId === 1) {
+  if (chainId === 1 || chainId === 8453) {
     return `${PACKAGED_CERTIFICATES_URL_MAINNET}/${root}.json`
   } else if (chainId === 11155111) {
     return `${PACKAGED_CERTIFICATES_URL_TESTNET}/${root}.json`
