@@ -58,6 +58,7 @@ export type SolidityServiceConfig = {
   domain: string
   scope: string
   devMode: boolean
+  oprfPubKeyHash: string
 }
 
 export type SolidityVerifierParameters = {
@@ -65,8 +66,6 @@ export type SolidityVerifierParameters = {
   proofVerificationData: SolidityProofVerificationData
   committedInputs: string
   serviceConfig: SolidityServiceConfig
-  /** Hash of the OPRF public key used in the proof. Check this against the OPRF key registry on-chain. Zero for non-salted nullifiers. */
-  oprfPkHash: string
 }
 
 export type QueryBuilderResult = {
