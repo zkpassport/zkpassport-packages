@@ -75,7 +75,8 @@ enum OS {
 // │       ├── [4] service_subscope           // Field - struct.serviceSubscope
 // │       ├── [5:5+N] param_commitments      // Field[N] - PublicInputsCast.getParamCommitment(array, index)
 // │       ├── [5+N] nullifier_type           // u8 - PublicInputsCast.getNullifierType(array, paramCount)
-// │       └── [6+N] scoped_nullifier         // Field - PublicInputsCast.getScopedNullifier(array, paramCount)
+// │       ├── [6+N] scoped_nullifier         // Field - PublicInputsCast.getScopedNullifier(array, paramCount)
+// │       └── [7+N] oprf_pk_hash             // Poseidon2(pk.x, pk.y) for SALTED, 0 for NON_SALTED
 // │
 // ├── bytes committedInputs              // Preimages of param_commitments
 // │
@@ -83,7 +84,8 @@ enum OS {
 //     ├── uint256 validityPeriodInSeconds    // How long the proof is valid
 //     ├── string domain                      // Service domain
 //     ├── string scope                       // Service scope
-//     └── bool devMode                       // Development mode flag
+//     ├── bool devMode                       // Development mode flag
+//     └── bytes32 oprfPubKeyHash             // Per-service OPRF pk hash override; 0 = use SubVerifier default
 struct ProofVerificationParams {
     bytes32 version;
     ProofVerificationData proofVerificationData;
