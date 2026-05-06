@@ -21,6 +21,7 @@ interface CertificateRootCardProps {
 
 export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRootCardProps) {
   const [copied, setCopied] = useState(false)
+  const [validityCopied, setValidityCopied] = useState(false)
   const { root, revoked, validFrom, validTo, cid, leaves, isLatest, index } = rootDetails
 
   function formatCid(cid: string): string {
@@ -40,6 +41,13 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const copyValidFromTimestamp = () => {
+    navigator.clipboard.writeText(Math.floor(validFrom.getTime() / 1000).toString()).then(() => {
+      setValidityCopied(true)
+      setTimeout(() => setValidityCopied(false), 2000)
     })
   }
 
@@ -99,10 +107,24 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
         <div className="space-y-3 text-sm">
           <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
             <div className="font-semibold text-gray-700 dark:text-gray-300">Validity Period:</div>
-            <div className="sm:col-span-2 text-gray-900 dark:text-gray-100">
-              {validFrom.toLocaleDateString()} to{" "}
-              {validTo !== undefined ? validTo.toLocaleDateString() : "Present"}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    onClick={copyValidFromTimestamp}
+                    className="sm:col-span-2 text-gray-900 dark:text-gray-100"
+                  >
+                    {validFrom.toLocaleDateString()} to{" "}
+                    {validTo !== undefined ? validTo.toLocaleDateString() : "Present"}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {validityCopied ? "Copied!" : Math.floor(validFrom.getTime() / 1000).toString()}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
             <div className="font-semibold text-gray-700 dark:text-gray-300">IPFS CID:</div>
