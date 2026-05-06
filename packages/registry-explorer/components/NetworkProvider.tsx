@@ -38,8 +38,18 @@ const SEPOLIA: NetworkOption = {
   label: "Testnet",
   shortLabel: "Testnet",
 }
-const TESTNET_B: NetworkOption = {
+const MAINNET_B: NetworkOption = {
   id: 3,
+  chainId: 1,
+  label: "Mainnet B",
+  shortLabel: "Mainnet B",
+  overrides: {
+    rootRegistry: "0xd083fA4Bd1fbBB5332278E026a28963Dd1097de1",
+    registryHelper: "0xcf23746a767532dB2A51358bfCA3CEBFB1cC82EA",
+  },
+}
+const TESTNET_B: NetworkOption = {
+  id: 4,
   chainId: 11155111,
   label: "Testnet B",
   shortLabel: "Testnet B",
@@ -52,7 +62,7 @@ const LOCAL: NetworkOption = { id: 31337, chainId: 31337, label: "Local", shortL
 
 const ENV_CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 0)
 
-const BASE_NETWORKS: NetworkOption[] = [MAINNET, SEPOLIA, TESTNET_B]
+const BASE_NETWORKS: NetworkOption[] = [MAINNET, SEPOLIA, MAINNET_B, TESTNET_B]
 
 function isLocalhostHostname(hostname: string): boolean {
   return (
