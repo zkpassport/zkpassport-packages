@@ -59,6 +59,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0x8C93bB3a7ED88dA0647Ea53f8cd3f57832a513Cd",
+    // registryHelper: "0x0467c57Cadfc256E6a93abd5401BAF26Bdd382ef", // New RegistryHelper
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
@@ -68,6 +69,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0x6Ee299B1E8049fadc3494f1110A3479f5BE8EC0e",
+    // registryHelper: "0xbcc295c3f2a5398d459c81355540270d66563a61", // New RegistryHelper
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
