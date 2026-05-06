@@ -58,11 +58,21 @@ const TESTNET_B: NetworkOption = {
     registryHelper: "0xF7A4230eD310764427908236329Af1E04f86b0fe",
   },
 }
+const BASE_MAINNET: NetworkOption = {
+  id: 5,
+  chainId: 8453,
+  label: "Base Mainnet B",
+  shortLabel: "Base Mainnet B",
+  overrides: {
+    rootRegistry: "0x932B18c3907ba3189c93Dc0aC32bA5b657C8f40F",
+    registryHelper: "0x5536F01A6374A06a625f40c14ADf9575E1A191EF",
+  },
+}
 const LOCAL: NetworkOption = { id: 31337, chainId: 31337, label: "Local", shortLabel: "Local" }
 
 const ENV_CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 0)
 
-const BASE_NETWORKS: NetworkOption[] = [MAINNET, SEPOLIA, MAINNET_B, TESTNET_B]
+const BASE_NETWORKS: NetworkOption[] = [MAINNET, SEPOLIA, MAINNET_B, TESTNET_B, BASE_MAINNET]
 
 function isLocalhostHostname(hostname: string): boolean {
   return (
