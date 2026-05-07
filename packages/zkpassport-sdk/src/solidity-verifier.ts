@@ -72,14 +72,14 @@ export class SolidityVerifier {
     domain,
     scope,
     devMode = false,
-    oprfPubKeyHash,
+    // oprfPubKeyHash,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain: string
     scope?: string
     devMode?: boolean
-    oprfPubKeyHash?: string
+    // oprfPubKeyHash?: string
   }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
@@ -261,7 +261,7 @@ export class SolidityVerifier {
         domain,
         scope: scope ?? "",
         devMode,
-        oprfPubKeyHash: oprfPubKeyHash ?? ZERO_BYTES32,
+        // oprfPubKeyHash: oprfPubKeyHash ?? ZERO_BYTES32,
       },
     }
     return params

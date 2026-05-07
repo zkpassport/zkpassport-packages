@@ -691,10 +691,14 @@ export class ZKPassport {
           try {
             const { createPublicClient, http } = await import("viem")
             const { sepolia } = await import("viem/chains")
+            const { mainnet } = await import("viem/chains")
             const { address, abi, functionName } = this.getSolidityVerifierDetails()
+            const rpcUrl = devMode
+              ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+              : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
             const client = createPublicClient({
-              chain: sepolia,
-              transport: http("https://ethereum-sepolia-rpc.publicnode.com"),
+              chain: devMode ? sepolia : mainnet,
+              transport: http(rpcUrl),
             })
             const params = this.getSolidityVerifierParameters({
               proof,
@@ -760,14 +764,14 @@ export class ZKPassport {
     domain,
     scope,
     devMode = false,
-    oprfPubKeyHash,
+    // oprfPubKeyHash,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain?: string
     scope?: string
     devMode?: boolean
-    oprfPubKeyHash?: string
+    // oprfPubKeyHash?: string
   }) {
     return SolidityVerifier.getParameters({
       proof,
@@ -775,7 +779,7 @@ export class ZKPassport {
       domain: domain ?? this.domain,
       scope,
       devMode,
-      oprfPubKeyHash,
+      // oprfPubKeyHash,
     })
   }
 

@@ -222,8 +222,7 @@
                 { "name": "validityPeriodInSeconds", "type": "uint256", "internalType": "uint256" },
                 { "name": "domain", "type": "string", "internalType": "string" },
                 { "name": "scope", "type": "string", "internalType": "string" },
-                { "name": "devMode", "type": "bool", "internalType": "bool" },
-                { "name": "oprfPubKeyHash", "type": "bytes32", "internalType": "bytes32" }
+                { "name": "devMode", "type": "bool", "internalType": "bool" }
               ]
             }
           ]
