@@ -58,7 +58,7 @@ export type SolidityServiceConfig = {
   domain: string
   scope: string
   devMode: boolean
-  oprfPubKeyHash: string
+  // oprfPubKeyHash: string
 }
 
 export type SolidityVerifierParameters = {
