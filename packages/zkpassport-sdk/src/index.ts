@@ -760,12 +760,14 @@ export class ZKPassport {
     domain,
     scope,
     devMode = false,
+    oprfPubKeyHash,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain?: string
     scope?: string
     devMode?: boolean
+    oprfPubKeyHash?: string
   }) {
     return SolidityVerifier.getParameters({
       proof,
@@ -773,6 +775,7 @@ export class ZKPassport {
       domain: domain ?? this.domain,
       scope,
       devMode,
+      oprfPubKeyHash,
     })
   }
 
