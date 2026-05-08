@@ -29,10 +29,10 @@ export const DEFAULT_OPRF_PUB_KEY_HASH =
 
 // Default zero OPRF proof for non-salted nullifier mode
 export const OPRF_ZERO_PROOF: OPRFProof = {
-  pk: { x: "0", y: "0" },
-  dlog_e: "0",
-  dlog_s: "0",
-  response_blinded: { x: "0", y: "0" },
-  response: { x: "0", y: "0" },
-  beta: "0",
+  pk: { x: "0x0", y: "0x0" },
+  dlog_e: "0x0",
+  dlog_s: "0x0",
+  response_blinded: { x: "0x0", y: "0x0" },
+  response: { x: "0x0", y: "0x0" },
+  beta: "0x0",
 }
