@@ -1,9 +1,12 @@
-import { CircuitManifest, PackagedCircuit } from "@zkpassport/utils"
+import {
+  CircuitManifest,
+  PackagedCircuit,
+  PackagedCertificatesFileV1,
+} from "@zkpassport/utils/types"
 import { ChildProcess, execSync, spawn } from "child_process"
 import fs from "fs"
 import keccak256 from "keccak256"
 import path from "path"
-import { PackagedCertificatesFile } from "../../src/types"
 
 // Configuration
 export const CHAIN_ID = 31337
@@ -11,6 +14,15 @@ export const PORT = 9545
 export const RPC_URL = `http://localhost:${PORT}`
 export const ORACLE_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 export const CONTRACTS_DIR = path.resolve(__dirname, "../../../registry-contracts")
+
+interface ExecException extends Error {
+  cmd?: string
+  killed?: boolean
+  code?: number
+  signal?: NodeJS.Signals
+  stdout?: string
+  stderr?: string
+}
 
 /**
  * Utility to log only if verbose mode is enabled
@@ -219,10 +231,10 @@ export async function startAnvil({
       stdio: ["ignore", verbose ? "inherit" : "ignore", "pipe"],
       cwd: CONTRACTS_DIR,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error building contracts")
-    if (error.stderr) {
-      console.error(error.stderr.toString())
+    if ((error as ExecException).stderr) {
+      console.error((error as ExecException)?.stderr?.toString())
     }
     throw error
   }
@@ -230,21 +242,21 @@ export async function startAnvil({
   if (verbose) console.log("Deploying contracts...")
   let deployOutput = ""
   try {
-    deployOutput = execSync(`script/test/deploy.sh`, {
+    deployOutput = execSync(`script/test/deploy-root-registry.sh`, {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, RPC_URL },
       cwd: CONTRACTS_DIR,
     })
     verboseLog(deployOutput)
-  } catch (error: any) {
+  } catch (error) {
     // Show the error output from the command
     console.error("Error deploying contracts")
-    if (error.stderr) {
-      console.error(error.stderr.toString())
+    if ((error as ExecException)?.stderr) {
+      console.error((error as ExecException)?.stderr?.toString())
     }
-    if (error.stdout) {
-      console.error(error.stdout.toString())
+    if ((error as ExecException)?.stdout) {
+      console.error((error as ExecException)?.stdout?.toString())
     }
     throw error
   }
@@ -267,10 +279,10 @@ export async function startAnvil({
       cwd: CONTRACTS_DIR,
     })
     verboseLog(seedOutput)
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error seeding registries")
-    if (error.stdout) {
-      console.error(error.stdout.toString())
+    if ((error as ExecException)?.stdout) {
+      console.error((error as ExecException)?.stdout?.toString())
     }
     throw error
   }
@@ -305,7 +317,7 @@ export function getEthereumFunctionSelector(functionSignature: string): string {
   return "0x" + Buffer.from(hash.slice(0, 4)).toString("hex")
 }
 
-export function loadPackagedCertificatesFile(filePath: string): PackagedCertificatesFile {
+export function loadPackagedCertificatesFile(filePath: string): PackagedCertificatesFileV1 {
   try {
     // Read and parse file
     const fileData = fs.readFileSync(filePath, "utf8")

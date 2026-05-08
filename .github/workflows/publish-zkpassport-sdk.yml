@@ -10,6 +10,11 @@ jobs:
   publish:
     name: Publish SDK
     runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,7 +22,7 @@ jobs:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.1
+          bun-version: 1.3.8
 
       - name: Cache Bun dependencies
         uses: actions/cache@v4
@@ -34,22 +39,18 @@ jobs:
         run: bash scripts/sync-workspace-deps.sh check
 
       - name: Install system dependencies
-        if: github.ref == 'refs/heads/main'
         run: sudo apt-get install -y lsof jq zsh
 
       - name: Install Foundry
-        if: github.ref == 'refs/heads/main'
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.4.4
 
       - name: Install Foundry dependencies
-        if: github.ref == 'refs/heads/main'
         run: forge install
         working-directory: packages/registry-contracts
 
       - name: Setup Turbo cache
-        if: github.ref == 'refs/heads/main'
         uses: actions/cache@v4
         with:
           path: .turbo
@@ -58,27 +59,31 @@ jobs:
             ${{ runner.os }}-turbo-
 
       - name: Build package
-        if: github.ref == 'refs/heads/main'
         run: bun run build --filter=@zkpassport/sdk
 
+      - name: Setup Node.js for npm publish
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Check if version is published to npm
-        if: github.ref == 'refs/heads/main'
         id: version_check
         run: |
-          VERSION=$(bun -p "require('./packages/zkpassport-sdk/package.json').version")
-          if ! bun pm view @zkpassport/sdk@$VERSION version 2>/dev/null; then
+          VERSION=$(node -p "require('./packages/zkpassport-sdk/package.json').version")
+          if ! npm view @zkpassport/sdk@$VERSION version 2>/dev/null; then
             echo "publish=true" >> $GITHUB_OUTPUT
             echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish new version to npm
-        if: steps.version_check.outputs.publish == 'true' && github.ref == 'refs/heads/main'
+        if: steps.version_check.outputs.publish == 'true'
         run: |
+          ../../scripts/prepublish.sh
+          PKG=$(bun pm pack --quiet | xargs)
           if [[ "${{ steps.version_check.outputs.version }}" =~ [0-9]+\.[0-9]+\.[0-9]+\- ]]; then
-            bun publish --tag beta
+            npm publish "$PKG" --ignore-scripts --provenance --access public --tag beta
           else
-            bun publish
+            npm publish "$PKG" --ignore-scripts --provenance --access public
           fi
         working-directory: packages/zkpassport-sdk
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}

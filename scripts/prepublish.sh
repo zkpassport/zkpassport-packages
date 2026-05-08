@@ -6,10 +6,15 @@
 set -e
 
 # Ensure script is being run with `bun publish` (not `npm publish`)
-bun -e "process.env.npm_config_user_agent?.startsWith('bun/') || (console.error('ERROR: Must use bun publish'), process.exit(1))"
+# This is because bun publish resolves workspace:* refs, whereas npm publish does not
+if [ -z "$CI" ]; then
+  bun -e "process.env.npm_config_user_agent?.startsWith('bun/') || (console.error('ERROR: Must use bun publish'), process.exit(1))"
+fi
 
 # Check for prerelease version accidentally being published to 'latest' tag
-../../scripts/check-prerelease-tag.sh
+if [ -z "$CI" ]; then
+  ../../scripts/check-prerelease-tag.sh
+fi
 
 # Sync workspace dependencies
 (cd $(git rev-parse --show-toplevel) && scripts/sync-workspace-deps.sh)

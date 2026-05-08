@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import type { Alpha2Code, Alpha3Code } from "i18n-iso-countries"
 import type { SOD } from "../passport"
 import type { CountryName } from "./countries"
@@ -237,8 +239,8 @@ export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
 // Explicit list of supported countries for sanction lists
 // TODO: extend this list as more countries sanction lists are added
 export type SanctionsAlpha2Code = "US" | "GB" | "CH" | "EU"
-export type SanctionsCountries = SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"
-export type SanctionsLists = string[] | "all"
+export type SanctionsCountries = /*SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"*/ "all" // TODO: enable this once the circuits support custom lists
+export type SanctionsLists = /*string[] | "all"*/ "all" // TODO: enable this once the circuits support custom lists
 
 export type SanctionsConfig = {
   countries?: SanctionsCountries
@@ -420,6 +422,8 @@ export type QRCodeData = {
   sdkVersion: string | null
   timestamp: number | null
   devMode: boolean | null
+  uniqueIdentifierType: NullifierType | null
+  oprfKeyId: string | null
 }
 
 export interface JsonRpcRequest {
@@ -640,6 +644,10 @@ export type {
   CurveName,
   SignatureAlgorithmType,
   PackagedCertificate,
+  PackagedCertificatesFile,
+  PackagedCertificatesFileV0,
+  PackagedCertificatesFileV1,
+  IntermediateCertificateRevocation,
   CircuitManifest,
   CircuitManifestEntry,
 } from "./registry"

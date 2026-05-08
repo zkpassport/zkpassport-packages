@@ -7,7 +7,7 @@ import {
   stringToAsciiStringArray,
   withRetry,
 } from "@/utils"
-import { sha256 } from "@noble/hashes/sha2"
+import { sha256 } from "@noble/hashes/sha2.js"
 import { poseidon2, AsyncOrderedMT } from "@/merkle-tree"
 import { SortedNonMembershipProof } from "@/merkle-tree/async-ordered-mt"
 import {

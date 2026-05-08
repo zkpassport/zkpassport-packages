@@ -39,6 +39,7 @@ export function getOuterCircuitInputs(
   const subscope = disclosureProofWithNonZeroNullifier.publicInputs[3]
   const nullifierType = disclosureProofWithNonZeroNullifier.publicInputs[5]
   const nullifier = disclosureProofWithNonZeroNullifier.publicInputs[6]
+  const oprfPkHash = disclosureProofWithNonZeroNullifier.publicInputs[7]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
@@ -50,6 +51,7 @@ export function getOuterCircuitInputs(
     param_commitments: paramCommitments,
     scoped_nullifier: nullifier,
     nullifier_type: nullifierType,
+    oprf_pk_hash: oprfPkHash,
     csc_to_dsc_proof: {
       vkey: cscToDscProof.vkey,
       proof: cscToDscProof.proof,
@@ -119,7 +121,7 @@ export function getSubscopeFromOuterProof(proofData: ProofData): bigint {
 }
 
 export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -138,6 +140,10 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
  * @returns The scoped nullifier.
  */
 export function getNullifierFromOuterProof(proofData: ProofData): bigint {
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+}
+
+export function getOprfPkHashFromOuterProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
 }
 
@@ -147,5 +153,6 @@ export function getNullifierFromOuterProof(proofData: ProofData): bigint {
  * @returns The param commitments.
  */
 export function getParamCommitmentsFromOuterProof(proofData: ProofData): bigint[] {
-  return proofData.publicInputs.slice(5, proofData.publicInputs.length - 2).map(BigInt)
+  // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash.
+  return proofData.publicInputs.slice(5, proofData.publicInputs.length - 3).map(BigInt)
 }

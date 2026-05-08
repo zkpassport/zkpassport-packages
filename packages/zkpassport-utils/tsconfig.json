@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
     "declarationDir": "./dist/esm",
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
@@ -10,6 +10,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["**/*.test.ts"]
+  // "include" controls type-checking only; build output is controlled by tsup.config.ts entry points
+  "include": ["src/**/*.ts", "tests/**/*.json", "tests/**/*.ts", "tsup.config.ts"]
 }

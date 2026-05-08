@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { getOIDName } from ".."
 
 export function formatDN(issuer: any[]): string {

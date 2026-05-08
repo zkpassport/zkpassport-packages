@@ -3,7 +3,7 @@ import {
   calculateAge,
   getAgeCircuitInputs,
   getBirthdateCircuitInputs,
-  getCscaForPassport,
+  getCscaForPassportAsync,
   getDSCCircuitInputs,
   getDSCCountry,
   getDiscloseCircuitInputs,
@@ -19,14 +19,14 @@ import {
   isIDSupported,
 } from "../src/circuit-matcher"
 import { getCountryWeightedSum } from "../src/circuits/country"
-import { HashAlgorithm, PackagedCertificate, Query, SaltedValue } from "../src/types"
+import { PackagedCertificate, PackagedCertificatesFile, Query, SaltedValue } from "../src/types"
 import {
   getNowTimestamp,
   getUnixTimestamp,
   rightPadArrayWithZeros,
   rightPadCountryCodeArray,
 } from "../src/utils"
-import rootCerts from "./fixtures/root-certs.json"
+import rootCerts from "./fixtures/root-certs-v1.json"
 import { PASSPORTS } from "./fixtures/passports"
 import * as fs from "fs"
 import * as path from "path"
@@ -41,6 +41,7 @@ import {
   SanctionsBuilder,
   SECONDS_BETWEEN_1900_AND_1970,
   HASH_ALGORITHM_SHA256,
+  OPRF_ZERO_PROOF,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -75,6 +76,7 @@ const EXPECTED_SERVICE_SUBSCOPE = "0x3"
 const NULLIFIER_SECRET = 0n
 const EXPECTED_NULLIFIER_SECRET = "0x0"
 const CURRENT_DATE = getNowTimestamp()
+const AGE_TEST_DATE = new Date("2026-01-01")
 
 describe("Circuit Matcher - General", () => {
   it("should detect if CSCA certificate is supported", () => {
@@ -82,7 +84,6 @@ describe("Circuit Matcher - General", () => {
     let totalUnsupported = 0
     for (const certificate of certificates) {
       const result = isCscaSupported(certificate as PackagedCertificate)
-      const isUnsupportedHashAlgorithm = (certificate.hash_algorithm as HashAlgorithm) === "SHA-224"
       const isUnsupportedExponent =
         certificate.public_key.type === "RSA" &&
         certificate.public_key.exponent &&
@@ -93,8 +94,7 @@ describe("Circuit Matcher - General", () => {
         certificate.public_key.key_size !== 2048 &&
         certificate.public_key.key_size !== 3072 &&
         certificate.public_key.key_size !== 4096
-      const isUnsupported =
-        isUnsupportedHashAlgorithm || isUnsupportedExponent || isUnsupportedKeySize
+      const isUnsupported = isUnsupportedExponent || isUnsupportedKeySize
       if (isUnsupported) {
         totalUnsupported++
       }
@@ -104,89 +104,97 @@ describe("Circuit Matcher - General", () => {
   })
 
   // Skipped because it requires the DSC list which is not commited to the repo
-  it.skip("should find the CSCs of all the DSCs", () => {
-    const dscs = getDSCs()
-    const expectedUnknownCSCSubjectKeyIdentifiers = [
-      "45728821c8fbff1153455807ad09ed5e868035e8",
-      "0654b2b864ec78aa4675f9110634ecdac2a5b4af",
-      "a775af64b440e8dd386f2f002280ecedd19d1b97",
-    ]
-    const unknownCSCSubjectKeyIdentifiers: string[] = []
-    const unknownCSCsCountries: string[] = []
-    const supportedDSCs: DSC[] = []
-    for (const dsc of dscs) {
-      if (dsc.tbs.validity.notAfter.getTime() < Date.now()) {
-        continue
-      }
-      const isSupported = isDSCSupported(dsc)
-      if (isSupported) {
-        supportedDSCs.push(dsc)
-      }
-      const result = getCscaForPassport(dsc, rootCerts.certificates as PackagedCertificate[])
-      if (!result) {
-        const akiBuffer = dsc.tbs.extensions.get("authorityKeyIdentifier")?.value.toBuffer()
-        if (akiBuffer) {
-          const parsed = AsnParser.parse(akiBuffer, AuthorityKeyIdentifier)
-          if (parsed?.keyIdentifier?.buffer) {
-            const authorityKeyIdentifier = Binary.from(parsed.keyIdentifier.buffer)
-              .toHex()
-              .replace("0x", "")
-            unknownCSCSubjectKeyIdentifiers.push(authorityKeyIdentifier)
+  it.skip(
+    "should find the CSCs of all the DSCs",
+    async () => {
+      const dscs = getDSCs()
+      const expectedUnknownCSCSubjectKeyIdentifiers = [
+        "45728821c8fbff1153455807ad09ed5e868035e8",
+        "0654b2b864ec78aa4675f9110634ecdac2a5b4af",
+        "a775af64b440e8dd386f2f002280ecedd19d1b97",
+      ]
+      const unknownCSCSubjectKeyIdentifiers: string[] = []
+      const unknownCSCsCountries: string[] = []
+      const supportedDSCs: DSC[] = []
+      for (const dsc of dscs) {
+        if (dsc.tbs.validity.notAfter.getTime() < Date.now()) {
+          continue
+        }
+        const isSupported = isDSCSupported(dsc)
+        if (isSupported) {
+          supportedDSCs.push(dsc)
+        }
+        const result = await getCscaForPassportAsync(
+          dsc,
+          rootCerts.certificates as PackagedCertificate[],
+          false,
+        )
+        if (!result) {
+          const akiBuffer = dsc.tbs.extensions.get("authorityKeyIdentifier")?.value.toBuffer()
+          if (akiBuffer) {
+            const parsed = AsnParser.parse(akiBuffer, AuthorityKeyIdentifier)
+            if (parsed?.keyIdentifier?.buffer) {
+              const authorityKeyIdentifier = Binary.from(parsed.keyIdentifier.buffer)
+                .toHex()
+                .replace("0x", "")
+              unknownCSCSubjectKeyIdentifiers.push(authorityKeyIdentifier)
+            }
+          }
+          const country = getDSCCountry(dsc)
+          if (country) {
+            unknownCSCsCountries.push(country)
           }
         }
-        const country = getDSCCountry(dsc)
-        if (country) {
-          unknownCSCsCountries.push(country)
-        }
       }
-    }
-    console.log(
-      `Total DSCs without known CSCs: ${unknownCSCSubjectKeyIdentifiers.length} out of ${dscs.length}`,
-    )
-    const uniqueUnknownCSCSubjectKeyIdentifiers = Array.from(
-      new Set(unknownCSCSubjectKeyIdentifiers),
-    )
-    const uniqueUnknownCSCsCountries = Array.from(new Set(unknownCSCsCountries))
-    console.log(
-      `Total unique unknown CSC subject key identifiers: ${uniqueUnknownCSCSubjectKeyIdentifiers.length}`,
-    )
-    console.log(JSON.stringify(uniqueUnknownCSCSubjectKeyIdentifiers))
-    console.log(`Total unique unknown CSC countries: ${uniqueUnknownCSCsCountries.length}`)
-    console.log(JSON.stringify(uniqueUnknownCSCsCountries))
-    console.log(
-      `Hash algorithms: ${JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCSignatureHashAlgorithm(x)))))}`,
-    )
-    console.log(
-      `Signature algorithms: ${JSON.stringify(
-        Array.from(new Set(supportedDSCs.map((x) => x.signatureAlgorithm.name))),
-      )}`,
-    )
-    console.log(
-      `Curves: ${JSON.stringify(
-        Array.from(
-          new Set(
-            supportedDSCs.map((x) =>
-              x.tbs.subjectPublicKeyInfo.signatureAlgorithm.name.toLowerCase().includes("ec") &&
-              x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters &&
-              x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters.toBuffer().length > 0
-                ? getCurveName(
-                    AsnParser.parse(
-                      x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters.toBuffer(),
-                      ECParameters,
-                    ),
-                  )
-                : "",
+      console.log(
+        `Total DSCs without known CSCs: ${unknownCSCSubjectKeyIdentifiers.length} out of ${dscs.length}`,
+      )
+      const uniqueUnknownCSCSubjectKeyIdentifiers = Array.from(
+        new Set(unknownCSCSubjectKeyIdentifiers),
+      )
+      const uniqueUnknownCSCsCountries = Array.from(new Set(unknownCSCsCountries))
+      console.log(
+        `Total unique unknown CSC subject key identifiers: ${uniqueUnknownCSCSubjectKeyIdentifiers.length}`,
+      )
+      console.log(JSON.stringify(uniqueUnknownCSCSubjectKeyIdentifiers))
+      console.log(`Total unique unknown CSC countries: ${uniqueUnknownCSCsCountries.length}`)
+      console.log(JSON.stringify(uniqueUnknownCSCsCountries))
+      console.log(
+        `Hash algorithms: ${JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCSignatureHashAlgorithm(x)))))}`,
+      )
+      console.log(
+        `Signature algorithms: ${JSON.stringify(
+          Array.from(new Set(supportedDSCs.map((x) => x.signatureAlgorithm.name))),
+        )}`,
+      )
+      console.log(
+        `Curves: ${JSON.stringify(
+          Array.from(
+            new Set(
+              supportedDSCs.map((x) =>
+                x.tbs.subjectPublicKeyInfo.signatureAlgorithm.name.toLowerCase().includes("ec") &&
+                x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters &&
+                x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters.toBuffer().length > 0
+                  ? getCurveName(
+                      AsnParser.parse(
+                        x.tbs.subjectPublicKeyInfo.signatureAlgorithm.parameters.toBuffer(),
+                        ECParameters,
+                      ),
+                    )
+                  : "",
+              ),
             ),
           ),
-        ),
-      )}`,
-    )
-    console.log(`Total supported DSCs: ${supportedDSCs.length}`)
-    console.log(
-      JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCCountry(x)))).sort()),
-    )
-    expect(uniqueUnknownCSCSubjectKeyIdentifiers).toEqual(expectedUnknownCSCSubjectKeyIdentifiers)
-  })
+        )}`,
+      )
+      console.log(`Total supported DSCs: ${supportedDSCs.length}`)
+      console.log(
+        JSON.stringify(Array.from(new Set(supportedDSCs.map((x) => getDSCCountry(x)))).sort()),
+      )
+      expect(uniqueUnknownCSCSubjectKeyIdentifiers).toEqual(expectedUnknownCSCSubjectKeyIdentifiers)
+    },
+    10 * 60000,
+  )
 })
 
 describe("Circuit Matcher - RSA", () => {
@@ -195,8 +203,8 @@ describe("Circuit Matcher - RSA", () => {
     expect(result).toBe(true)
   })
 
-  it("should get the correct CSCA for the passport", () => {
-    const result = getCscaForPassport(
+  it("should get the correct CSCA for the passport", async () => {
+    const result = await getCscaForPassportAsync(
       PASSPORTS.john.sod.certificate,
       rootCerts.certificates as PackagedCertificate[],
     )
@@ -205,27 +213,29 @@ describe("Circuit Matcher - RSA", () => {
     )
   })
 
-  it("should get the correct DSC circuit inputs", async () => {
+  it("should get the correct DSC circuit inputs (v1)", async () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.john,
-      1n,
-      rootCerts.certificates as PackagedCertificate[],
+      SALT,
+      rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
-        "0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686",
-      certificate_registry_index: 27,
-      certificate_registry_hash_path: [
-        "0x038860266a94ae2e8e75440aeb9fc84c76f955ccd2f8c36fb2ed877b987b5264",
-        "0x068bbd63fce0a679241e6043fbb81175af121a815ac5b3a60d509bc59359fdc8",
-        "0x2bc71ccf3c260ac168b6570b48557bc1a525b112d363c301a9f4f077438be7c8",
-        "0x27224886a5904396ae237f3c0e72ef355b852fdf99f651ac6dc0d1291cdea397",
-        "0x22018039fc6e653e9bb060764b5bf8aafc15649eed23da280877f2e7ce0f6135",
-        "0x280dc086c7c4b7a0afb3d548d50c5146ade59af1427fbfea637c73545fdee3b4",
-        "0x16a5bcee967bab146942c7fa1162f57d68dee31c0c4fb2bf95072420c6ee3cec",
-        "0x154589905ec323398c4807a142b7e1cb3da7ceebd5a2d3f66b664a45195cccc4",
-        "0x293253daf30e54c4d3217ff258fa39e2d402839c3a62fdaac641b70012a8dba1",
-        "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
+        "0x2e31e60b172bbbef37071cfdf0868a719ef5915889ac8aa569079a7024646beb",
+      schema_version: 1,
+      timestamp: 1777479919,
+      certificate_tree_index: 58,
+      certificate_tree_hash_path: [
+        "0x06f2199ef234deaa4520c258449bf237ab806af48a712dee92de2650790d3900",
+        "0x1bad03d629ab2dfba81c876504a1f3d7dfcc4b1e2b63290fb6884e079044d14a",
+        "0x11112d24b8b00d5cb4c7b9500fab7fbfe15957d89dde26b597bb057bd28d76ff",
+        "0x10c35f3a3d7e271c2a9c0c749ab7a76c0a4b5c1530735dd5d998ff98601b908d",
+        "0x0b78cbdc0d1fa4562fe02bb3dd87646653ed7be964aca72438c7277bbf63c925",
+        "0x142b9df6debe700863e5918a1668d89b2e6628d283500b54795a2ac94ac93c20",
+        "0x10e832d41b85edd8011807afd0b7c191779706b4ae7f9415af6c88f0058d9cc8",
+        "0x1a69a25d7b30b15536ddab5e97e9e9949ce2fd76160a086ebdfdf655dae00e30",
+        "0x0952b729198e5022c82d955334d10d78529231113f43717952de782da604f1eb",
+        "0x0eea4b8543612a163faf06cfb528f58d8f814b166083333adac8912a26e805e5",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",
         "0x0d07f6e7a8a0e9199d6d92801fff867002ff5b4808962f9da2ba5ce1bdd26a73",
@@ -233,9 +243,13 @@ describe("Circuit Matcher - RSA", () => {
         "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
         "0x2b9cdd484c5ba1e4d6efcc3f18734b5ac4c4a0b9102e2aeb48521a661d3feee9",
       ],
-      certificate_tags: ["0x0", "0x0", "0x0"],
+      certificate_tags: ["0x0", "0x0", "0x80000000000000000000000000000"],
       certificate_type: "0x1",
       country: "ZKR",
+      csc_expiry: 2061209141,
+      csc_fingerprint: "0x0dd2bf5d3816bb67f72edea08f534c00eb2ce039578a4e012d6892e28187db62",
+      revocation_tree_root: "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
+      masterlist_tree_root: "0x23018223bd4413ac3342f1affbd3efe17b73d247ddc24de02915437b13e02f01",
       salt: EXPECTED_SALT,
       tbs_certificate: rightPadArrayWithZeros(
         PASSPORTS.john.sod.certificate.tbs.bytes.toNumberArray(),
@@ -258,19 +272,19 @@ describe("Circuit Matcher - RSA", () => {
         175, 212, 84, 17, 99, 184, 221, 3, 182, 43, 64, 87, 73, 218, 234, 77, 87,
       ],
       csc_pubkey_redc_param: [
-        16, 128, 205, 249, 236, 27, 125, 199, 140, 153, 23, 150, 236, 212, 75, 83, 237, 68, 216, 38,
-        212, 120, 230, 234, 48, 15, 182, 204, 29, 60, 131, 246, 168, 199, 219, 148, 63, 166, 72, 72,
-        74, 164, 164, 180, 62, 197, 67, 44, 116, 71, 210, 189, 122, 183, 216, 210, 237, 222, 187, 8,
-        78, 51, 33, 8, 79, 98, 136, 116, 161, 63, 148, 130, 37, 182, 207, 41, 71, 19, 251, 6, 34,
-        130, 219, 16, 111, 59, 237, 58, 247, 84, 146, 37, 69, 67, 179, 240, 219, 235, 45, 68, 130,
-        236, 106, 2, 141, 117, 167, 127, 43, 60, 151, 108, 50, 148, 65, 46, 103, 212, 71, 17, 19,
-        105, 224, 234, 237, 214, 102, 190, 216, 163, 11, 217, 33, 189, 122, 180, 133, 176, 90, 2,
-        215, 73, 130, 168, 223, 1, 197, 160, 199, 123, 50, 138, 2, 15, 231, 4, 108, 67, 245, 19,
-        134, 223, 222, 41, 74, 156, 51, 156, 218, 11, 2, 87, 175, 198, 244, 101, 240, 166, 225, 36,
-        176, 65, 86, 48, 63, 244, 124, 39, 86, 239, 190, 173, 234, 21, 195, 20, 200, 72, 212, 42,
-        118, 21, 72, 204, 83, 210, 5, 73, 78, 217, 110, 25, 5, 203, 234, 232, 198, 228, 39, 195,
-        127, 191, 131, 84, 167, 247, 207, 190, 140, 34, 100, 18, 57, 217, 172, 229, 206, 199, 127,
-        69, 114, 173, 18, 116, 85, 147, 110, 175, 128, 173, 176, 234, 234, 179, 232, 160, 56,
+        66, 3, 55, 231, 176, 109, 247, 30, 50, 100, 94, 91, 179, 81, 45, 79, 181, 19, 96, 155, 81,
+        227, 155, 168, 192, 62, 219, 48, 116, 242, 15, 218, 163, 31, 110, 80, 254, 153, 33, 33, 42,
+        146, 146, 208, 251, 21, 12, 177, 209, 31, 74, 245, 234, 223, 99, 75, 183, 122, 236, 33, 56,
+        204, 132, 33, 61, 138, 33, 210, 132, 254, 82, 8, 150, 219, 60, 165, 28, 79, 236, 24, 138,
+        11, 108, 65, 188, 239, 180, 235, 221, 82, 72, 149, 21, 14, 207, 195, 111, 172, 181, 18, 11,
+        177, 168, 10, 53, 214, 157, 252, 172, 242, 93, 176, 202, 81, 4, 185, 159, 81, 28, 68, 77,
+        167, 131, 171, 183, 89, 154, 251, 98, 140, 47, 100, 134, 245, 234, 210, 22, 193, 104, 11,
+        93, 38, 10, 163, 124, 7, 22, 131, 29, 236, 202, 40, 8, 63, 156, 17, 177, 15, 212, 78, 27,
+        127, 120, 165, 42, 112, 206, 115, 104, 44, 9, 94, 191, 27, 209, 151, 194, 155, 132, 146,
+        193, 5, 88, 192, 255, 209, 240, 157, 91, 190, 250, 183, 168, 87, 12, 83, 33, 35, 80, 169,
+        216, 85, 35, 49, 79, 72, 21, 37, 59, 101, 184, 100, 23, 47, 171, 163, 27, 144, 159, 13, 254,
+        254, 13, 82, 159, 223, 62, 250, 48, 137, 144, 72, 231, 102, 179, 151, 59, 29, 253, 21, 202,
+        180, 73, 209, 86, 77, 186, 190, 2, 182, 195, 171, 170, 207, 162, 128, 224,
       ],
       exponent: 65537,
       pss_salt_len: 0,
@@ -306,19 +320,19 @@ describe("Circuit Matcher - RSA", () => {
       exponent: 65537,
       sod_signature: PASSPORTS.john.sod.signerInfo.signature.toNumberArray(),
       dsc_pubkey_redc_param: [
-        22, 68, 93, 51, 146, 119, 200, 66, 91, 4, 139, 219, 211, 238, 244, 80, 172, 237, 63, 200,
-        201, 255, 143, 95, 133, 21, 198, 238, 249, 191, 44, 20, 195, 124, 130, 48, 218, 87, 25, 35,
-        148, 240, 137, 79, 16, 220, 88, 104, 16, 172, 53, 242, 255, 71, 108, 14, 33, 24, 190, 49,
-        27, 127, 247, 168, 68, 3, 49, 43, 230, 200, 246, 89, 72, 116, 210, 103, 180, 245, 163, 26,
-        165, 186, 189, 155, 178, 169, 68, 169, 80, 123, 220, 223, 214, 29, 60, 173, 234, 225, 167,
-        152, 98, 169, 20, 186, 101, 131, 241, 108, 3, 101, 44, 164, 56, 51, 107, 39, 107, 32, 84,
-        105, 92, 13, 50, 168, 147, 125, 42, 179, 15, 53, 160, 203, 50, 10, 209, 1, 110, 138, 1, 176,
-        226, 18, 210, 74, 187, 156, 225, 170, 70, 202, 170, 96, 75, 218, 207, 224, 90, 228, 110,
-        104, 21, 62, 109, 117, 182, 242, 219, 35, 0, 216, 250, 95, 178, 73, 192, 56, 107, 219, 141,
-        158, 64, 97, 7, 41, 20, 0, 22, 1, 68, 46, 145, 107, 244, 168, 85, 198, 232, 9, 28, 143, 33,
-        188, 163, 187, 163, 168, 79, 59, 117, 175, 71, 232, 133, 27, 58, 196, 190, 124, 46, 253, 7,
-        234, 196, 93, 211, 101, 180, 103, 120, 132, 124, 71, 169, 77, 94, 147, 235, 0, 74, 214, 230,
-        58, 5, 158, 123, 1, 250, 108, 41, 204, 143, 203, 85, 63, 227, 173, 14,
+        89, 17, 116, 206, 73, 223, 33, 9, 108, 18, 47, 111, 79, 187, 209, 66, 179, 180, 255, 35, 39,
+        254, 61, 126, 20, 87, 27, 187, 230, 252, 176, 83, 13, 242, 8, 195, 105, 92, 100, 142, 83,
+        194, 37, 60, 67, 113, 97, 160, 66, 176, 215, 203, 253, 29, 176, 56, 132, 98, 248, 196, 109,
+        255, 222, 161, 16, 12, 196, 175, 155, 35, 217, 101, 33, 211, 73, 158, 211, 214, 140, 106,
+        150, 234, 246, 110, 202, 165, 18, 165, 65, 239, 115, 127, 88, 116, 242, 183, 171, 134, 158,
+        97, 138, 164, 82, 233, 150, 15, 197, 176, 13, 148, 178, 144, 224, 205, 172, 157, 172, 129,
+        81, 165, 112, 52, 202, 162, 77, 244, 170, 204, 60, 214, 131, 44, 200, 43, 68, 5, 186, 40, 6,
+        195, 136, 75, 73, 42, 238, 115, 134, 169, 27, 42, 169, 129, 47, 107, 63, 129, 107, 145, 185,
+        160, 84, 249, 181, 214, 219, 203, 108, 140, 3, 99, 233, 126, 201, 39, 0, 225, 175, 110, 54,
+        121, 1, 132, 28, 164, 80, 0, 88, 5, 16, 186, 69, 175, 210, 161, 87, 27, 160, 36, 114, 60,
+        134, 242, 142, 238, 142, 161, 60, 237, 214, 189, 31, 162, 20, 108, 235, 18, 249, 240, 187,
+        244, 31, 171, 17, 119, 77, 150, 209, 157, 226, 17, 241, 30, 165, 53, 122, 79, 172, 1, 43,
+        91, 152, 232, 22, 121, 236, 7, 233, 176, 167, 50, 63, 45, 84, 255, 142, 180, 59,
       ],
       tbs_certificate: rightPadArrayWithZeros(
         PASSPORTS.john.sod.certificate.tbs.bytes.toNumberArray(),
@@ -351,13 +365,13 @@ describe("Circuit Matcher - RSA", () => {
       ).formatForInput(),
       signed_attributes: rightPadArrayWithZeros(
         PASSPORTS.john.sod.signerInfo.signedAttrs.bytes.toNumberArray(),
-        220,
+        256,
       ),
       e_content: rightPadArrayWithZeros(
         PASSPORTS.john.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         700,
       ),
-      comm_in: "0x1d483dee098c59f3641a5ba2948db5e65ca250d3224cf214edfb9219ceffd0a5",
+      comm_in: "0x066c592240d43a8677f7988285781cfcfa1974af37cc0dc4e8f03d8b69932cb4",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       expiry_date_salt: `0x${SALT.toString(16)}`,
       dg2_hash_salt: `0x${SALT.toString(16)}`,
@@ -424,11 +438,12 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
   it("should calculate the correct age from passport", () => {
-    const result = calculateAge(PASSPORTS.john)
+    const result = calculateAge(PASSPORTS.john, AGE_TEST_DATE)
     expect(result).toBe(30)
   })
 
@@ -468,6 +483,7 @@ describe("Circuit Matcher - RSA", () => {
       min_age_required: 18,
       max_age_required: 0,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -505,6 +521,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -545,6 +562,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -582,6 +600,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -621,6 +640,7 @@ describe("Circuit Matcher - RSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -660,6 +680,7 @@ describe("Circuit Matcher - RSA", () => {
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -699,6 +720,7 @@ describe("Circuit Matcher - RSA", () => {
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 })
@@ -709,8 +731,8 @@ describe("Circuit Matcher - ECDSA", () => {
     expect(result).toBe(true)
   })
 
-  it("should get the correct CSCA for the passport", () => {
-    const result = getCscaForPassport(
+  it("should get the correct CSCA for the passport", async () => {
+    const result = await getCscaForPassportAsync(
       PASSPORTS.mary.sod.certificate,
       rootCerts.certificates as PackagedCertificate[],
     )
@@ -719,27 +741,29 @@ describe("Circuit Matcher - ECDSA", () => {
     )
   })
 
-  it("should get the correct DSC circuit inputs", async () => {
+  it("should get the correct DSC circuit inputs (v1)", async () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.mary,
-      1n,
-      rootCerts.certificates as PackagedCertificate[],
+      SALT,
+      rootCerts as unknown as PackagedCertificatesFile,
     )
     expect(result).toEqual({
       certificate_registry_root:
-        "0x03c239fdfafd89a568efac9175c32b998e208c4ab453d3615a31c83e65c90686",
-      certificate_registry_index: 262,
-      certificate_registry_hash_path: [
-        "0x290e5b8d9077a166021683044903547e099d380e1154b1dad47bed0afb81b3ab",
-        "0x0d8a623b25ac76db51b642c936370503d962fa7c12662610ab8a003f65a988a7",
-        "0x0f8dac8f390b0c0ec79e1bebc94bed62e48f2f0e53b4784e8c9d7780e9a7e983",
-        "0x10ca1baaecad377d89f157b4534d71a420a3af09af7d029312a1ff3e7f7fc359",
-        "0x303bf1f60e83fe4759f3c18f8e3e62c9a58bd58dcfffac39e39373e53e7eb661",
-        "0x082870b2cf8641796d129e068db3da5e6b9ba679b8f13a4a53b5d788f8468ecc",
-        "0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76",
-        "0x2d78ed82f93b61ba718b17c2dfe5b52375b4d37cbbed6f1fc98b47614b0cf21b",
-        "0x24e1fdbff4c4928ea658a446dd5c069bc97354be11b8de098de61adb6bc8405f",
-        "0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972",
+        "0x2e31e60b172bbbef37071cfdf0868a719ef5915889ac8aa569079a7024646beb",
+      schema_version: 1,
+      timestamp: 1777479919,
+      certificate_tree_index: 449,
+      certificate_tree_hash_path: [
+        "0x27ae678cdb6b674c1546b059d49e3f8bba9352a5dad2d4bc03bc74cc5d341fa5",
+        "0x11608995fd95f128bbbfff2c8f7b63fdf415ef9a697a67bdd65a7eed2a6470f7",
+        "0x0b4e02f9cd11836ea25d95ef6a19ffe0a09b54f90c5f18f97e04acc0d95e7d42",
+        "0x250ec5b49b5e4c84a828701bb9a7802eede1c7c8bc89353e3e690bc649195751",
+        "0x097a5ff36adbfebcc9ede200fce54fd06f3797a287ed88cb1931a13b6fb08374",
+        "0x1dd262044d4c3f9d228cc5a5af4af10844bd6611af3b1f9f1d1c608aa2785067",
+        "0x1b6e36ec3d3c85fa98efde0703363ec2f18ceb692676d20ab92530c2626dfffc",
+        "0x2b2ef19c1a13651b00de3a5ea0cad2278c3b5cffe68a100110c4b907b61e88db",
+        "0x2994751fabd15f4159d5009a2c95aa4a1525e14b6f1456ccaa5e5e858c7b2ba6",
+        "0x0eea4b8543612a163faf06cfb528f58d8f814b166083333adac8912a26e805e5",
         "0x2a775ea761d20435b31fa2c33ff07663e24542ffb9e7b293dfce3042eb104686",
         "0x0f320b0703439a8114f81593de99cd0b8f3b9bf854601abb5b2ea0e8a3dda4a7",
         "0x0d07f6e7a8a0e9199d6d92801fff867002ff5b4808962f9da2ba5ce1bdd26a73",
@@ -747,9 +771,13 @@ describe("Circuit Matcher - ECDSA", () => {
         "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
         "0x2b9cdd484c5ba1e4d6efcc3f18734b5ac4c4a0b9102e2aeb48521a661d3feee9",
       ],
-      certificate_tags: ["0x0", "0x0", "0x0"],
+      certificate_tags: ["0x0", "0x0", "0x80000000000000000000000000000"],
       certificate_type: "0x1",
       country: "ZKR",
+      csc_expiry: 2061209142,
+      csc_fingerprint: "0x0a5ff627895f7b54499fb864b0250acfd5f209cb2934af4d964e862a67d01010",
+      revocation_tree_root: "0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a",
+      masterlist_tree_root: "0x23018223bd4413ac3342f1affbd3efe17b73d247ddc24de02915437b13e02f01",
       salt: EXPECTED_SALT,
       csc_pubkey_x: [
         100, 67, 3, 43, 184, 208, 212, 7, 28, 252, 194, 241, 65, 191, 163, 215, 48, 51, 138, 76,
@@ -826,7 +854,7 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         E_CONTENT_INPUT_SIZE,
       ),
-      comm_in: "0x18a9c4f5e92fd5e7005bd17bb32d4f95655396e3538c3f3e510cad664f6d7321",
+      comm_in: "0x20c677937edf1436f0c9aa087b31c4bfee837481eaf4c24242a41d628793c6d6",
       expiry_date_salt: `0x${SALT.toString(16)}`,
       dg2_hash_salt: `0x${SALT.toString(16)}`,
       salted_private_nullifier: SaltedValue.fromValue(
@@ -904,11 +932,12 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
   it("should calculate the correct age from passport", () => {
-    const result = calculateAge(PASSPORTS.mary)
+    const result = calculateAge(PASSPORTS.mary, AGE_TEST_DATE)
     expect(result).toBe(50)
   })
 
@@ -950,6 +979,7 @@ describe("Circuit Matcher - ECDSA", () => {
       min_age_required: 18,
       max_age_required: 0,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -990,6 +1020,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1033,6 +1064,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1073,6 +1105,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1115,6 +1148,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1157,6 +1191,7 @@ describe("Circuit Matcher - ECDSA", () => {
       min_date: getUnixTimestamp(new Date("1980-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       max_date: getUnixTimestamp(new Date("1990-01-01")) + SECONDS_BETWEEN_1900_AND_1970,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1199,6 +1234,7 @@ describe("Circuit Matcher - ECDSA", () => {
       min_date: getUnixTimestamp(new Date("2025-01-01")),
       max_date: getUnixTimestamp(new Date("2035-12-31")),
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   })
 
@@ -1214,6 +1250,7 @@ describe("Circuit Matcher - ECDSA", () => {
       SERVICE_SCOPE,
       SERVICE_SUBSCOPE,
       CURRENT_DATE,
+      undefined, // oprfProof
       sanctions,
     )
     expect(result).toEqual({
@@ -1242,6 +1279,7 @@ describe("Circuit Matcher - ECDSA", () => {
       service_scope: EXPECTED_SERVICE_SCOPE,
       service_subscope: EXPECTED_SERVICE_SUBSCOPE,
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
+      oprf_proof: OPRF_ZERO_PROOF,
     })
   }, 30000)
 })

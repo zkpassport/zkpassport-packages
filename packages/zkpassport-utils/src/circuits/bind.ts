@@ -8,7 +8,7 @@ import {
 } from "../utils"
 import { BindCommittedInputs, BoundData } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { sha256 } from "@noble/hashes/sha2"
+import { sha256 } from "@noble/hashes/sha2.js"
 import { ProofType, ProofTypeLength } from "."
 import { Binary } from "../binary"
 

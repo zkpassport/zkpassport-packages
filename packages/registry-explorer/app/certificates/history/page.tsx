@@ -10,7 +10,7 @@ function HistoricalRootsContent() {
 
   if (error) {
     return (
-      <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4 my-4">
+      <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4 mt-10">
         <h3 className="text-sm font-medium text-red-800 dark:text-red-200">Error Loading Roots</h3>
         <div className="mt-2 text-sm text-red-700 dark:text-red-300">{error}</div>
       </div>
@@ -19,6 +19,11 @@ function HistoricalRootsContent() {
 
   return (
     <div className="space-y-6">
+      <p className="text-muted-foreground mb-2 text-sm sm:text-base">
+        {isLoading && roots.length === 0
+          ? "Browse all historical certificate roots stored in the registry"
+          : `${roots.length} historical certificate root${roots.length !== 1 ? "s" : ""} found`}
+      </p>
       {isLoading && roots.length === 0 ? (
         <div className="flex justify-center items-center py-12">
           <LoadingAnimation />
@@ -46,15 +51,16 @@ export default function HistoricalRootsPage() {
   return (
     <div className="container mx-auto py-6 px-4 sm:py-10">
       <h1 className="text-xl sm:text-2xl font-bold mb-2">Historical Certificate Roots</h1>
-      <p className="text-muted-foreground mb-6 text-sm sm:text-base">
-        Browse all historical certificate roots stored in the registry
-      </p>
-
       <Suspense
         fallback={
-          <div className="flex justify-center py-12">
-            <LoadingAnimation />
-          </div>
+          <>
+            <p className="text-muted-foreground mb-6 text-sm sm:text-base">
+              Browse all historical certificate roots stored in the registry
+            </p>
+            <div className="flex justify-center py-12">
+              <LoadingAnimation />
+            </div>
+          </>
         }
       >
         <HistoricalRootsContent />

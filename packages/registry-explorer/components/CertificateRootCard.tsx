@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { RootDetails } from "@zkpassport/registry"
-import { Copy, GitCompare } from "lucide-react"
+import { Copy, FileText, GitCompare } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -21,6 +21,7 @@ interface CertificateRootCardProps {
 
 export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRootCardProps) {
   const [copied, setCopied] = useState(false)
+  const [validityCopied, setValidityCopied] = useState(false)
   const { root, revoked, validFrom, validTo, cid, leaves, isLatest, index } = rootDetails
 
   function formatCid(cid: string): string {
@@ -43,6 +44,13 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
     })
   }
 
+  const copyValidFromTimestamp = () => {
+    navigator.clipboard.writeText(Math.floor(validFrom.getTime() / 1000).toString()).then(() => {
+      setValidityCopied(true)
+      setTimeout(() => setValidityCopied(false), 2000)
+    })
+  }
+
   // Determine if this is the genesis root
   const isGenesisRoot = index === 1
 
@@ -51,7 +59,7 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
       <CardHeader>
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg font-mono">
-            {isLatest ? "Current Root" : "Historical Root"}
+            {isLatest ? "Current Root" : isGenesisRoot ? "Genesis Root" : "Historical Root"}
           </CardTitle>
           <div className="flex items-center gap-2">
             {revoked && <Badge variant="destructive">Revoked</Badge>}
@@ -99,15 +107,29 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
         <div className="space-y-3 text-sm">
           <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
             <div className="font-semibold text-gray-700 dark:text-gray-300">Validity Period:</div>
-            <div className="sm:col-span-2 text-gray-900 dark:text-gray-100">
-              {validFrom.toLocaleDateString()} to{" "}
-              {validTo !== undefined ? validTo.toLocaleDateString() : "Present"}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    onClick={copyValidFromTimestamp}
+                    className="sm:col-span-2 text-gray-900 dark:text-gray-100"
+                  >
+                    {validFrom.toLocaleDateString()} to{" "}
+                    {validTo !== undefined ? validTo.toLocaleDateString() : "Present"}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {validityCopied ? "Copied!" : Math.floor(validFrom.getTime() / 1000).toString()}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
             <div className="font-semibold text-gray-700 dark:text-gray-300">IPFS CID:</div>
             <div className="sm:col-span-2 font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-              <Link href={`https://ipfs.infura.io/ipfs/${cid}`} target="_blank">
+              <Link href={`https://ipfs.zkpassport.id/ipfs/${cid}`} target="_blank">
                 {formatCid(cid)}
               </Link>
             </div>
@@ -121,8 +143,11 @@ export function CertificateRootCard({ rootDetails, previousRoot }: CertificateRo
         </div>
       </CardContent>
       <CardFooter className="flex gap-2">
-        <Button asChild className="flex-1">
-          <Link href={`/certificates?root=${encodeURIComponent(root)}`}>Show Certificates</Link>
+        <Button asChild variant="outline" className="flex-1">
+          <Link href={`/certificates?root=${encodeURIComponent(root)}`}>
+            <FileText className="h-4 w-4 mr-2" />
+            Show Certificates
+          </Link>
         </Button>
         {previousRoot && (
           <Button asChild variant="outline" className="flex-1">

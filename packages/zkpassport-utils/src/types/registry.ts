@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { TwoLetterCode } from ".."
 
 type NISTCurve =
@@ -62,10 +64,75 @@ export type CurveName = NISTCurveName | BrainpoolCurveName
 
 export type SignatureAlgorithmType = "RSA" | "RSA-PSS" | "ECDSA"
 
+/**
+ * Fields shared by every version of the packaged certificates file format.
+ */
+type PackagedCertificatesFileBase = {
+  // Environment (Omitted for production)
+  environment?: string
+  // Timestamp when the package was created and the certificates were validated
+  timestamp: number
+  // Certificate root commitment published to the Certificate Registry, derived as:
+  //   certificate_root = H(packed(schema_version | timestamp), state_root)
+  //   state_root       = H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)
+  // where `schema_version` (2 BE bytes) and `timestamp` (4 BE bytes) are concatenated and
+  // packed into a single 31-byte field, and H is Poseidon2.
+  // Computed by `calculatePackagedCertificatesRoot`.
+  root: string
+  // Previous root hash (if any)
+  previous_root?: string
+  // Array of packaged certificates
+  certificates: PackagedCertificate[]
+}
+
+/**
+ * Packaged certificates file, version 0 (legacy format).
+ * The `serialised` field carries the ordered certificate Merkle tree.
+ */
+export type PackagedCertificatesFileV0 = PackagedCertificatesFileBase & {
+  version: 0
+  // The serialised ordered Merkle tree of certificates
+  // Each row represents a level of the tree, with each entry being a node
+  serialised?: string[][]
+}
+
+/**
+ * Packaged certificates file, version 1.
+ * The `serialised` field has been renamed to `certificates_serialised` to
+ * disambiguate it from the (separate) revocation and masterlist trees.
+ */
+export type PackagedCertificatesFileV1 = PackagedCertificatesFileBase & {
+  version: 1
+  // The serialised ordered Merkle tree of certificates
+  // Each row represents a level of the tree, with each entry being a node
+  certificates_serialised?: string[][]
+  // Array of intermediate certificate revocations (CSCA fingerprint + DSC serial)
+  revocations?: IntermediateCertificateRevocation[]
+  // The serialised ordered Merkle tree of revocations
+  // Each row represents a level of the tree, with each entry being a node
+  revocations_serialised?: string[][]
+  // Array of masterlist file hashes
+  masterlists: string[]
+}
+
+/**
+ * Discriminated union of all supported packaged certificates file versions.
+ * Narrow on `version` to access version-specific fields (e.g. `serialised`
+ * vs `certificates_serialised`).
+ */
+export type PackagedCertificatesFile = PackagedCertificatesFileV0 | PackagedCertificatesFileV1
+
+export type IntermediateCertificateRevocation = {
+  // Fingerprint of the issuing CSCA (Poseidon2 hash of the CSCA DER bytes)
+  fingerprint: string
+  // Serial number of the revoked intermediate (DSC) certificate
+  serial: string
+}
+
 export type PackagedCertificate = {
   country: string
   signature_algorithm: SignatureAlgorithmType
-  hash_algorithm: HashAlgorithm
+  // hash_algorithm: HashAlgorithm
   public_key: ECPublicKey | RSAPublicKey
   validity: {
     not_before: number
@@ -77,6 +144,7 @@ export type PackagedCertificate = {
   }
   subject_key_identifier?: string
   authority_key_identifier?: string
+  fingerprint?: string
   tags?: TwoLetterCode[]
   type?: string
 }

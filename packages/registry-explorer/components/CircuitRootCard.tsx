@@ -98,7 +98,7 @@ export function CircuitRootCard({ rootDetails }: CircuitRootCardProps) {
           <div className="flex flex-col sm:grid sm:grid-cols-3 gap-1">
             <div className="font-semibold text-gray-700 dark:text-gray-300">IPFS CID:</div>
             <div className="sm:col-span-2 font-mono text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">
-              <Link href={`https://ipfs.infura.io/ipfs/${cid}`} target="_blank">
+              <Link href={`https://ipfs.zkpassport.id/ipfs/${cid}`} target="_blank">
                 {formatCid(cid)}
               </Link>
             </div>

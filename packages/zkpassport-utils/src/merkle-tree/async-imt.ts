@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // c.f. https://github.com/zkpassport/zk-kit/blob/main/packages/imt/src/async-imt.ts
 import {
   requireArray,

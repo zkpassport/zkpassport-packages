@@ -1,4 +1,4 @@
-import { sha256 } from "@noble/hashes/sha2"
+import { sha256 } from "@noble/hashes/sha2.js"
 import { DateCommittedInputs } from "../types"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { packBeBytesIntoField, numberToBytesBE } from "../utils"

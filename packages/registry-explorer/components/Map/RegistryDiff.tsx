@@ -1,9 +1,10 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { PackagedCertificatesFile } from "@zkpassport/registry"
+import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { countryCodeAlpha3ToName, PackagedCertificate } from "@zkpassport/utils"
-import { getCertificateUrl, getChainId } from "@/lib/certificate-url"
+import { getCertificateUrl } from "@/lib/certificate-url"
+import { useNetwork } from "@/components/NetworkProvider"
 import { GitCompare, Plus, Minus, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
@@ -35,6 +36,7 @@ export default function RegistryDiffSidebar({
   onCountriesCalculated,
   isLatest = false,
 }: RegistryDiffProps) {
+  const { chainId } = useNetwork()
   const [beforeData, setBeforeData] = useState<PackagedCertificatesFile | null>(null)
   const [afterData, setAfterData] = useState<PackagedCertificatesFile | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -47,7 +49,6 @@ export default function RegistryDiffSidebar({
       setIsLoading(true)
       setError(null)
 
-      const chainId = getChainId()
       const beforeUrl = getCertificateUrl(beforeRoot, chainId)
       const afterUrl = getCertificateUrl(afterRoot, chainId)
 
@@ -76,7 +77,7 @@ export default function RegistryDiffSidebar({
     }
 
     fetchCertificateData()
-  }, [beforeRoot, afterRoot])
+  }, [beforeRoot, afterRoot, chainId])
 
   // Reuse certificate key generation from diff page
   const getCertificateKey = useCallback((cert: PackagedCertificate): string => {
@@ -91,7 +92,7 @@ export default function RegistryDiffSidebar({
         cert.public_key.public_key_y,
       )
     }
-    const parts = [cert.country, cert.signature_algorithm, cert.hash_algorithm, ...publicKeyParts]
+    const parts = [cert.country, cert.signature_algorithm, ...publicKeyParts]
     return parts.join("|")
   }, [])
 

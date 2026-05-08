@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright © 2025 ZKPassport
+// Copyright © 2026 ZKPassport
 /*
  ______ _     _  _____  _______ _______ _______  _____   _____   ______ _______
   ____/ |____/  |_____] |_____| |______ |______ |_____] |     | |_____/    |
@@ -36,6 +36,46 @@ contract RegistryHelper {
         bool revoked;
         uint256 leaves;
         bytes32 cid;
+        bytes32 metadata1;
+        bytes32 metadata2;
+        bytes32 metadata3;
+    }
+
+    /**
+     * @dev Build a RootDetails entry for a given root by reading from the registry's
+     * consolidated `historicalRoots` mapping. Extracted to avoid stack-too-deep errors
+     * in callers that would otherwise hold all 10 fields as locals.
+     */
+    function _buildRootDetails(IRegistryInstance registry, bytes32 root, uint256 index)
+        private
+        view
+        returns (RootDetails memory details)
+    {
+        // Read the root details from the registry
+        (
+            uint256 validFrom,
+            uint256 validTo,
+            bool revoked,
+            uint256 leaves,
+            bytes32 cid,
+            bytes32 metadata1,
+            bytes32 metadata2,
+            bytes32 metadata3
+        ) = registry.historicalRoots(root);
+
+        // Return the RootDetails entry
+        details = RootDetails({
+            index: index,
+            root: root,
+            validFrom: validFrom,
+            validTo: validTo,
+            revoked: revoked,
+            leaves: leaves,
+            cid: cid,
+            metadata1: metadata1,
+            metadata2: metadata2,
+            metadata3: metadata3
+        });
     }
 
     /**
@@ -80,22 +120,8 @@ contract RegistryHelper {
         // Populate the results array
         for (uint256 i = 0; i < actualLimit; i++) {
             bytes32 rootHash = registry.rootByIndex(currentIndex);
-
-            // Get the root details - accessing all fields from the consolidated HistoricalRoot struct
-            (uint256 validFrom, uint256 validTo, bool revoked, uint256 leaves, bytes32 cid,,,) =
-                registry.historicalRoots(rootHash);
-
             // Add to results
-            roots[i] = RootDetails({
-                index: currentIndex,
-                root: rootHash,
-                validFrom: validFrom,
-                validTo: validTo,
-                revoked: revoked,
-                leaves: leaves,
-                cid: cid
-            });
-
+            roots[i] = _buildRootDetails(registry, rootHash, currentIndex);
             // Move to the next index
             currentIndex++;
         }
@@ -147,22 +173,10 @@ contract RegistryHelper {
         bytes32 latestRoot = registry.latestRoot();
         require(latestRoot != bytes32(0), "No roots exist yet");
 
-        // Get the consolidated data from historicalRoots
-        (uint256 validFrom, uint256 validTo, bool revoked, uint256 leaves, bytes32 cid,,,) =
-            registry.historicalRoots(latestRoot);
-
         // Get the index of the latest root
         uint256 index = registry.indexByRoot(latestRoot);
-
-        return RootDetails({
-            index: index,
-            root: latestRoot,
-            validFrom: validFrom,
-            validTo: validTo,
-            revoked: revoked,
-            leaves: leaves,
-            cid: cid
-        });
+        // Build and return the RootDetails entry
+        return _buildRootDetails(registry, latestRoot, index);
     }
 
     /**
@@ -178,13 +192,8 @@ contract RegistryHelper {
         bytes32 root = registry.rootByIndex(index);
         require(root != bytes32(0), "Root not found");
 
-        // Get the consolidated data from historicalRoots
-        (uint256 validFrom, uint256 validTo, bool revoked, uint256 leaves, bytes32 cid,,,) =
-            registry.historicalRoots(root);
-
-        return RootDetails({
-            index: index, root: root, validFrom: validFrom, validTo: validTo, revoked: revoked, leaves: leaves, cid: cid
-        });
+        // Return the RootDetails entry
+        return _buildRootDetails(registry, root, index);
     }
 
     /**
@@ -201,13 +210,8 @@ contract RegistryHelper {
         uint256 index = registry.indexByRoot(root);
         require(index != 0, "Root not found");
 
-        // Get the consolidated data from historicalRoots
-        (uint256 validFrom, uint256 validTo, bool revoked, uint256 leaves, bytes32 cid,,,) =
-            registry.historicalRoots(root);
-
-        return RootDetails({
-            index: index, root: root, validFrom: validFrom, validTo: validTo, revoked: revoked, leaves: leaves, cid: cid
-        });
+        // Return the RootDetails entry
+        return _buildRootDetails(registry, root, index);
     }
 
     /**

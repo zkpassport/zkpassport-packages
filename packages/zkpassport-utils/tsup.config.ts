@@ -21,6 +21,7 @@ export default defineConfig(
       "passport/index": "src/passport/index.ts",
       "registry/index": "src/registry/index.ts",
       "types/index": "src/types/index.ts",
+      "oprf/index": "src/oprf/index.ts",
     },
     dts: {
       compilerOptions: {
@@ -32,7 +33,7 @@ export default defineConfig(
     outDir: `dist/${format}`,
     outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
     splitting: false,
-    sourcemap: false,
+    sourcemap: true,
     treeshake: !isDev,
     minify: !isDev,
   })),

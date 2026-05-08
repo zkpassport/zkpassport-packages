@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import {
   AgeCommittedInputs,
   BindCommittedInputs,
@@ -19,9 +21,9 @@ import {
   SanctionsCommittedInputs,
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
-import { DEFAULT_VALIDITY } from "./constants"
-import { sha256 } from "@noble/hashes/sha2"
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils"
+import { DEFAULT_VALIDITY, ZERO_BYTES32 } from "./constants"
+import { sha256 } from "@noble/hashes/sha2.js"
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
 
 export class SolidityVerifier {
@@ -70,12 +72,14 @@ export class SolidityVerifier {
     domain,
     scope,
     devMode = false,
+    // oprfPubKeyHash,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain: string
     scope?: string
     devMode?: boolean
+    // oprfPubKeyHash?: string
   }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
@@ -257,6 +261,7 @@ export class SolidityVerifier {
         domain,
         scope: scope ?? "",
         devMode,
+        // oprfPubKeyHash: oprfPubKeyHash ?? ZERO_BYTES32,
       },
     }
     return params

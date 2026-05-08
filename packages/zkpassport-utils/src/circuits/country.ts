@@ -2,7 +2,7 @@ import { Alpha3Code } from "i18n-iso-countries"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { numberToBytesBE, packBeBytesIntoField, rightPadArrayWithZeros } from "../utils"
 import { CountryCommittedInputs } from "../types"
-import { sha256 } from "@noble/hashes/sha2"
+import { sha256 } from "@noble/hashes/sha2.js"
 import { ProofType, ProofTypeLength } from "."
 
 export function getCountryWeightedSum(country: Alpha3Code): number {

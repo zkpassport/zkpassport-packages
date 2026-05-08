@@ -6,8 +6,8 @@
  * Packaged certificates URLs
  */
 export const PACKAGED_CERTIFICATES_URL_MAINNET = "https://certificates.zkpassport.id/mainnet"
-export const PACKAGED_CERTIFICATES_URL_SEPOLIA = "https://certificates.zkpassport.id/sepolia"
-export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:3000/certificates"
+export const PACKAGED_CERTIFICATES_URL_SEPOLIA = "https://certificates.zkpassport.id/testnet"
+export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:8000/root"
 
 /**
  * Default chain ID for certificate URLs (Sepolia testnet)
@@ -29,19 +29,11 @@ function normalizeHash(hash: string): string {
  */
 export function getCertificateUrl(root: string, chainId: number = DEFAULT_CHAIN_ID): string {
   const normalizedRoot = normalizeHash(root)
-
-  if (chainId === 1) {
+  if (chainId === 1 || chainId === 8453) {
     return `${PACKAGED_CERTIFICATES_URL_MAINNET}/${normalizedRoot}.json`
   } else if (chainId === 11155111) {
     return `${PACKAGED_CERTIFICATES_URL_SEPOLIA}/${normalizedRoot}.json`
   } else {
     return `${PACKAGED_CERTIFICATES_URL_DEV}/${normalizedRoot}.json`
   }
-}
-
-/**
- * Get the chain ID from environment variables
- */
-export function getChainId(): number {
-  return Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? DEFAULT_CHAIN_ID)
 }

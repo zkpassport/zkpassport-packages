@@ -1,3 +1,4 @@
+import { getNetworkOverrides, useNetwork } from "@/components/NetworkProvider"
 import { RegistryClient, RootDetails } from "@zkpassport/registry"
 import debug from "debug"
 import { useCallback, useEffect, useState } from "react"
@@ -5,6 +6,7 @@ import { useCallback, useEffect, useState } from "react"
 const log = debug("explorer")
 
 export function useHistoricalCertificateRoots() {
+  const { chainId, currentNetwork, isReady } = useNetwork()
   const [roots, setRoots] = useState<RootDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -12,16 +14,14 @@ export function useHistoricalCertificateRoots() {
 
   // Use the RegistryClient to fetch historical roots
   const fetchRoots = useCallback(async () => {
+    if (!isReady) return
     setIsLoading(true)
     setError(null)
 
     try {
-      // Create a registry client instance
       const client = new RegistryClient({
-        chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 31337),
-        rpcUrl: process.env.NEXT_PUBLIC_ETH_RPC_URL,
-        rootRegistry: process.env.NEXT_PUBLIC_ROOT_REGISTRY_ADDRESS,
-        registryHelper: process.env.NEXT_PUBLIC_REGISTRY_HELPER_ADDRESS,
+        chainId,
+        ...getNetworkOverrides(currentNetwork),
       })
       const allRoots = await client.getAllHistoricalCertificateRoots(
         100,
@@ -44,7 +44,7 @@ export function useHistoricalCertificateRoots() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [chainId, currentNetwork, isReady])
 
   // Load the roots on component mount
   useEffect(() => {

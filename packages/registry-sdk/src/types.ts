@@ -1,5 +1,3 @@
-import type { PackagedCertificate } from "@zkpassport/utils/types"
-
 /**
  * Registry client configuration options
  */
@@ -91,11 +89,22 @@ export interface RootDetails {
    * Index of the root in the registry
    */
   index?: number
-}
 
-export interface PackagedCertificatesFile {
-  certificates: PackagedCertificate[]
-  serialised: any[]
+  /**
+   * Free-form metadata slot 1 (bytes32 hex). For the certificate registry this
+   * holds the published `state_root` derived from `H(certificate_tree_root, revocation_tree_root, masterlist_tree_root)`.
+   */
+  metadata1?: string
+
+  /**
+   * Free-form metadata slot 2 (bytes32 hex). Reserved for future use.
+   */
+  metadata2?: string
+
+  /**
+   * Free-form metadata slot 3 (bytes32 hex). Reserved for future use.
+   */
+  metadata3?: string
 }
 
 export enum DocumentSupport {

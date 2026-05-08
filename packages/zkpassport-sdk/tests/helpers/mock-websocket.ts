@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 export class MockWebSocket {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
@@ -221,7 +223,15 @@ export class MockWebSocket {
 }
 
 // This is a mock function that mimics the behavior of the bridge server on client connect
-const mockBridgeServerClientConnect = function () {
+const mockBridgeServerClientConnect = function (this: {
+  url: string
+  headers: { Origin: string }
+  hubChannel: string
+  onConnectInterceptor: () => void
+  onSendInterceptor: (data: string) => string | undefined
+  send: (data: string) => void
+  origin: string | null
+}) {
   // If the WebSocket URI used to connect contains a pubkey param, the server will automatically
   // broadcast a handshake message to all connected clients
   if (this.url) {
@@ -242,16 +252,33 @@ const mockBridgeServerClientConnect = function () {
 }
 
 // This is a mock function that mimics the behavior of the bridge server on message relay
-const mockBridgeServerMessageRelay = function (data: string): string | undefined {
+const mockBridgeServerMessageRelay = function (
+  this: {
+    origin: any
+    headers: { Origin: string }
+    hubChannel: string // Use topic from URL
+    onConnectInterceptor: (this: {
+      url: string
+      headers: { Origin: string }
+      hubChannel: string
+      onConnectInterceptor: () => void
+      onSendInterceptor: (data: string) => string | undefined
+      send: (data: string) => void
+      origin: string | null
+    }) => void
+    onSendInterceptor: (data: string) => string | undefined
+  },
+  data: string,
+): string | undefined {
   // The WebSocket server will parse the data as JSON and throw error if invalid
   let parsedData: any
   try {
     parsedData = JSON.parse(data)
   } catch (error) {
-    throw new Error("Invalid JSON: " + error.message)
+    throw new Error("Invalid JSON: " + (error as Error).message)
   }
   // The WebSocket server will set the origin property on every message relayed if the origin is set
-  if (this.origin) parsedData.origin = this.origin
+  if (this.origin) parsedData.origin = this.origin as string
   return JSON.stringify(parsedData)
 }
 

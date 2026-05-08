@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { normaliseHex } from "../utils"
 import { AsyncIMT } from "./async-imt"

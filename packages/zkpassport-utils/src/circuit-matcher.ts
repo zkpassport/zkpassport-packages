@@ -1,4 +1,6 @@
-import { sha256 } from "@noble/hashes/sha2"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { sha256 } from "@noble/hashes/sha2.js"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { Alpha3Code } from "i18n-iso-countries"
@@ -32,13 +34,20 @@ import {
   getSodSignatureAlgorithmType,
 } from "./passport/passport-reader"
 import {
+  buildMerkleTreeFromMasterlists,
+  buildMerkleTreeFromRevocations,
   CERT_TYPE_CSCA,
-  CERTIFICATE_REGISTRY_HEIGHT,
+  CERTIFICATE_MERKLE_TREE_HEIGHT,
   getCertificateLeafHash,
   getCertificateLeafHashes,
   tagsArrayToBitsFlag,
 } from "./registry"
-import type { HashAlgorithm, IntegrityToDisclosureSalts, PackagedCertificate } from "./types"
+import type {
+  HashAlgorithm,
+  IntegrityToDisclosureSalts,
+  PackagedCertificate,
+  PackagedCertificatesFile,
+} from "./types"
 import {
   ECDSADSCDataInputs,
   IDCredential,
@@ -46,7 +55,6 @@ import {
   PassportViewModel,
   Query,
   RSADSCDataInputs,
-  RSAPublicKey,
   SaltedValue,
 } from "./types"
 import {
@@ -71,12 +79,12 @@ import {
   getLastNameRange,
   getNationalityRange,
 } from "./passport/getters"
+import { type OPRFProof, OPRF_ZERO_PROOF } from "./oprf"
 import { SanctionsBuilder } from "./circuits/sanctions"
 export { SanctionsBuilder }
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
-const SUPPORTED_HASH_ALGORITHMS_USE: HashAlgorithm[] = ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]
 
 // TODO: Improve this with a structured list of supported signature algorithms
 export function isSignatureAlgorithmSupported(
@@ -120,11 +128,10 @@ export function isCscaSupported(csca: PackagedCertificate): boolean {
         csca.public_key.key_size === 2048 ||
         csca.public_key.key_size === 3072 ||
         csca.public_key.key_size === 4096) &&
-      (csca.public_key as RSAPublicKey).exponent < 131072 &&
-      SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
+      csca.public_key.exponent < 131072
     )
   } else if (csca.signature_algorithm == "RSA-PSS" || csca.signature_algorithm == "ECDSA") {
-    return SUPPORTED_HASH_ALGORITHMS_USE.includes(csca.hash_algorithm)
+    return true
   }
   return false
 }
@@ -157,20 +164,32 @@ export function getTBSMaxLen(passport: PassportViewModel): number {
   }
 }
 
+/**
+ * @deprecated Use getCscaForPassportAsync instead for more reliable certificate matching.
+ * This synchronous version uses only AKI/SKI matching without signature verification.
+ */
 export function getCscaForPassport(
   dsc: DSC,
   certificates: PackagedCertificate[],
 ): PackagedCertificate | null {
-  const extensions = dsc.tbs.extensions
+  const { akiMatchedCert } = getCscaCandidates(dsc, certificates)
+  return akiMatchedCert
+}
 
-  /*let notBefore: number | undefined
-  let notAfter: number | undefined
-  const pkupBuffer = extensions.get("privateKeyUsagePeriod")?.value.toBuffer()
-  if (pkupBuffer) {
-    const pkup = AsnParser.parse(pkupBuffer, PrivateKeyUsagePeriod)
-    notBefore = (pkup.notBefore?.getTime() ?? 0) / 1000
-    notAfter = (pkup.notAfter?.getTime() ?? 0) / 1000
-  }*/
+/**
+ * Find CSC candidates for a DSC using AKI/SKI matching
+ * Returns both the best AKI match and all certificates from the same country
+ */
+function getCscaCandidates(
+  dsc: DSC,
+  certificates: PackagedCertificate[],
+  skipAKIMatching: boolean = false,
+): {
+  akiMatchedCert: PackagedCertificate | null
+  countryCerts: PackagedCertificate[]
+  formattedCountry: string
+} {
+  const extensions = dsc.tbs.extensions
 
   let authorityKeyIdentifier: string | undefined
   const akiBuffer = extensions.get("authorityKeyIdentifier")?.value.toBuffer()
@@ -190,64 +209,104 @@ export function getCscaForPassport(
     )
   }
 
-  /*const checkAgainstPrivateKeyUsagePeriod = (cert: PackagedCertificate) => {
-    return (
-      cert.private_key_usage_period &&
-      cert.private_key_usage_period?.not_before &&
-      cert.private_key_usage_period?.not_after &&
-      notBefore &&
-      notAfter &&
-      notBefore >= (cert.private_key_usage_period?.not_before || 0) &&
-      notAfter <= (cert.private_key_usage_period?.not_after || 0)
-    )
-  }*/
+  // Get all certificates from the same country
+  const countryCerts = certificates.filter((cert) => {
+    return cert.country.toLowerCase() === formattedCountry.toLowerCase()
+  })
 
   // First try to find the CSC by looking at the authority key identifier
   // which should uniquely identify the CSC that signed the DSC
-  const validCertificates = certificates.filter((cert) => {
-    return (
-      cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
-      checkAgainstAuthorityKeyIdentifier(cert)
-    )
-  })
+  const validCertificates = skipAKIMatching
+    ? []
+    : countryCerts.filter(checkAgainstAuthorityKeyIdentifier)
 
-  // Using the private key usage period is not really reliable, so we don't use it
-  /*if (validCertificates.length === 0) {
-    // If no certificate was found in the previous step, we use find the CSCs which
-    // could have signed the DSCs according to their private key usage period
-    validCertificates = certificates.filter((cert) => {
-      return (
-        cert.country.toLowerCase() === formattedCountry.toLowerCase() &&
-        checkAgainstPrivateKeyUsagePeriod(cert)
-      )
-    })
-  }*/
+  let akiMatchedCert: PackagedCertificate | null = null
 
-  if (validCertificates.length === 0) {
-    return null
-  } else if (validCertificates.length === 1) {
-    return validCertificates[0]
-  } else {
-    // Support edge cases where multiple CSCs with the same characteristics are found
-    const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
-      if (cert.signature_algorithm === "RSA-PSS") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("pss")
-      } else if (cert.signature_algorithm === "RSA") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("rsa")
-      } else if (cert.signature_algorithm === "ECDSA") {
-        return dsc.signatureAlgorithm.name.toLowerCase().includes("ecdsa")
-      }
-      return false
-    }
-    return (
-      validCertificates.find((cert) => {
-        return (
-          cert.hash_algorithm.replace("-", "").toLowerCase() ===
-            getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
-        )
-      }) ?? null
-    )
+  if (validCertificates.length === 1) {
+    akiMatchedCert = validCertificates[0]
+  } else if (validCertificates.length > 1) {
+    // // Support edge cases where multiple CSCs with the same characteristics are found
+    // const checkSignatureAlgorithm = (cert: PackagedCertificate) => {
+    //   if (cert.signature_algorithm === "RSA-PSS") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("pss")
+    //   } else if (cert.signature_algorithm === "RSA") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("rsa")
+    //   } else if (cert.signature_algorithm === "ECDSA") {
+    //     return dsc.signatureAlgorithm.name.toLowerCase().includes("ecdsa")
+    //   }
+    //   return false
+    // }
+    // akiMatchedCert =
+    //   validCertificates.find((cert) => {
+    //     return (
+    //       cert.hash_algorithm.replace("-", "").toLowerCase() ===
+    //         getDSCSignatureHashAlgorithm(dsc)?.toLowerCase() && checkSignatureAlgorithm(cert)
+    //     )
+    //   }) ?? validCertificates[0]
   }
+
+  return { akiMatchedCert, countryCerts, formattedCountry }
+}
+
+/**
+ * Find the CSC (Country Signing Certificate) that signed the given DSC (Document Signer Certificate).
+ *
+ * This function uses a three-tier fallback mechanism:
+ * 1. AKI/SKI matching: First tries to match the DSC's Authority Key Identifier with
+ *    a CSC's Subject Key Identifier, then verifies the signature.
+ * 2. Country-wide search: If AKI/SKI match fails signature verification, searches all
+ *    CSCs from the same country and verifies signatures.
+ * 3. Fallback: If all signature verifications fail, returns the original AKI/SKI match
+ *    (which may still be correct despite verification failure due to algorithm mismatches).
+ *
+ * @param dsc - The Document Signer Certificate to find the parent CSC for
+ * @param certificates - Array of all available CSC certificates
+ * @param skipAKIMatching - Whether to skip AKI/SKI matching and only use country-wide search
+ * @returns The matching CSC certificate, or null if none found
+ */
+export async function getCscaForPassportAsync(
+  dsc: DSC,
+  certificates: PackagedCertificate[],
+  skipAKIMatching: boolean = false,
+): Promise<PackagedCertificate | null> {
+  const { verifyDscSignature } = await import("./signature-verification")
+
+  const { akiMatchedCert, countryCerts } = getCscaCandidates(dsc, certificates, skipAKIMatching)
+
+  // Step 1: If we found a certificate via AKI/SKI matching, verify the signature
+  if (akiMatchedCert) {
+    try {
+      const isValid = await verifyDscSignature(dsc, akiMatchedCert)
+      if (isValid) {
+        return akiMatchedCert
+      }
+    } catch {
+      // Signature verification failed, continue to fallback
+    }
+  }
+
+  // Step 2: If AKI/SKI match failed or no match found, try all certificates from the same country
+  // This handles cases where the AKI/SKI might be wrong or missing
+  for (const cert of countryCerts) {
+    // Skip the one we already tried
+    if (cert === akiMatchedCert) continue
+
+    try {
+      const isValid = await verifyDscSignature(dsc, cert)
+      if (isValid) {
+        return cert
+      }
+    } catch {
+      // Continue to next certificate
+    }
+  }
+
+  // Step 3: If all signature verifications failed, return the original AKI/SKI match
+  // This is a fallback for edge cases where:
+  // - The signature algorithm parameters might be incorrectly declared
+  // - Our verification implementation might not support some edge cases
+  // - The certificate data might be malformed but still valid
+  return akiMatchedCert
 }
 
 function getDSCDataInputs(
@@ -393,7 +452,7 @@ export function getScopeHash(value?: string): bigint {
     return 0n
   }
   // Hash the value using SHA256 and truncate to 31 bytes (248 bits)
-  const sha2Hash = sha256(value).slice(0, 31)
+  const sha2Hash = sha256(new TextEncoder().encode(value)).slice(0, 31)
   // Convert the hash to a bigint
   const bytes = fromBytesToBigInt(Array.from(sha2Hash))
   return bytes
@@ -441,7 +500,7 @@ export function getDSCSignatureAlgorithmHashAlgorithm(passport: PassportViewMode
 export async function getDSCCircuitInputs(
   passport: PassportViewModel,
   salt: bigint,
-  certificates: PackagedCertificate[],
+  packagedCerts: PackagedCertificatesFile,
   overrideCertLeaves?: bigint[],
   overrideMerkleProof?: {
     root: string | HexString
@@ -449,24 +508,41 @@ export async function getDSCCircuitInputs(
     path: (string | HexString)[]
   },
 ) {
-  // Get the CSCA for this passport's DSC
-  const csca = getCscaForPassport(passport.sod.certificate, certificates)
+  if (packagedCerts.version !== 1) {
+    throw new Error(
+      `getDSCCircuitInputs requires v1 packaged certificates (got version ${packagedCerts.version ?? 0})`,
+    )
+  }
+  const schemaVersion = packagedCerts.version
+  // Get the CSCA for this passport's DSC using the async version with signature verification fallback
+  const csca = await getCscaForPassportAsync(passport.sod.certificate, packagedCerts.certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
-  // Generate the certificate registry merkle proof
-  const cscaLeaf = await getCertificateLeafHash(csca)
-  const leaves = overrideCertLeaves ?? (await getCertificateLeafHashes(certificates))
+  // Generate the certificate tree merkle proof
+  const cscaLeaf = await getCertificateLeafHash(csca, { version: schemaVersion })
+  const leaves =
+    overrideCertLeaves ??
+    (await getCertificateLeafHashes(packagedCerts.certificates, schemaVersion))
   const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
   const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const merkleProof =
-    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_REGISTRY_HEIGHT))
+    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT))
+
+  const revocationTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
+  const masterlistTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
 
   const inputs = {
-    certificate_registry_root: merkleProof.root,
-    certificate_registry_index: merkleProof.index,
-    certificate_registry_hash_path: merkleProof.path,
+    certificate_registry_root: packagedCerts.root,
+    schema_version: schemaVersion,
+    timestamp: packagedCerts.timestamp,
+    certificate_tree_index: merkleProof.index,
+    certificate_tree_hash_path: merkleProof.path,
     certificate_tags: tags.map((tag) => `0x${tag.toString(16)}`),
     certificate_type: `0x${CERT_TYPE_CSCA.toString(16)}`,
     country: csca.country,
+    csc_expiry: csca.validity.not_after,
+    csc_fingerprint: csca.fingerprint!,
+    revocation_tree_root: revocationTree.root,
+    masterlist_tree_root: masterlistTree.root,
     salt: `0x${salt.toString(16)}`,
   }
 
@@ -714,7 +790,12 @@ export async function getDiscloseCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ) {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -802,14 +883,15 @@ export async function getDiscloseCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
-export function calculateAge(passport: PassportViewModel): number {
+export function calculateAge(passport: PassportViewModel, now?: Date): number {
   const birthdate = passport.dateOfBirth
   if (!birthdate) return 0
   const birthdateDate = parseDate(new TextEncoder().encode(birthdate))
-  const currentDate = new Date()
+  const currentDate = now ?? new Date()
 
   let age = currentDate.getFullYear() - birthdateDate.getFullYear()
   const monthDiff = currentDate.getMonth() - birthdateDate.getMonth()
@@ -827,7 +909,12 @@ export async function getAgeCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -884,6 +971,7 @@ export async function getAgeCircuitInputs(
     min_age_required: minAge,
     max_age_required: maxAge,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -903,7 +991,12 @@ export async function getNationalityInclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -930,6 +1023,7 @@ export async function getNationalityInclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -941,7 +1035,12 @@ export async function getIssuingCountryInclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -968,6 +1067,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -979,7 +1079,12 @@ export async function getNationalityExclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1016,6 +1121,7 @@ export async function getNationalityExclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1027,6 +1133,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1064,6 +1171,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1075,8 +1183,13 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1109,6 +1222,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1120,7 +1234,12 @@ export async function getBirthdateCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1180,6 +1299,7 @@ export async function getBirthdateCircuitInputs(
     min_date: minDate ? getUnixTimestamp(minDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
     max_date: maxDate ? getUnixTimestamp(maxDate) + SECONDS_BETWEEN_1900_AND_1970 : 0,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1191,7 +1311,12 @@ export async function getExpiryDateCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
+  if (nullifierSecret !== 0n && !oprfProof) {
+    throw new Error("OPRF proof is required when nullifier secret is not 0")
+  }
+
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
   const privateNullifier = await calculatePrivateNullifier(
@@ -1248,6 +1373,7 @@ export async function getExpiryDateCircuitInputs(
     min_date: minDate ? getUnixTimestamp(minDate) : 0,
     max_date: maxDate ? getUnixTimestamp(maxDate) : 0,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1259,6 +1385,7 @@ export async function getBindCircuitInputs(
   service_scope: bigint = 0n,
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
+  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   hideSensitiveInputs: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
@@ -1295,6 +1422,7 @@ export async function getBindCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
   }
 }
 
@@ -1326,7 +1454,8 @@ export async function getFacematchCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
-  if (!query.facematch) throw new Error("Facematch query is required")
+  // Default to regular mode when facematch is auto-generated (e.g. for SALTED nullifier without explicit facematch query)
+  const facematchMode = query.facematch?.mode ?? "regular"
 
   return {
     ...(await getSaltedValuesForDisclosureCircuit(
@@ -1341,9 +1470,46 @@ export async function getFacematchCircuitInputs(
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     // FACEMATCH_MODE_REGULAR (1) or FACEMATCH_MODE_STRICT (2)
-    facematch_mode: query.facematch.mode === "regular" ? 1 : 2,
+    facematch_mode: facematchMode === "regular" ? 1 : 2,
     // APP_ATTEST_ENV_DEVELOPMENT (0) or APP_ATTEST_ENV_PRODUCTION (1)
     environment: 1,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+  }
+}
+
+/**
+ * Generate circuit inputs for the oprf_auth circuit.
+ * This circuit proves the blinded OPRF query was derived from the committed DG2 hash.
+ */
+export async function getOprfAuthCircuitInputs(
+  passport: PassportViewModel,
+  salts: IntegrityToDisclosureSalts,
+  beta: bigint,
+): Promise<any> {
+  const idData = await getIDDataInputs(passport)
+  if (!idData) throw new Error("Error getting ID data inputs")
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
+
+  return {
+    inputs: {
+      ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+      comm_in: commIn.toHex(),
+      beta: `0x${beta.toString(16)}`,
+    },
+    privateNullifier: privateNullifier.toBigInt(),
   }
 }
