@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "rootDir": "./",
+    "outDir": "./dist",
+    "declarationDir": "./dist/esm",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "jsx": "react-jsx",
+    "lib": ["es2020", "dom", "dom.iterable"]
+  },
+  // "include" controls type-checking only; build output is controlled by tsup.config.ts entry points
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tsup.config.ts"],
+  "references": []
+}
