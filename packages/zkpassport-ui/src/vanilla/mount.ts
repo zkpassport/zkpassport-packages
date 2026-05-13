@@ -167,15 +167,9 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       elements.qrLogo.style.display = ZKPASSPORT_LOGO ? "grid" : "none"
     } catch (cause) {
       if (myToken !== qrToken || disposed) return
-      try {
-        current.onError?.({
-          code: "unknown",
-          message: "Failed to generate QR code",
-          cause,
-        })
-      } catch {
-        // See fireReadyOnce in state.ts.
-      }
+      // Route through the state machine so the UI transitions to `error`
+      // instead of being left stuck on whatever state it was in.
+      machine.fail("unknown", "Failed to generate QR code", cause)
     }
   }
 

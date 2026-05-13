@@ -24,12 +24,10 @@ export type StateMachine = {
   detachRequest: () => void
   /** Update which callbacks fire — used by `update()` when the consumer changes handlers. */
   setCallbacks: (next: StateCallbacks) => void
+  /** Drive the card into the error state from the renderer (e.g. on QR generation failure). */
+  fail: (code: QRCardError["code"], message: string, cause?: unknown) => void
   /** Final teardown: equivalent to `detachRequest()` plus a permanent disable. */
   dispose: () => void
-}
-
-export function initialState(options: QRCardOptions): QRCardState {
-  return options.request === null ? "preparing" : "connecting"
 }
 
 /**
@@ -85,12 +83,15 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
   }
 
   function attachRequest(next: ZKPassportRequestLike) {
-    detachRequest()
     if (disposed) return
 
-    request = next
+    // Bump generation to invalidate any subscriber closures from a previous
+    // attach. We intentionally skip detachRequest()'s reset-to-`preparing` —
+    // the reconciliation block below sets the correct state in one paint,
+    // avoiding a skeleton flash on retry / request swap.
     generation += 1
     const myGeneration = generation
+    request = next
     readyFired = false
 
     const guarded = <T extends unknown[]>(fn: (...args: T) => void) => {
@@ -186,6 +187,10 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
     detachRequest,
     setCallbacks: (next) => {
       callbacks = next
+    },
+    fail: (code, message, cause) => {
+      if (disposed) return
+      toError(code, message, cause)
     },
     dispose: () => {
       detachRequest()

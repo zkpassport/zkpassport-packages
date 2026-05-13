@@ -31,7 +31,7 @@
     --zkp-accent: #111827;
     --zkp-success: #16a34a;
     --zkp-error: #dc2626;
-    --zkp-qr-fg: #111827;
+    /* QR background stays white in both themes — phone cameras want maximum contrast. */
     --zkp-qr-bg: #ffffff;
   }
 
@@ -44,9 +44,6 @@
     --zkp-accent: #f3f4f6;
     --zkp-success: #4ade80;
     --zkp-error: #f87171;
-    /* QR stays light-on-dark for scannability — phone cameras prefer high contrast. */
-    --zkp-qr-fg: #0b0d12;
-    --zkp-qr-bg: #ffffff;
   }
 
   .zkp-card * {
@@ -124,10 +121,6 @@
     width: 100%;
     height: 100%;
     display: block;
-  }
-  .zkp-qr svg path:last-of-type,
-  .zkp-qr svg rect:last-of-type {
-    fill: var(--zkp-qr-fg);
   }
 
   /* Center logo overlay — sized so a 30% error-correction QR stays readable. */
