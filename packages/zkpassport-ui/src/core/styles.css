@@ -1,0 +1,8 @@
+/* PR 1 placeholder. Real styles land in PR 2. */
+@layer zkpassport {
+  .zkp-card {
+    all: revert;
+    box-sizing: border-box;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+}
