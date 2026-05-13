@@ -51,7 +51,7 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
 
 // 2) IIFE bundle for <script> tag — bundles everything (qrcode + CSS string baked in).
 const umdConfig: Options = {
-  entry: { "zkpassport-ui": "src/umd.ts" },
+  entry: { "zkpassport-ui": "src/vanilla.ts" },
   format: "iife",
   globalName: "ZKPassportUI",
   outDir: "dist/umd",

@@ -1,8 +1,246 @@
-/* PR 1 placeholder. Real styles land in PR 2. */
+/*
+ * Card styles for @zkpassport/ui. Focus is on layout and state transitions;
+ * the color palette is deliberately light-only for v1.
+ *
+ * To add dark mode later:
+ *   1. Add a `.zkp-card[data-theme="dark"]` block that overrides the
+ *      custom properties defined on `.zkp-card`.
+ *   2. Re-enable the `theme` plumbing in vanilla/mount.ts (applyTheme +
+ *      matchMedia listener) that sets the `data-theme` attribute.
+ */
 @layer zkpassport {
   .zkp-card {
+    --zkp-bg: #ffffff;
+    --zkp-fg: #111827;
+    --zkp-muted: #6b7280;
+    --zkp-border: #e5e7eb;
+    --zkp-surface: #f3f4f6;
+    --zkp-accent: #111827;
+    --zkp-success: #16a34a;
+    --zkp-error: #dc2626;
+
     all: revert;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    min-width: 280px;
+    max-width: 380px;
+    padding: 20px;
+    border: 1px solid var(--zkp-border);
+    border-radius: 16px;
+    background: var(--zkp-bg);
+    color: var(--zkp-fg);
     font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .zkp-card * {
+    box-sizing: border-box;
+  }
+  .zkp-card button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+  }
+
+  /* Header */
+  .zkp-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .zkp-app-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .zkp-header-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .zkp-app-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .zkp-purpose {
+    color: var(--zkp-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* QR slot */
+  .zkp-qr-slot {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    background: var(--zkp-bg);
+    padding: 12px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .zkp-qr {
+    width: 100%;
+    height: 100%;
+    transition:
+      opacity 200ms ease,
+      transform 200ms ease;
+  }
+  .zkp-qr svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .zkp-qr-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 18%;
+    height: 18%;
+    background: var(--zkp-bg);
+    padding: 4px;
+    box-shadow: 0 0 0 4px var(--zkp-bg);
+    display: grid;
+    place-items: center;
+  }
+  .zkp-qr-logo > * {
+    width: 100%;
+    height: 100%;
+  }
+  .zkp-skeleton {
+    position: absolute;
+    inset: 12px;
+    border-radius: 8px;
+    background: var(--zkp-surface);
+  }
+
+  /* State overlay — single element, body + text swapped via JS */
+  .zkp-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.85);
+  }
+  .zkp-overlay-text {
+    max-width: 80%;
+  }
+
+  /* State-driven visibility */
+  .zkp-qr-slot[data-state="preparing"] .zkp-qr,
+  .zkp-qr-slot[data-state="preparing"] .zkp-qr-logo {
+    visibility: hidden;
+  }
+  .zkp-qr-slot[data-state="preparing"] .zkp-skeleton {
+    display: block;
+  }
+  .zkp-qr-slot:not([data-state="preparing"]) .zkp-skeleton {
+    display: none;
+  }
+  .zkp-qr-slot[data-state="connecting"] .zkp-qr,
+  .zkp-qr-slot[data-state="scanned"] .zkp-qr {
+    opacity: 0.4;
+  }
+  .zkp-qr-slot[data-state="generating"] .zkp-qr,
+  .zkp-qr-slot[data-state="success"] .zkp-qr,
+  .zkp-qr-slot[data-state="error"] .zkp-qr {
+    opacity: 0.2;
+  }
+  .zkp-qr-slot[data-state="generating"] .zkp-qr-logo,
+  .zkp-qr-slot[data-state="success"] .zkp-qr-logo,
+  .zkp-qr-slot[data-state="error"] .zkp-qr-logo {
+    opacity: 0;
+  }
+  .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
+  .zkp-qr-slot[data-state="scanned"] .zkp-overlay,
+  .zkp-qr-slot[data-state="generating"] .zkp-overlay,
+  .zkp-qr-slot[data-state="success"] .zkp-overlay,
+  .zkp-qr-slot[data-state="error"] .zkp-overlay {
+    display: flex;
+  }
+
+  /* Spinner / success / error icons */
+  .zkp-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--zkp-border);
+    border-top-color: var(--zkp-accent);
+    border-radius: 50%;
+    animation: zkp-spin 0.9s linear infinite;
+  }
+  @keyframes zkp-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .zkp-check,
+  .zkp-error-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+  .zkp-check {
+    background: var(--zkp-success);
+  }
+  .zkp-error-icon {
+    background: var(--zkp-error);
+  }
+  .zkp-check svg,
+  .zkp-error-icon svg {
+    width: 60%;
+    height: 60%;
+  }
+
+  .zkp-retry {
+    margin-top: 4px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: var(--zkp-accent);
+    color: var(--zkp-bg);
+    font-size: 13px;
+  }
+
+  /* Footer */
+  .zkp-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--zkp-muted);
+    font-size: 12px;
+  }
+  .zkp-footer svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zkp-qr {
+      transition: none;
+    }
+    .zkp-spinner {
+      animation-duration: 2s;
+    }
   }
 }
