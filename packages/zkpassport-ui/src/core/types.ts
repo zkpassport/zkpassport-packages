@@ -44,7 +44,12 @@ export type QRCardOptions = {
   appIcon: string
   purpose: string
 
-  /** "auto" follows `prefers-color-scheme` live via `matchMedia`. Default "auto". */
+  /**
+   * Reserved for forward compatibility. Accepted by the type but ignored
+   * by the renderer in v1 — the card is light-only. Dark mode will be
+   * re-enabled in a future minor without a breaking change. See the
+   * comment at the top of `src/core/styles.css` for the re-attachment plan.
+   */
   theme?: "light" | "dark" | "auto"
 
   /** Fires once when the card first becomes scannable (bridge connected, QR visible). */
