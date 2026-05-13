@@ -4,7 +4,11 @@
 // prepend for the published file.
 
 export { QRCard, type QRCardProps } from "./react/QRCard"
-export { useZKPassportRequest, type UseZKPassportRequestOptions } from "./react/use-request"
+export {
+  useZKPassportRequest,
+  type UseZKPassportRequestOptions,
+  type ZKPassportLike,
+} from "./react/use-request"
 
 // Also re-export the vanilla mount + all types so React consumers can drop
 // down to the imperative API when they need to.
