@@ -64,6 +64,10 @@ const umdConfig: Options = {
   minify: !isDev,
   noExternal: [/.*/],
   loader: { ".css": "text" },
+  // Without this, esbuild ignores the `browser` field in qrcode's package.json
+  // and bundles its Node entry — which calls `require("fs")` for terminal QR
+  // rendering and crashes the IIFE at load time in any browser.
+  platform: "browser",
 }
 
 // 3) Standalone CSS at dist/styles.css for CSP-strict consumers.
