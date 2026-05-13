@@ -6,24 +6,24 @@ import type {
   ZKPassportRequestLike,
 } from "./types"
 
-/** Subset of `QRCardOptions` the state machine actually consumes. */
-type StateCallbacks = Pick<QRCardOptions, "onReady" | "onSuccess" | "onReject" | "onError">
-
 type StateMachineConfig = {
-  callbacks: StateCallbacks
+  /**
+   * Read the latest consumer callbacks at fire time. The renderer holds the
+   * live options object; passing a getter (rather than a frozen snapshot)
+   * means the machine always sees the current handlers without an explicit
+   * sync step, and React parents that recreate handlers each render don't
+   * need to thread changes through `update()`.
+   */
+  getCallbacks: () => Pick<QRCardOptions, "onReady" | "onSuccess" | "onReject" | "onError">
   /** Called every time the UI state changes. The renderer turns this into DOM updates. */
   onTransition: (next: QRCardState) => void
 }
 
 export type StateMachine = {
-  /** Current state — exposed so the renderer can read it without duplicating bookkeeping. */
-  getState: () => QRCardState
   /** Wire up a request: subscribe to its events and reconcile against its synchronous state. */
   attachRequest: (request: ZKPassportRequestLike) => void
   /** Drop subscriptions for the current request, reset to `preparing`. */
   detachRequest: () => void
-  /** Update which callbacks fire — used by `update()` when the consumer changes handlers. */
-  setCallbacks: (next: StateCallbacks) => void
   /** Drive the card into the error state from the renderer (e.g. on QR generation failure). */
   fail: (code: QRCardError["code"], message: string, cause?: unknown) => void
   /** Final teardown: equivalent to `detachRequest()` plus a permanent disable. */
@@ -45,7 +45,6 @@ export type StateMachine = {
  */
 export function createStateMachine(config: StateMachineConfig): StateMachine {
   let state: QRCardState = "preparing"
-  let callbacks = config.callbacks
   let request: ZKPassportRequestLike | null = null
   /**
    * Incremented on every attach/detach/dispose. Subscriber closures capture
@@ -67,7 +66,7 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
     if (readyFired) return
     readyFired = true
     try {
-      callbacks.onReady?.()
+      config.getCallbacks().onReady?.()
     } catch {
       // Consumer-thrown errors in onReady shouldn't crash the card.
     }
@@ -76,7 +75,7 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
   function toError(code: QRCardError["code"], message: string, cause?: unknown) {
     transition("error")
     try {
-      callbacks.onError?.({ code, message, cause })
+      config.getCallbacks().onError?.({ code, message, cause })
     } catch {
       // Same reasoning as fireReadyOnce: consumer errors are not our problem.
     }
@@ -128,7 +127,7 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
         if (response.verified) {
           transition("success")
           try {
-            callbacks.onSuccess?.(response)
+            config.getCallbacks().onSuccess?.(response)
           } catch {
             // Same reasoning as fireReadyOnce.
           }
@@ -141,7 +140,7 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
       guarded(() => {
         transition("error")
         try {
-          callbacks.onReject?.()
+          config.getCallbacks().onReject?.()
         } catch {
           // Same reasoning as fireReadyOnce.
         }
@@ -182,12 +181,8 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
   }
 
   return {
-    getState: () => state,
     attachRequest,
     detachRequest,
-    setCallbacks: (next) => {
-      callbacks = next
-    },
     fail: (code, message, cause) => {
       if (disposed) return
       toError(code, message, cause)

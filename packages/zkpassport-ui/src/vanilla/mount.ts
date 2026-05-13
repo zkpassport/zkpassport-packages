@@ -57,7 +57,9 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   let qrToken = 0
 
   const machine = createStateMachine({
-    callbacks: pickCallbacks(current),
+    // Read live from `current` so handler changes via update() are picked up
+    // at fire time without an explicit setCallbacks round-trip.
+    getCallbacks: () => current,
     onTransition: renderState,
   })
 
@@ -86,18 +88,11 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       renderHeader()
     }
 
-    if (
-      changed.includes("onReady") ||
-      changed.includes("onSuccess") ||
-      changed.includes("onReject") ||
-      changed.includes("onError")
-    ) {
-      machine.setCallbacks(pickCallbacks(current))
-    }
-
     if (changed.includes("request")) {
       handleRequestChange(prev.request, current.request)
     }
+    // Callback changes are picked up automatically via the state machine's
+    // getCallbacks() — no work needed here.
   }
 
   function unmount() {
@@ -294,35 +289,19 @@ function appendErrorIcon(parent: HTMLElement) {
   parent.appendChild(el)
 }
 
-function pickCallbacks(o: QRCardOptions) {
-  return {
-    onReady: o.onReady,
-    onSuccess: o.onSuccess,
-    onReject: o.onReject,
-    onError: o.onError,
-  }
-}
-
 /**
- * Shallow diff on the option keys we actually react to. `request` is compared
- * by reference (matching React's prop semantics) so passing a new builder
- * object from `useState`/`useMemo` triggers a re-subscribe even if the URL is
- * the same. Callbacks compare by reference for the same reason.
+ * Shallow diff on the option keys that actually trigger DOM/subscription work.
+ * `request` is compared by reference (matching React's prop semantics) so
+ * passing a new builder object from `useState`/`useMemo` triggers a
+ * re-subscribe even if the URL is the same. Callback fields are intentionally
+ * omitted — the state machine reads them through a getter, so a parent
+ * re-render that recreates handlers does no work here.
  */
 function diff(prev: QRCardOptions, next: QRCardOptions): (keyof QRCardOptions)[] {
-  // `theme` is accepted in the type but ignored by the renderer in v1
-  // (see styles.css for the dark-mode plumbing instructions), so it's
-  // omitted here — changing it shouldn't trigger an update cycle.
-  const keys: (keyof QRCardOptions)[] = [
-    "request",
-    "appName",
-    "appIcon",
-    "purpose",
-    "onReady",
-    "onSuccess",
-    "onReject",
-    "onError",
-    "onRetryClicked",
-  ]
+  // `theme` is accepted on the type but ignored by the renderer in v1 (see
+  // styles.css for the dark-mode re-attach plan). Callbacks (`onReady` etc.)
+  // are read live by the state machine, and `onRetryClicked` is read live by
+  // the click handler — neither needs to trigger an update cycle.
+  const keys: (keyof QRCardOptions)[] = ["request", "appName", "appIcon", "purpose"]
   return keys.filter((k) => prev[k] !== next[k])
 }
