@@ -1,28 +1,18 @@
-import type { ZKPassportRequestLike } from "../core/types"
+// Per the design doc, this hook is the one place in `@zkpassport/ui` that
+// imports types from `@zkpassport/sdk`. The SDK is a `peerDependency` (see
+// package.json), and these are `import type` statements only — erased at
+// build time, so no runtime coupling and no impact on bundle size.
+//
+// The vanilla / core surface stays duck-typed (see ZKPassportRequestLike in
+// core/types.ts) so non-React consumers don't need the SDK installed at all.
 
-// Duck-typed so we don't take a hard dep on @zkpassport/sdk at runtime.
-// The shape matches the SDK's `QueryBuilder` and `ZKPassport.request()`.
-type QueryBuilderLike = {
-  done: () => ZKPassportRequestLike
-  // Builders chain — the consumer's `query` callback should return the same
-  // builder (or a chained one). We accept `unknown` from their callback to
-  // avoid over-constraining their gate chain.
-}
-
-type ZKPassportLike = {
-  request: (service: {
-    name: string
-    logo: string
-    purpose: string
-    scope?: string
-  }) => Promise<QueryBuilderLike>
-}
+import type { QueryBuilder, QueryBuilderResult, ZKPassport } from "@zkpassport/sdk"
 
 export type UseZKPassportRequestOptions = {
   /** Passed straight to `sdk.request({...})`. */
   service: { name: string; logo: string; purpose: string; scope?: string }
   /** Apply gates to the builder. Return the chained builder. */
-  query: (builder: QueryBuilderLike) => QueryBuilderLike
+  query: (builder: QueryBuilder) => QueryBuilder
   /** Re-runs the request build when any value changes. Default: `[]` (build once on mount). */
   deps?: unknown[]
 }
@@ -35,9 +25,9 @@ export type UseZKPassportRequestOptions = {
  * (no setState after unmount; no race between two builds resolving out of order).
  */
 export function useZKPassportRequest(
-  sdk: ZKPassportLike,
+  sdk: ZKPassport,
   options: UseZKPassportRequestOptions,
-): ZKPassportRequestLike | null {
+): QueryBuilderResult | null {
   // PR 1 stub. Real implementation lands in PR 3.
   void sdk
   void options

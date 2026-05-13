@@ -1,3 +1,5 @@
+import type { ReactElement } from "react"
+
 import type { QRCardOptions } from "../core/types"
 
 export type QRCardProps = QRCardOptions
@@ -17,7 +19,7 @@ export type QRCardProps = QRCardOptions
  *   onSuccess={(r) => console.log(r)}
  * />
  */
-export function QRCard(props: QRCardProps): React.JSX.Element | null {
+export function QRCard(props: QRCardProps): ReactElement | null {
   // PR 1 stub. Real implementation lands in PR 3.
   // The component will use `useRef` + `useEffect` to call `mount()` from the vanilla entry,
   // diff `options` shallowly on each render, and call `handle.update()` for changed fields.
