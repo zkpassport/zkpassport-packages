@@ -15,6 +15,8 @@ export function injectStyles(): void {
     injected = true
     return
   }
-  // No-op in PR 1; PR 2 wires the CSS string in.
-  injected = true
+  // No-op in PR 1; PR 2 wires the CSS string in. Deliberately do NOT set
+  // `injected = true` here — that way a PR 2 mistake (removing the no-op
+  // without inserting the real injection) keeps the flag false and shows up
+  // as repeated calls instead of silently latching to "done forever".
 }
