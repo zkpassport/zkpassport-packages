@@ -1,5 +1,24 @@
+/*
+ * Card styles for @zkpassport/ui. Focus is on layout and state transitions;
+ * the color palette is deliberately light-only for v1.
+ *
+ * To add dark mode later:
+ *   1. Add a `.zkp-card[data-theme="dark"]` block that overrides the
+ *      custom properties defined on `.zkp-card`.
+ *   2. Re-enable the `theme` plumbing in vanilla/mount.ts (applyTheme +
+ *      matchMedia listener) that sets the `data-theme` attribute.
+ */
 @layer zkpassport {
   .zkp-card {
+    --zkp-bg: #ffffff;
+    --zkp-fg: #111827;
+    --zkp-muted: #6b7280;
+    --zkp-border: #e5e7eb;
+    --zkp-surface: #f3f4f6;
+    --zkp-accent: #111827;
+    --zkp-success: #16a34a;
+    --zkp-error: #dc2626;
+
     all: revert;
     box-sizing: border-box;
     display: flex;
@@ -9,57 +28,23 @@
     min-width: 280px;
     max-width: 380px;
     padding: 20px;
+    border: 1px solid var(--zkp-border);
     border-radius: 16px;
     background: var(--zkp-bg);
     color: var(--zkp-fg);
-    font-family:
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      "Segoe UI",
-      sans-serif;
+    font-family: ui-sans-serif, system-ui, sans-serif;
     font-size: 14px;
     line-height: 1.4;
-    border: 1px solid var(--zkp-border);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-
-    --zkp-bg: #ffffff;
-    --zkp-fg: #111827;
-    --zkp-muted: #6b7280;
-    --zkp-border: #e5e7eb;
-    --zkp-surface: #f9fafb;
-    --zkp-accent: #111827;
-    --zkp-success: #16a34a;
-    --zkp-error: #dc2626;
-    /* QR background stays white in both themes — phone cameras want maximum contrast. */
-    --zkp-qr-bg: #ffffff;
   }
-
-  .zkp-card[data-theme="dark"] {
-    --zkp-bg: #0b0d12;
-    --zkp-fg: #f3f4f6;
-    --zkp-muted: #9ca3af;
-    --zkp-border: #1f2937;
-    --zkp-surface: #111827;
-    --zkp-accent: #f3f4f6;
-    --zkp-success: #4ade80;
-    --zkp-error: #f87171;
-  }
-
   .zkp-card * {
     box-sizing: border-box;
   }
-
   .zkp-card button {
     font: inherit;
     color: inherit;
     cursor: pointer;
     border: none;
     background: none;
-  }
-
-  .zkp-card img {
-    display: block;
   }
 
   /* Header */
@@ -73,7 +58,6 @@
     height: 36px;
     border-radius: 8px;
     object-fit: cover;
-    background: var(--zkp-surface);
     flex-shrink: 0;
   }
   .zkp-header-text {
@@ -83,14 +67,11 @@
   }
   .zkp-app-name {
     font-weight: 600;
-    font-size: 15px;
-    color: var(--zkp-fg);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .zkp-purpose {
-    font-size: 13px;
     color: var(--zkp-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -103,7 +84,7 @@
     width: 100%;
     aspect-ratio: 1;
     border-radius: 12px;
-    background: var(--zkp-qr-bg);
+    background: var(--zkp-bg);
     padding: 12px;
     display: grid;
     place-items: center;
@@ -114,16 +95,13 @@
     height: 100%;
     transition:
       opacity 200ms ease,
-      transform 200ms ease,
-      filter 200ms ease;
+      transform 200ms ease;
   }
   .zkp-qr svg {
     width: 100%;
     height: 100%;
     display: block;
   }
-
-  /* Center logo overlay — sized so a 30% error-correction QR stays readable. */
   .zkp-qr-logo {
     position: absolute;
     top: 50%;
@@ -131,10 +109,9 @@
     transform: translate(-50%, -50%);
     width: 18%;
     height: 18%;
-    border-radius: 8px;
-    background: var(--zkp-qr-bg);
+    background: var(--zkp-bg);
     padding: 4px;
-    box-shadow: 0 0 0 4px var(--zkp-qr-bg);
+    box-shadow: 0 0 0 4px var(--zkp-bg);
     display: grid;
     place-items: center;
   }
@@ -142,52 +119,31 @@
     width: 100%;
     height: 100%;
   }
-
-  /* Skeleton (preparing) */
   .zkp-skeleton {
     position: absolute;
     inset: 12px;
     border-radius: 8px;
-    background: linear-gradient(
-      90deg,
-      var(--zkp-surface) 0%,
-      var(--zkp-border) 50%,
-      var(--zkp-surface) 100%
-    );
-    background-size: 200% 100%;
-    animation: zkp-shimmer 1.4s ease-in-out infinite;
-  }
-  @keyframes zkp-shimmer {
-    from {
-      background-position: 200% 0;
-    }
-    to {
-      background-position: -200% 0;
-    }
+    background: var(--zkp-surface);
   }
 
-  /* State overlays — single element, content swapped via JS */
+  /* State overlay — single element, body + text swapped via JS */
   .zkp-overlay {
     position: absolute;
     inset: 0;
     display: none;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex-direction: column;
     gap: 8px;
     padding: 16px;
     text-align: center;
-    background: color-mix(in srgb, var(--zkp-bg) 75%, transparent);
-    backdrop-filter: blur(2px);
-    color: var(--zkp-fg);
-    font-size: 13px;
+    background: rgba(255, 255, 255, 0.85);
   }
   .zkp-overlay-text {
     max-width: 80%;
-    color: var(--zkp-fg);
   }
 
-  /* State-driven visibility on the QR slot */
+  /* State-driven visibility */
   .zkp-qr-slot[data-state="preparing"] .zkp-qr,
   .zkp-qr-slot[data-state="preparing"] .zkp-qr-logo {
     visibility: hidden;
@@ -198,21 +154,9 @@
   .zkp-qr-slot:not([data-state="preparing"]) .zkp-skeleton {
     display: none;
   }
-
-  .zkp-qr-slot[data-state="connecting"] .zkp-qr {
-    opacity: 0.4;
-    filter: blur(0.5px);
-  }
-  .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
-  .zkp-qr-slot[data-state="scanned"] .zkp-overlay,
-  .zkp-qr-slot[data-state="generating"] .zkp-overlay,
-  .zkp-qr-slot[data-state="success"] .zkp-overlay,
-  .zkp-qr-slot[data-state="error"] .zkp-overlay {
-    display: flex;
-  }
+  .zkp-qr-slot[data-state="connecting"] .zkp-qr,
   .zkp-qr-slot[data-state="scanned"] .zkp-qr {
     opacity: 0.4;
-    transform: scale(0.98);
   }
   .zkp-qr-slot[data-state="generating"] .zkp-qr,
   .zkp-qr-slot[data-state="success"] .zkp-qr,
@@ -224,8 +168,15 @@
   .zkp-qr-slot[data-state="error"] .zkp-qr-logo {
     opacity: 0;
   }
+  .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
+  .zkp-qr-slot[data-state="scanned"] .zkp-overlay,
+  .zkp-qr-slot[data-state="generating"] .zkp-overlay,
+  .zkp-qr-slot[data-state="success"] .zkp-overlay,
+  .zkp-qr-slot[data-state="error"] .zkp-overlay {
+    display: flex;
+  }
 
-  /* Spinner */
+  /* Spinner / success / error icons */
   .zkp-spinner {
     width: 28px;
     height: 28px;
@@ -239,63 +190,37 @@
       transform: rotate(360deg);
     }
   }
-
-  /* Success checkmark */
-  .zkp-check {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--zkp-success);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    animation: zkp-pop 220ms ease both;
-  }
-  .zkp-check svg {
-    width: 60%;
-    height: 60%;
-    color: #fff;
-  }
-  @keyframes zkp-pop {
-    from {
-      transform: scale(0.6);
-      opacity: 0;
-    }
-    to {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
-  /* Error */
+  .zkp-check,
   .zkp-error-icon {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: var(--zkp-error);
     color: #fff;
     display: grid;
     place-items: center;
   }
+  .zkp-check {
+    background: var(--zkp-success);
+  }
+  .zkp-error-icon {
+    background: var(--zkp-error);
+  }
+  .zkp-check svg,
   .zkp-error-icon svg {
     width: 60%;
     height: 60%;
-    color: #fff;
   }
+
   .zkp-retry {
     margin-top: 4px;
     padding: 8px 16px;
     border-radius: 8px;
     background: var(--zkp-accent);
     color: var(--zkp-bg);
-    font-weight: 500;
     font-size: 13px;
   }
-  .zkp-retry:hover {
-    opacity: 0.9;
-  }
 
-  /* Footer copy under QR */
+  /* Footer */
   .zkp-footer {
     display: flex;
     align-items: center;
@@ -303,7 +228,6 @@
     gap: 8px;
     color: var(--zkp-muted);
     font-size: 12px;
-    text-align: center;
   }
   .zkp-footer svg {
     width: 14px;
@@ -312,10 +236,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .zkp-qr,
-    .zkp-check,
-    .zkp-skeleton {
-      animation: none;
+    .zkp-qr {
       transition: none;
     }
     .zkp-spinner {

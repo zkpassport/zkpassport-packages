@@ -4,8 +4,6 @@ import { generateSvg } from "../core/qr"
 import { createStateMachine } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
 
-type ResolvedTheme = "light" | "dark"
-
 type CardElements = {
   root: HTMLDivElement
   appIcon: HTMLImageElement
@@ -47,15 +45,12 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   injectStyles()
 
   // Working copy of the options — `update()` mutates this in place after diffing.
+  // `theme` is currently accepted but ignored (v1 is light-only); see styles.css
+  // for the steps to re-enable dark mode.
   let current: QRCardOptions = { ...options }
 
   const elements = buildDom()
   element.appendChild(elements.root)
-
-  // Theme handling. `auto` listens to `prefers-color-scheme`; explicit values skip the listener.
-  let mediaQuery: MediaQueryList | null = null
-  let mediaListener: ((e: MediaQueryListEvent) => void) | null = null
-  applyTheme(current.theme ?? "auto")
 
   // Tracks the QR generation job so a stale Promise (from a request that was
   // replaced before its SVG resolved) doesn't overwrite the live QR.
@@ -91,10 +86,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       renderHeader()
     }
 
-    if (changed.includes("theme")) {
-      applyTheme(current.theme ?? "auto")
-    }
-
     if (
       changed.includes("onReady") ||
       changed.includes("onSuccess") ||
@@ -113,7 +104,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     if (disposed) return
     disposed = true
     machine.dispose()
-    teardownThemeListener()
     elements.retry.removeEventListener("click", handleRetryClick)
     if (elements.root.parentNode) {
       elements.root.parentNode.removeChild(elements.root)
@@ -212,37 +202,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
         elements.overlayBody.appendChild(elements.retry)
         break
     }
-  }
-
-  function applyTheme(theme: QRCardOptions["theme"]) {
-    teardownThemeListener()
-    if (theme === "auto" || theme === undefined) {
-      // matchMedia is always present in modern browsers, but guard for jsdom
-      // environments and old WebViews so we degrade to "light".
-      if (typeof window.matchMedia === "function") {
-        mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-        const apply = () => setResolvedTheme(mediaQuery?.matches ? "dark" : "light")
-        apply()
-        mediaListener = () => apply()
-        mediaQuery.addEventListener("change", mediaListener)
-      } else {
-        setResolvedTheme("light")
-      }
-    } else {
-      setResolvedTheme(theme)
-    }
-  }
-
-  function setResolvedTheme(resolved: ResolvedTheme) {
-    elements.root.setAttribute("data-theme", resolved)
-  }
-
-  function teardownThemeListener() {
-    if (mediaQuery && mediaListener) {
-      mediaQuery.removeEventListener("change", mediaListener)
-    }
-    mediaQuery = null
-    mediaListener = null
   }
 
   function buildDom(): CardElements {
@@ -351,12 +310,14 @@ function pickCallbacks(o: QRCardOptions) {
  * the same. Callbacks compare by reference for the same reason.
  */
 function diff(prev: QRCardOptions, next: QRCardOptions): (keyof QRCardOptions)[] {
+  // `theme` is accepted in the type but ignored by the renderer in v1
+  // (see styles.css for the dark-mode plumbing instructions), so it's
+  // omitted here — changing it shouldn't trigger an update cycle.
   const keys: (keyof QRCardOptions)[] = [
     "request",
     "appName",
     "appIcon",
     "purpose",
-    "theme",
     "onReady",
     "onSuccess",
     "onReject",
