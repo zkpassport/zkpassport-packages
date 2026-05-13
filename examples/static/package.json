@@ -1,0 +1,9 @@
+{
+  "name": "@zkpassport/ui-example-static",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Static IIFE example for @zkpassport/ui. Not part of the workspaces array — kept separate so it mimics an external consumer.",
+  "scripts": {
+    "sync-bundle": "node sync-bundle.mjs"
+  }
+}

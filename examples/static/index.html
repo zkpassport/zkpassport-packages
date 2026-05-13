@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@zkpassport/ui — IIFE example</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: #f5f5f7;
+        font-family: system-ui, sans-serif;
+      }
+      main {
+        width: 100%;
+        max-width: 420px;
+        display: grid;
+        gap: 16px;
+        justify-items: stretch;
+      }
+      #status {
+        margin: 0;
+        font-size: 13px;
+        color: #6b7280;
+        text-align: center;
+        line-height: 1.4;
+      }
+      #status[data-state="error"] { color: #b42318; }
+      #status[data-state="ready"] { color: #027a48; }
+      .note {
+        margin: 0;
+        padding: 10px 12px;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #4b5563;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 8px;
+      }
+      .note b { color: #9a3412; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div id="zkp"></div>
+      <p id="status">Loading the SDK from esm.sh…</p>
+      <p class="note">
+        <b>Known limit of this demo:</b> the card mounts, esm.sh serves a
+        real <code>@zkpassport/sdk</code>, and the QR is genuinely
+        scannable end-to-end. But the SDK's <code>verify()</code> step
+        pulls in <code>@aztec/bb.js</code> (WASM-heavy) and on-chain
+        registry RPC calls, which often don't survive the esm.sh ESM
+        transform &mdash; so the UI may stay stuck on
+        &ldquo;Approve the request on your phone&rdquo; even after the
+        phone reports success. Customers who need a full no-bundler
+        verification flow should host on a real domain via a bundler;
+        this demo's job is to prove the IIFE wiring works.
+      </p>
+    </main>
+
+    <!--
+      The IIFE bundle is INLINED below (instead of fetched via <script src="…">)
+      so this file works when opened directly via file:// in any browser.
+      Chrome's modern file:// policy treats each file as a unique origin and
+      blocks even same-directory script loads, which made the more obvious
+      <script src="./zkpassport-ui.js"> approach fail with ERR_ACCESS_DENIED.
+
+      To refresh the inlined bundle after rebuilding @zkpassport/ui, run:
+          bun run sync-bundle
+      (from this folder — see ./package.json).
+    -->
+    <!-- BEGIN INLINED IIFE -->
+    <script>"use strict";var ZKPassportUI=(()=>{var tn=Object.create;var te=Object.defineProperty;var nn=Object.getOwnPropertyDescriptor;var rn=Object.getOwnPropertyNames;var on=Object.getPrototypeOf,sn=Object.prototype.hasOwnProperty;var g=(n,e)=>()=>(e||n((e={exports:{}}).exports,e),e.exports),an=(n,e)=>{for(var t in e)te(n,t,{get:e[t],enumerable:!0})},Fe=(n,e,t,r)=>{if(e&&typeof e=="object"||typeof e=="function")for(let o of rn(e))!sn.call(n,o)&&o!==t&&te(n,o,{get:()=>e[o],enumerable:!(r=nn(e,o))||r.enumerable});return n};var cn=(n,e,t)=>(t=n!=null?tn(on(n)):{},Fe(e||!n||!n.__esModule?te(t,"default",{value:n,enumerable:!0}):t,n)),ln=n=>Fe(te({},"__esModule",{value:!0}),n);var Ze=g((pr,Ye)=>{"use strict";Ye.exports=function(){return typeof Promise=="function"&&Promise.prototype&&Promise.prototype.then}});var q=g(I=>{"use strict";var ye,dn=[0,26,44,70,100,134,172,196,242,292,346,404,466,532,581,655,733,815,901,991,1085,1156,1258,1364,1474,1588,1706,1828,1921,2051,2185,2323,2465,2611,2761,2876,3034,3196,3362,3532,3706];I.getSymbolSize=function(e){if(!e)throw new Error('"version" cannot be null or undefined');if(e<1||e>40)throw new Error('"version" should be in range from 1 to 40');return e*4+17};I.getSymbolTotalCodewords=function(e){return dn[e]};I.getBCHDigit=function(n){let e=0;for(;n!==0;)e++,n>>>=1;return e};I.setToSJISFunction=function(e){if(typeof e!="function")throw new Error('"toSJISFunc" is not a valid function.');ye=e};I.isKanjiModeEnabled=function(){return typeof ye<"u"};I.toSJIS=function(e){return ye(e)}});var ne=g(x=>{"use strict";x.L={bit:1};x.M={bit:0};x.Q={bit:3};x.H={bit:2};function fn(n){if(typeof n!="string")throw new Error("Param is not a string");switch(n.toLowerCase()){case"l":case"low":return x.L;case"m":case"medium":return x.M;case"q":case"quartile":return x.Q;case"h":case"high":return x.H;default:throw new Error("Unknown EC Level: "+n)}}x.isValid=function(e){return e&&typeof e.bit<"u"&&e.bit>=0&&e.bit<4};x.from=function(e,t){if(x.isValid(e))return e;try{return fn(e)}catch{return t}}});var Xe=g((mr,We)=>{"use strict";function $e(){this.buffer=[],this.length=0}$e.prototype={get:function(n){let e=Math.floor(n/8);return(this.buffer[e]>>>7-n%8&1)===1},put:function(n,e){for(let t=0;t<e;t++)this.putBit((n>>>e-t-1&1)===1)},getLengthInBits:function(){return this.length},putBit:function(n){let e=Math.floor(this.length/8);this.buffer.length<=e&&this.buffer.push(0),n&&(this.buffer[e]|=128>>>this.length%8),this.length++}};We.exports=$e});var tt=g((yr,et)=>{"use strict";function V(n){if(!n||n<1)throw new Error("BitMatrix size must be defined and greater than 0");this.size=n,this.data=new Uint8Array(n*n),this.reservedBit=new Uint8Array(n*n)}V.prototype.set=function(n,e,t,r){let o=n*this.size+e;this.data[o]=t,r&&(this.reservedBit[o]=!0)};V.prototype.get=function(n,e){return this.data[n*this.size+e]};V.prototype.xor=function(n,e,t){this.data[n*this.size+e]^=t};V.prototype.isReserved=function(n,e){return this.reservedBit[n*this.size+e]};et.exports=V});var nt=g(re=>{"use strict";var pn=q().getSymbolSize;re.getRowColCoords=function(e){if(e===1)return[];let t=Math.floor(e/7)+2,r=pn(e),o=r===145?26:Math.ceil((r-13)/(2*t-2))*2,i=[r-7];for(let s=1;s<t-1;s++)i[s]=i[s-1]-o;return i.push(6),i.reverse()};re.getPositions=function(e){let t=[],r=re.getRowColCoords(e),o=r.length;for(let i=0;i<o;i++)for(let s=0;s<o;s++)i===0&&s===0||i===0&&s===o-1||i===o-1&&s===0||t.push([r[i],r[s]]);return t}});var it=g(ot=>{"use strict";var gn=q().getSymbolSize,rt=7;ot.getPositions=function(e){let t=gn(e);return[[0,0],[t-rt,0],[0,t-rt]]}});var st=g(h=>{"use strict";h.Patterns={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7};var L={N1:3,N2:3,N3:40,N4:10};h.isValid=function(e){return e!=null&&e!==""&&!isNaN(e)&&e>=0&&e<=7};h.from=function(e){return h.isValid(e)?parseInt(e,10):void 0};h.getPenaltyN1=function(e){let t=e.size,r=0,o=0,i=0,s=null,a=null;for(let c=0;c<t;c++){o=i=0,s=a=null;for(let u=0;u<t;u++){let l=e.get(c,u);l===s?o++:(o>=5&&(r+=L.N1+(o-5)),s=l,o=1),l=e.get(u,c),l===a?i++:(i>=5&&(r+=L.N1+(i-5)),a=l,i=1)}o>=5&&(r+=L.N1+(o-5)),i>=5&&(r+=L.N1+(i-5))}return r};h.getPenaltyN2=function(e){let t=e.size,r=0;for(let o=0;o<t-1;o++)for(let i=0;i<t-1;i++){let s=e.get(o,i)+e.get(o,i+1)+e.get(o+1,i)+e.get(o+1,i+1);(s===4||s===0)&&r++}return r*L.N2};h.getPenaltyN3=function(e){let t=e.size,r=0,o=0,i=0;for(let s=0;s<t;s++){o=i=0;for(let a=0;a<t;a++)o=o<<1&2047|e.get(s,a),a>=10&&(o===1488||o===93)&&r++,i=i<<1&2047|e.get(a,s),a>=10&&(i===1488||i===93)&&r++}return r*L.N3};h.getPenaltyN4=function(e){let t=0,r=e.data.length;for(let i=0;i<r;i++)t+=e.data[i];return Math.abs(Math.ceil(t*100/r/5)-10)*L.N4};function hn(n,e,t){switch(n){case h.Patterns.PATTERN000:return(e+t)%2===0;case h.Patterns.PATTERN001:return e%2===0;case h.Patterns.PATTERN010:return t%3===0;case h.Patterns.PATTERN011:return(e+t)%3===0;case h.Patterns.PATTERN100:return(Math.floor(e/2)+Math.floor(t/3))%2===0;case h.Patterns.PATTERN101:return e*t%2+e*t%3===0;case h.Patterns.PATTERN110:return(e*t%2+e*t%3)%2===0;case h.Patterns.PATTERN111:return(e*t%3+(e+t)%2)%2===0;default:throw new Error("bad maskPattern:"+n)}}h.applyMask=function(e,t){let r=t.size;for(let o=0;o<r;o++)for(let i=0;i<r;i++)t.isReserved(i,o)||t.xor(i,o,hn(e,i,o))};h.getBestMask=function(e,t){let r=Object.keys(h.Patterns).length,o=0,i=1/0;for(let s=0;s<r;s++){t(s),h.applyMask(s,e);let a=h.getPenaltyN1(e)+h.getPenaltyN2(e)+h.getPenaltyN3(e)+h.getPenaltyN4(e);h.applyMask(s,e),a<i&&(i=a,o=s)}return o}});var Ce=g(we=>{"use strict";var S=ne(),oe=[1,1,1,1,1,1,1,1,1,1,2,2,1,2,2,4,1,2,4,4,2,4,4,4,2,4,6,5,2,4,6,6,2,5,8,8,4,5,8,8,4,5,8,11,4,8,10,11,4,9,12,16,4,9,16,16,6,10,12,18,6,10,17,16,6,11,16,19,6,13,18,21,7,14,21,25,8,16,20,25,8,17,23,25,9,17,23,34,9,18,25,30,10,20,27,32,12,21,29,35,12,23,34,37,12,25,34,40,13,26,35,42,14,28,38,45,15,29,40,48,16,31,43,51,17,33,45,54,18,35,48,57,19,37,51,60,19,38,53,63,20,40,56,66,21,43,59,70,22,45,62,74,24,47,65,77,25,49,68,81],ie=[7,10,13,17,10,16,22,28,15,26,36,44,20,36,52,64,26,48,72,88,36,64,96,112,40,72,108,130,48,88,132,156,60,110,160,192,72,130,192,224,80,150,224,264,96,176,260,308,104,198,288,352,120,216,320,384,132,240,360,432,144,280,408,480,168,308,448,532,180,338,504,588,196,364,546,650,224,416,600,700,224,442,644,750,252,476,690,816,270,504,750,900,300,560,810,960,312,588,870,1050,336,644,952,1110,360,700,1020,1200,390,728,1050,1260,420,784,1140,1350,450,812,1200,1440,480,868,1290,1530,510,924,1350,1620,540,980,1440,1710,570,1036,1530,1800,570,1064,1590,1890,600,1120,1680,1980,630,1204,1770,2100,660,1260,1860,2220,720,1316,1950,2310,750,1372,2040,2430];we.getBlocksCount=function(e,t){switch(t){case S.L:return oe[(e-1)*4+0];case S.M:return oe[(e-1)*4+1];case S.Q:return oe[(e-1)*4+2];case S.H:return oe[(e-1)*4+3];default:return}};we.getTotalCodewordsCount=function(e,t){switch(t){case S.L:return ie[(e-1)*4+0];case S.M:return ie[(e-1)*4+1];case S.Q:return ie[(e-1)*4+2];case S.H:return ie[(e-1)*4+3];default:return}}});var at=g(ae=>{"use strict";var J=new Uint8Array(512),se=new Uint8Array(256);(function(){let e=1;for(let t=0;t<255;t++)J[t]=e,se[e]=t,e<<=1,e&256&&(e^=285);for(let t=255;t<512;t++)J[t]=J[t-255]})();ae.log=function(e){if(e<1)throw new Error("log("+e+")");return se[e]};ae.exp=function(e){return J[e]};ae.mul=function(e,t){return e===0||t===0?0:J[se[e]+se[t]]}});var ct=g(j=>{"use strict";var ke=at();j.mul=function(e,t){let r=new Uint8Array(e.length+t.length-1);for(let o=0;o<e.length;o++)for(let i=0;i<t.length;i++)r[o+i]^=ke.mul(e[o],t[i]);return r};j.mod=function(e,t){let r=new Uint8Array(e);for(;r.length-t.length>=0;){let o=r[0];for(let s=0;s<t.length;s++)r[s]^=ke.mul(t[s],o);let i=0;for(;i<r.length&&r[i]===0;)i++;r=r.slice(i)}return r};j.generateECPolynomial=function(e){let t=new Uint8Array([1]);for(let r=0;r<e;r++)t=j.mul(t,new Uint8Array([1,ke.exp(r)]));return t}});var dt=g((Tr,ut)=>{"use strict";var lt=ct();function Ee(n){this.genPoly=void 0,this.degree=n,this.degree&&this.initialize(this.degree)}Ee.prototype.initialize=function(e){this.degree=e,this.genPoly=lt.generateECPolynomial(this.degree)};Ee.prototype.encode=function(e){if(!this.genPoly)throw new Error("Encoder not initialized");let t=new Uint8Array(e.length+this.degree);t.set(e);let r=lt.mod(t,this.genPoly),o=this.degree-r.length;if(o>0){let i=new Uint8Array(this.degree);return i.set(r,o),i}return r};ut.exports=Ee});var be=g(ft=>{"use strict";ft.isValid=function(e){return!isNaN(e)&&e>=1&&e<=40}});var Re=g(N=>{"use strict";var pt="[0-9]+",mn="[A-Z $%*+\\-./:]+",G="(?:[u3000-u303F]|[u3040-u309F]|[u30A0-u30FF]|[uFF00-uFFEF]|[u4E00-u9FAF]|[u2605-u2606]|[u2190-u2195]|u203B|[u2010u2015u2018u2019u2025u2026u201Cu201Du2225u2260]|[u0391-u0451]|[u00A7u00A8u00B1u00B4u00D7u00F7])+";G=G.replace(/u/g,"\\u");var yn="(?:(?![A-Z0-9 $%*+\\-./:]|"+G+`)(?:.|[\r
+]))+`;N.KANJI=new RegExp(G,"g");N.BYTE_KANJI=new RegExp("[^A-Z0-9 $%*+\\-./:]+","g");N.BYTE=new RegExp(yn,"g");N.NUMERIC=new RegExp(pt,"g");N.ALPHANUMERIC=new RegExp(mn,"g");var wn=new RegExp("^"+G+"$"),Cn=new RegExp("^"+pt+"$"),kn=new RegExp("^[A-Z0-9 $%*+\\-./:]+$");N.testKanji=function(e){return wn.test(e)};N.testNumeric=function(e){return Cn.test(e)};N.testAlphanumeric=function(e){return kn.test(e)}});var M=g(w=>{"use strict";var En=be(),Te=Re();w.NUMERIC={id:"Numeric",bit:1,ccBits:[10,12,14]};w.ALPHANUMERIC={id:"Alphanumeric",bit:2,ccBits:[9,11,13]};w.BYTE={id:"Byte",bit:4,ccBits:[8,16,16]};w.KANJI={id:"Kanji",bit:8,ccBits:[8,10,12]};w.MIXED={bit:-1};w.getCharCountIndicator=function(e,t){if(!e.ccBits)throw new Error("Invalid mode: "+e);if(!En.isValid(t))throw new Error("Invalid version: "+t);return t>=1&&t<10?e.ccBits[0]:t<27?e.ccBits[1]:e.ccBits[2]};w.getBestModeForData=function(e){return Te.testNumeric(e)?w.NUMERIC:Te.testAlphanumeric(e)?w.ALPHANUMERIC:Te.testKanji(e)?w.KANJI:w.BYTE};w.toString=function(e){if(e&&e.id)return e.id;throw new Error("Invalid mode")};w.isValid=function(e){return e&&e.bit&&e.ccBits};function bn(n){if(typeof n!="string")throw new Error("Param is not a string");switch(n.toLowerCase()){case"numeric":return w.NUMERIC;case"alphanumeric":return w.ALPHANUMERIC;case"kanji":return w.KANJI;case"byte":return w.BYTE;default:throw new Error("Unknown mode: "+n)}}w.from=function(e,t){if(w.isValid(e))return e;try{return bn(e)}catch{return t}}});var wt=g(P=>{"use strict";var ce=q(),Rn=Ce(),gt=ne(),v=M(),xe=be(),mt=7973,ht=ce.getBCHDigit(mt);function Tn(n,e,t){for(let r=1;r<=40;r++)if(e<=P.getCapacity(r,t,n))return r}function yt(n,e){return v.getCharCountIndicator(n,e)+4}function xn(n,e){let t=0;return n.forEach(function(r){let o=yt(r.mode,e);t+=o+r.getBitsLength()}),t}function zn(n,e){for(let t=1;t<=40;t++)if(xn(n,t)<=P.getCapacity(t,e,v.MIXED))return t}P.from=function(e,t){return xe.isValid(e)?parseInt(e,10):t};P.getCapacity=function(e,t,r){if(!xe.isValid(e))throw new Error("Invalid QR Code version");typeof r>"u"&&(r=v.BYTE);let o=ce.getSymbolTotalCodewords(e),i=Rn.getTotalCodewordsCount(e,t),s=(o-i)*8;if(r===v.MIXED)return s;let a=s-yt(r,e);switch(r){case v.NUMERIC:return Math.floor(a/10*3);case v.ALPHANUMERIC:return Math.floor(a/11*2);case v.KANJI:return Math.floor(a/13);case v.BYTE:default:return Math.floor(a/8)}};P.getBestVersionForData=function(e,t){let r,o=gt.from(t,gt.M);if(Array.isArray(e)){if(e.length>1)return zn(e,o);if(e.length===0)return 1;r=e[0]}else r=e;return Tn(r.mode,r.getLength(),o)};P.getEncodedBits=function(e){if(!xe.isValid(e)||e<7)throw new Error("Invalid QR Code version");let t=e<<12;for(;ce.getBCHDigit(t)-ht>=0;)t^=mt<<ce.getBCHDigit(t)-ht;return e<<12|t}});var bt=g(Et=>{"use strict";var ze=q(),kt=1335,Bn=21522,Ct=ze.getBCHDigit(kt);Et.getEncodedBits=function(e,t){let r=e.bit<<3|t,o=r<<10;for(;ze.getBCHDigit(o)-Ct>=0;)o^=kt<<ze.getBCHDigit(o)-Ct;return(r<<10|o)^Bn}});var Tt=g((Sr,Rt)=>{"use strict";var Nn=M();function H(n){this.mode=Nn.NUMERIC,this.data=n.toString()}H.getBitsLength=function(e){return 10*Math.floor(e/3)+(e%3?e%3*3+1:0)};H.prototype.getLength=function(){return this.data.length};H.prototype.getBitsLength=function(){return H.getBitsLength(this.data.length)};H.prototype.write=function(e){let t,r,o;for(t=0;t+3<=this.data.length;t+=3)r=this.data.substr(t,3),o=parseInt(r,10),e.put(o,10);let i=this.data.length-t;i>0&&(r=this.data.substr(t),o=parseInt(r,10),e.put(o,i*3+1))};Rt.exports=H});var zt=g((Mr,xt)=>{"use strict";var qn=M(),Be=["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"," ","$","%","*","+","-",".","/",":"];function U(n){this.mode=qn.ALPHANUMERIC,this.data=n}U.getBitsLength=function(e){return 11*Math.floor(e/2)+6*(e%2)};U.prototype.getLength=function(){return this.data.length};U.prototype.getBitsLength=function(){return U.getBitsLength(this.data.length)};U.prototype.write=function(e){let t;for(t=0;t+2<=this.data.length;t+=2){let r=Be.indexOf(this.data[t])*45;r+=Be.indexOf(this.data[t+1]),e.put(r,11)}this.data.length%2&&e.put(Be.indexOf(this.data[t]),6)};xt.exports=U});var Nt=g((vr,Bt)=>{"use strict";var Sn=M();function O(n){this.mode=Sn.BYTE,typeof n=="string"?this.data=new TextEncoder().encode(n):this.data=new Uint8Array(n)}O.getBitsLength=function(e){return e*8};O.prototype.getLength=function(){return this.data.length};O.prototype.getBitsLength=function(){return O.getBitsLength(this.data.length)};O.prototype.write=function(n){for(let e=0,t=this.data.length;e<t;e++)n.put(this.data[e],8)};Bt.exports=O});var St=g((Ar,qt)=>{"use strict";var Mn=M(),vn=q();function F(n){this.mode=Mn.KANJI,this.data=n}F.getBitsLength=function(e){return e*13};F.prototype.getLength=function(){return this.data.length};F.prototype.getBitsLength=function(){return F.getBitsLength(this.data.length)};F.prototype.write=function(n){let e;for(e=0;e<this.data.length;e++){let t=vn.toSJIS(this.data[e]);if(t>=33088&&t<=40956)t-=33088;else if(t>=57408&&t<=60351)t-=49472;else throw new Error("Invalid SJIS character: "+this.data[e]+`
+Make sure your charset is UTF-8`);t=(t>>>8&255)*192+(t&255),n.put(t,13)}};qt.exports=F});var Mt=g((Ir,Ne)=>{"use strict";var Y={single_source_shortest_paths:function(n,e,t){var r={},o={};o[e]=0;var i=Y.PriorityQueue.make();i.push(e,0);for(var s,a,c,u,l,d,f,m,y;!i.empty();){s=i.pop(),a=s.value,u=s.cost,l=n[a]||{};for(c in l)l.hasOwnProperty(c)&&(d=l[c],f=u+d,m=o[c],y=typeof o[c]>"u",(y||m>f)&&(o[c]=f,i.push(c,f),r[c]=a))}if(typeof t<"u"&&typeof o[t]>"u"){var T=["Could not find a path from ",e," to ",t,"."].join("");throw new Error(T)}return r},extract_shortest_path_from_predecessor_list:function(n,e){for(var t=[],r=e,o;r;)t.push(r),o=n[r],r=n[r];return t.reverse(),t},find_path:function(n,e,t){var r=Y.single_source_shortest_paths(n,e,t);return Y.extract_shortest_path_from_predecessor_list(r,t)},PriorityQueue:{make:function(n){var e=Y.PriorityQueue,t={},r;n=n||{};for(r in e)e.hasOwnProperty(r)&&(t[r]=e[r]);return t.queue=[],t.sorter=n.sorter||e.default_sorter,t},default_sorter:function(n,e){return n.cost-e.cost},push:function(n,e){var t={value:n,cost:e};this.queue.push(t),this.queue.sort(this.sorter)},pop:function(){return this.queue.shift()},empty:function(){return this.queue.length===0}}};typeof Ne<"u"&&(Ne.exports=Y)});var Ht=g(Q=>{"use strict";var p=M(),It=Tt(),Lt=zt(),Pt=Nt(),_t=St(),Z=Re(),le=q(),An=Mt();function vt(n){return unescape(encodeURIComponent(n)).length}function $(n,e,t){let r=[],o;for(;(o=n.exec(t))!==null;)r.push({data:o[0],index:o.index,mode:e,length:o[0].length});return r}function Dt(n){let e=$(Z.NUMERIC,p.NUMERIC,n),t=$(Z.ALPHANUMERIC,p.ALPHANUMERIC,n),r,o;return le.isKanjiModeEnabled()?(r=$(Z.BYTE,p.BYTE,n),o=$(Z.KANJI,p.KANJI,n)):(r=$(Z.BYTE_KANJI,p.BYTE,n),o=[]),e.concat(t,r,o).sort(function(s,a){return s.index-a.index}).map(function(s){return{data:s.data,mode:s.mode,length:s.length}})}function qe(n,e){switch(e){case p.NUMERIC:return It.getBitsLength(n);case p.ALPHANUMERIC:return Lt.getBitsLength(n);case p.KANJI:return _t.getBitsLength(n);case p.BYTE:return Pt.getBitsLength(n)}}function In(n){return n.reduce(function(e,t){let r=e.length-1>=0?e[e.length-1]:null;return r&&r.mode===t.mode?(e[e.length-1].data+=t.data,e):(e.push(t),e)},[])}function Ln(n){let e=[];for(let t=0;t<n.length;t++){let r=n[t];switch(r.mode){case p.NUMERIC:e.push([r,{data:r.data,mode:p.ALPHANUMERIC,length:r.length},{data:r.data,mode:p.BYTE,length:r.length}]);break;case p.ALPHANUMERIC:e.push([r,{data:r.data,mode:p.BYTE,length:r.length}]);break;case p.KANJI:e.push([r,{data:r.data,mode:p.BYTE,length:vt(r.data)}]);break;case p.BYTE:e.push([{data:r.data,mode:p.BYTE,length:vt(r.data)}])}}return e}function Pn(n,e){let t={},r={start:{}},o=["start"];for(let i=0;i<n.length;i++){let s=n[i],a=[];for(let c=0;c<s.length;c++){let u=s[c],l=""+i+c;a.push(l),t[l]={node:u,lastCount:0},r[l]={};for(let d=0;d<o.length;d++){let f=o[d];t[f]&&t[f].node.mode===u.mode?(r[f][l]=qe(t[f].lastCount+u.length,u.mode)-qe(t[f].lastCount,u.mode),t[f].lastCount+=u.length):(t[f]&&(t[f].lastCount=u.length),r[f][l]=qe(u.length,u.mode)+4+p.getCharCountIndicator(u.mode,e))}}o=a}for(let i=0;i<o.length;i++)r[o[i]].end=0;return{map:r,table:t}}function At(n,e){let t,r=p.getBestModeForData(n);if(t=p.from(e,r),t!==p.BYTE&&t.bit<r.bit)throw new Error('"'+n+'" cannot be encoded with mode '+p.toString(t)+`.
+ Suggested mode is: `+p.toString(r));switch(t===p.KANJI&&!le.isKanjiModeEnabled()&&(t=p.BYTE),t){case p.NUMERIC:return new It(n);case p.ALPHANUMERIC:return new Lt(n);case p.KANJI:return new _t(n);case p.BYTE:return new Pt(n)}}Q.fromArray=function(e){return e.reduce(function(t,r){return typeof r=="string"?t.push(At(r,null)):r.data&&t.push(At(r.data,r.mode)),t},[])};Q.fromString=function(e,t){let r=Dt(e,le.isKanjiModeEnabled()),o=Ln(r),i=Pn(o,t),s=An.find_path(i.map,"start","end"),a=[];for(let c=1;c<s.length-1;c++)a.push(i.table[s[c]].node);return Q.fromArray(In(a))};Q.rawSplit=function(e){return Q.fromArray(Dt(e,le.isKanjiModeEnabled()))}});var Ot=g(Ut=>{"use strict";var de=q(),Se=ne(),_n=Xe(),Dn=tt(),Hn=nt(),Un=it(),Ae=st(),Ie=Ce(),On=dt(),ue=wt(),Fn=bt(),Qn=M(),Me=Ht();function Kn(n,e){let t=n.size,r=Un.getPositions(e);for(let o=0;o<r.length;o++){let i=r[o][0],s=r[o][1];for(let a=-1;a<=7;a++)if(!(i+a<=-1||t<=i+a))for(let c=-1;c<=7;c++)s+c<=-1||t<=s+c||(a>=0&&a<=6&&(c===0||c===6)||c>=0&&c<=6&&(a===0||a===6)||a>=2&&a<=4&&c>=2&&c<=4?n.set(i+a,s+c,!0,!0):n.set(i+a,s+c,!1,!0))}}function Vn(n){let e=n.size;for(let t=8;t<e-8;t++){let r=t%2===0;n.set(t,6,r,!0),n.set(6,t,r,!0)}}function Jn(n,e){let t=Hn.getPositions(e);for(let r=0;r<t.length;r++){let o=t[r][0],i=t[r][1];for(let s=-2;s<=2;s++)for(let a=-2;a<=2;a++)s===-2||s===2||a===-2||a===2||s===0&&a===0?n.set(o+s,i+a,!0,!0):n.set(o+s,i+a,!1,!0)}}function jn(n,e){let t=n.size,r=ue.getEncodedBits(e),o,i,s;for(let a=0;a<18;a++)o=Math.floor(a/3),i=a%3+t-8-3,s=(r>>a&1)===1,n.set(o,i,s,!0),n.set(i,o,s,!0)}function ve(n,e,t){let r=n.size,o=Fn.getEncodedBits(e,t),i,s;for(i=0;i<15;i++)s=(o>>i&1)===1,i<6?n.set(i,8,s,!0):i<8?n.set(i+1,8,s,!0):n.set(r-15+i,8,s,!0),i<8?n.set(8,r-i-1,s,!0):i<9?n.set(8,15-i-1+1,s,!0):n.set(8,15-i-1,s,!0);n.set(r-8,8,1,!0)}function Gn(n,e){let t=n.size,r=-1,o=t-1,i=7,s=0;for(let a=t-1;a>0;a-=2)for(a===6&&a--;;){for(let c=0;c<2;c++)if(!n.isReserved(o,a-c)){let u=!1;s<e.length&&(u=(e[s]>>>i&1)===1),n.set(o,a-c,u),i--,i===-1&&(s++,i=7)}if(o+=r,o<0||t<=o){o-=r,r=-r;break}}}function Yn(n,e,t){let r=new _n;t.forEach(function(c){r.put(c.mode.bit,4),r.put(c.getLength(),Qn.getCharCountIndicator(c.mode,n)),c.write(r)});let o=de.getSymbolTotalCodewords(n),i=Ie.getTotalCodewordsCount(n,e),s=(o-i)*8;for(r.getLengthInBits()+4<=s&&r.put(0,4);r.getLengthInBits()%8!==0;)r.putBit(0);let a=(s-r.getLengthInBits())/8;for(let c=0;c<a;c++)r.put(c%2?17:236,8);return Zn(r,n,e)}function Zn(n,e,t){let r=de.getSymbolTotalCodewords(e),o=Ie.getTotalCodewordsCount(e,t),i=r-o,s=Ie.getBlocksCount(e,t),a=r%s,c=s-a,u=Math.floor(r/s),l=Math.floor(i/s),d=l+1,f=u-l,m=new On(f),y=0,T=new Array(s),k=new Array(s),C=0,E=new Uint8Array(n.buffer);for(let B=0;B<s;B++){let A=B<c?l:d;T[B]=E.slice(y,y+A),k[B]=m.encode(T[B]),y+=A,C=Math.max(C,A)}let z=new Uint8Array(r),D=0,R,b;for(R=0;R<C;R++)for(b=0;b<s;b++)R<T[b].length&&(z[D++]=T[b][R]);for(R=0;R<f;R++)for(b=0;b<s;b++)z[D++]=k[b][R];return z}function $n(n,e,t,r){let o;if(Array.isArray(n))o=Me.fromArray(n);else if(typeof n=="string"){let u=e;if(!u){let l=Me.rawSplit(n);u=ue.getBestVersionForData(l,t)}o=Me.fromString(n,u||40)}else throw new Error("Invalid data");let i=ue.getBestVersionForData(o,t);if(!i)throw new Error("The amount of data is too big to be stored in a QR Code");if(!e)e=i;else if(e<i)throw new Error(`
+The chosen QR Code version cannot contain this amount of data.
+Minimum version required to store current data is: `+i+`.
+`);let s=Yn(e,t,o),a=de.getSymbolSize(e),c=new Dn(a);return Kn(c,e),Vn(c),Jn(c,e),ve(c,t,0),e>=7&&jn(c,e),Gn(c,s),isNaN(r)&&(r=Ae.getBestMask(c,ve.bind(null,c,t))),Ae.applyMask(r,c),ve(c,t,r),{modules:c,version:e,errorCorrectionLevel:t,maskPattern:r,segments:o}}Ut.create=function(e,t){if(typeof e>"u"||e==="")throw new Error("No input text");let r=Se.M,o,i;return typeof t<"u"&&(r=Se.from(t.errorCorrectionLevel,Se.M),o=ue.from(t.version),i=Ae.from(t.maskPattern),t.toSJISFunc&&de.setToSJISFunction(t.toSJISFunc)),$n(e,o,r,i)}});var Le=g(_=>{"use strict";function Ft(n){if(typeof n=="number"&&(n=n.toString()),typeof n!="string")throw new Error("Color should be defined as hex string");let e=n.slice().replace("#","").split("");if(e.length<3||e.length===5||e.length>8)throw new Error("Invalid hex color: "+n);(e.length===3||e.length===4)&&(e=Array.prototype.concat.apply([],e.map(function(r){return[r,r]}))),e.length===6&&e.push("F","F");let t=parseInt(e.join(""),16);return{r:t>>24&255,g:t>>16&255,b:t>>8&255,a:t&255,hex:"#"+e.slice(0,6).join("")}}_.getOptions=function(e){e||(e={}),e.color||(e.color={});let t=typeof e.margin>"u"||e.margin===null||e.margin<0?4:e.margin,r=e.width&&e.width>=21?e.width:void 0,o=e.scale||4;return{width:r,scale:r?4:o,margin:t,color:{dark:Ft(e.color.dark||"#000000ff"),light:Ft(e.color.light||"#ffffffff")},type:e.type,rendererOpts:e.rendererOpts||{}}};_.getScale=function(e,t){return t.width&&t.width>=e+t.margin*2?t.width/(e+t.margin*2):t.scale};_.getImageWidth=function(e,t){let r=_.getScale(e,t);return Math.floor((e+t.margin*2)*r)};_.qrToImageData=function(e,t,r){let o=t.modules.size,i=t.modules.data,s=_.getScale(o,r),a=Math.floor((o+r.margin*2)*s),c=r.margin*s,u=[r.color.light,r.color.dark];for(let l=0;l<a;l++)for(let d=0;d<a;d++){let f=(l*a+d)*4,m=r.color.light;if(l>=c&&d>=c&&l<a-c&&d<a-c){let y=Math.floor((l-c)/s),T=Math.floor((d-c)/s);m=u[i[y*o+T]?1:0]}e[f++]=m.r,e[f++]=m.g,e[f++]=m.b,e[f]=m.a}}});var Qt=g(fe=>{"use strict";var Pe=Le();function Wn(n,e,t){n.clearRect(0,0,e.width,e.height),e.style||(e.style={}),e.height=t,e.width=t,e.style.height=t+"px",e.style.width=t+"px"}function Xn(){try{return document.createElement("canvas")}catch{throw new Error("You need to specify a canvas element")}}fe.render=function(e,t,r){let o=r,i=t;typeof o>"u"&&(!t||!t.getContext)&&(o=t,t=void 0),t||(i=Xn()),o=Pe.getOptions(o);let s=Pe.getImageWidth(e.modules.size,o),a=i.getContext("2d"),c=a.createImageData(s,s);return Pe.qrToImageData(c.data,e,o),Wn(a,i,s),a.putImageData(c,0,0),i};fe.renderToDataURL=function(e,t,r){let o=r;typeof o>"u"&&(!t||!t.getContext)&&(o=t,t=void 0),o||(o={});let i=fe.render(e,t,o),s=o.type||"image/png",a=o.rendererOpts||{};return i.toDataURL(s,a.quality)}});var Jt=g(Vt=>{"use strict";var er=Le();function Kt(n,e){let t=n.a/255,r=e+'="'+n.hex+'"';return t<1?r+" "+e+'-opacity="'+t.toFixed(2).slice(1)+'"':r}function _e(n,e,t){let r=n+e;return typeof t<"u"&&(r+=" "+t),r}function tr(n,e,t){let r="",o=0,i=!1,s=0;for(let a=0;a<n.length;a++){let c=Math.floor(a%e),u=Math.floor(a/e);!c&&!i&&(i=!0),n[a]?(s++,a>0&&c>0&&n[a-1]||(r+=i?_e("M",c+t,.5+u+t):_e("m",o,0),o=0,i=!1),c+1<e&&n[a+1]||(r+=_e("h",s),s=0)):o++}return r}Vt.render=function(e,t,r){let o=er.getOptions(t),i=e.modules.size,s=e.modules.data,a=i+o.margin*2,c=o.color.light.a?"<path "+Kt(o.color.light,"fill")+' d="M0 0h'+a+"v"+a+'H0z"/>':"",u="<path "+Kt(o.color.dark,"stroke")+' d="'+tr(s,i,o.margin)+'"/>',l='viewBox="0 0 '+a+" "+a+'"',f='<svg xmlns="http://www.w3.org/2000/svg" '+(o.width?'width="'+o.width+'" height="'+o.width+'" ':"")+l+' shape-rendering="crispEdges">'+c+u+`</svg>
+`;return typeof r=="function"&&r(null,f),f}});var Gt=g(W=>{"use strict";var nr=Ze(),De=Ot(),jt=Qt(),rr=Jt();function He(n,e,t,r,o){let i=[].slice.call(arguments,1),s=i.length,a=typeof i[s-1]=="function";if(!a&&!nr())throw new Error("Callback required as last argument");if(a){if(s<2)throw new Error("Too few arguments provided");s===2?(o=t,t=e,e=r=void 0):s===3&&(e.getContext&&typeof o>"u"?(o=r,r=void 0):(o=r,r=t,t=e,e=void 0))}else{if(s<1)throw new Error("Too few arguments provided");return s===1?(t=e,e=r=void 0):s===2&&!e.getContext&&(r=t,t=e,e=void 0),new Promise(function(c,u){try{let l=De.create(t,r);c(n(l,e,r))}catch(l){u(l)}})}try{let c=De.create(t,r);o(null,n(c,e,r))}catch(c){o(c)}}W.create=De.create;W.toCanvas=He.bind(null,jt.render);W.toDataURL=He.bind(null,jt.renderToDataURL);W.toString=He.bind(null,function(n,e,t){return rr.render(n,t)})});var ar={};an(ar,{mount:()=>en});var Qe='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>';var Ke='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',Ve='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>';var Je=`/*
+ * Card styles for @zkpassport/ui. Focus is on layout and state transitions;
+ * the color palette is deliberately light-only for v1.
+ *
+ * To add dark mode later:
+ *   1. Add a \`.zkp-card[data-theme="dark"]\` block that overrides the
+ *      custom properties defined on \`.zkp-card\`.
+ *   2. Re-enable the \`theme\` plumbing in vanilla/mount.ts (applyTheme +
+ *      matchMedia listener) that sets the \`data-theme\` attribute.
+ */
+@layer zkpassport {
+  .zkp-card {
+    --zkp-bg: #ffffff;
+    --zkp-fg: #111827;
+    --zkp-muted: #6b7280;
+    --zkp-border: #e5e7eb;
+    --zkp-surface: #f3f4f6;
+    --zkp-accent: #111827;
+    --zkp-success: #16a34a;
+    --zkp-error: #dc2626;
+
+    all: revert;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    min-width: 280px;
+    max-width: 380px;
+    padding: 20px;
+    border: 1px solid var(--zkp-border);
+    border-radius: 16px;
+    background: var(--zkp-bg);
+    color: var(--zkp-fg);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .zkp-card * {
+    box-sizing: border-box;
+  }
+  .zkp-card button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+  }
+
+  /* Header */
+  .zkp-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .zkp-app-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .zkp-header-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .zkp-app-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .zkp-purpose {
+    color: var(--zkp-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* QR slot */
+  .zkp-qr-slot {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    background: var(--zkp-bg);
+    padding: 12px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .zkp-qr {
+    width: 100%;
+    height: 100%;
+    transition:
+      opacity 200ms ease,
+      transform 200ms ease;
+  }
+  .zkp-qr svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .zkp-qr-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 18%;
+    height: 18%;
+    background: var(--zkp-bg);
+    padding: 4px;
+    box-shadow: 0 0 0 4px var(--zkp-bg);
+    display: grid;
+    place-items: center;
+  }
+  .zkp-qr-logo > * {
+    width: 100%;
+    height: 100%;
+  }
+  .zkp-skeleton {
+    position: absolute;
+    inset: 12px;
+    border-radius: 8px;
+    background: var(--zkp-surface);
+  }
+
+  /* State overlay \u2014 single element, body + text swapped via JS */
+  .zkp-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.85);
+  }
+  .zkp-overlay-text {
+    max-width: 80%;
+  }
+
+  /* State-driven visibility */
+  .zkp-qr-slot[data-state="preparing"] .zkp-qr,
+  .zkp-qr-slot[data-state="preparing"] .zkp-qr-logo {
+    visibility: hidden;
+  }
+  .zkp-qr-slot[data-state="preparing"] .zkp-skeleton {
+    display: block;
+  }
+  .zkp-qr-slot:not([data-state="preparing"]) .zkp-skeleton {
+    display: none;
+  }
+  .zkp-qr-slot[data-state="connecting"] .zkp-qr,
+  .zkp-qr-slot[data-state="scanned"] .zkp-qr {
+    opacity: 0.4;
+  }
+  .zkp-qr-slot[data-state="generating"] .zkp-qr,
+  .zkp-qr-slot[data-state="success"] .zkp-qr,
+  .zkp-qr-slot[data-state="error"] .zkp-qr {
+    opacity: 0.2;
+  }
+  .zkp-qr-slot[data-state="generating"] .zkp-qr-logo,
+  .zkp-qr-slot[data-state="success"] .zkp-qr-logo,
+  .zkp-qr-slot[data-state="error"] .zkp-qr-logo {
+    opacity: 0;
+  }
+  .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
+  .zkp-qr-slot[data-state="scanned"] .zkp-overlay,
+  .zkp-qr-slot[data-state="generating"] .zkp-overlay,
+  .zkp-qr-slot[data-state="success"] .zkp-overlay,
+  .zkp-qr-slot[data-state="error"] .zkp-overlay {
+    display: flex;
+  }
+
+  /* Spinner / success / error icons */
+  .zkp-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--zkp-border);
+    border-top-color: var(--zkp-accent);
+    border-radius: 50%;
+    animation: zkp-spin 0.9s linear infinite;
+  }
+  @keyframes zkp-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .zkp-check,
+  .zkp-error-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+  .zkp-check {
+    background: var(--zkp-success);
+  }
+  .zkp-error-icon {
+    background: var(--zkp-error);
+  }
+  .zkp-check svg,
+  .zkp-error-icon svg {
+    width: 60%;
+    height: 60%;
+  }
+
+  .zkp-retry {
+    margin-top: 4px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: var(--zkp-accent);
+    color: var(--zkp-bg);
+    font-size: 13px;
+  }
+
+  /* Footer */
+  .zkp-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--zkp-muted);
+    font-size: 12px;
+  }
+  .zkp-footer svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .zkp-qr {
+      transition: none;
+    }
+    .zkp-spinner {
+      animation-duration: 2s;
+    }
+  }
+}
+`;var je="data-zkpassport-ui",me=!1;function Ge(){if(me||typeof document>"u")return;if(document.querySelector(`style[${je}]`)){me=!0;return}let n=document.createElement("style");n.setAttribute(je,""),n.textContent=Je,document.head.appendChild(n),me=!0}var Yt=cn(Gt(),1);async function Zt(n){return Yt.default.toString(n,{type:"svg",errorCorrectionLevel:"H",margin:0})}function $t(n){let e="preparing",t=null,r=0,o=!1,i=!1;function s(d){e!==d&&(e=d,n.onTransition(d))}function a(){if(!o){o=!0;try{n.getCallbacks().onReady?.()}catch{}}}function c(d,f,m){s("error");try{n.getCallbacks().onError?.({code:d,message:f,cause:m})}catch{}}function u(d){if(i)return;r+=1;let f=r;t=d,o=!1;let m=y=>(...T)=>{if(!(f!==r||i))try{y(...T)}catch(k){c("unknown","Unexpected error while handling SDK event",k)}};d.onBridgeConnect(m(()=>{(e==="connecting"||e==="preparing")&&(s("waiting"),a())})),d.onRequestReceived(m(()=>{s("scanned")})),d.onGeneratingProof(m(()=>{s("generating")})),d.onResult(m(y=>{if(y.verified){s("success");try{n.getCallbacks().onSuccess?.(y)}catch{}}else c("proof_failed","Proof verification failed")})),d.onReject(m(()=>{s("error");try{n.getCallbacks().onReject?.()}catch{}})),d.onError(m(y=>{c("bridge_error",y)}));try{d.requestReceived()?s("scanned"):d.isBridgeConnected()?(s("waiting"),a()):s("connecting")}catch(y){c("unknown","Failed to read request bridge state",y)}}function l(){t!==null&&(r+=1,t=null,o=!1,s("preparing"))}return{attachRequest:u,detachRequest:l,fail:(d,f,m)=>{i||c(d,f,m)},dispose:()=>{l(),i=!0}}}function en(n,e){if(typeof document>"u"||typeof window>"u")throw new Error("@zkpassport/ui: mount() must be called in a browser environment (document and window required).");if(!(n instanceof HTMLElement))throw new Error("@zkpassport/ui: mount() requires an HTMLElement as the first argument.");Ge();let t={...e},r=T();n.appendChild(r.root);let o=0,i=$t({getCallbacks:()=>t,onTransition:y});d(),t.request!==null?(f(t.request),i.attachRequest(t.request)):y("preparing");let s=!1;function a(k){if(s)return;let C={...t,...k},E=sr(t,C);if(E.length===0)return;let z=t;t=C,(E.includes("appName")||E.includes("appIcon")||E.includes("purpose"))&&d(),E.includes("request")&&u(z.request,t.request)}function c(){s||(s=!0,i.dispose(),r.retry.removeEventListener("click",l),r.root.parentNode&&r.root.parentNode.removeChild(r.root))}function u(k,C){if(k!==C){if(C===null){i.detachRequest(),m();return}f(C),i.attachRequest(C)}}function l(){try{t.onRetryClicked?.()}catch{}}function d(){r.appName.textContent=t.appName,r.purpose.textContent=t.purpose,t.appIcon?(r.appIcon.src=t.appIcon,r.appIcon.alt=`${t.appName} icon`,r.appIcon.style.display=""):(r.appIcon.removeAttribute("src"),r.appIcon.style.display="none")}async function f(k){let C=++o;try{let E=await Zt(k.url);if(C!==o||s)return;r.qrContainer.innerHTML=E,r.qrLogo.innerHTML="",r.qrLogo.style.display="none"}catch(E){if(C!==o||s)return;i.fail("unknown","Failed to generate QR code",E)}}function m(){o+=1,r.qrContainer.innerHTML="",r.qrLogo.innerHTML=""}function y(k){switch(r.qrSlot.setAttribute("data-state",k),r.overlayBody.innerHTML="",r.overlayText.textContent="",k){case"preparing":break;case"connecting":Xt(r.overlayBody),r.overlayText.textContent="Connecting\u2026";break;case"waiting":break;case"scanned":r.overlayText.textContent="Approve the request on your phone";break;case"generating":Xt(r.overlayBody),r.overlayText.textContent="Generating proof\u2026";break;case"success":or(r.overlayBody),r.overlayText.textContent="Verified";break;case"error":ir(r.overlayBody),r.overlayText.textContent="Something went wrong",r.overlayBody.appendChild(r.retry);break}}function T(){let k=document.createElement("div");k.className="zkp-card";let C=document.createElement("div");C.className="zkp-header";let E=document.createElement("img");E.className="zkp-app-icon";let z=document.createElement("div");z.className="zkp-header-text";let D=document.createElement("div");D.className="zkp-app-name";let R=document.createElement("div");R.className="zkp-purpose",z.append(D,R),C.append(E,z);let b=document.createElement("div");b.className="zkp-qr-slot",b.setAttribute("data-state","preparing");let B=document.createElement("div");B.className="zkp-skeleton";let A=document.createElement("div");A.className="zkp-qr";let X=document.createElement("div");X.className="zkp-qr-logo",X.style.display="none";let ee=document.createElement("div");ee.className="zkp-overlay";let pe=document.createElement("div");pe.className="zkp-overlay-body";let ge=document.createElement("div");ge.className="zkp-overlay-text",ee.append(pe,ge),b.append(B,A,X,ee);let K=document.createElement("button");K.type="button",K.className="zkp-retry",K.textContent="Try again",K.addEventListener("click",l);let he=document.createElement("div");he.className="zkp-footer";let Ue=document.createElement("span");Ue.innerHTML=Qe;let Oe=document.createElement("span");return Oe.textContent="Scan with the ZKPassport app",he.append(Ue,Oe),k.append(C,b,he),{root:k,appIcon:E,appName:D,purpose:R,qrSlot:b,qrContainer:A,qrLogo:X,overlay:ee,overlayBody:pe,overlayText:ge,retry:K}}return{update:a,unmount:c}}function Xt(n){let e=document.createElement("div");e.className="zkp-spinner",n.appendChild(e)}function or(n){let e=document.createElement("div");e.className="zkp-check",e.innerHTML=Ke,n.appendChild(e)}function ir(n){let e=document.createElement("div");e.className="zkp-error-icon",e.innerHTML=Ve,n.appendChild(e)}function sr(n,e){return["request","appName","appIcon","purpose"].filter(r=>n[r]!==e[r])}return ln(ar);})();
+//# sourceMappingURL=zkpassport-ui.js.map</script>
+    <!-- END INLINED IIFE -->
+
+    <script type="module">
+      // ──────────────────────────────────────────────────────────────────
+      //  End-to-end no-bundler integration.
+      //
+      //  `@zkpassport/sdk` ships ESM + CJS only — no IIFE/UMD — so a
+      //  classic `<script src="…">` can't load it. The fix is esm.sh,
+      //  which transforms ESM-only npm packages into browser-loadable
+      //  modules at request time. A `<script type="module">` block (this
+      //  one) imports the SDK from the esm.sh URL, then drives the
+      //  already-mounted ZKPassportUI card (loaded from the inlined IIFE
+      //  above — same global, `window.ZKPassportUI`).
+      //
+      //  Module scripts are deferred by default, so the IIFE script above
+      //  has already executed and `ZKPassportUI` is on `window` by the
+      //  time this block runs.
+      //
+      //  Two practical limits when running this from file://:
+      //
+      //   (1) Domain attestation. The SDK encodes the consumer's domain
+      //       into the QR URL and the ZKPassport mobile app verifies
+      //       it. file:// has no hostname, so we pass a placeholder
+      //       ("example.zkpassport.dev"). A real passport will refuse;
+      //       use `devMode: true` (set below) with the ZKR test passport
+      //       to scan from this origin. For a real flow, host the file
+      //       on an attested domain (ngrok / Vercel / your own server).
+      //
+      //   (2) Proof-back path may stall. The SDK's verify() step pulls
+      //       in @aztec/bb.js (WASM) and chain RPC, which esm.sh's ESM
+      //       transform doesn't always survive intact. The QR scans
+      //       fine and the phone-side flow completes, but the UI may
+      //       stay on "scanned" because verify() never resolves. This
+      //       is the practical ceiling of a truly no-bundler integration
+      //       today; a bundler-based example (planned post-publish for
+      //       Next + Vite) exercises the full proof-return path.
+      //
+      //  Pin the SDK version so the demo stays reproducible; bump in
+      //  lockstep with `packages/zkpassport-sdk` when its bridge protocol
+      //  changes.
+      // ──────────────────────────────────────────────────────────────────
+      import { ZKPassport } from "https://esm.sh/@zkpassport/sdk@0.14.2"
+
+      const statusEl = document.getElementById("status")
+      const setStatus = (text, state) => {
+        statusEl.textContent = text
+        if (state) statusEl.dataset.state = state
+        else statusEl.removeAttribute("data-state")
+      }
+
+      const service = {
+        name: "QR Script Test",
+        logo: "https://zkpassport.id/favicon.png",
+        purpose: "Verify you're over 18",
+      }
+
+      // Mount immediately with `request: null` so the card paints its
+      // header in the `preparing` state while we build the real request.
+      const handle = ZKPassportUI.mount(document.getElementById("zkp"), {
+        request: null,
+        appName: service.name,
+        appIcon: service.logo,
+        purpose: service.purpose,
+        onReady:   () => setStatus("QR ready — scan with the ZKPassport app", "ready"),
+        onSuccess: (r) => {
+          setStatus(`Verified ✓ — uniqueIdentifier: ${r.uniqueIdentifier ?? "(none)"}`, "ready")
+          console.log("[qr] success", r)
+        },
+        onReject:  () => setStatus("User rejected the request on their phone", "error"),
+        onError:   (e) => {
+          setStatus(`Error: ${e.code} — ${e.message}`, "error")
+          console.error("[qr] error", e)
+        },
+        onRetryClicked: () => location.reload(),
+      })
+
+      try {
+        const sdk = new ZKPassport("example.zkpassport.dev")
+        // devMode lets the ZKR test passport scan this QR; a real passport
+        // would still reject the placeholder domain (see comment above).
+        const builder = await sdk.request({ ...service, devMode: true })
+        const request = builder.gte("age", 18).done()
+        handle.update({ request })
+        setStatus("Waiting for bridge connection…")
+      } catch (cause) {
+        console.error("Failed to build ZKPassport request:", cause)
+        setStatus(`Failed to build request: ${cause?.message ?? cause}`, "error")
+      }
+    </script>
+  </body>
+</html>
