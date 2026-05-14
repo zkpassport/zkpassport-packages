@@ -3,7 +3,7 @@
   "version": "0.1.0-beta.0",
   "// private": "Stays true while the package is stubbed. Flip to false (or remove) once PR 2/3 land real implementations and we're ready to publish 0.1.0-beta.0.",
   "private": true,
-  "description": "Drop-in QR verification card for ZKPassport. Works in React, vanilla JS, and via <script> tag.",
+  "description": "Drop-in QR verification card for ZKPassport. Works in React and any bundler-based stack (Vue/Svelte/Solid/Astro/vanilla JS) via the /vanilla entry.",
   "author": "ZKPassport",
   "license": "Apache-2.0",
   "repository": {
