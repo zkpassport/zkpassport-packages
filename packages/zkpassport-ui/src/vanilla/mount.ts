@@ -33,6 +33,7 @@ type CardElements = {
   overlay: HTMLDivElement
   overlayBody: HTMLDivElement
   overlayText: HTMLDivElement
+  openAppLink: HTMLAnchorElement
   resultPanel: HTMLDivElement
   resultIcon: HTMLDivElement
   resultTitle: HTMLHeadingElement
@@ -166,6 +167,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
   async function renderQr(request: ZKPassportRequestLike) {
     const myToken = ++qrToken
+    elements.openAppLink.href = request.url
     try {
       const svg = await generateSvg(request.url)
       if (myToken !== qrToken || disposed) return
@@ -184,6 +186,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     qrToken += 1
     elements.qrContainer.innerHTML = ""
     elements.qrLogo.innerHTML = ""
+    elements.openAppLink.removeAttribute("href")
   }
 
   // Tracks the in-flight height-animation generation so a transition that gets
@@ -215,17 +218,19 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     cancelOpacityAnimations(prevBody)
     if (nextBody !== prevBody) cancelOpacityAnimations(nextBody)
 
-    const fadeOut = prevBody.animate(
-      [{ opacity: 1 }, { opacity: 0 }],
-      { duration: FADE_DURATION_MS, easing: "ease", fill: "forwards" },
-    )
+    const fadeOut = prevBody.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: FADE_DURATION_MS,
+      easing: "ease",
+      fill: "forwards",
+    })
     fadeOut.addEventListener("finish", () => {
       if (myToken !== fadeToken || disposed) return
       animateHeight(elements.root, apply)
-      nextBody.animate(
-        [{ opacity: 0 }, { opacity: 1 }],
-        { duration: FADE_DURATION_MS, easing: "ease", fill: "forwards" },
-      )
+      nextBody.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: FADE_DURATION_MS,
+        easing: "ease",
+        fill: "forwards",
+      })
     })
   }
 
@@ -392,6 +397,14 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     overlay.append(overlayBody, overlayText)
     qrSlot.append(skeleton, qrContainer, qrLogo, overlay)
 
+    // Deep-link CTA shown only on touch devices during the `waiting` state —
+    // taps the request URL directly into the ZKPassport app instead of asking
+    // the user to scan their own screen. Visibility is CSS-driven (see
+    // `.zkp-open-app` rules in styles.css).
+    const openAppLink = document.createElement("a")
+    openAppLink.className = "zkp-open-app"
+    openAppLink.textContent = "Open in ZKPassport App"
+
     const retry = document.createElement("button")
     retry.type = "button"
     retry.className = "zkp-retry"
@@ -444,7 +457,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     )
     footer.append(footerLabel, storeButtons)
 
-    root.append(header, qrSlot, resultPanel, dividerTop, steps, dividerBottom, footer)
+    root.append(header, qrSlot, openAppLink, resultPanel, dividerTop, steps, dividerBottom, footer)
 
     return {
       root,
@@ -457,6 +470,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       overlay,
       overlayBody,
       overlayText,
+      openAppLink,
       resultPanel,
       resultIcon,
       resultTitle,

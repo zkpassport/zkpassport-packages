@@ -427,6 +427,35 @@
     font-size: 13px;
   }
 
+  /* Deep-link CTA — only useful on touch devices (a desktop user can't open
+     the mobile app from this tap), so it's hidden by default and only revealed
+     by the `(hover: none) and (pointer: coarse)` media query below. The
+     `data-state="waiting"` gate further restricts it to the scannable state:
+     once we've handed off to the phone (scanned/generating) or the flow is
+     done (success/error), the button is no longer actionable. */
+  .zkp-open-app {
+    display: none;
+    margin: 16px 0 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: var(--zkp-accent);
+    color: var(--zkp-bg);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.18);
+    transition: transform 150ms ease;
+  }
+  .zkp-open-app:active {
+    transform: translateY(1px);
+  }
+  @media (hover: none) and (pointer: coarse) {
+    .zkp-card[data-state="waiting"] .zkp-open-app {
+      display: block;
+    }
+  }
+
   /* Result panel — success / error terminal screens. Hidden by default and
      toggled on via the card's data-state selector (see the block above). The
      icon / title / lines stack centered so multi-line attribute lists read as
