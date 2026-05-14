@@ -17,6 +17,11 @@ import { describeVerifiedAttributes } from "../core/result-lines"
 import { createStateMachine, type TransitionPayload } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
 
+// Duration (per leg) of the body crossfade between states. Fade-out and
+// fade-in run sequentially around the content swap, so the total motion is
+// ~2× this value — matched roughly to the height animation below.
+const FADE_DURATION_MS = 500
+
 type CardElements = {
   root: HTMLDivElement
   appIcon: HTMLImageElement
@@ -28,6 +33,7 @@ type CardElements = {
   overlay: HTMLDivElement
   overlayBody: HTMLDivElement
   overlayText: HTMLDivElement
+  resultPanel: HTMLDivElement
   resultIcon: HTMLDivElement
   resultTitle: HTMLHeadingElement
   resultLines: HTMLUListElement
@@ -185,50 +191,100 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   // inline styles when its own `transitionend` finally fires.
   let heightAnimToken = 0
 
-  function renderState(state: QRCardState, payload?: TransitionPayload) {
-    animateHeight(elements.root, () => {
-      elements.root.setAttribute("data-state", state)
-      elements.qrSlot.setAttribute("data-state", state)
-      elements.overlayBody.innerHTML = ""
-      elements.overlayText.textContent = ""
-      elements.resultIcon.innerHTML = ""
-      elements.resultTitle.textContent = ""
-      elements.resultLines.innerHTML = ""
-      elements.resultActions.innerHTML = ""
+  // Token guarding the crossfade choreography. A state change that arrives
+  // mid-fade bumps the token; the in-flight fade-out's `finish` listener checks
+  // it and bails so the superseded transition doesn't apply stale mutations or
+  // start a fade-in on an element the new transition is about to fade out.
+  let fadeToken = 0
 
-      switch (state) {
-        case "preparing":
-          // Skeleton is purely CSS-driven via the [data-state="preparing"] selector.
-          break
-        case "connecting":
-          appendSpinner(elements.overlayBody)
-          elements.overlayText.textContent = "Connecting…"
-          break
-        case "waiting":
-          // No overlay — the QR itself is the call to action.
-          break
-        case "scanned":
-          appendConfirmationImage(elements.overlayBody)
-          break
-        case "generating":
-          appendSpinner(elements.overlayBody)
-          elements.overlayText.textContent = "Generating proof…"
-          break
-        case "success":
-          appendCheck(elements.resultIcon)
-          elements.resultTitle.textContent = "Proof Verified"
-          appendResultLines(elements.resultLines, describeVerifiedAttributes(payload?.result))
-          break
-        case "error":
-          appendErrorIcon(elements.resultIcon)
-          elements.resultTitle.textContent = "Proof Verification Failed"
-          appendResultLines(elements.resultLines, [
-            "Some of the requested attributes could not be verified.",
-          ])
-          elements.resultActions.appendChild(elements.retry)
-          break
-      }
+  function renderState(state: QRCardState, payload?: TransitionPayload) {
+    const apply = () => applyStateContent(state, payload)
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const prevState = elements.root.getAttribute("data-state") as QRCardState | null
+
+    // First paint (no prior data-state) or reduced motion: skip the crossfade
+    // and fall through to the height-only animation path.
+    if (reducedMotion || prevState === null) {
+      animateHeight(elements.root, apply)
+      return
+    }
+
+    const myToken = ++fadeToken
+    const prevBody = pickBody(prevState)
+    const nextBody = pickBody(state)
+    cancelOpacityAnimations(prevBody)
+    if (nextBody !== prevBody) cancelOpacityAnimations(nextBody)
+
+    const fadeOut = prevBody.animate(
+      [{ opacity: 1 }, { opacity: 0 }],
+      { duration: FADE_DURATION_MS, easing: "ease", fill: "forwards" },
+    )
+    fadeOut.addEventListener("finish", () => {
+      if (myToken !== fadeToken || disposed) return
+      animateHeight(elements.root, apply)
+      nextBody.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: FADE_DURATION_MS, easing: "ease", fill: "forwards" },
+      )
     })
+  }
+
+  function applyStateContent(state: QRCardState, payload?: TransitionPayload) {
+    elements.root.setAttribute("data-state", state)
+    elements.qrSlot.setAttribute("data-state", state)
+    elements.overlayBody.innerHTML = ""
+    elements.overlayText.textContent = ""
+    elements.resultIcon.innerHTML = ""
+    elements.resultTitle.textContent = ""
+    elements.resultLines.innerHTML = ""
+    elements.resultActions.innerHTML = ""
+
+    switch (state) {
+      case "preparing":
+        // Skeleton is purely CSS-driven via the [data-state="preparing"] selector.
+        break
+      case "connecting":
+        appendSpinner(elements.overlayBody)
+        elements.overlayText.textContent = "Connecting…"
+        break
+      case "waiting":
+        // No overlay — the QR itself is the call to action.
+        break
+      case "scanned":
+        appendConfirmationImage(elements.overlayBody)
+        break
+      case "generating":
+        appendSpinner(elements.overlayBody)
+        elements.overlayText.textContent = "Generating proof…"
+        break
+      case "success":
+        appendCheck(elements.resultIcon)
+        elements.resultTitle.textContent = "Proof Verified"
+        appendResultLines(elements.resultLines, describeVerifiedAttributes(payload?.result))
+        break
+      case "error":
+        appendErrorIcon(elements.resultIcon)
+        elements.resultTitle.textContent = "Proof Verification Failed"
+        appendResultLines(elements.resultLines, [
+          "Some of the requested attributes could not be verified.",
+        ])
+        elements.resultActions.appendChild(elements.retry)
+        break
+    }
+  }
+
+  // The "body" of the card swaps between the QR slot (pre-result states) and
+  // the result panel (success / error). The crossfade runs on whichever is the
+  // currently visible body — siblings, not nested — so a transition that
+  // crosses the qr-slot/result-panel boundary still reads as one fade.
+  function pickBody(state: QRCardState): HTMLElement {
+    return state === "success" || state === "error" ? elements.resultPanel : elements.qrSlot
+  }
+
+  function cancelOpacityAnimations(el: HTMLElement) {
+    for (const anim of el.getAnimations()) {
+      anim.cancel()
+    }
   }
 
   /**
@@ -401,6 +457,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       overlay,
       overlayBody,
       overlayText,
+      resultPanel,
       resultIcon,
       resultTitle,
       resultLines,
