@@ -49,28 +49,7 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   },
 }))
 
-// 2) IIFE bundle for <script> tag — bundles everything (qrcode + CSS string baked in).
-const umdConfig: Options = {
-  entry: { "zkpassport-ui": "src/vanilla.ts" },
-  format: "iife",
-  globalName: "ZKPassportUI",
-  outDir: "dist/umd",
-  // Override tsup's default `.global.js` suffix; we want a clean `zkpassport-ui.js`.
-  outExtension: () => ({ js: ".js" }),
-  // Don't clean dist (npmConfigs already did); just our subfolder.
-  clean: false,
-  splitting: false,
-  sourcemap: true,
-  minify: !isDev,
-  noExternal: [/.*/],
-  loader: { ".css": "text" },
-  // Without this, esbuild ignores the `browser` field in qrcode's package.json
-  // and bundles its Node entry — which calls `require("fs")` for terminal QR
-  // rendering and crashes the IIFE at load time in any browser.
-  platform: "browser",
-}
-
-// 3) Standalone CSS at dist/styles.css for CSP-strict consumers.
+// 2) Standalone CSS at dist/styles.css for CSP-strict consumers.
 const cssConfig: Options = {
   entry: { styles: "src/core/styles.css" },
   outDir: "dist",
@@ -78,4 +57,10 @@ const cssConfig: Options = {
   loader: { ".css": "copy" },
 }
 
-export default defineConfig([...npmConfigs, umdConfig, cssConfig])
+// Note: no IIFE/UMD output for v0.1.0-beta.0. A complete `<script>`-tag
+// integration is blocked by browsers refusing to construct the bb.js Web
+// Worker cross-origin from esm.sh (the only ESM→browser bridge available
+// for @zkpassport/sdk today). See the design doc's "No IIFE in v0.1"
+// section for context. Adding the IIFE back is non-breaking when the SDK
+// story unlocks it (UMD bundle / verify-on-server / dedicated CDN dist).
+export default defineConfig([...npmConfigs, cssConfig])
