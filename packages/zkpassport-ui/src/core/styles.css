@@ -25,7 +25,7 @@
     flex-direction: column;
     width: 100%;
     min-width: 280px;
-    max-width: 380px;
+    max-width: 360px;
     padding: 24px 20px 20px;
     border: 1px solid var(--zkp-border);
     border-radius: 18px;
@@ -59,9 +59,9 @@
     gap: 10px;
   }
   .zkp-app-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     object-fit: cover;
     flex-shrink: 0;
   }
@@ -77,21 +77,21 @@
     opacity: 0.5;
   }
   .zkp-zkp-icon {
-    width: 44px;
-    height: 44px;
+    width: 32px;
+    height: 32px;
     display: grid;
     place-items: center;
     color: var(--zkp-accent);
   }
   .zkp-zkp-icon svg {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
   }
   .zkp-title {
     margin: 0;
     text-align: center;
     color: var(--zkp-muted);
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.45;
   }
   .zkp-title strong {
@@ -265,11 +265,11 @@
   .zkp-step {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
   .zkp-step-icon {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
     border: 1px solid var(--zkp-border);
     display: grid;
@@ -278,11 +278,11 @@
     flex-shrink: 0;
   }
   .zkp-step-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
   .zkp-step-text {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--zkp-fg);
   }
   .zkp-step-text a {

@@ -24,7 +24,6 @@ type CardElements = {
   appIcon: HTMLImageElement
   title: HTMLParagraphElement
   appName: HTMLElement
-  purpose: HTMLSpanElement
   qrSlot: HTMLDivElement
   qrContainer: HTMLDivElement
   qrLogo: HTMLDivElement
@@ -100,7 +99,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const prev = current
     current = next
 
-    if (changed.includes("appName") || changed.includes("appIcon") || changed.includes("purpose")) {
+    if (changed.includes("appName") || changed.includes("appIcon")) {
       renderHeader()
     }
 
@@ -147,7 +146,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
   function renderHeader() {
     elements.appName.textContent = current.appName
-    elements.purpose.textContent = current.purpose
     if (current.appIcon) {
       elements.appIcon.src = current.appIcon
       elements.appIcon.alt = `${current.appName} icon`
@@ -233,15 +231,22 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const zkpIcon = document.createElement("div")
     zkpIcon.className = "zkp-zkp-icon"
     zkpIcon.innerHTML = ICON_GLOBE
-    headerIcons.append(appIcon, dots, zkpIcon)
+    headerIcons.append(zkpIcon, dots, appIcon)
 
+    // Title is intentionally generic — the consumer's `purpose` prop is still
+    // forwarded to `sdk.request(...)` but not shown here, so the card reads
+    // the same across every integration.
     const title = document.createElement("p")
     title.className = "zkp-title"
     const appName = document.createElement("strong")
     const zkpassportStrong = document.createElement("strong")
     zkpassportStrong.textContent = "ZKPassport"
-    const purpose = document.createElement("span")
-    title.append(appName, document.createTextNode(" uses "), zkpassportStrong, document.createTextNode(" to "), purpose)
+    title.append(
+      appName,
+      document.createTextNode(" uses "),
+      zkpassportStrong,
+      document.createTextNode(" to verify identity without compromising your privacy."),
+    )
 
     header.append(headerIcons, title)
 
@@ -307,7 +312,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       appIcon,
       title,
       appName,
-      purpose,
       qrSlot,
       qrContainer,
       qrLogo,
@@ -389,9 +393,11 @@ function appendErrorIcon(parent: HTMLElement) {
  */
 function diff(prev: QRCardOptions, next: QRCardOptions): (keyof QRCardOptions)[] {
   // `theme` is accepted on the type but ignored by the renderer in v1 (see
-  // styles.css for the dark-mode re-attach plan). Callbacks (`onReady` etc.)
+  // styles.css for the dark-mode re-attach plan). `purpose` is forwarded to
+  // `sdk.request(...)` by the consumer but isn't rendered in the card title,
+  // so changes don't need to trigger a re-render. Callbacks (`onReady` etc.)
   // are read live by the state machine, and `onRetryClicked` is read live by
   // the click handler — neither needs to trigger an update cycle.
-  const keys: (keyof QRCardOptions)[] = ["request", "appName", "appIcon", "purpose"]
+  const keys: (keyof QRCardOptions)[] = ["request", "appName", "appIcon"]
   return keys.filter((k) => prev[k] !== next[k])
 }
