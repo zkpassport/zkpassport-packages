@@ -6,6 +6,15 @@ import type {
   ZKPassportRequestLike,
 } from "./types"
 
+/**
+ * Optional payload threaded with a state transition. Today only `success`
+ * carries data (the raw `QueryResult` so the renderer can format the verified
+ * attribute lines without subscribing to the SDK request itself).
+ */
+export type TransitionPayload = {
+  result?: unknown
+}
+
 type StateMachineConfig = {
   /**
    * Read the latest consumer callbacks at fire time. The renderer holds the
@@ -16,7 +25,7 @@ type StateMachineConfig = {
    */
   getCallbacks: () => Pick<QRCardOptions, "onReady" | "onSuccess" | "onReject" | "onError">
   /** Called every time the UI state changes. The renderer turns this into DOM updates. */
-  onTransition: (next: QRCardState) => void
+  onTransition: (next: QRCardState, payload?: TransitionPayload) => void
 }
 
 export type StateMachine = {
@@ -56,10 +65,10 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
   let readyFired = false
   let disposed = false
 
-  function transition(next: QRCardState) {
+  function transition(next: QRCardState, payload?: TransitionPayload) {
     if (state === next) return
     state = next
-    config.onTransition(next)
+    config.onTransition(next, payload)
   }
 
   function fireReadyOnce() {
@@ -125,7 +134,9 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
     next.onResult(
       guarded((response: QRCardSuccessResponse) => {
         if (response.verified) {
-          transition("success")
+          // Pass the raw QueryResult through so the renderer can format the
+          // verified attribute lines without re-subscribing to the SDK request.
+          transition("success", { result: response.result })
           try {
             config.getCallbacks().onSuccess?.(response)
           } catch {

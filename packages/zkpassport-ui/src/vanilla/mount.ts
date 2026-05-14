@@ -13,7 +13,8 @@ import {
 import { APP_STORE_URL, GOOGLE_PLAY_URL, ZKPASSPORT_DOWNLOAD_URL } from "../core/constants"
 import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
-import { createStateMachine } from "../core/state"
+import { describeVerifiedAttributes } from "../core/result-lines"
+import { createStateMachine, type TransitionPayload } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
 
 type CardElements = {
@@ -27,6 +28,10 @@ type CardElements = {
   overlay: HTMLDivElement
   overlayBody: HTMLDivElement
   overlayText: HTMLDivElement
+  resultIcon: HTMLDivElement
+  resultTitle: HTMLHeadingElement
+  resultLines: HTMLUListElement
+  resultActions: HTMLDivElement
   retry: HTMLButtonElement
 }
 
@@ -180,12 +185,16 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   // inline styles when its own `transitionend` finally fires.
   let heightAnimToken = 0
 
-  function renderState(state: QRCardState) {
+  function renderState(state: QRCardState, payload?: TransitionPayload) {
     animateHeight(elements.root, () => {
       elements.root.setAttribute("data-state", state)
       elements.qrSlot.setAttribute("data-state", state)
       elements.overlayBody.innerHTML = ""
       elements.overlayText.textContent = ""
+      elements.resultIcon.innerHTML = ""
+      elements.resultTitle.textContent = ""
+      elements.resultLines.innerHTML = ""
+      elements.resultActions.innerHTML = ""
 
       switch (state) {
         case "preparing":
@@ -206,13 +215,17 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
           elements.overlayText.textContent = "Generating proof…"
           break
         case "success":
-          appendCheck(elements.overlayBody)
-          elements.overlayText.textContent = "Verified"
+          appendCheck(elements.resultIcon)
+          elements.resultTitle.textContent = "Proof Verified"
+          appendResultLines(elements.resultLines, describeVerifiedAttributes(payload?.result))
           break
         case "error":
-          appendErrorIcon(elements.overlayBody)
-          elements.overlayText.textContent = "Something went wrong"
-          elements.overlayBody.appendChild(elements.retry)
+          appendErrorIcon(elements.resultIcon)
+          elements.resultTitle.textContent = "Proof Verification Failed"
+          appendResultLines(elements.resultLines, [
+            "Some of the requested attributes could not be verified.",
+          ])
+          elements.resultActions.appendChild(elements.retry)
           break
       }
     })
@@ -329,6 +342,20 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     retry.textContent = "Try again"
     retry.addEventListener("click", handleRetryClick)
 
+    // Result panel — replaces the QR slot during the `success` / `error`
+    // terminal states. Built once and toggled via CSS on the card's data-state.
+    const resultPanel = document.createElement("div")
+    resultPanel.className = "zkp-result-panel"
+    const resultIcon = document.createElement("div")
+    resultIcon.className = "zkp-result-icon"
+    const resultTitle = document.createElement("h2")
+    resultTitle.className = "zkp-result-title"
+    const resultLines = document.createElement("ul")
+    resultLines.className = "zkp-result-lines"
+    const resultActions = document.createElement("div")
+    resultActions.className = "zkp-result-actions"
+    resultPanel.append(resultIcon, resultTitle, resultLines, resultActions)
+
     // Steps: download, scan, approve.
     const dividerTop = document.createElement("div")
     dividerTop.className = "zkp-divider"
@@ -361,7 +388,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     )
     footer.append(footerLabel, storeButtons)
 
-    root.append(header, qrSlot, dividerTop, steps, dividerBottom, footer)
+    root.append(header, qrSlot, resultPanel, dividerTop, steps, dividerBottom, footer)
 
     return {
       root,
@@ -374,6 +401,10 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       overlay,
       overlayBody,
       overlayText,
+      resultIcon,
+      resultTitle,
+      resultLines,
+      resultActions,
       retry,
     }
   }
@@ -493,6 +524,15 @@ function appendConfirmationImage(parent: HTMLElement) {
   img.src = CONFIRMATION_PHONE_IMAGE
   img.alt = "Approve the request on your phone"
   parent.appendChild(img)
+}
+
+function appendResultLines(parent: HTMLUListElement, lines: ReadonlyArray<string>) {
+  for (const line of lines) {
+    const li = document.createElement("li")
+    li.className = "zkp-result-line"
+    li.textContent = line
+    parent.appendChild(li)
+  }
 }
 
 /**

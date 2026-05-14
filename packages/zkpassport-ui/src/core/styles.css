@@ -207,6 +207,25 @@
     display: none;
   }
 
+  /* Terminal states (success / error) take over the card body: the QR slot is
+     replaced by the result panel, and the onboarding chrome (divider / steps /
+     store badges) is dropped — those are pre-scan affordances that don't apply
+     once verification has resolved. */
+  .zkp-card[data-state="success"] .zkp-qr-slot,
+  .zkp-card[data-state="error"] .zkp-qr-slot,
+  .zkp-card[data-state="success"] .zkp-divider,
+  .zkp-card[data-state="error"] .zkp-divider,
+  .zkp-card[data-state="success"] .zkp-steps,
+  .zkp-card[data-state="error"] .zkp-steps,
+  .zkp-card[data-state="success"] .zkp-footer,
+  .zkp-card[data-state="error"] .zkp-footer {
+    display: none;
+  }
+  .zkp-card[data-state="success"] .zkp-result-panel,
+  .zkp-card[data-state="error"] .zkp-result-panel {
+    display: flex;
+  }
+
   /* State-driven visibility */
   .zkp-qr-slot[data-state="preparing"] .zkp-qr,
   .zkp-qr-slot[data-state="preparing"] .zkp-qr-logo {
@@ -222,21 +241,15 @@
   .zkp-qr-slot[data-state="scanned"] .zkp-qr {
     opacity: 0.4;
   }
-  .zkp-qr-slot[data-state="generating"] .zkp-qr,
-  .zkp-qr-slot[data-state="success"] .zkp-qr,
-  .zkp-qr-slot[data-state="error"] .zkp-qr {
+  .zkp-qr-slot[data-state="generating"] .zkp-qr {
     opacity: 0.2;
   }
-  .zkp-qr-slot[data-state="generating"] .zkp-qr-logo,
-  .zkp-qr-slot[data-state="success"] .zkp-qr-logo,
-  .zkp-qr-slot[data-state="error"] .zkp-qr-logo {
+  .zkp-qr-slot[data-state="generating"] .zkp-qr-logo {
     opacity: 0;
   }
   .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
   .zkp-qr-slot[data-state="scanned"] .zkp-overlay,
-  .zkp-qr-slot[data-state="generating"] .zkp-overlay,
-  .zkp-qr-slot[data-state="success"] .zkp-overlay,
-  .zkp-qr-slot[data-state="error"] .zkp-overlay {
+  .zkp-qr-slot[data-state="generating"] .zkp-overlay {
     display: flex;
   }
 
@@ -411,6 +424,60 @@
     background: var(--zkp-accent);
     color: var(--zkp-bg);
     font-size: 13px;
+  }
+
+  /* Result panel — success / error terminal screens. Hidden by default and
+     toggled on via the card's data-state selector (see the block above). The
+     icon / title / lines stack centered so multi-line attribute lists read as
+     a calm summary rather than a dense block.
+
+     `min-height` keeps the card from collapsing into a tiny strip on a short
+     result (e.g. a single "Verified age ≥ 18" line) — without it the
+     post-verification card was visibly smaller than the QR state and the
+     transition looked like a layout glitch. `justify-content: center` then
+     vertically centers the content inside the reserved space. */
+  .zkp-result-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px 16px;
+    gap: 16px;
+    min-height: 320px;
+  }
+  .zkp-result-icon {
+    display: grid;
+    place-items: center;
+  }
+  .zkp-result-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--zkp-fg);
+    line-height: 1.3;
+  }
+  .zkp-result-lines {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .zkp-result-line {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--zkp-muted);
+  }
+  .zkp-result-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Empty on success — collapse so the panel's padding handles spacing. */
+  }
+  .zkp-result-actions:empty {
+    display: none;
   }
 
   /* Divider */
