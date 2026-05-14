@@ -198,6 +198,15 @@
     margin-top: 0;
   }
 
+  /* Once we're generating, the download/scan/approve steps and store badges
+     are no longer actionable — the user has the app, has scanned, and is
+     waiting on the proof. Keep the header for app/context, drop the rest. */
+  .zkp-card[data-state="generating"] .zkp-divider,
+  .zkp-card[data-state="generating"] .zkp-steps,
+  .zkp-card[data-state="generating"] .zkp-footer {
+    display: none;
+  }
+
   /* State-driven visibility */
   .zkp-qr-slot[data-state="preparing"] .zkp-qr,
   .zkp-qr-slot[data-state="preparing"] .zkp-qr-logo {
@@ -233,16 +242,134 @@
 
   /* Spinner / success / error icons */
   .zkp-spinner {
-    width: 28px;
-    height: 28px;
-    border: 3px solid var(--zkp-border);
-    border-top-color: var(--zkp-accent);
-    border-radius: 50%;
-    animation: zkp-spin 0.9s linear infinite;
+    width: 140px;
+    height: 140px;
   }
-  @keyframes zkp-spin {
+  .zkp-spinner svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .zkp-spinner circle {
+    transform-origin: 50px 50px;
+    backface-visibility: hidden;
+    will-change: transform, opacity, stroke-dasharray, stroke-dashoffset;
+  }
+  .zkp-spinner-ring-1a {
+    animation:
+      zkp-spinner-rotate-first 2s infinite linear,
+      zkp-spinner-fade-a 4s infinite ease-in-out,
+      zkp-spinner-arc-first 6s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-1b {
+    animation:
+      zkp-spinner-rotate-first 2s infinite linear,
+      zkp-spinner-fade-b 4s infinite ease-in-out,
+      zkp-spinner-arc-first 6s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-2a {
+    animation:
+      zkp-spinner-rotate-second 1.5s infinite linear,
+      zkp-spinner-fade-a 3s infinite ease-in-out,
+      zkp-spinner-arc-second 4.5s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-2b {
+    animation:
+      zkp-spinner-rotate-second 1.5s infinite linear,
+      zkp-spinner-fade-b 3s infinite ease-in-out,
+      zkp-spinner-arc-second 4.5s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-3a {
+    animation:
+      zkp-spinner-rotate-third 1s infinite linear,
+      zkp-spinner-fade-a 2s infinite ease-in-out,
+      zkp-spinner-arc-third 3s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-3b {
+    animation:
+      zkp-spinner-rotate-third 1s infinite linear,
+      zkp-spinner-fade-b 2s infinite ease-in-out,
+      zkp-spinner-arc-third 3s infinite ease-in-out;
+  }
+  @keyframes zkp-spinner-rotate-first {
+    from {
+      transform: translateZ(0) rotate(0deg);
+    }
     to {
-      transform: rotate(360deg);
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+  @keyframes zkp-spinner-rotate-second {
+    from {
+      transform: translateZ(0) rotate(0deg);
+    }
+    to {
+      transform: translateZ(0) rotate(-360deg);
+    }
+  }
+  @keyframes zkp-spinner-rotate-third {
+    from {
+      transform: translateZ(0) rotate(0deg);
+    }
+    to {
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+  @keyframes zkp-spinner-fade-a {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+  @keyframes zkp-spinner-fade-b {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes zkp-spinner-arc-first {
+    0%,
+    100% {
+      stroke-dasharray: 50.2655 50.2655;
+    }
+    25%,
+    75% {
+      stroke-dasharray: 75.3983 75.3983;
+    }
+    50% {
+      stroke-dasharray: 94.2478 94.2478;
+    }
+  }
+  @keyframes zkp-spinner-arc-second {
+    0%,
+    100% {
+      stroke-dasharray: 36.1283 36.1283;
+    }
+    25%,
+    75% {
+      stroke-dasharray: 54.1925 54.1925;
+    }
+    50% {
+      stroke-dasharray: 72.2566 72.2566;
+    }
+  }
+  @keyframes zkp-spinner-arc-third {
+    0%,
+    100% {
+      stroke-dasharray: 25.1327 25.1327;
+    }
+    25%,
+    75% {
+      stroke-dasharray: 37.6991 37.6991;
+    }
+    50% {
+      stroke-dasharray: 50.2655 50.2655;
     }
   }
   .zkp-check,
@@ -362,8 +489,15 @@
     .zkp-qr {
       transition: none;
     }
-    .zkp-spinner {
-      animation-duration: 2s;
+    /* Keep the rotation as the sole motion cue but stretch its period so it
+       reads as a calm progress hint rather than the layered fade/arc dance. */
+    .zkp-spinner circle {
+      animation: zkp-spinner-rotate-first 4s infinite linear !important;
+    }
+    .zkp-spinner .zkp-spinner-ring-1b,
+    .zkp-spinner .zkp-spinner-ring-2b,
+    .zkp-spinner .zkp-spinner-ring-3b {
+      display: none;
     }
     .zkp-check,
     .zkp-error-icon {

@@ -422,8 +422,56 @@ function buildStoreButton(
 function appendSpinner(parent: HTMLElement) {
   const el = document.createElement("div")
   el.className = "zkp-spinner"
+  el.innerHTML = SPINNER_SVG
   parent.appendChild(el)
 }
+
+// Three concentric ring pairs (A/B fade against each other on opposite phase)
+// driven by CSS animations declared in styles.css. Gradient IDs are namespaced
+// to avoid colliding with consumer SVGs sharing the same document.
+const SPINNER_SVG = `
+<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="zkp-spinner-grad-1a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C4A572"/>
+      <stop offset="30%" stop-color="#D4B885"/>
+      <stop offset="70%" stop-color="#E6CC99"/>
+      <stop offset="100%" stop-color="#F0E4C7"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-1b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0E4C7"/>
+      <stop offset="30%" stop-color="#E6CC99"/>
+      <stop offset="70%" stop-color="#D4B885"/>
+      <stop offset="100%" stop-color="#C4A572"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-2a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B8A082"/>
+      <stop offset="50%" stop-color="#D4B885"/>
+      <stop offset="100%" stop-color="#EDE0C8"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-2b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EDE0C8"/>
+      <stop offset="50%" stop-color="#D4B885"/>
+      <stop offset="100%" stop-color="#B8A082"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-3a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0D4B8"/>
+      <stop offset="40%" stop-color="#C4A572"/>
+      <stop offset="100%" stop-color="#E0D4B8"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-3b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C4A572"/>
+      <stop offset="40%" stop-color="#E0D4B8"/>
+      <stop offset="100%" stop-color="#C4A572"/>
+    </linearGradient>
+  </defs>
+  <circle class="zkp-spinner-ring-1a" cx="50" cy="50" r="30" stroke="url(#zkp-spinner-grad-1a)" stroke-width="3" stroke-linecap="round" fill="none" stroke-dasharray="50.2655 50.2655"/>
+  <circle class="zkp-spinner-ring-1b" cx="50" cy="50" r="30" stroke="url(#zkp-spinner-grad-1b)" stroke-width="3" stroke-linecap="round" fill="none" stroke-dasharray="50.2655 50.2655"/>
+  <circle class="zkp-spinner-ring-2a" cx="50" cy="50" r="23" stroke="url(#zkp-spinner-grad-2a)" stroke-width="2" stroke-linecap="round" fill="none" stroke-dasharray="36.1283 36.1283" stroke-dashoffset="26.1283"/>
+  <circle class="zkp-spinner-ring-2b" cx="50" cy="50" r="23" stroke="url(#zkp-spinner-grad-2b)" stroke-width="2" stroke-linecap="round" fill="none" stroke-dasharray="36.1283 36.1283" stroke-dashoffset="26.1283"/>
+  <circle class="zkp-spinner-ring-3a" cx="50" cy="50" r="16" stroke="url(#zkp-spinner-grad-3a)" stroke-width="1" stroke-linecap="round" fill="none" stroke-dasharray="25.1327 25.1327" stroke-dashoffset="8.1327"/>
+  <circle class="zkp-spinner-ring-3b" cx="50" cy="50" r="16" stroke="url(#zkp-spinner-grad-3b)" stroke-width="1" stroke-linecap="round" fill="none" stroke-dasharray="25.1327 25.1327" stroke-dashoffset="8.1327"/>
+</svg>`
 
 function appendCheck(parent: HTMLElement) {
   const el = document.createElement("div")
