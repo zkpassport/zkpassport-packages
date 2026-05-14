@@ -1,4 +1,19 @@
-import { ICON_CHECK, ICON_ERROR, ICON_SCAN, ZKPASSPORT_LOGO } from "../core/assets"
+import {
+  APP_STORE_BADGE,
+  GOOGLE_PLAY_BADGE,
+  ICON_CHECK,
+  ICON_DOWNLOAD,
+  ICON_ERROR,
+  ICON_GLOBE,
+  ICON_SCAN,
+  ICON_SHIELD,
+  ZKPASSPORT_LOGO,
+} from "../core/assets"
+import {
+  APP_STORE_URL,
+  GOOGLE_PLAY_URL,
+  ZKPASSPORT_DOWNLOAD_URL,
+} from "../core/constants"
 import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
 import { createStateMachine } from "../core/state"
@@ -7,8 +22,9 @@ import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } 
 type CardElements = {
   root: HTMLDivElement
   appIcon: HTMLImageElement
-  appName: HTMLDivElement
-  purpose: HTMLDivElement
+  title: HTMLParagraphElement
+  appName: HTMLElement
+  purpose: HTMLSpanElement
   qrSlot: HTMLDivElement
   qrContainer: HTMLDivElement
   qrLogo: HTMLDivElement
@@ -203,19 +219,33 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const root = document.createElement("div")
     root.className = "zkp-card"
 
+    // Header: app icon ⋯ ZKPassport globe, then a one-line tagline.
     const header = document.createElement("div")
     header.className = "zkp-header"
+
+    const headerIcons = document.createElement("div")
+    headerIcons.className = "zkp-header-icons"
     const appIcon = document.createElement("img")
     appIcon.className = "zkp-app-icon"
-    const headerText = document.createElement("div")
-    headerText.className = "zkp-header-text"
-    const appName = document.createElement("div")
-    appName.className = "zkp-app-name"
-    const purpose = document.createElement("div")
-    purpose.className = "zkp-purpose"
-    headerText.append(appName, purpose)
-    header.append(appIcon, headerText)
+    const dots = document.createElement("div")
+    dots.className = "zkp-header-dots"
+    dots.append(document.createElement("span"), document.createElement("span"), document.createElement("span"))
+    const zkpIcon = document.createElement("div")
+    zkpIcon.className = "zkp-zkp-icon"
+    zkpIcon.innerHTML = ICON_GLOBE
+    headerIcons.append(appIcon, dots, zkpIcon)
 
+    const title = document.createElement("p")
+    title.className = "zkp-title"
+    const appName = document.createElement("strong")
+    const zkpassportStrong = document.createElement("strong")
+    zkpassportStrong.textContent = "ZKPassport"
+    const purpose = document.createElement("span")
+    title.append(appName, document.createTextNode(" uses "), zkpassportStrong, document.createTextNode(" to "), purpose)
+
+    header.append(headerIcons, title)
+
+    // QR
     const qrSlot = document.createElement("div")
     qrSlot.className = "zkp-qr-slot"
     qrSlot.setAttribute("data-state", "preparing")
@@ -241,19 +271,41 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     retry.textContent = "Try again"
     retry.addEventListener("click", handleRetryClick)
 
+    // Steps: download, scan, approve.
+    const dividerTop = document.createElement("div")
+    dividerTop.className = "zkp-divider"
+
+    const steps = document.createElement("div")
+    steps.className = "zkp-steps"
+    steps.append(
+      buildStep(ICON_DOWNLOAD, makeStepText("Download", "the ZKPassport mobile app", ZKPASSPORT_DOWNLOAD_URL)),
+      buildStep(ICON_SCAN, document.createTextNode("Scan this QR code with the ZKPassport app")),
+      buildStep(ICON_SHIELD, document.createTextNode("Approve the request to share your proof")),
+    )
+
+    const dividerBottom = document.createElement("div")
+    dividerBottom.className = "zkp-divider"
+
+    // Footer: label + store buttons (placeholder URLs).
     const footer = document.createElement("div")
     footer.className = "zkp-footer"
-    const scanIcon = document.createElement("span")
-    scanIcon.innerHTML = ICON_SCAN
-    const footerText = document.createElement("span")
-    footerText.textContent = "Scan with the ZKPassport app"
-    footer.append(scanIcon, footerText)
+    const footerLabel = document.createElement("span")
+    footerLabel.className = "zkp-footer-label"
+    footerLabel.textContent = "ZKPassport App"
+    const storeButtons = document.createElement("div")
+    storeButtons.className = "zkp-store-buttons"
+    storeButtons.append(
+      buildStoreButton(APP_STORE_URL, APP_STORE_BADGE),
+      buildStoreButton(GOOGLE_PLAY_URL, GOOGLE_PLAY_BADGE),
+    )
+    footer.append(footerLabel, storeButtons)
 
-    root.append(header, qrSlot, footer)
+    root.append(header, qrSlot, dividerTop, steps, dividerBottom, footer)
 
     return {
       root,
       appIcon,
+      title,
       appName,
       purpose,
       qrSlot,
@@ -267,6 +319,44 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   }
 
   return { update, unmount }
+}
+
+function buildStep(iconSvg: string, body: Node): HTMLDivElement {
+  const step = document.createElement("div")
+  step.className = "zkp-step"
+  const icon = document.createElement("div")
+  icon.className = "zkp-step-icon"
+  icon.innerHTML = iconSvg
+  const text = document.createElement("div")
+  text.className = "zkp-step-text"
+  text.appendChild(body)
+  step.append(icon, text)
+  return step
+}
+
+function makeStepText(linkText: string, rest: string, href: string): DocumentFragment {
+  const frag = document.createDocumentFragment()
+  const link = document.createElement("a")
+  link.href = href
+  link.target = "_blank"
+  link.rel = "noopener noreferrer"
+  link.textContent = linkText
+  frag.append(link, document.createTextNode(` ${rest}`))
+  return frag
+}
+
+function buildStoreButton(
+  href: string,
+  badge: { ariaLabel: string; svg: string },
+): HTMLAnchorElement {
+  const a = document.createElement("a")
+  a.className = "zkp-store-button"
+  a.href = href
+  a.target = "_blank"
+  a.rel = "noopener noreferrer"
+  a.setAttribute("aria-label", badge.ariaLabel)
+  a.innerHTML = badge.svg
+  return a
 }
 
 function appendSpinner(parent: HTMLElement) {
