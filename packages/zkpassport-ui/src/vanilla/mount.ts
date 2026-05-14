@@ -1,5 +1,6 @@
 import {
   APP_STORE_BADGE,
+  CONFIRMATION_PHONE_IMAGE,
   GOOGLE_PLAY_BADGE,
   ICON_CHECK,
   ICON_DOWNLOAD,
@@ -9,11 +10,7 @@ import {
   ICON_SHIELD,
   ZKPASSPORT_LOGO,
 } from "../core/assets"
-import {
-  APP_STORE_URL,
-  GOOGLE_PLAY_URL,
-  ZKPASSPORT_DOWNLOAD_URL,
-} from "../core/constants"
+import { APP_STORE_URL, GOOGLE_PLAY_URL, ZKPASSPORT_DOWNLOAD_URL } from "../core/constants"
 import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
 import { createStateMachine } from "../core/state"
@@ -178,39 +175,91 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     elements.qrLogo.innerHTML = ""
   }
 
-  function renderState(state: QRCardState) {
-    elements.qrSlot.setAttribute("data-state", state)
-    elements.overlayBody.innerHTML = ""
-    elements.overlayText.textContent = ""
+  // Tracks the in-flight height-animation generation so a transition that gets
+  // superseded by a newer state change doesn't clear the newer transition's
+  // inline styles when its own `transitionend` finally fires.
+  let heightAnimToken = 0
 
-    switch (state) {
-      case "preparing":
-        // Skeleton is purely CSS-driven via the [data-state="preparing"] selector.
-        break
-      case "connecting":
-        appendSpinner(elements.overlayBody)
-        elements.overlayText.textContent = "Connecting…"
-        break
-      case "waiting":
-        // No overlay — the QR itself is the call to action.
-        break
-      case "scanned":
-        elements.overlayText.textContent = "Approve the request on your phone"
-        break
-      case "generating":
-        appendSpinner(elements.overlayBody)
-        elements.overlayText.textContent = "Generating proof…"
-        break
-      case "success":
-        appendCheck(elements.overlayBody)
-        elements.overlayText.textContent = "Verified"
-        break
-      case "error":
-        appendErrorIcon(elements.overlayBody)
-        elements.overlayText.textContent = "Something went wrong"
-        elements.overlayBody.appendChild(elements.retry)
-        break
+  function renderState(state: QRCardState) {
+    animateHeight(elements.root, () => {
+      elements.root.setAttribute("data-state", state)
+      elements.qrSlot.setAttribute("data-state", state)
+      elements.overlayBody.innerHTML = ""
+      elements.overlayText.textContent = ""
+
+      switch (state) {
+        case "preparing":
+          // Skeleton is purely CSS-driven via the [data-state="preparing"] selector.
+          break
+        case "connecting":
+          appendSpinner(elements.overlayBody)
+          elements.overlayText.textContent = "Connecting…"
+          break
+        case "waiting":
+          // No overlay — the QR itself is the call to action.
+          break
+        case "scanned":
+          appendConfirmationImage(elements.overlayBody)
+          break
+        case "generating":
+          appendSpinner(elements.overlayBody)
+          elements.overlayText.textContent = "Generating proof…"
+          break
+        case "success":
+          appendCheck(elements.overlayBody)
+          elements.overlayText.textContent = "Verified"
+          break
+        case "error":
+          appendErrorIcon(elements.overlayBody)
+          elements.overlayText.textContent = "Something went wrong"
+          elements.overlayBody.appendChild(elements.retry)
+          break
+      }
+    })
+  }
+
+  /**
+   * Animate the card's bottom edge between two natural heights.
+   *
+   * Synchronous flow (no paint between steps):
+   *   1. read pre-change height
+   *   2. run `apply` (DOM mutations — browser recomputes layout but does not paint)
+   *   3. read post-change natural height
+   *   4. lock the card to the pre-change height, then animate to the new one
+   *
+   * Honors `prefers-reduced-motion` by skipping the animation entirely.
+   */
+  function animateHeight(el: HTMLElement, apply: () => void, duration = 280) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      apply()
+      return
     }
+
+    const before = el.offsetHeight
+    apply()
+    const after = el.offsetHeight
+    if (before === after || before === 0 || after === 0) return
+
+    const token = ++heightAnimToken
+    el.style.transition = "none"
+    el.style.height = `${before}px`
+    // Force the browser to commit the locked height before kicking off the
+    // transition; without this read, both height writes coalesce and the
+    // transition has nothing to animate from.
+    void el.offsetHeight
+    el.style.transition = `height ${duration}ms ease`
+    el.style.height = `${after}px`
+
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== el || event.propertyName !== "height") return
+      el.removeEventListener("transitionend", onEnd)
+      // A newer animation has taken over and already set fresh inline styles —
+      // clearing them here would undo its lock.
+      if (token !== heightAnimToken) return
+      el.style.height = ""
+      el.style.transition = ""
+    }
+    el.addEventListener("transitionend", onEnd)
   }
 
   function buildDom(): CardElements {
@@ -227,7 +276,11 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     appIcon.className = "zkp-app-icon"
     const dots = document.createElement("div")
     dots.className = "zkp-header-dots"
-    dots.append(document.createElement("span"), document.createElement("span"), document.createElement("span"))
+    dots.append(
+      document.createElement("span"),
+      document.createElement("span"),
+      document.createElement("span"),
+    )
     const zkpIcon = document.createElement("div")
     zkpIcon.className = "zkp-zkp-icon"
     zkpIcon.innerHTML = ICON_GLOBE
@@ -283,7 +336,10 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const steps = document.createElement("div")
     steps.className = "zkp-steps"
     steps.append(
-      buildStep(ICON_DOWNLOAD, makeStepText("Download", "the ZKPassport mobile app", ZKPASSPORT_DOWNLOAD_URL)),
+      buildStep(
+        ICON_DOWNLOAD,
+        makeStepText("Download", "the ZKPassport mobile app", ZKPASSPORT_DOWNLOAD_URL),
+      ),
       buildStep(ICON_SCAN, document.createTextNode("Scan this QR code with the ZKPassport app")),
       buildStep(ICON_SHIELD, document.createTextNode("Approve the request to share your proof")),
     )
@@ -381,6 +437,14 @@ function appendErrorIcon(parent: HTMLElement) {
   el.className = "zkp-error-icon"
   el.innerHTML = ICON_ERROR
   parent.appendChild(el)
+}
+
+function appendConfirmationImage(parent: HTMLElement) {
+  const img = document.createElement("img")
+  img.className = "zkp-confirmation-image"
+  img.src = CONFIRMATION_PHONE_IMAGE
+  img.alt = "Approve the request on your phone"
+  parent.appendChild(img)
 }
 
 /**

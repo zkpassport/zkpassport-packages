@@ -160,6 +160,43 @@
   .zkp-overlay-text {
     max-width: 80%;
   }
+  /* Confirmation phone mockup — rendered inside the QR slot's overlay during
+     the `scanned` state. The slot's default `aspect-ratio: 1` is overridden to
+     a portrait ratio slightly wider than the phone art itself (9:16 vs the
+     art's ~1:2) so `object-fit: contain` leaves a small horizontal breathing
+     margin around the image instead of having it fill edge-to-edge. The
+     overlay becomes opaque (so the faded QR underneath doesn't bleed through)
+     and zero-padded so `object-fit: contain` doesn't add any extra inset. */
+  .zkp-qr-slot[data-state="scanned"] {
+    aspect-ratio: 9 / 16;
+  }
+  .zkp-qr-slot[data-state="scanned"] .zkp-overlay {
+    background: var(--zkp-bg);
+    padding: 0;
+  }
+  .zkp-confirmation-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Card chrome hides during `scanned` — every element except the QR slot
+     collapses out so the card is just the phone image. The slot's normal
+     `margin-top: 16px` is also dropped so the image sits flush against the
+     card's top padding instead of being pushed down by the missing header's
+     gap. The JS height animation in mount.ts smooths the bottom-edge motion. */
+  .zkp-card[data-state="scanned"] .zkp-header,
+  .zkp-card[data-state="scanned"] .zkp-divider,
+  .zkp-card[data-state="scanned"] .zkp-steps,
+  .zkp-card[data-state="scanned"] .zkp-footer {
+    display: none;
+  }
+  .zkp-card[data-state="scanned"] .zkp-qr-slot {
+    margin-top: 0;
+  }
 
   /* State-driven visibility */
   .zkp-qr-slot[data-state="preparing"] .zkp-qr,
