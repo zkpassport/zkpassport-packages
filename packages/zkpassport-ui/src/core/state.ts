@@ -35,6 +35,12 @@ export type StateMachine = {
   detachRequest: () => void
   /** Drive the card into the error state from the renderer (e.g. on QR generation failure). */
   fail: (code: QRCardError["code"], message: string, cause?: unknown) => void
+  /**
+   * Send the card back to the QR-scanning step after an error. Existing
+   * subscriptions stay live so any future SDK event still drives the UI; the
+   * consumer can also issue a fresh request via `onRetryClicked` if needed.
+   */
+  retry: () => void
   /** Final teardown: equivalent to `detachRequest()` plus a permanent disable. */
   dispose: () => void
 }
@@ -197,6 +203,10 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
     fail: (code, message, cause) => {
       if (disposed) return
       toError(code, message, cause)
+    },
+    retry: () => {
+      if (disposed) return
+      transition(request === null ? "preparing" : "waiting")
     },
     dispose: () => {
       detachRequest()

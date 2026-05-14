@@ -40,10 +40,7 @@
   }
   .zkp-card button {
     font: inherit;
-    color: inherit;
     cursor: pointer;
-    border: none;
-    background: none;
   }
 
   /* Header — app icon ⋯ ZKPassport globe */
@@ -173,7 +170,7 @@
   .zkp-qr-slot[data-state="scanned"] .zkp-overlay {
     background: var(--zkp-bg);
     padding: 0;
-    inset: 24px 0;
+    inset: 8px 0;
   }
   .zkp-confirmation-image {
     position: absolute;
@@ -184,19 +181,29 @@
     display: block;
   }
 
-  /* Card chrome hides during `scanned` — every element except the QR slot
-     collapses out so the card is just the phone image. The slot's normal
-     `margin-top: 16px` is also dropped so the image sits flush against the
-     card's top padding instead of being pushed down by the missing header's
-     gap. The JS height animation in mount.ts smooths the bottom-edge motion. */
-  .zkp-card[data-state="scanned"] .zkp-header,
+  /* Scanned state hides the onboarding chrome (divider/steps/footer) because
+     handoff is done. The header stays so the user keeps the app context; the
+     long tagline is swapped for a direct prompt — see `.zkp-approval-message`
+     below. */
   .zkp-card[data-state="scanned"] .zkp-divider,
   .zkp-card[data-state="scanned"] .zkp-steps,
   .zkp-card[data-state="scanned"] .zkp-footer {
     display: none;
   }
-  .zkp-card[data-state="scanned"] .zkp-qr-slot {
-    margin-top: 0;
+  .zkp-approval-message {
+    margin: 0;
+    text-align: center;
+    color: var(--zkp-fg);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.45;
+    display: none;
+  }
+  .zkp-card[data-state="scanned"] .zkp-title {
+    display: none;
+  }
+  .zkp-card[data-state="scanned"] .zkp-approval-message {
+    display: block;
   }
 
   /* Once we're generating, the download/scan/approve steps and store badges
@@ -418,13 +425,21 @@
     }
   }
 
+  /* `!important` for the same reason as `.zkp-result-title`: layered styles
+     lose to consumer button resets (Tailwind preflight, etc.) without it. */
   .zkp-retry {
     margin-top: 4px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    background: var(--zkp-accent);
-    color: var(--zkp-bg);
-    font-size: 13px;
+    padding: 10px 20px;
+    border: none !important;
+    border-radius: 999px !important;
+    background: var(--zkp-accent) !important;
+    color: var(--zkp-bg) !important;
+    font-size: 14px;
+    font-weight: 600;
+    transition: transform 150ms ease;
+  }
+  .zkp-retry:active {
+    transform: translateY(1px);
   }
 
   /* Deep-link CTA — only useful on touch devices (a desktop user can't open
@@ -480,11 +495,16 @@
     display: grid;
     place-items: center;
   }
+  /* Color uses `!important` because the entire stylesheet sits inside
+     `@layer zkpassport`, and consumer apps often have unlayered `h2 { color }`
+     resets (Tailwind preflight, custom typography) that would otherwise beat
+     our layered rule. Layered-important wins over unlayered-important per the
+     cascade spec. */
   .zkp-result-title {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: var(--zkp-fg);
+    color: var(--zkp-fg) !important;
     line-height: 1.3;
   }
   .zkp-result-lines {

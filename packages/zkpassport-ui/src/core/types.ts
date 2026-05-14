@@ -59,7 +59,11 @@ export type QRCardOptions = {
   onError?: (err: QRCardError) => void
   /**
    * Fires when the user clicks the retry button in the error state.
-   * Consumer is expected to build a fresh request and call `handle.update({ request })`.
+   *
+   * React consumers using `useZKPassportRequest` get auto-retry for free —
+   * the hook rebuilds the request and a new QR appears with no extra wiring.
+   * Other consumers should rebuild the request and call
+   * `handle.update({ request })` themselves.
    */
   onRetryClicked?: () => void
 }

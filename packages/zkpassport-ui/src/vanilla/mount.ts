@@ -14,6 +14,7 @@ import { APP_STORE_URL, GOOGLE_PLAY_URL, ZKPASSPORT_DOWNLOAD_URL } from "../core
 import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
 import { describeVerifiedAttributes } from "../core/result-lines"
+import { readRetry } from "../core/retry-bridge"
 import { createStateMachine, type TransitionPayload } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
 
@@ -146,6 +147,23 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   }
 
   function handleRetryClick() {
+    // Pop the UI back to the QR-scanning step first so the user sees instant
+    // feedback while the new request is being built.
+    machine.retry()
+
+    // If the request was built via `useZKPassportRequest`, it carries a hidden
+    // retry hook — invoking it tells the hook to rebuild and emit a new
+    // request, which flows back through `update({ request })`. This is what
+    // makes auto-retry work out of the box for React consumers.
+    const autoRetry = readRetry(current.request)
+    if (autoRetry) {
+      try {
+        autoRetry()
+      } catch {
+        // Hook-thrown errors shouldn't crash the card.
+      }
+    }
+
     try {
       current.onRetryClicked?.()
     } catch {
@@ -375,7 +393,14 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       document.createTextNode(" to verify identity without compromising your privacy."),
     )
 
-    header.append(headerIcons, title)
+    // Shown only during the `scanned` state — swapped in for the tagline so the
+    // user sees a direct prompt while approving on their phone. CSS in the
+    // `[data-state="scanned"]` block toggles visibility between the two.
+    const approvalMessage = document.createElement("p")
+    approvalMessage.className = "zkp-approval-message"
+    approvalMessage.textContent = "Approve the request on your phone"
+
+    header.append(headerIcons, title, approvalMessage)
 
     // QR
     const qrSlot = document.createElement("div")

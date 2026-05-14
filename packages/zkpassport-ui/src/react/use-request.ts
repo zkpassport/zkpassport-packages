@@ -14,8 +14,9 @@
 // The vanilla / core surface stays duck-typed (see ZKPassportRequestLike in
 // core/types.ts) so non-React consumers don't need the SDK installed at all.
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
+import { ZKP_RETRY } from "../core/retry-bridge"
 import type { QueryBuilder, QueryBuilderResult, ZKPassport } from "@zkpassport/sdk"
 
 /**
@@ -59,6 +60,13 @@ export function useZKPassportRequest(
   const { service, query, deps = [] } = options
 
   const [request, setRequest] = useState<QueryBuilderResult | null>(null)
+  // Bumped by the `retry` function attached to each built request. The card
+  // calls it on retry click via the hidden `ZKP_RETRY` symbol, which triggers
+  // a rebuild without the consumer needing to wire anything up.
+  const [retryNonce, setRetryNonce] = useState(0)
+  const retry = useCallback(() => {
+    setRetryNonce((n) => n + 1)
+  }, [])
 
   const sdkRef = useRef(sdk)
   const serviceRef = useRef(service)
@@ -92,6 +100,14 @@ export function useZKPassportRequest(
         if (cancelled) return
         const built = queryRef.current(builder).done()
         if (cancelled) return
+        // Attach the rebuild trigger as a non-enumerable symbol property so it
+        // doesn't show up in iteration / JSON output and won't collide with
+        // any SDK field. The renderer reads it back via `readRetry()`.
+        Object.defineProperty(built, ZKP_RETRY, {
+          value: retry,
+          enumerable: false,
+          configurable: true,
+        })
         setRequest(built)
       } catch (cause) {
         if (cancelled) return
@@ -109,7 +125,8 @@ export function useZKPassportRequest(
     // `deps` is the canonical rebuild signal; sdk/service/query are read via
     // refs above. `hasSdk` is included so the null → instance transition
     // (common with SSR-deferred SDK init) triggers exactly one rebuild.
-  }, [hasSdk, ...deps])
+    // `retryNonce` re-runs the effect when the card's retry button is clicked.
+  }, [hasSdk, retryNonce, retry, ...deps])
 
   return request
 }
