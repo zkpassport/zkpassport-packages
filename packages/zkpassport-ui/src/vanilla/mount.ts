@@ -105,8 +105,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     // re-renders.
     const prevHeader = resolveHeader(current)
     const nextHeader = resolveHeader(next)
-    const headerChanged =
-      prevHeader.name !== nextHeader.name || prevHeader.icon !== nextHeader.icon
+    const headerChanged = prevHeader.name !== nextHeader.name || prevHeader.icon !== nextHeader.icon
     const requestChanged = current.request !== next.request
     if (!headerChanged && !requestChanged) return
 
