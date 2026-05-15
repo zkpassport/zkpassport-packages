@@ -15,6 +15,7 @@ import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
 import { describeVerifiedAttributes } from "../core/result-lines"
 import { readRetry } from "../core/retry-bridge"
+import { readService } from "../core/service-bridge"
 import { safeCall } from "../core/safe-call"
 import { createStateMachine, type TransitionPayload } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
@@ -52,7 +53,6 @@ type CardElements = {
  *   request: null,
  *   appName: "Your App",
  *   appIcon: "/logo.png",
- *   purpose: "Verify you're over 18",
  *   onSuccess: (r) => console.log(r),
  * })
  * // Later, once the SDK request is built:
@@ -104,11 +104,15 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     if (disposed) return
 
     const next: QRCardOptions = { ...current, ...partial }
-    // `theme` and `purpose` are accepted on the type but not rendered (theme is
-    // light-only in v1, purpose is forwarded to `sdk.request(...)` but not
-    // shown in the card). Callbacks are read live by the state machine via a
-    // getter, so handler-only changes need no work here.
-    const headerChanged = current.appName !== next.appName || current.appIcon !== next.appIcon
+    // `theme` is accepted on the type but not rendered (light-only in v1).
+    // Callbacks are read live by the state machine via a getter, so
+    // handler-only changes need no work here. The header diff compares the
+    // *resolved* values (props ?? attached-service) so a `request` swap that
+    // brings a different service still triggers a re-render.
+    const prevHeader = resolveHeader(current)
+    const nextHeader = resolveHeader(next)
+    const headerChanged =
+      prevHeader.name !== nextHeader.name || prevHeader.icon !== nextHeader.icon
     const requestChanged = current.request !== next.request
     if (!headerChanged && !requestChanged) return
 
@@ -117,6 +121,14 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
     if (headerChanged) renderHeader()
     if (requestChanged) handleRequestChange(prevRequest, current.request)
+  }
+
+  function resolveHeader(opts: QRCardOptions): { name: string; icon: string } {
+    const attached = readService(opts.request)
+    return {
+      name: opts.appName ?? attached?.name ?? "",
+      icon: opts.appIcon ?? attached?.logo ?? "",
+    }
   }
 
   function unmount() {
@@ -159,10 +171,14 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   }
 
   function renderHeader() {
-    elements.appName.textContent = current.appName
-    if (current.appIcon) {
-      elements.appIcon.src = current.appIcon
-      elements.appIcon.alt = `${current.appName} icon`
+    const { name, icon } = resolveHeader(current)
+    // Fall back to "This app" so the title sentence still reads naturally
+    // during the brief `preparing` window where the hook hasn't built the
+    // request yet (no attached service) and no `appName` prop was passed.
+    elements.appName.textContent = name || "This app"
+    if (icon) {
+      elements.appIcon.src = icon
+      elements.appIcon.alt = name ? `${name} icon` : ""
       elements.appIcon.style.display = ""
     } else {
       elements.appIcon.removeAttribute("src")

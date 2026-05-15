@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ZKP_RETRY } from "../core/retry-bridge"
+import { ZKP_SERVICE } from "../core/service-bridge"
 import type { QueryBuilder, QueryBuilderResult, ZKPassport } from "@zkpassport/sdk"
 
 /**
@@ -29,7 +30,7 @@ export type ZKPassportLike = Pick<ZKPassport, "request">
 export type UseZKPassportRequestOptions = {
   /** Passed straight to `sdk.request({...})`. */
   service: { name: string; logo: string; purpose: string; scope?: string }
-  /** Apply gates to the builder. Return the chained builder. */
+  /** Apply gates and return the chained builder — its `.done()` is called for you. */
   query: (builder: QueryBuilder) => QueryBuilder
   /** Re-runs the request build when any value changes. Default: `[]` (build once on mount). */
   deps?: unknown[]
@@ -105,6 +106,15 @@ export function useZKPassportRequest(
         // any SDK field. The renderer reads it back via `readRetry()`.
         Object.defineProperty(built, ZKP_RETRY, {
           value: retry,
+          enumerable: false,
+          configurable: true,
+        })
+        // Same trick for the service strings — lets <QRCard> render its header
+        // from the data we already have, so React consumers don't have to pass
+        // `appName` / `appIcon` props in addition to declaring `service` here.
+        const svc = serviceRef.current
+        Object.defineProperty(built, ZKP_SERVICE, {
+          value: { name: svc.name, logo: svc.logo },
           enumerable: false,
           configurable: true,
         })

@@ -21,11 +21,16 @@ export type QRCardProps = QRCardOptions
  * post-build by tsup; no per-file directive is needed.
  *
  * @example
+ * // Minimal — `appName` / `appIcon` come from the service the hook built with:
+ * const request = useZKPassportRequest(sdk, { service, query })
+ * <QRCard request={request} onSuccess={(r) => console.log(r)} />
+ *
+ * @example
+ * // Or pass them explicitly (vanilla builders, or to override the hook's values):
  * <QRCard
  *   request={request}
  *   appName="Your App"
  *   appIcon="/logo.png"
- *   purpose="Verify you're over 18"
  *   onSuccess={(r) => console.log(r)}
  * />
  */

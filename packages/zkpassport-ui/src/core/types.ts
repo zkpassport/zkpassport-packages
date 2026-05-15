@@ -39,10 +39,16 @@ export type QRCardOptions = {
   /** Result of `sdk.request({...}).<gates>.done()`. May be `null` while preparing. */
   request: ZKPassportRequestLike | null
 
-  /** Required — drives the card header from the first paint. */
-  appName: string
-  appIcon: string
-  purpose: string
+  /**
+   * App display strings for the header. Optional for React consumers using
+   * `useZKPassportRequest` — the hook attaches the service it built the
+   * request from to the request object (hidden symbol; see
+   * `core/service-bridge.ts`), and the card reads from there as a fallback.
+   * Vanilla consumers that build the request themselves should pass these.
+   * When provided, props win over the attached service.
+   */
+  appName?: string
+  appIcon?: string
 
   /**
    * Reserved for forward compatibility. Accepted by the type but ignored
