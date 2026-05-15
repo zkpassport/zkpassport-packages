@@ -15,13 +15,12 @@ import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
 import { describeVerifiedAttributes } from "../core/result-lines"
 import { readRetry } from "../core/retry-bridge"
+import { readService } from "../core/service-bridge"
 import { safeCall } from "../core/safe-call"
 import { createStateMachine, type TransitionPayload } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
 
-// Duration (per leg) of the body crossfade between states. Fade-out and
-// fade-in run sequentially around the content swap, so the total motion is
-// ~2× this value — matched roughly to the height animation below.
+// Per leg — fade-out and fade-in run sequentially, so total motion is ~2× this.
 const FADE_DURATION_MS = 500
 
 type CardElements = {
@@ -52,7 +51,6 @@ type CardElements = {
  *   request: null,
  *   appName: "Your App",
  *   appIcon: "/logo.png",
- *   purpose: "Verify you're over 18",
  *   onSuccess: (r) => console.log(r),
  * })
  * // Later, once the SDK request is built:
@@ -70,26 +68,23 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
   injectStyles()
 
-  // Working copy of the options — `update()` mutates this in place after diffing.
-  // `theme` is currently accepted but ignored (v1 is light-only); see styles.css
-  // for the steps to re-enable dark mode.
+  // Working copy of the options — `update()` reassigns after diffing.
   let current: QRCardOptions = { ...options }
 
   const elements = buildDom()
   element.appendChild(elements.root)
 
-  // Tracks the QR generation job so a stale Promise (from a request that was
-  // replaced before its SVG resolved) doesn't overwrite the live QR.
+  // Bumped on each renderQr() call so a late-resolving stale Promise doesn't
+  // overwrite the live QR.
   let qrToken = 0
 
   const machine = createStateMachine({
-    // Read live from `current` so handler changes via update() are picked up
-    // at fire time without an explicit setCallbacks round-trip.
+    // Live-read so handler changes via update() are picked up at fire time
+    // without an explicit setCallbacks round-trip.
     getCallbacks: () => current,
     onTransition: renderState,
   })
 
-  // Initial paint and event wiring.
   renderHeader()
   if (current.request !== null) {
     void renderQr(current.request)
@@ -104,11 +99,13 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     if (disposed) return
 
     const next: QRCardOptions = { ...current, ...partial }
-    // `theme` and `purpose` are accepted on the type but not rendered (theme is
-    // light-only in v1, purpose is forwarded to `sdk.request(...)` but not
-    // shown in the card). Callbacks are read live by the state machine via a
-    // getter, so handler-only changes need no work here.
-    const headerChanged = current.appName !== next.appName || current.appIcon !== next.appIcon
+    // Callbacks are read live by the state machine, and `theme` is unused in
+    // v1, so we only diff what actually drives DOM. Header diff uses *resolved*
+    // values so a request swap bringing different attached service still
+    // re-renders.
+    const prevHeader = resolveHeader(current)
+    const nextHeader = resolveHeader(next)
+    const headerChanged = prevHeader.name !== nextHeader.name || prevHeader.icon !== nextHeader.icon
     const requestChanged = current.request !== next.request
     if (!headerChanged && !requestChanged) return
 
@@ -117,6 +114,14 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
     if (headerChanged) renderHeader()
     if (requestChanged) handleRequestChange(prevRequest, current.request)
+  }
+
+  function resolveHeader(opts: QRCardOptions): { name: string; icon: string } {
+    const attached = readService(opts.request)
+    return {
+      name: opts.appName ?? attached?.name ?? "",
+      icon: opts.appIcon ?? attached?.logo ?? "",
+    }
   }
 
   function unmount() {
@@ -146,23 +151,24 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   }
 
   function handleRetryClick() {
-    // Pop the UI back to the QR-scanning step first so the user sees instant
-    // feedback while the new request is being built.
+    // Pop back to the QR step first so the user sees instant feedback while
+    // the new request is being built.
     machine.retry()
-
-    // If the request was built via `useZKPassportRequest`, it carries a hidden
-    // retry hook — invoking it tells the hook to rebuild and emit a new
-    // request, which flows back through `update({ request })`. This is what
-    // makes auto-retry work out of the box for React consumers.
+    // `readRetry` triggers the hook to rebuild and emit a new request via
+    // `update({ request })`. Vanilla consumers wire the rebuild themselves
+    // through `onRetryClicked`.
     safeCall(readRetry(current.request))
     safeCall(current.onRetryClicked)
   }
 
   function renderHeader() {
-    elements.appName.textContent = current.appName
-    if (current.appIcon) {
-      elements.appIcon.src = current.appIcon
-      elements.appIcon.alt = `${current.appName} icon`
+    const { name, icon } = resolveHeader(current)
+    // Fallback keeps the title sentence readable during the brief preparing
+    // window when the hook hasn't built the request yet.
+    elements.appName.textContent = name || "This app"
+    if (icon) {
+      elements.appIcon.src = icon
+      elements.appIcon.alt = name ? `${name} icon` : ""
       elements.appIcon.style.display = ""
     } else {
       elements.appIcon.removeAttribute("src")
@@ -181,8 +187,8 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       elements.qrLogo.style.display = ZKPASSPORT_LOGO ? "grid" : "none"
     } catch (cause) {
       if (myToken !== qrToken || disposed) return
-      // Route through the state machine so the UI transitions to `error`
-      // instead of being left stuck on whatever state it was in.
+      // Route through the machine so the UI transitions to `error` instead of
+      // being stuck on whatever state it was in.
       machine.fail("unknown", "Failed to generate QR code", cause)
     }
   }
@@ -194,28 +200,22 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     elements.openAppLink.removeAttribute("href")
   }
 
-  // Tracks the in-flight height-animation generation so a transition that gets
-  // superseded by a newer state change doesn't clear the newer transition's
-  // inline styles when its own `transitionend` finally fires.
+  // Tokens guarding superseded animations: an in-flight handler checks its
+  // token against the live one and bails if it's stale. Without this, a fast
+  // state swap mid-transition lets the older handler clobber the newer one.
   let heightAnimToken = 0
-
-  // Token guarding the crossfade choreography. A state change that arrives
-  // mid-fade bumps the token; the in-flight fade-out's `finish` listener checks
-  // it and bails so the superseded transition doesn't apply stale mutations or
-  // start a fade-in on an element the new transition is about to fade out.
   let fadeToken = 0
 
   function renderState(state: QRCardState, payload?: TransitionPayload) {
     const apply = () => applyStateContent(state, payload)
     const prevState = elements.root.getAttribute("data-state") as QRCardState | null
 
-    // Reduced motion: skip every animation and apply the new content straight.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       apply()
       return
     }
 
-    // First paint (no prior data-state): no crossfade — just animate height.
+    // First paint: no crossfade, just animate height.
     if (prevState === null) {
       animateHeight(elements.root, apply)
       return
@@ -255,14 +255,13 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
     switch (state) {
       case "preparing":
-        // Skeleton is purely CSS-driven via the [data-state="preparing"] selector.
+        // Skeleton is CSS-driven via [data-state="preparing"].
         break
       case "connecting":
         appendSpinner(elements.overlayBody)
         elements.overlayText.textContent = "Connecting…"
         break
       case "waiting":
-        // No overlay — the QR itself is the call to action.
         break
       case "scanned":
         appendConfirmationImage(elements.overlayBody)
@@ -287,10 +286,8 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     }
   }
 
-  // The "body" of the card swaps between the QR slot (pre-result states) and
-  // the result panel (success / error). The crossfade runs on whichever is the
-  // currently visible body — siblings, not nested — so a transition that
-  // crosses the qr-slot/result-panel boundary still reads as one fade.
+  // QR slot pre-result, result panel for success/error. They're siblings (not
+  // nested) so a fade across the boundary still reads as one transition.
   function pickBody(state: QRCardState): HTMLElement {
     return state === "success" || state === "error" ? elements.resultPanel : elements.qrSlot
   }
@@ -301,18 +298,9 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     }
   }
 
-  /**
-   * Animate the card's bottom edge between two natural heights.
-   *
-   * Synchronous flow (no paint between steps):
-   *   1. read pre-change height
-   *   2. run `apply` (DOM mutations — browser recomputes layout but does not paint)
-   *   3. read post-change natural height
-   *   4. lock the card to the pre-change height, then animate to the new one
-   *
-   * Reduced-motion is handled by the caller (`renderState`); this function
-   * always animates.
-   */
+  // Animate the card's bottom edge between two natural heights. Reads/writes
+  // happen synchronously around `apply` so the browser doesn't paint the new
+  // height before the lock takes effect. Caller handles reduced motion.
   function animateHeight(el: HTMLElement, apply: () => void, duration = 280) {
     const before = el.offsetHeight
     apply()
@@ -322,8 +310,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const token = ++heightAnimToken
     el.style.transition = "none"
     el.style.height = `${before}px`
-    // Force the browser to commit the locked height before kicking off the
-    // transition; without this read, both height writes coalesce and the
+    // Forced reflow: without this read, both height writes coalesce and the
     // transition has nothing to animate from.
     void el.offsetHeight
     el.style.transition = `height ${duration}ms ease`
@@ -332,8 +319,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const onEnd = (event: TransitionEvent) => {
       if (event.target !== el || event.propertyName !== "height") return
       el.removeEventListener("transitionend", onEnd)
-      // A newer animation has taken over and already set fresh inline styles —
-      // clearing them here would undo its lock.
+      // Newer animation already set fresh inline styles — don't clobber.
       if (token !== heightAnimToken) return
       el.style.height = ""
       el.style.transition = ""
@@ -345,7 +331,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const root = document.createElement("div")
     root.className = "zkp-card"
 
-    // Header: app icon ⋯ ZKPassport globe, then a one-line tagline.
     const header = document.createElement("div")
     header.className = "zkp-header"
 
@@ -365,9 +350,8 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     zkpIcon.innerHTML = ICON_GLOBE
     headerIcons.append(zkpIcon, dots, appIcon)
 
-    // Title is intentionally generic — the consumer's `purpose` prop is still
-    // forwarded to `sdk.request(...)` but not shown here, so the card reads
-    // the same across every integration.
+    // Title is intentionally generic — the card reads the same across every
+    // integration. `purpose` is shown to the user inside the mobile app, not here.
     const title = document.createElement("p")
     title.className = "zkp-title"
     const appName = document.createElement("strong")
@@ -380,16 +364,13 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
       document.createTextNode(" to verify identity without compromising your privacy."),
     )
 
-    // Shown only during the `scanned` state — swapped in for the tagline so the
-    // user sees a direct prompt while approving on their phone. CSS in the
-    // `[data-state="scanned"]` block toggles visibility between the two.
+    // Shown only during `scanned` — CSS toggles visibility against the tagline.
     const approvalMessage = document.createElement("p")
     approvalMessage.className = "zkp-approval-message"
     approvalMessage.textContent = "Approve the request on your phone"
 
     header.append(headerIcons, title, approvalMessage)
 
-    // QR
     const qrSlot = document.createElement("div")
     qrSlot.className = "zkp-qr-slot"
     qrSlot.setAttribute("data-state", "preparing")
@@ -409,10 +390,8 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     overlay.append(overlayBody, overlayText)
     qrSlot.append(skeleton, qrContainer, qrLogo, overlay)
 
-    // Deep-link CTA shown only on touch devices during the `waiting` state —
-    // taps the request URL directly into the ZKPassport app instead of asking
-    // the user to scan their own screen. Visibility is CSS-driven (see
-    // `.zkp-open-app` rules in styles.css).
+    // Deep-link CTA shown only on touch devices during `waiting`. Visibility
+    // is CSS-driven (`.zkp-open-app` in styles.css).
     const openAppLink = document.createElement("a")
     openAppLink.className = "zkp-open-app"
     openAppLink.textContent = "Open in ZKPassport App"
@@ -423,8 +402,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     retry.textContent = "Try again"
     retry.addEventListener("click", handleRetryClick)
 
-    // Result panel — replaces the QR slot during the `success` / `error`
-    // terminal states. Built once and toggled via CSS on the card's data-state.
+    // Built once; CSS swaps it in for the QR slot during `success` / `error`.
     const resultPanel = document.createElement("div")
     resultPanel.className = "zkp-result-panel"
     const resultIcon = document.createElement("div")
@@ -437,7 +415,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     resultActions.className = "zkp-result-actions"
     resultPanel.append(resultIcon, resultTitle, resultLines, resultActions)
 
-    // Steps: download, scan, approve.
     const dividerTop = document.createElement("div")
     dividerTop.className = "zkp-divider zkp-divider-top"
 
@@ -455,7 +432,6 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     const dividerBottom = document.createElement("div")
     dividerBottom.className = "zkp-divider zkp-divider-bottom"
 
-    // Footer: label + store buttons (placeholder URLs).
     const footer = document.createElement("div")
     footer.className = "zkp-footer"
     const footerLabel = document.createElement("span")
@@ -540,9 +516,8 @@ function appendSpinner(parent: HTMLElement) {
   parent.appendChild(el)
 }
 
-// Three concentric ring pairs (A/B fade against each other on opposite phase)
-// driven by CSS animations declared in styles.css. Gradient IDs are namespaced
-// to avoid colliding with consumer SVGs sharing the same document.
+// Three concentric ring pairs, animated via CSS in styles.css. Gradient IDs
+// are namespaced so they don't collide with consumer SVGs.
 const SPINNER_SVG = `
 <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
