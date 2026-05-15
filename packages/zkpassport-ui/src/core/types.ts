@@ -1,10 +1,7 @@
 /**
- * Structural type of the object returned by `sdk.request(...).<gates>.done()`.
- *
- * We deliberately do NOT import this from `@zkpassport/sdk` so the UI package
- * has no runtime dependency on the SDK — versions can evolve independently and
- * the IIFE bundle stays slim. The shape is duck-typed; any object matching it
- * works.
+ * Structural shape of `sdk.request(...).<gates>.done()`. Duck-typed on purpose
+ * so the UI package has no runtime dependency on `@zkpassport/sdk` and the two
+ * can evolve independently.
  */
 export type ZKPassportRequestLike = {
   url: string
@@ -23,9 +20,8 @@ export type ZKPassportRequestLike = {
 export type QRCardError = {
   /** Stable identifier for branching. See the error code taxonomy in the design doc. */
   code: "user_rejected" | "proof_failed" | "bridge_error" | "unknown"
-  /** Human-readable message — suitable for logs; not necessarily for end users. */
+  /** Suitable for logs; not necessarily user-facing. */
   message: string
-  /** Underlying error from the SDK, if any. */
   cause?: unknown
 }
 
@@ -40,35 +36,25 @@ export type QRCardOptions = {
   request: ZKPassportRequestLike | null
 
   /**
-   * App display strings for the header. Optional for React consumers using
-   * `useZKPassportRequest` — the hook attaches the service it built the
-   * request from to the request object (hidden symbol; see
-   * `core/service-bridge.ts`), and the card reads from there as a fallback.
-   * Vanilla consumers that build the request themselves should pass these.
-   * When provided, props win over the attached service.
+   * Header strings. Optional for React consumers using `useZKPassportRequest`
+   * — the hook attaches them to the built request (see
+   * `core/service-bridge.ts`) and the card reads them as a fallback. Props
+   * win over the attached service. Vanilla consumers should pass these.
    */
   appName?: string
   appIcon?: string
 
-  /**
-   * Reserved for forward compatibility. Accepted by the type but ignored
-   * by the renderer in v1 — the card is light-only. Dark mode will be
-   * re-enabled in a future minor without a breaking change. See the
-   * comment at the top of `src/core/styles.css` for the re-attachment plan.
-   */
+  /** Reserved — ignored in v1 (light-only). See top of `core/styles.css`. */
   theme?: "light" | "dark" | "auto"
 
-  /** Fires once when the card first becomes scannable (bridge connected, QR visible). */
+  /** Fires once when the QR first becomes scannable. */
   onReady?: () => void
   onSuccess?: (response: QRCardSuccessResponse) => void
   onReject?: () => void
   onError?: (err: QRCardError) => void
   /**
-   * Fires when the user clicks the retry button in the error state.
-   *
-   * React consumers using `useZKPassportRequest` get auto-retry for free —
-   * the hook rebuilds the request and a new QR appears with no extra wiring.
-   * Other consumers should rebuild the request and call
+   * Fires when the user clicks retry. Hook consumers get auto-retry for free;
+   * vanilla consumers should rebuild the request and call
    * `handle.update({ request })` themselves.
    */
   onRetryClicked?: () => void
@@ -79,7 +65,7 @@ export type QRCardHandle = {
   unmount(): void
 }
 
-/** Internal UI state — exported for testing, not part of the public API surface. */
+/** Internal — exported for testing, not part of the public API. */
 export type QRCardState =
   | "preparing"
   | "connecting"

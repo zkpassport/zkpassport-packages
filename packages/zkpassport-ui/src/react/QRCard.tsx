@@ -6,39 +6,19 @@ import { mount } from "../vanilla/mount"
 export type QRCardProps = QRCardOptions
 
 /**
- * React wrapper around the vanilla `mount()` function.
+ * React wrapper around the vanilla `mount()`.
  *
- * Renders a host `<div>`, mounts the imperative card into it on first effect,
- * and pushes prop changes through `handle.update()` on subsequent renders.
- *
- * Consumers do NOT need to memoize callback props with `useCallback` — the
- * underlying state machine reads handlers via a getter at fire time
- * ([core/state.ts](../core/state.ts)), and the vanilla `update()` shallow-diff
- * ignores callback fields, so a parent re-render that recreates handlers does
- * no work here.
- *
- * The `"use client"` directive is prepended to the React entry bundle
- * post-build by tsup; no per-file directive is needed.
+ * Callbacks do NOT need `useCallback` — the state machine reads handlers live
+ * at fire time and the vanilla `update()` shallow-diff ignores callback fields.
  *
  * @example
- * // Minimal — `appName` / `appIcon` come from the service the hook built with:
  * const request = useZKPassportRequest(sdk, { service, query })
  * <QRCard request={request} onSuccess={(r) => console.log(r)} />
- *
- * @example
- * // Or pass them explicitly (vanilla builders, or to override the hook's values):
- * <QRCard
- *   request={request}
- *   appName="Your App"
- *   appIcon="/logo.png"
- *   onSuccess={(r) => console.log(r)}
- * />
  */
 export function QRCard(props: QRCardProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null)
   const handleRef = useRef<QRCardHandle | null>(null)
-  // Captures the props used for the very first `mount()` call so the
-  // mount-only effect below stays free of changing dependencies.
+  // Keeps the mount-only effect free of changing dependencies.
   const initialPropsRef = useRef(props)
 
   useEffect(() => {
@@ -52,9 +32,8 @@ export function QRCard(props: QRCardProps): ReactElement {
     }
   }, [])
 
-  // Push every prop change through to the imperative handle. The vanilla
-  // `update()` shallow-diffs and no-ops when nothing actually changed, so
-  // running this on every render is cheap.
+  // Vanilla `update()` shallow-diffs and no-ops when nothing changed, so
+  // running this every render is cheap.
   useEffect(() => {
     handleRef.current?.update(props)
   })
