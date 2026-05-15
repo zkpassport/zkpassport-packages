@@ -1,20 +1,46 @@
-import { ICON_CHECK, ICON_ERROR, ICON_SCAN, ZKPASSPORT_LOGO } from "../core/assets"
+import {
+  APP_STORE_BADGE,
+  CONFIRMATION_PHONE_IMAGE,
+  GOOGLE_PLAY_BADGE,
+  ICON_CHECK,
+  ICON_DOWNLOAD,
+  ICON_ERROR,
+  ICON_GLOBE,
+  ICON_SCAN,
+  ICON_SHIELD,
+  ZKPASSPORT_LOGO,
+} from "../core/assets"
+import { APP_STORE_URL, GOOGLE_PLAY_URL, ZKPASSPORT_DOWNLOAD_URL } from "../core/constants"
 import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
-import { createStateMachine } from "../core/state"
+import { describeVerifiedAttributes } from "../core/result-lines"
+import { readRetry } from "../core/retry-bridge"
+import { safeCall } from "../core/safe-call"
+import { createStateMachine, type TransitionPayload } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
+
+// Duration (per leg) of the body crossfade between states. Fade-out and
+// fade-in run sequentially around the content swap, so the total motion is
+// ~2× this value — matched roughly to the height animation below.
+const FADE_DURATION_MS = 500
 
 type CardElements = {
   root: HTMLDivElement
   appIcon: HTMLImageElement
-  appName: HTMLDivElement
-  purpose: HTMLDivElement
+  title: HTMLParagraphElement
+  appName: HTMLElement
   qrSlot: HTMLDivElement
   qrContainer: HTMLDivElement
   qrLogo: HTMLDivElement
   overlay: HTMLDivElement
   overlayBody: HTMLDivElement
   overlayText: HTMLDivElement
+  openAppLink: HTMLAnchorElement
+  resultPanel: HTMLDivElement
+  resultIcon: HTMLDivElement
+  resultTitle: HTMLHeadingElement
+  resultLines: HTMLUListElement
+  resultActions: HTMLDivElement
   retry: HTMLButtonElement
 }
 
@@ -78,21 +104,19 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     if (disposed) return
 
     const next: QRCardOptions = { ...current, ...partial }
-    const changed = diff(current, next)
-    if (changed.length === 0) return
+    // `theme` and `purpose` are accepted on the type but not rendered (theme is
+    // light-only in v1, purpose is forwarded to `sdk.request(...)` but not
+    // shown in the card). Callbacks are read live by the state machine via a
+    // getter, so handler-only changes need no work here.
+    const headerChanged = current.appName !== next.appName || current.appIcon !== next.appIcon
+    const requestChanged = current.request !== next.request
+    if (!headerChanged && !requestChanged) return
 
-    const prev = current
+    const prevRequest = current.request
     current = next
 
-    if (changed.includes("appName") || changed.includes("appIcon") || changed.includes("purpose")) {
-      renderHeader()
-    }
-
-    if (changed.includes("request")) {
-      handleRequestChange(prev.request, current.request)
-    }
-    // Callback changes are picked up automatically via the state machine's
-    // getCallbacks() — no work needed here.
+    if (headerChanged) renderHeader()
+    if (requestChanged) handleRequestChange(prevRequest, current.request)
   }
 
   function unmount() {
@@ -106,32 +130,36 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   }
 
   function handleRequestChange(
-    prev: ZKPassportRequestLike | null,
-    next: ZKPassportRequestLike | null,
+    prevRequest: ZKPassportRequestLike | null,
+    nextRequest: ZKPassportRequestLike | null,
   ) {
-    if (prev === next) return
+    if (prevRequest === nextRequest) return
 
-    if (next === null) {
+    if (nextRequest === null) {
       machine.detachRequest()
       clearQr()
       return
     }
 
-    void renderQr(next)
-    machine.attachRequest(next)
+    void renderQr(nextRequest)
+    machine.attachRequest(nextRequest)
   }
 
   function handleRetryClick() {
-    try {
-      current.onRetryClicked?.()
-    } catch {
-      // Consumer-thrown errors in onRetryClicked shouldn't crash the card.
-    }
+    // Pop the UI back to the QR-scanning step first so the user sees instant
+    // feedback while the new request is being built.
+    machine.retry()
+
+    // If the request was built via `useZKPassportRequest`, it carries a hidden
+    // retry hook — invoking it tells the hook to rebuild and emit a new
+    // request, which flows back through `update({ request })`. This is what
+    // makes auto-retry work out of the box for React consumers.
+    safeCall(readRetry(current.request))
+    safeCall(current.onRetryClicked)
   }
 
   function renderHeader() {
     elements.appName.textContent = current.appName
-    elements.purpose.textContent = current.purpose
     if (current.appIcon) {
       elements.appIcon.src = current.appIcon
       elements.appIcon.alt = `${current.appName} icon`
@@ -144,6 +172,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
   async function renderQr(request: ZKPassportRequestLike) {
     const myToken = ++qrToken
+    elements.openAppLink.href = request.url
     try {
       const svg = await generateSvg(request.url)
       if (myToken !== qrToken || disposed) return
@@ -162,12 +191,67 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     qrToken += 1
     elements.qrContainer.innerHTML = ""
     elements.qrLogo.innerHTML = ""
+    elements.openAppLink.removeAttribute("href")
   }
 
-  function renderState(state: QRCardState) {
+  // Tracks the in-flight height-animation generation so a transition that gets
+  // superseded by a newer state change doesn't clear the newer transition's
+  // inline styles when its own `transitionend` finally fires.
+  let heightAnimToken = 0
+
+  // Token guarding the crossfade choreography. A state change that arrives
+  // mid-fade bumps the token; the in-flight fade-out's `finish` listener checks
+  // it and bails so the superseded transition doesn't apply stale mutations or
+  // start a fade-in on an element the new transition is about to fade out.
+  let fadeToken = 0
+
+  function renderState(state: QRCardState, payload?: TransitionPayload) {
+    const apply = () => applyStateContent(state, payload)
+    const prevState = elements.root.getAttribute("data-state") as QRCardState | null
+
+    // Reduced motion: skip every animation and apply the new content straight.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      apply()
+      return
+    }
+
+    // First paint (no prior data-state): no crossfade — just animate height.
+    if (prevState === null) {
+      animateHeight(elements.root, apply)
+      return
+    }
+
+    const myToken = ++fadeToken
+    const prevBody = pickBody(prevState)
+    const nextBody = pickBody(state)
+    cancelOpacityAnimations(prevBody)
+    if (nextBody !== prevBody) cancelOpacityAnimations(nextBody)
+
+    const fadeOut = prevBody.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: FADE_DURATION_MS,
+      easing: "ease",
+      fill: "forwards",
+    })
+    fadeOut.addEventListener("finish", () => {
+      if (myToken !== fadeToken || disposed) return
+      animateHeight(elements.root, apply)
+      nextBody.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration: FADE_DURATION_MS,
+        easing: "ease",
+        fill: "forwards",
+      })
+    })
+  }
+
+  function applyStateContent(state: QRCardState, payload?: TransitionPayload) {
+    elements.root.setAttribute("data-state", state)
     elements.qrSlot.setAttribute("data-state", state)
     elements.overlayBody.innerHTML = ""
     elements.overlayText.textContent = ""
+    elements.resultIcon.innerHTML = ""
+    elements.resultTitle.textContent = ""
+    elements.resultLines.innerHTML = ""
+    elements.resultActions.innerHTML = ""
 
     switch (state) {
       case "preparing":
@@ -181,41 +265,131 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
         // No overlay — the QR itself is the call to action.
         break
       case "scanned":
-        elements.overlayText.textContent = "Approve the request on your phone"
+        appendConfirmationImage(elements.overlayBody)
         break
       case "generating":
         appendSpinner(elements.overlayBody)
         elements.overlayText.textContent = "Generating proof…"
         break
       case "success":
-        appendCheck(elements.overlayBody)
-        elements.overlayText.textContent = "Verified"
+        appendCheck(elements.resultIcon)
+        elements.resultTitle.textContent = "Proof Verified"
+        appendResultLines(elements.resultLines, describeVerifiedAttributes(payload?.result))
         break
       case "error":
-        appendErrorIcon(elements.overlayBody)
-        elements.overlayText.textContent = "Something went wrong"
-        elements.overlayBody.appendChild(elements.retry)
+        appendErrorIcon(elements.resultIcon)
+        elements.resultTitle.textContent = "Proof Verification Failed"
+        appendResultLines(elements.resultLines, [
+          "Some of the requested attributes could not be verified.",
+        ])
+        elements.resultActions.appendChild(elements.retry)
         break
     }
+  }
+
+  // The "body" of the card swaps between the QR slot (pre-result states) and
+  // the result panel (success / error). The crossfade runs on whichever is the
+  // currently visible body — siblings, not nested — so a transition that
+  // crosses the qr-slot/result-panel boundary still reads as one fade.
+  function pickBody(state: QRCardState): HTMLElement {
+    return state === "success" || state === "error" ? elements.resultPanel : elements.qrSlot
+  }
+
+  function cancelOpacityAnimations(el: HTMLElement) {
+    for (const anim of el.getAnimations()) {
+      anim.cancel()
+    }
+  }
+
+  /**
+   * Animate the card's bottom edge between two natural heights.
+   *
+   * Synchronous flow (no paint between steps):
+   *   1. read pre-change height
+   *   2. run `apply` (DOM mutations — browser recomputes layout but does not paint)
+   *   3. read post-change natural height
+   *   4. lock the card to the pre-change height, then animate to the new one
+   *
+   * Reduced-motion is handled by the caller (`renderState`); this function
+   * always animates.
+   */
+  function animateHeight(el: HTMLElement, apply: () => void, duration = 280) {
+    const before = el.offsetHeight
+    apply()
+    const after = el.offsetHeight
+    if (before === after || before === 0 || after === 0) return
+
+    const token = ++heightAnimToken
+    el.style.transition = "none"
+    el.style.height = `${before}px`
+    // Force the browser to commit the locked height before kicking off the
+    // transition; without this read, both height writes coalesce and the
+    // transition has nothing to animate from.
+    void el.offsetHeight
+    el.style.transition = `height ${duration}ms ease`
+    el.style.height = `${after}px`
+
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== el || event.propertyName !== "height") return
+      el.removeEventListener("transitionend", onEnd)
+      // A newer animation has taken over and already set fresh inline styles —
+      // clearing them here would undo its lock.
+      if (token !== heightAnimToken) return
+      el.style.height = ""
+      el.style.transition = ""
+    }
+    el.addEventListener("transitionend", onEnd)
   }
 
   function buildDom(): CardElements {
     const root = document.createElement("div")
     root.className = "zkp-card"
 
+    // Header: app icon ⋯ ZKPassport globe, then a one-line tagline.
     const header = document.createElement("div")
     header.className = "zkp-header"
+
+    const headerIcons = document.createElement("div")
+    headerIcons.className = "zkp-header-icons"
     const appIcon = document.createElement("img")
     appIcon.className = "zkp-app-icon"
-    const headerText = document.createElement("div")
-    headerText.className = "zkp-header-text"
-    const appName = document.createElement("div")
-    appName.className = "zkp-app-name"
-    const purpose = document.createElement("div")
-    purpose.className = "zkp-purpose"
-    headerText.append(appName, purpose)
-    header.append(appIcon, headerText)
+    const dots = document.createElement("div")
+    dots.className = "zkp-header-dots"
+    dots.append(
+      document.createElement("span"),
+      document.createElement("span"),
+      document.createElement("span"),
+    )
+    const zkpIcon = document.createElement("div")
+    zkpIcon.className = "zkp-zkp-icon"
+    zkpIcon.innerHTML = ICON_GLOBE
+    headerIcons.append(zkpIcon, dots, appIcon)
 
+    // Title is intentionally generic — the consumer's `purpose` prop is still
+    // forwarded to `sdk.request(...)` but not shown here, so the card reads
+    // the same across every integration.
+    const title = document.createElement("p")
+    title.className = "zkp-title"
+    const appName = document.createElement("strong")
+    const zkpassportStrong = document.createElement("strong")
+    zkpassportStrong.textContent = "ZKPassport"
+    title.append(
+      appName,
+      document.createTextNode(" uses "),
+      zkpassportStrong,
+      document.createTextNode(" to verify identity without compromising your privacy."),
+    )
+
+    // Shown only during the `scanned` state — swapped in for the tagline so the
+    // user sees a direct prompt while approving on their phone. CSS in the
+    // `[data-state="scanned"]` block toggles visibility between the two.
+    const approvalMessage = document.createElement("p")
+    approvalMessage.className = "zkp-approval-message"
+    approvalMessage.textContent = "Approve the request on your phone"
+
+    header.append(headerIcons, title, approvalMessage)
+
+    // QR
     const qrSlot = document.createElement("div")
     qrSlot.className = "zkp-qr-slot"
     qrSlot.setAttribute("data-state", "preparing")
@@ -235,33 +409,85 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     overlay.append(overlayBody, overlayText)
     qrSlot.append(skeleton, qrContainer, qrLogo, overlay)
 
+    // Deep-link CTA shown only on touch devices during the `waiting` state —
+    // taps the request URL directly into the ZKPassport app instead of asking
+    // the user to scan their own screen. Visibility is CSS-driven (see
+    // `.zkp-open-app` rules in styles.css).
+    const openAppLink = document.createElement("a")
+    openAppLink.className = "zkp-open-app"
+    openAppLink.textContent = "Open in ZKPassport App"
+
     const retry = document.createElement("button")
     retry.type = "button"
     retry.className = "zkp-retry"
     retry.textContent = "Try again"
     retry.addEventListener("click", handleRetryClick)
 
+    // Result panel — replaces the QR slot during the `success` / `error`
+    // terminal states. Built once and toggled via CSS on the card's data-state.
+    const resultPanel = document.createElement("div")
+    resultPanel.className = "zkp-result-panel"
+    const resultIcon = document.createElement("div")
+    resultIcon.className = "zkp-result-icon"
+    const resultTitle = document.createElement("h2")
+    resultTitle.className = "zkp-result-title"
+    const resultLines = document.createElement("ul")
+    resultLines.className = "zkp-result-lines"
+    const resultActions = document.createElement("div")
+    resultActions.className = "zkp-result-actions"
+    resultPanel.append(resultIcon, resultTitle, resultLines, resultActions)
+
+    // Steps: download, scan, approve.
+    const dividerTop = document.createElement("div")
+    dividerTop.className = "zkp-divider zkp-divider-top"
+
+    const steps = document.createElement("div")
+    steps.className = "zkp-steps"
+    steps.append(
+      buildStep(
+        ICON_DOWNLOAD,
+        makeStepText("Download", "the ZKPassport mobile app", ZKPASSPORT_DOWNLOAD_URL),
+      ),
+      buildStep(ICON_SCAN, document.createTextNode("Scan this QR code with the ZKPassport app")),
+      buildStep(ICON_SHIELD, document.createTextNode("Approve the request to share your proof")),
+    )
+
+    const dividerBottom = document.createElement("div")
+    dividerBottom.className = "zkp-divider zkp-divider-bottom"
+
+    // Footer: label + store buttons (placeholder URLs).
     const footer = document.createElement("div")
     footer.className = "zkp-footer"
-    const scanIcon = document.createElement("span")
-    scanIcon.innerHTML = ICON_SCAN
-    const footerText = document.createElement("span")
-    footerText.textContent = "Scan with the ZKPassport app"
-    footer.append(scanIcon, footerText)
+    const footerLabel = document.createElement("span")
+    footerLabel.className = "zkp-footer-label"
+    footerLabel.textContent = "ZKPassport App"
+    const storeButtons = document.createElement("div")
+    storeButtons.className = "zkp-store-buttons"
+    storeButtons.append(
+      buildStoreButton(APP_STORE_URL, APP_STORE_BADGE),
+      buildStoreButton(GOOGLE_PLAY_URL, GOOGLE_PLAY_BADGE),
+    )
+    footer.append(footerLabel, storeButtons)
 
-    root.append(header, qrSlot, footer)
+    root.append(header, qrSlot, openAppLink, resultPanel, dividerTop, steps, dividerBottom, footer)
 
     return {
       root,
       appIcon,
+      title,
       appName,
-      purpose,
       qrSlot,
       qrContainer,
       qrLogo,
       overlay,
       overlayBody,
       overlayText,
+      openAppLink,
+      resultPanel,
+      resultIcon,
+      resultTitle,
+      resultLines,
+      resultActions,
       retry,
     }
   }
@@ -269,11 +495,97 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   return { update, unmount }
 }
 
+function buildStep(iconSvg: string, content: Node): HTMLDivElement {
+  const step = document.createElement("div")
+  step.className = "zkp-step"
+  const icon = document.createElement("div")
+  icon.className = "zkp-step-icon"
+  icon.innerHTML = iconSvg
+  const text = document.createElement("div")
+  text.className = "zkp-step-text"
+  text.appendChild(content)
+  step.append(icon, text)
+  return step
+}
+
+function makeStepText(linkText: string, trailingText: string, href: string): DocumentFragment {
+  const frag = document.createDocumentFragment()
+  const link = document.createElement("a")
+  link.href = href
+  link.target = "_blank"
+  link.rel = "noopener noreferrer"
+  link.textContent = linkText
+  frag.append(link, document.createTextNode(` ${trailingText}`))
+  return frag
+}
+
+function buildStoreButton(
+  href: string,
+  badge: { ariaLabel: string; svg: string },
+): HTMLAnchorElement {
+  const a = document.createElement("a")
+  a.className = "zkp-store-button"
+  a.href = href
+  a.target = "_blank"
+  a.rel = "noopener noreferrer"
+  a.setAttribute("aria-label", badge.ariaLabel)
+  a.innerHTML = badge.svg
+  return a
+}
+
 function appendSpinner(parent: HTMLElement) {
   const el = document.createElement("div")
   el.className = "zkp-spinner"
+  el.innerHTML = SPINNER_SVG
   parent.appendChild(el)
 }
+
+// Three concentric ring pairs (A/B fade against each other on opposite phase)
+// driven by CSS animations declared in styles.css. Gradient IDs are namespaced
+// to avoid colliding with consumer SVGs sharing the same document.
+const SPINNER_SVG = `
+<svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="zkp-spinner-grad-1a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C4A572"/>
+      <stop offset="30%" stop-color="#D4B885"/>
+      <stop offset="70%" stop-color="#E6CC99"/>
+      <stop offset="100%" stop-color="#F0E4C7"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-1b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0E4C7"/>
+      <stop offset="30%" stop-color="#E6CC99"/>
+      <stop offset="70%" stop-color="#D4B885"/>
+      <stop offset="100%" stop-color="#C4A572"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-2a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B8A082"/>
+      <stop offset="50%" stop-color="#D4B885"/>
+      <stop offset="100%" stop-color="#EDE0C8"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-2b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EDE0C8"/>
+      <stop offset="50%" stop-color="#D4B885"/>
+      <stop offset="100%" stop-color="#B8A082"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-3a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0D4B8"/>
+      <stop offset="40%" stop-color="#C4A572"/>
+      <stop offset="100%" stop-color="#E0D4B8"/>
+    </linearGradient>
+    <linearGradient id="zkp-spinner-grad-3b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C4A572"/>
+      <stop offset="40%" stop-color="#E0D4B8"/>
+      <stop offset="100%" stop-color="#C4A572"/>
+    </linearGradient>
+  </defs>
+  <circle class="zkp-spinner-ring-1a" cx="50" cy="50" r="30" stroke="url(#zkp-spinner-grad-1a)" stroke-width="3" stroke-linecap="round" fill="none" stroke-dasharray="50.2655 50.2655"/>
+  <circle class="zkp-spinner-ring-1b" cx="50" cy="50" r="30" stroke="url(#zkp-spinner-grad-1b)" stroke-width="3" stroke-linecap="round" fill="none" stroke-dasharray="50.2655 50.2655"/>
+  <circle class="zkp-spinner-ring-2a" cx="50" cy="50" r="23" stroke="url(#zkp-spinner-grad-2a)" stroke-width="2" stroke-linecap="round" fill="none" stroke-dasharray="36.1283 36.1283" stroke-dashoffset="26.1283"/>
+  <circle class="zkp-spinner-ring-2b" cx="50" cy="50" r="23" stroke="url(#zkp-spinner-grad-2b)" stroke-width="2" stroke-linecap="round" fill="none" stroke-dasharray="36.1283 36.1283" stroke-dashoffset="26.1283"/>
+  <circle class="zkp-spinner-ring-3a" cx="50" cy="50" r="16" stroke="url(#zkp-spinner-grad-3a)" stroke-width="1" stroke-linecap="round" fill="none" stroke-dasharray="25.1327 25.1327" stroke-dashoffset="8.1327"/>
+  <circle class="zkp-spinner-ring-3b" cx="50" cy="50" r="16" stroke="url(#zkp-spinner-grad-3b)" stroke-width="1" stroke-linecap="round" fill="none" stroke-dasharray="25.1327 25.1327" stroke-dashoffset="8.1327"/>
+</svg>`
 
 function appendCheck(parent: HTMLElement) {
   const el = document.createElement("div")
@@ -289,19 +601,19 @@ function appendErrorIcon(parent: HTMLElement) {
   parent.appendChild(el)
 }
 
-/**
- * Shallow diff on the option keys that actually trigger DOM/subscription work.
- * `request` is compared by reference (matching React's prop semantics) so
- * passing a new builder object from `useState`/`useMemo` triggers a
- * re-subscribe even if the URL is the same. Callback fields are intentionally
- * omitted — the state machine reads them through a getter, so a parent
- * re-render that recreates handlers does no work here.
- */
-function diff(prev: QRCardOptions, next: QRCardOptions): (keyof QRCardOptions)[] {
-  // `theme` is accepted on the type but ignored by the renderer in v1 (see
-  // styles.css for the dark-mode re-attach plan). Callbacks (`onReady` etc.)
-  // are read live by the state machine, and `onRetryClicked` is read live by
-  // the click handler — neither needs to trigger an update cycle.
-  const keys: (keyof QRCardOptions)[] = ["request", "appName", "appIcon", "purpose"]
-  return keys.filter((k) => prev[k] !== next[k])
+function appendConfirmationImage(parent: HTMLElement) {
+  const img = document.createElement("img")
+  img.className = "zkp-confirmation-image"
+  img.src = CONFIRMATION_PHONE_IMAGE
+  img.alt = "Approve the request on your phone"
+  parent.appendChild(img)
+}
+
+function appendResultLines(parent: HTMLUListElement, lines: ReadonlyArray<string>) {
+  for (const line of lines) {
+    const li = document.createElement("li")
+    li.className = "zkp-result-line"
+    li.textContent = line
+    parent.appendChild(li)
+  }
 }

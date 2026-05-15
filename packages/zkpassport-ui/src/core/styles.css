@@ -23,13 +23,12 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 16px;
     width: 100%;
     min-width: 280px;
-    max-width: 380px;
-    padding: 20px;
+    max-width: 350px;
+    padding: 24px 14px 14px;
     border: 1px solid var(--zkp-border);
-    border-radius: 16px;
+    border-radius: 18px;
     background: var(--zkp-bg);
     color: var(--zkp-fg);
     font-family: ui-sans-serif, system-ui, sans-serif;
@@ -41,41 +40,60 @@
   }
   .zkp-card button {
     font: inherit;
-    color: inherit;
     cursor: pointer;
-    border: none;
-    background: none;
   }
 
-  /* Header */
+  /* Header — app icon ⋯ ZKPassport globe */
   .zkp-header {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+  }
+  .zkp-header-icons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   .zkp-app-icon {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
     object-fit: cover;
     flex-shrink: 0;
   }
-  .zkp-header-text {
+  .zkp-header-dots {
     display: flex;
-    flex-direction: column;
-    min-width: 0;
+    gap: 4px;
   }
-  .zkp-app-name {
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .zkp-header-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--zkp-muted);
+    opacity: 0.5;
   }
-  .zkp-purpose {
+  .zkp-zkp-icon {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    color: var(--zkp-accent);
+  }
+  .zkp-zkp-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+  .zkp-title {
+    margin: 0;
+    text-align: center;
     color: var(--zkp-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .zkp-title strong {
+    color: var(--zkp-fg);
+    font-weight: 600;
   }
 
   /* QR slot */
@@ -83,9 +101,8 @@
     position: relative;
     width: 100%;
     aspect-ratio: 1;
-    border-radius: 12px;
+    margin: 16px 0 0;
     background: var(--zkp-bg);
-    padding: 12px;
     display: grid;
     place-items: center;
     overflow: hidden;
@@ -107,21 +124,19 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 18%;
-    height: 18%;
+    width: 40%;
     background: var(--zkp-bg);
-    padding: 4px;
-    box-shadow: 0 0 0 4px var(--zkp-bg);
+    padding: 4px 8px;
     display: grid;
     place-items: center;
   }
   .zkp-qr-logo > * {
     width: 100%;
-    height: 100%;
+    height: auto;
   }
   .zkp-skeleton {
     position: absolute;
-    inset: 12px;
+    inset: 0;
     border-radius: 8px;
     background: var(--zkp-surface);
   }
@@ -137,10 +152,86 @@
     gap: 8px;
     padding: 16px;
     text-align: center;
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.9);
   }
   .zkp-overlay-text {
     max-width: 80%;
+  }
+  /* Confirmation phone mockup — rendered inside the QR slot's overlay during
+     the `scanned` state. The slot drops to a portrait aspect ratio (9:16) so
+     the phone art (~1:2) reads at a comfortable size; `object-fit: contain`
+     on the image handles the small horizontal margin around the art. The
+     overlay sits on an opaque background (so the faded QR underneath doesn't
+     bleed through) and is inset top/bottom to leave breathing room above and
+     below the phone — shrinking the overlay shrinks the image inside it. */
+  .zkp-qr-slot[data-state="scanned"] {
+    aspect-ratio: 9 / 16;
+    margin-top: 4px;
+  }
+  .zkp-qr-slot[data-state="scanned"] .zkp-overlay {
+    background: var(--zkp-bg);
+    padding: 0;
+    inset: 8px 0;
+  }
+  .zkp-confirmation-image {
+    position: absolute;
+    inset: 2.5% 0;
+    width: 100%;
+    height: 95%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Scanned state hides the onboarding chrome (divider/steps/footer) because
+     handoff is done. The header stays so the user keeps the app context; the
+     long tagline is swapped for a direct prompt — see `.zkp-approval-message`
+     below. */
+  .zkp-card[data-state="scanned"] .zkp-divider,
+  .zkp-card[data-state="scanned"] .zkp-steps,
+  .zkp-card[data-state="scanned"] .zkp-footer {
+    display: none;
+  }
+  .zkp-approval-message {
+    margin: 0;
+    text-align: center;
+    color: var(--zkp-fg);
+    font-size: 14px;
+    font-weight: 600;
+    display: none;
+  }
+  .zkp-card[data-state="scanned"] .zkp-title {
+    display: none;
+  }
+  .zkp-card[data-state="scanned"] .zkp-approval-message {
+    display: block;
+  }
+
+  /* Once we're generating, the download/scan/approve steps and store badges
+     are no longer actionable — the user has the app, has scanned, and is
+     waiting on the proof. Keep the header for app/context, drop the rest. */
+  .zkp-card[data-state="generating"] .zkp-divider,
+  .zkp-card[data-state="generating"] .zkp-steps,
+  .zkp-card[data-state="generating"] .zkp-footer {
+    display: none;
+  }
+
+  /* Terminal states (success / error) take over the card body: the QR slot is
+     replaced by the result panel, and the onboarding chrome (divider / steps /
+     store badges) is dropped — those are pre-scan affordances that don't apply
+     once verification has resolved. */
+  .zkp-card[data-state="success"] .zkp-qr-slot,
+  .zkp-card[data-state="error"] .zkp-qr-slot,
+  .zkp-card[data-state="success"] .zkp-divider,
+  .zkp-card[data-state="error"] .zkp-divider,
+  .zkp-card[data-state="success"] .zkp-steps,
+  .zkp-card[data-state="error"] .zkp-steps,
+  .zkp-card[data-state="success"] .zkp-footer,
+  .zkp-card[data-state="error"] .zkp-footer {
+    display: none;
+  }
+  .zkp-card[data-state="success"] .zkp-result-panel,
+  .zkp-card[data-state="error"] .zkp-result-panel {
+    display: flex;
   }
 
   /* State-driven visibility */
@@ -158,36 +249,148 @@
   .zkp-qr-slot[data-state="scanned"] .zkp-qr {
     opacity: 0.4;
   }
-  .zkp-qr-slot[data-state="generating"] .zkp-qr,
-  .zkp-qr-slot[data-state="success"] .zkp-qr,
-  .zkp-qr-slot[data-state="error"] .zkp-qr {
+  .zkp-qr-slot[data-state="generating"] .zkp-qr {
     opacity: 0.2;
   }
-  .zkp-qr-slot[data-state="generating"] .zkp-qr-logo,
-  .zkp-qr-slot[data-state="success"] .zkp-qr-logo,
-  .zkp-qr-slot[data-state="error"] .zkp-qr-logo {
+  .zkp-qr-slot[data-state="generating"] .zkp-qr-logo {
     opacity: 0;
   }
   .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
   .zkp-qr-slot[data-state="scanned"] .zkp-overlay,
-  .zkp-qr-slot[data-state="generating"] .zkp-overlay,
-  .zkp-qr-slot[data-state="success"] .zkp-overlay,
-  .zkp-qr-slot[data-state="error"] .zkp-overlay {
+  .zkp-qr-slot[data-state="generating"] .zkp-overlay {
     display: flex;
   }
 
   /* Spinner / success / error icons */
   .zkp-spinner {
-    width: 28px;
-    height: 28px;
-    border: 3px solid var(--zkp-border);
-    border-top-color: var(--zkp-accent);
-    border-radius: 50%;
-    animation: zkp-spin 0.9s linear infinite;
+    width: 140px;
+    height: 140px;
   }
-  @keyframes zkp-spin {
+  .zkp-spinner svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .zkp-spinner circle {
+    transform-origin: 50px 50px;
+    backface-visibility: hidden;
+    will-change: transform, opacity, stroke-dasharray, stroke-dashoffset;
+  }
+  .zkp-spinner-ring-1a {
+    animation:
+      zkp-spinner-rotate-first 2s infinite linear,
+      zkp-spinner-fade-a 4s infinite ease-in-out,
+      zkp-spinner-arc-first 6s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-1b {
+    animation:
+      zkp-spinner-rotate-first 2s infinite linear,
+      zkp-spinner-fade-b 4s infinite ease-in-out,
+      zkp-spinner-arc-first 6s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-2a {
+    animation:
+      zkp-spinner-rotate-second 1.5s infinite linear,
+      zkp-spinner-fade-a 3s infinite ease-in-out,
+      zkp-spinner-arc-second 4.5s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-2b {
+    animation:
+      zkp-spinner-rotate-second 1.5s infinite linear,
+      zkp-spinner-fade-b 3s infinite ease-in-out,
+      zkp-spinner-arc-second 4.5s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-3a {
+    animation:
+      zkp-spinner-rotate-third 1s infinite linear,
+      zkp-spinner-fade-a 2s infinite ease-in-out,
+      zkp-spinner-arc-third 3s infinite ease-in-out;
+  }
+  .zkp-spinner-ring-3b {
+    animation:
+      zkp-spinner-rotate-third 1s infinite linear,
+      zkp-spinner-fade-b 2s infinite ease-in-out,
+      zkp-spinner-arc-third 3s infinite ease-in-out;
+  }
+  @keyframes zkp-spinner-rotate-first {
+    from {
+      transform: translateZ(0) rotate(0deg);
+    }
     to {
-      transform: rotate(360deg);
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+  @keyframes zkp-spinner-rotate-second {
+    from {
+      transform: translateZ(0) rotate(0deg);
+    }
+    to {
+      transform: translateZ(0) rotate(-360deg);
+    }
+  }
+  @keyframes zkp-spinner-rotate-third {
+    from {
+      transform: translateZ(0) rotate(0deg);
+    }
+    to {
+      transform: translateZ(0) rotate(360deg);
+    }
+  }
+  @keyframes zkp-spinner-fade-a {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+  @keyframes zkp-spinner-fade-b {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes zkp-spinner-arc-first {
+    0%,
+    100% {
+      stroke-dasharray: 50.2655 50.2655;
+    }
+    25%,
+    75% {
+      stroke-dasharray: 75.3983 75.3983;
+    }
+    50% {
+      stroke-dasharray: 94.2478 94.2478;
+    }
+  }
+  @keyframes zkp-spinner-arc-second {
+    0%,
+    100% {
+      stroke-dasharray: 36.1283 36.1283;
+    }
+    25%,
+    75% {
+      stroke-dasharray: 54.1925 54.1925;
+    }
+    50% {
+      stroke-dasharray: 72.2566 72.2566;
+    }
+  }
+  @keyframes zkp-spinner-arc-third {
+    0%,
+    100% {
+      stroke-dasharray: 25.1327 25.1327;
+    }
+    25%,
+    75% {
+      stroke-dasharray: 37.6991 37.6991;
+    }
+    50% {
+      stroke-dasharray: 50.2655 50.2655;
     }
   }
   .zkp-check,
@@ -198,6 +401,7 @@
     color: #fff;
     display: grid;
     place-items: center;
+    animation: zkp-pop 220ms ease both;
   }
   .zkp-check {
     background: var(--zkp-success);
@@ -210,37 +414,217 @@
     width: 60%;
     height: 60%;
   }
-
-  .zkp-retry {
-    margin-top: 4px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    background: var(--zkp-accent);
-    color: var(--zkp-bg);
-    font-size: 13px;
+  @keyframes zkp-pop {
+    from {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
 
-  /* Footer */
-  .zkp-footer {
+  /* `!important` for the same reason as `.zkp-result-title`: layered styles
+     lose to consumer button resets (Tailwind preflight, etc.) without it. */
+  .zkp-retry {
+    margin-top: 4px;
+    padding: 10px 20px;
+    border: none !important;
+    border-radius: 999px !important;
+    background: var(--zkp-accent) !important;
+    color: var(--zkp-bg) !important;
+    font-size: 14px;
+    font-weight: 600;
+    transition: transform 150ms ease;
+  }
+  .zkp-retry:active {
+    transform: translateY(1px);
+  }
+
+  /* Deep-link CTA — only useful on touch devices (a desktop user can't open
+     the mobile app from this tap), so it's hidden by default and only revealed
+     by the `(hover: none) and (pointer: coarse)` media query below. The
+     `data-state="waiting"` gate further restricts it to the scannable state:
+     once we've handed off to the phone (scanned/generating) or the flow is
+     done (success/error), the button is no longer actionable. */
+  .zkp-open-app {
+    display: none;
+    margin: 16px 0 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: var(--zkp-accent);
+    color: var(--zkp-bg);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.18);
+    transition: transform 150ms ease;
+  }
+  .zkp-open-app:active {
+    transform: translateY(1px);
+  }
+  @media (hover: none) and (pointer: coarse) {
+    .zkp-card[data-state="waiting"] .zkp-open-app {
+      display: block;
+    }
+  }
+
+  /* Result panel — success / error terminal screens. Hidden by default and
+     toggled on via the card's data-state selector (see the block above). The
+     icon / title / lines stack centered so multi-line attribute lists read as
+     a calm summary rather than a dense block.
+
+     `min-height` keeps the card from collapsing into a tiny strip on a short
+     result (e.g. a single "Verified age ≥ 18" line) — without it the
+     post-verification card was visibly smaller than the QR state and the
+     transition looked like a layout glitch. `justify-content: center` then
+     vertically centers the content inside the reserved space. */
+  .zkp-result-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px 16px;
+    gap: 16px;
+    min-height: 320px;
+  }
+  .zkp-result-icon {
+    display: grid;
+    place-items: center;
+  }
+  /* Color uses `!important` because the entire stylesheet sits inside
+     `@layer zkpassport`, and consumer apps often have unlayered `h2 { color }`
+     resets (Tailwind preflight, custom typography) that would otherwise beat
+     our layered rule. Layered-important wins over unlayered-important per the
+     cascade spec. */
+  .zkp-result-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--zkp-fg) !important;
+    line-height: 1.3;
+  }
+  .zkp-result-lines {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .zkp-result-line {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--zkp-muted);
+  }
+  .zkp-result-actions {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    color: var(--zkp-muted);
-    font-size: 12px;
+    /* Empty on success — collapse so the panel's padding handles spacing. */
   }
-  .zkp-footer svg {
-    width: 14px;
-    height: 14px;
+  .zkp-result-actions:empty {
+    display: none;
+  }
+
+  /* Divider — two variants flank the steps section. Both use the modifier
+     class to pick a tighter, slightly asymmetric vertical rhythm. */
+  .zkp-divider {
+    height: 1px;
+    background: var(--zkp-border);
+  }
+  .zkp-divider-top {
+    margin: 14px 0;
+  }
+  .zkp-divider-bottom {
+    margin: 10px 0 14px;
+  }
+
+  /* Step list */
+  .zkp-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .zkp-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .zkp-step-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--zkp-border);
+    display: grid;
+    place-items: center;
+    color: var(--zkp-fg);
     flex-shrink: 0;
+  }
+  .zkp-step-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  .zkp-step-text {
+    font-size: 13px;
+    color: var(--zkp-fg);
+  }
+  .zkp-step-text a {
+    color: inherit;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+
+  /* Footer — label + store buttons */
+  .zkp-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .zkp-footer-label {
+    font-size: 13px;
+    color: var(--zkp-muted);
+  }
+  .zkp-store-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .zkp-store-button {
+    display: inline-flex;
+    text-decoration: none;
+    transition: transform 150ms ease;
+  }
+  .zkp-store-button:hover {
+    transform: translateY(-1px);
+  }
+  .zkp-store-button svg {
+    display: block;
+    height: 28px;
+    width: auto;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .zkp-qr {
       transition: none;
     }
-    .zkp-spinner {
-      animation-duration: 2s;
+    /* Keep the rotation as the sole motion cue but stretch its period so it
+       reads as a calm progress hint rather than the layered fade/arc dance. */
+    .zkp-spinner circle {
+      animation: zkp-spinner-rotate-first 4s infinite linear !important;
+    }
+    .zkp-spinner .zkp-spinner-ring-1b,
+    .zkp-spinner .zkp-spinner-ring-2b,
+    .zkp-spinner .zkp-spinner-ring-3b {
+      display: none;
+    }
+    .zkp-check,
+    .zkp-error-icon {
+      animation: none;
     }
   }
 }

@@ -1,3 +1,4 @@
+import { safeCall } from "./safe-call"
 import type {
   QRCardError,
   QRCardOptions,
@@ -5,6 +6,15 @@ import type {
   QRCardSuccessResponse,
   ZKPassportRequestLike,
 } from "./types"
+
+/**
+ * Optional payload threaded with a state transition. Today only `success`
+ * carries data (the raw `QueryResult` so the renderer can format the verified
+ * attribute lines without subscribing to the SDK request itself).
+ */
+export type TransitionPayload = {
+  result?: unknown
+}
 
 type StateMachineConfig = {
   /**
@@ -16,7 +26,7 @@ type StateMachineConfig = {
    */
   getCallbacks: () => Pick<QRCardOptions, "onReady" | "onSuccess" | "onReject" | "onError">
   /** Called every time the UI state changes. The renderer turns this into DOM updates. */
-  onTransition: (next: QRCardState) => void
+  onTransition: (next: QRCardState, payload?: TransitionPayload) => void
 }
 
 export type StateMachine = {
@@ -26,6 +36,12 @@ export type StateMachine = {
   detachRequest: () => void
   /** Drive the card into the error state from the renderer (e.g. on QR generation failure). */
   fail: (code: QRCardError["code"], message: string, cause?: unknown) => void
+  /**
+   * Send the card back to the QR-scanning step after an error. Existing
+   * subscriptions stay live so any future SDK event still drives the UI; the
+   * consumer can also issue a fresh request via `onRetryClicked` if needed.
+   */
+  retry: () => void
   /** Final teardown: equivalent to `detachRequest()` plus a permanent disable. */
   dispose: () => void
 }
@@ -35,6 +51,7 @@ export type StateMachine = {
  *
  * The machine owns:
  *   - the current `QRCardState` (closed over)
+ *   - the current attached request (closed over)
  *   - the subscription generation token (so late-firing async events from a
  *     superseded request are ignored — important for `handle.update({ request })`
  *     called rapidly, e.g. on retry)
@@ -44,8 +61,8 @@ export type StateMachine = {
  * calls `onTransition(next)` and the renderer reacts.
  */
 export function createStateMachine(config: StateMachineConfig): StateMachine {
-  let state: QRCardState = "preparing"
-  let request: ZKPassportRequestLike | null = null
+  let currentState: QRCardState = "preparing"
+  let currentRequest: ZKPassportRequestLike | null = null
   /**
    * Incremented on every attach/detach/dispose. Subscriber closures capture
    * the value at registration time and bail if it no longer matches —
@@ -56,32 +73,24 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
   let readyFired = false
   let disposed = false
 
-  function transition(next: QRCardState) {
-    if (state === next) return
-    state = next
-    config.onTransition(next)
+  function transition(next: QRCardState, payload?: TransitionPayload) {
+    if (currentState === next) return
+    currentState = next
+    config.onTransition(next, payload)
   }
 
   function fireReadyOnce() {
     if (readyFired) return
     readyFired = true
-    try {
-      config.getCallbacks().onReady?.()
-    } catch {
-      // Consumer-thrown errors in onReady shouldn't crash the card.
-    }
+    safeCall(config.getCallbacks().onReady)
   }
 
   function toError(code: QRCardError["code"], message: string, cause?: unknown) {
     transition("error")
-    try {
-      config.getCallbacks().onError?.({ code, message, cause })
-    } catch {
-      // Same reasoning as fireReadyOnce: consumer errors are not our problem.
-    }
+    safeCall(config.getCallbacks().onError, { code, message, cause })
   }
 
-  function attachRequest(next: ZKPassportRequestLike) {
+  function attachRequest(request: ZKPassportRequestLike) {
     if (disposed) return
 
     // Bump generation to invalidate any subscriber closures from a previous
@@ -90,7 +99,7 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
     // avoiding a skeleton flash on retry / request swap.
     generation += 1
     const myGeneration = generation
-    request = next
+    currentRequest = request
     readyFired = false
 
     const guarded = <T extends unknown[]>(fn: (...args: T) => void) => {
@@ -104,49 +113,43 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
       }
     }
 
-    next.onBridgeConnect(
+    request.onBridgeConnect(
       guarded(() => {
-        if (state === "connecting" || state === "preparing") {
+        if (currentState === "connecting" || currentState === "preparing") {
           transition("waiting")
           fireReadyOnce()
         }
       }),
     )
-    next.onRequestReceived(
+    request.onRequestReceived(
       guarded(() => {
         transition("scanned")
       }),
     )
-    next.onGeneratingProof(
+    request.onGeneratingProof(
       guarded(() => {
         transition("generating")
       }),
     )
-    next.onResult(
+    request.onResult(
       guarded((response: QRCardSuccessResponse) => {
         if (response.verified) {
-          transition("success")
-          try {
-            config.getCallbacks().onSuccess?.(response)
-          } catch {
-            // Same reasoning as fireReadyOnce.
-          }
+          // Pass the raw QueryResult through so the renderer can format the
+          // verified attribute lines without re-subscribing to the SDK request.
+          transition("success", { result: response.result })
+          safeCall(config.getCallbacks().onSuccess, response)
         } else {
           toError("proof_failed", "Proof verification failed")
         }
       }),
     )
-    next.onReject(
+    request.onReject(
       guarded(() => {
         transition("error")
-        try {
-          config.getCallbacks().onReject?.()
-        } catch {
-          // Same reasoning as fireReadyOnce.
-        }
+        safeCall(config.getCallbacks().onReject)
       }),
     )
-    next.onError(
+    request.onError(
       guarded((errorMessage: string) => {
         toError("bridge_error", errorMessage)
       }),
@@ -156,9 +159,9 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
     // already landed on the phone before we subscribed, drive the state forward
     // synchronously so the user never sees a stuck "connecting…".
     try {
-      if (next.requestReceived()) {
+      if (request.requestReceived()) {
         transition("scanned")
-      } else if (next.isBridgeConnected()) {
+      } else if (request.isBridgeConnected()) {
         transition("waiting")
         fireReadyOnce()
       } else {
@@ -170,12 +173,12 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
   }
 
   function detachRequest() {
-    if (request === null) return
+    if (currentRequest === null) return
     // Bumping the generation invalidates any in-flight subscriber closures
     // without needing the SDK to expose an `off*` API (which the duck-typed
     // contract in core/types.ts intentionally doesn't require).
     generation += 1
-    request = null
+    currentRequest = null
     readyFired = false
     transition("preparing")
   }
@@ -186,6 +189,10 @@ export function createStateMachine(config: StateMachineConfig): StateMachine {
     fail: (code, message, cause) => {
       if (disposed) return
       toError(code, message, cause)
+    },
+    retry: () => {
+      if (disposed) return
+      transition(currentRequest === null ? "preparing" : "waiting")
     },
     dispose: () => {
       detachRequest()
