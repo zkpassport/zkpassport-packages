@@ -41,6 +41,9 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get install -y lsof jq zsh
 
+      # Foundry is required by the later "Publish" step, not the filtered
+      # build below: scripts/prepublish.sh runs `bun run build` workspace-wide,
+      # which invokes `forge build` in packages/registry-contracts.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
