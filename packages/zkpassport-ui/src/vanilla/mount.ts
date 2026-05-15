@@ -439,7 +439,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
     // Steps: download, scan, approve.
     const dividerTop = document.createElement("div")
-    dividerTop.className = "zkp-divider"
+    dividerTop.className = "zkp-divider zkp-divider-top"
 
     const steps = document.createElement("div")
     steps.className = "zkp-steps"
@@ -453,7 +453,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     )
 
     const dividerBottom = document.createElement("div")
-    dividerBottom.className = "zkp-divider"
+    dividerBottom.className = "zkp-divider zkp-divider-bottom"
 
     // Footer: label + store buttons (placeholder URLs).
     const footer = document.createElement("div")

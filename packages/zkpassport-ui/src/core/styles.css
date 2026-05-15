@@ -25,8 +25,8 @@
     flex-direction: column;
     width: 100%;
     min-width: 280px;
-    max-width: 360px;
-    padding: 24px 20px 20px;
+    max-width: 350px;
+    padding: 24px 14px 14px;
     border: 1px solid var(--zkp-border);
     border-radius: 18px;
     background: var(--zkp-bg);
@@ -166,6 +166,7 @@
      below the phone — shrinking the overlay shrinks the image inside it. */
   .zkp-qr-slot[data-state="scanned"] {
     aspect-ratio: 9 / 16;
+    margin-top: 4px;
   }
   .zkp-qr-slot[data-state="scanned"] .zkp-overlay {
     background: var(--zkp-bg);
@@ -174,9 +175,9 @@
   }
   .zkp-confirmation-image {
     position: absolute;
-    inset: 0;
+    inset: 2.5% 0;
     width: 100%;
-    height: 100%;
+    height: 95%;
     object-fit: contain;
     display: block;
   }
@@ -194,9 +195,8 @@
     margin: 0;
     text-align: center;
     color: var(--zkp-fg);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    line-height: 1.45;
     display: none;
   }
   .zkp-card[data-state="scanned"] .zkp-title {
@@ -530,23 +530,29 @@
     display: none;
   }
 
-  /* Divider */
+  /* Divider — two variants flank the steps section. Both use the modifier
+     class to pick a tighter, slightly asymmetric vertical rhythm. */
   .zkp-divider {
     height: 1px;
     background: var(--zkp-border);
-    margin: 16px 0;
+  }
+  .zkp-divider-top {
+    margin: 14px 0;
+  }
+  .zkp-divider-bottom {
+    margin: 10px 0 14px;
   }
 
   /* Step list */
   .zkp-steps {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
   .zkp-step {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
   }
   .zkp-step-icon {
     width: 32px;
