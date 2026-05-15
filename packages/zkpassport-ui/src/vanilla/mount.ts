@@ -617,4 +617,3 @@ function appendResultLines(parent: HTMLUListElement, lines: ReadonlyArray<string
     parent.appendChild(li)
   }
 }
-
