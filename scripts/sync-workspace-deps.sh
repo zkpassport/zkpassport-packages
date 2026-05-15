@@ -9,6 +9,7 @@ set -e
 echo "Ensuring workspace dependencies are synced"
 (cd packages/zkpassport-sdk && bun update @zkpassport/utils @zkpassport/registry)
 (cd packages/registry-sdk && bun update @zkpassport/utils)
+(cd packages/zkpassport-ui && bun update @zkpassport/sdk)
 
 # Check mode for CI: verify that workspace dependencies are synced
 # If bun.lock has changed, then the dependencies are not synced
