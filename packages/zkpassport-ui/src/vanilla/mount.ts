@@ -15,6 +15,7 @@ import { injectStyles } from "../core/inject-styles"
 import { generateSvg } from "../core/qr"
 import { describeVerifiedAttributes } from "../core/result-lines"
 import { readRetry } from "../core/retry-bridge"
+import { safeCall } from "../core/safe-call"
 import { createStateMachine, type TransitionPayload } from "../core/state"
 import type { QRCardHandle, QRCardOptions, QRCardState, ZKPassportRequestLike } from "../core/types"
 
@@ -103,21 +104,19 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     if (disposed) return
 
     const next: QRCardOptions = { ...current, ...partial }
-    const changed = diff(current, next)
-    if (changed.length === 0) return
+    // `theme` and `purpose` are accepted on the type but not rendered (theme is
+    // light-only in v1, purpose is forwarded to `sdk.request(...)` but not
+    // shown in the card). Callbacks are read live by the state machine via a
+    // getter, so handler-only changes need no work here.
+    const headerChanged = current.appName !== next.appName || current.appIcon !== next.appIcon
+    const requestChanged = current.request !== next.request
+    if (!headerChanged && !requestChanged) return
 
-    const prev = current
+    const prevRequest = current.request
     current = next
 
-    if (changed.includes("appName") || changed.includes("appIcon")) {
-      renderHeader()
-    }
-
-    if (changed.includes("request")) {
-      handleRequestChange(prev.request, current.request)
-    }
-    // Callback changes are picked up automatically via the state machine's
-    // getCallbacks() — no work needed here.
+    if (headerChanged) renderHeader()
+    if (requestChanged) handleRequestChange(prevRequest, current.request)
   }
 
   function unmount() {
@@ -131,19 +130,19 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   }
 
   function handleRequestChange(
-    prev: ZKPassportRequestLike | null,
-    next: ZKPassportRequestLike | null,
+    prevRequest: ZKPassportRequestLike | null,
+    nextRequest: ZKPassportRequestLike | null,
   ) {
-    if (prev === next) return
+    if (prevRequest === nextRequest) return
 
-    if (next === null) {
+    if (nextRequest === null) {
       machine.detachRequest()
       clearQr()
       return
     }
 
-    void renderQr(next)
-    machine.attachRequest(next)
+    void renderQr(nextRequest)
+    machine.attachRequest(nextRequest)
   }
 
   function handleRetryClick() {
@@ -155,20 +154,8 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
     // retry hook — invoking it tells the hook to rebuild and emit a new
     // request, which flows back through `update({ request })`. This is what
     // makes auto-retry work out of the box for React consumers.
-    const autoRetry = readRetry(current.request)
-    if (autoRetry) {
-      try {
-        autoRetry()
-      } catch {
-        // Hook-thrown errors shouldn't crash the card.
-      }
-    }
-
-    try {
-      current.onRetryClicked?.()
-    } catch {
-      // Consumer-thrown errors in onRetryClicked shouldn't crash the card.
-    }
+    safeCall(readRetry(current.request))
+    safeCall(current.onRetryClicked)
   }
 
   function renderHeader() {
@@ -220,12 +207,16 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
 
   function renderState(state: QRCardState, payload?: TransitionPayload) {
     const apply = () => applyStateContent(state, payload)
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const prevState = elements.root.getAttribute("data-state") as QRCardState | null
 
-    // First paint (no prior data-state) or reduced motion: skip the crossfade
-    // and fall through to the height-only animation path.
-    if (reducedMotion || prevState === null) {
+    // Reduced motion: skip every animation and apply the new content straight.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      apply()
+      return
+    }
+
+    // First paint (no prior data-state): no crossfade — just animate height.
+    if (prevState === null) {
       animateHeight(elements.root, apply)
       return
     }
@@ -319,14 +310,10 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
    *   3. read post-change natural height
    *   4. lock the card to the pre-change height, then animate to the new one
    *
-   * Honors `prefers-reduced-motion` by skipping the animation entirely.
+   * Reduced-motion is handled by the caller (`renderState`); this function
+   * always animates.
    */
   function animateHeight(el: HTMLElement, apply: () => void, duration = 280) {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      apply()
-      return
-    }
-
     const before = el.offsetHeight
     apply()
     const after = el.offsetHeight
@@ -508,7 +495,7 @@ export function mount(element: HTMLElement, options: QRCardOptions): QRCardHandl
   return { update, unmount }
 }
 
-function buildStep(iconSvg: string, body: Node): HTMLDivElement {
+function buildStep(iconSvg: string, content: Node): HTMLDivElement {
   const step = document.createElement("div")
   step.className = "zkp-step"
   const icon = document.createElement("div")
@@ -516,19 +503,19 @@ function buildStep(iconSvg: string, body: Node): HTMLDivElement {
   icon.innerHTML = iconSvg
   const text = document.createElement("div")
   text.className = "zkp-step-text"
-  text.appendChild(body)
+  text.appendChild(content)
   step.append(icon, text)
   return step
 }
 
-function makeStepText(linkText: string, rest: string, href: string): DocumentFragment {
+function makeStepText(linkText: string, trailingText: string, href: string): DocumentFragment {
   const frag = document.createDocumentFragment()
   const link = document.createElement("a")
   link.href = href
   link.target = "_blank"
   link.rel = "noopener noreferrer"
   link.textContent = linkText
-  frag.append(link, document.createTextNode(` ${rest}`))
+  frag.append(link, document.createTextNode(` ${trailingText}`))
   return frag
 }
 
@@ -631,21 +618,3 @@ function appendResultLines(parent: HTMLUListElement, lines: ReadonlyArray<string
   }
 }
 
-/**
- * Shallow diff on the option keys that actually trigger DOM/subscription work.
- * `request` is compared by reference (matching React's prop semantics) so
- * passing a new builder object from `useState`/`useMemo` triggers a
- * re-subscribe even if the URL is the same. Callback fields are intentionally
- * omitted — the state machine reads them through a getter, so a parent
- * re-render that recreates handlers does no work here.
- */
-function diff(prev: QRCardOptions, next: QRCardOptions): (keyof QRCardOptions)[] {
-  // `theme` is accepted on the type but ignored by the renderer in v1 (see
-  // styles.css for the dark-mode re-attach plan). `purpose` is forwarded to
-  // `sdk.request(...)` by the consumer but isn't rendered in the card title,
-  // so changes don't need to trigger a re-render. Callbacks (`onReady` etc.)
-  // are read live by the state machine, and `onRetryClicked` is read live by
-  // the click handler — neither needs to trigger an update cycle.
-  const keys: (keyof QRCardOptions)[] = ["request", "appName", "appIcon"]
-  return keys.filter((k) => prev[k] !== next[k])
-}
