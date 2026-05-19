@@ -212,7 +212,7 @@ export class ZKPassport {
     // We must also check that no proofs were lost — if any failed to generate, the overall result is invalid.
     const finalVerified = this.topicToFailedProofCount[topic] > 0 ? false : verified
     if (finalVerified && this.domainProvided && !this.disableProofStorage) {
-      await submitProof({
+      void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
         queryResult: result,

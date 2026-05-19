@@ -36,6 +36,7 @@ export async function submitProof({
         scope,
         sdkVersion: VERSION,
       }),
+      signal: AbortSignal.timeout(30000),
     })
     if (!response.ok) {
       logger.warn("API request failed with status:", response.status)
