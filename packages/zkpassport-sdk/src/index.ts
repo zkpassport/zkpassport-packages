@@ -127,8 +127,8 @@ export * from "./types"
 
 export class ZKPassport {
   private domain: string
-  private projectId: string | undefined
-  private apiUrl: string | undefined
+  private domainProvided: boolean
+  private disableProofStorage: boolean
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -183,13 +183,13 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string, options?: { projectId?: string; apiUrl?: string }) {
+  constructor(_domain?: string, options?: { disableProofStorage?: boolean }) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
+    this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.projectId = options?.projectId
-    this.apiUrl = options?.apiUrl
+    this.disableProofStorage = options?.disableProofStorage ?? false
   }
 
   private async handleResult(topic: string) {
@@ -211,16 +211,13 @@ export class ZKPassport {
     // However, some proofs may have failed to generate on the mobile device (e.g. "Cannot generate proof").
     // We must also check that no proofs were lost — if any failed to generate, the overall result is invalid.
     const finalVerified = this.topicToFailedProofCount[topic] > 0 ? false : verified
-    // Send proof data to the dashboard API if verification succeeded and a projectId is configured
-    if (finalVerified && this.projectId) {
+    if (finalVerified && this.domainProvided && !this.disableProofStorage) {
       await submitProof({
-        projectId: this.projectId,
         domain: this.domain,
         proofs: this.topicToProofs[topic],
         queryResult: result,
         uniqueIdentifier,
         scope: this.topicToService[topic]?.scope,
-        apiUrl: this.apiUrl,
       })
     } else if (!finalVerified) {
       logger.debug("Skipping API call, verification failed or proofs missing")

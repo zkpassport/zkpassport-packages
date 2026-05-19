@@ -3,21 +3,17 @@ import { DASHBOARD_API_BASE_URL, VERSION } from "./constants"
 import { noLogger as logger } from "./logger"
 
 export async function submitProof({
-  projectId,
   domain,
   proofs,
   queryResult,
   uniqueIdentifier,
   scope,
-  apiUrl,
 }: {
-  projectId: string
   domain: string
   proofs: Array<ProofResult>
   queryResult: QueryResult
   uniqueIdentifier: string | undefined
   scope: string | undefined
-  apiUrl?: string
 }) {
   const payload = proofs.map((p) => ({
     proof: p.proof,
@@ -29,11 +25,10 @@ export async function submitProof({
     committedInputs: p.committedInputs,
   }))
   try {
-    const response = await fetch(apiUrl ?? `${DASHBOARD_API_BASE_URL}/proofs`, {
+    const response = await fetch(`${DASHBOARD_API_BASE_URL}/proofs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        projectId,
         domain,
         proofs: payload,
         queryResult,
