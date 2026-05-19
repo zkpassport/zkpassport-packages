@@ -4,18 +4,10 @@ import { defineConfig, type Options } from "tsup"
 
 const isDev = process.env.DEV_BUILD === "true"
 
-/**
- * esbuild strips module-level directives like `"use client"` during bundling
- * (it warns: "Module level directives cause errors when bundled"). Using
- * tsup's `banner` option doesn't help — the banner is treated the same way.
- *
- * The reliable fix is to prepend the directive to the output file AFTER the
- * bundle is written. We do that here only for the React entry (`index.*`);
- * the vanilla entry stays directive-free so it can be imported into any
- * environment that supports the duck-typed runtime contract.
- */
+// esbuild strips module-level directives during bundling, so the React entry's
+// "use client" must be prepended to the output file after the bundle is written.
 async function prependUseClient(outDir: string, format: "esm" | "cjs") {
-  const file = path.resolve(outDir, format === "cjs" ? "index.cjs" : "index.js")
+  const file = path.resolve(outDir, format === "cjs" ? "react.cjs" : "react.js")
   try {
     const content = await fs.readFile(file, "utf8")
     if (!content.startsWith('"use client"')) {
@@ -26,41 +18,35 @@ async function prependUseClient(outDir: string, format: "esm" | "cjs") {
   }
 }
 
-// 1) ESM + CJS for npm consumers (React + vanilla entries)
 const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   entry: {
-    index: "src/index.ts",
-    vanilla: "src/vanilla.ts",
+    index: "src/vanilla/index.ts",
+    react: "src/react/index.tsx",
   },
   format,
   outDir: `dist/${format}`,
   outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
-  // Match the SDK's dts config to avoid divergent type-build behavior across workspace packages.
   dts: { compilerOptions: { composite: false } },
   clean: true,
   splitting: false,
   sourcemap: true,
   treeshake: !isDev,
   minify: !isDev,
-  external: ["react", "react-dom", "react/jsx-runtime", "qrcode"],
+  // Preact is bundled inline so consumers don't need to install it. React
+  // stays external — it's a peer dep used by the React wrapper only.
+  external: ["react", "react-dom", "react/jsx-runtime", "qrcode", "@zkpassport/sdk"],
+  noExternal: ["preact"],
   loader: { ".css": "text" },
   async onSuccess() {
     await prependUseClient(`dist/${format}`, format)
   },
 }))
 
-// 2) Standalone CSS at dist/styles.css for CSP-strict consumers.
 const cssConfig: Options = {
-  entry: { styles: "src/core/styles.css" },
+  entry: { styles: "src/styles.css" },
   outDir: "dist",
   clean: false,
   loader: { ".css": "copy" },
 }
 
-// Note: no IIFE/UMD output for v0.1.0-beta.0. A complete `<script>`-tag
-// integration is blocked by browsers refusing to construct the bb.js Web
-// Worker cross-origin from esm.sh (the only ESM→browser bridge available
-// for @zkpassport/sdk today). See the design doc's "No IIFE in v0.1"
-// section for context. Adding the IIFE back is non-breaking when the SDK
-// story unlocks it (UMD bundle / verify-on-server / dedicated CDN dist).
 export default defineConfig([...npmConfigs, cssConfig])
