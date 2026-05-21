@@ -24,4 +24,4 @@ echo "📦 Building all packages..."
 (cd ../.. && bun run clean && bun run build && bun run check && bun run test)
 
 # Validate package
-../../scripts/validate-package.sh
+bun run validate-package
