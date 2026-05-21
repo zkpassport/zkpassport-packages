@@ -79,8 +79,9 @@ describe("Proof submission", () => {
     expect(body).toMatchObject({
       domain: "localhost",
       scope: "test-scope",
-      uniqueIdentifier: "uid-1",
+      query: { age: { gte: 18 } },
     })
+    expect(body.uniqueIdentifier).toBeUndefined()
     expect(body.proofs).toHaveLength(1)
     expect(body.proofs[0]).toMatchObject({ proof: "0xdeadbeef", name: "outer_xyz" })
   })

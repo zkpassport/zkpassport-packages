@@ -113,36 +113,6 @@ onResult(
 )
 ```
 
-### Using a policy
-
-The ZKPassport dashboard is an **optional convenience layer**. You can use the SDK fully self-served (passing `name`, `logo`, `purpose` directly to `request()`) without depending on the dashboard. If you'd rather manage verification parameters and branding in one place, register your domain on the dashboard and reference a **policy** by id.
-
-A policy is an immutable, versioned bundle of query configuration belonging to your domain. Every `request()` call best-effort fetches your per-domain dashboard config (branding + policies). The fetch is cached for the lifetime of the `ZKPassport` instance, so it only hits the network once. If the dashboard is unreachable and you didn't request a policy, the failure is swallowed silently and the request still goes out with your self-serve fields.
-
-Apply a policy by chaining `.policy('<id>')` on the builder returned by `request()`:
-
-```ts
-// Defaults: name/logo come from the dashboard branding for your domain,
-// purpose/scope come from the policy.
-const { url, onResult } = (await zkPassport.request()).policy("pol_xyz").done()
-
-// Override any field by passing it to `request()` — caller wins per field,
-// policy fills in whatever you omit.
-const { url, onResult } = (
-  await zkPassport.request({ purpose: "Custom purpose for this flow" })
-)
-  .policy("pol_xyz")
-  .done()
-```
-
-Rules:
-
-- The policy locks the query: `.gte()`, `.disclose()`, `.eq()` etc. throw if combined with `.policy()` (in either order).
-- `name`/`logo` default to the dashboard branding for your domain; `purpose` defaults to the policy's purpose. Per-request `name`/`logo`/`purpose`/`scope`/`validity`/`mode`/`devMode` passed to `request()` override these.
-- `scope` defaults to `<policyId>@v<version>` when not provided, so proofs from different policy versions stay filterable apart.
-- The result includes a `policy: { id, version }` field for surfacing in your UI / logs.
-- Each `request()` triggers at most one successful `GET https://dashboard-api.zkpassport.id/public/app?domain=<domain>` per `ZKPassport` instance. A failed fetch is silently swallowed; calling `.policy()` afterwards re-throws the fetch error so the caller sees a meaningful message.
-
 ### Using with Next.js
 
 You can integrate `@zkpassport/sdk` into a Next.js application by creating a backend API route and calling it from your frontend.

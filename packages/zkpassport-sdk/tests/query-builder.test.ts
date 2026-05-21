@@ -7,12 +7,9 @@ describe("Query Builder", () => {
   let originalFetch: typeof globalThis.fetch
 
   beforeEach(async () => {
-    // Clear any previous mock states
     MockWebSocket.clearHub()
 
-    // request() now always fetches the dashboard config. Stub it so these
-    // tests don't depend on the network — self-serve mode swallows failures,
-    // but a real call still leaks during every test run.
+    // request() fetches the dashboard config best-effort; stub so tests stay offline.
     originalFetch = globalThis.fetch
     globalThis.fetch = (async () =>
       new Response("{}", {
@@ -148,6 +145,7 @@ describe("Query Builder", () => {
       name: "Test App",
       logo: "https://test.com/logo.png",
       purpose: "Testing query builder",
+      scope: "localhost",
     })
   })
 
@@ -465,9 +463,8 @@ describe("Policy-driven requests", () => {
   let lastFetchUrl: string | undefined
   let fetchCount: number
 
-  // Mirrors the real `/public/app?domain=...` response shape.
   const sampleConfig = {
-    app: {
+    project: {
       name: "Dashboard Brand",
       domain: "localhost",
       logoUrl: "https://dashboard.example/logo.png",
@@ -479,10 +476,7 @@ describe("Policy-driven requests", () => {
         version: 3,
         name: "Age + nationality",
         purpose: "Policy purpose",
-        validitySeconds: null,
-        proofMode: "fast",
-        devMode: false,
-        applicationId: null,
+        projectId: null,
         query: {
           age: { gte: 18 },
           firstname: { disclose: true },
@@ -494,10 +488,7 @@ describe("Policy-driven requests", () => {
         version: 1,
         name: "Adults only",
         purpose: "",
-        validitySeconds: null,
-        proofMode: "fast",
-        devMode: false,
-        applicationId: null,
+        projectId: null,
         query: { age: { gte: 21 } },
       },
     ],
@@ -532,8 +523,8 @@ describe("Policy-driven requests", () => {
     const queryBuilder = (await zkPassport.request({})).policy("pol_xyz")
     const result = queryBuilder.done()
 
-    expect(lastFetchUrl).toBe("https://dashboard-api.zkpassport.id/public/app?domain=localhost")
-    expect(result.policy).toEqual({ id: "pol_xyz", version: 3 })
+    expect(lastFetchUrl).toBe("https://dashboard-api.zkpassport.id/public/project?domain=localhost")
+    expect(result.policy).toBe("pol_xyz")
     expect(result.query).toEqual(sampleConfig.policies[0].query)
 
     const servicePart = result.url.split("s=")[1].split("&")[0]
@@ -542,7 +533,7 @@ describe("Policy-driven requests", () => {
       name: "Dashboard Brand",
       logo: "https://dashboard.example/logo.png",
       purpose: "Policy purpose",
-      scope: "pol_xyz@v3",
+      scope: "pol_xyz:3",
     })
   })
 
@@ -566,29 +557,38 @@ describe("Policy-driven requests", () => {
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("White Label")
     expect(service.logo).toBe("https://white.example/logo.png")
-    // unspecified fields fall back to dashboard / policy defaults
+    // purpose/scope are locked by the policy
     expect(service.purpose).toBe("Policy purpose")
-    expect(service.scope).toBe("pol_xyz@v3")
+    expect(service.scope).toBe("pol_xyz:3")
   })
 
-  test("per-request purpose/scope override policy defaults", async () => {
+  test("policy locks scope but caller's purpose still wins", async () => {
+    // scope drives the nullifier, so callers can't change it once a policy is bound.
+    // purpose is user-facing copy, so callers can override the policy default.
     const queryBuilder = (
       await zkPassport.request({
-        purpose: "Custom purpose",
-        scope: "custom-scope",
+        purpose: "Caller-supplied purpose",
+        scope: "caller-supplied-scope",
       })
     ).policy("pol_xyz")
     const result = queryBuilder.done()
 
     const servicePart = result.url.split("s=")[1].split("&")[0]
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
-    expect(service.purpose).toBe("Custom purpose")
-    expect(service.scope).toBe("custom-scope")
+    expect(service.purpose).toBe("Caller-supplied purpose")
+    expect(service.scope).toBe("pol_xyz:3")
   })
 
-  test("done() throws if neither a policy nor name/logo/purpose are provided", async () => {
+  test("self-serve callers get sensible defaults when no fields are supplied", async () => {
     const queryBuilder = await zkPassport.request({})
-    expect(() => queryBuilder.done()).toThrow(/request\(\) requires .name., .logo., and .purpose./)
+    const result = queryBuilder.done()
+    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
+    // name/logo come from the dashboard config when registered; purpose/scope fall to defaults.
+    expect(service.name).toBe("Dashboard Brand")
+    expect(service.logo).toBe("https://dashboard.example/logo.png")
+    expect(service.purpose).toBe("Verify identity privately")
+    expect(service.scope).toBe("localhost")
   })
 
   test(".policy() throws a clear 'domain not registered' error on 404", async () => {
@@ -632,7 +632,7 @@ describe("Policy-driven requests", () => {
   test(".policy() rejects a policy with an invalid version", async () => {
     for (const version of [0, -1]) {
       mockFetchReturning({
-        app: {
+        project: {
           name: "Brand",
           domain: "localhost",
           logoUrl: "https://e/l.png",
@@ -644,10 +644,7 @@ describe("Policy-driven requests", () => {
             version,
             name: "x",
             purpose: "",
-            validitySeconds: null,
-            proofMode: "fast",
-            devMode: false,
-            applicationId: null,
+            projectId: null,
             query: { age: { gte: 18 } },
           },
         ],
@@ -658,26 +655,29 @@ describe("Policy-driven requests", () => {
     }
   })
 
-  test("done() throws if a policy returns empty branding and no per-request override is given", async () => {
+  test("policy with empty branding falls back to defaults (domain / generic purpose)", async () => {
     mockFetchReturning({
-      app: { name: "", domain: "localhost", logoUrl: null, allowedOrigins: [] },
+      project: { name: "", domain: "localhost", logoUrl: null, allowedOrigins: [] },
       policies: [
         {
           id: "pol_blank",
           version: 1,
           name: "blank",
           purpose: "",
-          validitySeconds: null,
-          proofMode: "fast",
-          devMode: false,
-          applicationId: null,
+          projectId: null,
           query: { age: { gte: 18 } },
         },
       ],
     })
 
     const queryBuilder = (await zkPassport.request({})).policy("pol_blank")
-    expect(() => queryBuilder.done()).toThrow(/missing required service branding/i)
+    const result = queryBuilder.done()
+    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
+    expect(service.name).toBe("localhost")
+    expect(service.logo).toBe("")
+    expect(service.purpose).toBe("Verify identity privately")
+    expect(service.scope).toBe("pol_blank:1")
   })
 
   test("self-serve callers benefit from dashboard branding when the domain is registered", async () => {
@@ -716,6 +716,6 @@ describe("Policy-driven requests", () => {
     mockFetchReturning(sampleConfig)
     const builder = await zkPassport.request({})
     const result = builder.policy("pol_xyz").done()
-    expect(result.policy).toEqual({ id: "pol_xyz", version: 3 })
+    expect(result.policy).toBe("pol_xyz")
   })
 })
