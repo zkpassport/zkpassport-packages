@@ -562,8 +562,9 @@ describe("Policy-driven requests", () => {
     expect(service.scope).toBe("pol_xyz:3")
   })
 
-  test("policy locks purpose and scope — per-request values are ignored", async () => {
+  test("policy locks scope but caller's purpose still wins", async () => {
     // scope drives the nullifier, so callers can't change it once a policy is bound.
+    // purpose is user-facing copy, so callers can override the policy default.
     const queryBuilder = (
       await zkPassport.request({
         purpose: "Caller-supplied purpose",
@@ -574,7 +575,7 @@ describe("Policy-driven requests", () => {
 
     const servicePart = result.url.split("s=")[1].split("&")[0]
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
-    expect(service.purpose).toBe("Policy purpose")
+    expect(service.purpose).toBe("Caller-supplied purpose")
     expect(service.scope).toBe("pol_xyz:3")
   })
 

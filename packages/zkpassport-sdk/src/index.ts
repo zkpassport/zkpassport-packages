@@ -153,6 +153,7 @@ export class ZKPassport {
   private topicToBridge: Record<string, BridgeInterface> = {}
   private topicToRequestReceived: Record<string, boolean> = {}
   private topicToService: Record<string, Service> = {}
+  private topicToCallerPurpose: Record<string, string | undefined> = {}
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
@@ -460,10 +461,12 @@ export class ZKPassport {
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
         this.topicToConfig[topic] = policy.query
-        // Policy locks purpose and scope — caller overrides via request() are ignored.
+        // Policy locks scope; caller's purpose still wins when provided.
         const svc = this.topicToService[topic]
         if (svc) {
-          svc.purpose = policy.purpose || DEFAULT_PURPOSE
+          if (!this.topicToCallerPurpose[topic]) {
+            svc.purpose = policy.purpose || DEFAULT_PURPOSE
+          }
           svc.scope = policyScope(policy)
         }
         this.topicToPolicy[topic] = { id: policy.id, version: policy.version }
@@ -599,10 +602,10 @@ export class ZKPassport {
 
   /**
    * @notice Create a new request. To apply a policy, chain `.policy('<id>')` on
-   * the returned builder; a policy locks query, purpose and scope.
+   * the returned builder; a policy locks the query and scope.
    * @param name Your service name. Defaults to the dashboard branding, then the domain.
    * @param logo Your service logo. Defaults to the dashboard branding.
-   * @param purpose Explanation shown to the user. Defaults to a generic message. Locked by `.policy()`.
+   * @param purpose Explanation shown to the user. Defaults to the policy's purpose (if any), then a generic message.
    * @param scope Use-case scope (drives the nullifier). Defaults to the domain. Locked by `.policy()` (to `<id>:<version>`).
    * @param projectID The project ID of your service
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
@@ -662,6 +665,7 @@ export class ZKPassport {
     const topic = bridge.connection.getBridgeId()
 
     this.topicToConfig[topic] = {}
+    this.topicToCallerPurpose[topic] = purpose
     this.topicToService[topic] = {
       name: name || config?.project?.name || this.domain,
       logo: logo || config?.project?.logoUrl || "",
