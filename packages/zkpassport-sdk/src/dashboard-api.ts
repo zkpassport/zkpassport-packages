@@ -1,4 +1,4 @@
-import type { ProofResult, QueryResult } from "@zkpassport/utils"
+import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import { DASHBOARD_API_BASE_URL, VERSION } from "./constants"
 import { noLogger as logger } from "./logger"
 
@@ -6,14 +6,14 @@ import { noLogger as logger } from "./logger"
 export async function submitProof({
   domain,
   proofs,
+  query,
   queryResult,
-  uniqueIdentifier,
   scope,
 }: {
   domain: string
   proofs: Array<ProofResult>
+  query: Query
   queryResult: QueryResult
-  uniqueIdentifier: string | undefined
   scope: string | undefined
 }) {
   const payload = proofs.map((p) => ({
@@ -32,8 +32,8 @@ export async function submitProof({
       body: JSON.stringify({
         domain,
         proofs: payload,
+        query,
         queryResult,
-        uniqueIdentifier,
         scope,
         sdkVersion: VERSION,
       }),

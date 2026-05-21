@@ -234,8 +234,8 @@ export class ZKPassport {
       void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
+        query: this.topicToConfig[topic],
         queryResult: result,
-        uniqueIdentifier,
         scope: this.topicToService[topic]?.scope,
       })
     }
