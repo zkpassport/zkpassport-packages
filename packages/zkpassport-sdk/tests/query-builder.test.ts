@@ -145,7 +145,6 @@ describe("Query Builder", () => {
       name: "Test App",
       logo: "https://test.com/logo.png",
       purpose: "Testing query builder",
-      scope: "localhost",
     })
   })
 
@@ -584,11 +583,12 @@ describe("Policy-driven requests", () => {
     const result = queryBuilder.done()
     const servicePart = result.url.split("s=")[1].split("&")[0]
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
-    // name/logo come from the dashboard config when registered; purpose/scope fall to defaults.
+    // name/logo come from the dashboard config when registered; purpose falls to a default;
+    // scope stays undefined unless the caller (or a policy) supplies one.
     expect(service.name).toBe("Dashboard Brand")
     expect(service.logo).toBe("https://dashboard.example/logo.png")
     expect(service.purpose).toBe("Verify identity privately")
-    expect(service.scope).toBe("localhost")
+    expect(service.scope).toBeUndefined()
   })
 
   test(".policy() throws a clear 'domain not registered' error on 404", async () => {
