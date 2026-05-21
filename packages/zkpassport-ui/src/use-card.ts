@@ -186,7 +186,7 @@ function renderQrSvg(url: string): string {
     finderOrigins.some(([fr, fc]) => r >= fr && r < fr + 7 && c >= fc && c < fc + 7)
 
   let body = ""
-  const dotRadius = cell * 0.42
+  const dotRadius = cell * 0.47
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       if (!data[r * size + c]) continue
