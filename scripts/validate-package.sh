@@ -19,7 +19,9 @@ echo "🔍 Running publint..."
 "$REPO_ROOT/node_modules/.bin/publint" "$PKG"
 
 # Run @arethetypeswrong/cli validation
+# Extra args are forwarded to attw so individual packages can pass flags like
+# --exclude-entrypoints (e.g. for non-JS asset exports such as ./styles.css).
 echo "🔍 Running @arethetypeswrong/cli..."
-"$REPO_ROOT/node_modules/.bin/attw" "$PKG" --profile node16 -f table-flipped
+"$REPO_ROOT/node_modules/.bin/attw" "$PKG" --profile node16 -f table-flipped "$@"
 
 echo "✅ Package validation complete: $PKG"

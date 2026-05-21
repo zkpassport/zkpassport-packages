@@ -175,6 +175,8 @@ export class ZKPassport {
         verified: boolean
         result: QueryResult
         queryResultErrors?: Partial<QueryResultErrors>
+        proofs: ProofResult[]
+        sdkInstance: ZKPassport
       }) => void
     >
   > = {}
@@ -214,10 +216,11 @@ export class ZKPassport {
     const result = this.topicToResults[topic]
     // Clear the results straight away to avoid concurrency issues
     delete this.topicToResults[topic]
+    const proofs = this.topicToProofs[topic]
     // Verify the proofs and extract the unique identifier (aka nullifier) and the verification result
     const { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors } =
       await this.verify({
-        proofs: this.topicToProofs[topic],
+        proofs,
         originalQuery: this.topicToConfig[topic],
         queryResult: result,
         validity: this.topicToLocalConfig[topic]?.validity,
@@ -251,6 +254,8 @@ export class ZKPassport {
           verified: hasFailedProofs ? false : verified,
           result,
           queryResultErrors,
+          proofs,
+          sdkInstance: this,
         }),
       ),
     )
@@ -522,6 +527,8 @@ export class ZKPassport {
               verified: boolean
               result: QueryResult
               queryResultErrors?: Partial<QueryResultErrors>
+              proofs: ProofResult[]
+              sdkInstance: ZKPassport
             }) => void,
           ) => this.onResultCallbacks[topic].push(callback),
           onReject: (callback: () => void) => this.onRejectCallbacks[topic].push(callback),

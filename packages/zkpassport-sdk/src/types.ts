@@ -13,6 +13,7 @@ import {
   SupportedChain,
   Query,
 } from "@zkpassport/utils"
+import type { ZKPassport } from "./index"
 
 export type QueryResultError<T> = {
   expected?: T
@@ -144,6 +145,8 @@ export type QueryBuilderResult = {
       verified: boolean
       result: QueryResult
       queryResultErrors?: Partial<QueryResultErrors>
+      proofs: ProofResult[]
+      sdkInstance: ZKPassport
     }) => void,
   ) => void
   /**
