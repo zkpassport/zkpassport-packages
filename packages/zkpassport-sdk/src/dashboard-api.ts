@@ -1,6 +1,6 @@
 import type { ProofResult, QueryResult } from "@zkpassport/utils"
 import { DASHBOARD_API_BASE_URL, VERSION } from "./constants"
-import { customLogger as logger } from "./logger"
+import { noLogger as logger } from "./logger"
 
 /** Fire-and-forget: errors are logged, never thrown. */
 export async function submitProof({
