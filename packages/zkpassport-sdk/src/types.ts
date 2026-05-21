@@ -10,6 +10,7 @@ import {
   DisclosableIDCredential,
   FacematchMode,
   ProofResult,
+  ProofMode,
   SupportedChain,
   Query,
 } from "@zkpassport/utils"
@@ -68,6 +69,48 @@ export type SolidityVerifierParameters = {
   serviceConfig: SolidityServiceConfig
 }
 
+/**
+ * An immutable, versioned policy belonging to an organization (optionally
+ * locked to one application). The SDK looks one up by `id` from the per-domain
+ * `DashboardConfig` and uses its `query` to populate the request. The scope of
+ * a policy-driven request defaults to `<id>@v<version>` so proofs from
+ * different versions stay filterable apart (overridable only by an explicit
+ * `scope` passed to `request()`).
+ *
+ * Mirrors the row returned by the dashboard's `/public/app` endpoint.
+ */
+export type Policy = {
+  id: string
+  version: number
+  name: string
+  /** Per-policy default purpose, overridable per-request. Empty string when unset. */
+  purpose: string
+  /** Default validity window for proofs in seconds. */
+  validity: number | null
+  mode: ProofMode
+  devMode: boolean
+  /** NULL = reusable across the org, set = locked to that app. */
+  applicationId: string | null
+  query: Query
+}
+
+/**
+ * The per-domain configuration returned by the dashboard's `/public/app`
+ * endpoint. Includes the verified app and the policies that may run against
+ * this domain (org-wide policies plus any locked to this app). `policies` may
+ * be empty — that's a valid response for a registered domain with no policies
+ * yet.
+ */
+export type DashboardConfig = {
+  app: {
+    name: string
+    domain: string
+    logoUrl: string | null
+    allowedOrigins: string[]
+  }
+  policies: Policy[]
+}
+
 export type QueryBuilderResult = {
   /**
    * The URL of the request.
@@ -84,6 +127,10 @@ export type QueryBuilderResult = {
    * The id of the request.
    */
   requestId: string
+  /**
+   * The policy used to build the request, if one was provided.
+   */
+  policy?: { id: string; version: number }
   /**
    * Called when the user has scanned the QR code or clicked the link to the request.
    *
@@ -254,6 +301,25 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    * Best for lower security requirements that requires fast verification such as age verification.
    */
   facematch: (mode?: FacematchMode) => QueryBuilder
+  /**
+   * Applies an immutable policy that was pre-fetched as part of the per-domain
+   * dashboard config during `request()`. The returned builder has its query locked:
+   * any subsequent `.gte()`, `.disclose()`, etc. will throw.
+   *
+   * Intended usage is `(await zk.request({...})).policy('<id>').done()`. Any
+   * branding (`name`/`logo`/`purpose`/`scope`) or per-request fields
+   * (`validity`/`mode`/`devMode`) passed to `request()` override the policy's
+   * stored values; fields the caller omits fall back to the policy.
+   *
+   * Combining `.policy()` with builder methods like `.gte()`/`.disclose()` in
+   * either order throws.
+   *
+   * Throws synchronously if the dashboard config was not available (the fetch
+   * during `request()` failed).
+   *
+   * @param id The policy id (e.g. `'pol_xyz'`).
+   */
+  policy: (id: string) => QueryBuilder<T>
   /**
    * Builds the request.
    *

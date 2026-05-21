@@ -1,6 +1,9 @@
-export const VERSION = "0.14.2"
+export const VERSION = "0.15.0-alpha.1"
 export const DEFAULT_VALIDITY = 7 * 24 * 60 * 60 // 7 days
 export const DEFAULT_DATE_VALUE = new Date(0)
+
+// Base URL for the ZKPassport dashboard API (per-domain config, proof submission).
+export const DASHBOARD_API_BASE_URL = "https://dashboard-api.zkpassport.id"
 
 // 32-byte zero value, formatted as a 0x-prefixed hex string.
 export const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000"
