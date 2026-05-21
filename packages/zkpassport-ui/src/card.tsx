@@ -220,7 +220,11 @@ function QrSlot({
             <div className="zkp-error-icon" dangerouslySetInnerHTML={{ __html: ICON_ERROR }} />
           ) : null}
         </div>
-        {caption ? <div className="zkp-overlay-caption">{caption}</div> : null}
+        {caption ? (
+          <div key={state} className="zkp-overlay-caption">
+            {caption}
+          </div>
+        ) : null}
       </div>
     </div>
   )
