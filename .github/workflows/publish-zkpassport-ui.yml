@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - packages/zkpassport-ui/package.json
+  workflow_dispatch:
 
 jobs:
   publish:
