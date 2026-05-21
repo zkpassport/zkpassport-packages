@@ -1,0 +1,91 @@
+{
+  "name": "@zkpassport/ui",
+  "version": "0.14.2",
+  "description": "Drop-in QR verification card for ZKPassport. Vanilla JS by default; React component available at @zkpassport/ui/react.",
+  "author": "ZKPassport",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkpassport/zkpassport-packages",
+    "directory": "packages/zkpassport-ui"
+  },
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/esm/react.d.ts",
+        "default": "./dist/esm/react.js"
+      },
+      "require": {
+        "types": "./dist/cjs/react.d.cts",
+        "default": "./dist/cjs/react.cjs"
+      }
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "scripts": {
+    "build": "tsup --config tsup.config.ts",
+    "dev:build": "DEV_BUILD=true bun run build",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "test": "echo 'no tests yet'",
+    "check": "tsc --noEmit && prettier -c src && eslint src --ext .ts,.tsx",
+    "format": "prettier -c -w src && eslint src --ext .ts,.tsx --fix",
+    "validate-package": "../../scripts/validate-package.sh --exclude-entrypoints ./styles.css",
+    "prepublishOnly": "../../scripts/prepublish.sh"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "keywords": [
+    "zkpassport",
+    "zkpassport-ui",
+    "ui",
+    "react",
+    "qrcode",
+    "verification",
+    "widget"
+  ],
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "peerDependencies": {
+    "@zkpassport/sdk": "^0.14.2",
+    "react": ">=18",
+    "react-dom": ">=18",
+    "typescript": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@zkpassport/sdk": "workspace:*",
+    "preact": "^10.22.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "packageManager": "bun@1.3.1"
+}
