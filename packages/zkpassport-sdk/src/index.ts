@@ -20,7 +20,6 @@ import {
   getProofData,
   getNumberOfPublicInputs,
   formatQueryResultDates,
-  OPRF_DEFAULT_KEY_ID,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
@@ -32,11 +31,14 @@ import {
   QueryBuilder,
   QueryBuilderResult,
   OfflineQueryBuilderResult,
+  DashboardConfig,
+  Policy,
   QueryResultErrors,
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
-import { DEFAULT_VALIDITY, VERSION } from "./constants"
+import { submitProof } from "./dashboard-api"
+import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
@@ -47,6 +49,12 @@ if (typeof globalThis.Buffer === "undefined") {
 }
 
 registerLocale(i18en)
+
+function policyScope(policy: { id: string; version: number }): string {
+  return `${policy.id}:${policy.version}`
+}
+
+const DEFAULT_PURPOSE = "Verify identity privately"
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
   if (country === "Zero Knowledge Republic") {
@@ -128,6 +136,8 @@ export * from "./types"
 
 export class ZKPassport {
   private domain: string
+  private domainProvided: boolean
+  private disableProofStorage: boolean
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -143,9 +153,14 @@ export class ZKPassport {
   private topicToBridge: Record<string, BridgeInterface> = {}
   private topicToRequestReceived: Record<string, boolean> = {}
   private topicToService: Record<string, Service> = {}
+  private topicToCallerPurpose: Record<string, string | undefined> = {}
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
+  private topicToPolicy: Record<string, { id: string; version: number }> = {}
+  private dashboardConfig: DashboardConfig | null = null
+  private dashboardConfigPromise: Promise<DashboardConfig> | null = null
+  private dashboardConfigError: Error | null = null
 
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
   private onGeneratingProofCallbacks: Record<string, Array<(topic: string) => void>> = {}
@@ -187,14 +202,17 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string) {
+  constructor(_domain?: string, options?: { disableProofStorage?: boolean }) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
+    this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
+    this.disableProofStorage = options?.disableProofStorage ?? false
   }
 
   private async handleResult(topic: string) {
+    logger.debug("Starting verification for topic:", topic)
     const result = this.topicToResults[topic]
     // Clear the results straight away to avoid concurrency issues
     delete this.topicToResults[topic]
@@ -210,8 +228,22 @@ export class ZKPassport {
         devMode: this.topicToLocalConfig[topic]?.devMode,
         oprfKeyId: this.topicToLocalConfig[topic]?.oprfKeyId ?? undefined,
       })
-    delete this.topicToProofs[topic]
+    logger.debug("Verification complete, verified:", verified)
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
+    const finalVerified = hasFailedProofs ? false : verified
+    // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
+    // pollute real-domain stats.
+    const devMode = this.topicToLocalConfig[topic]?.devMode === true
+    if (finalVerified && this.domainProvided && !this.disableProofStorage && !devMode) {
+      void submitProof({
+        domain: this.domain,
+        proofs: this.topicToProofs[topic],
+        query: this.topicToConfig[topic],
+        queryResult: result,
+        scope: this.topicToService[topic]?.scope,
+      })
+    }
+    delete this.topicToProofs[topic]
     await Promise.all(
       this.onResultCallbacks[topic].map((callback) =>
         callback({
@@ -298,11 +330,20 @@ export class ZKPassport {
     }
   }
 
+  private assertNotPolicyLocked(topic: string, method: string) {
+    if (this.topicToPolicy[topic]) {
+      throw new Error(
+        `Cannot call .${method}() on a policy-driven request. The query for policy '${this.topicToPolicy[topic].id}' is immutable.`,
+      )
+    }
+  }
+
   private getZkPassportRequest<T extends "online" | "offline" = "online">(
     topic: string,
   ): QueryBuilder<T> {
     return {
       eq: <T extends IDCredential>(key: T, value: IDCredentialValue<T>) => {
+        this.assertNotPolicyLocked(topic, "eq")
         if (key === "issuing_country" || key === "nationality") {
           value = normalizeCountry(value as CountryName) as IDCredentialValue<T>
         }
@@ -310,6 +351,7 @@ export class ZKPassport {
         return this.getZkPassportRequest(topic)
       },
       gte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
+        this.assertNotPolicyLocked(topic, "gte")
         numericalCompare("gte", key, value, topic, this.topicToConfig)
         if (key === "age" && ((value as number) < 1 || (value as number) >= 100)) {
           throw new Error("Age must be between 1 and 99 (inclusive)")
@@ -317,14 +359,17 @@ export class ZKPassport {
         return this.getZkPassportRequest(topic)
       },
       gt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
+        this.assertNotPolicyLocked(topic, "gt")
         numericalCompare("gt", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
       lte: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
+        this.assertNotPolicyLocked(topic, "lte")
         numericalCompare("lte", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
       lt: <T extends NumericalIDCredential>(key: T, value: IDCredentialValue<T>) => {
+        this.assertNotPolicyLocked(topic, "lt")
         numericalCompare("lt", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
@@ -333,20 +378,24 @@ export class ZKPassport {
         start: IDCredentialValue<T>,
         end: IDCredentialValue<T>,
       ) => {
+        this.assertNotPolicyLocked(topic, "range")
         rangeCompare(key, [start, end], topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
       in: <T extends "nationality" | "issuing_country">(key: T, value: IDCredentialValue<T>[]) => {
+        this.assertNotPolicyLocked(topic, "in")
         value = value.map((v) => normalizeCountry(v as CountryName)) as IDCredentialValue<T>[]
         generalCompare("in", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
       out: <T extends "nationality" | "issuing_country">(key: T, value: IDCredentialValue<T>[]) => {
+        this.assertNotPolicyLocked(topic, "out")
         value = value.map((v) => normalizeCountry(v as CountryName)) as IDCredentialValue<T>[]
         generalCompare("out", key, value, topic, this.topicToConfig)
         return this.getZkPassportRequest(topic)
       },
       disclose: (key: DisclosableIDCredential) => {
+        this.assertNotPolicyLocked(topic, "disclose")
         this.topicToConfig[topic][key] = {
           ...this.topicToConfig[topic][key],
           disclose: true,
@@ -361,6 +410,7 @@ export class ZKPassport {
             ? `0x${string}`
             : string | undefined,
       ) => {
+        this.assertNotPolicyLocked(topic, "bind")
         this.topicToConfig[topic].bind = {
           ...this.topicToConfig[topic].bind,
           [key]: value,
@@ -372,6 +422,7 @@ export class ZKPassport {
         lists: SanctionsLists = "all",
         options: { strict?: boolean } = { strict: false },
       ) => {
+        this.assertNotPolicyLocked(topic, "sanctions")
         this.topicToConfig[topic].sanctions = {
           ...this.topicToConfig[topic].sanctions,
           countries,
@@ -399,9 +450,31 @@ export class ZKPassport {
         return this.getZkPassportRequest(topic)
       },
       facematch: (mode: FacematchMode = "regular") => {
+        this.assertNotPolicyLocked(topic, "facematch")
         this.topicToConfig[topic].facematch = {
           mode,
         }
+        return this.getZkPassportRequest(topic)
+      },
+      policy: (id: string) => {
+        this.assertCanApplyPolicy(topic, id)
+        if (!this.dashboardConfig) {
+          if (this.dashboardConfigError) throw this.dashboardConfigError
+          throw new Error(
+            `Cannot apply policy '${id}': dashboard config is unavailable for domain '${this.domain}'.`,
+          )
+        }
+        const policy = this.findPolicy(this.dashboardConfig, id)
+        this.topicToConfig[topic] = policy.query
+        // Policy locks scope; caller's purpose still wins when provided.
+        const svc = this.topicToService[topic]
+        if (svc) {
+          if (!this.topicToCallerPurpose[topic]) {
+            svc.purpose = policy.purpose || DEFAULT_PURPOSE
+          }
+          svc.scope = policyScope(policy)
+        }
+        this.topicToPolicy[topic] = { id: policy.id, version: policy.version }
         return this.getZkPassportRequest(topic)
       },
       done: (() => {
@@ -409,6 +482,7 @@ export class ZKPassport {
         if (topic === "offline-query") {
           const query = this.topicToConfig[topic]
           delete this.topicToConfig[topic]
+          delete this.topicToPolicy[topic]
           return { query }
         }
 
@@ -437,6 +511,7 @@ export class ZKPassport {
           url: this._getUrl(topic),
           query: this.topicToConfig[topic],
           requestId: topic,
+          policy: this.topicToPolicy[topic]?.id,
           onRequestReceived: (callback: () => void) =>
             this.onRequestReceivedCallbacks[topic].push(callback),
           onGeneratingProof: (callback: () => void) =>
@@ -466,14 +541,93 @@ export class ZKPassport {
     }
   }
 
+  private async getDashboardConfig(): Promise<DashboardConfig> {
+    if (this.dashboardConfig) return this.dashboardConfig
+    if (!this.dashboardConfigPromise) {
+      this.dashboardConfigPromise = this.fetchDashboardConfig()
+        .then((c) => {
+          this.dashboardConfig = c
+          return c
+        })
+        .catch((e) => {
+          this.dashboardConfigPromise = null
+          throw e
+        })
+    }
+    return this.dashboardConfigPromise
+  }
+
+  private async fetchDashboardConfig(): Promise<DashboardConfig> {
+    const url = `${DASHBOARD_API_BASE_URL}/public/project?domain=${encodeURIComponent(this.domain)}`
+    let response: Response
+    try {
+      response = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    } catch (e) {
+      throw new Error(
+        `Failed to fetch dashboard config for domain '${this.domain}': ${(e as Error).message}`,
+      )
+    }
+    if (response.status === 404) {
+      throw new Error(
+        `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id, or use self-serve mode (pass name/logo/purpose to request()).`,
+      )
+    }
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch dashboard config for domain '${this.domain}': ${response.status} ${response.statusText}`,
+      )
+    }
+    const config = (await response.json()) as DashboardConfig
+    if (!config || !config.project || !Array.isArray(config.policies)) {
+      throw new Error(`Invalid dashboard config response for domain '${this.domain}'`)
+    }
+    return config
+  }
+
+  private findPolicy(config: DashboardConfig, policyId: string): Policy {
+    const policy = config.policies.find((p) => p.id === policyId)
+    if (!policy) {
+      throw new Error(
+        `Policy '${policyId}' not found for domain '${this.domain}'. The dashboard returned ${config.policies.length} policies for this domain.`,
+      )
+    }
+    if (!Number.isInteger(policy.version) || policy.version < 1) {
+      throw new Error(
+        `Invalid policy '${policyId}' for domain '${this.domain}': version must be a positive integer (got ${JSON.stringify(policy.version)}).`,
+      )
+    }
+    if (!policy.query || typeof policy.query !== "object") {
+      throw new Error(
+        `Invalid policy '${policyId}' for domain '${this.domain}': missing query object.`,
+      )
+    }
+    return policy
+  }
+
+  private assertCanApplyPolicy(topic: string, id: string): void {
+    if (typeof id !== "string" || id.length === 0) {
+      throw new Error(".policy() requires a non-empty string id.")
+    }
+    if (this.topicToPolicy[topic]) {
+      throw new Error(
+        `Cannot call .policy() more than once on a request (already set to '${this.topicToPolicy[topic].id}').`,
+      )
+    }
+    if (Object.keys(this.topicToConfig[topic]).length > 0) {
+      throw new Error("Cannot combine .policy() with builder methods like .gte()/.disclose()/etc.")
+    }
+  }
+
   /**
-   * @notice Create a new request
-   * @param name Your service name
-   * @param logo The logo of your service
-   * @param purpose To explain what you want to do with the user's data
-   * @param scope Scope this request to a specific use case
+   * @notice Create a new request. To apply a policy, chain `.policy('<id>')` on
+   * the returned builder; a policy locks the query and scope.
+   * @param name Your service name. Defaults to the dashboard branding, then the domain.
+   * @param logo Your service logo. Defaults to the dashboard branding.
+   * @param purpose Explanation shown to the user. Defaults to the policy's purpose (if any), then a generic message.
+   * @param scope Use-case scope (drives the nullifier). Defaults to the domain. Locked by `.policy()` (to `<id>:<version>`).
    * @param projectID The project ID of your service
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
+   * @param mode The proof mode (e.g. "fast" / "compressed").
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @returns The query builder object.
    */
@@ -493,9 +647,9 @@ export class ZKPassport {
     cloudProverUrl,
     bridgeUrl,
   }: {
-    name: string
-    logo: string
-    purpose: string
+    name?: string
+    logo?: string
+    purpose?: string
     scope?: string
     mode?: ProofMode
     projectID?: string
@@ -512,6 +666,14 @@ export class ZKPassport {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
 
+    let config: DashboardConfig | undefined
+    try {
+      config = await this.getDashboardConfig()
+      this.dashboardConfigError = null
+    } catch (e) {
+      this.dashboardConfigError = e as Error
+    }
+
     const bridge = await Bridge.create({
       keyPair: keyPairOverride,
       bridgeId: topicOverride,
@@ -521,10 +683,11 @@ export class ZKPassport {
     const topic = bridge.connection.getBridgeId()
 
     this.topicToConfig[topic] = {}
+    this.topicToCallerPurpose[topic] = purpose
     this.topicToService[topic] = {
-      name,
-      logo,
-      purpose,
+      name: name || config?.project?.name || this.domain,
+      logo: logo || config?.project?.logoUrl || "",
+      purpose: purpose || DEFAULT_PURPOSE,
       scope,
       projectID,
       cloudProverUrl,
@@ -532,10 +695,9 @@ export class ZKPassport {
     }
     this.topicToProofs[topic] = []
     this.topicToLocalConfig[topic] = {
-      // Default to 7 days
       validity: validity || DEFAULT_VALIDITY,
       mode: mode || "fast",
-      devMode: devMode || false,
+      devMode: devMode ?? false,
       uniqueIdentifierType: oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType,
       oprfKeyId: oprfKeyId ?? null,
     }
@@ -837,6 +999,7 @@ export class ZKPassport {
     delete this.topicToProofs[requestId]
     delete this.topicToFailedProofCount[requestId]
     delete this.topicToResults[requestId]
+    delete this.topicToPolicy[requestId]
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []

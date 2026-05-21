@@ -69,6 +69,25 @@ export type SolidityVerifierParameters = {
   serviceConfig: SolidityServiceConfig
 }
 
+export type Policy = {
+  id: string
+  version: number
+  name: string
+  purpose: string
+  projectId: string | null
+  query: Query
+}
+
+export type DashboardConfig = {
+  project: {
+    name: string
+    domain: string
+    logoUrl: string | null
+    allowedOrigins: string[]
+  }
+  policies: Policy[]
+}
+
 export type QueryBuilderResult = {
   /**
    * The URL of the request.
@@ -85,6 +104,10 @@ export type QueryBuilderResult = {
    * The id of the request.
    */
   requestId: string
+  /**
+   * The id of the policy used to build the request, if one was provided.
+   */
+  policy?: string
   /**
    * Called when the user has scanned the QR code or clicked the link to the request.
    *
@@ -257,6 +280,13 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    * Best for lower security requirements that requires fast verification such as age verification.
    */
   facematch: (mode?: FacematchMode) => QueryBuilder
+  /**
+   * Applies an immutable policy fetched from the dashboard. The policy's query,
+   * purpose and scope are locked; combining with builder methods or calling
+   * twice throws.
+   * @param id The policy id (e.g. `'pol_xyz'`).
+   */
+  policy: (id: string) => QueryBuilder<T>
   /**
    * Builds the request.
    *
