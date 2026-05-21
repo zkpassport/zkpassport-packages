@@ -20,7 +20,6 @@ import {
   getProofData,
   getNumberOfPublicInputs,
   formatQueryResultDates,
-  OPRF_DEFAULT_KEY_ID,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import i18en from "i18n-iso-countries/langs/en.json"
@@ -51,11 +50,11 @@ if (typeof globalThis.Buffer === "undefined") {
 
 registerLocale(i18en)
 
-// Combines policy id and version into the scope string committed into proofs.
-// Including the version keeps proofs from different policy versions filterable apart.
 function policyScope(policy: { id: string; version: number }): string {
-  return `${policy.id}@v${policy.version}`
+  return `${policy.id}:${policy.version}`
 }
+
+const DEFAULT_PURPOSE = "Verify identity privately"
 
 function normalizeCountry(country: CountryName | Alpha3Code) {
   if (country === "Zero Knowledge Republic") {
@@ -158,19 +157,6 @@ export class ZKPassport {
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
   private topicToPolicy: Record<string, { id: string; version: number }> = {}
-  // Raw caller-supplied request() values for fields that the policy can also
-  // provide and whose defaults are indistinguishable from caller input
-  // (validity=DEFAULT_VALIDITY, mode="fast", devMode=false). Read by .policy()
-  // to merge with caller-wins semantics. purpose/scope use topicToService as
-  // ground truth — "" / undefined there means "not caller-supplied".
-  private topicToCallerArgs: Record<
-    string,
-    { validity?: number; mode?: ProofMode; devMode?: boolean }
-  > = {}
-  // Cached dashboard config. The promise guards against parallel request()
-  // calls firing two fetches; it's cleared on failure so the next call retries.
-  // dashboardConfigError holds the most recent fetch failure so `.policy()` can
-  // surface it (the request() body swallows it for self-serve callers).
   private dashboardConfig: DashboardConfig | null = null
   private dashboardConfigPromise: Promise<DashboardConfig> | null = null
   private dashboardConfigError: Error | null = null
@@ -240,12 +226,9 @@ export class ZKPassport {
       })
     logger.debug("Verification complete, verified:", verified)
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
-    // `verified` only covers the proofs that arrived. If any failed to generate
-    // on the mobile device, the overall result is invalid.
     const finalVerified = hasFailedProofs ? false : verified
-    // Browser-only callers (no domain passed) don't submit — the dashboard
-    // has no way to authenticate them. devMode proofs are mock proofs and
-    // would pollute real-domain stats.
+    // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
+    // pollute real-domain stats.
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
     if (finalVerified && this.domainProvided && !this.disableProofStorage && !devMode) {
       void submitProof({
@@ -477,21 +460,11 @@ export class ZKPassport {
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
         this.topicToConfig[topic] = policy.query
-        // Merge policy values into the request. Caller-supplied request() args
-        // win per field; the policy fills in whatever the caller omitted.
-        // name/logo were already resolved against the dashboard config in
-        // request() and aren't carried on the policy itself.
+        // Policy locks purpose and scope — caller overrides via request() are ignored.
         const svc = this.topicToService[topic]
         if (svc) {
-          svc.purpose = svc.purpose || policy.purpose || ""
-          svc.scope = svc.scope || policyScope(policy)
-        }
-        const caller = this.topicToCallerArgs[topic] ?? {}
-        const local = this.topicToLocalConfig[topic]
-        if (local) {
-          local.validity = caller.validity || policy.validity || DEFAULT_VALIDITY
-          local.mode = caller.mode || policy.mode || "fast"
-          local.devMode = caller.devMode ?? policy.devMode ?? false
+          svc.purpose = policy.purpose || DEFAULT_PURPOSE
+          svc.scope = policyScope(policy)
         }
         this.topicToPolicy[topic] = { id: policy.id, version: policy.version }
         return this.getZkPassportRequest(topic)
@@ -505,33 +478,10 @@ export class ZKPassport {
           return { query }
         }
 
-        const svc = this.topicToService[topic]
-        if (!svc.name || !svc.logo || !svc.purpose) {
-          if (this.topicToPolicy[topic]) {
-            throw new Error(
-              `Policy '${this.topicToPolicy[topic].id}' is missing required service branding (name/logo/purpose) and no per-request override was provided.`,
-            )
-          }
-          throw new Error(
-            "request() requires `name`, `logo`, and `purpose` unless `.policy('<id>')` is called on the builder.",
-          )
-        }
-
         const localConfig = this.topicToLocalConfig[topic]
         const query = this.topicToConfig[topic]
         const hasStrictFacematch = !!query.facematch && query.facematch?.mode === "strict"
 
-        // If nullifier type wasn't explicitly set, default to SALTED only for strict facematch
-        // if (localConfig.uniqueIdentifierType === undefined) {
-        //   if (hasStrictFacematch) {
-        //     localConfig.uniqueIdentifierType = NullifierType.SALTED
-        //     if (!localConfig.oprfKeyId) {
-        //       localConfig.oprfKeyId = OPRF_DEFAULT_KEY_ID
-        //     }
-        //   }
-        // }
-
-        // Validate: SALTED requires strict facematch
         if (localConfig.uniqueIdentifierType === NullifierType.SALTED && !hasStrictFacematch) {
           throw new Error(
             "Salted nullifier requires strict facematch. Add .facematch('strict') to your query or remove the salted nullifier option.",
@@ -542,7 +492,7 @@ export class ZKPassport {
           url: this._getUrl(topic),
           query: this.topicToConfig[topic],
           requestId: topic,
-          policy: this.topicToPolicy[topic],
+          policy: this.topicToPolicy[topic]?.id,
           onRequestReceived: (callback: () => void) =>
             this.onRequestReceivedCallbacks[topic].push(callback),
           onGeneratingProof: (callback: () => void) =>
@@ -570,7 +520,6 @@ export class ZKPassport {
     }
   }
 
-  /** Returns the cached dashboard config, fetching it on first call. */
   private async getDashboardConfig(): Promise<DashboardConfig> {
     if (this.dashboardConfig) return this.dashboardConfig
     if (!this.dashboardConfigPromise) {
@@ -587,12 +536,11 @@ export class ZKPassport {
     return this.dashboardConfigPromise
   }
 
-  /** HTTP fetch + parse + shape-validate of the per-domain dashboard config. */
   private async fetchDashboardConfig(): Promise<DashboardConfig> {
     const url = `${DASHBOARD_API_BASE_URL}/public/app?domain=${encodeURIComponent(this.domain)}`
     let response: Response
     try {
-      response = await fetch(url)
+      response = await fetch(url, { signal: AbortSignal.timeout(10000) })
     } catch (e) {
       throw new Error(
         `Failed to fetch dashboard config for domain '${this.domain}': ${(e as Error).message}`,
@@ -615,7 +563,6 @@ export class ZKPassport {
     return config
   }
 
-  /** Find and shape-validate a policy in an already-fetched config. */
   private findPolicy(config: DashboardConfig, policyId: string): Policy {
     const policy = config.policies.find((p) => p.id === policyId)
     if (!policy) {
@@ -636,7 +583,6 @@ export class ZKPassport {
     return policy
   }
 
-  /** Preconditions for applying a policy via the `.policy()` builder method. */
   private assertCanApplyPolicy(topic: string, id: string): void {
     if (typeof id !== "string" || id.length === 0) {
       throw new Error(".policy() requires a non-empty string id.")
@@ -652,16 +598,15 @@ export class ZKPassport {
   }
 
   /**
-   * @notice Create a new request. To apply a policy, chain `.policy('<id>')`
-   * on the returned builder. Caller-supplied fields here override the policy's
-   * stored values; fields the caller omits fall back to the policy.
-   * @param name Your service name. Required at `.done()` time; falls back to the dashboard branding (`app.name`) if omitted.
-   * @param logo The logo of your service. Required at `.done()` time; falls back to the dashboard branding (`app.logoUrl`) if omitted.
-   * @param purpose To explain what you want to do with the user's data. Required at `.done()` time; with `.policy()`, falls back to the policy's `purpose`.
-   * @param scope Scope this request to a specific use case. With `.policy()`, defaults to `<policyId>@v<version>`.
+   * @notice Create a new request. To apply a policy, chain `.policy('<id>')` on
+   * the returned builder; a policy locks query, purpose and scope.
+   * @param name Your service name. Defaults to the dashboard branding, then the domain.
+   * @param logo Your service logo. Defaults to the dashboard branding.
+   * @param purpose Explanation shown to the user. Defaults to a generic message. Locked by `.policy()`.
+   * @param scope Use-case scope (drives the nullifier). Defaults to the domain. Locked by `.policy()` (to `<id>:<version>`).
    * @param projectID The project ID of your service
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
-   * @param mode The proof mode (e.g. "fast" / "compressed"). With `.policy()`, defaults to the policy's `mode`.
+   * @param mode The proof mode (e.g. "fast" / "compressed").
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @returns The query builder object.
    */
@@ -700,17 +645,11 @@ export class ZKPassport {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
 
-    // Best-effort fetch of the per-domain config so name/logo can default to
-    // the dashboard branding and so a later `.policy('<id>')` can read the
-    // cached config. Self-serve callers (no `.policy()` later) aren't blocked
-    // by a dashboard outage; `.policy()` itself throws if the cache is empty.
     let config: DashboardConfig | undefined
     try {
       config = await this.getDashboardConfig()
       this.dashboardConfigError = null
     } catch (e) {
-      // Stored so `.policy()` can re-throw it if the caller asks for a policy.
-      // Self-serve callers (no `.policy()`) aren't blocked by a failed fetch.
       this.dashboardConfigError = e as Error
     }
 
@@ -723,19 +662,15 @@ export class ZKPassport {
     const topic = bridge.connection.getBridgeId()
 
     this.topicToConfig[topic] = {}
-    // `||` not `??`: empty caller values fall through to dashboard defaults.
-    // purpose/scope have no domain-level defaults — they come from a policy
-    // (resolved later in `.policy()`) or stay caller-only.
     this.topicToService[topic] = {
-      name: name || config?.app?.name || "",
+      name: name || config?.app?.name || this.domain,
       logo: logo || config?.app?.logoUrl || "",
-      purpose: purpose || "",
-      scope,
+      purpose: purpose || DEFAULT_PURPOSE,
+      scope: scope || this.domain,
       projectID,
       cloudProverUrl,
       bridgeUrl,
     }
-    this.topicToCallerArgs[topic] = { validity, mode, devMode }
     this.topicToProofs[topic] = []
     this.topicToLocalConfig[topic] = {
       validity: validity || DEFAULT_VALIDITY,
@@ -1043,7 +978,6 @@ export class ZKPassport {
     delete this.topicToFailedProofCount[requestId]
     delete this.topicToResults[requestId]
     delete this.topicToPolicy[requestId]
-    delete this.topicToCallerArgs[requestId]
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []
