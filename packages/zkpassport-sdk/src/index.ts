@@ -485,6 +485,17 @@ export class ZKPassport {
         const query = this.topicToConfig[topic]
         const hasStrictFacematch = !!query.facematch && query.facematch?.mode === "strict"
 
+        // If nullifier type wasn't explicitly set, default to SALTED only for strict facematch
+        // if (localConfig.uniqueIdentifierType === undefined) {
+        //   if (hasStrictFacematch) {
+        //     localConfig.uniqueIdentifierType = NullifierType.SALTED
+        //     if (!localConfig.oprfKeyId) {
+        //       localConfig.oprfKeyId = OPRF_DEFAULT_KEY_ID
+        //     }
+        //   }
+        // }
+
+        // Validate: SALTED requires strict facematch
         if (localConfig.uniqueIdentifierType === NullifierType.SALTED && !hasStrictFacematch) {
           throw new Error(
             "Salted nullifier requires strict facematch. Add .facematch('strict') to your query or remove the salted nullifier option.",
@@ -670,7 +681,7 @@ export class ZKPassport {
       name: name || config?.project?.name || this.domain,
       logo: logo || config?.project?.logoUrl || "",
       purpose: purpose || DEFAULT_PURPOSE,
-      scope: scope || this.domain,
+      scope,
       projectID,
       cloudProverUrl,
       bridgeUrl,
