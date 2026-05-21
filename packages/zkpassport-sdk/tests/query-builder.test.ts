@@ -464,7 +464,7 @@ describe("Policy-driven requests", () => {
   let fetchCount: number
 
   const sampleConfig = {
-    app: {
+    project: {
       name: "Dashboard Brand",
       domain: "localhost",
       logoUrl: "https://dashboard.example/logo.png",
@@ -476,7 +476,7 @@ describe("Policy-driven requests", () => {
         version: 3,
         name: "Age + nationality",
         purpose: "Policy purpose",
-        applicationId: null,
+        projectId: null,
         query: {
           age: { gte: 18 },
           firstname: { disclose: true },
@@ -488,7 +488,7 @@ describe("Policy-driven requests", () => {
         version: 1,
         name: "Adults only",
         purpose: "",
-        applicationId: null,
+        projectId: null,
         query: { age: { gte: 21 } },
       },
     ],
@@ -523,7 +523,7 @@ describe("Policy-driven requests", () => {
     const queryBuilder = (await zkPassport.request({})).policy("pol_xyz")
     const result = queryBuilder.done()
 
-    expect(lastFetchUrl).toBe("https://dashboard-api.zkpassport.id/public/app?domain=localhost")
+    expect(lastFetchUrl).toBe("https://dashboard-api.zkpassport.id/public/project?domain=localhost")
     expect(result.policy).toBe("pol_xyz")
     expect(result.query).toEqual(sampleConfig.policies[0].query)
 
@@ -631,7 +631,7 @@ describe("Policy-driven requests", () => {
   test(".policy() rejects a policy with an invalid version", async () => {
     for (const version of [0, -1]) {
       mockFetchReturning({
-        app: {
+        project: {
           name: "Brand",
           domain: "localhost",
           logoUrl: "https://e/l.png",
@@ -643,7 +643,7 @@ describe("Policy-driven requests", () => {
             version,
             name: "x",
             purpose: "",
-            applicationId: null,
+            projectId: null,
             query: { age: { gte: 18 } },
           },
         ],
@@ -656,14 +656,14 @@ describe("Policy-driven requests", () => {
 
   test("policy with empty branding falls back to defaults (domain / generic purpose)", async () => {
     mockFetchReturning({
-      app: { name: "", domain: "localhost", logoUrl: null, allowedOrigins: [] },
+      project: { name: "", domain: "localhost", logoUrl: null, allowedOrigins: [] },
       policies: [
         {
           id: "pol_blank",
           version: 1,
           name: "blank",
           purpose: "",
-          applicationId: null,
+          projectId: null,
           query: { age: { gte: 18 } },
         },
       ],

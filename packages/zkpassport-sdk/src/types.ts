@@ -73,19 +73,12 @@ export type Policy = {
   version: number
   name: string
   purpose: string
-  applicationId: string | null
+  projectId: string | null
   query: Query
 }
 
-/**
- * The per-domain configuration returned by the dashboard's `/public/app`
- * endpoint. Includes the verified app and the policies that may run against
- * this domain (org-wide policies plus any locked to this app). `policies` may
- * be empty — that's a valid response for a registered domain with no policies
- * yet.
- */
 export type DashboardConfig = {
-  app: {
+  project: {
     name: string
     domain: string
     logoUrl: string | null

@@ -537,7 +537,7 @@ export class ZKPassport {
   }
 
   private async fetchDashboardConfig(): Promise<DashboardConfig> {
-    const url = `${DASHBOARD_API_BASE_URL}/public/app?domain=${encodeURIComponent(this.domain)}`
+    const url = `${DASHBOARD_API_BASE_URL}/public/project?domain=${encodeURIComponent(this.domain)}`
     let response: Response
     try {
       response = await fetch(url, { signal: AbortSignal.timeout(10000) })
@@ -557,7 +557,7 @@ export class ZKPassport {
       )
     }
     const config = (await response.json()) as DashboardConfig
-    if (!config || !config.app || !Array.isArray(config.policies)) {
+    if (!config || !config.project || !Array.isArray(config.policies)) {
       throw new Error(`Invalid dashboard config response for domain '${this.domain}'`)
     }
     return config
@@ -663,8 +663,8 @@ export class ZKPassport {
 
     this.topicToConfig[topic] = {}
     this.topicToService[topic] = {
-      name: name || config?.app?.name || this.domain,
-      logo: logo || config?.app?.logoUrl || "",
+      name: name || config?.project?.name || this.domain,
+      logo: logo || config?.project?.logoUrl || "",
       purpose: purpose || DEFAULT_PURPOSE,
       scope: scope || this.domain,
       projectID,
