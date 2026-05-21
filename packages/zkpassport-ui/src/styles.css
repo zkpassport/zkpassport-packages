@@ -9,6 +9,7 @@
     --zkp-brand: #2139a3;
     --zkp-success: #16a34a;
     --zkp-error: #dc2626;
+    --zkp-qr-padding: 0px;
 
     all: revert;
     position: relative;
@@ -38,6 +39,7 @@
     --zkp-brand: #6b86d8;
     --zkp-success: #4ade80;
     --zkp-error: #f87171;
+    --zkp-qr-padding: 12px;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -93,14 +95,14 @@
   .zkp-app-icon-slot {
     max-width: 96px;
     min-width: 32px;
+    overflow: hidden;
   }
   .zkp-app-icon {
-    max-height: 100%;
-    max-width: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    display: block;
+    display: block !important;
+    height: 32px !important;
+    width: auto !important;
+    max-width: 96px !important;
+    object-fit: contain !important;
   }
   .zkp-header-dots {
     display: flex;
@@ -167,21 +169,23 @@
     margin: 10px 0 14px;
   }
 
-  /* QR slot */
   .zkp-qr-slot {
     position: relative;
     width: 100%;
     aspect-ratio: 1;
     margin: 16px 0 0;
-    background: var(--zkp-bg);
+    background: #ffffff;
     display: grid;
     place-items: center;
     overflow: hidden;
+    border-radius: 8px;
   }
   .zkp-qr {
     width: 100%;
     height: 100%;
-    color: black;
+    color: #000000;
+    background: #ffffff;
+    padding: var(--zkp-qr-padding);
     transition:
       opacity 200ms ease,
       transform 200ms ease;
@@ -198,7 +202,7 @@
     transform: translate(-50%, -50%);
     width: 14%;
     aspect-ratio: 1;
-    background: var(--zkp-bg);
+    background: #ffffff;
     padding: 3px;
     border-radius: 50%;
     display: grid;
