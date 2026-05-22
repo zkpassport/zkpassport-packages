@@ -84,7 +84,7 @@
     },
     "packages/zkpassport-sdk": {
       "name": "@zkpassport/sdk",
-      "version": "0.15.0-alpha.1",
+      "version": "0.15.0-alpha.2",
       "dependencies": {
         "@aztec/bb.js": "4.2.0-aztecnr-rc.2",
         "@noble/ciphers": "^1.2.1",
@@ -110,7 +110,7 @@
     },
     "packages/zkpassport-ui": {
       "name": "@zkpassport/ui",
-      "version": "0.15.0-alpha.1",
+      "version": "0.15.0-alpha.2",
       "dependencies": {
         "qrcode": "^1.5.4",
       },
@@ -124,7 +124,7 @@
         "react-dom": "^18.3.0",
       },
       "peerDependencies": {
-        "@zkpassport/sdk": "^0.15.0-alpha.1",
+        "@zkpassport/sdk": "^0.15.0-alpha.2",
         "react": ">=18",
         "react-dom": ">=18",
         "typescript": "^5.0.0",
