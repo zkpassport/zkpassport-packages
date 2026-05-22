@@ -53,6 +53,7 @@
       --zkp-brand: #6b86d8;
       --zkp-success: #4ade80;
       --zkp-error: #f87171;
+      --zkp-qr-padding: 12px;
     }
   }
 
