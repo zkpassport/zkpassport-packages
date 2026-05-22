@@ -171,7 +171,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
 // Circular dot modules + concentric-ring finder patterns (Apple/Spotify style).
 // ECC "H" tolerates ~30% damage, leaving room for the center logo overlay.
 function renderQrSvg(url: string): string {
-  const qr = QRCode.create(url, { errorCorrectionLevel: "H" })
+  const qr = QRCode.create(url, { errorCorrectionLevel: "Q" })
   const size = qr.modules.size
   const data = qr.modules.data
   const cell = 100 / size

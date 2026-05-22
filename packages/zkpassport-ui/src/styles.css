@@ -39,7 +39,7 @@
     --zkp-brand: #6b86d8;
     --zkp-success: #4ade80;
     --zkp-error: #f87171;
-    --zkp-qr-padding: 12px;
+    --zkp-qr-padding: 15px;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -53,7 +53,7 @@
       --zkp-brand: #6b86d8;
       --zkp-success: #4ade80;
       --zkp-error: #f87171;
-      --zkp-qr-padding: 12px;
+      --zkp-qr-padding: 15px;
     }
   }
 
@@ -302,7 +302,7 @@
     height: 56px;
     border-radius: 50%;
     background: #efefef;
-    color: var(--zkp-accent);
+    color: #111827;
     display: grid;
     place-items: center;
     animation: zkp-scanned-pulse 1.6s ease-in-out infinite;
