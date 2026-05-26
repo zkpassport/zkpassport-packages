@@ -678,6 +678,7 @@ export class ZKPassport {
       keyPair: keyPairOverride,
       bridgeId: topicOverride,
       bridgeUrl,
+      origin: `https://${this.domain}`,
     })
 
     const topic = bridge.connection.getBridgeId()
