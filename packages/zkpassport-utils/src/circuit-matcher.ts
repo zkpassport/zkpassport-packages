@@ -828,9 +828,8 @@ export async function getDiscloseCircuitInputs(
 }
 
 /**
- * Build the 90-byte disclosure mask over the MRZ for the fields a query reveals (via `disclose`
- * or `eq`). This is the mask committed to by the disclose proof. Shared by getDiscloseCircuitInputs
- * (to build the proof) and getMrzDisclosedNames (to reconstruct the disclosed values).
+ * Build the 90-byte disclosure mask the proof commits to for a query (fields with `disclose`/`eq`).
+ * Shared by getDiscloseCircuitInputs and getMrzDisclosedNames.
  */
 export function getDiscloseMask(passport: PassportViewModel, query: Query): number[] {
   const discloseMask = Array(90).fill(0)
@@ -898,10 +897,9 @@ export function getDiscloseMask(passport: PassportViewModel, query: Query): numb
 }
 
 /**
- * Reconstruct the disclosed name fields from the MRZ exactly as the verifier does: apply the
- * proof's disclosure mask to the MRZ and parse the result with DisclosedData.fromDisclosedBytes.
- * Because it reuses getDiscloseMask, the returned values are byte-for-byte what PublicInputChecker
- * reconstructs from the proof — independent of the DG11 display name.
+ * Reconstruct the disclosed name fields from the MRZ the same way the verifier does: apply the
+ * proof's disclosure mask and parse with DisclosedData.fromDisclosedBytes. Reusing getDiscloseMask
+ * keeps the result in lockstep with PublicInputChecker, independent of the DG11 display name.
  */
 export function getMrzDisclosedNames(
   passport: PassportViewModel,

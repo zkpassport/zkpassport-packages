@@ -453,9 +453,6 @@ describe("Circuit Matcher - RSA", () => {
       nationality: { disclose: true },
       issuing_country: { disclose: true },
     }
-    // Build the actual disclose proof inputs, then reconstruct the name exactly as
-    // PublicInputChecker does: apply the real disclose_mask to the MRZ and parse with
-    // DisclosedData.fromDisclosedBytes. The helper must produce the same name values.
     const inputs = await getDiscloseCircuitInputs(
       PASSPORTS.john,
       query,
