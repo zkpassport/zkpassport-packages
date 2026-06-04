@@ -12,6 +12,7 @@ import {
   getIntegrityCheckCircuitInputs,
   getIssuingCountryExclusionCircuitInputs,
   getIssuingCountryInclusionCircuitInputs,
+  getMrzDisclosedNames,
   getNationalityExclusionCircuitInputs,
   getNationalityInclusionCircuitInputs,
   isCscaSupported,
@@ -42,6 +43,8 @@ import {
   SECONDS_BETWEEN_1900_AND_1970,
   HASH_ALGORITHM_SHA256,
   OPRF_ZERO_PROOF,
+  DisclosedData,
+  getDisclosedBytesFromMrzAndMask,
 } from "../src"
 import { DSC } from "../src/passport/dsc"
 import { AsnParser } from "@peculiar/asn1-schema"
@@ -440,6 +443,39 @@ describe("Circuit Matcher - RSA", () => {
       nullifier_secret: EXPECTED_NULLIFIER_SECRET,
       oprf_proof: OPRF_ZERO_PROOF,
     })
+  })
+
+  it("getMrzDisclosedNames matches the verifier's parsing of the real proof mask", async () => {
+    const query: Query = {
+      firstname: { disclose: true },
+      lastname: { disclose: true },
+      birthdate: { disclose: true },
+      nationality: { disclose: true },
+      issuing_country: { disclose: true },
+    }
+    // Build the actual disclose proof inputs, then reconstruct the name exactly as
+    // PublicInputChecker does: apply the real disclose_mask to the MRZ and parse with
+    // DisclosedData.fromDisclosedBytes. The helper must produce the same name values.
+    const inputs = await getDiscloseCircuitInputs(
+      PASSPORTS.john,
+      query,
+      { dg1Salt: SALT, expiryDateSalt: SALT, dg2HashSalt: SALT, privateNullifierSalt: SALT },
+      NULLIFIER_SECRET,
+      SERVICE_SCOPE,
+      SERVICE_SUBSCOPE,
+      CURRENT_DATE,
+    )
+    const disclosedBytes = getDisclosedBytesFromMrzAndMask(
+      PASSPORTS.john.mrz,
+      inputs!.disclose_mask,
+    )
+    const fromProof = DisclosedData.fromDisclosedBytes(disclosedBytes, "passport")
+    const fromHelper = getMrzDisclosedNames(PASSPORTS.john, query)
+
+    expect(fromHelper.firstName).toEqual(fromProof.firstName)
+    expect(fromHelper.lastName).toEqual(fromProof.lastName)
+    expect(fromHelper.firstName).toBe("JOHN")
+    expect(fromHelper.lastName).toBe("SMITH")
   })
 
   it("should calculate the correct age from passport", () => {

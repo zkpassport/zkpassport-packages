@@ -16,7 +16,7 @@ import {
   normalizeDg2Hash,
   SECONDS_BETWEEN_1900_AND_1970,
 } from "./circuits"
-import { parseDate } from "./circuits/disclose"
+import { DisclosedData, getDisclosedBytesFromMrzAndMask, parseDate } from "./circuits/disclose"
 import type { DigestAlgorithm } from "./cms/types"
 import {
   getBitSizeFromCurve,
@@ -814,6 +814,25 @@ export async function getDiscloseCircuitInputs(
     privateNullifier.toBigInt(),
   )
 
+  const discloseMask = getDiscloseMask(passport, query)
+  return {
+    current_date: currentDateTimestamp,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    disclose_mask: discloseMask,
+    comm_in: commIn.toHex(),
+    service_scope: `0x${service_scope.toString(16)}`,
+    service_subscope: `0x${service_subscope.toString(16)}`,
+    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
+    oprf_proof: oprfProof,
+  }
+}
+
+/**
+ * Build the 90-byte disclosure mask over the MRZ for the fields a query reveals (via `disclose`
+ * or `eq`). This is the mask committed to by the disclose proof. Shared by getDiscloseCircuitInputs
+ * (to build the proof) and getMrzDisclosedNames (to reconstruct the disclosed values).
+ */
+export function getDiscloseMask(passport: PassportViewModel, query: Query): number[] {
   const discloseMask = Array(90).fill(0)
   const fieldsToDisclose: { [key in IDCredential]: boolean } = {} as any
   for (const field in query) {
@@ -875,16 +894,27 @@ export async function getDiscloseCircuitInputs(
       }
     }
   }
-  return {
-    current_date: currentDateTimestamp,
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
-    disclose_mask: discloseMask,
-    comm_in: commIn.toHex(),
-    service_scope: `0x${service_scope.toString(16)}`,
-    service_subscope: `0x${service_subscope.toString(16)}`,
-    nullifier_secret: `0x${nullifierSecret.toString(16)}`,
-    oprf_proof: oprfProof,
-  }
+  return discloseMask
+}
+
+/**
+ * Reconstruct the disclosed name fields from the MRZ exactly as the verifier does: apply the
+ * proof's disclosure mask to the MRZ and parse the result with DisclosedData.fromDisclosedBytes.
+ * Because it reuses getDiscloseMask, the returned values are byte-for-byte what PublicInputChecker
+ * reconstructs from the proof — independent of the DG11 display name.
+ */
+export function getMrzDisclosedNames(
+  passport: PassportViewModel,
+  query: Query,
+): { firstName: string; lastName: string; fullName: string } {
+  // Same heuristic the name-range getters use to pick the MRZ layout
+  const isIDCard = passport.mrz.length === 90
+  const disclosedBytes = getDisclosedBytesFromMrzAndMask(
+    passport.mrz,
+    getDiscloseMask(passport, query),
+  )
+  const data = DisclosedData.fromDisclosedBytes(disclosedBytes, isIDCard ? "id_card" : "passport")
+  return { firstName: data.firstName, lastName: data.lastName, fullName: data.name }
 }
 
 export function calculateAge(passport: PassportViewModel, now?: Date): number {
