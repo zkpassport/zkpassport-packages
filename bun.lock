@@ -136,7 +136,7 @@
     },
     "packages/zkpassport-utils": {
       "name": "@zkpassport/utils",
-      "version": "0.36.1",
+      "version": "0.37.0",
       "dependencies": {
         "@lapo/asn1js": "^2.0.4",
         "@noble/ciphers": "^1.0.0",
