@@ -28,8 +28,8 @@ contract SubVerifier {
     // Maps use the vkeyHash of the outer circuit to the ProofVerifier contract address
     mapping(bytes32 => address) public proofVerifiers;
 
-    // Hash of the protocol-default OPRF public key.
-    // bytes32 public defaultOPRFPubKeyHash;
+    // Hash of the global OPRF public key.
+    bytes32 public globalOPRFPubKeyHash;
 
     event SubVerifierDeployed(address indexed admin, address indexed rootVerifier);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
@@ -37,19 +37,22 @@ contract SubVerifier {
     event ProofVerifierRemoved(address indexed proofVerifier, bytes32 indexed vkeyHash);
     event PausedStatusChanged(bool paused);
 
-    // event DefaultOPRFPubKeyHashUpdated(bytes32 oldHash, bytes32 newHash);
+    event GlobalOPRFPubKeyHashUpdated(bytes32 oldHash, bytes32 newHash);
 
     /**
      * @dev Constructor
      * @param _admin The admin address
      * @param _rootVerifier The address of the ZKPassport root verifier
+     * @param _globalOPRFPubKeyHash Hash of the global OPRF public key.
      */
-    constructor(address _admin, RootVerifier _rootVerifier) {
+    constructor(address _admin, RootVerifier _rootVerifier, bytes32 _globalOPRFPubKeyHash) {
         require(_admin != address(0), "Admin cannot be zero address");
         admin = _admin;
         require(address(_rootVerifier) != address(0), "Root verifier cannot be zero address");
         rootVerifier = _rootVerifier;
+        globalOPRFPubKeyHash = _globalOPRFPubKeyHash;
         emit SubVerifierDeployed(admin, address(_rootVerifier));
+        emit GlobalOPRFPubKeyHashUpdated(bytes32(0), _globalOPRFPubKeyHash);
     }
 
     modifier onlyAdmin() {
@@ -79,15 +82,15 @@ contract SubVerifier {
         emit PausedStatusChanged(_paused);
     }
 
-    // /**
-    //  * @notice Update the protocol-default OPRF public key hash trusted by this SubVerifier.
-    //  * @param newHash The new default OPRF public key hash
-    //  */
-    // function setDefaultOPRFPubKeyHash(bytes32 newHash) external onlyAdmin {
-    //     bytes32 oldHash = defaultOPRFPubKeyHash;
-    //     defaultOPRFPubKeyHash = newHash;
-    //     emit DefaultOPRFPubKeyHashUpdated(oldHash, newHash);
-    // }
+    /**
+     * @notice Update the global OPRF public key hash..
+     * @param newHash The new global OPRF public key hash
+     */
+    function setGlobalOPRFPubKeyHash(bytes32 newHash) external onlyAdmin {
+        bytes32 oldHash = globalOPRFPubKeyHash;
+        globalOPRFPubKeyHash = newHash;
+        emit GlobalOPRFPubKeyHashUpdated(oldHash, newHash);
+    }
 
     function addProofVerifiers(ProofVerifier[] calldata _proofVerifiers) external onlyAdmin {
         for (uint256 i = 0; i < _proofVerifiers.length; i++) {
@@ -157,27 +160,20 @@ contract SubVerifier {
         require(index == paramCommitments.length, "Invalid parameter commitments");
     }
 
-    // Temporarily disabled to match the deployed RootVerifier ABI on Sepolia.
-    // /**
-    //  * @notice For salted (OPRF-derived) nullifier proofs, asserts the proof's oprf_pk_hash
-    //  *         matches the expected OPRF public key hash. No-op for non-salted proofs.
-    //  * @dev The expected hash is the service's `serviceConfig.oprfPubKeyHash` if non-zero,
-    //  *      otherwise this SubVerifier's `defaultOPRFPubKeyHash`.
-    //  * @param publicInputs The public inputs of the proof
-    //  * @param nullifierType The nullifier type extracted from the proof's public inputs
-    //  * @param serviceOPRFPubKeyHash The service's OPRF public key hash override (bytes32(0) means use protocol default)
-    //  */
-    // function _verifyOPRFPubKeyHash(
-    //     bytes32[] calldata publicInputs,
-    //     NullifierType nullifierType,
-    //     bytes32 serviceOPRFPubKeyHash
-    // ) internal view {
-    //     if (nullifierType != NullifierType.SALTED_NULLIFIER && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER) {
-    //         return;
-    //     }
-    //     bytes32 expected = serviceOPRFPubKeyHash != bytes32(0) ? serviceOPRFPubKeyHash : defaultOPRFPubKeyHash;
-    //     require(publicInputs[publicInputs.length - 1] == expected, "Invalid OPRF public key");
-    // }
+    /**
+     * @notice For salted (OPRF-derived) nullifier proofs, asserts the proof's oprf_pk_hash
+     *         matches the SubVerifier's global OPRF public key hash. No-op for non-salted proofs.
+     * @dev Per-service OPRF key overrides are not supported for now.
+     * @param publicInputs The public inputs of the proof
+     * @param nullifierType The nullifier type extracted from the proof's public inputs
+     */
+    function _verifyOPRFPubKeyHash(bytes32[] calldata publicInputs, NullifierType nullifierType) internal view {
+        if (nullifierType != NullifierType.SALTED_NULLIFIER && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER) {
+            return;
+        }
+        require(globalOPRFPubKeyHash != bytes32(0), "globalOPRFPubKeyHash hash not set");
+        require(publicInputs[publicInputs.length - 1] == globalOPRFPubKeyHash, "Invalid OPRF public key");
+    }
 
     function _getProofVerifier(bytes32 vkeyHash) internal view returns (address) {
         address verifier = proofVerifiers[vkeyHash];
@@ -281,10 +277,8 @@ contract SubVerifier {
             "Unsupported nullifier type"
         );
 
-        // Temporarily disabled to match the deployed RootVerifier ABI on Sepolia.
-        // _verifyOPRFPubKeyHash(
-        //     params.proofVerificationData.publicInputs, nullifierType, params.serviceConfig.oprfPubKeyHash
-        // );
+        // For salted proofs, enforce the proof's oprf_pk_hash matches the global OPRF key.
+        _verifyOPRFPubKeyHash(params.proofVerificationData.publicInputs, nullifierType);
 
         // Call the proof verifier for the given Outer Circuit to verify if the actual proof is valid
         isValid = IProofVerifier(verifier)

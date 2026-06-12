@@ -57,7 +57,8 @@ contract DeployRootVerifierScript is DeployBase {
         RootRegistry rootRegistry = RootRegistry(vm.envAddress("ROOT_REGISTRY_ADDRESS"));
         require(address(rootRegistry) != address(0), "ROOT_REGISTRY_ADDRESS must be set");
 
-        // bytes32 defaultOPRFPubKeyHash = vm.envOr("DEFAULT_OPRF_PUB_KEY_HASH", bytes32(0));
+        // Hash of the protocol-default OPRF public key.
+        bytes32 globalOPRFPubKeyHash = vm.envOr("GLOBAL_OPRF_PUB_KEY_HASH", bytes32(0));
 
         vm.startBroadcast();
 
@@ -68,13 +69,9 @@ contract DeployRootVerifierScript is DeployBase {
 
         // Deploy the sub verifier
         console.log("Deploying SubVerifier...");
-        SubVerifier subVerifier = new SubVerifier{salt: CREATE2_SALT}(adminAddress, rootVerifier);
+        SubVerifier subVerifier =
+            new SubVerifier{salt: CREATE2_SALT}(adminAddress, rootVerifier, globalOPRFPubKeyHash);
         console.log("SubVerifier deployed at:", address(subVerifier));
-
-        // // Set the default OPRF pub key hash (skip if zero — admin can set later).
-        // if (defaultOPRFPubKeyHash != bytes32(0)) {
-        //     subVerifier.setDefaultOPRFPubKeyHash(defaultOPRFPubKeyHash);
-        // }
 
         // Add the sub verifier to the root verifier
         rootVerifier.addSubVerifier(SUB_VERIFIER_VERSION, subVerifier);
