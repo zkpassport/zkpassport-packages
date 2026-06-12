@@ -36,7 +36,6 @@ contract SubVerifier {
     event ProofVerifierAdded(address indexed proofVerifier, bytes32 indexed vkeyHash);
     event ProofVerifierRemoved(address indexed proofVerifier, bytes32 indexed vkeyHash);
     event PausedStatusChanged(bool paused);
-
     event GlobalOPRFPubKeyHashUpdated(bytes32 oldHash, bytes32 newHash);
 
     /**
