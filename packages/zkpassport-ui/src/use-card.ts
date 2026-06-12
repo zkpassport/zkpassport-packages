@@ -72,7 +72,8 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         if (cancelled) return
         try {
           fn(...args)
-        } catch {
+        } catch (reason) {
+          console.error(reason)
           setState("error")
         }
       }
@@ -84,7 +85,8 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         let request: QueryBuilderResult
         try {
           request = buildQuery(queryBuilder)
-        } catch {
+        } catch (reason) {
+          console.error(reason)
           setState("error")
           return
         }
@@ -139,19 +141,22 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             setState("waiting")
             fireReady()
           } else setState("connecting")
-        } catch {
+        } catch (reason) {
+          console.error(reason)
           setState("error")
         }
 
         setUrl(request.url)
         try {
           setQrSvg(renderQrSvg(request.url))
-        } catch {
+        } catch (reason) {
+          console.error(reason)
           setState("error")
         }
       })
-      .catch(() => {
+      .catch((reason) => {
         if (cancelled) return
+        console.error(reason)
         setState("error")
       })
 

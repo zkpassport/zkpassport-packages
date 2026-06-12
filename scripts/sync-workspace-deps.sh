@@ -11,12 +11,6 @@ echo "Ensuring workspace dependencies are synced"
 (cd packages/registry-sdk && bun update @zkpassport/utils)
 (cd packages/zkpassport-ui && bun update @zkpassport/sdk)
 
-# Keep @zkpassport/ui's version and @zkpassport/sdk peer range pinned to the
-# SDK's current version. Same versions ⇒ no surprises for downstream installs.
-SDK_VERSION=$(cd packages/zkpassport-sdk && npm pkg get version --workspaces=false | tr -d '"')
-(cd packages/zkpassport-ui && npm pkg set --workspaces=false \
-    "version=$SDK_VERSION" \
-    "peerDependencies.@zkpassport/sdk=^$SDK_VERSION")
 bun install
 
 # Check mode for CI: verify that workspace dependencies are synced
