@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.37.0",
+  "version": "0.37.0-beta.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkpassport/zkpassport-packages",
