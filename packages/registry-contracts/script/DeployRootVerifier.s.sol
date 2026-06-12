@@ -69,8 +69,7 @@ contract DeployRootVerifierScript is DeployBase {
 
         // Deploy the sub verifier
         console.log("Deploying SubVerifier...");
-        SubVerifier subVerifier =
-            new SubVerifier{salt: CREATE2_SALT}(adminAddress, rootVerifier, globalOPRFPubKeyHash);
+        SubVerifier subVerifier = new SubVerifier{salt: CREATE2_SALT}(adminAddress, rootVerifier, globalOPRFPubKeyHash);
         console.log("SubVerifier deployed at:", address(subVerifier));
 
         // Add the sub verifier to the root verifier
