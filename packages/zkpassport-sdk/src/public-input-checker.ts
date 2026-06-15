@@ -82,6 +82,9 @@ import {
   ZKPASSPORT_IOS_APP_ID_HASH,
 } from "./constants"
 
+// Allowance for clock/timezone skew between the proving device and the verifier
+const CURRENT_DATE_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000
+
 export class PublicInputChecker {
   public static checkDiscloseBytesPublicInputs(
     proof: ProofResult,
@@ -2139,6 +2142,19 @@ export class PublicInputChecker {
         message: "The date used to check the validity of the ID falls out of the validity period",
       }
     }
+    // Reject a current_date set in the future
+    if (currentDate.getTime() - today.getTime() > CURRENT_DATE_FUTURE_TOLERANCE_MS) {
+      console.warn("The date used to check the validity of the ID is in the future")
+      isCorrect = false
+      if (!queryResultErrors[circuitName as keyof QueryResultErrors]) {
+        queryResultErrors[circuitName as keyof QueryResultErrors] = {}
+      }
+      queryResultErrors[circuitName as keyof QueryResultErrors]!.date = {
+        expected: `Difference: ${validity} seconds`,
+        received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
+        message: "The date used to check the validity of the ID is in the future",
+      }
+    }
     return { isCorrect, queryResultErrors }
   }
 
@@ -2245,6 +2261,19 @@ export class PublicInputChecker {
               received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
               message:
                 "The date used to check the validity of the ID is older than the validity period",
+            },
+          }
+        }
+        // Reject a current_date set in the future
+        if (currentDate.getTime() - today.getTime() > CURRENT_DATE_FUTURE_TOLERANCE_MS) {
+          console.warn("The date used to check the validity of the ID is in the future")
+          isCorrect = false
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            date: {
+              expected: `Difference: ${validity} seconds`,
+              received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
+              message: "The date used to check the validity of the ID is in the future",
             },
           }
         }
