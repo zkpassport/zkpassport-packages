@@ -64,6 +64,7 @@ import {
   getServiceScopeFromDisclosureProof,
   getServiceSubScopeFromDisclosureProof,
   getOprfPkHashFromDisclosureProof,
+  getOprfPkHashFromOuterProof,
   OPRF_DEFAULT_KEY_ID,
   getOprfPublicKey,
   hashOprfPublicKey,
@@ -2157,6 +2158,7 @@ export class PublicInputChecker {
     let isCorrect = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
+    let oprfPublicKeyHash: bigint | undefined
     const currentTime = new Date()
     const today = new Date(
       currentTime.getFullYear(),
@@ -2690,6 +2692,7 @@ export class PublicInputChecker {
         }
         uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromOuterProof(proofData)
+        oprfPublicKeyHash = getOprfPkHashFromOuterProof(proofData)
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
@@ -3521,25 +3524,29 @@ export class PublicInputChecker {
         const oprfPk = await getOprfPublicKey(oprfKeyId ?? OPRF_DEFAULT_KEY_ID)
         const expectedPkHash = await hashOprfPublicKey(oprfPk)
 
+        let proofPkHash: bigint | undefined = oprfPublicKeyHash
         // Find a disclosure proof to extract oprfPkHash from
-        const disclosureProof = sortedProofs.find(
-          (p) =>
-            p.name &&
-            !p.name.startsWith("sig_check_") &&
-            !p.name.startsWith("data_check_") &&
-            !p.name.startsWith("outer") &&
-            !p.name.startsWith("facematch"),
-        )
-        if (disclosureProof) {
-          const dpData = getProofData(
-            disclosureProof.proof as string,
-            getNumberOfPublicInputs(disclosureProof.name!),
+
+        if (proofPkHash === undefined) {
+          const disclosureProof = sortedProofs.find(
+            (p) =>
+              p.name &&
+              !p.name.startsWith("sig_check_") &&
+              !p.name.startsWith("data_check_") &&
+              !p.name.startsWith("outer") &&
+              !p.name.startsWith("facematch"),
           )
-          const proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
-          if (proofPkHash !== expectedPkHash) {
-            console.warn("OPRF public key hash mismatch: proof uses an unknown OPRF key")
-            isCorrect = false
+          if (disclosureProof) {
+            const dpData = getProofData(
+              disclosureProof.proof as string,
+              getNumberOfPublicInputs(disclosureProof.name!),
+            )
+            proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
           }
+        }
+        if (proofPkHash === undefined || proofPkHash !== expectedPkHash) {
+          console.warn("OPRF public key hash mismatch: proof uses an unknown OPRF key")
+          isCorrect = false
         }
       } catch (error) {
         console.warn("Failed to verify OPRF public key:", error)

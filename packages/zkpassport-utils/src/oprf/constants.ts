@@ -1,12 +1,18 @@
 import type { OPRFProof, OPRFPublicKey } from "./types"
 
 // Default OPRF service configuration
-// TODO: Update the URLS
 export const OPRF_DEFAULT_SERVICES = [
-  "https://oprf.zkpassport.id",
-  "https://oprf-2.zkpassport.id",
-  "https://oprf-3.zkpassport.id",
+  "https://eu.node0.zkp.oprf.taceo.network", // H2ONodes
+  "https://eu.node1.zkp.oprf.taceo.network", // TACEO
+  "https://eu.node2.zkp.oprf.taceo.network", // AztecLabs
 ]
+
+// Staging
+// export const OPRF_DEFAULT_SERVICES = [
+//   "https://eu.node0.stage.zkp.oprf.taceo.network", // H2ONodes
+//   "https://eu.node1.stage.zkp.oprf.taceo.network", // TACEO
+//   "https://eu.node2.stage.zkp.oprf.taceo.network", // AztecLabs
+// ]
 
 export const OPRF_DEFAULT_KEY_ID = "1"
 export const OPRF_DEFAULT_THRESHOLD = 2
