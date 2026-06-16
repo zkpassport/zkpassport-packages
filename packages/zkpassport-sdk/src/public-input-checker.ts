@@ -2142,6 +2142,135 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
+  // Enforce that every condition in `originalQuery` is actually backed by a proof
+  private static checkQueryCompleteness(
+    originalQuery: Query,
+    committedInputKeys: Set<string>,
+  ): { isCorrect: boolean; queryResultErrors: Partial<QueryResultErrors> } {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const has = (...keys: string[]) => keys.some((k) => committedInputKeys.has(k))
+    const flag = (field: keyof QueryResultErrors, message: string) => {
+      isCorrect = false
+      queryResultErrors[field] = {
+        ...queryResultErrors[field],
+        commitment: {
+          expected: "A proof covering the requested condition",
+          received: "No matching proof was provided",
+          message,
+        },
+      }
+    }
+    const hasDisclose = has("disclose_bytes", "disclose_bytes_evm")
+    const isComparison = (c?: {
+      gte?: unknown
+      gt?: unknown
+      lte?: unknown
+      lt?: unknown
+      range?: unknown
+    }) =>
+      !!c &&
+      (c.gte !== undefined ||
+        c.gt !== undefined ||
+        c.lte !== undefined ||
+        c.lt !== undefined ||
+        c.range !== undefined)
+    const isDisclosure = (c?: { eq?: unknown; disclose?: unknown }) =>
+      !!c && (c.eq !== undefined || c.disclose === true)
+
+    const age = originalQuery.age
+    if ((isComparison(age) || age?.eq !== undefined) && !has("compare_age", "compare_age_evm")) {
+      flag("age", "The proof does not verify the requested age condition")
+    }
+
+    if (
+      isComparison(originalQuery.birthdate) &&
+      !has("compare_birthdate", "compare_birthdate_evm")
+    ) {
+      flag("birthdate", "The proof does not verify the requested birthdate condition")
+    }
+    if (isDisclosure(originalQuery.birthdate) && !hasDisclose) {
+      flag("birthdate", "The proof does not disclose the requested birthdate")
+    }
+    if (isComparison(originalQuery.expiry_date) && !has("compare_expiry", "compare_expiry_evm")) {
+      flag("expiry_date", "The proof does not verify the requested expiry date condition")
+    }
+    if (isDisclosure(originalQuery.expiry_date) && !hasDisclose) {
+      flag("expiry_date", "The proof does not disclose the requested expiry date")
+    }
+
+    const nationality = originalQuery.nationality
+    if (
+      nationality?.in !== undefined &&
+      !has("inclusion_check_nationality", "inclusion_check_nationality_evm")
+    ) {
+      flag("nationality", "The proof does not verify the requested nationality inclusion")
+    }
+    if (
+      nationality?.out !== undefined &&
+      !has("exclusion_check_nationality", "exclusion_check_nationality_evm")
+    ) {
+      flag("nationality", "The proof does not verify the requested nationality exclusion")
+    }
+    if (isDisclosure(nationality) && !hasDisclose) {
+      flag("nationality", "The proof does not disclose the requested nationality")
+    }
+
+    const issuingCountry = originalQuery.issuing_country
+    if (
+      issuingCountry?.in !== undefined &&
+      !has("inclusion_check_issuing_country", "inclusion_check_issuing_country_evm")
+    ) {
+      flag("issuing_country", "The proof does not verify the requested issuing country inclusion")
+    }
+    if (
+      issuingCountry?.out !== undefined &&
+      !has("exclusion_check_issuing_country", "exclusion_check_issuing_country_evm")
+    ) {
+      flag("issuing_country", "The proof does not verify the requested issuing country exclusion")
+    }
+    if (isDisclosure(issuingCountry) && !hasDisclose) {
+      flag("issuing_country", "The proof does not disclose the requested issuing country")
+    }
+
+    const discloseOnlyFields: Array<keyof QueryResultErrors> = [
+      "firstname",
+      "lastname",
+      "fullname",
+      "document_number",
+      "document_type",
+      "gender",
+    ]
+    for (const field of discloseOnlyFields) {
+      if (
+        isDisclosure((originalQuery as Record<string, unknown>)[field] as never) &&
+        !hasDisclose
+      ) {
+        flag(field, `The proof does not disclose the requested ${field}`)
+      }
+    }
+
+    if (originalQuery.bind && !has("bind", "bind_evm")) {
+      flag("bind", "The proof does not verify the requested bound data")
+    }
+
+    if (
+      originalQuery.sanctions &&
+      !has("exclusion_check_sanctions", "exclusion_check_sanctions_evm")
+    ) {
+      flag("sanctions", "The proof does not verify the requested sanctions exclusion")
+    }
+
+    if (originalQuery.facematch && !has("facematch", "facematch_evm")) {
+      flag("facematch", "The proof does not verify the requested FaceMatch")
+    }
+
+    if (!isCorrect) {
+      console.warn("The proof does not verify all the requested conditions and information")
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   public static async checkPublicInputs(
     domain: string,
     proofs: Array<ProofResult>,
@@ -3509,6 +3638,15 @@ export class PublicInputChecker {
         // uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
       }
     }
+
+    const committedInputKeys = new Set<string>()
+    for (const p of sortedProofs!) {
+      for (const key of Object.keys(p.committedInputs ?? {})) committedInputKeys.add(key)
+    }
+    const { isCorrect: isQueryComplete, queryResultErrors: completenessErrors } =
+      this.checkQueryCompleteness(originalQuery, committedInputKeys)
+    isCorrect = isCorrect && isQueryComplete
+    queryResultErrors = { ...queryResultErrors, ...completenessErrors }
 
     // Verify OPRF public key if the proof uses a salted nullifier
     if (
