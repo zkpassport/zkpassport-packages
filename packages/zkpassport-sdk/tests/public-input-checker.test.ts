@@ -794,6 +794,24 @@ describe("PublicInputChecker - originalQuery validation", () => {
       )
       expect(hasOriginalQueryError(queryResultErrors.sanctions, "eq")).toBe(false)
     })
+
+    test("fails strict=true request when committed proof is non-strict and queryResult.sanctions is omitted", async () => {
+      const originalQuery: Query = {
+        sanctions: { countries: "all", lists: "all", strict: true },
+      }
+      const queryResult: QueryResult = {} // prover omits the sanctions result
+      const sanctionsCommittedInputs = { rootHash: "abc", isStrict: false } // non-strict proof
+      const sanctionsBuilder = { getRoot: async () => "abc" } as unknown as SanctionsBuilder
+      const { isCorrect, queryResultErrors } =
+        await PublicInputChecker.checkSanctionsExclusionPublicInputs(
+          originalQuery,
+          queryResult,
+          sanctionsCommittedInputs,
+          sanctionsBuilder,
+        )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.sanctions?.eq?.message).toContain("strict mode")
+    })
   })
 
   describe("checkFacematchPublicInputs", () => {
@@ -1551,14 +1569,14 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     })
 
     test("captures all mismatches in a single error when multiple fields differ", () => {
-      // originalQuery matches queryResult so the originalQuery check doesn't overwrite
+      // originalQuery matches the committed boundData so the originalQuery check doesn't overwrite
       const oq: Query = {
-        bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
+        bind: { user_address: "0xccc", chain: "arbitrum", custom_data: "baz" },
       }
       const queryResult: QueryResult = {
         bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
       }
-      // boundData (committed inputs) differs from queryResult on all fields
+      // boundData (committed inputs) differs from the reported queryResult on all fields
       const { isCorrect, queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
         oq,
         queryResult,
@@ -1570,6 +1588,17 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       expect(queryResultErrors.bind!.eq!.message).toContain("user_address")
       expect(queryResultErrors.bind!.eq!.message).toContain("chain")
       expect(queryResultErrors.bind!.eq!.message).toContain("custom_data")
+    })
+
+    test("fails when committed bound data differs from the query", () => {
+      const oq: Query = { bind: { user_address: "0xaaa", chain: "ethereum" } }
+      const { isCorrect, queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
+        oq,
+        {}, // prover omits the bind result
+        { user_address: "0xbbb", chain: "ethereum" }, // committed binds a different address
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.bind?.eq?.message).toContain("original query")
     })
   })
 
@@ -1710,30 +1739,27 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       expect(queryResultErrors.facematch?.eq?.message).toContain("app id")
     })
 
-    test("fails when committed mode does not match queryResult mode", async () => {
+    test("fails when committed mode does not match the requested mode", async () => {
       const queryResult: QueryResult = {
         facematch: { mode: "regular", passed: true },
       }
       const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
         originalQuery,
         queryResult,
-        makeFacematchInputs({ mode: "strict" }), // committed says strict, queryResult says regular
+        makeFacematchInputs({ mode: "strict" }), // committed says strict, query asked for regular
       )
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.facematch?.eq?.message).toContain("facematch mode")
     })
 
-    test("does not check when facematch did not pass", async () => {
-      const queryResult: QueryResult = {
-        facematch: { mode: "regular", passed: false },
-      }
+    test("validates committed inputs even when queryResult is omitted", async () => {
       const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
         originalQuery,
-        queryResult,
-        makeFacematchInputs({ rootKeyLeaf: "0xbadkey" }), // invalid but should not be checked
+        {}, // prover omits the facematch result
+        makeFacematchInputs({ rootKeyLeaf: "0xbadkey" }),
       )
-      expect(isCorrect).toBe(true)
-      expect(queryResultErrors.facematch).not.toBeDefined()
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.eq?.message).toContain("root key")
     })
   })
 })
@@ -2637,5 +2663,122 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(queryResultErrors.facematch?.scope).toBeDefined()
       expect(queryResultErrors.facematch!.scope!.message).toContain("different domain")
     })
+  })
+})
+
+describe("PublicInputChecker - query completeness", () => {
+  const checkQueryCompleteness = (
+    PublicInputChecker as unknown as {
+      checkQueryCompleteness: (
+        originalQuery: Query,
+        committedInputKeys: Set<string>,
+      ) => { isCorrect: boolean; queryResultErrors: Record<string, { commitment?: unknown }> }
+    }
+  ).checkQueryCompleteness.bind(PublicInputChecker)
+
+  const run = (q: Query, keys: string[]) => checkQueryCompleteness(q, new Set(keys))
+
+  test("flags a dropped sanctions condition", () => {
+    const { isCorrect, queryResultErrors } = run(
+      { age: { gte: 18 }, sanctions: {} },
+      ["compare_age"], // sanctions proof omitted
+    )
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.sanctions?.commitment).toBeDefined()
+    expect(queryResultErrors.age).toBeUndefined() // age was provided, so not flagged
+  })
+
+  test("passes when every requested condition has a matching proof", () => {
+    const { isCorrect } = run({ age: { gte: 18 }, sanctions: {} }, [
+      "compare_age",
+      "exclusion_check_sanctions",
+    ])
+    expect(isCorrect).toBe(true)
+  })
+
+  test("accepts EVM committed-input variants", () => {
+    const { isCorrect } = run({ age: { gte: 18 } }, ["compare_age_evm"])
+    expect(isCorrect).toBe(true)
+  })
+
+  test("age comparison requires compare_age", () => {
+    expect(run({ age: { gte: 18 } }, []).isCorrect).toBe(false)
+    expect(run({ age: { lt: 65 } }, ["compare_age"]).isCorrect).toBe(true)
+  })
+
+  test("birthdate: comparison needs compare_birthdate, eq/disclose needs disclose_bytes", () => {
+    expect(run({ birthdate: { gte: new Date("2000-01-01") } }, []).isCorrect).toBe(false)
+    expect(
+      run({ birthdate: { gte: new Date("2000-01-01") } }, ["compare_birthdate"]).isCorrect,
+    ).toBe(true)
+    expect(run({ birthdate: { disclose: true } }, ["compare_birthdate"]).isCorrect).toBe(false)
+    expect(run({ birthdate: { disclose: true } }, ["disclose_bytes"]).isCorrect).toBe(true)
+  })
+
+  test("nationality: in, out and eq", () => {
+    expect(run({ nationality: { in: ["FRA"] } }, []).isCorrect).toBe(false)
+    expect(run({ nationality: { in: ["FRA"] } }, ["inclusion_check_nationality"]).isCorrect).toBe(
+      true,
+    )
+    expect(run({ nationality: { out: ["USA"] } }, ["inclusion_check_nationality"]).isCorrect).toBe(
+      false,
+    )
+    expect(run({ nationality: { out: ["USA"] } }, ["exclusion_check_nationality"]).isCorrect).toBe(
+      true,
+    )
+    expect(run({ nationality: { eq: "FRA" } }, ["disclose_bytes"]).isCorrect).toBe(true)
+  })
+
+  test("disclosable fields require disclose_bytes", () => {
+    expect(run({ firstname: { disclose: true } }, []).isCorrect).toBe(false)
+    expect(run({ firstname: { disclose: true } }, ["disclose_bytes"]).isCorrect).toBe(true)
+    expect(run({ document_number: { eq: "X" } }, ["disclose_bytes"]).isCorrect).toBe(true)
+  })
+
+  test("bind and facematch require their circuits", () => {
+    expect(run({ bind: { user_address: "0x0" } }, []).isCorrect).toBe(false)
+    expect(run({ bind: { user_address: "0x0" } }, ["bind"]).isCorrect).toBe(true)
+    expect(run({ facematch: { mode: "regular" } }, []).isCorrect).toBe(false)
+    expect(run({ facematch: { mode: "regular" } }, ["facematch"]).isCorrect).toBe(true)
+  })
+
+  test("an empty query requires nothing", () => {
+    expect(run({}, []).isCorrect).toBe(true)
+  })
+
+  test("flags every dropped condition independently", () => {
+    const { isCorrect, queryResultErrors } = run(
+      { age: { gte: 18 }, sanctions: {}, facematch: { mode: "regular" } },
+      [], // nothing provided
+    )
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.age?.commitment).toBeDefined()
+    expect(queryResultErrors.sanctions?.commitment).toBeDefined()
+    expect(queryResultErrors.facematch?.commitment).toBeDefined()
+  })
+
+  test("checkPublicInputs fails when an outer proof drops a requested condition", async () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const timestamp = BigInt(getTodayTimestamp())
+    const proofs: ProofResult[] = [
+      {
+        name: "outer_4",
+        proof: buildProofHex([1n, 2n, timestamp, domainScopeHash, 0n, 0n, 0n, 42n]),
+        total: 1,
+        committedInputs: {},
+      },
+    ]
+
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      { sanctions: {} }, // originalQuery
+      {},
+      86400 * 365,
+    )
+
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.sanctions?.commitment?.message).toContain("sanctions exclusion")
   })
 })
