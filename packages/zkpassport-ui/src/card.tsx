@@ -44,8 +44,8 @@ export function Card({ options, controlRef }: CardProps) {
   }, [retry, controlRef])
 
   const displayHeader = options.display?.header ?? true
-  const displayProgress = options.display?.progress ?? true
-  const displayInstructions = options.display?.instructions ?? true
+  const displaySteps = options.display?.steps ?? true
+  const displayAppLinks = options.display?.appLinks ?? true
   const headerName = options.name ?? options.domain ?? ""
   const headerIcon = options.logo ?? ""
   const appJoined =
@@ -108,7 +108,7 @@ export function Card({ options, controlRef }: CardProps) {
         </a>
       ) : null}
 
-      {displayProgress ? (
+      {displaySteps ? (
         <>
           <div className="zkp-divider zkp-divider-top" />
 
@@ -139,7 +139,7 @@ export function Card({ options, controlRef }: CardProps) {
         </>
       ) : null}
 
-      {displayInstructions ? (
+      {displayAppLinks ? (
         <div className={`zkp-collapse${appJoined ? " zkp-collapse-out" : ""}`}>
           <div className="zkp-collapse-inner">
             <div className="zkp-divider zkp-divider-bottom" />
