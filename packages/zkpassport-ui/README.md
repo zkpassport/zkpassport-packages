@@ -78,6 +78,10 @@ Props are a 1:1 mirror of `sdk.request(...)`'s argument shape, plus:
 
 - `domain?` — passed to `new ZKPassport(...)`. Defaults to `window.location.hostname`.
 - `query` (required) — receives the SDK's `QueryBuilder`, applies gates and returns `queryBuilder.done()`.
+- `display?` — toggle optional card sections (each defaults to shown):
+  - `header` — the ZKPassport mark, app logo, and intro line.
+  - `progress` — the verification progress steps.
+  - `instructions` — the footer with the app store download links.
 - Lifecycle callbacks (see table above).
 
 So `name`, `logo`, `purpose`, `scope`, `mode`, `devMode`, `validity`, `uniqueIdentifierType`, `oprfKeyId` are all valid props with their SDK-derived types. New SDK request fields appear automatically on the next SDK bump.

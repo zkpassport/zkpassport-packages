@@ -11,9 +11,20 @@ type SdkRequestProps = Omit<
   "projectID" | "topicOverride" | "keyPairOverride" | "cloudProverUrl" | "bridgeUrl"
 >
 
+// Toggles for optional card sections. Each defaults to shown; set false to hide.
+export type ZKPassportQRCodeDisplayOptions = {
+  // ZKPassport mark, app logo, and the "… uses ZKPassport …" intro line.
+  header?: boolean
+  // The verification progress steps (1–5).
+  progress?: boolean
+  // The "ZKPassport App" footer with the app store download links.
+  instructions?: boolean
+}
+
 export type ZKPassportQRCodeOptions = SdkRequestProps & {
   domain?: string
   theme?: "light" | "dark" | "auto"
+  display?: ZKPassportQRCodeDisplayOptions
   query: (queryBuilder: QueryBuilder) => QueryBuilderResult
   onReady?: () => void
   onRetryClicked?: () => void

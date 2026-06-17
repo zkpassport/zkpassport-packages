@@ -43,6 +43,9 @@ export function Card({ options, controlRef }: CardProps) {
     }
   }, [retry, controlRef])
 
+  const displayHeader = options.display?.header ?? true
+  const displayProgress = options.display?.progress ?? true
+  const displayInstructions = options.display?.instructions ?? true
   const headerName = options.name ?? options.domain ?? ""
   const headerIcon = options.logo ?? ""
   const appJoined =
@@ -63,35 +66,39 @@ export function Card({ options, controlRef }: CardProps) {
           dangerouslySetInnerHTML={{ __html: ICON_REFRESH }}
         />
       ) : null}
-      <div className="zkp-header">
-        <div className="zkp-header-icons">
-          <div className="zkp-zkp-icon" dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }} />
-          {headerIcon ? (
-            <>
-              <div className="zkp-header-dots">
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className="zkp-app-icon-slot">
-                <img
-                  className="zkp-app-icon"
-                  src={headerIcon}
-                  alt={headerName ? `${headerName} icon` : ""}
-                />
-              </div>
-            </>
-          ) : null}
-        </div>
-        <p className="zkp-title">
-          <strong>{headerName || "This app"}</strong>
-          {" uses "}
-          <strong>ZKPassport</strong>
-          {" to verify identity without compromising your privacy."}
-        </p>
-      </div>
+      {displayHeader ? (
+        <>
+          <div className="zkp-header">
+            <div className="zkp-header-icons">
+              <div className="zkp-zkp-icon" dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }} />
+              {headerIcon ? (
+                <>
+                  <div className="zkp-header-dots">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <div className="zkp-app-icon-slot">
+                    <img
+                      className="zkp-app-icon"
+                      src={headerIcon}
+                      alt={headerName ? `${headerName} icon` : ""}
+                    />
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <p className="zkp-title">
+              <strong>{headerName || "This app"}</strong>
+              {" uses "}
+              <strong>ZKPassport</strong>
+              {" to verify identity without compromising your privacy."}
+            </p>
+          </div>
 
-      <div className="zkp-divider zkp-divider-header" />
+          <div className="zkp-divider zkp-divider-header" />
+        </>
+      ) : null}
 
       <QrSlot state={state} qrSvg={qrSvg} caption={overlayCaption} />
 
@@ -101,45 +108,51 @@ export function Card({ options, controlRef }: CardProps) {
         </a>
       ) : null}
 
-      <div className="zkp-divider zkp-divider-top" />
+      {displayProgress ? (
+        <>
+          <div className="zkp-divider zkp-divider-top" />
 
-      <div className="zkp-steps">
-        <ProgressStep status={stepStatuses[0]} icon={appJoined ? null : ICON_DOWNLOAD}>
-          <a href={ZKPASSPORT_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
-            Download
-          </a>
-          {" the ZKPassport mobile app."}
-        </ProgressStep>
-        <ProgressStep status={stepStatuses[1]} icon={appJoined ? null : ICON_SCAN}>
-          Scan this QR code with the ZKPassport app.
-        </ProgressStep>
-        <ProgressStep status={stepStatuses[2]} icon={appJoined ? null : ICON_SHIELD}>
-          Approve the request on your phone.
-        </ProgressStep>
-        <div className={`zkp-collapse${appJoined ? "" : " zkp-collapse-out"}`}>
-          <>
-            <ProgressStep status={stepStatuses[3]} icon={null}>
-              Generate proof on your device.
+          <div className="zkp-steps">
+            <ProgressStep status={stepStatuses[0]} icon={appJoined ? null : ICON_DOWNLOAD}>
+              <a href={ZKPASSPORT_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+                Download
+              </a>
+              {" the ZKPassport mobile app."}
             </ProgressStep>
-            <ProgressStep status={stepStatuses[4]} icon={null}>
-              Verify the proof.
+            <ProgressStep status={stepStatuses[1]} icon={appJoined ? null : ICON_SCAN}>
+              Scan this QR code with the ZKPassport app.
             </ProgressStep>
-          </>
-        </div>
-      </div>
+            <ProgressStep status={stepStatuses[2]} icon={appJoined ? null : ICON_SHIELD}>
+              Approve the request on your phone.
+            </ProgressStep>
+            <div className={`zkp-collapse${appJoined ? "" : " zkp-collapse-out"}`}>
+              <>
+                <ProgressStep status={stepStatuses[3]} icon={null}>
+                  Generate proof on your device.
+                </ProgressStep>
+                <ProgressStep status={stepStatuses[4]} icon={null}>
+                  Verify the proof.
+                </ProgressStep>
+              </>
+            </div>
+          </div>
+        </>
+      ) : null}
 
-      <div className={`zkp-collapse${appJoined ? " zkp-collapse-out" : ""}`}>
-        <div className="zkp-collapse-inner">
-          <div className="zkp-divider zkp-divider-bottom" />
-          <div className="zkp-footer">
-            <span className="zkp-footer-label">ZKPassport App</span>
-            <div className="zkp-store-buttons">
-              <StoreButton href={APP_STORE_URL} badge={APP_STORE_BADGE} />
-              <StoreButton href={GOOGLE_PLAY_URL} badge={GOOGLE_PLAY_BADGE} />
+      {displayInstructions ? (
+        <div className={`zkp-collapse${appJoined ? " zkp-collapse-out" : ""}`}>
+          <div className="zkp-collapse-inner">
+            <div className="zkp-divider zkp-divider-bottom" />
+            <div className="zkp-footer">
+              <span className="zkp-footer-label">ZKPassport App</span>
+              <div className="zkp-store-buttons">
+                <StoreButton href={APP_STORE_URL} badge={APP_STORE_BADGE} />
+                <StoreButton href={GOOGLE_PLAY_URL} badge={GOOGLE_PLAY_BADGE} />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {state === "error" ? (
         <div className="zkp-result-actions">
