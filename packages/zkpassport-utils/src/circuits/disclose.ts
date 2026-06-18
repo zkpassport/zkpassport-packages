@@ -148,10 +148,13 @@ export class DisclosedData {
     const indexOfDoubleChevron = unformattedName.indexOf("<<")
     const lastName =
       indexOfDoubleChevron >= 0 ? unformattedName.substring(0, indexOfDoubleChevron) : ""
-    const firstName =
+    const givenNames =
       indexOfDoubleChevron >= 0 ? unformattedName.substring(indexOfDoubleChevron + 2) : ""
+    const firstSingleChevronIndex = givenNames.indexOf("<")
+    const firstName =
+      firstSingleChevronIndex >= 0 ? givenNames.substring(0, firstSingleChevronIndex) : givenNames
     // To reverse the order as in passports it's lastName first
-    const fullName = firstName + " " + lastName
+    const fullName = givenNames + " " + lastName
 
     return new DisclosedData({
       issuingCountry: decode(raw.issuingCountry),
@@ -188,10 +191,13 @@ export class DisclosedData {
     const indexOfDoubleChevron = unformattedName.indexOf("<<")
     const lastName =
       indexOfDoubleChevron > 0 ? unformattedName.substring(0, indexOfDoubleChevron) : ""
-    const firstName =
+    const givenNames =
       indexOfDoubleChevron > 0 ? unformattedName.substring(indexOfDoubleChevron + 2) : ""
+    const firstSingleChevronIndex = givenNames.indexOf("<")
+    const firstName =
+      firstSingleChevronIndex >= 0 ? givenNames.substring(0, firstSingleChevronIndex) : givenNames
     // To reverse the order as in passports it's lastName first
-    const fullName = firstName + " " + lastName
+    const fullName = givenNames + " " + lastName
 
     return new DisclosedData({
       issuingCountry: decode(raw.issuingCountry),
@@ -244,10 +250,13 @@ export class DisclosedData {
     const indexOfDoubleChevron = unformattedName.indexOf("<<")
     const lastName =
       indexOfDoubleChevron >= 0 ? unformattedName.substring(0, indexOfDoubleChevron) : ""
-    const firstName =
+    const givenNames =
       indexOfDoubleChevron >= 0 ? unformattedName.substring(indexOfDoubleChevron + 2) : ""
+    const firstSingleChevronIndex = givenNames.indexOf("<")
+    const firstName =
+      firstSingleChevronIndex >= 0 ? givenNames.substring(0, firstSingleChevronIndex) : givenNames
     // To reverse the order as in passports it's lastName first
-    const fullName = firstName + " " + lastName
+    const fullName = givenNames + " " + lastName
 
     return new DisclosedData({
       issuingCountry: decode(raw.issuingCountry),

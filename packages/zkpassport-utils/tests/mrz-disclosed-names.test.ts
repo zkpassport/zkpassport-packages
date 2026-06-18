@@ -29,10 +29,10 @@ describe("getMrzDisclosedNames", () => {
     expect(result.lastName).toBe("SMITH")
   })
 
-  it("firstname widens to all given names when fullname is also disclosed", () => {
+  it("firstname stays the first given name even when fullname is also disclosed", () => {
     const query: Query = { firstname: { disclose: true }, fullname: { disclose: true } }
     const result = getMrzDisclosedNames(PASSPORTS.john, query)
-    expect(result.firstName).toBe("JOHN MILLER")
+    expect(result.firstName).toBe("JOHN")
     expect(result.fullName).toBe("JOHN MILLER SMITH")
   })
 

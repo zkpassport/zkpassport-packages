@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.37.0-beta.2",
+  "version": "0.37.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkpassport/zkpassport-packages",
@@ -106,7 +106,6 @@
     "@lapo/asn1js": "^2.0.4",
     "@noble/ciphers": "^1.0.0",
     "@noble/curves": "^2.0.1",
-    "@taceo/oprf-client": "^0.9.0",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^2.1.0",
     "@peculiar/asn1-cms": "^2.3.15",
@@ -115,6 +114,8 @@
     "@peculiar/asn1-schema": "^2.3.15",
     "@peculiar/asn1-x509": "^2.3.15",
     "@peculiar/x509": "^1.12.3",
+    "@taceo/oprf-client": "^0.9.0",
+    "@taceo/oprf-core": "^0.4.0",
     "@zk-kit/utils": "^1.2.1",
     "@zkpassport/poseidon2": "^0.6.2",
     "date-fns": "^4.1.0",
