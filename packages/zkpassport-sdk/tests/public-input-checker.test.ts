@@ -2208,6 +2208,71 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(queryResultErrors.age?.date).toBeUndefined()
     })
+
+    test("fails when proof date is in the future", async () => {
+      const futureTs = BigInt(getTodayTimestamp() + 86400 * 365 * 3)
+      const proofs: ProofResult[] = [
+        {
+          name: "compare_age",
+          proof: buildProofHex([commitment, futureTs, domainScopeHash, 0n, 0n, 0n, nullifier]),
+          total: 1,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365, // large validity, so only the future bound can fail the date
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.date?.message).toContain("in the future")
+    })
+
+    test("passes when proof date is within the future tolerance", async () => {
+      const halfDayAheadTs = BigInt(getTodayTimestamp() + 43200) // 12h ahead, inside 1-day buffer
+      const proofs: ProofResult[] = [
+        {
+          name: "compare_age",
+          proof: buildProofHex([
+            commitment,
+            halfDayAheadTs,
+            domainScopeHash,
+            0n,
+            0n,
+            0n,
+            nullifier,
+          ]),
+          total: 1,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(queryResultErrors.age?.date).toBeUndefined()
+    })
   })
 
   describe("outer proof path - current date validation", () => {
@@ -2282,6 +2347,37 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.outer?.date?.message).toContain("validity period")
+    })
+
+    test("fails when outer proof date is in the future (age inflation)", async () => {
+      const futureTs = BigInt(getTodayTimestamp() + 86400 * 365 * 3) // 3 years ahead
+      const proofs = [makeOuterProof(futureTs)]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.date?.message).toContain("in the future")
+    })
+
+    test("passes when outer proof date is within the future tolerance", async () => {
+      const halfDayAheadTs = BigInt(getTodayTimestamp() + 43200) // 12h ahead, inside 1-day skew
+      const proofs = [makeOuterProof(halfDayAheadTs)]
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400 * 365,
+      )
+
+      expect(queryResultErrors.outer?.date).toBeUndefined()
     })
   })
 
