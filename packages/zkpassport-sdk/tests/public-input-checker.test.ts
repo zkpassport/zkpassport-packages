@@ -12,6 +12,7 @@ import {
   getServiceScopeHash,
   getScopeHash,
   getAgeParameterCommitment,
+  getDisclosedBytesFromMrzAndMask,
 } from "@zkpassport/utils"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -278,6 +279,46 @@ describe("PublicInputChecker - originalQuery validation", () => {
           queryResult,
         )
         expect(hasOriginalQueryError(queryResultErrors.document_type, "eq")).toBe(false)
+      })
+    })
+
+    describe("name sourced from MRZ", () => {
+      // John Miller Smith's MRZ; reveal the firstname + lastname region "SMITH<<JOHN".
+      const johnMRZ =
+        "P<ZKRSMITH<<JOHN<MILLER<<<<<<<<<<<<<<<<<<<<<ZP1111111_ZKR951112_M350101_<<<<<<<<<<<<<<<<"
+      const nameMask = new Array(90).fill(0)
+      nameMask.fill(1, 5, 16)
+      const proof = makeDiscloseProof(getDisclosedBytesFromMrzAndMask(johnMRZ, nameMask))
+      const originalQuery: Query = {
+        firstname: { disclose: true },
+        lastname: { disclose: true },
+      }
+
+      test("fails when lastname is the DG11 full name instead of the MRZ surname", () => {
+        const queryResult: QueryResult = {
+          firstname: { disclose: { result: "John" } },
+          lastname: { disclose: { result: "John Miller Smith" } },
+        }
+        const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+          proof,
+          originalQuery,
+          queryResult,
+        )
+        expect(queryResultErrors.lastname?.disclose).toBeDefined()
+      })
+
+      test("passes when firstname/lastname are sourced from the MRZ", () => {
+        const queryResult: QueryResult = {
+          firstname: { disclose: { result: "John" } },
+          lastname: { disclose: { result: "Smith" } },
+        }
+        const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+          proof,
+          originalQuery,
+          queryResult,
+        )
+        expect(queryResultErrors.firstname?.disclose).toBeUndefined()
+        expect(queryResultErrors.lastname?.disclose).toBeUndefined()
       })
     })
   })
