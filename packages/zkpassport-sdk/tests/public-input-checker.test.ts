@@ -1551,14 +1551,14 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     })
 
     test("captures all mismatches in a single error when multiple fields differ", () => {
-      // originalQuery matches queryResult so the originalQuery check doesn't overwrite
+      // originalQuery matches the committed boundData so the originalQuery check doesn't overwrite
       const oq: Query = {
-        bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
+        bind: { user_address: "0xccc", chain: "arbitrum", custom_data: "baz" },
       }
       const queryResult: QueryResult = {
         bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
       }
-      // boundData (committed inputs) differs from queryResult on all fields
+      // boundData (committed inputs) differs from the reported queryResult on all fields
       const { isCorrect, queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
         oq,
         queryResult,
@@ -1723,17 +1723,14 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       expect(queryResultErrors.facematch?.eq?.message).toContain("facematch mode")
     })
 
-    test("does not check when facematch did not pass", async () => {
-      const queryResult: QueryResult = {
-        facematch: { mode: "regular", passed: false },
-      }
+    test("validates committed inputs even when queryResult is omitted", async () => {
       const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
         originalQuery,
-        queryResult,
-        makeFacematchInputs({ rootKeyLeaf: "0xbadkey" }), // invalid but should not be checked
+        {}, // prover omits the facematch result
+        makeFacematchInputs({ rootKeyLeaf: "0xbadkey" }),
       )
-      expect(isCorrect).toBe(true)
-      expect(queryResultErrors.facematch).not.toBeDefined()
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.eq?.message).toContain("root key")
     })
   })
 })

@@ -1959,13 +1959,12 @@ export class PublicInputChecker {
       }
     }
     if (
-      queryResult.bind &&
-      (originalQuery.bind === undefined ||
-        queryResult.bind.user_address?.toLowerCase().replace("0x", "") !==
-          originalQuery.bind.user_address?.toLowerCase().replace("0x", "") ||
-        queryResult.bind.chain !== originalQuery.bind.chain ||
-        queryResult.bind.custom_data?.trim().toLowerCase() !==
-          originalQuery.bind.custom_data?.trim().toLowerCase())
+      originalQuery.bind === undefined ||
+      boundData.user_address?.toLowerCase().replace("0x", "") !==
+        originalQuery.bind.user_address?.toLowerCase().replace("0x", "") ||
+      boundData.chain !== originalQuery.bind.chain ||
+      boundData.custom_data?.trim().toLowerCase() !==
+        originalQuery.bind.custom_data?.trim().toLowerCase()
     ) {
       console.warn("Bound data does not match the original query")
       isCorrect = false
@@ -1973,7 +1972,7 @@ export class PublicInputChecker {
         ...queryResultErrors.bind,
         eq: {
           expected: `${originalQuery.bind?.user_address}, ${originalQuery.bind?.chain}, ${originalQuery.bind?.custom_data}`,
-          received: `${queryResult.bind.user_address}, ${queryResult.bind.chain}, ${queryResult.bind.custom_data}`,
+          received: `${boundData.user_address}, ${boundData.chain}, ${boundData.custom_data}`,
           message: "Bound data does not match the original query",
         },
       }
@@ -1989,6 +1988,19 @@ export class PublicInputChecker {
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
+    // Validate the committed strict mode directly against the request
+    if (sanctionsCommittedInputs.isStrict !== (originalQuery.sanctions?.strict ?? false)) {
+      console.warn("Sanctions strict mode does not match the original query")
+      isCorrect = false
+      queryResultErrors.sanctions = {
+        ...queryResultErrors.sanctions,
+        eq: {
+          expected: `strict: ${originalQuery.sanctions?.strict ?? false}`,
+          received: `strict: ${sanctionsCommittedInputs.isStrict}`,
+          message: "Sanctions strict mode does not match the original query",
+        },
+      }
+    }
     if (queryResult.sanctions && queryResult.sanctions.passed) {
       // For now it's fixed until we streamline the update of the sanctions registry
       const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
@@ -2043,69 +2055,68 @@ export class PublicInputChecker {
   ) {
     let isCorrect = true
     const queryResultErrors: Partial<QueryResultErrors> = {}
-    if (queryResult.facematch && queryResult.facematch.passed) {
-      // Check if the root key is either from Apple (iOS) or Google (Android)
-      if (
-        facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
-        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH &&
-        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH
-      ) {
-        console.warn("Invalid facematch root key hash")
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or ${GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH} (Android) or ${GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH} (Android)`,
-            received: facematchCommittedInputs.rootKeyLeaf,
-            message: "Invalid facematch root key hash",
-          },
-        }
+    // Validate the committed facematch parameters against the request
+    // Check if the root key is either from Apple (iOS) or Google (Android)
+    if (
+      facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
+      facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH &&
+      facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH
+    ) {
+      console.warn("Invalid facematch root key hash")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or ${GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH} (Android) or ${GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH} (Android)`,
+          received: facematchCommittedInputs.rootKeyLeaf,
+          message: "Invalid facematch root key hash",
+        },
       }
-      const EXPECTED_ENVIRONMENT = "production"
-      if (facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT) {
-        console.warn("Invalid facematch environment, it should be production")
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: EXPECTED_ENVIRONMENT,
-            received: facematchCommittedInputs.environment,
-            message: "Invalid facematch environment, it should be production",
-          },
-        }
+    }
+    const EXPECTED_ENVIRONMENT = "production"
+    if (facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT) {
+      console.warn("Invalid facematch environment, it should be production")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: EXPECTED_ENVIRONMENT,
+          received: facematchCommittedInputs.environment,
+          message: "Invalid facematch environment, it should be production",
+        },
       }
-      if (
-        facematchCommittedInputs.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
-        facematchCommittedInputs.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
-      ) {
-        console.warn(
-          "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
-        )
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
-            received: facematchCommittedInputs.appIdHash,
-            message:
-              "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
-          },
-        }
+    }
+    if (
+      facematchCommittedInputs.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
+      facematchCommittedInputs.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
+    ) {
+      console.warn(
+        "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
+      )
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
+          received: facematchCommittedInputs.appIdHash,
+          message:
+            "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
+        },
       }
-      if (
-        facematchCommittedInputs.mode !== queryResult.facematch?.mode ||
-        facematchCommittedInputs.mode !== originalQuery.facematch?.mode
-      ) {
-        console.warn("Invalid facematch mode")
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: originalQuery.facematch?.mode,
-            received: facematchCommittedInputs.mode,
-            message: "Invalid facematch mode",
-          },
-        }
+    }
+    if (
+      (queryResult.facematch && facematchCommittedInputs.mode !== queryResult.facematch.mode) ||
+      facematchCommittedInputs.mode !== originalQuery.facematch?.mode
+    ) {
+      console.warn("Invalid facematch mode")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: originalQuery.facematch?.mode,
+          received: facematchCommittedInputs.mode,
+          message: "Invalid facematch mode",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
