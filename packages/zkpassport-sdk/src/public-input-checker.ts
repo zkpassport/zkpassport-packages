@@ -64,6 +64,7 @@ import {
   getServiceScopeFromDisclosureProof,
   getServiceSubScopeFromDisclosureProof,
   getOprfPkHashFromDisclosureProof,
+  getOprfPkHashFromOuterProof,
   OPRF_DEFAULT_KEY_ID,
   getOprfPublicKey,
   hashOprfPublicKey,
@@ -81,6 +82,9 @@ import {
   ZKPASSPORT_ANDROID_APP_ID_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
 } from "./constants"
+
+// Allowance for clock/timezone skew between the proving device and the verifier
+const CURRENT_DATE_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000
 
 export class PublicInputChecker {
   public static checkDiscloseBytesPublicInputs(
@@ -1955,13 +1959,12 @@ export class PublicInputChecker {
       }
     }
     if (
-      queryResult.bind &&
-      (originalQuery.bind === undefined ||
-        queryResult.bind.user_address?.toLowerCase().replace("0x", "") !==
-          originalQuery.bind.user_address?.toLowerCase().replace("0x", "") ||
-        queryResult.bind.chain !== originalQuery.bind.chain ||
-        queryResult.bind.custom_data?.trim().toLowerCase() !==
-          originalQuery.bind.custom_data?.trim().toLowerCase())
+      originalQuery.bind === undefined ||
+      boundData.user_address?.toLowerCase().replace("0x", "") !==
+        originalQuery.bind.user_address?.toLowerCase().replace("0x", "") ||
+      boundData.chain !== originalQuery.bind.chain ||
+      boundData.custom_data?.trim().toLowerCase() !==
+        originalQuery.bind.custom_data?.trim().toLowerCase()
     ) {
       console.warn("Bound data does not match the original query")
       isCorrect = false
@@ -1969,7 +1972,7 @@ export class PublicInputChecker {
         ...queryResultErrors.bind,
         eq: {
           expected: `${originalQuery.bind?.user_address}, ${originalQuery.bind?.chain}, ${originalQuery.bind?.custom_data}`,
-          received: `${queryResult.bind.user_address}, ${queryResult.bind.chain}, ${queryResult.bind.custom_data}`,
+          received: `${boundData.user_address}, ${boundData.chain}, ${boundData.custom_data}`,
           message: "Bound data does not match the original query",
         },
       }
@@ -1985,6 +1988,19 @@ export class PublicInputChecker {
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
+    // Validate the committed strict mode directly against the request
+    if (sanctionsCommittedInputs.isStrict !== (originalQuery.sanctions?.strict ?? false)) {
+      console.warn("Sanctions strict mode does not match the original query")
+      isCorrect = false
+      queryResultErrors.sanctions = {
+        ...queryResultErrors.sanctions,
+        eq: {
+          expected: `strict: ${originalQuery.sanctions?.strict ?? false}`,
+          received: `strict: ${sanctionsCommittedInputs.isStrict}`,
+          message: "Sanctions strict mode does not match the original query",
+        },
+      }
+    }
     if (queryResult.sanctions && queryResult.sanctions.passed) {
       // For now it's fixed until we streamline the update of the sanctions registry
       const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
@@ -2039,69 +2055,68 @@ export class PublicInputChecker {
   ) {
     let isCorrect = true
     const queryResultErrors: Partial<QueryResultErrors> = {}
-    if (queryResult.facematch && queryResult.facematch.passed) {
-      // Check if the root key is either from Apple (iOS) or Google (Android)
-      if (
-        facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
-        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH &&
-        facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH
-      ) {
-        console.warn("Invalid facematch root key hash")
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or ${GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH} (Android) or ${GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH} (Android)`,
-            received: facematchCommittedInputs.rootKeyLeaf,
-            message: "Invalid facematch root key hash",
-          },
-        }
+    // Validate the committed facematch parameters against the request
+    // Check if the root key is either from Apple (iOS) or Google (Android)
+    if (
+      facematchCommittedInputs.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
+      facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH &&
+      facematchCommittedInputs.rootKeyLeaf !== GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH
+    ) {
+      console.warn("Invalid facematch root key hash")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or ${GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH} (Android) or ${GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH} (Android)`,
+          received: facematchCommittedInputs.rootKeyLeaf,
+          message: "Invalid facematch root key hash",
+        },
       }
-      const EXPECTED_ENVIRONMENT = "production"
-      if (facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT) {
-        console.warn("Invalid facematch environment, it should be production")
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: EXPECTED_ENVIRONMENT,
-            received: facematchCommittedInputs.environment,
-            message: "Invalid facematch environment, it should be production",
-          },
-        }
+    }
+    const EXPECTED_ENVIRONMENT = "production"
+    if (facematchCommittedInputs.environment !== EXPECTED_ENVIRONMENT) {
+      console.warn("Invalid facematch environment, it should be production")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: EXPECTED_ENVIRONMENT,
+          received: facematchCommittedInputs.environment,
+          message: "Invalid facematch environment, it should be production",
+        },
       }
-      if (
-        facematchCommittedInputs.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
-        facematchCommittedInputs.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
-      ) {
-        console.warn(
-          "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
-        )
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
-            received: facematchCommittedInputs.appIdHash,
-            message:
-              "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
-          },
-        }
+    }
+    if (
+      facematchCommittedInputs.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
+      facematchCommittedInputs.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
+    ) {
+      console.warn(
+        "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
+      )
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
+          received: facematchCommittedInputs.appIdHash,
+          message:
+            "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
+        },
       }
-      if (
-        facematchCommittedInputs.mode !== queryResult.facematch?.mode ||
-        facematchCommittedInputs.mode !== originalQuery.facematch?.mode
-      ) {
-        console.warn("Invalid facematch mode")
-        isCorrect = false
-        queryResultErrors.facematch = {
-          ...queryResultErrors.facematch,
-          eq: {
-            expected: originalQuery.facematch?.mode,
-            received: facematchCommittedInputs.mode,
-            message: "Invalid facematch mode",
-          },
-        }
+    }
+    if (
+      (queryResult.facematch && facematchCommittedInputs.mode !== queryResult.facematch.mode) ||
+      facematchCommittedInputs.mode !== originalQuery.facematch?.mode
+    ) {
+      console.warn("Invalid facematch mode")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: originalQuery.facematch?.mode,
+          received: facematchCommittedInputs.mode,
+          message: "Invalid facematch mode",
+        },
       }
     }
     return { isCorrect, queryResultErrors }
@@ -2139,6 +2154,148 @@ export class PublicInputChecker {
         message: "The date used to check the validity of the ID falls out of the validity period",
       }
     }
+    // Reject a current_date set in the future
+    if (currentDate.getTime() - today.getTime() > CURRENT_DATE_FUTURE_TOLERANCE_MS) {
+      console.warn("The date used to check the validity of the ID is in the future")
+      isCorrect = false
+      if (!queryResultErrors[circuitName as keyof QueryResultErrors]) {
+        queryResultErrors[circuitName as keyof QueryResultErrors] = {}
+      }
+      queryResultErrors[circuitName as keyof QueryResultErrors]!.date = {
+        expected: `Difference: ${validity} seconds`,
+        received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
+        message: "The date used to check the validity of the ID is in the future",
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
+  // Enforce that every condition in `originalQuery` is actually backed by a proof
+  private static checkQueryCompleteness(
+    originalQuery: Query,
+    committedInputKeys: Set<string>,
+  ): { isCorrect: boolean; queryResultErrors: Partial<QueryResultErrors> } {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const has = (...keys: string[]) => keys.some((k) => committedInputKeys.has(k))
+    const flag = (field: keyof QueryResultErrors, message: string) => {
+      isCorrect = false
+      queryResultErrors[field] = {
+        ...queryResultErrors[field],
+        commitment: {
+          expected: "A proof covering the requested condition",
+          received: "No matching proof was provided",
+          message,
+        },
+      }
+    }
+    const hasDisclose = has("disclose_bytes", "disclose_bytes_evm")
+    const isComparison = (c?: {
+      gte?: unknown
+      gt?: unknown
+      lte?: unknown
+      lt?: unknown
+      range?: unknown
+    }) =>
+      !!c &&
+      (c.gte !== undefined ||
+        c.gt !== undefined ||
+        c.lte !== undefined ||
+        c.lt !== undefined ||
+        c.range !== undefined)
+    const isDisclosure = (c?: { eq?: unknown; disclose?: unknown }) =>
+      !!c && (c.eq !== undefined || c.disclose === true)
+
+    const age = originalQuery.age
+    if ((isComparison(age) || age?.eq !== undefined) && !has("compare_age", "compare_age_evm")) {
+      flag("age", "The proof does not verify the requested age condition")
+    }
+
+    if (
+      isComparison(originalQuery.birthdate) &&
+      !has("compare_birthdate", "compare_birthdate_evm")
+    ) {
+      flag("birthdate", "The proof does not verify the requested birthdate condition")
+    }
+    if (isDisclosure(originalQuery.birthdate) && !hasDisclose) {
+      flag("birthdate", "The proof does not disclose the requested birthdate")
+    }
+    if (isComparison(originalQuery.expiry_date) && !has("compare_expiry", "compare_expiry_evm")) {
+      flag("expiry_date", "The proof does not verify the requested expiry date condition")
+    }
+    if (isDisclosure(originalQuery.expiry_date) && !hasDisclose) {
+      flag("expiry_date", "The proof does not disclose the requested expiry date")
+    }
+
+    const nationality = originalQuery.nationality
+    if (
+      nationality?.in !== undefined &&
+      !has("inclusion_check_nationality", "inclusion_check_nationality_evm")
+    ) {
+      flag("nationality", "The proof does not verify the requested nationality inclusion")
+    }
+    if (
+      nationality?.out !== undefined &&
+      !has("exclusion_check_nationality", "exclusion_check_nationality_evm")
+    ) {
+      flag("nationality", "The proof does not verify the requested nationality exclusion")
+    }
+    if (isDisclosure(nationality) && !hasDisclose) {
+      flag("nationality", "The proof does not disclose the requested nationality")
+    }
+
+    const issuingCountry = originalQuery.issuing_country
+    if (
+      issuingCountry?.in !== undefined &&
+      !has("inclusion_check_issuing_country", "inclusion_check_issuing_country_evm")
+    ) {
+      flag("issuing_country", "The proof does not verify the requested issuing country inclusion")
+    }
+    if (
+      issuingCountry?.out !== undefined &&
+      !has("exclusion_check_issuing_country", "exclusion_check_issuing_country_evm")
+    ) {
+      flag("issuing_country", "The proof does not verify the requested issuing country exclusion")
+    }
+    if (isDisclosure(issuingCountry) && !hasDisclose) {
+      flag("issuing_country", "The proof does not disclose the requested issuing country")
+    }
+
+    const discloseOnlyFields: Array<keyof QueryResultErrors> = [
+      "firstname",
+      "lastname",
+      "fullname",
+      "document_number",
+      "document_type",
+      "gender",
+    ]
+    for (const field of discloseOnlyFields) {
+      if (
+        isDisclosure((originalQuery as Record<string, unknown>)[field] as never) &&
+        !hasDisclose
+      ) {
+        flag(field, `The proof does not disclose the requested ${field}`)
+      }
+    }
+
+    if (originalQuery.bind && !has("bind", "bind_evm")) {
+      flag("bind", "The proof does not verify the requested bound data")
+    }
+
+    if (
+      originalQuery.sanctions &&
+      !has("exclusion_check_sanctions", "exclusion_check_sanctions_evm")
+    ) {
+      flag("sanctions", "The proof does not verify the requested sanctions exclusion")
+    }
+
+    if (originalQuery.facematch && !has("facematch", "facematch_evm")) {
+      flag("facematch", "The proof does not verify the requested FaceMatch")
+    }
+
+    if (!isCorrect) {
+      console.warn("The proof does not verify all the requested conditions and information")
+    }
     return { isCorrect, queryResultErrors }
   }
 
@@ -2157,6 +2314,7 @@ export class PublicInputChecker {
     let isCorrect = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
+    let oprfPublicKeyHash: bigint | undefined
     const currentTime = new Date()
     const today = new Date(
       currentTime.getFullYear(),
@@ -2245,6 +2403,19 @@ export class PublicInputChecker {
               received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
               message:
                 "The date used to check the validity of the ID is older than the validity period",
+            },
+          }
+        }
+        // Reject a current_date set in the future
+        if (currentDate.getTime() - today.getTime() > CURRENT_DATE_FUTURE_TOLERANCE_MS) {
+          console.warn("The date used to check the validity of the ID is in the future")
+          isCorrect = false
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            date: {
+              expected: `Difference: ${validity} seconds`,
+              received: `Difference: ${Math.round(todayToCurrentDate / 1000)} seconds`,
+              message: "The date used to check the validity of the ID is in the future",
             },
           }
         }
@@ -2690,6 +2861,7 @@ export class PublicInputChecker {
         }
         uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
         uniqueIdentifierType = getNullifierTypeFromOuterProof(proofData)
+        oprfPublicKeyHash = getOprfPkHashFromOuterProof(proofData)
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
@@ -3510,6 +3682,15 @@ export class PublicInputChecker {
       }
     }
 
+    const committedInputKeys = new Set<string>()
+    for (const p of sortedProofs!) {
+      for (const key of Object.keys(p.committedInputs ?? {})) committedInputKeys.add(key)
+    }
+    const { isCorrect: isQueryComplete, queryResultErrors: completenessErrors } =
+      this.checkQueryCompleteness(originalQuery, committedInputKeys)
+    isCorrect = isCorrect && isQueryComplete
+    queryResultErrors = { ...queryResultErrors, ...completenessErrors }
+
     // Verify OPRF public key if the proof uses a salted nullifier
     if (
       isCorrect &&
@@ -3521,25 +3702,29 @@ export class PublicInputChecker {
         const oprfPk = await getOprfPublicKey(oprfKeyId ?? OPRF_DEFAULT_KEY_ID)
         const expectedPkHash = await hashOprfPublicKey(oprfPk)
 
+        let proofPkHash: bigint | undefined = oprfPublicKeyHash
         // Find a disclosure proof to extract oprfPkHash from
-        const disclosureProof = sortedProofs.find(
-          (p) =>
-            p.name &&
-            !p.name.startsWith("sig_check_") &&
-            !p.name.startsWith("data_check_") &&
-            !p.name.startsWith("outer") &&
-            !p.name.startsWith("facematch"),
-        )
-        if (disclosureProof) {
-          const dpData = getProofData(
-            disclosureProof.proof as string,
-            getNumberOfPublicInputs(disclosureProof.name!),
+
+        if (proofPkHash === undefined) {
+          const disclosureProof = sortedProofs.find(
+            (p) =>
+              p.name &&
+              !p.name.startsWith("sig_check_") &&
+              !p.name.startsWith("data_check_") &&
+              !p.name.startsWith("outer") &&
+              !p.name.startsWith("facematch"),
           )
-          const proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
-          if (proofPkHash !== expectedPkHash) {
-            console.warn("OPRF public key hash mismatch: proof uses an unknown OPRF key")
-            isCorrect = false
+          if (disclosureProof) {
+            const dpData = getProofData(
+              disclosureProof.proof as string,
+              getNumberOfPublicInputs(disclosureProof.name!),
+            )
+            proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
           }
+        }
+        if (proofPkHash === undefined || proofPkHash !== expectedPkHash) {
+          console.warn("OPRF public key hash mismatch: proof uses an unknown OPRF key")
+          isCorrect = false
         }
       } catch (error) {
         console.warn("Failed to verify OPRF public key:", error)

@@ -84,8 +84,7 @@ enum OS {
 //     ├── uint256 validityPeriodInSeconds    // How long the proof is valid
 //     ├── string domain                      // Service domain
 //     ├── string scope                       // Service scope
-//     ├── bool devMode                       // Development mode flag
-//     └── bytes32 oprfPubKeyHash             // Per-service OPRF pk hash override; 0 = use SubVerifier default
+//     └── bool devMode                       // Development mode flag
 struct ProofVerificationParams {
     bytes32 version;
     ProofVerificationData proofVerificationData;
@@ -104,8 +103,6 @@ struct ServiceConfig {
     string domain;
     string scope;
     bool devMode;
-    // Temporarily disabled to match the deployed RootVerifier ABI
-    // bytes32 oprfPubKeyHash;
 }
 
 struct DisclosedData {

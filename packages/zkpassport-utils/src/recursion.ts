@@ -80,9 +80,16 @@ export function getOuterCircuitInputs(
     disclosure_proofs: disclosureProofs.map((proof) => ({
       vkey: proof.vkey,
       proof: proof.proof,
-      // Only keep the commitment in and the nullifier from the public inputs
-      // all the rest are passed directly as public inputs to the outer circuit
-      public_inputs: [proof.publicInputs[0], proof.publicInputs[6]],
+      // Keep the commitment in, scoped nullifier, nullifier type and oprf pk hash from the
+      // disclosure proof's public inputs (in the order the outer circuit's DisclosureProof
+      // struct expects them). The remaining values are passed directly to the outer circuit.
+      // Disclosure circuit layout: [0] comm_in, [5] nullifier_type, [6] scoped_nullifier, [7] oprf_pk_hash.
+      public_inputs: [
+        proof.publicInputs[0], // comm_in
+        proof.publicInputs[6], // scoped_nullifier
+        proof.publicInputs[5], // nullifier_type
+        proof.publicInputs[7], // oprf_pk_hash
+      ],
       key_hash: proof.keyHash,
       tree_hash_path: proof.treeHashPath,
       tree_index: proof.treeIndex,

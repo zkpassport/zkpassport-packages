@@ -68,6 +68,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need history to compare versions against the base branch
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -84,6 +86,9 @@ jobs:
 
       - name: Ensure workspace dependencies are synced
         run: bash scripts/sync-workspace-deps.sh check
+
+      - name: Ensure UI is bumped when SDK is bumped
+        run: bash scripts/check-ui-bumped-with-sdk.sh
 
   large-file-check:
     name: Large File Check

@@ -1592,14 +1592,14 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     })
 
     test("captures all mismatches in a single error when multiple fields differ", () => {
-      // originalQuery matches queryResult so the originalQuery check doesn't overwrite
+      // originalQuery matches the committed boundData so the originalQuery check doesn't overwrite
       const oq: Query = {
-        bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
+        bind: { user_address: "0xccc", chain: "arbitrum", custom_data: "baz" },
       }
       const queryResult: QueryResult = {
         bind: { user_address: "0xbbb", chain: "ethereum", custom_data: "bar" },
       }
-      // boundData (committed inputs) differs from queryResult on all fields
+      // boundData (committed inputs) differs from the reported queryResult on all fields
       const { isCorrect, queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
         oq,
         queryResult,
@@ -1764,17 +1764,14 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       expect(queryResultErrors.facematch?.eq?.message).toContain("facematch mode")
     })
 
-    test("does not check when facematch did not pass", async () => {
-      const queryResult: QueryResult = {
-        facematch: { mode: "regular", passed: false },
-      }
+    test("validates committed inputs even when queryResult is omitted", async () => {
       const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
         originalQuery,
-        queryResult,
-        makeFacematchInputs({ rootKeyLeaf: "0xbadkey" }), // invalid but should not be checked
+        {}, // prover omits the facematch result
+        makeFacematchInputs({ rootKeyLeaf: "0xbadkey" }),
       )
-      expect(isCorrect).toBe(true)
-      expect(queryResultErrors.facematch).not.toBeDefined()
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.eq?.message).toContain("root key")
     })
   })
 })
@@ -2223,6 +2220,71 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(queryResultErrors.age?.date).toBeUndefined()
     })
+
+    test("fails when proof date is in the future", async () => {
+      const futureTs = BigInt(getTodayTimestamp() + 86400 * 365 * 3)
+      const proofs: ProofResult[] = [
+        {
+          name: "compare_age",
+          proof: buildProofHex([commitment, futureTs, domainScopeHash, 0n, 0n, 0n, nullifier]),
+          total: 1,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365, // large validity, so only the future bound can fail the date
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.date?.message).toContain("in the future")
+    })
+
+    test("passes when proof date is within the future tolerance", async () => {
+      const halfDayAheadTs = BigInt(getTodayTimestamp() + 43200) // 12h ahead, inside 1-day buffer
+      const proofs: ProofResult[] = [
+        {
+          name: "compare_age",
+          proof: buildProofHex([
+            commitment,
+            halfDayAheadTs,
+            domainScopeHash,
+            0n,
+            0n,
+            0n,
+            nullifier,
+          ]),
+          total: 1,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(queryResultErrors.age?.date).toBeUndefined()
+    })
   })
 
   describe("outer proof path - current date validation", () => {
@@ -2297,6 +2359,37 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.outer?.date?.message).toContain("validity period")
+    })
+
+    test("fails when outer proof date is in the future (age inflation)", async () => {
+      const futureTs = BigInt(getTodayTimestamp() + 86400 * 365 * 3) // 3 years ahead
+      const proofs = [makeOuterProof(futureTs)]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.date?.message).toContain("in the future")
+    })
+
+    test("passes when outer proof date is within the future tolerance", async () => {
+      const halfDayAheadTs = BigInt(getTodayTimestamp() + 43200) // 12h ahead, inside 1-day skew
+      const proofs = [makeOuterProof(halfDayAheadTs)]
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400 * 365,
+      )
+
+      expect(queryResultErrors.outer?.date).toBeUndefined()
     })
   })
 
@@ -2678,5 +2771,122 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(queryResultErrors.facematch?.scope).toBeDefined()
       expect(queryResultErrors.facematch!.scope!.message).toContain("different domain")
     })
+  })
+})
+
+describe("PublicInputChecker - query completeness", () => {
+  const checkQueryCompleteness = (
+    PublicInputChecker as unknown as {
+      checkQueryCompleteness: (
+        originalQuery: Query,
+        committedInputKeys: Set<string>,
+      ) => { isCorrect: boolean; queryResultErrors: Record<string, { commitment?: unknown }> }
+    }
+  ).checkQueryCompleteness.bind(PublicInputChecker)
+
+  const run = (q: Query, keys: string[]) => checkQueryCompleteness(q, new Set(keys))
+
+  test("flags a dropped sanctions condition", () => {
+    const { isCorrect, queryResultErrors } = run(
+      { age: { gte: 18 }, sanctions: {} },
+      ["compare_age"], // sanctions proof omitted
+    )
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.sanctions?.commitment).toBeDefined()
+    expect(queryResultErrors.age).toBeUndefined() // age was provided, so not flagged
+  })
+
+  test("passes when every requested condition has a matching proof", () => {
+    const { isCorrect } = run({ age: { gte: 18 }, sanctions: {} }, [
+      "compare_age",
+      "exclusion_check_sanctions",
+    ])
+    expect(isCorrect).toBe(true)
+  })
+
+  test("accepts EVM committed-input variants", () => {
+    const { isCorrect } = run({ age: { gte: 18 } }, ["compare_age_evm"])
+    expect(isCorrect).toBe(true)
+  })
+
+  test("age comparison requires compare_age", () => {
+    expect(run({ age: { gte: 18 } }, []).isCorrect).toBe(false)
+    expect(run({ age: { lt: 65 } }, ["compare_age"]).isCorrect).toBe(true)
+  })
+
+  test("birthdate: comparison needs compare_birthdate, eq/disclose needs disclose_bytes", () => {
+    expect(run({ birthdate: { gte: new Date("2000-01-01") } }, []).isCorrect).toBe(false)
+    expect(
+      run({ birthdate: { gte: new Date("2000-01-01") } }, ["compare_birthdate"]).isCorrect,
+    ).toBe(true)
+    expect(run({ birthdate: { disclose: true } }, ["compare_birthdate"]).isCorrect).toBe(false)
+    expect(run({ birthdate: { disclose: true } }, ["disclose_bytes"]).isCorrect).toBe(true)
+  })
+
+  test("nationality: in, out and eq", () => {
+    expect(run({ nationality: { in: ["FRA"] } }, []).isCorrect).toBe(false)
+    expect(run({ nationality: { in: ["FRA"] } }, ["inclusion_check_nationality"]).isCorrect).toBe(
+      true,
+    )
+    expect(run({ nationality: { out: ["USA"] } }, ["inclusion_check_nationality"]).isCorrect).toBe(
+      false,
+    )
+    expect(run({ nationality: { out: ["USA"] } }, ["exclusion_check_nationality"]).isCorrect).toBe(
+      true,
+    )
+    expect(run({ nationality: { eq: "FRA" } }, ["disclose_bytes"]).isCorrect).toBe(true)
+  })
+
+  test("disclosable fields require disclose_bytes", () => {
+    expect(run({ firstname: { disclose: true } }, []).isCorrect).toBe(false)
+    expect(run({ firstname: { disclose: true } }, ["disclose_bytes"]).isCorrect).toBe(true)
+    expect(run({ document_number: { eq: "X" } }, ["disclose_bytes"]).isCorrect).toBe(true)
+  })
+
+  test("bind and facematch require their circuits", () => {
+    expect(run({ bind: { user_address: "0x0" } }, []).isCorrect).toBe(false)
+    expect(run({ bind: { user_address: "0x0" } }, ["bind"]).isCorrect).toBe(true)
+    expect(run({ facematch: { mode: "regular" } }, []).isCorrect).toBe(false)
+    expect(run({ facematch: { mode: "regular" } }, ["facematch"]).isCorrect).toBe(true)
+  })
+
+  test("an empty query requires nothing", () => {
+    expect(run({}, []).isCorrect).toBe(true)
+  })
+
+  test("flags every dropped condition independently", () => {
+    const { isCorrect, queryResultErrors } = run(
+      { age: { gte: 18 }, sanctions: {}, facematch: { mode: "regular" } },
+      [], // nothing provided
+    )
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.age?.commitment).toBeDefined()
+    expect(queryResultErrors.sanctions?.commitment).toBeDefined()
+    expect(queryResultErrors.facematch?.commitment).toBeDefined()
+  })
+
+  test("checkPublicInputs fails when an outer proof drops a requested condition", async () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const timestamp = BigInt(getTodayTimestamp())
+    const proofs: ProofResult[] = [
+      {
+        name: "outer_4",
+        proof: buildProofHex([1n, 2n, timestamp, domainScopeHash, 0n, 0n, 0n, 42n]),
+        total: 1,
+        committedInputs: {},
+      },
+    ]
+
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      { sanctions: {} }, // originalQuery
+      {},
+      86400 * 365,
+    )
+
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.sanctions?.commitment?.message).toContain("sanctions exclusion")
   })
 })
