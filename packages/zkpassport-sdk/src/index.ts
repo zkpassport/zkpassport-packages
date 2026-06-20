@@ -488,6 +488,7 @@ export class ZKPassport {
 
         const localConfig = this.topicToLocalConfig[topic]
         const query = this.topicToConfig[topic]
+        const hasFaceMatch = !!query.facematch
         const hasStrictFacematch = !!query.facematch && query.facematch?.mode === "strict"
 
         // If nullifier type wasn't explicitly set, default to SALTED only for strict facematch
@@ -500,11 +501,13 @@ export class ZKPassport {
         //   }
         // }
 
-        // Validate: SALTED requires strict facematch
-        if (localConfig.uniqueIdentifierType === NullifierType.SALTED && !hasStrictFacematch) {
-          throw new Error(
-            "Salted nullifier requires strict facematch. Add .facematch('strict') to your query or remove the salted nullifier option.",
-          )
+        // Validate: SALTED nullifier requires strict facematch
+        if (localConfig.uniqueIdentifierType === NullifierType.SALTED) {
+          if ((localConfig.devMode === false && !hasStrictFacematch) || !hasFaceMatch) {
+            throw new Error(
+              "Salted nullifier requires strict facematch. Add .facematch('strict') to your query or remove the salted nullifier option.",
+            )
+          }
         }
 
         return {
