@@ -9,6 +9,7 @@ export type OPRFEvaluatorOptions = {
   services?: string[]
   threshold?: number
   moduleName?: string
+  protocolVersion?: string
   domainSeparator?: bigint
   mock?: boolean | { secretKey: bigint }
 }
