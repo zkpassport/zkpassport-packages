@@ -5,6 +5,7 @@ import {
   OPRF_DEFAULT_THRESHOLD,
   OPRF_DEFAULT_MODULE,
   OPRF_DEFAULT_DOMAIN_SEPARATOR,
+  OPRF_DEFAULT_PROTOCOL_VERSION,
 } from "./constants"
 import { evaluateMock } from "./mock"
 import type { OPRFEvaluatorAuth, OPRFEvaluatorOptions, OPRFPublicKey, OPRFResult } from "./types"
@@ -23,7 +24,10 @@ export async function evaluateOPRF(
   const baseUrls = options.services ?? OPRF_DEFAULT_SERVICES
   const threshold = options.threshold ?? OPRF_DEFAULT_THRESHOLD
   const domainSeparator = options.domainSeparator ?? OPRF_DEFAULT_DOMAIN_SEPARATOR
-  const services = baseUrls.map((url) => toOprfUri(url, options.moduleName ?? OPRF_DEFAULT_MODULE))
+  const protocolVersion = options.protocolVersion ?? OPRF_DEFAULT_PROTOCOL_VERSION
+  const services = baseUrls.map((url) =>
+    toOprfUri(url, options.moduleName ?? OPRF_DEFAULT_MODULE, protocolVersion),
+  )
 
   const result = await distributedOprf(
     services,

@@ -1,4 +1,4 @@
-import { QueryBuilder, ZKPassport as ZkPassportVerifier } from "../src/index"
+import { QueryBuilder, ZKPassport as ZkPassportVerifier, NullifierType } from "../src/index"
 import { MockWebSocket } from "./helpers/mock-websocket"
 
 describe("Query Builder", () => {
@@ -717,5 +717,82 @@ describe("Policy-driven requests", () => {
     const builder = await zkPassport.request({})
     const result = builder.policy("pol_xyz").done()
     expect(result.policy).toBe("pol_xyz")
+  })
+})
+
+describe("Salted nullifier facematch validation", () => {
+  let zkPassport: ZkPassportVerifier
+  let originalFetch: typeof globalThis.fetch
+
+  const SALTED_ERROR = "Salted nullifier requires strict facematch"
+
+  beforeEach(() => {
+    MockWebSocket.clearHub()
+    originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response("{}", {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      })) as unknown as typeof globalThis.fetch
+    zkPassport = new ZkPassportVerifier("localhost")
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  // Build a salted-nullifier query builder, optionally in dev mode.
+  const saltedBuilder = (devMode?: boolean) =>
+    zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing salted validation",
+      uniqueIdentifierType: NullifierType.SALTED,
+      devMode,
+    })
+
+  test("salted + non-dev + strict facematch: allowed", async () => {
+    const qb = await saltedBuilder(false)
+    expect(() => qb.facematch("strict").done()).not.toThrow()
+  })
+
+  test("salted + non-dev + regular facematch: rejected (must be strict)", async () => {
+    const qb = await saltedBuilder(false)
+    expect(() => qb.facematch("regular").done()).toThrow(SALTED_ERROR)
+  })
+
+  test("salted + non-dev + no facematch: rejected", async () => {
+    const qb = await saltedBuilder(false)
+    expect(() => qb.done()).toThrow(SALTED_ERROR)
+  })
+
+  test("salted with devMode unset defaults to non-dev (regular facematch rejected)", async () => {
+    const qb = await saltedBuilder()
+    expect(() => qb.facematch("regular").done()).toThrow(SALTED_ERROR)
+  })
+
+  test("salted + dev + strict facematch: allowed", async () => {
+    const qb = await saltedBuilder(true)
+    expect(() => qb.facematch("strict").done()).not.toThrow()
+  })
+
+  test("salted + dev + regular facematch: allowed", async () => {
+    const qb = await saltedBuilder(true)
+    expect(() => qb.facematch("regular").done()).not.toThrow()
+  })
+
+  test("salted + dev + no facematch: rejected (facematch always required)", async () => {
+    const qb = await saltedBuilder(true)
+    expect(() => qb.done()).toThrow(SALTED_ERROR)
+  })
+
+  test("non-salted + no facematch: allowed", async () => {
+    const qb = await zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing salted validation",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    expect(() => qb.done()).not.toThrow()
   })
 })
