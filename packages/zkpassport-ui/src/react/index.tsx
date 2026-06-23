@@ -27,4 +27,4 @@ export function ZKPassportQRCode(props: ZKPassportQRCodeProps): ReactElement {
   return <div ref={containerRef} />
 }
 
-export type { QRCardHandle, ZKPassportQRCodeOptions } from "../types"
+export * from "../types"

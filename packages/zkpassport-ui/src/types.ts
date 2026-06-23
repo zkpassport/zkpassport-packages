@@ -42,3 +42,39 @@ export type QRCardHandle = {
   retry(): void
   unmount(): void
 }
+
+// Re-export essential types
+export {
+  ZKPassport,
+  NullifierType,
+  ProofType,
+  ProofTypeLength,
+  SANCTIONED_COUNTRIES,
+  EU_COUNTRIES,
+  EEA_COUNTRIES,
+  SCHENGEN_COUNTRIES,
+  ASEAN_COUNTRIES,
+  MERCOSUR_COUNTRIES,
+} from "@zkpassport/sdk"
+
+export type {
+  QueryBuilder,
+  QueryBuilderResult,
+  ProofResult,
+  QueryResult,
+  QueryResultError,
+  QueryResultErrors,
+  Query,
+  IDCredential,
+  DisclosableIDCredential,
+  IDCredentialValue,
+  NumericalIDCredential,
+  CountryName,
+  FacematchMode,
+  SanctionsCountries,
+  SanctionsLists,
+  SupportedChain,
+  ProofMode,
+  BoundData,
+  Service,
+} from "@zkpassport/sdk"

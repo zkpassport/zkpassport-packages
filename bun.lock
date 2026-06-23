@@ -110,7 +110,7 @@
     },
     "packages/zkpassport-ui": {
       "name": "@zkpassport/ui",
-      "version": "0.15.6",
+      "version": "0.15.7",
       "dependencies": {
         "@zkpassport/sdk": "workspace:*",
         "qrcode": "^1.5.4",
