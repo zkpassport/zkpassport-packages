@@ -34,4 +34,4 @@ export function mount(element: HTMLElement, options: ZKPassportQRCodeOptions): Q
   }
 }
 
-export type { QRCardHandle, ZKPassportQRCodeOptions } from "../types"
+export * from "../types"
