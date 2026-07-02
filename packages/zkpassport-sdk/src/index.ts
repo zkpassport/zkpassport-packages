@@ -241,6 +241,8 @@ export class ZKPassport {
         query: this.topicToConfig[topic],
         queryResult: result,
         scope: this.topicToService[topic]?.scope,
+        // Bridge public key (URL `p=`), NOT the topic — must match the mobile app's /activity requestId.
+        requestId: this.topicToPublicKey[topic],
       })
     }
     delete this.topicToProofs[topic]
