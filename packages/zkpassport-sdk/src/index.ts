@@ -147,7 +147,7 @@ export class ZKPassport {
       devMode: boolean
       uniqueIdentifierType: NullifierType | undefined
       oprfKeyId: string | null
-      returnUrl: string | undefined
+      returnDeepLink: string | undefined
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -650,7 +650,7 @@ export class ZKPassport {
     keyPairOverride,
     cloudProverUrl,
     bridgeUrl,
-    returnUrl,
+    returnDeepLink,
   }: {
     name?: string
     logo?: string
@@ -666,7 +666,7 @@ export class ZKPassport {
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
     cloudProverUrl?: string
     bridgeUrl?: string
-    returnUrl?: string // For mobile apps to configure to return to their app after proving completes
+    returnDeepLink?: string
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
@@ -706,7 +706,7 @@ export class ZKPassport {
       devMode: devMode ?? false,
       uniqueIdentifierType: oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType,
       oprfKeyId: oprfKeyId ?? null,
-      returnUrl,
+      returnDeepLink,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -972,7 +972,7 @@ export class ZKPassport {
     const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
     const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
-    const returnUrl = this.topicToLocalConfig[requestId].returnUrl
+    const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
     let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
     if (nullifierType) {
       url += `&nt=${nullifierType}`
@@ -980,8 +980,8 @@ export class ZKPassport {
     if (oprfKeyId) {
       url += `&oprf_k=${oprfKeyId}`
     }
-    if (returnUrl) {
-      url += `&r=${encodeURIComponent(returnUrl)}`
+    if (returnDeepLink) {
+      url += `&r=${encodeURIComponent(returnDeepLink)}`
     }
     return url
   }

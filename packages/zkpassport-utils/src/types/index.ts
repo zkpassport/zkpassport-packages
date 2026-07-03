@@ -424,7 +424,7 @@ export type QRCodeData = {
   devMode: boolean | null
   uniqueIdentifierType: NullifierType | null
   oprfKeyId: string | null
-  returnUrl: string | null
+  returnDeepLink: string | null
 }
 
 export interface JsonRpcRequest {
