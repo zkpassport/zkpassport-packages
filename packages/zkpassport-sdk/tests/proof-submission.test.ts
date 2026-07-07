@@ -50,6 +50,7 @@ describe("Proof submission", () => {
     i.topicToConfig[topic] = { age: { gte: 18 } }
     i.topicToLocalConfig[topic] = { validity: 0, devMode: false, oprfKeyId: null }
     i.topicToService[topic] = { name: "n", logo: "l", purpose: "p", scope: "test-scope" }
+    i.topicToPublicKey[topic] = "04deadbeefpubkey"
     i.topicToFailedProofCount[topic] = opts.failedProofs ?? 0
     i.onResultCallbacks[topic] = []
     i.verify = async () => opts.verifyResult
@@ -80,10 +81,25 @@ describe("Proof submission", () => {
       domain: "localhost",
       scope: "test-scope",
       query: { age: { gte: 18 } },
+      // The bridge public key (URL `p=`), not the topic — links the proof to its activity row.
+      requestId: "04deadbeefpubkey",
     })
     expect(body.uniqueIdentifier).toBeUndefined()
     expect(body.proofs).toHaveLength(1)
     expect(body.proofs[0]).toMatchObject({ proof: "0xdeadbeef", name: "outer_xyz" })
+  })
+
+  test("omits requestId when the bridge public key is unavailable", async () => {
+    const zk = new ZKPassport("localhost")
+    const { topic } = primeForHandleResult(zk, {
+      verifyResult: { verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 },
+    })
+    delete (zk as any).topicToPublicKey[topic]
+
+    await (zk as any).handleResult(topic)
+
+    const body = JSON.parse(fetchedBodies[0])
+    expect("requestId" in body).toBe(false)
   })
 
   test("does not submit when disableProofStorage is true", async () => {

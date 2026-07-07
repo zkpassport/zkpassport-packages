@@ -9,12 +9,14 @@ export async function submitProof({
   query,
   queryResult,
   scope,
+  requestId,
 }: {
   domain: string
   proofs: Array<ProofResult>
   query: Query
   queryResult: QueryResult
   scope: string | undefined
+  requestId: string | undefined
 }) {
   const payload = proofs.map((p) => ({
     proof: p.proof,
@@ -36,6 +38,7 @@ export async function submitProof({
         queryResult,
         scope,
         sdkVersion: VERSION,
+        requestId,
       }),
       signal: AbortSignal.timeout(30000),
     })

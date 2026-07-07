@@ -242,6 +242,7 @@ export class ZKPassport {
         query: this.topicToConfig[topic],
         queryResult: result,
         scope: this.topicToService[topic]?.scope,
+        requestId: this.topicToPublicKey[topic],
       })
     }
     delete this.topicToProofs[topic]
