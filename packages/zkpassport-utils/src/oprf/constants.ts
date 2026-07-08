@@ -9,18 +9,18 @@ import type { OPRFProof, OPRFPublicKey } from "./types"
 // ]
 
 // Testnet
-export const OPRF_DEFAULT_SERVICES = [
-  "https://eu.node0.stage.zkp.oprf.taceo.network", // H2ONodes
-  "https://eu.node1.stage.zkp.oprf.taceo.network", // TACEO
-  "https://eu.node2.stage.zkp.oprf.taceo.network", // AztecLabs
-]
+// export const OPRF_DEFAULT_SERVICES = [
+//   "https://eu.node0.stage.zkp.oprf.taceo.network", // H2ONodes
+//   "https://eu.node1.stage.zkp.oprf.taceo.network", // TACEO
+//   "https://eu.node2.stage.zkp.oprf.taceo.network", // AztecLabs
+// ]
 
 // Mainnet
-// export const OPRF_DEFAULT_SERVICES = [
-//   "https://eu.node0.zkp.oprf.taceo.network", // H2ONodes
-//   "https://eu.node1.zkp.oprf.taceo.network", // TACEO
-//   "https://eu.node2.zkp.oprf.taceo.network", // AztecLabs
-// ]
+export const OPRF_DEFAULT_SERVICES = [
+  "https://eu.node0.zkp.oprf.taceo.network", // H2ONodes
+  "https://eu.node1.zkp.oprf.taceo.network", // TACEO
+  "https://eu.node2.zkp.oprf.taceo.network", // AztecLabs
+]
 
 export const OPRF_DEFAULT_KEY_ID = "1"
 

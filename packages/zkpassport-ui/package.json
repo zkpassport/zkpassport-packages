@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/ui",
-  "version": "0.15.9",
+  "version": "0.15.10",
   "description": "Drop-in QR verification card for ZKPassport. Vanilla JS by default; React component available at @zkpassport/ui/react.",
   "author": "ZKPassport",
   "license": "Apache-2.0",
