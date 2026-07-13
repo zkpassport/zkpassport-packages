@@ -38,6 +38,7 @@ import {
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
+import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -799,16 +800,15 @@ export class ZKPassport {
     }
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
-    const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js")
     // Automatically set the writing directory to `/tmp` if it is not provided
     // and the code is not running in the browser
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    const barretenberg = await Barretenberg.new({
-      crsPath: writingDirectory ? writingDirectory + "/.bb-crs" : undefined,
+    const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
+    const { verifier, destroy: destroyVerifier } = await createUltraHonkVerifier(bbVersion, {
+      writingDirectory,
     })
-    const verifier = new UltraHonkVerifierBackend(barretenberg)
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -915,6 +915,9 @@ export class ZKPassport {
         }
       }
     }
+
+    // Release the bb.js wasm instance loaded for this verify() call
+    await destroyVerifier()
 
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
