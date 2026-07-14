@@ -30,8 +30,12 @@ export async function createUltraHonkVerifier(
   bbVersion: BBVersion,
   { writingDirectory }: { writingDirectory?: string } = {},
 ): Promise<LoadedVerifier> {
-  const crsPath = writingDirectory ? writingDirectory + "/.bb-crs" : undefined
+  await resetBrowserCrsCacheOnVersionChange(bbVersion)
+  let crsPath = writingDirectory ? writingDirectory + "/.bb-crs" : undefined
+
   if (bbVersion === "v4") {
+    console.warn("Using deprecated v4 UltraHonk Verifier")
+    crsPath = writingDirectory ? writingDirectory + "/.bb-crs-v4" : undefined
     const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js-v4")
     const barretenberg = await Barretenberg.new({ crsPath })
     const verifier = new UltraHonkVerifierBackend(barretenberg)
@@ -41,4 +45,57 @@ export async function createUltraHonkVerifier(
   const barretenberg = await Barretenberg.new({ crsPath })
   const verifier = new UltraHonkVerifierBackend(barretenberg)
   return { verifier, destroy: () => barretenberg.destroy() }
+}
+
+const BB_CRS_VERSION_KEY = "zkpassport_bb_crs_version"
+const BB_IDB_NAME = "keyval-store"
+const BB_IDB_STORE = "keyval"
+const BB_CRS_IDB_KEYS = ["g1Data", "g2Data", "grumpkinG1Data"]
+
+async function resetBrowserCrsCacheOnVersionChange(bbVersion: BBVersion): Promise<void> {
+  if (typeof indexedDB === "undefined") return
+  try {
+    const store = typeof localStorage !== "undefined" ? localStorage : undefined
+    if (store?.getItem(BB_CRS_VERSION_KEY) === bbVersion) return
+    await deleteIdbKeys(BB_IDB_NAME, BB_IDB_STORE, BB_CRS_IDB_KEYS)
+    store?.setItem(BB_CRS_VERSION_KEY, bbVersion)
+  } catch {
+    // Best-effort cache reset; ignore failures.
+  }
+}
+
+function deleteIdbKeys(dbName: string, storeName: string, keys: string[]): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open(dbName)
+      open.onupgradeneeded = () => {}
+      open.onsuccess = () => {
+        const db = open.result
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.close()
+          resolve()
+          return
+        }
+        const tx = db.transaction(storeName, "readwrite")
+        const store = tx.objectStore(storeName)
+        for (const key of keys) store.delete(key)
+        tx.oncomplete = () => {
+          db.close()
+          resolve()
+        }
+        tx.onerror = () => {
+          db.close()
+          resolve()
+        }
+        tx.onabort = () => {
+          db.close()
+          resolve()
+        }
+      }
+      open.onerror = () => resolve()
+      open.onblocked = () => resolve()
+    } catch {
+      resolve()
+    }
+  })
 }
