@@ -2104,9 +2104,13 @@ export class PublicInputChecker {
         },
       }
     }
+    // A strict facematch satisfies a regular request, but not the other way around
+    const facematchModeRank = (mode?: string) => (mode === "strict" ? 2 : 1)
+    const committedModeRank = facematchModeRank(facematchCommittedInputs.mode)
     if (
-      (queryResult.facematch && facematchCommittedInputs.mode !== queryResult.facematch.mode) ||
-      facematchCommittedInputs.mode !== originalQuery.facematch?.mode
+      !originalQuery.facematch ||
+      committedModeRank < facematchModeRank(originalQuery.facematch.mode) ||
+      (queryResult.facematch && committedModeRank < facematchModeRank(queryResult.facematch.mode))
     ) {
       console.warn("Invalid facematch mode")
       isCorrect = false
@@ -3643,37 +3647,51 @@ export class PublicInputChecker {
             },
           }
         }
-        const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
-          this.checkScopeFromDisclosureProof(
-            domain,
-            proofData,
-            queryResultErrors,
+        // An enrollment facematch proof is generated once with a zero scope and subscope
+        // and reused across services, so it is not bound to the request's scope or date.
+        // It remains bound to the same passport via the commitment chain checked above.
+        const isEnrollmentFacematch =
+          getServiceScopeFromDisclosureProof(proofData) === 0n &&
+          getServiceSubScopeFromDisclosureProof(proofData) === 0n
+        if (!isEnrollmentFacematch) {
+          const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
+            this.checkScopeFromDisclosureProof(
+              domain,
+              proofData,
+              queryResultErrors,
+              "facematch",
+              scope,
+            )
+          isCorrect = isCorrect && isCorrectScope
+          queryResultErrors = {
+            ...queryResultErrors,
+            ...queryResultErrorsScope,
+          }
+          const {
+            isCorrect: isCorrectCurrentDate,
+            queryResultErrors: queryResultErrorsCurrentDate,
+          } = await this.checkCurrentDate(
             "facematch",
-            scope,
+            proofData,
+            validity ?? DEFAULT_VALIDITY,
+            queryResultErrors,
           )
+          isCorrect = isCorrect && isCorrectCurrentDate
+          queryResultErrors = {
+            ...queryResultErrors,
+            ...queryResultErrorsCurrentDate,
+          }
+        }
         const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
           await this.checkFacematchPublicInputs(
             originalQuery,
             queryResult,
             facematchCommittedInputs,
           )
-        isCorrect = isCorrect && isCorrectFacematch && isCorrectScope
+        isCorrect = isCorrect && isCorrectFacematch
         queryResultErrors = {
           ...queryResultErrors,
           ...queryResultErrorsFacematch,
-          ...queryResultErrorsScope,
-        }
-        const { isCorrect: isCorrectCurrentDate, queryResultErrors: queryResultErrorsCurrentDate } =
-          await this.checkCurrentDate(
-            "facematch",
-            proofData,
-            validity ?? DEFAULT_VALIDITY,
-            queryResultErrors,
-          )
-        isCorrect = isCorrect && isCorrectCurrentDate
-        queryResultErrors = {
-          ...queryResultErrors,
-          ...queryResultErrorsCurrentDate,
         }
         // Don't use the nullifier from the proof for FaceMatch as it may be 0
         // but will always come with at least one other disclosure proof with a non-zero nullifier
