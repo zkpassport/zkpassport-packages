@@ -50,12 +50,21 @@ export async function createUltraHonkVerifier(
 const BB_VERSION_KEY = "__zkpassport_bb_version"
 const BB_CRS_DB_NAME = "keyval-store"
 
-// Clear bb cache on v4 -> v5 due to default CRS size change
+// The v4 and v5 verifiers share bb.js's default CRS cache (IndexedDB
+// "keyval-store"), but their CRS layouts differ, so a cache written by one bb
+// version makes the other throw "object store not found" during initSRSChonk.
+// Reset the cache whenever the active bb version doesn't match the one that last
+// wrote it — INCLUDING the first run when the marker is absent (e.g. right after
+// upgrading from a build that populated the cache under a different marker, or
+// none at all). The previous default of "v4" for a missing marker let a stale
+// cache slip through unmodified on the v4 path and crash.
 async function clearStaleCrsCacheOnVersionChange(bbVersion: BBVersion): Promise<void> {
   if (typeof indexedDB === "undefined") return
   try {
     const store = typeof localStorage !== "undefined" ? localStorage : undefined
-    if ((store?.getItem(BB_VERSION_KEY) ?? "v4") === bbVersion) return
+    // A missing marker means we can't confirm which bb version wrote the cache,
+    // so treat it as a mismatch and reset rather than assuming "v4".
+    if (store?.getItem(BB_VERSION_KEY) === bbVersion) return
 
     let dbExists = true
     if (typeof indexedDB.databases === "function") {
