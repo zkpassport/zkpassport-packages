@@ -84,7 +84,7 @@
     },
     "packages/zkpassport-sdk": {
       "name": "@zkpassport/sdk",
-      "version": "0.16.0",
+      "version": "0.16.1",
       "dependencies": {
         "@aztec/bb.js": "5.0.0",
         "@aztec/bb.js-v4": "npm:@aztec/bb.js@4.2.0-aztecnr-rc.2",
@@ -111,7 +111,7 @@
     },
     "packages/zkpassport-ui": {
       "name": "@zkpassport/ui",
-      "version": "0.16.0",
+      "version": "0.16.1",
       "dependencies": {
         "@zkpassport/sdk": "workspace:*",
         "qrcode": "^1.5.4",
