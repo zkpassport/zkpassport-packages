@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/zkpassport-core",
+    "crates/zkpassport-ffi",
+    "crates/zkpassport-wasm",
+    "crates/zkpassport-bridge",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/zkpassport/zkpassport-packages"
