@@ -572,8 +572,7 @@ export enum NullifierType {
   SALTED = 1,
   NON_SALTED_MOCK = 2,
   SALTED_MOCK = 3,
-  // No nullifier: the private nullifier stays hidden and the scoped nullifier is 0,
-  // for verifiers that don't need uniqueness
+  // No nullifier: the private nullifier stays hidden and the scoped nullifier is 0
   NONE = 4,
   // No nullifier, for mock proofs (i.e. ZKR)
   NONE_MOCK = 5,

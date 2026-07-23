@@ -28,10 +28,8 @@ export function getOuterCircuitInputs(
   disclosureProofs: OuterCircuitProof[],
   circuitRegistryRoot: string,
 ) {
-  // The top-level values are taken from the disclosure proof carrying the scoped nullifier.
-  // When every proof has a zero nullifier (NONE nullifier type: hidden private nullifiers),
-  // fall back to a scope-bound proof: the outer circuit requires at least one disclosure
-  // proof committing to the top-level scope, subscope and current date.
+  // Top-level values come from the nullifier-carrying proof; when every nullifier is zero
+  // (NONE nullifier type) fall back to a scope-bound proof, which the outer circuit requires
   const sourceProof =
     getDisclosureProofWithNonZeroNullifier(disclosureProofs) ??
     disclosureProofs.find((proof) => BigInt(proof.publicInputs[2]) !== 0n)
@@ -42,9 +40,8 @@ export function getOuterCircuitInputs(
   const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
   const scope = sourceProof.publicInputs[2]
   const subscope = sourceProof.publicInputs[3]
-  // In the all-zero-nullifier case the subproof types can only be NONE (4) or, for ZKR/mock IDs,
-  // NONE_MOCK (5). The mock type must win at the top level so mock proofs stay detectable
-  // (the outer circuit tolerates NONE subproofs under any top-level type, but not the reverse).
+  // In the all-zero-nullifier case, a mock type (NONE_MOCK) must win at the top level
+  // so mock proofs stay detectable
   const nullifierType =
     BigInt(sourceProof.publicInputs[6]) !== 0n
       ? sourceProof.publicInputs[5]
