@@ -3,7 +3,9 @@ import {
   getNullifierTypeFromOuterProof,
   getNullifierFromOuterProof,
   getOprfPkHashFromOuterProof,
+  getOuterCircuitInputs,
   getParamCommitmentsFromOuterProof,
+  OuterCircuitProof,
 } from "./recursion"
 
 // Trailing public inputs layout (last 3 elements, in order):
@@ -45,6 +47,7 @@ describe("outer proof public inputs", () => {
       [1n, NullifierType.SALTED],
       [2n, NullifierType.NON_SALTED_MOCK],
       [3n, NullifierType.SALTED_MOCK],
+      [4n, NullifierType.NONE],
     ]
     for (const [raw, expected] of cases) {
       const proof = buildProofData(PARAM_COMMITMENTS, raw, SCOPED_NULLIFIER, OPRF_PK_HASH)
@@ -53,7 +56,7 @@ describe("outer proof public inputs", () => {
   })
 
   test("getNullifierTypeFromOuterProof throws on invalid type", () => {
-    const proof = buildProofData(PARAM_COMMITMENTS, 4n, SCOPED_NULLIFIER, OPRF_PK_HASH)
+    const proof = buildProofData(PARAM_COMMITMENTS, 5n, SCOPED_NULLIFIER, OPRF_PK_HASH)
     expect(() => getNullifierTypeFromOuterProof(proof)).toThrow("Invalid nullifier type")
   })
 
@@ -80,5 +83,79 @@ describe("outer proof public inputs", () => {
   test("getParamCommitmentsFromOuterProof handles empty param commitments", () => {
     const proof = buildProofData([], 0n, SCOPED_NULLIFIER, OPRF_PK_HASH)
     expect(getParamCommitmentsFromOuterProof(proof)).toEqual([])
+  })
+})
+
+describe("getOuterCircuitInputs top-level input derivation", () => {
+  // Disclosure proof public inputs layout:
+  // [0] comm_in, [1] current_date, [2] service_scope, [3] service_subscope,
+  // [4] param_commitment, [5] nullifier_type, [6] scoped_nullifier, [7] oprf_pk_hash
+  function makeProof(publicInputs: string[]): OuterCircuitProof {
+    return {
+      proof: [],
+      publicInputs,
+      vkey: [],
+      keyHash: "0x00",
+      treeHashPath: [],
+      treeIndex: "0",
+    }
+  }
+  const baseProof = makeProof(["0x0d"])
+  const chainProof = makeProof(["0x0d", "0x0e"])
+  const NONE = `0x${NullifierType.NONE.toString(16)}`
+  const MOCK = `0x${NullifierType.NON_SALTED_MOCK.toString(16)}`
+
+  test("derives from the nullifier-carrying proof when one exists", () => {
+    const boundNoNullifier = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xaa", NONE, "0x0", "0x0"])
+    const withNullifier = makeProof(["0x0e", "0x101", "0x23", "0x24", "0xbb", "0x1", "0xdead", "0xbeef"])
+    const inputs = getOuterCircuitInputs(
+      baseProof,
+      chainProof,
+      chainProof,
+      [boundNoNullifier, withNullifier],
+      "0x0f",
+    )
+    expect(inputs.service_scope).toEqual("0x23")
+    expect(inputs.service_subscope).toEqual("0x24")
+    expect(inputs.current_date).toEqual(0x101)
+    expect(inputs.scoped_nullifier).toEqual("0xdead")
+    expect(inputs.nullifier_type).toEqual("0x1")
+    expect(inputs.oprf_pk_hash).toEqual("0xbeef")
+  })
+
+  test("falls back to a scope-bound proof when every nullifier is zero (NONE)", () => {
+    // e.g. a cached scope-less facematch proof followed by a scope-bound disclosure proof
+    const scopeLess = makeProof(["0x0e", "0x90", "0x0", "0x0", "0xaa", NONE, "0x0", "0x0"])
+    const bound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", NONE, "0x0", "0x0"])
+    const inputs = getOuterCircuitInputs(baseProof, chainProof, chainProof, [scopeLess, bound], "0x0f")
+    expect(inputs.service_scope).toEqual("0x21")
+    expect(inputs.service_subscope).toEqual("0x22")
+    expect(inputs.current_date).toEqual(0x100)
+    expect(inputs.scoped_nullifier).toEqual("0x0")
+    expect(inputs.nullifier_type).toEqual(NONE)
+    expect(inputs.oprf_pk_hash).toEqual("0x0")
+  })
+
+  test("keeps the mock type at the top level for zero-nullifier mock proofs", () => {
+    // A ZKR ID with a hidden private nullifier emits NON_SALTED_MOCK with a zero nullifier,
+    // while its facematch proof emits NONE; the mock type must win at the top level
+    const facematch = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xaa", NONE, "0x0", "0x0"])
+    const mockBound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", MOCK, "0x0", "0x0"])
+    const inputs = getOuterCircuitInputs(
+      baseProof,
+      chainProof,
+      chainProof,
+      [facematch, mockBound],
+      "0x0f",
+    )
+    expect(inputs.nullifier_type).toEqual(MOCK)
+    expect(inputs.scoped_nullifier).toEqual("0x0")
+  })
+
+  test("throws when there is no nullifier-carrying nor scope-bound proof", () => {
+    const scopeLess = makeProof(["0x0e", "0x90", "0x0", "0x0", "0xaa", NONE, "0x0", "0x0"])
+    expect(() =>
+      getOuterCircuitInputs(baseProof, chainProof, chainProof, [scopeLess], "0x0f"),
+    ).toThrow("No disclosure proof with a non-zero nullifier or a bound scope found")
   })
 })

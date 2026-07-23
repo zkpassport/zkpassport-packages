@@ -50,7 +50,10 @@ enum NullifierType {
     NON_SALTED_NULLIFIER,
     SALTED_NULLIFIER,
     NON_SALTED_MOCK_NULLIFIER,
-    SALTED_MOCK_NULLIFIER
+    SALTED_MOCK_NULLIFIER,
+    // No nullifier: the private nullifier stays hidden inside the proof and the
+    // scoped nullifier (unique identifier) is 0, for verifiers that don't need uniqueness
+    NONE_NULLIFIER
 }
 
 enum OS {

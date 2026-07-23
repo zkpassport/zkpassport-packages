@@ -28,18 +28,31 @@ export function getOuterCircuitInputs(
   disclosureProofs: OuterCircuitProof[],
   circuitRegistryRoot: string,
 ) {
-  const disclosureProofWithNonZeroNullifier =
-    getDisclosureProofWithNonZeroNullifier(disclosureProofs)
-  if (!disclosureProofWithNonZeroNullifier) {
-    throw new Error("No disclosure proof with non-zero nullifier found")
+  // The top-level values are taken from the disclosure proof carrying the scoped nullifier.
+  // When every proof has a zero nullifier (NONE nullifier type: hidden private nullifiers),
+  // fall back to a scope-bound proof: the outer circuit requires at least one disclosure
+  // proof committing to the top-level scope, subscope and current date.
+  const sourceProof =
+    getDisclosureProofWithNonZeroNullifier(disclosureProofs) ??
+    disclosureProofs.find((proof) => BigInt(proof.publicInputs[2]) !== 0n)
+  if (!sourceProof) {
+    throw new Error("No disclosure proof with a non-zero nullifier or a bound scope found")
   }
   const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const currentDateTimestamp = Number(BigInt(disclosureProofWithNonZeroNullifier.publicInputs[1]))
-  const scope = disclosureProofWithNonZeroNullifier.publicInputs[2]
-  const subscope = disclosureProofWithNonZeroNullifier.publicInputs[3]
-  const nullifierType = disclosureProofWithNonZeroNullifier.publicInputs[5]
-  const nullifier = disclosureProofWithNonZeroNullifier.publicInputs[6]
-  const oprfPkHash = disclosureProofWithNonZeroNullifier.publicInputs[7]
+  const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
+  const scope = sourceProof.publicInputs[2]
+  const subscope = sourceProof.publicInputs[3]
+  // In the all-zero-nullifier case the subproof types can only be NONE (4) or, for ZKR/mock IDs,
+  // NON_SALTED_MOCK (2). The mock type must win at the top level so mock proofs stay detectable
+  // (the outer circuit tolerates NONE subproofs under any top-level type, but not the reverse).
+  const nullifierType =
+    BigInt(sourceProof.publicInputs[6]) !== 0n
+      ? sourceProof.publicInputs[5]
+      : (disclosureProofs.find(
+          (proof) => BigInt(proof.publicInputs[5]) !== BigInt(NullifierType.NONE),
+        )?.publicInputs[5] ?? sourceProof.publicInputs[5])
+  const nullifier = sourceProof.publicInputs[6]
+  const oprfPkHash = sourceProof.publicInputs[7]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
@@ -128,6 +141,8 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
     return NullifierType.NON_SALTED_MOCK
   } else if (nullifierType === 3n) {
     return NullifierType.SALTED_MOCK
+  } else if (nullifierType === 4n) {
+    return NullifierType.NONE
   }
   throw new Error("Invalid nullifier type")
 }

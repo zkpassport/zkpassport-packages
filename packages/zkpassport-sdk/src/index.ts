@@ -662,7 +662,7 @@ export class ZKPassport {
     projectID?: string
     validity?: number
     devMode?: boolean
-    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
+    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
     oprfKeyId?: string
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
@@ -672,6 +672,12 @@ export class ZKPassport {
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
+    }
+
+    if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
+      throw new Error(
+        "An OPRF key cannot be used with the NONE unique identifier type: NONE requests produce no unique identifier. Remove the oprfKeyId option or use the SALTED type.",
+      )
     }
 
     let config: DashboardConfig | undefined
@@ -833,8 +839,6 @@ export class ZKPassport {
     verified = isCorrect
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
     if (
-      uniqueIdentifier &&
-      uniqueIdentifierType &&
       (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
         uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
       !devMode
