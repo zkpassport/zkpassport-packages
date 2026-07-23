@@ -40,8 +40,8 @@ export function getOuterCircuitInputs(
   const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
   const scope = sourceProof.publicInputs[2]
   const subscope = sourceProof.publicInputs[3]
-  // In the all-zero-nullifier case, a mock type (NONE_MOCK) must win at the top level
-  // so mock proofs stay detectable
+  // In the all-zero-nullifier case, a mock type (a ZKR ID keeps its mock type even with
+  // a hidden nullifier) must win at the top level so mock proofs stay detectable
   const nullifierType =
     BigInt(sourceProof.publicInputs[6]) !== 0n
       ? sourceProof.publicInputs[5]
@@ -140,8 +140,6 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
     return NullifierType.SALTED_MOCK
   } else if (nullifierType === 4n) {
     return NullifierType.NONE
-  } else if (nullifierType === 5n) {
-    return NullifierType.NONE_MOCK
   }
   throw new Error("Invalid nullifier type")
 }

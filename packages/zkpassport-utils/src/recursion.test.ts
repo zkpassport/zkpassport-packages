@@ -48,7 +48,6 @@ describe("outer proof public inputs", () => {
       [2n, NullifierType.NON_SALTED_MOCK],
       [3n, NullifierType.SALTED_MOCK],
       [4n, NullifierType.NONE],
-      [5n, NullifierType.NONE_MOCK],
     ]
     for (const [raw, expected] of cases) {
       const proof = buildProofData(PARAM_COMMITMENTS, raw, SCOPED_NULLIFIER, OPRF_PK_HASH)
@@ -57,7 +56,7 @@ describe("outer proof public inputs", () => {
   })
 
   test("getNullifierTypeFromOuterProof throws on invalid type", () => {
-    const proof = buildProofData(PARAM_COMMITMENTS, 6n, SCOPED_NULLIFIER, OPRF_PK_HASH)
+    const proof = buildProofData(PARAM_COMMITMENTS, 5n, SCOPED_NULLIFIER, OPRF_PK_HASH)
     expect(() => getNullifierTypeFromOuterProof(proof)).toThrow("Invalid nullifier type")
   })
 
@@ -104,7 +103,7 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
   const baseProof = makeProof(["0x0d"])
   const chainProof = makeProof(["0x0d", "0x0e"])
   const NONE = `0x${NullifierType.NONE.toString(16)}`
-  const NONE_MOCK = `0x${NullifierType.NONE_MOCK.toString(16)}`
+  const MOCK = `0x${NullifierType.NON_SALTED_MOCK.toString(16)}`
 
   test("derives from the nullifier-carrying proof when one exists", () => {
     const boundNoNullifier = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xaa", NONE, "0x0", "0x0"])
@@ -138,10 +137,10 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
   })
 
   test("keeps the mock type at the top level for zero-nullifier mock proofs", () => {
-    // A ZKR ID with a hidden private nullifier emits NONE_MOCK with a zero nullifier,
+    // A ZKR ID with a hidden private nullifier keeps NON_SALTED_MOCK with a zero nullifier,
     // while its facematch proof emits NONE; the mock type must win at the top level
     const facematch = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xaa", NONE, "0x0", "0x0"])
-    const mockBound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", NONE_MOCK, "0x0", "0x0"])
+    const mockBound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", MOCK, "0x0", "0x0"])
     const inputs = getOuterCircuitInputs(
       baseProof,
       chainProof,
@@ -149,7 +148,7 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
       [facematch, mockBound],
       "0x0f",
     )
-    expect(inputs.nullifier_type).toEqual(NONE_MOCK)
+    expect(inputs.nullifier_type).toEqual(MOCK)
     expect(inputs.scoped_nullifier).toEqual("0x0")
   })
 
