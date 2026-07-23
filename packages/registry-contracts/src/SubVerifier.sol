@@ -266,7 +266,8 @@ contract SubVerifier {
         // of the mainnet registries and the verification will fail at _validateCertificateRoot
         require(
             (nullifierType != NullifierType.NON_SALTED_MOCK_NULLIFIER
-                    && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER) || params.serviceConfig.devMode,
+                    && nullifierType != NullifierType.SALTED_MOCK_NULLIFIER
+                    && nullifierType != NullifierType.NONE_MOCK_NULLIFIER) || params.serviceConfig.devMode,
             "Mock proofs are only allowed in dev mode"
         );
 

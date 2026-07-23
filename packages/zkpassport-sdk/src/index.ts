@@ -840,7 +840,8 @@ export class ZKPassport {
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
     if (
       (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
-        uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
+        uniqueIdentifierType === NullifierType.NON_SALTED_MOCK ||
+        uniqueIdentifierType === NullifierType.NONE_MOCK) &&
       !devMode
     ) {
       // If the unique identifier type is a mock nullifier and it is not in dev mode,

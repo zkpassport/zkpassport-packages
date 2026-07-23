@@ -43,7 +43,7 @@ export function getOuterCircuitInputs(
   const scope = sourceProof.publicInputs[2]
   const subscope = sourceProof.publicInputs[3]
   // In the all-zero-nullifier case the subproof types can only be NONE (4) or, for ZKR/mock IDs,
-  // NON_SALTED_MOCK (2). The mock type must win at the top level so mock proofs stay detectable
+  // NONE_MOCK (5). The mock type must win at the top level so mock proofs stay detectable
   // (the outer circuit tolerates NONE subproofs under any top-level type, but not the reverse).
   const nullifierType =
     BigInt(sourceProof.publicInputs[6]) !== 0n
@@ -143,6 +143,8 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
     return NullifierType.SALTED_MOCK
   } else if (nullifierType === 4n) {
     return NullifierType.NONE
+  } else if (nullifierType === 5n) {
+    return NullifierType.NONE_MOCK
   }
   throw new Error("Invalid nullifier type")
 }

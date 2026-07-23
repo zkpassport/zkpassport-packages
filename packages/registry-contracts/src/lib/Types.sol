@@ -53,7 +53,9 @@ enum NullifierType {
     SALTED_MOCK_NULLIFIER,
     // No nullifier: the private nullifier stays hidden inside the proof and the
     // scoped nullifier (unique identifier) is 0, for verifiers that don't need uniqueness
-    NONE_NULLIFIER
+    NONE_NULLIFIER,
+    // No nullifier, for mock proofs (i.e. ZKR)
+    NONE_MOCK_NULLIFIER
 }
 
 enum OS {

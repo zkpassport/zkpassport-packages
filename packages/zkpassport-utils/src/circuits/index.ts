@@ -124,6 +124,8 @@ export function getNullifierTypeFromDisclosureProof(proofData: ProofData): Nulli
     return NullifierType.SALTED_MOCK
   } else if (nullifierType === 4n) {
     return NullifierType.NONE
+  } else if (nullifierType === 5n) {
+    return NullifierType.NONE_MOCK
   }
   throw new Error("Invalid nullifier type")
 }

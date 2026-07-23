@@ -573,9 +573,10 @@ export enum NullifierType {
   NON_SALTED_MOCK = 2,
   SALTED_MOCK = 3,
   // No nullifier: the private nullifier stays hidden and the scoped nullifier is 0,
-  // for verifiers that don't need uniqueness. ZKR/mock IDs keep their mock type
-  // (with a zero scoped nullifier) instead of NONE so mock proofs remain detectable.
+  // for verifiers that don't need uniqueness
   NONE = 4,
+  // No nullifier, for mock proofs (i.e. ZKR)
+  NONE_MOCK = 5,
 }
 
 export class SaltedValue<T extends number | string | bigint | Array<number>> {
