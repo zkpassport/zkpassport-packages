@@ -754,8 +754,6 @@ export async function getSaltedValuesForDisclosureCircuit(
   privateNullifier: Binary,
   salts: IntegrityToDisclosureSalts,
   hideSensitiveInputs: boolean = false,
-  // Hides only the private nullifier (dg1 stays revealed for the disclosure checks),
-  // making the circuit emit a zero scoped nullifier with the NONE nullifier type
   hideNullifier: boolean = false,
 ) {
   const saltedDg1 = SaltedValue.fromValue(salts.dg1Salt, idData.dg1)

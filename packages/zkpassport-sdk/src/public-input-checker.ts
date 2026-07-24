@@ -3750,8 +3750,6 @@ export class PublicInputChecker {
       }
     }
 
-    // A zero scoped nullifier means the proofs carry no unique identifier:
-    // the NONE nullifier type, or a mock type when a ZKR ID hides its private nullifier
     if (uniqueIdentifierType === NullifierType.NONE) {
       if (uniqueIdentifier !== undefined && BigInt(uniqueIdentifier) !== 0n) {
         console.warn("Proofs with the NONE nullifier type cannot carry a unique identifier")

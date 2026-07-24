@@ -572,7 +572,6 @@ export enum NullifierType {
   SALTED = 1,
   NON_SALTED_MOCK = 2,
   SALTED_MOCK = 3,
-  // No nullifier: the private nullifier stays hidden and the scoped nullifier is 0
   // Note: ZKR/mock IDs keep their mock type even with a hidden private nullifier
   NONE = 4,
 }

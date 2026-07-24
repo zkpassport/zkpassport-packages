@@ -87,9 +87,6 @@ describe("outer proof public inputs", () => {
 })
 
 describe("getOuterCircuitInputs top-level input derivation", () => {
-  // Disclosure proof public inputs layout:
-  // [0] comm_in, [1] current_date, [2] service_scope, [3] service_subscope,
-  // [4] param_commitment, [5] nullifier_type, [6] scoped_nullifier, [7] oprf_pk_hash
   function makeProof(publicInputs: string[]): OuterCircuitProof {
     return {
       proof: [],
@@ -161,8 +158,6 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
   })
 
   test("keeps the mock type at the top level for zero-nullifier mock proofs", () => {
-    // A ZKR ID with a hidden private nullifier keeps NON_SALTED_MOCK with a zero nullifier,
-    // while its facematch proof emits NONE; the mock type must win at the top level
     const facematch = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xaa", NONE, "0x0", "0x0"])
     const mockBound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", MOCK, "0x0", "0x0"])
     const inputs = getOuterCircuitInputs(

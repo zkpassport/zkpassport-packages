@@ -270,7 +270,6 @@ contract SubVerifier {
             "Mock proofs are only allowed in dev mode"
         );
 
-        // NONE_NULLIFIER proofs return a zero uniqueIdentifier: integrators must not key storage on it
         require(
             nullifierType == NullifierType.NON_SALTED_NULLIFIER || nullifierType == NullifierType.SALTED_NULLIFIER
                 || nullifierType == NullifierType.NONE_NULLIFIER || params.serviceConfig.devMode,

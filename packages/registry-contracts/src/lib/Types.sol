@@ -51,7 +51,6 @@ enum NullifierType {
     SALTED_NULLIFIER,
     NON_SALTED_MOCK_NULLIFIER,
     SALTED_MOCK_NULLIFIER,
-    // No nullifier: the scoped nullifier (unique identifier) is 0
     NONE_NULLIFIER
 }
 
