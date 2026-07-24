@@ -796,3 +796,49 @@ describe("Salted nullifier facematch validation", () => {
     expect(() => qb.done()).not.toThrow()
   })
 })
+
+describe("NONE nullifier type requests", () => {
+  let zkPassport: ZkPassportVerifier
+  let originalFetch: typeof globalThis.fetch
+
+  beforeEach(() => {
+    MockWebSocket.clearHub()
+    originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response("{}", {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      })) as unknown as typeof globalThis.fetch
+    zkPassport = new ZkPassportVerifier("localhost")
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  const noneRequest = (extra?: { oprfKeyId?: string }) =>
+    zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing NONE nullifier type",
+      uniqueIdentifierType: NullifierType.NONE,
+      ...extra,
+    })
+
+  test("encodes nt=4 in the request URL", async () => {
+    const qb = await noneRequest()
+    const result = qb.disclose("firstname").done()
+    expect(result.url).toContain(`&nt=${NullifierType.NONE}`)
+  })
+
+  test("NONE without facematch is allowed", async () => {
+    const qb = await noneRequest()
+    expect(() => qb.disclose("firstname").done()).not.toThrow()
+  })
+
+  test("rejects an OPRF key combined with NONE", async () => {
+    await expect(noneRequest({ oprfKeyId: "some-oprf-key" })).rejects.toThrow(
+      "An OPRF key cannot be used with the NONE unique identifier type",
+    )
+  })
+})

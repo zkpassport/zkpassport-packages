@@ -3750,6 +3750,16 @@ export class PublicInputChecker {
       }
     }
 
+    if (uniqueIdentifierType === NullifierType.NONE) {
+      if (uniqueIdentifier !== undefined && BigInt(uniqueIdentifier) !== 0n) {
+        console.warn("Proofs with the NONE nullifier type cannot carry a unique identifier")
+        isCorrect = false
+      }
+      uniqueIdentifier = undefined
+    } else if (uniqueIdentifier !== undefined && BigInt(uniqueIdentifier) === 0n) {
+      uniqueIdentifier = undefined
+    }
+
     return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }
   }
 }

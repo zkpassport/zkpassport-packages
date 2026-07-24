@@ -28,18 +28,26 @@ export function getOuterCircuitInputs(
   disclosureProofs: OuterCircuitProof[],
   circuitRegistryRoot: string,
 ) {
-  const disclosureProofWithNonZeroNullifier =
-    getDisclosureProofWithNonZeroNullifier(disclosureProofs)
-  if (!disclosureProofWithNonZeroNullifier) {
-    throw new Error("No disclosure proof with non-zero nullifier found")
+  // Top-level values come from the nullifier-carrying proof, or a scope-bound one when all nullifiers are zero
+  const sourceProof =
+    getDisclosureProofWithNonZeroNullifier(disclosureProofs) ??
+    disclosureProofs.find((proof) => BigInt(proof.publicInputs[2]) !== 0n)
+  if (!sourceProof) {
+    throw new Error("No disclosure proof with a non-zero nullifier or a bound scope found")
   }
   const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const currentDateTimestamp = Number(BigInt(disclosureProofWithNonZeroNullifier.publicInputs[1]))
-  const scope = disclosureProofWithNonZeroNullifier.publicInputs[2]
-  const subscope = disclosureProofWithNonZeroNullifier.publicInputs[3]
-  const nullifierType = disclosureProofWithNonZeroNullifier.publicInputs[5]
-  const nullifier = disclosureProofWithNonZeroNullifier.publicInputs[6]
-  const oprfPkHash = disclosureProofWithNonZeroNullifier.publicInputs[7]
+  const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
+  const scope = sourceProof.publicInputs[2]
+  const subscope = sourceProof.publicInputs[3]
+  // A mock type must win at the top level so mock proofs stay detectable
+  const nullifierType =
+    BigInt(sourceProof.publicInputs[6]) !== 0n
+      ? sourceProof.publicInputs[5]
+      : (disclosureProofs.find(
+          (proof) => BigInt(proof.publicInputs[5]) !== BigInt(NullifierType.NONE),
+        )?.publicInputs[5] ?? sourceProof.publicInputs[5])
+  const nullifier = sourceProof.publicInputs[6]
+  const oprfPkHash = sourceProof.publicInputs[7]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
@@ -128,6 +136,8 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
     return NullifierType.NON_SALTED_MOCK
   } else if (nullifierType === 3n) {
     return NullifierType.SALTED_MOCK
+  } else if (nullifierType === 4n) {
+    return NullifierType.NONE
   }
   throw new Error("Invalid nullifier type")
 }
