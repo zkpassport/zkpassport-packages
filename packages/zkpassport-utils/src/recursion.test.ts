@@ -106,8 +106,26 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
   const MOCK = `0x${NullifierType.NON_SALTED_MOCK.toString(16)}`
 
   test("derives from the nullifier-carrying proof when one exists", () => {
-    const boundNoNullifier = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xaa", NONE, "0x0", "0x0"])
-    const withNullifier = makeProof(["0x0e", "0x101", "0x23", "0x24", "0xbb", "0x1", "0xdead", "0xbeef"])
+    const boundNoNullifier = makeProof([
+      "0x0e",
+      "0x100",
+      "0x21",
+      "0x22",
+      "0xaa",
+      NONE,
+      "0x0",
+      "0x0",
+    ])
+    const withNullifier = makeProof([
+      "0x0e",
+      "0x101",
+      "0x23",
+      "0x24",
+      "0xbb",
+      "0x1",
+      "0xdead",
+      "0xbeef",
+    ])
     const inputs = getOuterCircuitInputs(
       baseProof,
       chainProof,
@@ -127,7 +145,13 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
     // e.g. a cached scope-less facematch proof followed by a scope-bound disclosure proof
     const scopeLess = makeProof(["0x0e", "0x90", "0x0", "0x0", "0xaa", NONE, "0x0", "0x0"])
     const bound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", NONE, "0x0", "0x0"])
-    const inputs = getOuterCircuitInputs(baseProof, chainProof, chainProof, [scopeLess, bound], "0x0f")
+    const inputs = getOuterCircuitInputs(
+      baseProof,
+      chainProof,
+      chainProof,
+      [scopeLess, bound],
+      "0x0f",
+    )
     expect(inputs.service_scope).toEqual("0x21")
     expect(inputs.service_subscope).toEqual("0x22")
     expect(inputs.current_date).toEqual(0x100)
