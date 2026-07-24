@@ -139,7 +139,6 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
   })
 
   test("falls back to a scope-bound proof when every nullifier is zero (NONE)", () => {
-    // e.g. a cached scope-less facematch proof followed by a scope-bound disclosure proof
     const scopeLess = makeProof(["0x0e", "0x90", "0x0", "0x0", "0xaa", NONE, "0x0", "0x0"])
     const bound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", NONE, "0x0", "0x0"])
     const inputs = getOuterCircuitInputs(
