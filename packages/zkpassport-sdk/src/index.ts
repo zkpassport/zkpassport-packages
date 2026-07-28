@@ -149,6 +149,7 @@ export class ZKPassport {
       uniqueIdentifierType: NullifierType | undefined
       oprfKeyId: string | null
       returnDeepLink: string | undefined
+      returnBehavior: "url" | "back" | undefined
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -635,6 +636,13 @@ export class ZKPassport {
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param mode The proof mode (e.g. "fast" / "compressed").
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
+   * @param returnDeepLink Where the ZKPassport app sends the user after they finish (the "Return" button).
+   * Must be an absolute URL (a value without a scheme is ignored by the app). Note the OS opens an
+   * https value in the user's DEFAULT browser, which is not necessarily the browser the flow started in.
+   * @param returnBehavior How the ZKPassport app returns the user when they finish. "url" (default)
+   * opens `returnDeepLink`; "back" shows a "return to the app you came from" completion instead of
+   * opening a URL — for flows started in an in-app webview (Discord, X) or a non-default browser,
+   * where an https deep link would land the user in a browser without their session.
    * @returns The query builder object.
    */
   public async request({
@@ -653,6 +661,7 @@ export class ZKPassport {
     cloudProverUrl,
     bridgeUrl,
     returnDeepLink,
+    returnBehavior,
   }: {
     name?: string
     logo?: string
@@ -669,6 +678,7 @@ export class ZKPassport {
     cloudProverUrl?: string
     bridgeUrl?: string
     returnDeepLink?: string
+    returnBehavior?: "url" | "back"
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
@@ -709,6 +719,7 @@ export class ZKPassport {
       uniqueIdentifierType: oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType,
       oprfKeyId: oprfKeyId ?? null,
       returnDeepLink,
+      returnBehavior,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -986,6 +997,9 @@ export class ZKPassport {
     }
     if (returnDeepLink) {
       url += `&r=${encodeURIComponent(returnDeepLink)}`
+    }
+    if (this.topicToLocalConfig[requestId].returnBehavior === "back") {
+      url += `&rb=back`
     }
     return url
   }
