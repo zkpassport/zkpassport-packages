@@ -5,6 +5,13 @@ export const DEFAULT_DATE_VALUE = new Date(0)
 // Base URL for the ZKPassport dashboard API (per-domain config, proof submission).
 export const DASHBOARD_API_BASE_URL = "https://dashboard-api.zkpassport.id"
 
+// Base URL for the ZKPassport verifier API, which can verify proofs this SDK cannot.
+export const VERIFIER_API_BASE_URL = "https://verifier.zkpassport.id"
+
+// Newest circuit version this SDK can verify on its own.
+// Proofs from newer circuits are sent to the verifier API instead.
+export const MAX_SUPPORTED_CIRCUIT_VERSION = "0.20.0"
+
 // 32-byte zero value, formatted as a 0x-prefixed hex string.
 export const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000"
 

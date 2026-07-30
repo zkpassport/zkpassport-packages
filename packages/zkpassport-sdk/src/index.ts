@@ -39,6 +39,7 @@ import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
+import { isCircuitVersionSupported, verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -134,6 +135,8 @@ export {
 } from "@zkpassport/utils"
 
 export * from "./types"
+
+export { isCircuitVersionSupported } from "./verifier-api"
 
 export class ZKPassport {
   private domain: string
@@ -754,6 +757,7 @@ export class ZKPassport {
 
   /**
    * @notice Verify the proofs received from the mobile app.
+   * Proofs from circuits newer than this SDK supports are verified by the ZKPassport verifier API.
    * @param proofs The proofs to verify.
    * @param originalQuery The original query that was sent to the mobile app.
    * @param queryResult The query result to verify against
@@ -798,6 +802,19 @@ export class ZKPassport {
         verified: false,
       }
     }
+    if (!isCircuitVersionSupported(proofs[0]?.version)) {
+      return verifyWithVerifierApi({
+        proofs,
+        originalQuery,
+        queryResult,
+        domain: this.domain,
+        validity,
+        scope,
+        devMode,
+        oprfKeyId,
+      })
+    }
+
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
     // Automatically set the writing directory to `/tmp` if it is not provided
