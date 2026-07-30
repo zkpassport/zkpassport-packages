@@ -617,11 +617,38 @@ describe("Policy-driven requests", () => {
     expect(() => builder.policy("pol_xyz")).toThrow(/more than once/i)
   })
 
-  test("every mutating builder method throws after .policy()", async () => {
+  test("every mutating builder method except .bind() throws after .policy()", async () => {
     const builder = (await zkPassport.request({})).policy("pol_xyz")
     expect(() => builder.eq("document_type", "passport")).toThrow(/policy-driven/i)
     expect(() => builder.disclose("firstname")).toThrow(/policy-driven/i)
     expect(() => builder.sanctions()).toThrow(/policy-driven/i)
+    expect(() => builder.bind("chain", "ethereum")).not.toThrow()
+  })
+
+  test(".bind() after .policy() adds bound data on top of the policy query", async () => {
+    const result = (await zkPassport.request({}))
+      .policy("pol_xyz")
+      .bind("user_address", "0x1234abcd")
+      .bind("chain", "ethereum")
+      .done()
+
+    expect(result.policy).toBe("pol_xyz")
+    expect(result.query).toEqual({
+      ...sampleConfig.policies[0].query,
+      bind: { user_address: "0x1234abcd", chain: "ethereum" },
+    })
+  })
+
+  test(".bind() before .policy() still throws", async () => {
+    const builder = await zkPassport.request({})
+    builder.bind("user_address", "0x1234abcd")
+    expect(() => builder.policy("pol_xyz")).toThrow(/Cannot combine \.policy\(\)/i)
+  })
+
+  test(".bind() on one policy-driven request does not leak into the next", async () => {
+    ;(await zkPassport.request({})).policy("pol_xyz").bind("chain", "ethereum")
+    const result = (await zkPassport.request({})).policy("pol_xyz").done()
+    expect(result.query.bind).toBeUndefined()
   })
 
   test(".policy() rejects an empty id", async () => {
