@@ -26,21 +26,27 @@ export interface LoadedVerifier {
   destroy: () => Promise<void>
 }
 
+/** Thrown for proofs from circuits older than 0.20.0, which needed bb v4. */
+export class UnsupportedBBVersionError extends Error {
+  constructor() {
+    super(
+      "This proof was generated with a pre-0.20.0 circuit (bb v4), which is no longer " +
+        "supported. All supported mobile app versions generate v5 proofs; to verify " +
+        "old stored proofs, use @zkpassport/sdk 0.17.x.",
+    )
+    this.name = "UnsupportedBBVersionError"
+  }
+}
+
 export async function createUltraHonkVerifier(
   bbVersion: BBVersion,
   { writingDirectory }: { writingDirectory?: string } = {},
 ): Promise<LoadedVerifier> {
-  await clearStaleCrsCacheOnVersionChange(bbVersion)
-  let crsPath = writingDirectory ? writingDirectory + "/.bb-crs" : undefined
-
   if (bbVersion === "v4") {
-    console.warn("Using deprecated v4 UltraHonk Verifier")
-    crsPath = writingDirectory ? writingDirectory + "/.bb-crs-v4" : undefined
-    const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js-v4")
-    const barretenberg = await Barretenberg.new({ crsPath })
-    const verifier = new UltraHonkVerifierBackend(barretenberg)
-    return { verifier, destroy: () => barretenberg.destroy() }
+    throw new UnsupportedBBVersionError()
   }
+  await clearStaleCrsCacheOnVersionChange(bbVersion)
+  const crsPath = writingDirectory ? writingDirectory + "/.bb-crs" : undefined
   const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js")
   const barretenberg = await Barretenberg.new({ crsPath })
   const verifier = new UltraHonkVerifierBackend(barretenberg)
@@ -51,7 +57,7 @@ const BB_VERSION_KEY = "__zkpassport_bb_version"
 const BB_CRS_DB_NAME = "keyval-store"
 
 // Clear bb cache on v4 -> v5 due to default CRS size change
-async function clearStaleCrsCacheOnVersionChange(bbVersion: BBVersion): Promise<void> {
+export async function clearStaleCrsCacheOnVersionChange(bbVersion: BBVersion): Promise<void> {
   if (typeof indexedDB === "undefined") return
   try {
     const store = typeof localStorage !== "undefined" ? localStorage : undefined

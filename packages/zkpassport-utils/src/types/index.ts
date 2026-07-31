@@ -410,6 +410,39 @@ export type Service = {
   bridgeUrl?: string
 }
 
+/**
+ * The minimal private witness needed to (re)build inputs for any disclosure circuit
+ * without the full passport data (SOD, certificates, photo).
+ */
+export type DisclosureWitness = {
+  // UNPADDED DG1 bytes (5-byte header + MRZ); 93 bytes for TD3 passports, 95 for TD1 ID cards
+  dg1: number[]
+  // Raw DG2 hash bytes from the SOD (length determines the hash type)
+  dg2Hash: number[]
+  // 6-character MRZ expiry date (same value as PassportViewModel.passportExpiry)
+  expiryDate: string
+  // 0x-prefixed hex field element
+  privateNullifier: string
+  // 0x-prefixed hex; the single salt all four IntegrityToDisclosureSalts derive from
+  salt: string
+}
+
+/**
+ * Bundle sent by the mobile app over the bridge (message method "enrollment") that lets
+ * a browser generate disclosure proofs locally on future verification requests.
+ */
+export type EnrollmentBundle = {
+  // Bundle format version
+  version: 1
+  // The circuit manifest version the base subproofs were generated against
+  circuitVersion: `${number}.${number}.${number}`
+  // 0x-prefixed hex root of the certificate registry the DSC subproof was built against
+  certificateRegistryRoot: string
+  // Exactly 3 proofs: sig_check_dsc*, sig_check_id_data*, data_check_integrity*
+  baseSubproofs: ProofResult[]
+  witness: DisclosureWitness
+}
+
 export type ProofMode = "fast" | "compressed" | "compressed-evm"
 
 export type QRCodeData = {
@@ -425,6 +458,9 @@ export type QRCodeData = {
   uniqueIdentifierType: NullifierType | null
   oprfKeyId: string | null
   returnDeepLink: string | null
+  // Whether the requesting browser wants to receive an enrollment bundle
+  // after a successful verification (URL param `be=1`)
+  enrollment?: boolean | null
 }
 
 export interface JsonRpcRequest {

@@ -1,0 +1,142 @@
+@layer zkpassport {
+  /* Standalone "Verify with ZKPassport" button (opens the hosted popup).
+
+     Customization: set these CSS custom properties on the mount element or any
+     ancestor (they inherit) — works the same in React, vanilla, and the CDN build:
+       --zkp-btn-bg             button background (default: brand blue)
+       --zkp-btn-fg             button text/icon color
+       --zkp-btn-radius         corner radius (default 8px)
+       --zkp-btn-padding        button padding (default 15px 26px)
+       --zkp-btn-font           font-family stack
+       --zkp-btn-font-size      font size (default 13px)
+       --zkp-btn-letter-spacing letter spacing (default 0.09em)
+       --zkp-btn-text-transform label casing (default uppercase)
+       --zkp-verify-muted / --zkp-verify-success / --zkp-verify-error
+                                status line colors (set on .zkp-verify-wrap ancestor)
+
+     !important throughout: host resets (e.g. Tailwind preflight) are unlayered
+     and would otherwise strip these. */
+  .zkp-verify-button {
+    --zkp-bg: #ffffff;
+    --zkp-brand: #2139a3;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: var(--zkp-btn-padding, 15px 26px) !important;
+    border: none !important;
+    border-radius: var(--zkp-btn-radius, 8px) !important;
+    background: var(--zkp-btn-bg, var(--zkp-brand)) !important;
+    color: var(--zkp-btn-fg, var(--zkp-bg)) !important;
+    font-family: var(
+      --zkp-btn-font,
+      Inter,
+      "Inter Fallback",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      sans-serif
+    ) !important;
+    font-size: var(--zkp-btn-font-size, 13px) !important;
+    white-space: nowrap !important;
+    font-weight: 700 !important;
+    letter-spacing: var(--zkp-btn-letter-spacing, 0.09em) !important;
+    text-transform: var(--zkp-btn-text-transform, uppercase) !important;
+    line-height: 1.2 !important;
+    cursor: pointer !important;
+    transition:
+      filter 150ms ease,
+      transform 150ms ease;
+  }
+  .zkp-verify-button[data-theme="dark"] {
+    --zkp-bg: #0f172a;
+    --zkp-brand: #6b86d8;
+  }
+  @media (prefers-color-scheme: dark) {
+    .zkp-verify-button[data-theme="auto"] {
+      --zkp-bg: #0f172a;
+      --zkp-brand: #6b86d8;
+    }
+  }
+  .zkp-verify-button:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .zkp-verify-button:active:not(:disabled) {
+    transform: translateY(1px);
+    filter: brightness(0.95);
+  }
+  .zkp-verify-button-mark {
+    position: relative;
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    flex: none;
+  }
+  .zkp-verify-button-mark svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  /* !important: unlayered host resets (Tailwind preflight sets border-width: 0
+     on all ::after elements) would otherwise erase the ring */
+  .zkp-verify-button[data-status="in-progress"] .zkp-verify-button-mark::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: -6px !important;
+    border-radius: 50% !important;
+    border: 2.5px solid color-mix(in srgb, currentColor 35%, transparent) !important;
+    border-top-color: currentColor !important;
+    box-sizing: border-box !important;
+    animation: zkp-spinner-rotate 0.9s linear infinite !important;
+  }
+  .zkp-verify-wrap {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    --zkp-verify-muted: #6b7280;
+    --zkp-verify-success: #16a34a;
+    --zkp-verify-error: #dc2626;
+  }
+  .zkp-verify-wrap[data-theme="dark"] {
+    --zkp-verify-muted: #94a3b8;
+    --zkp-verify-success: #4ade80;
+    --zkp-verify-error: #f87171;
+  }
+  @media (prefers-color-scheme: dark) {
+    .zkp-verify-wrap[data-theme="auto"] {
+      --zkp-verify-muted: #94a3b8;
+      --zkp-verify-success: #4ade80;
+      --zkp-verify-error: #f87171;
+    }
+  }
+  .zkp-verify-status {
+    margin: 0 !important;
+    min-height: 18px !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+    color: var(--zkp-verify-muted) !important;
+  }
+  .zkp-verify-status-error {
+    color: var(--zkp-verify-error) !important;
+  }
+  .zkp-verify-status-success {
+    color: var(--zkp-verify-success) !important;
+  }
+  .zkp-verify-button:disabled {
+    cursor: default !important;
+    opacity: 0.65 !important;
+    filter: saturate(0.75) !important;
+    transform: none !important;
+  }
+
+  @keyframes zkp-spinner-rotate {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}

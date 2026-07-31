@@ -1,7 +1,7 @@
 import { getOffsetInArray } from "@/utils"
 import { PassportViewModel } from ".."
 
-export function getFirstNameRange(passport: PassportViewModel): [number, number] {
+export function getFirstNameRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   const lastNameStartIndex = isIDCard ? 60 : 5
@@ -22,7 +22,7 @@ export function getFirstNameRange(passport: PassportViewModel): [number, number]
   return [firstNameStartIndex - (isWithoutFullNameSeparator ? 1 : 2), firstNameEndIndex]
 }
 
-export function getSecondNameRange(passport: PassportViewModel): [number, number] {
+export function getSecondNameRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const secondNameStartIndex = getFirstNameRange(passport)[1] + 1
   const secondNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], secondNameStartIndex)
@@ -30,7 +30,7 @@ export function getSecondNameRange(passport: PassportViewModel): [number, number
   return [secondNameStartIndex - 1, secondNameEndIndex]
 }
 
-export function getThirdNameRange(passport: PassportViewModel): [number, number] {
+export function getThirdNameRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const thirdNameStartIndex = getSecondNameRange(passport)[1] + 1
   const thirdNameEndIndex = getOffsetInArray(mrz.split(""), ["<"], thirdNameStartIndex)
@@ -38,7 +38,7 @@ export function getThirdNameRange(passport: PassportViewModel): [number, number]
   return [thirdNameStartIndex - 1, thirdNameEndIndex]
 }
 
-export function getLastNameRange(passport: PassportViewModel): [number, number] {
+export function getLastNameRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   const lastNameStartIndex = isIDCard ? 60 : 5
@@ -47,31 +47,31 @@ export function getLastNameRange(passport: PassportViewModel): [number, number] 
   return [lastNameStartIndex, lastNameEndIndex + 2]
 }
 
-export function getFullNameRange(passport: PassportViewModel): [number, number] {
+export function getFullNameRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   return [isIDCard ? 60 : 5, isIDCard ? 90 : 44]
 }
 
-export function getBirthdateRange(passport: PassportViewModel): [number, number] {
+export function getBirthdateRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   return [isIDCard ? 30 : 57, isIDCard ? 36 : 63]
 }
 
-export function getDocumentNumberRange(passport: PassportViewModel): [number, number] {
+export function getDocumentNumberRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   return [isIDCard ? 5 : 44, isIDCard ? 14 : 53]
 }
 
-export function getNationalityRange(passport: PassportViewModel): [number, number] {
+export function getNationalityRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   return [isIDCard ? 45 : 54, isIDCard ? 48 : 57]
 }
 
-export function getNationality(passport: PassportViewModel): string {
+export function getNationality(passport: Pick<PassportViewModel, "mrz">): string {
   const mrz = passport?.mrz
   const countryCode = mrz.slice(...getNationalityRange(passport))
   if (countryCode === "D<<") {
@@ -80,13 +80,13 @@ export function getNationality(passport: PassportViewModel): string {
   return countryCode
 }
 
-export function getExpiryDateRange(passport: PassportViewModel): [number, number] {
+export function getExpiryDateRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   return [isIDCard ? 38 : 65, isIDCard ? 44 : 71]
 }
 
-export function getGenderRange(passport: PassportViewModel): [number, number] {
+export function getGenderRange(passport: Pick<PassportViewModel, "mrz">): [number, number] {
   const mrz = passport?.mrz
   const isIDCard = mrz.length == 90
   return [isIDCard ? 37 : 64, isIDCard ? 38 : 65]

@@ -13,7 +13,7 @@ import {
   SupportedChain,
   Query,
 } from "@zkpassport/utils"
-import type { ZKPassport } from "./index"
+import type { EnrollmentAvailableActions, ZKPassport } from "./index"
 
 export type QueryResultError<T> = {
   expected?: T
@@ -136,13 +136,15 @@ export type QueryBuilderResult = {
    *
    * The response contains the unique identifier associated to the user,
    * your domain name and chosen scope, along with the query result and whether
-   * the proofs were successfully verified.
+   * the proofs were successfully verified. `verified` is `undefined` when
+   * in-browser verification was skipped (see `skipProofVerification`): the
+   * proofs were not checked, which is distinct from having failed (`false`).
    */
   onResult: (
     callback: (response: {
       uniqueIdentifier: string | undefined
       uniqueIdentifierType: NullifierType | undefined
-      verified: boolean
+      verified: boolean | undefined
       result: QueryResult
       queryResultErrors?: Partial<QueryResultErrors>
       proofs: ProofResult[]
@@ -159,6 +161,13 @@ export type QueryBuilderResult = {
    */
   onError: (callback: (error: string) => void) => void
   /**
+   * Called after a successful verification when the mobile app sent an enrollment
+   * bundle (browser enrollment enabled and supported). Call `actions.save()` from a
+   * user gesture to create a passkey and store the bundle encrypted in this browser,
+   * or `actions.discard()` to drop it.
+   */
+  onEnrollmentAvailable: (callback: (actions: EnrollmentAvailableActions) => void) => void
+  /**
    * @returns true if the bridge with the mobile app is connected
    */
   isBridgeConnected: () => boolean
@@ -171,6 +180,10 @@ export type QueryBuilderResult = {
 
 export type OfflineQueryBuilderResult = {
   query: Query
+  // Set when the query was built with .policy(id): offline builders can't fetch
+  // the dashboard config, so the policy is recorded for the consumer (e.g. the
+  // hosted popup) to apply where the config is available
+  policy?: string
 }
 
 export type QueryBuilder<T extends "online" | "offline" = "online"> = {

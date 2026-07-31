@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/ui",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "description": "Drop-in QR verification card for ZKPassport. Vanilla JS by default; React component available at @zkpassport/ui/react.",
   "author": "ZKPassport",
   "license": "Apache-2.0",
@@ -34,6 +34,32 @@
         "default": "./dist/cjs/react.cjs"
       }
     },
+    "./button": {
+      "import": {
+        "types": "./dist/esm/button.d.ts",
+        "default": "./dist/esm/button.js"
+      },
+      "require": {
+        "types": "./dist/cjs/button.d.cts",
+        "default": "./dist/cjs/button.cjs"
+      }
+    },
+    "./react-button": {
+      "import": {
+        "types": "./dist/esm/react-button.d.ts",
+        "default": "./dist/esm/react-button.js"
+      },
+      "require": {
+        "types": "./dist/cjs/react-button.d.cts",
+        "default": "./dist/cjs/react-button.cjs"
+      }
+    },
+    "./hosted": {
+      "import": {
+        "types": "./dist/hosted.d.ts",
+        "default": "./dist/hosted.js"
+      }
+    },
     "./styles.css": "./dist/styles.css"
   },
   "scripts": {
@@ -43,7 +69,7 @@
     "test": "echo 'no tests yet'",
     "check": "tsc --noEmit && prettier -c src && eslint src --ext .ts,.tsx",
     "format": "prettier -c -w src && eslint src --ext .ts,.tsx --fix",
-    "validate-package": "../../scripts/validate-package.sh --exclude-entrypoints ./styles.css",
+    "validate-package": "../../scripts/validate-package.sh --exclude-entrypoints ./styles.css ./hosted",
     "prepublishOnly": "../../scripts/prepublish.sh"
   },
   "files": [
@@ -61,10 +87,6 @@
     "verification",
     "widget"
   ],
-  "dependencies": {
-    "@zkpassport/sdk": "workspace:*",
-    "qrcode": "^1.5.4"
-  },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18",
@@ -82,7 +104,9 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
-    "preact": "^10.22.0",
+    "@zkpassport/sdk": "workspace:*",
+    "preact": "10.29.2",
+    "qrcode": "1.5.4",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

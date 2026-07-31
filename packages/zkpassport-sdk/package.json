@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/sdk",
-  "version": "0.16.1",
+  "version": "0.17.0",
   "description": "Privacy-preserving identity verification using passports and ID cards",
   "author": "ZKPassport",
   "license": "Apache-2.0",
@@ -16,6 +16,22 @@
     ".": {
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.cjs"
+    },
+    "./popup": {
+      "import": "./dist/esm/popup.js",
+      "require": "./dist/cjs/popup.cjs"
+    },
+    "./api-verifier": {
+      "import": "./dist/esm/api-verifier.js",
+      "require": "./dist/cjs/api-verifier.cjs"
+    },
+    "./enrollment": {
+      "import": "./dist/esm/enrollment.js",
+      "require": "./dist/cjs/enrollment.cjs"
+    },
+    "./query": {
+      "import": "./dist/esm/query.js",
+      "require": "./dist/cjs/query.cjs"
     }
   },
   "scripts": {
@@ -41,10 +57,10 @@
   ],
   "dependencies": {
     "@aztec/bb.js": "5.0.0",
-    "@aztec/bb.js-v4": "npm:@aztec/bb.js@4.2.0-aztecnr-rc.2",
     "@noble/ciphers": "^1.2.1",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^2.2.3",
+    "@noir-lang/noir_js": "1.0.0-beta.22",
     "@obsidion/bridge": "^0.11.2",
     "@zkpassport/registry": "workspace:*",
     "@zkpassport/utils": "workspace:*",

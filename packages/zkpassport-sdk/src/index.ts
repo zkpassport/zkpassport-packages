@@ -1,4 +1,3 @@
-import { Alpha3Code, getAlpha3Code, registerLocale } from "i18n-iso-countries"
 import {
   type DisclosableIDCredential,
   type IDCredential,
@@ -16,16 +15,16 @@ import {
   type ProofMode,
   type BoundData,
   type Service,
+  type EnrollmentBundle,
   NullifierType,
   getProofData,
   getNumberOfPublicInputs,
+  getRequiredDisclosureCircuitNames,
   formatQueryResultDates,
+  validateEnrollmentBundle,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
-import i18en from "i18n-iso-countries/langs/en.json"
 import { Buffer } from "buffer/"
-import { RegistryClient } from "@zkpassport/registry"
-// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -35,11 +34,72 @@ import {
   Policy,
   QueryResultErrors,
 } from "./types"
+import { generalCompare, normalizeCountry, numericalCompare, rangeCompare } from "./query-helpers"
+import { createOfflineQuery } from "./offline-query"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
-import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
+import {
+  createUltraHonkVerifier,
+  getBBVersionForCircuitVersion,
+  UnsupportedBBVersionError,
+} from "./bb-verifier"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
+import {
+  createEnrollment,
+  deleteEnrollment as deleteStoredEnrollment,
+  getMaskedName,
+  isEnrollmentStorageSupported,
+  listEnrollments,
+  unlockEnrollment,
+} from "./enrollment/store"
+import {
+  EnrollmentStaleError,
+  UnsupportedQueryError,
+  isQueryLocallyProvable,
+  proveLocally,
+  type LocalProofProgress,
+} from "./enrollment/browser-prover"
+import {
+  getManifestCached,
+  getPackagedCircuitCached,
+  isCertificateRootValidCached,
+  warmupLocalProving,
+} from "./enrollment/prover-cache"
+
+// Enrollment/browser-proving runtime API lives in "@zkpassport/sdk/enrollment"
+// (internal, hosted-popup only). Only the types referenced by public callback
+// signatures are exported here.
+export type { LocalProofProgress }
+export type { EnrollmentBundle }
+
+/**
+ * Handed to onEnrollmentAvailable callbacks after a successful verification when the
+ * mobile app sent an enrollment bundle. `save` runs the passkey creation ceremony and
+ * MUST be called from a user gesture (e.g. a click handler). `maskedName` is the
+ * masked holder name ("J*** S***") of the ID about to be saved, for display.
+ */
+export type EnrollmentAvailableActions = {
+  save: () => Promise<boolean>
+  discard: () => void
+  maskedName: string | null
+}
+
+export type SavedEnrollment = {
+  // Stable per-document identifier
+  id: string
+  // Masked holder name, e.g. "J*** S***" (initials only)
+  maskedName: string | null
+  // Timestamp (ms) of when the enrollment was saved
+  createdAt: number
+}
+
+export type EnrollmentStatus = {
+  available: boolean
+  reason?: "no-webauthn" | "none" | "stale" | "unsupported-query" | "wrong-mode"
+  // The saved IDs usable for this request, newest first
+  enrollments: SavedEnrollment[]
+}
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
@@ -49,61 +109,11 @@ if (typeof globalThis.Buffer === "undefined") {
   }
 }
 
-registerLocale(i18en)
-
 function policyScope(policy: { id: string; version: number }): string {
   return `${policy.id}:${policy.version}`
 }
 
 const DEFAULT_PURPOSE = "Verify identity privately"
-
-function normalizeCountry(country: CountryName | Alpha3Code) {
-  if (country === "Zero Knowledge Republic") {
-    return "ZKR"
-  }
-  let normalizedCountry: Alpha3Code | "ZKR" | undefined = undefined
-  const alpha3 = getAlpha3Code(country as CountryName, "en") as Alpha3Code | "ZKR" | undefined
-  normalizedCountry = alpha3 || (country as Alpha3Code) || "ZKR"
-  return normalizedCountry as Alpha3Code | "ZKR"
-}
-
-function numericalCompare(
-  fnName: "gte" | "gt" | "lte" | "lt",
-  key: NumericalIDCredential,
-  value: number | Date,
-  requestId: string,
-  requestIdToConfig: Record<string, Query>,
-) {
-  requestIdToConfig[requestId][key] = {
-    ...requestIdToConfig[requestId][key],
-    [fnName]: value,
-  }
-}
-
-function rangeCompare(
-  key: NumericalIDCredential,
-  value: [number | Date, number | Date],
-  requestId: string,
-  requestIdToConfig: Record<string, Query>,
-) {
-  requestIdToConfig[requestId][key] = {
-    ...requestIdToConfig[requestId][key],
-    range: value,
-  }
-}
-
-function generalCompare(
-  fnName: "in" | "out" | "eq",
-  key: IDCredential,
-  value: any, // eslint-disable-line
-  requestId: string,
-  requestIdToConfig: Record<string, Query>,
-) {
-  requestIdToConfig[requestId][key] = {
-    ...requestIdToConfig[requestId][key],
-    [fnName]: value,
-  }
-}
 
 export {
   SANCTIONED_COUNTRIES,
@@ -134,6 +144,9 @@ export {
 } from "@zkpassport/utils"
 
 export * from "./types"
+// Also available from the lightweight "@zkpassport/sdk/query" entry, which
+// avoids pulling in the ZKPassport class
+export { createOfflineQuery } from "./offline-query"
 
 export class ZKPassport {
   private domain: string
@@ -149,8 +162,11 @@ export class ZKPassport {
       uniqueIdentifierType: NullifierType | undefined
       oprfKeyId: string | null
       returnDeepLink: string | undefined
+      enableBrowserEnrollment: boolean
+      skipProofVerification: boolean
     }
   > = {}
+  private topicToPendingEnrollment: Record<string, EnrollmentBundle> = {}
   private topicToPublicKey: Record<string, string> = {}
   private topicToBridge: Record<string, BridgeInterface> = {}
   private topicToRequestReceived: Record<string, boolean> = {}
@@ -174,7 +190,7 @@ export class ZKPassport {
       (response: {
         uniqueIdentifier: string | undefined
         uniqueIdentifierType: NullifierType | undefined
-        verified: boolean
+        verified: boolean | undefined
         result: QueryResult
         queryResultErrors?: Partial<QueryResultErrors>
         proofs: ProofResult[]
@@ -184,6 +200,10 @@ export class ZKPassport {
   > = {}
   private onRejectCallbacks: Record<string, Array<() => void>> = {}
   private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
+  private onEnrollmentAvailableCallbacks: Record<
+    string,
+    Array<(actions: EnrollmentAvailableActions) => void>
+  > = {}
   //private wasmVerifierInit: boolean = false
 
   private normalizeDomain(domain: string) {
@@ -229,6 +249,7 @@ export class ZKPassport {
         scope: this.topicToService[topic]?.scope,
         devMode: this.topicToLocalConfig[topic]?.devMode,
         oprfKeyId: this.topicToLocalConfig[topic]?.oprfKeyId ?? undefined,
+        skipProofVerification: this.topicToLocalConfig[topic]?.skipProofVerification,
       })
     logger.debug("Verification complete, verified:", verified)
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
@@ -236,7 +257,9 @@ export class ZKPassport {
     // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
     // pollute real-domain stats.
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
-    if (finalVerified && this.domainProvided && !this.disableProofStorage && !devMode) {
+    // `undefined` (verification skipped) still submits: the dashboard API runs its
+    // own checks on the submitted proofs before storing them
+    if (finalVerified !== false && this.domainProvided && !this.disableProofStorage && !devMode) {
       void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
@@ -264,6 +287,48 @@ export class ZKPassport {
     )
     // Clear the expected proof count and failed proof count
     delete this.topicToFailedProofCount[topic]
+
+    // If the mobile app sent an enrollment bundle and the verification succeeded,
+    // offer the caller to save it to this browser (requires a passkey ceremony,
+    // so the actual save must happen from a user gesture)
+    const pendingEnrollment = this.topicToPendingEnrollment[topic]
+    // `undefined` (verification skipped) still offers the save: the bundle came from
+    // the mobile app over the encrypted bridge, and a bundle from an invalid proof
+    // simply fails at its first local verification
+    if (pendingEnrollment && finalVerified !== false) {
+      delete this.topicToPendingEnrollment[topic]
+      if ((this.onEnrollmentAvailableCallbacks[topic]?.length ?? 0) === 0) {
+        console.warn(
+          "ZKPassport: enrollment bundle received but no onEnrollmentAvailable callback is registered",
+        )
+      } else if (!(await isEnrollmentStorageSupported())) {
+        console.warn(
+          "ZKPassport: enrollment bundle received but this browser has no user-verifying platform authenticator (passkey) available — discarding",
+        )
+      } else {
+        const actions: EnrollmentAvailableActions = {
+          save: () => createEnrollment(pendingEnrollment, this.domain),
+          discard: () => {},
+          maskedName: getMaskedName(pendingEnrollment),
+        }
+        await Promise.all(
+          this.onEnrollmentAvailableCallbacks[topic].map((callback) => callback(actions)),
+        )
+      }
+    } else {
+      if (
+        !pendingEnrollment &&
+        finalVerified !== false &&
+        this.topicToLocalConfig[topic]?.enableBrowserEnrollment
+      ) {
+        console.warn(
+          "ZKPassport: browser enrollment was enabled but no enrollment bundle was received from the mobile app. " +
+            "Common causes: the app declined/timed out the consent prompt, the user disabled 'Offer browser verification' in the app settings, " +
+            "enrollment was declined earlier in the same app session for this domain, or the request was not eligible (salted/compressed/facematch).",
+        )
+      }
+      delete this.topicToPendingEnrollment[topic]
+    }
   }
 
   /**
@@ -305,6 +370,23 @@ export class ZKPassport {
           this.topicToProofs[topic][0].total
       ) {
         await this.handleResult(topic)
+      }
+    } else if (request.method === "enrollment") {
+      logger.debug(`User sent an enrollment bundle`)
+      // Only accept enrollment bundles when the RP opted in, and never persist here:
+      // the bundle is held in memory until the verification result is confirmed and
+      // the user consents to saving it (passkey ceremony)
+      if (
+        this.topicToLocalConfig[topic]?.enableBrowserEnrollment &&
+        validateEnrollmentBundle(request.params)
+      ) {
+        this.topicToPendingEnrollment[topic] = request.params
+      } else {
+        console.warn(
+          this.topicToLocalConfig[topic]?.enableBrowserEnrollment
+            ? "ZKPassport: ignoring enrollment bundle (failed validation)"
+            : "ZKPassport: ignoring enrollment bundle (enableBrowserEnrollment not set)",
+        )
       }
     } else if (request.method === "error") {
       const error = request.params.error
@@ -482,13 +564,6 @@ export class ZKPassport {
       },
       done: (() => {
         this.topicToFailedProofCount[topic] = 0
-        if (topic === "offline-query") {
-          const query = this.topicToConfig[topic]
-          delete this.topicToConfig[topic]
-          delete this.topicToPolicy[topic]
-          return { query }
-        }
-
         const localConfig = this.topicToLocalConfig[topic]
         const query = this.topicToConfig[topic]
         const hasFaceMatch = !!query.facematch
@@ -530,7 +605,7 @@ export class ZKPassport {
             callback: (response: {
               uniqueIdentifier: string | undefined
               uniqueIdentifierType: NullifierType | undefined
-              verified: boolean
+              verified: boolean | undefined
               result: QueryResult
               queryResultErrors?: Partial<QueryResultErrors>
               proofs: ProofResult[]
@@ -540,10 +615,12 @@ export class ZKPassport {
           onReject: (callback: () => void) => this.onRejectCallbacks[topic].push(callback),
           onError: (callback: (error: string) => void) =>
             this.onErrorCallbacks[topic].push(callback),
+          onEnrollmentAvailable: (callback: (actions: EnrollmentAvailableActions) => void) =>
+            this.onEnrollmentAvailableCallbacks[topic].push(callback),
           isBridgeConnected: () => this.topicToBridge[topic].isBridgeConnected(),
           requestReceived: () => this.topicToRequestReceived[topic] === true,
         }
-      }) as () => T extends "online" ? QueryBuilderResult : OfflineQueryBuilderResult,
+      }) as unknown as () => T extends "online" ? QueryBuilderResult : OfflineQueryBuilderResult,
     }
   }
 
@@ -653,6 +730,8 @@ export class ZKPassport {
     cloudProverUrl,
     bridgeUrl,
     returnDeepLink,
+    enableBrowserEnrollment,
+    skipProofVerification,
   }: {
     name?: string
     logo?: string
@@ -669,6 +748,19 @@ export class ZKPassport {
     cloudProverUrl?: string
     bridgeUrl?: string
     returnDeepLink?: string
+    /**
+     * Skip in-browser cryptographic proof verification when the result arrives.
+     * `verified` in onResult becomes `undefined` (not checked) instead of a real
+     * verification outcome; verify the proofs server-side. Avoids loading the
+     * bb.js WASM backend in the browser.
+     */
+    skipProofVerification?: boolean
+    /**
+     * Opt in to browser enrollment: after a successful mobile verification the app may
+     * (with user consent) send an enrollment bundle so future fast-mode verifications
+     * on this origin can be proven directly in the browser without the mobile app.
+     */
+    enableBrowserEnrollment?: boolean
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
@@ -682,11 +774,25 @@ export class ZKPassport {
       this.dashboardConfigError = e as Error
     }
 
-    const bridge = await Bridge.create({
-      keyPair: keyPairOverride,
-      bridgeId: topicOverride,
-      bridgeUrl,
-    })
+    // Probe passkey/PRF support in parallel with the bridge setup (the probe is
+    // local and resolves in milliseconds, so it adds no latency). When the browser
+    // can't store enrollments, `be=1` is left out of the request URL so the mobile
+    // app never asks the user to consent to a save that couldn't happen.
+    const [bridge, browserSupportsEnrollment] = await Promise.all([
+      Bridge.create({
+        keyPair: keyPairOverride,
+        bridgeId: topicOverride,
+        bridgeUrl,
+      }),
+      enableBrowserEnrollment
+        ? isEnrollmentStorageSupported().catch(() => false)
+        : Promise.resolve(false),
+    ])
+    if (enableBrowserEnrollment && !browserSupportsEnrollment) {
+      console.warn(
+        "ZKPassport: enableBrowserEnrollment is set but this browser has no user-verifying platform authenticator (passkey) available — browser enrollment is disabled for this request",
+      )
+    }
 
     const topic = bridge.connection.getBridgeId()
 
@@ -709,6 +815,8 @@ export class ZKPassport {
       uniqueIdentifierType: oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType,
       oprfKeyId: oprfKeyId ?? null,
       returnDeepLink,
+      enableBrowserEnrollment: (enableBrowserEnrollment ?? false) && browserSupportsEnrollment,
+      skipProofVerification: skipProofVerification ?? false,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -718,6 +826,7 @@ export class ZKPassport {
     this.onResultCallbacks[topic] = []
     this.onRejectCallbacks[topic] = []
     this.onErrorCallbacks[topic] = []
+    this.onEnrollmentAvailableCallbacks[topic] = []
 
     this.topicToPublicKey[topic] = bridge.getPublicKey()
 
@@ -748,8 +857,7 @@ export class ZKPassport {
    * @returns The query builder object.
    */
   public createQuery(): QueryBuilder<"offline"> {
-    this.topicToConfig["offline-query"] = {}
-    return this.getZkPassportRequest("offline-query")
+    return createOfflineQuery()
   }
 
   /**
@@ -774,6 +882,7 @@ export class ZKPassport {
     devMode = false,
     writingDirectory,
     oprfKeyId,
+    skipProofVerification = false,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -783,10 +892,17 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
+    /**
+     * Skip the cryptographic verification of the proofs themselves. The public input
+     * consistency checks still run; `verified` is `undefined` when they pass (meaning
+     * "not checked", distinct from `false`). The result must then be verified
+     * server-side. Intended for browser UIs where the verifier backend is not bundled.
+     */
+    skipProofVerification?: boolean
   }): Promise<{
     uniqueIdentifier: string | undefined
     uniqueIdentifierType: NullifierType | undefined
-    verified: boolean
+    verified: boolean | undefined
     queryResultErrors?: Partial<QueryResultErrors>
   }> {
     // If no proofs were generated, the results can't be trusted.
@@ -805,11 +921,7 @@ export class ZKPassport {
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
-    const { verifier, destroy: destroyVerifier } = await createUltraHonkVerifier(bbVersion, {
-      writingDirectory,
-    })
-    let verified = true
+    let verified: boolean | undefined = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
@@ -848,19 +960,76 @@ export class ZKPassport {
       )
     }
     // Only proceed with the proof verification if the public inputs are correct
-    if (verified) {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const circuitManifest = await registryClient.getCircuitManifest(undefined, {
+    if (verified && skipProofVerification) {
+      // The consistency checks passed but the proofs themselves were not checked:
+      // `undefined` (not checked) rather than `true`, so callers can't mistake it
+      // for a cryptographic verification result
+      verified = undefined
+    } else if (verified) {
+      // The verifier backend is only loaded at this point, so callers that skip
+      // verification never trigger the bb.js import
+      let verifierHandle: Awaited<ReturnType<typeof createUltraHonkVerifier>> | undefined
+      try {
+        const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
+        verifierHandle = await createUltraHonkVerifier(bbVersion, { writingDirectory })
+      } catch (e) {
+        // A proof that can never be verified by this SDK version is a hard error,
+        // not a "backend unavailable" soft failure
+        if (e instanceof UnsupportedBBVersionError) throw e
+        console.warn(
+          "The proof verification backend (bb.js) could not be loaded, so the proofs were not verified. Verify them server-side instead.",
+          e,
+        )
+        verified = undefined
+      }
+      if (verifierHandle) {
+        verified = await this.verifyProofsWithBackend({
+          proofs,
+          verifier: verifierHandle.verifier,
+          scope,
+          devMode,
+        })
+        // Release the bb.js wasm instance loaded for this verify() call
+        await verifierHandle.destroy()
+      }
+    }
+
+    // If the proofs failed verification, we don't return the unique identifier.
+    // When verification was skipped (`verified` is undefined), the identifier is
+    // returned as-is: it is extracted from the public inputs and must be treated
+    // as unverified until checked server-side.
+    uniqueIdentifier = verified === false ? undefined : uniqueIdentifier
+    uniqueIdentifierType = verified === false ? undefined : uniqueIdentifierType
+    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
+  }
+
+  private async verifyProofsWithBackend({
+    proofs,
+    verifier,
+    scope,
+    devMode,
+  }: {
+    proofs: Array<ProofResult>
+    verifier: Awaited<ReturnType<typeof createUltraHonkVerifier>>["verifier"]
+    scope?: string
+    devMode: boolean
+  }): Promise<boolean> {
+    let verified = true
+    {
+      // Cached fetches: after browser-side proving these are already in memory
+      const circuitManifest = await getManifestCached(
         // We assume all proofs have the same version
-        version: proofs[0].version,
-      })
+        proofs[0].version!,
+        devMode,
+      )
       for (const proof of proofs) {
         const isOuterEVM = proof.name?.startsWith("outer_evm_")
         const proofName = proof.name!
         const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
-        const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
+        const hostedPackagedCircuit = await getPackagedCircuitCached(
           proofName,
           circuitManifest,
+          devMode,
           // TODO: set to always validate when the issue is vkey hash calculation is fixed
           { validate: !isOuterEVM },
         )
@@ -915,14 +1084,7 @@ export class ZKPassport {
         }
       }
     }
-
-    // Release the bb.js wasm instance loaded for this verify() call
-    await destroyVerifier()
-
-    // If the proofs are not verified, we don't return the unique identifier
-    uniqueIdentifier = verified ? uniqueIdentifier : undefined
-    uniqueIdentifierType = verified ? uniqueIdentifierType : undefined
-    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
+    return verified
   }
 
   public getSolidityVerifierDetails(): {
@@ -987,7 +1149,28 @@ export class ZKPassport {
     if (returnDeepLink) {
       url += `&r=${encodeURIComponent(returnDeepLink)}`
     }
+    if (this.isEnrollmentEligible(requestId)) {
+      url += `&be=1`
+    }
     return url
+  }
+
+  /**
+   * Whether an enrollment bundle should be requested from the mobile app for this
+   * request: RP opted in, fast mode, non-salted nullifier, and every circuit the
+   * query requires can be proven in the browser (no facematch).
+   */
+  private isEnrollmentEligible(requestId: string): boolean {
+    const localConfig = this.topicToLocalConfig[requestId]
+    if (!localConfig?.enableBrowserEnrollment) return false
+    if (localConfig.mode !== "fast") return false
+    if (
+      localConfig.uniqueIdentifierType === NullifierType.SALTED ||
+      localConfig.uniqueIdentifierType === NullifierType.SALTED_MOCK
+    ) {
+      return false
+    }
+    return isQueryLocallyProvable(this.topicToConfig[requestId] ?? {})
   }
 
   /**
@@ -997,6 +1180,174 @@ export class ZKPassport {
    */
   public getUrl(requestId: string) {
     return this._getUrl(requestId)
+  }
+
+  /**
+   * @internal Hosted verify popup only — saved enrollments exist only on the
+   * shared verify origin.
+   * @notice List the saved enrollments that can serve this request locally
+   * (no passkey ceremony is run). Enrollments that turned stale are deleted
+   * and excluded from the result.
+   * @param requestId The request ID.
+   */
+  public async getEnrollmentStatus(requestId: string): Promise<EnrollmentStatus> {
+    if (!(await isEnrollmentStorageSupported())) {
+      return { available: false, reason: "no-webauthn", enrollments: [] }
+    }
+    const metas = await listEnrollments()
+    if (metas.length === 0) {
+      return { available: false, reason: "none", enrollments: [] }
+    }
+    if (!this.isEnrollmentEligible(requestId)) {
+      const localConfig = this.topicToLocalConfig[requestId]
+      const wrongMode =
+        localConfig?.mode !== "fast" ||
+        localConfig?.uniqueIdentifierType === NullifierType.SALTED ||
+        localConfig?.uniqueIdentifierType === NullifierType.SALTED_MOCK
+      return {
+        available: false,
+        reason: wrongMode ? "wrong-mode" : "unsupported-query",
+        enrollments: [],
+      }
+    }
+    // Cheap staleness checks that don't require unlocking the bundles; the
+    // validity lookups are cached (shared with the prover) so repeats are free
+    const devMode = this.topicToLocalConfig[requestId]?.devMode ?? false
+    const usable: SavedEnrollment[] = []
+    const usableMetas: typeof metas = []
+    try {
+      for (const meta of metas) {
+        if (getBBVersionForCircuitVersion(meta.circuitVersion) !== "v5") {
+          await deleteStoredEnrollment(meta.id)
+          continue
+        }
+        const rootValid = await isCertificateRootValidCached(meta.certificateRegistryRoot, devMode)
+        if (!rootValid) {
+          await deleteStoredEnrollment(meta.id)
+          continue
+        }
+        usable.push({ id: meta.id, maskedName: meta.maskedName, createdAt: meta.createdAt })
+        usableMetas.push(meta)
+      }
+    } catch (error) {
+      logger.debug("Enrollment staleness check failed:", error)
+      // Network hiccups shouldn't erase enrollments; report unavailable for now
+      return { available: false, reason: "stale", enrollments: [] }
+    }
+    if (usable.length === 0) {
+      return { available: false, reason: "stale", enrollments: [] }
+    }
+    // Local verification is now likely: warm up everything proving will need
+    // (WASM modules, Barretenberg, CRS, manifests, circuits) in the background
+    warmupLocalProving({
+      circuitNames: getRequiredDisclosureCircuitNames(this.topicToConfig[requestId] ?? {}),
+      circuitVersions: usableMetas.map((meta) => meta.circuitVersion),
+      certificateRoots: usableMetas.map((meta) => meta.certificateRegistryRoot),
+      devMode,
+    })
+    return { available: true, enrollments: usable }
+  }
+
+  /**
+   * @notice Returns the resolved service details (name, logo, purpose) shown to the
+   * user for a pending request, including branding resolved from the dashboard config.
+   * @param requestId The request ID.
+   */
+  public getServiceDetails(requestId: string): Service | undefined {
+    return this.topicToService[requestId]
+  }
+
+  /**
+   * @internal Hosted verify popup only.
+   * @notice Enable or disable browser enrollment for a pending request. Changes the
+   * request URL (`be=1`), so the QR code must be re-rendered from getUrl() after
+   * calling this. Also gates whether an incoming enrollment bundle is accepted.
+   * @param requestId The request ID.
+   * @param enabled Whether the mobile app should be asked for an enrollment bundle.
+   */
+  public setBrowserEnrollment(requestId: string, enabled: boolean) {
+    if (this.topicToLocalConfig[requestId]) {
+      this.topicToLocalConfig[requestId].enableBrowserEnrollment = enabled
+    }
+  }
+
+  /**
+   * @internal Hosted verify popup only — requires an enrollment saved on the
+   * shared verify origin.
+   * @notice Generate the proofs for this request locally in the browser from the
+   * stored enrollment, verify them and fire onResult — no mobile app involved.
+   * MUST be called from a user gesture (click handler) as it runs a passkey
+   * assertion to unlock the enrollment bundle.
+   *
+   * On failure the caller should fall back to the QR flow; when an
+   * EnrollmentStaleError is thrown the stored enrollment has been deleted.
+   * @param requestId The request ID.
+   */
+  public async verifyLocally(
+    requestId: string,
+    options: {
+      onProgress?: (progress: LocalProofProgress) => void
+      // Which saved ID to use; defaults to the most recently saved one
+      enrollmentId?: string
+    } = {},
+  ): Promise<void> {
+    const query = this.topicToConfig[requestId]
+    if (!query) {
+      throw new Error(`Unknown request: ${requestId}`)
+    }
+    let enrollmentId = options.enrollmentId
+    if (!enrollmentId) {
+      const metas = await listEnrollments()
+      if (metas.length === 0) {
+        throw new Error("No enrollment stored in this browser")
+      }
+      enrollmentId = metas[0].id
+    }
+    // Unlock first (passkey assertion, needs the user activation)
+    const bundle = await unlockEnrollment(enrollmentId)
+    await Promise.all(
+      this.onGeneratingProofCallbacks[requestId].map((callback) => callback(requestId)),
+    )
+    try {
+      const { proofs, queryResult } = await proveLocally({
+        bundle,
+        query,
+        domain: this.domain,
+        scope: this.topicToService[requestId]?.scope,
+        devMode: this.topicToLocalConfig[requestId]?.devMode ?? false,
+        onProgress: options.onProgress,
+      })
+      for (const proof of proofs) {
+        await Promise.all(
+          this.onProofGeneratedCallbacks[requestId].map((callback) => callback(proof)),
+        )
+      }
+      this.topicToProofs[requestId] = proofs
+      this.topicToResults[requestId] = queryResult
+      this.topicToFailedProofCount[requestId] = 0
+      await this.handleResult(requestId)
+      // The bridge is no longer needed for this request
+      this.cancelRequest(requestId)
+    } catch (error) {
+      // Clean up partial state so a QR fallback on the same request still works
+      this.topicToProofs[requestId] = []
+      delete this.topicToResults[requestId]
+      this.topicToFailedProofCount[requestId] = 0
+      if (error instanceof EnrollmentStaleError) {
+        await deleteStoredEnrollment(enrollmentId)
+      }
+      throw error
+    }
+  }
+
+  /**
+   * @internal Hosted verify popup only.
+   * @notice Delete a saved enrollment by id, or all of them when no id is given.
+   * The passkeys themselves cannot be removed from JS but become inert.
+   * @param enrollmentId The saved enrollment to delete; omit to delete all.
+   */
+  public async deleteEnrollment(enrollmentId?: string): Promise<void> {
+    await deleteStoredEnrollment(enrollmentId)
   }
 
   /**
@@ -1015,12 +1366,14 @@ export class ZKPassport {
     delete this.topicToFailedProofCount[requestId]
     delete this.topicToResults[requestId]
     delete this.topicToPolicy[requestId]
+    delete this.topicToPendingEnrollment[requestId]
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []
     this.onProofGeneratedCallbacks[requestId] = []
     this.onRejectCallbacks[requestId] = []
     this.onErrorCallbacks[requestId] = []
+    this.onEnrollmentAvailableCallbacks[requestId] = []
   }
 
   /**

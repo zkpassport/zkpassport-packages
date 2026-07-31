@@ -34,4 +34,6 @@ export function mount(element: HTMLElement, options: ZKPassportQRCodeOptions): Q
   }
 }
 
+export { mountVerifyButton } from "../button/index"
+export type { VerifyWithZKPassportButtonOptions } from "../verify-button"
 export * from "../types"
