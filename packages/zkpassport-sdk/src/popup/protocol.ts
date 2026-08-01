@@ -13,6 +13,7 @@ export type PopupRequestConfig = {
   validity?: number
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   oprfKeyId?: string
+  enableBrowserEnrollment?: boolean
 }
 
 export type PopupConfigureMessage = {
@@ -46,6 +47,8 @@ export type PopupEventMessage =
     }
   | { zkpassport: true; type: "rejected" }
   | { zkpassport: true; type: "error"; message: string }
+  | { zkpassport: true; type: "enrollment-saved" }
+  | { zkpassport: true; type: "enrollment-declined" }
 
 export type PopupMessage = PopupConfigureMessage | PopupReadyMessage | PopupEventMessage
 

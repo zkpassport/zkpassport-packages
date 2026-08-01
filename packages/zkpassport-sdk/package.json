@@ -21,6 +21,10 @@
       "import": "./dist/esm/popup.js",
       "require": "./dist/cjs/popup.cjs"
     },
+    "./enrollment": {
+      "import": "./dist/esm/enrollment.js",
+      "require": "./dist/cjs/enrollment.cjs"
+    },
     "./query": {
       "import": "./dist/esm/query.js",
       "require": "./dist/cjs/query.cjs"

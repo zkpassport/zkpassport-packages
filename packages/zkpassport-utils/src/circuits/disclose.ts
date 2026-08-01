@@ -20,7 +20,7 @@ interface DisclosedDataRaw {
   gender: Uint8Array // 1 byte
 }
 
-function stripChevrons(str: string): string {
+export function stripChevrons(str: string): string {
   return str.replace(/^<+|<+$/g, "").replace(/</g, " ")
 }
 
