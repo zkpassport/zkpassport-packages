@@ -48,8 +48,6 @@ export type VerifyWithZKPassportButtonOptions = PopupRequestConfig & {
   onResult?: (result: Omit<PopupResult, "zkpassport" | "type">) => void
   onReject?: () => void
   onError?: (message: string) => void
-  onEnrollmentSaved?: () => void
-  onEnrollmentDeclined?: () => void
   onClose?: () => void
 }
 
@@ -108,8 +106,6 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       onResult,
       onReject,
       onError,
-      onEnrollmentSaved,
-      onEnrollmentDeclined,
       onClose,
       ...request
     } = current
@@ -133,8 +129,6 @@ export function VerifyButton({ options }: VerifyButtonProps) {
           onReject?.()
         },
         onError,
-        onEnrollmentSaved,
-        onEnrollmentDeclined,
         onClose: () => {
           // Popup closed before producing a result
           setStatus("error")

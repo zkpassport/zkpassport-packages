@@ -21,18 +21,13 @@ type SdkRequestProps = Omit<
 export type ZKPassportQRCodeDisplayOptions = {
   // ZKPassport mark, app logo, and the "… uses ZKPassport …" intro line.
   header?: boolean
-  // The intro screen shown before the QR code: what the request verifies, how it
-  // works, and (when available) the option to verify with the saved browser ID.
-  // Set false to jump straight to the QR code.
+  // The intro screen shown before the QR code: what the request verifies and
+  // how it works. Set false to jump straight to the QR code.
   intro?: boolean
   // The numbered verification steps (1–5).
   steps?: boolean
   // The "ZKPassport App" footer with the App Store / Google Play download links.
   appLinks?: boolean
-  // Browser verification elements: the "Verify with this browser" option, the
-  // "Remember in this browser" checkbox and the post-verification save prompt
-  // (only shown when enableBrowserEnrollment is set on the request).
-  browserVerification?: boolean
 }
 
 export type ZKPassportQRCodeOptions = SdkRequestProps & {
@@ -63,28 +58,13 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   onResult?: SdkCallback<"onResult">
   onReject?: SdkCallback<"onReject">
   onError?: SdkCallback<"onError">
-  // Browser enrollment (requires enableBrowserEnrollment: true)
-  // Called when the post-verification save prompt is shown to the user.
-  onEnrollmentOffered?: () => void
-  // Called when the user saved the enrollment to this browser after verification.
-  onEnrollmentSaved?: () => void
-  // Called when the user declined to save the enrollment (or saving failed).
-  onEnrollmentDeclined?: () => void
-  // Called when local (in-browser) verification starts.
-  onLocalVerificationStart?: () => void
-  // Called when local verification failed and the card fell back to the QR flow.
-  onLocalVerificationFallback?: (reason: string) => void
 }
 
-// Internal, not part of the public API: set only by the hosted verify popup,
-// where "this origin" is the shared verify origin — which is exactly what makes
-// saved IDs reusable across relying parties. Everywhere else the card is
-// QR-only, so saved IDs live in a single place.
-export type HostedEnrollmentOptions = {
-  hostedEnrollment?: boolean
+// Internal, not part of the public API: set only by the hosted verify popup.
+export type HostedVerificationOptions = {
   // Run real in-browser proof verification (bb.js) when the result arrives. Only
-  // the hosted popup sets this: it ships the full SDK (needed for proving anyway),
-  // while the published card is zero-dependency and never verifies locally.
+  // the hosted popup sets this: it ships the full SDK, while the published card
+  // is zero-dependency and never verifies locally.
   hostedVerification?: boolean
 }
 

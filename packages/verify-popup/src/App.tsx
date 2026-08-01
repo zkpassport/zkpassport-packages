@@ -9,10 +9,9 @@ import {
 // it anyway for browser proving) instead of the zero-dependency stubbed bundle
 import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 
-// Not part of the public card options: only this hosted page enables enrollment
-// and verifies proofs in place with the full SDK
-// (spread as JSX props to bypass the public prop type on purpose)
-const hostedEnrollmentProps = { hostedEnrollment: true, hostedVerification: true }
+// Not part of the public card options: only this hosted page verifies proofs in
+// place with the full SDK (spread as JSX props to bypass the public prop type on purpose)
+const hostedProps = { hostedVerification: true }
 
 // Omit that distributes over unions (plain Omit collapses a union to its common keys)
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
@@ -91,18 +90,10 @@ export function App() {
   const domain = new URL(config.rpOrigin).hostname
   const request = config.request
 
-  // Auto-close once the flow is complete. The save prompt (if any) appears
-  // shortly after the result, so the result close is delayed and cancelled
-  // when the prompt shows; saving/declining then closes the window.
+  // Auto-close once the flow is complete (after the outcome screen has shown)
   const scheduleClose = (delayMs: number) => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current)
     closeTimer.current = window.setTimeout(() => window.close(), delayMs)
-  }
-  const cancelClose = () => {
-    if (closeTimer.current) {
-      window.clearTimeout(closeTimer.current)
-      closeTimer.current = null
-    }
   }
 
   return (
@@ -118,10 +109,7 @@ export function App() {
         validity={request.validity}
         uniqueIdentifierType={request.uniqueIdentifierType}
         oprfKeyId={request.oprfKeyId}
-        enableBrowserEnrollment={request.enableBrowserEnrollment}
-        // Internal flag: enrollment is exclusive to this hosted page. Its origin
-        // is shared by all relying parties, which is what makes saved IDs reusable
-        {...hostedEnrollmentProps}
+        {...hostedProps}
         query={(builder) => hydrateQueryBuilder(builder, config.query, config.policyId)}
         onRequestReceived={() => send({ type: "request-received" })}
         onGeneratingProof={() => send({ type: "generating" })}
@@ -138,7 +126,7 @@ export function App() {
             verified,
             queryResultErrors,
           })
-          // Close after showing the success screen, unless the save prompt appears
+          // Close after showing the success screen
           if (verified) scheduleClose(2500)
         }}
         onReject={() => {
@@ -146,15 +134,6 @@ export function App() {
           scheduleClose(1500)
         }}
         onError={(message) => send({ type: "error", message: String(message) })}
-        onEnrollmentOffered={() => cancelClose()}
-        onEnrollmentSaved={() => {
-          send({ type: "enrollment-saved" })
-          scheduleClose(1200)
-        }}
-        onEnrollmentDeclined={() => {
-          send({ type: "enrollment-declined" })
-          scheduleClose(800)
-        }}
       />
     </Frame>
   )

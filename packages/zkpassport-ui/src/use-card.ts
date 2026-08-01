@@ -2,17 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks"
 import QRCode from "qrcode"
 import { ZKPassport } from "@zkpassport/sdk"
 import { verifyViaApi } from "@zkpassport/sdk/api-verifier"
-import { isEnrollmentStorageSupported } from "@zkpassport/sdk/enrollment"
-import type {
-  EnrollmentAvailableActions,
-  LocalProofProgress,
-  Query,
-  QueryBuilderResult,
-  SavedEnrollment,
-} from "@zkpassport/sdk"
+import type { Query, QueryBuilderResult } from "@zkpassport/sdk"
 
 import { logger } from "./logger"
-import type { HostedEnrollmentOptions, ZKPassportQRCodeOptions } from "./types"
+import type { HostedVerificationOptions, ZKPassportQRCodeOptions } from "./types"
 
 export type CardState =
   | "intro"
@@ -21,19 +14,13 @@ export type CardState =
   | "waiting"
   | "scanned"
   | "generating"
-  | "local-proving"
-  | "save-offer"
   | "success"
   | "error"
-
-// Which path the user is on: phone (QR/bridge) or browser (local proving)
-export type CardFlow = "phone" | "browser"
 
 export type ProofStreamProgress = { received: number; total: number | null }
 
 export type UseCard = {
   state: CardState
-  flow: CardFlow
   url: string | null
   qrSvg: string | null
   query: Query | null
@@ -43,52 +30,27 @@ export type UseCard = {
   retry: () => void
   // Intro screen
   continueWithPhone: () => void
-  // Browser enrollment
-  storageSupported: boolean
-  savedEnrollments: SavedEnrollment[]
-  // Masked holder name of the ID pending the post-verification save
-  pendingSaveName: string | null
-  // Saved ID currently proving in place on the intro screen
-  localProvingId: string | null
-  localProgress: LocalProofProgress | null
   proofProgress: ProofStreamProgress
-  rememberInBrowser: boolean
-  setRememberInBrowser: (value: boolean) => void
-  fallbackNotice: string | null
-  verifyLocally: (enrollmentId: string) => void
-  saveEnrollment: () => void
-  declineEnrollment: () => void
-  removeSavedId: (enrollmentId: string) => void
 }
 
 export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   const introEnabled = options.display?.intro !== false
   const [state, setState] = useState<CardState>(introEnabled ? "intro" : "preparing")
-  const [flow, setFlow] = useState<CardFlow>("phone")
   const [url, setUrl] = useState<string | null>(null)
   const [qrSvg, setQrSvg] = useState<string | null>(null)
   const [query, setQuery] = useState<Query | null>(null)
   const [serviceName, setServiceName] = useState<string | null>(null)
   const [serviceLogo, setServiceLogo] = useState<string | null>(null)
   const [retryNonce, setRetryNonce] = useState(0)
-  const [storageSupported, setStorageSupported] = useState(false)
-  const [savedEnrollments, setSavedEnrollments] = useState<SavedEnrollment[]>([])
-  const [pendingSaveName, setPendingSaveName] = useState<string | null>(null)
-  const [localProgress, setLocalProgress] = useState<LocalProofProgress | null>(null)
-  // Saved ID currently proving in place on the intro screen
-  const [localProvingId, setLocalProvingId] = useState<string | null>(null)
   const [proofProgress, setProofProgress] = useState<ProofStreamProgress>({
     received: 0,
     total: null,
   })
-  const [rememberInBrowser, setRememberInBrowserState] = useState(true)
-  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null)
 
   const optionsRef = useRef(options)
   optionsRef.current = options
 
   const requestRef = useRef<QueryBuilderResult | null>(null)
-  const enrollmentActionsRef = useRef<EnrollmentAvailableActions | null>(null)
   // The bridge/QR-flow state, tracked even while the intro screen is showing so
   // Continue lands on the right screen
   const bridgeStateRef = useRef<CardState>("preparing")
@@ -108,20 +70,13 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     introActiveRef.current = intro
     bridgeStateRef.current = "preparing"
     setState(intro ? "intro" : "preparing")
-    setFlow("phone")
     setUrl(null)
     setQrSvg(null)
     setQuery(null)
     setServiceName(null)
     setServiceLogo(null)
-    setSavedEnrollments([])
-    setPendingSaveName(null)
-    setLocalProgress(null)
-    setLocalProvingId(null)
     setProofProgress({ received: 0, total: null })
-    setFallbackNotice(null)
     requestRef.current = null
-    enrollmentActionsRef.current = null
 
     const {
       domain: _domain,
@@ -138,22 +93,9 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       onResult: _onResult,
       onReject: _onReject,
       onError: _onError,
-      onEnrollmentOffered: _onEnrollmentOffered,
-      onEnrollmentSaved: _onEnrollmentSaved,
-      onEnrollmentDeclined: _onEnrollmentDeclined,
-      onLocalVerificationStart: _onLocalVerificationStart,
-      onLocalVerificationFallback: _onLocalVerificationFallback,
-      hostedEnrollment: _hostedEnrollment,
+      hostedVerification: _hostedVerification,
       ...sdkRequestArgs
-    } = optionsRef.current as ZKPassportQRCodeOptions & HostedEnrollmentOptions
-
-    // Browser enrollment is only active in the hosted verification popup, where
-    // saved IDs live on the shared verify origin and work for every relying
-    // party. Embedded cards are QR-only and never request an enrollment bundle
-    // from the phone.
-    const enrollmentEnabled = () =>
-      !!optionsRef.current.enableBrowserEnrollment &&
-      (optionsRef.current as HostedEnrollmentOptions).hostedEnrollment === true
+    } = optionsRef.current as ZKPassportQRCodeOptions & HostedVerificationOptions
 
     const fireReady = () => {
       if (readyFired) return
@@ -180,33 +122,16 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       if (!introActiveRef.current) setState(next)
     }
 
-    if (enrollmentEnabled()) {
-      isEnrollmentStorageSupported()
-        .then((supported) => {
-          if (!cancelled) setStorageSupported(supported)
-        })
-        .catch(() => {})
-    } else {
-      if (optionsRef.current.enableBrowserEnrollment) {
-        logger.warn(
-          "enableBrowserEnrollment has no effect on the embedded card: saved IDs live in " +
-            "the hosted verification popup. Use <VerifyWithZKPassportButton> instead.",
-        )
-      }
-      setStorageSupported(false)
-    }
-
     sdkRef
       .current!.request({
         ...sdkRequestArgs,
-        enableBrowserEnrollment: enrollmentEnabled(),
         // The published card never verifies proofs in the browser (no bb.js/WASM):
         // `verified` comes from the verification API when verification: "api" is
         // set, and is undefined otherwise. Real trust comes from server-side
         // verification. Only the hosted popup (which ships the full SDK) verifies
         // in place via the internal hostedVerification flag.
         skipProofVerification:
-          (optionsRef.current as HostedEnrollmentOptions).hostedVerification !== true,
+          (optionsRef.current as HostedVerificationOptions).hostedVerification !== true,
       })
       .then((queryBuilder) => {
         if (cancelled) return
@@ -237,9 +162,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         )
         request.onGeneratingProof(
           guard(() => {
-            if (bridgeStateRef.current !== "local-proving") {
-              applyBridgeState("generating", true)
-            }
+            applyBridgeState("generating", true)
             safeCall(optionsRef.current.onGeneratingProof)
           }),
         )
@@ -316,19 +239,6 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             safeCall(optionsRef.current.onError, message)
           }),
         )
-        request.onEnrollmentAvailable(
-          guard((actions) => {
-            if (optionsRef.current.display?.browserVerification === false) {
-              actions.discard()
-              return
-            }
-            enrollmentActionsRef.current = actions
-            setPendingSaveName(actions.maskedName)
-            setState("save-offer")
-            safeCall(optionsRef.current.onEnrollmentOffered)
-          }),
-        )
-
         requestRef.current = request
         setQuery(request.query)
         // Branding resolved by the SDK (options first, then dashboard config)
@@ -340,20 +250,6 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
           }
         } catch (reason) {
           logger.error(reason)
-        }
-
-        // When browser enrollment is enabled and this browser holds usable
-        // enrollments, the intro offers verifying locally with them
-        if (enrollmentEnabled() && optionsRef.current.display?.browserVerification !== false) {
-          sdkRef
-            .current!.getEnrollmentStatus(request.requestId)
-            .then((status) => {
-              if (cancelled) return
-              if (status.available) {
-                setSavedEnrollments(status.enrollments)
-              }
-            })
-            .catch((reason) => logger.error(reason))
         }
 
         // Catch up to any events that fired before we subscribed.
@@ -395,113 +291,11 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   // Intro → QR screen (phone flow)
   const continueWithPhone = useCallback(() => {
     introActiveRef.current = false
-    setFlow("phone")
-    setFallbackNotice(null)
     setState(bridgeStateRef.current)
-  }, [])
-
-  // Toggle the "remember in this browser" checkbox: flips be=1 in the request URL
-  // (so the phone only offers enrollment when checked) and re-renders the QR
-  const setRememberInBrowser = useCallback((value: boolean) => {
-    setRememberInBrowserState(value)
-    const request = requestRef.current
-    if (!sdkRef.current || !request) return
-    try {
-      sdkRef.current.setBrowserEnrollment(request.requestId, value)
-      const nextUrl = sdkRef.current.getUrl(request.requestId)
-      setUrl(nextUrl)
-      setQrSvg(renderQrSvg(nextUrl))
-    } catch (reason) {
-      logger.error(reason)
-    }
-  }, [])
-
-  // Must be invoked from the button's click handler: the passkey assertion
-  // requires user activation.
-  const verifyLocally = useCallback((enrollmentId: string) => {
-    const request = requestRef.current
-    if (!sdkRef.current || !request) return
-    safeCall(optionsRef.current.onLocalVerificationStart)
-    // With the intro visible, proving runs in place: the clicked ID row shows a
-    // spinner and the intro stays on screen (no QR flash). Without the intro
-    // (display.intro false), the dedicated local-proving screen is used.
-    const inline = introActiveRef.current
-    setFlow("browser")
-    setFallbackNotice(null)
-    setLocalProgress(null)
-    setLocalProvingId(enrollmentId)
-    if (!inline) {
-      introActiveRef.current = false
-      bridgeStateRef.current = "local-proving"
-      setState("local-proving")
-    }
-    sdkRef
-      .current!.verifyLocally(request.requestId, {
-        enrollmentId,
-        onProgress: (progress) => setLocalProgress(progress),
-      })
-      // onResult moves the state to success/error
-      .then(() => {
-        setLocalProvingId(null)
-      })
-      .catch((reason) => {
-        logger.error(reason)
-        setSavedEnrollments((enrollments) => enrollments.filter((e) => e.id !== enrollmentId))
-        setLocalProgress(null)
-        setLocalProvingId(null)
-        setFlow("phone")
-        if (inline) {
-          // Stay on the intro; the error shows below the saved IDs
-          setFallbackNotice("Couldn't verify with this saved ID. Try again or use your phone.")
-        } else {
-          // Fall back to the QR flow (never the terminal error state)
-          setFallbackNotice("Couldn't verify with this browser. Use your phone instead.")
-          bridgeStateRef.current = "waiting"
-          setState("waiting")
-        }
-        safeCall(
-          optionsRef.current.onLocalVerificationFallback,
-          String((reason as Error)?.message ?? reason),
-        )
-      })
-  }, [])
-
-  // Must be invoked from the button's click handler: the passkey creation
-  // requires user activation.
-  const saveEnrollment = useCallback(() => {
-    const actions = enrollmentActionsRef.current
-    enrollmentActionsRef.current = null
-    setState("success")
-    if (!actions) return
-    actions
-      .save()
-      .then((saved) => {
-        safeCall(
-          saved ? optionsRef.current.onEnrollmentSaved : optionsRef.current.onEnrollmentDeclined,
-        )
-      })
-      .catch((reason) => {
-        logger.error(reason)
-        safeCall(optionsRef.current.onEnrollmentDeclined)
-      })
-  }, [])
-
-  const declineEnrollment = useCallback(() => {
-    enrollmentActionsRef.current?.discard()
-    enrollmentActionsRef.current = null
-    safeCall(optionsRef.current.onEnrollmentDeclined)
-    setState("success")
-  }, [])
-
-  // Delete one saved ID (intro screen row action)
-  const removeSavedId = useCallback((enrollmentId: string) => {
-    setSavedEnrollments((enrollments) => enrollments.filter((e) => e.id !== enrollmentId))
-    sdkRef.current?.deleteEnrollment(enrollmentId).catch((reason) => logger.error(reason))
   }, [])
 
   return {
     state,
-    flow,
     url,
     qrSvg,
     query,
@@ -509,19 +303,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     serviceLogo,
     retry,
     continueWithPhone,
-    storageSupported,
-    savedEnrollments,
-    pendingSaveName,
-    localProvingId,
-    localProgress,
     proofProgress,
-    rememberInBrowser,
-    setRememberInBrowser,
-    fallbackNotice,
-    verifyLocally,
-    saveEnrollment,
-    declineEnrollment,
-    removeSavedId,
   }
 }
 

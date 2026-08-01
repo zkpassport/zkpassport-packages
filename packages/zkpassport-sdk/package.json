@@ -25,10 +25,6 @@
       "import": "./dist/esm/api-verifier.js",
       "require": "./dist/cjs/api-verifier.cjs"
     },
-    "./enrollment": {
-      "import": "./dist/esm/enrollment.js",
-      "require": "./dist/cjs/enrollment.cjs"
-    },
     "./query": {
       "import": "./dist/esm/query.js",
       "require": "./dist/cjs/query.cjs"
