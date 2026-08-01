@@ -11,6 +11,7 @@ import type { Query } from "@zkpassport/sdk"
 import { ICON_ZKP_MARK } from "./assets"
 import { logger } from "./logger"
 import { injectStylesheet } from "./inject-styles"
+import { isInAppBrowser } from "./environment"
 import buttonStyles from "./button.css"
 import type { ZKPassportQRCodeOptions } from "./types"
 
@@ -137,9 +138,15 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       },
     })
     if (!handle) {
-      // Both the popup and the new-tab retry were blocked
+      // Both the popup and the new-tab retry were blocked. In-app browsers
+      // (Discord, Instagram, …) often block window.open entirely — steer the
+      // user to a real browser instead of asking them to unblock popups.
       setStatus("error")
-      setErrorText("Popup blocked. Allow popups for this site and try again.")
+      setErrorText(
+        isInAppBrowser()
+          ? "Couldn't open the verification window here. Open this page in Safari or Chrome and try again."
+          : "Popup blocked. Allow popups for this site and try again.",
+      )
       onError?.("Popup blocked")
       return
     }
@@ -152,7 +159,7 @@ export function VerifyButton({ options }: VerifyButtonProps) {
   // always-reserved status line below.
   const statusText =
     status === "in-progress"
-      ? "Continue in the ZKPassport popup"
+      ? "Continue in the ZKPassport window"
       : status === "success"
         ? "\u2713 Verified with ZKPassport"
         : status === "error"

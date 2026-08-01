@@ -117,6 +117,7 @@ export class ZKPassport {
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
   private topicToPolicy: Record<string, { id: string; version: number }> = {}
+  private topicToVisibilityCleanup: Record<string, () => void> = {}
   private dashboardConfig: DashboardConfig | null = null
   private dashboardConfigPromise: Promise<DashboardConfig> | null = null
   private dashboardConfigError: Error | null = null
@@ -684,6 +685,25 @@ export class ZKPassport {
     this.topicToPublicKey[topic] = bridge.getPublicKey()
 
     this.topicToBridge[topic] = bridge
+
+    // Mobile browsers freeze background tabs (and their websockets) while the
+    // user is in the ZKPassport app; on return to the foreground, make sure the
+    // bridge is alive so the relay replays anything sent in the meantime (the
+    // bridge requests a message replay on every reconnection).
+    if (typeof document !== "undefined") {
+      const onVisibilityChange = () => {
+        if (document.visibilityState !== "visible") return
+        const activeBridge = this.topicToBridge[topic]
+        if (!activeBridge || activeBridge.isBridgeConnected()) return
+        // Available from @obsidion/bridge versions with reconnectNow; older
+        // versions rely on their internal auto-reconnect backoff alone
+        ;(activeBridge as { reconnectNow?: () => void }).reconnectNow?.()
+      }
+      document.addEventListener("visibilitychange", onVisibilityChange)
+      this.topicToVisibilityCleanup[topic] = () =>
+        document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+
     bridge.onConnect(async (reconnection: boolean) => {
       logger.debug("Bridge connected")
       logger.debug("Is reconnection:", reconnection)
@@ -1039,6 +1059,8 @@ export class ZKPassport {
     delete this.topicToFailedProofCount[requestId]
     delete this.topicToResults[requestId]
     delete this.topicToPolicy[requestId]
+    this.topicToVisibilityCleanup[requestId]?.()
+    delete this.topicToVisibilityCleanup[requestId]
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []

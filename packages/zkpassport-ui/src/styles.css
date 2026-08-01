@@ -442,7 +442,7 @@
     overflow: hidden;
   }
 
-  /* Open-in-app deep link (mobile only, waiting state) */
+  /* Open-in-app deep link (mobile: primary action; shown via .zkp-open-app-block) */
   .zkp-open-app {
     display: none !important;
     margin: 16px 0 0 !important;
@@ -461,10 +461,41 @@
   .zkp-open-app:active {
     transform: translateY(1px);
   }
-  @media (hover: none) and (pointer: coarse) {
-    .zkp-card[data-state="waiting"] .zkp-open-app {
-      display: block;
-    }
+  .zkp-open-app-block {
+    display: block !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  /* Mobile-first waiting screen: open-app primary, QR behind a toggle */
+  .zkp-open-app-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 8px 0 4px;
+  }
+  .zkp-open-app-loading {
+    display: flex;
+  }
+  .zkp-qr-reveal {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    border: none !important;
+    background: none !important;
+    padding: 4px !important;
+    cursor: pointer !important;
+    font-size: 12.5px !important;
+    color: var(--zkp-muted) !important;
+    text-decoration: underline !important;
+    text-underline-offset: 3px !important;
+  }
+  .zkp-inapp-hint {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--zkp-muted);
   }
 
   /* Intro screen */

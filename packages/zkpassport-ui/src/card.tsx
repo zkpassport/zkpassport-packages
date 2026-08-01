@@ -1,5 +1,5 @@
 import { type ComponentChildren } from "preact"
-import { useEffect, useLayoutEffect } from "preact/hooks"
+import { useEffect, useLayoutEffect, useState } from "preact/hooks"
 
 import {
   APP_STORE_BADGE,
@@ -21,6 +21,7 @@ import cardStyles from "./styles.css"
 import { injectStylesheet } from "./inject-styles"
 import { useCard, type CardState, type ProofStreamProgress } from "./use-card"
 import { describeQuery, type QueryDescriptionItem } from "./query-description"
+import { isInAppBrowser, isMobileLike } from "./environment"
 import type { ZKPassportQRCodeOptions } from "./types"
 
 export type CardControl = { retry: () => void }
@@ -65,7 +66,22 @@ export function Card({ options, controlRef }: CardProps) {
   const hasFacematch = !!query?.facematch
   const overlayCaption = getOverlayCaption(state)
   const canRestart = state === "waiting" || state === "scanned"
-  const steps = buildPhoneSteps(state, appJoined, hasFacematch, proofProgress)
+  // On a phone the user can't scan their own screen: the primary action is the
+  // universal link into the ZKPassport app (which falls through to the download
+  // page when the app isn't installed); the QR stays available behind a toggle
+  // for cross-device flows.
+  const [qrRevealed, setQrRevealed] = useState(false)
+  const mobile = isMobileLike()
+  const inAppBrowser = isInAppBrowser()
+  const preQr = state === "preparing" || state === "connecting" || state === "waiting"
+  const showOpenAppHero = mobile && preQr && !qrRevealed
+  const steps = buildPhoneSteps(
+    state,
+    appJoined,
+    hasFacematch,
+    proofProgress,
+    mobile && !qrRevealed,
+  )
 
   return (
     <div className="zkp-card" data-state={state} data-theme={options.theme ?? "auto"}>
@@ -122,10 +138,32 @@ export function Card({ options, controlRef }: CardProps) {
         />
       ) : (
         <div className="zkp-screen">
-          <QrSlot state={state} qrSvg={qrSvg} caption={overlayCaption} />
+          {showOpenAppHero ? (
+            <div className="zkp-open-app-hero">
+              {state === "waiting" && url ? (
+                <a className="zkp-open-app zkp-open-app-block" href={url}>
+                  Open ZKPassport App
+                </a>
+              ) : (
+                <div className="zkp-open-app-loading" role="status" aria-label="Preparing request">
+                  <span className="zkp-skel-row" style={{ width: "100%", height: "48px" }} />
+                </div>
+              )}
+              {inAppBrowser ? (
+                <p className="zkp-inapp-hint">
+                  If nothing opens, open this page in Safari or Chrome and try again.
+                </p>
+              ) : null}
+              <button type="button" className="zkp-qr-reveal" onClick={() => setQrRevealed(true)}>
+                Scan a QR code with another device instead
+              </button>
+            </div>
+          ) : (
+            <QrSlot state={state} qrSvg={qrSvg} caption={overlayCaption} />
+          )}
 
-          {state === "waiting" && url ? (
-            <a className="zkp-open-app" href={url}>
+          {state === "waiting" && url && mobile && qrRevealed ? (
+            <a className="zkp-open-app zkp-open-app-block" href={url}>
               Open in ZKPassport App
             </a>
           ) : null}
@@ -281,6 +319,7 @@ function buildPhoneSteps(
   appJoined: boolean,
   hasFacematch: boolean,
   proofProgress: ProofStreamProgress,
+  sameDevice: boolean,
 ): StepDef[] {
   const finished = state === "success"
   const generating = state === "generating"
@@ -304,7 +343,9 @@ function buildPhoneSteps(
     },
     {
       key: "scan",
-      label: "Scan this QR code with the ZKPassport app.",
+      label: sameDevice
+        ? "Tap “Open ZKPassport App” above."
+        : "Scan this QR code with the ZKPassport app.",
       status: preJoinStatus,
       icon: appJoined ? null : ICON_SCAN,
     },
