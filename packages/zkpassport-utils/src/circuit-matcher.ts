@@ -7,10 +7,8 @@ import { Alpha3Code } from "i18n-iso-countries"
 import { redcLimbsFromBytes } from "./barrett-reduction"
 import { Binary, HexString } from "./binary"
 import {
-  BoundDataIdentifier,
   calculatePrivateNullifier,
   formatBoundData,
-  getCountryFromWeightedSum,
   getCountryWeightedSum,
   hashSaltCountrySignedAttrDg1EContentPrivateNullifier,
   hashSaltCountryTbs,
@@ -45,10 +43,6 @@ import {
   tagsArrayToBitsFlag,
 } from "./registry"
 import type {
-  BoundData,
-  CommittedInputs,
-  DisclosureCircuitName,
-  DisclosureWitness,
   HashAlgorithm,
   IntegrityToDisclosureSalts,
   PackagedCertificate,
@@ -68,12 +62,10 @@ import {
   bigintToNumber,
   fromBytesToBigInt,
   getBitSize,
-  getChainFromId,
   getHashAlgorithmIdentifierFromLength,
   getHashAlgorithmLength,
   getUnixTimestamp,
   leftPadArrayWithZeros,
-  mrzFromDg1,
   rightPadArrayWithZeros,
 } from "./utils"
 import { DSC } from "./passport/dsc"
@@ -756,105 +748,6 @@ export async function getIntegrityCheckCircuitInputs(
   }
 }
 
-/**
- * The minimal identity data every disclosure circuit's inputs derive from.
- * Constructed either from a full PassportViewModel (mobile flow) or from a
- * stored DisclosureWitness (browser enrollment flow).
- */
-export type DisclosureIdentityData = {
-  mrz: string
-  // 6-character MRZ date of birth
-  dateOfBirth: string
-  // 6-character MRZ expiry date
-  passportExpiry: string
-  // DG1 bytes padded to DG1_INPUT_SIZE (95)
-  dg1: number[]
-  dg2HashNormalized: bigint
-  dg2HashType: number
-  privateNullifier: Binary
-}
-
-export async function getDisclosureIdentityFromPassport(
-  passport: PassportViewModel,
-): Promise<DisclosureIdentityData | null> {
-  const idData = await getIDDataInputs(passport)
-  if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
-  return {
-    mrz: passport.mrz,
-    dateOfBirth: passport.dateOfBirth,
-    passportExpiry: passport.passportExpiry,
-    dg1: idData.dg1,
-    dg2HashNormalized: idData.dg2_hash_normalized,
-    dg2HashType: idData.dg2_hash_type,
-    privateNullifier,
-  }
-}
-
-export async function getDisclosureIdentityFromWitness(
-  witness: DisclosureWitness,
-): Promise<DisclosureIdentityData> {
-  const mrz = mrzFromDg1(witness.dg1)
-  return {
-    mrz,
-    dateOfBirth: mrz.slice(...getBirthdateRange({ mrz })),
-    passportExpiry: witness.expiryDate,
-    dg1: rightPadArrayWithZeros(witness.dg1, DG1_INPUT_SIZE),
-    dg2HashNormalized: await normalizeDg2Hash(witness.dg2Hash),
-    dg2HashType: getHashAlgorithmIdentifierFromLength(witness.dg2Hash.length),
-    privateNullifier: Binary.from(BigInt(witness.privateNullifier)),
-  }
-}
-
-/**
- * Extract the minimal disclosure witness from a passport, e.g. to build an
- * enrollment bundle. `salt` is the single integrity-to-disclosure salt.
- */
-export async function getDisclosureWitness(
-  passport: PassportViewModel,
-  salt: bigint,
-): Promise<DisclosureWitness | null> {
-  const dg1 = passport?.dataGroups.find((dg) => dg.groupNumber === 1)
-  const dg2 = passport?.dataGroups.find((dg) => dg.groupNumber === 2)
-  if (!dg1 || !dg2) return null
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return {
-    dg1: dg1.value,
-    dg2Hash: dg2.hash,
-    expiryDate: passport.passportExpiry,
-    privateNullifier: identity.privateNullifier.toHex(),
-    salt: `0x${salt.toString(16)}`,
-  }
-}
-
-async function getDisclosureCoreInputs(
-  identity: DisclosureIdentityData,
-  salts: IntegrityToDisclosureSalts,
-  hideSensitiveInputs: boolean = false,
-) {
-  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
-    salts,
-    Binary.from(identity.dg1).padEnd(DG1_INPUT_SIZE),
-    identity.passportExpiry,
-    identity.dg2HashNormalized,
-    identity.dg2HashType,
-    identity.privateNullifier.toBigInt(),
-  )
-  const saltedValues = await getSaltedValuesForDisclosureCircuitFromIdentity(
-    identity,
-    salts,
-    hideSensitiveInputs,
-  )
-  return { commIn, saltedValues }
-}
-
 export async function getSaltedValuesForDisclosureCircuit(
   passport: PassportViewModel,
   idData: IDDataInputs,
@@ -862,37 +755,17 @@ export async function getSaltedValuesForDisclosureCircuit(
   salts: IntegrityToDisclosureSalts,
   hideSensitiveInputs: boolean = false,
 ) {
-  return getSaltedValuesForDisclosureCircuitFromIdentity(
-    {
-      mrz: passport.mrz,
-      dateOfBirth: passport.dateOfBirth,
-      passportExpiry: passport.passportExpiry,
-      dg1: idData.dg1,
-      dg2HashNormalized: idData.dg2_hash_normalized,
-      dg2HashType: idData.dg2_hash_type,
-      privateNullifier,
-    },
-    salts,
-    hideSensitiveInputs,
-  )
-}
-
-async function getSaltedValuesForDisclosureCircuitFromIdentity(
-  identity: DisclosureIdentityData,
-  salts: IntegrityToDisclosureSalts,
-  hideSensitiveInputs: boolean = false,
-) {
-  const saltedDg1 = SaltedValue.fromValue(salts.dg1Salt, identity.dg1)
+  const saltedDg1 = SaltedValue.fromValue(salts.dg1Salt, idData.dg1)
   const saltedPrivateNullifier = SaltedValue.fromValue(
     salts.privateNullifierSalt,
-    identity.privateNullifier.toBigInt(),
+    privateNullifier.toBigInt(),
   )
   const saltedExpiryDate = SaltedValue.fromValue(
     salts.expiryDateSalt,
-    identity.passportExpiry.split("").map((char) => char.charCodeAt(0)),
+    passport.passportExpiry.split("").map((char) => char.charCodeAt(0)),
   )
-  const saltedDg2Hash = SaltedValue.fromValue(salts.dg2HashSalt, identity.dg2HashNormalized)
-  const saltedDg2HashType = SaltedValue.fromValue(salts.dg2HashSalt, BigInt(identity.dg2HashType))
+  const saltedDg2Hash = SaltedValue.fromValue(salts.dg2HashSalt, idData.dg2_hash_normalized)
+  const saltedDg2HashType = SaltedValue.fromValue(salts.dg2HashSalt, BigInt(idData.dg2_hash_type))
   return {
     salted_dg1: hideSensitiveInputs
       ? SaltedValue.fromHash(
@@ -919,62 +792,32 @@ export async function getDiscloseCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ) {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getDiscloseCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getDiscloseCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-) {
-  return getDiscloseCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getDiscloseCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-) {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
-  const discloseMask = getDiscloseMask(identity, query)
+  const discloseMask = getDiscloseMask(passport, query)
   return {
     current_date: currentDateTimestamp,
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     disclose_mask: discloseMask,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -988,7 +831,7 @@ export async function getDiscloseCircuitInputsFromIdentity(
  * Build the 90-byte disclosure mask the proof commits to for a query (fields with `disclose`/`eq`).
  * Shared by getDiscloseCircuitInputs and getMrzDisclosedNames.
  */
-export function getDiscloseMask(passport: Pick<PassportViewModel, "mrz">, query: Query): number[] {
+export function getDiscloseMask(passport: PassportViewModel, query: Query): number[] {
   const discloseMask = Array(90).fill(0)
   const fieldsToDisclose: { [key in IDCredential]: boolean } = {} as any
   for (const field in query) {
@@ -1059,7 +902,7 @@ export function getDiscloseMask(passport: Pick<PassportViewModel, "mrz">, query:
  * keeps the result in lockstep with PublicInputChecker, independent of the DG11 display name.
  */
 export function getMrzDisclosedNames(
-  passport: Pick<PassportViewModel, "mrz">,
+  passport: PassportViewModel,
   query: Query,
 ): { firstName: string; lastName: string; fullName: string } {
   // Same heuristic the name-range getters use to pick the MRZ layout
@@ -1072,7 +915,7 @@ export function getMrzDisclosedNames(
   return { firstName: data.firstName, lastName: data.lastName, fullName: data.name }
 }
 
-export function calculateAge(passport: Pick<PassportViewModel, "dateOfBirth">, now?: Date): number {
+export function calculateAge(passport: PassportViewModel, now?: Date): number {
   const birthdate = passport.dateOfBirth
   if (!birthdate) return 0
   const birthdateDate = parseDate(new TextEncoder().encode(birthdate))
@@ -1096,59 +939,29 @@ export async function getAgeCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getAgeCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getAgeCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  return getAgeCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getAgeCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
-  const age = calculateAge(identity)
+  const age = calculateAge(passport)
 
   let minAge = 0
   let maxAge = 0
@@ -1178,7 +991,7 @@ export async function getAgeCircuitInputsFromIdentity(
   }
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1208,60 +1021,30 @@ export async function getNationalityInclusionCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getNationalityInclusionCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getNationalityInclusionCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  return getNationalityInclusionCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getNationalityInclusionCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     country_list: padCountryList(query.nationality?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1282,60 +1065,30 @@ export async function getIssuingCountryInclusionCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getIssuingCountryInclusionCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getIssuingCountryInclusionCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  return getIssuingCountryInclusionCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getIssuingCountryInclusionCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     country_list: padCountryList(query.issuing_country?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1356,57 +1109,27 @@ export async function getNationalityExclusionCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getNationalityExclusionCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getNationalityExclusionCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  return getNationalityExclusionCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getNationalityExclusionCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
   const countryList: number[] = []
   for (let i = 0; i < (query.nationality?.out ?? []).length; i++) {
@@ -1415,7 +1138,7 @@ export async function getNationalityExclusionCircuitInputsFromIdentity(
   }
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1440,53 +1163,23 @@ export async function getIssuingCountryExclusionCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getIssuingCountryExclusionCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
   )
-}
-
-export async function getIssuingCountryExclusionCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  return getIssuingCountryExclusionCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
   )
-}
-
-export async function getIssuingCountryExclusionCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
 
   const countryList: number[] = []
   for (let i = 0; i < (query.issuing_country?.out ?? []).length; i++) {
@@ -1495,7 +1188,7 @@ export async function getIssuingCountryExclusionCircuitInputsFromIdentity(
   }
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1521,68 +1214,34 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getSanctionsExclusionCheckCircuitInputsFromIdentity(
-    identity,
-    isStrict,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-    sanctions,
-  )
-}
-
-export async function getSanctionsExclusionCheckCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  isStrict: boolean,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-  sanctions?: SanctionsBuilder,
-): Promise<any> {
-  return getSanctionsExclusionCheckCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    isStrict,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-    sanctions,
-  )
-}
-
-export async function getSanctionsExclusionCheckCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  isStrict: boolean,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-  sanctions?: SanctionsBuilder,
-): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
   // Only build the merkle trees if they are not provided
   sanctions = sanctions ?? (await SanctionsBuilder.create())
-  const { proofs, root } = await sanctions.getSanctionsMerkleProofs(identity, isStrict)
+  const { proofs, root } = await sanctions.getSanctionsMerkleProofs(passport, isStrict)
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     proofs,
@@ -1605,57 +1264,27 @@ export async function getBirthdateCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getBirthdateCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getBirthdateCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  return getBirthdateCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getBirthdateCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
   let minDate: Date | undefined
   let maxDate: Date | undefined
@@ -1673,8 +1302,8 @@ export async function getBirthdateCircuitInputsFromIdentity(
       minDate = query.birthdate.eq as Date
       maxDate = query.birthdate.eq as Date
     } else if (query.birthdate.disclose) {
-      minDate = parseDate(new TextEncoder().encode(identity.dateOfBirth))
-      maxDate = parseDate(new TextEncoder().encode(identity.dateOfBirth))
+      minDate = parseDate(new TextEncoder().encode(passport.dateOfBirth))
+      maxDate = parseDate(new TextEncoder().encode(passport.dateOfBirth))
     }
 
     if (query.birthdate.lt) {
@@ -1687,7 +1316,7 @@ export async function getBirthdateCircuitInputsFromIdentity(
   }
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1712,57 +1341,27 @@ export async function getExpiryDateCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getExpiryDateCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getExpiryDateCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
-  return getExpiryDateCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-  )
-}
-
-export async function getExpiryDateCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
   }
 
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(identity, salts)
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
 
   let minDate: Date | undefined
   let maxDate: Date | undefined
@@ -1780,8 +1379,8 @@ export async function getExpiryDateCircuitInputsFromIdentity(
       minDate = query.expiry_date.eq as Date
       maxDate = query.expiry_date.eq as Date
     } else if (query.expiry_date.disclose) {
-      minDate = parseDate(new TextEncoder().encode(identity.passportExpiry))
-      maxDate = parseDate(new TextEncoder().encode(identity.passportExpiry))
+      minDate = parseDate(new TextEncoder().encode(passport.passportExpiry))
+      maxDate = parseDate(new TextEncoder().encode(passport.passportExpiry))
     }
 
     if (query.expiry_date.lt) {
@@ -1794,7 +1393,7 @@ export async function getExpiryDateCircuitInputsFromIdentity(
   }
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1817,66 +1416,34 @@ export async function getBindCircuitInputs(
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   hideSensitiveInputs: boolean = false,
 ): Promise<any> {
-  const identity = await getDisclosureIdentityFromPassport(passport)
-  if (!identity) return null
-  return getBindCircuitInputsFromIdentity(
-    identity,
-    query,
-    salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-    hideSensitiveInputs,
+  const idData = await getIDDataInputs(passport)
+  if (!idData) return null
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
   )
-}
-
-export async function getBindCircuitInputsFromWitness(
-  witness: DisclosureWitness,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-  hideSensitiveInputs: boolean = false,
-): Promise<any> {
-  return getBindCircuitInputsFromIdentity(
-    await getDisclosureIdentityFromWitness(witness),
-    query,
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
-    nullifierSecret,
-    service_scope,
-    service_subscope,
-    currentDateTimestamp,
-    oprfProof,
-    hideSensitiveInputs,
-  )
-}
-
-export async function getBindCircuitInputsFromIdentity(
-  identity: DisclosureIdentityData,
-  query: Query,
-  salts: IntegrityToDisclosureSalts,
-  nullifierSecret: bigint = 0n,
-  service_scope: bigint = 0n,
-  service_subscope: bigint = 0n,
-  currentDateTimestamp: number,
-  oprfProof: OPRFProof = OPRF_ZERO_PROOF,
-  hideSensitiveInputs: boolean = false,
-): Promise<any> {
-  const { commIn, saltedValues } = await getDisclosureCoreInputs(
-    identity,
-    salts,
-    hideSensitiveInputs,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
   )
 
   const data = formatBoundData(query.bind ?? {})
 
   return {
-    ...saltedValues,
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      hideSensitiveInputs,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     data: rightPadArrayWithZeros(data, 509),
@@ -1973,205 +1540,4 @@ export async function getOprfAuthCircuitInputs(
     },
     privateNullifier: privateNullifier.toBigInt(),
   }
-}
-
-/**
- * Whether the query requests access to the given field (i.e. has at least one
- * non-null condition on it).
- */
-export function hasRequestedAccessToField(query: Query, field: IDCredential): boolean {
-  const fieldValue = query[field as keyof Query]
-  const isDefined = fieldValue !== undefined && fieldValue !== null
-  if (!isDefined) {
-    return false
-  }
-  for (const key in fieldValue) {
-    if (
-      fieldValue[key as keyof typeof fieldValue] !== undefined &&
-      fieldValue[key as keyof typeof fieldValue] !== null
-    ) {
-      return true
-    }
-  }
-  return false
-}
-
-/**
- * Determine which disclosure circuits a query requires, using the same selection and
- * dedup rules as the mobile app. Order matters only for stable output.
- * `facematch` is included when requested so callers that cannot prove it (e.g. the
- * browser enrollment flow) can detect it and refuse/fall back.
- */
-export function getRequiredDisclosureCircuitNames(
-  query: Query,
-  evm = false,
-): DisclosureCircuitName[] {
-  const suffix = evm ? "_evm" : ""
-  const names: DisclosureCircuitName[] = []
-  const push = (name: string) => {
-    const full = `${name}${suffix}` as DisclosureCircuitName
-    if (!names.includes(full)) names.push(full)
-  }
-  const fields = Object.keys(query).filter((key) =>
-    hasRequestedAccessToField(query, key as IDCredential),
-  )
-  for (const field of fields) {
-    for (const key in query[field as IDCredential]) {
-      switch (key) {
-        case "eq":
-        case "disclose":
-          if (
-            field !== "age" &&
-            (field !== "expiry_date" || key === "disclose") &&
-            (field !== "birthdate" || key === "disclose")
-          ) {
-            push("disclose_bytes")
-          } else if (field === "age") {
-            push("compare_age")
-          } else if (field === "expiry_date" && key === "eq") {
-            push("compare_expiry")
-          } else if (field === "birthdate" && key === "eq") {
-            push("compare_birthdate")
-          }
-          break
-        case "gte":
-        case "gt":
-        case "lte":
-        case "lt":
-        case "range":
-          if (field === "age") {
-            push("compare_age")
-          } else if (field === "expiry_date") {
-            push("compare_expiry")
-          } else if (field === "birthdate") {
-            push("compare_birthdate")
-          }
-          break
-        case "in":
-          if (field === "nationality") {
-            push("inclusion_check_nationality")
-          } else if (field === "issuing_country") {
-            push("inclusion_check_issuing_country")
-          }
-          break
-        case "out":
-          if (field === "nationality") {
-            push("exclusion_check_nationality")
-          } else if (field === "issuing_country") {
-            push("exclusion_check_issuing_country")
-          }
-          break
-      }
-    }
-  }
-  if (query.bind) {
-    push("bind")
-  }
-  if (query.sanctions) {
-    push("exclusion_check_sanctions")
-  }
-  if (query.facematch) {
-    push("facematch")
-  }
-  // If no circuit is required (proof of valid ID only) or only facematch is required
-  // (which may be delegated with a zero nullifier), add a disclose circuit so at least
-  // one proof carries a non-zero nullifier
-  const nonFacematch = names.filter((n) => !n.startsWith("facematch"))
-  if (nonFacematch.length === 0) {
-    push("disclose_bytes")
-  }
-  return names
-}
-
-/**
- * Reconstruct the committed inputs carried in a ProofResult from the raw circuit inputs.
- * Same as the mobile app implementation, minus the facematch circuits (which are
- * platform-specific and not supported here).
- */
-export function getCommittedInputsForCircuit(
-  inputs: any,
-  circuitName: DisclosureCircuitName,
-): CommittedInputs {
-  if (circuitName === "disclose_bytes" || circuitName === "disclose_bytes_evm") {
-    return {
-      disclosedBytes: inputs.salted_dg1.value
-        .slice(5)
-        .map((x: number, i: number) => x * inputs.disclose_mask[i]),
-      discloseMask: inputs.disclose_mask,
-    }
-  } else if (circuitName === "compare_age" || circuitName === "compare_age_evm") {
-    return {
-      minAge: inputs.min_age_required,
-      maxAge: inputs.max_age_required,
-    }
-  } else if (
-    circuitName === "compare_expiry" ||
-    circuitName === "compare_birthdate" ||
-    circuitName === "compare_expiry_evm" ||
-    circuitName === "compare_birthdate_evm"
-  ) {
-    return {
-      minDateTimestamp: inputs.min_date,
-      maxDateTimestamp: inputs.max_date,
-    }
-  } else if (
-    circuitName === "inclusion_check_nationality" ||
-    circuitName === "inclusion_check_nationality_evm" ||
-    circuitName === "inclusion_check_issuing_country" ||
-    circuitName === "inclusion_check_issuing_country_evm"
-  ) {
-    return {
-      countries: inputs.country_list.filter((x: string) => x !== "\0\0\0"),
-    }
-  } else if (
-    circuitName === "exclusion_check_nationality" ||
-    circuitName === "exclusion_check_nationality_evm" ||
-    circuitName === "exclusion_check_issuing_country" ||
-    circuitName === "exclusion_check_issuing_country_evm"
-  ) {
-    return {
-      countries: inputs.country_list
-        .map(getCountryFromWeightedSum)
-        .filter((x: string) => x !== "\0\0\0"),
-    }
-  } else if (circuitName === "bind" || circuitName === "bind_evm") {
-    const dataBytes = inputs.data
-    let offset = 0
-    const boundData: BoundData = {}
-    while (offset < 500) {
-      if (dataBytes[offset] === BoundDataIdentifier.USER_ADDRESS) {
-        const addressLength = dataBytes[offset + 1] * 256 + dataBytes[offset + 2]
-        boundData.user_address = Binary.from(
-          dataBytes.slice(offset + 3, offset + 3 + addressLength),
-        ).toHex()
-        offset += 2 + addressLength + 1
-      } else if (dataBytes[offset] === BoundDataIdentifier.CHAIN_ID) {
-        const chainIdLength = dataBytes[offset + 1] * 256 + dataBytes[offset + 2]
-        boundData.chain = getChainFromId(
-          Number(Binary.from(dataBytes.slice(offset + 3, offset + 3 + chainIdLength)).toBigInt()),
-        )
-        offset += 2 + chainIdLength + 1
-      } else if (dataBytes[offset] === BoundDataIdentifier.CUSTOM_DATA) {
-        const customDataLength = dataBytes[offset + 1] * 256 + dataBytes[offset + 2]
-        boundData.custom_data = new TextDecoder().decode(
-          new Uint8Array(dataBytes.slice(offset + 3, offset + 3 + customDataLength)),
-        )
-        offset += 2 + customDataLength + 1
-      } else {
-        break
-      }
-    }
-    return {
-      data: boundData,
-    }
-  } else if (
-    circuitName === "exclusion_check_sanctions" ||
-    circuitName === "exclusion_check_sanctions_evm"
-  ) {
-    return {
-      rootHash: inputs.root,
-      isStrict: !!inputs.is_strict,
-    }
-  }
-  throw new Error(`Unsupported circuit for committed inputs: ${circuitName}`)
 }

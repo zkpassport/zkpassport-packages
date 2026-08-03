@@ -410,23 +410,6 @@ export type Service = {
   bridgeUrl?: string
 }
 
-/**
- * The minimal private witness needed to (re)build inputs for any disclosure circuit
- * without the full passport data (SOD, certificates, photo).
- */
-export type DisclosureWitness = {
-  // UNPADDED DG1 bytes (5-byte header + MRZ); 93 bytes for TD3 passports, 95 for TD1 ID cards
-  dg1: number[]
-  // Raw DG2 hash bytes from the SOD (length determines the hash type)
-  dg2Hash: number[]
-  // 6-character MRZ expiry date (same value as PassportViewModel.passportExpiry)
-  expiryDate: string
-  // 0x-prefixed hex field element
-  privateNullifier: string
-  // 0x-prefixed hex; the single salt all four IntegrityToDisclosureSalts derive from
-  salt: string
-}
-
 export type ProofMode = "fast" | "compressed" | "compressed-evm"
 
 export type QRCodeData = {

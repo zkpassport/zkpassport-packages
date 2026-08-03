@@ -48,7 +48,7 @@ export class SanctionsBuilder {
   }
 
   async getSanctionsMerkleProofs(
-    passport: Pick<PassportViewModel, "mrz">,
+    passport: PassportViewModel,
     strict: boolean,
   ): Promise<{ proofs: SanctionsProofs; root: string }> {
     const {
@@ -176,7 +176,7 @@ export function processName(name: string): string {
   return formattedName
 }
 
-export function getNameCombinations(passport: Pick<PassportViewModel, "mrz">): string[] {
+export function getNameCombinations(passport: PassportViewModel): string[] {
   const [fullNameStartIndex, fullNameEndIndex] = getFullNameRange(passport)
   let firstNameEndIndex = Math.min(getFirstNameRange(passport)[1], fullNameEndIndex)
   if (firstNameEndIndex < 0) {
@@ -202,7 +202,7 @@ export function getNameCombinations(passport: Pick<PassportViewModel, "mrz">): s
   return [processName(name1), processName(name2), processName(name3)]
 }
 
-async function getSanctionsHashesFromIdData(passport: Pick<PassportViewModel, "mrz">): Promise<{
+async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promise<{
   name1Hash: bigint
   name2Hash: bigint
   name3Hash: bigint

@@ -158,14 +158,6 @@ export function getOffsetInArray(
   return -1
 }
 
-/**
- * Extract the MRZ string from raw (unpadded) DG1 bytes.
- * DG1 is a 5-byte header followed by the MRZ characters.
- */
-export function mrzFromDg1(dg1: number[]): string {
-  return new TextDecoder().decode(new Uint8Array(dg1.slice(5)))
-}
-
 export function bigintToBytes(value: bigint): number[] {
   return Array.from(bigIntToBuffer(value))
 }
