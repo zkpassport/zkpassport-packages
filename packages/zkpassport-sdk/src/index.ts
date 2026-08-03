@@ -413,7 +413,6 @@ export class ZKPassport {
             ? `0x${string}`
             : string | undefined,
       ) => {
-        this.assertNotPolicyLocked(topic, "bind")
         this.topicToConfig[topic].bind = {
           ...this.topicToConfig[topic].bind,
           [key]: value,
@@ -468,7 +467,10 @@ export class ZKPassport {
           )
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
-        this.topicToConfig[topic] = policy.query
+        // Copy the query: the policy object is reused across requests, and a
+        // later .bind() writes into it
+        const { bind: _, ...policyQuery } = policy.query
+        this.topicToConfig[topic] = policyQuery
         // Policy locks scope; caller's purpose still wins when provided.
         const svc = this.topicToService[topic]
         if (svc) {
@@ -620,7 +622,9 @@ export class ZKPassport {
       )
     }
     if (Object.keys(this.topicToConfig[topic]).length > 0) {
-      throw new Error("Cannot combine .policy() with builder methods like .gte()/.disclose()/etc.")
+      throw new Error(
+        "Cannot combine .policy() with builder methods like .gte()/.disclose()/etc. Call .policy() first; only .bind() may follow it.",
+      )
     }
   }
 
