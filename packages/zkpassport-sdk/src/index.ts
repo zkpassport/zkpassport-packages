@@ -159,7 +159,10 @@ export class ZKPassport {
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
-  private topicToPolicy: Record<string, { id: string; version: number }> = {}
+  private topicToPolicy: Record<
+    string,
+    { id: string; version: number; proofStorageEnabled: boolean }
+  > = {}
   private dashboardConfig: DashboardConfig | null = null
   private dashboardConfigPromise: Promise<DashboardConfig> | null = null
   private dashboardConfigError: Error | null = null
@@ -236,7 +239,14 @@ export class ZKPassport {
     // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
     // pollute real-domain stats.
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
-    if (finalVerified && this.domainProvided && !this.disableProofStorage && !devMode) {
+    const proofStorageEnabled = this.topicToPolicy[topic]?.proofStorageEnabled === true
+    if (
+      finalVerified &&
+      proofStorageEnabled &&
+      this.domainProvided &&
+      !this.disableProofStorage &&
+      !devMode
+    ) {
       void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
@@ -479,7 +489,11 @@ export class ZKPassport {
           }
           svc.scope = policyScope(policy)
         }
-        this.topicToPolicy[topic] = { id: policy.id, version: policy.version }
+        this.topicToPolicy[topic] = {
+          id: policy.id,
+          version: policy.version,
+          proofStorageEnabled: policy.proofStorageEnabled === true,
+        }
         return this.getZkPassportRequest(topic)
       },
       done: (() => {
