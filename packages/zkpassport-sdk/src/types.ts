@@ -281,8 +281,8 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
   facematch: (mode?: FacematchMode) => QueryBuilder
   /**
    * Applies an immutable policy fetched from the dashboard. The policy's query,
-   * purpose and scope are locked; combining with builder methods or calling
-   * twice throws.
+   * purpose and scope are locked; combining with builder methods (except
+   * `.bind()`, which may follow it) or calling twice throws.
    * @param id The policy id (e.g. `'pol_xyz'`).
    */
   policy: (id: string) => QueryBuilder<T>
