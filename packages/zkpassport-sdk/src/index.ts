@@ -164,7 +164,7 @@ export class ZKPassport {
     { id: string; version: number; proofStorageEnabled: boolean }
   > = {}
   private dashboardConfig: DashboardConfig | null = null
-  private dashboardConfigPromise: Promise<DashboardConfig> | null = null
+  private dashboardConfigPromise: Promise<DashboardConfig | null> | null = null
   private dashboardConfigError: Error | null = null
 
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
@@ -473,7 +473,7 @@ export class ZKPassport {
         if (!this.dashboardConfig) {
           if (this.dashboardConfigError) throw this.dashboardConfigError
           throw new Error(
-            `Cannot apply policy '${id}': dashboard config is unavailable for domain '${this.domain}'.`,
+            `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id.`,
           )
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
@@ -563,7 +563,7 @@ export class ZKPassport {
     }
   }
 
-  private async getDashboardConfig(): Promise<DashboardConfig> {
+  private async getDashboardConfig(): Promise<DashboardConfig | null> {
     if (this.dashboardConfig) return this.dashboardConfig
     if (!this.dashboardConfigPromise) {
       this.dashboardConfigPromise = this.fetchDashboardConfig()
@@ -579,7 +579,9 @@ export class ZKPassport {
     return this.dashboardConfigPromise
   }
 
-  private async fetchDashboardConfig(): Promise<DashboardConfig> {
+  // Returns null when the domain is not registered with the dashboard.
+  // That answer gets cached like a normal config; only failed requests are retried.
+  private async fetchDashboardConfig(): Promise<DashboardConfig | null> {
     const url = `${DASHBOARD_API_BASE_URL}/public/project?domain=${encodeURIComponent(this.domain)}`
     let response: Response
     try {
@@ -596,9 +598,7 @@ export class ZKPassport {
     }
     const config = (await response.json()) as DashboardConfig
     if (config && config.project === null) {
-      throw new Error(
-        `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id, or use self-serve mode (pass name/logo/purpose to request()).`,
-      )
+      return null
     }
     if (!config || !config.project || !Array.isArray(config.policies)) {
       throw new Error(`Invalid dashboard config response for domain '${this.domain}'`)
@@ -692,7 +692,7 @@ export class ZKPassport {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
 
-    let config: DashboardConfig | undefined
+    let config: DashboardConfig | null = null
     try {
       config = await this.getDashboardConfig()
       this.dashboardConfigError = null

@@ -597,6 +597,13 @@ describe("Policy-driven requests", () => {
     expect(() => builder.policy("pol_xyz")).toThrow(/Domain 'localhost' is not registered/i)
   })
 
+  test("the 'not registered' answer is cached: multiple requests trigger one fetch", async () => {
+    mockFetchReturning({ project: null, policies: [] })
+    await zkPassport.request({})
+    await zkPassport.request({})
+    expect(fetchCount).toBe(1)
+  })
+
   test(".policy() throws when the requested policy id is not in the dashboard's policies array", async () => {
     const builder = await zkPassport.request({})
     expect(() => builder.policy("pol_missing")).toThrow(
