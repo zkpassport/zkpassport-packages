@@ -591,8 +591,8 @@ describe("Policy-driven requests", () => {
     expect(service.scope).toBeUndefined()
   })
 
-  test(".policy() throws a clear 'domain not registered' error on 404", async () => {
-    mockFetchReturning({}, 404)
+  test(".policy() throws a clear 'domain not registered' error when the dashboard returns a null project", async () => {
+    mockFetchReturning({ project: null, policies: [] })
     const builder = await zkPassport.request({})
     expect(() => builder.policy("pol_xyz")).toThrow(/Domain 'localhost' is not registered/i)
   })

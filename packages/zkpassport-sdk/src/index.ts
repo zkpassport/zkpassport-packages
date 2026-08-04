@@ -589,17 +589,17 @@ export class ZKPassport {
         `Failed to fetch dashboard config for domain '${this.domain}': ${(e as Error).message}`,
       )
     }
-    if (response.status === 404) {
-      throw new Error(
-        `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id, or use self-serve mode (pass name/logo/purpose to request()).`,
-      )
-    }
     if (!response.ok) {
       throw new Error(
         `Failed to fetch dashboard config for domain '${this.domain}': ${response.status} ${response.statusText}`,
       )
     }
     const config = (await response.json()) as DashboardConfig
+    if (config && config.project === null) {
+      throw new Error(
+        `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id, or use self-serve mode (pass name/logo/purpose to request()).`,
+      )
+    }
     if (!config || !config.project || !Array.isArray(config.policies)) {
       throw new Error(`Invalid dashboard config response for domain '${this.domain}'`)
     }
