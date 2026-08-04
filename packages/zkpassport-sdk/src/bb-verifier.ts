@@ -1,4 +1,7 @@
-export type BBVersion = "v4" | "v5"
+// Barretenberg major versions this SDK bundles a verifier for
+export const SUPPORTED_BB_MAJOR_VERSIONS = [4, 5] as const
+
+export type BBVersion = `v${(typeof SUPPORTED_BB_MAJOR_VERSIONS)[number]}`
 
 const V5_MIN_CIRCUIT_VERSION = [0, 20, 0] as const
 

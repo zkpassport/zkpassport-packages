@@ -389,6 +389,7 @@ export type ProofResult = {
   proof?: string
   vkeyHash?: string
   version?: `${number}.${number}.${number}`
+  bbVersion?: string
   name?: string
   committedInputs?: {
     [circuitName in DisclosureCircuitName]?: CommittedInputs

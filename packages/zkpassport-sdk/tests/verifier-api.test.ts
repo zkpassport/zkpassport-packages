@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ZKPassport } from "../src/index"
-import { MAX_SUPPORTED_CIRCUIT_VERSION } from "../src/constants"
-import { isCircuitVersionSupported } from "../src/verifier-api"
+import { canVerifyLocally } from "../src/verifier-api"
 
 describe("Verifier API fallback", () => {
   let originalFetch: typeof globalThis.fetch
@@ -9,8 +8,13 @@ describe("Verifier API fallback", () => {
   let fetchedUrls: string[]
   let fetchedBodies: string[]
 
-  const newerCircuitProofs = [
-    { proof: "0xdeadbeef", version: "9.9.9" as const, name: "outer_evm_5" },
+  const newerBBProofs = [
+    {
+      proof: "0xdeadbeef",
+      version: "0.21.0" as const,
+      bbVersion: "6.0.0",
+      name: "outer_evm_5",
+    },
   ]
   const originalQuery = { age: { gte: 18 } } as any
   const queryResult = { age: { gte: { expected: 18, result: true } } } as any
@@ -33,18 +37,18 @@ describe("Verifier API fallback", () => {
     console.warn = originalWarn
   })
 
-  test("falls back only for circuit versions newer than the SDK supports", () => {
-    expect(isCircuitVersionSupported(MAX_SUPPORTED_CIRCUIT_VERSION)).toBe(true)
-    expect(isCircuitVersionSupported("0.19.4")).toBe(true)
-    expect(isCircuitVersionSupported("0.20.1")).toBe(false)
-    expect(isCircuitVersionSupported(undefined)).toBe(true)
+  test("verifies locally for supported bb versions, including proofs without one", () => {
+    expect(canVerifyLocally({ bbVersion: "4.0.0" })).toBe(true)
+    expect(canVerifyLocally({ bbVersion: "5.2.1" })).toBe(true)
+    expect(canVerifyLocally({ bbVersion: "6.0.0" })).toBe(false)
+    expect(canVerifyLocally({})).toBe(true)
   })
 
-  test("verifies proofs from newer circuits through the verifier API", async () => {
+  test("verifies proofs from newer bb versions through the verifier API", async () => {
     const zk = new ZKPassport("example.com")
 
     const result = await zk.verify({
-      proofs: newerCircuitProofs,
+      proofs: newerBBProofs,
       originalQuery,
       queryResult,
       scope: "test-scope",
@@ -53,7 +57,7 @@ describe("Verifier API fallback", () => {
     expect(result).toEqual({ verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 })
     expect(fetchedUrls).toEqual(["https://verifier.zkpassport.id/verify"])
     expect(JSON.parse(fetchedBodies[0])).toMatchObject({
-      proofs: newerCircuitProofs,
+      proofs: newerBBProofs,
       originalQuery,
       queryResult,
       serviceConfig: { domain: "example.com", scope: "test-scope", devMode: false },
@@ -66,7 +70,7 @@ describe("Verifier API fallback", () => {
     }) as unknown as typeof globalThis.fetch
     const zk = new ZKPassport("example.com")
 
-    const result = await zk.verify({ proofs: newerCircuitProofs, originalQuery, queryResult })
+    const result = await zk.verify({ proofs: newerBBProofs, originalQuery, queryResult })
 
     expect(result).toEqual({
       verified: false,

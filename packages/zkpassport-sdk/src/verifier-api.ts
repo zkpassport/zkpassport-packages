@@ -1,5 +1,6 @@
 import type { NullifierType, ProofResult, Query, QueryResult } from "@zkpassport/utils"
-import { MAX_SUPPORTED_CIRCUIT_VERSION, VERIFIER_API_BASE_URL } from "./constants"
+import { SUPPORTED_BB_MAJOR_VERSIONS } from "./bb-verifier"
+import { VERIFIER_API_BASE_URL } from "./constants"
 import type { QueryResultErrors } from "./types"
 
 type VerificationResult = {
@@ -9,14 +10,12 @@ type VerificationResult = {
   queryResultErrors?: Partial<QueryResultErrors>
 }
 
-export function isCircuitVersionSupported(circuitVersion?: string): boolean {
-  const version = circuitVersion?.split(".").map(Number)
-  if (!version || version.length !== 3 || version.some(Number.isNaN)) return true
-  const max = MAX_SUPPORTED_CIRCUIT_VERSION.split(".").map(Number)
-  for (let i = 0; i < version.length; i++) {
-    if (version[i] !== max[i]) return version[i] < max[i]
-  }
-  return true
+// Whether this SDK can verify the proof itself, rather than sending it to the
+// verifier API. Proofs without a bbVersion are old and always verifiable here.
+export function canVerifyLocally(proof: Pick<ProofResult, "bbVersion">): boolean {
+  if (!proof.bbVersion) return true
+  const major = Number(proof.bbVersion.split(".")[0])
+  return SUPPORTED_BB_MAJOR_VERSIONS.some((v) => v === major)
 }
 
 export async function verifyWithVerifierApi({
