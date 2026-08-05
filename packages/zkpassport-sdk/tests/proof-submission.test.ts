@@ -134,17 +134,6 @@ describe("Proof submission", () => {
     expect("requestId" in body).toBe(false)
   })
 
-  test("does not submit when disableProofStorage is true", async () => {
-    const zk = new ZKPassport("localhost", { disableProofStorage: true })
-    const { topic } = primeForHandleResult(zk, {
-      verifyResult: { verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 },
-    })
-
-    await (zk as any).handleResult(topic)
-
-    expect(fetchedUrls).toEqual([])
-  })
-
   test("does not submit when devMode is enabled", async () => {
     const zk = new ZKPassport("localhost")
     const { topic } = primeForHandleResult(zk, {

@@ -138,7 +138,6 @@ export * from "./types"
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
-  private disableProofStorage: boolean
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -207,13 +206,12 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string, options?: { disableProofStorage?: boolean }) {
+  constructor(_domain?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.disableProofStorage = options?.disableProofStorage ?? false
   }
 
   private async handleResult(topic: string) {
@@ -240,13 +238,7 @@ export class ZKPassport {
     // pollute real-domain stats.
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
     const proofStorageEnabled = this.topicToPolicy[topic]?.proofStorageEnabled === true
-    if (
-      finalVerified &&
-      proofStorageEnabled &&
-      this.domainProvided &&
-      !this.disableProofStorage &&
-      !devMode
-    ) {
+    if (finalVerified && proofStorageEnabled && this.domainProvided && !devMode) {
       void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
