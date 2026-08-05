@@ -883,6 +883,7 @@ export class ZKPassport {
             })
             const params = this.getSolidityVerifierParameters({
               proof,
+              validityPeriodInSeconds: validity,
               domain: this.domain,
               scope,
               devMode,
