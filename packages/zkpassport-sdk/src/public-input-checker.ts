@@ -1844,11 +1844,13 @@ export class PublicInputChecker {
     queryResultErrors: any,
     outer?: boolean,
     devMode?: boolean,
+    // Point in time to check validity at, in seconds; defaults to now
+    timestamp?: number,
   ) {
     let isCorrect = true
     try {
       const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCertificateRootValid(root)
+      const isValid = await registryClient.isCertificateRootValid(root, timestamp)
       if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
         isCorrect = false
@@ -1881,11 +1883,13 @@ export class PublicInputChecker {
     root: string,
     queryResultErrors: any,
     devMode?: boolean,
+    // Same as above, see checkCertificateRegistryRoot
+    timestamp?: number,
   ) {
     let isCorrect = true
     try {
       const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCircuitRootValid(root)
+      const isValid = await registryClient.isCircuitRootValid(root, timestamp)
       if (!isValid) {
         console.warn("The proof uses unrecognized circuits")
         isCorrect = false
@@ -2327,25 +2331,25 @@ export class PublicInputChecker {
     )
     let queryResultErrors: Partial<QueryResultErrors> = {}
 
+    const proofOrder = [
+      "sig_check_dsc",
+      "sig_check_id_data",
+      "data_check_integrity",
+      "disclose_bytes",
+      "compare_age",
+      "compare_birthdate",
+      "compare_expiry",
+      "exclusion_check_nationality",
+      "inclusion_check_nationality",
+      "exclusion_check_issuing_country",
+      "inclusion_check_issuing_country",
+      "bind",
+      "exclusion_check_sanctions",
+      "facematch",
+    ]
     // Since the order is important for the commitments, we need to sort the proofs
     // by their expected order: root signature check -> ID signature check -> integrity check -> disclosure
     const sortedProofs = proofs.sort((a, b) => {
-      const proofOrder = [
-        "sig_check_dsc",
-        "sig_check_id_data",
-        "data_check_integrity",
-        "disclose_bytes",
-        "compare_age",
-        "compare_birthdate",
-        "compare_expiry",
-        "exclusion_check_nationality",
-        "inclusion_check_nationality",
-        "exclusion_check_issuing_country",
-        "inclusion_check_issuing_country",
-        "bind",
-        "exclusion_check_sanctions",
-        "facematch",
-      ]
       const getIndex = (proof: ProofResult) => {
         const name = proof.name || ""
         return proofOrder.findIndex((p) => name.startsWith(p))
@@ -2353,10 +2357,27 @@ export class PublicInputChecker {
       return getIndex(a) - getIndex(b)
     })
 
+    // Registry roots are checked as of the proofs' own date, so older proofs still verify
+    const disclosureProofNames = proofOrder.slice(3)
+    const firstDisclosureProof = sortedProofs.find((p) =>
+      disclosureProofNames.some((name) => p.name?.startsWith(name)),
+    )
+    const bundleDate = firstDisclosureProof
+      ? getCurrentDateFromDisclosureProof(
+          getProofData(
+            firstDisclosureProof.proof as string,
+            getNumberOfPublicInputs(firstDisclosureProof.name!),
+          ),
+        )
+      : undefined
+    const bundleRootTimestamp = bundleDate ? Math.floor(bundleDate.getTime() / 1000) : undefined
+
     for (const proof of sortedProofs!) {
       const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
       if (proof.name?.startsWith("outer")) {
         const isForEVM = proof.name?.startsWith("outer_evm")
+        const currentDate = getCurrentDateFromOuterProof(proofData)
+        const rootTimestamp = Math.floor(currentDate.getTime() / 1000)
         const certificateRegistryRoot = getCertificateRegistryRootFromOuterProof(proofData)
         const {
           isCorrect: isCorrectCertificateRegistryRoot,
@@ -2366,6 +2387,7 @@ export class PublicInputChecker {
           queryResultErrors,
           true,
           devMode,
+          rootTimestamp,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
@@ -2381,6 +2403,7 @@ export class PublicInputChecker {
           circuitRegistryRoot.toString(16),
           queryResultErrors,
           devMode,
+          rootTimestamp,
         )
         isCorrect = isCorrect && isCorrectCircuitRegistryRoot
         queryResultErrors = {
@@ -2388,7 +2411,6 @@ export class PublicInputChecker {
           ...queryResultErrorsCircuitRegistryRoot,
         }
 
-        const currentDate = getCurrentDateFromOuterProof(proofData)
         const todayToCurrentDate = today.getTime() - currentDate.getTime()
         const expectedDifference = validity ? validity * 1000 : DEFAULT_VALIDITY * 1000
         if (todayToCurrentDate >= expectedDifference) {
@@ -2873,6 +2895,7 @@ export class PublicInputChecker {
           queryResultErrors,
           false,
           devMode,
+          bundleRootTimestamp,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
@@ -3730,6 +3753,16 @@ export class PublicInputChecker {
         console.warn("Failed to verify OPRF public key:", error)
         isCorrect = false
       }
+    }
+
+    if (uniqueIdentifierType === NullifierType.NONE) {
+      if (uniqueIdentifier !== undefined && BigInt(uniqueIdentifier) !== 0n) {
+        console.warn("Proofs with the NONE nullifier type cannot carry a unique identifier")
+        isCorrect = false
+      }
+      uniqueIdentifier = undefined
+    } else if (uniqueIdentifier !== undefined && BigInt(uniqueIdentifier) === 0n) {
+      uniqueIdentifier = undefined
     }
 
     return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }
