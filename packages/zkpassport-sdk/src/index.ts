@@ -676,7 +676,7 @@ export class ZKPassport {
 
     if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
       throw new Error(
-        "An OPRF key cannot be used with the NONE unique identifier type: NONE requests produce no unique identifier. Remove the oprfKeyId option or use the SALTED type.",
+        "An OPRF key cannot be used with the NONE unique identifier type. Remove the oprfKeyId option or use the SALTED type.",
       )
     }
 

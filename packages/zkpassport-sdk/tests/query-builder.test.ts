@@ -831,9 +831,16 @@ describe("NONE nullifier type requests", () => {
     expect(result.url).toContain(`&nt=${NullifierType.NONE}`)
   })
 
-  test("NONE without facematch is allowed", async () => {
+  test("NONE with a plain disclosure is allowed", async () => {
     const qb = await noneRequest()
     expect(() => qb.disclose("firstname").done()).not.toThrow()
+  })
+
+  test("NONE with facematch is allowed", async () => {
+    const strictQb = await noneRequest()
+    expect(() => strictQb.facematch("strict").done()).not.toThrow()
+    const regularQb = await noneRequest()
+    expect(() => regularQb.facematch("regular").done()).not.toThrow()
   })
 
   test("rejects an OPRF key combined with NONE", async () => {
