@@ -1,23 +1,21 @@
-import type { NullifierType, ProofResult, Query, QueryResult } from "@zkpassport/utils"
+import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import { SUPPORTED_BB_MAJOR_VERSIONS } from "./bb-verifier"
 import { VERIFIER_API_BASE_URL } from "./constants"
-import type { QueryResultErrors } from "./types"
+import type { VerificationResult } from "./types"
 
-type VerificationResult = {
-  uniqueIdentifier: string | undefined
-  uniqueIdentifierType: NullifierType | undefined
-  verified: boolean
-  queryResultErrors?: Partial<QueryResultErrors>
-}
-
-// Whether this SDK can verify the proof itself, rather than sending it to the
-// verifier API. Proofs without a bbVersion are old and always verifiable here.
+// Whether this SDK bundles a verifier for the bb version the proof was generated
+// with. Best-effort (a proof from an unlisted version may still verify locally):
+// verify()'s "auto" mode decides by attempting local verification instead, and this
+// is only used by the verifier service to report unsupported proofs with a clear
+// error. Proofs without a bbVersion predate the field and are always verifiable.
 export function canVerifyLocally(proof: Pick<ProofResult, "bbVersion">): boolean {
   if (!proof.bbVersion) return true
   const major = Number(proof.bbVersion.split(".")[0])
   return SUPPORTED_BB_MAJOR_VERSIONS.some((v) => v === major)
 }
 
+// Returns null when the API gave no verdict (unreachable, timed out, server error),
+// so callers can fall back to their own result instead of reporting "not verified".
 export async function verifyWithVerifierApi({
   proofs,
   originalQuery,
@@ -36,12 +34,7 @@ export async function verifyWithVerifierApi({
   scope?: string
   devMode?: boolean
   oprfKeyId?: string
-}): Promise<VerificationResult> {
-  const notVerified = {
-    uniqueIdentifier: undefined,
-    uniqueIdentifierType: undefined,
-    verified: false,
-  }
+}): Promise<VerificationResult | null> {
   try {
     const response = await fetch(`${VERIFIER_API_BASE_URL}/verify`, {
       method: "POST",
@@ -55,15 +48,26 @@ export async function verifyWithVerifierApi({
       }),
       signal: AbortSignal.timeout(60000),
     })
+    if (response.status >= 500) {
+      // Includes 501: the API can't verify these proofs yet, it did not judge them
+      console.warn(`Verifier API error (status ${response.status})`)
+      return null
+    }
     const body = (await response.json().catch(() => null)) as
       | (VerificationResult & { error?: string })
       | null
     if (!body || typeof body.verified !== "boolean") {
-      throw new Error(`Unexpected verifier API response (status ${response.status})`)
+      console.warn(`Unexpected verifier API response (status ${response.status})`)
+      return null
     }
     if (!body.verified) {
       console.warn("Verifier API did not verify the proofs:", body.error)
-      return { ...notVerified, queryResultErrors: body.queryResultErrors }
+      return {
+        uniqueIdentifier: undefined,
+        uniqueIdentifierType: undefined,
+        verified: false,
+        queryResultErrors: body.queryResultErrors,
+      }
     }
     return {
       uniqueIdentifier: body.uniqueIdentifier,
@@ -72,6 +76,6 @@ export async function verifyWithVerifierApi({
     }
   } catch (e) {
     console.warn("Verifier API call failed:", e)
-    return notVerified
+    return null
   }
 }

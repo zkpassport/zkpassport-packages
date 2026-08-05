@@ -34,12 +34,14 @@ import {
   DashboardConfig,
   Policy,
   QueryResultErrors,
+  VerificationMode,
+  VerificationResult,
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
-import { canVerifyLocally, verifyWithVerifierApi } from "./verifier-api"
+import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -757,7 +759,6 @@ export class ZKPassport {
 
   /**
    * @notice Verify the proofs received from the mobile app.
-   * Proofs this SDK cannot verify itself are sent to the ZKPassport verifier API.
    * @param proofs The proofs to verify.
    * @param originalQuery The original query that was sent to the mobile app.
    * @param queryResult The query result to verify against
@@ -766,10 +767,84 @@ export class ZKPassport {
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
+   * @param mode "local" verifies with the verifier bundled in this SDK, "api" with the ZKPassport
+   * verifier API, and "auto" (default) verifies locally but defers to the API when the local
+   * result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
   public async verify({
+    proofs,
+    originalQuery,
+    queryResult,
+    validity,
+    scope,
+    devMode = false,
+    writingDirectory,
+    oprfKeyId,
+    mode = "auto",
+  }: {
+    proofs: Array<ProofResult>
+    originalQuery: Query
+    queryResult: QueryResult
+    validity?: number
+    scope?: string
+    devMode?: boolean
+    writingDirectory?: string
+    oprfKeyId?: string
+    mode?: VerificationMode
+  }): Promise<VerificationResult> {
+    const notVerified: VerificationResult = {
+      uniqueIdentifier: undefined,
+      uniqueIdentifierType: undefined,
+      verified: false,
+    }
+    // If no proofs were generated, the results can't be trusted.
+    // We still return it but verified will be false
+    if (!proofs || proofs.length === 0) {
+      return notVerified
+    }
+    const localParams = {
+      proofs,
+      originalQuery,
+      queryResult,
+      validity,
+      scope,
+      devMode,
+      writingDirectory,
+      oprfKeyId,
+    }
+    const apiParams = {
+      proofs,
+      originalQuery,
+      queryResult,
+      domain: this.domain,
+      validity,
+      scope,
+      devMode,
+      oprfKeyId,
+    }
+    if (mode === "local") {
+      return this.verifyLocally(localParams)
+    }
+    if (mode === "api") {
+      return (await verifyWithVerifierApi(apiParams)) ?? notVerified
+    }
+    // "auto": trust a local pass, but a local failure may just mean the proofs come from
+    // a newer bb version than this SDK bundles, so the verifier API (which always runs
+    // the latest verifier) gets the final say. If the API has no verdict either,
+    // keep the local result.
+    let localResult: VerificationResult | undefined
+    try {
+      localResult = await this.verifyLocally(localParams)
+      if (localResult.verified) return localResult
+    } catch (e) {
+      console.warn("Local proof verification failed:", e)
+    }
+    return (await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified
+  }
+
+  private async verifyLocally({
     proofs,
     originalQuery,
     queryResult,
@@ -787,34 +862,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
-  }): Promise<{
-    uniqueIdentifier: string | undefined
-    uniqueIdentifierType: NullifierType | undefined
-    verified: boolean
-    queryResultErrors?: Partial<QueryResultErrors>
-  }> {
-    // If no proofs were generated, the results can't be trusted.
-    // We still return it but verified will be false
-    if (!proofs || proofs.length === 0) {
-      return {
-        uniqueIdentifier: undefined,
-        uniqueIdentifierType: undefined,
-        verified: false,
-      }
-    }
-    if (!canVerifyLocally(proofs[0] ?? {})) {
-      return verifyWithVerifierApi({
-        proofs,
-        originalQuery,
-        queryResult,
-        domain: this.domain,
-        validity,
-        scope,
-        devMode,
-        oprfKeyId,
-      })
-    }
-
+  }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
     // Automatically set the writing directory to `/tmp` if it is not provided
