@@ -143,7 +143,6 @@ export { canVerifyLocally } from "./verifier-api"
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
-  private disableProofStorage: boolean
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -164,9 +163,12 @@ export class ZKPassport {
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
-  private topicToPolicy: Record<string, { id: string; version: number }> = {}
+  private topicToPolicy: Record<
+    string,
+    { id: string; version: number; proofStorageEnabled: boolean }
+  > = {}
   private dashboardConfig: DashboardConfig | null = null
-  private dashboardConfigPromise: Promise<DashboardConfig> | null = null
+  private dashboardConfigPromise: Promise<DashboardConfig | null> | null = null
   private dashboardConfigError: Error | null = null
 
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
@@ -209,13 +211,12 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string, options?: { disableProofStorage?: boolean }) {
+  constructor(_domain?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.disableProofStorage = options?.disableProofStorage ?? false
   }
 
   private async handleResult(topic: string) {
@@ -241,7 +242,8 @@ export class ZKPassport {
     // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
     // pollute real-domain stats.
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
-    if (finalVerified && this.domainProvided && !this.disableProofStorage && !devMode) {
+    const proofStorageEnabled = this.topicToPolicy[topic]?.proofStorageEnabled === true
+    if (finalVerified && proofStorageEnabled && this.domainProvided && !devMode) {
       void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
@@ -418,7 +420,6 @@ export class ZKPassport {
             ? `0x${string}`
             : string | undefined,
       ) => {
-        this.assertNotPolicyLocked(topic, "bind")
         this.topicToConfig[topic].bind = {
           ...this.topicToConfig[topic].bind,
           [key]: value,
@@ -469,11 +470,14 @@ export class ZKPassport {
         if (!this.dashboardConfig) {
           if (this.dashboardConfigError) throw this.dashboardConfigError
           throw new Error(
-            `Cannot apply policy '${id}': dashboard config is unavailable for domain '${this.domain}'.`,
+            `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id.`,
           )
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
-        this.topicToConfig[topic] = policy.query
+        // Copy the query: the policy object is reused across requests, and a
+        // later .bind() writes into it
+        const { bind: _, ...policyQuery } = policy.query
+        this.topicToConfig[topic] = policyQuery
         // Policy locks scope; caller's purpose still wins when provided.
         const svc = this.topicToService[topic]
         if (svc) {
@@ -482,7 +486,11 @@ export class ZKPassport {
           }
           svc.scope = policyScope(policy)
         }
-        this.topicToPolicy[topic] = { id: policy.id, version: policy.version }
+        this.topicToPolicy[topic] = {
+          id: policy.id,
+          version: policy.version,
+          proofStorageEnabled: policy.proofStorageEnabled === true,
+        }
         return this.getZkPassportRequest(topic)
       },
       done: (() => {
@@ -552,7 +560,7 @@ export class ZKPassport {
     }
   }
 
-  private async getDashboardConfig(): Promise<DashboardConfig> {
+  private async getDashboardConfig(): Promise<DashboardConfig | null> {
     if (this.dashboardConfig) return this.dashboardConfig
     if (!this.dashboardConfigPromise) {
       this.dashboardConfigPromise = this.fetchDashboardConfig()
@@ -568,7 +576,9 @@ export class ZKPassport {
     return this.dashboardConfigPromise
   }
 
-  private async fetchDashboardConfig(): Promise<DashboardConfig> {
+  // Returns null when the domain is not registered with the dashboard.
+  // That answer gets cached like a normal config; only failed requests are retried.
+  private async fetchDashboardConfig(): Promise<DashboardConfig | null> {
     const url = `${DASHBOARD_API_BASE_URL}/public/project?domain=${encodeURIComponent(this.domain)}`
     let response: Response
     try {
@@ -578,17 +588,15 @@ export class ZKPassport {
         `Failed to fetch dashboard config for domain '${this.domain}': ${(e as Error).message}`,
       )
     }
-    if (response.status === 404) {
-      throw new Error(
-        `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id, or use self-serve mode (pass name/logo/purpose to request()).`,
-      )
-    }
     if (!response.ok) {
       throw new Error(
         `Failed to fetch dashboard config for domain '${this.domain}': ${response.status} ${response.statusText}`,
       )
     }
     const config = (await response.json()) as DashboardConfig
+    if (config && config.project === null) {
+      return null
+    }
     if (!config || !config.project || !Array.isArray(config.policies)) {
       throw new Error(`Invalid dashboard config response for domain '${this.domain}'`)
     }
@@ -625,7 +633,9 @@ export class ZKPassport {
       )
     }
     if (Object.keys(this.topicToConfig[topic]).length > 0) {
-      throw new Error("Cannot combine .policy() with builder methods like .gte()/.disclose()/etc.")
+      throw new Error(
+        "Cannot combine .policy() with builder methods like .gte()/.disclose()/etc. Call .policy() first; only .bind() may follow it.",
+      )
     }
   }
 
@@ -667,7 +677,7 @@ export class ZKPassport {
     projectID?: string
     validity?: number
     devMode?: boolean
-    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
+    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
     oprfKeyId?: string
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
@@ -679,7 +689,13 @@ export class ZKPassport {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
 
-    let config: DashboardConfig | undefined
+    if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
+      throw new Error(
+        "An OPRF key cannot be used with the NONE unique identifier type. Remove the oprfKeyId option or use the SALTED type.",
+      )
+    }
+
+    let config: DashboardConfig | null = null
     try {
       config = await this.getDashboardConfig()
       this.dashboardConfigError = null
@@ -898,8 +914,6 @@ export class ZKPassport {
     verified = isCorrect
     queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
     if (
-      uniqueIdentifier &&
-      uniqueIdentifierType &&
       (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
         uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
       !devMode
@@ -944,6 +958,7 @@ export class ZKPassport {
             })
             const params = this.getSolidityVerifierParameters({
               proof,
+              validityPeriodInSeconds: validity,
               domain: this.domain,
               scope,
               devMode,

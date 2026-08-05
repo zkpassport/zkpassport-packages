@@ -272,7 +272,7 @@ contract SubVerifier {
 
         require(
             nullifierType == NullifierType.NON_SALTED_NULLIFIER || nullifierType == NullifierType.SALTED_NULLIFIER
-                || params.serviceConfig.devMode,
+                || nullifierType == NullifierType.NONE_NULLIFIER || params.serviceConfig.devMode,
             "Unsupported nullifier type"
         );
 

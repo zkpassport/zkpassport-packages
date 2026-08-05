@@ -754,6 +754,7 @@ export async function getSaltedValuesForDisclosureCircuit(
   privateNullifier: Binary,
   salts: IntegrityToDisclosureSalts,
   hideSensitiveInputs: boolean = false,
+  hideNullifier: boolean = false,
 ) {
   const saltedDg1 = SaltedValue.fromValue(salts.dg1Salt, idData.dg1)
   const saltedPrivateNullifier = SaltedValue.fromValue(
@@ -773,9 +774,10 @@ export async function getSaltedValuesForDisclosureCircuit(
           Array.from({ length: 95 }, () => 0),
         ).formatForInput()
       : saltedDg1.formatForInput(),
-    salted_private_nullifier: hideSensitiveInputs
-      ? SaltedValue.fromHash(await saltedPrivateNullifier.getHash(), 0n).formatForInput()
-      : saltedPrivateNullifier.formatForInput(),
+    salted_private_nullifier:
+      hideSensitiveInputs || hideNullifier
+        ? SaltedValue.fromHash(await saltedPrivateNullifier.getHash(), 0n).formatForInput()
+        : saltedPrivateNullifier.formatForInput(),
     salted_expiry_date: saltedExpiryDate.formatForInput(),
     salted_dg2_hash: saltedDg2Hash.formatForInput(),
     salted_dg2_hash_type: saltedDg2HashType.formatForInput(),
@@ -791,6 +793,7 @@ export async function getDiscloseCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ) {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -817,7 +820,14 @@ export async function getDiscloseCircuitInputs(
   const discloseMask = getDiscloseMask(passport, query)
   return {
     current_date: currentDateTimestamp,
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     disclose_mask: discloseMask,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -938,6 +948,7 @@ export async function getAgeCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -991,7 +1002,14 @@ export async function getAgeCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1020,6 +1038,7 @@ export async function getNationalityInclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1044,7 +1063,14 @@ export async function getNationalityInclusionCircuitInputs(
   )
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     country_list: padCountryList(query.nationality?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1064,6 +1090,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1088,7 +1115,14 @@ export async function getIssuingCountryInclusionCircuitInputs(
   )
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     country_list: padCountryList(query.issuing_country?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1108,6 +1142,7 @@ export async function getNationalityExclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1138,7 +1173,14 @@ export async function getNationalityExclusionCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1162,6 +1204,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1188,7 +1231,14 @@ export async function getIssuingCountryExclusionCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1213,6 +1263,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1241,7 +1292,14 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   const { proofs, root } = await sanctions.getSanctionsMerkleProofs(passport, isStrict)
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     proofs,
@@ -1263,6 +1321,7 @@ export async function getBirthdateCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1316,7 +1375,14 @@ export async function getBirthdateCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1340,6 +1406,7 @@ export async function getExpiryDateCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1393,7 +1460,14 @@ export async function getExpiryDateCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1415,6 +1489,7 @@ export async function getBindCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   hideSensitiveInputs: boolean = false,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1443,6 +1518,7 @@ export async function getBindCircuitInputs(
       privateNullifier,
       salts,
       hideSensitiveInputs,
+      hideNullifier,
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),

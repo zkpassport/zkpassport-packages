@@ -2489,8 +2489,14 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     const commitment = 100n
     const nullifier = 42n
 
-    test("calls checkCertificateRegistryRoot for DSC proof", async () => {
+    test("calls checkCertificateRegistryRoot for DSC proof with the proof's date", async () => {
       const merkleRoot = 12345n
+      let checkArgs: unknown[] | undefined
+      ;(PublicInputChecker as unknown as Record<string, unknown>).checkCertificateRegistryRoot =
+        async (...args: unknown[]) => {
+          checkArgs = args
+          return { isCorrect: true, queryResultErrors: {} }
+        }
       const proofs: ProofResult[] = [
         {
           name: "sig_check_dsc_1234",
@@ -2519,8 +2525,58 @@ describe("PublicInputChecker - checkPublicInputs", () => {
         86400 * 365,
       )
 
-      // Verified by the test passing without RPC errors - the mock was called
-      expect(true).toBe(true)
+      expect(checkArgs).toBeDefined()
+      expect(checkArgs![0]).toBe(merkleRoot.toString(16))
+      // Root validity must be checked as of the proof's own date so proofs made
+      // against superseded roots remain verifiable
+      expect(checkArgs![4]).toBe(Number(todayTs))
+    })
+
+    test("does not mistake an oprf_auth proof for the bundle's date source", async () => {
+      const merkleRoot = 12345n
+      let checkArgs: unknown[] | undefined
+      ;(PublicInputChecker as unknown as Record<string, unknown>).checkCertificateRegistryRoot =
+        async (...args: unknown[]) => {
+          checkArgs = args
+          return { isCorrect: true, queryResultErrors: {} }
+        }
+      const proofs: ProofResult[] = [
+        {
+          name: "sig_check_dsc_1234",
+          proof: buildProofHex([merkleRoot, commitment]),
+          total: 3,
+        },
+        // oprf_auth has no date - its public inputs are comm_in and a curve point,
+        // not a timestamp - it must not be picked as the bundle's date source
+        {
+          name: "oprf_auth",
+          proof: buildProofHex([commitment, 1n, 2n]),
+          total: 3,
+        },
+        {
+          name: "compare_age",
+          proof: buildProofHex([commitment, todayTs, domainScopeHash, 0n, 0n, 0n, nullifier]),
+          total: 3,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(checkArgs).toBeDefined()
+      expect(checkArgs![4]).toBe(Number(todayTs))
     })
 
     test("fails when certificate registry root is invalid", async () => {
