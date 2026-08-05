@@ -138,8 +138,6 @@ export {
 
 export * from "./types"
 
-export { canVerifyLocally } from "./verifier-api"
-
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean

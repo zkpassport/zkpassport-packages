@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { ZKPassport } from "../src/index"
-import { canVerifyLocally } from "../src/verifier-api"
 
 describe("verify() modes and the verifier API", () => {
   let originalFetch: typeof globalThis.fetch
@@ -43,13 +42,6 @@ describe("verify() modes and the verifier API", () => {
     globalThis.fetch = originalFetch
     console.warn = originalWarn
     localSpy.mockRestore()
-  })
-
-  test("canVerifyLocally accepts bundled bb versions, including proofs without one", () => {
-    expect(canVerifyLocally({ bbVersion: "4.0.0" })).toBe(true)
-    expect(canVerifyLocally({ bbVersion: "5.2.1" })).toBe(true)
-    expect(canVerifyLocally({ bbVersion: "6.0.0" })).toBe(false)
-    expect(canVerifyLocally({})).toBe(true)
   })
 
   test("auto keeps a verified local result without calling the API", async () => {

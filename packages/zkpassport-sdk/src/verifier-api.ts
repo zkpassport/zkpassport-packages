@@ -1,15 +1,6 @@
 import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
-import { SUPPORTED_BB_MAJOR_VERSIONS } from "./bb-verifier"
 import { VERIFIER_API_BASE_URL } from "./constants"
 import type { VerificationResult } from "./types"
-
-// Whether this SDK bundles a verifier for the proof's bb version. Not used to decide
-// how to verify (verify() just attempts it) — only to give unsupported proofs a clear error.
-export function canVerifyLocally(proof: Pick<ProofResult, "bbVersion">): boolean {
-  if (!proof.bbVersion) return true
-  const major = Number(proof.bbVersion.split(".")[0])
-  return SUPPORTED_BB_MAJOR_VERSIONS.some((v) => v === major)
-}
 
 // Returns null when the API gave no verdict (unreachable, timed out, server error),
 // so callers can fall back to their own result instead of reporting "not verified".
@@ -46,7 +37,6 @@ export async function verifyWithVerifierApi({
       signal: AbortSignal.timeout(60000),
     })
     if (response.status >= 500) {
-      // Includes 501: the API can't verify these proofs yet, it did not judge them
       console.warn(`Verifier API error (status ${response.status})`)
       return null
     }
