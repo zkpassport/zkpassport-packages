@@ -1751,27 +1751,14 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       expect(queryResultErrors.facematch?.eq?.message).toContain("app id")
     })
 
-    test("passes when committed mode is stricter than the requested mode", async () => {
+    test("fails when committed mode does not match queryResult mode", async () => {
       const queryResult: QueryResult = {
         facematch: { mode: "regular", passed: true },
       }
-      const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
         originalQuery,
         queryResult,
-        makeFacematchInputs({ mode: "strict" }), // strict satisfies a regular request
-      )
-      expect(isCorrect).toBe(true)
-    })
-
-    test("fails when committed mode is weaker than the requested mode", async () => {
-      const strictQuery: Query = { facematch: { mode: "strict" } }
-      const queryResult: QueryResult = {
-        facematch: { mode: "strict", passed: true },
-      }
-      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
-        strictQuery,
-        queryResult,
-        makeFacematchInputs({ mode: "regular" }), // regular cannot satisfy a strict request
+        makeFacematchInputs({ mode: "strict" }), // committed says strict, queryResult says regular
       )
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.facematch?.eq?.message).toContain("facematch mode")
