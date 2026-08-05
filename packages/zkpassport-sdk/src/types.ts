@@ -76,6 +76,7 @@ export type Policy = {
   purpose: string
   projectId: string | null
   query: Query
+  proofStorageEnabled?: boolean
 }
 
 export type DashboardConfig = {

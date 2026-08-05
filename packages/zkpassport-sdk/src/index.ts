@@ -138,7 +138,6 @@ export * from "./types"
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
-  private disableProofStorage: boolean
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -159,9 +158,12 @@ export class ZKPassport {
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
-  private topicToPolicy: Record<string, { id: string; version: number }> = {}
+  private topicToPolicy: Record<
+    string,
+    { id: string; version: number; proofStorageEnabled: boolean }
+  > = {}
   private dashboardConfig: DashboardConfig | null = null
-  private dashboardConfigPromise: Promise<DashboardConfig> | null = null
+  private dashboardConfigPromise: Promise<DashboardConfig | null> | null = null
   private dashboardConfigError: Error | null = null
 
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
@@ -204,13 +206,12 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string, options?: { disableProofStorage?: boolean }) {
+  constructor(_domain?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.disableProofStorage = options?.disableProofStorage ?? false
   }
 
   private async handleResult(topic: string) {
@@ -236,7 +237,8 @@ export class ZKPassport {
     // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
     // pollute real-domain stats.
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
-    if (finalVerified && this.domainProvided && !this.disableProofStorage && !devMode) {
+    const proofStorageEnabled = this.topicToPolicy[topic]?.proofStorageEnabled === true
+    if (finalVerified && proofStorageEnabled && this.domainProvided && !devMode) {
       void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
@@ -463,7 +465,7 @@ export class ZKPassport {
         if (!this.dashboardConfig) {
           if (this.dashboardConfigError) throw this.dashboardConfigError
           throw new Error(
-            `Cannot apply policy '${id}': dashboard config is unavailable for domain '${this.domain}'.`,
+            `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id.`,
           )
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
@@ -479,7 +481,11 @@ export class ZKPassport {
           }
           svc.scope = policyScope(policy)
         }
-        this.topicToPolicy[topic] = { id: policy.id, version: policy.version }
+        this.topicToPolicy[topic] = {
+          id: policy.id,
+          version: policy.version,
+          proofStorageEnabled: policy.proofStorageEnabled === true,
+        }
         return this.getZkPassportRequest(topic)
       },
       done: (() => {
@@ -549,7 +555,7 @@ export class ZKPassport {
     }
   }
 
-  private async getDashboardConfig(): Promise<DashboardConfig> {
+  private async getDashboardConfig(): Promise<DashboardConfig | null> {
     if (this.dashboardConfig) return this.dashboardConfig
     if (!this.dashboardConfigPromise) {
       this.dashboardConfigPromise = this.fetchDashboardConfig()
@@ -565,7 +571,9 @@ export class ZKPassport {
     return this.dashboardConfigPromise
   }
 
-  private async fetchDashboardConfig(): Promise<DashboardConfig> {
+  // Returns null when the domain is not registered with the dashboard.
+  // That answer gets cached like a normal config; only failed requests are retried.
+  private async fetchDashboardConfig(): Promise<DashboardConfig | null> {
     const url = `${DASHBOARD_API_BASE_URL}/public/project?domain=${encodeURIComponent(this.domain)}`
     let response: Response
     try {
@@ -575,17 +583,15 @@ export class ZKPassport {
         `Failed to fetch dashboard config for domain '${this.domain}': ${(e as Error).message}`,
       )
     }
-    if (response.status === 404) {
-      throw new Error(
-        `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id, or use self-serve mode (pass name/logo/purpose to request()).`,
-      )
-    }
     if (!response.ok) {
       throw new Error(
         `Failed to fetch dashboard config for domain '${this.domain}': ${response.status} ${response.statusText}`,
       )
     }
     const config = (await response.json()) as DashboardConfig
+    if (config && config.project === null) {
+      return null
+    }
     if (!config || !config.project || !Array.isArray(config.policies)) {
       throw new Error(`Invalid dashboard config response for domain '${this.domain}'`)
     }
@@ -684,7 +690,7 @@ export class ZKPassport {
       )
     }
 
-    let config: DashboardConfig | undefined
+    let config: DashboardConfig | null = null
     try {
       config = await this.getDashboardConfig()
       this.dashboardConfigError = null
