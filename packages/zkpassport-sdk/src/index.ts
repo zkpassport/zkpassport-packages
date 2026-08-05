@@ -821,12 +821,14 @@ export class ZKPassport {
     const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
     const localParams = { ...params, writingDirectory }
     const apiParams = { ...params, domain: this.domain }
+
     if (mode === "local") {
       return this.verifyLocally(localParams)
     }
     if (mode === "api") {
       return (await verifyWithVerifierApi(apiParams)) ?? notVerified
     }
+
     let localResult: VerificationResult | undefined
     try {
       localResult = await this.verifyLocally(localParams)
