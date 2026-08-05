@@ -3,11 +3,8 @@ import { SUPPORTED_BB_MAJOR_VERSIONS } from "./bb-verifier"
 import { VERIFIER_API_BASE_URL } from "./constants"
 import type { VerificationResult } from "./types"
 
-// Whether this SDK bundles a verifier for the bb version the proof was generated
-// with. Best-effort (a proof from an unlisted version may still verify locally):
-// verify()'s "auto" mode decides by attempting local verification instead, and this
-// is only used by the verifier service to report unsupported proofs with a clear
-// error. Proofs without a bbVersion predate the field and are always verifiable.
+// Whether this SDK bundles a verifier for the proof's bb version. Not used to decide
+// how to verify (verify() just attempts it) — only to give unsupported proofs a clear error.
 export function canVerifyLocally(proof: Pick<ProofResult, "bbVersion">): boolean {
   if (!proof.bbVersion) return true
   const major = Number(proof.bbVersion.split(".")[0])

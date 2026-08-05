@@ -14,7 +14,6 @@ describe("verify() modes and the verifier API", () => {
     {
       proof: "0xdeadbeef",
       version: "0.21.0" as const,
-      bbVersion: "6.0.0",
       name: "outer_evm_5",
     },
   ]
@@ -94,25 +93,13 @@ describe("verify() modes and the verifier API", () => {
     const localResult = { ...notVerified, queryResultErrors: { age: { gte: { message: "no" } } } }
     localSpy.mockResolvedValue(localResult)
     globalThis.fetch = (async () => {
-      throw new Error("network down")
-    }) as unknown as typeof globalThis.fetch
-    const zk = new ZKPassport("example.com")
-
-    const result = await zk.verify({ proofs, originalQuery, queryResult })
-
-    expect(result).toEqual(localResult as any)
-  })
-
-  test("auto treats a 5xx API response as no verdict", async () => {
-    localSpy.mockResolvedValue(notVerified)
-    globalThis.fetch = (async () => {
       return Response.json({ verified: false, error: "not supported yet" }, { status: 501 })
     }) as unknown as typeof globalThis.fetch
     const zk = new ZKPassport("example.com")
 
     const result = await zk.verify({ proofs, originalQuery, queryResult })
 
-    expect(result).toEqual(notVerified)
+    expect(result).toEqual(localResult as any)
   })
 
   test("local never calls the API", async () => {

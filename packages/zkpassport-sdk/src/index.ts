@@ -846,10 +846,8 @@ export class ZKPassport {
     if (mode === "api") {
       return (await verifyWithVerifierApi(apiParams)) ?? notVerified
     }
-    // "auto": trust a local pass, but a local failure may just mean the proofs come from
-    // a newer bb version than this SDK bundles, so the verifier API (which always runs
-    // the latest verifier) gets the final say. If the API has no verdict either,
-    // keep the local result.
+    // "auto": a local failure may just mean the proofs need a newer bb version than this
+    // SDK bundles, so the API gets the final say; if it gives no verdict, keep the local result.
     let localResult: VerificationResult | undefined
     try {
       localResult = await this.verifyLocally(localParams)
@@ -997,8 +995,7 @@ export class ZKPassport {
         }
       }
     } finally {
-      // Release the bb.js wasm instance even when a check throws, or its worker
-      // threads would keep the process alive
+      // Always release the bb.js instance, or its worker threads keep the process alive
       await destroyVerifier()
     }
 
