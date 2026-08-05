@@ -374,7 +374,7 @@ export class ZKPassport {
             ? `0x${string}`
             : string | undefined,
       ) => {
-        this.assertNotPolicyLocked(topic, "bind")
+        // Runtime payload: composes with policies (it only adds committed data)
         this.topicToConfig[topic].bind = {
           ...this.topicToConfig[topic].bind,
           [key]: value,
@@ -422,7 +422,16 @@ export class ZKPassport {
       },
       raw: (query: Query) => {
         this.assertNotPolicyLocked(topic, "raw")
-        this.topicToConfig[topic] = query
+        const { policy, bind, ...conditions } = query
+        if (policy) {
+          if (Object.keys(conditions).length > 0) {
+            throw new Error("A query with `policy` cannot also carry conditions (bind is allowed).")
+          }
+          this.getZkPassportRequest(topic).policy(policy)
+          if (bind) this.topicToConfig[topic].bind = bind
+        } else {
+          this.topicToConfig[topic] = query
+        }
         return this.getZkPassportRequest(topic)
       },
       policy: (id: string) => {

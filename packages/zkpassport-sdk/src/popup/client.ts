@@ -29,7 +29,6 @@ export type OpenVerificationPopupOptions = {
   popupUrl?: string
   request: PopupRequestConfig
   query: Query
-  policyId?: string
   callbacks?: PopupCallbacks
 }
 
@@ -96,7 +95,6 @@ export function openVerificationPopup(
             type: "configure",
             request: options.request,
             query: options.query,
-            policyId: options.policyId,
           },
           popupOrigin,
         )

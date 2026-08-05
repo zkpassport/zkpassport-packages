@@ -172,10 +172,6 @@ export type QueryBuilderResult = {
 
 export type OfflineQueryBuilderResult = {
   query: Query
-  // Set when the query was built with .policy(id): offline builders can't fetch
-  // the dashboard config, so the policy is recorded for the consumer (e.g. the
-  // hosted popup) to apply where the config is available
-  policy?: string
 }
 
 export type QueryBuilder<T extends "online" | "offline" = "online"> = {

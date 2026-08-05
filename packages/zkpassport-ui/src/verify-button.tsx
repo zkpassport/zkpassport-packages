@@ -63,16 +63,12 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       return
     }
 
-    // Serialize the query via the offline builder (no ZKPassport class)
+    // Serialize the query via the offline builder (no ZKPassport class); the
+    // policyId option and .policy() on the builder are equivalent
     let query: Query
-    let queryPolicy: string | undefined
     try {
-      const built = current.query(createOfflineQuery() as never) as unknown as {
-        query: Query
-        policy?: string
-      }
-      query = built.query
-      queryPolicy = built.policy
+      const built = current.query(createOfflineQuery() as never) as unknown as { query: Query }
+      query = current.policyId ? { ...built.query, policy: current.policyId } : built.query
     } catch (reason) {
       logger.error(reason)
       setStatus("error")
@@ -102,8 +98,6 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       popupUrl,
       request,
       query,
-      // .policy() on the builder and the policyId option are equivalent
-      policyId: policyId ?? queryPolicy,
       callbacks: {
         onRequestReceived,
         onGeneratingProof,

@@ -21,16 +21,15 @@ import { generalCompare, normalizeCountry, numericalCompare, rangeCompare } from
 export function createOfflineQuery(): QueryBuilder<"offline"> {
   const config: Record<string, Query> = { query: {} }
   const topic = "query"
-  let policyId: string | undefined
-  let hasBuilderCalls = false
+  let hasConditions = false
 
   const assertNotPolicyLocked = (method: string) => {
-    if (policyId) {
+    if (config[topic].policy) {
       throw new Error(
-        `Cannot call .${method}() on a policy-driven query. The query for policy '${policyId}' is immutable.`,
+        `Cannot call .${method}() on a policy-driven query. The query for policy '${config[topic].policy}' is immutable.`,
       )
     }
-    hasBuilderCalls = true
+    hasConditions = true
   }
 
   const builder: QueryBuilder<"offline"> = {
@@ -102,7 +101,7 @@ export function createOfflineQuery(): QueryBuilder<"offline"> {
           ? `0x${string}`
           : string | undefined,
     ) => {
-      assertNotPolicyLocked("bind")
+      // Runtime payload: composes with policies (it only adds committed data)
       config[topic].bind = {
         ...config[topic].bind,
         [key]: value,
@@ -137,23 +136,21 @@ export function createOfflineQuery(): QueryBuilder<"offline"> {
       if (typeof id !== "string" || id.length === 0) {
         throw new Error(".policy() requires a non-empty string id.")
       }
-      if (policyId) {
+      if (config[topic].policy) {
         throw new Error(
-          `Cannot call .policy() more than once on a request (already set to '${policyId}').`,
+          `Cannot call .policy() more than once on a request (already set to '${config[topic].policy}').`,
         )
       }
-      if (hasBuilderCalls) {
+      if (hasConditions) {
         throw new Error(
           "Cannot combine .policy() with builder methods like .gte()/.disclose()/etc.",
         )
       }
-      policyId = id
+      config[topic].policy = id
       return builder
     },
     done: (() => {
-      const result: OfflineQueryBuilderResult = { query: config[topic] }
-      if (policyId) result.policy = policyId
-      return result
+      return { query: config[topic] } satisfies OfflineQueryBuilderResult
     }) as QueryBuilder<"offline">["done"],
   }
   return builder

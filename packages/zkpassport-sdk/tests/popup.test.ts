@@ -46,6 +46,10 @@ describe("hydrateQueryBuilder", () => {
           .done(),
     ],
     ["empty query (proof of valid ID)", (qb) => qb.done()],
+    [
+      "policy reference + bind",
+      (qb) => qb.policy("pol_123").bind("custom_data", "customer:123").done(),
+    ],
   ]
 
   for (const [name, build] of cases) {
@@ -53,7 +57,7 @@ describe("hydrateQueryBuilder", () => {
       const original = buildOffline(build)
       // Simulate the structured clone that postMessage performs
       const cloned = structuredClone(original)
-      const hydrated = buildOffline((qb) => hydrateQueryBuilder(qb as never, cloned, undefined))
+      const hydrated = buildOffline((qb) => hydrateQueryBuilder(qb as never, cloned))
       expect(hydrated).toEqual(original)
     })
   }

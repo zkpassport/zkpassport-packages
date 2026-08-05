@@ -29,10 +29,9 @@ export type PopupConfigureMessage = {
   zkpassport: true
   type: "configure"
   request: PopupRequestConfig
-  // The final query object (structured-clone safe, Dates preserved)
+  // The final query object (structured-clone safe, Dates preserved);
+  // may carry a `policy` reference instead of literal conditions
   query: Query
-  // When set, the popup applies the policy instead of the raw query
-  policyId?: string
 }
 
 export type PopupReadyMessage = { zkpassport: true; type: "ready" }

@@ -20,7 +20,6 @@ type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type Configuration = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
-  policyId?: string
   // Browser-attested origin of the relying party page that opened this popup.
   // SECURITY: this is the ONLY source of the RP's identity — never trust a
   // domain carried inside the message payload.
@@ -47,7 +46,6 @@ export function App() {
           : {
               request: data.request,
               query: data.query,
-              policyId: data.policyId,
               rpOrigin: event.origin,
             },
       )
@@ -110,7 +108,7 @@ export function App() {
         uniqueIdentifierType={request.uniqueIdentifierType}
         oprfKeyId={request.oprfKeyId}
         {...hostedProps}
-        query={(builder) => hydrateQueryBuilder(builder, config.query, config.policyId)}
+        query={(builder) => hydrateQueryBuilder(builder, config.query)}
         onRequestReceived={() => send({ type: "request-received" })}
         onGeneratingProof={() => send({ type: "generating" })}
         onProofGenerated={(proof) =>
