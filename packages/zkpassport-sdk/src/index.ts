@@ -818,34 +818,15 @@ export class ZKPassport {
     if (!proofs || proofs.length === 0) {
       return notVerified
     }
-    const localParams = {
-      proofs,
-      originalQuery,
-      queryResult,
-      validity,
-      scope,
-      devMode,
-      writingDirectory,
-      oprfKeyId,
-    }
-    const apiParams = {
-      proofs,
-      originalQuery,
-      queryResult,
-      domain: this.domain,
-      validity,
-      scope,
-      devMode,
-      oprfKeyId,
-    }
+    const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
+    const localParams = { ...params, writingDirectory }
+    const apiParams = { ...params, domain: this.domain }
     if (mode === "local") {
       return this.verifyLocally(localParams)
     }
     if (mode === "api") {
       return (await verifyWithVerifierApi(apiParams)) ?? notVerified
     }
-    // "auto": a local failure may just mean the proofs need a newer bb version than this
-    // SDK bundles, so the API gets the final say; if it gives no verdict, keep the local result.
     let localResult: VerificationResult | undefined
     try {
       localResult = await this.verifyLocally(localParams)
