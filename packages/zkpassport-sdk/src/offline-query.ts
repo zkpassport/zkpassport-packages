@@ -136,6 +136,11 @@ export function createOfflineQuery(): QueryBuilder<"offline"> {
       config[topic].facematch = { mode }
       return builder as unknown as QueryBuilder
     },
+    raw: (query: Query) => {
+      assertNotPolicyLocked("raw")
+      config[topic] = query
+      return builder
+    },
     policy: (id: string) => {
       if (typeof id !== "string" || id.length === 0) {
         throw new Error(".policy() requires a non-empty string id.")

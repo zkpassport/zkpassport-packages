@@ -420,6 +420,11 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
+      raw: (query: Query) => {
+        this.assertNotPolicyLocked(topic, "raw")
+        this.topicToConfig[topic] = query
+        return this.getZkPassportRequest(topic)
+      },
       policy: (id: string) => {
         this.assertCanApplyPolicy(topic, id)
         if (!this.dashboardConfig) {
@@ -694,9 +699,9 @@ export class ZKPassport {
       const onVisibilityChange = () => {
         if (document.visibilityState !== "visible") return
         const activeBridge = this.topicToBridge[topic]
-        if (!activeBridge || activeBridge.isBridgeConnected()) return
-        // Available from @obsidion/bridge versions with reconnectNow; older
-        // versions rely on their internal auto-reconnect backoff alone
+        if (!activeBridge || activeBridge.isBridgeConnected())
+          return // Available from @obsidion/bridge versions with reconnectNow; older
+          // versions rely on their internal auto-reconnect backoff alone
         ;(activeBridge as { reconnectNow?: () => void }).reconnectNow?.()
       }
       document.addEventListener("visibilitychange", onVisibilityChange)

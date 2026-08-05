@@ -286,6 +286,14 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    */
   facematch: (mode?: FacematchMode) => QueryBuilder
   /**
+   * @internal Seed the query from an already-built (serialized) Query object,
+   * replacing anything set so far. Used by the hosted popup: the relying
+   * party's page already ran the builder (values are normalized), so the
+   * object is carried verbatim instead of being replayed method-by-method —
+   * which cannot drift when the builder gains new methods or condition shapes.
+   */
+  raw: (query: Query) => QueryBuilder<T>
+  /**
    * Applies an immutable policy fetched from the dashboard. The policy's query,
    * purpose and scope are locked; combining with builder methods or calling
    * twice throws.
