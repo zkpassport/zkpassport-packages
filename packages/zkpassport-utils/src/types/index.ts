@@ -572,6 +572,7 @@ export enum NullifierType {
   SALTED = 1,
   NON_SALTED_MOCK = 2,
   SALTED_MOCK = 3,
+  NONE = 4,
 }
 
 export class SaltedValue<T extends number | string | bigint | Array<number>> {
