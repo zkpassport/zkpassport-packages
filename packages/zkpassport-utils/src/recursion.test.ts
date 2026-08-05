@@ -102,7 +102,7 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
   const NONE = `0x${NullifierType.NONE.toString(16)}`
   const MOCK = `0x${NullifierType.NON_SALTED_MOCK.toString(16)}`
 
-  test("derives from the nullifier-carrying proof when one exists", () => {
+  test("takes the nullifier fields from the nullifier-carrying proof even when a zero-nullifier proof comes first", () => {
     const boundNoNullifier = makeProof([
       "0x0e",
       "0x100",
@@ -115,9 +115,9 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
     ])
     const withNullifier = makeProof([
       "0x0e",
-      "0x101",
-      "0x23",
-      "0x24",
+      "0x100",
+      "0x21",
+      "0x22",
       "0xbb",
       "0x1",
       "0xdead",
@@ -130,24 +130,20 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
       [boundNoNullifier, withNullifier],
       "0x0f",
     )
-    expect(inputs.service_scope).toEqual("0x23")
-    expect(inputs.service_subscope).toEqual("0x24")
-    expect(inputs.current_date).toEqual(0x101)
+    expect(inputs.service_scope).toEqual("0x21")
+    expect(inputs.service_subscope).toEqual("0x22")
+    expect(inputs.current_date).toEqual(0x100)
     expect(inputs.scoped_nullifier).toEqual("0xdead")
     expect(inputs.nullifier_type).toEqual("0x1")
     expect(inputs.oprf_pk_hash).toEqual("0xbeef")
+    // The outer circuit's DisclosureProof struct expects [comm_in, nullifier, type, oprf]
+    expect(inputs.disclosure_proofs[1].public_inputs).toEqual(["0x0e", "0xdead", "0x1", "0xbeef"])
   })
 
-  test("falls back to a scope-bound proof when every nullifier is zero (NONE)", () => {
-    const scopeLess = makeProof(["0x0e", "0x90", "0x0", "0x0", "0xaa", NONE, "0x0", "0x0"])
-    const bound = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", NONE, "0x0", "0x0"])
-    const inputs = getOuterCircuitInputs(
-      baseProof,
-      chainProof,
-      chainProof,
-      [scopeLess, bound],
-      "0x0f",
-    )
+  test("keeps a zero nullifier and the NONE type when every nullifier is zero", () => {
+    const first = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xaa", NONE, "0x0", "0x0"])
+    const second = makeProof(["0x0e", "0x100", "0x21", "0x22", "0xbb", NONE, "0x0", "0x0"])
+    const inputs = getOuterCircuitInputs(baseProof, chainProof, chainProof, [first, second], "0x0f")
     expect(inputs.service_scope).toEqual("0x21")
     expect(inputs.service_subscope).toEqual("0x22")
     expect(inputs.current_date).toEqual(0x100)
@@ -168,12 +164,5 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
     )
     expect(inputs.nullifier_type).toEqual(MOCK)
     expect(inputs.scoped_nullifier).toEqual("0x0")
-  })
-
-  test("throws when there is no nullifier-carrying nor scope-bound proof", () => {
-    const scopeLess = makeProof(["0x0e", "0x90", "0x0", "0x0", "0xaa", NONE, "0x0", "0x0"])
-    expect(() =>
-      getOuterCircuitInputs(baseProof, chainProof, chainProof, [scopeLess], "0x0f"),
-    ).toThrow("No disclosure proof with a non-zero nullifier or a bound scope found")
   })
 })

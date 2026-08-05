@@ -28,26 +28,28 @@ export function getOuterCircuitInputs(
   disclosureProofs: OuterCircuitProof[],
   circuitRegistryRoot: string,
 ) {
-  // Top-level values come from the nullifier-carrying proof, or a scope-bound one when all nullifiers are zero
-  const sourceProof =
-    getDisclosureProofWithNonZeroNullifier(disclosureProofs) ??
-    disclosureProofs.find((proof) => BigInt(proof.publicInputs[2]) !== 0n)
-  if (!sourceProof) {
-    throw new Error("No disclosure proof with a non-zero nullifier or a bound scope found")
+  if (disclosureProofs.length === 0) {
+    throw new Error("At least one disclosure proof is required")
   }
+  // All subproofs carry the same date, scope and subscope (the outer circuit
+  // enforces this), so the first proof can provide them
+  const sourceProof = disclosureProofs[0]
+  // The nullifier may sit on a different subproof (e.g. facematch proofs carry none)
+  const nullifierProof = getDisclosureProofWithNonZeroNullifier(disclosureProofs)
+  // A mock type must win at the top level so mock proofs stay detectable
+  const nullifierTypeProof =
+    nullifierProof ??
+    disclosureProofs.find(
+      (proof) => BigInt(proof.publicInputs[5]) !== BigInt(NullifierType.NONE),
+    ) ??
+    sourceProof
   const certificateRegistryRoot = cscToDscProof.publicInputs[0]
   const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
   const scope = sourceProof.publicInputs[2]
   const subscope = sourceProof.publicInputs[3]
-  // A mock type must win at the top level so mock proofs stay detectable
-  const nullifierType =
-    BigInt(sourceProof.publicInputs[6]) !== 0n
-      ? sourceProof.publicInputs[5]
-      : (disclosureProofs.find(
-          (proof) => BigInt(proof.publicInputs[5]) !== BigInt(NullifierType.NONE),
-        )?.publicInputs[5] ?? sourceProof.publicInputs[5])
-  const nullifier = sourceProof.publicInputs[6]
-  const oprfPkHash = sourceProof.publicInputs[7]
+  const nullifierType = nullifierTypeProof.publicInputs[5]
+  const nullifier = (nullifierProof ?? sourceProof).publicInputs[6]
+  const oprfPkHash = (nullifierProof ?? sourceProof).publicInputs[7]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
@@ -88,7 +90,16 @@ export function getOuterCircuitInputs(
     disclosure_proofs: disclosureProofs.map((proof) => ({
       vkey: proof.vkey,
       proof: proof.proof,
-      public_inputs: proof.publicInputs,
+      // Keep the commitment in, scoped nullifier, nullifier type and oprf pk hash from the
+      // disclosure proof's public inputs (in the order the outer circuit's DisclosureProof
+      // struct expects them). The remaining values are passed directly to the outer circuit.
+      // Disclosure circuit layout: [0] comm_in, [5] nullifier_type, [6] scoped_nullifier, [7] oprf_pk_hash.
+      public_inputs: [
+        proof.publicInputs[0], // comm_in
+        proof.publicInputs[6], // scoped_nullifier
+        proof.publicInputs[5], // nullifier_type
+        proof.publicInputs[7], // oprf_pk_hash
+      ],
       key_hash: proof.keyHash,
       tree_hash_path: proof.treeHashPath,
       tree_index: proof.treeIndex,
