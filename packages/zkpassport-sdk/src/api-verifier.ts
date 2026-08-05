@@ -1,18 +1,10 @@
 import type { NullifierType, ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import type { QueryResultErrors } from "./types"
 
-/**
- * Pure-fetch client for the hosted ZKPassport verification API. This module has no
- * heavy dependencies (no bb.js / WASM) so it can run in any browser or server
- * context. The API verifies the proofs statelessly and returns the outcome.
- *
- * PRIVACY: calling this sends the proofs and their public inputs — including the
- * disclosed attributes and the unique identifier — to the verification API. Do not
- * call it unless the integrator opted in.
- *
- * TRUST: a `verified` result received in the browser is a UX signal only. Servers
- * must verify proofs themselves (with this API server-side, or with `verify()`).
- */
+// Pure-fetch client for the hosted verification API (no bb.js/WASM).
+// PRIVACY: sends the proofs and their public inputs (disclosed attributes,
+// unique identifier) to the API — only call when the integrator opted in.
+// TRUST: a browser-side `verified` is a UX signal; servers must verify themselves.
 
 export const DEFAULT_VERIFIER_API_URL = "https://verifier.zkpassport.id"
 
@@ -49,12 +41,8 @@ export interface ApiVerifierOptions {
   timeoutMs?: number
 }
 
-/**
- * Verify a set of proofs against the hosted verification API.
- *
- * Resolves with `verified: undefined` (never rejects, never returns `false`) when
- * the API is unreachable, so transient network failures don't render as "failed".
- */
+// Resolves with verified: undefined (never rejects, never false) when the API
+// is unreachable, so transient failures don't render as "failed".
 export async function verifyViaApi(
   request: ApiVerifierRequest,
   options?: ApiVerifierOptions,

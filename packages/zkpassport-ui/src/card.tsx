@@ -66,10 +66,8 @@ export function Card({ options, controlRef }: CardProps) {
   const hasFacematch = !!query?.facematch
   const overlayCaption = getOverlayCaption(state)
   const canRestart = state === "waiting" || state === "scanned"
-  // On a phone the user can't scan their own screen: the primary action is the
-  // universal link into the ZKPassport app (which falls through to the download
-  // page when the app isn't installed); the QR stays available behind a toggle
-  // for cross-device flows.
+  // Phones can't scan their own screen: lead with the universal link into the
+  // app; the QR stays behind a toggle for cross-device flows
   const [qrRevealed, setQrRevealed] = useState(false)
   const mobile = isMobileLike()
   const inAppBrowser = isInAppBrowser()

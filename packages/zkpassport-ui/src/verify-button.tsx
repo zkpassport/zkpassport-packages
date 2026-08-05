@@ -15,11 +15,6 @@ import { isInAppBrowser } from "./environment"
 import buttonStyles from "./button.css"
 import type { ZKPassportQRCodeOptions } from "./types"
 
-/**
- * Options for the hosted-popup verification button. The query uses the same
- * builder-function pattern as the QR card; the button runs it against an offline
- * builder to obtain a serializable Query for the popup.
- */
 export type VerifyWithZKPassportButtonOptions = PopupRequestConfig & {
   domain?: string
   theme?: "light" | "dark" | "auto"
@@ -29,18 +24,11 @@ export type VerifyWithZKPassportButtonOptions = PopupRequestConfig & {
   label?: string
   policyId?: string
   query: ZKPassportQRCodeOptions["query"]
-  /**
-   * Extra class names merged onto the button's elements, for CSS frameworks
-   * (e.g. Tailwind) or scoped styles. For simple restyling prefer the CSS
-   * custom properties (--zkp-btn-bg, --zkp-btn-radius, …) documented in the
-   * stylesheet — set them on the mount element or any ancestor.
-   */
+  // Extra class names per element; for simple restyling prefer the CSS custom
+  // properties (--zkp-btn-*) documented in the stylesheet
   classes?: {
-    /** The wrapper around the button and its status line (.zkp-verify-wrap) */
     root?: string
-    /** The button element itself (.zkp-verify-button) */
     button?: string
-    /** The status line under the button (.zkp-verify-status) */
     status?: string
   }
   onRequestReceived?: () => void
@@ -75,8 +63,7 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       return
     }
 
-    // Serialize the query by running the user's builder against an offline builder
-    // (standalone module: no ZKPassport class, no bridge — keeps the button small)
+    // Serialize the query via the offline builder (no ZKPassport class)
     let query: Query
     let queryPolicy: string | undefined
     try {
@@ -138,9 +125,7 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       },
     })
     if (!handle) {
-      // Both the popup and the new-tab retry were blocked. In-app browsers
-      // (Discord, Instagram, …) often block window.open entirely — steer the
-      // user to a real browser instead of asking them to unblock popups.
+      // In-app browsers often block window.open entirely — steer to a real browser
       setStatus("error")
       setErrorText(
         isInAppBrowser()

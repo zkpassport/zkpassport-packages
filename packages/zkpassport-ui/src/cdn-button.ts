@@ -2,21 +2,9 @@ import { mountVerifyButton } from "./button/index"
 import type { VerifyWithZKPassportButtonOptions } from "./verify-button"
 import { logger } from "./logger"
 
-/**
- * Button-only CDN entry — the default for script-tag integrations:
- *
- *   <script src="https://cdn.zkpassport.id/ui/<version>/zkpassport-button.js" defer></script>
- *   <div id="verify-with-zkpassport" data-policy-id="<policy>" data-purpose="Prove you are 18+"></div>
- *
- * Contains only the "Verify with ZKPassport" button (verification runs in the
- * hosted popup) — a fraction of the size of zkpassport-ui.js, which adds the
- * embeddable QR card. The auto-mount contract is identical: elements matching
- * `#verify-with-zkpassport` or `[data-zkpassport]` are mounted on
- * DOMContentLoaded (data-zkpassport="card" is skipped here with a console hint
- * to load the full bundle), results surface as bubbling CustomEvents
- * (`zkpassport:result`, `zkpassport:rejected`, `zkpassport:error`,
- * `zkpassport:closed`), and `window.ZKPassportUI` exposes the programmatic API.
- */
+// Button-only CDN entry (the default for script tags): same auto-mount
+// contract as zkpassport-ui.js but without the QR card — a fraction of the
+// size. data-zkpassport="card" gets a console hint to load the full bundle.
 
 const AUTO_SELECTOR = "#verify-with-zkpassport, [data-zkpassport]"
 const MOUNTED_ATTR = "data-zkpassport-mounted"

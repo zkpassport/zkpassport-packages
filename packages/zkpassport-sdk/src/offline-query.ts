@@ -14,18 +14,10 @@ import type {
 import type { OfflineQueryBuilderResult, QueryBuilder } from "./types"
 import { generalCompare, normalizeCountry, numericalCompare, rangeCompare } from "./query-helpers"
 
-/**
- * Standalone offline query builder: builds the same `Query` object as the
- * builder returned by `ZKPassport.request()`, but with no bridge, no network,
- * and no dependency on the ZKPassport class — so bundles that only serialize a
- * query (e.g. the "Verify with ZKPassport" button, which hands the query to the
- * hosted popup) stay small.
- *
- * `.policy(id)` records the policy id without fetching the dashboard config;
- * `done()` returns it alongside the (empty) query so the consumer can forward
- * it to whatever rebuilds the query (the hosted popup applies the policy
- * there, where the relying party's config is available).
- */
+// Standalone offline query builder: same Query output as ZKPassport.request()'s
+// builder but with no bridge, network, or class dependency — keeps query-only
+// bundles (the button) small. .policy(id) records the id for done() so the
+// consumer (hosted popup) can apply it where the dashboard config is available.
 export function createOfflineQuery(): QueryBuilder<"offline"> {
   const config: Record<string, Query> = { query: {} }
   const topic = "query"

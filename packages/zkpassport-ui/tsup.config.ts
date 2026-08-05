@@ -23,11 +23,8 @@ async function prependUseClient(outDir: string, format: "esm" | "cjs") {
   }
 }
 
-// The published bundle inlines the SDK, whose heavy backends are behind dynamic
-// imports the card never reaches (proof verification is skipped, browser proving
-// is popup-only). They are stubbed out so the bundle is fully self-contained and
-// consumer bundlers never try to resolve them. If a stubbed path is ever reached,
-// member access on the empty module throws and the SDK's guards handle it.
+// Heavy backends sit behind dynamic imports the card never reaches; stubbing
+// them keeps the bundle self-contained so consumer bundlers never resolve them.
 const STUBBED_DEPS = /^(@aztec\/bb\.js(-v4)?|@noir-lang\/noir_js|viem(\/.*)?|ws)$/
 
 const stubUnreachableDeps: EsbuildPlugin = {
@@ -44,9 +41,8 @@ const stubUnreachableDeps: EsbuildPlugin = {
   },
 }
 
-// Published npm build: zero runtime dependencies. Everything (preact, qrcode,
-// the SDK and its request-flow dependencies) is inlined; only React stays
-// external as an optional peer for the /react entry.
+// Published npm build: zero runtime dependencies; only React stays external
+// as an optional peer for the /react entries.
 const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   entry: {
     "index": "src/vanilla/index.ts",
@@ -72,10 +68,8 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   },
 }))
 
-// Hosted build: used ONLY by ZKPassport's hosted verification popup, which needs
-// the real SDK (browser proving and verification run there). The SDK stays
-// external and resolves from the popup's own dependencies — nothing is stubbed.
-// Not part of the public API.
+// Hosted build (internal): only for the hosted popup, which needs the real SDK
+// — it stays external and resolves from the popup's own dependencies.
 const hostedConfig: Options = {
   entry: { hosted: "src/react/index.tsx" },
   format: "esm",
@@ -91,9 +85,7 @@ const hostedConfig: Options = {
   loader: { ".css": "text" },
 }
 
-// CDN build: a single self-contained IIFE for <script> tag integrations
-// (no npm, no bundler). Exposes window.ZKPassportUI and auto-mounts
-// #verify-with-zkpassport / [data-zkpassport] elements.
+// CDN build: self-contained IIFEs for <script> tag integrations.
 const cdnConfig: Options = {
   entry: {
     // zkpassport-button.js is the default for button-only script-tag
@@ -120,8 +112,8 @@ const cssConfig: Options = {
   clean: false,
   loader: { ".css": "copy" },
   async onSuccess() {
-    // The exported stylesheet covers both components; the button rules live in
-    // their own file so the button entry can inject only what it needs
+    // dist/styles.css covers both components; button.css exists separately so
+    // the button entry injects only what it needs
     const styles = await fs.readFile(path.resolve("dist/styles.css"), "utf8")
     const button = await fs.readFile(path.resolve("src/button.css"), "utf8")
     if (!styles.includes(".zkp-verify-button")) {

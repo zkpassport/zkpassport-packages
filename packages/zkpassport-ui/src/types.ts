@@ -34,17 +34,9 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   domain?: string
   theme?: "light" | "dark" | "auto"
   display?: ZKPassportQRCodeDisplayOptions
-  /**
-   * How received proofs are checked before the card shows success and reports
-   * `verified` in onResult:
-   * - "none" (default): no verification in the browser. `verified` is `undefined`
-   *   ("not checked"); verify the proofs on your backend.
-   * - "api": the proofs and their public inputs (including disclosed attributes)
-   *   are sent to the ZKPassport verification API and `verified` reflects its
-   *   answer. If the API is unreachable, `verified` is `undefined`, never `false`.
-   * Either way, a `verified` value observed in the browser is a UX signal only —
-   * your backend must verify the proofs before trusting the result.
-   */
+  // "none" (default): verified is undefined, verify on your backend.
+  // "api": proofs (incl. disclosed attributes) go to the verification API;
+  // unreachable -> undefined, never false. Browser verified is UX-only.
   verification?: "none" | "api"
   /** Override the verification API base URL (self-hosted); used with verification: "api" */
   verificationApiUrl?: string

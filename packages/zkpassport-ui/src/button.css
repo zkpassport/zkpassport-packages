@@ -1,18 +1,8 @@
 @layer zkpassport {
-  /* Standalone "Verify with ZKPassport" button (opens the hosted popup).
-
-     Customization: set these CSS custom properties on the mount element or any
-     ancestor (they inherit) — works the same in React, vanilla, and the CDN build:
-       --zkp-btn-bg             button background (default: brand blue)
-       --zkp-btn-fg             button text/icon color
-       --zkp-btn-radius         corner radius (default 8px)
-       --zkp-btn-padding        button padding (default 15px 26px)
-       --zkp-btn-font           font-family stack
-       --zkp-btn-font-size      font size (default 13px)
-       --zkp-btn-letter-spacing letter spacing (default 0.09em)
-       --zkp-btn-text-transform label casing (default uppercase)
-       --zkp-verify-muted / --zkp-verify-success / --zkp-verify-error
-                                status line colors (set on .zkp-verify-wrap ancestor)
+  /* "Verify with ZKPassport" button (opens the hosted popup).
+     Customize via CSS custom properties on the mount element or any ancestor:
+     --zkp-btn-bg/-fg/-radius/-padding/-font/-font-size/-letter-spacing/
+     -text-transform, and --zkp-verify-muted/-success/-error for the status line.
 
      !important throughout: host resets (e.g. Tailwind preflight) are unlayered
      and would otherwise strip these. */

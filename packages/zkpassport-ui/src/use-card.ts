@@ -125,11 +125,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     sdkRef
       .current!.request({
         ...sdkRequestArgs,
-        // The published card never verifies proofs in the browser (no bb.js/WASM):
-        // `verified` comes from the verification API when verification: "api" is
-        // set, and is undefined otherwise. Real trust comes from server-side
-        // verification. Only the hosted popup (which ships the full SDK) verifies
-        // in place via the internal hostedVerification flag.
+        // No bb.js in the published card: only the hosted popup verifies in place
         skipProofVerification:
           (optionsRef.current as HostedVerificationOptions).hostedVerification !== true,
       })
@@ -178,16 +174,13 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         request.onResult(
           guard((response) => {
             introActiveRef.current = false
-            // The public-input consistency checks run in the SDK regardless of the
-            // verification mode; a definite failure is always an error
+            // Consistency checks run regardless of mode; a failure is always an error
             if (response.verified === false) {
               setState("error")
               safeCall(optionsRef.current.onResult, response)
               return
             }
             if (optionsRef.current.verification !== "api") {
-              // Proofs received and consistent; not verified in the browser
-              // (verified is undefined) — the integrator verifies server-side
               setState("success")
               safeCall(optionsRef.current.onResult, response)
               return
@@ -208,9 +201,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             )
               .then((apiResult) => {
                 if (cancelled) return
-                // Unreachable API (verified undefined) still shows success: the
-                // proofs arrived and were consistent; only an explicit "false"
-                // from the API is a failure
+                // Only an explicit false from the API is a failure
                 setState(apiResult.verified === false ? "error" : "success")
                 safeCall(optionsRef.current.onResult, {
                   ...response,
@@ -218,7 +209,6 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
                 })
               })
               .catch(() => {
-                // verifyViaApi resolves on all failure paths; this is a safety net
                 if (cancelled) return
                 setState("success")
                 safeCall(optionsRef.current.onResult, response)

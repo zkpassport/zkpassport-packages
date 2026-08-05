@@ -3,25 +3,10 @@ import type { VerifyWithZKPassportButtonOptions } from "./verify-button"
 import type { ZKPassportQRCodeOptions } from "./types"
 import { logger } from "./logger"
 
-/**
- * CDN (script-tag) entry. Loaded via:
- *
- *   <script src="https://cdn.zkpassport.id/ui/<version>/zkpassport-ui.js" defer></script>
- *   <div id="verify-with-zkpassport" data-policy-id="<policy>" data-purpose="Prove you are 18+"></div>
- *
- * Any element matching `#verify-with-zkpassport` or `[data-zkpassport]` is
- * auto-mounted on DOMContentLoaded. `data-zkpassport="card"` renders the embedded
- * QR card; anything else renders the "Verify with ZKPassport" button (hosted popup).
- * Because HTML attributes can't express a query builder, `data-policy-id` is
- * required: the query comes from the policy defined in the ZKPassport dashboard.
- *
- * Results are reported as DOM CustomEvents dispatched on the mounted element
- * (bubbling): `zkpassport:result`, `zkpassport:rejected`, `zkpassport:error`,
- * `zkpassport:closed`.
- *
- * The same API is available programmatically as `window.ZKPassportUI`
- * (`mount`, `mountVerifyButton`, `scan`).
- */
+// CDN (script-tag) entry: exposes window.ZKPassportUI and auto-mounts
+// #verify-with-zkpassport / [data-zkpassport] elements on DOMContentLoaded.
+// data-policy-id is required (HTML can't express a query builder); results
+// surface as bubbling zkpassport:* CustomEvents on the mounted element.
 
 const AUTO_SELECTOR = "#verify-with-zkpassport, [data-zkpassport]"
 const MOUNTED_ATTR = "data-zkpassport-mounted"

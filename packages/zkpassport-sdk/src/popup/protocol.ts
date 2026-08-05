@@ -54,9 +54,7 @@ export type PopupEventMessage =
       result: QueryResult
       uniqueIdentifier: string | undefined
       uniqueIdentifierType: NullifierType | undefined
-      // The popup verifies proofs in place with the full SDK; `undefined` means it
-      // could not run the verification (e.g. the backend failed to load). Either
-      // way this is a UX signal — the RP backend must verify the proofs itself.
+      // UX signal only (undefined = popup couldn't verify); RPs verify server-side
       verified: boolean | undefined
       queryResultErrors?: Partial<QueryResultErrors>
     }

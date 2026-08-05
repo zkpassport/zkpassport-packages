@@ -2,12 +2,8 @@ import { h, render } from "preact"
 
 import { VerifyButton, type VerifyWithZKPassportButtonOptions } from "../verify-button"
 
-/**
- * Lightweight button-only entry: the "Verify with ZKPassport" button that opens
- * the hosted verification popup, without the embedded QR card (no bridge, no
- * qrcode). Import from "@zkpassport/ui/button" to keep the bundle minimal;
- * "@zkpassport/ui" re-exports the same function alongside the card.
- */
+// Button-only entry: the hosted-popup button without the QR card (no bridge,
+// no qrcode). "@zkpassport/ui" re-exports the same function alongside the card.
 export function mountVerifyButton(
   element: HTMLElement,
   options: VerifyWithZKPassportButtonOptions,
@@ -33,8 +29,7 @@ export function mountVerifyButton(
 
 export type { VerifyWithZKPassportButtonOptions } from "../verify-button"
 
-// Headless integration: wire any element to the hosted popup yourself and drive
-// your own UI from the callbacks. See openVerificationPopup's documentation.
+// Headless integration: wire any element to the hosted popup yourself
 export {
   openVerificationPopup,
   type PopupRequestConfig,

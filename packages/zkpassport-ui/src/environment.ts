@@ -1,16 +1,6 @@
-/**
- * Environment heuristics for adapting the verification UX:
- * - On a phone/tablet the user can't scan the QR on their own screen, so the
- *   primary action becomes opening the ZKPassport app via the request's
- *   universal link (falls through to the download page when not installed).
- * - In-app browsers (Discord, X, Instagram, …) additionally have partitioned
- *   storage and flaky window.open, so we also hint at using the real browser.
- *
- * Heuristics are best-effort by design: a wrong "mobile" guess still leaves the
- * QR reachable behind a toggle, and a wrong "desktop" guess still shows the
- * universal link once the QR screen is reached on a phone.
- */
-
+// Best-effort environment heuristics: on phones the primary action is the
+// universal link into the app (a wrong guess still leaves the QR reachable);
+// in-app browsers additionally get a hint to use a real browser.
 export function isMobileLike(): boolean {
   if (typeof navigator === "undefined" || typeof window === "undefined") return false
   const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } }

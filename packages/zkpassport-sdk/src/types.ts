@@ -137,8 +137,7 @@ export type QueryBuilderResult = {
    * The response contains the unique identifier associated to the user,
    * your domain name and chosen scope, along with the query result and whether
    * the proofs were successfully verified. `verified` is `undefined` when
-   * in-browser verification was skipped (see `skipProofVerification`): the
-   * proofs were not checked, which is distinct from having failed (`false`).
+   * in-browser verification was skipped: not checked, distinct from failed.
    */
   onResult: (
     callback: (response: {
@@ -285,13 +284,9 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    * Best for lower security requirements that requires fast verification such as age verification.
    */
   facematch: (mode?: FacematchMode) => QueryBuilder
-  /**
-   * @internal Seed the query from an already-built (serialized) Query object,
-   * replacing anything set so far. Used by the hosted popup: the relying
-   * party's page already ran the builder (values are normalized), so the
-   * object is carried verbatim instead of being replayed method-by-method —
-   * which cannot drift when the builder gains new methods or condition shapes.
-   */
+  // @internal Seed from an already-built (serialized) Query, replacing anything
+  // set so far. Carried verbatim (values were normalized when first built), so
+  // it cannot drift when the builder gains methods. Used by the hosted popup.
   raw: (query: Query) => QueryBuilder<T>
   /**
    * Applies an immutable policy fetched from the dashboard. The policy's query,

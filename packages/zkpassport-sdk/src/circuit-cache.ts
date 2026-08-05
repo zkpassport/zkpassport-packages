@@ -1,12 +1,8 @@
 import type { CircuitManifest, PackagedCircuit } from "@zkpassport/utils"
 import { RegistryClient } from "@zkpassport/registry"
 
-/**
- * Module-level caches for the registry artifacts proof verification needs:
- * circuit manifests and packaged circuits (bytecode+vkey). Verifying several
- * proofs from one request re-uses a single fetch per artifact.
- */
-
+// Module-level caches for registry artifacts used by verification: one fetch
+// per manifest/circuit even when verifying several proofs from one request.
 const manifestCache = new Map<string, Promise<CircuitManifest>>()
 const circuitCache = new Map<string, Promise<PackagedCircuit>>()
 

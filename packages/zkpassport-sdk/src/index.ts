@@ -629,12 +629,8 @@ export class ZKPassport {
     cloudProverUrl?: string
     bridgeUrl?: string
     returnDeepLink?: string
-    /**
-     * Skip in-browser cryptographic proof verification when the result arrives.
-     * `verified` in onResult becomes `undefined` (not checked) instead of a real
-     * verification outcome; verify the proofs server-side. Avoids loading the
-     * bb.js WASM backend in the browser.
-     */
+    // Skip in-browser proof verification: verified becomes undefined (not
+    // checked); verify server-side. Avoids loading the bb.js WASM backend.
     skipProofVerification?: boolean
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
@@ -691,10 +687,8 @@ export class ZKPassport {
 
     this.topicToBridge[topic] = bridge
 
-    // Mobile browsers freeze background tabs (and their websockets) while the
-    // user is in the ZKPassport app; on return to the foreground, make sure the
-    // bridge is alive so the relay replays anything sent in the meantime (the
-    // bridge requests a message replay on every reconnection).
+    // Mobile browsers freeze backgrounded websockets; on return to foreground,
+    // reconnect so the relay replays anything sent in the meantime
     if (typeof document !== "undefined") {
       const onVisibilityChange = () => {
         if (document.visibilityState !== "visible") return
@@ -770,12 +764,8 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
-    /**
-     * Skip the cryptographic verification of the proofs themselves. The public input
-     * consistency checks still run; `verified` is `undefined` when they pass (meaning
-     * "not checked", distinct from `false`). The result must then be verified
-     * server-side. Intended for browser UIs where the verifier backend is not bundled.
-     */
+    // Skip cryptographic verification (consistency checks still run): verified
+    // is undefined when they pass. For browser UIs without the bb.js backend.
     skipProofVerification?: boolean
   }): Promise<{
     uniqueIdentifier: string | undefined

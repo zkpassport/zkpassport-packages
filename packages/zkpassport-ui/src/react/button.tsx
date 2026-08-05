@@ -7,12 +7,8 @@ import { VerifyButton, type VerifyWithZKPassportButtonOptions } from "../verify-
 export type VerifyWithZKPassportButtonProps = VerifyWithZKPassportButtonOptions
 
 /**
- * A branded button that opens the hosted verification popup on the zkpassport
- * verify origin. Saved IDs live on that origin, so they are reusable across all
- * websites. Falls back to the inline QR card if the popup is blocked.
- *
- * Import from "@zkpassport/ui/react-button" for a button-only bundle (no QR
- * card); "@zkpassport/ui/react" exports the same component alongside the card.
+ * Branded button that opens the hosted verification popup. Import from
+ * "@zkpassport/ui/react-button" for a button-only bundle (no QR card).
  */
 export function VerifyWithZKPassportButton(props: VerifyWithZKPassportButtonProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null)
