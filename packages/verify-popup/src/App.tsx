@@ -103,6 +103,7 @@ export function App() {
         validity={request.validity}
         uniqueIdentifierType={request.uniqueIdentifierType}
         oprfKeyId={request.oprfKeyId}
+        showIntroScreen
         {...hostedProps}
         query={(builder) => hydrateQueryBuilder(builder, config.query)}
         onRequestReceived={() => send({ type: "request-received" })}

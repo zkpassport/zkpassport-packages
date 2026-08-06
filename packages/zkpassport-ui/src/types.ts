@@ -21,8 +21,6 @@ type SdkRequestProps = Omit<
 export type ZKPassportQRCodeDisplayOptions = {
   // ZKPassport mark, app logo, and the "… uses ZKPassport …" intro line.
   header?: boolean
-  // The intro screen shown before the QR code: what the request verifies and how it works.
-  intro?: boolean
   // The numbered verification steps (1–5).
   steps?: boolean
   // The "ZKPassport App" footer with the App Store / Google Play download links.
@@ -33,6 +31,8 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   domain?: string
   theme?: "light" | "dark" | "auto"
   display?: ZKPassportQRCodeDisplayOptions
+  // Explainer screen before the QR (what's verified, how it works); the hosted popup enables it
+  showIntroScreen?: boolean
   query: (queryBuilder: QueryBuilder) => QueryBuilderResult
   onReady?: () => void
   onRetryClicked?: () => void

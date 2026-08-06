@@ -33,7 +33,7 @@ export type UseCard = {
 }
 
 export function useCard(options: ZKPassportQRCodeOptions): UseCard {
-  const introEnabled = options.display?.intro !== false
+  const introEnabled = options.showIntroScreen === true
   const [state, setState] = useState<CardState>(introEnabled ? "intro" : "preparing")
   const [url, setUrl] = useState<string | null>(null)
   const [qrSvg, setQrSvg] = useState<string | null>(null)
@@ -63,7 +63,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   useEffect(() => {
     let cancelled = false
     let readyFired = false
-    const intro = optionsRef.current.display?.intro !== false
+    const intro = optionsRef.current.showIntroScreen === true
     introActiveRef.current = intro
     bridgeStateRef.current = "preparing"
     setState(intro ? "intro" : "preparing")
@@ -78,6 +78,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     const {
       domain: _domain,
       theme: _theme,
+      showIntroScreen: _showIntroScreen,
       query: buildQuery,
       onReady: _onReady,
       onRetryClicked: _onRetryClicked,
