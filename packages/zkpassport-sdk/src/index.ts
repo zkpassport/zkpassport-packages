@@ -34,11 +34,14 @@ import {
   DashboardConfig,
   Policy,
   QueryResultErrors,
+  VerifierMode,
+  VerificationResult,
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
+import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -778,10 +781,65 @@ export class ZKPassport {
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
+   * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
+   * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
+   * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
   public async verify({
+    proofs,
+    originalQuery,
+    queryResult,
+    validity,
+    scope,
+    devMode = false,
+    writingDirectory,
+    oprfKeyId,
+    verifierMode = "auto",
+  }: {
+    proofs: Array<ProofResult>
+    originalQuery: Query
+    queryResult: QueryResult
+    validity?: number
+    scope?: string
+    devMode?: boolean
+    writingDirectory?: string
+    oprfKeyId?: string
+    verifierMode?: VerifierMode
+  }): Promise<VerificationResult> {
+    const notVerified: VerificationResult = {
+      uniqueIdentifier: undefined,
+      uniqueIdentifierType: undefined,
+      verified: false,
+    }
+    // If no proofs were generated, the results can't be trusted.
+    // We still return it but verified will be false
+    if (!proofs || proofs.length === 0) {
+      return notVerified
+    }
+    const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
+    const localParams = { ...params, writingDirectory }
+    const apiParams = { ...params, domain: this.domain }
+
+    if (verifierMode === "local") {
+      return this.verifyLocally(localParams)
+    }
+    if (verifierMode === "api") {
+      return (await verifyWithVerifierApi(apiParams)) ?? notVerified
+    }
+
+    let localResult: VerificationResult | undefined
+    try {
+      localResult = await this.verifyLocally(localParams)
+      if (localResult.verified) return localResult
+    } catch (e) {
+      console.warn("Local proof verification failed:", e)
+    }
+    return (await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified
+  }
+
+  private async verifyLocally({
     proofs,
     originalQuery,
     queryResult,
@@ -799,21 +857,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
-  }): Promise<{
-    uniqueIdentifier: string | undefined
-    uniqueIdentifierType: NullifierType | undefined
-    verified: boolean
-    queryResultErrors?: Partial<QueryResultErrors>
-  }> {
-    // If no proofs were generated, the results can't be trusted.
-    // We still return it but verified will be false
-    if (!proofs || proofs.length === 0) {
-      return {
-        uniqueIdentifier: undefined,
-        uniqueIdentifierType: undefined,
-        verified: false,
-      }
-    }
+  }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
     // Automatically set the writing directory to `/tmp` if it is not provided
@@ -829,110 +873,112 @@ export class ZKPassport {
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
-    const {
-      isCorrect,
-      uniqueIdentifier: uniqueIdentifierFromPublicInputs,
-      uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
-      queryResultErrors: queryResultErrorsFromPublicInputs,
-    } = await PublicInputChecker.checkPublicInputs(
-      this.domain,
-      proofs,
-      originalQuery,
-      formattedResult,
-      validity,
-      scope,
-      oprfKeyId,
-      devMode,
-    )
-    uniqueIdentifier = uniqueIdentifierFromPublicInputs
-    uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
-    verified = isCorrect
-    queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
-    if (
-      (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
-        uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
-      !devMode
-    ) {
-      // If the unique identifier type is a mock nullifier and it is not in dev mode,
-      // the proofs are considered invalid as these are mock proofs only meant
-      // for testing purposes
-      verified = false
-      console.warn(
-        "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
+    try {
+      const {
+        isCorrect,
+        uniqueIdentifier: uniqueIdentifierFromPublicInputs,
+        uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
+        queryResultErrors: queryResultErrorsFromPublicInputs,
+      } = await PublicInputChecker.checkPublicInputs(
+        this.domain,
+        proofs,
+        originalQuery,
+        formattedResult,
+        validity,
+        scope,
+        oprfKeyId,
+        devMode,
       )
-    }
-    // Only proceed with the proof verification if the public inputs are correct
-    if (verified) {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const circuitManifest = await registryClient.getCircuitManifest(undefined, {
-        // We assume all proofs have the same version
-        version: proofs[0].version,
-      })
-      for (const proof of proofs) {
-        const isOuterEVM = proof.name?.startsWith("outer_evm_")
-        const proofName = proof.name!
-        const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
-        const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
-          proofName,
-          circuitManifest,
-          // TODO: set to always validate when the issue is vkey hash calculation is fixed
-          { validate: !isOuterEVM },
+      uniqueIdentifier = uniqueIdentifierFromPublicInputs
+      uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
+      verified = isCorrect
+      queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
+      if (
+        (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
+          uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
+        !devMode
+      ) {
+        // If the unique identifier type is a mock nullifier and it is not in dev mode,
+        // the proofs are considered invalid as these are mock proofs only meant
+        // for testing purposes
+        verified = false
+        console.warn(
+          "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
         )
-        if (isOuterEVM) {
-          try {
-            const { createPublicClient, http } = await import("viem")
-            const { sepolia } = await import("viem/chains")
-            const { mainnet } = await import("viem/chains")
-            const { address, abi, functionName } = this.getSolidityVerifierDetails()
-            const rpcUrl = devMode
-              ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-              : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-            const client = createPublicClient({
-              chain: devMode ? sepolia : mainnet,
-              transport: http(rpcUrl),
-            })
-            const params = this.getSolidityVerifierParameters({
-              proof,
-              validityPeriodInSeconds: validity,
-              domain: this.domain,
-              scope,
-              devMode,
-            })
-            const result = await client.readContract({
-              address,
-              abi,
-              functionName,
-              args: [params],
-            })
-            const isVerified = Array.isArray(result) ? Boolean(result[0]) : false
-            verified = isVerified
-          } catch (error) {
-            console.warn("Error verifying proof", error)
-            verified = false
+      }
+      // Only proceed with the proof verification if the public inputs are correct
+      if (verified) {
+        const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+        const circuitManifest = await registryClient.getCircuitManifest(undefined, {
+          // We assume all proofs have the same version
+          version: proofs[0].version,
+        })
+        for (const proof of proofs) {
+          const isOuterEVM = proof.name?.startsWith("outer_evm_")
+          const proofName = proof.name!
+          const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
+          const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
+            proofName,
+            circuitManifest,
+            // TODO: set to always validate when the issue is vkey hash calculation is fixed
+            { validate: !isOuterEVM },
+          )
+          if (isOuterEVM) {
+            try {
+              const { createPublicClient, http } = await import("viem")
+              const { sepolia } = await import("viem/chains")
+              const { mainnet } = await import("viem/chains")
+              const { address, abi, functionName } = this.getSolidityVerifierDetails()
+              const rpcUrl = devMode
+                ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+                : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+              const client = createPublicClient({
+                chain: devMode ? sepolia : mainnet,
+                transport: http(rpcUrl),
+              })
+              const params = this.getSolidityVerifierParameters({
+                proof,
+                validityPeriodInSeconds: validity,
+                domain: this.domain,
+                scope,
+                devMode,
+              })
+              const result = await client.readContract({
+                address,
+                abi,
+                functionName,
+                args: [params],
+              })
+              const isVerified = Array.isArray(result) ? Boolean(result[0]) : false
+              verified = isVerified
+            } catch (error) {
+              console.warn("Error verifying proof", error)
+              verified = false
+            }
+          } else {
+            const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
+            try {
+              verified = await verifier.verifyProof({
+                proof: Buffer.from(proofData.proof.join(""), "hex"),
+                publicInputs: proofData.publicInputs,
+                verificationKey: new Uint8Array(vkeyBytes),
+              })
+            } catch (e) {
+              console.warn(`Error verifying proof ${proofName}`, e)
+              verified = false
+            }
           }
-        } else {
-          const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
-          try {
-            verified = await verifier.verifyProof({
-              proof: Buffer.from(proofData.proof.join(""), "hex"),
-              publicInputs: proofData.publicInputs,
-              verificationKey: new Uint8Array(vkeyBytes),
-            })
-          } catch (e) {
-            console.warn(`Error verifying proof ${proofName}`, e)
-            verified = false
+          if (!verified) {
+            // Break the loop if the proof is not valid
+            // and don't bother checking the other proofs
+            break
           }
-        }
-        if (!verified) {
-          // Break the loop if the proof is not valid
-          // and don't bother checking the other proofs
-          break
         }
       }
+    } finally {
+      // Always release the bb.js instance, or its worker threads keep the process alive
+      await destroyVerifier()
     }
-
-    // Release the bb.js wasm instance loaded for this verify() call
-    await destroyVerifier()
 
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
