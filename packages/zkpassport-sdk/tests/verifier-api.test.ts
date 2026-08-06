@@ -98,7 +98,7 @@ describe("verify() modes and the verifier API", () => {
     localSpy.mockResolvedValue(notVerified)
     const zk = new ZKPassport("example.com")
 
-    const result = await zk.verify({ proofs, originalQuery, queryResult, mode: "local" })
+    const result = await zk.verify({ proofs, originalQuery, queryResult, verifierMode: "local" })
 
     expect(result).toEqual(notVerified)
     expect(fetchedUrls).toEqual([])
@@ -107,7 +107,7 @@ describe("verify() modes and the verifier API", () => {
   test("api never verifies locally and reports the API verdict", async () => {
     const zk = new ZKPassport("example.com")
 
-    const result = await zk.verify({ proofs, originalQuery, queryResult, mode: "api" })
+    const result = await zk.verify({ proofs, originalQuery, queryResult, verifierMode: "api" })
 
     expect(result).toEqual({ verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 })
     expect(localSpy).not.toHaveBeenCalled()
@@ -120,7 +120,7 @@ describe("verify() modes and the verifier API", () => {
     }) as unknown as typeof globalThis.fetch
     const zk = new ZKPassport("example.com")
 
-    const result = await zk.verify({ proofs, originalQuery, queryResult, mode: "api" })
+    const result = await zk.verify({ proofs, originalQuery, queryResult, verifierMode: "api" })
 
     expect(result).toEqual(notVerified)
     expect(localSpy).not.toHaveBeenCalled()
@@ -136,7 +136,7 @@ describe("verify() modes and the verifier API", () => {
     }) as unknown as typeof globalThis.fetch
     const zk = new ZKPassport("example.com")
 
-    const result = await zk.verify({ proofs, originalQuery, queryResult, mode: "api" })
+    const result = await zk.verify({ proofs, originalQuery, queryResult, verifierMode: "api" })
 
     expect(result).toEqual({ ...notVerified, queryResultErrors } as any)
   })

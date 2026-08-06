@@ -51,7 +51,7 @@ export type QueryResultErrors = {
 // How verify() checks proofs: "local" uses the verifier bundled with this SDK,
 // "api" uses the hosted ZKPassport verifier API, and "auto" verifies locally
 // but defers to the API when the local result is not verified.
-export type VerificationMode = "auto" | "local" | "api"
+export type VerifierMode = "auto" | "local" | "api"
 
 export type VerificationResult = {
   uniqueIdentifier: string | undefined

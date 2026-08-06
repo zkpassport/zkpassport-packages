@@ -34,7 +34,7 @@ import {
   DashboardConfig,
   Policy,
   QueryResultErrors,
-  VerificationMode,
+  VerifierMode,
   VerificationResult,
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
@@ -781,9 +781,9 @@ export class ZKPassport {
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
-   * @param mode "local" verifies with the verifier bundled in this SDK, "api" with the ZKPassport
-   * verifier API, and "auto" (default) verifies locally but defers to the API when the local
-   * result is not verified — e.g. proofs from a newer bb version than this SDK supports.
+   * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
+   * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
+   * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
@@ -796,7 +796,7 @@ export class ZKPassport {
     devMode = false,
     writingDirectory,
     oprfKeyId,
-    mode = "auto",
+    verifierMode = "auto",
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -806,7 +806,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
-    mode?: VerificationMode
+    verifierMode?: VerifierMode
   }): Promise<VerificationResult> {
     const notVerified: VerificationResult = {
       uniqueIdentifier: undefined,
@@ -822,10 +822,10 @@ export class ZKPassport {
     const localParams = { ...params, writingDirectory }
     const apiParams = { ...params, domain: this.domain }
 
-    if (mode === "local") {
+    if (verifierMode === "local") {
       return this.verifyLocally(localParams)
     }
-    if (mode === "api") {
+    if (verifierMode === "api") {
       return (await verifyWithVerifierApi(apiParams)) ?? notVerified
     }
 
