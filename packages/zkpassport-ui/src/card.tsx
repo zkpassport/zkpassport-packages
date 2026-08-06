@@ -32,7 +32,8 @@ export type CardProps = {
 }
 
 export function Card({ options, controlRef }: CardProps) {
-  // Layout effect, not effect — keeps icons from flashing at their default SVG size before CSS rules apply.
+  // Layout effect, not effect — keeps icons from flashing at their default
+  // SVG size before CSS rules apply.
   useLayoutEffect(injectStyles, [])
 
   const {
@@ -65,7 +66,8 @@ export function Card({ options, controlRef }: CardProps) {
   const hasFacematch = !!query?.facematch
   const overlayCaption = getOverlayCaption(state)
   const canRestart = state === "waiting" || state === "scanned"
-  // Phones can't scan their own screen: lead with the app link, QR behind a toggle
+  // Phones can't scan their own screen: lead with the universal link into the
+  // app; the QR stays behind a toggle for cross-device flows
   const [qrRevealed, setQrRevealed] = useState(false)
   const mobile = isMobileLike()
   const inAppBrowser = isInAppBrowser()
@@ -206,7 +208,8 @@ export function Card({ options, controlRef }: CardProps) {
   )
 }
 
-// The ICAO e-passport chip symbol printed on biometric passport covers
+// The ICAO e-passport symbol printed on the cover of biometric passports:
+// a rounded rectangle with a horizontal line broken by a solid circle
 const ICON_EPASSPORT_CHIP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 36" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="1.6" y="1.6" width="48.8" height="32.8" rx="5"/><line x1="8.5" y1="18" x2="17" y2="18"/><line x1="35" y1="18" x2="43.5" y2="18"/><circle cx="26" cy="18" r="6.5" fill="currentColor" stroke="none"/></svg>`
 
 function IntroSection({
@@ -386,7 +389,8 @@ function buildPhoneSteps(
       icon: null,
     },
   )
-  // Pre-join, only the first three steps are shown (with icons); the on-device steps appear once the phone joins
+  // Pre-join, only the first three steps are shown (with icons); the on-device
+  // steps appear once the phone joins
   return appJoined ? steps : steps.slice(0, 3)
 }
 

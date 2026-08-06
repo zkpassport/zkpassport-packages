@@ -6,7 +6,11 @@ import {
   type PopupRequestConfig,
 } from "./protocol"
 
-/** Thin RP-side client for the hosted verification popup. */
+/**
+ * Thin RP-side client for the hosted verification popup. Deliberately free of any
+ * heavy SDK dependencies (bridge, provers, viem): the RP bundle only pays for
+ * window.open + postMessage plumbing.
+ */
 
 export type PopupResult = Extract<PopupEventMessage, { type: "result" }>
 
@@ -37,7 +41,13 @@ const POPUP_WIDTH = 460
 const POPUP_HEIGHT = 780
 const CLOSE_POLL_INTERVAL = 500
 
-/** Open the hosted verification popup. */
+/**
+ * Open the hosted verification popup. MUST be called from a user gesture
+ * (e.g. a click handler) or the browser will block the popup.
+ *
+ * Returns null when both the popup and the new-tab retry were blocked; the
+ * caller should ask the user to allow popups and try again.
+ */
 export function openVerificationPopup(
   options: OpenVerificationPopupOptions,
 ): VerificationPopupHandle | null {
@@ -54,7 +64,9 @@ export function openVerificationPopup(
       "zkpassport-verify",
       `popup,width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${Math.round(left)},top=${Math.round(top)}`,
     ) ??
-    // Popup blocked: retry as a regular new tab (same user gesture).
+    // Popup blocked: retry as a regular new tab (same user gesture). A tab opened
+    // by script still has window.opener, so the postMessage protocol and the
+    // popup's self-close keep working
     window.open(popupUrl, "zkpassport-verify")
   if (!popup) return null
 

@@ -1,4 +1,6 @@
-// One <style> tag per stylesheet key, deduped and synced across bundle copies
+// One <style> tag per stylesheet key, deduped across mounts and kept in sync
+// when a stale tag from another bundle copy (hot reload, multiple widget
+// versions) is already on the page.
 const injectedKeys = new Set<string>()
 
 export function injectStylesheet(css: string, key: string): void {

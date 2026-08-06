@@ -4,7 +4,7 @@ import { ZKPassport } from "@zkpassport/sdk"
 import type { Query, QueryBuilderResult } from "@zkpassport/sdk"
 
 import { logger } from "./logger"
-import type { HostedVerificationOptions, ZKPassportQRCodeOptions } from "./types"
+import type { ZKPassportQRCodeOptions } from "./types"
 
 export type CardState =
   | "intro"
@@ -50,11 +50,13 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   optionsRef.current = options
 
   const requestRef = useRef<QueryBuilderResult | null>(null)
-  // The bridge/QR-flow state, tracked even while the intro screen is showing so Continue lands on the right screen
+  // The bridge/QR-flow state, tracked even while the intro screen is showing so
+  // Continue lands on the right screen
   const bridgeStateRef = useRef<CardState>("preparing")
   const introActiveRef = useRef(introEnabled)
 
-  // Ref so StrictMode/Fast Refresh don't spin up a second SDK and orphan the bridge
+  // Held in a ref so StrictMode / Fast Refresh don't spin up a second SDK
+  // and orphan the bridge the phone is already talking to.
   const sdkRef = useRef<ZKPassport | null>(null)
   if (sdkRef.current === null) {
     sdkRef.current = new ZKPassport(options.domain)
@@ -89,9 +91,8 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       onResult: _onResult,
       onReject: _onReject,
       onError: _onError,
-      hostedVerification: _hostedVerification,
       ...sdkRequestArgs
-    } = optionsRef.current as ZKPassportQRCodeOptions & HostedVerificationOptions
+    } = optionsRef.current
 
     const fireReady = () => {
       if (readyFired) return
@@ -119,12 +120,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     }
 
     sdkRef
-      .current!.request({
-        ...sdkRequestArgs,
-        // No bb.js in the published card: only the hosted popup verifies in place
-        skipProofVerification:
-          (optionsRef.current as HostedVerificationOptions).hostedVerification !== true,
-      })
+      .current!.request({ ...sdkRequestArgs })
       .then((queryBuilder) => {
         if (cancelled) return
         let request: QueryBuilderResult
@@ -170,13 +166,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         request.onResult(
           guard((response) => {
             introActiveRef.current = false
-            // Consistency checks run regardless of mode; a failure is always an error
-            if (response.verified === false) {
-              setState("error")
-              safeCall(optionsRef.current.onResult, response)
-              return
-            }
-            setState("success")
+            setState(response.verified ? "success" : "error")
             safeCall(optionsRef.current.onResult, response)
           }),
         )
@@ -263,6 +253,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
 }
 
 // Circular dot modules + concentric-ring finder patterns (Apple/Spotify style).
+// ECC "H" tolerates ~30% damage, leaving room for the center logo overlay.
 function renderQrSvg(url: string): string {
   const qr = QRCode.create(url, { errorCorrectionLevel: "Q" })
   const size = qr.modules.size

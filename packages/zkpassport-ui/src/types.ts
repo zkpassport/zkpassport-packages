@@ -8,13 +8,7 @@ type SdkCallback<K extends keyof QueryBuilderResult> = QueryBuilderResult[K] ext
 
 type SdkRequestProps = Omit<
   Parameters<ZKPassport["request"]>[0],
-  // skipProofVerification is owned by the card (always set): use `verification` instead
-  | "projectID"
-  | "topicOverride"
-  | "keyPairOverride"
-  | "cloudProverUrl"
-  | "bridgeUrl"
-  | "skipProofVerification"
+  "projectID" | "topicOverride" | "keyPairOverride" | "cloudProverUrl" | "bridgeUrl"
 >
 
 // Toggles for optional card sections. Each defaults to shown; set false to hide.
@@ -43,12 +37,6 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   onResult?: SdkCallback<"onResult">
   onReject?: SdkCallback<"onReject">
   onError?: SdkCallback<"onError">
-}
-
-// Internal, not part of the public API: set only by the hosted verify popup.
-export type HostedVerificationOptions = {
-  // Run real in-browser proof verification (bb.js) when the result arrives.
-  hostedVerification?: boolean
 }
 
 export type QRCardHandle = {

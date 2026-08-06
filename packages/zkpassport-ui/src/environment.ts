@@ -1,4 +1,6 @@
-// Best-effort heuristics; a wrong guess still leaves both flows reachable
+// Best-effort environment heuristics: on phones the primary action is the
+// universal link into the app (a wrong guess still leaves the QR reachable);
+// in-app browsers additionally get a hint to use a real browser.
 export function isMobileLike(): boolean {
   if (typeof navigator === "undefined" || typeof window === "undefined") return false
   const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } }
@@ -24,7 +26,8 @@ export function isInAppBrowser(): boolean {
   }
   // Android WebView marks itself with "; wv"
   if (/Android/.test(ua) && /; wv\)/.test(ua)) return true
-  // iOS WKWebViews lack the Safari token (real Safari, Chrome iOS and Firefox iOS all include it)
+  // iOS WKWebViews lack the Safari token (real Safari, Chrome iOS and Firefox
+  // iOS all include it)
   if (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true
   return false
 }

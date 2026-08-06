@@ -1,6 +1,11 @@
 import type { IDCredential, Query } from "@zkpassport/sdk"
 
-/** Render a query as human-readable items for the intro screen. */
+/**
+ * Render a query as human-readable items for the intro screen. Each item is a short
+ * claim plus a muted detail line explaining what stays hidden (the privacy angle),
+ * e.g. { age: { gte: 18 } } → { title: "You are 18 or older",
+ * detail: "Your exact age and birthdate stay hidden" }.
+ */
 
 export type QueryDescriptionItem = {
   title: string
