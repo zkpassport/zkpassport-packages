@@ -1,7 +1,7 @@
 @layer zkpassport {
   /* "Verify with ZKPassport" button (opens the hosted popup).
      Customize via CSS custom properties on the mount element or any ancestor:
-     --zkp-btn-bg/-fg/-radius/-padding/-font/-font-size/-letter-spacing/
+     --zkp-btn-bg/-fg/-border/-radius/-padding/-font/-font-size/-letter-spacing/
      -text-transform, and --zkp-verify-muted/-success/-error for the status line.
 
      !important throughout: host resets (e.g. Tailwind preflight) are unlayered
@@ -15,12 +15,12 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 10px !important;
-    padding: var(--zkp-btn-padding, 15px 26px) !important;
-    border: none !important;
+    gap: 8px !important;
+    padding: var(--zkp-btn-padding, 10px 18px) !important;
+    border: 1px solid var(--zkp-btn-border, #d3d9e8) !important;
     border-radius: var(--zkp-btn-radius, 8px) !important;
-    background: var(--zkp-btn-bg, var(--zkp-brand)) !important;
-    color: var(--zkp-btn-fg, var(--zkp-bg)) !important;
+    background: var(--zkp-btn-bg, var(--zkp-bg)) !important;
+    color: var(--zkp-btn-fg, var(--zkp-brand)) !important;
     font-family: var(
       --zkp-btn-font,
       Inter,
@@ -30,11 +30,11 @@
       -apple-system,
       sans-serif
     ) !important;
-    font-size: var(--zkp-btn-font-size, 13px) !important;
+    font-size: var(--zkp-btn-font-size, 12px) !important;
     white-space: nowrap !important;
-    font-weight: 700 !important;
-    letter-spacing: var(--zkp-btn-letter-spacing, 0.09em) !important;
-    text-transform: var(--zkp-btn-text-transform, uppercase) !important;
+    font-weight: 600 !important;
+    letter-spacing: var(--zkp-btn-letter-spacing, 0.04em) !important;
+    text-transform: var(--zkp-btn-text-transform, none) !important;
     line-height: 1.2 !important;
     cursor: pointer !important;
     transition:
@@ -43,16 +43,18 @@
   }
   .zkp-verify-button[data-theme="dark"] {
     --zkp-bg: #0f172a;
-    --zkp-brand: #6b86d8;
+    --zkp-brand: #93b0f5;
+    --zkp-btn-border: #334155;
   }
   @media (prefers-color-scheme: dark) {
     .zkp-verify-button[data-theme="auto"] {
       --zkp-bg: #0f172a;
-      --zkp-brand: #6b86d8;
+      --zkp-brand: #93b0f5;
+      --zkp-btn-border: #334155;
     }
   }
   .zkp-verify-button:hover:not(:disabled) {
-    filter: brightness(1.08);
+    filter: brightness(0.97);
   }
   .zkp-verify-button:active:not(:disabled) {
     transform: translateY(1px);
@@ -61,8 +63,8 @@
   .zkp-verify-button-mark {
     position: relative;
     display: inline-flex;
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
     flex: none;
   }
   .zkp-verify-button-mark svg {
@@ -75,9 +77,9 @@
   .zkp-verify-button[data-status="in-progress"] .zkp-verify-button-mark::after {
     content: "" !important;
     position: absolute !important;
-    inset: -6px !important;
+    inset: -5px !important;
     border-radius: 50% !important;
-    border: 2.5px solid color-mix(in srgb, currentColor 35%, transparent) !important;
+    border: 2px solid color-mix(in srgb, currentColor 35%, transparent) !important;
     border-top-color: currentColor !important;
     box-sizing: border-box !important;
     animation: zkp-spinner-rotate 0.9s linear infinite !important;
