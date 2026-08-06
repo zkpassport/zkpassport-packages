@@ -33,10 +33,6 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   domain?: string
   theme?: "light" | "dark" | "auto"
   display?: ZKPassportQRCodeDisplayOptions
-  // "none" (default): verified is undefined, verify on your backend.
-  verification?: "none" | "api"
-  /** Override the verification API base URL (self-hosted); used with verification: "api" */
-  verificationApiUrl?: string
   query: (queryBuilder: QueryBuilder) => QueryBuilderResult
   onReady?: () => void
   onRetryClicked?: () => void

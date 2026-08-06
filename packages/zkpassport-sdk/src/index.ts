@@ -36,13 +36,9 @@ import { createOfflineQuery } from "./offline-query"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
-import {
-  createUltraHonkVerifier,
-  getBBVersionForCircuitVersion,
-  UnsupportedBBVersionError,
-} from "./bb-verifier"
+import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
-import { getManifestCached, getPackagedCircuitCached } from "./circuit-cache"
+import { RegistryClient } from "@zkpassport/registry"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
@@ -763,65 +759,22 @@ export class ZKPassport {
       // Checks passed but proofs unchecked: undefined, distinct from true/false
       verified = undefined
     } else if (verified) {
-      // bb.js only loads here, so skipping verification never triggers the import
-      let verifierHandle: Awaited<ReturnType<typeof createUltraHonkVerifier>> | undefined
-      try {
-        const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
-        verifierHandle = await createUltraHonkVerifier(bbVersion, { writingDirectory })
-      } catch (e) {
-        // Unsupported-forever proofs are a hard error, not a soft backend failure
-        if (e instanceof UnsupportedBBVersionError) throw e
-        console.warn(
-          "The proof verification backend (bb.js) could not be loaded, so the proofs were not verified. Verify them server-side instead.",
-          e,
-        )
-        verified = undefined
-      }
-      if (verifierHandle) {
-        verified = await this.verifyProofsWithBackend({
-          proofs,
-          verifier: verifierHandle.verifier,
-          scope,
-          devMode,
-        })
-        // Release the bb.js wasm instance loaded for this verify() call
-        await verifierHandle.destroy()
-      }
-    }
-
-    // If the proofs failed verification, we don't return the unique identifier.
-    uniqueIdentifier = verified === false ? undefined : uniqueIdentifier
-    uniqueIdentifierType = verified === false ? undefined : uniqueIdentifierType
-    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
-  }
-
-  private async verifyProofsWithBackend({
-    proofs,
-    verifier,
-    scope,
-    devMode,
-  }: {
-    proofs: Array<ProofResult>
-    verifier: Awaited<ReturnType<typeof createUltraHonkVerifier>>["verifier"]
-    scope?: string
-    devMode: boolean
-  }): Promise<boolean> {
-    let verified = true
-    {
-      // Cached fetches: after browser-side proving these are already in memory
-      const circuitManifest = await getManifestCached(
+      const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
+      const { verifier, destroy: destroyVerifier } = await createUltraHonkVerifier(bbVersion, {
+        writingDirectory,
+      })
+      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+      const circuitManifest = await registryClient.getCircuitManifest(undefined, {
         // We assume all proofs have the same version
-        proofs[0].version!,
-        devMode,
-      )
+        version: proofs[0].version,
+      })
       for (const proof of proofs) {
         const isOuterEVM = proof.name?.startsWith("outer_evm_")
         const proofName = proof.name!
         const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
-        const hostedPackagedCircuit = await getPackagedCircuitCached(
+        const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
           proofName,
           circuitManifest,
-          devMode,
           // TODO: set to always validate when the issue is vkey hash calculation is fixed
           { validate: !isOuterEVM },
         )
@@ -870,12 +823,18 @@ export class ZKPassport {
           }
         }
         if (!verified) {
-          // Break the loop if the proof is not valid and don't bother checking the other proofs
+          // Break the loop and don't bother checking the other proofs
           break
         }
       }
+      // Release the bb.js wasm instance loaded for this verify() call
+      await destroyVerifier()
     }
-    return verified
+
+    // Skipped verification keeps the (unverified) identifier; a failure drops it
+    uniqueIdentifier = verified === false ? undefined : uniqueIdentifier
+    uniqueIdentifierType = verified === false ? undefined : uniqueIdentifierType
+    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
   }
 
   public getSolidityVerifierDetails(): {

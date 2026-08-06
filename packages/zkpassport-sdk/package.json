@@ -21,10 +21,6 @@
       "import": "./dist/esm/popup.js",
       "require": "./dist/cjs/popup.cjs"
     },
-    "./api-verifier": {
-      "import": "./dist/esm/api-verifier.js",
-      "require": "./dist/cjs/api-verifier.cjs"
-    },
     "./query": {
       "import": "./dist/esm/query.js",
       "require": "./dist/cjs/query.cjs"
@@ -53,6 +49,7 @@
   ],
   "dependencies": {
     "@aztec/bb.js": "5.0.0",
+    "@aztec/bb.js-v4": "npm:@aztec/bb.js@4.2.0-aztecnr-rc.2",
     "@noble/ciphers": "^1.2.1",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^2.2.3",

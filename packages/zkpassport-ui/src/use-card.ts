@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks"
 import QRCode from "qrcode"
 import { ZKPassport } from "@zkpassport/sdk"
-import { verifyViaApi } from "@zkpassport/sdk/api-verifier"
 import type { Query, QueryBuilderResult } from "@zkpassport/sdk"
 
 import { logger } from "./logger"
@@ -79,8 +78,6 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     const {
       domain: _domain,
       theme: _theme,
-      verification: _verification,
-      verificationApiUrl: _verificationApiUrl,
       query: buildQuery,
       onReady: _onReady,
       onRetryClicked: _onRetryClicked,
@@ -178,39 +175,8 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
               safeCall(optionsRef.current.onResult, response)
               return
             }
-            if (optionsRef.current.verification !== "api") {
-              setState("success")
-              safeCall(optionsRef.current.onResult, response)
-              return
-            }
-            // "api" mode: ask the hosted verification API before reporting
-            verifyViaApi(
-              {
-                domain: optionsRef.current.domain ?? window.location.hostname,
-                proofs: response.proofs,
-                query: request.query,
-                queryResult: response.result,
-                scope: optionsRef.current.scope,
-                validity: optionsRef.current.validity,
-                devMode: optionsRef.current.devMode,
-                oprfKeyId: optionsRef.current.oprfKeyId,
-              },
-              { apiUrl: optionsRef.current.verificationApiUrl },
-            )
-              .then((apiResult) => {
-                if (cancelled) return
-                // Only an explicit false from the API is a failure
-                setState(apiResult.verified === false ? "error" : "success")
-                safeCall(optionsRef.current.onResult, {
-                  ...response,
-                  verified: apiResult.verified,
-                })
-              })
-              .catch(() => {
-                if (cancelled) return
-                setState("success")
-                safeCall(optionsRef.current.onResult, response)
-              })
+            setState("success")
+            safeCall(optionsRef.current.onResult, response)
           }),
         )
         request.onReject(

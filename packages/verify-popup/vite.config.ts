@@ -20,6 +20,7 @@ export default defineConfig({
     // These packages load WASM and spawn workers via import.meta.url, which breaks Vite's dependency pre-bundling —…
     exclude: [
       "@aztec/bb.js",
+      "@aztec/bb.js-v4",
       "@noir-lang/noir_js",
       "@noir-lang/noirc_abi",
       "@noir-lang/acvm_js",

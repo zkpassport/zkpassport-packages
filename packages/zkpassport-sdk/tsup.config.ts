@@ -7,7 +7,6 @@ export default defineConfig(
     entry: {
       index: "src/index.ts",
       popup: "src/popup/index.ts",
-      "api-verifier": "src/api-verifier.ts",
       query: "src/offline-query.ts",
     },
     dts: {
