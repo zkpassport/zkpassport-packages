@@ -24,8 +24,7 @@ export type VerifyWithZKPassportButtonOptions = PopupRequestConfig & {
   label?: string
   policyId?: string
   query: ZKPassportQRCodeOptions["query"]
-  // Extra class names per element; for simple restyling prefer the CSS custom
-  // properties (--zkp-btn-*) documented in the stylesheet
+  // Extra class names per element; prefer the --zkp-btn-* CSS custom properties
   classes?: {
     root?: string
     button?: string
@@ -63,8 +62,7 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       return
     }
 
-    // Serialize the query via the offline builder (no ZKPassport class); the
-    // policyId option and .policy() on the builder are equivalent
+    // Serialize via the offline builder; policyId option == .policy() on the builder
     let query: Query
     try {
       const built = current.query(createOfflineQuery() as never) as unknown as { query: Query }
@@ -133,9 +131,7 @@ export function VerifyButton({ options }: VerifyButtonProps) {
     setStatus("in-progress")
   }
 
-  // The button itself never changes size or content: same label and logo in every
-  // state. Progress shows as a spinner ring around the logo; outcomes show in the
-  // always-reserved status line below.
+  // The button itself never changes size or content: same label and logo in every state.
   const statusText =
     status === "in-progress"
       ? "Continue in the ZKPassport window"

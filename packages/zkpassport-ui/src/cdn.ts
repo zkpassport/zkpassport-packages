@@ -3,10 +3,7 @@ import type { VerifyWithZKPassportButtonOptions } from "./verify-button"
 import type { ZKPassportQRCodeOptions } from "./types"
 import { logger } from "./logger"
 
-// CDN (script-tag) entry: exposes window.ZKPassportUI and auto-mounts
-// #verify-with-zkpassport / [data-zkpassport] elements on DOMContentLoaded.
-// data-policy-id is required (HTML can't express a query builder); results
-// surface as bubbling zkpassport:* CustomEvents on the mounted element.
+// CDN entry: window.ZKPassportUI + auto-mount; results as zkpassport:* CustomEvents
 
 const AUTO_SELECTOR = "#verify-with-zkpassport, [data-zkpassport]"
 const MOUNTED_ATTR = "data-zkpassport-mounted"
@@ -64,8 +61,7 @@ function mountFromElement(element: HTMLElement): void {
     popupUrl,
     label,
     policyId,
-    // The popup rebuilds the query from the policy (see hydrateQueryBuilder);
-    // the local query only satisfies the serialization step
+    // The popup resolves the policy; the local query only satisfies serialization
     query: (q) => q.done(),
     onResult: (result) => emit(element, "result", result),
     onReject: () => emit(element, "rejected"),

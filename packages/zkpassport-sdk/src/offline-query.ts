@@ -14,10 +14,7 @@ import type {
 import type { OfflineQueryBuilderResult, QueryBuilder } from "./types"
 import { generalCompare, normalizeCountry, numericalCompare, rangeCompare } from "./query-helpers"
 
-// Standalone offline query builder: same Query output as ZKPassport.request()'s
-// builder but with no bridge, network, or class dependency — keeps query-only
-// bundles (the button) small. .policy(id) records the id for done() so the
-// consumer (hosted popup) can apply it where the dashboard config is available.
+// Same Query output as request()'s builder, with no bridge/network/class deps
 export function createOfflineQuery(): QueryBuilder<"offline"> {
   const config: Record<string, Query> = { query: {} }
   const topic = "query"

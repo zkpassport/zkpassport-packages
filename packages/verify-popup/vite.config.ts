@@ -1,10 +1,7 @@
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
-// Grants crossOriginIsolated (SharedArrayBuffer → multithreaded WASM proving)
-// WITHOUT COOP, so the window.opener postMessage channel to the RP page survives.
-// Supported in Chromium; other browsers ignore it and prove single-threaded.
-// The production host must send this header too (see README).
+// crossOriginIsolated without COOP (Chromium-only) so window.opener survives; prod must send this header too
 const DOCUMENT_ISOLATION_HEADERS = {
   "Document-Isolation-Policy": "isolate-and-credentialless",
 }
@@ -20,8 +17,7 @@ export default defineConfig({
     headers: DOCUMENT_ISOLATION_HEADERS,
   },
   optimizeDeps: {
-    // These packages load WASM and spawn workers via import.meta.url, which
-    // breaks Vite's dependency pre-bundling — serve them as native ESM instead
+    // These packages load WASM and spawn workers via import.meta.url, which breaks Vite's dependency pre-bundling —…
     exclude: [
       "@aztec/bb.js",
       "@noir-lang/noir_js",

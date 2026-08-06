@@ -6,8 +6,7 @@ type EsbuildPlugin = NonNullable<Options["esbuildPlugins"]>[number]
 
 const isDev = process.env.DEV_BUILD === "true"
 
-// esbuild strips module-level directives during bundling, so the React entries'
-// "use client" must be prepended to the output files after the bundle is written.
+// esbuild strips module directives; re-prepend "use client" on the React entries
 async function prependUseClient(outDir: string, format: "esm" | "cjs") {
   const ext = format === "cjs" ? "cjs" : "js"
   for (const name of ["react", "react-button"]) {
@@ -23,8 +22,7 @@ async function prependUseClient(outDir: string, format: "esm" | "cjs") {
   }
 }
 
-// Heavy backends sit behind dynamic imports the card never reaches; stubbing
-// them keeps the bundle self-contained so consumer bundlers never resolve them.
+// Heavy backends sit behind dynamic imports the card never reaches; stub them
 const STUBBED_DEPS = /^(@aztec\/bb\.js(-v4)?|@noir-lang\/noir_js|viem(\/.*)?|ws)$/
 
 const stubUnreachableDeps: EsbuildPlugin = {
@@ -41,8 +39,7 @@ const stubUnreachableDeps: EsbuildPlugin = {
   },
 }
 
-// Published npm build: zero runtime dependencies; only React stays external
-// as an optional peer for the /react entries.
+// npm build: zero runtime deps; only React stays external (optional peer)
 const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   entry: {
     "index": "src/vanilla/index.ts",
@@ -68,8 +65,7 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   },
 }))
 
-// Hosted build (internal): only for the hosted popup, which needs the real SDK
-// — it stays external and resolves from the popup's own dependencies.
+// Hosted build (internal): for the popup only; the real SDK stays external
 const hostedConfig: Options = {
   entry: { hosted: "src/react/index.tsx" },
   format: "esm",
@@ -88,8 +84,7 @@ const hostedConfig: Options = {
 // CDN build: self-contained IIFEs for <script> tag integrations.
 const cdnConfig: Options = {
   entry: {
-    // zkpassport-button.js is the default for button-only script-tag
-    // integrations; zkpassport-ui.js adds the embeddable QR card
+    // zkpassport-button.js is the script-tag default; zkpassport-ui.js adds the card
     "zkpassport-button": "src/cdn-button.ts",
     "zkpassport-ui": "src/cdn.ts",
   },
@@ -112,8 +107,7 @@ const cssConfig: Options = {
   clean: false,
   loader: { ".css": "copy" },
   async onSuccess() {
-    // dist/styles.css covers both components; button.css exists separately so
-    // the button entry injects only what it needs
+    // dist/styles.css covers both components; button.css lets the button inject less
     const styles = await fs.readFile(path.resolve("dist/styles.css"), "utf8")
     const button = await fs.readFile(path.resolve("src/button.css"), "utf8")
     if (!styles.includes(".zkp-verify-button")) {

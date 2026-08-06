@@ -236,8 +236,7 @@ export type QueryResultValue<T extends IDCredential> = {
 }
 
 export type ExtendedAlpha2Code = Alpha2Code | "EU" | "UN"
-// Explicit list of supported countries for sanction lists
-// TODO: extend this list as more countries sanction lists are added
+// Explicit list of supported countries for sanction lists TODO: extend this list as more countries sanction list…
 export type SanctionsAlpha2Code = "US" | "GB" | "CH" | "EU"
 export type SanctionsCountries = /*SanctionsAlpha2Code[] | SanctionsAlpha2Code | "all"*/ "all" // TODO: enable this once the circuits support custom lists
 export type SanctionsLists = /*string[] | "all"*/ "all" // TODO: enable this once the circuits support custom lists
@@ -276,10 +275,7 @@ export type Query = {
   bind?: BoundData
   sanctions?: SanctionsConfig
   facematch?: FacematchConfig
-  // Reference to a dashboard-defined policy that supplies the conditions;
-  // mutually exclusive with condition keys, composes with bind. Dereferenced
-  // (conditions resolved, scope/purpose set) where the dashboard config is
-  // available — resolved queries never carry this field.
+  // Reference to a dashboard-defined policy that supplies the conditions; mutually exclusive with condition keys,…
   policy?: string
 }
 

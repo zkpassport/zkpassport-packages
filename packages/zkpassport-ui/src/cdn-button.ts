@@ -2,9 +2,7 @@ import { mountVerifyButton } from "./button/index"
 import type { VerifyWithZKPassportButtonOptions } from "./verify-button"
 import { logger } from "./logger"
 
-// Button-only CDN entry (the default for script tags): same auto-mount
-// contract as zkpassport-ui.js but without the QR card — a fraction of the
-// size. data-zkpassport="card" gets a console hint to load the full bundle.
+// Button-only CDN entry: same auto-mount contract as zkpassport-ui.js, no QR card
 
 const AUTO_SELECTOR = "#verify-with-zkpassport, [data-zkpassport]"
 const MOUNTED_ATTR = "data-zkpassport-mounted"
@@ -41,8 +39,7 @@ function mountFromElement(element: HTMLElement): void {
     popupUrl: data.popupUrl,
     label: data.label,
     policyId,
-    // The popup rebuilds the query from the policy (see hydrateQueryBuilder);
-    // the local query only satisfies the serialization step
+    // The popup resolves the policy; the local query only satisfies serialization
     query: (q) => q.done(),
     onResult: (result) => emit(element, "result", result),
     onReject: () => emit(element, "rejected"),

@@ -2,9 +2,6 @@ import type { NullifierType, ProofResult, Query, QueryResult } from "@zkpassport
 import type { QueryResultErrors } from "./types"
 
 // Pure-fetch client for the hosted verification API (no bb.js/WASM).
-// PRIVACY: sends the proofs and their public inputs (disclosed attributes,
-// unique identifier) to the API — only call when the integrator opted in.
-// TRUST: a browser-side `verified` is a UX signal; servers must verify themselves.
 
 export const DEFAULT_VERIFIER_API_URL = "https://verifier.zkpassport.id"
 
@@ -21,11 +18,7 @@ export interface ApiVerifierRequest {
 }
 
 export interface ApiVerifierResult {
-  /**
-   * `true`/`false` when the API answered; `undefined` when it could not be reached
-   * (network failure, timeout, or server error) — i.e. "not checked", which callers
-   * must not treat as a failed verification.
-   */
+  /** Boolean when the API answered; undefined when unreachable (not a failure). */
   verified: boolean | undefined
   uniqueIdentifier?: string
   uniqueIdentifierType?: NullifierType
@@ -41,8 +34,7 @@ export interface ApiVerifierOptions {
   timeoutMs?: number
 }
 
-// Resolves with verified: undefined (never rejects, never false) when the API
-// is unreachable, so transient failures don't render as "failed".
+// Never rejects; unreachable API resolves as verified: undefined, not false
 export async function verifyViaApi(
   request: ApiVerifierRequest,
   options?: ApiVerifierOptions,
@@ -63,8 +55,7 @@ export async function verifyViaApi(
       | (Omit<ApiVerifierResult, "verified"> & { verified?: unknown })
       | null
     if (!body || typeof body.verified !== "boolean") {
-      // Anything without an explicit boolean verdict (404s, proxy pages, contract
-      // mismatches) is "not checked", not "failed"
+      // No explicit boolean verdict (404s, proxy pages) means "not checked"
       return {
         verified: undefined,
         error: `Verification API returned an unexpected response (status ${response.status})`,

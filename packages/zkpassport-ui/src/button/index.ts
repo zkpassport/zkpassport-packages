@@ -2,8 +2,7 @@ import { h, render } from "preact"
 
 import { VerifyButton, type VerifyWithZKPassportButtonOptions } from "../verify-button"
 
-// Button-only entry: the hosted-popup button without the QR card (no bridge,
-// no qrcode). "@zkpassport/ui" re-exports the same function alongside the card.
+// Button-only entry: the hosted-popup button without the QR card (no bridge, no qrcode).
 export function mountVerifyButton(
   element: HTMLElement,
   options: VerifyWithZKPassportButtonOptions,

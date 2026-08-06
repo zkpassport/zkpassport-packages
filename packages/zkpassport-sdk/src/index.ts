@@ -87,8 +87,7 @@ export {
 } from "@zkpassport/utils"
 
 export * from "./types"
-// Also available from the lightweight "@zkpassport/sdk/query" entry, which
-// avoids pulling in the ZKPassport class
+// Also exported from "@zkpassport/sdk/query" (avoids pulling in the ZKPassport class)
 export { createOfflineQuery } from "./offline-query"
 
 export class ZKPassport {
@@ -192,11 +191,9 @@ export class ZKPassport {
     logger.debug("Verification complete, verified:", verified)
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
     const finalVerified = hasFailedProofs ? false : verified
-    // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
-    // pollute real-domain stats.
+    // Browser-only callers (no explicit domain) can't be authenticated
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
-    // `undefined` (verification skipped) still submits: the dashboard API runs its
-    // own checks on the submitted proofs before storing them
+    // undefined (verification skipped) still submits: the dashboard API re-checks
     if (finalVerified !== false && this.domainProvided && !this.disableProofStorage && !devMode) {
       void submitProof({
         domain: this.domain,
@@ -211,8 +208,7 @@ export class ZKPassport {
     await Promise.all(
       this.onResultCallbacks[topic].map((callback) =>
         callback({
-          // If there are failed proofs, we don't return the unique identifier
-          // and we set the verified result to false
+          // If there are failed proofs, we don't return the unique identifier and we set the verified result to false
           uniqueIdentifier: hasFailedProofs ? undefined : uniqueIdentifier,
           uniqueIdentifierType: hasFailedProofs ? undefined : uniqueIdentifierType,
           verified: hasFailedProofs ? false : verified,
@@ -227,11 +223,7 @@ export class ZKPassport {
     delete this.topicToFailedProofCount[topic]
   }
 
-  /**
-   * @notice Handle an encrypted message.
-   * @param request The request.
-   * @param outerRequest The outer request.
-   */
+  /** Handle an encrypted message. */
   private async handleEncryptedMessage(topic: string, request: JsonRpcRequest) {
     logger.debug("Received encrypted message:", request)
     if (request.method === "accept") {
@@ -246,8 +238,7 @@ export class ZKPassport {
       await Promise.all(
         this.onProofGeneratedCallbacks[topic].map((callback) => callback(request.params)),
       )
-      // If the results were received before all the proofs were generated,
-      // we can handle the result now
+      // If the results were received before all the proofs were generated, we can handle the result now
       if (
         this.topicToResults[topic] &&
         request.params.total ===
@@ -258,8 +249,7 @@ export class ZKPassport {
     } else if (request.method === "done") {
       logger.debug(`User sent the query result`)
       this.topicToResults[topic] = formatQueryResultDates(request.params)
-      // Make sure all the proofs have been received, otherwise we'll handle the result later
-      // once the proofs have all been received
+      // Handle the result only once all proofs have been received
       if (
         this.topicToProofs[topic].length > 0 &&
         this.topicToProofs[topic].length + this.topicToFailedProofCount[topic] ===
@@ -270,17 +260,14 @@ export class ZKPassport {
     } else if (request.method === "error") {
       const error = request.params.error
       if (error && error === "This ID is not supported yet") {
-        // This means the user has an ID that is not supported yet
-        // So we won't receive any proofs and we can handle the result now
+        // Unsupported ID: no proofs will come, handle the result now
         if (this.topicToResults[topic]) {
           await this.handleResult(topic)
         }
       } else if (error && error.startsWith("Cannot generate proof")) {
-        // This means one of the disclosure proofs failed to be generated
-        // So we need to keep track of the failed proof count
+        // A disclosure proof failed to generate: track the failed count
         this.topicToFailedProofCount[topic] += 1
-        // If the expected proof count is now equal to the number of proofs received
-        // and the results were received, we can handle the result now
+        // All expected proofs accounted for: handle the result now
         if (
           this.topicToResults[topic] &&
           this.topicToProofs[topic].length > 0 &&
@@ -389,26 +376,9 @@ export class ZKPassport {
         this.assertNotPolicyLocked(topic, "sanctions")
         this.topicToConfig[topic].sanctions = {
           ...this.topicToConfig[topic].sanctions,
+          // TODO: merge custom lists once the circuits support them
           countries,
-          // TODO: enable this once the circuits support custom lists
-          /*countries === "all"
-              ? "all"
-              : Array.isArray(countries)
-                ? ([
-                    ...(this.topicToConfig[topic].sanctions?.countries ?? []),
-                    ...countries,
-                  ] as SanctionsCountries)
-                : ([
-                    ...(this.topicToConfig[topic].sanctions?.countries ?? []),
-                    countries,
-                  ] as SanctionsCountries),*/
           lists,
-          // TODO: enable this once the circuits support custom lists
-          /*lists === "all"
-              ? "all"
-              : Array.isArray(lists)
-                ? [...(this.topicToConfig[topic].sanctions?.lists ?? []), ...lists]
-                : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],*/
           strict: options.strict ?? false,
         }
         return this.getZkPassportRequest(topic)
@@ -461,16 +431,6 @@ export class ZKPassport {
         const query = this.topicToConfig[topic]
         const hasFaceMatch = !!query.facematch
         const hasStrictFacematch = !!query.facematch && query.facematch?.mode === "strict"
-
-        // If nullifier type wasn't explicitly set, default to SALTED only for strict facematch
-        // if (localConfig.uniqueIdentifierType === undefined) {
-        //   if (hasStrictFacematch) {
-        //     localConfig.uniqueIdentifierType = NullifierType.SALTED
-        //     if (!localConfig.oprfKeyId) {
-        //       localConfig.oprfKeyId = OPRF_DEFAULT_KEY_ID
-        //     }
-        //   }
-        // }
 
         // Validate: SALTED nullifier requires strict facematch
         if (localConfig.uniqueIdentifierType === NullifierType.SALTED) {
@@ -592,19 +552,7 @@ export class ZKPassport {
     }
   }
 
-  /**
-   * @notice Create a new request. To apply a policy, chain `.policy('<id>')` on
-   * the returned builder; a policy locks the query and scope.
-   * @param name Your service name. Defaults to the dashboard branding, then the domain.
-   * @param logo Your service logo. Defaults to the dashboard branding.
-   * @param purpose Explanation shown to the user. Defaults to the policy's purpose (if any), then a generic message.
-   * @param scope Use-case scope (drives the nullifier). Defaults to the domain. Locked by `.policy()` (to `<id>:<version>`).
-   * @param projectID The project ID of your service
-   * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
-   * @param mode The proof mode (e.g. "fast" / "compressed").
-   * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
-   * @returns The query builder object.
-   */
+  /** Create a new request. */
   public async request({
     name,
     logo,
@@ -638,8 +586,7 @@ export class ZKPassport {
     cloudProverUrl?: string
     bridgeUrl?: string
     returnDeepLink?: string
-    // Skip in-browser proof verification: verified becomes undefined (not
-    // checked); verify server-side. Avoids loading the bb.js WASM backend.
+    // Skip in-browser proof verification: verified becomes undefined (not checked); verify server-side.
     skipProofVerification?: boolean
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
@@ -696,8 +643,7 @@ export class ZKPassport {
 
     this.topicToBridge[topic] = bridge
 
-    // Mobile browsers freeze backgrounded websockets; on return to foreground,
-    // reconnect so the relay replays anything sent in the meantime
+    // Mobile browsers freeze backgrounded websockets; reconnect on foreground
     if (typeof document !== "undefined") {
       const onVisibilityChange = () => {
         if (document.visibilityState !== "visible") return
@@ -729,31 +675,12 @@ export class ZKPassport {
     return this.getZkPassportRequest(topic)
   }
 
-  /**
-   * @notice Create a new offline query
-   * Unlike request(), this function does not connect to the bridge.
-   * It returns only the query object and no callbacks and no URL.
-   * This can be useful to recreate the same query server-side when calling `verify()`
-   * to ensure the original query wasn't tampered with.
-   * @returns The query builder object.
-   */
+  /** Create a new offline query Unlike request(), this function does not connect to the bridge. */
   public createQuery(): QueryBuilder<"offline"> {
     return createOfflineQuery()
   }
 
-  /**
-   * @notice Verify the proofs received from the mobile app.
-   * @param proofs The proofs to verify.
-   * @param originalQuery The original query that was sent to the mobile app.
-   * @param queryResult The query result to verify against
-   * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
-   * @param scope Scope this request to a specific use case
-   * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
-   * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
-   * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
-   * @returns An object containing the unique identifier associated to the user
-   * and a boolean indicating whether the proofs were successfully verified.
-   */
+  /** Verify the proofs received from the mobile app. */
   public async verify({
     proofs,
     originalQuery,
@@ -773,8 +700,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
-    // Skip cryptographic verification (consistency checks still run): verified
-    // is undefined when they pass. For browser UIs without the bb.js backend.
+    // Skip cryptographic verification (consistency checks still run): verified is undefined when they pass.
     skipProofVerification?: boolean
   }): Promise<{
     uniqueIdentifier: string | undefined
@@ -783,7 +709,6 @@ export class ZKPassport {
     queryResultErrors?: Partial<QueryResultErrors>
   }> {
     // If no proofs were generated, the results can't be trusted.
-    // We still return it but verified will be false
     if (!proofs || proofs.length === 0) {
       return {
         uniqueIdentifier: undefined,
@@ -793,8 +718,7 @@ export class ZKPassport {
     }
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
-    // Automatically set the writing directory to `/tmp` if it is not provided
-    // and the code is not running in the browser
+    // Default the writing directory to /tmp outside the browser
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
@@ -828,9 +752,7 @@ export class ZKPassport {
         uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
       !devMode
     ) {
-      // If the unique identifier type is a mock nullifier and it is not in dev mode,
-      // the proofs are considered invalid as these are mock proofs only meant
-      // for testing purposes
+      // Mock nullifiers are only valid in dev mode
       verified = false
       console.warn(
         "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
@@ -838,20 +760,16 @@ export class ZKPassport {
     }
     // Only proceed with the proof verification if the public inputs are correct
     if (verified && skipProofVerification) {
-      // The consistency checks passed but the proofs themselves were not checked:
-      // `undefined` (not checked) rather than `true`, so callers can't mistake it
-      // for a cryptographic verification result
+      // Checks passed but proofs unchecked: undefined, distinct from true/false
       verified = undefined
     } else if (verified) {
-      // The verifier backend is only loaded at this point, so callers that skip
-      // verification never trigger the bb.js import
+      // bb.js only loads here, so skipping verification never triggers the import
       let verifierHandle: Awaited<ReturnType<typeof createUltraHonkVerifier>> | undefined
       try {
         const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
         verifierHandle = await createUltraHonkVerifier(bbVersion, { writingDirectory })
       } catch (e) {
-        // A proof that can never be verified by this SDK version is a hard error,
-        // not a "backend unavailable" soft failure
+        // Unsupported-forever proofs are a hard error, not a soft backend failure
         if (e instanceof UnsupportedBBVersionError) throw e
         console.warn(
           "The proof verification backend (bb.js) could not be loaded, so the proofs were not verified. Verify them server-side instead.",
@@ -872,9 +790,6 @@ export class ZKPassport {
     }
 
     // If the proofs failed verification, we don't return the unique identifier.
-    // When verification was skipped (`verified` is undefined), the identifier is
-    // returned as-is: it is extracted from the public inputs and must be treated
-    // as unverified until checked server-side.
     uniqueIdentifier = verified === false ? undefined : uniqueIdentifier
     uniqueIdentifierType = verified === false ? undefined : uniqueIdentifierType
     return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
@@ -955,8 +870,7 @@ export class ZKPassport {
           }
         }
         if (!verified) {
-          // Break the loop if the proof is not valid
-          // and don't bother checking the other proofs
+          // Break the loop if the proof is not valid and don't bother checking the other proofs
           break
         }
       }
@@ -1010,8 +924,7 @@ export class ZKPassport {
       "base64",
     )
     const pubkey = this.topicToPublicKey[requestId]
-    // The timestamp is the current time minus the validity period
-    // essentially, the data integrity check proof needs to have been generated after the timestamp
+    // The integrity-check proof must be newer than now minus the validity period
     const timestamp = Math.floor(Date.now() / 1000) - this.topicToLocalConfig[requestId].validity
     const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
@@ -1029,28 +942,17 @@ export class ZKPassport {
     return url
   }
 
-  /**
-   * @notice Returns the URL of the request.
-   * @param requestId The request ID.
-   * @returns The URL of the request.
-   */
+  /** Returns the URL of the request. */
   public getUrl(requestId: string) {
     return this._getUrl(requestId)
   }
 
-  /**
-   * @notice Returns the resolved service details (name, logo, purpose) shown to the
-   * user for a pending request, including branding resolved from the dashboard config.
-   * @param requestId The request ID.
-   */
+  /** Resolved service details (name, logo, purpose) for a pending request. */
   public getServiceDetails(requestId: string): Service | undefined {
     return this.topicToService[requestId]
   }
 
-  /**
-   * @notice Cancels a request by closing the WebSocket connection and deleting the associated data.
-   * @param requestId The request ID.
-   */
+  /** Cancels a request by closing the WebSocket connection and deleting the associated data. */
   public cancelRequest(requestId: string) {
     if (this.topicToBridge[requestId]) {
       this.topicToBridge[requestId].close()
@@ -1073,9 +975,7 @@ export class ZKPassport {
     this.onErrorCallbacks[requestId] = []
   }
 
-  /**
-   * @notice Clears all requests.
-   */
+  /** Clears all requests. */
   public clearAllRequests() {
     for (const requestId in this.topicToBridge) {
       this.cancelRequest(requestId)

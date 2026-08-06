@@ -21,8 +21,7 @@ type SdkRequestProps = Omit<
 export type ZKPassportQRCodeDisplayOptions = {
   // ZKPassport mark, app logo, and the "… uses ZKPassport …" intro line.
   header?: boolean
-  // The intro screen shown before the QR code: what the request verifies and
-  // how it works. Set false to jump straight to the QR code.
+  // The intro screen shown before the QR code: what the request verifies and how it works.
   intro?: boolean
   // The numbered verification steps (1–5).
   steps?: boolean
@@ -35,8 +34,6 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   theme?: "light" | "dark" | "auto"
   display?: ZKPassportQRCodeDisplayOptions
   // "none" (default): verified is undefined, verify on your backend.
-  // "api": proofs (incl. disclosed attributes) go to the verification API;
-  // unreachable -> undefined, never false. Browser verified is UX-only.
   verification?: "none" | "api"
   /** Override the verification API base URL (self-hosted); used with verification: "api" */
   verificationApiUrl?: string
@@ -54,9 +51,7 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
 
 // Internal, not part of the public API: set only by the hosted verify popup.
 export type HostedVerificationOptions = {
-  // Run real in-browser proof verification (bb.js) when the result arrives. Only
-  // the hosted popup sets this: it ships the full SDK, while the published card
-  // is zero-dependency and never verifies locally.
+  // Run real in-browser proof verification (bb.js) when the result arrives.
   hostedVerification?: boolean
 }
 

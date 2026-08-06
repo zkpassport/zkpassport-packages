@@ -1,14 +1,8 @@
 import type { NullifierType, ProofMode, ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import type { QueryResultErrors } from "../types"
 
-/**
- * postMessage protocol between an RP page (opener) and the hosted verification
- * popup on the zkpassport verify origin.
- *
- * Security model: the popup derives the RP's identity EXCLUSIVELY from the
- * `configure` message's `event.origin` (browser-attested). The payload never
- * carries a self-declared domain.
- */
+// SECURITY: the popup derives the RP's identity exclusively from the configure
+// message's browser-attested event.origin, never from the payload
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
 
@@ -29,8 +23,7 @@ export type PopupConfigureMessage = {
   zkpassport: true
   type: "configure"
   request: PopupRequestConfig
-  // The final query object (structured-clone safe, Dates preserved);
-  // may carry a `policy` reference instead of literal conditions
+  // The final query; may carry a policy reference instead of literal conditions
   query: Query
 }
 

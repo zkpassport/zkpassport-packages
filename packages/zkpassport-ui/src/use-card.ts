@@ -51,13 +51,11 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   optionsRef.current = options
 
   const requestRef = useRef<QueryBuilderResult | null>(null)
-  // The bridge/QR-flow state, tracked even while the intro screen is showing so
-  // Continue lands on the right screen
+  // The bridge/QR-flow state, tracked even while the intro screen is showing so Continue lands on the right screen
   const bridgeStateRef = useRef<CardState>("preparing")
   const introActiveRef = useRef(introEnabled)
 
-  // Held in a ref so StrictMode / Fast Refresh don't spin up a second SDK
-  // and orphan the bridge the phone is already talking to.
+  // Ref so StrictMode/Fast Refresh don't spin up a second SDK and orphan the bridge
   const sdkRef = useRef<ZKPassport | null>(null)
   if (sdkRef.current === null) {
     sdkRef.current = new ZKPassport(options.domain)
@@ -298,7 +296,6 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
 }
 
 // Circular dot modules + concentric-ring finder patterns (Apple/Spotify style).
-// ECC "H" tolerates ~30% damage, leaving room for the center logo overlay.
 function renderQrSvg(url: string): string {
   const qr = QRCode.create(url, { errorCorrectionLevel: "Q" })
   const size = qr.modules.size
