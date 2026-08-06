@@ -456,7 +456,7 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      facematch: (mode: FacematchMode = "regular") => {
+      facematch: (mode: FacematchMode = "strict") => {
         this.assertNotPolicyLocked(topic, "facematch")
         this.topicToConfig[topic].facematch = {
           mode,
