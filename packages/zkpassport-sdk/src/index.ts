@@ -34,8 +34,8 @@ import {
   DashboardConfig,
   Policy,
   QueryResultErrors,
-  VerifierMode,
   VerificationResult,
+  VerifyParams,
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
@@ -777,37 +777,32 @@ export class ZKPassport {
    * @param originalQuery The original query that was sent to the mobile app.
    * @param queryResult The query result to verify against
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
-   * @param scope Scope this request to a specific use case
+   * @param scope The scope used in the original request, if any. Proofs generated for a different scope fail verification.
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
+   * @param oprfKeyId The OPRF key id used in the original request, if any.
    * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
    * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
-  public async verify({
-    proofs,
-    originalQuery,
-    queryResult,
-    validity,
-    scope,
-    devMode = false,
-    writingDirectory,
-    oprfKeyId,
-    verifierMode = "auto",
-  }: {
-    proofs: Array<ProofResult>
-    originalQuery: Query
-    queryResult: QueryResult
-    validity?: number
-    scope?: string
-    devMode?: boolean
-    writingDirectory?: string
-    oprfKeyId?: string
-    verifierMode?: VerifierMode
-  }): Promise<VerificationResult> {
+  public async verify(params: VerifyParams): Promise<VerificationResult> {
+    if (!params?.originalQuery || !params?.queryResult) {
+      throw new Error("verify() requires `originalQuery` and `queryResult`")
+    }
+    const {
+      proofs,
+      originalQuery,
+      queryResult,
+      validity,
+      scope,
+      devMode = false,
+      writingDirectory,
+      oprfKeyId,
+      verifierMode = "auto",
+    } = params
     const notVerified: VerificationResult = {
       uniqueIdentifier: undefined,
       uniqueIdentifierType: undefined,
@@ -818,9 +813,9 @@ export class ZKPassport {
     if (!proofs || proofs.length === 0) {
       return notVerified
     }
-    const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
-    const localParams = { ...params, writingDirectory }
-    const apiParams = { ...params, domain: this.domain }
+    const sharedParams = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
+    const localParams = { ...sharedParams, writingDirectory }
+    const apiParams = { ...sharedParams, domain: this.domain }
 
     if (verifierMode === "local") {
       return this.verifyLocally(localParams)
@@ -903,7 +898,7 @@ export class ZKPassport {
         // for testing purposes
         verified = false
         console.warn(
-          "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
+          "You are trying to verify a mock proof. This is only allowed in dev mode. Set the `devMode` parameter to `true`.",
         )
       }
       // Only proceed with the proof verification if the public inputs are correct
