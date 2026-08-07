@@ -34,8 +34,8 @@ import {
   DashboardConfig,
   Policy,
   QueryResultErrors,
+  VerifierMode,
   VerificationResult,
-  VerifyParams,
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
@@ -788,21 +788,30 @@ export class ZKPassport {
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
-  public async verify(params: VerifyParams): Promise<VerificationResult> {
-    if (!params?.originalQuery || !params?.queryResult) {
+  public async verify({
+    proofs,
+    originalQuery,
+    queryResult,
+    validity,
+    scope,
+    devMode = false,
+    writingDirectory,
+    oprfKeyId,
+    verifierMode = "auto",
+  }: {
+    proofs: Array<ProofResult>
+    originalQuery: Query
+    queryResult: QueryResult
+    validity?: number
+    scope?: string
+    devMode?: boolean
+    writingDirectory?: string
+    oprfKeyId?: string
+    verifierMode?: VerifierMode
+  }): Promise<VerificationResult> {
+    if (!originalQuery || !queryResult) {
       throw new Error("verify() requires `originalQuery` and `queryResult`")
     }
-    const {
-      proofs,
-      originalQuery,
-      queryResult,
-      validity,
-      scope,
-      devMode = false,
-      writingDirectory,
-      oprfKeyId,
-      verifierMode = "auto",
-    } = params
     const notVerified: VerificationResult = {
       uniqueIdentifier: undefined,
       uniqueIdentifierType: undefined,
@@ -813,9 +822,9 @@ export class ZKPassport {
     if (!proofs || proofs.length === 0) {
       return notVerified
     }
-    const sharedParams = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
-    const localParams = { ...sharedParams, writingDirectory }
-    const apiParams = { ...sharedParams, domain: this.domain }
+    const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
+    const localParams = { ...params, writingDirectory }
+    const apiParams = { ...params, domain: this.domain }
 
     if (verifierMode === "local") {
       return this.verifyLocally(localParams)
@@ -898,7 +907,7 @@ export class ZKPassport {
         // for testing purposes
         verified = false
         console.warn(
-          "You are trying to verify a mock proof. This is only allowed in dev mode. Set the `devMode` parameter to `true`.",
+          "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
         )
       }
       // Only proceed with the proof verification if the public inputs are correct

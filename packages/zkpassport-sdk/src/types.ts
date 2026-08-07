@@ -60,18 +60,6 @@ export type VerificationResult = {
   queryResultErrors?: Partial<QueryResultErrors>
 }
 
-export type VerifyParams = {
-  proofs: Array<ProofResult>
-  originalQuery: Query
-  queryResult: QueryResult
-  validity?: number
-  scope?: string
-  devMode?: boolean
-  writingDirectory?: string
-  oprfKeyId?: string
-  verifierMode?: VerifierMode
-}
-
 export type SolidityProofVerificationData = {
   vkeyHash: string
   proof: string
