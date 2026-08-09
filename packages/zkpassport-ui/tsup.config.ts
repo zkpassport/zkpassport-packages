@@ -81,26 +81,6 @@ const hostedConfig: Options = {
   loader: { ".css": "text" },
 }
 
-// CDN build: self-contained IIFEs for <script> tag integrations.
-const cdnConfig: Options = {
-  entry: {
-    // zkpassport-button.js is the script-tag default; zkpassport-ui.js adds the card
-    "zkpassport-button": "src/cdn-button.ts",
-    "zkpassport-ui": "src/cdn.ts",
-  },
-  format: "iife",
-  outDir: "dist/cdn",
-  globalName: "ZKPassportUI",
-  clean: false,
-  splitting: false,
-  sourcemap: true,
-  treeshake: !isDev,
-  minify: !isDev,
-  platform: "browser",
-  esbuildPlugins: [stubUnreachableDeps],
-  loader: { ".css": "text" },
-}
-
 const cssConfig: Options = {
   entry: { styles: "src/styles.css" },
   outDir: "dist",
@@ -116,4 +96,4 @@ const cssConfig: Options = {
   },
 }
 
-export default defineConfig([...npmConfigs, hostedConfig, cdnConfig, cssConfig])
+export default defineConfig([...npmConfigs, hostedConfig, cssConfig])

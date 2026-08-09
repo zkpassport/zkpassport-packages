@@ -276,10 +276,6 @@ export type Query = {
   bind?: BoundData
   sanctions?: SanctionsConfig
   facematch?: FacematchConfig
-  // Reference to a dashboard-defined policy that supplies the conditions;
-  // mutually exclusive with condition keys, composes with bind. Dereferenced
-  // (conditions resolved, scope/purpose set) where the dashboard config is
-  // available — resolved queries never carry this field.
   policy?: string
 }
 

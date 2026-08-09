@@ -4,7 +4,6 @@ import { defineConfig } from "vite"
 // Grants crossOriginIsolated (SharedArrayBuffer → multithreaded WASM proving)
 // WITHOUT COOP, so the window.opener postMessage channel to the RP page survives.
 // Supported in Chromium; other browsers ignore it and prove single-threaded.
-// The production host must send this header too (see README).
 const DOCUMENT_ISOLATION_HEADERS = {
   "Document-Isolation-Policy": "isolate-and-credentialless",
 }

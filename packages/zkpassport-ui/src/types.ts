@@ -25,7 +25,6 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   domain?: string
   theme?: "light" | "dark" | "auto"
   display?: ZKPassportQRCodeDisplayOptions
-  // Explainer screen before the QR (what's verified, how it works); the hosted popup enables it
   showIntroScreen?: boolean
   query: (queryBuilder: QueryBuilder) => QueryBuilderResult
   onReady?: () => void

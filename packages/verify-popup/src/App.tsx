@@ -5,11 +5,8 @@ import {
   type PopupConfigureMessage,
   type PopupEventMessage,
 } from "@zkpassport/sdk/popup"
-// The /hosted build: same card, but with the real SDK external (this page ships
-// it anyway for browser proving) instead of the zero-dependency stubbed bundle
 import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 
-// Omit that distributes over unions (plain Omit collapses a union to its common keys)
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
@@ -17,8 +14,6 @@ type Configuration = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
   // Browser-attested origin of the relying party page that opened this popup.
-  // SECURITY: this is the ONLY source of the RP's identity — never trust a
-  // domain carried inside the message payload.
   rpOrigin: string
 }
 

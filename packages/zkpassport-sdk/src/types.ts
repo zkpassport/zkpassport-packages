@@ -280,8 +280,7 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    */
   facematch: (mode?: FacematchMode) => QueryBuilder
   // @internal Seed from an already-built (serialized) Query, replacing anything
-  // set so far. Carried verbatim (values were normalized when first built), so
-  // it cannot drift when the builder gains methods. Used by the hosted popup.
+  // set so far. Used by the hosted popup.
   raw: (query: Query) => QueryBuilder<T>
   /**
    * Applies an immutable policy fetched from the dashboard. The policy's query,

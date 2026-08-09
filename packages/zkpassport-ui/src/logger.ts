@@ -1,9 +1,3 @@
-/**
- * Tiny console logger with a standard prefix so anything the widget emits is
- * recognizable in the host page's console. Debug output is off by default;
- * enable it with `localStorage.setItem("zkpassport:debug", "1")`.
- */
-
 const PREFIX = "[zkpassport]"
 
 function isDebugEnabled(): boolean {
