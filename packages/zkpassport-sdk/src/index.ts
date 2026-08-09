@@ -116,6 +116,7 @@ export class ZKPassport {
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
   private topicToPolicy: Record<string, { id: string; version: number }> = {}
+  private topicToVisibilityCleanup: Record<string, () => void> = {}
   private dashboardConfig: DashboardConfig | null = null
   private dashboardConfigPromise: Promise<DashboardConfig> | null = null
   private dashboardConfigError: Error | null = null
@@ -693,6 +694,20 @@ export class ZKPassport {
 
     this.topicToBridge[topic] = bridge
 
+    // Mobile browsers freeze backgrounded websockets; reconnect on foreground
+    if (typeof document !== "undefined") {
+      const onVisibilityChange = () => {
+        if (document.visibilityState !== "visible") return
+        const activeBridge = this.topicToBridge[topic]
+        if (!activeBridge || activeBridge.isBridgeConnected())
+          return // reconnectNow ships in newer @obsidion/bridge; older versions auto-reconnect
+        ;(activeBridge as { reconnectNow?: () => void }).reconnectNow?.()
+      }
+      document.addEventListener("visibilitychange", onVisibilityChange)
+      this.topicToVisibilityCleanup[topic] = () =>
+        document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+
     bridge.onConnect(async (reconnection: boolean) => {
       logger.debug("Bridge connected")
       logger.debug("Is reconnection:", reconnection)
@@ -994,6 +1009,8 @@ export class ZKPassport {
     delete this.topicToFailedProofCount[requestId]
     delete this.topicToResults[requestId]
     delete this.topicToPolicy[requestId]
+    this.topicToVisibilityCleanup[requestId]?.()
+    delete this.topicToVisibilityCleanup[requestId]
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []

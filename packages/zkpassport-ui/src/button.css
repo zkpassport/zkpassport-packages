@@ -30,7 +30,7 @@
       -apple-system,
       sans-serif
     ) !important;
-    font-size: var(--zkp-btn-font-size, 12px) !important;
+    font-size: var(--zkp-btn-font-size, 14px) !important;
     white-space: nowrap !important;
     font-weight: 600 !important;
     letter-spacing: var(--zkp-btn-letter-spacing, 0.04em) !important;
