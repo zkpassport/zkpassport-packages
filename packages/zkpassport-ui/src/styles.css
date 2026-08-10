@@ -682,7 +682,157 @@
   .zkp-intro-question .zkp-intro-continue {
     margin-top: 6px;
   }
+  .zkp-intro-saved {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .zkp-intro-saved {
+    gap: 10px;
+  }
+  .zkp-intro-saved .zkp-eyebrow {
+    margin-bottom: 0;
+  }
+  .zkp-saved-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .zkp-saved-hint {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--zkp-muted);
+  }
+  .zkp-intro-notice {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--zkp-error);
+  }
 
+  /* Saved ID rows — masked names set like an MRZ fragment */
+  .zkp-id-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .zkp-id-row {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--zkp-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 150ms ease;
+  }
+  .zkp-id-row:hover {
+    border-color: var(--zkp-brand);
+  }
+  .zkp-id-row-static {
+    padding: 12px 14px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 2px;
+  }
+  .zkp-id-main {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 11px 4px 11px 13px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--zkp-fg) !important;
+    font-size: inherit !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    min-width: 0 !important;
+  }
+  .zkp-id-main:disabled {
+    cursor: default !important;
+    opacity: 0.55 !important;
+  }
+  .zkp-id-row[data-proving="true"] .zkp-id-main:disabled {
+    opacity: 1 !important;
+  }
+  /* Ring spinner shown while a saved ID is proving, occupying the exact slot
+     of the remove button so the row's right edge never shifts.
+     !important: host resets (Tailwind preflight) zero out borders otherwise. */
+  .zkp-id-wait {
+    flex: none !important;
+    align-self: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    margin-right: 8px !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+  .zkp-id-wait::after {
+    content: "" !important;
+    width: 15px !important;
+    height: 15px !important;
+    border-radius: 50% !important;
+    border: 2px solid color-mix(in srgb, var(--zkp-muted) 35%, transparent) !important;
+    border-top-color: var(--zkp-brand) !important;
+    box-sizing: border-box !important;
+    animation: zkp-spinner-rotate 0.9s linear infinite !important;
+  }
+  .zkp-id-shield {
+    flex: none;
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    color: var(--zkp-brand);
+  }
+  .zkp-id-shield svg {
+    width: 100%;
+    height: 100%;
+  }
+  .zkp-id-name {
+    flex: 1;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--zkp-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .zkp-id-meta {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--zkp-muted);
+  }
+  .zkp-id-remove {
+    flex: none !important;
+    align-self: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    margin-right: 8px !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 7px !important;
+    background: transparent !important;
+    color: var(--zkp-muted) !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+    transition:
+      color 150ms ease,
+      background 150ms ease !important;
+  }
+  .zkp-id-remove:hover:not(:disabled) {
+    background: var(--zkp-surface) !important;
+    color: var(--zkp-error) !important;
+  }
+  .zkp-id-remove:disabled {
+    cursor: default !important;
+    opacity: 0.4 !important;
+  }
   .zkp-intro-question-text {
     margin: 4px 0 0;
     font-size: 15px;
@@ -717,7 +867,29 @@
     transform: translateY(1px) !important;
     filter: brightness(0.95) !important;
   }
-
+  .zkp-intro-secondary {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    display: block !important;
+    width: 100% !important;
+    padding: 14px 16px !important;
+    border: 1px solid var(--zkp-border) !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: var(--zkp-fg) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    transition:
+      background 150ms ease,
+      border-color 150ms ease !important;
+  }
+  .zkp-intro-secondary:hover {
+    background: var(--zkp-surface) !important;
+    border-color: var(--zkp-muted) !important;
+  }
   .zkp-intro-link {
     align-self: center !important;
     padding: 4px 8px !important;
@@ -727,6 +899,59 @@
     font-size: 13px !important;
     text-decoration: underline !important;
     cursor: pointer !important;
+  }
+
+  /* Browser verification */
+  .zkp-local-verify-inline {
+    margin-top: 14px;
+  }
+
+  .zkp-remember {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--zkp-fg);
+    cursor: pointer;
+  }
+  .zkp-remember input {
+    flex: none;
+    margin: 2px 0 0;
+    accent-color: var(--zkp-accent);
+    cursor: pointer;
+  }
+  .zkp-remember-hint {
+    color: var(--zkp-muted);
+  }
+  .zkp-notice {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--zkp-accent) 12%, transparent);
+    font-size: 13px;
+    color: var(--zkp-fg);
+    text-align: center;
+  }
+  .zkp-save-offer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .zkp-save-offer-text {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--zkp-muted);
+    text-align: center;
+  }
+  .zkp-save-offer-hint {
+    margin: -4px 0 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--zkp-muted);
   }
 
   /* Retry */

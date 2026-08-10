@@ -13,7 +13,7 @@ import {
   SupportedChain,
   Query,
 } from "@zkpassport/utils"
-import type { ZKPassport } from "./index"
+import type { EnrollmentAvailableActions, ZKPassport } from "./index"
 
 export type QueryResultError<T> = {
   expected?: T
@@ -158,6 +158,8 @@ export type QueryBuilderResult = {
    * or a proof failing to be generated.
    */
   onError: (callback: (error: string) => void) => void
+  /** Save prompt after a verified result with an enrollment bundle; call actions.save() from a user gesture. */
+  onEnrollmentAvailable: (callback: (actions: EnrollmentAvailableActions) => void) => void
   /**
    * @returns true if the bridge with the mobile app is connected
    */

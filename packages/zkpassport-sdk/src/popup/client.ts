@@ -15,6 +15,8 @@ export type PopupCallbacks = {
   onResult?: (result: Omit<PopupResult, "zkpassport" | "type">) => void
   onReject?: () => void
   onError?: (message: string) => void
+  onEnrollmentSaved?: () => void
+  onEnrollmentDeclined?: () => void
   // Fired when the user closes the popup before a result was produced
   onClose?: () => void
 }
@@ -122,6 +124,12 @@ export function openVerificationPopup(
         break
       case "error":
         callbacks.onError?.(data.message)
+        break
+      case "enrollment-saved":
+        callbacks.onEnrollmentSaved?.()
+        break
+      case "enrollment-declined":
+        callbacks.onEnrollmentDeclined?.()
         break
     }
   }

@@ -7,6 +7,10 @@ import {
 } from "@zkpassport/sdk/popup"
 import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 
+// Only this hosted page enables enrollment (spread to bypass the public prop type)
+const hostedEnrollmentProps = { hostedEnrollment: true }
+
+// Omit that distributes over unions (plain Omit collapses a union to its common keys)
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
@@ -79,10 +83,18 @@ export function App() {
   const domain = new URL(config.rpOrigin).hostname
   const request = config.request
 
-  // Auto-close once the flow is complete (after the outcome screen has shown)
+  // Auto-close once the flow is complete. The save prompt (if any) appears
+  // shortly after the result, so the result close is delayed and cancelled
+  // when the prompt shows; saving/declining then closes the window.
   const scheduleClose = (delayMs: number) => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current)
     closeTimer.current = window.setTimeout(() => window.close(), delayMs)
+  }
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      window.clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
   }
 
   return (
@@ -99,6 +111,8 @@ export function App() {
         uniqueIdentifierType={request.uniqueIdentifierType}
         oprfKeyId={request.oprfKeyId}
         showIntroScreen
+        enableBrowserEnrollment={request.enableBrowserEnrollment}
+        {...hostedEnrollmentProps}
         query={(builder) => hydrateQueryBuilder(builder, config.query)}
         onRequestReceived={() => send({ type: "request-received" })}
         onGeneratingProof={() => send({ type: "generating" })}
@@ -115,7 +129,7 @@ export function App() {
             verified,
             queryResultErrors,
           })
-          // Close after showing the success screen
+          // Close after showing the success screen, unless the save prompt appears
           if (verified) scheduleClose(2500)
         }}
         onReject={() => {
@@ -123,6 +137,15 @@ export function App() {
           scheduleClose(1500)
         }}
         onError={(message) => send({ type: "error", message: String(message) })}
+        onEnrollmentOffered={() => cancelClose()}
+        onEnrollmentSaved={() => {
+          send({ type: "enrollment-saved" })
+          scheduleClose(1200)
+        }}
+        onEnrollmentDeclined={() => {
+          send({ type: "enrollment-declined" })
+          scheduleClose(800)
+        }}
       />
     </Frame>
   )

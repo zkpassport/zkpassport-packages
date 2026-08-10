@@ -19,6 +19,10 @@ export type ZKPassportQRCodeDisplayOptions = {
   steps?: boolean
   // The "ZKPassport App" footer with the App Store / Google Play download links.
   appLinks?: boolean
+  // Browser verification elements: the "Verify with this browser" option, the
+  // "Remember in this browser" checkbox and the post-verification save prompt
+  // (only shown when enableBrowserEnrollment is set on the request).
+  browserVerification?: boolean
 }
 
 export type ZKPassportQRCodeOptions = SdkRequestProps & {
@@ -36,6 +40,22 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   onResult?: SdkCallback<"onResult">
   onReject?: SdkCallback<"onReject">
   onError?: SdkCallback<"onError">
+  // Browser enrollment (requires enableBrowserEnrollment: true)
+  // Called when the post-verification save prompt is shown to the user.
+  onEnrollmentOffered?: () => void
+  // Called when the user saved the enrollment to this browser after verification.
+  onEnrollmentSaved?: () => void
+  // Called when the user declined to save the enrollment (or saving failed).
+  onEnrollmentDeclined?: () => void
+  // Called when local (in-browser) verification starts.
+  onLocalVerificationStart?: () => void
+  // Called when local verification failed and the card fell back to the QR flow.
+  onLocalVerificationFallback?: (reason: string) => void
+}
+
+// Internal: set only by the hosted verify popup, whose shared origin is what makes saved IDs reusable
+export type HostedEnrollmentOptions = {
+  hostedEnrollment?: boolean
 }
 
 export type QRCardHandle = {

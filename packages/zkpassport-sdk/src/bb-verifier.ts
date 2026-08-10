@@ -51,7 +51,7 @@ const BB_VERSION_KEY = "__zkpassport_bb_version"
 const BB_CRS_DB_NAME = "keyval-store"
 
 // Clear bb cache on v4 -> v5 due to default CRS size change
-async function clearStaleCrsCacheOnVersionChange(bbVersion: BBVersion): Promise<void> {
+export async function clearStaleCrsCacheOnVersionChange(bbVersion: BBVersion): Promise<void> {
   if (typeof indexedDB === "undefined") return
   try {
     const store = typeof localStorage !== "undefined" ? localStorage : undefined
