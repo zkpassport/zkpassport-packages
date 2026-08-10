@@ -23,8 +23,6 @@
     color: var(--zkp-btn-fg, var(--zkp-brand)) !important;
     font-family: var(
       --zkp-btn-font,
-      Inter,
-      "Inter Fallback",
       ui-sans-serif,
       system-ui,
       -apple-system,
