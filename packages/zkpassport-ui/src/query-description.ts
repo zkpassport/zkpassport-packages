@@ -145,7 +145,7 @@ export function describeQuery(query: Query | null | undefined): QueryDescription
     if (conditions == null) continue
     if (field === "sanctions") {
       items.push({
-        title: "You are not on international sanctions lists",
+        title: "You are not on sanctions lists",
         detail: "Checked without revealing who you are",
       })
       continue
