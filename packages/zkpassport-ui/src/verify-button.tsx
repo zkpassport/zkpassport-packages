@@ -92,6 +92,15 @@ export function VerifyButton({ options }: VerifyButtonProps) {
       ...request
     } = current
 
+    // Functions can't cross postMessage: drop them so configure doesn't die on DataCloneError
+    const dropped = Object.keys(request).filter(
+      (key) => typeof (request as Record<string, unknown>)[key] === "function",
+    )
+    if (dropped.length > 0) {
+      logger.warn(`ignoring non-serializable option(s): ${dropped.join(", ")}`)
+      for (const key of dropped) delete (request as Record<string, unknown>)[key]
+    }
+
     const handle = openVerificationPopup({
       popupUrl,
       request,

@@ -80,15 +80,26 @@ export function openVerificationPopup(
     if (!isPopupMessage(data)) return
     switch (data.type) {
       case "ready":
-        popup.postMessage(
-          {
-            zkpassport: true,
-            type: "configure",
-            request: options.request,
-            query: options.query,
-          },
-          popupOrigin,
-        )
+        try {
+          popup.postMessage(
+            {
+              zkpassport: true,
+              type: "configure",
+              request: options.request,
+              query: options.query,
+            },
+            popupOrigin,
+          )
+        } catch (error) {
+          // Most likely DataCloneError: a non-serializable value in the request options
+          console.error("[zkpassport] failed to send the request to the popup:", error)
+          callbacks.onError?.("Failed to send the request to the verification popup")
+          try {
+            popup.close()
+          } catch {
+            // Already closed
+          }
+        }
         break
       case "request-received":
         callbacks.onRequestReceived?.()
