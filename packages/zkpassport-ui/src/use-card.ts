@@ -100,6 +100,14 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       safeCall(optionsRef.current.onReady)
     }
 
+    // onError is the only way to tell the host app that something went wrong
+    const fail = (summary: string, reason: unknown) => {
+      logger.error(reason)
+      setState("error")
+      const detail = reason instanceof Error ? reason.message : String(reason)
+      safeCall(optionsRef.current.onError, `${summary}: ${detail}`)
+    }
+
     const guard =
       <T extends unknown[]>(fn: (...args: T) => void) =>
       (...args: T) => {
@@ -107,8 +115,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         try {
           fn(...args)
         } catch (reason) {
-          logger.error(reason)
-          setState("error")
+          fail("Failed to handle a verification update", reason)
         }
       }
 
@@ -127,8 +134,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         try {
           request = buildQuery(queryBuilder)
         } catch (reason) {
-          logger.error(reason)
-          setState("error")
+          fail("Failed to build the verification query", reason)
           return
         }
 
@@ -205,22 +211,19 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             fireReady()
           } else applyBridgeState("connecting")
         } catch (reason) {
-          logger.error(reason)
-          setState("error")
+          fail("Failed to check the verification state", reason)
         }
 
         setUrl(request.url)
         try {
           setQrSvg(renderQrSvg(request.url))
         } catch (reason) {
-          logger.error(reason)
-          setState("error")
+          fail("Failed to render the QR code", reason)
         }
       })
       .catch((reason) => {
         if (cancelled) return
-        logger.error(reason)
-        setState("error")
+        fail("Failed to start the verification request", reason)
       })
 
     return () => {
