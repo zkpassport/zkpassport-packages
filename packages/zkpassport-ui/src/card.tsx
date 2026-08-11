@@ -286,8 +286,8 @@ function IntroSection({
           <span>On your device</span>
         </div>
         <p className="zkp-intro-footer-note">
-          Neither {appName} nor ZKPassport ever sees any personal information beyond what you to
-          share. Your raw passport data stays on your devices.
+          Neither {appName} nor ZKPassport ever sees any personal information beyond what you choose
+          to share. Your raw passport data stays on your devices.
         </p>
       </div>
     </div>
