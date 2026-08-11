@@ -53,15 +53,11 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   dts: {
     compilerOptions: {
       composite: false,
-      // resolve: true inlines types so consumers don't need @zkpassport/* installed.
-      // Each paths key bypasses tsup's own dts resolver (it mishandles exports-map
-      // subpaths); the @zkpassport targets are then inlined from the built d.ts.
-      // preact's dead-end value keeps it external — inlining it crashes the dts
-      // transformer on its `import X = Y` syntax. React stays external via the
-      // peer-dependency default. validate-package asserts the output is
-      // self-contained (scripts/check-dts-self-contained.mjs).
+      // Copy the @zkpassport types into our published type files, so
+      // consumers don't need to install those packages themselves
       baseUrl: ".",
       paths: {
+        // preact must stay external: inlining it breaks the build
         "preact": ["./keep-external"],
         "@zkpassport/sdk": ["../zkpassport-sdk/dist/esm/index.d.ts"],
         "@zkpassport/sdk/popup": ["../zkpassport-sdk/dist/esm/popup.d.ts"],
