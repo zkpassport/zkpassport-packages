@@ -65,8 +65,12 @@ export function VerifyButton({ options }: VerifyButtonProps) {
     // Serialize via the offline builder; policyId option == .policy() on the builder
     let query: Query
     try {
-      const built = current.query(createOfflineQuery() as never) as unknown as { query: Query }
-      query = current.policyId ? { ...built.query, policy: current.policyId } : built.query
+      const builder = createOfflineQuery()
+      if (current.policyId) {
+        builder.policy(current.policyId)
+      }
+      const built = current.query(builder as never) as unknown as { query: Query }
+      query = built.query
     } catch (reason) {
       logger.error(reason)
       setStatus("error")
