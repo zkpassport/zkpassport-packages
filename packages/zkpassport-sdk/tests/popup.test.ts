@@ -161,6 +161,39 @@ describe("openVerificationPopup", () => {
     }
   })
 
+  test("keeps listening after an unverified result, so a retry still reaches the page", () => {
+    const { fakeWindow, emit } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      const outcomes: boolean[] = []
+      openVerificationPopup({
+        popupUrl: "https://verify.zkpassport.id",
+        request: {},
+        query: {},
+        callbacks: { onResult: (result) => outcomes.push(result.verified) },
+      })
+      const sendResult = (verified: boolean) =>
+        emit("https://verify.zkpassport.id", {
+          zkpassport: true,
+          type: "result",
+          proofs: [],
+          result: {},
+          uniqueIdentifier: "0x1",
+          uniqueIdentifierType: undefined,
+          verified,
+        })
+
+      sendResult(false)
+      sendResult(true)
+
+      expect(outcomes).toEqual([false, true])
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
   test("returns null when the popup is blocked", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(globalThis as any).window = {
