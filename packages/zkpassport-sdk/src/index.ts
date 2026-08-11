@@ -32,6 +32,8 @@ import {
   DashboardConfig,
   Policy,
   QueryResultErrors,
+  VerifierMode,
+  VerificationResult,
 } from "./types"
 import {
   createOfflineQuery,
@@ -44,6 +46,7 @@ import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
+import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -94,7 +97,6 @@ export { createOfflineQuery } from "./offline-query"
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
-  private disableProofStorage: boolean
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -115,9 +117,12 @@ export class ZKPassport {
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
-  private topicToPolicy: Record<string, { id: string; version: number }> = {}
+  private topicToPolicy: Record<
+    string,
+    { id: string; version: number; proofStorageEnabled: boolean }
+  > = {}
   private dashboardConfig: DashboardConfig | null = null
-  private dashboardConfigPromise: Promise<DashboardConfig> | null = null
+  private dashboardConfigPromise: Promise<DashboardConfig | null> | null = null
   private dashboardConfigError: Error | null = null
 
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
@@ -160,13 +165,12 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string, options?: { disableProofStorage?: boolean }) {
+  constructor(_domain?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.disableProofStorage = options?.disableProofStorage ?? false
   }
 
   private async handleResult(topic: string) {
@@ -192,7 +196,8 @@ export class ZKPassport {
     // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
     // pollute real-domain stats.
     const devMode = this.topicToLocalConfig[topic]?.devMode === true
-    if (finalVerified && this.domainProvided && !this.disableProofStorage && !devMode) {
+    const proofStorageEnabled = this.topicToPolicy[topic]?.proofStorageEnabled === true
+    if (finalVerified && proofStorageEnabled && this.domainProvided && !devMode) {
       void submitProof({
         domain: this.domain,
         proofs: this.topicToProofs[topic],
@@ -369,7 +374,6 @@ export class ZKPassport {
             ? `0x${string}`
             : string | undefined,
       ) => {
-        this.assertNotPolicyLocked(topic, "bind")
         this.topicToConfig[topic].bind = {
           ...this.topicToConfig[topic].bind,
           [key]: value,
@@ -408,7 +412,7 @@ export class ZKPassport {
         }
         return this.getZkPassportRequest(topic)
       },
-      facematch: (mode: FacematchMode = "regular") => {
+      facematch: (mode: FacematchMode = "strict") => {
         this.assertNotPolicyLocked(topic, "facematch")
         this.topicToConfig[topic].facematch = {
           mode,
@@ -434,11 +438,14 @@ export class ZKPassport {
         if (!this.dashboardConfig) {
           if (this.dashboardConfigError) throw this.dashboardConfigError
           throw new Error(
-            `Cannot apply policy '${id}': dashboard config is unavailable for domain '${this.domain}'.`,
+            `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id.`,
           )
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
-        this.topicToConfig[topic] = policy.query
+        // Copy the query: the policy object is reused across requests, and a
+        // later .bind() writes into it
+        const { bind: _, ...policyQuery } = policy.query
+        this.topicToConfig[topic] = policyQuery
         // Policy locks scope; caller's purpose still wins when provided.
         const svc = this.topicToService[topic]
         if (svc) {
@@ -447,7 +454,11 @@ export class ZKPassport {
           }
           svc.scope = policyScope(policy)
         }
-        this.topicToPolicy[topic] = { id: policy.id, version: policy.version }
+        this.topicToPolicy[topic] = {
+          id: policy.id,
+          version: policy.version,
+          proofStorageEnabled: policy.proofStorageEnabled === true,
+        }
         return this.getZkPassportRequest(topic)
       },
       done: (() => {
@@ -517,7 +528,7 @@ export class ZKPassport {
     }
   }
 
-  private async getDashboardConfig(): Promise<DashboardConfig> {
+  private async getDashboardConfig(): Promise<DashboardConfig | null> {
     if (this.dashboardConfig) return this.dashboardConfig
     if (!this.dashboardConfigPromise) {
       this.dashboardConfigPromise = this.fetchDashboardConfig()
@@ -533,7 +544,9 @@ export class ZKPassport {
     return this.dashboardConfigPromise
   }
 
-  private async fetchDashboardConfig(): Promise<DashboardConfig> {
+  // Returns null when the domain is not registered with the dashboard.
+  // That answer gets cached like a normal config; only failed requests are retried.
+  private async fetchDashboardConfig(): Promise<DashboardConfig | null> {
     const url = `${DASHBOARD_API_BASE_URL}/public/project?domain=${encodeURIComponent(this.domain)}`
     let response: Response
     try {
@@ -543,17 +556,15 @@ export class ZKPassport {
         `Failed to fetch dashboard config for domain '${this.domain}': ${(e as Error).message}`,
       )
     }
-    if (response.status === 404) {
-      throw new Error(
-        `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id, or use self-serve mode (pass name/logo/purpose to request()).`,
-      )
-    }
     if (!response.ok) {
       throw new Error(
         `Failed to fetch dashboard config for domain '${this.domain}': ${response.status} ${response.statusText}`,
       )
     }
     const config = (await response.json()) as DashboardConfig
+    if (config && config.project === null) {
+      return null
+    }
     if (!config || !config.project || !Array.isArray(config.policies)) {
       throw new Error(`Invalid dashboard config response for domain '${this.domain}'`)
     }
@@ -590,7 +601,9 @@ export class ZKPassport {
       )
     }
     if (Object.keys(this.topicToConfig[topic]).length > 0) {
-      throw new Error("Cannot combine .policy() with builder methods like .gte()/.disclose()/etc.")
+      throw new Error(
+        "Cannot combine .policy() with builder methods like .gte()/.disclose()/etc. Call .policy() first; only .bind() may follow it.",
+      )
     }
   }
 
@@ -632,7 +645,7 @@ export class ZKPassport {
     projectID?: string
     validity?: number
     devMode?: boolean
-    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
+    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
     oprfKeyId?: string
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
@@ -644,7 +657,13 @@ export class ZKPassport {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
 
-    let config: DashboardConfig | undefined
+    if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
+      throw new Error(
+        "An OPRF key cannot be used with the NONE unique identifier type. Remove the oprfKeyId option or use the SALTED type.",
+      )
+    }
+
+    let config: DashboardConfig | null = null
     try {
       config = await this.getDashboardConfig()
       this.dashboardConfigError = null
@@ -732,10 +751,65 @@ export class ZKPassport {
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
+   * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
+   * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
+   * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
   public async verify({
+    proofs,
+    originalQuery,
+    queryResult,
+    validity,
+    scope,
+    devMode = false,
+    writingDirectory,
+    oprfKeyId,
+    verifierMode = "auto",
+  }: {
+    proofs: Array<ProofResult>
+    originalQuery: Query
+    queryResult: QueryResult
+    validity?: number
+    scope?: string
+    devMode?: boolean
+    writingDirectory?: string
+    oprfKeyId?: string
+    verifierMode?: VerifierMode
+  }): Promise<VerificationResult> {
+    const notVerified: VerificationResult = {
+      uniqueIdentifier: undefined,
+      uniqueIdentifierType: undefined,
+      verified: false,
+    }
+    // If no proofs were generated, the results can't be trusted.
+    // We still return it but verified will be false
+    if (!proofs || proofs.length === 0) {
+      return notVerified
+    }
+    const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
+    const localParams = { ...params, writingDirectory }
+    const apiParams = { ...params, domain: this.domain }
+
+    if (verifierMode === "local") {
+      return this.verifyLocally(localParams)
+    }
+    if (verifierMode === "api") {
+      return (await verifyWithVerifierApi(apiParams)) ?? notVerified
+    }
+
+    let localResult: VerificationResult | undefined
+    try {
+      localResult = await this.verifyLocally(localParams)
+      if (localResult.verified) return localResult
+    } catch (e) {
+      console.warn("Local proof verification failed:", e)
+    }
+    return (await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified
+  }
+
+  private async verifyLocally({
     proofs,
     originalQuery,
     queryResult,
@@ -753,21 +827,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
-  }): Promise<{
-    uniqueIdentifier: string | undefined
-    uniqueIdentifierType: NullifierType | undefined
-    verified: boolean
-    queryResultErrors?: Partial<QueryResultErrors>
-  }> {
-    // If no proofs were generated, the results can't be trusted.
-    // We still return it but verified will be false
-    if (!proofs || proofs.length === 0) {
-      return {
-        uniqueIdentifier: undefined,
-        uniqueIdentifierType: undefined,
-        verified: false,
-      }
-    }
+  }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
     // Automatically set the writing directory to `/tmp` if it is not provided
@@ -783,111 +843,112 @@ export class ZKPassport {
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
-    const {
-      isCorrect,
-      uniqueIdentifier: uniqueIdentifierFromPublicInputs,
-      uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
-      queryResultErrors: queryResultErrorsFromPublicInputs,
-    } = await PublicInputChecker.checkPublicInputs(
-      this.domain,
-      proofs,
-      originalQuery,
-      formattedResult,
-      validity,
-      scope,
-      oprfKeyId,
-      devMode,
-    )
-    uniqueIdentifier = uniqueIdentifierFromPublicInputs
-    uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
-    verified = isCorrect
-    queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
-    if (
-      uniqueIdentifier &&
-      uniqueIdentifierType &&
-      (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
-        uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
-      !devMode
-    ) {
-      // If the unique identifier type is a mock nullifier and it is not in dev mode,
-      // the proofs are considered invalid as these are mock proofs only meant
-      // for testing purposes
-      verified = false
-      console.warn(
-        "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
+    try {
+      const {
+        isCorrect,
+        uniqueIdentifier: uniqueIdentifierFromPublicInputs,
+        uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
+        queryResultErrors: queryResultErrorsFromPublicInputs,
+      } = await PublicInputChecker.checkPublicInputs(
+        this.domain,
+        proofs,
+        originalQuery,
+        formattedResult,
+        validity,
+        scope,
+        oprfKeyId,
+        devMode,
       )
-    }
-    // Only proceed with the proof verification if the public inputs are correct
-    if (verified) {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const circuitManifest = await registryClient.getCircuitManifest(undefined, {
-        // We assume all proofs have the same version
-        version: proofs[0].version,
-      })
-      for (const proof of proofs) {
-        const isOuterEVM = proof.name?.startsWith("outer_evm_")
-        const proofName = proof.name!
-        const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
-        const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
-          proofName,
-          circuitManifest,
-          // TODO: set to always validate when the issue is vkey hash calculation is fixed
-          { validate: !isOuterEVM },
+      uniqueIdentifier = uniqueIdentifierFromPublicInputs
+      uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
+      verified = isCorrect
+      queryResultErrors = isCorrect ? undefined : queryResultErrorsFromPublicInputs
+      if (
+        (uniqueIdentifierType === NullifierType.SALTED_MOCK ||
+          uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) &&
+        !devMode
+      ) {
+        // If the unique identifier type is a mock nullifier and it is not in dev mode,
+        // the proofs are considered invalid as these are mock proofs only meant
+        // for testing purposes
+        verified = false
+        console.warn(
+          "You are trying to verify a mock proof. This is only allowed in dev mode. To enable dev mode, set the `devMode` parameter to `true` in the request function parameters.",
         )
-        if (isOuterEVM) {
-          try {
-            const { createPublicClient, http } = await import("viem")
-            const { sepolia } = await import("viem/chains")
-            const { mainnet } = await import("viem/chains")
-            const { address, abi, functionName } = this.getSolidityVerifierDetails()
-            const rpcUrl = devMode
-              ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-              : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-            const client = createPublicClient({
-              chain: devMode ? sepolia : mainnet,
-              transport: http(rpcUrl),
-            })
-            const params = this.getSolidityVerifierParameters({
-              proof,
-              domain: this.domain,
-              scope,
-              devMode,
-            })
-            const result = await client.readContract({
-              address,
-              abi,
-              functionName,
-              args: [params],
-            })
-            const isVerified = Array.isArray(result) ? Boolean(result[0]) : false
-            verified = isVerified
-          } catch (error) {
-            console.warn("Error verifying proof", error)
-            verified = false
+      }
+      // Only proceed with the proof verification if the public inputs are correct
+      if (verified) {
+        const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+        const circuitManifest = await registryClient.getCircuitManifest(undefined, {
+          // We assume all proofs have the same version
+          version: proofs[0].version,
+        })
+        for (const proof of proofs) {
+          const isOuterEVM = proof.name?.startsWith("outer_evm_")
+          const proofName = proof.name!
+          const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
+          const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
+            proofName,
+            circuitManifest,
+            // TODO: set to always validate when the issue is vkey hash calculation is fixed
+            { validate: !isOuterEVM },
+          )
+          if (isOuterEVM) {
+            try {
+              const { createPublicClient, http } = await import("viem")
+              const { sepolia } = await import("viem/chains")
+              const { mainnet } = await import("viem/chains")
+              const { address, abi, functionName } = this.getSolidityVerifierDetails()
+              const rpcUrl = devMode
+                ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+                : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+              const client = createPublicClient({
+                chain: devMode ? sepolia : mainnet,
+                transport: http(rpcUrl),
+              })
+              const params = this.getSolidityVerifierParameters({
+                proof,
+                validityPeriodInSeconds: validity,
+                domain: this.domain,
+                scope,
+                devMode,
+              })
+              const result = await client.readContract({
+                address,
+                abi,
+                functionName,
+                args: [params],
+              })
+              const isVerified = Array.isArray(result) ? Boolean(result[0]) : false
+              verified = isVerified
+            } catch (error) {
+              console.warn("Error verifying proof", error)
+              verified = false
+            }
+          } else {
+            const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
+            try {
+              verified = await verifier.verifyProof({
+                proof: Buffer.from(proofData.proof.join(""), "hex"),
+                publicInputs: proofData.publicInputs,
+                verificationKey: new Uint8Array(vkeyBytes),
+              })
+            } catch (e) {
+              console.warn(`Error verifying proof ${proofName}`, e)
+              verified = false
+            }
           }
-        } else {
-          const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
-          try {
-            verified = await verifier.verifyProof({
-              proof: Buffer.from(proofData.proof.join(""), "hex"),
-              publicInputs: proofData.publicInputs,
-              verificationKey: new Uint8Array(vkeyBytes),
-            })
-          } catch (e) {
-            console.warn(`Error verifying proof ${proofName}`, e)
-            verified = false
+          if (!verified) {
+            // Break the loop if the proof is not valid
+            // and don't bother checking the other proofs
+            break
           }
-        }
-        if (!verified) {
-          // Break the loop if the proof is not valid
-          // and don't bother checking the other proofs
-          break
         }
       }
+    } finally {
+      // Always release the bb.js instance, or its worker threads keep the process alive
+      await destroyVerifier()
     }
-
-    // Release the bb.js wasm instance loaded for this verify() call
-    await destroyVerifier()
 
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined

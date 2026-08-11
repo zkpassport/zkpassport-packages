@@ -48,6 +48,18 @@ export type QueryResultErrors = {
   }
 }
 
+// How verify() checks proofs: "local" uses the verifier bundled with this SDK,
+// "api" uses the hosted ZKPassport verifier API, and "auto" verifies locally
+// but defers to the API when the local result is not verified.
+export type VerifierMode = "auto" | "local" | "api"
+
+export type VerificationResult = {
+  uniqueIdentifier: string | undefined
+  uniqueIdentifierType: NullifierType | undefined
+  verified: boolean
+  queryResultErrors?: Partial<QueryResultErrors>
+}
+
 export type SolidityProofVerificationData = {
   vkeyHash: string
   proof: string
@@ -76,6 +88,7 @@ export type Policy = {
   purpose: string
   projectId: string | null
   query: Query
+  proofStorageEnabled?: boolean
 }
 
 export type DashboardConfig = {
@@ -272,7 +285,7 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
   ) => QueryBuilder
   /**
    * Requires that the ID holder's face matches the photo on the ID.
-   * @param mode The mode to use for the face match. Defaults to "regular".
+   * @param mode The mode to use for the face match. Defaults to "strict".
    * @param mode "strict" - The user will have to go through an extensive liveness check to prevent spoofing making it more secure.
    * Best for high security requirements such as KYC.
    * @param mode "regular" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
@@ -284,8 +297,8 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
   raw: (query: Query) => QueryBuilder<T>
   /**
    * Applies an immutable policy fetched from the dashboard. The policy's query,
-   * purpose and scope are locked; combining with builder methods or calling
-   * twice throws.
+   * purpose and scope are locked; combining with builder methods (except
+   * `.bind()`, which may follow it) or calling twice throws.
    * @param id The policy id (e.g. `'pol_xyz'`).
    */
   policy: (id: string) => QueryBuilder<T>

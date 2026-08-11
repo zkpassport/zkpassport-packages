@@ -591,10 +591,17 @@ describe("Policy-driven requests", () => {
     expect(service.scope).toBeUndefined()
   })
 
-  test(".policy() throws a clear 'domain not registered' error on 404", async () => {
-    mockFetchReturning({}, 404)
+  test(".policy() throws a clear 'domain not registered' error when the dashboard returns a null project", async () => {
+    mockFetchReturning({ project: null, policies: [] })
     const builder = await zkPassport.request({})
     expect(() => builder.policy("pol_xyz")).toThrow(/Domain 'localhost' is not registered/i)
+  })
+
+  test("the 'not registered' answer is cached: multiple requests trigger one fetch", async () => {
+    mockFetchReturning({ project: null, policies: [] })
+    await zkPassport.request({})
+    await zkPassport.request({})
+    expect(fetchCount).toBe(1)
   })
 
   test(".policy() throws when the requested policy id is not in the dashboard's policies array", async () => {
@@ -617,11 +624,38 @@ describe("Policy-driven requests", () => {
     expect(() => builder.policy("pol_xyz")).toThrow(/more than once/i)
   })
 
-  test("every mutating builder method throws after .policy()", async () => {
+  test("every mutating builder method except .bind() throws after .policy()", async () => {
     const builder = (await zkPassport.request({})).policy("pol_xyz")
     expect(() => builder.eq("document_type", "passport")).toThrow(/policy-driven/i)
     expect(() => builder.disclose("firstname")).toThrow(/policy-driven/i)
     expect(() => builder.sanctions()).toThrow(/policy-driven/i)
+    expect(() => builder.bind("chain", "ethereum")).not.toThrow()
+  })
+
+  test(".bind() after .policy() adds bound data on top of the policy query", async () => {
+    const result = (await zkPassport.request({}))
+      .policy("pol_xyz")
+      .bind("user_address", "0x1234abcd")
+      .bind("chain", "ethereum")
+      .done()
+
+    expect(result.policy).toBe("pol_xyz")
+    expect(result.query).toEqual({
+      ...sampleConfig.policies[0].query,
+      bind: { user_address: "0x1234abcd", chain: "ethereum" },
+    })
+  })
+
+  test(".bind() before .policy() still throws", async () => {
+    const builder = await zkPassport.request({})
+    builder.bind("user_address", "0x1234abcd")
+    expect(() => builder.policy("pol_xyz")).toThrow(/Cannot combine \.policy\(\)/i)
+  })
+
+  test(".bind() on one policy-driven request does not leak into the next", async () => {
+    ;(await zkPassport.request({})).policy("pol_xyz").bind("chain", "ethereum")
+    const result = (await zkPassport.request({})).policy("pol_xyz").done()
+    expect(result.query.bind).toBeUndefined()
   })
 
   test(".policy() rejects an empty id", async () => {
@@ -794,5 +828,58 @@ describe("Salted nullifier facematch validation", () => {
       uniqueIdentifierType: NullifierType.NON_SALTED,
     })
     expect(() => qb.done()).not.toThrow()
+  })
+})
+
+describe("NONE nullifier type requests", () => {
+  let zkPassport: ZkPassportVerifier
+  let originalFetch: typeof globalThis.fetch
+
+  beforeEach(() => {
+    MockWebSocket.clearHub()
+    originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response("{}", {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      })) as unknown as typeof globalThis.fetch
+    zkPassport = new ZkPassportVerifier("localhost")
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  const noneRequest = (extra?: { oprfKeyId?: string }) =>
+    zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing NONE nullifier type",
+      uniqueIdentifierType: NullifierType.NONE,
+      ...extra,
+    })
+
+  test("encodes nt=4 in the request URL", async () => {
+    const qb = await noneRequest()
+    const result = qb.disclose("firstname").done()
+    expect(result.url).toContain(`&nt=${NullifierType.NONE}`)
+  })
+
+  test("NONE with a plain disclosure is allowed", async () => {
+    const qb = await noneRequest()
+    expect(() => qb.disclose("firstname").done()).not.toThrow()
+  })
+
+  test("NONE with facematch is allowed", async () => {
+    const strictQb = await noneRequest()
+    expect(() => strictQb.facematch("strict").done()).not.toThrow()
+    const regularQb = await noneRequest()
+    expect(() => regularQb.facematch("regular").done()).not.toThrow()
+  })
+
+  test("rejects an OPRF key combined with NONE", async () => {
+    await expect(noneRequest({ oprfKeyId: "some-oprf-key" })).rejects.toThrow(
+      "An OPRF key cannot be used with the NONE unique identifier type",
+    )
   })
 })
