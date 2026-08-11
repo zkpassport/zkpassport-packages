@@ -171,7 +171,7 @@ export function createOfflineQuery(): QueryBuilder<"offline"> {
       }
       return builder as unknown as QueryBuilder
     },
-    facematch: (mode: FacematchMode = "regular") => {
+    facematch: (mode: FacematchMode = "strict") => {
       assertNotPolicyLocked("facematch")
       config[topic].facematch = { mode }
       return builder as unknown as QueryBuilder
