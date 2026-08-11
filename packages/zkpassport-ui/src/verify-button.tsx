@@ -124,7 +124,7 @@ export function VerifyButton({ options }: VerifyButtonProps) {
         onError,
         onClose: () => {
           // Popup closed before producing a result
-          setStatus("error")
+          setStatus("idle")
           onClose?.()
         },
       },
