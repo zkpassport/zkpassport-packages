@@ -29,6 +29,7 @@ export function App() {
       return
     }
     const onMessage = (event: MessageEvent) => {
+      if (event.source !== opener) return
       const data = event.data
       if (!isPopupMessage(data) || data.type !== "configure") return
       setConfig((current) =>
