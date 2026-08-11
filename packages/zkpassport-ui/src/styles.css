@@ -25,6 +25,7 @@
     background: var(--zkp-bg);
     color: var(--zkp-fg);
     font-family: ui-sans-serif, system-ui, sans-serif;
+    text-align: left;
     font-size: 14px;
     line-height: 1.4;
     min-height: 460px;
