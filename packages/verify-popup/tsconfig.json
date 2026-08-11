@@ -10,7 +10,10 @@
     "noEmit": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "paths": {
+      "@zkpassport/ui/hosted": ["../zkpassport-ui/dist/hosted.d.ts"]
+    }
   },
   "include": ["src", "vite.config.ts"]
 }
