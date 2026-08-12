@@ -14,6 +14,11 @@ echo "📦 Packing package..."
 PKG=$(bun pm pack --quiet | xargs)
 trap 'rm "$PKG"' EXIT
 
+# A typescript peer dependency breaks `npm install` for consumers on other TS
+# majors (npm enforces peer ranges; ERESOLVE). publint/attw don't check this.
+echo "🔍 Checking peerDependencies..."
+bun -e "require('./package.json').peerDependencies?.typescript && (console.error('ERROR: typescript must not be a peer dependency'), process.exit(1))"
+
 # Run publint validation
 echo "🔍 Running publint..."
 "$REPO_ROOT/node_modules/.bin/publint" "$PKG"
