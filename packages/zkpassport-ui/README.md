@@ -54,6 +54,36 @@ const handle = mount(document.getElementById("zk-passport")!, {
 // handle.unmount()            — tear it all down
 ```
 
+## Verify button
+
+Opens the verification flow in a popup on the ZKPassport origin, where saved IDs work across every relying party. Options are the card's, minus the QR-only ones, plus `label`, `theme` (`"light"` by default, `"auto"` to follow the OS), `classes`, `policyId` and `popupUrl`; progress and success show inside the button, and the only thing rendered outside it is the error message, which `showErrorMessage: false` turns off if you would rather report failures from `onError`; callbacks are the SDK's, plus `onClose` when the user closes the popup without a result.
+
+```tsx
+import { VerifyWithZKPassportButton } from "@zkpassport/ui/react-button"
+
+<VerifyWithZKPassportButton name="Aztec" scope="age-check" query={…} onResult={…} />
+```
+
+```ts
+import { mountVerifyButton } from "@zkpassport/ui/button"
+
+const handle = mountVerifyButton(document.getElementById("verify")!, options)
+```
+
+For your own button, pass a function as `children`:
+
+```tsx
+<VerifyWithZKPassportButton name="Aztec" scope="age-check" query={…}>
+  {({ verify, isLoading }) => (
+    <button onClick={verify} disabled={isLoading}>
+      {isLoading ? <Spinner /> : "Get verified"}
+    </button>
+  )}
+</VerifyWithZKPassportButton>
+```
+
+To own the surrounding layout too, skip the component: `useVerifyWithZKPassport(options)` returns the same `{ verify, status, isLoading, error }`, and `createVerification(getOptions, onStateChange)` does the same outside React. `status` is `"idle" | "in-progress" | "success" | "error"`; `error` holds a message only when the user needs one, such as a blocked popup.
+
 ## Callbacks
 
 All optional. The SDK lifecycle callbacks pass through verbatim — their signatures are derived from `@zkpassport/sdk`'s `QueryBuilderResult`, so any SDK change flows through here automatically.
@@ -112,10 +142,15 @@ Styles auto-inject as a `<style>` tag wrapped in `@layer zkpassport`, so host ap
 import "@zkpassport/ui/styles.css"
 ```
 
+The button reads CSS custom properties for light restyling — `--zkp-btn-bg`, `-fg`, `-border`, `-radius`, `-padding`, `-font`, `-font-size`, `-letter-spacing`, `-text-transform`, plus `--zkp-verify-success`, `-error` for the verified and failed states. Set them on the mount element or any ancestor.
+
+To resize the button, set `--zkp-btn-font-size`; the icon, gap and padding are in `em`, so they scale with it. Use `--zkp-btn-padding` on top of that to make it chunkier or tighter than the default proportions.
+
 ## How it works
 
 - **Rendering** uses [Preact](https://preactjs.com) (~3.5KB gzipped, bundled inline). React consumers don't drag Preact into their app tree — the card mounts into its own root inside a host `<div>`.
 - **Two entry points**: `@zkpassport/ui` (vanilla `mount()`) and `@zkpassport/ui/react` (React component). Both call into the same Preact `<Card>`.
+- **The button doesn't use Preact.** Its flow lives in `createVerification` (plain TypeScript), and each entry renders it natively: real React in `@zkpassport/ui/react-button`, plain DOM in `@zkpassport/ui/button`. That's what lets React consumers pass their own children.
 - **State machine** lives in a `useCard` hook: builds the request via `sdk.request(...)`, subscribes to the SDK's bridge events (`onBridgeConnect`, `onRequestReceived`, `onGeneratingProof`, `onResult`, `onReject`, `onError`), and maps them to UI states (`preparing → connecting → waiting → scanned → generating → success | error`).
 - **`query`** receives the SDK's `QueryBuilder`. Apply gates and return `queryBuilder.done()`. Other props (`name`, `logo`, `scope`, `devMode`, …) flow straight through to `sdk.request(...)`.
 - **Retry** rebuilds the request from scratch (re-runs `sdk.request(...)` and the `query` callback); a cancellation token invalidates SDK event subscribers from the superseded request.

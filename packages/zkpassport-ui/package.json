@@ -60,9 +60,9 @@
     "build": "tsup --config tsup.config.ts",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
-    "test": "echo 'no tests yet'",
-    "check": "tsc --noEmit && prettier -c src && eslint src --ext .ts,.tsx",
-    "format": "prettier -c -w src && eslint src --ext .ts,.tsx --fix",
+    "test": "bun test",
+    "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts,.tsx",
+    "format": "prettier -c -w src tests && eslint src tests --ext .ts,.tsx --fix",
     "validate-package": "../../scripts/validate-package.sh --exclude-entrypoints ./styles.css && node ../../scripts/check-dts-self-contained.mjs",
     "prepublishOnly": "../../scripts/prepublish.sh"
   },
