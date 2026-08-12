@@ -425,6 +425,12 @@ export type QRCodeData = {
   uniqueIdentifierType: NullifierType | null
   oprfKeyId: string | null
   returnDeepLink: string | null
+  /** "back" = the app shows a "return to the app you came from" completion
+   * instead of opening `returnDeepLink` — for flows started in an in-app
+   * webview or a non-default browser, where an https deep link would land the
+   * user in a browser without their session. Optional for compatibility with
+   * requests from older SDKs. */
+  returnBehavior?: "url" | "back" | null
 }
 
 export interface JsonRpcRequest {
