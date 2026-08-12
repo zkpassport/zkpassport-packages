@@ -2,7 +2,8 @@
   /* "Verify with ZKPassport" button (opens the hosted popup).
      Customize via CSS custom properties on the mount element or any ancestor:
      --zkp-btn-bg/-fg/-border/-radius/-padding/-font/-font-size/-letter-spacing/
-     -text-transform, and --zkp-verify-muted/-success/-error for the status line.
+     -text-transform, and --zkp-verify-success/-error for the verified and failed states.
+     Sizing hangs off --zkp-btn-font-size: the icon, gap and padding are all in em.
 
      !important throughout: host resets (e.g. Tailwind preflight) are unlayered
      and would otherwise strip these. */
@@ -15,8 +16,7 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 11px !important;
-    padding: var(--zkp-btn-padding, 13px 24px) !important;
+    padding: var(--zkp-btn-padding, 0.8667em 1.6em) !important;
     border: 1px solid var(--zkp-btn-border, #d3d9e8) !important;
     border-radius: var(--zkp-btn-radius, 8px) !important;
     background: var(--zkp-btn-bg, var(--zkp-bg)) !important;
@@ -39,13 +39,13 @@
       filter 150ms ease,
       transform 150ms ease;
   }
-  .zkp-verify-button[data-theme="dark"] {
+  .zkp-verify-wrap[data-theme="dark"] .zkp-verify-button {
     --zkp-bg: #0f172a;
     --zkp-brand: #93b0f5;
     --zkp-btn-border: #334155;
   }
   @media (prefers-color-scheme: dark) {
-    .zkp-verify-button[data-theme="auto"] {
+    .zkp-verify-wrap[data-theme="auto"] .zkp-verify-button {
       --zkp-bg: #0f172a;
       --zkp-brand: #93b0f5;
       --zkp-btn-border: #334155;
@@ -58,11 +58,28 @@
     transform: translateY(1px);
     filter: brightness(0.95);
   }
+  /* Both states share one grid cell, so the button is as wide as the longer of the two
+     and never resizes when it switches to "Verified" */
+  .zkp-verify-content {
+    display: grid !important;
+    grid-template-areas: "state" !important;
+    justify-items: center !important;
+  }
+  .zkp-verify-state {
+    grid-area: state !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.7333em !important;
+  }
+  .zkp-verify-button:not([data-status="success"]) .zkp-verify-state-success,
+  .zkp-verify-button[data-status="success"] .zkp-verify-state-default {
+    visibility: hidden !important;
+  }
   .zkp-verify-button-mark {
     position: relative;
     display: inline-flex;
-    width: 20px;
-    height: 20px;
+    width: 1.3333em;
+    height: 1.3333em;
     flex: none;
   }
   .zkp-verify-button-mark svg {
@@ -75,9 +92,9 @@
   .zkp-verify-button[data-status="in-progress"] .zkp-verify-button-mark::after {
     content: "" !important;
     position: absolute !important;
-    inset: -5px !important;
+    inset: -0.3333em !important;
     border-radius: 50% !important;
-    border: 2px solid color-mix(in srgb, currentColor 35%, transparent) !important;
+    border: 0.1333em solid color-mix(in srgb, currentColor 35%, transparent) !important;
     border-top-color: currentColor !important;
     box-sizing: border-box !important;
     animation: zkp-spinner-rotate 0.9s linear infinite !important;
@@ -87,41 +104,37 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    --zkp-verify-muted: #6b7280;
-    --zkp-verify-success: #16a34a;
+    --zkp-verify-success: #15803d;
     --zkp-verify-error: #dc2626;
   }
   .zkp-verify-wrap[data-theme="dark"] {
-    --zkp-verify-muted: #94a3b8;
     --zkp-verify-success: #4ade80;
     --zkp-verify-error: #f87171;
   }
   @media (prefers-color-scheme: dark) {
     .zkp-verify-wrap[data-theme="auto"] {
-      --zkp-verify-muted: #94a3b8;
       --zkp-verify-success: #4ade80;
       --zkp-verify-error: #f87171;
     }
   }
-  .zkp-verify-status {
+  .zkp-verify-error {
     margin: 0 !important;
-    min-height: 18px !important;
     font-family: ui-sans-serif, system-ui, sans-serif !important;
     font-size: 12.5px !important;
     line-height: 1.4 !important;
-    color: var(--zkp-verify-muted) !important;
-  }
-  .zkp-verify-status-error {
     color: var(--zkp-verify-error) !important;
-  }
-  .zkp-verify-status-success {
-    color: var(--zkp-verify-success) !important;
   }
   .zkp-verify-button:disabled {
     cursor: default !important;
+    transform: none !important;
+  }
+  /* Only the waiting state is dimmed; success is an outcome, not an unavailable button */
+  .zkp-verify-button[data-status="in-progress"] {
     opacity: 0.65 !important;
     filter: saturate(0.75) !important;
-    transform: none !important;
+  }
+  .zkp-verify-button[data-status="success"] {
+    color: var(--zkp-verify-success) !important;
   }
 
   @keyframes zkp-spinner-rotate {

@@ -718,6 +718,18 @@
     transform: translateY(1px) !important;
     filter: brightness(0.95) !important;
   }
+  /* Dark --zkp-brand is a muted accent tint and makes the CTA read as
+     disabled; the primary action gets its own saturated fill */
+  .zkp-card[data-theme="dark"] .zkp-intro-continue {
+    background: #4a68dd !important;
+    color: #ffffff !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    .zkp-card[data-theme="auto"] .zkp-intro-continue {
+      background: #4a68dd !important;
+      color: #ffffff !important;
+    }
+  }
 
   .zkp-intro-link {
     align-self: center !important;
