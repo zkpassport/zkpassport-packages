@@ -78,9 +78,6 @@
         "@sinonjs/fake-timers": "^15.0.0",
         "keccak256": "^1.0.6",
       },
-      "peerDependencies": {
-        "typescript": "^5.0.0",
-      },
     },
     "packages/zkpassport-sdk": {
       "name": "@zkpassport/sdk",
@@ -105,9 +102,6 @@
         "@types/pako": "^2.0.3",
         "@types/ws": "^8.5.12",
       },
-      "peerDependencies": {
-        "typescript": "^5.0.0",
-      },
     },
     "packages/zkpassport-ui": {
       "name": "@zkpassport/ui",
@@ -127,7 +121,6 @@
       "peerDependencies": {
         "react": ">=18",
         "react-dom": ">=18",
-        "typescript": "^5.0.0",
       },
       "optionalPeers": [
         "react",
@@ -156,9 +149,6 @@
         "date-fns": "^4.1.0",
         "i18n-iso-countries": "^7.13.0",
         "tslib": "^2.8.1",
-      },
-      "peerDependencies": {
-        "typescript": "^5.0.0",
       },
     },
   },
