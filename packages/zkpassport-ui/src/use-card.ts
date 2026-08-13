@@ -88,7 +88,8 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       onRequestReceived: _onRequestReceived,
       onGeneratingProof: _onGeneratingProof,
       onProofGenerated: _onProofGenerated,
-      onResult: _onResult,
+      onSuccess: _onSuccess,
+      onResult,
       onReject: _onReject,
       onError: _onError,
       ...sdkRequestArgs
@@ -127,7 +128,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     }
 
     sdkRef
-      .current!.request({ ...sdkRequestArgs })
+      .current!.request({ ...sdkRequestArgs, verifierMode: "api" })
       .then((queryBuilder) => {
         if (cancelled) return
         let request: QueryBuilderResult
@@ -169,13 +170,26 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             safeCall(optionsRef.current.onProofGenerated, proof)
           }),
         )
-        request.onResult(
+        request.onSuccess(
           guard((response) => {
-            introActiveRef.current = false
-            setState(response.verified ? "success" : "error")
-            safeCall(optionsRef.current.onResult, response)
+            if (!onResult) {
+              introActiveRef.current = false
+              setState("success")
+            }
+            safeCall(optionsRef.current.onSuccess, response)
           }),
         )
+        // The deprecated onResult drives the screens like before, with the
+        // verified flag coming from the ZKPassport verifier API
+        if (onResult) {
+          request.onResult(
+            guard((response) => {
+              introActiveRef.current = false
+              setState(response.verified ? "success" : "error")
+              safeCall(optionsRef.current.onResult, response)
+            }),
+          )
+        }
         request.onReject(
           guard(() => {
             introActiveRef.current = false

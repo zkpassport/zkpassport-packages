@@ -95,9 +95,9 @@ export function createVerification(
         onRequestReceived: () => getOptions().onRequestReceived?.(),
         onGeneratingProof: () => getOptions().onGeneratingProof?.(),
         onProofGenerated: (progress) => getOptions().onProofGenerated?.(progress),
-        onResult: (result) => {
-          setStatus(result.verified ? "success" : "error")
-          getOptions().onResult?.(result)
+        onSuccess: (response) => {
+          setStatus("success")
+          getOptions().onSuccess?.(response)
         },
         onReject: () => {
           setStatus("error")

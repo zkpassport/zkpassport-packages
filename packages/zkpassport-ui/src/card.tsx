@@ -304,7 +304,8 @@ function getOverlayCaption(state: CardState): string {
     case "generating":
       return "Generating proof…"
     case "success":
-      return "Verification complete"
+      // Kept neutral: the card may not have verified anything. Final wording TBD.
+      return "Request complete"
     case "error":
       return "Something went wrong"
     default:

@@ -60,7 +60,7 @@ describe("createVerification", () => {
       policyId: "pol_123",
       label: "Get verified",
       classes: { button: "my-button" },
-      onResult: () => {},
+      onSuccess: () => {},
       query: (builder) => builder.done(),
     }
 
@@ -76,7 +76,28 @@ describe("createVerification", () => {
     expect(configure.query).toEqual({ policy: "pol_123" })
   })
 
-  test("tracks the popup outcome", () => {
+  test("relays success to onSuccess and reports the popup as done", () => {
+    const { emitFromPopup } = setupFakeWindow()
+    const statuses: string[] = []
+    const received: unknown[] = []
+    const verification = createVerification(
+      () => ({
+        name: "Aztec",
+        query: (builder) => builder.done(),
+        onSuccess: (response) => received.push(response),
+      }),
+      (state) => statuses.push(state.status),
+    )
+
+    verification.verify()
+    emitFromPopup({ zkpassport: true, type: "ready" })
+    emitFromPopup({ zkpassport: true, type: "success", proofs: [{ proof: "0x1" }], result: {} })
+
+    expect(received).toEqual([{ proofs: [{ proof: "0x1" }], result: {} }])
+    expect(statuses).toEqual(["in-progress", "success"])
+  })
+
+  test("reports an error status when the user rejects the request", () => {
     const { emitFromPopup } = setupFakeWindow()
     const statuses: string[] = []
     const verification = createVerification(
@@ -85,16 +106,9 @@ describe("createVerification", () => {
     )
 
     verification.verify()
-    emitFromPopup({
-      zkpassport: true,
-      type: "result",
-      proofs: [],
-      result: {},
-      uniqueIdentifier: "0x1",
-      verified: true,
-    })
+    emitFromPopup({ zkpassport: true, type: "rejected" })
 
-    expect(statuses).toEqual(["in-progress", "success"])
+    expect(statuses).toEqual(["in-progress", "error"])
   })
 
   test("disposes a stale popup handle before reopening", async () => {
@@ -122,7 +136,7 @@ describe("createVerification", () => {
     let options: VerificationOptions = {
       name: "Aztec",
       query: (builder) => builder.done(),
-      onResult: () => received.push("click-time"),
+      onSuccess: () => received.push("click-time"),
     }
     const verification = createVerification(
       () => options,
@@ -131,16 +145,9 @@ describe("createVerification", () => {
 
     verification.verify()
     // The consumer re-renders with a new callback while the popup works
-    options = { ...options, onResult: () => received.push("event-time") }
+    options = { ...options, onSuccess: () => received.push("event-time") }
     emitFromPopup({ zkpassport: true, type: "ready" })
-    emitFromPopup({
-      zkpassport: true,
-      type: "result",
-      proofs: [],
-      result: {},
-      uniqueIdentifier: "0x1",
-      verified: true,
-    })
+    emitFromPopup({ zkpassport: true, type: "success", proofs: [], result: {} })
 
     expect(received).toEqual(["event-time"])
   })

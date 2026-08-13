@@ -110,7 +110,7 @@ export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../ver
 export {
   openVerificationPopup,
   type PopupRequestConfig,
-  type PopupResult,
+  type PopupSuccess,
   type VerificationPopupHandle,
 } from "@zkpassport/sdk/popup"
 export { createOfflineQuery } from "@zkpassport/sdk/query"

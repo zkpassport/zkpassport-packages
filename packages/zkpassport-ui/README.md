@@ -21,8 +21,9 @@ export default function Page() {
       purpose="Prove you are an adult from the EU but not from Scandinavia"
       scope="age-check"
       query={(queryBuilder) => queryBuilder.gte("age", 18).done()}
-      onResult={({ verified, result, uniqueIdentifier }) => {
-        if (verified) console.log(result, uniqueIdentifier)
+      onSuccess={({ proofs, result }) => {
+        // Verify the proofs on your backend with @zkpassport/sdk's verify()
+        fetch("/api/verify", { method: "POST", body: JSON.stringify({ proofs, result }) })
       }}
     />
   )
@@ -44,8 +45,8 @@ const handle = mount(document.getElementById("zk-passport")!, {
   purpose: "Prove you are an adult from the EU but not from Scandinavia",
   scope: "age-check",
   query: (queryBuilder) => queryBuilder.gte("age", 18).done(),
-  onResult: ({ verified, result, uniqueIdentifier }) => {
-    if (verified) console.log(result, uniqueIdentifier)
+  onSuccess: ({ proofs, result }) => {
+    fetch("/api/verify", { method: "POST", body: JSON.stringify({ proofs, result }) })
   },
 })
 
@@ -61,7 +62,7 @@ Opens the verification flow in a popup on the ZKPassport origin, where saved IDs
 ```tsx
 import { VerifyWithZKPassportButton } from "@zkpassport/ui/react-button"
 
-<VerifyWithZKPassportButton name="Aztec" scope="age-check" query={…} onResult={…} />
+<VerifyWithZKPassportButton name="Aztec" scope="age-check" query={…} onSuccess={…} />
 ```
 
 ```ts
@@ -96,11 +97,18 @@ All optional. The SDK lifecycle callbacks pass through verbatim — their signat
 | `onRequestReceived` | SDK | Mobile app received the request payload |
 | `onGeneratingProof` | SDK | User approved; proof generation started |
 | `onProofGenerated(proof)` | SDK | A single proof has been generated |
-| `onResult(response)` | SDK | Final result with `{ verified, uniqueIdentifier, result, ... }` — check `response.verified` for pass/fail |
+| `onSuccess({ proofs, result })` | SDK | Request completed and all proofs received — send them to your backend and verify them there |
+| `onResult(response)` | SDK | **Deprecated, card only** — use `onSuccess`. Final result with `{ verified, uniqueIdentifier, ... }`, verified via the ZKPassport verifier API |
 | `onReject` | SDK | User rejected on phone |
 | `onError(message)` | SDK | An SDK-side error (`message: string`) |
 
 > Internal failures (request build failed, the `query` callback threw, QR generation failed) are logged to the console and transition the card to the `error` visual state — they don't fire `onError`, which is reserved for SDK-emitted errors so its semantics match `@zkpassport/sdk` exactly.
+
+## Verifying the proofs
+
+The components do not verify proofs — a result checked in the browser can be tampered with before your app sees it. `onSuccess` hands you the proofs and the query result; send them to your backend and verify them there with `@zkpassport/sdk`'s `verify()` (see the SDK README). On success the card shows "Request complete".
+
+The card still supports the deprecated `onResult`, which verifies the proofs via the ZKPassport verifier API and drives the card's final screen from the `verified` flag. Treat that flag as UX only, never as proof of verification. The button has no `onResult`.
 
 ## Props
 
