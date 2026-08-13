@@ -1,5 +1,4 @@
 import type { NullifierType, ProofMode, ProofResult, Query, QueryResult } from "@zkpassport/utils"
-import type { QueryResultErrors } from "../types"
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
 
@@ -36,13 +35,9 @@ export type PopupEventMessage =
     }
   | {
       zkpassport: true
-      type: "result"
+      type: "success"
       proofs: ProofResult[]
       result: QueryResult
-      uniqueIdentifier: string | undefined
-      uniqueIdentifierType: NullifierType | undefined
-      verified: boolean
-      queryResultErrors?: Partial<QueryResultErrors>
     }
   | { zkpassport: true; type: "rejected" }
   | { zkpassport: true; type: "error"; message: string }

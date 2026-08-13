@@ -43,7 +43,7 @@ const {
   onRequestReceived,
   onGeneratingProof,
   onProofGenerated,
-  onResult,
+  onSuccess,
   onReject,
   onError,
 } = queryBuilder
@@ -69,12 +69,10 @@ onGeneratingProof(() => {
 })
 
 // You probably don't need to use this callback
-// But if you want to get the proofs and verify them manually, it's here
+// It reports the progress as the proofs are generated one by one;
+// the full set arrives in onSuccess
 onProofGenerated(({ proof, vkeyHash, version, name }: ProofResult) => {
   // One of the proofs has been generated
-  // Here, you can retrieve the proof manually and verify it
-  // But note that the verification of the proofs is handled
-  // automatically by the SDK
   console.log("Proof generated", proof)
   console.log("Verification key hash", vkeyHash)
   console.log("Version", version)
@@ -82,36 +80,56 @@ onProofGenerated(({ proof, vkeyHash, version, name }: ProofResult) => {
 })
 
 // That's the callback you're looking for
-onResult(
-  ({
-    uniqueIdentifier,
-    verified,
-    result,
-  }: {
-    uniqueIdentifier: string
-    verified: boolean
-    result: QueryResult
-  }) => {
-    // All the proofs have been generated and the final result is available
-    console.log("firstname", result.firstname.disclose.result)
-    console.log("age over 18", result.age.gte.result)
-    console.log("nationality in EU", result.nationality.in.result)
-    console.log("nationality not from Scandinavia", result.nationality.out.result)
-    // You can also retrieved what were the values originally requested
-    console.log("age over", result.age.gte.expected)
-    console.log("nationality in", result.nationality.in.expected)
-    console.log("nationality not in", result.nationality.out.expected)
-    // You can make sure the proof are valid by checking verified is set to true
-    console.log("proofs are valid", verified)
-    // You can also retrieve the unique identifier associated to this request
-    // The assumption is that the unique identifier will be the same if coming
-    // from the same ID for the same domain name and scope
-    // So you can use it to identify if the user has already provided the proof
-    // for this specific use case
-    console.log("unique identifier", uniqueIdentifier)
-  },
-)
+onSuccess(({ proofs, result }: { proofs: ProofResult[]; result: QueryResult }) => {
+  // All the proofs have been generated and the result is available
+  console.log("firstname", result.firstname.disclose.result)
+  console.log("age over 18", result.age.gte.result)
+  console.log("nationality in EU", result.nationality.in.result)
+  console.log("nationality not from Scandinavia", result.nationality.out.result)
+  // You can also retrieve what were the values originally requested
+  console.log("age over", result.age.gte.expected)
+  console.log("nationality in", result.nationality.in.expected)
+  console.log("nationality not in", result.nationality.out.expected)
+  // The proofs are NOT verified at this point. A result checked in the browser
+  // can be tampered with, so send the proofs and the result to your backend
+  // and verify them there (see "Verifying the proofs" below)
+  fetch("/api/verify", { method: "POST", body: JSON.stringify({ proofs, result }) })
+})
 ```
+
+The deprecated `onResult` callback still verifies the proofs for you and returns a `verified` flag along with the `uniqueIdentifier`, but a flag delivered to the browser cannot be trusted. Use `onSuccess` and verify on your backend instead.
+
+### Verifying the proofs
+
+On your backend, recreate the original query so a tampered request cannot pass, then verify the proofs you received:
+
+```ts
+import { ZKPassport, EU_COUNTRIES } from "@zkpassport/sdk"
+
+const zkPassport = new ZKPassport("demo.zkpassport.id")
+
+const { query } = zkPassport
+  .createQuery()
+  .disclose("firstname")
+  .gte("age", 18)
+  .in("nationality", EU_COUNTRIES)
+  .out("nationality", ["Sweden", "Denmark"])
+  .done()
+
+const { verified, uniqueIdentifier } = await zkPassport.verify({
+  proofs,
+  originalQuery: query,
+  queryResult: result,
+  scope: "eu-adult-not-scandinavia",
+})
+
+// The unique identifier stays the same for the same ID, domain and scope,
+// so you can use it to tell if this user has already verified before
+console.log("proofs are valid", verified)
+console.log("unique identifier", uniqueIdentifier)
+```
+
+`verify()` checks the proofs locally and defers to the ZKPassport verifier API when the local result is not verified. Set `verifierMode` to `"local"` or `"api"` to force one.
 
 ### Using with Next.js
 
