@@ -107,6 +107,10 @@ export type RequestSuccess = {
   result: QueryResult
 }
 
+// What an onSuccess handler may return: false (or a promise resolving to false)
+// makes the UI components show their error state instead of success
+export type OnSuccessVerdict = void | boolean | Promise<void | boolean>
+
 export type QueryBuilderResult = {
   /**
    * The URL of the request.
@@ -154,9 +158,11 @@ export type QueryBuilderResult = {
    * Called when the user has completed the request and all proofs were received.
    *
    * The proofs are not verified at this point: send them along with the result
-   * to your backend and verify them there with `verify()`.
+   * to your backend and verify them there with `verify()`. The UI components wait
+   * for this callback before showing their success state; return `false` (or throw)
+   * to show the error state instead, e.g. when your backend rejects the proofs.
    */
-  onSuccess: (callback: (response: RequestSuccess) => void) => void
+  onSuccess: (callback: (response: RequestSuccess) => OnSuccessVerdict) => void
   /**
    * Called when the user has sent the query result.
    *

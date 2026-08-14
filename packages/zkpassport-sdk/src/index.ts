@@ -33,6 +33,7 @@ import {
   Policy,
   QueryResultErrors,
   RequestSuccess,
+  OnSuccessVerdict,
   VerifierMode,
   VerificationResult,
 } from "./types"
@@ -140,7 +141,10 @@ export class ZKPassport {
   private onGeneratingProofCallbacks: Record<string, Array<(topic: string) => void>> = {}
   private onBridgeConnectCallbacks: Record<string, Array<() => void>> = {}
   private onProofGeneratedCallbacks: Record<string, Array<(proof: ProofResult) => void>> = {}
-  private onSuccessCallbacks: Record<string, Array<(response: RequestSuccess) => void>> = {}
+  private onSuccessCallbacks: Record<
+    string,
+    Array<(response: RequestSuccess) => OnSuccessVerdict>
+  > = {}
   private onResultCallbacks: Record<
     string,
     Array<
@@ -195,9 +199,14 @@ export class ZKPassport {
     const requestSucceeded = !hasFailedProofs && proofs.length > 0
 
     if (requestSucceeded) {
-      await Promise.all(
-        this.onSuccessCallbacks[topic].map((callback) => callback({ proofs, result })),
-      )
+      // A throwing callback must not block proof storage or the onResult flow below
+      try {
+        await Promise.all(
+          this.onSuccessCallbacks[topic].map((callback) => callback({ proofs, result })),
+        )
+      } catch (reason) {
+        logger.error("onSuccess callback failed:", reason)
+      }
     }
 
     // Browser-only callers (no explicit domain) can't be authenticated; devMode submits would
@@ -546,7 +555,7 @@ export class ZKPassport {
             this.onBridgeConnectCallbacks[topic].push(callback),
           onProofGenerated: (callback: (proof: ProofResult) => void) =>
             this.onProofGeneratedCallbacks[topic].push(callback),
-          onSuccess: (callback: (response: RequestSuccess) => void) =>
+          onSuccess: (callback: (response: RequestSuccess) => OnSuccessVerdict) =>
             this.onSuccessCallbacks[topic].push(callback),
           onResult: (
             callback: (response: {
