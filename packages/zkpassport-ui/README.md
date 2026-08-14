@@ -162,7 +162,7 @@ Styles auto-inject as a `<style>` tag wrapped in `@layer zkpassport`, so host ap
 import "@zkpassport/ui/styles.css"
 ```
 
-The button reads CSS custom properties for light restyling — `--zkp-btn-bg`, `-fg`, `-border`, `-radius`, `-padding`, `-font`, `-font-size`, `-letter-spacing`, `-text-transform`, plus `--zkp-verify-success`, `-error` for the verified and failed states. Set them on the mount element or any ancestor.
+The button reads CSS custom properties for light restyling — `--zkp-btn-bg`, `-fg`, `-border-color`, `-radius`, `-padding`, `-font`, `-font-size`, `-letter-spacing`, `-text-transform`, plus `--zkp-btn-success`, `-error` for the verified and failed states. Set them on the mount element or any ancestor.
 
 To resize the button, set `--zkp-btn-font-size`; the icon, gap and padding are in `em`, so they scale with it. Use `--zkp-btn-padding` on top of that to make it chunkier or tighter than the default proportions.
 
