@@ -38,6 +38,10 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   onRequestReceived?: SdkCallback<"onRequestReceived">
   onGeneratingProof?: SdkCallback<"onGeneratingProof">
   onProofGenerated?: SdkCallback<"onProofGenerated">
+  /**
+   * All proofs arrived (not verified yet — verify them on your backend).
+   * The component waits for this callback: return `false` (or throw) to show the error state.
+   */
   onSuccess?: SdkCallback<"onSuccess">
   /** @deprecated Use `onSuccess` and verify the proofs on your backend. */
   onResult?: SdkCallback<"onResult">

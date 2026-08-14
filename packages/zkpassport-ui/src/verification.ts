@@ -56,6 +56,9 @@ export function createVerification(
 ): VerificationController {
   let state: VerificationState = { status: "idle", error: null }
   let popupHandle: VerificationPopupHandle | null = null
+  // Numbers each verify() so a slow onSuccess from an old popup
+  // can't overwrite the status of a newer one
+  let latestAttempt = 0
 
   const setStatus = (status: VerificationStatus, error: string | null = null) => {
     state = { status, error }
@@ -75,6 +78,7 @@ export function createVerification(
       popupHandle = null
     }
 
+    const thisAttempt = ++latestAttempt
     let query: Query
     try {
       query = buildQuery(options)
@@ -95,9 +99,27 @@ export function createVerification(
         onRequestReceived: () => getOptions().onRequestReceived?.(),
         onGeneratingProof: () => getOptions().onGeneratingProof?.(),
         onProofGenerated: (progress) => getOptions().onProofGenerated?.(progress),
+        // Success waits for the app's onSuccess handler, which can veto it by
+        // returning false (e.g. when its backend did not verify the proofs)
         onSuccess: (response) => {
-          setStatus("success")
-          getOptions().onSuccess?.(response)
+          const finish = (next: "success" | "error") => {
+            if (latestAttempt === thisAttempt) setStatus(next)
+          }
+          let verdict: unknown
+          try {
+            verdict = getOptions().onSuccess?.(response)
+          } catch (reason) {
+            logger.error(reason)
+            finish("error")
+            return
+          }
+          Promise.resolve(verdict).then(
+            (value) => finish(value === false ? "error" : "success"),
+            (reason) => {
+              logger.error(reason)
+              finish("error")
+            },
+          )
         },
         onReject: () => {
           setStatus("error")
@@ -122,6 +144,7 @@ export function createVerification(
   }
 
   const close = () => {
+    latestAttempt++
     popupHandle?.close()
     popupHandle = null
   }

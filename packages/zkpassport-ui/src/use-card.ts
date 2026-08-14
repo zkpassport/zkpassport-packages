@@ -95,6 +95,10 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       ...sdkRequestArgs
     } = optionsRef.current
 
+    if (onResult && optionsRef.current.onSuccess) {
+      logger.warn("onResult is deprecated and drives the card; onSuccess return values are ignored")
+    }
+
     const fireReady = () => {
       if (readyFired) return
       readyFired = true
@@ -172,11 +176,32 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         )
         request.onSuccess(
           guard((response) => {
-            if (!onResult) {
-              introActiveRef.current = false
-              setState("success")
+            if (onResult) {
+              safeCall(optionsRef.current.onSuccess, response)
+              return
             }
-            safeCall(optionsRef.current.onSuccess, response)
+            // Success waits for the app's onSuccess handler, which can veto it by
+            // returning false (e.g. when its backend did not verify the proofs)
+            const finish = (next: "success" | "error") => {
+              if (cancelled) return
+              introActiveRef.current = false
+              setState(next)
+            }
+            let verdict: unknown
+            try {
+              verdict = optionsRef.current.onSuccess?.(response)
+            } catch (reason) {
+              logger.error(reason)
+              finish("error")
+              return
+            }
+            Promise.resolve(verdict).then(
+              (value) => finish(value === false ? "error" : "success"),
+              (reason) => {
+                logger.error(reason)
+                finish("error")
+              },
+            )
           }),
         )
         // The deprecated onResult drives the screens like before, with the

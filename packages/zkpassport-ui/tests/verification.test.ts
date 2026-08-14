@@ -76,7 +76,7 @@ describe("createVerification", () => {
     expect(configure.query).toEqual({ policy: "pol_123" })
   })
 
-  test("relays success to onSuccess and reports the popup as done", () => {
+  test("relays success to onSuccess and waits for it before reporting success", async () => {
     const { emitFromPopup } = setupFakeWindow()
     const statuses: string[] = []
     const received: unknown[] = []
@@ -84,7 +84,9 @@ describe("createVerification", () => {
       () => ({
         name: "Aztec",
         query: (builder) => builder.done(),
-        onSuccess: (response) => received.push(response),
+        onSuccess: async (response) => {
+          received.push(response)
+        },
       }),
       (state) => statuses.push(state.status),
     )
@@ -92,9 +94,31 @@ describe("createVerification", () => {
     verification.verify()
     emitFromPopup({ zkpassport: true, type: "ready" })
     emitFromPopup({ zkpassport: true, type: "success", proofs: [{ proof: "0x1" }], result: {} })
+    expect(statuses).toEqual(["in-progress"])
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(received).toEqual([{ proofs: [{ proof: "0x1" }], result: {} }])
     expect(statuses).toEqual(["in-progress", "success"])
+  })
+
+  test("shows the error status when onSuccess vetoes by returning false", async () => {
+    const { emitFromPopup } = setupFakeWindow()
+    const statuses: string[] = []
+    const verification = createVerification(
+      () => ({
+        name: "Aztec",
+        query: (builder) => builder.done(),
+        onSuccess: async () => false,
+      }),
+      (state) => statuses.push(state.status),
+    )
+
+    verification.verify()
+    emitFromPopup({ zkpassport: true, type: "ready" })
+    emitFromPopup({ zkpassport: true, type: "success", proofs: [], result: {} })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(statuses).toEqual(["in-progress", "error"])
   })
 
   test("reports an error status when the user rejects the request", () => {
@@ -136,7 +160,9 @@ describe("createVerification", () => {
     let options: VerificationOptions = {
       name: "Aztec",
       query: (builder) => builder.done(),
-      onSuccess: () => received.push("click-time"),
+      onSuccess: () => {
+        received.push("click-time")
+      },
     }
     const verification = createVerification(
       () => options,
@@ -145,7 +171,12 @@ describe("createVerification", () => {
 
     verification.verify()
     // The consumer re-renders with a new callback while the popup works
-    options = { ...options, onSuccess: () => received.push("event-time") }
+    options = {
+      ...options,
+      onSuccess: () => {
+        received.push("event-time")
+      },
+    }
     emitFromPopup({ zkpassport: true, type: "ready" })
     emitFromPopup({ zkpassport: true, type: "success", proofs: [], result: {} })
 
