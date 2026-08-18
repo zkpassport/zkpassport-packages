@@ -34,7 +34,7 @@ pub fn is_root_valid(
     }
 }
 
-/// Mode-independent escape hatch (L1's RegistryHelper.isRootValidAtTimestamp).
+/// Evaluates root validity only based on existence, revocation status, and validity timestamps
 pub fn is_root_valid_at_timestamp(status: RootStatus, timestamp: u64) -> bool {
     status.exists
         & !status.revoked
