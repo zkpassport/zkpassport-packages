@@ -3,7 +3,6 @@ use crate::types::{
     MODE_VALID_WITHIN_WINDOW, RegistryConfig, RootStatus,
 };
 
-// --- implementation goes here (Step 4) ---
 pub fn is_root_valid(
     config: RegistryConfig,
     latest: LatestPair,
