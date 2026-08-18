@@ -5,7 +5,7 @@ use crate::types::{
 
 pub fn is_root_valid(
     config: RegistryConfig,
-    latest: LatestRootPair,
+    latest_root_pair: LatestRootPair,
     status: RootStatus,
     root: Field,
     timestamp: u64,
@@ -13,19 +13,19 @@ pub fn is_root_valid(
     if !status.exists {
         false
     } else if config.mode == MODE_LATEST_ONLY {
-        (latest.latest == root) & !status.revoked
+        (latest_root_pair.latest == root) & !status.revoked
     } else if config.mode == MODE_LATEST_AND_PREVIOUS {
-        if latest.latest == root {
+        if latest_root_pair.latest == root {
             !status.revoked
         } else {
-            (latest.previous == root) & !status.revoked
+            (latest_root_pair.previous == root) & !status.revoked
         }
     } else if config.mode == MODE_VALID_AT_TIMESTAMP {
         !status.revoked
             & (timestamp >= status.valid_from)
             & ((status.valid_to == 0) | (timestamp <= status.valid_to))
     } else if config.mode == MODE_VALID_WITHIN_WINDOW {
-        if latest.latest == root {
+        if latest_root_pair.latest == root {
             !status.revoked // latest bypasses the window entirely (deliberate L1 asymmetry)
         } else if status.revoked {
             false
