@@ -47,13 +47,13 @@ export class ZKPassportRegistryContract extends ContractBase {
    * @param instantiation - Optional address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
    *                       Salt defaults to a random value; the deployer is locked lazily from the first send-time `from`.
    */
-  public static deploy(wallet: Wallet, admin: AztecAddressLike, oracle: AztecAddressLike, guardian: AztecAddressLike, instantiation?: DeployInstantiationOptions) {
+  public static deploy(wallet: Wallet, admin: AztecAddressLike, oracle: AztecAddressLike, guardian: AztecAddressLike, mode: (bigint | number), window: (bigint | number), instantiation?: DeployInstantiationOptions) {
     return DeployMethod.create<ZKPassportRegistryContract>(
       wallet,
       {
         artifact: ZKPassportRegistryContractArtifact,
         postDeployCtor: (instance, wallet) => ZKPassportRegistryContract.at(instance.address, wallet),
-        args: [admin, oracle, guardian],
+        args: [admin, oracle, guardian, mode, window],
       },
       instantiation,
     );
@@ -143,8 +143,8 @@ oprf_pk_hash: {
     /** assert_sanctions_root_valid(root: field, current_date: integer) */
     assert_sanctions_root_valid: ((root: FieldLike, current_date: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(admin: struct, oracle: struct, guardian: struct) */
-    constructor: ((admin: AztecAddressLike, oracle: AztecAddressLike, guardian: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(admin: struct, oracle: struct, guardian: struct, mode: integer, window: integer) */
+    constructor: ((admin: AztecAddressLike, oracle: AztecAddressLike, guardian: AztecAddressLike, mode: (bigint | number), window: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_latest_pair(registry_id: field) */
     get_latest_pair: ((registry_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
