@@ -21,16 +21,16 @@ pub fn is_root_valid(
             & ((status.valid_to == 0) | (timestamp <= status.valid_to))
     } else if config.mode == MODE_VALID_WITHIN_WINDOW {
         if latest_root_pair.latest == root {
-            true // latest bypasses the window entirely (deliberate L1 asymmetry)
+            true // latest is valid in this mode
         } else if timestamp < config.window {
-            false // L1: unchecked underflow reverts; router try/catch → false
+            false
         } else {
             let window_start = timestamp - config.window;
             (status.valid_from <= timestamp)
                 & ((status.valid_to == 0) | (status.valid_to >= window_start))
         }
     } else {
-        false // defensive default, mirrors L1
+        false
     }
 }
 
