@@ -1,0 +1,9 @@
+[package]
+name = "zkpassport"
+type = "lib"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "v5.2.0", directory = "aztec" }
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }
+zkpassport_core = { path = "../zkpassport_core" }
+zkpassport_registry_contract = { path = "../zkpassport_registry_contract" }

@@ -1,0 +1,8 @@
+[package]
+name = "age_gate_contract"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr", tag = "v5.2.0", directory = "aztec" }
+zkpassport = { path = "../../zkpassport" }
+zkpassport_registry_contract = { path = "../../zkpassport_registry_contract" }
