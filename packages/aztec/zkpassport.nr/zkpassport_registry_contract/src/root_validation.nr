@@ -10,21 +10,18 @@ pub fn is_root_valid(
     root: Field,
     timestamp: u64,
 ) -> bool {
-    if !status.exists {
+    if !status.exists | status.revoked {
         false
     } else if config.mode == MODE_LATEST_ONLY {
-        (latest_root_pair.latest == root) & !status.revoked
+        latest_root_pair.latest == root
     } else if config.mode == MODE_LATEST_AND_PREVIOUS {
-        ((latest_root_pair.latest == root) | (latest_root_pair.previous == root)) & !status.revoked
+        (latest_root_pair.latest == root) | (latest_root_pair.previous == root)
     } else if config.mode == MODE_VALID_AT_TIMESTAMP {
-        !status.revoked
-            & (timestamp >= status.valid_from)
+        (timestamp >= status.valid_from)
             & ((status.valid_to == 0) | (timestamp <= status.valid_to))
     } else if config.mode == MODE_VALID_WITHIN_WINDOW {
         if latest_root_pair.latest == root {
-            !status.revoked // latest bypasses the window entirely (deliberate L1 asymmetry)
-        } else if status.revoked {
-            false
+            true // latest bypasses the window entirely (deliberate L1 asymmetry)
         } else if timestamp < config.window {
             false // L1: unchecked underflow reverts; router try/catch → false
         } else {
@@ -91,6 +88,12 @@ fn latest_and_previous_rejects_non_latest_when_no_previous_exists() {
 fn latest_and_previous_rejects_older_root() {
     assert(!is_root_valid(cfg(MODE_LATEST_AND_PREVIOUS, 0), latest_r2(), status(10, 49), R3, 500));
 }
+#[test]
+fn latest_and_previous_rejects_revoked_previous() {
+    let mut s = status(50, 99);
+    s.revoked = true;
+    assert(!is_root_valid(cfg(MODE_LATEST_AND_PREVIOUS, 0), latest_r2(), s, R1, 500));
+}
 
 // --- VALID_AT_TIMESTAMP ---
 #[test]
@@ -109,6 +112,12 @@ fn at_timestamp_after_valid_to() {
 fn at_timestamp_sentinel_zero_is_open_ended() {
     assert(is_root_valid(cfg(MODE_VALID_AT_TIMESTAMP, 0), latest_r2(), status(100, 0), R2, 999999999));
 }
+#[test]
+fn at_timestamp_rejects_revoked_inside_interval() {
+    let mut s = status(100, 200);
+    s.revoked = true;
+    assert(!is_root_valid(cfg(MODE_VALID_AT_TIMESTAMP, 0), latest_r2(), s, R1, 150));
+}
 
 // --- VALID_WITHIN_WINDOW (L1 test example: W=300, t0=1000) ---
 #[test]
@@ -125,6 +134,13 @@ fn window_revoked_latest_rejected() {
 fn window_overlap_accepts() {
     // T=1700, W=300 → window [1400,1700]; validTo=1499 overlaps
     assert(is_root_valid(cfg(MODE_VALID_WITHIN_WINDOW, 300), latest_r2(), status(1000, 1499), R1, 1700));
+}
+#[test]
+fn window_revoked_non_latest_rejected_despite_overlap() {
+    // Same geometry as window_overlap_accepts, but revoked
+    let mut s = status(1000, 1499);
+    s.revoked = true;
+    assert(!is_root_valid(cfg(MODE_VALID_WITHIN_WINDOW, 300), latest_r2(), s, R1, 1700));
 }
 #[test]
 fn window_no_overlap_rejects() {
