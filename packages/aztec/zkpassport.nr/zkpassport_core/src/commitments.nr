@@ -37,7 +37,6 @@ mod test {
     use crate::commitments::{age_commitment, bind_user_address_commitment, disclose_commitment};
 
     // Values from harness/golden-vectors.json (regenerate with harness/golden-vectors.ts).
-    // PASTE the actual values produced in Step 2 before running.
     global GOLDEN_AGE_18_0: Field = 0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83;
     global GOLDEN_BIND: Field = 0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970;
     global GOLDEN_DISCLOSE: Field = 0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
