@@ -15,11 +15,7 @@ pub fn is_root_valid(
     } else if config.mode == MODE_LATEST_ONLY {
         (latest_root_pair.latest == root) & !status.revoked
     } else if config.mode == MODE_LATEST_AND_PREVIOUS {
-        if latest_root_pair.latest == root {
-            !status.revoked
-        } else {
-            (latest_root_pair.previous == root) & !status.revoked
-        }
+        ((latest_root_pair.latest == root) | (latest_root_pair.previous == root)) & !status.revoked
     } else if config.mode == MODE_VALID_AT_TIMESTAMP {
         !status.revoked
             & (timestamp >= status.valid_from)
