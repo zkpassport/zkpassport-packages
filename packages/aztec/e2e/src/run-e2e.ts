@@ -37,6 +37,11 @@ const DELAY = BigInt(process.env.E2E_DELAY_SECONDS ?? '86400');
 const REGISTRY_CERTIFICATE = 1n;
 const REGISTRY_CIRCUIT = 2n;
 
+/** zkpassport_registry_contract::types::MODE_VALID_WITHIN_WINDOW. */
+const MODE_VALID_WITHIN_WINDOW = 3;
+/** Production validity window in seconds, matching L1's registry deployments. */
+const VALIDITY_WINDOW = 86400n;
+
 const VK_FIELDS = 115;
 const PROOF_FIELDS = 458;
 
@@ -100,7 +105,8 @@ async function main() {
 
   // ---- 1. Deploy -----------------------------------------------------------
   const [{ contract: registry }] = await timed('deploy registry', () =>
-    ZKPassportRegistryContract.deploy(wallet, admin, oracle, admin).send({ from: admin, wait: WAIT }),
+    ZKPassportRegistryContract.deploy(wallet, admin, oracle, admin, MODE_VALID_WITHIN_WINDOW, VALIDITY_WINDOW)
+      .send({ from: admin, wait: WAIT }),
   );
   log(`registry at ${registry.address}`);
 
