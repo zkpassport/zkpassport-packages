@@ -19,7 +19,6 @@ pub global REGISTRY_CIRCUIT: Field = 2;
 pub global REGISTRY_SANCTIONS: Field = 3;
 
 pub global INITIAL_DELAY: u64 = 86400;
-pub global MAX_BATCH_SIZE: u32 = 8;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct RegistryConfig {
@@ -40,13 +39,4 @@ pub struct RootStatus {
     pub revoked: bool,
     pub valid_from: u64,
     pub valid_to: u64,
-}
-
-// Calldata form for batch updates (L1's RootInput minus leaves/cid/metadata — spec decision #9)
-#[derive(Deserialize, Eq, Serialize)]
-pub struct RootInput {
-    pub root: Field,
-    pub valid_from: u64,
-    pub valid_to: u64,
-    pub revoked: bool,
 }

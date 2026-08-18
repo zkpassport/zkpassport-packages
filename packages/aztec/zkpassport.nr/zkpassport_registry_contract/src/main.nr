@@ -12,8 +12,8 @@ pub contract ZKPassportRegistry {
     };
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
     use crate::types::{
-        INITIAL_DELAY, LatestPair, MAX_BATCH_SIZE, MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE,
-        REGISTRY_CIRCUIT, REGISTRY_SANCTIONS, RegistryConfig, RootInput, RootStatus,
+        INITIAL_DELAY, LatestPair, MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE,
+        REGISTRY_CIRCUIT, REGISTRY_SANCTIONS, RegistryConfig, RootStatus,
     };
     use aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
@@ -133,76 +133,6 @@ pub contract ZKPassportRegistry {
             latest: new_root,
             previous: cur.latest,
             count: cur.count + 1,
-        });
-    }
-
-    #[external("public")]
-    fn batch_update_roots(registry_id: Field, roots: [RootInput; MAX_BATCH_SIZE], count: u32) {
-        assert(self.msg_sender() == self.storage.oracle.read(), "caller is not oracle");
-        let (pending_paused, _) = self.storage.paused.get_scheduled_value();
-        assert(!pending_paused, "registry is paused");
-        assert_valid_registry_id(registry_id);
-        assert((count >= 1) & (count <= MAX_BATCH_SIZE), "invalid batch count");
-
-        let latest_slot = self.storage.latest.at(registry_id);
-        let (cur, _) = latest_slot.get_scheduled_value();
-
-        // Chronological ordering rules — port of RegistryInstance.sol:204-273, verified line-by-line
-        // (see task-4-report.md): last element's validFrom closes the OLD latest's interval;
-        // `previous` becomes the 2nd-to-last batch element (or the old latest, when count == 1);
-        // validFrom comparisons are strict (`>`), the non-last validTo>=validFrom check is `>=`.
-        let mut prev_valid_to: u64 = 0;
-        let mut new_count = cur.count;
-        let mut new_previous = cur.latest;
-        for i in 0..MAX_BATCH_SIZE {
-            if i < count {
-                let r = roots[i];
-                assert(r.root != 0, "new root cannot be zero");
-                let slot = self.storage.roots.at(registry_id).at(r.root);
-                let (existing, _) = slot.get_scheduled_value();
-                assert(!existing.exists, "root already exists");
-                if i == 0 {
-                    if cur.latest != 0 {
-                        let (old, _) =
-                            self.storage.roots.at(registry_id).at(cur.latest).get_scheduled_value();
-                        assert(r.valid_from > old.valid_from, "batch starts before current validFrom");
-                    }
-                } else {
-                    assert(r.valid_from > prev_valid_to, "batch not chronological");
-                }
-                let is_last = i == count - 1;
-                if !is_last {
-                    assert((r.valid_to != 0) & (r.valid_to >= r.valid_from), "non-last needs closed interval");
-                }
-                slot.schedule_value_change(RootStatus {
-                    exists: true,
-                    revoked: r.revoked, // batch may insert already-revoked roots (L1 parity)
-                    valid_from: r.valid_from,
-                    valid_to: r.valid_to,
-                });
-                prev_valid_to = r.valid_to;
-                new_count += 1;
-                if !is_last {
-                    new_previous = r.root;
-                }
-            }
-        }
-        let last = roots[count - 1];
-        if cur.latest != 0 {
-            let old_slot = self.storage.roots.at(registry_id).at(cur.latest);
-            let (old, _) = old_slot.get_scheduled_value();
-            old_slot.schedule_value_change(RootStatus {
-                exists: old.exists,
-                revoked: old.revoked,
-                valid_from: old.valid_from,
-                valid_to: last.valid_from - 1,
-            });
-        }
-        let prev_for_pair = if count == 1 { cur.latest } else { new_previous };
-        latest_slot.schedule_value_change(LatestPair {
-            latest: last.root,
-            previous: prev_for_pair,
-            count: new_count,
         });
     }
 
