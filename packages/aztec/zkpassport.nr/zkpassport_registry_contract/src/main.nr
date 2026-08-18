@@ -12,8 +12,8 @@ pub contract ZKPassportRegistry {
     };
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
     use crate::types::{
-        INITIAL_DELAY, LatestRootPair, MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE,
-        REGISTRY_CIRCUIT, REGISTRY_SANCTIONS, RegistryConfig, RootStatus,
+        INITIAL_DELAY, LatestRootPair, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS,
+        RegistryConfig, RootStatus,
     };
     use aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
@@ -41,19 +41,27 @@ pub contract ZKPassportRegistry {
         oprf_pk_hash: DelayedPublicMutable<Field, INITIAL_DELAY, Context>,
     }
 
+    // mode/window are deploy parameters like on L1 (RegistryInstance's constructor); deployments
+    // pin the production values (VALID_WITHIN_WINDOW, 86400) the way L1's registry subclasses do.
     #[external("public")]
     #[initializer]
-    fn constructor(admin: AztecAddress, oracle: AztecAddress, guardian: AztecAddress) {
+    fn constructor(
+        admin: AztecAddress,
+        oracle: AztecAddress,
+        guardian: AztecAddress,
+        mode: u8,
+        window: u64,
+    ) {
+        assert(mode <= 3, "unknown validation mode");
         self.storage.admin.write(admin);
         self.storage.oracle.write(oracle);
         self.storage.guardian.write(guardian);
-        // L1 production defaults: VALID_WITHIN_WINDOW, 24h window, for all three registries.
         // Note: for the first 24h the DPM reads its zeroed default {mode: 0 = LATEST_ONLY, window: 0},
         // which is safe — no roots exist yet, so everything is invalid either way.
-        let default_config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 86400 };
-        self.storage.config.at(REGISTRY_CERTIFICATE).schedule_value_change(default_config);
-        self.storage.config.at(REGISTRY_CIRCUIT).schedule_value_change(default_config);
-        self.storage.config.at(REGISTRY_SANCTIONS).schedule_value_change(default_config);
+        let config = RegistryConfig { mode, window };
+        self.storage.config.at(REGISTRY_CERTIFICATE).schedule_value_change(config);
+        self.storage.config.at(REGISTRY_CIRCUIT).schedule_value_change(config);
+        self.storage.config.at(REGISTRY_SANCTIONS).schedule_value_change(config);
     }
 
     // ---- roles (mirror L1 RegistryInstance) ----
