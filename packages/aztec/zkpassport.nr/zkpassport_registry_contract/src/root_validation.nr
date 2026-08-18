@@ -1,11 +1,11 @@
 use crate::types::{
-    LatestPair, MODE_LATEST_AND_PREVIOUS, MODE_LATEST_ONLY, MODE_VALID_AT_TIMESTAMP,
+    LatestRootPair, MODE_LATEST_AND_PREVIOUS, MODE_LATEST_ONLY, MODE_VALID_AT_TIMESTAMP,
     MODE_VALID_WITHIN_WINDOW, RegistryConfig, RootStatus,
 };
 
 pub fn is_root_valid(
     config: RegistryConfig,
-    latest: LatestPair,
+    latest: LatestRootPair,
     status: RootStatus,
     root: Field,
     timestamp: u64,
@@ -59,8 +59,8 @@ fn status(valid_from: u64, valid_to: u64) -> RootStatus {
 global R1: Field = 111;
 global R2: Field = 222;
 global R3: Field = 333;
-fn latest_r2() -> LatestPair {
-    LatestPair { latest: R2, previous: R1 }
+fn latest_r2() -> LatestRootPair {
+    LatestRootPair { latest: R2, previous: R1 }
 }
 
 // --- LATEST_ONLY ---
@@ -88,7 +88,7 @@ fn latest_and_previous_accepts_previous() {
 fn latest_and_previous_rejects_non_latest_when_no_previous_exists() {
     // Single-root state: previous is the zeroed default. update_root rejects zero roots and
     // is_root_valid rejects non-existent ones, so previous == 0 can never match a real root.
-    let lp = LatestPair { latest: R2, previous: 0 };
+    let lp = LatestRootPair { latest: R2, previous: 0 };
     assert(!is_root_valid(cfg(MODE_LATEST_AND_PREVIOUS, 0), lp, status(50, 99), R1, 500));
 }
 #[test]

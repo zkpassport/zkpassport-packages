@@ -12,7 +12,7 @@ pub contract ZKPassportRegistry {
     };
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
     use crate::types::{
-        INITIAL_DELAY, LatestPair, MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE,
+        INITIAL_DELAY, LatestRootPair, MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE,
         REGISTRY_CIRCUIT, REGISTRY_SANCTIONS, RegistryConfig, RootStatus,
     };
     use aztec::{
@@ -31,7 +31,7 @@ pub contract ZKPassportRegistry {
         // Write-path guards read the *scheduled* value via get_scheduled_value() (no mirrors needed).
         paused: DelayedPublicMutable<bool, INITIAL_DELAY, Context>,
         config: Map<Field, DelayedPublicMutable<RegistryConfig, INITIAL_DELAY, Context>, Context>,
-        latest: Map<Field, DelayedPublicMutable<LatestPair, INITIAL_DELAY, Context>, Context>,
+        latest: Map<Field, DelayedPublicMutable<LatestRootPair, INITIAL_DELAY, Context>, Context>,
         roots: Map<
             Field,
             Map<Field, DelayedPublicMutable<RootStatus, INITIAL_DELAY, Context>, Context>,
@@ -129,7 +129,7 @@ pub contract ZKPassportRegistry {
             valid_from: timestamp,
             valid_to: 0, // open-ended sentinel: "currently latest"
         });
-        latest_slot.schedule_value_change(LatestPair { latest: new_root, previous: cur.latest });
+        latest_slot.schedule_value_change(LatestRootPair { latest: new_root, previous: cur.latest });
     }
 
     // ---- policy knobs (admin or oracle) ----
@@ -258,7 +258,7 @@ pub contract ZKPassportRegistry {
     // ---- test-only views (Task 4+5): observe the DPM's *current* (delay-applied) values ----
 
     #[external("utility")]
-    unconstrained fn get_latest_pair(registry_id: Field) -> pub LatestPair {
+    unconstrained fn get_latest_pair(registry_id: Field) -> pub LatestRootPair {
         self.storage.latest.at(registry_id).get_current_value()
     }
 

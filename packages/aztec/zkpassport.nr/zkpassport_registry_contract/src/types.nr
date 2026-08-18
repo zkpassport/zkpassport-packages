@@ -29,7 +29,7 @@ pub struct RegistryConfig {
 }
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
-pub struct LatestPair {
+pub struct LatestRootPair {
     pub latest: Field,
     pub previous: Field,
 }
