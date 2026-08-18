@@ -18,7 +18,7 @@ pub fn is_root_valid(
         if latest.latest == root {
             !status.revoked
         } else {
-            (latest.count >= 2) & (latest.previous == root) & !status.revoked
+            (latest.previous == root) & !status.revoked
         }
     } else if config.mode == MODE_VALID_AT_TIMESTAMP {
         !status.revoked
@@ -60,7 +60,7 @@ global R1: Field = 111;
 global R2: Field = 222;
 global R3: Field = 333;
 fn latest_r2() -> LatestPair {
-    LatestPair { latest: R2, previous: R1, count: 2 }
+    LatestPair { latest: R2, previous: R1 }
 }
 
 // --- LATEST_ONLY ---
@@ -85,8 +85,10 @@ fn latest_and_previous_accepts_previous() {
     assert(is_root_valid(cfg(MODE_LATEST_AND_PREVIOUS, 0), latest_r2(), status(50, 99), R1, 500));
 }
 #[test]
-fn latest_and_previous_rejects_previous_when_count_below_two() {
-    let lp = LatestPair { latest: R2, previous: R1, count: 1 };
+fn latest_and_previous_rejects_non_latest_when_no_previous_exists() {
+    // Single-root state: previous is the zeroed default. update_root rejects zero roots and
+    // is_root_valid rejects non-existent ones, so previous == 0 can never match a real root.
+    let lp = LatestPair { latest: R2, previous: 0 };
     assert(!is_root_valid(cfg(MODE_LATEST_AND_PREVIOUS, 0), lp, status(50, 99), R1, 500));
 }
 #[test]

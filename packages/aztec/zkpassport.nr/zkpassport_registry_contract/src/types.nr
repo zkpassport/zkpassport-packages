@@ -32,7 +32,6 @@ pub struct RegistryConfig {
 pub struct LatestPair {
     pub latest: Field,
     pub previous: Field,
-    pub count: u64,
 }
 
 #[derive(Deserialize, Eq, Packable, Serialize)]

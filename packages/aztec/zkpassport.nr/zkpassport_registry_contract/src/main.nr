@@ -129,11 +129,7 @@ pub contract ZKPassportRegistry {
             valid_from: timestamp,
             valid_to: 0, // open-ended sentinel: "currently latest"
         });
-        latest_slot.schedule_value_change(LatestPair {
-            latest: new_root,
-            previous: cur.latest,
-            count: cur.count + 1,
-        });
+        latest_slot.schedule_value_change(LatestPair { latest: new_root, previous: cur.latest });
     }
 
     // ---- policy knobs (admin or oracle) ----
