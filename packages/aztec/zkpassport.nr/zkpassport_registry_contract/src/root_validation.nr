@@ -53,151 +53,99 @@ mod test {
     global ROOT_2: Field = 222;
     global ROOT_3: Field = 333;
 
-    // --- LATEST_ONLY ---
     #[test]
-    fn latest_only_accepts_latest() {
+    fn latest_only_mode() {
         let config = RegistryConfig { mode: MODE_LATEST_ONLY, window: 0 };
         let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 0 };
-        assert(is_root_valid(config, latest_root_pair, status, ROOT_2, 500));
-    }
-    #[test]
-    fn latest_only_rejects_previous() {
-        let config = RegistryConfig { mode: MODE_LATEST_ONLY, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 50, valid_to: 99 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 500));
-    }
-    #[test]
-    fn latest_only_rejects_revoked_latest() {
-        let config = RegistryConfig { mode: MODE_LATEST_ONLY, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: true, valid_from: 100, valid_to: 0 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_2, 500));
+
+        // the latest root is valid
+        let latest = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 0 };
+        assert(is_root_valid(config, latest_root_pair, latest, ROOT_2, 500));
+
+        // any other root is not, even the previous one
+        let previous = RootStatus { exists: true, revoked: false, valid_from: 50, valid_to: 99 };
+        assert(!is_root_valid(config, latest_root_pair, previous, ROOT_1, 500));
+
+        // a revoked latest root is not valid
+        let revoked = RootStatus { exists: true, revoked: true, valid_from: 100, valid_to: 0 };
+        assert(!is_root_valid(config, latest_root_pair, revoked, ROOT_2, 500));
     }
 
-    // --- LATEST_AND_PREVIOUS ---
     #[test]
-    fn latest_and_previous_accepts_previous() {
+    fn latest_and_previous_mode() {
         let config = RegistryConfig { mode: MODE_LATEST_AND_PREVIOUS, window: 0 };
         let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 50, valid_to: 99 };
-        assert(is_root_valid(config, latest_root_pair, status, ROOT_1, 500));
-    }
-    #[test]
-    fn latest_and_previous_rejects_non_latest_when_no_previous_exists() {
+
+        // both the latest and the previous root are valid
+        let latest = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 0 };
+        assert(is_root_valid(config, latest_root_pair, latest, ROOT_2, 500));
+        let previous = RootStatus { exists: true, revoked: false, valid_from: 50, valid_to: 99 };
+        assert(is_root_valid(config, latest_root_pair, previous, ROOT_1, 500));
+
+        // an older root is not
+        let older = RootStatus { exists: true, revoked: false, valid_from: 10, valid_to: 49 };
+        assert(!is_root_valid(config, latest_root_pair, older, ROOT_3, 500));
+
+        // a revoked previous root is not
+        let revoked = RootStatus { exists: true, revoked: true, valid_from: 50, valid_to: 99 };
+        assert(!is_root_valid(config, latest_root_pair, revoked, ROOT_1, 500));
+
         // Single-root state: previous is the zeroed default. update_root rejects zero roots and
         // is_root_valid rejects non-existent ones, so previous == 0 can never match a real root.
-        let config = RegistryConfig { mode: MODE_LATEST_AND_PREVIOUS, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: 0 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 50, valid_to: 99 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 500));
-    }
-    #[test]
-    fn latest_and_previous_rejects_older_root() {
-        let config = RegistryConfig { mode: MODE_LATEST_AND_PREVIOUS, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 10, valid_to: 49 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_3, 500));
-    }
-    #[test]
-    fn latest_and_previous_rejects_revoked_previous() {
-        let config = RegistryConfig { mode: MODE_LATEST_AND_PREVIOUS, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: true, valid_from: 50, valid_to: 99 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 500));
+        let single_root_pair = LatestRootPair { latest: ROOT_2, previous: 0 };
+        assert(!is_root_valid(config, single_root_pair, previous, ROOT_1, 500));
     }
 
-    // --- VALID_AT_TIMESTAMP ---
     #[test]
-    fn at_timestamp_inside_interval() {
+    fn valid_at_timestamp_mode() {
         let config = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 0 };
         let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
+
+        // valid inside [valid_from, valid_to], invalid outside
         let status = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 200 };
         assert(is_root_valid(config, latest_root_pair, status, ROOT_1, 150));
-    }
-    #[test]
-    fn at_timestamp_before_valid_from() {
-        let config = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 200 };
         assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 99));
-    }
-    #[test]
-    fn at_timestamp_after_valid_to() {
-        let config = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 200 };
         assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 201));
-    }
-    #[test]
-    fn at_timestamp_sentinel_zero_is_open_ended() {
-        let config = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 0 };
-        assert(is_root_valid(config, latest_root_pair, status, ROOT_2, 999999999));
-    }
-    #[test]
-    fn at_timestamp_rejects_revoked_inside_interval() {
-        let config = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 0 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: true, valid_from: 100, valid_to: 200 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 150));
+
+        // valid_to == 0 means open-ended
+        let open_ended = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 0 };
+        assert(is_root_valid(config, latest_root_pair, open_ended, ROOT_2, 999999999));
+
+        // a revoked root is invalid even inside its interval
+        let revoked = RootStatus { exists: true, revoked: true, valid_from: 100, valid_to: 200 };
+        assert(!is_root_valid(config, latest_root_pair, revoked, ROOT_1, 150));
     }
 
-    // --- VALID_WITHIN_WINDOW (L1 test example: W=300, t0=1000) ---
     #[test]
-    fn window_latest_bypasses_window_even_far_future() {
+    fn valid_within_window_mode() {
+        // L1 test example: W=300, t0=1000
         let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 300 };
         let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 1000, valid_to: 0 };
-        assert(is_root_valid(config, latest_root_pair, status, ROOT_2, 99999999));
-    }
-    #[test]
-    fn window_revoked_latest_rejected() {
-        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 300 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: true, valid_from: 1000, valid_to: 0 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_2, 1700));
-    }
-    #[test]
-    fn window_overlap_accepts() {
-        // T=1700, W=300 → window [1400,1700]; validTo=1499 overlaps
-        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 300 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 1000, valid_to: 1499 };
-        assert(is_root_valid(config, latest_root_pair, status, ROOT_1, 1700));
-    }
-    #[test]
-    fn window_revoked_non_latest_rejected_despite_overlap() {
-        // Same geometry as window_overlap_accepts, but revoked
-        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 300 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: true, valid_from: 1000, valid_to: 1499 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 1700));
-    }
-    #[test]
-    fn window_no_overlap_rejects() {
-        // validTo=1199 < windowStart=1400
-        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 300 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 1000, valid_to: 1199 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 1700));
-    }
-    #[test]
-    fn window_underflow_is_invalid_not_valid() {
-        // L1: timestamp - window reverts → router catches → false. Saturating-sub would WRONGLY accept.
-        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 300 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 0, valid_to: 10 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 100));
-    }
-    #[test]
-    fn window_valid_from_in_future_rejects() {
-        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 300 };
-        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
-        let status = RootStatus { exists: true, revoked: false, valid_from: 2000, valid_to: 0 };
-        assert(!is_root_valid(config, latest_root_pair, status, ROOT_1, 1700));
+
+        // the latest root is valid arbitrarily far in the future, but not if revoked
+        let latest = RootStatus { exists: true, revoked: false, valid_from: 1000, valid_to: 0 };
+        assert(is_root_valid(config, latest_root_pair, latest, ROOT_2, 99999999));
+        let revoked_latest = RootStatus { exists: true, revoked: true, valid_from: 1000, valid_to: 0 };
+        assert(!is_root_valid(config, latest_root_pair, revoked_latest, ROOT_2, 1700));
+
+        // T=1700, W=300 → window [1400,1700]; validTo=1499 overlaps — but not if revoked
+        let overlap = RootStatus { exists: true, revoked: false, valid_from: 1000, valid_to: 1499 };
+        assert(is_root_valid(config, latest_root_pair, overlap, ROOT_1, 1700));
+        let revoked_overlap = RootStatus { exists: true, revoked: true, valid_from: 1000, valid_to: 1499 };
+        assert(!is_root_valid(config, latest_root_pair, revoked_overlap, ROOT_1, 1700));
+
+        // validTo=1199 < windowStart=1400 → no overlap
+        let no_overlap = RootStatus { exists: true, revoked: false, valid_from: 1000, valid_to: 1199 };
+        assert(!is_root_valid(config, latest_root_pair, no_overlap, ROOT_1, 1700));
+
+        // timestamp < window: L1's unchecked timestamp - window reverts and the router catches it
+        // as invalid. Saturating subtraction would WRONGLY accept here.
+        let underflow = RootStatus { exists: true, revoked: false, valid_from: 0, valid_to: 10 };
+        assert(!is_root_valid(config, latest_root_pair, underflow, ROOT_1, 100));
+
+        // valid_from in the future
+        let future = RootStatus { exists: true, revoked: false, valid_from: 2000, valid_to: 0 };
+        assert(!is_root_valid(config, latest_root_pair, future, ROOT_1, 1700));
     }
 
     // --- cross-cutting ---
@@ -216,7 +164,7 @@ mod test {
         assert(!is_root_valid(config, latest_root_pair, status, ROOT_2, 500));
     }
     #[test]
-    fn at_timestamp_helper_ignores_mode() {
+    fn is_root_valid_at_timestamp_helper() {
         let status = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 200 };
         assert(is_root_valid_at_timestamp(status, 150));
         assert(!is_root_valid_at_timestamp(status, 201));
