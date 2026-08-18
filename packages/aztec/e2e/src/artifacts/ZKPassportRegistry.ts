@@ -143,9 +143,6 @@ oprf_pk_hash: {
     /** assert_sanctions_root_valid(root: field, current_date: integer) */
     assert_sanctions_root_valid: ((root: FieldLike, current_date: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** batch_update_roots(registry_id: field, roots: array, count: integer) */
-    batch_update_roots: ((registry_id: FieldLike, roots: { root: FieldLike, valid_from: (bigint | number), valid_to: (bigint | number), revoked: boolean }[], count: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** constructor(admin: struct, oracle: struct, guardian: struct) */
     constructor: ((admin: AztecAddressLike, oracle: AztecAddressLike, guardian: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
