@@ -1,0 +1,3 @@
+node_modules/
+# `aztec codegen` scratch file, written to the cwd it is invoked from
+codegenCache.json
