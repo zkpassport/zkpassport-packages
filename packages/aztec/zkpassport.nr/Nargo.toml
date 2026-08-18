@@ -1,0 +1,2 @@
+[workspace]
+members = ["zkpassport_registry_contract"]
