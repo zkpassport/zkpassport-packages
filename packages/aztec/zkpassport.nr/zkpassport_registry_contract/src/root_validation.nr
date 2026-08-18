@@ -11,7 +11,7 @@ pub fn is_root_valid(
     timestamp: u64,
 ) -> bool {
     if !status.exists {
-        false // indexByRoot == 0 analog
+        false
     } else if config.mode == MODE_LATEST_ONLY {
         (latest.latest == root) & !status.revoked
     } else if config.mode == MODE_LATEST_AND_PREVIOUS {
