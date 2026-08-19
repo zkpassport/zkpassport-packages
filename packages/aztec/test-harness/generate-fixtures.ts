@@ -1,6 +1,6 @@
 // Usage (from the repo root): bun i && bun run --cwd packages/zkpassport-utils build,
-// then: bun packages/aztec/test-harness/golden-vectors.ts
-// Emits golden-vectors.json (next to this script) with Poseidon2 param commitments
+// then: bun packages/aztec/test-harness/generate-fixtures.ts
+// Emits fixtures.json (next to this script) with Poseidon2 param commitments
 // computed by this repo's @zkpassport/utils — the reference implementation the
 // zkpassport_core commitment tests pin against.
 import {
@@ -11,7 +11,7 @@ import {
 import { writeFileSync } from "fs"
 import { fileURLToPath } from "url"
 
-const OUT = fileURLToPath(new URL("./golden-vectors.json", import.meta.url))
+const OUT = fileURLToPath(new URL("./fixtures.json", import.meta.url))
 const hex = (b: bigint) => "0x" + b.toString(16).padStart(64, "0")
 
 async function main() {
