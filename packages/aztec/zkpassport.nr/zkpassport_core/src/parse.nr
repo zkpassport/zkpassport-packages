@@ -13,9 +13,6 @@ pub struct PublicInputs<let K: u32> {
 }
 
 pub fn parse_public_inputs<let K: u32>(public_inputs: [Field; K + 5]) -> PublicInputs<K> {
-    // The outer circuit declares current_date: pub u64 and nullifier_type as a small value,
-    // so a verified proof already range-constrains them — these asserts are belt-and-braces
-    // (Field-to-int casts in Noir truncate silently; never cast without the round-trip check).
     let current_date_f = public_inputs[PI_CURRENT_DATE];
     let current_date = current_date_f as u64;
     assert(current_date as Field == current_date_f, "current_date out of range");
