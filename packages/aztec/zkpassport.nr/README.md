@@ -22,7 +22,7 @@ members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport", "exa
 | Package | Type | Purpose | Key dependencies |
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`oracle`/`guardian`) are plain `PublicMutable` — writes take effect instantly (`main.nr:24-26`). Everything else — `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, the accepted-VK set, and the OPRF pubkey hash — is `DelayedPublicMutable` (24h delay). Exposes `update_root` (oracle), admin policy setters, and private `#[view]` functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers call. | `aztec` (git, tag `v5.2.0`) |
-| `zkpassport_core` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`) over the ZKPassport circuits' own Noir libs. This crate is what the `test-harness/` proves against natively (no TXE needed). | `bb_proof_verification` (git, tag `v5.2.0`), `poseidon` (git, tag `v0.3.0`), plus **path deps** into the sibling `circuits` checkout — see Pins below |
+| `zkpassport_core` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`) over the ZKPassport circuits' own Noir libs. This crate is what the `test-harness/` proves against natively (no TXE needed). | `bb_proof_verification` (git, tag `v5.2.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
 | `zkpassport` | `lib` | The glue apps actually depend on: re-exports `zkpassport_core`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport_core` (path), `zkpassport_registry_contract` (path) |
 | `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<4>` + `emit_uniqueness_nullifier`. | `aztec`, `zkpassport`, `zkpassport_registry_contract` (path) |
 
@@ -205,11 +205,11 @@ afterwards, to verify the wrapper.
 | Component | Pin | Notes |
 |---|---|---|
 | Aztec toolchain | `v5.2.0` (`aztec-nargo`, `aztec test`, `bb` 5.2.0-nightly) | Everything under `zkpassport.nr/` and `e2e/` compiles/tests/runs against this. Path: `/mnt/user-data/martin/.aztec/versions/5.2.0`. |
-| `aztec-nr` (the `aztec` crate) | git `https://github.com/AztecProtocol/aztec-nr`, tag `v5.2.0` | Depended on by `zkpassport_registry_contract`, `zkpassport`, `age_gate_contract`. |
+| `aztec-nr` (the `aztec` crate) | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `noir-projects/aztec-nr/aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport`, `age_gate_contract`. Sourced from the monorepo (not the `aztec-nr` mirror) so all members share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport_core`'s recursive-verification dependency. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport_core` and `zkpassport`. |
-| ZKPassport `circuits` repo | sibling checkout `../../../../../circuits` (relative to `zkpassport_core/`, i.e. `/mnt/user-data/martin/circuits`) pinned at commit `1a1836eb958b7d7bbb47fab060128757748dba6a` | The commit the fixtures were built from. `zkpassport_core/Nargo.toml` depends on it via **path deps**: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib` (see paths below). |
-| `@zkpassport/utils` (TS) | `0.37.4` (pinned in the `circuits` repo's own `package.json`) | Used by `test-harness/fixture-gen.ts` and `test-harness/golden-vectors.ts`, both of which run with cwd = the `circuits` checkout. Not a dependency of `e2e/` or any Noir package. |
+| ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport_core`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib`. The fixtures were built from a checkout at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the golden-vector tests confirm identical commitments). A sibling checkout is still needed for fixture generation (`test-harness/gen-fixtures.sh`). |
+| `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/golden-vectors.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/fixture-gen.ts` still runs with cwd = the `circuits` checkout, which pins the same version. Not a dependency of `e2e/` or any Noir package. |
 | `bb` (fixture generation only) | 5.0.0-nightly, from the separate `5.0.1` Aztec toolchain install | Matches the `bb` build ZKPassport's production circuits were compiled/proved with; required only by `test-harness/gen-fixtures.sh`, never by test/build commands above. |
 
 `zkpassport_core/Nargo.toml`, verbatim:
@@ -218,17 +218,12 @@ afterwards, to verify the wrapper.
 [dependencies]
 bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v5.2.0", directory = "barretenberg/noir/bb_proof_verification" }
 poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }
-utils = { path = "../../../../../circuits/src/noir/lib/utils" }
-disclose_lib = { path = "../../../../../circuits/src/noir/lib/disclose" }
-bind_lib = { path = "../../../../../circuits/src/noir/lib/bind" }
-compare_age_lib = { path = "../../../../../circuits/src/noir/lib/compare/age" }
-exclusion_check_sanctions_lib = { path = "../../../../../circuits/src/noir/lib/exclusion-check/sanctions" }
+utils = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/utils" }
+disclose_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/disclose" }
+bind_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/bind" }
+compare_age_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/compare/age" }
+exclusion_check_sanctions_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/exclusion-check/sanctions" }
 ```
 
-**PUBLISH BLOCKER:** the commitment libs above (`utils`, `disclose_lib`, `bind_lib`,
-`compare_age_lib`, `exclusion_check_sanctions_lib`) are **path dependencies into a local sibling
-checkout**, not git dependencies — nargo has no way to resolve them outside a machine that has
-`/mnt/user-data/martin/circuits` checked out at (or after) `1a1836eb`. This workspace cannot be
-published or consumed from another machine until ZKPassport cuts a **nargo-resolvable release
-tag** (a tag on the `circuits` repo whose `Nargo.toml`s are fetchable via `git = "..."` deps) at
-or after `1a1836eb`, at which point these five path deps switch to git deps pinned to that tag.
+All dependencies are git-pinned (nargo git deps require a tag or branch name — bare commit
+SHAs don't resolve), so the workspace builds on any machine with no sibling checkouts.
