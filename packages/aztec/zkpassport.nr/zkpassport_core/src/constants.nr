@@ -1,4 +1,4 @@
-// Outer-proof shape (spike-verified against a real proof under aztec v5.2.0)
+// Outer-proof shape
 pub global VK_FIELDS: u32 = 115;
 pub global PROOF_FIELDS: u32 = 458;
 
@@ -19,7 +19,7 @@ pub global NULLIFIER_TYPE_NON_SALTED_MOCK: u8 = 2;
 pub global NULLIFIER_TYPE_SALTED_MOCK: u8 = 3;
 pub global NULLIFIER_TYPE_NONE: u8 = 4;
 
-// Capsule slots (app-side delivery convention, following voice)
+// Capsule slots (app-side delivery convention)
 pub global PROOF_CAPSULE_SLOT: Field = 1;
 pub global DISCLOSE_CAPSULE_SLOT: Field = 2;
 pub global SANCTIONS_CAPSULE_SLOT: Field = 3;
