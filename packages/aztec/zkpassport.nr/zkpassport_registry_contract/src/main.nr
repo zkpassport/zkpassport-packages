@@ -23,12 +23,12 @@ pub contract ZKPassportRegistry {
 
     #[storage]
     struct Storage<Context> {
-        // Roles: only ever read in public write functions → plain public state (instant)
+        // Contract roles are set and used in public
         admin: PublicMutable<AztecAddress, Context>,
         oracle: PublicMutable<AztecAddress, Context>,
         guardian: PublicMutable<AztecAddress, Context>,
-        // Everything below is read privately by verifiers → DPM, 24h delay.
-        // Write-path guards read the *scheduled* value via get_scheduled_value() (no mirrors needed).
+
+        // Everything below is read privately by verifiers thus using DelayedPublicMutable and subject to a ~24h delay.
         paused: DelayedPublicMutable<bool, INITIAL_DELAY, Context>,
         config: Map<Field, DelayedPublicMutable<RegistryConfig, INITIAL_DELAY, Context>, Context>,
         latest: Map<Field, DelayedPublicMutable<LatestRootPair, INITIAL_DELAY, Context>, Context>,
@@ -41,8 +41,9 @@ pub contract ZKPassportRegistry {
         oprf_pk_hash: DelayedPublicMutable<Field, INITIAL_DELAY, Context>,
     }
 
-    // mode/window are deploy parameters like on L1 (RegistryInstance's constructor); deployments
-    // pin the production values (VALID_WITHIN_WINDOW, 86400) the way L1's registry subclasses do.
+    // `admin`, `oracle`, and `guardian` are contract roles.
+    // `mode` and `window` specify the root verification behavior of this registry. For a list of valid modes, refer to
+    // types.nr. `window` is a duration in seconds used in the `MODE_VALID_WITHIN_WINDOW` mode.
     #[external("public")]
     #[initializer]
     fn constructor(
@@ -64,8 +65,6 @@ pub contract ZKPassportRegistry {
         self.storage.config.at(REGISTRY_SANCTIONS).schedule_value_change(config);
     }
 
-    // ---- roles (mirror L1 RegistryInstance) ----
-
     #[external("public")]
     fn transfer_admin(new_admin: AztecAddress) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
@@ -86,7 +85,6 @@ pub contract ZKPassportRegistry {
         self.storage.guardian.write(new_guardian);
     }
 
-    // Guardian can pause; only admin can unpause (L1 parity). Both bite after 24h (spec decision #1).
     #[external("public")]
     fn pause() {
         let sender = self.msg_sender();
@@ -102,28 +100,29 @@ pub contract ZKPassportRegistry {
         self.storage.paused.schedule_value_change(false);
     }
 
-    // ---- root updates (oracle) ----
-
     #[external("public")]
     fn update_root(registry_id: Field, new_root: Field, current_root: Field, timestamp: u64) {
         assert(self.msg_sender() == self.storage.oracle.read(), "caller is not oracle");
+
         let (pending_paused, _) = self.storage.paused.get_scheduled_value();
         assert(!pending_paused, "registry is paused");
+
         assert_valid_registry_id(registry_id);
+
         assert(new_root != 0, "new root cannot be zero");
 
         let new_slot = self.storage.roots.at(registry_id).at(new_root);
         let (new_status, _) = new_slot.get_scheduled_value();
-        assert(!new_status.exists, "root already exists"); // roots can NEVER be re-inserted
+        assert(!new_status.exists, "root already exists");
 
         let latest_slot = self.storage.latest.at(registry_id);
         let (cur, _) = latest_slot.get_scheduled_value();
-        assert(cur.latest == current_root, "current root mismatch"); // CAS guard; 0 for first update
+        assert(cur.latest == current_root, "current root mismatch"); // avoid races in oracle executions
 
         if cur.latest != 0 {
             let old_slot = self.storage.roots.at(registry_id).at(cur.latest);
             let (old, _) = old_slot.get_scheduled_value();
-            assert(timestamp > old.valid_from, "timestamp not after current validFrom");
+            assert(timestamp > old.valid_from, "timestamp not after current valid_from");
             old_slot.schedule_value_change(RootStatus {
                 exists: old.exists,
                 revoked: old.revoked,
@@ -140,8 +139,6 @@ pub contract ZKPassportRegistry {
         latest_slot.schedule_value_change(LatestRootPair { latest: new_root, previous: cur.latest });
     }
 
-    // ---- policy knobs (admin or oracle) ----
-
     #[external("public")]
     fn set_revocation_status(registry_id: Field, root: Field, revoked: bool) {
         assert_admin_or_oracle(self.msg_sender(), self.storage.admin.read(), self.storage.oracle.read());
@@ -151,7 +148,7 @@ pub contract ZKPassportRegistry {
         assert(status.exists, "root does not exist");
         slot.schedule_value_change(RootStatus {
             exists: status.exists,
-            revoked, // reversible (L1 parity)
+            revoked,
             valid_from: status.valid_from,
             valid_to: status.valid_to,
         });
@@ -176,8 +173,6 @@ pub contract ZKPassportRegistry {
         slot.schedule_value_change(RegistryConfig { mode: cfg.mode, window });
     }
 
-    // ---- accepted VK and OPRF pubkey hash management (admin) ----
-
     #[external("public")]
     fn add_accepted_vk(vk_hash: Field) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
@@ -196,8 +191,6 @@ pub contract ZKPassportRegistry {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
         self.storage.oprf_pk_hash.schedule_value_change(oprf_pk_hash);
     }
-
-    // ---- private views (the verify path) ----
 
     #[external("private")]
     #[view]
@@ -230,8 +223,7 @@ pub contract ZKPassportRegistry {
             "invalid circuit registry root",
         );
 
-        // L1 SubVerifier step 9: OPRF pubkey binding for SALTED nullifier types only.
-        // nullifier types: SALTED = 1, SALTED_MOCK = 3
+        // nullifier types: SALTED = 1, SALTED_MOCK = 3 -> verify OPRF pubkey matches
         if (nullifier_type == 1) | (nullifier_type == 3) {
             let stored = self.storage.oprf_pk_hash.get_current_value();
             assert(stored != 0, "oprf pk hash not set");
@@ -239,7 +231,6 @@ pub contract ZKPassportRegistry {
         }
     }
 
-    // Opt-in sanctions lane (L1's VerifierHelper split — spec decision #4)
     #[external("private")]
     #[view]
     fn assert_sanctions_root_valid(root: Field, current_date: u64) {
@@ -253,7 +244,8 @@ pub contract ZKPassportRegistry {
         );
     }
 
-    // Mode-independent escape hatch (L1 RegistryHelper.isRootValidAtTimestamp)
+    // Mode-independent root validation. Only takes into account timestamp falls in root validity period,
+    // and non-revocation.
     #[external("private")]
     #[view]
     fn assert_root_valid_at_timestamp(registry_id: Field, root: Field, timestamp: u64) {
@@ -263,8 +255,7 @@ pub contract ZKPassportRegistry {
         assert(is_root_valid_at_timestamp(status, timestamp), "root not valid at timestamp");
     }
 
-    // ---- test-only views (Task 4+5): observe the DPM's *current* (delay-applied) values ----
-
+    // ---- test-only views. Observe the DPM's *current* (delay-applied) values ----
     #[external("utility")]
     unconstrained fn get_latest_pair(registry_id: Field) -> pub LatestRootPair {
         self.storage.latest.at(registry_id).get_current_value()
