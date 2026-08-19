@@ -1,6 +1,6 @@
 /**
  * zkpassport-aztec harness: generate a real ZKPassport `outer_count_4` proof fixture
- * for the bb-level golden-fixture harness (harness/run-harness.sh).
+ * for the bb-level golden-fixture harness (test-harness/run-harness.sh).
  *
  * Evolved from spike/spike-outer-fixture.ts (which was itself adapted from the circuits
  * repo's src/ts/tests/outer.test.ts "4 subproofs" test). Changes vs the spike:
@@ -22,7 +22,7 @@
  * to cwd) and with the 5.0.1 toolchain's bb first in PATH (bb 5.0.0-nightly matches
  * ZKPassport's production circuit builds). Because `npx tsx` resolves node_modules from the
  * SCRIPT's path, this file is copied into the circuits repo before running -- see
- * harness/gen-fixtures.sh, which does the copy/run/cleanup.
+ * test-harness/gen-fixtures.sh, which does the copy/run/cleanup.
  *
  *   FIXTURE_KIND=disclose FIXTURE_OUT=/path/out.json npx tsx <copy-inside-circuits-repo>.ts
  */
@@ -334,7 +334,7 @@ async function main() {
   )
 
   const fixture = {
-    generator: "harness/fixture-gen.ts (zkpassport-aztec)",
+    generator: "test-harness/fixture-gen.ts (zkpassport-aztec)",
     kind: FIXTURE_KIND,
     disclosureCircuit: disclosureName,
     bbVersion,
