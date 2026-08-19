@@ -7,6 +7,5 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }
 utils = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/utils" }
 disclose_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/disclose" }
-bind_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/bind" }
 compare_age_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/compare/age" }
 exclusion_check_sanctions_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/exclusion-check/sanctions" }
