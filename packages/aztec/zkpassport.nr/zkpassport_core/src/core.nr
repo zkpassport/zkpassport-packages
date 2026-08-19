@@ -10,8 +10,6 @@ pub struct VerifiedOuterProof<let K: u32> {
     pub vk_hash: Field,
 }
 
-/// Stateless SubVerifier analog: recursion + scope binding + nullifier-type policy +
-/// L1-strict param-commitment matching (every slot, positionally, fully consumed).
 /// Does NOT check: registry roots, vk acceptance, OPRF binding (registry view — Task 6),
 /// or freshness (needs a PrivateContext — Task 11).
 pub fn verify_outer_proof_core<let K: u32>(
