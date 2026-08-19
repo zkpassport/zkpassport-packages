@@ -4,13 +4,18 @@
   "type": "module",
   "scripts": {
     "e2e": "tsx e2e/run-e2e.ts",
-    "format": "prettier -c -w e2e"
+    "format": "prettier -c -w e2e deployment",
+    "deploy:testnet": "tsx deployment/deploy-testnet.ts",
+    "deploy:mainnet": "tsx deployment/deploy-mainnet.ts"
   },
   "dependencies": {
     "@aztec/accounts": "5.2.0",
     "@aztec/aztec.js": "5.2.0",
+    "@aztec/constants": "5.2.0",
+    "@aztec/ethereum": "5.2.0",
     "@aztec/stdlib": "5.2.0",
-    "@aztec/wallets": "5.2.0"
+    "@aztec/wallets": "5.2.0",
+    "noir-contracts-5.1.0": "npm:@aztec/noir-contracts.js@5.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

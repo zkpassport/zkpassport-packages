@@ -5,6 +5,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
+    "allowArbitraryExtensions": true,
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -12,5 +13,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["e2e/**/*.ts", "artifacts/**/*.ts"]
+  "include": ["e2e/**/*.ts", "deployment/**/*.ts", "artifacts/**/*.ts"]
 }
