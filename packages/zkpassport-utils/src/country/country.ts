@@ -1,3 +1,8 @@
+// Germany uses "D<<" in the MRZ instead of its ISO alpha-3 code
+export function normalizeCountryCode(countryCode: string) {
+  return countryCode === "D<<" ? "DEU" : countryCode
+}
+
 export function countryCodeAlpha2ToAlpha3(countryCodeAlpha2: string) {
   return ccAlpha2ToAlpha3[countryCodeAlpha2.toUpperCase() as keyof typeof ccAlpha2ToAlpha3]
 }
