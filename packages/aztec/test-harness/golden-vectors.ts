@@ -1,5 +1,5 @@
 // Usage (from the repo root): bun i && bun run --cwd packages/zkpassport-utils build,
-// then: bun packages/aztec/harness/golden-vectors.ts
+// then: bun packages/aztec/test-harness/golden-vectors.ts
 // Emits golden-vectors.json (next to this script) with Poseidon2 param commitments
 // computed by this repo's @zkpassport/utils — the reference implementation the
 // zkpassport_core commitment tests pin against.
