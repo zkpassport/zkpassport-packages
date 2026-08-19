@@ -1,5 +1,6 @@
 import { getOffsetInArray } from "@/utils"
 import { PassportViewModel } from ".."
+import { normalizeCountryCode } from "../country/country"
 
 export function getFirstNameRange(passport: PassportViewModel): [number, number] {
   const mrz = passport?.mrz
@@ -73,11 +74,7 @@ export function getNationalityRange(passport: PassportViewModel): [number, numbe
 
 export function getNationality(passport: PassportViewModel): string {
   const mrz = passport?.mrz
-  const countryCode = mrz.slice(...getNationalityRange(passport))
-  if (countryCode === "D<<") {
-    return "DEU"
-  }
-  return countryCode
+  return normalizeCountryCode(mrz.slice(...getNationalityRange(passport)))
 }
 
 export function getExpiryDateRange(passport: PassportViewModel): [number, number] {
