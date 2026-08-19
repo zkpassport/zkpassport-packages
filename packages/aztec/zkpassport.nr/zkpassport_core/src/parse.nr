@@ -1,6 +1,6 @@
 use crate::constants::{PI_CERT_ROOT, PI_CIRCUIT_ROOT, PI_CURRENT_DATE, PI_PARAMS_START, PI_SCOPE, PI_SUBSCOPE};
 
-pub struct ParsedPublicInputs<let K: u32> {
+pub struct PublicInputs<let K: u32> {
     pub certificate_registry_root: Field,
     pub circuit_registry_root: Field,
     pub current_date: u64,
@@ -12,33 +12,33 @@ pub struct ParsedPublicInputs<let K: u32> {
     pub oprf_pk_hash: Field,
 }
 
-pub fn parse_public_inputs<let K: u32>(pis: [Field; K + 5]) -> ParsedPublicInputs<K> {
+pub fn parse_public_inputs<let K: u32>(public_inputs: [Field; K + 5]) -> PublicInputs<K> {
     // The outer circuit declares current_date: pub u64 and nullifier_type as a small value,
     // so a verified proof already range-constrains them — these asserts are belt-and-braces
     // (Field-to-int casts in Noir truncate silently; never cast without the round-trip check).
-    let current_date_f = pis[PI_CURRENT_DATE];
+    let current_date_f = public_inputs[PI_CURRENT_DATE];
     let current_date = current_date_f as u64;
     assert(current_date as Field == current_date_f, "current_date out of range");
 
-    let nullifier_type_f = pis[K + 5 - 3];
+    let nullifier_type_f = public_inputs[K + 5 - 3];
     let nullifier_type = nullifier_type_f as u8;
     assert(nullifier_type as Field == nullifier_type_f, "nullifier_type out of range");
 
     let mut param_commitments = [0; K - 3];
     for i in 0..K - 3 {
-        param_commitments[i] = pis[PI_PARAMS_START + i];
+        param_commitments[i] = public_inputs[PI_PARAMS_START + i];
     }
 
-    ParsedPublicInputs {
-        certificate_registry_root: pis[PI_CERT_ROOT],
-        circuit_registry_root: pis[PI_CIRCUIT_ROOT],
+    PublicInputs {
+        certificate_registry_root: public_inputs[PI_CERT_ROOT],
+        circuit_registry_root: public_inputs[PI_CIRCUIT_ROOT],
         current_date,
-        service_scope: pis[PI_SCOPE],
-        service_subscope: pis[PI_SUBSCOPE],
+        service_scope: public_inputs[PI_SCOPE],
+        service_subscope: public_inputs[PI_SUBSCOPE],
         param_commitments,
         nullifier_type,
-        scoped_nullifier: pis[K + 5 - 2],
-        oprf_pk_hash: pis[K + 5 - 1],
+        scoped_nullifier: public_inputs[K + 5 - 2],
+        oprf_pk_hash: public_inputs[K + 5 - 1],
     }
 }
 

@@ -1,12 +1,12 @@
 use crate::constants::{
     NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_SALTED, PROOF_FIELDS, VK_FIELDS,
 };
-use crate::parse::{parse_public_inputs, ParsedPublicInputs};
+use crate::parse::{parse_public_inputs, PublicInputs};
 use bb_proof_verification::verify_honk_proof;
 use poseidon::poseidon2::Poseidon2;
 
 pub struct VerifiedOuterProof<let K: u32> {
-    pub parsed: ParsedPublicInputs<K>,
+    pub parsed: PublicInputs<K>,
     pub vk_hash: Field,
 }
 
