@@ -59,7 +59,7 @@ type Fixture = {
 };
 
 const FIXTURE: Fixture = JSON.parse(
-  readFileSync(new URL('../../harness/fixtures/outer_count_4_age.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../test-harness/fixtures/outer_count_4_age.json', import.meta.url), 'utf8'),
 );
 
 const started = Date.now();
@@ -147,7 +147,7 @@ async function main() {
   // that leaves roughly ~6 runs (~6 warps) of this script against one sandbox instance before
   // "proof dated in the future"/"proof too old" starts failing here for a reason that has
   // nothing to do with the code under test. Restart the sandbox (or regenerate the fixture via
-  // harness/gen-fixtures.sh) to reset the budget.
+  // test-harness/gen-fixtures.sh) to reset the budget.
   const before = await l2Timestamp(node);
   await timed('warp', () => nodeDebug.warpL2TimeAtLeastBy(Number(DELAY + 120n)));
   const after = await l2Timestamp(node);
