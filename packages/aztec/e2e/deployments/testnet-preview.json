@@ -1,0 +1,20 @@
+{
+  "network": "testnet",
+  "nodeUrl": "https://v5.testnet.rpc.aztec-labs.com",
+  "l1ChainId": "11155111",
+  "rollupVersion": "1821665230",
+  "nodeVersion": "5.2.0-nightly.20260815",
+  "registry": "0x2993422d9415492ab74a962d9884c7c5010edd30e05caaa6d2b98bfbc714c7f2",
+  "deployer": "0x04644fe737035a3c83d7196a75ba1d03ab8f473535273521ffbf042c9580a73f",
+  "roles": {
+    "admin": "0x04644fe737035a3c83d7196a75ba1d03ab8f473535273521ffbf042c9580a73f",
+    "oracle": "0x04644fe737035a3c83d7196a75ba1d03ab8f473535273521ffbf042c9580a73f",
+    "guardian": "0x04644fe737035a3c83d7196a75ba1d03ab8f473535273521ffbf042c9580a73f"
+  },
+  "mode": 3,
+  "window": "86400",
+  "initialDelay": "3600",
+  "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "sponsoredFPC": "0x130925fbd734a252e3d8ddff87f6c346052dd5c13314eb96026b32baa1923296",
+  "deployedAt": "2026-08-20T12:08:50.072Z"
+}
