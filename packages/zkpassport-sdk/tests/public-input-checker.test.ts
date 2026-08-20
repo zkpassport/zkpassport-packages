@@ -2947,15 +2947,14 @@ describe("PublicInputChecker - query completeness", () => {
   })
 })
 
-// Reported by a user with a German passport: the app normalizes the MRZ code "D<<" to "DEU" in the
-// query result, so the disclosed data parsed out of the proof has to be normalized the same way.
+// The app reports "DEU" for the MRZ code "D<<", so the checker must parse it the same way
 describe("PublicInputChecker - German documents (D<< country code)", () => {
   const germanPassportMRZ =
     "P<D<<MUSTERMANN<<ERIKA<<<<<<<<<<<<<<<<<<<<<<C01X00T478D<<6408125F2702283<<<<<<<<<<<<<<<4"
   const germanIDCardMRZ =
     "IDD<<L01X00T471<<<<<<<<<<<<<<<6408125F2702283D<<<<<<<<<<<<<4MUSTERMANN<<ERIKA<<<<<<<<<<<<<"
 
-  const proofFor = (mrz: string, ...ranges: [number, number][]) => {
+  const makeDiscloseProofFromMrz = (mrz: string, ...ranges: [number, number][]) => {
     const mask = new Array(90).fill(0)
     for (const [start, end] of ranges) mask.fill(1, start, end)
     return makeDiscloseProof(getDisclosedBytesFromMrzAndMask(mrz, mask))
@@ -2964,7 +2963,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
   describe("passports (TD3)", () => {
     test("nationality disclose accepts DEU", () => {
       const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanPassportMRZ, [54, 57]),
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
         { nationality: { disclose: true } },
         { nationality: { disclose: { result: "DEU" } } },
       )
@@ -2973,7 +2972,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
 
     test("issuing_country disclose accepts DEU", () => {
       const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanPassportMRZ, [2, 5]),
+        makeDiscloseProofFromMrz(germanPassportMRZ, [2, 5]),
         { issuing_country: { disclose: true } },
         { issuing_country: { disclose: { result: "DEU" } } },
       )
@@ -2982,7 +2981,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
 
     test("nationality eq accepts DEU", () => {
       const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanPassportMRZ, [54, 57]),
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
         { nationality: { eq: "DEU" } },
         { nationality: { eq: { expected: "DEU", result: true } } },
       )
@@ -2991,7 +2990,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
 
     test("issuing_country eq accepts DEU", () => {
       const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanPassportMRZ, [2, 5]),
+        makeDiscloseProofFromMrz(germanPassportMRZ, [2, 5]),
         { issuing_country: { eq: "DEU" } },
         { issuing_country: { eq: { expected: "DEU", result: true } } },
       )
@@ -3000,7 +2999,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
 
     test("still rejects a nationality the passport does not hold", () => {
       const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanPassportMRZ, [54, 57]),
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
         { nationality: { disclose: true } },
         { nationality: { disclose: { result: "FRA" } } },
       )
@@ -3009,7 +3008,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
 
     test("the reported query passes end to end", () => {
       const { isCorrect } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanPassportMRZ, [5, 44], [54, 57], [57, 63]),
+        makeDiscloseProofFromMrz(germanPassportMRZ, [5, 44], [54, 57], [57, 63]),
         {
           firstname: { disclose: true },
           lastname: { disclose: true },
@@ -3030,7 +3029,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
   describe("id cards (TD1)", () => {
     test("nationality disclose accepts DEU", () => {
       const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanIDCardMRZ, [45, 48]),
+        makeDiscloseProofFromMrz(germanIDCardMRZ, [45, 48]),
         { nationality: { disclose: true } },
         { nationality: { disclose: { result: "DEU" } } },
       )
@@ -3039,7 +3038,7 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
 
     test("issuing_country disclose accepts DEU", () => {
       const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-        proofFor(germanIDCardMRZ, [2, 5]),
+        makeDiscloseProofFromMrz(germanIDCardMRZ, [2, 5]),
         { issuing_country: { disclose: true } },
         { issuing_country: { disclose: { result: "DEU" } } },
       )
