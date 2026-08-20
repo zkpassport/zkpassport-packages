@@ -23,6 +23,13 @@ pub struct VerifiedProof<let K: u32> {
 // Domain separator for the uniqueness nullifier ("zkpassport" in ASCII)
 pub global UNIQUENESS_NULLIFIER_DOMAIN: Field = 0x7a6b70617373706f7274;
 
+/// Verify a zkPassport outer proof end-to-end: capsule load, recursion, scope pin, nullifier
+/// policy, commitment coverage, freshness, and the one registry view (roots + vk + OPRF).
+///
+/// `expected_commitments` are matched as a multiset (any order, full coverage — see
+/// verify_outer_proof_core): the prover does not fix the subproof order and the ZKPassport SDK
+/// itself matches param commitments by membership, so e.g. a {constraint, bind} pair may
+/// arrive in either order.
 pub fn verify_zkpassport_proof<let K: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -52,7 +59,7 @@ pub fn verify_zkpassport_proof<let K: u32>(
         public_inputs[i] = blob[VK_FIELDS + PROOF_FIELDS + i];
     }
 
-    // 2-6. Stateless core: recursion, scope, nullifier policy, strict commitments.
+    // 2-6. Stateless core: recursion, scope, nullifier policy, multiset commitment coverage.
     let out = verify_outer_proof_core::<K>(
         vk, proof, public_inputs,
         config.scope, config.subscope, config.dev_mode,
