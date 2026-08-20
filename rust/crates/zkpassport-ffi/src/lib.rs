@@ -329,7 +329,12 @@ fn build_outer_request(request_json: &str) -> Result<serde_json::Value, String> 
             .map_err(|e| e.to_string())?;
         let (tree_index, tree_hash_path) = outer::circuit_merkle_proof(&req.manifest, &key_hash)?;
         Ok(outer::OuterSubproof {
-            proof: pd.proof,
+            // 0x-prefix each proof field so it matches public_inputs and vkey. The
+            // cloud prover's compressed-evm path (bb `prove`, disable_zk) parses
+            // these as witness Fields and rejects bare hex ("Expected hexadecimal
+            // number for parameter: proof"); the recursive path tolerated it.
+            // get_proof_data stays bare-hex (faithful TS port) - normalize only here.
+            proof: pd.proof.iter().map(|f| format!("0x{f}")).collect(),
             public_inputs: pd.public_inputs,
             vkey: outer::ultra_vk_to_fields(&vkey_bytes),
             key_hash,
