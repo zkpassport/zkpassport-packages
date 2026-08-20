@@ -50,7 +50,23 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   format,
   outDir: `dist/${format}`,
   outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
-  dts: { compilerOptions: { composite: false } },
+  dts: {
+    compilerOptions: {
+      composite: false,
+      // Copy the @zkpassport types into our published type files, so
+      // consumers don't need to install those packages themselves
+      baseUrl: ".",
+      paths: {
+        // preact must stay external: inlining it breaks the build
+        "preact": ["./keep-external"],
+        "@zkpassport/sdk": ["../zkpassport-sdk/dist/esm/index.d.ts"],
+        "@zkpassport/sdk/popup": ["../zkpassport-sdk/dist/esm/popup.d.ts"],
+        "@zkpassport/sdk/query": ["../zkpassport-sdk/dist/esm/query.d.ts"],
+        "@zkpassport/utils": ["../zkpassport-utils/dist/esm/index.d.ts"],
+      },
+    },
+    resolve: true,
+  },
   clean: true,
   splitting: false,
   sourcemap: true,

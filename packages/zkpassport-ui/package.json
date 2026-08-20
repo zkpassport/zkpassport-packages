@@ -54,12 +54,6 @@
         "default": "./dist/cjs/react-button.cjs"
       }
     },
-    "./hosted": {
-      "import": {
-        "types": "./dist/hosted.d.ts",
-        "default": "./dist/hosted.js"
-      }
-    },
     "./styles.css": "./dist/styles.css"
   },
   "scripts": {
@@ -69,11 +63,12 @@
     "test": "bun test",
     "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts,.tsx",
     "format": "prettier -c -w src tests && eslint src tests --ext .ts,.tsx --fix",
-    "validate-package": "../../scripts/validate-package.sh --exclude-entrypoints ./styles.css ./hosted",
+    "validate-package": "../../scripts/validate-package.sh --exclude-entrypoints ./styles.css && node ../../scripts/check-dts-self-contained.mjs",
     "prepublishOnly": "../../scripts/prepublish.sh"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/hosted*"
   ],
   "sideEffects": [
     "*.css"

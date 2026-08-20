@@ -14,16 +14,34 @@
   "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.cjs"
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.cjs"
+      }
     },
     "./popup": {
-      "import": "./dist/esm/popup.js",
-      "require": "./dist/cjs/popup.cjs"
+      "import": {
+        "types": "./dist/esm/popup.d.ts",
+        "default": "./dist/esm/popup.js"
+      },
+      "require": {
+        "types": "./dist/cjs/popup.d.cts",
+        "default": "./dist/cjs/popup.cjs"
+      }
     },
     "./query": {
-      "import": "./dist/esm/query.js",
-      "require": "./dist/cjs/query.cjs"
+      "import": {
+        "types": "./dist/esm/query.d.ts",
+        "default": "./dist/esm/query.js"
+      },
+      "require": {
+        "types": "./dist/cjs/query.d.cts",
+        "default": "./dist/cjs/query.cjs"
+      }
     }
   },
   "scripts": {
