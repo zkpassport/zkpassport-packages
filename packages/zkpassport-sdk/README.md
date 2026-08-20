@@ -2,10 +2,6 @@
 
 Privacy-preserving identity verification using passports and ID cards.
 
-_⚠️ Warning ⚠️_
-
-_This is experimental software that has not been audited yet. Use at your own risk._
-
 ## Installation
 
 ```
@@ -196,3 +192,7 @@ bun test
 Simulate mobile websocket messages: `bun run scripts/simulate.ts mobile`
 
 Simulate frontend websocket messages: `bun run scripts/simulate.ts frontend`
+
+### Security
+
+ZKPassport has undergone multiple internal audits, but it has not yet had an external audit.
