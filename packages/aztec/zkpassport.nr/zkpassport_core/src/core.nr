@@ -47,13 +47,24 @@ pub fn verify_outer_proof_core<let K: u32>(
     // otherwise push a nullifier and permanently block the app.
     assert((nt == NULLIFIER_TYPE_NONE) | (parsed.scoped_nullifier != 0), "zero scoped nullifier");
 
-    // L1 SubVerifier step 7 — strict: every commitment slot matched exactly once, in order.
-    // (voice's membership-only check would let an extra unchecked commitment ride along)
+    // L1 SubVerifier step 7, as a MULTISET: every expected commitment must match a distinct
+    // param-commitment slot, in any order. The order is not contractual — the prover decides
+    // the subproof (and thus slot) order and the ZKPassport SDK itself matches by membership,
+    // so e.g. a {constraint, bind} pair may arrive either way across SDK versions. Coverage is
+    // still total (K - 3 expectations over K - 3 slots), so nothing unchecked can ride along —
+    // unlike a membership-only check with fewer expectations than slots.
+    // Greedy matching is exact here: slots equal to expected[i] are interchangeable, so
+    // consuming any unused equal slot never blocks a later expectation.
+    let mut used = [false; K - 3];
     for i in 0..K - 3 {
-        assert(
-            parsed.param_commitments[i] == expected_commitments[i],
-            "param commitment mismatch",
-        );
+        let mut found = false;
+        for j in 0..K - 3 {
+            let hit =
+                (!used[j]) & (!found) & (parsed.param_commitments[j] == expected_commitments[i]);
+            used[j] = used[j] | hit;
+            found = found | hit;
+        }
+        assert(found, "param commitment mismatch");
     }
 
     VerifiedOuterProof { parsed, vk_hash }
@@ -88,6 +99,45 @@ mod test {
         let mut pis = crate::parse::test::FIXTURE_PIS;
         pis[6] = 2; // NON_SALTED_MOCK
         let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
+    }
+
+    // [a, b] must accept a proof carrying [b, a] — the SDK does not fix the subproof (and
+    // thus param-commitment) order. Uses K=5 (two commitment slots) like voice's queries.
+    #[test]
+    fn accepts_swapped_commitments() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let mut pis = [0; 10];
+        for i in 0..8 {
+            pis[i] = crate::parse::test::FIXTURE_PIS[i];
+        }
+        // K=5 layout: [5], [6] are the two param commitments; tail moves to [7..9].
+        pis[5] = 0xaaaa;
+        pis[6] = 0xbbbb;
+        pis[7] = crate::parse::test::FIXTURE_PIS[6]; // nullifier_type
+        pis[8] = crate::parse::test::FIXTURE_PIS[7]; // scoped_nullifier
+        pis[9] = crate::parse::test::FIXTURE_PIS[8]; // oprf_pk_hash
+        let out = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xbbbb, 0xaaaa]);
+        assert(out.parsed.param_commitments[0] == 0xaaaa);
+        assert(out.parsed.param_commitments[1] == 0xbbbb);
+    }
+
+    // A duplicated expectation must not be satisfiable by one slot: [a, a] vs {a, b} fails —
+    // each expectation consumes a distinct slot, so coverage is preserved.
+    #[test(should_fail_with = "param commitment mismatch")]
+    fn rejects_duplicate_expectation_over_single_slot() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let mut pis = [0; 10];
+        for i in 0..8 {
+            pis[i] = crate::parse::test::FIXTURE_PIS[i];
+        }
+        pis[5] = 0xaaaa;
+        pis[6] = 0xbbbb;
+        pis[7] = crate::parse::test::FIXTURE_PIS[6];
+        pis[8] = crate::parse::test::FIXTURE_PIS[7];
+        pis[9] = crate::parse::test::FIXTURE_PIS[8];
+        let _ = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xaaaa, 0xaaaa]);
     }
 
     // IMP-1: NULLIFIER_TYPE_NONE (=4) is a privacy-maximising, no-uniqueness mode -- the
