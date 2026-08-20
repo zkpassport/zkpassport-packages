@@ -5,8 +5,12 @@
   "scripts": {
     "e2e": "tsx e2e/run-e2e.ts",
     "format": "prettier -c -w e2e deployment",
+    "deployer:testnet": "tsx deployment/create-deployer.ts testnet",
+    "deployer:mainnet": "tsx deployment/create-deployer.ts mainnet",
     "deploy:testnet": "tsx deployment/deploy-testnet.ts",
-    "deploy:mainnet": "tsx deployment/deploy-mainnet.ts"
+    "deploy:mainnet": "tsx deployment/deploy-mainnet.ts",
+    "seed:testnet": "tsx deployment/seed-registry.ts testnet",
+    "seed:mainnet": "tsx deployment/seed-registry.ts mainnet"
   },
   "dependencies": {
     "@aztec/accounts": "5.2.0",
@@ -15,6 +19,7 @@
     "@aztec/ethereum": "5.2.0",
     "@aztec/stdlib": "5.2.0",
     "@aztec/wallets": "5.2.0",
+    "@zkpassport/registry": "0.14.0",
     "noir-contracts-5.1.0": "npm:@aztec/noir-contracts.js@5.1.0"
   },
   "devDependencies": {
