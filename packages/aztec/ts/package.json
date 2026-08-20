@@ -1,0 +1,30 @@
+{
+  "name": "@zkpassport/aztec",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TS companion for the zkpassport.nr Aztec library: registry artifact + PXE registration, outer-proof capsule assembly, disclosed-data parsing",
+  "exports": {
+    ".": "./src/index.ts",
+    "./artifact": "./src/artifact.ts",
+    "./capsule": "./src/capsule.ts",
+    "./constants": "./src/constants.ts",
+    "./disclosed-data": "./src/disclosed-data.ts",
+    "./register": "./src/register.ts",
+    "./vk": "./src/vk.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@aztec/aztec.js": "5.2.0",
+    "@aztec/stdlib": "5.2.0",
+    "@zkpassport/utils": "0.37.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
