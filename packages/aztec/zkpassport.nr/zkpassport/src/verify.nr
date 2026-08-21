@@ -7,9 +7,9 @@ use zkpassport_core::core::verify_outer_proof_core;
 use zkpassport_registry_contract::ZKPassportRegistry;
 
 pub struct ServiceConfig {
-    pub scope: Field,           // sha256(domain) >> 8, app-computed constant (0 if unused)
-    pub subscope: Field,        // sha256(scope) >> 8 (0 if unused)
-    pub validity_period: u64,   // max proof age in seconds
+    pub scope: Field, // sha256(domain) >> 8, app-computed constant (0 if unused)
+    pub subscope: Field, // sha256(scope) >> 8 (0 if unused)
+    pub validity_period: u64, // max proof age in seconds
     pub dev_mode: bool,
 }
 
@@ -40,9 +40,8 @@ pub fn verify_zkpassport_proof<let K: u32>(
     // 1. Capsule load — unconstrained oracle data; EVERYTHING downstream constrains it.
     // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/
     // registry checks below constrain every field derived from it.
-    let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + K + 5]> = unsafe {
-        capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, user)
-    };
+    let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + K + 5]> =
+        unsafe { capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, user) };
     assert(blob.is_some(), "missing zkpassport proof capsule");
     let blob = blob.unwrap();
 
@@ -61,8 +60,12 @@ pub fn verify_zkpassport_proof<let K: u32>(
 
     // 2-6. Stateless core: recursion, scope, nullifier policy, multiset commitment coverage.
     let out = verify_outer_proof_core::<K>(
-        vk, proof, public_inputs,
-        config.scope, config.subscope, config.dev_mode,
+        vk,
+        proof,
+        public_inputs,
+        config.scope,
+        config.subscope,
+        config.dev_mode,
         expected_commitments,
     );
     let parsed = out.parsed;
@@ -97,9 +100,7 @@ pub fn verify_zkpassport_proof<let K: u32>(
 pub fn load_disclose_payload(app: AztecAddress, user: AztecAddress) -> ([bool; 90], [u8; 90]) {
     // Safety: the loaded tail is untrusted input; every element is range-constrained below
     // before being used as a bit or byte.
-    let tail: Option<[Field; 180]> = unsafe {
-        capsules::load(app, DISCLOSE_CAPSULE_SLOT, user)
-    };
+    let tail: Option<[Field; 180]> = unsafe { capsules::load(app, DISCLOSE_CAPSULE_SLOT, user) };
     assert(tail.is_some(), "missing disclose capsule");
     let tail = tail.unwrap();
     let mut mask = [false; 90];
@@ -136,7 +137,8 @@ pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier:
     // it would burn one single global nullifier slot and permanently block every future caller
     // of this function, in every app, for the rest of time. Guard here, not in core.nr.
     assert(scoped_nullifier != 0, "no nullifier in this proof");
-    context.push_nullifier_unsafe(
-        Poseidon2::hash([UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier], 2),
-    );
+    context.push_nullifier_unsafe(Poseidon2::hash(
+        [UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier],
+        2,
+    ));
 }

@@ -9,10 +9,8 @@ pub contract AgeGate {
         protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use zkpassport::verify::{
-        emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
-    };
     use zkpassport::commitments::age_commitment;
+    use zkpassport::verify::{emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof};
 
     global MIN_AGE: u8 = 18;
 
@@ -48,9 +46,7 @@ pub contract AgeGate {
             dev_mode: false,
         };
         let expected = [age_commitment(MIN_AGE, 0)];
-        let verified = verify_zkpassport_proof::<4>(
-            self.context, registry, user, config, expected,
-        );
+        let verified = verify_zkpassport_proof::<4>(self.context, registry, user, config, expected);
         emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
     }
 }

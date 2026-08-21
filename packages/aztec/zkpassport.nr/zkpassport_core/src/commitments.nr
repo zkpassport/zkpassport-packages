@@ -1,6 +1,6 @@
+use bind_lib::calculate_param_commitment as bind_param_commitment;
 use compare_age_lib::calculate_param_commitment as age_param_commitment;
 use disclose_lib::calculate_param_commitment as disclose_param_commitment;
-use bind_lib::calculate_param_commitment as bind_param_commitment;
 use exclusion_check_sanctions_lib::param_commit::calculate_param_commitment as sanctions_param_commitment;
 use utils::types::{DiscloseMask, MRZData};
 
