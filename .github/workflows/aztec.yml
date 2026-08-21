@@ -50,6 +50,10 @@ jobs:
           echo "$HOME/.aztec/bin" >> "$GITHUB_PATH"
           echo "$HOME/.aztec/versions/$V/bin" >> "$GITHUB_PATH"
 
+      - name: Check formatting
+        run: aztec-nargo fmt --check
+        working-directory: packages/aztec/zkpassport.nr
+
       - name: Compile contracts
         run: aztec compile
         working-directory: packages/aztec/zkpassport.nr
