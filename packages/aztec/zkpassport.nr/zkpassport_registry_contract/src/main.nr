@@ -8,7 +8,7 @@ use aztec::macros::aztec;
 pub contract ZKPassportRegistry {
     use crate::guards::{
         assert_admin_not_zero, assert_admin_or_oracle, assert_oracle_not_zero,
-        assert_valid_registry_id, ensure_delay,
+        assert_valid_registry_id,
     };
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
     use crate::types::{
@@ -18,7 +18,7 @@ pub contract ZKPassportRegistry {
     use aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
         protocol::address::AztecAddress,
-        state_vars::{DelayedPublicMutable, Map, PublicImmutable, PublicMutable},
+        state_vars::{DelayedPublicMutable, Map, PublicMutable},
     };
 
     #[storage]
@@ -28,17 +28,7 @@ pub contract ZKPassportRegistry {
         oracle: PublicMutable<AztecAddress, Context>,
         guardian: PublicMutable<AztecAddress, Context>,
 
-        // The effective DPM delay for this deployment (e.g. 86400 on real networks, 3600 for
-        // previews), pinned at construction. INITIAL_DELAY is only the compile-time floor; DPM
-        // instances converge to `delay` in the constructor or on their first write (ensure_delay).
-        delay: PublicImmutable<u64, Context>,
-
-        // Everything below is read privately by verifiers thus using DelayedPublicMutable and
-        // subject to the deployment's `delay`.
-        // INVARIANT: fresh map keys sit at the INITIAL_DELAY floor until first written, so every
-        // DPM's zeroed default must be one that REJECTS proofs (exists=false, accepted=false,
-        // latest=0). A field whose default is permissive — like `paused`, where false allows
-        // proofs — must be top-level and raised in the constructor, never map-keyed.
+        // Everything below is read privately by verifiers thus using DelayedPublicMutable and subject to a ~24h delay.
         paused: DelayedPublicMutable<bool, INITIAL_DELAY, Context>,
         config: Map<Field, DelayedPublicMutable<RegistryConfig, INITIAL_DELAY, Context>, Context>,
         latest: Map<Field, DelayedPublicMutable<LatestRootPair, INITIAL_DELAY, Context>, Context>,
@@ -54,9 +44,6 @@ pub contract ZKPassportRegistry {
     // `admin`, `oracle`, and `guardian` are contract roles.
     // `mode` and `window` specify the root verification behavior of this registry. For a list of valid modes, refer to
     // types.nr. `window` is a duration in seconds used in the `MODE_VALID_WITHIN_WINDOW` mode.
-    // `delay` is the effective DPM delay for this deployment; it may only raise the compiled-in
-    // INITIAL_DELAY floor (raises are immediate in aztec-nr, decreases would take current-new to
-    // mature and are rejected instead).
     #[external("public")]
     #[initializer]
     fn constructor(
@@ -65,29 +52,13 @@ pub contract ZKPassportRegistry {
         guardian: AztecAddress,
         mode: u8,
         window: u64,
-        delay: u64,
     ) {
         assert(mode <= 3, "unknown validation mode");
-        assert(delay >= INITIAL_DELAY, "delay below minimum");
         self.storage.admin.write(admin);
         self.storage.oracle.write(oracle);
         self.storage.guardian.write(guardian);
-        self.storage.delay.initialize(delay);
-
-        // Raise every DPM instance reachable at construction: the top-level ones (`paused` must
-        // never sit at the floor — its zeroed default is the permissive value) and the three fixed
-        // config keys. `latest` (same three keys) is deliberately left to update_root's
-        // ensure_delay: raising it here too would push the constructor over the AVM's per-tx
-        // storage-write cap, and until the first update_root its default {0, 0} matches no root.
-        ensure_delay(self.storage.paused, delay);
-        ensure_delay(self.storage.oprf_pk_hash, delay);
-        for id in [REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS] {
-            ensure_delay(self.storage.config.at(id), delay);
-        }
-
-        // Note: until `delay` elapses the config DPMs read their zeroed default
-        // {mode: 0 = LATEST_ONLY, window: 0}, which is safe — no roots exist yet, so everything
-        // is invalid either way.
+        // Note: for the first 24h the DPM reads its zeroed default {mode: 0 = LATEST_ONLY, window: 0},
+        // which is safe — no roots exist yet, so everything is invalid either way.
         let config = RegistryConfig { mode, window };
         self.storage.config.at(REGISTRY_CERTIFICATE).schedule_value_change(config);
         self.storage.config.at(REGISTRY_CIRCUIT).schedule_value_change(config);
@@ -120,14 +91,12 @@ pub contract ZKPassportRegistry {
         let is_admin = sender == self.storage.admin.read();
         let is_guardian = sender == self.storage.guardian.read();
         assert(is_admin | is_guardian, "caller is not admin or guardian");
-        ensure_delay(self.storage.paused, self.storage.delay.read());
         self.storage.paused.schedule_value_change(true);
     }
 
     #[external("public")]
     fn unpause() {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
-        ensure_delay(self.storage.paused, self.storage.delay.read());
         self.storage.paused.schedule_value_change(false);
     }
 
@@ -150,12 +119,10 @@ pub contract ZKPassportRegistry {
         let (cur, _) = latest_slot.get_scheduled_value();
         assert(cur.latest == current_root, "current root mismatch"); // avoid races in oracle executions
 
-        let delay = self.storage.delay.read();
         if cur.latest != 0 {
             let old_slot = self.storage.roots.at(registry_id).at(cur.latest);
             let (old, _) = old_slot.get_scheduled_value();
             assert(timestamp > old.valid_from, "timestamp not after current valid_from");
-            ensure_delay(old_slot, delay);
             old_slot.schedule_value_change(RootStatus {
                 exists: old.exists,
                 revoked: old.revoked,
@@ -163,14 +130,12 @@ pub contract ZKPassportRegistry {
                 valid_to: timestamp - 1, // close the interval
             });
         }
-        ensure_delay(new_slot, delay);
         new_slot.schedule_value_change(RootStatus {
             exists: true,
             revoked: false,
             valid_from: timestamp,
             valid_to: 0, // open-ended sentinel: "currently latest"
         });
-        ensure_delay(latest_slot, delay);
         latest_slot.schedule_value_change(LatestRootPair { latest: new_root, previous: cur.latest });
     }
 
@@ -181,7 +146,6 @@ pub contract ZKPassportRegistry {
         let slot = self.storage.roots.at(registry_id).at(root);
         let (status, _) = slot.get_scheduled_value();
         assert(status.exists, "root does not exist");
-        ensure_delay(slot, self.storage.delay.read());
         slot.schedule_value_change(RootStatus {
             exists: status.exists,
             revoked,
@@ -197,7 +161,6 @@ pub contract ZKPassportRegistry {
         assert(mode <= 3, "unknown validation mode");
         let slot = self.storage.config.at(registry_id);
         let (cfg, _) = slot.get_scheduled_value();
-        ensure_delay(slot, self.storage.delay.read());
         slot.schedule_value_change(RegistryConfig { mode, window: cfg.window });
     }
 
@@ -207,7 +170,6 @@ pub contract ZKPassportRegistry {
         assert_valid_registry_id(registry_id);
         let slot = self.storage.config.at(registry_id);
         let (cfg, _) = slot.get_scheduled_value();
-        ensure_delay(slot, self.storage.delay.read());
         slot.schedule_value_change(RegistryConfig { mode: cfg.mode, window });
     }
 
@@ -215,21 +177,18 @@ pub contract ZKPassportRegistry {
     fn add_accepted_vk(vk_hash: Field) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
         assert(vk_hash != 0, "vk hash cannot be zero");
-        ensure_delay(self.storage.accepted_vks.at(vk_hash), self.storage.delay.read());
         self.storage.accepted_vks.at(vk_hash).schedule_value_change(true);
     }
 
     #[external("public")]
     fn remove_accepted_vk(vk_hash: Field) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
-        ensure_delay(self.storage.accepted_vks.at(vk_hash), self.storage.delay.read());
         self.storage.accepted_vks.at(vk_hash).schedule_value_change(false);
     }
 
     #[external("public")]
     fn set_oprf_pk_hash(oprf_pk_hash: Field) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
-        ensure_delay(self.storage.oprf_pk_hash, self.storage.delay.read());
         self.storage.oprf_pk_hash.schedule_value_change(oprf_pk_hash);
     }
 
@@ -305,10 +264,5 @@ pub contract ZKPassportRegistry {
     #[external("utility")]
     unconstrained fn is_vk_accepted(vk_hash: Field) -> pub bool {
         self.storage.accepted_vks.at(vk_hash).get_current_value()
-    }
-
-    #[external("utility")]
-    unconstrained fn get_root_status(registry_id: Field, root: Field) -> pub RootStatus {
-        self.storage.roots.at(registry_id).at(root).get_current_value()
     }
 }

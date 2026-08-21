@@ -1,26 +1,5 @@
-use aztec::{
-    context::PublicContext, protocol::address::AztecAddress, protocol::traits::Packable,
-    state_vars::DelayedPublicMutable,
-};
+use aztec::protocol::address::AztecAddress;
 use crate::types::{REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS};
-
-/// Converge a DPM instance's delay to the contract-wide `delay` before writing a value to it.
-/// Delay raises are effective immediately in aztec-nr, so a value scheduled right after this in
-/// the same tx already matures under `delay`; decreases are unrepresentable because the
-/// constructor asserts `delay >= INITIAL_DELAY`. Call this before EVERY `schedule_value_change`
-/// (uniformly, so the invariant is checkable line-locally); on an already-converged instance it
-/// costs a single read.
-pub fn ensure_delay<T, let InitialDelay: u64>(
-    slot: DelayedPublicMutable<T, InitialDelay, PublicContext>,
-    delay: u64,
-)
-where
-    T: Packable + Eq,
-{
-    if slot.get_current_delay() != delay {
-        slot.schedule_delay_change(delay);
-    }
-}
 
 pub fn assert_valid_registry_id(registry_id: Field) {
     let ok = (registry_id == REGISTRY_CERTIFICATE)

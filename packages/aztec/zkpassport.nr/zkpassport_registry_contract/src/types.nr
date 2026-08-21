@@ -20,11 +20,7 @@ pub global REGISTRY_CERTIFICATE: Field = 1;
 pub global REGISTRY_CIRCUIT: Field = 2;
 pub global REGISTRY_SANCTIONS: Field = 3;
 
-/// Compile-time floor for the DPM delay (the preview value). The effective delay is a
-/// per-deployment constructor param (`delay >= INITIAL_DELAY`); instances converge to it via
-/// `ensure_delay`. Raises are effective immediately in aztec-nr, which is what lets one compiled
-/// class serve both preview (1h) and production (24h) deployments.
-pub global INITIAL_DELAY: u64 = 3600;
+pub global INITIAL_DELAY: u64 = 86400;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct RegistryConfig {
