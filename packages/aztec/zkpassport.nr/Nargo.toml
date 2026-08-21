@@ -1,2 +1,2 @@
 [workspace]
-members = ["zkpassport_registry_contract"]
+members = ["zkpassport_registry_contract", "zkpassport_tests"]
