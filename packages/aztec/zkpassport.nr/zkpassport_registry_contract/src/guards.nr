@@ -1,5 +1,5 @@
-use aztec::protocol::address::AztecAddress;
 use crate::types::{REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS};
+use aztec::protocol::address::AztecAddress;
 
 pub fn assert_valid_registry_id(registry_id: Field) {
     let ok = (registry_id == REGISTRY_CERTIFICATE)

@@ -32,11 +32,7 @@ pub contract ZKPassportRegistry {
         paused: DelayedPublicMutable<bool, INITIAL_DELAY, Context>,
         config: Map<Field, DelayedPublicMutable<RegistryConfig, INITIAL_DELAY, Context>, Context>,
         latest: Map<Field, DelayedPublicMutable<LatestRootPair, INITIAL_DELAY, Context>, Context>,
-        roots: Map<
-            Field,
-            Map<Field, DelayedPublicMutable<RootStatus, INITIAL_DELAY, Context>, Context>,
-            Context,
-        >,
+        roots: Map<Field, Map<Field, DelayedPublicMutable<RootStatus, INITIAL_DELAY, Context>, Context>, Context>,
         accepted_vks: Map<Field, DelayedPublicMutable<bool, INITIAL_DELAY, Context>, Context>,
         oprf_pk_hash: DelayedPublicMutable<Field, INITIAL_DELAY, Context>,
     }
@@ -123,40 +119,54 @@ pub contract ZKPassportRegistry {
             let old_slot = self.storage.roots.at(registry_id).at(cur.latest);
             let (old, _) = old_slot.get_scheduled_value();
             assert(timestamp > old.valid_from, "timestamp not after current valid_from");
-            old_slot.schedule_value_change(RootStatus {
-                exists: old.exists,
-                revoked: old.revoked,
-                valid_from: old.valid_from,
-                valid_to: timestamp - 1, // close the interval
-            });
+            old_slot.schedule_value_change(
+                RootStatus {
+                    exists: old.exists,
+                    revoked: old.revoked,
+                    valid_from: old.valid_from,
+                    valid_to: timestamp - 1, // close the interval
+                },
+            );
         }
-        new_slot.schedule_value_change(RootStatus {
-            exists: true,
-            revoked: false,
-            valid_from: timestamp,
-            valid_to: 0, // open-ended sentinel: "currently latest"
-        });
+        new_slot.schedule_value_change(
+            RootStatus {
+                exists: true,
+                revoked: false,
+                valid_from: timestamp,
+                valid_to: 0, // open-ended sentinel: "currently latest"
+            },
+        );
         latest_slot.schedule_value_change(LatestRootPair { latest: new_root, previous: cur.latest });
     }
 
     #[external("public")]
     fn set_revocation_status(registry_id: Field, root: Field, revoked: bool) {
-        assert_admin_or_oracle(self.msg_sender(), self.storage.admin.read(), self.storage.oracle.read());
+        assert_admin_or_oracle(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.oracle.read(),
+        );
         assert_valid_registry_id(registry_id);
         let slot = self.storage.roots.at(registry_id).at(root);
         let (status, _) = slot.get_scheduled_value();
         assert(status.exists, "root does not exist");
-        slot.schedule_value_change(RootStatus {
-            exists: status.exists,
-            revoked,
-            valid_from: status.valid_from,
-            valid_to: status.valid_to,
-        });
+        slot.schedule_value_change(
+            RootStatus {
+                exists: status.exists,
+                revoked,
+                valid_from: status.valid_from,
+                valid_to: status.valid_to,
+            },
+        );
     }
 
     #[external("public")]
     fn set_root_validation_mode(registry_id: Field, mode: u8) {
-        assert_admin_or_oracle(self.msg_sender(), self.storage.admin.read(), self.storage.oracle.read());
+        assert_admin_or_oracle(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.oracle.read(),
+        );
         assert_valid_registry_id(registry_id);
         assert(mode <= 3, "unknown validation mode");
         let slot = self.storage.config.at(registry_id);
@@ -166,7 +176,11 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn set_validity_window(registry_id: Field, window: u64) {
-        assert_admin_or_oracle(self.msg_sender(), self.storage.admin.read(), self.storage.oracle.read());
+        assert_admin_or_oracle(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.oracle.read(),
+        );
         assert_valid_registry_id(registry_id);
         let slot = self.storage.config.at(registry_id);
         let (cfg, _) = slot.get_scheduled_value();
@@ -219,7 +233,13 @@ pub contract ZKPassportRegistry {
         let circ_status =
             self.storage.roots.at(REGISTRY_CIRCUIT).at(circuit_root).get_current_value();
         assert(
-            is_root_valid(circ_cfg, circ_latest, circ_status, circuit_root, current_date),
+            is_root_valid(
+                circ_cfg,
+                circ_latest,
+                circ_status,
+                circuit_root,
+                current_date,
+            ),
             "invalid circuit registry root",
         );
 

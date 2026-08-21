@@ -42,10 +42,8 @@ unconstrained fn non_admin_cannot_add_vk() {
 unconstrained fn vk_add_visible_after_delay() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
-    let _ = env.call_public(
-        actors.admin,
-        ZKPassportRegistry::at(actors.registry).add_accepted_vk(123),
-    );
+    let _ =
+        env.call_public(actors.admin, ZKPassportRegistry::at(actors.registry).add_accepted_vk(123));
 
     // Before the delay elapses: the DPM's *current* value is still false (zeroed default).
     let before = env.execute_utility(ZKPassportRegistry::at(actors.registry).is_vk_accepted(123));

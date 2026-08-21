@@ -14,13 +14,26 @@ unconstrained fn seed(env: &mut TestEnvironment) -> crate::utils::Actors {
     let deployed_registry = deploy_registry(env);
     let _ = env.call_public(
         deployed_registry.oracle,
-        ZKPassportRegistry::at(deployed_registry.registry).update_root(REGISTRY_CERTIFICATE, CERT_ROOT, 0, T0),
+        ZKPassportRegistry::at(deployed_registry.registry).update_root(
+            REGISTRY_CERTIFICATE,
+            CERT_ROOT,
+            0,
+            T0,
+        ),
     );
     let _ = env.call_public(
         deployed_registry.oracle,
-        ZKPassportRegistry::at(deployed_registry.registry).update_root(REGISTRY_CIRCUIT, CIRC_ROOT, 0, T0),
+        ZKPassportRegistry::at(deployed_registry.registry).update_root(
+            REGISTRY_CIRCUIT,
+            CIRC_ROOT,
+            0,
+            T0,
+        ),
     );
-    let _ = env.call_public(deployed_registry.admin, ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_HASH));
+    let _ = env.call_public(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_HASH),
+    );
     env.advance_next_block_timestamp_by(86401); // let all schedules land
     env.mine_block();
     deployed_registry
@@ -84,14 +97,22 @@ unconstrained fn unknown_cert_root_rejected() {
 unconstrained fn seeded_root_invisible_before_delay() {
     let mut env = TestEnvironment::new();
     let deployed_registry = deploy_registry(&mut env);
-    let _ = env.call_public(deployed_registry.admin, ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_HASH));
+    let _ = env.call_public(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_HASH),
+    );
 
     // 24 hours later...
     env.advance_next_block_timestamp_by(86401);
     env.mine_block(); // VK acceptance is now visible privately
     let _ = env.call_public(
         deployed_registry.oracle,
-        ZKPassportRegistry::at(deployed_registry.registry).update_root(REGISTRY_CERTIFICATE, CERT_ROOT, 0, T0),
+        ZKPassportRegistry::at(deployed_registry.registry).update_root(
+            REGISTRY_CERTIFICATE,
+            CERT_ROOT,
+            0,
+            T0,
+        ),
     );
 
     // We expect this to fail because the CERT_ROOT has not yet become effective
@@ -115,7 +136,11 @@ unconstrained fn revoked_root_rejected_after_delay() {
     let deployed_registry = seed(&mut env);
     let _ = env.call_public(
         deployed_registry.admin,
-        ZKPassportRegistry::at(deployed_registry.registry).set_revocation_status(REGISTRY_CERTIFICATE, CERT_ROOT, true),
+        ZKPassportRegistry::at(deployed_registry.registry).set_revocation_status(
+            REGISTRY_CERTIFICATE,
+            CERT_ROOT,
+            true,
+        ),
     );
     env.advance_next_block_timestamp_by(86401);
     env.mine_block();
@@ -137,7 +162,10 @@ unconstrained fn revoked_root_rejected_after_delay() {
 unconstrained fn salted_type_checks_oprf() {
     let mut env = TestEnvironment::new();
     let deployed_registry = seed(&mut env);
-    let _ = env.call_public(deployed_registry.admin, ZKPassportRegistry::at(deployed_registry.registry).set_oprf_pk_hash(0x0123));
+    let _ = env.call_public(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).set_oprf_pk_hash(0x0123),
+    );
     env.advance_next_block_timestamp_by(86401);
     env.mine_block();
     let user = env.create_light_account();

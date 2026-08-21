@@ -69,7 +69,9 @@ unconstrained fn update_becomes_visible_after_delay() {
     );
 
     // Before the delay elapses: the DPM's *current* value is still the zeroed default.
-    let before = env.execute_utility(ZKPassportRegistry::at(a.registry).get_latest_pair(REGISTRY_CERTIFICATE));
+    let before = env.execute_utility(ZKPassportRegistry::at(a.registry).get_latest_pair(
+        REGISTRY_CERTIFICATE,
+    ));
     assert_eq(before.latest, 0);
     assert_eq(before.previous, 0);
 
@@ -79,7 +81,9 @@ unconstrained fn update_becomes_visible_after_delay() {
     // TestEnvironment::mine_block / mine_block_at in aztec-nr's test_environment.nr).
     env.advance_next_block_timestamp_by(86401);
     env.mine_block();
-    let after = env.execute_utility(ZKPassportRegistry::at(a.registry).get_latest_pair(REGISTRY_CERTIFICATE));
+    let after = env.execute_utility(ZKPassportRegistry::at(a.registry).get_latest_pair(
+        REGISTRY_CERTIFICATE,
+    ));
     assert_eq(after.latest, ROOT_A);
     assert_eq(after.previous, 0);
 }
