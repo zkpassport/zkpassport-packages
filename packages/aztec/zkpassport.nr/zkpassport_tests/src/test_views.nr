@@ -10,9 +10,6 @@ global CIRC_ROOT: Field = 0xc12c1;
 global VK_HASH: Field = 0x7e57;
 global T0: u64 = 1786900000;
 
-// Deploys, seeds both registries and the accepted VK through the public API, then advances past
-// the 24h DPM delay (+ mines a block, per the established Task 4/5 pattern) so every schedule is
-// visible to a subsequent private read.
 unconstrained fn seed(env: &mut TestEnvironment) -> crate::utils::Actors {
     let deployed_registry = deploy_registry(env);
     let _ = env.call_public(
