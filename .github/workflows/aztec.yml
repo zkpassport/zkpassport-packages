@@ -2,7 +2,7 @@ name: Aztec
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
     # Unlike the other workflows, scope to our paths: the Aztec toolchain
