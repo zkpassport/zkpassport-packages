@@ -32,7 +32,11 @@ pub struct DisclosedNationality {
 pub fn disclosed_nationality(mask: DiscloseMask, disclosed: MRZData) -> DisclosedNationality {
     assert(mask[MRZ_DOC_TYPE_INDEX], "document type not disclosed");
     let is_id_card = disclosed[MRZ_DOC_TYPE_INDEX] != ASCII_UPPER_P;
-    let start = if is_id_card { TD1_NATIONALITY_INDEX } else { TD3_NATIONALITY_INDEX };
+    let start = if is_id_card {
+        TD1_NATIONALITY_INDEX
+    } else {
+        TD3_NATIONALITY_INDEX
+    };
     let mut nationality = [0; 3];
     let mut packed: Field = 0;
     for i in 0..3 {

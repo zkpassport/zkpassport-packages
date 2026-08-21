@@ -1,4 +1,6 @@
-use crate::constants::{PI_CERT_ROOT, PI_CIRCUIT_ROOT, PI_CURRENT_DATE, PI_PARAMS_START, PI_SCOPE, PI_SUBSCOPE};
+use crate::constants::{
+    PI_CERT_ROOT, PI_CIRCUIT_ROOT, PI_CURRENT_DATE, PI_PARAMS_START, PI_SCOPE, PI_SUBSCOPE,
+};
 
 pub struct PublicInputs<let K: u32> {
     pub certificate_registry_root: Field,
