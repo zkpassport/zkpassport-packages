@@ -2,17 +2,17 @@
 
 <git_workflow>
 
-<critical_never_assume_master>
-Never assume the base branch is `master` or `main`. Most branches target `develop`, and defaulting to `master` produces incorrect diffs and broken PR comparisons. Determine the actual base before diffing or opening a PR.
+<critical_never_assume_base>
+New branches and PRs target `develop` by default: branch from `origin/develop` and open PRs with `--base develop`. Target `main` only when the user explicitly says so (releases, hotfixes). There is no `master` in this repo.
 
-If a PR is already open, that is authoritative:
+If a PR is already open, its existing base is authoritative:
 
 ```bash
 gh pr view --json baseRefName -q '.baseRefName'
 ```
 
 Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<base>..HEAD`. Always `git fetch` before creating branches so the base is not stale.
-</critical_never_assume_master>
+</critical_never_assume_base>
 
 <commits_and_prs>
 Follow Conventional Commits: `fix(scope): Subject`, `feat(scope): Subject`, `chore(scope): Subject`, `refactor(scope): Subject`, `docs(scope): Subject`, `test(scope): Subject`. PRs are squashed to a single commit on merge, so during development just create normal commits — do not amend unless explicitly asked.
