@@ -60,6 +60,7 @@ contract ZKPassportAttest is ERC1155 {
     mapping(uint256 policyId => Policy) internal _policies;
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
     mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
+    mapping(uint256 policyId => mapping(address wallet => bytes32 nullifier)) internal _nullifierOf;
 
     constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin, address _guardian) ERC1155("") {
         rootVerifier = _rootVerifier;
@@ -182,6 +183,7 @@ contract ZKPassportAttest is ERC1155 {
         address prior = nullifierWallet[policyId][nullifier];
         if (prior != address(0) && prior != wallet) revert Attest__SybilDetected(nullifier);
         nullifierWallet[policyId][nullifier] = wallet;
+        _nullifierOf[policyId][wallet] = nullifier;
     }
 
     /// @notice 1 while the wallet holds an unexpired credential for the policy, else 0
@@ -194,6 +196,11 @@ contract ZKPassportAttest is ERC1155 {
         if (msg.sender != wallet && msg.sender != guardian) revert Attest__NotRevocable();
         if (heldUntil[wallet][policyId] == 0) revert Attest__NothingToRevoke();
         heldUntil[wallet][policyId] = 0;
+        bytes32 nullifier = _nullifierOf[policyId][wallet];
+        if (nullifier != bytes32(0)) {
+            delete nullifierWallet[policyId][nullifier];
+            delete _nullifierOf[policyId][wallet];
+        }
         if (super.balanceOf(wallet, policyId) > 0) {
             _burn(wallet, policyId, 1);
         }

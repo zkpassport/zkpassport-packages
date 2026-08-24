@@ -3,6 +3,8 @@ pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
 import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract ZKPassportAttestCredentialTest is AttestTestBase {
     uint256 internal policyId;
@@ -24,12 +26,29 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
         assertEq(attest.balanceOf(wallet, policyId), 0);
     }
 
+    function testGuardianCanRevokeExpiredCredential() public {
+        vm.warp(uint256(attest.heldUntil(wallet, policyId)) + 1);
+        vm.prank(guardian);
+        attest.revoke(wallet, policyId);
+        assertEq(attest.heldUntil(wallet, policyId), 0);
+    }
+
     function testRenewAfterExpiryExtendsWithoutDoubleMint() public {
         vm.warp(uint256(attest.heldUntil(wallet, policyId)) + 1);
         mockHelper.setProofTimestamp(block.timestamp);
         vm.expectEmit(true, true, false, true);
         emit ZKPassportAttest.CredentialRenewed(wallet, policyId, uint64(block.timestamp + 30 days));
+        Vm.Log[] memory logs = new Vm.Log[](0);
+        vm.recordLogs();
         attest.issue(wallet, policyId, _params());
+        logs = vm.getRecordedLogs();
+        // Verify no TransferSingle was emitted (no double mint after expiry)
+        bytes32 transferSingleSig = keccak256("TransferSingle(address,address,address,uint256,uint256)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == address(attest)) {
+                require(logs[i].topics[0] != transferSingleSig, "No TransferSingle should be emitted on renewal");
+            }
+        }
         assertEq(attest.balanceOf(wallet, policyId), 1);
     }
 
@@ -86,6 +105,8 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
     function testReissueAfterRevokeWorks() public {
         vm.prank(wallet);
         attest.revoke(wallet, policyId);
+        vm.expectEmit(true, true, true, true);
+        emit IERC1155.TransferSingle(address(this), address(0), wallet, policyId, 1);
         attest.issue(wallet, policyId, _params());
         assertEq(attest.balanceOf(wallet, policyId), 1);
     }
