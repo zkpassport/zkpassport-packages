@@ -39,7 +39,12 @@ except the per-policy hook contract, which implements Uniswap's published
 
 ## Components
 
-New directory: `packages/registry-contracts/src/attest/`.
+New Foundry package: `packages/attest-contracts`, separate from
+`registry-contracts` (core protocol) so the attest product has its own audit
+scope, deploy cadence, and CI. It consumes the verifier sources via a
+remapping to the sibling package (`@registry/=../registry-contracts/src/`) and
+reuses its `lib/` (forge-std) rather than adding a second submodule. Requires
+adding an `attest-contracts` scope to the commit-scope list in `CLAUDE.md`.
 
 ### ZKPassportAttest (soulbound ERC-1155 credential registry)
 
@@ -139,7 +144,7 @@ can demo and test end-to-end without involving the Uniswap team:
 - **Holder**: credential dashboard (`heldUntil`, countdown), renew, self-revoke.
 - **Guardian**: revoke any credential, pause/unpause `issue`.
 
-`MockAuction` lives in `packages/registry-contracts/src/mocks/` and is reused
+`MockAuction` lives in `packages/attest-contracts/src/mocks/` and is reused
 by the Foundry hook-integration tests — it calls `validate(maxPrice, amount,
 owner, sender, hookData)` before accepting a bid, exactly as `_submitBid` does.
 
@@ -187,8 +192,8 @@ Foundry, mirroring the existing `test/*.t.sol` layout, using the
 
 ## Deployment
 
-Forge script in `packages/registry-contracts/script/` following the existing
-deploy-script conventions: deploys `ZKPassportAttest` wired to the already
+Forge script in `packages/attest-contracts/script/` following
+`registry-contracts`' deploy-script conventions: deploys `ZKPassportAttest` wired to the already
 deployed `ZKPassportRootVerifier` for the target chain; guardian set to the
 ZKPassport ops address. Policies are created later, permissionlessly, per
 integration.
