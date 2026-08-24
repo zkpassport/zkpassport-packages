@@ -36,6 +36,10 @@ contract ZKPassportAttest is ERC1155 {
     error Attest__ProofNotBoundToWallet();
     error Attest__ProofNotBoundToChain();
     error Attest__UnexpectedBoundData();
+    error Attest__AgeBelowMinimum();
+    error Attest__ExcludedJurisdiction();
+    error Attest__SybilDetected(bytes32 nullifier);
+    error Attest__MissingNullifier();
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
@@ -51,6 +55,7 @@ contract ZKPassportAttest is ERC1155 {
 
     mapping(uint256 policyId => Policy) internal _policies;
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
+    mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
 
     constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin, address _guardian) ERC1155("") {
         rootVerifier = _rootVerifier;
@@ -153,7 +158,25 @@ contract ZKPassportAttest is ERC1155 {
 
     function _enforcePredicates(Policy storage policy, IVerifierHelper helper, bytes calldata committedInputs)
         internal
-        view {}
+        view
+    {
+        if (policy.minAge > 0 && !helper.isAgeAboveOrEqual(policy.minAge, committedInputs)) {
+            revert Attest__AgeBelowMinimum();
+        }
+        if (policy.excludedCountries.length > 0 && !helper.isNationalityOut(policy.excludedCountries, committedInputs))
+        {
+            revert Attest__ExcludedJurisdiction();
+        }
+        if (policy.sanctionsCheck) {
+            helper.enforceSanctionsRoot(block.timestamp, true, committedInputs);
+        }
+    }
 
-    function _consumeNullifier(Policy storage policy, uint256 policyId, bytes32 nullifier, address wallet) internal {}
+    function _consumeNullifier(Policy storage policy, uint256 policyId, bytes32 nullifier, address wallet) internal {
+        if (!policy.unique) return;
+        if (nullifier == bytes32(0)) revert Attest__MissingNullifier();
+        address prior = nullifierWallet[policyId][nullifier];
+        if (prior != address(0) && prior != wallet) revert Attest__SybilDetected(nullifier);
+        nullifierWallet[policyId][nullifier] = wallet;
+    }
 }
