@@ -227,7 +227,11 @@ contract ZKPassportAttest is ERC1155 {
         return heldUntil[account][id] >= block.timestamp ? 1 : 0;
     }
 
-    /// @notice Remove a credential; only the holder or the ZKPassport guardian, never the policy owner
+    /// @notice Remove a credential; only the holder or the ZKPassport guardian, never the policy owner.
+    ///         Guardian revocation is targeted incident response (court order, lost keys, wrongly
+    ///         issued credential) — sanctions propagation does NOT happen here: it is enforced at
+    ///         issuance/renewal against the current sanctions root, bounded by the policy's
+    ///         validityPeriod, with no per-address enumeration.
     function revoke(address wallet, uint256 policyId) external {
         if (msg.sender != wallet && msg.sender != guardian) revert ZKPassportAttest__NotRevocable();
         if (heldUntil[wallet][policyId] == 0) revert ZKPassportAttest__NothingToRevoke();
