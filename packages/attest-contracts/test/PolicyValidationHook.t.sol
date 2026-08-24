@@ -58,4 +58,10 @@ contract PolicyValidationHookTest is Test {
         assertTrue(hook.supportsInterface(type(IERC165).interfaceId));
         assertFalse(hook.supportsInterface(0xffffffff));
     }
+
+    function testStockBaseHookInterfaceIdMatchesUniswap() public pure {
+        // Uniswap's IBaseERC1155ValidationHook directly declares only erc1155() and tokenId()
+        bytes4 expected = bytes4(keccak256("erc1155()")) ^ bytes4(keccak256("tokenId()"));
+        assertEq(type(IBaseERC1155ValidationHook).interfaceId, expected);
+    }
 }
