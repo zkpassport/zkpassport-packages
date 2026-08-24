@@ -102,16 +102,16 @@ struct Policy {
 - `renew` — same path as `issue` (fresh proof, extends `heldUntil`).
   `validityPeriod` is read from the policy at issue time; policy predicates are
   immutable so there is no retro-extension hazard.
-- `revoke(address wallet, uint256 policyId)` — callable by the holder
-  (`wallet == msg.sender`) or by a ZKPassport guardian role (sanctions
-  updates). Never by the policy owner. Zeroes `heldUntil`; burns if internal
-  balance is 1.
+- `revoke(uint256 policyId)` — callable by the holder only
+  (`msg.sender` revokes its own credential). No guardian or policy-owner
+  revocation: sanctions updates propagate at renewal time, bounded by the
+  policy's `validityPeriod` (sanctions-sensitive policies should choose short
+  ones). Zeroes `heldUntil`; burns if internal balance is 1.
 - Soulbound: `_update` reverts on any transfer (`from != 0` and `to != 0`);
   burns allowed only via `revoke`. `setApprovalForAll` reverts.
 - `uri(uint256 policyId)` returns `policy.metadataURL`.
-- Guardian: single role held by ZKPassport ops (same pattern as
-  `ProtocolController` admin/guardian in this package); can revoke credentials
-  and pause `issue` (not `balanceOf`).
+- No admin or guardian role: the contract is ownerless after deployment.
+  Nothing can pause `issue` or revoke third-party credentials.
 
 ### PolicyValidationHook
 
@@ -155,7 +155,6 @@ can demo and test end-to-end without involving the Uniswap team:
 - **Bidder**: eligibility check → verify → credential mint → bid; shows the
   exact `NotOwnerOfERC1155Token` revert when ungated and the pass when gated.
 - **Holder**: credential dashboard (`heldUntil`, countdown), renew, self-revoke.
-- **Guardian**: revoke any credential, pause/unpause `issue`.
 
 `MockAuction` lives in `packages/attest-contracts/src/mocks/` and is reused
 by the Foundry hook-integration tests — it calls `validate(maxPrice, amount,
@@ -175,11 +174,11 @@ Custom errors in the repo's `Contract__Error` style: `Attest__PolicyNotFound`,
 `Attest__InvalidProof`, `Attest__ProofNotBoundToWallet`, `Attest__WrongScope`,
 `Attest__WrongDomain`, `Attest__AgeBelowMinimum`, `Attest__ExcludedJurisdiction`,
 `Attest__SanctionsCheckFailed`, `Attest__SybilDetected(bytes32 nullifier)`,
-`Attest__TokenIsSoulbound`, `Attest__NotRevocable`, `Attest__Paused`.
+`Attest__TokenIsSoulbound`, `Attest__NothingToRevoke`.
 
 Events: `PolicyCreated(uint256 indexed policyId, address indexed owner, address hook)`,
 `CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil)`,
-`CredentialRenewed(...)`, `CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by)`,
+`CredentialRenewed(...)`, `CredentialRevoked(address indexed wallet, uint256 indexed policyId)`,
 `PolicyMetadataURLUpdated(uint256 indexed policyId, string url)`, plus standard
 ERC-1155 `TransferSingle` on mint/burn for indexers.
 
@@ -201,16 +200,15 @@ Foundry, mirroring the existing `test/*.t.sol` layout, using the
 - Hook integration: drive `validate()` as `_submitBid` would — passes with
   credential, reverts without, reverts on `sender != owner`; ERC-165 ids
   answer correctly.
-- Guardian: revoke, pause blocks `issue` but not `balanceOf`/`validate`.
 - Fuzz: validity periods, policy ids, timestamps.
 
 ## Deployment
 
 Forge script in `packages/attest-contracts/script/` following
 `registry-contracts`' deploy-script conventions: deploys `ZKPassportAttest` wired to the already
-deployed `ZKPassportRootVerifier` for the target chain; guardian set to the
-ZKPassport ops address. Policies are created later, permissionlessly, per
-integration.
+deployed `ZKPassportRootVerifier` for the target chain. No roles to
+configure — the contract is ownerless. Policies are created later,
+permissionlessly, per integration.
 
 ## Out of scope for PR 1
 
