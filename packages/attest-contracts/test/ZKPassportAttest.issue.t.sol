@@ -78,4 +78,16 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
         vm.expectRevert(ZKPassportAttest.Attest__UnexpectedBoundData.selector);
         attest.issue(wallet, policyId, _params());
     }
+
+    function testIssuePassesContractOwnedScopesToVerifier() public {
+        mockHelper.setExpectedScopes(DOMAIN, attest.policyScope(policyId));
+        attest.issue(wallet, policyId, _params());
+        assertEq(attest.balanceOf(wallet, policyId), 1);
+    }
+
+    function testIssueRevertsWhenScopesDoNotMatch() public {
+        mockHelper.setExpectedScopes("evil.example", attest.policyScope(policyId));
+        vm.expectRevert(ZKPassportAttest.Attest__WrongScope.selector);
+        attest.issue(wallet, policyId, _params());
+    }
 }
