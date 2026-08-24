@@ -52,7 +52,7 @@ contract ZKPassportAttestAdminTest is AttestTestBase {
         vm.prank(admin);
         attest.pause();
         vm.prank(creator);
-        attest.createPolicy(bytes32(uint256(99)), 1 days, false, 0, false, noCountries, "x");
+        attest.createPolicy(bytes32(uint256(99)), 1 days, false, false, 0, false, noCountries, "x");
     }
 
     function testTransferAdmin() public {

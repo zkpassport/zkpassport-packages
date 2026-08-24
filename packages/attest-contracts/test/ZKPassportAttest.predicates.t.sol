@@ -14,8 +14,9 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
         excluded[0] = "PRK";
         excluded[1] = "IRN";
         vm.prank(creator);
-        strictPolicyId =
-            attest.createPolicy(bytes32(uint256(7)), 7 days, true, 18, true, excluded, "https://policy.example/kyc");
+        strictPolicyId = attest.createPolicy(
+            bytes32(uint256(7)), 7 days, true, false, 18, true, excluded, "https://policy.example/kyc"
+        );
     }
 
     function testStrictPolicyIssuesWhenAllPredicatesPass() public {
@@ -81,8 +82,9 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
     function testNullifiersAreScopedPerPolicy() public {
         attest.issue(wallet, strictPolicyId, _params());
         vm.prank(creator);
-        uint256 secondUnique =
-            attest.createPolicy(bytes32(uint256(8)), 7 days, true, 0, false, noCountries, "https://policy.example/2");
+        uint256 secondUnique = attest.createPolicy(
+            bytes32(uint256(8)), 7 days, true, false, 0, false, noCountries, "https://policy.example/2"
+        );
         address other = makeAddr("other");
         mockHelper.setBoundData(other, block.chainid, "");
         attest.issue(other, secondUnique, _params());

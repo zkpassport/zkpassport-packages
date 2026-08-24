@@ -20,6 +20,7 @@ contract ZKPassportAttestFuzzTest is AttestTestBase {
             bytes32(uint256(validityPeriod)),
             validityPeriod,
             false,
+            false,
             0,
             false,
             noCountries,
