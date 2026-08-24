@@ -23,12 +23,14 @@ contract ZKPassportAttest is ERC1155 {
         string[] excludedCountries;
         string metadataURL;
         address hook;
+        uint64 retiredAt;
     }
 
     error ZKPassportAttest__PolicyNotFound(uint256 policyId);
     error ZKPassportAttest__PolicyAlreadyExists(uint256 policyId);
     error ZKPassportAttest__InvalidValidityPeriod();
     error ZKPassportAttest__NotPolicyOwner();
+    error ZKPassportAttest__PolicyRetired(uint256 policyId);
     error ZKPassportAttest__DevModeNotAllowed();
     error ZKPassportAttest__InvalidProof();
     error ZKPassportAttest__WrongScope();
@@ -49,6 +51,7 @@ contract ZKPassportAttest is ERC1155 {
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
+    event PolicyRetired(uint256 indexed policyId);
     event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
     event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
     event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
@@ -122,6 +125,16 @@ contract ZKPassportAttest is ERC1155 {
         emit PolicyMetadataURLUpdated(policyId, url);
     }
 
+    /// @notice Permanently stop new issuance and renewals for a policy; existing
+    ///         credentials stay valid until they expire, so hooks degrade gracefully
+    function retire(uint256 policyId) external {
+        Policy storage policy = _policies[policyId];
+        if (policy.owner != msg.sender) revert ZKPassportAttest__NotPolicyOwner();
+        if (policy.retiredAt != 0) revert ZKPassportAttest__PolicyRetired(policyId);
+        policy.retiredAt = uint64(block.timestamp);
+        emit PolicyRetired(policyId);
+    }
+
     function uri(uint256 policyId) public view override returns (string memory) {
         return _policies[policyId].metadataURL;
     }
@@ -137,6 +150,7 @@ contract ZKPassportAttest is ERC1155 {
         if (paused) revert ZKPassportAttest__Paused();
         Policy storage policy = _policies[policyId];
         if (policy.owner == address(0)) revert ZKPassportAttest__PolicyNotFound(policyId);
+        if (policy.retiredAt != 0) revert ZKPassportAttest__PolicyRetired(policyId);
         if (params.serviceConfig.devMode) revert ZKPassportAttest__DevModeNotAllowed();
 
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
