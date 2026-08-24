@@ -1,4 +1,5 @@
 # Ignored folders
+.worktrees
 .build
 .cache
 target
