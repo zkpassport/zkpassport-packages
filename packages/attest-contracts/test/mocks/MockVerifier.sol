@@ -11,6 +11,9 @@ contract MockVerifierHelper is IVerifierHelper {
     bool public sanctionsOk = true;
     bool public scopesOk = true;
     uint256 public proofTimestamp;
+    bytes32 internal expectedScopeHash;
+    bytes32 internal expectedSubscopeHash;
+    bool internal checkScopes;
 
     function setBoundData(address senderAddress, uint256 chainId, string memory customData) external {
         _boundData = BoundData({senderAddress: senderAddress, chainId: chainId, customData: customData});
@@ -36,6 +39,12 @@ contract MockVerifierHelper is IVerifierHelper {
         proofTimestamp = value;
     }
 
+    function setExpectedScopes(string memory scope, string memory subscope) external {
+        expectedScopeHash = keccak256(bytes(scope));
+        expectedSubscopeHash = keccak256(bytes(subscope));
+        checkScopes = true;
+    }
+
     function getBoundData(bytes calldata) external view returns (BoundData memory) {
         return _boundData;
     }
@@ -52,8 +61,16 @@ contract MockVerifierHelper is IVerifierHelper {
         require(sanctionsOk, "MockVerifierHelper: sanctions root invalid");
     }
 
-    function verifyScopes(bytes32[] calldata, string calldata, string calldata) external view returns (bool) {
-        return scopesOk;
+    function verifyScopes(bytes32[] calldata, string calldata scope, string calldata subscope)
+        external
+        view
+        returns (bool)
+    {
+        if (!scopesOk) return false;
+        if (checkScopes) {
+            return keccak256(bytes(scope)) == expectedScopeHash && keccak256(bytes(subscope)) == expectedSubscopeHash;
+        }
+        return true;
     }
 
     function getProofTimestamp(bytes32[] calldata) external view returns (uint256) {
