@@ -43,8 +43,12 @@ New Foundry package: `packages/attest-contracts`, separate from
 `registry-contracts` (core protocol) so the attest product has its own audit
 scope, deploy cadence, and CI. It consumes the verifier sources via a
 remapping to the sibling package (`@registry/=../registry-contracts/src/`) and
-reuses its `lib/` (forge-std) rather than adding a second submodule. Requires
-adding an `attest-contracts` scope to the commit-scope list in `CLAUDE.md`.
+reuses its `lib/` (forge-std) rather than adding a second submodule. The `attest-contracts` scope must be added to the PR-title regex in
+`.github/workflows/check-pr.yml` (both validation steps) and to the
+commit-scope list in `CLAUDE.md`. Because that workflow runs on
+`pull_request_target` (base branch's workflow definition), the scope addition
+must merge to `develop` before PR 1 opens — as a small `ci:`-typed PR, which
+requires no scope.
 
 ### ZKPassportAttest (soulbound ERC-1155 credential registry)
 
@@ -152,8 +156,9 @@ Chain modes: anvil with `MockHonkVerifier` (one-click dev-mode "passport") as
 the default dev loop; testnet mode against real deployments and the real popup
 once the popup PR lands.
 
-Note: the demo package will need a new scope added to the commit-scope list in
-`CLAUDE.md`.
+Note: the demo package will need its scope added to the PR-title regex in
+`.github/workflows/check-pr.yml` and to `CLAUDE.md`, on `develop` before its
+PR opens (same `pull_request_target` constraint as above).
 
 ## Errors and events
 
