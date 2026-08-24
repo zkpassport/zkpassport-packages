@@ -1,0 +1,46 @@
+name: Attest Contracts
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.4.4
+
+      - name: Show Forge version
+        run: forge --version
+        working-directory: packages/attest-contracts
+
+      - name: Run checks
+        id: check
+        run: |
+          forge fmt --check
+          forge lint src
+        working-directory: packages/attest-contracts
+
+      - name: Build contracts
+        id: build
+        run: forge build --sizes
+        working-directory: packages/attest-contracts
+
+      - name: Run tests
+        id: test
+        run: forge test -vvv
+        working-directory: packages/attest-contracts
