@@ -43,17 +43,24 @@ contract ZKPassportAttest is ERC1155 {
     error Attest__TokenIsSoulbound();
     error Attest__NotRevocable();
     error Attest__NothingToRevoke();
+    error Attest__Paused();
+    error Attest__NotAuthorized();
+    error Attest__ZeroAddress();
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
     event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
     event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
     event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
+    event PausedStatusChanged(bool paused);
+    event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
+    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
 
     IRootVerifier public immutable rootVerifier;
     string public domain;
     address public admin;
     address public guardian;
+    bool public paused;
 
     uint256 public constant PROOF_FRESHNESS = 1 hours;
 
@@ -63,6 +70,7 @@ contract ZKPassportAttest is ERC1155 {
     mapping(uint256 policyId => mapping(address wallet => bytes32 nullifier)) internal _nullifierOf;
 
     constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin, address _guardian) ERC1155("") {
+        if (_admin == address(0)) revert Attest__ZeroAddress();
         rootVerifier = _rootVerifier;
         domain = _domain;
         admin = _admin;
@@ -126,6 +134,7 @@ contract ZKPassportAttest is ERC1155 {
     /// @notice Verify a proof and grant (or extend) the wallet's credential for a policy.
     ///         Anyone may pay the gas; the proof itself pins the recipient wallet and chain.
     function issue(address wallet, uint256 policyId, ProofVerificationParams calldata params) external {
+        if (paused) revert Attest__Paused();
         Policy storage policy = _policies[policyId];
         if (policy.owner == address(0)) revert Attest__PolicyNotFound(policyId);
         if (params.serviceConfig.devMode) revert Attest__DevModeNotAllowed();
@@ -205,6 +214,32 @@ contract ZKPassportAttest is ERC1155 {
             _burn(wallet, policyId, 1);
         }
         emit CredentialRevoked(wallet, policyId, msg.sender);
+    }
+
+    /// @notice Emergency stop for issuance; reads and revocation stay live
+    function pause() external {
+        if (msg.sender != admin && msg.sender != guardian) revert Attest__NotAuthorized();
+        paused = true;
+        emit PausedStatusChanged(true);
+    }
+
+    function unpause() external {
+        if (msg.sender != admin) revert Attest__NotAuthorized();
+        paused = false;
+        emit PausedStatusChanged(false);
+    }
+
+    function transferAdmin(address newAdmin) external {
+        if (msg.sender != admin) revert Attest__NotAuthorized();
+        if (newAdmin == address(0)) revert Attest__ZeroAddress();
+        emit AdminUpdated(admin, newAdmin);
+        admin = newAdmin;
+    }
+
+    function setGuardian(address newGuardian) external {
+        if (msg.sender != admin) revert Attest__NotAuthorized();
+        emit GuardianUpdated(guardian, newGuardian);
+        guardian = newGuardian;
     }
 
     function setApprovalForAll(address, bool) public pure override {
