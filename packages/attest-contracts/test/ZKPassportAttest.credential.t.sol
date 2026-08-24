@@ -54,7 +54,7 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
 
     function testTransfersRevert() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.Attest__TokenIsSoulbound.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__TokenIsSoulbound.selector);
         attest.safeTransferFrom(wallet, makeAddr("receiver"), policyId, 1, "");
     }
 
@@ -64,13 +64,13 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
         uint256[] memory values = new uint256[](1);
         values[0] = 1;
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.Attest__TokenIsSoulbound.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__TokenIsSoulbound.selector);
         attest.safeBatchTransferFrom(wallet, makeAddr("receiver"), ids, values, "");
     }
 
     function testApprovalsRevert() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.Attest__TokenIsSoulbound.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__TokenIsSoulbound.selector);
         attest.setApprovalForAll(makeAddr("operator"), true);
     }
 
@@ -91,14 +91,14 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
 
     function testPolicyOwnerCannotRevoke() public {
         vm.prank(creator);
-        vm.expectRevert(ZKPassportAttest.Attest__NotRevocable.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotRevocable.selector);
         attest.revoke(wallet, policyId);
     }
 
     function testRevokeWithoutCredentialReverts() public {
         address stranger = makeAddr("stranger");
         vm.prank(stranger);
-        vm.expectRevert(ZKPassportAttest.Attest__NothingToRevoke.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NothingToRevoke.selector);
         attest.revoke(stranger, policyId);
     }
 

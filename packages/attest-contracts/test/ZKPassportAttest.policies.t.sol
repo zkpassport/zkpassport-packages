@@ -47,7 +47,7 @@ contract ZKPassportAttestPoliciesTest is AttestTestBase {
         vm.prank(creator);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ZKPassportAttest.Attest__PolicyAlreadyExists.selector,
+                ZKPassportAttest.ZKPassportAttest__PolicyAlreadyExists.selector,
                 uint256(keccak256(abi.encode(creator, bytes32(uint256(1)))))
             )
         );
@@ -64,7 +64,7 @@ contract ZKPassportAttestPoliciesTest is AttestTestBase {
 
     function testCreatePolicyRevertsOnZeroValidityPeriod() public {
         vm.prank(creator);
-        vm.expectRevert(ZKPassportAttest.Attest__InvalidValidityPeriod.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__InvalidValidityPeriod.selector);
         attest.createPolicy(bytes32(0), 0, false, 0, false, noCountries, "x");
     }
 
@@ -80,12 +80,14 @@ contract ZKPassportAttestPoliciesTest is AttestTestBase {
         assertEq(attest.uri(policyId), "https://policy.example/updated");
 
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.Attest__NotPolicyOwner.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotPolicyOwner.selector);
         attest.setMetadataURL(policyId, "https://evil.example");
     }
 
     function testGetPolicyRevertsWhenUnknown() public {
-        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.Attest__PolicyNotFound.selector, uint256(123)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyNotFound.selector, uint256(123))
+        );
         attest.getPolicy(123);
     }
 

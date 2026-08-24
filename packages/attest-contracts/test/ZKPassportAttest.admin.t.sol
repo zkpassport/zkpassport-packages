@@ -16,13 +16,13 @@ contract ZKPassportAttestAdminTest is AttestTestBase {
     function testAdminAndGuardianCanPauseIssue() public {
         vm.prank(guardian);
         attest.pause();
-        vm.expectRevert(ZKPassportAttest.Attest__Paused.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__Paused.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testOthersCannotPause() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.Attest__NotAuthorized.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotAuthorized.selector);
         attest.pause();
     }
 
@@ -30,7 +30,7 @@ contract ZKPassportAttestAdminTest is AttestTestBase {
         vm.prank(admin);
         attest.pause();
         vm.prank(guardian);
-        vm.expectRevert(ZKPassportAttest.Attest__NotAuthorized.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotAuthorized.selector);
         attest.unpause();
         vm.prank(admin);
         attest.unpause();
@@ -73,7 +73,7 @@ contract ZKPassportAttestAdminTest is AttestTestBase {
 
     function testCannotTransferAdminToZero() public {
         vm.prank(admin);
-        vm.expectRevert(ZKPassportAttest.Attest__ZeroAddress.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ZeroAddress.selector);
         attest.transferAdmin(address(0));
     }
 }

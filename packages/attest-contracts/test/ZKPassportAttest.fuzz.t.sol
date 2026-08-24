@@ -45,12 +45,12 @@ contract ZKPassportAttestFuzzTest is AttestTestBase {
         assertEq(attest.balanceOf(wallet, policyId), expectedBalance);
     }
 
-    /// @notice Any policy id that was never created reverts with Attest__PolicyNotFound.
+    /// @notice Any policy id that was never created reverts with ZKPassportAttest__PolicyNotFound.
     function testFuzzUnknownPolicyIdReverts(uint256 policyId) public {
         uint256 knownPolicyId = _createDefaultPolicy();
         vm.assume(policyId != knownPolicyId);
 
-        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.Attest__PolicyNotFound.selector, policyId));
+        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyNotFound.selector, policyId));
         attest.getPolicy(policyId);
     }
 }

@@ -28,30 +28,32 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
     }
 
     function testIssueRevertsForUnknownPolicy() public {
-        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.Attest__PolicyNotFound.selector, uint256(999)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyNotFound.selector, uint256(999))
+        );
         attest.issue(wallet, 999, _params());
     }
 
     function testIssueRevertsOnDevMode() public {
-        vm.expectRevert(ZKPassportAttest.Attest__DevModeNotAllowed.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__DevModeNotAllowed.selector);
         attest.issue(wallet, policyId, _devModeParams());
     }
 
     function testIssueRevertsOnInvalidProof() public {
         mockVerifier.setValid(false);
-        vm.expectRevert(ZKPassportAttest.Attest__InvalidProof.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__InvalidProof.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsOnWrongScope() public {
         mockHelper.setScopesOk(false);
-        vm.expectRevert(ZKPassportAttest.Attest__WrongScope.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__WrongScope.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsOnStaleProof() public {
         mockHelper.setProofTimestamp(block.timestamp - 1 hours - 1);
-        vm.expectRevert(ZKPassportAttest.Attest__StaleProof.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__StaleProof.selector);
         attest.issue(wallet, policyId, _params());
     }
 
@@ -63,19 +65,19 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
 
     function testIssueRevertsWhenBoundToOtherWallet() public {
         mockHelper.setBoundData(makeAddr("mallory"), block.chainid, "");
-        vm.expectRevert(ZKPassportAttest.Attest__ProofNotBoundToWallet.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ProofNotBoundToWallet.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsWhenBoundToOtherChain() public {
         mockHelper.setBoundData(wallet, block.chainid + 1, "");
-        vm.expectRevert(ZKPassportAttest.Attest__ProofNotBoundToChain.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ProofNotBoundToChain.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsOnUnexpectedCustomData() public {
         mockHelper.setBoundData(wallet, block.chainid, "extra");
-        vm.expectRevert(ZKPassportAttest.Attest__UnexpectedBoundData.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__UnexpectedBoundData.selector);
         attest.issue(wallet, policyId, _params());
     }
 
@@ -87,7 +89,7 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
 
     function testIssueRevertsWhenScopesDoNotMatch() public {
         mockHelper.setExpectedScopes("evil.example", attest.policyScope(policyId));
-        vm.expectRevert(ZKPassportAttest.Attest__WrongScope.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__WrongScope.selector);
         attest.issue(wallet, policyId, _params());
     }
 }
