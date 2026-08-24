@@ -4,7 +4,8 @@ pragma solidity ^0.8.30;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IRootVerifier} from "./interfaces/IRootVerifier.sol";
+import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
+import {IRootVerifier, IVerifierHelper} from "./interfaces/IRootVerifier.sol";
 import {PolicyValidationHook} from "./PolicyValidationHook.sol";
 
 /**
@@ -28,16 +29,28 @@ contract ZKPassportAttest is ERC1155 {
     error Attest__PolicyAlreadyExists(uint256 policyId);
     error Attest__InvalidValidityPeriod();
     error Attest__NotPolicyOwner();
+    error Attest__DevModeNotAllowed();
+    error Attest__InvalidProof();
+    error Attest__WrongScope();
+    error Attest__StaleProof();
+    error Attest__ProofNotBoundToWallet();
+    error Attest__ProofNotBoundToChain();
+    error Attest__UnexpectedBoundData();
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
+    event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
+    event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
 
     IRootVerifier public immutable rootVerifier;
     string public domain;
     address public admin;
     address public guardian;
 
+    uint256 public constant PROOF_FRESHNESS = 1 hours;
+
     mapping(uint256 policyId => Policy) internal _policies;
+    mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
 
     constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin, address _guardian) ERC1155("") {
         rootVerifier = _rootVerifier;
@@ -99,4 +112,48 @@ contract ZKPassportAttest is ERC1155 {
     function policyScope(uint256 policyId) public pure returns (string memory) {
         return string.concat("attest:", Strings.toHexString(policyId, 32));
     }
+
+    /// @notice Verify a proof and grant (or extend) the wallet's credential for a policy.
+    ///         Anyone may pay the gas; the proof itself pins the recipient wallet and chain.
+    function issue(address wallet, uint256 policyId, ProofVerificationParams calldata params) external {
+        Policy storage policy = _policies[policyId];
+        if (policy.owner == address(0)) revert Attest__PolicyNotFound(policyId);
+        if (params.serviceConfig.devMode) revert Attest__DevModeNotAllowed();
+
+        (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
+        if (!valid) revert Attest__InvalidProof();
+
+        if (!helper.verifyScopes(params.proofVerificationData.publicInputs, domain, policyScope(policyId))) {
+            revert Attest__WrongScope();
+        }
+        if (helper.getProofTimestamp(params.proofVerificationData.publicInputs) + PROOF_FRESHNESS < block.timestamp) {
+            revert Attest__StaleProof();
+        }
+
+        BoundData memory bound = helper.getBoundData(params.committedInputs);
+        if (bound.senderAddress != wallet) revert Attest__ProofNotBoundToWallet();
+        if (bound.chainId != block.chainid) revert Attest__ProofNotBoundToChain();
+        if (bytes(bound.customData).length != 0) revert Attest__UnexpectedBoundData();
+
+        _enforcePredicates(policy, helper, params.committedInputs);
+        _consumeNullifier(policy, policyId, nullifier, wallet);
+
+        bool firstIssue = heldUntil[wallet][policyId] == 0;
+        uint64 newHeldUntil = uint64(block.timestamp + policy.validityPeriod);
+        heldUntil[wallet][policyId] = newHeldUntil;
+        if (super.balanceOf(wallet, policyId) == 0) {
+            _mint(wallet, policyId, 1, "");
+        }
+        if (firstIssue) {
+            emit CredentialIssued(wallet, policyId, newHeldUntil);
+        } else {
+            emit CredentialRenewed(wallet, policyId, newHeldUntil);
+        }
+    }
+
+    function _enforcePredicates(Policy storage policy, IVerifierHelper helper, bytes calldata committedInputs)
+        internal
+        view {}
+
+    function _consumeNullifier(Policy storage policy, uint256 policyId, bytes32 nullifier, address wallet) internal {}
 }
