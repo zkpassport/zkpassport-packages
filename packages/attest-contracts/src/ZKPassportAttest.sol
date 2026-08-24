@@ -40,11 +40,15 @@ contract ZKPassportAttest is ERC1155 {
     error Attest__ExcludedJurisdiction();
     error Attest__SybilDetected(bytes32 nullifier);
     error Attest__MissingNullifier();
+    error Attest__TokenIsSoulbound();
+    error Attest__NotRevocable();
+    error Attest__NothingToRevoke();
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
     event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
     event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
+    event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
 
     IRootVerifier public immutable rootVerifier;
     string public domain;
@@ -178,5 +182,30 @@ contract ZKPassportAttest is ERC1155 {
         address prior = nullifierWallet[policyId][nullifier];
         if (prior != address(0) && prior != wallet) revert Attest__SybilDetected(nullifier);
         nullifierWallet[policyId][nullifier] = wallet;
+    }
+
+    /// @notice 1 while the wallet holds an unexpired credential for the policy, else 0
+    function balanceOf(address account, uint256 id) public view override returns (uint256) {
+        return heldUntil[account][id] >= block.timestamp ? 1 : 0;
+    }
+
+    /// @notice Remove a credential; only the holder or the ZKPassport guardian, never the policy owner
+    function revoke(address wallet, uint256 policyId) external {
+        if (msg.sender != wallet && msg.sender != guardian) revert Attest__NotRevocable();
+        if (heldUntil[wallet][policyId] == 0) revert Attest__NothingToRevoke();
+        heldUntil[wallet][policyId] = 0;
+        if (super.balanceOf(wallet, policyId) > 0) {
+            _burn(wallet, policyId, 1);
+        }
+        emit CredentialRevoked(wallet, policyId, msg.sender);
+    }
+
+    function setApprovalForAll(address, bool) public pure override {
+        revert Attest__TokenIsSoulbound();
+    }
+
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override {
+        if (from != address(0) && to != address(0)) revert Attest__TokenIsSoulbound();
+        super._update(from, to, ids, values);
     }
 }
