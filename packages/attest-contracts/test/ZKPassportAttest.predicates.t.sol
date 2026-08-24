@@ -25,13 +25,13 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
 
     function testIssueRevertsWhenAgeTooLow() public {
         mockHelper.setAgeOk(false);
-        vm.expectRevert(ZKPassportAttest.Attest__AgeBelowMinimum.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__AgeBelowMinimum.selector);
         attest.issue(wallet, strictPolicyId, _params());
     }
 
     function testIssueRevertsOnExcludedJurisdiction() public {
         mockHelper.setNationalityOk(false);
-        vm.expectRevert(ZKPassportAttest.Attest__ExcludedJurisdiction.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ExcludedJurisdiction.selector);
         attest.issue(wallet, strictPolicyId, _params());
     }
 
@@ -61,7 +61,7 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
         address mallory = makeAddr("mallory");
         mockHelper.setBoundData(mallory, block.chainid, "");
         vm.expectRevert(
-            abi.encodeWithSelector(ZKPassportAttest.Attest__SybilDetected.selector, mockVerifier.nullifier())
+            abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__SybilDetected.selector, mockVerifier.nullifier())
         );
         attest.issue(mallory, strictPolicyId, _params());
     }
@@ -74,7 +74,7 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
 
     function testUniquePolicyRejectsZeroNullifier() public {
         mockVerifier.setNullifier(bytes32(0));
-        vm.expectRevert(ZKPassportAttest.Attest__MissingNullifier.selector);
+        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__MissingNullifier.selector);
         attest.issue(wallet, strictPolicyId, _params());
     }
 
@@ -105,7 +105,7 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
         address mallory = makeAddr("mallory2");
         mockHelper.setBoundData(mallory, block.chainid, "");
         vm.expectRevert(
-            abi.encodeWithSelector(ZKPassportAttest.Attest__SybilDetected.selector, mockVerifier.nullifier())
+            abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__SybilDetected.selector, mockVerifier.nullifier())
         );
         attest.issue(mallory, strictPolicyId, _params());
     }

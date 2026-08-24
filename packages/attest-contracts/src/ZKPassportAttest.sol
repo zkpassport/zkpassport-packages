@@ -25,27 +25,27 @@ contract ZKPassportAttest is ERC1155 {
         address hook;
     }
 
-    error Attest__PolicyNotFound(uint256 policyId);
-    error Attest__PolicyAlreadyExists(uint256 policyId);
-    error Attest__InvalidValidityPeriod();
-    error Attest__NotPolicyOwner();
-    error Attest__DevModeNotAllowed();
-    error Attest__InvalidProof();
-    error Attest__WrongScope();
-    error Attest__StaleProof();
-    error Attest__ProofNotBoundToWallet();
-    error Attest__ProofNotBoundToChain();
-    error Attest__UnexpectedBoundData();
-    error Attest__AgeBelowMinimum();
-    error Attest__ExcludedJurisdiction();
-    error Attest__SybilDetected(bytes32 nullifier);
-    error Attest__MissingNullifier();
-    error Attest__TokenIsSoulbound();
-    error Attest__NotRevocable();
-    error Attest__NothingToRevoke();
-    error Attest__Paused();
-    error Attest__NotAuthorized();
-    error Attest__ZeroAddress();
+    error ZKPassportAttest__PolicyNotFound(uint256 policyId);
+    error ZKPassportAttest__PolicyAlreadyExists(uint256 policyId);
+    error ZKPassportAttest__InvalidValidityPeriod();
+    error ZKPassportAttest__NotPolicyOwner();
+    error ZKPassportAttest__DevModeNotAllowed();
+    error ZKPassportAttest__InvalidProof();
+    error ZKPassportAttest__WrongScope();
+    error ZKPassportAttest__StaleProof();
+    error ZKPassportAttest__ProofNotBoundToWallet();
+    error ZKPassportAttest__ProofNotBoundToChain();
+    error ZKPassportAttest__UnexpectedBoundData();
+    error ZKPassportAttest__AgeBelowMinimum();
+    error ZKPassportAttest__ExcludedJurisdiction();
+    error ZKPassportAttest__SybilDetected(bytes32 nullifier);
+    error ZKPassportAttest__MissingNullifier();
+    error ZKPassportAttest__TokenIsSoulbound();
+    error ZKPassportAttest__NotRevocable();
+    error ZKPassportAttest__NothingToRevoke();
+    error ZKPassportAttest__Paused();
+    error ZKPassportAttest__NotAuthorized();
+    error ZKPassportAttest__ZeroAddress();
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
@@ -70,7 +70,7 @@ contract ZKPassportAttest is ERC1155 {
     mapping(uint256 policyId => mapping(address wallet => bytes32 nullifier)) internal _nullifierOf;
 
     constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin, address _guardian) ERC1155("") {
-        if (_admin == address(0)) revert Attest__ZeroAddress();
+        if (_admin == address(0)) revert ZKPassportAttest__ZeroAddress();
         rootVerifier = _rootVerifier;
         domain = _domain;
         admin = _admin;
@@ -87,9 +87,9 @@ contract ZKPassportAttest is ERC1155 {
         string[] calldata excludedCountries,
         string calldata metadataURL
     ) external returns (uint256 policyId) {
-        if (validityPeriod == 0) revert Attest__InvalidValidityPeriod();
+        if (validityPeriod == 0) revert ZKPassportAttest__InvalidValidityPeriod();
         policyId = uint256(keccak256(abi.encode(msg.sender, salt)));
-        if (_policies[policyId].owner != address(0)) revert Attest__PolicyAlreadyExists(policyId);
+        if (_policies[policyId].owner != address(0)) revert ZKPassportAttest__PolicyAlreadyExists(policyId);
 
         address hook = address(new PolicyValidationHook{salt: bytes32(policyId)}(IERC1155(address(this)), policyId));
 
@@ -111,13 +111,13 @@ contract ZKPassportAttest is ERC1155 {
     /// @notice Full policy struct; reverts for unknown ids
     function getPolicy(uint256 policyId) external view returns (Policy memory) {
         Policy memory policy = _policies[policyId];
-        if (policy.owner == address(0)) revert Attest__PolicyNotFound(policyId);
+        if (policy.owner == address(0)) revert ZKPassportAttest__PolicyNotFound(policyId);
         return policy;
     }
 
     /// @notice Update the display metadata URL; predicates are immutable
     function setMetadataURL(uint256 policyId, string calldata url) external {
-        if (_policies[policyId].owner != msg.sender) revert Attest__NotPolicyOwner();
+        if (_policies[policyId].owner != msg.sender) revert ZKPassportAttest__NotPolicyOwner();
         _policies[policyId].metadataURL = url;
         emit PolicyMetadataURLUpdated(policyId, url);
     }
@@ -134,25 +134,25 @@ contract ZKPassportAttest is ERC1155 {
     /// @notice Verify a proof and grant (or extend) the wallet's credential for a policy.
     ///         Anyone may pay the gas; the proof itself pins the recipient wallet and chain.
     function issue(address wallet, uint256 policyId, ProofVerificationParams calldata params) external {
-        if (paused) revert Attest__Paused();
+        if (paused) revert ZKPassportAttest__Paused();
         Policy storage policy = _policies[policyId];
-        if (policy.owner == address(0)) revert Attest__PolicyNotFound(policyId);
-        if (params.serviceConfig.devMode) revert Attest__DevModeNotAllowed();
+        if (policy.owner == address(0)) revert ZKPassportAttest__PolicyNotFound(policyId);
+        if (params.serviceConfig.devMode) revert ZKPassportAttest__DevModeNotAllowed();
 
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
-        if (!valid) revert Attest__InvalidProof();
+        if (!valid) revert ZKPassportAttest__InvalidProof();
 
         if (!helper.verifyScopes(params.proofVerificationData.publicInputs, domain, policyScope(policyId))) {
-            revert Attest__WrongScope();
+            revert ZKPassportAttest__WrongScope();
         }
         if (helper.getProofTimestamp(params.proofVerificationData.publicInputs) + PROOF_FRESHNESS < block.timestamp) {
-            revert Attest__StaleProof();
+            revert ZKPassportAttest__StaleProof();
         }
 
         BoundData memory bound = helper.getBoundData(params.committedInputs);
-        if (bound.senderAddress != wallet) revert Attest__ProofNotBoundToWallet();
-        if (bound.chainId != block.chainid) revert Attest__ProofNotBoundToChain();
-        if (bytes(bound.customData).length != 0) revert Attest__UnexpectedBoundData();
+        if (bound.senderAddress != wallet) revert ZKPassportAttest__ProofNotBoundToWallet();
+        if (bound.chainId != block.chainid) revert ZKPassportAttest__ProofNotBoundToChain();
+        if (bytes(bound.customData).length != 0) revert ZKPassportAttest__UnexpectedBoundData();
 
         _enforcePredicates(policy, helper, params.committedInputs);
         _consumeNullifier(policy, policyId, nullifier, wallet);
@@ -175,11 +175,11 @@ contract ZKPassportAttest is ERC1155 {
         view
     {
         if (policy.minAge > 0 && !helper.isAgeAboveOrEqual(policy.minAge, committedInputs)) {
-            revert Attest__AgeBelowMinimum();
+            revert ZKPassportAttest__AgeBelowMinimum();
         }
         if (policy.excludedCountries.length > 0 && !helper.isNationalityOut(policy.excludedCountries, committedInputs))
         {
-            revert Attest__ExcludedJurisdiction();
+            revert ZKPassportAttest__ExcludedJurisdiction();
         }
         if (policy.sanctionsCheck) {
             helper.enforceSanctionsRoot(block.timestamp, true, committedInputs);
@@ -188,9 +188,9 @@ contract ZKPassportAttest is ERC1155 {
 
     function _consumeNullifier(Policy storage policy, uint256 policyId, bytes32 nullifier, address wallet) internal {
         if (!policy.unique) return;
-        if (nullifier == bytes32(0)) revert Attest__MissingNullifier();
+        if (nullifier == bytes32(0)) revert ZKPassportAttest__MissingNullifier();
         address prior = nullifierWallet[policyId][nullifier];
-        if (prior != address(0) && prior != wallet) revert Attest__SybilDetected(nullifier);
+        if (prior != address(0) && prior != wallet) revert ZKPassportAttest__SybilDetected(nullifier);
         nullifierWallet[policyId][nullifier] = wallet;
         _nullifierOf[policyId][wallet] = nullifier;
     }
@@ -202,8 +202,8 @@ contract ZKPassportAttest is ERC1155 {
 
     /// @notice Remove a credential; only the holder or the ZKPassport guardian, never the policy owner
     function revoke(address wallet, uint256 policyId) external {
-        if (msg.sender != wallet && msg.sender != guardian) revert Attest__NotRevocable();
-        if (heldUntil[wallet][policyId] == 0) revert Attest__NothingToRevoke();
+        if (msg.sender != wallet && msg.sender != guardian) revert ZKPassportAttest__NotRevocable();
+        if (heldUntil[wallet][policyId] == 0) revert ZKPassportAttest__NothingToRevoke();
         heldUntil[wallet][policyId] = 0;
         bytes32 nullifier = _nullifierOf[policyId][wallet];
         if (nullifier != bytes32(0)) {
@@ -218,36 +218,36 @@ contract ZKPassportAttest is ERC1155 {
 
     /// @notice Emergency stop for issuance; reads and revocation stay live
     function pause() external {
-        if (msg.sender != admin && msg.sender != guardian) revert Attest__NotAuthorized();
+        if (msg.sender != admin && msg.sender != guardian) revert ZKPassportAttest__NotAuthorized();
         paused = true;
         emit PausedStatusChanged(true);
     }
 
     function unpause() external {
-        if (msg.sender != admin) revert Attest__NotAuthorized();
+        if (msg.sender != admin) revert ZKPassportAttest__NotAuthorized();
         paused = false;
         emit PausedStatusChanged(false);
     }
 
     function transferAdmin(address newAdmin) external {
-        if (msg.sender != admin) revert Attest__NotAuthorized();
-        if (newAdmin == address(0)) revert Attest__ZeroAddress();
+        if (msg.sender != admin) revert ZKPassportAttest__NotAuthorized();
+        if (newAdmin == address(0)) revert ZKPassportAttest__ZeroAddress();
         emit AdminUpdated(admin, newAdmin);
         admin = newAdmin;
     }
 
     function setGuardian(address newGuardian) external {
-        if (msg.sender != admin) revert Attest__NotAuthorized();
+        if (msg.sender != admin) revert ZKPassportAttest__NotAuthorized();
         emit GuardianUpdated(guardian, newGuardian);
         guardian = newGuardian;
     }
 
     function setApprovalForAll(address, bool) public pure override {
-        revert Attest__TokenIsSoulbound();
+        revert ZKPassportAttest__TokenIsSoulbound();
     }
 
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override {
-        if (from != address(0) && to != address(0)) revert Attest__TokenIsSoulbound();
+        if (from != address(0) && to != address(0)) revert ZKPassportAttest__TokenIsSoulbound();
         super._update(from, to, ids, values);
     }
 }
