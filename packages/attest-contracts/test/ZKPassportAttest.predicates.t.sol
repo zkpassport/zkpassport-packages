@@ -48,6 +48,7 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
         mockHelper.setSanctionsOk(false);
         attest.issue(wallet, laxPolicyId, _params());
         assertEq(attest.balanceOf(wallet, laxPolicyId), 1);
+        assertEq(attest.nullifierWallet(laxPolicyId, mockVerifier.nullifier()), address(0));
     }
 
     function testUniquePolicyBindsNullifierToWallet() public {
