@@ -175,8 +175,7 @@ contract ZKPassportAttest is ERC1155 {
         if (policy.saltedNullifierOnly) {
             bytes32[] calldata publicInputs = params.proofVerificationData.publicInputs;
             NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-            bool acceptable =
-                nullifierType == NullifierType.SALTED_NULLIFIER
+            bool acceptable = nullifierType == NullifierType.SALTED_NULLIFIER
                 || (!policy.unique && nullifierType == NullifierType.NONE_NULLIFIER);
             if (!acceptable) revert ZKPassportAttest__SaltedNullifierRequired();
         }
