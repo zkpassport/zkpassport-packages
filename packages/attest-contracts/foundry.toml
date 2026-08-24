@@ -7,7 +7,7 @@ optimizer = true
 optimizer_runs = 200
 bytecode_hash = "none"
 remappings = [
-    "forge-std/=../registry-contracts/lib/forge-std/src/",
+    "forge-std/=lib/forge-std/src/",
     "@registry/=../registry-contracts/src/",
     "@openzeppelin/=lib/openzeppelin-contracts/",
 ]
