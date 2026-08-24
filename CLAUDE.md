@@ -17,7 +17,7 @@ Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<
 <commits_and_prs>
 Follow Conventional Commits: `fix(scope): Subject`, `feat(scope): Subject`, `chore(scope): Subject`, `refactor(scope): Subject`, `docs(scope): Subject`, `test(scope): Subject`. PRs are squashed to a single commit on merge, so during development just create normal commits — do not amend unless explicitly asked.
 
-Scope must match one of: (contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace)(,(contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace))*
+Scope must match one of: (attest-contracts|contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace)(,(attest-contracts|contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace))*
 
 Subject must start with an uppercase letter.
 
