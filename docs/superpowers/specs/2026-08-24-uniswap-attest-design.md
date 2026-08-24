@@ -124,8 +124,11 @@ clones — the bytecode is small and creation is one-time per policy).
 
 ### What Uniswap reads (no vendor code)
 
-1. Launcher dropdown: enumerate `PolicyCreated` events / `policyCount`, render
-   `uri(policyId)` metadata.
+1. Launcher dropdown: enumerate `PolicyCreated` events filtered by trusted
+   `owner` (indexed): ZKPassport's published ops address for ready policies,
+   plus the connected launcher's own address for custom ones. The registry
+   itself stays permissionless; curation is a per-consumer display choice, and
+   `uri()` metadata is only fetched for trusted owners.
 2. Auction deploy: chosen policy's `hook` address into the existing
    `validationHook` parameter.
 3. Auction page: ERC-165 introspection on the hook → `(erc1155, tokenId)` →
