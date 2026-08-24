@@ -33,8 +33,9 @@ contract AttestTestBase is Test {
 
     function _createDefaultPolicy() internal returns (uint256) {
         vm.prank(creator);
-        return
-            attest.createPolicy(bytes32(uint256(1)), 30 days, false, 0, false, noCountries, "https://policy.example/1");
+        return attest.createPolicy(
+            bytes32(uint256(1)), 30 days, false, false, 0, false, noCountries, "https://policy.example/1"
+        );
     }
 
     function _params() internal pure returns (ProofVerificationParams memory) {

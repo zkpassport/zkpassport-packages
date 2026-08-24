@@ -21,7 +21,7 @@ contract ZKPassportAttestPoliciesTest is AttestTestBase {
         excluded[0] = "PRK";
         vm.prank(creator);
         uint256 policyId =
-            attest.createPolicy(bytes32(0), 7 days, true, 18, true, excluded, "https://policy.example/kyc");
+            attest.createPolicy(bytes32(0), 7 days, true, false, 18, true, excluded, "https://policy.example/kyc");
         ZKPassportAttest.Policy memory policy = attest.getPolicy(policyId);
         assertEq(policy.owner, creator);
         assertEq(policy.validityPeriod, 7 days);
@@ -51,21 +51,21 @@ contract ZKPassportAttestPoliciesTest is AttestTestBase {
                 uint256(keccak256(abi.encode(creator, bytes32(uint256(1)))))
             )
         );
-        attest.createPolicy(bytes32(uint256(1)), 30 days, false, 0, false, noCountries, "other");
+        attest.createPolicy(bytes32(uint256(1)), 30 days, false, false, 0, false, noCountries, "other");
     }
 
     function testSameSaltDifferentOwnersDifferentIds() public {
         uint256 first = _createDefaultPolicy();
         address other = makeAddr("other");
         vm.prank(other);
-        uint256 second = attest.createPolicy(bytes32(uint256(1)), 30 days, false, 0, false, noCountries, "x");
+        uint256 second = attest.createPolicy(bytes32(uint256(1)), 30 days, false, false, 0, false, noCountries, "x");
         assertTrue(first != second);
     }
 
     function testCreatePolicyRevertsOnZeroValidityPeriod() public {
         vm.prank(creator);
         vm.expectRevert(ZKPassportAttest.ZKPassportAttest__InvalidValidityPeriod.selector);
-        attest.createPolicy(bytes32(0), 0, false, 0, false, noCountries, "x");
+        attest.createPolicy(bytes32(0), 0, false, false, 0, false, noCountries, "x");
     }
 
     function testUriReturnsMetadataURL() public {

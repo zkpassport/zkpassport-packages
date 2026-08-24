@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
+import {BoundData, NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "./interfaces/IRootVerifier.sol";
 import {PolicyValidationHook} from "./PolicyValidationHook.sol";
 
@@ -18,6 +18,7 @@ contract ZKPassportAttest is ERC1155 {
         address owner;
         uint64 validityPeriod;
         bool unique;
+        bool saltedNullifierOnly;
         uint8 minAge;
         bool sanctionsCheck;
         string[] excludedCountries;
@@ -31,6 +32,7 @@ contract ZKPassportAttest is ERC1155 {
     error ZKPassportAttest__InvalidValidityPeriod();
     error ZKPassportAttest__NotPolicyOwner();
     error ZKPassportAttest__PolicyRetired(uint256 policyId);
+    error ZKPassportAttest__SaltedNullifierRequired();
     error ZKPassportAttest__DevModeNotAllowed();
     error ZKPassportAttest__InvalidProof();
     error ZKPassportAttest__WrongScope();
@@ -85,6 +87,7 @@ contract ZKPassportAttest is ERC1155 {
         bytes32 salt,
         uint64 validityPeriod,
         bool unique,
+        bool saltedNullifierOnly,
         uint8 minAge,
         bool sanctionsCheck,
         string[] calldata excludedCountries,
@@ -100,6 +103,7 @@ contract ZKPassportAttest is ERC1155 {
         policy.owner = msg.sender;
         policy.validityPeriod = validityPeriod;
         policy.unique = unique;
+        policy.saltedNullifierOnly = saltedNullifierOnly;
         policy.minAge = minAge;
         policy.sanctionsCheck = sanctionsCheck;
         for (uint256 i = 0; i < excludedCountries.length; i++) {
@@ -167,6 +171,15 @@ contract ZKPassportAttest is ERC1155 {
         if (bound.senderAddress != wallet) revert ZKPassportAttest__ProofNotBoundToWallet();
         if (bound.chainId != block.chainid) revert ZKPassportAttest__ProofNotBoundToChain();
         if (bytes(bound.customData).length != 0) revert ZKPassportAttest__UnexpectedBoundData();
+
+        if (policy.saltedNullifierOnly) {
+            bytes32[] calldata publicInputs = params.proofVerificationData.publicInputs;
+            NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
+            bool acceptable =
+                nullifierType == NullifierType.SALTED_NULLIFIER
+                || (!policy.unique && nullifierType == NullifierType.NONE_NULLIFIER);
+            if (!acceptable) revert ZKPassportAttest__SaltedNullifierRequired();
+        }
 
         _enforcePredicates(policy, helper, params.committedInputs);
         _consumeNullifier(policy, policyId, nullifier, wallet);
