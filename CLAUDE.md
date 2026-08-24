@@ -2,8 +2,8 @@
 
 <git_workflow>
 
-<critical_never_assume_base>
-Never assume the base branch. The default branch is `main`, but some branches target `develop`, and defaulting to the wrong base produces incorrect diffs and broken PR comparisons. Determine the actual base before diffing or opening a PR.
+<critical_never_assume_master>
+Never assume the base branch is `master` or `main`. Most branches target `develop`, and defaulting to `master` produces incorrect diffs and broken PR comparisons. Determine the actual base before diffing or opening a PR.
 
 If a PR is already open, that is authoritative:
 
@@ -12,10 +12,12 @@ gh pr view --json baseRefName -q '.baseRefName'
 ```
 
 Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<base>..HEAD`. Always `git fetch` before creating branches so the base is not stale.
-</critical_never_assume_base>
+</critical_never_assume_master>
 
 <commits_and_prs>
-Follow Conventional Commits: `fix:`, `feat:`, `chore:`, `refactor:`, `docs:`, `test:`. PRs are squashed to a single commit on merge, so during development just create normal commits — do not amend unless explicitly asked.
+Follow Conventional Commits: `fix(scope):`, `feat(scope):`, `chore(scope):`, `refactor(scope):`, `docs(scope):`, `test(scope):`. PRs are squashed to a single commit on merge, so during development just create normal commits — do not amend unless explicitly asked.
+
+Scope must match one of: (contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace)(,(contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace))*
 </commits_and_prs>
 
 <git_staging>
