@@ -30,7 +30,12 @@ except the per-policy hook contract, which implements Uniswap's published
    immutable hook per policy (no expiration block). Credential expiry lives in
    `balanceOf` via `heldUntil`, not in the hook.
 3. **Scope: PR stack.** This design covers PR 1 (contracts). Later PRs: TS
-   bindings, verify-button npm package, popup mint flow (possibly another repo).
+   bindings, verify-button npm package, popup mint flow (possibly another repo),
+   and a kitchen-sink demo dapp.
+4. **Demo fidelity: minimal bid simulator.** The kitchen-sink dapp exercises
+   the hook through a ~30-line `MockAuction` contract that calls
+   `hook.validate()` with `_submitBid`'s exact semantics, rather than vendoring
+   Uniswap's CCA contracts.
 
 ## Components
 
@@ -118,6 +123,33 @@ clones — the bytecode is small and creation is one-time per policy).
    `balanceOf(wallet, tokenId)`; verify link from `uri()` metadata.
 4. After popup mint: refetch flips eligibility.
 
+### Kitchen-sink demo dapp (later PR in the stack)
+
+New workspace package (Next.js 14 + React 18 + viem, mirroring
+`registry-explorer` conventions) that exercises every flow per persona, so we
+can demo and test end-to-end without involving the Uniswap team:
+
+- **Policy creator**: `createPolicy` form with all predicates, policy list,
+  metadata URL editor — the same reads Uniswap's launcher dropdown would do.
+- **Launcher**: deploy a `MockAuction` wired to a chosen policy's hook;
+  introspection panel showing exactly what Uniswap's backend reads via ERC-165
+  (`erc1155()`, `tokenId()`, then `balanceOf`).
+- **Bidder**: eligibility check → verify → credential mint → bid; shows the
+  exact `NotOwnerOfERC1155Token` revert when ungated and the pass when gated.
+- **Holder**: credential dashboard (`heldUntil`, countdown), renew, self-revoke.
+- **Guardian**: revoke any credential, pause/unpause `issue`.
+
+`MockAuction` lives in `packages/registry-contracts/src/mocks/` and is reused
+by the Foundry hook-integration tests — it calls `validate(maxPrice, amount,
+owner, sender, hookData)` before accepting a bid, exactly as `_submitBid` does.
+
+Chain modes: anvil with `MockHonkVerifier` (one-click dev-mode "passport") as
+the default dev loop; testnet mode against real deployments and the real popup
+once the popup PR lands.
+
+Note: the demo package will need a new scope added to the commit-scope list in
+`CLAUDE.md`.
+
 ## Errors and events
 
 Custom errors in the repo's `Contract__Error` style: `Attest__PolicyNotFound`,
@@ -164,4 +196,6 @@ integration.
 ## Out of scope for PR 1
 
 TS bindings (PR 2), verify-button npm package (PR 3), popup mint flow (PR 4 or
-separate repo), post-auction v4 pool hooks, fee sponsorship tooling.
+separate repo), kitchen-sink demo dapp (PR 5 — though its `MockAuction`
+contract ships in PR 1 for the hook-integration tests), post-auction v4 pool
+hooks, fee sponsorship tooling.
