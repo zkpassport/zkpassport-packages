@@ -67,9 +67,15 @@ struct Policy {
 }
 ```
 
-- `createPolicy(...) returns (uint256 policyId)` — permissionless. Sequential
-  ids. Deploys the policy's `PolicyValidationHook` in the same transaction and
-  stores its address. Predicates are immutable after creation; only
+- `createPolicy(...) returns (uint256 policyId)` — permissionless.
+  `policyId = uint256(keccak256(abi.encode(owner, salt)))` with a
+  creator-chosen salt (revert if the id exists): ids are namespaced by owner,
+  so nobody can front-run an announced id or squat official-looking ones, and
+  the same owner + salt yields the same policyId on every chain. Enumeration
+  uses `PolicyCreated` events (no counter). Deploys the policy's
+  `PolicyValidationHook` in the same transaction (CREATE2 salted by policyId,
+  for cross-chain-stable hook addresses where the registry address is itself
+  deterministic) and stores its address. Predicates are immutable after creation; only
   `metadataURL` is mutable (by `policy.owner`).
 - `issue(address wallet, uint256 policyId, ProofVerificationParams params)` —
   permissionless (anyone can pay gas; the proof pins the recipient):
