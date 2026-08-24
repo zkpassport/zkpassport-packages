@@ -93,6 +93,15 @@ struct Policy {
      — scoped per policy so credentials across policies stay unlinkable. First
      use binds the nullifier to the recipient wallet; re-use is valid only for
      that same wallet (enables renewal), otherwise revert `SybilDetected`.
+     Per-policy scoping is sufficient for auctions: an auction's hook checks a
+     single policyId, so uniqueness within that policy is "one person, one
+     entry" for that auction — other policies grant entry to other venues, not
+     extra entries here. It is also forced by the proof system: nullifiers are
+     scoped by domain+scope (which embeds the policyId), so the same passport
+     yields unlinkable nullifiers across policies by construction. The flag is
+     opt-in: a `unique=false` policy has no sybil resistance, so
+     auction-oriented ready policies ship with `unique=true` and consumer UIs
+     should surface the flag.
   5. `heldUntil[wallet][policyId] = block.timestamp + policy.validityPeriod`;
      `_mint(wallet, policyId, 1, "")` only when the internal 1155 balance is 0
      (renewals just extend `heldUntil`).
