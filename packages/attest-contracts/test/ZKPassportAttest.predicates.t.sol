@@ -88,4 +88,25 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
         attest.issue(other, secondUnique, _params());
         assertEq(attest.balanceOf(other, secondUnique), 1);
     }
+
+    function testRevokeReleasesNullifierForNewWallet() public {
+        attest.issue(wallet, strictPolicyId, _params());
+        vm.prank(wallet);
+        attest.revoke(wallet, strictPolicyId);
+        address recovered = makeAddr("recovered");
+        mockHelper.setBoundData(recovered, block.chainid, "");
+        attest.issue(recovered, strictPolicyId, _params());
+        assertEq(attest.balanceOf(recovered, strictPolicyId), 1);
+        assertEq(attest.nullifierWallet(strictPolicyId, mockVerifier.nullifier()), recovered);
+    }
+
+    function testActiveCredentialStillBlocksOtherWallets() public {
+        attest.issue(wallet, strictPolicyId, _params());
+        address mallory = makeAddr("mallory2");
+        mockHelper.setBoundData(mallory, block.chainid, "");
+        vm.expectRevert(
+            abi.encodeWithSelector(ZKPassportAttest.Attest__SybilDetected.selector, mockVerifier.nullifier())
+        );
+        attest.issue(mallory, strictPolicyId, _params());
+    }
 }
