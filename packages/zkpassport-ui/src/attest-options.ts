@@ -2,7 +2,6 @@ import { AttestClient, NullifierType } from "@zkpassport/sdk"
 import type {
   AttestPolicy,
   AttestReadClient,
-  ProofResult,
   SolidityVerifierParameters,
   SupportedChain,
 } from "@zkpassport/sdk"
@@ -22,7 +21,10 @@ export type AttestVerifyResult = {
   uniqueIdentifier?: string
   /** The unmodified SDK result payload. */
   raw: CardResult
-  /** Ready-to-send ZKPassportAttest.issue() call; present when verified with an EVM proof. */
+  /**
+   * Ready-to-send ZKPassportAttest.issue() call; present when verified with
+   * an EVM proof on a non-dev request (dev-mode proofs revert on-chain).
+   */
   issueCall?: AttestIssueCall
 }
 
@@ -44,9 +46,10 @@ export type AttestVerifyOptions = ForwardedCardCallbacks & {
   policyId: bigint
   wallet: `0x${string}`
   chain: SupportedChain
+  /** Defaults to the registry's on-chain domain(), which issue() verifies against. */
   domain?: string
   devMode?: boolean
-  /** Escape hatches: supply BOTH to skip the on-chain fetch entirely. */
+  /** Escape hatches: each supplied value skips its own on-chain read. */
   policy?: AttestPolicy
   scope?: string
   theme?: "light" | "dark" | "auto"
@@ -66,14 +69,27 @@ export async function buildAttestCardOptions(
   options: AttestVerifyOptions,
 ): Promise<ZKPassportQRCodeOptions> {
   const attest = new AttestClient({ client: options.client, address: options.registryAddress })
-  const supplied = options.policy !== undefined && options.scope !== undefined
-  const policy = supplied ? options.policy! : await attest.getPolicy(options.policyId)
-  // On-chain read keeps the scope byte-identical to what issue() verifies.
-  const scope = supplied ? options.scope! : await attest.policyScope(options.policyId)
+
+  // On-chain reads keep each value byte-identical to what issue() verifies.
+  const [policy, scope, domain] = await Promise.all([
+    options.policy ?? attest.getPolicy(options.policyId),
+    options.scope ?? attest.policyScope(options.policyId),
+    options.domain ??
+      (options.client.readContract({
+        address: options.registryAddress,
+        abi: attest.getIssueDetails().abi,
+        functionName: "domain",
+      } as never) as Promise<string>),
+  ])
+
+  if (policy.retiredAt !== 0n) {
+    throw new Error(`Policy ${options.policyId} is retired and no longer issues credentials.`)
+  }
+
   const { policyId, wallet, chain } = options
 
   return {
-    domain: options.domain,
+    domain,
     theme: options.theme,
     display: options.display,
     name: options.name,
@@ -90,7 +106,10 @@ export async function buildAttestCardOptions(
         // The registry stores ISO alpha-3 codes; the contract checks nationality.
         q = q.out("nationality", [...policy.excludedCountries] as never)
       }
-      if (policy.sanctionsCheck) q = q.sanctions()
+      // The contract verifies sanctions proofs in strict mode.
+      if (policy.sanctionsCheck) q = q.sanctions("all", "all", { strict: true })
+      // The SDK requires strict facematch whenever the salted nullifier is used.
+      if (policy.saltedNullifierOnly) q = q.facematch("strict")
       return q.bind("user_address", wallet).bind("chain", chain).done()
     },
     onReady: options.onReady,
@@ -113,22 +132,18 @@ function buildResultHandler(context: {
   scope: string
 }): (response: CardResult) => void {
   const { attest, options, policyId, wallet, scope } = context
+  const devMode = options.devMode ?? false
   return (response) => {
     let issueCall: AttestIssueCall | undefined
-    const proof = (response.proofs as ProofResult[] | undefined)?.find((p) =>
-      p.name?.startsWith("outer_evm"),
-    )
-    if (response.verified && proof) {
+    const proof = response.proofs?.find((p) => p.name?.startsWith("outer_evm"))
+    // Dev-mode proofs revert on-chain, so no call is assembled for them.
+    if (response.verified && proof && !devMode) {
       try {
-        const params = (
-          response.sdkInstance as unknown as {
-            getSolidityVerifierParameters: (args: {
-              proof: ProofResult
-              scope: string
-              devMode: boolean
-            }) => SolidityVerifierParameters
-          }
-        ).getSolidityVerifierParameters({ proof, scope, devMode: options.devMode ?? false })
+        const params = response.sdkInstance.getSolidityVerifierParameters({
+          proof,
+          scope,
+          devMode,
+        })
         const details = attest.getIssueDetails()
         issueCall = {
           address: details.address,
