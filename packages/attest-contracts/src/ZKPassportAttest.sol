@@ -94,6 +94,7 @@ contract ZKPassportAttest is ERC1155 {
         string calldata metadataURL
     ) external returns (uint256 policyId) {
         if (validityPeriod == 0) revert ZKPassportAttest__InvalidValidityPeriod();
+
         policyId = uint256(keccak256(abi.encode(msg.sender, salt)));
         if (_policies[policyId].owner != address(0)) revert ZKPassportAttest__PolicyAlreadyExists(policyId);
 
@@ -152,9 +153,11 @@ contract ZKPassportAttest is ERC1155 {
     ///         Anyone may pay the gas; the proof itself pins the recipient wallet and chain.
     function issue(address wallet, uint256 policyId, ProofVerificationParams calldata params) external {
         if (paused) revert ZKPassportAttest__Paused();
+
         Policy storage policy = _policies[policyId];
         if (policy.owner == address(0)) revert ZKPassportAttest__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportAttest__PolicyRetired(policyId);
+
         if (params.serviceConfig.devMode) revert ZKPassportAttest__DevModeNotAllowed();
 
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
@@ -163,6 +166,7 @@ contract ZKPassportAttest is ERC1155 {
         if (!helper.verifyScopes(params.proofVerificationData.publicInputs, domain, policyScope(policyId))) {
             revert ZKPassportAttest__WrongScope();
         }
+
         if (helper.getProofTimestamp(params.proofVerificationData.publicInputs) + PROOF_FRESHNESS < block.timestamp) {
             revert ZKPassportAttest__StaleProof();
         }
@@ -177,6 +181,7 @@ contract ZKPassportAttest is ERC1155 {
             NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
             bool acceptable = nullifierType == NullifierType.SALTED_NULLIFIER
                 || (!policy.unique && nullifierType == NullifierType.NONE_NULLIFIER);
+
             if (!acceptable) revert ZKPassportAttest__SaltedNullifierRequired();
         }
 
@@ -186,9 +191,11 @@ contract ZKPassportAttest is ERC1155 {
         bool firstIssue = heldUntil[wallet][policyId] == 0;
         uint64 newHeldUntil = uint64(block.timestamp + policy.validityPeriod);
         heldUntil[wallet][policyId] = newHeldUntil;
+
         if (super.balanceOf(wallet, policyId) == 0) {
             _mint(wallet, policyId, 1, "");
         }
+
         if (firstIssue) {
             emit CredentialIssued(wallet, policyId, newHeldUntil);
         } else {
@@ -234,15 +241,19 @@ contract ZKPassportAttest is ERC1155 {
     function revoke(address wallet, uint256 policyId) external {
         if (msg.sender != wallet && msg.sender != guardian) revert ZKPassportAttest__NotRevocable();
         if (heldUntil[wallet][policyId] == 0) revert ZKPassportAttest__NothingToRevoke();
+
         heldUntil[wallet][policyId] = 0;
+
         bytes32 nullifier = _nullifierOf[policyId][wallet];
         if (nullifier != bytes32(0)) {
             delete nullifierWallet[policyId][nullifier];
             delete _nullifierOf[policyId][wallet];
         }
+
         if (super.balanceOf(wallet, policyId) > 0) {
             _burn(wallet, policyId, 1);
         }
+
         emit CredentialRevoked(wallet, policyId, msg.sender);
     }
 
