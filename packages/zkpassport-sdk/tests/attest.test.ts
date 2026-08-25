@@ -161,3 +161,8 @@ describe("AttestClient issue helpers", () => {
     }
   })
 })
+
+test("AttestClient is exported from the package entrypoint", async () => {
+  const pkg = await import("../src/index")
+  expect(pkg.AttestClient).toBe(AttestClient)
+})
