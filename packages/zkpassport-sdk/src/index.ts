@@ -121,6 +121,13 @@ export {
   type Service,
 } from "@zkpassport/utils"
 
+export {
+  AttestClient,
+  type AttestPolicy,
+  type AttestPolicySummary,
+  type AttestReadClient,
+} from "./attest"
+
 export * from "./types"
 export { createOfflineQuery } from "./offline-query"
 
