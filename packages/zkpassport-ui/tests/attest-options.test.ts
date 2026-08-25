@@ -133,3 +133,83 @@ describe("buildAttestCardOptions query translation", () => {
     ])
   })
 })
+
+describe("enriched onResult", () => {
+  const PARAMS = { version: "params-sentinel" } as never
+
+  function fakeResponse(overrides: Record<string, unknown> = {}) {
+    return {
+      verified: true,
+      uniqueIdentifier: "uid-1",
+      uniqueIdentifierType: undefined,
+      result: {},
+      proofs: [{ proof: "0xdead", name: "outer_evm_5", version: "0.21.0" }],
+      sdkInstance: {
+        getSolidityVerifierParameters: (args: unknown) => {
+          calls.push(args)
+          return PARAMS
+        },
+      },
+      ...overrides,
+    } as never
+  }
+
+  let calls: unknown[] = []
+
+  test("verified result carries a ready issue() call", async () => {
+    calls = []
+    const results: unknown[] = []
+    const options = await buildAttestCardOptions({
+      ...baseOptions(basePolicy),
+      client: stubChain(basePolicy).client,
+      onResult: (r) => results.push(r),
+    })
+    options.onResult!(fakeResponse())
+    const r = results[0] as {
+      verified: boolean
+      issueCall?: { address: string; functionName: string; args: readonly unknown[] }
+    }
+    expect(r.verified).toBe(true)
+    expect(r.issueCall?.address).toBe(REGISTRY)
+    expect(r.issueCall?.functionName).toBe("issue")
+    expect(r.issueCall?.args).toEqual([WALLET, POLICY_ID, PARAMS])
+    expect(calls[0]).toEqual({
+      proof: { proof: "0xdead", name: "outer_evm_5", version: "0.21.0" },
+      scope: SCOPE,
+      devMode: false,
+    })
+  })
+
+  test("unverified result omits issueCall", async () => {
+    const results: unknown[] = []
+    const options = await buildAttestCardOptions({
+      ...baseOptions(basePolicy),
+      client: stubChain(basePolicy).client,
+      onResult: (r) => results.push(r),
+    })
+    options.onResult!(fakeResponse({ verified: false }))
+    expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
+  })
+
+  test("assembly failure omits issueCall and reports onError", async () => {
+    const errors: string[] = []
+    const results: unknown[] = []
+    const options = await buildAttestCardOptions({
+      ...baseOptions(basePolicy),
+      client: stubChain(basePolicy).client,
+      onResult: (r) => results.push(r),
+      onError: (message) => errors.push(message),
+    })
+    options.onResult!(
+      fakeResponse({
+        sdkInstance: {
+          getSolidityVerifierParameters: () => {
+            throw new Error("no evm proof")
+          },
+        },
+      }),
+    )
+    expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
+    expect(errors.length).toBe(1)
+  })
+})

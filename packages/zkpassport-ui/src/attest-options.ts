@@ -2,6 +2,7 @@ import { AttestClient, NullifierType } from "@zkpassport/sdk"
 import type {
   AttestPolicy,
   AttestReadClient,
+  ProofResult,
   SolidityVerifierParameters,
   SupportedChain,
 } from "@zkpassport/sdk"
@@ -104,7 +105,6 @@ export async function buildAttestCardOptions(
   }
 }
 
-// Replaced with the enriched implementation in the next task.
 function buildResultHandler(context: {
   attest: AttestClient
   options: AttestVerifyOptions
@@ -112,11 +112,39 @@ function buildResultHandler(context: {
   wallet: `0x${string}`
   scope: string
 }): (response: CardResult) => void {
+  const { attest, options, policyId, wallet, scope } = context
   return (response) => {
-    context.options.onResult?.({
+    let issueCall: AttestIssueCall | undefined
+    const proof = (response.proofs as ProofResult[] | undefined)?.find((p) =>
+      p.name?.startsWith("outer_evm"),
+    )
+    if (response.verified && proof) {
+      try {
+        const params = (
+          response.sdkInstance as unknown as {
+            getSolidityVerifierParameters: (args: {
+              proof: ProofResult
+              scope: string
+              devMode: boolean
+            }) => SolidityVerifierParameters
+          }
+        ).getSolidityVerifierParameters({ proof, scope, devMode: options.devMode ?? false })
+        const details = attest.getIssueDetails()
+        issueCall = {
+          address: details.address,
+          functionName: details.functionName,
+          abi: details.abi,
+          args: [wallet, policyId, params] as const,
+        }
+      } catch (reason) {
+        options.onError?.(reason instanceof Error ? reason.message : String(reason))
+      }
+    }
+    options.onResult?.({
       verified: response.verified,
       uniqueIdentifier: response.uniqueIdentifier,
       raw: response,
+      issueCall,
     })
   }
 }
