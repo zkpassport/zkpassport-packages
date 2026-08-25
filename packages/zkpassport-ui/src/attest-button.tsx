@@ -11,18 +11,34 @@ export type AttestButtonProps = {
 
 type ButtonState = "idle" | "loading" | "card"
 
-/**
- * Branded entry point for the attest flow: button → (fetch policy, build
- * request) → the existing QR card. On build failure the button returns to
- * idle and the error is forwarded to options.onError.
- */
+const FORWARDED_CALLBACKS = [
+  "onReady",
+  "onRetryClicked",
+  "onBridgeConnect",
+  "onRequestReceived",
+  "onGeneratingProof",
+  "onProofGenerated",
+  "onReject",
+  "onError",
+  "onResult",
+] as const
+
+function liveCallbacks(ref: { current: AttestVerifyOptions }): AttestVerifyOptions {
+  const live = { ...ref.current }
+  for (const key of FORWARDED_CALLBACKS) {
+    live[key] = ((...args: unknown[]) =>
+      (ref.current[key] as ((...a: unknown[]) => void) | undefined)?.(...args)) as never
+  }
+  return live
+}
+
+/** "Verify with ZKPassport" button for an attest registry policy. */
 export function AttestButton({ options, label }: AttestButtonProps) {
   const [state, setState] = useState<ButtonState>("idle")
   const [cardOptions, setCardOptions] = useState<ZKPassportQRCodeOptions | null>(null)
   const optionsRef = useRef(options)
   optionsRef.current = options
 
-  // Same convention as use-card.ts: nothing fires after unmount.
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
@@ -33,7 +49,7 @@ export function AttestButton({ options, label }: AttestButtonProps) {
 
   const start = useCallback(() => {
     setState("loading")
-    buildAttestCardOptions(optionsRef.current)
+    buildAttestCardOptions(liveCallbacks(optionsRef))
       .then((built) => {
         if (!mountedRef.current) return
         setCardOptions(built)

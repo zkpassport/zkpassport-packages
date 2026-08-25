@@ -7,6 +7,7 @@ const WALLET = "0x2222222222222222222222222222222222222222" as const
 const HOOK = "0x3333333333333333333333333333333333333333" as const
 const POLICY_ID = 42n
 const SCOPE = "attest:0x000000000000000000000000000000000000000000000000000000000000002a"
+const DOMAIN = "policy.example"
 
 const basePolicy: AttestPolicy = {
   owner: WALLET,
@@ -21,7 +22,7 @@ const basePolicy: AttestPolicy = {
   retiredAt: 0n,
 }
 
-export function stubChain(policy: AttestPolicy) {
+function stubChain(policy: AttestPolicy) {
   const readCalls: { functionName: string; args?: readonly unknown[] }[] = []
   const client = {
     readContract: async (params: never) => {
@@ -29,6 +30,7 @@ export function stubChain(policy: AttestPolicy) {
       readCalls.push(p)
       if (p.functionName === "getPolicy") return policy
       if (p.functionName === "policyScope") return SCOPE
+      if (p.functionName === "domain") return DOMAIN
       throw new Error(`unexpected read ${p.functionName}`)
     },
     getLogs: async () => [],
@@ -36,10 +38,10 @@ export function stubChain(policy: AttestPolicy) {
   return { client, readCalls }
 }
 
-export function fakeQueryBuilder() {
+function fakeQueryBuilder() {
   const calls: { method: string; args: unknown[] }[] = []
   const qb: Record<string, unknown> = {}
-  for (const method of ["gte", "out", "sanctions", "bind"]) {
+  for (const method of ["gte", "out", "sanctions", "facematch", "bind"]) {
     qb[method] = (...args: unknown[]) => {
       calls.push({ method, args })
       return qb
@@ -52,7 +54,7 @@ export function fakeQueryBuilder() {
   return { qb: qb as never, calls }
 }
 
-export function baseOptions(policy: AttestPolicy): AttestVerifyOptions {
+function baseOptions(policy: AttestPolicy): AttestVerifyOptions {
   return {
     client: stubChain(policy).client,
     registryAddress: REGISTRY,
@@ -63,14 +65,19 @@ export function baseOptions(policy: AttestPolicy): AttestVerifyOptions {
 }
 
 describe("buildAttestCardOptions request props", () => {
-  test("fetches scope on-chain and configures an evm-mode request", async () => {
+  test("fetches policy, scope, and domain on-chain for an evm-mode request", async () => {
     const { client, readCalls } = stubChain(basePolicy)
     const options = await buildAttestCardOptions({ ...baseOptions(basePolicy), client })
     expect(options.scope).toBe(SCOPE)
+    expect(options.domain).toBe(DOMAIN)
     expect(options.mode).toBe("compressed-evm")
     expect(options.devMode).toBe(false)
     expect("uniqueIdentifierType" in options).toBe(false)
-    expect(readCalls.map((c) => c.functionName).sort()).toEqual(["getPolicy", "policyScope"])
+    expect(readCalls.map((c) => c.functionName).sort()).toEqual([
+      "domain",
+      "getPolicy",
+      "policyScope",
+    ])
   })
 
   test("salted policies request the salted unique identifier type", async () => {
@@ -82,16 +89,35 @@ describe("buildAttestCardOptions request props", () => {
     expect(options.uniqueIdentifierType).toBeDefined()
   })
 
-  test("supplying policy and scope skips all reads", async () => {
+  test("supplying policy, scope, and domain skips all reads", async () => {
     const { client, readCalls } = stubChain(basePolicy)
     const options = await buildAttestCardOptions({
       ...baseOptions(basePolicy),
       client,
       policy: basePolicy,
       scope: SCOPE,
+      domain: "custom.example",
     })
     expect(options.scope).toBe(SCOPE)
+    expect(options.domain).toBe("custom.example")
     expect(readCalls.length).toBe(0)
+  })
+
+  test("each escape hatch skips only its own read", async () => {
+    const { client, readCalls } = stubChain(basePolicy)
+    await buildAttestCardOptions({
+      ...baseOptions(basePolicy),
+      client,
+      policy: basePolicy,
+    })
+    expect(readCalls.map((c) => c.functionName).sort()).toEqual(["domain", "policyScope"])
+  })
+
+  test("retired policies are rejected", async () => {
+    const policy = { ...basePolicy, retiredAt: 1700000000n }
+    await expect(
+      buildAttestCardOptions({ ...baseOptions(policy), client: stubChain(policy).client }),
+    ).rejects.toThrow("retired")
   })
 })
 
@@ -115,18 +141,30 @@ describe("buildAttestCardOptions query translation", () => {
     ])
   })
 
-  test("full policy: age, nationality exclusion, sanctions, then binding", async () => {
+  test("full policy: age, nationality exclusion, strict sanctions, then binding", async () => {
     const policy: AttestPolicy = {
       ...basePolicy,
       minAge: 21,
-      excludedCountries: ["PRK", "IRN"],
+      // Stored sorted on-chain; contract-side ordering validation is a
+      // registry follow-up, the query passes codes through as stored.
+      excludedCountries: ["IRN", "PRK"],
       sanctionsCheck: true,
     }
     const calls = await queryCalls(policy)
     expect(calls).toEqual([
       { method: "gte", args: ["age", 21] },
-      { method: "out", args: ["nationality", ["PRK", "IRN"]] },
-      { method: "sanctions", args: [] },
+      { method: "out", args: ["nationality", ["IRN", "PRK"]] },
+      { method: "sanctions", args: ["all", "all", { strict: true }] },
+      { method: "bind", args: ["user_address", WALLET] },
+      { method: "bind", args: ["chain", "ethereum_sepolia"] },
+      { method: "done", args: [] },
+    ])
+  })
+
+  test("salted policy adds strict facematch, required by the salted nullifier", async () => {
+    const calls = await queryCalls({ ...basePolicy, saltedNullifierOnly: true })
+    expect(calls).toEqual([
+      { method: "facematch", args: ["strict"] },
       { method: "bind", args: ["user_address", WALLET] },
       { method: "bind", args: ["chain", "ethereum_sepolia"] },
       { method: "done", args: [] },
@@ -189,6 +227,23 @@ describe("enriched onResult", () => {
     })
     options.onResult!(fakeResponse({ verified: false }))
     expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
+  })
+
+  test("dev-mode requests omit issueCall, whose proofs revert on-chain", async () => {
+    calls = []
+    const errors: string[] = []
+    const results: unknown[] = []
+    const options = await buildAttestCardOptions({
+      ...baseOptions(basePolicy),
+      client: stubChain(basePolicy).client,
+      devMode: true,
+      onResult: (r) => results.push(r),
+      onError: (message) => errors.push(message),
+    })
+    options.onResult!(fakeResponse())
+    expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
+    expect(calls.length).toBe(0)
+    expect(errors.length).toBe(0)
   })
 
   test("assembly failure omits issueCall and reports onError", async () => {
