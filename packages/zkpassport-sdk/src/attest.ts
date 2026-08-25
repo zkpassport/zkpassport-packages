@@ -1,5 +1,8 @@
 import type { PublicClient } from "viem"
 import { parseAbiItem } from "viem"
+import type { ProofResult } from "@zkpassport/utils"
+import { SolidityVerifier } from "./solidity-verifier"
+import type { SolidityVerifierParameters } from "./types"
 import { ZKPassportAttestAbi } from "./assets/abi/zkpassport-attest"
 import { PolicyValidationHookAbi } from "./assets/abi/policy-validation-hook"
 
@@ -112,5 +115,40 @@ export class AttestClient {
       (erc1155 as string).toLowerCase() === this.address.toLowerCase() &&
       (tokenId as bigint) === policyId
     )
+  }
+
+  /**
+   * Call details for ZKPassportAttest.issue(wallet, policyId, params).
+   * The consumer executes with their own wallet stack (viem writeContract,
+   * ethers, etc.) — the SDK never signs. Renewal is the same call: issuing
+   * again extends heldUntil; there is no separate renew entrypoint.
+   */
+  getIssueDetails(): {
+    address: `0x${string}`
+    functionName: "issue"
+    abi: typeof ZKPassportAttestAbi
+  } {
+    return { address: this.address, functionName: "issue", abi: ZKPassportAttestAbi }
+  }
+
+  /**
+   * Build the ProofVerificationParams argument for issue() from an SDK proof.
+   * Pass the scope obtained from policyScope(policyId) — never a locally
+   * built string — so it is byte-identical to what the contract verifies.
+   */
+  static getIssueParameters(options: {
+    proof: ProofResult
+    domain: string
+    scope: string
+    validityPeriodInSeconds?: number
+    devMode?: boolean
+  }): SolidityVerifierParameters {
+    return SolidityVerifier.getParameters({
+      proof: options.proof,
+      domain: options.domain,
+      scope: options.scope,
+      validityPeriodInSeconds: options.validityPeriodInSeconds,
+      devMode: options.devMode ?? false,
+    })
   }
 }
