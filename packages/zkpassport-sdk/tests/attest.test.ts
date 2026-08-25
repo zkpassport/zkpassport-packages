@@ -78,3 +78,49 @@ describe("AttestClient reads", () => {
     expect(await attest.hookFor(POLICY_ID)).toBe(HOOK)
   })
 })
+
+describe("AttestClient discovery", () => {
+  test("listPolicies maps PolicyCreated logs and forwards the owner filter", async () => {
+    const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
+    ;(client as { getLogs: unknown }).getLogs = async (params: never) => {
+      logCalls.push(params as Record<string, unknown>)
+      return [{ args: { policyId: POLICY_ID, owner: WALLET, hook: HOOK } }] as never
+    }
+    const attest = new AttestClient({ client, address: REGISTRY })
+    const policies = await attest.listPolicies({ owner: WALLET, fromBlock: 5n })
+    expect(policies).toEqual([{ policyId: POLICY_ID, owner: WALLET, hook: HOOK }])
+    const call = logCalls[0] as { address: string; args?: { owner?: string }; fromBlock?: bigint }
+    expect(call.address).toBe(REGISTRY)
+    expect(call.args?.owner).toBe(WALLET)
+    expect(call.fromBlock).toBe(5n)
+  })
+
+  test("listPolicies defaults: no owner topic filter, fromBlock 0n", async () => {
+    const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
+    const attest = new AttestClient({ client, address: REGISTRY })
+    await attest.listPolicies()
+    const call = logCalls[0] as { args?: unknown; fromBlock?: bigint }
+    expect(call.args).toBeUndefined()
+    expect(call.fromBlock).toBe(0n)
+  })
+
+  test("verifyHook accepts a matching hook and rejects mismatches", async () => {
+    const answersFor = (erc1155: string, tokenId: bigint) =>
+      stubClient((p) => (p.functionName === "erc1155" ? erc1155 : tokenId))
+    const good = new AttestClient({
+      client: answersFor(REGISTRY, POLICY_ID).client,
+      address: REGISTRY,
+    })
+    expect(await good.verifyHook(HOOK, POLICY_ID)).toBe(true)
+    const wrongRegistry = new AttestClient({
+      client: answersFor(WALLET, POLICY_ID).client,
+      address: REGISTRY,
+    })
+    expect(await wrongRegistry.verifyHook(HOOK, POLICY_ID)).toBe(false)
+    const wrongToken = new AttestClient({
+      client: answersFor(REGISTRY, 7n).client,
+      address: REGISTRY,
+    })
+    expect(await wrongToken.verifyHook(HOOK, POLICY_ID)).toBe(false)
+  })
+})
