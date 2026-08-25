@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, spyOn, test } from "bun:test"
 import { AttestClient, type AttestPolicy, type AttestReadClient } from "../src/attest"
+import { SolidityVerifier } from "../src/solidity-verifier"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
 const WALLET = "0x2222222222222222222222222222222222222222" as const
@@ -122,5 +123,41 @@ describe("AttestClient discovery", () => {
       address: REGISTRY,
     })
     expect(await wrongToken.verifyHook(HOOK, POLICY_ID)).toBe(false)
+  })
+})
+
+describe("AttestClient issue helpers", () => {
+  test("getIssueDetails returns address, function name, and the attest ABI", () => {
+    const { client } = stubClient(() => SAMPLE_POLICY)
+    const attest = new AttestClient({ client, address: REGISTRY })
+    const details = attest.getIssueDetails()
+    expect(details.address).toBe(REGISTRY)
+    expect(details.functionName).toBe("issue")
+    expect(details.abi.some((e) => e.type === "function" && e.name === "issue")).toBe(true)
+  })
+
+  test("getIssueParameters delegates to SolidityVerifier.getParameters", () => {
+    const sentinel = { version: "sentinel" } as never
+    const spy = spyOn(SolidityVerifier, "getParameters").mockReturnValue(sentinel)
+    try {
+      const proof = { proof: "0xdeadbeef", version: "0.21.0", name: "outer_evm_5" } as never
+      const params = AttestClient.getIssueParameters({
+        proof,
+        domain: "demo.example.com",
+        scope: "attest:0x00000000000000000000000000000000000000000000000000000000000000002a",
+        validityPeriodInSeconds: 3600,
+        devMode: false,
+      })
+      expect(params).toBe(sentinel)
+      expect(spy).toHaveBeenCalledWith({
+        proof,
+        domain: "demo.example.com",
+        scope: "attest:0x00000000000000000000000000000000000000000000000000000000000000002a",
+        validityPeriodInSeconds: 3600,
+        devMode: false,
+      })
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
