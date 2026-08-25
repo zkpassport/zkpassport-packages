@@ -55,7 +55,7 @@ describe("AttestClient reads", () => {
       uri: "https://policy.example/kyc",
       balanceOf: 1n,
       heldUntil: 1702592000n,
-      policyScope: "attest:0x00000000000000000000000000000000000000000000000000000000000000002a",
+      policyScope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
     const attest = new AttestClient({ client, address: REGISTRY })
@@ -124,6 +124,17 @@ describe("AttestClient discovery", () => {
     })
     expect(await wrongToken.verifyHook(HOOK, POLICY_ID)).toBe(false)
   })
+
+  test("verifyHook returns false when the address is not a hook", async () => {
+    const client = {
+      readContract: async () => {
+        throw new Error("execution reverted")
+      },
+      getLogs: async () => [],
+    } as unknown as AttestReadClient
+    const attest = new AttestClient({ client, address: REGISTRY })
+    expect(await attest.verifyHook(WALLET, POLICY_ID)).toBe(false)
+  })
 })
 
 describe("AttestClient issue helpers", () => {
@@ -144,7 +155,7 @@ describe("AttestClient issue helpers", () => {
       const params = AttestClient.getIssueParameters({
         proof,
         domain: "demo.example.com",
-        scope: "attest:0x00000000000000000000000000000000000000000000000000000000000000002a",
+        scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
         validityPeriodInSeconds: 3600,
         devMode: false,
       })
@@ -152,7 +163,7 @@ describe("AttestClient issue helpers", () => {
       expect(spy).toHaveBeenCalledWith({
         proof,
         domain: "demo.example.com",
-        scope: "attest:0x00000000000000000000000000000000000000000000000000000000000000002a",
+        scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
         validityPeriodInSeconds: 3600,
         devMode: false,
       })

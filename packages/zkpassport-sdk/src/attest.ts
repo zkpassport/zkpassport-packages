@@ -1,5 +1,5 @@
 import type { PublicClient } from "viem"
-import { parseAbiItem } from "viem"
+import { getAbiItem } from "viem"
 import type { ProofResult } from "@zkpassport/utils"
 import { SolidityVerifier } from "./solidity-verifier"
 import type { SolidityVerifierParameters } from "./types"
@@ -29,9 +29,7 @@ export type AttestPolicySummary = {
   hook: `0x${string}`
 }
 
-const POLICY_CREATED_EVENT = parseAbiItem(
-  "event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook)",
-)
+const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportAttestAbi, name: "PolicyCreated" })
 
 /**
  * Typed bindings for the ZKPassportAttest credential registry.
@@ -64,10 +62,19 @@ export class AttestClient {
     return (await this.read("uri", [policyId])) as string
   }
 
+  /**
+   * 1 while the wallet holds an unexpired credential, else 0. Expiry is
+   * time-based: the balance drops to 0 the moment heldUntil passes, with
+   * no burn and no Transfer event — do not index balances from events.
+   */
   async balanceOf(wallet: `0x${string}`, policyId: bigint): Promise<bigint> {
     return (await this.read("balanceOf", [wallet, policyId])) as bigint
   }
 
+  /**
+   * Unix timestamp (seconds, as bigint) the credential is valid until;
+   * 0 means never issued or revoked.
+   */
   async heldUntil(wallet: `0x${string}`, policyId: bigint): Promise<bigint> {
     return (await this.read("heldUntil", [wallet, policyId])) as bigint
   }
@@ -84,7 +91,11 @@ export class AttestClient {
     return (await this.getPolicy(policyId)).hook
   }
 
-  /** Enumerate policies from PolicyCreated logs (the registry has no on-chain list). */
+  /**
+   * Enumerate policies from PolicyCreated logs (the registry has no on-chain
+   * list). fromBlock defaults to 0n, which many RPC providers reject or cap
+   * for getLogs — pass the registry's deployment block for production use.
+   */
   async listPolicies(
     filter: { owner?: `0x${string}`; fromBlock?: bigint; toBlock?: bigint } = {},
   ): Promise<AttestPolicySummary[]> {
@@ -102,7 +113,11 @@ export class AttestClient {
     }))
   }
 
-  /** Introspect a hook and check it belongs to this registry and policy. */
+  /**
+   * Introspect a hook and check it belongs to this registry and policy.
+   * Returns false (never throws) when the address is not a hook at all —
+   * an EOA, a non-contract, or a contract without erc1155()/tokenId().
+   */
   async verifyHook(hook: `0x${string}`, policyId: bigint): Promise<boolean> {
     const readHook = (functionName: string) =>
       this.client.readContract({
@@ -110,11 +125,15 @@ export class AttestClient {
         abi: PolicyValidationHookAbi,
         functionName,
       } as never)
-    const [erc1155, tokenId] = await Promise.all([readHook("erc1155"), readHook("tokenId")])
-    return (
-      (erc1155 as string).toLowerCase() === this.address.toLowerCase() &&
-      (tokenId as bigint) === policyId
-    )
+    try {
+      const [erc1155, tokenId] = await Promise.all([readHook("erc1155"), readHook("tokenId")])
+      return (
+        (erc1155 as string).toLowerCase() === this.address.toLowerCase() &&
+        (tokenId as bigint) === policyId
+      )
+    } catch {
+      return false
+    }
   }
 
   /**
@@ -122,6 +141,14 @@ export class AttestClient {
    * The consumer executes with their own wallet stack (viem writeContract,
    * ethers, etc.) — the SDK never signs. Renewal is the same call: issuing
    * again extends heldUntil; there is no separate renew entrypoint.
+   *
+   * On-chain preconditions the transaction must satisfy or issue() reverts:
+   * - the proof must be bound to the exact `wallet` argument and to the
+   *   chain the registry lives on (request the proof with those bindings)
+   * - the proof's bound customData must be empty
+   * - the proof must be generated in production mode (devMode always reverts)
+   * - the proof must be at most 1 hour old at inclusion time
+   * - the policy must exist, not be retired, and the registry not paused
    */
   getIssueDetails(): {
     address: `0x${string}`
