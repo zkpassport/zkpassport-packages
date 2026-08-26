@@ -1,0 +1,173 @@
+"use client"
+
+import { useCallback, useEffect, useState } from "react"
+
+import { PageShell } from "../../components/page-shell"
+import { useDemo } from "../../components/demo-context"
+import { PolicyTable } from "../../components/policy-table"
+import { TxStatus, useTx } from "../../components/tx-status"
+import {
+  createPolicyRequest,
+  listPoliciesWithDetails,
+  randomSalt,
+  retireRequest,
+  type PolicyView,
+} from "../../lib/policies"
+import { ensureWalletChain, writeAndWait } from "../../lib/wallet"
+
+const DAY = 86400n
+
+function CreatorView() {
+  const { config, chain, ctx, wallet } = useDemo()
+  const [policies, setPolicies] = useState<PolicyView[]>([])
+  const [minAge, setMinAge] = useState(18)
+  const [countries, setCountries] = useState("IRN, PRK")
+  const [sanctions, setSanctions] = useState(true)
+  const [onePerPerson, setOnePerPerson] = useState(true)
+  const [unique, setUnique] = useState(false)
+  const [validityDays, setValidityDays] = useState(365)
+  const [metadataURL, setMetadataURL] = useState("")
+  const create = useTx()
+  const retire = useTx()
+  const [retiringId, setRetiringId] = useState<bigint | undefined>()
+
+  const refresh = useCallback(async () => {
+    setPolicies(await listPoliciesWithDetails(ctx))
+  }, [ctx])
+
+  useEffect(() => {
+    refresh().catch(() => setPolicies([]))
+  }, [refresh])
+
+  const submit = () =>
+    create.run(async () => {
+      if (!wallet) throw new Error("Connect a wallet first.")
+      await ensureWalletChain(wallet, chain)
+      const receipt = await writeAndWait(
+        wallet,
+        ctx.publicClient,
+        chain,
+        createPolicyRequest(config.registry, {
+          salt: randomSalt(),
+          validityPeriodSeconds: BigInt(validityDays) * DAY,
+          unique,
+          saltedNullifierOnly: onePerPerson,
+          minAge,
+          sanctionsCheck: sanctions,
+          excludedCountries: countries
+            .split(",")
+            .map((c) => c.trim().toUpperCase())
+            .filter(Boolean),
+          metadataURL,
+        }),
+      )
+      await refresh()
+      return { hash: receipt.transactionHash, note: "policy created" }
+    })
+
+  const onRetire = (policyId: bigint) => {
+    setRetiringId(policyId)
+    retire
+      .run(async () => {
+        if (!wallet) throw new Error("Connect a wallet first.")
+        await ensureWalletChain(wallet, chain)
+        const receipt = await writeAndWait(
+          wallet,
+          ctx.publicClient,
+          chain,
+          retireRequest(config.registry, policyId),
+        )
+        await refresh()
+        return { hash: receipt.transactionHash, note: "policy retired" }
+      })
+      .finally(() => setRetiringId(undefined))
+  }
+
+  return (
+    <div className="space-y-8">
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Create a policy</h2>
+        <label className="block text-sm">
+          Minimum age
+          <input
+            className="ml-2 w-20 rounded bg-slate-800 px-2 py-1"
+            type="number"
+            min={0}
+            max={255}
+            value={minAge}
+            onChange={(e) => setMinAge(Number(e.target.value))}
+          />
+        </label>
+        <label className="block text-sm">
+          Excluded nationalities (alpha-3, comma-separated)
+          <input
+            className="ml-2 rounded bg-slate-800 px-2 py-1"
+            value={countries}
+            onChange={(e) => setCountries(e.target.value)}
+          />
+        </label>
+        <label className="block text-sm">
+          <input
+            type="checkbox"
+            checked={sanctions}
+            onChange={(e) => setSanctions(e.target.checked)}
+          />{" "}
+          Sanctions check
+        </label>
+        <label className="block text-sm">
+          <input
+            type="checkbox"
+            checked={onePerPerson}
+            onChange={(e) => setOnePerPerson(e.target.checked)}
+          />{" "}
+          One credential per person (salted nullifier)
+        </label>
+        <label className="block text-sm">
+          <input type="checkbox" checked={unique} onChange={(e) => setUnique(e.target.checked)} />{" "}
+          Unique
+        </label>
+        <label className="block text-sm">
+          Validity (days)
+          <input
+            className="ml-2 w-24 rounded bg-slate-800 px-2 py-1"
+            type="number"
+            min={1}
+            value={validityDays}
+            onChange={(e) => setValidityDays(Number(e.target.value))}
+          />
+        </label>
+        <label className="block text-sm">
+          Metadata URL
+          <input
+            className="ml-2 w-72 rounded bg-slate-800 px-2 py-1"
+            value={metadataURL}
+            onChange={(e) => setMetadataURL(e.target.value)}
+          />
+        </label>
+        <button
+          className="rounded bg-sky-600 px-4 py-2 disabled:opacity-50"
+          type="button"
+          disabled={create.state.status === "pending"}
+          onClick={submit}
+        >
+          Create policy
+        </button>
+        <TxStatus state={create.state} explorerBaseUrl={chain.blockExplorers?.default.url} />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Policies on this registry</h2>
+        <PolicyTable policies={policies} onRetire={onRetire} retiringId={retiringId} />
+        <TxStatus state={retire.state} explorerBaseUrl={chain.blockExplorers?.default.url} />
+      </section>
+    </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <PageShell title="Creator — define a policy">
+      <CreatorView />
+    </PageShell>
+  )
+}
