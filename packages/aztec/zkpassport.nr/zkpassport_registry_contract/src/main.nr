@@ -1,6 +1,7 @@
 pub mod types;
 mod root_validation;
 mod guards;
+mod test;
 
 use aztec::macros::aztec;
 
