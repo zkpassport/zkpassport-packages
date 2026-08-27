@@ -11,6 +11,9 @@ pub struct Actors {
     pub guardian: AztecAddress,
 }
 
+// Circuit-release version id used across the tests (admin-chosen, any nonzero Field).
+global VK_VERSION: Field = 1;
+
 pub unconstrained fn deploy_registry(env: &mut TestEnvironment) -> Actors {
     let admin = env.create_light_account();
     let oracle = env.create_light_account();
@@ -62,7 +65,17 @@ unconstrained fn non_admin_cannot_add_vk() {
     let actors = deploy_registry(&mut env);
     let _ = env.call_public(
         actors.oracle,
-        ZKPassportRegistry::at(actors.registry).add_accepted_vk(123),
+        ZKPassportRegistry::at(actors.registry).add_accepted_vk(VK_VERSION, 123),
+    );
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn non_admin_cannot_set_version_status() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(
+        actors.oracle,
+        ZKPassportRegistry::at(actors.registry).set_version_status(VK_VERSION, true),
     );
 }
 
@@ -70,17 +83,25 @@ unconstrained fn non_admin_cannot_add_vk() {
 unconstrained fn vk_add_visible_after_delay() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
-    let _ =
-        env.call_public(actors.admin, ZKPassportRegistry::at(actors.registry).add_accepted_vk(123));
+    let _ = env.call_public(
+        actors.admin,
+        ZKPassportRegistry::at(actors.registry).add_accepted_vk(VK_VERSION, 123),
+    );
 
     // Before the delay elapses: the DPM's *current* value is still false (zeroed default).
-    let before = env.execute_utility(ZKPassportRegistry::at(actors.registry).is_vk_accepted(123));
+    let before = env.execute_utility(ZKPassportRegistry::at(actors.registry).is_vk_accepted(
+        VK_VERSION,
+        123,
+    ));
     assert(!before);
 
     // After advancing past the 24h delay: the scheduled change is now the current value.
     env.advance_next_block_timestamp_by(86401);
     env.mine_block();
-    let after = env.execute_utility(ZKPassportRegistry::at(actors.registry).is_vk_accepted(123));
+    let after = env.execute_utility(ZKPassportRegistry::at(actors.registry).is_vk_accepted(
+        VK_VERSION,
+        123,
+    ));
     assert(after);
 }
 
@@ -201,7 +222,11 @@ unconstrained fn seed(env: &mut TestEnvironment) -> Actors {
     );
     let _ = env.call_public(
         deployed_registry.admin,
-        ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_HASH),
+        ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_VERSION, VK_HASH),
+    );
+    let _ = env.call_public(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).set_version_status(VK_VERSION, true),
     );
     env.advance_next_block_timestamp_by(86401); // let all schedules land
     env.mine_block();
@@ -216,6 +241,7 @@ unconstrained fn valid_proof_context_passes() {
     let _ = env.view_private(
         user,
         ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            VK_VERSION,
             VK_HASH,
             CERT_ROOT,
             CIRC_ROOT,
@@ -234,6 +260,7 @@ unconstrained fn unknown_vk_rejected() {
     let _ = env.view_private(
         user,
         ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            VK_VERSION,
             0xbad,
             CERT_ROOT,
             CIRC_ROOT,
@@ -252,6 +279,7 @@ unconstrained fn unknown_cert_root_rejected() {
     let _ = env.view_private(
         user,
         ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            VK_VERSION,
             VK_HASH,
             0xbad,
             CIRC_ROOT,
@@ -268,7 +296,11 @@ unconstrained fn seeded_root_invisible_before_delay() {
     let deployed_registry = deploy_registry(&mut env);
     let _ = env.call_public(
         deployed_registry.admin,
-        ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_HASH),
+        ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(VK_VERSION, VK_HASH),
+    );
+    let _ = env.call_public(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).set_version_status(VK_VERSION, true),
     );
 
     // 24 hours later...
@@ -289,6 +321,7 @@ unconstrained fn seeded_root_invisible_before_delay() {
     let _ = env.view_private(
         user,
         ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            VK_VERSION,
             VK_HASH,
             CERT_ROOT,
             CIRC_ROOT,
@@ -317,6 +350,7 @@ unconstrained fn revoked_root_rejected_after_delay() {
     let _ = env.view_private(
         user,
         ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            VK_VERSION,
             VK_HASH,
             CERT_ROOT,
             CIRC_ROOT,
@@ -342,12 +376,66 @@ unconstrained fn salted_type_checks_oprf() {
     let _ = env.view_private(
         user,
         ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            VK_VERSION,
             VK_HASH,
             CERT_ROOT,
             CIRC_ROOT,
             T0 + 100,
             1,
             0x9999,
+        ),
+    );
+}
+
+#[test(should_fail_with = "version not enabled")]
+unconstrained fn disabled_version_rejected() {
+    let mut env = TestEnvironment::new();
+    let deployed_registry = seed(&mut env);
+    // Deprecate the whole release with one scheduled write.
+    let _ = env.call_public(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).set_version_status(VK_VERSION, false),
+    );
+    env.advance_next_block_timestamp_by(86401);
+    env.mine_block();
+    let user = env.create_light_account();
+    let _ = env.view_private(
+        user,
+        ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            VK_VERSION,
+            VK_HASH,
+            CERT_ROOT,
+            CIRC_ROOT,
+            T0 + 100,
+            0,
+            0,
+        ),
+    );
+}
+
+#[test(should_fail_with = "vk not accepted")]
+unconstrained fn vk_under_wrong_version_rejected() {
+    let mut env = TestEnvironment::new();
+    let deployed_registry = seed(&mut env);
+    // Enable a second release that never accepted VK_HASH: acceptance must be version-scoped.
+    let other_version = 2;
+    let _ = env.call_public(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).set_version_status(other_version, true),
+    );
+    env.advance_next_block_timestamp_by(86401);
+    env.mine_block();
+    let user = env.create_light_account();
+    let _ = env.view_private(
+        user,
+        ZKPassportRegistry::at(deployed_registry.registry).assert_proof_valid(
+            other_version,
+            VK_HASH,
+            CERT_ROOT,
+            CIRC_ROOT,
+            T0 + 100,
+            0,
+            0,
         ),
     );
 }
