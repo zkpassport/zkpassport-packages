@@ -8,36 +8,30 @@ popup (phone proof) and bids, a holder revokes their own credential, a guardian 
 
 - bun and foundry installed
 - A sepolia wallet with test ETH (MetaMask)
-- The ZKPassport root verifier address on sepolia
-- The ZKPassport mobile app (real proofs; there is no mock mode)
+- The ZKPassport mobile app (real proofs)
 
-## 1. Deploy the contracts (until a canonical deployment exists)
+## Bring everything up
 
-From `packages/attest-contracts`:
+From the repo root:
 
-    ROOT_VERIFIER_ADDRESS=0x… \
-    ATTEST_ADMIN_ADDRESS=0x…your-admin-wallet… \
-    ATTEST_GUARDIAN_ADDRESS=0x…your-guardian-demo-wallet… \
-    forge script script/DeployAttest.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast
+    export SEPOLIA_RPC_URL=https://…                              # deploy only
+    export ATTEST_ADMIN_ADDRESS=0x…your-admin-wallet…             # deploy only
+    export ATTEST_GUARDIAN_ADDRESS=0x…your-guardian-demo-wallet…  # deploy only, optional
+    packages/attest-demo/scripts/demo-up.sh --private-key 0x…
 
-The deployed registry address lands in `deployments/11155111.json`. `ATTEST_DOMAIN` defaults to
-`zkpassport.id`; the popup reads the registry's on-chain `domain()`, so proofs match it
-automatically.
+The script:
 
-## 2. Configure
+1. Deploys `ZKPassportAttest` to sepolia — skipped when
+   `packages/attest-contracts/deployments/11155111.json` already exists. Extra arguments are
+   forwarded to `forge script` for signing (`--private-key`, `--account`, …).
+   `ROOT_VERIFIER_ADDRESS` defaults to the canonical root verifier
+   `0x1D000001000EFD9a6371f4d90bB8920D5431c0D8`. `ATTEST_DOMAIN` defaults to `zkpassport.id`; the
+   popup reads the registry's on-chain `domain()`, so proofs match it automatically.
+2. Writes the deployed registry address into `packages/attest-demo/.env.local`
+   (`NEXT_PUBLIC_REGISTRY_ADDRESS`). The popup app needs no configuration for its defaults.
+3. Installs dependencies and starts attest-popup (port 3000) and attest-demo (port 3001).
 
-    cp .env.example .env.local     # in packages/attest-demo
-    # set NEXT_PUBLIC_REGISTRY_ADDRESS to the deployed registry
-
-The popup app needs no configuration for its defaults.
-
-## 3. Run both apps
-
-    bun install                              # repo root
-    bun --cwd packages/attest-popup dev      # port 3000
-    bun --cwd packages/attest-demo dev       # port 3001
-
-## 4. Demo script
+## Demo script
 
 1. **Creator** (`/creator`): create a policy (e.g. 18+, sanctions-clear).
 2. **Launcher** (`/launcher`): pick the policy, deploy a MockAuction, copy the bidder link and the
