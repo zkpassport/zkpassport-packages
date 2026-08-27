@@ -119,7 +119,7 @@ function enforceUniqueIdentifierType(
   result: VerificationResult,
   requestedType: RequestedNullifierType | undefined,
 ): VerificationResult {
-  if (requestedType === undefined || !result.verified) return result
+  if (requestedType == null || !result.verified) return result
   const actualType = result.uniqueIdentifierType
   if (actualType !== undefined && realNullifierType(actualType) === requestedType) return result
   const actualName = actualType === undefined ? "none" : NullifierType[actualType]
@@ -1077,7 +1077,7 @@ export class ZKPassport {
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
     const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
     let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
-    if (nullifierType !== undefined) {
+    if (nullifierType != null) {
       url += `&nt=${nullifierType}`
     }
     if (oprfKeyId) {

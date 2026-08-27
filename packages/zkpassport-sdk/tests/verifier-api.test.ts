@@ -171,6 +171,25 @@ describe("verify() modes and the verifier API", () => {
     expect(result).toEqual(localResult as any)
   })
 
+  test("ignores a null unique identifier type from untyped callers", async () => {
+    const localResult = {
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    }
+    localSpy.mockResolvedValue(localResult)
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      uniqueIdentifierType: null as any,
+    })
+
+    expect(result).toEqual(localResult as any)
+  })
+
   test("an oprf key requires a salted unique identifier", async () => {
     localSpy.mockResolvedValue({
       verified: true,
