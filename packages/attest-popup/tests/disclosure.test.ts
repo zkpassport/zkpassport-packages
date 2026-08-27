@@ -36,13 +36,20 @@ describe("disclosureClaims", () => {
     expect(claim).toContain("XXX")
   })
 
-  test("sanctions and salted-nullifier flags yield their claims", () => {
+  test("sanctions and uniqueness flags yield their claims", () => {
     expect(disclosureClaims({ ...basePolicy, sanctionsCheck: true })).toEqual([
       "You are not on sanctions lists",
     ])
-    expect(disclosureClaims({ ...basePolicy, saltedNullifierOnly: true })).toEqual([
-      "One credential per person (face match required)",
+    expect(disclosureClaims({ ...basePolicy, unique: true, saltedNullifierOnly: true })).toEqual([
+      "One credential per document (face match required)",
     ])
+    expect(disclosureClaims({ ...basePolicy, unique: true })).toEqual([
+      "One credential per document",
+    ])
+  })
+
+  test("salted-only without uniqueness asks for no face match", () => {
+    expect(disclosureClaims({ ...basePolicy, saltedNullifierOnly: true })).toEqual([])
   })
 
   test("full policy yields all claims in a fixed order", () => {
@@ -51,11 +58,12 @@ describe("disclosureClaims", () => {
       minAge: 21,
       excludedCountries: ["IRN"],
       sanctionsCheck: true,
+      unique: true,
       saltedNullifierOnly: true,
     })
     expect(claims).toHaveLength(4)
     expect(claims[0]).toBe("You are 21 or older")
-    expect(claims[3]).toBe("One credential per person (face match required)")
+    expect(claims[3]).toBe("One credential per document (face match required)")
   })
 
   test("hidden note names what never leaves the device", () => {
