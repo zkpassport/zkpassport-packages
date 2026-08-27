@@ -13,10 +13,11 @@ deployment_file="$contracts_dir/deployments/11155111.json"
 if [[ -f "$deployment_file" ]]; then
   echo "Registry already deployed, skipping deploy: $deployment_file"
 else
-  : "${SEPOLIA_RPC_URL:?SEPOLIA_RPC_URL must be set to deploy}"
   : "${ATTEST_ADMIN_ADDRESS:?ATTEST_ADMIN_ADDRESS must be set to deploy}"
   export ATTEST_ADMIN_ADDRESS
   export ROOT_VERIFIER_ADDRESS="${ROOT_VERIFIER_ADDRESS:-0x1D000001000EFD9a6371f4d90bB8920D5431c0D8}"
+  # Default RPC is the public endpoint embedded in packages/zkpassport-sdk/src/index.ts
+  SEPOLIA_RPC_URL="${SEPOLIA_RPC_URL:-https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G}"
   echo "Deploying ZKPassportAttest to sepolia (root verifier: $ROOT_VERIFIER_ADDRESS)"
   (cd "$contracts_dir" && forge script script/DeployAttest.s.sol --rpc-url "$SEPOLIA_RPC_URL" --broadcast "$@")
 fi
