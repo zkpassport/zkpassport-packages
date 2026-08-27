@@ -95,7 +95,7 @@ export class ZKPassportRegistryContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'admin' | 'oracle' | 'guardian' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'oprf_pk_hash'> {
+  public static get storage(): ContractStorageLayout<'admin' | 'oracle' | 'guardian' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'> {
       return {
         admin: {
       slot: new Fr(1n),
@@ -121,21 +121,24 @@ roots: {
 accepted_vks: {
       slot: new Fr(11n),
     },
-oprf_pk_hash: {
+version_enabled: {
       slot: new Fr(12n),
+    },
+oprf_pk_hash: {
+      slot: new Fr(13n),
     }
-      } as ContractStorageLayout<'admin' | 'oracle' | 'guardian' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'oprf_pk_hash'>;
+      } as ContractStorageLayout<'admin' | 'oracle' | 'guardian' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'>;
     }
     
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
-    /** add_accepted_vk(vk_hash: field) */
-    add_accepted_vk: ((vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** add_accepted_vk(version: field, vk_hash: field) */
+    add_accepted_vk: ((version: FieldLike, vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** assert_proof_valid(vk_hash: field, cert_root: field, circuit_root: field, current_date: integer, nullifier_type: integer, oprf_pk_hash: field) */
-    assert_proof_valid: ((vk_hash: FieldLike, cert_root: FieldLike, circuit_root: FieldLike, current_date: (bigint | number), nullifier_type: (bigint | number), oprf_pk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** assert_proof_valid(version: field, vk_hash: field, cert_root: field, circuit_root: field, current_date: integer, nullifier_type: integer, oprf_pk_hash: field) */
+    assert_proof_valid: ((version: FieldLike, vk_hash: FieldLike, cert_root: FieldLike, circuit_root: FieldLike, current_date: (bigint | number), nullifier_type: (bigint | number), oprf_pk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** assert_root_valid_at_timestamp(registry_id: field, root: field, timestamp: integer) */
     assert_root_valid_at_timestamp: ((registry_id: FieldLike, root: FieldLike, timestamp: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -149,8 +152,11 @@ oprf_pk_hash: {
     /** get_latest_pair(registry_id: field) */
     get_latest_pair: ((registry_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** is_vk_accepted(vk_hash: field) */
-    is_vk_accepted: ((vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** is_version_enabled(version: field) */
+    is_version_enabled: ((version: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** is_vk_accepted(version: field, vk_hash: field) */
+    is_vk_accepted: ((version: FieldLike, vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** offchain_receive(messages: struct) */
     offchain_receive: ((messages: { ciphertext: FieldLike[], recipient: AztecAddressLike, tx_hash: OptionLike<FieldLike>, anchor_block_timestamp: (bigint | number) }[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -161,8 +167,8 @@ oprf_pk_hash: {
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** remove_accepted_vk(vk_hash: field) */
-    remove_accepted_vk: ((vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** remove_accepted_vk(version: field, vk_hash: field) */
+    remove_accepted_vk: ((version: FieldLike, vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** set_guardian(new_guardian: struct) */
     set_guardian: ((new_guardian: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -181,6 +187,9 @@ oprf_pk_hash: {
 
     /** set_validity_window(registry_id: field, window: integer) */
     set_validity_window: ((registry_id: FieldLike, window: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_version_status(version: field, enabled: boolean) */
+    set_version_status: ((version: FieldLike, enabled: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** sync_state(scope: struct) */
     sync_state: ((scope: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
