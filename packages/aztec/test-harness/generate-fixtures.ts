@@ -1,8 +1,18 @@
-// Usage (from the repo root): bun i && bun run --cwd packages/zkpassport-utils build,
-// then: bun packages/aztec/test-harness/generate-fixtures.ts
-// Emits fixtures.json (next to this script) with Poseidon2 param commitments
-// computed by this repo's @zkpassport/utils — the reference implementation the
-// zkpassport_core commitment tests pin against.
+// Usage (from the repo root):
+//
+// `bun i && bun run --cwd packages/zkpassport-utils build`
+//
+// then:
+//
+// `bun packages/aztec/test-harness/generate-fixtures.ts`.
+//
+// Emits `fixtures.json` (next to this script) with Poseidon2 param commitments computed by this
+// repo's `@zkpassport/utils`. We use these fixtures to verify that the parameter commitments
+// computed by `zkpassport_core` in-circuit match exactly the prover-side TS (exposed through
+// `zkpassport/utils`).
+//
+// Since Noir tests can't call the TS reference implementation, this script generates examples,
+// which then are pinned in Noir tests.
 import {
   getAgeParameterCommitment, // (minAge: number, maxAge: number) => Promise<bigint>
   getBindParameterCommitment, // (data: number[], maxLength?: number) => Promise<bigint>
@@ -18,7 +28,13 @@ async function main() {
   // age: the example's policy (18+, no max)
   const age_18_0 = await getAgeParameterCommitment(18, 0)
 
-  // bind(user_address): layout [identifier=1][len_hi=0][len_lo=32][32 bytes BE address]
+  // bind(user_address): layout [identifier=1][len_hi=0][len_lo=32][32 bytes BE address].
+  // The account is an arbitrary stand-in for user.to_field() (not a real address), but the
+  // repeating byte pattern is deliberate: every position holds a distinct value, so an
+  // endianness flip, an offset bug, or wrong padding changes the commitment and fails the
+  // golden test — a degenerate value like 0x1 would mask exactly those. It also stays below
+  // the BN254 modulus, so it round-trips as a Field without reduction. Must match the Noir
+  // test's GOLDEN_ACCOUNT literal-for-literal.
   const account = 0x1122334455667788990011223344556677889900112233445566778899001122n
   const addrBytes = Array.from({ length: 32 }, (_, i) =>
     Number((account >> BigInt(8 * (31 - i))) & 0xffn),
