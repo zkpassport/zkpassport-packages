@@ -449,3 +449,21 @@ unconstrained fn set_guardian_rejects_zero_address() {
         ZKPassportRegistry::at(actors.registry).set_guardian(AztecAddress::zero()),
     );
 }
+
+#[test(should_fail_with = "admin cannot be zero address")]
+unconstrained fn constructor_rejects_zero_admin() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
+    let oracle = env.create_light_account();
+    let guardian = env.create_light_account();
+    let _ = env.deploy("ZKPassportRegistry").with_public_initializer(
+        deployer,
+        ZKPassportRegistry::interface().constructor(
+            AztecAddress::zero(),
+            oracle,
+            guardian,
+            MODE_VALID_WITHIN_WINDOW,
+            86400,
+        ),
+    );
+}

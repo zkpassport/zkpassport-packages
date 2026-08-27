@@ -55,6 +55,9 @@ pub contract ZKPassportRegistry {
         mode: u8,
         window: u64,
     ) {
+        assert_address_not_zero(admin, "admin cannot be zero address");
+        assert_address_not_zero(oracle, "oracle cannot be zero address");
+        assert_address_not_zero(guardian, "guardian cannot be zero address");
         assert(mode <= 3, "unknown validation mode");
         self.storage.admin.write(admin);
         self.storage.oracle.write(oracle);
