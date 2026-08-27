@@ -8,8 +8,8 @@ function requirements(view: PolicyView): string {
   if (view.policy.excludedCountries.length > 0)
     parts.push(`not ${view.policy.excludedCountries.join("/")}`)
   if (view.policy.sanctionsCheck) parts.push("sanctions-clear")
-  if (view.policy.saltedNullifierOnly) parts.push("one-per-person")
-  if (view.policy.unique) parts.push("unique")
+  if (view.policy.unique) parts.push("one-per-document")
+  if (view.policy.saltedNullifierOnly) parts.push("salted-nullifier-only")
   return parts.join(", ") || "no requirements"
 }
 

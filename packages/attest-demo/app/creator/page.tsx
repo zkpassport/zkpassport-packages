@@ -23,8 +23,7 @@ function CreatorView() {
   const [minAge, setMinAge] = useState(18)
   const [countries, setCountries] = useState("IRN, PRK")
   const [sanctions, setSanctions] = useState(true)
-  const [onePerPerson, setOnePerPerson] = useState(true)
-  const [unique, setUnique] = useState(false)
+  const [onePerDocument, setOnePerDocument] = useState(true)
   const [validityDays, setValidityDays] = useState(365)
   const [metadataURL, setMetadataURL] = useState("")
   const create = useTx()
@@ -50,8 +49,8 @@ function CreatorView() {
         createPolicyRequest(config.registry, {
           salt: randomSalt(),
           validityPeriodSeconds: BigInt(validityDays) * DAY,
-          unique,
-          saltedNullifierOnly: onePerPerson,
+          unique: onePerDocument,
+          saltedNullifierOnly: true,
           minAge,
           sanctionsCheck: sanctions,
           excludedCountries: countries
@@ -117,14 +116,10 @@ function CreatorView() {
         <label className="block text-sm">
           <input
             type="checkbox"
-            checked={onePerPerson}
-            onChange={(e) => setOnePerPerson(e.target.checked)}
+            checked={onePerDocument}
+            onChange={(e) => setOnePerDocument(e.target.checked)}
           />{" "}
-          One credential per person (salted nullifier)
-        </label>
-        <label className="block text-sm">
-          <input type="checkbox" checked={unique} onChange={(e) => setUnique(e.target.checked)} />{" "}
-          Unique
+          One credential per document
         </label>
         <label className="block text-sm">
           Validity (days)
