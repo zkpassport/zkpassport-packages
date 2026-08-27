@@ -34,12 +34,13 @@ pub contract ZKPassportRegistry {
         config: Map<Field, DelayedPublicMutable<RegistryConfig, INITIAL_DELAY, Context>, Context>,
         latest: Map<Field, DelayedPublicMutable<LatestRootPair, INITIAL_DELAY, Context>, Context>,
         roots: Map<Field, Map<Field, DelayedPublicMutable<RootStatus, INITIAL_DELAY, Context>, Context>, Context>,
-        // Version-structured vk acceptance, mirroring L1's RootVerifier (version => SubVerifier)
-        // + SubVerifier (vk hash => verifier): a circuit release ships a family of outer vks
-        // under one version id, and `version_enabled` is the per-release kill switch so a whole
-        // release can be enabled/deprecated with a single scheduled write.
+
+        // accepted_vks: version => vk circuit => bool: a circuit release ships a family of outer vks under one version id.
         accepted_vks: Map<Field, Map<Field, DelayedPublicMutable<bool, INITIAL_DELAY, Context>, Context>, Context>,
+
+        // version_enabled is a per-release kill switch, a whole release can be enabled/deprecated with a single write.
         version_enabled: Map<Field, DelayedPublicMutable<bool, INITIAL_DELAY, Context>, Context>,
+
         oprf_pk_hash: DelayedPublicMutable<Field, INITIAL_DELAY, Context>,
     }
 
@@ -207,9 +208,8 @@ pub contract ZKPassportRegistry {
         self.storage.accepted_vks.at(version).at(vk_hash).schedule_value_change(false);
     }
 
-    // Enable or deprecate an entire circuit release in one scheduled write (the analog of L1's
-    // addSubVerifier/removeSubVerifier): a vk passes `assert_proof_valid` only when its version
-    // is enabled AND the vk itself is accepted under that version.
+    // Enable or deprecate an entire circuit release in one scheduled write: a vk passes `assert_proof_valid` only when
+    // its version is enabled AND the vk itself is accepted under that version.
     #[external("public")]
     fn set_version_status(version: Field, enabled: bool) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
