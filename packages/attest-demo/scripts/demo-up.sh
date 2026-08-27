@@ -24,16 +24,26 @@ fi
 
 registry_address="$(deployment_file="$deployment_file" bun -e \
   'console.log((await Bun.file(process.env.deployment_file).json()).address)')"
+registry_deploy_block="$(deployment_file="$deployment_file" bun -e \
+  'console.log((await Bun.file(process.env.deployment_file).json()).deployed_block ?? "")')"
 
 env_local="$demo_dir/.env.local"
 [[ -f "$env_local" ]] || cp "$demo_dir/.env.example" "$env_local"
-if grep -q '^NEXT_PUBLIC_REGISTRY_ADDRESS=' "$env_local"; then
-  sed -i.bak "s/^NEXT_PUBLIC_REGISTRY_ADDRESS=.*/NEXT_PUBLIC_REGISTRY_ADDRESS=$registry_address/" "$env_local"
-  rm -f "$env_local.bak"
-else
-  echo "NEXT_PUBLIC_REGISTRY_ADDRESS=$registry_address" >>"$env_local"
+
+set_env() {
+  if grep -q "^$1=" "$env_local"; then
+    sed -i.bak "s|^$1=.*|$1=$2|" "$env_local"
+    rm -f "$env_local.bak"
+  else
+    echo "$1=$2" >>"$env_local"
+  fi
+  echo "attest-demo .env.local: $1=$2"
+}
+
+set_env NEXT_PUBLIC_REGISTRY_ADDRESS "$registry_address"
+if [[ -n "$registry_deploy_block" ]]; then
+  set_env NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK "$registry_deploy_block"
 fi
-echo "attest-demo .env.local: NEXT_PUBLIC_REGISTRY_ADDRESS=$registry_address"
 
 (cd "$repo_root" && bun install)
 

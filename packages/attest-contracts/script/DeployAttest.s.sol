@@ -25,7 +25,8 @@ contract DeployAttestScript is Script {
         string memory json = "attest";
         vm.serializeAddress(json, "address", address(attest));
         vm.serializeAddress(json, "root_verifier", rootVerifier);
-        json = vm.serializeUint(json, "deployed_at", block.timestamp);
+        vm.serializeUint(json, "deployed_at", block.timestamp);
+        json = vm.serializeUint(json, "deployed_block", block.number);
         vm.writeJson(json, string.concat("deployments/", vm.toString(block.chainid), ".json"));
     }
 }

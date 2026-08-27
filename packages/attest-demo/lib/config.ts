@@ -1,15 +1,23 @@
 export class DemoConfigError extends Error {}
 
+// Same public endpoint the SDK ships with; viem's default sepolia RPC caps
+// eth_getLogs to a 10k-block range, which breaks the from-genesis policy scan.
+const DEFAULT_RPC_URL = "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+
 export type DemoConfig = {
   chain: "ethereum_sepolia"
   registry: `0x${string}`
   popupUrl: string
+  rpcUrl: string
+  deployBlock: bigint
 }
 
 export function parseDemoConfig(raw: {
   chain?: string
   registry?: string
   popupUrl?: string
+  rpcUrl?: string
+  deployBlock?: string
 }): DemoConfig {
   const chain = raw.chain ?? "ethereum_sepolia"
   if (chain !== "ethereum_sepolia") {
@@ -23,7 +31,14 @@ export function parseDemoConfig(raw: {
     )
   }
   const popupUrl = (raw.popupUrl ?? "http://localhost:3000").replace(/\/$/, "")
-  return { chain, registry: raw.registry as `0x${string}`, popupUrl }
+  const rpcUrl = raw.rpcUrl || DEFAULT_RPC_URL
+  if (raw.deployBlock && !/^\d+$/.test(raw.deployBlock)) {
+    throw new DemoConfigError(
+      `NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK must be a decimal block number (got "${raw.deployBlock}").`,
+    )
+  }
+  const deployBlock = raw.deployBlock ? BigInt(raw.deployBlock) : 0n
+  return { chain, registry: raw.registry as `0x${string}`, popupUrl, rpcUrl, deployBlock }
 }
 
 export function loadConfig(): DemoConfig {
@@ -31,5 +46,7 @@ export function loadConfig(): DemoConfig {
     chain: process.env.NEXT_PUBLIC_CHAIN,
     registry: process.env.NEXT_PUBLIC_REGISTRY_ADDRESS,
     popupUrl: process.env.NEXT_PUBLIC_POPUP_URL,
+    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL,
+    deployBlock: process.env.NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK,
   })
 }
