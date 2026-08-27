@@ -14,9 +14,9 @@ popup (phone proof) and bids, a holder revokes their own credential, a guardian 
 
 From the repo root:
 
-    export SEPOLIA_RPC_URL=https://…                              # deploy only
     export ATTEST_ADMIN_ADDRESS=0x…your-admin-wallet…             # deploy only
     export ATTEST_GUARDIAN_ADDRESS=0x…your-guardian-demo-wallet…  # deploy only, optional
+    export SEPOLIA_RPC_URL=https://…                              # deploy only, optional
     packages/attest-demo/scripts/demo-up.sh --private-key 0x…
 
 The script:
@@ -25,8 +25,9 @@ The script:
    `packages/attest-contracts/deployments/11155111.json` already exists. Extra arguments are
    forwarded to `forge script` for signing (`--private-key`, `--account`, …).
    `ROOT_VERIFIER_ADDRESS` defaults to the canonical root verifier
-   `0x1D000001000EFD9a6371f4d90bB8920D5431c0D8`. `ATTEST_DOMAIN` defaults to `zkpassport.id`; the
-   popup reads the registry's on-chain `domain()`, so proofs match it automatically.
+   `0x1D000001000EFD9a6371f4d90bB8920D5431c0D8`, and `SEPOLIA_RPC_URL` to the public Alchemy
+   endpoint the SDK ships with. `ATTEST_DOMAIN` defaults to `zkpassport.id`; the popup reads the
+   registry's on-chain `domain()`, so proofs match it automatically.
 2. Writes the deployed registry address into `packages/attest-demo/.env.local`
    (`NEXT_PUBLIC_REGISTRY_ADDRESS`). The popup app needs no configuration for its defaults.
 3. Installs dependencies and starts attest-popup (port 3000) and attest-demo (port 3001).
