@@ -7,7 +7,9 @@ use aztec::macros::aztec;
 
 #[aztec]
 pub contract ZKPassportRegistry {
-    use crate::guards::{assert_address_not_zero, assert_admin_or_oracle, assert_valid_registry_id};
+    use crate::guards::{
+        assert_address_not_zero, assert_admin, assert_admin_or_oracle, assert_valid_registry_id,
+    };
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
     use crate::types::{
         INITIAL_DELAY, LatestRootPair, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS,
@@ -67,21 +69,22 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn transfer_admin(new_admin: AztecAddress) {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
         assert_address_not_zero(new_admin, "admin cannot be zero address");
         self.storage.admin.write(new_admin);
     }
 
     #[external("public")]
     fn set_oracle(new_oracle: AztecAddress) {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
         assert_address_not_zero(new_oracle, "oracle cannot be zero address");
         self.storage.oracle.write(new_oracle);
     }
 
     #[external("public")]
     fn set_guardian(new_guardian: AztecAddress) {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
+        assert_address_not_zero(new_guardian, "guardian cannot be zero address");
         self.storage.guardian.write(new_guardian);
     }
 
@@ -96,7 +99,7 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn unpause() {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
         self.storage.paused.schedule_value_change(false);
     }
 
@@ -193,7 +196,7 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn add_accepted_vk(version: Field, vk_hash: Field) {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
         assert(version != 0, "version cannot be zero");
         assert(vk_hash != 0, "vk hash cannot be zero");
         self.storage.accepted_vks.at(version).at(vk_hash).schedule_value_change(true);
@@ -201,7 +204,7 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn remove_accepted_vk(version: Field, vk_hash: Field) {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
         self.storage.accepted_vks.at(version).at(vk_hash).schedule_value_change(false);
     }
 
@@ -209,14 +212,14 @@ pub contract ZKPassportRegistry {
     // its version is enabled AND the vk itself is accepted under that version.
     #[external("public")]
     fn set_version_status(version: Field, enabled: bool) {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
         assert(version != 0, "version cannot be zero");
         self.storage.version_enabled.at(version).schedule_value_change(enabled);
     }
 
     #[external("public")]
     fn set_oprf_pk_hash(oprf_pk_hash: Field) {
-        assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
+        assert_admin(self.msg_sender(), self.storage.admin.read());
         self.storage.oprf_pk_hash.schedule_value_change(oprf_pk_hash);
     }
 

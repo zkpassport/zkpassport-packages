@@ -439,3 +439,13 @@ unconstrained fn vk_under_wrong_version_rejected() {
         ),
     );
 }
+
+#[test(should_fail_with = "guardian cannot be zero address")]
+unconstrained fn set_guardian_rejects_zero_address() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(
+        actors.admin,
+        ZKPassportRegistry::at(actors.registry).set_guardian(AztecAddress::zero()),
+    );
+}
