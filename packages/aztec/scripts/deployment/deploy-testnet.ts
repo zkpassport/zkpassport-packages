@@ -47,7 +47,7 @@
  *                               target/ was last compiled with.
  *
  * This deploys ONLY the registry, which comes up empty: no accepted VKs, no roots, no
- * OPRF key hash. Seeding those (update_root / add_accepted_vk / set_oprf_pk_hash) is a
+ * OPRF key hash. Seeding those (update_root / add_accepted_vk / set_version_status / set_oprf_pk_hash) is a
  * follow-up step — and each seeded value takes INITIAL_DELAY (24h) of real time before
  * private verifiers can read it. There is no time-warp on a real network.
  */
@@ -222,7 +222,7 @@ async function main() {
   console.log(
     `NOTE: the registry is deployed but EMPTY. Next steps (separate txs, then a ${delayHours}h ` +
       "DelayedPublicMutable delay before private verifiers see them): " +
-      "update_root(certificate), update_root(circuit), add_accepted_vk, set_oprf_pk_hash.",
+      "update_root(certificate), update_root(circuit), add_accepted_vk, set_version_status, set_oprf_pk_hash.",
   )
 }
 

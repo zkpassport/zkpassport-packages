@@ -5,7 +5,8 @@
  * verifiers can pass `assert_proof_valid` only after this script has pushed:
  *   - update_root(REGISTRY_CERTIFICATE, <latest cert root>)
  *   - update_root(REGISTRY_CIRCUIT, <latest circuit root>)
- *   - add_accepted_vk(<outer circuit vk hash>)          (one per circuit in VK_CIRCUITS)
+ *   - add_accepted_vk(<version>, <outer circuit vk hash>) (one per circuit in VK_CIRCUITS)
+ *   - set_version_status(<version>, true)               (enables the circuit release)
  *   - set_oprf_pk_hash(...)                             (only if OPRF_PK_HASH is set —
  *                                                        needed for salted/vOPRF nullifiers only)
  *
@@ -34,7 +35,8 @@
  * Env:
  *   ZKPASSPORT_DEPLOYER_SECRET   REQUIRED — the deploy script's secret. The sender must
  *                                hold the registry's oracle role (update_root) and admin
- *                                role (add_accepted_vk / set_oprf_pk_hash); both default
+ *                                role (add_accepted_vk / set_version_status /
+ *                                set_oprf_pk_hash); both default
  *                                to the deployer at deploy time.
  *   ZKPASSPORT_REGISTRY_ADDRESS  registry to seed. Default: read from the deploy manifest
  *                                (deployments/<network>.json, else <network>-preview.json).
@@ -43,6 +45,9 @@
  *   ZKP_REGISTRY_RPC_URL         Ethereum RPC for ZKPassport's RootRegistry
  *                                (default: public Sepolia RPC on testnet, mainnet RPC on mainnet)
  *   ZKP_REGISTRY_CHAIN_ID        chain of that RootRegistry (default matches the RPC above).
+ *   VK_VERSION                   circuit-release version to register the vks under and
+ *                                enable (Field, default 1). Must match what consumer apps
+ *                                pass in ServiceConfig.version.
  *                                Override BOTH to seed cross-chain roots — e.g. REAL passports
  *                                verified on the Aztec testnet need the MAINNET roots:
  *                                ZKP_REGISTRY_CHAIN_ID=1 ZKP_REGISTRY_RPC_URL=<mainnet rpc>
@@ -133,10 +138,11 @@ async function readScheduledChange(
   node: ReturnType<typeof createAztecNodeClient>,
   contract: AztecAddress,
   varSlot: Fr,
-  mapKey: Fr | null,
+  mapKeys: Fr[],
   valueSize: number,
 ): Promise<{ post: Fr[]; maturesAt: bigint }> {
-  const slot = mapKey ? await deriveStorageSlotInMap(varSlot, { toField: () => mapKey }) : varSlot
+  let slot = varSlot
+  for (const key of mapKeys) slot = await deriveStorageSlotInMap(slot, { toField: () => key })
   const fields = await Promise.all(
     Array.from({ length: 2 * valueSize + 1 }, (_, i) =>
       node.getPublicStorageAt("latest", contract, slot.add(new Fr(i))),
@@ -217,6 +223,9 @@ async function main() {
   console.log(`  certificate root: ${certRoot}`)
   console.log(`  circuit root:     ${circuitRoot}`)
   for (const vk of vkHashes) console.log(`  vk ${vk.name}: ${vk.hash}`)
+  // Circuit-release version the vks are registered under (registry: version => vk set).
+  const vkVersionFr = new Fr(BigInt(process.env.VK_VERSION ?? "1"))
+  console.log(`  vk version: ${vkVersionFr}`)
 
   // ── Connect + rebuild the deployer account ───────────────────────────────────
   const node = createAztecNodeClient(nodeUrl)
@@ -287,7 +296,7 @@ async function main() {
       node,
       registryAddress,
       layout.latest.slot,
-      new Fr(r.id),
+      [new Fr(r.id)],
       2,
     )
     if (sched.post[0].equals(rootFr) && sched.maturesAt > nowSecs) {
@@ -302,7 +311,7 @@ async function main() {
   for (const vk of vkHashes) {
     const hashFr = Fr.fromHexString(vk.hash)
     const accepted = unwrap<boolean>(
-      await registry.methods.is_vk_accepted(hashFr).simulate({ from: sender.address }),
+      await registry.methods.is_vk_accepted(vkVersionFr, hashFr).simulate({ from: sender.address }),
     )
     if (accepted) {
       console.log(`vk ${vk.name} is already accepted — skipping`)
@@ -312,7 +321,7 @@ async function main() {
       node,
       registryAddress,
       layout.accepted_vks.slot,
-      hashFr,
+      [vkVersionFr, hashFr],
       1,
     )
     if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) {
@@ -322,7 +331,31 @@ async function main() {
       pendingMaturity++
       continue
     }
-    actions.push(`add_accepted_vk(${vk.name}): ${vk.hash}`)
+    actions.push(`add_accepted_vk(v${vkVersionFr.toBigInt()}, ${vk.name}): ${vk.hash}`)
+  }
+  {
+    const enabled = unwrap<boolean>(
+      await registry.methods.is_version_enabled(vkVersionFr).simulate({ from: sender.address }),
+    )
+    if (enabled) {
+      console.log(`vk version ${vkVersionFr.toBigInt()} is already enabled — skipping`)
+    } else {
+      const sched = await readScheduledChange(
+        node,
+        registryAddress,
+        layout.version_enabled.slot,
+        [vkVersionFr],
+        1,
+      )
+      if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) {
+        console.log(
+          `vk version ${vkVersionFr.toBigInt()} enable is already scheduled — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
+        )
+        pendingMaturity++
+      } else {
+        actions.push(`set_version_status(v${vkVersionFr.toBigInt()}, true)`)
+      }
+    }
   }
   let oprfNeeded = false
   if (process.env.OPRF_PK_HASH) {
@@ -331,7 +364,7 @@ async function main() {
       node,
       registryAddress,
       layout.oprf_pk_hash.slot,
-      null,
+      [],
       1,
     )
     if (sched.post[0].equals(oprf)) {
@@ -378,7 +411,7 @@ async function main() {
       node,
       registryAddress,
       layout.latest.slot,
-      new Fr(r.id),
+      [new Fr(r.id)],
       2,
     )
     if (sched.post[0].equals(rootFr) && sched.maturesAt > nowSecs) continue // reported in the plan
@@ -410,21 +443,41 @@ async function main() {
   for (const vk of vkHashes) {
     const hashFr = Fr.fromHexString(vk.hash)
     const accepted = unwrap<boolean>(
-      await registry.methods.is_vk_accepted(hashFr).simulate({ from: sender.address }),
+      await registry.methods.is_vk_accepted(vkVersionFr, hashFr).simulate({ from: sender.address }),
     )
     if (accepted) continue
     const sched = await readScheduledChange(
       node,
       registryAddress,
       layout.accepted_vks.slot,
-      hashFr,
+      [vkVersionFr, hashFr],
       1,
     )
     if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) continue // reported in the plan
-    console.log(`add_accepted_vk(${vk.name}, ${vk.hash}) — proving + sending...`)
-    await registry.methods.add_accepted_vk(hashFr).send(sendOpts)
+    console.log(`add_accepted_vk(v${vkVersionFr.toBigInt()}, ${vk.name}, ${vk.hash}) — proving + sending...`)
+    await registry.methods.add_accepted_vk(vkVersionFr, hashFr).send(sendOpts)
     console.log(`  done`)
     seeded[`vk:${vk.name}`] = vk.hash
+  }
+
+  {
+    const enabled = unwrap<boolean>(
+      await registry.methods.is_version_enabled(vkVersionFr).simulate({ from: sender.address }),
+    )
+    const sched = await readScheduledChange(
+      node,
+      registryAddress,
+      layout.version_enabled.slot,
+      [vkVersionFr],
+      1,
+    )
+    const pending = !sched.post[0].isZero() && sched.maturesAt > nowSecs
+    if (!enabled && !pending) {
+      console.log(`set_version_status(v${vkVersionFr.toBigInt()}, true) — proving + sending...`)
+      await registry.methods.set_version_status(vkVersionFr, true).send(sendOpts)
+      console.log(`  done`)
+      seeded[`version:${vkVersionFr.toBigInt()}`] = "enabled"
+    }
   }
 
   if (process.env.OPRF_PK_HASH && oprfNeeded) {

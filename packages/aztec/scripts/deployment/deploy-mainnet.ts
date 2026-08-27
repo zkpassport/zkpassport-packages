@@ -296,7 +296,7 @@ async function main() {
   console.log(
     `NOTE: the registry is deployed but EMPTY. Next steps (separate txs, each paying fees, then a ${delayHours}h ` +
       "DelayedPublicMutable delay before private verifiers see them): " +
-      "update_root(certificate), update_root(circuit), add_accepted_vk, set_oprf_pk_hash.",
+      "update_root(certificate), update_root(circuit), add_accepted_vk, set_version_status, set_oprf_pk_hash.",
   )
 }
 
