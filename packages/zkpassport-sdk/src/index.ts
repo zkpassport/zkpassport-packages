@@ -36,6 +36,7 @@ import {
   QueryResultErrors,
   VerifierMode,
   VerificationResult,
+  RequestedNullifierType,
 } from "./types"
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
@@ -108,6 +109,31 @@ function generalCompare(
   }
 }
 
+function realNullifierType(nullifierType: NullifierType): NullifierType {
+  if (nullifierType === NullifierType.NON_SALTED_MOCK) return NullifierType.NON_SALTED
+  if (nullifierType === NullifierType.SALTED_MOCK) return NullifierType.SALTED
+  return nullifierType
+}
+
+function enforceUniqueIdentifierType(
+  result: VerificationResult,
+  requestedType: RequestedNullifierType | undefined,
+): VerificationResult {
+  if (requestedType === undefined || !result.verified) return result
+  const actualType = result.uniqueIdentifierType
+  if (actualType !== undefined && realNullifierType(actualType) === requestedType) return result
+  const actualName = actualType === undefined ? "none" : NullifierType[actualType]
+  console.warn(
+    `Unique identifier type mismatch: requested ${NullifierType[requestedType]}, got ${actualName}`,
+  )
+  return {
+    ...result,
+    uniqueIdentifier: undefined,
+    uniqueIdentifierType: undefined,
+    verified: false,
+  }
+}
+
 export {
   SANCTIONED_COUNTRIES,
   EU_COUNTRIES,
@@ -148,7 +174,7 @@ export class ZKPassport {
       validity: number
       mode: ProofMode
       devMode: boolean
-      uniqueIdentifierType: NullifierType | undefined
+      uniqueIdentifierType: RequestedNullifierType | undefined
       oprfKeyId: string | null
       returnDeepLink: string | undefined
     }
@@ -233,6 +259,7 @@ export class ZKPassport {
         scope: this.topicToService[topic]?.scope,
         devMode: this.topicToLocalConfig[topic]?.devMode,
         oprfKeyId: this.topicToLocalConfig[topic]?.oprfKeyId ?? undefined,
+        uniqueIdentifierType: this.topicToLocalConfig[topic]?.uniqueIdentifierType,
       })
     logger.debug("Verification complete, verified:", verified)
     const hasFailedProofs = this.topicToFailedProofCount[topic] > 0
@@ -675,7 +702,7 @@ export class ZKPassport {
     projectID?: string
     validity?: number
     devMode?: boolean
-    uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
+    uniqueIdentifierType?: RequestedNullifierType
     oprfKeyId?: string
     topicOverride?: string
     keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
@@ -782,6 +809,8 @@ export class ZKPassport {
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
    * @param oprfKeyId The OPRF key id used in the original request, if any.
+   * @param uniqueIdentifierType The unique identifier type requested in the original request, if any.
+   * Proofs using a different type fail verification.
    * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
    * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
@@ -797,6 +826,7 @@ export class ZKPassport {
     devMode = false,
     writingDirectory,
     oprfKeyId,
+    uniqueIdentifierType,
     verifierMode = "auto",
   }: {
     proofs: Array<ProofResult>
@@ -807,6 +837,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
+    uniqueIdentifierType?: RequestedNullifierType
     verifierMode?: VerifierMode
   }): Promise<VerificationResult> {
     if (!originalQuery || !queryResult) {
@@ -825,22 +856,25 @@ export class ZKPassport {
     const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
     const localParams = { ...params, writingDirectory }
     const apiParams = { ...params, domain: this.domain }
+    const requestedType = oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType
 
+    let result: VerificationResult
     if (verifierMode === "local") {
-      return this.verifyLocally(localParams)
+      result = await this.verifyLocally(localParams)
+    } else if (verifierMode === "api") {
+      result = (await verifyWithVerifierApi(apiParams)) ?? notVerified
+    } else {
+      let localResult: VerificationResult | undefined
+      try {
+        localResult = await this.verifyLocally(localParams)
+      } catch (e) {
+        console.warn("Local proof verification failed:", e)
+      }
+      result = localResult?.verified
+        ? localResult
+        : ((await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified)
     }
-    if (verifierMode === "api") {
-      return (await verifyWithVerifierApi(apiParams)) ?? notVerified
-    }
-
-    let localResult: VerificationResult | undefined
-    try {
-      localResult = await this.verifyLocally(localParams)
-      if (localResult.verified) return localResult
-    } catch (e) {
-      console.warn("Local proof verification failed:", e)
-    }
-    return (await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified
+    return enforceUniqueIdentifierType(result, requestedType)
   }
 
   private async verifyLocally({
@@ -1043,7 +1077,7 @@ export class ZKPassport {
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
     const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
     let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
-    if (nullifierType) {
+    if (nullifierType !== undefined) {
       url += `&nt=${nullifierType}`
     }
     if (oprfKeyId) {

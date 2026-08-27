@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ZKPassport } from "../src/index"
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { NullifierType, ZKPassport } from "../src/index"
 import { MockWebSocket } from "./helpers/mock-websocket"
 
 describe("Proof submission", () => {
@@ -143,6 +144,28 @@ describe("Proof submission", () => {
 
     await (zk as any).handleResult(topic)
 
+    expect(fetchedUrls).toEqual([])
+  })
+
+  test("onResult reports failure when the proof does not use the requested unique identifier type", async () => {
+    const zk = new ZKPassport("localhost")
+    const { topic } = primeForHandleResult(zk, { verifyResult: { verified: true } })
+    // Use the real verify() so the type check runs; only stub the proof verification under it.
+    delete (zk as any).verify
+    const localSpy = spyOn(ZKPassport.prototype as any, "verifyLocally").mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "uid-1",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    ;(zk as any).topicToLocalConfig[topic].uniqueIdentifierType = NullifierType.SALTED
+    const results: any[] = []
+    ;(zk as any).onResultCallbacks[topic].push((response: any) => results.push(response))
+
+    await (zk as any).handleResult(topic)
+
+    localSpy.mockRestore()
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ verified: false, uniqueIdentifier: undefined })
     expect(fetchedUrls).toEqual([])
   })
 

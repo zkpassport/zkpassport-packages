@@ -53,6 +53,12 @@ export type QueryResultErrors = {
 // but defers to the API when the local result is not verified.
 export type VerifierMode = "auto" | "local" | "api"
 
+// The nullifier types a service can ask for. The mock ones only ever come from the app in dev mode.
+export type RequestedNullifierType =
+  | NullifierType.NON_SALTED
+  | NullifierType.SALTED
+  | NullifierType.NONE
+
 export type VerificationResult = {
   uniqueIdentifier: string | undefined
   uniqueIdentifierType: NullifierType | undefined

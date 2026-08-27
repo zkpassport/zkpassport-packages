@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
-import { ZKPassport } from "../src/index"
+import { NullifierType, ZKPassport } from "../src/index"
 
 describe("verify() modes and the verifier API", () => {
   let originalFetch: typeof globalThis.fetch
@@ -131,6 +131,78 @@ describe("verify() modes and the verifier API", () => {
 
     expect(result).toEqual(notVerified)
     expect(localSpy).not.toHaveBeenCalled()
+  })
+
+  test("rejects proofs whose unique identifier type is not the requested one", async () => {
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      uniqueIdentifierType: NullifierType.SALTED,
+    })
+
+    expect(result).toEqual(notVerified)
+  })
+
+  test("accepts a mock unique identifier type for the requested real one", async () => {
+    const localResult = {
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.SALTED_MOCK,
+    }
+    localSpy.mockResolvedValue(localResult)
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      devMode: true,
+      uniqueIdentifierType: NullifierType.SALTED,
+    })
+
+    expect(result).toEqual(localResult as any)
+  })
+
+  test("an oprf key requires a salted unique identifier", async () => {
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({ proofs, originalQuery, queryResult, oprfKeyId: "key-1" })
+
+    expect(result).toEqual(notVerified)
+  })
+
+  test("enforces the requested unique identifier type on the API verdict", async () => {
+    globalThis.fetch = (async () => {
+      return Response.json({
+        verified: true,
+        uniqueIdentifier: "uid-1",
+        uniqueIdentifierType: NullifierType.NON_SALTED,
+      })
+    }) as unknown as typeof globalThis.fetch
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      verifierMode: "api",
+      uniqueIdentifierType: NullifierType.NONE,
+    })
+
+    expect(result).toEqual(notVerified)
   })
 
   test("api returns the API's queryResultErrors when it rejects the proofs", async () => {
