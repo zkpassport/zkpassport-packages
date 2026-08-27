@@ -38,7 +38,11 @@ function stubContext(handlers: {
     readContract: async (args: never) => handlers.readContract?.(args),
     getLogs: async () => handlers.getLogs?.() ?? [],
   } as unknown as PublicClient
-  return { publicClient, attest: new AttestClient({ client: publicClient, address: REGISTRY }) }
+  return {
+    publicClient,
+    attest: new AttestClient({ client: publicClient, address: REGISTRY }),
+    deployBlock: 0n,
+  }
 }
 
 describe("listPoliciesWithDetails", () => {
@@ -113,7 +117,13 @@ describe("guardianOf", () => {
 describe("createAttestContext", () => {
   test("binds the registry address", () => {
     const ctx = createAttestContext(
-      { chain: "ethereum_sepolia", registry: REGISTRY, popupUrl: "http://x" },
+      {
+        chain: "ethereum_sepolia",
+        registry: REGISTRY,
+        popupUrl: "http://x",
+        rpcUrl: "http://x",
+        deployBlock: 7n,
+      },
       resolveChain("ethereum_sepolia"),
     )
     expect(ctx.attest.address).toBe(REGISTRY)

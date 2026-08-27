@@ -7,20 +7,22 @@ import type { WriteRequest } from "./wallet"
 export type AttestContext = {
   publicClient: PublicClient
   attest: AttestClient
+  deployBlock: bigint
 }
 
 export type PolicyView = AttestPolicySummary & { policy: AttestPolicy }
 
 export function createAttestContext(config: DemoConfig, chain: Chain): AttestContext {
-  const publicClient = createPublicClient({ chain, transport: http() })
+  const publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) })
   return {
     publicClient,
     attest: new AttestClient({ client: publicClient, address: config.registry }),
+    deployBlock: config.deployBlock,
   }
 }
 
 export async function listPoliciesWithDetails(ctx: AttestContext): Promise<PolicyView[]> {
-  const summaries = await ctx.attest.listPolicies()
+  const summaries = await ctx.attest.listPolicies({ fromBlock: ctx.deployBlock })
   return Promise.all(
     summaries.map(async (summary) => ({
       ...summary,
