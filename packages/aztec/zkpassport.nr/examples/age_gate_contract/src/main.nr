@@ -13,6 +13,8 @@ pub contract AgeGate {
     use zkpassport::verify::{emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof};
 
     global MIN_AGE: u8 = 18;
+    // Circuit-release version this app accepts; must match the registry seeding (see test.nr).
+    global VK_VERSION: Field = 1;
 
     #[storage]
     struct Storage<Context> {
@@ -40,6 +42,7 @@ pub contract AgeGate {
         assert(user == self.msg_sender(), "capsule scope must be the caller");
         let registry = self.storage.registry.read();
         let config = ServiceConfig {
+            version: VK_VERSION,
             scope: 0, // fixture/demo: no domain binding; a real app pins sha256(domain) >> 8
             subscope: 0,
             validity_period: 7 * 86400,

@@ -16,6 +16,9 @@ use zkpassport_registry_contract::{
     ZKPassportRegistry,
 };
 
+// Must match AgeGate's VK_VERSION (main.nr): the version the app passes to the registry.
+global VK_VERSION: Field = 1;
+
 pub struct Actors {
     pub registry: AztecAddress,
     pub admin: AztecAddress,
@@ -65,11 +68,15 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     );
     let _ = env.call_public(
         a.admin,
-        ZKPassportRegistry::at(a.registry).add_accepted_vk(AGE_FIXTURE_VK_HASH),
+        ZKPassportRegistry::at(a.registry).add_accepted_vk(VK_VERSION, AGE_FIXTURE_VK_HASH),
+    );
+    let _ = env.call_public(
+        a.admin,
+        ZKPassportRegistry::at(a.registry).set_version_status(VK_VERSION, true),
     );
 
     // --- DPM landing + freshness anchor -------------------------------------------------------
-    // The 3 schedule_value_change calls just above run at TXE's session-start wall-clock time —
+    // The 4 schedule_value_change calls just above run at TXE's session-start wall-clock time —
     // TestEnvironment::new() seeds nextBlockTimestamp = Date.now()/1000, i.e. REAL "now" at
     // whatever moment this test happens to run (yarn-project/txe/src/txe_session.ts:339), call it
     // T0. T0 is unrelated to AGE_FIXTURE_CURRENT_DATE (the proof's embedded "now", frozen at

@@ -7,6 +7,7 @@ use zkpassport_core::core::verify_outer_proof_core;
 use zkpassport_registry_contract::ZKPassportRegistry;
 
 pub struct ServiceConfig {
+    pub version: Field, // circuit-release version this app accepts (registry keys vks by it)
     pub scope: Field, // sha256(domain) >> 8, app-computed constant (0 if unused)
     pub subscope: Field, // sha256(scope) >> 8 (0 if unused)
     pub validity_period: u64, // max proof age in seconds
@@ -78,6 +79,7 @@ pub fn verify_zkpassport_proof<let K: u32>(
     // 8. One registry view call: roots + vk acceptance + OPRF, all under the registry's DPM reads.
     ZKPassportRegistry::at(registry)
         .assert_proof_valid(
+            config.version,
             out.vk_hash,
             parsed.certificate_registry_root,
             parsed.circuit_registry_root,
