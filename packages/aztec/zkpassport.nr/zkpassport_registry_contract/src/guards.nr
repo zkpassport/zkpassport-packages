@@ -12,30 +12,18 @@ pub fn assert_admin_or_oracle(sender: AztecAddress, admin: AztecAddress, oracle:
     assert((sender == admin) | (sender == oracle), "caller is not admin or oracle");
 }
 
-pub fn assert_admin_not_zero(new_admin: AztecAddress) {
-    assert(!new_admin.is_zero(), "admin cannot be zero address");
-}
-
-pub fn assert_oracle_not_zero(new_oracle: AztecAddress) {
-    assert(!new_oracle.is_zero(), "oracle cannot be zero address");
+pub fn assert_address_not_zero<let N: u32>(address: AztecAddress, msg: str<N>) {
+    assert(!address.is_zero(), msg);
 }
 
 mod test {
-    use super::{
-        assert_admin_not_zero, assert_admin_or_oracle, assert_oracle_not_zero,
-        assert_valid_registry_id,
-    };
+    use super::{assert_address_not_zero, assert_admin_or_oracle, assert_valid_registry_id};
     use aztec::protocol::address::AztecAddress;
     use aztec::protocol::traits::FromField;
 
     #[test(should_fail_with = "admin cannot be zero address")]
-    fn transfer_admin_rejects_zero_address() {
-        assert_admin_not_zero(AztecAddress::zero());
-    }
-
-    #[test(should_fail_with = "oracle cannot be zero address")]
-    fn set_oracle_rejects_zero_address() {
-        assert_oracle_not_zero(AztecAddress::zero());
+    fn rejects_zero_address() {
+        assert_address_not_zero(AztecAddress::zero(), "admin cannot be zero address");
     }
 
     #[test(should_fail_with = "unknown registry id")]

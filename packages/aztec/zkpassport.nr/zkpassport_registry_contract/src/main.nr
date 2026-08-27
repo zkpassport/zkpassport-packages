@@ -7,10 +7,7 @@ use aztec::macros::aztec;
 
 #[aztec]
 pub contract ZKPassportRegistry {
-    use crate::guards::{
-        assert_admin_not_zero, assert_admin_or_oracle, assert_oracle_not_zero,
-        assert_valid_registry_id,
-    };
+    use crate::guards::{assert_address_not_zero, assert_admin_or_oracle, assert_valid_registry_id};
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
     use crate::types::{
         INITIAL_DELAY, LatestRootPair, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS,
@@ -71,14 +68,14 @@ pub contract ZKPassportRegistry {
     #[external("public")]
     fn transfer_admin(new_admin: AztecAddress) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
-        assert_admin_not_zero(new_admin);
+        assert_address_not_zero(new_admin, "admin cannot be zero address");
         self.storage.admin.write(new_admin);
     }
 
     #[external("public")]
     fn set_oracle(new_oracle: AztecAddress) {
         assert(self.msg_sender() == self.storage.admin.read(), "caller is not admin");
-        assert_oracle_not_zero(new_oracle);
+        assert_address_not_zero(new_oracle, "oracle cannot be zero address");
         self.storage.oracle.write(new_oracle);
     }
 
