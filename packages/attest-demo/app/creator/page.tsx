@@ -20,8 +20,10 @@ const DAY = 86400n
 function CreatorView() {
   const { config, chain, ctx, wallet } = useDemo()
   const [policies, setPolicies] = useState<PolicyView[]>([])
+  const [minAgeEnabled, setMinAgeEnabled] = useState(true)
   const [minAge, setMinAge] = useState(18)
-  const [countries, setCountries] = useState("IRN, PRK")
+  const [excludeCountries, setExcludeCountries] = useState(false)
+  const [countries, setCountries] = useState("")
   const [sanctions, setSanctions] = useState(true)
   const [onePerDocument, setOnePerDocument] = useState(true)
   const [validityDays, setValidityDays] = useState(365)
@@ -51,12 +53,14 @@ function CreatorView() {
           validityPeriodSeconds: BigInt(validityDays) * DAY,
           unique: onePerDocument,
           saltedNullifierOnly: true,
-          minAge,
+          minAge: minAgeEnabled ? minAge : 0,
           sanctionsCheck: sanctions,
-          excludedCountries: countries
-            .split(",")
-            .map((c) => c.trim().toUpperCase())
-            .filter(Boolean),
+          excludedCountries: excludeCountries
+            ? countries
+                .split(",")
+                .map((c) => c.trim().toUpperCase())
+                .filter(Boolean)
+            : [],
           metadataURL,
         }),
       )
@@ -87,21 +91,42 @@ function CreatorView() {
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Create a policy</h2>
         <label className="block text-sm">
+          <input
+            type="checkbox"
+            checked={minAgeEnabled}
+            onChange={(e) => setMinAgeEnabled(e.target.checked)}
+          />{" "}
           Minimum age
           <input
-            className="ml-2 w-20 rounded bg-slate-800 px-2 py-1"
+            className="ml-2 w-20 rounded bg-slate-800 px-2 py-1 disabled:opacity-50"
             type="number"
             min={0}
             max={255}
             value={minAge}
+            disabled={!minAgeEnabled}
             onChange={(e) => setMinAge(Number(e.target.value))}
           />
         </label>
         <label className="block text-sm">
-          Excluded nationalities (alpha-3, comma-separated)
           <input
-            className="ml-2 rounded bg-slate-800 px-2 py-1"
+            type="checkbox"
+            checked={excludeCountries}
+            onChange={(e) => setExcludeCountries(e.target.checked)}
+          />{" "}
+          Excluded nationalities (
+          <a
+            className="text-sky-400 underline"
+            href="https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3"
+            target="_blank"
+            rel="noreferrer"
+          >
+            alpha-3
+          </a>
+          , comma-separated)
+          <input
+            className="ml-2 rounded bg-slate-800 px-2 py-1 disabled:opacity-50"
             value={countries}
+            disabled={!excludeCountries}
             onChange={(e) => setCountries(e.target.value)}
           />
         </label>
