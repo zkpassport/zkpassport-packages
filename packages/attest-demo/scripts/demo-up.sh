@@ -22,10 +22,11 @@ else
   (cd "$contracts_dir" && forge script script/DeployAttest.s.sol --rpc-url "$SEPOLIA_RPC_URL" --broadcast "$@")
 fi
 
+# String() keeps Bun's console.log from ANSI-colorizing numbers on a TTY
 registry_address="$(deployment_file="$deployment_file" bun -e \
-  'console.log((await Bun.file(process.env.deployment_file).json()).address)')"
+  'console.log(String((await Bun.file(process.env.deployment_file).json()).address))')"
 registry_deploy_block="$(deployment_file="$deployment_file" bun -e \
-  'console.log((await Bun.file(process.env.deployment_file).json()).deployed_block ?? "")')"
+  'console.log(String((await Bun.file(process.env.deployment_file).json()).deployed_block ?? ""))')"
 
 env_local="$demo_dir/.env.local"
 [[ -f "$env_local" ]] || cp "$demo_dir/.env.example" "$env_local"
