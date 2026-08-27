@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { AttestPolicy } from "@zkpassport/sdk"
+import { NullifierType, type AttestPolicy } from "@zkpassport/sdk"
 import { buildAttestCardOptions, type AttestVerifyOptions } from "../src/attest-options"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
@@ -72,7 +72,7 @@ describe("buildAttestCardOptions request props", () => {
     expect(options.domain).toBe(DOMAIN)
     expect(options.mode).toBe("compressed-evm")
     expect(options.devMode).toBe(false)
-    expect("uniqueIdentifierType" in options).toBe(false)
+    expect(options.uniqueIdentifierType).toBe(NullifierType.NON_SALTED)
     expect(readCalls.map((c) => c.functionName).sort()).toEqual([
       "domain",
       "getPolicy",
@@ -80,13 +80,22 @@ describe("buildAttestCardOptions request props", () => {
     ])
   })
 
-  test("salted policies request the salted unique identifier type", async () => {
+  test("unique salted policies request the salted unique identifier type", async () => {
     const policy = { ...basePolicy, saltedNullifierOnly: true }
     const options = await buildAttestCardOptions({
       ...baseOptions(policy),
       ...{ client: stubChain(policy).client },
     })
-    expect(options.uniqueIdentifierType).toBeDefined()
+    expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
+  })
+
+  test("non-unique policies request no unique identifier", async () => {
+    const policy = { ...basePolicy, unique: false, saltedNullifierOnly: true }
+    const options = await buildAttestCardOptions({
+      ...baseOptions(policy),
+      ...{ client: stubChain(policy).client },
+    })
+    expect(options.uniqueIdentifierType).toBe(NullifierType.NONE)
   })
 
   test("supplying policy, scope, and domain skips all reads", async () => {
@@ -161,10 +170,19 @@ describe("buildAttestCardOptions query translation", () => {
     ])
   })
 
-  test("salted policy adds strict facematch, required by the salted nullifier", async () => {
+  test("unique salted policy adds strict facematch, required by the salted nullifier", async () => {
     const calls = await queryCalls({ ...basePolicy, saltedNullifierOnly: true })
     expect(calls).toEqual([
       { method: "facematch", args: ["strict"] },
+      { method: "bind", args: ["user_address", WALLET] },
+      { method: "bind", args: ["chain", "ethereum_sepolia"] },
+      { method: "done", args: [] },
+    ])
+  })
+
+  test("non-unique salted policy needs no nullifier, so no facematch", async () => {
+    const calls = await queryCalls({ ...basePolicy, unique: false, saltedNullifierOnly: true })
+    expect(calls).toEqual([
       { method: "bind", args: ["user_address", WALLET] },
       { method: "bind", args: ["chain", "ethereum_sepolia"] },
       { method: "done", args: [] },
