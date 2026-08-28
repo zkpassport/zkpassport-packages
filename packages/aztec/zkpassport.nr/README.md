@@ -1,6 +1,6 @@
 # zkpassport.nr
 
-An Aztec v5.2.0 Noir workspace: the `ZKPassportRegistry` contract plus a `zkpassport`
+An Aztec v5.2.0 Noir workspace: the `ZKPassportRegistry` contract plus a `zkpassport_aztec`
 verification library that lets any Aztec app privately verify a ZKPassport passport proof
 and mint a one-proof-per-passport-per-app uniqueness nullifier.
 
@@ -23,8 +23,8 @@ members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport", "exa
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`oracle`/`guardian`) are plain `PublicMutable` — writes take effect instantly (`main.nr:24-26`). Everything else — `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, the version-keyed accepted-VK sets with their per-version enabled flags, and the OPRF pubkey hash — is `DelayedPublicMutable` (24h delay). Exposes `update_root` (oracle), admin policy setters, and private `#[view]` functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers call. | `aztec` (git, tag `v5.2.0`) |
 | `zkpassport_core` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`) over the ZKPassport circuits' own Noir libs. This crate is what the `test-harness/` proves against natively (no TXE needed). | `bb_proof_verification` (git, tag `v5.2.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
-| `zkpassport` | `lib` | The glue apps actually depend on: re-exports `zkpassport_core`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport_core` (path), `zkpassport_registry_contract` (path) |
-| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<4>` + `emit_uniqueness_nullifier`. | `aztec`, `zkpassport`, `zkpassport_registry_contract` (path) |
+| `zkpassport_aztec` | `lib` | The glue apps actually depend on: re-exports `zkpassport_core`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport_core` (path), `zkpassport_registry_contract` (path) |
+| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<4>` + `emit_uniqueness_nullifier`. | `aztec`, `zkpassport_aztec`, `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crates (upstream noir-contracts style):
 `zkpassport_registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
@@ -38,10 +38,10 @@ A consumer contract verifies a proof and mints its uniqueness nullifier in one c
 `examples/age_gate_contract/src/main.nr`:
 
 ```noir
-use zkpassport::verify::{
+use zkpassport_aztec::verify::{
     emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
 };
-use zkpassport::commitments::age_commitment;
+use zkpassport_aztec::commitments::age_commitment;
 
 global MIN_AGE: u8 = 18;
 
@@ -188,7 +188,7 @@ Aztec anchor-block timestamp with a 7-day `validity_period` (`ServiceConfig.vali
 see the AgeGate example above). Both the age-gate TXE tests (`age_gate_contract`'s `src/test.nr`) and the sandbox e2e
 consume that same embedded/loaded proof, so they must run **within ~6 days of fixture
 regeneration** (a 1-day safety margin under the 7-day window) or the freshness assertions in
-`zkpassport::verify::verify_zkpassport_proof` (`zkpassport/src/verify.nr:63-66` — `proof dated in
+`zkpassport_aztec::verify::verify_zkpassport_proof` (`zkpassport_aztec/src/verify.nr:63-66` — `proof dated in
 the future` / `proof too old`, checked against the private-context anchor-block timestamp) will
 fail. Note `zkpassport_core::core::verify_outer_proof_core` does **not** check freshness itself —
 its own doc comment says so explicitly (it has no `PrivateContext`, hence no notion of "now");
@@ -205,9 +205,9 @@ afterwards, to verify the wrapper.
 | Component | Pin | Notes |
 |---|---|---|
 | Aztec toolchain | `v5.2.0` (`aztec-nargo`, `aztec test`, `bb` 5.2.0-nightly) | Everything under `zkpassport.nr/` and `e2e/` compiles/tests/runs against this. Path: `/mnt/user-data/martin/.aztec/versions/5.2.0`. |
-| `aztec-nr` (the `aztec` crate) | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `noir-projects/aztec-nr/aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport`, `age_gate_contract`. Sourced from the monorepo (not the `aztec-nr` mirror) so all members share one `aztec` source. |
+| `aztec-nr` (the `aztec` crate) | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `noir-projects/aztec-nr/aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport_aztec`, `age_gate_contract`. Sourced from the monorepo (not the `aztec-nr` mirror) so all members share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport_core`'s recursive-verification dependency. |
-| `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport_core` and `zkpassport`. |
+| `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport_core` and `zkpassport_aztec`. |
 | ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport_core`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib`. The fixtures were built from a checkout at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the golden-vector tests confirm identical commitments). A sibling checkout is still needed for fixture generation (`test-harness/gen-fixtures.sh`). |
 | `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/generate-fixtures.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/fixture-gen.ts` still runs with cwd = the `circuits` checkout, which pins the same version. Not a dependency of `e2e/` or any Noir package. |
 | `bb` (fixture generation only) | 5.0.0-nightly, from the separate `5.0.1` Aztec toolchain install | Matches the `bb` build ZKPassport's production circuits were compiled/proved with; required only by `test-harness/gen-fixtures.sh`, never by test/build commands above. |
