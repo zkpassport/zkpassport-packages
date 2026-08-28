@@ -16,8 +16,10 @@ use zkpassport_registry_contract::{
     ZKPassportRegistry,
 };
 
-// Must match AgeGate's VK_VERSION (main.nr): the version the app passes to the registry.
-global VK_VERSION: Field = 1;
+// Must match AgeGate's CIRCUIT_MANIFEST_VERSION (main.nr): packed("0.0.1"), the version the
+// app passes to the registry.
+global CIRCUIT_MANIFEST_VERSION: Field =
+    0x0000000000010000000000000000000000000000000000000000000000000000;
 
 pub struct Actors {
     pub registry: AztecAddress,
@@ -68,11 +70,14 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     );
     let _ = env.call_public(
         a.admin,
-        ZKPassportRegistry::at(a.registry).add_accepted_vk(VK_VERSION, AGE_FIXTURE_VK_HASH),
+        ZKPassportRegistry::at(a.registry).add_accepted_vk(
+            CIRCUIT_MANIFEST_VERSION,
+            AGE_FIXTURE_VK_HASH,
+        ),
     );
     let _ = env.call_public(
         a.admin,
-        ZKPassportRegistry::at(a.registry).set_version_status(VK_VERSION, true),
+        ZKPassportRegistry::at(a.registry).set_version_status(CIRCUIT_MANIFEST_VERSION, true),
     );
 
     // --- DPM landing + freshness anchor -------------------------------------------------------
