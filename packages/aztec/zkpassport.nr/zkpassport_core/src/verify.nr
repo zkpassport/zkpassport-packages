@@ -27,16 +27,16 @@ pub fn verify_outer_proof_core<let K: u32>(
 
     let parsed = parse_public_inputs::<K>(public_inputs);
 
-    // L1 SubVerifier step 6
     assert(parsed.service_scope == scope, "wrong service scope");
     assert(parsed.service_subscope == subscope, "wrong service subscope");
 
-    // L1 SubVerifier step 8: mock/unknown nullifier types need dev_mode
     let nt = parsed.nullifier_type;
     let is_standard = (nt == NULLIFIER_TYPE_NON_SALTED)
         | (nt == NULLIFIER_TYPE_SALTED)
         | (nt == NULLIFIER_TYPE_NONE);
+
     assert(is_standard | dev_mode, "nullifier type requires dev mode");
+
     // NULLIFIER_TYPE_NONE (=4) means the private nullifier was deliberately hidden by the
     // prover -- the canonical circuit forces scoped_nullifier == 0 in that case (see
     // circuits/src/noir/lib/commitment/scoped-nullifier/src/lib.nr:86-89 and tests.nr:225-226),
@@ -46,14 +46,10 @@ pub fn verify_outer_proof_core<let K: u32>(
     // otherwise push a nullifier and permanently block the app.
     assert((nt == NULLIFIER_TYPE_NONE) | (parsed.scoped_nullifier != 0), "zero scoped nullifier");
 
-    // L1 SubVerifier step 7, as a MULTISET: every expected commitment must match a distinct
-    // param-commitment slot, in any order. The order is not contractual — the prover decides
-    // the subproof (and thus slot) order and the ZKPassport SDK itself matches by membership,
-    // so e.g. a {constraint, bind} pair may arrive either way across SDK versions. Coverage is
-    // still total (K - 3 expectations over K - 3 slots), so nothing unchecked can ride along —
-    // unlike a membership-only check with fewer expectations than slots.
-    // Greedy matching is exact here: slots equal to expected[i] are interchangeable, so
-    // consuming any unused equal slot never blocks a later expectation.
+    // Every expected commitment must match a distinct param-commitment slot, in any order. The
+    // order is not contractual — the prover decides the subproof (and thus slot) order and the
+    // ZKPassport SDK itself matches by membership, so e.g. a {constraint, bind} pair may arrive
+    // either way across SDK versions.
     let mut used = [false; K - 3];
     for i in 0..K - 3 {
         let mut found = false;
