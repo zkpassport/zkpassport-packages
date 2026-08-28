@@ -33,7 +33,7 @@ contract ZKPassportAttest is ERC1155 {
     error ZKPassportAttest__NotPolicyOwner();
     error ZKPassportAttest__PolicyRetired(uint256 policyId);
     error ZKPassportAttest__SaltedNullifierRequired();
-    error ZKPassportAttest__DevModeNotAllowed();
+    error ZKPassportAttest__MockProofNotAllowed();
     error ZKPassportAttest__InvalidProof();
     error ZKPassportAttest__WrongScope();
     error ZKPassportAttest__StaleProof();
@@ -158,8 +158,6 @@ contract ZKPassportAttest is ERC1155 {
         if (policy.owner == address(0)) revert ZKPassportAttest__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportAttest__PolicyRetired(policyId);
 
-        if (params.serviceConfig.devMode) revert ZKPassportAttest__DevModeNotAllowed();
-
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
         if (!valid) revert ZKPassportAttest__InvalidProof();
 
@@ -176,9 +174,22 @@ contract ZKPassportAttest is ERC1155 {
         if (bound.chainId != block.chainid) revert ZKPassportAttest__ProofNotBoundToChain();
         if (bytes(bound.customData).length != 0) revert ZKPassportAttest__UnexpectedBoundData();
 
+        bytes32[] calldata publicInputs = params.proofVerificationData.publicInputs;
+        NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
+
+        // serviceConfig.devMode is required on testnets (it is how real documents
+        // prove against the testnet registry roots) and inert on mainnets, where
+        // mock certificates are not in the registries. The root verifier only uses
+        // it to let mock-document proofs through, so reject those by nullifier type
+        // instead of rejecting dev mode itself.
+        if (
+            nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER
+                || nullifierType == NullifierType.SALTED_MOCK_NULLIFIER
+        ) {
+            revert ZKPassportAttest__MockProofNotAllowed();
+        }
+
         if (policy.saltedNullifierOnly) {
-            bytes32[] calldata publicInputs = params.proofVerificationData.publicInputs;
-            NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
             bool acceptable = nullifierType == NullifierType.SALTED_NULLIFIER
                 || (!policy.unique && nullifierType == NullifierType.NONE_NULLIFIER);
 
