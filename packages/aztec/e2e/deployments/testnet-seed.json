@@ -1,8 +1,8 @@
 {
   "network": "testnet",
   "nodeUrl": "https://v5.testnet.rpc.aztec-labs.com",
-  "registry": "0x2993422d9415492ab74a962d9884c7c5010edd30e05caaa6d2b98bfbc714c7f2",
-  "sender": "0x04644fe737035a3c83d7196a75ba1d03ab8f473535273521ffbf042c9580a73f",
+  "registry": "0x0142d55beeb8a9e9c58b30716f2d2593ba26133c55ac2d634b716b744b144a6f",
+  "sender": "0x28e52fff357ea5759e6c6321f77f6154698e04d6185e9901125081853a45d174",
   "zkpassportRegistryChainId": 1,
   "circuitManifestVersion": "0.20.0",
   "certRoot": "0x1a46d2abb5609cb22b62fa3275c85adefbf798cdb41407122f36801d50dd527f",
@@ -14,9 +14,7 @@
     }
   ],
   "seededThisRun": {
-    "certificateRoot": "0x1a46d2abb5609cb22b62fa3275c85adefbf798cdb41407122f36801d50dd527f",
-    "circuitRoot": "0x1bcacb8abb52ef2834e4862b264e1209368ac8e006aa8512f6d62116e8657a46",
-    "vk:outer_count_5": "0x1198dfebe80606e31ccabb351a7f27a9dfc1160e36614523a19a0c3648de2c24"
+    "certificateRoot": "0x1a46d2abb5609cb22b62fa3275c85adefbf798cdb41407122f36801d50dd527f"
   },
-  "seededAt": "2026-08-20T12:16:30.034Z"
+  "seededAt": "2026-08-28T14:55:38.821Z"
 }
