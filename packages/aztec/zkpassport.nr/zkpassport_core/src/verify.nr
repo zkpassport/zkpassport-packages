@@ -71,7 +71,7 @@ pub fn verify_outer_proof_core<let K: u32>(
 }
 
 mod test {
-    use crate::core::verify_outer_proof_core;
+    use crate::verify::verify_outer_proof_core;
     // NOTE: nargo test no-ops the recursion opcode — this test covers parsing/policy/commitment
     // logic only. Real recursion coverage lives in test-harness/run-harness.sh (bb verify).
     // Reuse FIXTURE_PIS from parse.nr's test module (already pub from Task 7).
