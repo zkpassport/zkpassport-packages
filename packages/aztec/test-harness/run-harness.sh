@@ -3,8 +3,7 @@
 # `outer_count_4` proof THROUGH the zkpassport_core library, under the Aztec v5.2.0
 # toolchain (nargo 1.0.0-beta.25 + bb 5.2.0-nightly).
 #
-# Usage: run-harness.sh <fixture.json> [--tamper-proof|--tamper-vk-hash|--tamper-commitment|
-#                                        --tamper-public-input|--tamper-vk]
+# Usage: run-harness.sh <fixture.json> [--tamper-proof|--tamper-public-input]
 #
 # Steps: fixture -> Prover.toml -> nargo execute -> bb write_vk -> bb prove -> bb verify.
 # `bb prove` can "succeed" on bad inputs, so `bb verify`'s exit code is the ONLY pass signal:
@@ -16,16 +15,9 @@
 #
 # Negative controls (each MUST exit non-zero):
 #   --tamper-proof         -> fails at bb prove / bb verify (recursion constraint over `proof`)
-#   --tamper-vk-hash       -> fails at nargo execute ("vk hash mismatch vs fixture" -- a
-#                             wrapper-only convention pin, never reaches bb)
-#   --tamper-commitment    -> fails at nargo execute ("param commitment mismatch" -- the
-#                             library's own assert, not a recursion check)
 #   --tamper-public-input  -> fails at bb prove / bb verify (recursion constraint over
 #                             `public_inputs`; the load-bearing control that no PI can be
 #                             substituted post-proof without breaking verification)
-#   --tamper-vk            -> empirically fails at nargo execute (the wrapper's own vk_hash
-#                             cross-stack pin catches a tampered vk before bb is ever reached --
-#                             see fixture-to-prover-toml.ts's doc comment for detail)
 #
 # WARNING: do not run this script concurrently with itself (or with another mode) -- all
 # invocations write to the shared recursive_verification/Prover.toml before executing. Run the
@@ -40,7 +32,7 @@ NARGO=$AZTEC/bin/aztec-nargo
 ARTIFACT=target/recursive_verification.json
 
 if [ $# -lt 1 ]; then
-  echo "usage: $0 <fixture.json> [--tamper-proof|--tamper-vk-hash|--tamper-commitment|--tamper-public-input|--tamper-vk]" >&2
+  echo "usage: $0 <fixture.json> [--tamper-proof|--tamper-public-input]" >&2
   exit 2
 fi
 FIXTURE=$1

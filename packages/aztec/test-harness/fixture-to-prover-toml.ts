@@ -8,36 +8,19 @@
  * (`disclose_mask` / `disclosed_bytes`) from which the circuit recomputes the parameter
  * commitment.
  *
- * Tamper modes (negative controls -- each MUST make the harness exit non-zero):
+ * Tamper modes (negative controls -- each MUST make the harness exit non-zero). Only the two
+ * bb-level controls exist: tampering the vk, vk-hash, or disclose payload dies at `nargo
+ * execute` on asserts the positive run and zkpassport_core's unit tests already cover, so
+ * those modes added no evidence about the recursion opcode.
  *   --tamper-proof         flip the last hex digit of proof[-1]  -> dies at `bb prove`/`bb verify`
- *   --tamper-vk-hash       flip the last hex digit of expected_vk_hash
- *                          -> dies at `nargo execute` ("vk hash mismatch vs fixture")
- *   --tamper-commitment    bump disclosed_bytes[54]
- *                          -> dies at `nargo execute` ("param commitment mismatch")
  *   --tamper-public-input  flip the last hex digit of public_inputs[0]
  *                          -> dies at `bb prove`/`bb verify` (recursion constraint over the PI
  *                             array -- the load-bearing control: nothing downstream in-circuit
  *                             reads public_inputs[0], so this is the only layer that catches it)
- *   --tamper-vk            flip the last hex digit of verification_key[0]
- *                          -> empirically dies at `nargo execute`, same assert as --tamper-vk-hash
- *                             ("vk hash mismatch vs fixture"): verify_outer_proof_core recomputes
- *                             vk_hash = poseidon2(vk) in-circuit and this wrapper pins it against
- *                             the fixture's untouched expected_vk_hash, so a tampered vk is caught
- *                             by that cross-stack pin before recursion is ever exercised at the bb
- *                             layer. Still a valid non-zero control (a wrong vk cannot silently
- *                             pass), just not evidence about the bb-level opcode binding on `vk`
- *                             specifically -- that evidence comes from --tamper-proof and
- *                             --tamper-public-input, which both do reach bb.
  */
 import { readFileSync, writeFileSync } from "fs"
 
-const TAMPER_MODES = [
-  "--tamper-proof",
-  "--tamper-vk-hash",
-  "--tamper-commitment",
-  "--tamper-public-input",
-  "--tamper-vk",
-]
+const TAMPER_MODES = ["--tamper-proof", "--tamper-public-input"]
 
 const tomlFieldArray = (name: string, values: string[]) =>
   `${name} = [${values.map((v) => `"${v}"`).join(", ")}]\n`
@@ -65,7 +48,7 @@ function main() {
   const vk: string[] = fx.vkeyFields
   const proof: string[] = [...fx.proof]
   const pis: string[] = fx.publicInputs
-  let expectedVkHash: string = fx.vkeyHashBB
+  const expectedVkHash: string = fx.vkeyHashBB
 
   if (!("discloseMask" in fx) || !("disclosedBytes" in fx)) {
     throw new Error(
@@ -96,28 +79,10 @@ function main() {
     proof[proof.length - 1] = flipped
   }
 
-  if (modes.includes("--tamper-vk-hash")) {
-    const flipped = flipLastHexDigit(expectedVkHash)
-    console.log(`TAMPER(vk-hash): ${expectedVkHash} -> ${flipped}`)
-    expectedVkHash = flipped
-  }
-
-  if (modes.includes("--tamper-commitment")) {
-    const old = disclosed[54]
-    disclosed[54] = (old + 1) % 256
-    console.log(`TAMPER(commitment): disclosed_bytes[54] ${old} -> ${disclosed[54]}`)
-  }
-
   if (modes.includes("--tamper-public-input")) {
     const flipped = flipLastHexDigit(pis[0])
     console.log(`TAMPER(public-input): public_inputs[0] ${pis[0]} -> ${flipped}`)
     pis[0] = flipped
-  }
-
-  if (modes.includes("--tamper-vk")) {
-    const flipped = flipLastHexDigit(vk[0])
-    console.log(`TAMPER(vk): verification_key[0] ${vk[0]} -> ${flipped}`)
-    vk[0] = flipped
   }
 
   writeFileSync(
