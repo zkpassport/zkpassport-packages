@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerate the proof fixtures consumed by run-harness.sh (and by the TXE tests).
 #
-# Usage: ./gen-fixtures.sh [disclose|age] ...   (default: both)
+# Usage: CIRCUITS_REPO=<circuits checkout> ./gen-fixtures.sh [disclose|age] ...   (default: both)
 #
 # Why the copy dance: `npx tsx` resolves node_modules from the SCRIPT's directory, and
 # fixture-gen.ts imports the circuits repo's own TS sources (./src/ts/...) relative to its
@@ -16,9 +16,10 @@
 set -euo pipefail
 
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
-CIRCUITS=${CIRCUITS_REPO:-/mnt/user-data/martin/circuits}
-BB_501_BIN=/mnt/user-data/martin/.aztec/versions/5.0.1/node_modules/.bin
-NARGO_501=/mnt/user-data/martin/.aztec/versions/5.0.1/bin/aztec-nargo
+CIRCUITS=${CIRCUITS_REPO:?set CIRCUITS_REPO to a ZKPassport circuits checkout}
+AZTEC_501=${AZTEC_501:-$HOME/.aztec/versions/5.0.1}
+BB_501_BIN=$AZTEC_501/node_modules/.bin
+NARGO_501=$AZTEC_501/bin/aztec-nargo
 TMP_SCRIPT=$CIRCUITS/harness-fixture-gen.tmp.ts
 
 KINDS=("$@")

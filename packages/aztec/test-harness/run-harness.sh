@@ -34,7 +34,7 @@ set -uo pipefail
 
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
 WRAP=$HARNESS_DIR/recursive_verification
-AZTEC=/mnt/user-data/martin/.aztec/versions/5.2.0
+AZTEC=${AZTEC_HOME:-$HOME/.aztec/versions/5.2.0}
 BB=$AZTEC/node_modules/.bin/bb
 NARGO=$AZTEC/bin/aztec-nargo
 ARTIFACT=target/recursive_verification.json
