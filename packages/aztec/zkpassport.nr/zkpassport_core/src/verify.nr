@@ -39,11 +39,11 @@ pub fn verify_outer_proof_core<let K: u32>(
 
     // NULLIFIER_TYPE_NONE (=4) means the private nullifier was deliberately hidden by the
     // prover -- the canonical circuit forces scoped_nullifier == 0 in that case (see
-    // circuits/src/noir/lib/commitment/scoped-nullifier/src/lib.nr:86-89 and tests.nr:225-226),
-    // so a zero nullifier is only legitimate for NONE and must still be rejected for every
-    // other type. The actual "don't burn a zero-value global slot" guard lives one layer up,
-    // in emit_uniqueness_nullifier (zkpassport/src/verify.nr) -- that's the function that would
-    // otherwise push a nullifier and permanently block the app.
+    // calculate_scoped_nullifier in the circuits repo's commitment libs), so a zero nullifier
+    // is only legitimate for NONE and must still be rejected for every other type. The actual
+    // "don't burn a zero-value global slot" guard lives one layer up, in
+    // emit_uniqueness_nullifier -- that's the function that would otherwise push a nullifier
+    // and permanently block the app.
     assert((nt == NULLIFIER_TYPE_NONE) | (parsed.scoped_nullifier != 0), "zero scoped nullifier");
 
     // Every expected commitment must match a distinct param-commitment slot, in any order. The
