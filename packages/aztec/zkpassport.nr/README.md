@@ -194,7 +194,7 @@ fail. Note `zkpassport_core::core::verify_outer_proof_core` does **not** check f
 its own doc comment says so explicitly (it has no `PrivateContext`, hence no notion of "now");
 freshness is layered on top by the glue library, one level up.
 
-Regenerate via `test-harness/gen-fixtures.sh [disclose|age]`, then `test-harness/fixture-to-noir.ts` to
+Regenerate via `test-harness/generate-proof-fixtures.sh [disclose|age]`, then `test-harness/fixture-to-noir.ts` to
 refresh the embedded TXE fixture. Fixture generation needs a **separate 5.0.1 toolchain
 install** (`bb` 5.0.0-nightly, the build ZKPassport's production circuits were actually compiled
 and proved with) — the 5.2.0 toolchain used everywhere else in this workspace is only used
@@ -208,9 +208,9 @@ afterwards, to verify the wrapper.
 | `aztec-nr` (the `aztec` crate) | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `noir-projects/aztec-nr/aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport_aztec`, `age_gate_contract`. Sourced from the monorepo (not the `aztec-nr` mirror) so all members share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport_core`'s recursive-verification dependency. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport_core` and `zkpassport_aztec`. |
-| ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport_core`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib`. The fixtures were built from a checkout at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the commitment-fixture tests confirm identical commitments). A sibling checkout is still needed for fixture generation (`test-harness/gen-fixtures.sh`). |
-| `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/generate-fixtures.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/fixture-gen.ts` still runs with cwd = the `circuits` checkout, which pins the same version. Not a dependency of `e2e/` or any Noir package. |
-| `bb` (fixture generation only) | 5.0.0-nightly, from the separate `5.0.1` Aztec toolchain install | Matches the `bb` build ZKPassport's production circuits were compiled/proved with; required only by `test-harness/gen-fixtures.sh`, never by test/build commands above. |
+| ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport_core`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib`. The fixtures were built from a checkout at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the commitment-fixture tests confirm identical commitments). A checkout (pointed to by `CIRCUITS_REPO`) is still needed for fixture generation (`test-harness/generate-proof-fixtures.sh`). |
+| `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/generate-commitment-fixtures.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/generate-proof-fixtures.ts` still runs with cwd = the `circuits` checkout, which pins the same version. Not a dependency of `e2e/` or any Noir package. |
+| `bb` (fixture generation only) | 5.0.0-nightly, from the separate `5.0.1` Aztec toolchain install | Matches the `bb` build ZKPassport's production circuits were compiled/proved with; required only by `test-harness/generate-proof-fixtures.sh`, never by test/build commands above. |
 
 `zkpassport_core/Nargo.toml`, verbatim:
 
