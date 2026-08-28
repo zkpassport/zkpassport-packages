@@ -65,7 +65,7 @@ pub fn verify_outer_proof_core<let K: u32>(
 mod test {
     use crate::verify::verify_outer_proof_core;
     // NOTE: nargo test no-ops the recursion opcode — these tests cover parsing/policy/commitment
-    // logic only.
+    // logic only. Real recursion coverage lives in test-harness/run-harness.sh (bb verify).
 
     #[test(should_fail_with = "wrong service scope")]
     fn wrong_scope_rejected() {
