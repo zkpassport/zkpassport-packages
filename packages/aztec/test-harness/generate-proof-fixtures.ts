@@ -48,7 +48,6 @@ import {
   getDisclosedBytesFromMrzAndMask,
   getAgeParameterCommitment,
   getMerkleRootFromDSCProof,
-  getNowTimestamp,
   getOuterCircuitInputs,
   getParameterCommitmentFromDisclosureProof,
 } from "@zkpassport/utils"
@@ -81,7 +80,14 @@ const FIXTURES_PATH = path.join(__dirname, "src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
 const MAX_TBS_LENGTH = 700
 
-const nowTimestamp = getNowTimestamp()
+// The proof's embedded "now" (its `current_date` public input). Deliberately FUTURE-dated
+// (2050-01-01) rather than wall-clock: consumers that enforce freshness (the TXE test, the
+// e2e) can only move their chain clocks forward, so a wall-clock-dated fixture expires
+// ~validity_period after generation, while a 2050 fixture stays verifiable until 2050 —
+// the tests warp forward to it. Pairs with the mock MRZ expiry (2060): the document must
+// be unexpired at this date, and the circuit resolves the MRZ's 2-digit expiry year
+// against current_date + 30y, so keep expiry within (FIXTURE_NOW, FIXTURE_NOW + 30y].
+const nowTimestamp = Number(process.env.FIXTURE_NOW ?? 2524608000) // 2050-01-01T00:00:00Z
 const INTEGRITY_TO_DISCLOSURE_SALTS: IntegrityToDisclosureSalts = {
   dg1Salt: 3n,
   expiryDateSalt: 3n,
@@ -131,7 +137,7 @@ async function main() {
   }
   // Johnny Silverhand's MRZ
   const mrz =
-    "P<AUSSILVERHAND<<JOHNNY<<<<<<<<<<<<<<<<<<<<<PA1234567_AUS881112_M300101_<CYBERCITY<<<<\0\0"
+    "P<AUSSILVERHAND<<JOHNNY<<<<<<<<<<<<<<<<<<<<<PA1234567_AUS881112_M600101_<CYBERCITY<<<<\0\0"
   const dg1 = Binary.fromHex("615B5F1F58").concat(Binary.from(mrz))
   const dscKeypair = await loadKeypairFromFile(DSC_KEYPAIR_PATH)
   const { cscPem, dsc, dscKeys } = await generateSigningCertificates({
