@@ -9,8 +9,10 @@ pub contract AgeGate {
         protocol::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use zkpassport::commitments::age_commitment;
-    use zkpassport::verify::{emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof};
+    use zkpassport_aztec::commitments::age_commitment;
+    use zkpassport_aztec::verify::{
+        emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
+    };
 
     global MIN_AGE: u8 = 18;
     // Circuit-manifest version this app accepts; must match the registry seeding (see test.nr).

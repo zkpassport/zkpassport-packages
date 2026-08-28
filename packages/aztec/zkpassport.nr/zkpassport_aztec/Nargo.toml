@@ -1,5 +1,5 @@
 [package]
-name = "zkpassport"
+name = "zkpassport_aztec"
 type = "lib"
 
 [dependencies]

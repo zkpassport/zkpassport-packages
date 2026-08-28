@@ -101,7 +101,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     //   anchor_ts = T0 + 86401  >  T0 + 86400 = schedule_ts + INITIAL_DELAY      (always true)
     env.advance_next_block_timestamp_by(86401);
     env.mine_block();
-    // Freshness (checked in zkpassport::verify::verify_zkpassport_proof against anchor_ts):
+    // Freshness (checked in zkpassport_aztec::verify::verify_zkpassport_proof against anchor_ts):
     //   current_date <= anchor_ts + 3600        AND        current_date + 604800 > anchor_ts
     // With anchor_ts = T0 + 86401 this holds as long as T0 is within roughly
     // [AGE_FIXTURE_CURRENT_DATE - 90001, AGE_FIXTURE_CURRENT_DATE + 518399) — i.e. the suite runs
@@ -127,7 +127,7 @@ unconstrained fn deliver_capsule(
     env.utility_context_at(age_gate, |_| {
         capsules::store(
             age_gate,
-            zkpassport::constants::PROOF_CAPSULE_SLOT,
+            zkpassport_aztec::constants::PROOF_CAPSULE_SLOT,
             AGE_FIXTURE_BLOB,
             user,
         );
