@@ -22,7 +22,7 @@
  * to cwd) and with the 5.0.1 toolchain's bb first in PATH (bb 5.0.0-nightly matches
  * ZKPassport's production circuit builds). Because `npx tsx` resolves node_modules from the
  * SCRIPT's path, this file is copied into the circuits repo before running -- see
- * test-harness/gen-fixtures.sh, which does the copy/run/cleanup.
+ * test-harness/generate-proof-fixtures.sh, which does the copy/run/cleanup.
  *
  *   FIXTURE_KIND=disclose FIXTURE_OUT=/path/out.json npx tsx <copy-inside-circuits-repo>.ts
  */
@@ -334,7 +334,7 @@ async function main() {
   )
 
   const fixture = {
-    generator: "test-harness/fixture-gen.ts (zkpassport-aztec)",
+    generator: "test-harness/generate-proof-fixtures.ts (zkpassport-aztec)",
     kind: FIXTURE_KIND,
     disclosureCircuit: disclosureName,
     bbVersion,

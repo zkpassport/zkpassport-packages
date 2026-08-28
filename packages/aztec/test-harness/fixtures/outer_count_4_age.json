@@ -1,5 +1,5 @@
 {
-  "generator": "harness/fixture-gen.ts (zkpassport-aztec)",
+  "generator": "test-harness/generate-proof-fixtures.ts (zkpassport-aztec)",
   "kind": "age",
   "disclosureCircuit": "compare_age",
   "bbVersion": "5.0.0-nightly.20260710",

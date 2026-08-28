@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Regenerate the proof fixtures consumed by run-harness.sh (and by the TXE tests).
 #
-# Usage: CIRCUITS_REPO=<circuits checkout> ./gen-fixtures.sh [disclose|age] ...   (default: both)
+# Usage: CIRCUITS_REPO=<circuits checkout> ./generate-proof-fixtures.sh [disclose|age] ...   (default: both)
 #
 # Why the copy dance: `npx tsx` resolves node_modules from the SCRIPT's directory, and
-# fixture-gen.ts imports the circuits repo's own TS sources (./src/ts/...) relative to its
+# generate-proof-fixtures.ts imports the circuits repo's own TS sources (./src/ts/...) relative to its
 # own path -- so the generator has to physically live inside the circuits repo while it runs.
 # We copy it in under a clearly-named temp name, run it, and delete it again (same trick the
 # spike used, just automated). cwd must also be the circuits repo: Circuit.from() resolves
@@ -20,7 +20,7 @@ CIRCUITS=${CIRCUITS_REPO:?set CIRCUITS_REPO to a ZKPassport circuits checkout}
 AZTEC_501=${AZTEC_501:-$HOME/.aztec/versions/5.0.1}
 BB_501_BIN=$AZTEC_501/node_modules/.bin
 NARGO_501=$AZTEC_501/bin/aztec-nargo
-TMP_SCRIPT=$CIRCUITS/harness-fixture-gen.tmp.ts
+TMP_SCRIPT=$CIRCUITS/harness-generate-proof-fixtures.tmp.ts
 
 KINDS=("$@")
 if [ ${#KINDS[@]} -eq 0 ]; then KINDS=(disclose age); fi
@@ -35,7 +35,7 @@ cleanup() { rm -f "$TMP_SCRIPT"; }
 trap cleanup EXIT
 
 mkdir -p "$HARNESS_DIR/fixtures"
-cp "$HARNESS_DIR/fixture-gen.ts" "$TMP_SCRIPT"
+cp "$HARNESS_DIR/generate-proof-fixtures.ts" "$TMP_SCRIPT"
 
 for KIND in "${KINDS[@]}"; do
   OUT=$HARNESS_DIR/fixtures/outer_count_4_$KIND.json
