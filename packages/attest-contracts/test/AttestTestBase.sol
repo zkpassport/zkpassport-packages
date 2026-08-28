@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {ProofVerificationParams, ProofVerificationData, ServiceConfig} from "@registry/lib/Types.sol";
+import {NullifierType, ProofVerificationParams, ProofVerificationData, ServiceConfig} from "@registry/lib/Types.sol";
 import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
 import {IRootVerifier} from "../src/interfaces/IRootVerifier.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
@@ -39,11 +39,13 @@ contract AttestTestBase is Test {
     }
 
     function _params() internal pure returns (ProofVerificationParams memory) {
+        // issue() reads the nullifier type from publicInputs[length - 3], as in
+        // real outer proofs; the default is the everywhere-acceptable SALTED.
+        bytes32[] memory publicInputs = new bytes32[](3);
+        publicInputs[0] = bytes32(uint256(NullifierType.SALTED_NULLIFIER));
         return ProofVerificationParams({
             version: bytes32(uint256(1)),
-            proofVerificationData: ProofVerificationData({
-                vkeyHash: bytes32(0), proof: "", publicInputs: new bytes32[](0)
-            }),
+            proofVerificationData: ProofVerificationData({vkeyHash: bytes32(0), proof: "", publicInputs: publicInputs}),
             committedInputs: "",
             serviceConfig: ServiceConfig({
                 validityPeriodInSeconds: 0, domain: "zkpassport.id", scope: "", devMode: false

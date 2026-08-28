@@ -34,9 +34,9 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
         attest.issue(wallet, 999, _params());
     }
 
-    function testIssueRevertsOnDevMode() public {
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__DevModeNotAllowed.selector);
+    function testIssueAcceptsDevModeParams() public {
         attest.issue(wallet, policyId, _devModeParams());
+        assertEq(attest.balanceOf(wallet, policyId), 1);
     }
 
     function testIssueRevertsOnInvalidProof() public {
