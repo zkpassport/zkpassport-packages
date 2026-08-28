@@ -143,22 +143,18 @@ async function main() {
 
   // ---- 3. Advance chain time past the DelayedPublicMutable delay ------------
   //
-  // Fixture freshness budget (mirrors the freshness-anchor comment in
-  // zkpassport.nr/examples/age_gate_contract/src/test.nr::seed_for_fixture):
-  // FIXTURE.nowTimestamp is frozen at fixture-generation time; freshness in
-  // zkpassport::verify::verify_zkpassport_proof requires
-  //   current_date <= anchor_ts + 3600   AND   current_date + 604800 > anchor_ts
-  // (604800s = 7 days, ServiceConfig.validity_period in AgeGate::claim). Every run of this
-  // script warps the SANDBOX's L2 clock forward by ~DELAY+120s (~1 day) and that warp is
-  // cumulative and persists across script invocations against the same running sandbox instance
-  // (only a sandbox restart resets it) -- so anchor_ts drifts ~1 fixture-day closer to the 7-day
-  // ceiling on every run. With a 1-day safety margin (matching the README's "~6 days" budget),
-  // that leaves roughly ~6 runs (~6 warps) of this script against one sandbox instance before
-  // "proof dated in the future"/"proof too old" starts failing here for a reason that has
-  // nothing to do with the code under test. Restart the sandbox (or regenerate the fixture via
-  // test-harness/generate-proof-fixtures.sh) to reset the budget.
+  // The fixture is future-dated (FIXTURE.nowTimestamp = 2050-01-01), so the warp targets it
+  // absolutely: past the DPM delay (counted from the seeding just above) AND into the proof's
+  // freshness window (zkpassport_aztec::verify::verify_zkpassport_proof requires
+  //   current_date <= anchor_ts + 3600   AND   current_date + 604800 > anchor_ts,
+  // 604800s = 7 days = ServiceConfig.validity_period in AgeGate::claim). Warps persist across
+  // runs against the same sandbox instance, and each re-run past the target still bumps the
+  // clock by ~DELAY+120s -- so one instance has a ~5-run budget before anchor_ts leaves the
+  // fixture's 7-day window; restart the sandbox to reset (it re-warps to the 2050 target).
   const before = await l2Timestamp(node);
-  await timed('warp', () => nodeDebug.warpL2TimeAtLeastBy(Number(DELAY + 120n)));
+  const target = BigInt(FIXTURE.nowTimestamp) + DELAY + 120n;
+  const bump = target > before ? target - before : DELAY + 120n;
+  await timed('warp', () => nodeDebug.warpL2TimeAtLeastBy(Number(bump)));
   const after = await l2Timestamp(node);
   log(`L2 timestamp ${before} -> ${after} (+${after - before}s, delay ${DELAY}s)`);
   if (after - before < DELAY) {
@@ -258,7 +254,7 @@ async function main() {
   for (const r of tamperResults) {
     console.log(`  ${r}`);
   }
-  console.log(`time strategy: node debug warpL2TimeAtLeastBy(${DELAY + 120n}s), L2 ts ${before} -> ${after}`);
+  console.log(`time strategy: node debug warpL2TimeAtLeastBy(${bump}s) to fixture-anchored target, L2 ts ${before} -> ${after}`);
 
   await wallet.stop();
 
