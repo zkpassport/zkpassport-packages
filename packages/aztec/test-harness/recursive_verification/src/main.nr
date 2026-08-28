@@ -3,10 +3,10 @@
 // The recursion constraint is a no-op during witness generation, so the
 // pass/fail signal is `bb prove` + `bb verify` on this circuit.
 //
-//   - `verify_outer_proof_core` verifies the fixture's proof recursively;
-//   - `disclose_commitment` recomputed in-circuit from (mask, disclosed bytes) matches the
-//     param commitment the real disclose_bytes proof published;
-//   - the in-circuit poseidon2(vk) matches bb's own vk_hash for the same vk.
+// - `verify_outer_proof_core` verifies the fixture's proof recursively;
+// - `disclose_commitment` recomputed in-circuit from (mask, disclosed bytes) matches the
+//   param commitment the real disclose_bytes proof published;
+// - the in-circuit poseidon2(vk) matches bb's own vk_hash for the same vk.
 use zkpassport_core::commitments::disclose_commitment;
 use zkpassport_core::verify::verify_outer_proof_core;
 
