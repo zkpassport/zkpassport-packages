@@ -10,7 +10,7 @@
 //     param commitment the real disclose_bytes proof published;
 //   - the in-circuit poseidon2(vk) matches bb's own vk_hash for the same vk.
 use zkpassport_core::commitments::disclose_commitment;
-use zkpassport_core::core::verify_outer_proof_core;
+use zkpassport_core::verify::verify_outer_proof_core;
 
 global K: u32 = 4;
 
