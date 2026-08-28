@@ -16,7 +16,7 @@ design spec: `docs/superpowers/specs/2026-08-17-zkpassport-registry-design.md` i
 ```toml
 # zkpassport.nr/Nargo.toml
 [workspace]
-members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport", "examples/age_gate_contract"]
+members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport_aztec", "examples/age_gate_contract"]
 ```
 
 | Package | Type | Purpose | Key dependencies |
