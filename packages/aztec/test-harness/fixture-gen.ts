@@ -1,6 +1,6 @@
 /**
  * zkpassport-aztec harness: generate a real ZKPassport `outer_count_4` proof fixture
- * for the bb-level golden-fixture harness (test-harness/run-harness.sh).
+ * for the bb-level fixture harness (test-harness/run-harness.sh).
  *
  * Evolved from spike/spike-outer-fixture.ts (which was itself adapted from the circuits
  * repo's src/ts/tests/outer.test.ts "4 subproofs" test). Changes vs the spike:

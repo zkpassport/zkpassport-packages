@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate the golden fixtures consumed by run-harness.sh (and by the TXE tests).
+# Regenerate the proof fixtures consumed by run-harness.sh (and by the TXE tests).
 #
 # Usage: ./gen-fixtures.sh [disclose|age] ...   (default: both)
 #

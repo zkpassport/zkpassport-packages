@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bb-level golden-fixture harness: prove & recursively verify a REAL ZKPassport
+# bb-level fixture harness: prove & recursively verify a REAL ZKPassport
 # `outer_count_4` proof THROUGH the zkpassport_core library, under the Aztec v5.2.0
 # toolchain (nargo 1.0.0-beta.25 + bb 5.2.0-nightly).
 #
