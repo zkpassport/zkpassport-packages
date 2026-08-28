@@ -24,7 +24,7 @@ What it offers, mirroring the Noir side module-for-module:
 - **`nationalityBytes` / `packNationality` / `isIdCard`** — TS twins of the Noir
   `disclosed_data` module: layout-aware (TD3 passports @54 vs TD1 ID cards @45,
   keyed on the signed document code), raw un-normalized bytes (German documents
-  disclose `D<<`). Goldens in `test/` match the Noir unit tests
+  disclose `D<<`). The test vectors in `test/` match the Noir unit tests
   literal-for-literal; keep both in lockstep.
 - **`fetchOuterVk(vkeyHash)`** — the outer vk from the live
   `circuits2.zkpassport.id` host (the SDK's own helper still targets the dead

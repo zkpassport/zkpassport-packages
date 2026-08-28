@@ -1,4 +1,4 @@
-// Goldens match zkpassport_core/src/disclosed_data.nr's unit tests
+// The test vectors match zkpassport_core/src/disclosed_data.nr's unit tests
 // literal-for-literal — that pairing is the Noir<->TS parity pin.
 import assert from "node:assert/strict"
 import { test } from "node:test"

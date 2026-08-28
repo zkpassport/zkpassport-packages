@@ -1,6 +1,6 @@
 /**
  * TS twin of `zkpassport.nr`'s `zkpassport_core/src/disclosed_data.nr` — keep
- * the two in lockstep (the goldens in test/disclosed-data.test.ts match the
+ * the two in lockstep (the test vectors in test/disclosed-data.test.ts match the
  * Noir unit tests literal-for-literal).
  *
  * The app-side helpers here are CONVENIENCE: they predict what the in-circuit
