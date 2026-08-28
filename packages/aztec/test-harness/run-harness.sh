@@ -28,16 +28,16 @@
 #                             see fixture_to_prover_toml.py's docstring for detail)
 #
 # WARNING: do not run this script concurrently with itself (or with another mode) -- all
-# invocations write to the shared core_wrapper/Prover.toml before executing. Run the matrix
-# sequentially.
+# invocations write to the shared recursive_verification/Prover.toml before executing. Run the
+# matrix sequentially.
 set -uo pipefail
 
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
-WRAP=$HARNESS_DIR/core_wrapper
+WRAP=$HARNESS_DIR/recursive_verification
 AZTEC=/mnt/user-data/martin/.aztec/versions/5.2.0
 BB=$AZTEC/node_modules/.bin/bb
 NARGO=$AZTEC/bin/aztec-nargo
-ARTIFACT=target/zkpassport_core_wrapper.json
+ARTIFACT=target/recursive_verification.json
 
 if [ $# -lt 1 ]; then
   echo "usage: $0 <fixture.json> [--tamper-proof|--tamper-vk-hash|--tamper-commitment|--tamper-public-input|--tamper-vk]" >&2

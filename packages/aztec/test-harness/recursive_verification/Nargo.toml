@@ -1,5 +1,5 @@
 [package]
-name = "zkpassport_core_wrapper"
+name = "recursive_verification"
 type = "bin"
 authors = [""]
 compiler_version = ">=1.0.0"
