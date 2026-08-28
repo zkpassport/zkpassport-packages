@@ -26,6 +26,7 @@ import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/test
 import { readFileSync } from 'fs';
 import { AgeGateContract } from './artifacts/AgeGate.js';
 import { ZKPassportRegistryContract } from './artifacts/ZKPassportRegistry.js';
+import { packCircuitManifestVersion } from './circuit-version.js';
 
 const NODE_URL = process.env.AZTEC_NODE_URL ?? 'http://localhost:8080';
 
@@ -33,8 +34,9 @@ const NODE_URL = process.env.AZTEC_NODE_URL ?? 'http://localhost:8080';
 const PROOF_CAPSULE_SLOT = new Fr(1n);
 /** Must match zkpassport_registry_contract::types::INITIAL_DELAY (override only for the sed fallback). */
 const DELAY = BigInt(process.env.E2E_DELAY_SECONDS ?? '86400');
-// Circuit-release version seeded into the registry; must match AgeGate's VK_VERSION (main.nr).
-const VK_VERSION = 1n;
+// Circuit-manifest version seeded into the registry; must match AgeGate's
+// CIRCUIT_MANIFEST_VERSION (main.nr): packed("0.0.1"), the local/dev release id.
+const CIRCUIT_MANIFEST_VERSION = packCircuitManifestVersion('0.0.1');
 /** Registry ids: zkpassport_registry_contract::types::REGISTRY_{CERTIFICATE,CIRCUIT}. */
 const REGISTRY_CERTIFICATE = 1n;
 const REGISTRY_CIRCUIT = 2n;
@@ -132,11 +134,11 @@ async function main() {
   );
   await timed('seed accepted vk', () =>
     registry.methods
-      .add_accepted_vk(VK_VERSION, Fr.fromHexString(FIXTURE.vkeyHashBB))
+      .add_accepted_vk(CIRCUIT_MANIFEST_VERSION, Fr.fromHexString(FIXTURE.vkeyHashBB))
       .send({ from: admin, wait: WAIT }),
   );
   await timed('enable version', () =>
-    registry.methods.set_version_status(VK_VERSION, true).send({ from: admin, wait: WAIT }),
+    registry.methods.set_version_status(CIRCUIT_MANIFEST_VERSION, true).send({ from: admin, wait: WAIT }),
   );
 
   // ---- 3. Advance chain time past the DelayedPublicMutable delay ------------
@@ -167,7 +169,7 @@ async function main() {
   // view, no proving involved) or the claim below would fail for a reason unrelated to what
   // this script is testing (registry acceptance vs. real proof verification).
   const vkAccepted = await registry.methods
-    .is_vk_accepted(VK_VERSION, Fr.fromHexString(FIXTURE.vkeyHashBB))
+    .is_vk_accepted(CIRCUIT_MANIFEST_VERSION, Fr.fromHexString(FIXTURE.vkeyHashBB))
     .simulate({ from: admin });
   const vkAcceptedResult = vkAccepted.result ?? vkAccepted;
   log(`vk accepted after warp: ${JSON.stringify(vkAcceptedResult)}`);
