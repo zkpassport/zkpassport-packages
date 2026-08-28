@@ -25,7 +25,7 @@
 #                             substituted post-proof without breaking verification)
 #   --tamper-vk            -> empirically fails at nargo execute (the wrapper's own vk_hash
 #                             cross-stack pin catches a tampered vk before bb is ever reached --
-#                             see fixture_to_prover_toml.py's docstring for detail)
+#                             see fixture-to-prover-toml.ts's doc comment for detail)
 #
 # WARNING: do not run this script concurrently with itself (or with another mode) -- all
 # invocations write to the shared recursive_verification/Prover.toml before executing. Run the
@@ -54,7 +54,7 @@ fail() { # fail <step> <rc>
   exit "$2"
 }
 
-python3 "$HARNESS_DIR/fixture_to_prover_toml.py" "$FIXTURE" "$WRAP/Prover.toml" $TAMPER
+bun "$HARNESS_DIR/fixture-to-prover-toml.ts" "$FIXTURE" "$WRAP/Prover.toml" $TAMPER
 rc=$?
 [ $rc -eq 0 ] || fail "prover-toml" $rc
 
