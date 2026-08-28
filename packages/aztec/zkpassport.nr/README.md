@@ -185,14 +185,19 @@ cd ../e2e && npm install && npx tsx src/run-e2e.ts
 `test-harness/fixtures/*.json` and `examples/age_gate_contract/src/test/fixtures.nr` embed a real
 ZKPassport `outer_count_4` proof whose `current_date` public input is checked against the
 Aztec anchor-block timestamp with a 7-day `validity_period` (`ServiceConfig.validity_period`,
-see the AgeGate example above). Both the age-gate TXE tests (`age_gate_contract`'s `src/test.nr`) and the sandbox e2e
-consume that same embedded/loaded proof, so they must run **within ~6 days of fixture
-regeneration** (a 1-day safety margin under the 7-day window) or the freshness assertions in
-`zkpassport_aztec::verify::verify_zkpassport_proof` (`zkpassport_aztec/src/verify.nr:63-66` — `proof dated in
-the future` / `proof too old`, checked against the private-context anchor-block timestamp) will
-fail. Note `zkpassport_core::core::verify_outer_proof_core` does **not** check freshness itself —
-its own doc comment says so explicitly (it has no `PrivateContext`, hence no notion of "now");
-freshness is layered on top by the glue library, one level up.
+see the AgeGate example above). The fixtures are deliberately **future-dated to 2050-01-01**
+(`FIXTURE_NOW` in `test-harness/generate-proof-fixtures.ts`): the TXE and sandbox clocks can only
+move forward, so a wall-clock-dated fixture would expire ~6 days after generation, while the
+future-dated one stays verifiable until 2050 — the TXE test and the e2e warp their clocks
+forward into its freshness window. The assertions (`proof dated in the future` / `proof too
+old`) live in `zkpassport_aztec::verify::verify_zkpassport_proof`, checked against the
+private-context anchor-block timestamp. Note `zkpassport_core::verify::verify_outer_proof_core`
+does **not** check freshness itself — its own doc comment says so explicitly (it has no
+`PrivateContext`, hence no notion of "now"); freshness is layered on top by the glue library.
+
+One budget remains, per sandbox instance: e2e warps are cumulative on a running sandbox, so one
+instance supports ~5 e2e runs before its clock leaves the fixture's 7-day window — restart the
+sandbox to reset (the next run re-warps to the fixture-anchored target).
 
 Regenerate via `test-harness/generate-proof-fixtures.sh [disclose|age]`, then `test-harness/fixture-to-noir.ts` to
 refresh the embedded TXE fixture. Fixture generation needs a **separate 5.0.1 toolchain
