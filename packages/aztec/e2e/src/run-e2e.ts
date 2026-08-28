@@ -156,7 +156,7 @@ async function main() {
   // that leaves roughly ~6 runs (~6 warps) of this script against one sandbox instance before
   // "proof dated in the future"/"proof too old" starts failing here for a reason that has
   // nothing to do with the code under test. Restart the sandbox (or regenerate the fixture via
-  // test-harness/gen-fixtures.sh) to reset the budget.
+  // test-harness/generate-proof-fixtures.sh) to reset the budget.
   const before = await l2Timestamp(node);
   await timed('warp', () => nodeDebug.warpL2TimeAtLeastBy(Number(DELAY + 120n)));
   const after = await l2Timestamp(node);
