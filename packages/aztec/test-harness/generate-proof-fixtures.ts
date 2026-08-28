@@ -2,13 +2,16 @@
  * zkpassport-aztec harness: generate a real ZKPassport `outer_count_4` proof fixture
  * for the bb-level fixture harness (test-harness/run-harness.sh).
  *
+ * Imports resolve against the `circuits/` submodule (its sources and its node_modules, so
+ * the circuits repo's own pinned dep versions are used). Run via generate-proof-fixtures.sh,
+ * which sets cwd = the submodule (Circuit.from resolves `target/<name>.json` against cwd).
  */
 import { execSync } from "child_process"
 import * as fs from "fs"
 import * as os from "os"
 import * as path from "path"
-import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import type { IntegrityToDisclosureSalts, PackagedCertificatesFile, Query } from "@zkpassport/utils"
+import { poseidon2HashAsync } from "./circuits/node_modules/@zkpassport/poseidon2"
+import type { IntegrityToDisclosureSalts, PackagedCertificatesFile, Query } from "./circuits/node_modules/@zkpassport/utils"
 import {
   Binary,
   calculatePackagedCertificatesRoot,
@@ -27,14 +30,14 @@ import {
   getMerkleRootFromDSCProof,
   getOuterCircuitInputs,
   getParameterCommitmentFromDisclosureProof,
-} from "@zkpassport/utils"
-import { AlgorithmIdentifier } from "@peculiar/asn1-x509"
-import { id_sha256WithRSAEncryption } from "@peculiar/asn1-rsa"
-import { Circuit } from "./src/ts/circuits"
-import { generateSigningCertificates, loadKeypairFromFile, signSod } from "./src/ts/passport-generator"
-import { generateSod, wrapSodInContentInfo } from "./src/ts/sod-generator"
-import { TestHelper, convertPemToPackagedCertificateV1 } from "./src/ts/test-helper"
-import { serializeAsn } from "./src/ts/utils"
+} from "./circuits/node_modules/@zkpassport/utils"
+import { AlgorithmIdentifier } from "./circuits/node_modules/@peculiar/asn1-x509"
+import { id_sha256WithRSAEncryption } from "./circuits/node_modules/@peculiar/asn1-rsa"
+import { Circuit } from "./circuits/src/ts/circuits"
+import { generateSigningCertificates, loadKeypairFromFile, signSod } from "./circuits/src/ts/passport-generator"
+import { generateSod, wrapSodInContentInfo } from "./circuits/src/ts/sod-generator"
+import { TestHelper, convertPemToPackagedCertificateV1 } from "./circuits/src/ts/test-helper"
+import { serializeAsn } from "./circuits/src/ts/utils"
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(`ASSERT FAILED: ${msg}`)
@@ -53,7 +56,7 @@ if (FIXTURE_KIND !== "disclose" && FIXTURE_KIND !== "age") {
 const AGE_MIN = 18
 const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
 
-const FIXTURES_PATH = path.join(__dirname, "src/ts/tests/fixtures")
+const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
 const MAX_TBS_LENGTH = 700
 
