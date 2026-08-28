@@ -40,10 +40,7 @@ pub fn verify_outer_proof_core<let K: u32>(
     // NULLIFIER_TYPE_NONE (=4) means the private nullifier was deliberately hidden by the
     // prover -- the canonical circuit forces scoped_nullifier == 0 in that case (see
     // calculate_scoped_nullifier in the circuits repo's commitment libs), so a zero nullifier
-    // is only legitimate for NONE and must still be rejected for every other type. The actual
-    // "don't burn a zero-value global slot" guard lives one layer up, in
-    // emit_uniqueness_nullifier -- that's the function that would otherwise push a nullifier
-    // and permanently block the app.
+    // is only legitimate for NONE and must still be rejected for every other type.
     assert((nt == NULLIFIER_TYPE_NONE) | (parsed.scoped_nullifier != 0), "zero scoped nullifier");
 
     // Every expected commitment must match a distinct param-commitment slot, in any order. The
