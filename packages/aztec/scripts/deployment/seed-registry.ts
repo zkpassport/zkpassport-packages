@@ -45,9 +45,11 @@
  *   ZKP_REGISTRY_RPC_URL         Ethereum RPC for ZKPassport's RootRegistry
  *                                (default: public Sepolia RPC on testnet, mainnet RPC on mainnet)
  *   ZKP_REGISTRY_CHAIN_ID        chain of that RootRegistry (default matches the RPC above).
- *   VK_VERSION                   circuit-release version to register the vks under and
- *                                enable (Field, default 1). Must match what consumer apps
- *                                pass in ServiceConfig.version.
+ *   CIRCUIT_MANIFEST_VERSION     circuit-manifest semver to register the vks under and
+ *                                enable (default: the fetched manifest's own version).
+ *                                Packed as 2-byte BE major/minor/patch, left-aligned
+ *                                bytes32 (the SDK's L1 params.version encoding); consumer
+ *                                apps must pass the same value in ServiceConfig.version.
  *                                Override BOTH to seed cross-chain roots — e.g. REAL passports
  *                                verified on the Aztec testnet need the MAINNET roots:
  *                                ZKP_REGISTRY_CHAIN_ID=1 ZKP_REGISTRY_RPC_URL=<mainnet rpc>
@@ -71,6 +73,7 @@ import { Fr } from "@aztec/aztec.js/fields"
 import { createAztecNodeClient } from "@aztec/aztec.js/node"
 import { SPONSORED_FPC_SALT } from "@aztec/constants"
 import { deriveStorageSlotInMap } from "@aztec/stdlib/hash"
+import { packCircuitManifestVersion } from "./circuit-version.js"
 import { deriveMasterMessageSigningSecretKey } from "@aztec/stdlib/keys"
 import { EmbeddedWallet } from "@aztec/wallets/embedded"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
@@ -223,9 +226,16 @@ async function main() {
   console.log(`  certificate root: ${certRoot}`)
   console.log(`  circuit root:     ${circuitRoot}`)
   for (const vk of vkHashes) console.log(`  vk ${vk.name}: ${vk.hash}`)
-  // Circuit-release version the vks are registered under (registry: version => vk set).
-  const vkVersionFr = new Fr(BigInt(process.env.VK_VERSION ?? "1"))
-  console.log(`  vk version: ${vkVersionFr}`)
+  // Circuit-manifest version the vks are registered under (registry: version => vk set),
+  // derived from the manifest itself unless overridden.
+  const manifestSemver = process.env.CIRCUIT_MANIFEST_VERSION ?? manifest.version
+  if (!manifestSemver) {
+    throw new Error(
+      "circuit manifest has no version and CIRCUIT_MANIFEST_VERSION is not set — cannot derive the vk version id",
+    )
+  }
+  const vkVersionFr = packCircuitManifestVersion(manifestSemver)
+  console.log(`  circuit manifest version: ${manifestSemver} -> ${vkVersionFr}`)
 
   // ── Connect + rebuild the deployer account ───────────────────────────────────
   const node = createAztecNodeClient(nodeUrl)
@@ -331,14 +341,14 @@ async function main() {
       pendingMaturity++
       continue
     }
-    actions.push(`add_accepted_vk(v${vkVersionFr.toBigInt()}, ${vk.name}): ${vk.hash}`)
+    actions.push(`add_accepted_vk(v${manifestSemver}, ${vk.name}): ${vk.hash}`)
   }
   {
     const enabled = unwrap<boolean>(
       await registry.methods.is_version_enabled(vkVersionFr).simulate({ from: sender.address }),
     )
     if (enabled) {
-      console.log(`vk version ${vkVersionFr.toBigInt()} is already enabled — skipping`)
+      console.log(`vk version ${manifestSemver} is already enabled — skipping`)
     } else {
       const sched = await readScheduledChange(
         node,
@@ -349,11 +359,11 @@ async function main() {
       )
       if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) {
         console.log(
-          `vk version ${vkVersionFr.toBigInt()} enable is already scheduled — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
+          `vk version ${manifestSemver} enable is already scheduled — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
         )
         pendingMaturity++
       } else {
-        actions.push(`set_version_status(v${vkVersionFr.toBigInt()}, true)`)
+        actions.push(`set_version_status(v${manifestSemver}, true)`)
       }
     }
   }
@@ -454,7 +464,7 @@ async function main() {
       1,
     )
     if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) continue // reported in the plan
-    console.log(`add_accepted_vk(v${vkVersionFr.toBigInt()}, ${vk.name}, ${vk.hash}) — proving + sending...`)
+    console.log(`add_accepted_vk(v${manifestSemver}, ${vk.name}, ${vk.hash}) — proving + sending...`)
     await registry.methods.add_accepted_vk(vkVersionFr, hashFr).send(sendOpts)
     console.log(`  done`)
     seeded[`vk:${vk.name}`] = vk.hash
@@ -473,10 +483,10 @@ async function main() {
     )
     const pending = !sched.post[0].isZero() && sched.maturesAt > nowSecs
     if (!enabled && !pending) {
-      console.log(`set_version_status(v${vkVersionFr.toBigInt()}, true) — proving + sending...`)
+      console.log(`set_version_status(v${manifestSemver}, true) — proving + sending...`)
       await registry.methods.set_version_status(vkVersionFr, true).send(sendOpts)
       console.log(`  done`)
-      seeded[`version:${vkVersionFr.toBigInt()}`] = "enabled"
+      seeded[`version:${manifestSemver}`] = "enabled"
     }
   }
 
