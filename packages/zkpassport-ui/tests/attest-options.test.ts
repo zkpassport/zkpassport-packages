@@ -247,7 +247,7 @@ describe("enriched onResult", () => {
     expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
   })
 
-  test("dev-mode requests omit issueCall, whose proofs revert on-chain", async () => {
+  test("dev-mode requests carry an issueCall with dev-mode verifier params", async () => {
     calls = []
     const errors: string[] = []
     const results: unknown[] = []
@@ -259,8 +259,13 @@ describe("enriched onResult", () => {
       onError: (message) => errors.push(message),
     })
     options.onResult!(fakeResponse())
-    expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
-    expect(calls.length).toBe(0)
+    const r = results[0] as { issueCall?: { args: readonly unknown[] } }
+    expect(r.issueCall?.args).toEqual([WALLET, POLICY_ID, PARAMS])
+    expect(calls[0]).toEqual({
+      proof: { proof: "0xdead", name: "outer_evm_5", version: "0.21.0" },
+      scope: SCOPE,
+      devMode: true,
+    })
     expect(errors.length).toBe(0)
   })
 
