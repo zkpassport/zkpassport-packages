@@ -81,35 +81,18 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     );
 
     // --- DPM landing + freshness anchor -------------------------------------------------------
-    // The 4 schedule_value_change calls just above run at TXE's session-start wall-clock time —
-    // TestEnvironment::new() seeds nextBlockTimestamp = Date.now()/1000, i.e. REAL "now" at
-    // whatever moment this test happens to run (yarn-project/txe/src/txe_session.ts:339), call it
-    // T0. T0 is unrelated to AGE_FIXTURE_CURRENT_DATE (the proof's embedded "now", frozen at
-    // fixture-generation time) — measured when this fix was written, T0 was already ~1h03m PAST
-    // AGE_FIXTURE_CURRENT_DATE, so any fixed forward jump like `AGE_FIXTURE_CURRENT_DATE + 90000`
-    // was already outside the ~1h window it silently depended on to land the schedules at all
-    // (and a fixed *backward* jump to `AGE_FIXTURE_CURRENT_DATE - 90000` is flatly impossible
-    // here: set_next_block_timestamp can only move forward from T0, and that target is already
-    // behind it — it would hard-fail with "Cannot go back in time").
-    //
-    // So: don't jump to any AGE_FIXTURE_CURRENT_DATE-derived absolute target at all. The DPM's
-    // 24h (86400s) landing delay is measured from T0 (when schedule_value_change ran), not from
-    // AGE_FIXTURE_CURRENT_DATE, so advance *relatively* past it from wherever T0 actually is —
-    // exactly the pattern the registry contract's test.nr::seed() already uses. This makes
-    // landing correct BY CONSTRUCTION regardless of clock drift between fixture generation and
-    // test run, in either direction:
-    //   anchor_ts = T0 + 86401  >  T0 + 86400 = schedule_ts + INITIAL_DELAY      (always true)
-    env.advance_next_block_timestamp_by(86401);
+    // The schedule_value_change calls just above run at TXE's session-start time, which is REAL
+    // wall-clock "now" (call it T0) and can only move forward. The fixture is future-dated
+    // (AGE_FIXTURE_CURRENT_DATE = 2050-01-01) precisely so one forward jump can satisfy both:
+    //   - DPM landing: anchor_ts >= T0 + 86400 (the 24h delay counts from T0) — any 2050 target
+    //     clears it;
+    //   - freshness (zkpassport_aztec::verify::verify_zkpassport_proof):
+    //       current_date <= anchor_ts + 3600   AND   current_date + 604800 > anchor_ts
+    //     and anchor_ts = AGE_FIXTURE_CURRENT_DATE + 86401 sits well inside that 7-day window.
+    // This is deterministic until real time reaches 2050 (set_next_block_timestamp cannot go
+    // backward, so a wall-clock-dated fixture would instead expire ~6 days after generation).
+    env.set_next_block_timestamp(AGE_FIXTURE_CURRENT_DATE + 86401);
     env.mine_block();
-    // Freshness (checked in zkpassport_aztec::verify::verify_zkpassport_proof against anchor_ts):
-    //   current_date <= anchor_ts + 3600        AND        current_date + 604800 > anchor_ts
-    // With anchor_ts = T0 + 86401 this holds as long as T0 is within roughly
-    // [AGE_FIXTURE_CURRENT_DATE - 90001, AGE_FIXTURE_CURRENT_DATE + 518399) — i.e. the suite runs
-    // within ~6 days of the fixture being (re)generated (measured at fix time: T0 ≈
-    // AGE_FIXTURE_CURRENT_DATE + 3755s, anchor_ts ≈ AGE_FIXTURE_CURRENT_DATE + 90156s — both
-    // bounds hold with a >500,000s margin). This is an inherent property of a proof with a bounded
-    // validity window, not a test artifact: regenerate test-harness/fixtures/outer_count_4_age.json if
-    // it goes stale.
     // -------------------------------------------------------------------------------------------
 
     let age_gate = env.deploy("AgeGate").with_public_initializer(
