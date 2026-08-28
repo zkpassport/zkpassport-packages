@@ -22,14 +22,14 @@ mod test {
     use crate::commitments::{age_commitment, disclose_commitment};
 
     // Values from test-harness/fixtures.json (regenerate with test-harness/generate-fixtures.ts).
-    global GOLDEN_AGE_18_0: Field =
+    global AGE_18_COMMITMENT: Field =
         0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83;
-    global GOLDEN_DISCLOSE: Field =
+    global DISCLOSE_COMMITMENT: Field =
         0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
 
     #[test]
     fn age_matches_zkpassport_utils() {
-        assert(age_commitment(18, 0) == GOLDEN_AGE_18_0);
+        assert(age_commitment(18, 0) == AGE_18_COMMITMENT);
     }
 
     #[test]
@@ -42,6 +42,6 @@ mod test {
         bytes[54] = 65;
         bytes[55] = 85;
         bytes[56] = 83;
-        assert(disclose_commitment(mask, bytes) == GOLDEN_DISCLOSE);
+        assert(disclose_commitment(mask, bytes) == DISCLOSE_COMMITMENT);
     }
 }

@@ -10,8 +10,7 @@ pub struct VerifiedOuterProof<let K: u32> {
     pub vk_hash: Field,
 }
 
-/// Does NOT check: registry roots, vk acceptance, OPRF binding (registry view — Task 6),
-/// or freshness (needs a PrivateContext — Task 11).
+/// Does NOT check: registry roots, vk acceptance, OPRF binding, or freshness (needs a PrivateContext).
 pub fn verify_outer_proof_core<let K: u32>(
     vk: [Field; VK_FIELDS],
     proof: [Field; PROOF_FIELDS],

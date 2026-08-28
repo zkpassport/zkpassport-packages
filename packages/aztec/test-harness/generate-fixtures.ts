@@ -14,9 +14,9 @@
 // Since Noir tests can't call the TS reference implementation, this script generates examples,
 // which then are pinned in Noir tests.
 import {
-  getAgeParameterCommitment, // (minAge: number, maxAge: number) => Promise<bigint>
-  getBindParameterCommitment, // (data: number[], maxLength?: number) => Promise<bigint>
-  getDiscloseParameterCommitment, // (discloseMask: number[], disclosedBytes: number[]) => Promise<bigint>
+  getAgeParameterCommitment,
+  getBindParameterCommitment,
+  getDiscloseParameterCommitment,
 } from "../../zkpassport-utils/dist/esm/index.js"
 import { writeFileSync } from "fs"
 import { fileURLToPath } from "url"
@@ -32,9 +32,7 @@ async function main() {
   // The account is an arbitrary stand-in for user.to_field() (not a real address), but the
   // repeating byte pattern is deliberate: every position holds a distinct value, so an
   // endianness flip, an offset bug, or wrong padding changes the commitment and fails the
-  // golden test — a degenerate value like 0x1 would mask exactly those. It also stays below
-  // the BN254 modulus, so it round-trips as a Field without reduction. Must match the Noir
-  // test's GOLDEN_ACCOUNT literal-for-literal.
+  // checks.
   const account = 0x1122334455667788990011223344556677889900112233445566778899001122n
   const addrBytes = Array.from({ length: 32 }, (_, i) =>
     Number((account >> BigInt(8 * (31 - i))) & 0xffn),
