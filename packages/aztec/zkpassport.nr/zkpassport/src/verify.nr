@@ -3,7 +3,7 @@ use poseidon::poseidon2::Poseidon2;
 use zkpassport_core::constants::{
     CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
 };
-use zkpassport_core::core::verify_outer_proof_core;
+use zkpassport_core::verify::verify_outer_proof_core;
 use zkpassport_registry_contract::ZKPassportRegistry;
 
 pub struct ServiceConfig {
@@ -137,10 +137,10 @@ pub fn check_sanctions(
 /// One-proof-per-passport-per-service: pushes a domain-separated nullifier derived from the
 /// scoped nullifier. Siloed per app contract by the kernel → per-app uniqueness.
 pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier: Field) {
-    // core.nr's "zero scoped nullifier" assert exempts NULLIFIER_TYPE_NONE (no uniqueness
+    // zkpassport_core::verify's "zero scoped nullifier" assert exempts NULLIFIER_TYPE_NONE (no uniqueness
     // requested), so a zero nullifier CAN reach here. This is where it actually matters: pushing
     // it would burn one single global nullifier slot and permanently block every future caller
-    // of this function, in every app, for the rest of time. Guard here, not in core.nr.
+    // of this function, in every app, for the rest of time. Guard here, not in zkpassport_core.
     assert(scoped_nullifier != 0, "no nullifier in this proof");
     context.push_nullifier_unsafe(Poseidon2::hash(
         [UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier],
