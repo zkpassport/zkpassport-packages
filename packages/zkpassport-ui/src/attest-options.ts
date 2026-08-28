@@ -23,7 +23,10 @@ export type AttestVerifyResult = {
   raw: CardResult
   /**
    * Ready-to-send ZKPassportAttest.issue() call; present when verified with
-   * an EVM proof on a non-dev request (dev-mode proofs revert on-chain).
+   * an EVM proof. The request's devMode must match the target chain: the app
+   * roots proofs in the mainnet registries unless devMode is set, in which
+   * case it uses the testnet registries — so testnet contracts only accept
+   * dev-mode proofs and mainnet contracts only non-dev ones.
    */
   issueCall?: AttestIssueCall
 }
@@ -143,8 +146,7 @@ function buildResultHandler(context: {
   return (response) => {
     let issueCall: AttestIssueCall | undefined
     const proof = response.proofs?.find((p) => p.name?.startsWith("outer_evm"))
-    // Dev-mode proofs revert on-chain, so no call is assembled for them.
-    if (response.verified && proof && !devMode) {
+    if (response.verified && proof) {
       try {
         const params = response.sdkInstance.getSolidityVerifierParameters({
           proof,
