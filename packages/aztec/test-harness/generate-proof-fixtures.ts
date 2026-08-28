@@ -2,29 +2,6 @@
  * zkpassport-aztec harness: generate a real ZKPassport `outer_count_4` proof fixture
  * for the bb-level fixture harness (test-harness/run-harness.sh).
  *
- * Evolved from spike/spike-outer-fixture.ts (which was itself adapted from the circuits
- * repo's src/ts/tests/outer.test.ts "4 subproofs" test). Changes vs the spike:
- *   1. emits the disclose payload (`discloseMask` 0/1 x90, `disclosedBytes` u8 x90) so the
- *      Noir side can recompute the parameter commitment in-circuit;
- *   2. FIXTURE_KIND=disclose|age parameterises the 4th (disclosure) subproof:
- *      `disclose_bytes` vs `compare_age` (query { age: { gte: 18 } } -> minAge 18, maxAge 0);
- *   3. both variants emit the SAME core key set (vkeyFields/proof/publicInputs/vkeyHashBB/
- *      vkeyHashPoseidon2/certificateRegistryRoot/circuitRegistryRoot/nowTimestamp/
- *      paramCommitment) so downstream generators can consume either.
- *
- * The local circuit manifest is rebuilt from the LOCALLY generated vkey hashes (the committed
- * src/ts/tests/fixtures/circuit-manifest.json was produced by a different bb build), with the
- * disclosure circuit's own vkey hash as the 4th leaf -- so `compare_age` replaces
- * `disclose_bytes` in the manifest for the age variant, otherwise the outer circuit's
- * circuit-registry membership check fails.
- *
- * MUST run with cwd = the circuits repo (Circuit.from resolves `target/<name>.json` relative
- * to cwd) and with the 5.0.1 toolchain's bb first in PATH (bb 5.0.0-nightly matches
- * ZKPassport's production circuit builds). Because `npx tsx` resolves node_modules from the
- * SCRIPT's path, this file is copied into the circuits repo before running -- see
- * test-harness/generate-proof-fixtures.sh, which does the copy/run/cleanup.
- *
- *   FIXTURE_KIND=disclose FIXTURE_OUT=/path/out.json npx tsx <copy-inside-circuits-repo>.ts
  */
 import { execSync } from "child_process"
 import * as fs from "fs"
