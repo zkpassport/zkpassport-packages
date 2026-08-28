@@ -21,7 +21,8 @@ pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
 mod test {
     use crate::commitments::{age_commitment, disclose_commitment};
 
-    // Values from test-harness/fixtures.json (regenerate with test-harness/generate-fixtures.ts).
+    // Values from test-harness/commitment-fixtures.json (regenerate with
+    // test-harness/generate-commitment-fixtures.ts).
     global AGE_18_COMMITMENT: Field =
         0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83;
     global DISCLOSE_COMMITMENT: Field =

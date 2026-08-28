@@ -4,11 +4,11 @@
 //
 // then:
 //
-// `bun packages/aztec/test-harness/generate-fixtures.ts`.
+// `bun packages/aztec/test-harness/generate-commitment-fixtures.ts`.
 //
-// Emits `fixtures.json` (next to this script) with Poseidon2 param commitments computed by this
-// repo's `@zkpassport/utils`. We use these fixtures to verify that the parameter commitments
-// computed by `zkpassport_core` in-circuit match exactly the prover-side TS (exposed through
+// Emits `commitment-fixtures.json` (next to this script) with Poseidon2 param commitments
+// computed by this repo's `@zkpassport/utils`. We use these fixtures to verify that the parameter
+// commitments computed by `zkpassport_core` in-circuit match exactly the prover-side TS (exposed through
 // `zkpassport/utils`).
 //
 // Since Noir tests can't call the TS reference implementation, this script generates examples,
@@ -21,7 +21,7 @@ import {
 import { writeFileSync } from "fs"
 import { fileURLToPath } from "url"
 
-const OUT = fileURLToPath(new URL("./fixtures.json", import.meta.url))
+const OUT = fileURLToPath(new URL("./commitment-fixtures.json", import.meta.url))
 const hex = (b: bigint) => "0x" + b.toString(16).padStart(64, "0")
 
 async function main() {
