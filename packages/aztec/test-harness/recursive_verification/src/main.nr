@@ -1,11 +1,9 @@
-// Harness wrapper: run the LIBRARY core (zkpassport_core) against a REAL ZKPassport
-// `outer_count_4` proof under the Aztec v5.2.0 toolchain (nargo 1.0.0-beta.25, bb
-// 5.2.0-nightly). The recursion constraint is a no-op during witness generation, so the
-// pass/fail signal is `bb prove` + `bb verify` on this circuit -- see run-harness.sh, which
-// also runs the three negative controls.
+// Run the LIBRARY core (zkpassport_core) against a REAL ZKPassport `outer_count_4`
+// proof under the Aztec v5.2.0 toolchain (nargo 1.0.0-beta.25, bb 5.2.0-nightly).
+// The recursion constraint is a no-op during witness generation, so the
+// pass/fail signal is `bb prove` + `bb verify` on this circuit.
 //
-// This is the cross-stack pin for the whole milestone:
-//   - `verify_outer_proof_core` actually verifies the fixture's proof recursively;
+//   - `verify_outer_proof_core` verifies the fixture's proof recursively;
 //   - `disclose_commitment` recomputed in-circuit from (mask, disclosed bytes) matches the
 //     param commitment the real disclose_bytes proof published;
 //   - the in-circuit poseidon2(vk) matches bb's own vk_hash for the same vk.
