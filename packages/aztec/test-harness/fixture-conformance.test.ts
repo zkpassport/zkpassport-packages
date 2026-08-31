@@ -1,9 +1,7 @@
 // This test pins the fixtures we use to test zkpassport.nr to their external references:
-// the commitment anchors in fixtures.nr to the SDK's conformance vectors, FIXTURE_PUBLIC_INPUTS to the
-// public inputs of the checked-in disclose proof fixture, and the proof fixtures themselves to the
-// circuits submodule commit they were generated from. The provenance check matters because
-// the proof fixtures are self-consistent (each proof verifies against its own embedded vk),
-// so a circuits bump without regeneration would silently keep testing the previous release.
+// - the commitment anchors in fixtures.nr to the SDK's conformance vectors,
+// - FIXTURE_PUBLIC_INPUTS to the public inputs of the checked-in disclose proof fixture,
+// - the proof fixtures themselves to the circuits submodule commit they were generated from.
 //
 // Run from the repo root: `bun test packages/aztec/test-harness/fixture-conformance.test.ts`
 import { expect, test } from "bun:test"
@@ -84,21 +82,27 @@ test("the proof-fixture globals match the age proof fixture", () => {
   const PROOF_NR = fileURLToPath(
     new URL("../zkpassport.nr/zkpassport_core/src/fixtures/proof.nr", import.meta.url),
   )
+
   const gen = evaluateExpressions(
     parseNoirFile(readFileSync(PROOF_NR, "utf8")).constantsExpressions,
   )
+
   const expectedBlob = [
     ...ageFixture.vkeyFields,
     ...ageFixture.proof,
     ...ageFixture.publicInputs,
   ].map((x: string) => BigInt(x).toString())
+
   expect(gen.AGE_FIXTURE_BLOB).toEqual(expectedBlob)
+
   expect(BigInt(gen.AGE_FIXTURE_CERT_ROOT as string)).toBe(
     BigInt(ageFixture.certificateRegistryRoot),
   )
+
   expect(BigInt(gen.AGE_FIXTURE_CIRCUIT_ROOT as string)).toBe(
     BigInt(ageFixture.circuitRegistryRoot),
   )
+
   expect(BigInt(gen.AGE_FIXTURE_VK_HASH as string)).toBe(BigInt(ageFixture.vkeyHashBB))
   expect(BigInt(gen.AGE_FIXTURE_CURRENT_DATE as string)).toBe(BigInt(ageFixture.nowTimestamp))
 })
