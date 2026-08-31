@@ -62,27 +62,14 @@ jobs:
         run: aztec test
         working-directory: packages/aztec/zkpassport.nr
 
-      # Cross-implementation conformance: @zkpassport/utils must reproduce the
-      # commitment anchors in zkpassport_core/src/fixtures.nr (the Noir side is
-      # held to them by the nargo tests above).
+      # The anchors in zkpassport_core/src/fixtures.nr must mirror the conformance
+      # vectors published by @zkpassport/utils (the nargo tests above hold the Noir
+      # side to the anchors; the SDK's own suite holds it to the vectors). Needs no
+      # dependencies: the test reads both files straight from the tree.
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.8
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build zkpassport-utils
-        run: bun run --cwd packages/zkpassport-utils build
 
       - name: Run commitment conformance tests
         run: bun test packages/aztec/test-harness/commitment-conformance.test.ts

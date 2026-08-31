@@ -1,23 +1,15 @@
-// Cross-implementation conformance: @zkpassport/utils must reproduce the commitment
-// anchors pinned in zkpassport_core/src/fixtures.nr — the same anchors the Noir tests in
-// zkpassport_core hold the circuits-repo libs to. The anchors are parsed out of the Noir
-// source at test time, so there is no generated copy to go stale.
+// fixtures.nr must mirror the conformance vectors published by @zkpassport/utils
+// (conformance/vectors.json), the shared reference for every implementation of the
+// parameter-commitment scheme. The SDK is held to the vectors by its own test suite
+// (packages/zkpassport-utils/tests/conformance.test.ts); this test holds the Noir anchors to
+// the same file, parsed out of the Noir source at test time so no copy can go stale.
 //
-// Run from the repo root:
-//
-// `bun i && bun run --cwd packages/zkpassport-utils build`
-//
-// then:
-//
-// `bun test packages/aztec/test-harness/commitment-conformance.test.ts`
+// Run from the repo root: `bun test packages/aztec/test-harness/commitment-conformance.test.ts`
 import { expect, test } from "bun:test"
 import { readFileSync } from "fs"
 import { fileURLToPath } from "url"
+import vectors from "../../zkpassport-utils/conformance/vectors.json"
 import { evaluateExpressions, parseNoirFile } from "./vendor/constants-generator"
-import {
-  getAgeParameterCommitment,
-  getDiscloseParameterCommitment,
-} from "../../zkpassport-utils/dist/esm/index.js"
 
 const FIXTURES_NR = fileURLToPath(
   new URL("../zkpassport.nr/zkpassport_core/src/fixtures.nr", import.meta.url),
@@ -26,23 +18,17 @@ const FIXTURES_NR = fileURLToPath(
 const anchors = evaluateExpressions(
   parseNoirFile(readFileSync(FIXTURES_NR, "utf8")).constantsExpressions,
 )
-const anchor = (name: string): bigint => BigInt(anchors[name])
+const hex = (name: string): string => "0x" + BigInt(anchors[name]).toString(16).padStart(64, "0")
+const vector = (proofType: string) => vectors.vectors.find((v) => v.proofType === proofType)!
 
 test("every anchor in fixtures.nr is checked here", () => {
   expect(Object.keys(anchors).sort()).toEqual(["AGE_18_COMMITMENT", "DISCLOSE_COMMITMENT"])
 })
 
-test("age(18+, no max) matches AGE_18_COMMITMENT", async () => {
-  expect(await getAgeParameterCommitment(18, 0)).toBe(anchor("AGE_18_COMMITMENT"))
+test("AGE_18_COMMITMENT matches the published age vector", () => {
+  expect(hex("AGE_18_COMMITMENT")).toBe(vector("age").commitment)
 })
 
-test('disclose(nationality-only TD3 mask, "AUS") matches DISCLOSE_COMMITMENT', async () => {
-  const mask = Array(90).fill(0)
-  const disclosed = Array(90).fill(0)
-  const aus = [65, 85, 83]
-  for (let i = 0; i < 3; i++) {
-    mask[54 + i] = 1
-    disclosed[54 + i] = aus[i]
-  }
-  expect(await getDiscloseParameterCommitment(mask, disclosed)).toBe(anchor("DISCLOSE_COMMITMENT"))
+test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
+  expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
 })
