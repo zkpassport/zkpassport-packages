@@ -1,5 +1,6 @@
-// Fixture JSON -> Noir globals for TXE tests. Usage: bun fixture-to-noir.ts <fixture.json> <out.nr>
-import { readFileSync, writeFileSync } from "fs"
+// Fixture JSON -> Noir proof-fixture globals (zkpassport_core/src/fixtures/proof.nr, the
+// Noir-side source of truth; fixture-conformance.test.ts checks the JSON stays in step).
+// Usage: bun fixture-to-noir.ts <fixture.json> <out.nr>
 
 const [fixturePath, outPath] = process.argv.slice(2)
 const fx = JSON.parse(readFileSync(fixturePath, "utf8"))
