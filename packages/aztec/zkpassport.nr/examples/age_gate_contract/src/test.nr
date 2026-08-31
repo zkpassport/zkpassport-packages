@@ -1,15 +1,13 @@
-mod fixtures;
-
 // TXE no-ops the recursion opcode, so this test proves the WIRING (capsule → parse → policy →
 // registry views → nullifier), NOT proof validity. Proof validity: Task 10 harness + Task 13 e2e.
 use crate::AgeGate;
-use crate::test::fixtures::{
-    AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT, AGE_FIXTURE_CURRENT_DATE,
-    AGE_FIXTURE_VK_HASH,
-};
 use aztec::{
     oracle::capsules, protocol::address::AztecAddress,
     test::helpers::test_environment::TestEnvironment,
+};
+use zkpassport_core::fixtures::proof::{
+    AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT, AGE_FIXTURE_CURRENT_DATE,
+    AGE_FIXTURE_VK_HASH,
 };
 use zkpassport_registry_contract::{
     types::{MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT},
