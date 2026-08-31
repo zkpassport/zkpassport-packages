@@ -1,6 +1,7 @@
 /**
- * zkpassport-aztec harness: generate a real ZKPassport `outer_count_4` proof fixture
- * for the bb-level fixture harness (test-harness/test-recursive-verification.sh).
+ * zkpassport-aztec harness: generate a real ZKPassport outer proof fixture — `outer_count_4`
+ * for the disclose lane (consumed by test-harness/test-recursive-verification.sh), or
+ * `outer_count_5` (disclosure + bind) for the age lane (consumed by the TXE tests).
  *
  * Imports resolve against the `circuits/` submodule (its sources and its node_modules, so
  * the circuits repo's own pinned dep versions are used). Run via generate-proof-fixtures.sh.
@@ -14,7 +15,10 @@ import type { IntegrityToDisclosureSalts, PackagedCertificatesFile, Query } from
 import {
   Binary,
   calculatePackagedCertificatesRoot,
+  formatBoundData,
   getAgeCircuitInputs,
+  getBindCircuitInputs,
+  getBindParameterCommitment,
   getCircuitMerkleProof,
   getCommitmentFromDSCProof,
   getCommitmentInFromDisclosureProof,
@@ -54,6 +58,12 @@ if (FIXTURE_KIND !== "disclose" && FIXTURE_KIND !== "age") {
 
 const AGE_MIN = 18
 const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
+
+// The address the age proof is bound to (the bind subproof's user_address). Must equal the
+// BIND_ACCOUNT anchor in fixtures.nr: the example app requires bind_user_address_commitment
+// of the claiming address, and fixture-conformance.test.ts ties the fixture's bind slot to
+// the BIND_COMMITMENT anchor through this value.
+const BIND_ADDRESS = "0x1122334455667788990011223344556677889900112233445566778899001122"
 
 const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
@@ -234,6 +244,55 @@ async function proveAgeStage(
   }
 }
 
+// 5th subproof (age lane only): binds the proof to BIND_ADDRESS, so the age-gate example can
+// require bind_user_address_commitment(user) instead of trusting the capsule bearer.
+async function proveBindStage(
+  helper: TestHelper,
+  integrityToDisclosureCommitment: bigint,
+): Promise<DisclosureStage> {
+  const name = "bind"
+
+  const bindQuery: Query = { bind: { user_address: BIND_ADDRESS } }
+  const bindInputs = await getBindCircuitInputs(
+    helper.passport as any,
+    bindQuery,
+    INTEGRITY_TO_DISCLOSURE_SALTS,
+    0n,
+    0n,
+    0n,
+    nowTimestamp,
+  )
+  assert(!!bindInputs, "bind inputs generated")
+
+  const bindR = await proveSubproof(name, bindInputs)
+  const paramCommitment = getParameterCommitmentFromDisclosureProof(bindR.proof)
+
+  const recomputed = await getBindParameterCommitment(
+    formatBoundData({ user_address: BIND_ADDRESS }),
+  )
+  assert(recomputed === paramCommitment, "BIND_ADDRESS reproduces the bind param commitment")
+
+  const commitmentIn = getCommitmentInFromDisclosureProof(bindR.proof)
+  assert(commitmentIn === integrityToDisclosureCommitment, "bind commitment_in == integrity commitment_out")
+
+  await bindR.circuit.destroy()
+
+  return {
+    name,
+    subproof: {
+      proof: bindR.proof.proof,
+      publicInputs: bindR.proof.publicInputs,
+      vkey: bindR.vkey,
+      vkeyHash: bindR.vkeyHash,
+      paramCommitment,
+    },
+    extras: {
+      bindParamCommitment: hex(paramCommitment),
+      bindAddress: BIND_ADDRESS,
+    },
+  }
+}
+
 async function main() {
   const bbVersion = execSync("bb --version").toString().trim().split("\n").pop()
   log(`bb on PATH: ${bbVersion}, FIXTURE_KIND=${FIXTURE_KIND}`)
@@ -315,9 +374,18 @@ async function main() {
     : await proveAgeStage(helper, integrityToDisclosureCommitment)
   subproofs.set(3, disclosure.subproof)
 
-  // ---- Local circuit manifest (registry tree over our 4 local vkey hashes) ----
-  // The 4th leaf is whichever disclosure circuit this variant used, otherwise the outer
-  // circuit's membership proof for it would not verify.
+  // The age lane carries a 5th subproof binding the proof to BIND_ADDRESS (outer_count_5);
+  // the disclose lane stays a plain outer_count_4.
+  const bind = FIXTURE_KIND === "age"
+    ? await proveBindStage(helper, integrityToDisclosureCommitment)
+    : undefined
+  if (bind) subproofs.set(4, bind.subproof)
+
+  const outerName = bind ? "outer_count_5" : "outer_count_4"
+
+  // ---- Local circuit manifest (registry tree over our local vkey hashes) ----
+  // The disclosure/bind leaves are whichever circuits this variant used, otherwise the outer
+  // circuit's membership proofs for them would not verify.
   const localManifest: any = {
     version: `local-harness-${FIXTURE_KIND}`,
     root: "",
@@ -326,6 +394,7 @@ async function main() {
       [idName]: { hash: subproofs.get(1)!.vkeyHash },
       [integrityName]: { hash: subproofs.get(2)!.vkeyHash },
       [disclosure.name]: { hash: subproofs.get(3)!.vkeyHash },
+      ...(bind ? { [bind.name]: { hash: subproofs.get(4)!.vkeyHash } } : {}),
     },
   }
 
@@ -334,6 +403,7 @@ async function main() {
   const mp1 = await getCircuitMerkleProof(subproofs.get(1)!.vkeyHash, localManifest)
   const mp2 = await getCircuitMerkleProof(subproofs.get(2)!.vkeyHash, localManifest)
   const mp3 = await getCircuitMerkleProof(subproofs.get(3)!.vkeyHash, localManifest)
+  const mp4 = bind ? await getCircuitMerkleProof(subproofs.get(4)!.vkeyHash, localManifest) : undefined
   log(`local circuit registry root: ${localManifest.root}`)
 
   // ---- Outer proof ----
@@ -341,25 +411,28 @@ async function main() {
     { ...toSubproofInput(subproofs.get(0)!, mp0) },
     { ...toSubproofInput(subproofs.get(1)!, mp1) },
     { ...toSubproofInput(subproofs.get(2)!, mp2) },
-    [{ ...toSubproofInput(subproofs.get(3)!, mp3) }],
+    [
+      { ...toSubproofInput(subproofs.get(3)!, mp3) },
+      ...(bind ? [{ ...toSubproofInput(subproofs.get(4)!, mp4!) }] : []),
+    ],
     localManifest.root,
   )
 
-  const outerCircuit = Circuit.from("outer_count_4")
-  log("proving outer_count_4 ...")
+  const outerCircuit = Circuit.from(outerName)
+  log(`proving ${outerName} ...`)
 
   const outerProof = await outerCircuit.prove(outerInputs, {
     useCli: true,
-    circuitName: "outer_count_4",
+    circuitName: outerName,
     recursive: true,
   })
   const outerVkey = (await outerCircuit.getVerificationKey({ evm: false })).vkeyFields
   const outerVkeyHashPoseidon = `0x${(await poseidon2HashAsync(outerVkey.map((x) => BigInt(x)))).toString(16).padStart(64, "0")}`
   await outerCircuit.destroy()
 
-  // bb's own vk_hash for outer_count_4 (this is what verify_proof_with_type checks against)
+  // bb's own vk_hash for the outer circuit (this is what verify_proof_with_type checks against)
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "outer-vk-"))
-  execSync(`bb write_vk -t noir-recursive -b target/outer_count_4.json -o ${tmp}`)
+  execSync(`bb write_vk -t noir-recursive -b target/${outerName}.json -o ${tmp}`)
   const outerVkeyHashBB = `0x${fs.readFileSync(path.join(tmp, "vk_hash")).toString("hex")}`
   fs.rmSync(tmp, { recursive: true, force: true })
 
@@ -370,10 +443,17 @@ async function main() {
   assert(paramCommitment !== undefined, "disclosure param commitment present")
 
   // The outer proof's public inputs are [certRoot, circuitRoot, currentDate, scope, subscope,
-  // paramCommitment..., nullifierType, scopedNullifier, oprfPkHash] -- slot 5 for count_4.
+  // paramCommitments..., nullifierType, scopedNullifier, oprfPkHash] -- one commitment slot
+  // per disclosure subproof, starting at slot 5. The prover does not fix the slot order, so
+  // compare as a set.
+  const expectedParams = new Set([paramCommitment!, ...(bind ? [bind.subproof.paramCommitment!] : [])])
+  const proofParams = new Set(
+    outerProof.publicInputs.slice(5, 5 + expectedParams.size).map(BigInt),
+  )
   assert(
-    BigInt(outerProof.publicInputs[5]) === paramCommitment,
-    "outer publicInputs[5] == disclosure param commitment",
+    proofParams.size === expectedParams.size &&
+      [...expectedParams].every((c) => proofParams.has(c)),
+    "outer param commitment slots == the disclosure/bind param commitments",
   )
 
   const fixture = {
@@ -384,12 +464,13 @@ async function main() {
     // cwd is the circuits submodule (set by generate-proof-fixtures.sh), so this records the
     // circuits commit the proof was built from; fixture-conformance.test.ts holds it to the pin.
     circuitsCommit: execSync("git rev-parse HEAD").toString().trim(),
-    circuit: "outer_count_4",
+    circuit: outerName,
     nowTimestamp,
     certificateRegistryRoot: hex(certificateRegistryRoot),
     circuitRegistryRoot: localManifest.root,
     paramCommitment: hex(paramCommitment!),
     ...disclosure.extras,
+    ...(bind?.extras ?? {}),
     vkeyFields: outerVkey,
     vkeyHashPoseidon2: outerVkeyHashPoseidon,
     vkeyHashBB: outerVkeyHashBB,
@@ -429,6 +510,7 @@ function toSubproofInput(
 // Emits zkpassport_core/src/fixtures/proof.nr, replacing it wholesale.
 function emitProofGlobals(
   fx: {
+    circuit: string
     vkeyFields: string[]
     proof: string[]
     publicInputs: string[]
@@ -436,6 +518,7 @@ function emitProofGlobals(
     circuitRegistryRoot: string
     vkeyHashBB: string
     nowTimestamp: number
+    bindAddress?: string
   },
   outPath: string,
 ) {
@@ -446,15 +529,17 @@ function emitProofGlobals(
 
   fs.writeFileSync(
     outPath,
-    "//! Proof-fixture globals: a real outer_count_4 proof (vk ‖ proof ‖ public inputs) plus the\n" +
-      "//! registry roots, vk hash, and timestamp it was produced under, for consumers' TXE tests.\n" +
-      "//! Source of truth on the Noir side; fixture-conformance.test.ts checks the checked-in age\n" +
-      "//! fixture JSON agrees. Regenerated by test-harness/generate-proof-fixtures.sh on a capture.\n" +
+    `//! Proof-fixture globals: a real ${fx.circuit} proof (vk ‖ proof ‖ public inputs) plus the\n` +
+      "//! registry roots, vk hash, timestamp, and bound address it was produced under, for\n" +
+      "//! consumers' TXE tests. Source of truth on the Noir side; fixture-conformance.test.ts\n" +
+      "//! checks the checked-in age fixture JSON agrees. Regenerated by\n" +
+      "//! test-harness/generate-proof-fixtures.sh on a capture.\n" +
       arr("AGE_FIXTURE_BLOB", blob) +
       `pub global AGE_FIXTURE_CERT_ROOT: Field = ${fx.certificateRegistryRoot};\n` +
       `pub global AGE_FIXTURE_CIRCUIT_ROOT: Field = ${fx.circuitRegistryRoot};\n` +
       `pub global AGE_FIXTURE_VK_HASH: Field = ${fx.vkeyHashBB};\n` +
-      `pub global AGE_FIXTURE_CURRENT_DATE: u64 = ${fx.nowTimestamp};\n`,
+      `pub global AGE_FIXTURE_CURRENT_DATE: u64 = ${fx.nowTimestamp};\n` +
+      `pub global AGE_FIXTURE_BIND_ADDRESS: Field = ${fx.bindAddress};\n`,
   )
 }
 

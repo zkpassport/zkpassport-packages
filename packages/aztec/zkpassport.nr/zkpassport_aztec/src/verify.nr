@@ -30,6 +30,12 @@ pub global UNIQUENESS_NULLIFIER_DOMAIN: Field = 0x7a6b70617373706f7274;
 /// Verify a zkPassport outer proof end-to-end: capsule load, recursion, scope pin, nullifier
 /// policy, commitment coverage, freshness, and the one registry view (roots + vk + OPRF).
 ///
+/// `capsule_scope` is the PXE account scope the proof capsule was delivered under — the
+/// transaction sender (`msg_sender`), not necessarily the subject of the proof. It only
+/// selects where the capsule is read from; nothing about the proof's validity depends on it.
+/// To tie the proof to an address, put `bind_user_address_commitment(address)` in
+/// `expected_commitments`.
+///
 /// `expected_commitments` are matched as a multiset (any order, full coverage — see
 /// verify_outer_proof_core): the prover does not fix the subproof order and the ZKPassport SDK
 /// itself matches param commitments by membership, so e.g. a {constraint, bind} pair may
@@ -37,7 +43,7 @@ pub global UNIQUENESS_NULLIFIER_DOMAIN: Field = 0x7a6b70617373706f7274;
 pub fn verify_zkpassport_proof<let K: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
-    user: AztecAddress,
+    capsule_scope: AztecAddress,
     config: ServiceConfig,
     expected_commitments: [Field; K - 3],
 ) -> VerifiedProof<K> {
@@ -45,7 +51,7 @@ pub fn verify_zkpassport_proof<let K: u32>(
     // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/
     // registry checks below constrain every field derived from it.
     let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + K + 5]> =
-        unsafe { capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, user) };
+        unsafe { capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, capsule_scope) };
     assert(blob.is_some(), "missing zkpassport proof capsule");
     let blob = blob.unwrap();
 
@@ -102,10 +108,14 @@ pub fn verify_zkpassport_proof<let K: u32>(
 
 /// Load the disclose payload (mask ‖ bytes, one value per Field) from the app's capsule slot 2.
 /// Range-constrains every element (Field→int casts truncate silently in Noir).
-pub fn load_disclose_payload(app: AztecAddress, user: AztecAddress) -> ([bool; 90], [u8; 90]) {
+pub fn load_disclose_payload(
+    app: AztecAddress,
+    capsule_scope: AztecAddress,
+) -> ([bool; 90], [u8; 90]) {
     // Safety: the loaded tail is untrusted input; every element is range-constrained below
     // before being used as a bit or byte.
-    let tail: Option<[Field; 180]> = unsafe { capsules::load(app, DISCLOSE_CAPSULE_SLOT, user) };
+    let tail: Option<[Field; 180]> =
+        unsafe { capsules::load(app, DISCLOSE_CAPSULE_SLOT, capsule_scope) };
     assert(tail.is_some(), "missing disclose capsule");
     let tail = tail.unwrap();
     let mut mask = [false; 90];

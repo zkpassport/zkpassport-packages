@@ -6,10 +6,10 @@ use aztec::macros::aztec;
 pub contract AgeGate {
     use aztec::{
         macros::{functions::{external, initializer}, storage::storage},
-        protocol::address::AztecAddress,
+        protocol::{address::AztecAddress, traits::ToField},
         state_vars::PublicImmutable,
     };
-    use zkpassport_aztec::commitments::age_commitment;
+    use zkpassport_aztec::commitments::{age_commitment, bind_user_address_commitment};
     use zkpassport_aztec::verify::{
         emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
     };
@@ -34,19 +34,16 @@ pub contract AgeGate {
         self.storage.registry.initialize(registry);
     }
 
-    /// Claim the 18+ badge: verifies a ZKPassport age proof (outer_count_4, one param
-    /// commitment = age(18, 0)) and burns the scoped nullifier — one claim per passport.
+    /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
+    /// commitments = {age(18, 0), bind(user)}) and burns the scoped nullifier — one claim
+    /// per passport.
     ///
-    /// WARNING (trust model, see README.md "Trust model" #6): `verify_zkpassport_proof` verifies
-    /// the *proof*, not the *claimant* — a leaked capsule blob (`vk ‖ proof ‖ public_inputs`) is
-    /// bearer authorization. The assert below only ties the capsule scope to this call's caller;
-    /// it does NOT bind the proof itself. `claim` mints nothing of value (M1 scope), so this is
-    /// sufficient here, but any app granting anything of value must additionally add
-    /// `bind_user_address_commitment(user.to_field())` to `expected_commitments` and require the
-    /// ZKPassport request to bind that address.
+    /// The bind commitment ties the proof itself to `user` (the passport holder asked
+    /// ZKPassport to bind that address when the proof was made), so a leaked capsule blob
+    /// authorizes nothing for anyone else, and anyone — a relayer included — may submit the
+    /// transaction; no `msg_sender` check is needed.
     #[external("private")]
     fn claim(user: AztecAddress) {
-        assert(user == self.msg_sender(), "capsule scope must be the caller");
         let registry = self.storage.registry.read();
         let config = ServiceConfig {
             version: CIRCUIT_MANIFEST_VERSION,
@@ -55,8 +52,16 @@ pub contract AgeGate {
             validity_period: 7 * 86400,
             dev_mode: false,
         };
-        let expected = [age_commitment(MIN_AGE, 0)];
-        let verified = verify_zkpassport_proof::<4>(self.context, registry, user, config, expected);
+        let expected = [age_commitment(MIN_AGE, 0), bind_user_address_commitment(user.to_field())];
+        // The capsule rides in the sender's PXE, so it is scoped to the sender — who may be a
+        // relayer, not `user`.
+        let verified = verify_zkpassport_proof::<5>(
+            self.context,
+            registry,
+            self.msg_sender(),
+            config,
+            expected,
+        );
         emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
     }
 }

@@ -35,7 +35,7 @@ fi
 for PKG in sig_check_dsc_tbs_700_rsa_pkcs_4096_sha512 \
   sig_check_id_data_tbs_700_rsa_pkcs_2048_sha256 \
   data_check_integrity_sa_sha256_dg_sha256 \
-  disclose_bytes compare_age outer_count_4; do
+  disclose_bytes compare_age bind outer_count_4 outer_count_5; do
   if [ ! -f "$CIRCUITS/target/$PKG.json" ]; then
     echo "== compiling $PKG with $($NARGO_501 --version | head -1)"
     (cd "$CIRCUITS" && $NARGO_501 compile --package "$PKG")
@@ -45,7 +45,10 @@ done
 mkdir -p "$HARNESS_DIR/fixtures"
 
 for KIND in "${KINDS[@]}"; do
-  OUT=$HARNESS_DIR/fixtures/outer_count_4_$KIND.json
+  # The age lane carries a bind subproof on top of the disclosure one, hence count_5.
+  COUNT=4
+  if [ "$KIND" = age ]; then COUNT=5; fi
+  OUT=$HARNESS_DIR/fixtures/outer_count_${COUNT}_$KIND.json
   echo "== generating $KIND fixture -> $OUT"
   (cd "$CIRCUITS" && PATH=$BB_501_BIN:$PATH FIXTURE_KIND=$KIND FIXTURE_OUT=$OUT npx tsx "$HARNESS_DIR/generate-proof-fixtures.ts")
 done
