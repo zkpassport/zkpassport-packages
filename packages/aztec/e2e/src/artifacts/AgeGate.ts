@@ -95,12 +95,15 @@ export class AgeGateContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'registry'> {
+  public static get storage(): ContractStorageLayout<'registry' | 'badges'> {
       return {
         registry: {
       slot: new Fr(1n),
+    },
+badges: {
+      slot: new Fr(3n),
     }
-      } as ContractStorageLayout<'registry'>;
+      } as ContractStorageLayout<'registry' | 'badges'>;
     }
     
 
@@ -112,6 +115,9 @@ export class AgeGateContract extends ContractBase {
 
     /** constructor(registry: struct) */
     constructor: ((registry: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** has_badge(user: struct) */
+    has_badge: ((user: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** offchain_receive(messages: struct) */
     offchain_receive: ((messages: { ciphertext: FieldLike[], recipient: AztecAddressLike, tx_hash: OptionLike<FieldLike>, anchor_block_timestamp: (bigint | number) }[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

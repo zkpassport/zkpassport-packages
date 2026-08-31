@@ -239,6 +239,13 @@ async function main() {
   );
   console.log(`CLAIM MINED: ${receipt.txHash.toString()}`);
 
+  // The public badge must land on the bound address, not on the submitting account.
+  const badgeBoundSim = await ageGate.methods.has_badge(boundUser).simulate({ from: user });
+  const badgeSenderSim = await ageGate.methods.has_badge(user).simulate({ from: user });
+  const badgeBound = badgeBoundSim.result ?? badgeBoundSim;
+  const badgeSender = badgeSenderSim.result ?? badgeSenderSim;
+  console.log(`BADGE GRANTED TO BOUND ADDRESS: ${badgeBound === true && badgeSender === false}`);
+
   // ---- 5. Double claim must collide on the uniqueness nullifier -------------
   let doubleFailed = false;
   let doubleError = '';
@@ -267,7 +274,11 @@ async function main() {
     console.error('FAILED: the double claim was not rejected — the uniqueness nullifier did not collide.');
     process.exit(1);
   }
-  console.log('OK: all three outcomes as expected.');
+  if (!(badgeBound === true && badgeSender === false)) {
+    console.error('FAILED: the badge did not land on the bound address (or leaked to the sender).');
+    process.exit(1);
+  }
+  console.log('OK: all outcomes as expected.');
   process.exit(0);
 }
 
