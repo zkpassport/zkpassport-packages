@@ -45,14 +45,14 @@ pub mod test {
     use crate::parse::parse_public_inputs;
 
     pub global FIXTURE_PIS: [Field; 9] = [
-        0x0b0c92d05628ecf182329c3196082f4dd9ce3f56f56588c9d7980092a09da0b3, // cert root
-        0x028840d451e834f298e5a898a80f8fbfe9ea6605454a17c83d00a8b79d55753c, // circuit root
-        0x000000000000000000000000000000000000000000000000000000006a82e6c9, // current_date
+        0x050db5ae8a082acac8aedd3fa5611797e6090e1be98814988f9b30756e655852, // cert root
+        0x1fb977b9b05632763b1daba0b1aab88f523c61f829eac7c1867790befe6e3e58, // circuit root
+        0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
         0x0000000000000000000000000000000000000000000000000000000000000000, // scope
         0x0000000000000000000000000000000000000000000000000000000000000000, // subscope
-        0x2613e86d681964f7da622ce30ca7bddabf0ec50a6a46dda1ccf7ffa4173471ba, // param_commitments[0]
+        0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83, // param_commitments[0]
         0x0000000000000000000000000000000000000000000000000000000000000000, // nullifier_type
-        0x05dc3bf920696c5869f372f66f4a0f940ebf701020c8921a933ebcd102b6aa8f, // scoped_nullifier
+        0x1c2de0aff0b433e96e0f1da31cec1d9e8b5e98c75d8d5c2e3e255ad689fe6354, // scoped_nullifier
         0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
     ];
 
@@ -61,7 +61,7 @@ pub mod test {
         let p = parse_public_inputs::<4>(FIXTURE_PIS);
         assert(p.certificate_registry_root == FIXTURE_PIS[0]);
         assert(p.circuit_registry_root == FIXTURE_PIS[1]);
-        assert(p.current_date == 1786963657);
+        assert(p.current_date == 2524608000);
         assert(p.service_scope == 0);
         assert(p.service_subscope == 0);
         assert(p.param_commitments[0] == FIXTURE_PIS[5]);
