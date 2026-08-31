@@ -17,3 +17,26 @@ pub fn disclose_commitment(mask: DiscloseMask, disclosed: MRZData) -> Field {
 pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
 }
+
+mod test {
+    use crate::commitments::{age_commitment, disclose_commitment};
+    use crate::fixtures::{AGE_18_COMMITMENT, DISCLOSE_COMMITMENT};
+
+    #[test]
+    fn age_matches_conformance_anchor() {
+        assert(age_commitment(18, 0) == AGE_18_COMMITMENT);
+    }
+
+    #[test]
+    fn disclose_matches_conformance_anchor() {
+        let mut mask = [false; 90];
+        let mut bytes = [0 as u8; 90];
+        mask[54] = true;
+        mask[55] = true;
+        mask[56] = true;
+        bytes[54] = 65;
+        bytes[55] = 85;
+        bytes[56] = 83;
+        assert(disclose_commitment(mask, bytes) == DISCLOSE_COMMITMENT);
+    }
+}
