@@ -3,15 +3,7 @@
  *
  * Usage: bun fixture-to-prover-toml.ts <fixture.json> <Prover.toml> [tamper-mode]
  *
- * Extends spike/fixture-to-prover-toml.py: the wrapper now drives the library core, so it also
- * needs `expected_vk_hash` (the fixture's bb `vkeyHashBB`) and the disclose payload
- * (`disclose_mask` / `disclosed_bytes`) from which the circuit recomputes the parameter
- * commitment.
- *
- * Tamper modes (negative controls -- each MUST make the harness exit non-zero). Only the two
- * bb-level controls exist: tampering the vk, vk-hash, or disclose payload dies at `nargo
- * execute` on asserts the positive run and zkpassport_core's unit tests already cover, so
- * those modes added no evidence about the recursion opcode.
+ * Tamper modes:
  *   --tamper-proof         flip the last hex digit of proof[-1]  -> dies at `bb prove`/`bb verify`
  *   --tamper-public-input  flip the last hex digit of public_inputs[0]
  *                          -> dies at `bb prove`/`bb verify` (recursion constraint over the PI
