@@ -48,6 +48,10 @@ if (!FIXTURE_OUT) throw new Error("Set FIXTURE_OUT to the output JSON path")
 
 const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
+// Max padded byte length of the certificate TBS ("to be signed", RFC 5280 s4.1.2) section the
+// sig-check circuits accept. Selects the circuit size variant (the submodule ships tbs_700 /
+// 1000 / 1200 / 1600 under circuits/src/noir/bin/sig-check/); 700 fits the synthetic test
+// certs, same as the circuits repo's own suite.
 const MAX_TBS_LENGTH = 700
 
 // The proof's embedded "now" (its `current_date` public input). Deliberately FUTURE-dated
