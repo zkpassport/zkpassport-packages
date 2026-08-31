@@ -96,7 +96,8 @@
   },
   "files": [
     "dist/esm",
-    "dist/cjs"
+    "dist/cjs",
+    "conformance"
   ],
   "keywords": [
     "zkpassport",
