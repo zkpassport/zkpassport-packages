@@ -401,7 +401,7 @@ async function main() {
   log(`fixture written to ${FIXTURE_OUT}`)
 
   // The age fixture also becomes the Noir-side source of truth for consumers' TXE tests
-  // (the disclose fixture is consumed by run-harness.sh straight from the JSON).
+  // (the disclose fixture is consumed by test-recursive-verification.sh straight from the JSON).
   if (FIXTURE_KIND === "age") {
     const proofNr = new URL(
       "../zkpassport.nr/zkpassport_core/src/fixtures/proof.nr",
