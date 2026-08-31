@@ -1,4 +1,4 @@
-// zkpassport_core's parse tests pin FIXTURE_PIS, a hand-transcribed copy of the public
+// zkpassport_core's fixtures.nr pins FIXTURE_PIS, a hand-transcribed copy of the public
 // inputs from fixtures/outer_count_4_age.json. This test keeps the transcription honest:
 // if the fixture is ever regenerated, the Noir constant must be retranscribed or the parse
 // tests silently keep exercising a transcript no real proof carries.
@@ -9,12 +9,12 @@ import { readFileSync } from "fs"
 import { fileURLToPath } from "url"
 import fixture from "./fixtures/outer_count_4_age.json"
 
-const PARSE_NR = fileURLToPath(
-  new URL("../zkpassport.nr/zkpassport_core/src/parse.nr", import.meta.url),
+const FIXTURES_NR = fileURLToPath(
+  new URL("../zkpassport.nr/zkpassport_core/src/fixtures.nr", import.meta.url),
 )
 
 test("FIXTURE_PIS matches the age fixture's public inputs", () => {
-  const src = readFileSync(PARSE_NR, "utf8")
+  const src = readFileSync(FIXTURES_NR, "utf8")
   const body = src.match(/FIXTURE_PIS: \[Field; 9\] = \[([\s\S]*?)\n\s*\];/)?.[1]
   expect(body).toBeDefined()
   const pis = [...body!.matchAll(/0x[0-9a-fA-F]+/g)].map((m) => BigInt(m[0]))
