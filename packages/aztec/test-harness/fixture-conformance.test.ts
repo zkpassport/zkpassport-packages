@@ -28,7 +28,7 @@ test("every constant in fixtures.nr is checked here", () => {
   expect(Object.keys(anchors).sort()).toEqual([
     "AGE_18_COMMITMENT",
     "DISCLOSE_COMMITMENT",
-    "FIXTURE_PIS",
+    "FIXTURE_PUBLIC_INPUTS",
   ])
 })
 
@@ -40,10 +40,10 @@ test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
 })
 
-// FIXTURE_PIS[5] is param_commitments[0]; the proof it was transcribed from was an 18+ age
+// FIXTURE_PUBLIC_INPUTS[5] is param_commitments[0]; the proof it was transcribed from was an 18+ age
 // check, so that slot must embed the age anchor.
-test("FIXTURE_PIS embeds the age param commitment", () => {
-  const pis = anchors.FIXTURE_PIS
+test("FIXTURE_PUBLIC_INPUTS embeds the age param commitment", () => {
+  const pis = anchors.FIXTURE_PUBLIC_INPUTS
   expect(Array.isArray(pis)).toBe(true)
   expect(pis).toHaveLength(9)
   expect(BigInt((pis as string[])[5])).toBe(BigInt(anchors.AGE_18_COMMITMENT as string))
