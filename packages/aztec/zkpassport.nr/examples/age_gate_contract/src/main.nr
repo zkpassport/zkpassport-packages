@@ -39,9 +39,7 @@ pub contract AgeGate {
     /// per passport.
     ///
     /// The bind commitment ties the proof itself to `user` (the passport holder asked
-    /// ZKPassport to bind that address when the proof was made), so a leaked capsule blob
-    /// authorizes nothing for anyone else, and anyone — a relayer included — may submit the
-    /// transaction; no `msg_sender` check is needed.
+    /// ZKPassport to bind that address when the proof was made).
     #[external("private")]
     fn claim(user: AztecAddress) {
         let registry = self.storage.registry.read();
