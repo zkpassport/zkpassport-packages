@@ -1,8 +1,4 @@
-// fixtures.nr must mirror the conformance vectors published by @zkpassport/utils
-// (conformance/vectors.json), the shared reference for every implementation of the
-// parameter-commitment scheme. The SDK is held to the vectors by its own test suite
-// (packages/zkpassport-utils/tests/conformance.test.ts); this test holds the Noir anchors to
-// the same file, parsed out of the Noir source at test time so no copy can go stale.
+// This test pins the Noir fixtures we use to test zkpassport.nr to the SDK's conformance vectors.
 //
 // Run from the repo root: `bun test packages/aztec/test-harness/commitment-conformance.test.ts`
 import { expect, test } from "bun:test"
