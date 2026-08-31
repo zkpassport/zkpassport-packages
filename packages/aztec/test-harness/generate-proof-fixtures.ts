@@ -440,8 +440,10 @@ function emitProofGlobals(
   outPath: string,
 ) {
   const blob = [...fx.vkeyFields, ...fx.proof, ...fx.publicInputs] // capsule layout: vk ‖ proof ‖ PIs
+
   const arr = (name: string, values: string[]) =>
     `pub global ${name}: [Field; ${values.length}] = [\n    ${values.join(",\n    ")},\n];\n`
+
   fs.writeFileSync(
     outPath,
     "//! Proof-fixture globals: a real outer_count_4 proof (vk ‖ proof ‖ public inputs) plus the\n" +

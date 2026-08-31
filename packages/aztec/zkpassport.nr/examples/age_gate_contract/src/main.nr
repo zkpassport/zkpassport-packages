@@ -15,6 +15,7 @@ pub contract AgeGate {
     };
 
     global MIN_AGE: u8 = 18;
+
     // Circuit-manifest version this app accepts; must match the registry seeding (see test.nr).
     // Convention: the CircuitManifest semver packed as 2-byte BE major/minor/patch, left-aligned
     // bytes32 (the SDK's L1 params.version encoding). This is packed("0.0.1") — the local/dev
