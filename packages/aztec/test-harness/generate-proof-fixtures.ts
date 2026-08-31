@@ -83,15 +83,19 @@ async function proveSubproof(
   inputs: unknown,
 ): Promise<{ circuit: Circuit; proof: { proof: string[]; publicInputs: string[] }; vkey: string[]; vkeyHash: string }> {
   const circuit = Circuit.from(circuitName)
+
   log(`proving ${circuitName} ...`)
   const proof = await circuit.prove(inputs as any, {
     recursive: true,
     useCli: true,
     circuitName,
   })
+
   assert(!!proof, `${circuitName} proof defined`)
+
   const vkey = (await circuit.getVerificationKey({ evm: false })).vkeyFields
   const vkeyHash = `0x${(await poseidon2HashAsync(vkey.map((x) => BigInt(x)))).toString(16).padStart(64, "0")}`
+
   log(`${circuitName}: proof=${proof.proof.length} fields, publicInputs=${proof.publicInputs.length}, vk=${vkey.length} fields, vkHash=${vkeyHash}`)
   return { circuit, proof, vkey, vkeyHash }
 }
@@ -110,6 +114,7 @@ async function main() {
     masterlists: [],
     revocations: [],
   }
+
   // Johnny Silverhand's MRZ
   const mrz =
     "P<AUSSILVERHAND<<JOHNNY<<<<<<<<<<<<<<<<<<<<<PA1234567_AUS881112_M600101_<CYBERCITY<<<<\0\0"
@@ -124,14 +129,19 @@ async function main() {
     dscKeySize: 2048,
     dscKeypair,
   })
+
   const { sod } = await generateSod(dg1, [dsc], "SHA-256", new AlgorithmIdentifier({
     algorithm: id_sha256WithRSAEncryption,
   }))
+
   const { sod: signedSod } = await signSod(sod, dscKeys, "SHA-256")
+
   packagedCerts.certificates.push(await convertPemToPackagedCertificateV1(cscPem))
   packagedCerts.timestamp = Math.floor(Date.UTC(2026, 0, 1) / 1000)
   packagedCerts.root = await calculatePackagedCertificatesRoot(packagedCerts)
+
   const contentInfoWrappedSod = serializeAsn(wrapSodInContentInfo(signedSod))
+
   await helper.loadPassport(dg1, Binary.from(contentInfoWrappedSod))
   helper.setCertificates(packagedCerts)
 
@@ -142,6 +152,7 @@ async function main() {
   const dscInputs = await helper.generateCircuitInputs("dsc")
   const dscR = await proveSubproof(dscName, dscInputs)
   assert(dscR.proof.publicInputs.length === 2, "dsc publicInputs length == 2")
+
   const certificateRegistryRoot = getMerkleRootFromDSCProof(dscR.proof)
   const cscToDscCommitment = getCommitmentFromDSCProof(dscR.proof)
   subproofs.set(0, { proof: dscR.proof.proof, publicInputs: dscR.proof.publicInputs, vkey: dscR.vkey, vkeyHash: dscR.vkeyHash })
@@ -167,6 +178,7 @@ async function main() {
 
   // ---- 4th subproof: the parameterised disclosure stage ----
   const disclosureName = "disclose_bytes"
+
   const discloseQuery: Query = {
     issuing_country: { disclose: true },
     nationality: { disclose: true },
@@ -177,6 +189,7 @@ async function main() {
     expiry_date: { disclose: true },
     gender: { disclose: true },
   }
+
   const discloseInputs = await getDiscloseCircuitInputs(
     helper.passport as any,
     discloseQuery,
@@ -187,6 +200,7 @@ async function main() {
     nowTimestamp,
   )
   assert(!!discloseInputs, "disclose inputs generated")
+
   const discloseMask: number[] = discloseInputs!.disclose_mask
   const disclosedBytes: number[] = getDisclosedBytesFromMrzAndMask(
     (helper.passport as any).mrz,
@@ -197,11 +211,14 @@ async function main() {
 
   const discloseR = await proveSubproof(disclosureName, discloseInputs)
   const paramCommitment = getParameterCommitmentFromDisclosureProof(discloseR.proof)
+
   // Cross-stack check: the mask/bytes we emit must reproduce the proof's commitment.
   const recomputed = await getDiscloseParameterCommitment(discloseMask, disclosedBytes)
   assert(recomputed === paramCommitment, "emitted mask/bytes reproduce the disclose param commitment")
+
   const commitmentIn = getCommitmentInFromDisclosureProof(discloseR.proof)
   assert(commitmentIn === integrityToDisclosureCommitment, "disclose commitment_in == integrity commitment_out")
+
   subproofs.set(3, {
     proof: discloseR.proof.proof,
     publicInputs: discloseR.proof.publicInputs,
@@ -209,7 +226,9 @@ async function main() {
     vkeyHash: discloseR.vkeyHash,
     paramCommitment,
   })
+
   await discloseR.circuit.destroy()
+
   const disclosureExtras: Record<string, unknown> = {
     discloseParamCommitment: hex(paramCommitment),
     discloseMask,
@@ -229,6 +248,7 @@ async function main() {
       [disclosureName]: { hash: subproofs.get(3)!.vkeyHash },
     },
   }
+
   const mp0 = await getCircuitMerkleProof(subproofs.get(0)!.vkeyHash, localManifest)
   localManifest.root = mp0.root
   const mp1 = await getCircuitMerkleProof(subproofs.get(1)!.vkeyHash, localManifest)
@@ -244,8 +264,10 @@ async function main() {
     [{ ...toSubproofInput(subproofs.get(3)!, mp3) }],
     localManifest.root,
   )
+
   const outerCircuit = Circuit.from("outer_count_4")
   log("proving outer_count_4 ...")
+
   const outerProof = await outerCircuit.prove(outerInputs, {
     useCli: true,
     circuitName: "outer_count_4",
@@ -263,8 +285,7 @@ async function main() {
 
   log(`outer proof: ${outerProof.proof.length} fields, publicInputs: ${outerProof.publicInputs.length}`)
   log(`outer vk: ${outerVkey.length} fields, poseidon2(vk)=${outerVkeyHashPoseidon}, bb vk_hash=${outerVkeyHashBB}`)
-  const paramCommitment = subproofs.get(3)!.paramCommitment
-  assert(paramCommitment !== undefined, "disclosure param commitment present")
+
   // The outer proof's public inputs are [certRoot, circuitRoot, currentDate, scope, subscope,
   // paramCommitment..., nullifierType, scopedNullifier, oprfPkHash] -- slot 5 for count_4.
   assert(
