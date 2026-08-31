@@ -100,6 +100,78 @@ async function proveSubproof(
   return { circuit, proof, vkey, vkeyHash }
 }
 
+type DisclosureStage = {
+  name: string
+  subproof: Subproof
+  extras: Record<string, unknown>
+}
+
+// 4th subproof: the parameterised disclosure stage.
+async function proveDisclosureStage(
+  helper: TestHelper,
+  integrityToDisclosureCommitment: bigint,
+): Promise<DisclosureStage> {
+  const name = "disclose_bytes"
+
+  const discloseQuery: Query = {
+    issuing_country: { disclose: true },
+    nationality: { disclose: true },
+    document_type: { disclose: true },
+    document_number: { disclose: true },
+    fullname: { disclose: true },
+    birthdate: { disclose: true },
+    expiry_date: { disclose: true },
+    gender: { disclose: true },
+  }
+
+  const discloseInputs = await getDiscloseCircuitInputs(
+    helper.passport as any,
+    discloseQuery,
+    INTEGRITY_TO_DISCLOSURE_SALTS,
+    0n,
+    0n,
+    0n,
+    nowTimestamp,
+  )
+  assert(!!discloseInputs, "disclose inputs generated")
+
+  const discloseMask: number[] = discloseInputs!.disclose_mask
+  const disclosedBytes: number[] = getDisclosedBytesFromMrzAndMask(
+    (helper.passport as any).mrz,
+    discloseMask,
+  )
+  assert(discloseMask.length === 90, `disclose_mask length == 90 (got ${discloseMask.length})`)
+  assert(disclosedBytes.length === 90, `disclosedBytes length == 90 (got ${disclosedBytes.length})`)
+
+  const discloseR = await proveSubproof(name, discloseInputs)
+  const paramCommitment = getParameterCommitmentFromDisclosureProof(discloseR.proof)
+
+  // Cross-stack check: the mask/bytes we emit must reproduce the proof's commitment.
+  const recomputed = await getDiscloseParameterCommitment(discloseMask, disclosedBytes)
+  assert(recomputed === paramCommitment, "emitted mask/bytes reproduce the disclose param commitment")
+
+  const commitmentIn = getCommitmentInFromDisclosureProof(discloseR.proof)
+  assert(commitmentIn === integrityToDisclosureCommitment, "disclose commitment_in == integrity commitment_out")
+
+  await discloseR.circuit.destroy()
+
+  return {
+    name,
+    subproof: {
+      proof: discloseR.proof.proof,
+      publicInputs: discloseR.proof.publicInputs,
+      vkey: discloseR.vkey,
+      vkeyHash: discloseR.vkeyHash,
+      paramCommitment,
+    },
+    extras: {
+      discloseParamCommitment: hex(paramCommitment),
+      discloseMask,
+      disclosedBytes,
+    },
+  }
+}
+
 async function main() {
   const bbVersion = execSync("bb --version").toString().trim().split("\n").pop()
   log(`bb on PATH: ${bbVersion}`)
@@ -176,64 +248,8 @@ async function main() {
   subproofs.set(2, { proof: integrityR.proof.proof, publicInputs: integrityR.proof.publicInputs, vkey: integrityR.vkey, vkeyHash: integrityR.vkeyHash })
   await integrityR.circuit.destroy()
 
-  // ---- 4th subproof: the parameterised disclosure stage ----
-  const disclosureName = "disclose_bytes"
-
-  const discloseQuery: Query = {
-    issuing_country: { disclose: true },
-    nationality: { disclose: true },
-    document_type: { disclose: true },
-    document_number: { disclose: true },
-    fullname: { disclose: true },
-    birthdate: { disclose: true },
-    expiry_date: { disclose: true },
-    gender: { disclose: true },
-  }
-
-  const discloseInputs = await getDiscloseCircuitInputs(
-    helper.passport as any,
-    discloseQuery,
-    INTEGRITY_TO_DISCLOSURE_SALTS,
-    0n,
-    0n,
-    0n,
-    nowTimestamp,
-  )
-  assert(!!discloseInputs, "disclose inputs generated")
-
-  const discloseMask: number[] = discloseInputs!.disclose_mask
-  const disclosedBytes: number[] = getDisclosedBytesFromMrzAndMask(
-    (helper.passport as any).mrz,
-    discloseMask,
-  )
-  assert(discloseMask.length === 90, `disclose_mask length == 90 (got ${discloseMask.length})`)
-  assert(disclosedBytes.length === 90, `disclosedBytes length == 90 (got ${disclosedBytes.length})`)
-
-  const discloseR = await proveSubproof(disclosureName, discloseInputs)
-  const paramCommitment = getParameterCommitmentFromDisclosureProof(discloseR.proof)
-
-  // Cross-stack check: the mask/bytes we emit must reproduce the proof's commitment.
-  const recomputed = await getDiscloseParameterCommitment(discloseMask, disclosedBytes)
-  assert(recomputed === paramCommitment, "emitted mask/bytes reproduce the disclose param commitment")
-
-  const commitmentIn = getCommitmentInFromDisclosureProof(discloseR.proof)
-  assert(commitmentIn === integrityToDisclosureCommitment, "disclose commitment_in == integrity commitment_out")
-
-  subproofs.set(3, {
-    proof: discloseR.proof.proof,
-    publicInputs: discloseR.proof.publicInputs,
-    vkey: discloseR.vkey,
-    vkeyHash: discloseR.vkeyHash,
-    paramCommitment,
-  })
-
-  await discloseR.circuit.destroy()
-
-  const disclosureExtras: Record<string, unknown> = {
-    discloseParamCommitment: hex(paramCommitment),
-    discloseMask,
-    disclosedBytes,
-  }
+  const disclosure = await proveDisclosureStage(helper, integrityToDisclosureCommitment)
+  subproofs.set(3, disclosure.subproof)
 
   // ---- Local circuit manifest (registry tree over our 4 local vkey hashes) ----
   // The 4th leaf is whichever disclosure circuit this variant used, otherwise the outer
@@ -245,7 +261,7 @@ async function main() {
       [dscName]: { hash: subproofs.get(0)!.vkeyHash },
       [idName]: { hash: subproofs.get(1)!.vkeyHash },
       [integrityName]: { hash: subproofs.get(2)!.vkeyHash },
-      [disclosureName]: { hash: subproofs.get(3)!.vkeyHash },
+      [disclosure.name]: { hash: subproofs.get(3)!.vkeyHash },
     },
   }
 
@@ -286,6 +302,9 @@ async function main() {
   log(`outer proof: ${outerProof.proof.length} fields, publicInputs: ${outerProof.publicInputs.length}`)
   log(`outer vk: ${outerVkey.length} fields, poseidon2(vk)=${outerVkeyHashPoseidon}, bb vk_hash=${outerVkeyHashBB}`)
 
+  const paramCommitment = subproofs.get(3)!.paramCommitment
+  assert(paramCommitment !== undefined, "disclosure param commitment present")
+
   // The outer proof's public inputs are [certRoot, circuitRoot, currentDate, scope, subscope,
   // paramCommitment..., nullifierType, scopedNullifier, oprfPkHash] -- slot 5 for count_4.
   assert(
@@ -296,7 +315,7 @@ async function main() {
   const fixture = {
     generator: "test-harness/generate-proof-fixtures.ts (zkpassport-aztec)",
     kind: "disclose",
-    disclosureCircuit: disclosureName,
+    disclosureCircuit: disclosure.name,
     bbVersion,
     // cwd is the circuits submodule (set by generate-proof-fixtures.sh), so this records the
     // circuits commit the proof was built from; fixture-conformance.test.ts holds it to the pin.
@@ -306,7 +325,7 @@ async function main() {
     certificateRegistryRoot: hex(certificateRegistryRoot),
     circuitRegistryRoot: localManifest.root,
     paramCommitment: hex(paramCommitment!),
-    ...disclosureExtras,
+    ...disclosure.extras,
     vkeyFields: outerVkey,
     vkeyHashPoseidon2: outerVkeyHashPoseidon,
     vkeyHashBB: outerVkeyHashBB,
