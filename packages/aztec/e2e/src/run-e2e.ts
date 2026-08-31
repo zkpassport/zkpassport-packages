@@ -60,10 +60,11 @@ type Fixture = {
   certificateRegistryRoot: string;
   circuitRegistryRoot: string;
   nowTimestamp: number;
+  bindAddress: string;
 };
 
 const FIXTURE: Fixture = JSON.parse(
-  readFileSync(new URL('../../test-harness/fixtures/outer_count_4_age.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../test-harness/fixtures/outer_count_5_age.json', import.meta.url), 'utf8'),
 );
 
 const started = Date.now();
@@ -180,6 +181,10 @@ async function main() {
   }
   log(`capsule blob: ${blob.length} fields (vk ${VK_FIELDS} + proof ${PROOF_FIELDS} + pi ${FIXTURE.publicInputs.length})`);
 
+  // The capsule is scoped to `user` — the sandbox account SENDING the transaction. The claim
+  // itself goes to the fixture's bound address: the proof carries a bind commitment over it,
+  // so the sender is effectively a relayer and the badge recipient needs no account here.
+  const boundUser = AztecAddress.fromFieldUnsafe(Fr.fromHexString(FIXTURE.bindAddress));
   const capsule = (fields: Fr[]) => new Capsule(ageGate.address, PROOF_CAPSULE_SLOT, fields, user as AztecAddress);
 
   // ---- 4a. Tampered proof must fail — the proving-mode canary --------------
@@ -205,7 +210,7 @@ async function main() {
     log(`tampering proof[${offset}] (blob field ${idx}): ${blob[idx].toString()} -> ${tampered[idx].toString()}`);
     try {
       const { receipt: bad } = await ageGate.methods
-        .claim(user)
+        .claim(boundUser)
         .send({ from: user, capsules: [capsule(tampered)], wait: WAIT });
       tamperFailed = false;
       tamperResults.push(`proof[${offset}]: ACCEPTED as ${bad.txHash.toString()} (!!)`);
@@ -230,7 +235,7 @@ async function main() {
 
   // ---- 4b. The real claim --------------------------------------------------
   const [{ receipt }, claimSecs] = await timed('claim (private tx, client-IVC proving)', () =>
-    ageGate.methods.claim(user).send({ from: user, capsules: [capsule(blob)], wait: WAIT }),
+    ageGate.methods.claim(boundUser).send({ from: user, capsules: [capsule(blob)], wait: WAIT }),
   );
   console.log(`CLAIM MINED: ${receipt.txHash.toString()}`);
 
@@ -238,7 +243,7 @@ async function main() {
   let doubleFailed = false;
   let doubleError = '';
   try {
-    await ageGate.methods.claim(user).send({ from: user, capsules: [capsule(blob)], wait: WAIT });
+    await ageGate.methods.claim(boundUser).send({ from: user, capsules: [capsule(blob)], wait: WAIT });
   } catch (e) {
     doubleFailed = true;
     doubleError = describeError(e);
