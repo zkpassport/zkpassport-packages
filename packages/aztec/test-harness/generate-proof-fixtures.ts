@@ -1,6 +1,6 @@
 /**
  * zkpassport-aztec harness: generate a real ZKPassport `outer_count_4` proof fixture
- * for the bb-level fixture harness (test-harness/run-harness.sh).
+ * for the bb-level fixture harness (test-harness/test-recursive-verification.sh).
  *
  * Imports resolve against the `circuits/` submodule (its sources and its node_modules, so
  * the circuits repo's own pinned dep versions are used). Run via generate-proof-fixtures.sh.

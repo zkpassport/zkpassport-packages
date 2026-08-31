@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
-# bb-level fixture harness: prove & recursively verify a REAL ZKPassport
-# `outer_count_4` proof THROUGH the zkpassport_core library, under the Aztec v5.2.0
-# toolchain (nargo 1.0.0-beta.25 + bb 5.2.0-nightly).
+# bb-level fixture harness: prove & recursively verify a ZKPassport `outer_count_4` proof through
+# the zkpassport_core library, under the Aztec v5.2.0 toolchain
+# (nargo 1.0.0-beta.25 + bb 5.2.0-nightly).
 #
-# Usage: run-harness.sh <fixture.json> [--tamper-proof|--tamper-public-input]
+# Usage: test-recursive-verification.sh <fixture.json> [--tamper-proof|--tamper-public-input]
 #
 # Steps: fixture -> Prover.toml -> nargo execute -> bb write_vk -> bb prove -> bb verify.
-# `bb prove` can "succeed" on bad inputs, so `bb verify`'s exit code is the ONLY pass signal:
-# RESULT(...): VERIFIED is printed only after bb verify returns 0, and the script's own exit
-# code mirrors the first failing step.
-#
-# Exit codes are captured DIRECTLY from each command (never through a pipe) -- piping the
-# step and reading $? would report the exit code of `tail`, not of bb.
 #
 # Negative controls (each MUST exit non-zero):
 #   --tamper-proof         -> fails at bb prove / bb verify (recursion constraint over `proof`)

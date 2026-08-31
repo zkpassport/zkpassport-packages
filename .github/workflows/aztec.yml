@@ -79,7 +79,7 @@ jobs:
         env:
           AZTEC_HOME: /home/runner/.aztec/versions/${{ steps.aztec-version.outputs.version }}
         run: |
-          ./run-harness.sh fixtures/outer_count_4_disclose.json
-          ! ./run-harness.sh fixtures/outer_count_4_disclose.json --tamper-proof
-          ! ./run-harness.sh fixtures/outer_count_4_disclose.json --tamper-public-input
+          ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
+          ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof
+          ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-public-input
         working-directory: packages/aztec/test-harness

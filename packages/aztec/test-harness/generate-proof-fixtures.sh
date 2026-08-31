@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate the proof fixture consumed by run-harness.sh.
+# Regenerate the proof fixture consumed by test-recursive-verification.sh.
 #
 # Usage: ./generate-proof-fixtures.sh
 #
@@ -9,7 +9,7 @@
 #
 # Toolchain: bb 5.0.0-nightly from the 5.0.1 aztec release must be FIRST in PATH -- that is
 # the build ZKPassport's production circuits were compiled/proved with. The 5.2.0 bb is used
-# only later, by run-harness.sh, to verify the wrapper.
+# only later, by test-recursive-verification.sh, to verify the wrapper.
 set -euo pipefail
 
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
