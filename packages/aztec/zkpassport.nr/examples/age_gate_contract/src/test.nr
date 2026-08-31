@@ -49,6 +49,7 @@ unconstrained fn deploy_registry(env: &mut TestEnvironment) -> Actors {
 unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAddress) {
     let deployed_registry = deploy_registry(env);
     let roots_valid_from = AGE_FIXTURE_CURRENT_DATE - 100;
+
     let _ = env.call_public(
         deployed_registry.oracle,
         ZKPassportRegistry::at(deployed_registry.registry).update_root(
@@ -58,6 +59,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
             roots_valid_from,
         ),
     );
+
     let _ = env.call_public(
         deployed_registry.oracle,
         ZKPassportRegistry::at(deployed_registry.registry).update_root(
@@ -67,6 +69,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
             roots_valid_from,
         ),
     );
+
     let _ = env.call_public(
         deployed_registry.admin,
         ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(
@@ -74,6 +77,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
             AGE_FIXTURE_VK_HASH,
         ),
     );
+
     let _ = env.call_public(
         deployed_registry.admin,
         ZKPassportRegistry::at(deployed_registry.registry).set_version_status(
@@ -91,8 +95,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     //   - freshness (zkpassport_aztec::verify::verify_zkpassport_proof):
     //       current_date <= anchor_ts + 3600   AND   current_date + 604800 > anchor_ts
     //     and anchor_ts = AGE_FIXTURE_CURRENT_DATE + 86401 sits well inside that 7-day window.
-    // This is deterministic until real time reaches 2050 (set_next_block_timestamp cannot go
-    // backward, so a wall-clock-dated fixture would instead expire ~6 days after generation).
+    // This is deterministic until real time reaches the year 2050.
     env.set_next_block_timestamp(AGE_FIXTURE_CURRENT_DATE + 86401);
     env.mine_block();
     // -------------------------------------------------------------------------------------------
@@ -101,6 +104,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
         deployed_registry.admin,
         AgeGate::interface().constructor(deployed_registry.registry),
     );
+
     (deployed_registry, age_gate)
 }
 
@@ -130,10 +134,14 @@ unconstrained fn claim_succeeds_with_fixture() {
     let mut env = TestEnvironment::new();
     let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+
     let relayer = env.create_light_account();
     deliver_capsule(&mut env, age_gate, relayer);
+
     assert(!env.view_public(AgeGate::at(age_gate).has_badge(user)));
+
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
+
     // The badge goes to the bound address, not to the account that submitted the claim.
     assert(env.view_public(AgeGate::at(age_gate).has_badge(user)));
     assert(!env.view_public(AgeGate::at(age_gate).has_badge(relayer)));
@@ -145,6 +153,7 @@ unconstrained fn claim_succeeds_with_fixture() {
 unconstrained fn claim_for_unbound_address_fails() {
     let mut env = TestEnvironment::new();
     let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
+
     let thief = env.create_light_account();
     deliver_capsule(&mut env, age_gate, thief);
     let _ = env.call_private(thief, AgeGate::at(age_gate).claim(thief));
@@ -156,6 +165,7 @@ unconstrained fn claim_without_capsule_fails() {
     let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let relayer = env.create_light_account();
+
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
 }
 
@@ -163,6 +173,7 @@ unconstrained fn claim_without_capsule_fails() {
 unconstrained fn claim_fails_when_root_revoked() {
     let mut env = TestEnvironment::new();
     let (deployed_registry, age_gate) = seed_for_fixture(&mut env);
+
     let _ = env.call_public(
         deployed_registry.admin,
         ZKPassportRegistry::at(deployed_registry.registry).set_revocation_status(
@@ -171,34 +182,30 @@ unconstrained fn claim_fails_when_root_revoked() {
             true,
         ),
     );
-    // advance_next_block_timestamp_by only sets the *next* block's timestamp target; a block must
-    // actually be mined at that timestamp for the private call's anchor block to observe it (see
-    // the identical pattern/comment in the registry contract's
-    // test.nr::update_becomes_visible_after_delay).
+
     env.advance_next_block_timestamp_by(86401);
     env.mine_block();
+
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let relayer = env.create_light_account();
     deliver_capsule(&mut env, age_gate, relayer);
+
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
 }
 
 // Collision message text is kernel-owned (nullifier-already-exists check happens outside our
-// asserts); mark should_fail rather than guessing should_fail_with, per the brief.
-//
-// Residual ambiguity: #[test(should_fail)] asserts over the WHOLE function body, not a specific
-// statement, so this test alone can't distinguish "second claim rejected as intended" from "first
-// claim failed for an unrelated reason, second never mattered". `claim_succeeds_with_fixture`
-// (above) is the load-bearing guard that the first call_private below genuinely succeeds with this
-// exact fixture/seed; read the two tests together.
+// asserts), thus we do not specify a fail message.
 #[test(should_fail)]
 unconstrained fn second_claim_same_passport_fails() {
     let mut env = TestEnvironment::new();
     let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+
     let relayer = env.create_light_account();
     deliver_capsule(&mut env, age_gate, relayer);
+
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
+
     // Same fixture again → same scoped nullifier → tx must be rejected (nullifier collision).
     deliver_capsule(&mut env, age_gate, relayer);
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
