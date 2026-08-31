@@ -72,4 +72,16 @@ jobs:
           bun-version: 1.3.8
 
       - name: Run commitment conformance tests
-        run: bun test packages/aztec/test-harness/commitment-conformance.test.ts
+        run: bun test packages/aztec/test-harness/commitment-conformance.test.ts packages/aztec/test-harness/fixture-pis.test.ts
+
+      # Recursion-opcode coverage: nargo test no-ops std::verify_proof, so replay the
+      # checked-in disclose proof fixture through bb (positive run + both tamper
+      # controls, a few seconds each; bb verify's exit code is the pass signal).
+      - name: Run bb recursion harness
+        env:
+          AZTEC_HOME: /home/runner/.aztec/versions/${{ steps.aztec-version.outputs.version }}
+        run: |
+          ./run-harness.sh fixtures/outer_count_4_disclose.json
+          ! ./run-harness.sh fixtures/outer_count_4_disclose.json --tamper-proof
+          ! ./run-harness.sh fixtures/outer_count_4_disclose.json --tamper-public-input
+        working-directory: packages/aztec/test-harness
