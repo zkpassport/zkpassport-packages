@@ -17,8 +17,13 @@ const anchors = evaluateExpressions(
 const hex = (name: string): string => "0x" + BigInt(anchors[name]).toString(16).padStart(64, "0")
 const vector = (proofType: string) => vectors.vectors.find((v) => v.proofType === proofType)!
 
-test("every anchor in fixtures.nr is checked here", () => {
-  expect(Object.keys(anchors).sort()).toEqual(["AGE_18_COMMITMENT", "DISCLOSE_COMMITMENT"])
+// FIXTURE_PIS is covered by fixture-pis.test.ts; every other constant must have a check here.
+test("every anchor in fixtures.nr is checked", () => {
+  expect(Object.keys(anchors).sort()).toEqual([
+    "AGE_18_COMMITMENT",
+    "DISCLOSE_COMMITMENT",
+    "FIXTURE_PIS",
+  ])
 })
 
 test("AGE_18_COMMITMENT matches the published age vector", () => {

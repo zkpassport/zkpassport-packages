@@ -1,7 +1,9 @@
 // Vendored from AztecProtocol/aztec-packages, protocol/constants-codegen/src/generator.ts,
-// commit a96bcfde13ffac54d99c6c1cc598c165ec983618 (Apache-2.0), unmodified below this header.
-// Used by commitment-conformance.test.ts to read Noir global constants (parseNoirFile +
-// evaluateExpressions); the emitters are unused but kept verbatim to ease re-syncing.
+// commit a96bcfde13ffac54d99c6c1cc598c165ec983618 (Apache-2.0).
+// Used by the test-harness bun tests to read Noir global constants (parseNoirFile +
+// evaluateExpressions); the emitters are unused but kept to ease re-syncing.
+// Local modifications are tagged MODIFIED(zkpassport): array globals (e.g. `[Field; N]`)
+// are parsed and evaluate to arrays of decimal strings; upstream only handles scalars.
 
 import * as fs from 'node:fs';
 
@@ -11,8 +13,9 @@ import * as fs from 'node:fs';
 export interface ParsedContent {
   /**
    * Constants of the form "CONSTANT_NAME: number_as_string".
+   * MODIFIED(zkpassport): array globals evaluate to string[].
    */
-  constants: { [key: string]: string };
+  constants: { [key: string]: string | string[] };
   /**
    * DomainSeparatorEnum.
    */
@@ -261,7 +264,9 @@ export function parseNoirFile(fileContent: string): ParsedExpressions {
     }
 
     {
-      const [, name, _type, value, end] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*([^;]*)(;)?/) || [];
+      // MODIFIED(zkpassport): the type annotation also matches array types like `[Field; 9]`.
+      const [, name, _type, value, end] =
+        line.match(/global\s+(\w+)(\s*:\s*[^=]+?)?\s*=\s*([^;]*)(;)?/) || [];
       if (name && value) {
         const [, indexName] = name.match(/DOM_SEP__(\w+)/) || [];
         if (indexName) {
@@ -332,6 +337,11 @@ export function evaluateExpressions(expressions: [string, string][]): { [key: st
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')
+        // MODIFIED(zkpassport): same for array brackets and commas, so array elements split
+        // into clean numeric terms that get BigInt-wrapped below.
+        .replace(/\[/g, '[ ')
+        .replace(/\]/g, ' ]')
+        .replace(/,/g, ' , ')
         // We also make some space around common operators
         .replace(/\+/g, ' + ')
         .replace(/(?<!\/)\*(?!\/)/, ' * ')
@@ -354,7 +364,11 @@ export function evaluateExpressions(expressions: [string, string][]): { [key: st
   // Extract each value from the expressions. Observe that this will still be a string,
   // so that we can then choose to express it as BigInt or Number depending on the size.
   for (const [name, _] of expressions) {
-    constants[name] = eval(prelude + `; BigInt(${name}).toString()`);
+    // MODIFIED(zkpassport): array globals evaluate to arrays of decimal strings.
+    const value = eval(prelude + `; ${name}`);
+    constants[name] = Array.isArray(value)
+      ? value.map(v => BigInt(v).toString())
+      : eval(prelude + `; BigInt(${name}).toString()`);
   }
 
   return constants;
