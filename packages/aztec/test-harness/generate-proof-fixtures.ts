@@ -15,7 +15,6 @@ import type { IntegrityToDisclosureSalts, PackagedCertificatesFile, Query } from
 import {
   Binary,
   calculatePackagedCertificatesRoot,
-  getAgeCircuitInputs,
   getCircuitMerkleProof,
   getCommitmentFromDSCProof,
   getCommitmentInFromDisclosureProof,
@@ -26,7 +25,6 @@ import {
   getDiscloseCircuitInputs,
   getDiscloseParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
-  getAgeParameterCommitment,
   getMerkleRootFromDSCProof,
   getOuterCircuitInputs,
   getParameterCommitmentFromDisclosureProof,
@@ -47,14 +45,6 @@ const hex = (v: bigint) => `0x${v.toString(16).padStart(64, "0")}`
 
 const FIXTURE_OUT = process.env.FIXTURE_OUT as string
 if (!FIXTURE_OUT) throw new Error("Set FIXTURE_OUT to the output JSON path")
-
-const FIXTURE_KIND = (process.env.FIXTURE_KIND ?? "disclose") as "disclose" | "age"
-if (FIXTURE_KIND !== "disclose" && FIXTURE_KIND !== "age") {
-  throw new Error(`FIXTURE_KIND must be 'disclose' or 'age', got '${FIXTURE_KIND}'`)
-}
-
-const AGE_MIN = 18
-const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
 
 const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
@@ -103,7 +93,7 @@ async function proveSubproof(
 
 async function main() {
   const bbVersion = execSync("bb --version").toString().trim().split("\n").pop()
-  log(`bb on PATH: ${bbVersion}, FIXTURE_KIND=${FIXTURE_KIND}`)
+  log(`bb on PATH: ${bbVersion}`)
 
   // ---- Passport + certificate setup (verbatim from outer.test.ts beforeEach) ----
   const helper = new TestHelper()
@@ -171,103 +161,61 @@ async function main() {
   await integrityR.circuit.destroy()
 
   // ---- 4th subproof: the parameterised disclosure stage ----
-  let disclosureName: string
-  let disclosureExtras: Record<string, unknown>
+  const disclosureName = "disclose_bytes"
+  const discloseQuery: Query = {
+    issuing_country: { disclose: true },
+    nationality: { disclose: true },
+    document_type: { disclose: true },
+    document_number: { disclose: true },
+    fullname: { disclose: true },
+    birthdate: { disclose: true },
+    expiry_date: { disclose: true },
+    gender: { disclose: true },
+  }
+  const discloseInputs = await getDiscloseCircuitInputs(
+    helper.passport as any,
+    discloseQuery,
+    INTEGRITY_TO_DISCLOSURE_SALTS,
+    0n,
+    0n,
+    0n,
+    nowTimestamp,
+  )
+  assert(!!discloseInputs, "disclose inputs generated")
+  const discloseMask: number[] = discloseInputs!.disclose_mask
+  const disclosedBytes: number[] = getDisclosedBytesFromMrzAndMask(
+    (helper.passport as any).mrz,
+    discloseMask,
+  )
+  assert(discloseMask.length === 90, `disclose_mask length == 90 (got ${discloseMask.length})`)
+  assert(disclosedBytes.length === 90, `disclosedBytes length == 90 (got ${disclosedBytes.length})`)
 
-  if (FIXTURE_KIND === "disclose") {
-    disclosureName = "disclose_bytes"
-    const discloseQuery: Query = {
-      issuing_country: { disclose: true },
-      nationality: { disclose: true },
-      document_type: { disclose: true },
-      document_number: { disclose: true },
-      fullname: { disclose: true },
-      birthdate: { disclose: true },
-      expiry_date: { disclose: true },
-      gender: { disclose: true },
-    }
-    const discloseInputs = await getDiscloseCircuitInputs(
-      helper.passport as any,
-      discloseQuery,
-      INTEGRITY_TO_DISCLOSURE_SALTS,
-      0n,
-      0n,
-      0n,
-      nowTimestamp,
-    )
-    assert(!!discloseInputs, "disclose inputs generated")
-    const discloseMask: number[] = discloseInputs!.disclose_mask
-    const disclosedBytes: number[] = getDisclosedBytesFromMrzAndMask(
-      (helper.passport as any).mrz,
-      discloseMask,
-    )
-    assert(discloseMask.length === 90, `disclose_mask length == 90 (got ${discloseMask.length})`)
-    assert(disclosedBytes.length === 90, `disclosedBytes length == 90 (got ${disclosedBytes.length})`)
-
-    const discloseR = await proveSubproof(disclosureName, discloseInputs)
-    const paramCommitment = getParameterCommitmentFromDisclosureProof(discloseR.proof)
-    // Cross-stack check: the mask/bytes we emit must reproduce the proof's commitment.
-    const recomputed = await getDiscloseParameterCommitment(discloseMask, disclosedBytes)
-    assert(recomputed === paramCommitment, "emitted mask/bytes reproduce the disclose param commitment")
-    const commitmentIn = getCommitmentInFromDisclosureProof(discloseR.proof)
-    assert(commitmentIn === integrityToDisclosureCommitment, "disclose commitment_in == integrity commitment_out")
-    subproofs.set(3, {
-      proof: discloseR.proof.proof,
-      publicInputs: discloseR.proof.publicInputs,
-      vkey: discloseR.vkey,
-      vkeyHash: discloseR.vkeyHash,
-      paramCommitment,
-    })
-    await discloseR.circuit.destroy()
-    disclosureExtras = {
-      discloseParamCommitment: hex(paramCommitment),
-      discloseMask,
-      disclosedBytes,
-    }
-  } else {
-    disclosureName = "compare_age"
-    const ageQuery: Query = { age: { gte: AGE_MIN } }
-    const ageInputs = await getAgeCircuitInputs(
-      helper.passport as any,
-      ageQuery,
-      INTEGRITY_TO_DISCLOSURE_SALTS,
-      0n,
-      0n,
-      0n,
-      nowTimestamp,
-    )
-    assert(!!ageInputs, "age inputs generated")
-    const minAge = Number(ageInputs.min_age_required)
-    const maxAge = Number(ageInputs.max_age_required)
-    assert(minAge === AGE_MIN, `min_age_required == ${AGE_MIN} (got ${minAge})`)
-    assert(maxAge === AGE_MAX, `max_age_required == ${AGE_MAX} (got ${maxAge})`)
-
-    const ageR = await proveSubproof(disclosureName, ageInputs)
-    const paramCommitment = getParameterCommitmentFromDisclosureProof(ageR.proof)
-    const recomputed = await getAgeParameterCommitment(minAge, maxAge)
-    assert(recomputed === paramCommitment, "emitted min/max age reproduce the age param commitment")
-    const commitmentIn = getCommitmentInFromDisclosureProof(ageR.proof)
-    assert(commitmentIn === integrityToDisclosureCommitment, "age commitment_in == integrity commitment_out")
-    subproofs.set(3, {
-      proof: ageR.proof.proof,
-      publicInputs: ageR.proof.publicInputs,
-      vkey: ageR.vkey,
-      vkeyHash: ageR.vkeyHash,
-      paramCommitment,
-    })
-    await ageR.circuit.destroy()
-    disclosureExtras = {
-      ageParamCommitment: hex(paramCommitment),
-      ageMinAge: minAge,
-      ageMaxAge: maxAge,
-    }
+  const discloseR = await proveSubproof(disclosureName, discloseInputs)
+  const paramCommitment = getParameterCommitmentFromDisclosureProof(discloseR.proof)
+  // Cross-stack check: the mask/bytes we emit must reproduce the proof's commitment.
+  const recomputed = await getDiscloseParameterCommitment(discloseMask, disclosedBytes)
+  assert(recomputed === paramCommitment, "emitted mask/bytes reproduce the disclose param commitment")
+  const commitmentIn = getCommitmentInFromDisclosureProof(discloseR.proof)
+  assert(commitmentIn === integrityToDisclosureCommitment, "disclose commitment_in == integrity commitment_out")
+  subproofs.set(3, {
+    proof: discloseR.proof.proof,
+    publicInputs: discloseR.proof.publicInputs,
+    vkey: discloseR.vkey,
+    vkeyHash: discloseR.vkeyHash,
+    paramCommitment,
+  })
+  await discloseR.circuit.destroy()
+  const disclosureExtras: Record<string, unknown> = {
+    discloseParamCommitment: hex(paramCommitment),
+    discloseMask,
+    disclosedBytes,
   }
 
   // ---- Local circuit manifest (registry tree over our 4 local vkey hashes) ----
   // The 4th leaf is whichever disclosure circuit this variant used, otherwise the outer
   // circuit's membership proof for it would not verify.
   const localManifest: any = {
-    version: `local-harness-${FIXTURE_KIND}`,
+    version: "local-harness-disclose",
     root: "",
     circuits: {
       [dscName]: { hash: subproofs.get(0)!.vkeyHash },
@@ -321,7 +269,7 @@ async function main() {
 
   const fixture = {
     generator: "test-harness/generate-proof-fixtures.ts (zkpassport-aztec)",
-    kind: FIXTURE_KIND,
+    kind: "disclose",
     disclosureCircuit: disclosureName,
     bbVersion,
     // cwd is the circuits submodule (set by generate-proof-fixtures.sh), so this records the
@@ -342,17 +290,6 @@ async function main() {
   fs.mkdirSync(path.dirname(FIXTURE_OUT), { recursive: true })
   fs.writeFileSync(FIXTURE_OUT, JSON.stringify(fixture, null, 2))
   log(`fixture written to ${FIXTURE_OUT}`)
-
-  // The age fixture also becomes the Noir-side source of truth for consumers' TXE tests
-  // (the disclose fixture is consumed by run-harness.sh straight from the JSON).
-  if (FIXTURE_KIND === "age") {
-    const proofNr = new URL(
-      "../zkpassport.nr/zkpassport_core/src/fixtures/proof.nr",
-      import.meta.url,
-    ).pathname
-    emitProofGlobals(fixture, proofNr)
-    log(`proof globals written to ${proofNr} -- run aztec-nargo fmt over zkpassport.nr`)
-  }
 }
 
 function toSubproofInput(
@@ -367,36 +304,6 @@ function toSubproofInput(
     treeHashPath: mp.path,
     treeIndex: mp.index.toString(),
   }
-}
-
-// Emits zkpassport_core/src/fixtures/proof.nr, replacing it wholesale.
-function emitProofGlobals(
-  fx: {
-    vkeyFields: string[]
-    proof: string[]
-    publicInputs: string[]
-    certificateRegistryRoot: string
-    circuitRegistryRoot: string
-    vkeyHashBB: string
-    nowTimestamp: number
-  },
-  outPath: string,
-) {
-  const blob = [...fx.vkeyFields, ...fx.proof, ...fx.publicInputs] // capsule layout: vk ‖ proof ‖ PIs
-  const arr = (name: string, values: string[]) =>
-    `pub global ${name}: [Field; ${values.length}] = [\n    ${values.join(",\n    ")},\n];\n`
-  fs.writeFileSync(
-    outPath,
-    "//! Proof-fixture globals: a real outer_count_4 proof (vk ‖ proof ‖ public inputs) plus the\n" +
-      "//! registry roots, vk hash, and timestamp it was produced under, for consumers' TXE tests.\n" +
-      "//! Source of truth on the Noir side; fixture-conformance.test.ts checks the checked-in age\n" +
-      "//! fixture JSON agrees. Regenerated by test-harness/generate-proof-fixtures.sh on a capture.\n" +
-      arr("AGE_FIXTURE_BLOB", blob) +
-      `pub global AGE_FIXTURE_CERT_ROOT: Field = ${fx.certificateRegistryRoot};\n` +
-      `pub global AGE_FIXTURE_CIRCUIT_ROOT: Field = ${fx.circuitRegistryRoot};\n` +
-      `pub global AGE_FIXTURE_VK_HASH: Field = ${fx.vkeyHashBB};\n` +
-      `pub global AGE_FIXTURE_CURRENT_DATE: u64 = ${fx.nowTimestamp};\n`,
-  )
 }
 
 main().then(

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Regenerate the proof fixtures consumed by run-harness.sh (and by the TXE tests).
+# Regenerate the proof fixture consumed by run-harness.sh.
 #
-# Usage: ./generate-proof-fixtures.sh [disclose|age] ...   (default: both)
+# Usage: ./generate-proof-fixtures.sh
 #
 # The generator imports the circuits repo's TS sources and deps from the `circuits/` submodule
 # (pinned to the commit the committed fixtures were built from) and runs with cwd = the
@@ -18,9 +18,6 @@ AZTEC_501=${AZTEC_501:-$HOME/.aztec/versions/5.0.1}
 BB_501_BIN=$AZTEC_501/node_modules/.bin
 NARGO_501=$AZTEC_501/bin/aztec-nargo
 
-KINDS=("$@")
-if [ ${#KINDS[@]} -eq 0 ]; then KINDS=(disclose age); fi
-
 if [ ! -f "$CIRCUITS/package.json" ]; then
   echo "circuits submodule not initialized -- run: git submodule update --init ${CIRCUITS#"$(pwd)"/}" >&2
   exit 2
@@ -35,7 +32,7 @@ fi
 for PKG in sig_check_dsc_tbs_700_rsa_pkcs_4096_sha512 \
   sig_check_id_data_tbs_700_rsa_pkcs_2048_sha256 \
   data_check_integrity_sa_sha256_dg_sha256 \
-  disclose_bytes compare_age outer_count_4; do
+  disclose_bytes outer_count_4; do
   if [ ! -f "$CIRCUITS/target/$PKG.json" ]; then
     echo "== compiling $PKG with $($NARGO_501 --version | head -1)"
     (cd "$CIRCUITS" && $NARGO_501 compile --package "$PKG")
@@ -44,8 +41,6 @@ done
 
 mkdir -p "$HARNESS_DIR/fixtures"
 
-for KIND in "${KINDS[@]}"; do
-  OUT=$HARNESS_DIR/fixtures/outer_count_4_$KIND.json
-  echo "== generating $KIND fixture -> $OUT"
-  (cd "$CIRCUITS" && PATH=$BB_501_BIN:$PATH FIXTURE_KIND=$KIND FIXTURE_OUT=$OUT npx tsx "$HARNESS_DIR/generate-proof-fixtures.ts")
-done
+OUT=$HARNESS_DIR/fixtures/outer_count_4_disclose.json
+echo "== generating disclose fixture -> $OUT"
+(cd "$CIRCUITS" && PATH=$BB_501_BIN:$PATH FIXTURE_OUT=$OUT npx tsx "$HARNESS_DIR/generate-proof-fixtures.ts")

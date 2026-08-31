@@ -26,7 +26,3 @@ pub global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
     0x1c2de0aff0b433e96e0f1da31cec1d9e8b5e98c75d8d5c2e3e255ad689fe6354, // scoped_nullifier
     0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
 ];
-
-// Bulky generated data (the real proof-fixture globals) lives in its own file so the
-// generator can own it wholesale.
-pub mod proof;
