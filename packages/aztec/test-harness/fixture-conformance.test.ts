@@ -1,5 +1,6 @@
 // This test pins the fixtures we use to test zkpassport.nr to their external references:
-// the commitment anchors in fixtures.nr to the SDK's conformance vectors, and the proof
+// the commitment anchors in fixtures.nr to the SDK's conformance vectors, FIXTURE_PUBLIC_INPUTS
+// to the public inputs of the checked-in disclose proof fixture, and the proof
 // fixture to the circuits submodule commit it was generated from. The provenance check
 // matters because the proof fixture is self-consistent (the proof verifies against its own
 // embedded vk), so a circuits bump without regeneration would silently keep testing the
@@ -40,13 +41,13 @@ test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
 })
 
-// FIXTURE_PUBLIC_INPUTS[5] is param_commitments[0]; the proof it was transcribed from was an 18+ age
-// check, so that slot must embed the age anchor.
-test("FIXTURE_PUBLIC_INPUTS embeds the age param commitment", () => {
+test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () => {
   const pis = anchors.FIXTURE_PUBLIC_INPUTS
   expect(Array.isArray(pis)).toBe(true)
   expect(pis).toHaveLength(9)
-  expect(BigInt((pis as string[])[5])).toBe(BigInt(anchors.AGE_18_COMMITMENT as string))
+  expect((pis as string[]).map(BigInt)).toEqual(
+    discloseFixture.publicInputs.map((pi: string) => BigInt(pi)),
+  )
 })
 
 test("the proof fixture was generated from the pinned circuits commit", () => {
