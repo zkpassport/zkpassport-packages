@@ -60,7 +60,7 @@ test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () =>
 
 // The age fixture is an outer_count_5 proof (age + bind subproofs): slots 5 and 6 are its two
 // param commitments, in prover-chosen order, and they must be exactly the age and bind anchors
-// the example app requires.
+// the age gate example app requires.
 test("the age fixture's param commitments are the age and bind anchors", () => {
   expect(ageFixture.publicInputs).toHaveLength(10)
   const params = ageFixture.publicInputs.slice(5, 7).map((pi: string) => BigInt(pi))
@@ -88,8 +88,6 @@ test("proof fixtures were generated from the pinned circuits commit", () => {
   expect(discloseFixture.circuitsCommit).toBe(pinnedCommit)
 })
 
-// The two lanes are different outer circuits (the age lane adds a bind subproof), so their
-// vks must NOT match — identical vks would mean one lane was captured with the wrong circuit.
 test("each proof fixture records its own outer circuit", () => {
   expect(discloseFixture.circuit).toBe("outer_count_4")
   expect(ageFixture.circuit).toBe("outer_count_5")

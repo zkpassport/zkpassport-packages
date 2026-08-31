@@ -1,7 +1,5 @@
 /**
- * zkpassport-aztec harness: generate a real ZKPassport outer proof fixture — `outer_count_4`
- * for the disclose lane (consumed by test-harness/test-recursive-verification.sh), or
- * `outer_count_5` (disclosure + bind) for the age lane (consumed by the TXE tests).
+ * zkpassport-aztec harness: generate a real ZKPassport outer proof fixture.
  *
  * Imports resolve against the `circuits/` submodule (its sources and its node_modules, so
  * the circuits repo's own pinned dep versions are used). Run via generate-proof-fixtures.sh.
@@ -244,8 +242,8 @@ async function proveAgeStage(
   }
 }
 
-// 5th subproof (age lane only): binds the proof to BIND_ADDRESS, so the age-gate example can
-// require bind_user_address_commitment(user) instead of trusting the capsule bearer.
+// 5th subproof: binds the proof to BIND_ADDRESS, so the age-gate example can require
+// bind_user_address_commitment(user) instead of trusting the capsule bearer.
 async function proveBindStage(
   helper: TestHelper,
   integrityToDisclosureCommitment: bigint,
@@ -374,8 +372,6 @@ async function main() {
     : await proveAgeStage(helper, integrityToDisclosureCommitment)
   subproofs.set(3, disclosure.subproof)
 
-  // The age lane carries a 5th subproof binding the proof to BIND_ADDRESS (outer_count_5);
-  // the disclose lane stays a plain outer_count_4.
   const bind = FIXTURE_KIND === "age"
     ? await proveBindStage(helper, integrityToDisclosureCommitment)
     : undefined
@@ -384,8 +380,6 @@ async function main() {
   const outerName = bind ? "outer_count_5" : "outer_count_4"
 
   // ---- Local circuit manifest (registry tree over our local vkey hashes) ----
-  // The disclosure/bind leaves are whichever circuits this variant used, otherwise the outer
-  // circuit's membership proofs for them would not verify.
   const localManifest: any = {
     version: `local-harness-${FIXTURE_KIND}`,
     root: "",
