@@ -3,8 +3,7 @@
  * for the bb-level fixture harness (test-harness/run-harness.sh).
  *
  * Imports resolve against the `circuits/` submodule (its sources and its node_modules, so
- * the circuits repo's own pinned dep versions are used). Run via generate-proof-fixtures.sh,
- * which sets cwd = the submodule (Circuit.from resolves `target/<name>.json` against cwd).
+ * the circuits repo's own pinned dep versions are used). Run via generate-proof-fixtures.sh.
  */
 import { execSync } from "child_process"
 import * as fs from "fs"
@@ -54,13 +53,10 @@ const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
 // certs, same as the circuits repo's own suite.
 const MAX_TBS_LENGTH = 700
 
-// The proof's embedded "now" (its `current_date` public input). Deliberately FUTURE-dated
-// (2050-01-01) rather than wall-clock: downstream consumers that enforce freshness against
-// a chain clock can only move that clock forward, so a wall-clock-dated fixture expires
-// ~validity_period after generation, while a 2050 fixture stays verifiable until 2050 —
-// the tests warp forward to it. Pairs with the mock MRZ expiry (2060): the document must
-// be unexpired at this date, and the circuit resolves the MRZ's 2-digit expiry year
-// against current_date + 30y, so keep expiry within (FIXTURE_NOW, FIXTURE_NOW + 30y].
+// The proof's embedded "now" (its `current_date` public input).
+// At the moment TXE can't timewarp into the past, only into the future. So this timestamp is
+// deliberately future-dated (2050-01-01). That way downstream consumers that enforce freshness
+// can be tested.
 const nowTimestamp = Number(process.env.FIXTURE_NOW ?? 2524608000) // 2050-01-01T00:00:00Z
 const INTEGRITY_TO_DISCLOSURE_SALTS: IntegrityToDisclosureSalts = {
   dg1Salt: 3n,
