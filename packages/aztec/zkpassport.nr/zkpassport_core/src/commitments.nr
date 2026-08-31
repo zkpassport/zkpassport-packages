@@ -34,12 +34,17 @@ pub fn bind_user_address_commitment(account: Field) -> Field {
 }
 
 mod test {
-    use crate::commitments::{age_commitment, disclose_commitment};
-    use crate::fixtures::{AGE_18_COMMITMENT, DISCLOSE_COMMITMENT};
+    use crate::commitments::{age_commitment, bind_user_address_commitment, disclose_commitment};
+    use crate::fixtures::{AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_COMMITMENT, DISCLOSE_COMMITMENT};
 
     #[test]
     fn age_matches_conformance_anchor() {
         assert(age_commitment(18, 0) == AGE_18_COMMITMENT);
+    }
+
+    #[test]
+    fn bind_matches_conformance_anchor() {
+        assert(bind_user_address_commitment(BIND_ACCOUNT) == BIND_COMMITMENT);
     }
 
     #[test]
@@ -54,4 +59,7 @@ mod test {
         bytes[56] = 83;
         assert(disclose_commitment(mask, bytes) == DISCLOSE_COMMITMENT);
     }
+    // sanctions_commitment: no independent TS anchor exists; its correctness rests on
+    // re-exporting the canonical circuits lib verbatim (same source the real circuit runs).
+    // It gets a real end-to-end check if/when a sanctions fixture is added (M2 note).
 }

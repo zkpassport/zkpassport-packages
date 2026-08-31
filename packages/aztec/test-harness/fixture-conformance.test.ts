@@ -28,6 +28,8 @@ const vector = (proofType: string) => vectors.vectors.find((v) => v.proofType ==
 test("every constant in fixtures.nr is checked here", () => {
   expect(Object.keys(anchors).sort()).toEqual([
     "AGE_18_COMMITMENT",
+    "BIND_ACCOUNT",
+    "BIND_COMMITMENT",
     "DISCLOSE_COMMITMENT",
     "FIXTURE_PUBLIC_INPUTS",
   ])
@@ -39,6 +41,14 @@ test("AGE_18_COMMITMENT matches the published age vector", () => {
 
 test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
+})
+
+test("BIND_ACCOUNT matches the published bind vector's user address", () => {
+  expect(hex("BIND_ACCOUNT")).toBe(vector("bind").params.userAddress)
+})
+
+test("BIND_COMMITMENT matches the published bind vector", () => {
+  expect(hex("BIND_COMMITMENT")).toBe(vector("bind").commitment)
 })
 
 test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () => {
