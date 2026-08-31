@@ -24,7 +24,7 @@ members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport_aztec"
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`oracle`/`guardian`) are plain `PublicMutable` — writes take effect instantly (`main.nr:24-26`). Everything else — `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, the version-keyed accepted-VK sets with their per-version enabled flags, and the OPRF pubkey hash — is `DelayedPublicMutable` (24h delay). Exposes `update_root` (oracle), admin policy setters, and private `#[view]` functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers call. | `aztec` (git, tag `v5.2.0`) |
 | `zkpassport_core` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`) over the ZKPassport circuits' own Noir libs. This crate is what the `test-harness/` proves against natively (no TXE needed). | `bb_proof_verification` (git, tag `v5.2.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
 | `zkpassport_aztec` | `lib` | The glue apps actually depend on: re-exports `zkpassport_core`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport_core` (path), `zkpassport_registry_contract` (path) |
-| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<4>` + `emit_uniqueness_nullifier`. | `aztec`, `zkpassport_aztec`, `zkpassport_registry_contract` (path) |
+| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`. | `aztec`, `zkpassport_aztec`, `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crates (upstream noir-contracts style):
 `zkpassport_registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
@@ -41,12 +41,14 @@ A consumer contract verifies a proof and mints its uniqueness nullifier in one c
 use zkpassport_aztec::verify::{
     emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
 };
-use zkpassport_aztec::commitments::age_commitment;
+use zkpassport_aztec::commitments::{age_commitment, bind_user_address_commitment};
 
 global MIN_AGE: u8 = 18;
 
-/// Claim the 18+ badge: verifies a ZKPassport age proof (outer_count_4, one param
-/// commitment = age(18, 0)) and burns the scoped nullifier — one claim per passport.
+/// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
+/// commitments = {age(18, 0), bind(user)}) and burns the scoped nullifier — one claim
+/// per passport. The bind commitment ties the proof itself to `user`, so anyone — a
+/// relayer included — may submit the transaction.
 #[external("private")]
 fn claim(user: AztecAddress) {
     let registry = self.storage.registry.read();
@@ -56,9 +58,10 @@ fn claim(user: AztecAddress) {
         validity_period: 7 * 86400,
         dev_mode: false,
     };
-    let expected = [age_commitment(MIN_AGE, 0)];
-    let verified = verify_zkpassport_proof::<4>(
-        self.context, registry, user, config, expected,
+    let expected = [age_commitment(MIN_AGE, 0), bind_user_address_commitment(user.to_field())];
+    // The capsule rides in the sender's PXE, so it is scoped to the sender.
+    let verified = verify_zkpassport_proof::<5>(
+        self.context, registry, self.msg_sender(), config, expected,
     );
     emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
 }
@@ -79,16 +82,19 @@ const PROOF_FIELDS = 458;
 
 const blob = [...FIXTURE.vkeyFields, ...FIXTURE.proof, ...FIXTURE.publicInputs].map((h) => Fr.fromHexString(h));
 
+// The capsule is scoped to the SENDING account; the claim goes to the address the proof
+// is bound to, which needs no account of its own.
+const boundUser = AztecAddress.fromFieldUnsafe(Fr.fromHexString(FIXTURE.bindAddress));
 const capsule = (fields: Fr[]) => new Capsule(ageGate.address, PROOF_CAPSULE_SLOT, fields, user as AztecAddress);
 
 // ...
 
 const [{ receipt }, claimSecs] = await timed('claim (private tx, client-IVC proving)', () =>
-  ageGate.methods.claim(user).send({ from: user, capsules: [capsule(blob)], wait: WAIT }),
+  ageGate.methods.claim(boundUser).send({ from: user, capsules: [capsule(blob)], wait: WAIT }),
 );
 ```
 
-The capsule is scoped to `(app address, slot, user)` and is consumed unconstrained inside
+The capsule is scoped to `(app address, slot, sender)` and is consumed unconstrained inside
 `verify_zkpassport_proof` — everything downstream (recursive verification, scope/nullifier
 checks, registry validity) constrains every field derived from it, so a malformed or malicious
 capsule fails the proof rather than being trusted.
@@ -123,19 +129,19 @@ capsule fails the proof rather than being trusted.
    `sanctions_commitment(root, is_strict)` into its own `expected_commitments`, mirroring L1's
    `VerifierHelper` split between the mandatory `SubVerifier` checks and app-side sanctions
    verification.
-6. **The library verifies the *proof*, not the *claimant*.** `verify_zkpassport_proof` takes
-   `user: AztecAddress` purely as the PXE capsule scope — no constraint ties the verified proof
-   to `user`, to `msg_sender`, or to anything caller-specific. A ZKPassport proof capsule
-   (`vk ‖ proof ‖ public_inputs`) is **bearer authorization**: whoever holds the blob (leaked for
-   support, restored from a backup, handed to a third-party service) can load it into their own
-   PXE under their own account and successfully verify it. Any app that grants anything of
-   value — a badge, a mint, access — **must** fold
-   `bind_user_address_commitment(user.to_field())` into its `expected_commitments` and require
-   the ZKPassport request that produced the proof to have bound that same address; otherwise a
-   leaked capsule lets a third party claim on the original holder's behalf, and the original
-   holder can never claim again (their uniqueness nullifier is spent). This is the one file most
-   integrators will copy verbatim — see `examples/age_gate_contract/src/main.nr`'s `claim` for
-   the minimum caller-binding an app should do even without `bind_user_address_commitment`.
+6. **The library verifies the *proof*; binding it to a claimant is the app's job.**
+   `verify_zkpassport_proof` takes `capsule_scope: AztecAddress` purely as the PXE capsule
+   scope (the sender's account) — no constraint ties the verified proof to that scope, to
+   `msg_sender`, or to anything caller-specific. A ZKPassport proof capsule
+   (`vk ‖ proof ‖ public_inputs`) is otherwise **bearer authorization**: whoever holds the blob
+   (leaked for support, restored from a backup, handed to a third-party service) can load it
+   into their own PXE under their own account and successfully verify it. The fix is what the
+   example does: fold `bind_user_address_commitment(user.to_field())` into
+   `expected_commitments` and have the ZKPassport request that produced the proof bind that
+   same address — then a leaked capsule authorizes nothing for anyone else, and any relayer
+   may submit the transaction on the bound user's behalf.
+   `examples/age_gate_contract/src/main.nr`'s `claim` is the pattern to copy; its
+   `claim_for_unbound_address_fails` TXE test is the negative control.
 
 ## Running the tests
 
@@ -182,8 +188,8 @@ cd ../e2e && npm install && npx tsx src/run-e2e.ts
 
 ## Fixture freshness
 
-`test-harness/fixtures/*.json` and `examples/age_gate_contract/src/test/fixtures.nr` embed a real
-ZKPassport `outer_count_4` proof whose `current_date` public input is checked against the
+`test-harness/fixtures/*.json` and `zkpassport_core/src/fixtures/proof.nr` embed real
+ZKPassport outer proofs whose `current_date` public input is checked against the
 Aztec anchor-block timestamp with a 7-day `validity_period` (`ServiceConfig.validity_period`,
 see the AgeGate example above). The fixtures are deliberately **future-dated to 2050-01-01**
 (`FIXTURE_NOW` in `test-harness/generate-proof-fixtures.ts`): the TXE and sandbox clocks can only
