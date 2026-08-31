@@ -1,24 +1,26 @@
-// This test pins the Noir fixtures we use to test zkpassport.nr to the SDK's conformance vectors.
+// This test pins the Noir fixtures we use to test zkpassport.nr to their external references:
+// the commitment anchors to the SDK's conformance vectors, and FIXTURE_PIS to the public
+// inputs of the checked-in age proof fixture.
 //
-// Run from the repo root: `bun test packages/aztec/test-harness/commitment-conformance.test.ts`
+// Run from the repo root: `bun test packages/aztec/test-harness/fixture-conformance.test.ts`
 import { expect, test } from "bun:test"
 import { readFileSync } from "fs"
 import { fileURLToPath } from "url"
 import vectors from "../../zkpassport-utils/conformance/vectors.json"
+import ageFixture from "./fixtures/outer_count_4_age.json"
 import { evaluateExpressions, parseNoirFile } from "./vendor/constants-generator"
 
 const FIXTURES_NR = fileURLToPath(
   new URL("../zkpassport.nr/zkpassport_core/src/fixtures.nr", import.meta.url),
 )
-// name => decimal string
+// name => decimal string (or an array of them, for array globals)
 const anchors = evaluateExpressions(
   parseNoirFile(readFileSync(FIXTURES_NR, "utf8")).constantsExpressions,
 )
-const hex = (name: string): string => "0x" + BigInt(anchors[name]).toString(16).padStart(64, "0")
+const hex = (name: string): string => "0x" + BigInt(anchors[name] as string).toString(16).padStart(64, "0")
 const vector = (proofType: string) => vectors.vectors.find((v) => v.proofType === proofType)!
 
-// FIXTURE_PIS is covered by fixture-pis.test.ts; every other constant must have a check here.
-test("every anchor in fixtures.nr is checked", () => {
+test("every constant in fixtures.nr is checked here", () => {
   expect(Object.keys(anchors).sort()).toEqual([
     "AGE_18_COMMITMENT",
     "DISCLOSE_COMMITMENT",
@@ -32,4 +34,13 @@ test("AGE_18_COMMITMENT matches the published age vector", () => {
 
 test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
+})
+
+test("FIXTURE_PIS matches the age fixture's public inputs", () => {
+  const pis = anchors.FIXTURE_PIS
+  expect(Array.isArray(pis)).toBe(true)
+  expect(pis).toHaveLength(9)
+  expect((pis as string[]).map(BigInt)).toEqual(
+    ageFixture.publicInputs.map((pi: string) => BigInt(pi)),
+  )
 })

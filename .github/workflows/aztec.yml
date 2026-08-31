@@ -71,7 +71,7 @@ jobs:
           bun-version: 1.3.8
 
       - name: Run commitment conformance tests
-        run: bun test packages/aztec/test-harness/commitment-conformance.test.ts packages/aztec/test-harness/fixture-pis.test.ts packages/aztec/test-harness/fixture-provenance.test.ts
+        run: bun test packages/aztec/test-harness/fixture-conformance.test.ts packages/aztec/test-harness/fixture-provenance.test.ts
 
       # Recursion-opcode coverage: nargo test no-ops std::verify_proof, so replay the
       # checked-in disclose proof fixture through bb.
