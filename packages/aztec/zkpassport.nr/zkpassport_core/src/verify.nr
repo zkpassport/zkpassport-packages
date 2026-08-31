@@ -71,7 +71,7 @@ mod test {
     fn wrong_scope_rejected() {
         let vk = [0; 115];
         let proof = [0; 458];
-        let pis = crate::parse::test::FIXTURE_PIS;
+        let pis = crate::fixtures::FIXTURE_PIS;
         let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0xbad, 0, false, [pis[5]]);
     }
 
@@ -79,7 +79,7 @@ mod test {
     fn wrong_commitment_rejected() {
         let vk = [0; 115];
         let proof = [0; 458];
-        let pis = crate::parse::test::FIXTURE_PIS;
+        let pis = crate::fixtures::FIXTURE_PIS;
         let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [0x1234]);
     }
 
@@ -87,7 +87,7 @@ mod test {
     fn mock_nullifier_needs_dev_mode() {
         let vk = [0; 115];
         let proof = [0; 458];
-        let mut pis = crate::parse::test::FIXTURE_PIS;
+        let mut pis = crate::fixtures::FIXTURE_PIS;
         pis[6] = 2; // NON_SALTED_MOCK
         let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
     }
@@ -100,14 +100,14 @@ mod test {
         let proof = [0; 458];
         let mut pis = [0; 10];
         for i in 0..8 {
-            pis[i] = crate::parse::test::FIXTURE_PIS[i];
+            pis[i] = crate::fixtures::FIXTURE_PIS[i];
         }
         // K=5 layout: [5], [6] are the two param commitments; tail moves to [7..9].
         pis[5] = 0xaaaa;
         pis[6] = 0xbbbb;
-        pis[7] = crate::parse::test::FIXTURE_PIS[6]; // nullifier_type
-        pis[8] = crate::parse::test::FIXTURE_PIS[7]; // scoped_nullifier
-        pis[9] = crate::parse::test::FIXTURE_PIS[8]; // oprf_pk_hash
+        pis[7] = crate::fixtures::FIXTURE_PIS[6]; // nullifier_type
+        pis[8] = crate::fixtures::FIXTURE_PIS[7]; // scoped_nullifier
+        pis[9] = crate::fixtures::FIXTURE_PIS[8]; // oprf_pk_hash
         let out = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xbbbb, 0xaaaa]);
         assert(out.parsed.param_commitments[0] == 0xaaaa);
         assert(out.parsed.param_commitments[1] == 0xbbbb);
@@ -121,13 +121,13 @@ mod test {
         let proof = [0; 458];
         let mut pis = [0; 10];
         for i in 0..8 {
-            pis[i] = crate::parse::test::FIXTURE_PIS[i];
+            pis[i] = crate::fixtures::FIXTURE_PIS[i];
         }
         pis[5] = 0xaaaa;
         pis[6] = 0xbbbb;
-        pis[7] = crate::parse::test::FIXTURE_PIS[6];
-        pis[8] = crate::parse::test::FIXTURE_PIS[7];
-        pis[9] = crate::parse::test::FIXTURE_PIS[8];
+        pis[7] = crate::fixtures::FIXTURE_PIS[6];
+        pis[8] = crate::fixtures::FIXTURE_PIS[7];
+        pis[9] = crate::fixtures::FIXTURE_PIS[8];
         let _ = verify_outer_proof_core::<5>(vk, proof, pis, 0, 0, false, [0xaaaa, 0xaaaa]);
     }
 
@@ -139,7 +139,7 @@ mod test {
     fn none_nullifier_type_with_zero_nullifier_passes() {
         let vk = [0; 115];
         let proof = [0; 458];
-        let mut pis = crate::parse::test::FIXTURE_PIS;
+        let mut pis = crate::fixtures::FIXTURE_PIS;
         pis[6] = 4; // NULLIFIER_TYPE_NONE
         pis[7] = 0; // scoped_nullifier
         let out = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);

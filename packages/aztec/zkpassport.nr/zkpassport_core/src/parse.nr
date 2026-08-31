@@ -41,20 +41,9 @@ pub fn parse_public_inputs<let K: u32>(public_inputs: [Field; K + 5]) -> PublicI
     }
 }
 
-pub mod test {
+mod test {
+    use crate::fixtures::FIXTURE_PIS;
     use crate::parse::parse_public_inputs;
-
-    pub global FIXTURE_PIS: [Field; 9] = [
-        0x050db5ae8a082acac8aedd3fa5611797e6090e1be98814988f9b30756e655852, // cert root
-        0x1fb977b9b05632763b1daba0b1aab88f523c61f829eac7c1867790befe6e3e58, // circuit root
-        0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
-        0x0000000000000000000000000000000000000000000000000000000000000000, // scope
-        0x0000000000000000000000000000000000000000000000000000000000000000, // subscope
-        0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83, // param_commitments[0]
-        0x0000000000000000000000000000000000000000000000000000000000000000, // nullifier_type
-        0x1c2de0aff0b433e96e0f1da31cec1d9e8b5e98c75d8d5c2e3e255ad689fe6354, // scoped_nullifier
-        0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
-    ];
 
     #[test]
     fn parses_outer_count_4_fixture() {
