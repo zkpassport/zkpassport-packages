@@ -46,6 +46,7 @@ pub contract AgeGate {
     #[external("private")]
     fn claim(user: AztecAddress) {
         let registry = self.storage.registry.read();
+
         let config = ServiceConfig {
             version: CIRCUIT_MANIFEST_VERSION,
             scope: 0, // fixture/demo: no domain binding; a real app pins sha256(domain) >> 8
@@ -53,7 +54,9 @@ pub contract AgeGate {
             validity_period: 7 * 86400,
             dev_mode: false,
         };
+
         let expected = [age_commitment(MIN_AGE, 0), bind_user_address_commitment(user.to_field())];
+
         // The capsule rides in the sender's PXE, so it is scoped to the sender — who may be a
         // relayer, not `user`.
         let verified = verify_zkpassport_proof::<5>(
@@ -63,7 +66,10 @@ pub contract AgeGate {
             config,
             expected,
         );
+
+        // Make sure this can only be done once per passport
         emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
+
         // Deliberately public: the enqueued call reveals `user` in the transaction's public
         // phase. The badge is meant to be readable by anyone (other contracts included);
         // only the passport proof behind it is private.
