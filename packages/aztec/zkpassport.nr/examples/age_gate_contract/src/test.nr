@@ -1,5 +1,5 @@
-// TXE no-ops the recursion opcode, so this test proves the WIRING (capsule → parse → policy →
-// registry views → nullifier), NOT proof validity. Proof validity: Task 10 harness + Task 13 e2e.
+// TXE no-ops the recursion opcode, so this test proves the wiring (capsule → parse → policy →
+// registry views → nullifier), NOT proof validity. Proof validity is covered by test-harness.
 use crate::AgeGate;
 use aztec::{
     oracle::capsules,
@@ -47,36 +47,39 @@ unconstrained fn deploy_registry(env: &mut TestEnvironment) -> Actors {
 }
 
 unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAddress) {
-    let a = deploy_registry(env);
-    let t = AGE_FIXTURE_CURRENT_DATE - 100; // roots valid from just before the proof date
+    let deployed_registry = deploy_registry(env);
+    let roots_valid_from = AGE_FIXTURE_CURRENT_DATE - 100;
     let _ = env.call_public(
-        a.oracle,
-        ZKPassportRegistry::at(a.registry).update_root(
+        deployed_registry.oracle,
+        ZKPassportRegistry::at(deployed_registry.registry).update_root(
             REGISTRY_CERTIFICATE,
             AGE_FIXTURE_CERT_ROOT,
             0,
-            t,
+            roots_valid_from,
         ),
     );
     let _ = env.call_public(
-        a.oracle,
-        ZKPassportRegistry::at(a.registry).update_root(
+        deployed_registry.oracle,
+        ZKPassportRegistry::at(deployed_registry.registry).update_root(
             REGISTRY_CIRCUIT,
             AGE_FIXTURE_CIRCUIT_ROOT,
             0,
-            t,
+            roots_valid_from,
         ),
     );
     let _ = env.call_public(
-        a.admin,
-        ZKPassportRegistry::at(a.registry).add_accepted_vk(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).add_accepted_vk(
             CIRCUIT_MANIFEST_VERSION,
             AGE_FIXTURE_VK_HASH,
         ),
     );
     let _ = env.call_public(
-        a.admin,
-        ZKPassportRegistry::at(a.registry).set_version_status(CIRCUIT_MANIFEST_VERSION, true),
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).set_version_status(
+            CIRCUIT_MANIFEST_VERSION,
+            true,
+        ),
     );
 
     // --- DPM landing + freshness anchor -------------------------------------------------------
@@ -95,10 +98,10 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     // -------------------------------------------------------------------------------------------
 
     let age_gate = env.deploy("AgeGate").with_public_initializer(
-        a.admin,
-        AgeGate::interface().constructor(a.registry),
+        deployed_registry.admin,
+        AgeGate::interface().constructor(deployed_registry.registry),
     );
-    (a, age_gate)
+    (deployed_registry, age_gate)
 }
 
 // The capsule is scoped to the account that will send the claim transaction (the capsule
@@ -125,7 +128,7 @@ unconstrained fn deliver_capsule(
 #[test]
 unconstrained fn claim_succeeds_with_fixture() {
     let mut env = TestEnvironment::new();
-    let (_a, age_gate) = seed_for_fixture(&mut env);
+    let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let relayer = env.create_light_account();
     deliver_capsule(&mut env, age_gate, relayer);
@@ -141,7 +144,7 @@ unconstrained fn claim_succeeds_with_fixture() {
 #[test(should_fail_with = "param commitment mismatch")]
 unconstrained fn claim_for_unbound_address_fails() {
     let mut env = TestEnvironment::new();
-    let (_a, age_gate) = seed_for_fixture(&mut env);
+    let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let thief = env.create_light_account();
     deliver_capsule(&mut env, age_gate, thief);
     let _ = env.call_private(thief, AgeGate::at(age_gate).claim(thief));
@@ -150,7 +153,7 @@ unconstrained fn claim_for_unbound_address_fails() {
 #[test(should_fail_with = "missing zkpassport proof capsule")]
 unconstrained fn claim_without_capsule_fails() {
     let mut env = TestEnvironment::new();
-    let (_a, age_gate) = seed_for_fixture(&mut env);
+    let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let relayer = env.create_light_account();
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
@@ -159,10 +162,10 @@ unconstrained fn claim_without_capsule_fails() {
 #[test(should_fail_with = "invalid certificate registry root")]
 unconstrained fn claim_fails_when_root_revoked() {
     let mut env = TestEnvironment::new();
-    let (a, age_gate) = seed_for_fixture(&mut env);
+    let (deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let _ = env.call_public(
-        a.admin,
-        ZKPassportRegistry::at(a.registry).set_revocation_status(
+        deployed_registry.admin,
+        ZKPassportRegistry::at(deployed_registry.registry).set_revocation_status(
             REGISTRY_CERTIFICATE,
             AGE_FIXTURE_CERT_ROOT,
             true,
@@ -191,7 +194,7 @@ unconstrained fn claim_fails_when_root_revoked() {
 #[test(should_fail)]
 unconstrained fn second_claim_same_passport_fails() {
     let mut env = TestEnvironment::new();
-    let (_a, age_gate) = seed_for_fixture(&mut env);
+    let (_deployed_registry, age_gate) = seed_for_fixture(&mut env);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let relayer = env.create_light_account();
     deliver_capsule(&mut env, age_gate, relayer);
