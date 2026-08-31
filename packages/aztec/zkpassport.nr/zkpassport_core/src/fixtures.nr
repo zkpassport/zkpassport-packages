@@ -2,7 +2,7 @@
 
 /// Public inputs transcribed from a real outer_count_4 proof (an 18+ age check against
 /// dev-mode registries, current_date 2050-01-01), in the K=4 layout parse.nr decodes.
-pub global FIXTURE_PIS: [Field; 9] = [
+pub global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
     0x050db5ae8a082acac8aedd3fa5611797e6090e1be98814988f9b30756e655852, // cert root
     0x1fb977b9b05632763b1daba0b1aab88f523c61f829eac7c1867790befe6e3e58, // circuit root
     0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
