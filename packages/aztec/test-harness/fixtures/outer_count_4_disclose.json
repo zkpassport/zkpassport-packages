@@ -3,6 +3,7 @@
   "kind": "disclose",
   "disclosureCircuit": "disclose_bytes",
   "bbVersion": "5.0.0-nightly.20260710",
+  "circuitsCommit": "1a1836eb958b7d7bbb47fab060128757748dba6a",
   "circuit": "outer_count_4",
   "nowTimestamp": 2524608000,
   "certificateRegistryRoot": "0x0f9ae818921c73556e67e81ad34a51151ec7be468735abec219226a47496d52d",

@@ -3,6 +3,7 @@
   "kind": "age",
   "disclosureCircuit": "compare_age",
   "bbVersion": "5.0.0-nightly.20260710",
+  "circuitsCommit": "1a1836eb958b7d7bbb47fab060128757748dba6a",
   "circuit": "outer_count_4",
   "nowTimestamp": 2524608000,
   "certificateRegistryRoot": "0x050db5ae8a082acac8aedd3fa5611797e6090e1be98814988f9b30756e655852",
