@@ -24,8 +24,10 @@ pub struct VerifiedProof<let K: u32> {
     pub param_commitments: [Field; K - 3],
 }
 
-// Domain separator for the uniqueness nullifier ("zkpassport" in ASCII)
-pub global UNIQUENESS_NULLIFIER_DOMAIN: Field = 0x7a6b70617373706f7274;
+// Domain separator for the uniqueness nullifier:
+// sha256("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER") >> 8 (truncated to fit a Field).
+pub global UNIQUENESS_NULLIFIER_DOMAIN: Field =
+    0x00b78b155d07e57bd0637b4da6434036916f508469fbf665bc45642faef0baed;
 
 /// Verify a zkPassport outer proof end-to-end: capsule load, recursion, scope pin, nullifier
 /// policy, commitment coverage, freshness, and the one registry view (roots + vk + OPRF).
