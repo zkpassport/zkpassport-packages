@@ -51,8 +51,8 @@ const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
 const MAX_TBS_LENGTH = 700
 
 // The proof's embedded "now" (its `current_date` public input). Deliberately FUTURE-dated
-// (2050-01-01) rather than wall-clock: consumers that enforce freshness (the TXE test, the
-// e2e) can only move their chain clocks forward, so a wall-clock-dated fixture expires
+// (2050-01-01) rather than wall-clock: downstream consumers that enforce freshness against
+// a chain clock can only move that clock forward, so a wall-clock-dated fixture expires
 // ~validity_period after generation, while a 2050 fixture stays verifiable until 2050 —
 // the tests warp forward to it. Pairs with the mock MRZ expiry (2060): the document must
 // be unexpired at this date, and the circuit resolves the MRZ's 2-digit expiry year
