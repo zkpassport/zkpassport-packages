@@ -156,7 +156,7 @@ $AZTEC/bin/aztec test
 
 # 4. Native bb prove/verify harness (the only nargo-test-layer check that enforces real
 #    recursive verification) — from test-harness/, several minutes:
-cd ../test-harness && ./run-harness.sh fixtures/outer_count_4_disclose.json
+cd ../test-harness && ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
 ```
 
 A fifth layer lives outside `zkpassport.nr/`: `e2e/` runs a full sandbox deploy + real
