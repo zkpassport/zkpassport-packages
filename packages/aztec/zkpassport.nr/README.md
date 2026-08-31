@@ -24,7 +24,7 @@ members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport_aztec"
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`oracle`/`guardian`) are plain `PublicMutable` — writes take effect instantly (`main.nr:24-26`). Everything else — `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, the version-keyed accepted-VK sets with their per-version enabled flags, and the OPRF pubkey hash — is `DelayedPublicMutable` (24h delay). Exposes `update_root` (oracle), admin policy setters, and private `#[view]` functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers call. | `aztec` (git, tag `v5.2.0`) |
 | `zkpassport_core` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`) over the ZKPassport circuits' own Noir libs. This crate is what the `test-harness/` proves against natively (no TXE needed). | `bb_proof_verification` (git, tag `v5.2.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
 | `zkpassport_aztec` | `lib` | The glue apps actually depend on: re-exports `zkpassport_core`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport_core` (path), `zkpassport_registry_contract` (path) |
-| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`. | `aztec`, `zkpassport_aztec`, `zkpassport_registry_contract` (path) |
+| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`, granting a public soulbound badge (`has_badge`). | `aztec`, `zkpassport_aztec`, `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crates (upstream noir-contracts style):
 `zkpassport_registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
@@ -46,9 +46,9 @@ use zkpassport_aztec::commitments::{age_commitment, bind_user_address_commitment
 global MIN_AGE: u8 = 18;
 
 /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
-/// commitments = {age(18, 0), bind(user)}) and burns the scoped nullifier — one claim
-/// per passport. The bind commitment ties the proof itself to `user`, so anyone — a
-/// relayer included — may submit the transaction.
+/// commitments = {age(18, 0), bind(user)}), burns the scoped nullifier — one claim per
+/// passport — and grants `user` a public soulbound badge. The bind commitment ties the
+/// proof itself to `user`, so anyone — a relayer included — may submit the transaction.
 #[external("private")]
 fn claim(user: AztecAddress) {
     let registry = self.storage.registry.read();
@@ -64,6 +64,9 @@ fn claim(user: AztecAddress) {
         self.context, registry, self.msg_sender(), config, expected,
     );
     emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
+    // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
+    // passport proof behind it is private.
+    self.enqueue_self._grant_badge(user);
 }
 ```
 
