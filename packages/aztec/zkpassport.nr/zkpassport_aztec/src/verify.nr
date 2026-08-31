@@ -1,4 +1,8 @@
-use aztec::{context::PrivateContext, oracle::capsules, protocol::address::AztecAddress};
+use aztec::{
+    context::PrivateContext,
+    oracle::capsules,
+    protocol::{address::AztecAddress, hash::sha256_to_field},
+};
 use poseidon::poseidon2::Poseidon2;
 use zkpassport_core::constants::{
     CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
@@ -24,10 +28,9 @@ pub struct VerifiedProof<let K: u32> {
     pub param_commitments: [Field; K - 3],
 }
 
-// Domain separator for the uniqueness nullifier:
-// sha256("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER") >> 8 (truncated to fit a Field).
+// Domain separator for the uniqueness nullifier.
 pub global UNIQUENESS_NULLIFIER_DOMAIN: Field =
-    0x00b78b155d07e57bd0637b4da6434036916f508469fbf665bc45642faef0baed;
+    sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
 
 /// Verify a zkPassport outer proof end-to-end: capsule load, recursion, scope pin, nullifier
 /// policy, commitment coverage, freshness, and the one registry view (roots + vk + OPRF).
