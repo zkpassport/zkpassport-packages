@@ -47,6 +47,7 @@ if (!FIXTURE_OUT) throw new Error("Set FIXTURE_OUT to the output JSON path")
 
 const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
+
 // Max padded byte length of the certificate TBS ("to be signed", RFC 5280 s4.1.2) section the
 // sig-check circuits accept. Selects the circuit size variant (the submodule ships tbs_700 /
 // 1000 / 1200 / 1600 under circuits/src/noir/bin/sig-check/); 700 fits the synthetic test
@@ -58,6 +59,10 @@ const MAX_TBS_LENGTH = 700
 // deliberately future-dated (2050-01-01). That way downstream consumers that enforce freshness
 // can be tested.
 const nowTimestamp = Number(process.env.FIXTURE_NOW ?? 2524608000) // 2050-01-01T00:00:00Z
+
+// Blinding salts for the integrity -> disclosure commitment chain: both stages must hash the
+// carried passport data with the same salts. Any fixed value works for a deterministic
+// capture; 3n matches the circuits repo's own test suite.
 const INTEGRITY_TO_DISCLOSURE_SALTS: IntegrityToDisclosureSalts = {
   dg1Salt: 3n,
   expiryDateSalt: 3n,
