@@ -325,7 +325,7 @@ async function main() {
     disclosureCircuit: disclosureName,
     bbVersion,
     // cwd is the circuits submodule (set by generate-proof-fixtures.sh), so this records the
-    // circuits commit the proof was built from; fixture-provenance.test.ts holds it to the pin.
+    // circuits commit the proof was built from; fixture-conformance.test.ts holds it to the pin.
     circuitsCommit: execSync("git rev-parse HEAD").toString().trim(),
     circuit: "outer_count_4",
     nowTimestamp,
