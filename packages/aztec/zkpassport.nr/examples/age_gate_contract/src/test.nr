@@ -129,7 +129,11 @@ unconstrained fn claim_succeeds_with_fixture() {
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let relayer = env.create_light_account();
     deliver_capsule(&mut env, age_gate, relayer);
+    assert(!env.view_public(AgeGate::at(age_gate).has_badge(user)));
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
+    // The badge goes to the bound address, not to the account that submitted the claim.
+    assert(env.view_public(AgeGate::at(age_gate).has_badge(user)));
+    assert(!env.view_public(AgeGate::at(age_gate).has_badge(relayer)));
 }
 
 // A proof bound to one address must not claim for another: same capsule blob, delivered for

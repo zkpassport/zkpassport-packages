@@ -5,9 +5,9 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract AgeGate {
     use aztec::{
-        macros::{functions::{external, initializer}, storage::storage},
+        macros::{functions::{external, initializer, only_self, view}, storage::storage},
         protocol::{address::AztecAddress, traits::ToField},
-        state_vars::PublicImmutable,
+        state_vars::{Map, PublicImmutable, PublicMutable},
     };
     use zkpassport_aztec::commitments::{age_commitment, bind_user_address_commitment};
     use zkpassport_aztec::verify::{
@@ -26,6 +26,9 @@ pub contract AgeGate {
     #[storage]
     struct Storage<Context> {
         registry: PublicImmutable<AztecAddress, Context>,
+        // The 18+ badge: a public, soulbound flag per address. The passport proof that earns
+        // it stays private; what becomes public is only that `user` holds the badge.
+        badges: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
     }
 
     #[external("public")]
@@ -35,8 +38,8 @@ pub contract AgeGate {
     }
 
     /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
-    /// commitments = {age(18, 0), bind(user)}) and burns the scoped nullifier — one claim
-    /// per passport.
+    /// commitments = {age(18, 0), bind(user)}), burns the scoped nullifier — one claim
+    /// per passport — and grants `user` the public badge.
     ///
     /// The bind commitment ties the proof itself to `user` (the passport holder asked
     /// ZKPassport to bind that address when the proof was made).
@@ -61,5 +64,21 @@ pub contract AgeGate {
             expected,
         );
         emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
+        // Deliberately public: the enqueued call reveals `user` in the transaction's public
+        // phase. The badge is meant to be readable by anyone (other contracts included);
+        // only the passport proof behind it is private.
+        self.enqueue_self._grant_badge(user);
+    }
+
+    #[external("public")]
+    #[only_self]
+    fn _grant_badge(user: AztecAddress) {
+        self.storage.badges.at(user).write(true);
+    }
+
+    #[external("public")]
+    #[view]
+    fn has_badge(user: AztecAddress) -> bool {
+        self.storage.badges.at(user).read()
     }
 }
