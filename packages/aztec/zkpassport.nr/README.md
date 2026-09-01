@@ -74,7 +74,7 @@ The client is responsible for stashing `vk ‖ proof ‖ public_inputs` into
 the app's capsule slot (`zkpassport_core::constants::PROOF_CAPSULE_SLOT`, `= 1`) before sending
 the transaction.
 
-From `e2e/src/run-e2e.ts`:
+From `scripts/src/run-e2e.ts`:
 
 ```typescript
 // Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT.
@@ -119,7 +119,7 @@ checks, registry validity) derived from it, so a malformed or malicious capsule 
 3. **TXE/`aztec-nargo test` no-op real recursion.** The `verify_proof_with_type`/
    `verify_honk_proof` opcode is not enforced under TXE simulation, so `aztec test` proves
    control flow and storage semantics only. **`bb verify` (from the `test-harness/`) and the local
-   network based e2e (`e2e/`) are the only checks that exercise real proof verification**: the
+   network based e2e (`scripts/`) are the only checks that exercise real proof verification**: the
    harness via native `bb prove`/`bb verify` on the wrapped core library, the e2e via a real
    client-IVC proof produced by the local PXE.
 4. **Sanctions checking is opt-in, per service.** The registry's mandatory verify path
@@ -179,11 +179,11 @@ runs from `test-harness/` (a sibling of `zkpassport.nr/` under `packages/aztec/`
 The script resolves the toolchain at `~/.aztec/versions/5.2.0`; point `AZTEC_HOME` elsewhere for
 a non-default install location.
 
-Finally, the end to end test at `e2e/`. It runs a full deploy + real client-IVC `claim()` against
+Finally, the end to end test at `scripts/`. It runs a full deploy + real client-IVC `claim()` against
 a local Aztec network (`AztecNode` at `localhost:8080` by default). It needs a running sandbox and
 native client-IVC proving.
 
-**The workspace must be compiled first.** `e2e/src/artifacts/{ZKPassportRegistry,AgeGate}.ts`
+**The workspace must be compiled first.** `scripts/src/artifacts/{ZKPassportRegistry,AgeGate}.ts`
 are tracked files that `import` from `zkpassport.nr/target/<contract>.json`, and
 `zkpassport.nr/target/` is gitignored. From a fresh clone the recipe below fails at module
 resolution before a single line runs unless you compile first (and re-run `aztec codegen` if the
@@ -192,10 +192,10 @@ ABI changed, so the tracked artifact `.ts` files match the freshly compiled JSON
 ```bash
 # From zkpassport.nr/:
 aztec compile
-# Only if the contract ABI changed since the tracked e2e/src/artifacts/*.ts were generated:
-aztec codegen target -o ../e2e/src/artifacts
+# Only if the contract ABI changed since the tracked scripts/src/artifacts/*.ts were generated:
+aztec codegen target -o ../scripts/src/artifacts
 
-cd ../e2e && npm install && npx tsx src/run-e2e.ts
+cd ../scripts && npm install && npx tsx src/run-e2e.ts
 ```
 
 ## Fixtures
@@ -225,10 +225,10 @@ and proved with (`bb` 5.0.0-nightly). Everywhere else in this workspace the 5.2.
 
 | Component | Pin | Notes |
 |---|---|---|
-| Aztec toolchain | `v5.2.0` (`aztec-nargo`, `aztec test`, `bb` 5.2.0-nightly) | Everything under `zkpassport.nr/` and `e2e/` compiles/tests/runs against this. Installed via `aztec-up install 5.2.0` (lands in `~/.aztec/versions/5.2.0`). |
+| Aztec toolchain | `v5.2.0` (`aztec-nargo`, `aztec test`, `bb` 5.2.0-nightly) | Everything under `zkpassport.nr/` and `scripts/` compiles/tests/runs against this. Installed via `aztec-up install 5.2.0` (lands in `~/.aztec/versions/5.2.0`). |
 | `aztec-nr` (the `aztec` crate) | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `noir-projects/aztec-nr/aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport_aztec`, `age_gate_contract`. Sourced from the monorepo (not the `aztec-nr` mirror) so all members share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport_core`'s recursive-verification dependency. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport_core` and `zkpassport_aztec`. |
 | ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport_core`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib`. The proof fixtures are generated from the `test-harness/circuits` **submodule**, pinned at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the commitment-fixture tests confirm identical commitments). Only fixture regeneration (`test-harness/generate-proof-fixtures.sh`) needs the submodule initialized — building/testing the workspace does not. |
-| `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/generate-commitment-fixtures.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/generate-proof-fixtures.ts` imports it from the `circuits` submodule's own node_modules, which pins the same version. Not a dependency of `e2e/` or any Noir package. |
+| `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/generate-commitment-fixtures.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/generate-proof-fixtures.ts` imports it from the `circuits` submodule's own node_modules, which pins the same version. Not a dependency of `scripts/` or any Noir package. |
 | `bb` (fixture generation only) | 5.0.0-nightly, from the separate `5.0.1` Aztec toolchain install | Matches the `bb` build ZKPassport's production circuits were compiled/proved with; required only by `test-harness/generate-proof-fixtures.sh`, never by test/build commands above. |
