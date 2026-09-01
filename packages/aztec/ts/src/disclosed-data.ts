@@ -1,14 +1,9 @@
 /**
- * TS twin of `zkpassport.nr`'s `zkpassport_core/src/disclosed_data.nr` — keep
- * the two in lockstep (the test vectors in test/disclosed-data.test.ts match the
- * Noir unit tests literal-for-literal).
+ * TS twin of `zkpassport.nr`'s `zkpassport_core/src/disclosed_data.nr`.
  *
- * The app-side helpers here are CONVENIENCE: they predict what the in-circuit
+ * The app-side helpers here are convenience: they predict what the in-circuit
  * `disclosed_nationality` will accept so the claim value can be built (and bad
- * queries fail client-side with a readable error). The soundness-critical twin
- * runs in the circuit; see its doc for why the layout branches on the signed
- * document code — which is also why nationality queries must disclose
- * `document_type` alongside `nationality`.
+ * queries fail client-side with a readable error).
  */
 
 /** ICAO 9303 nationality offset in a TD3 passport MRZ (2 x 44, zero-padded to 90). */

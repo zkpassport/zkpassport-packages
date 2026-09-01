@@ -11,12 +11,11 @@ export interface OuterProofParts {
 
 /**
  * Assemble the proof-capsule blob the library's `load_proof_capsule` consumes:
- * `vk(115) ‖ proof(458) ‖ public_inputs(K + 5)` — deliver it on
+ * `vk(115) ‖ proof(458) ‖ public_inputs(K + 5)`, which can then be delivered on
  * `PROOF_CAPSULE_SLOT` of the verifier contract.
  *
  * Shape-checks first: the on-chain load of a wrong-shaped blob just returns
- * None ("missing zkpassport proof capsule"), so failing here with the actual
- * counts beats debugging that. `k` is the outer circuit's subproof count
+ * None ("missing zkpassport proof capsule"). `k` is the outer circuit's subproof count
  * (`outer_count_5` → 5, the shape current SDK queries produce).
  *
  * Parsing note: the SDK/utils emit field elements as BARE hex (no `0x`).
