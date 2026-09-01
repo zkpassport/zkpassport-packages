@@ -1,7 +1,7 @@
 /**
  * The compiled ZKPassportRegistry artifact, loaded from the Noir workspace's
  * (gitignored) `target/` output — compile `zkpassport.nr` first, same as the
- * e2e package's generated bindings.
+ * scripts package's generated bindings.
  *
  * COUPLING: this is whatever build sits in `target/`. `INITIAL_DELAY` is a
  * compile-time constant, so a preview-delay build is a DIFFERENT contract class
