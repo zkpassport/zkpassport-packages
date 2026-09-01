@@ -59,7 +59,4 @@ mod test {
         bytes[56] = 83;
         assert(disclose_commitment(mask, bytes) == DISCLOSE_COMMITMENT);
     }
-    // sanctions_commitment: no independent TS anchor exists; its correctness rests on
-    // re-exporting the canonical circuits lib verbatim (same source the real circuit runs).
-    // It gets a real end-to-end check if/when a sanctions fixture is added (M2 note).
 }
