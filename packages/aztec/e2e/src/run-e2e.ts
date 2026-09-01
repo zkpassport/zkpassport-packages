@@ -24,28 +24,30 @@ import { packCircuitManifestVersion } from "./circuit-version.js"
 
 const NODE_URL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080"
 
-/** Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT. */
+// Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT.
 const PROOF_CAPSULE_SLOT = new Fr(1n)
 
-/** Must match zkpassport_registry_contract::types::INITIAL_DELAY. */
+// Must match zkpassport_registry_contract::types::INITIAL_DELAY.
 const DELAY = 86400n
 
 // Circuit-manifest version seeded into the registry; must match AgeGate's
 // CIRCUIT_MANIFEST_VERSION (main.nr): packed("0.0.1"), the local/dev release id.
 const CIRCUIT_MANIFEST_VERSION = packCircuitManifestVersion("0.0.1")
-/** Registry ids: zkpassport_registry_contract::types::REGISTRY_{CERTIFICATE,CIRCUIT}. */
+
+// Registry ids: zkpassport_registry_contract::types::REGISTRY_{CERTIFICATE,CIRCUIT}.
 const REGISTRY_CERTIFICATE = 1n
 const REGISTRY_CIRCUIT = 2n
 
-/** zkpassport_registry_contract::types::MODE_VALID_WITHIN_WINDOW. */
+// zkpassport_registry_contract::types::MODE_VALID_WITHIN_WINDOW.
 const MODE_VALID_WITHIN_WINDOW = 3
-/** Production validity window in seconds, matching L1's registry deployments. */
+
+// Production validity window in seconds, matching L1's registry deployments.
 const VALIDITY_WINDOW = 86400n
 
 const VK_FIELDS = 115
 const PROOF_FIELDS = 458
 
-/** Client-IVC proving is minutes-scale; never let the tx wait time out first. */
+// Client-IVC proving is minutes-scale; never let the tx wait time out first.
 const WAIT = { timeout: 3600, interval: 1 } as const
 
 type Fixture = {
@@ -77,7 +79,7 @@ async function timed<T>(label: string, fn: () => Promise<T>): Promise<[T, number
   return [out, secs]
 }
 
-/** Latest L2 block timestamp, for reporting how far time was warped. */
+// Latest L2 block timestamp, for reporting how far time was warped.
 async function l2Timestamp(node: ReturnType<typeof createAztecNodeClient>): Promise<bigint> {
   const data = await node.getBlockData("latest")
   return BigInt((data as any).header.globalVariables.timestamp)
@@ -89,7 +91,6 @@ function describeError(e: unknown): string {
 }
 
 async function main() {
-  // Real proving is the whole point of this script; make it explicit and loud.
   const proverEnabled = process.env.E2E_PROVER_ENABLED !== "false"
   log(`node=${NODE_URL} proverEnabled=${proverEnabled} delay=${DELAY}s`)
 
@@ -99,8 +100,6 @@ async function main() {
     `node info: ${JSON.stringify(await node.getNodeInfo().then((i: any) => ({ v: i.nodeVersion, chain: i.l1ChainId })))}`,
   )
 
-  // The embedded wallet runs its OWN in-process PXE, so proverEnabled here (not any
-  // sandbox flag) is what decides whether the client-IVC proof is real.
   const wallet = await EmbeddedWallet.create(NODE_URL, {
     ephemeral: true,
     pxe: { proverEnabled },
@@ -162,10 +161,7 @@ async function main() {
   // absolutely: past the DPM delay (counted from the seeding just above) AND into the proof's
   // freshness window (zkpassport_aztec::verify::verify_zkpassport_proof requires
   //   current_date <= anchor_ts + 3600   AND   current_date + 604800 > anchor_ts,
-  // 604800s = 7 days = ServiceConfig.validity_period in AgeGate::claim). Warps persist across
-  // runs against the same sandbox instance, and each re-run past the target still bumps the
-  // clock by ~DELAY+120s -- so one instance has a ~5-run budget before anchor_ts leaves the
-  // fixture's 7-day window; restart the sandbox to reset (it re-warps to the 2050 target).
+  // 604800s = 7 days = ServiceConfig.validity_period in AgeGate::claim).
   const before = await l2Timestamp(node)
   const target = BigInt(FIXTURE.nowTimestamp) + DELAY + 120n
   const bump = target > before ? target - before : DELAY + 120n
@@ -176,9 +172,6 @@ async function main() {
     throw new Error(`warp did not clear the ${DELAY}s delay (only +${after - before}s)`)
   }
 
-  // Hard control, not just a log: the DPM value must actually be current post-warp (utility
-  // view, no proving involved) or the claim below would fail for a reason unrelated to what
-  // this script is testing (registry acceptance vs. real proof verification).
   const vkAccepted = await registry.methods
     .is_vk_accepted(CIRCUIT_MANIFEST_VERSION, Fr.fromHexString(FIXTURE.vkeyHashBB))
     .simulate({ from: admin })
@@ -199,42 +192,41 @@ async function main() {
     `capsule blob: ${blob.length} fields (vk ${VK_FIELDS} + proof ${PROOF_FIELDS} + pi ${FIXTURE.publicInputs.length})`,
   )
 
-  // The capsule is scoped to `user` — the sandbox account SENDING the transaction. The claim
+  // The capsule is scoped to `user` — the sandbox account sending the transaction. The claim
   // itself goes to the fixture's bound address: the proof carries a bind commitment over it,
   // so the sender is effectively a relayer and the badge recipient needs no account here.
   const boundUser = AztecAddress.fromFieldUnsafe(Fr.fromHexString(FIXTURE.bindAddress))
   const capsule = (fields: Fr[]) =>
     new Capsule(ageGate.address, PROOF_CAPSULE_SLOT, fields, user as AztecAddress)
 
-  // ---- 4a. Tampered proof must fail — the proving-mode canary --------------
-  // Run this FIRST, while the uniqueness nullifier is still unspent: after a
-  // successful claim a tampered retry would be rejected for a duplicate nullifier
-  // regardless of proving, which would silently mask a proofless run.
-  //
+  // ---- 4a. Tampered proof must fail ----------------------------------------------
   // Flip one bit inside the proof body; vk and public inputs stay valid so every
   // registry/freshness check still passes and ONLY the recursion constraint breaks.
   // Several offsets are probed because different regions of a Honk proof fail
-  // differently (a mangled commitment limb dies in point deserialization, a mangled
-  // sumcheck/evaluation field survives parsing and dies in the recursive verifier —
-  // the latter is the direct evidence that verify_proof_with_type is enforced).
+  // differently.
   // All of them must fail; any one succeeding means the recursion was not enforced.
   const offsets = (process.env.E2E_TAMPER_OFFSETS ?? "10,229,457")
     .split(",")
     .map((s) => Number(s.trim()))
+
   let tamperFailed = true
   const tamperResults: string[] = []
   const tamperStart = Date.now()
+
   for (const offset of offsets) {
     const tampered = [...blob]
     const idx = VK_FIELDS + offset
     tampered[idx] = new Fr(tampered[idx].toBigInt() ^ 1n)
+
     log(
       `tampering proof[${offset}] (blob field ${idx}): ${blob[idx].toString()} -> ${tampered[idx].toString()}`,
     )
+
     try {
       const { receipt: bad } = await ageGate.methods
         .claim(boundUser)
         .send({ from: user, capsules: [capsule(tampered)], wait: WAIT })
+
       tamperFailed = false
       tamperResults.push(`proof[${offset}]: ACCEPTED as ${bad.txHash.toString()} (!!)`)
       log(`  proof[${offset}] was ACCEPTED — the recursion constraint was NOT enforced`)
@@ -244,6 +236,7 @@ async function main() {
       log(`  proof[${offset}] rejected: ${describeError(e)}`)
     }
   }
+
   const tamperSecs = (Date.now() - tamperStart) / 1000
   console.log(`TAMPERED PROOF REJECTED: ${tamperFailed}`)
 
