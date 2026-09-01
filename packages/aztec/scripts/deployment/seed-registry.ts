@@ -81,6 +81,8 @@ import {
   defaultNodeUrl,
   deploymentRecordPath,
   deriveDeployerAccount,
+  requiredSecret,
+  saltFromEnv,
   verifySponsoredFPC,
   writeDeploymentRecord,
 } from "./common.js"
@@ -182,14 +184,8 @@ async function main() {
   const cfg = NETWORKS[network]
   if (!cfg) throw new Error(`usage: seed-registry.ts <testnet|mainnet> (got "${network}")`)
 
-  const secret = process.env.ZKPASSPORT_DEPLOYER_SECRET
-  if (!secret) {
-    throw new Error(
-      "ZKPASSPORT_DEPLOYER_SECRET is required — the sender must hold the registry's oracle/admin roles",
-    )
-  }
-  const secretKey = Fr.fromString(secret)
-  const salt = process.env.SALT ? Fr.fromString(process.env.SALT) : new Fr(0)
+  const secretKey = requiredSecret()
+  const salt = saltFromEnv()
   const nodeUrl = process.env.AZTEC_NODE_URL ?? cfg.nodeUrl
   const { address: registryAddress, source } = resolveRegistryAddress(network)
 

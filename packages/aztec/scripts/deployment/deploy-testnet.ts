@@ -31,9 +31,10 @@
  *
  * Env:
  *   AZTEC_NODE_URL              node RPC (default: the public v5 testnet endpoint)
- *   ZKPASSPORT_DEPLOYER_SECRET  hex Fr for the deployer account. Generated and echoed
- *                               as an `export` line when absent — re-export it so
- *                               re-runs resolve the same deployer (and registry).
+ *   ZKPASSPORT_DEPLOYER_SECRET  REQUIRED: hex Fr for the deployer account, minted with
+ *                               create-schnorr-account.ts. Never generated here; the
+ *                               same secret makes re-runs resolve the same deployer
+ *                               (and registry).
  *   SALT                        account + contract salt (default 0, reproducible)
  *   REGISTRY_ADMIN / REGISTRY_ORACLE / REGISTRY_GUARDIAN
  *                               role addresses, all required. There is no deployer
@@ -62,8 +63,8 @@ import {
   connectAndCheckNode,
   defaultNodeUrl,
   deriveDeployerAccount,
-  loadOrCreateSecret,
   requiredRole,
+  requiredSecret,
   saltFromEnv,
   verifySponsoredFPC,
   writeDeploymentRecord,
@@ -80,7 +81,7 @@ const IS_PREVIEW = process.env.PREVIEW_DELAY !== undefined
 const MANIFEST = `${IS_PREVIEW ? "testnet-preview" : "testnet"}.json`
 
 async function main() {
-  const { secretKey, generated } = loadOrCreateSecret("ZKPASSPORT_DEPLOYER_SECRET")
+  const secretKey = requiredSecret()
   const salt = saltFromEnv()
 
   if (IS_PREVIEW) {
@@ -158,11 +159,6 @@ async function main() {
   writeDeploymentRecord(MANIFEST, manifest)
 
   console.log("---")
-  if (generated) {
-    // The leading space keeps the pasted command out of shell history
-    // (HISTCONTROL=ignoreboth / HIST_IGNORE_SPACE).
-    console.log(` export ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)
-  }
   console.log(`export ZKPASSPORT_REGISTRY_ADDRESS=${instance.address.toString()}`)
   const delayHours = (Number(INITIAL_DELAY) / 3600).toFixed(1)
   console.log(

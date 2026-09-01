@@ -1,8 +1,8 @@
 /**
- * Shared plumbing for the deployment scripts (create-deployer.ts, deploy-testnet.ts,
- * deploy-mainnet.ts, seed-registry.ts): network defaults, env parsing, node connection
- * checks, deployer-account derivation, SponsoredFPC verification, and deployment-record
- * paths.
+ * Shared plumbing for the deployment scripts (create-schnorr-account.ts,
+ * deploy-testnet.ts, deploy-mainnet.ts, seed-registry.ts): network defaults, env
+ * parsing, node connection checks, deployer-account derivation, SponsoredFPC
+ * verification, and deployment-record paths.
  */
 import { type NoirCompiledContract, loadContractArtifact } from "@aztec/aztec.js/abi"
 import { AztecAddress } from "@aztec/aztec.js/addresses"
@@ -33,22 +33,16 @@ export const VALIDITY_WINDOW = 86400n
 /** Client-side proving is minutes-scale; never let the tx wait time out first. */
 export const WAIT = { timeout: 3600, interval: 2 } as const
 
-const ONE_FJ = 10n ** 18n
-
-/** Format Fee Juice wei as a decimal FJ string (1e18 wei = 1 FJ). */
-export function fj(wei: bigint): string {
-  const whole = wei / ONE_FJ
-  const frac = ((wei % ONE_FJ) * 10000n) / ONE_FJ
-  return `${whole}.${frac.toString().padStart(4, "0")} FJ`
-}
-
-/** aztec-kit's loadOrCreateSecret: read the env var, or mint a fresh secret to echo back. */
-export function loadOrCreateSecret(envVar: string): { secretKey: Fr; generated: boolean } {
-  const env = process.env[envVar]
-  if (env) {
-    return { secretKey: Fr.fromString(env), generated: false }
+/** The deployer secret from the environment; only create-schnorr-account.ts mints one. */
+export function requiredSecret(): Fr {
+  const env = process.env.ZKPASSPORT_DEPLOYER_SECRET
+  if (!env) {
+    console.error(
+      "ZKPASSPORT_DEPLOYER_SECRET is required: mint one with deployment/create-schnorr-account.ts and export it from your secret manager.",
+    )
+    process.exit(1)
   }
-  return { secretKey: Fr.random(), generated: true }
+  return Fr.fromString(env)
 }
 
 /** The SALT env var as an Fr; the default 0 keeps derived addresses reproducible. */

@@ -22,11 +22,11 @@
  *
  * Env:
  *   AZTEC_NODE_URL              node RPC (default: the public mainnet endpoint)
- *   ZKPASSPORT_DEPLOYER_SECRET  hex Fr for the deployer account. Generated and echoed
- *                               as an `export` line when absent — re-export it so
- *                               re-runs resolve the same deployer (and registry).
- *                               On mainnet this secret controls real funds and the
- *                               registry admin role: keep it safe.
+ *   ZKPASSPORT_DEPLOYER_SECRET  REQUIRED: hex Fr for the deployer account, minted with
+ *                               create-schnorr-account.ts. Never generated here; the
+ *                               same secret makes re-runs resolve the same deployer
+ *                               (and registry). On mainnet it controls real funds and
+ *                               the registry admin role: keep it safe.
  *   SALT                        account + contract salt (default 0, reproducible)
  *   REGISTRY_ADMIN / REGISTRY_ORACLE / REGISTRY_GUARDIAN
  *                               role addresses, all required. The same account can be used to play
@@ -59,9 +59,8 @@ import {
   connectAndCheckNode,
   defaultNodeUrl,
   deriveDeployerAccount,
-  fj,
-  loadOrCreateSecret,
   requiredRole,
+  requiredSecret,
   saltFromEnv,
   writeDeploymentRecord,
 } from "./common.js"
@@ -78,10 +77,19 @@ const IS_PREVIEW = process.env.PREVIEW_DELAY !== undefined
 
 const MANIFEST = `${IS_PREVIEW ? "mainnet-preview" : "mainnet"}.json`
 
+const ONE_FJ = 10n ** 18n
+
+/** Format Fee Juice wei as a decimal FJ string (1e18 wei = 1 FJ). */
+function fj(wei: bigint): string {
+  const whole = wei / ONE_FJ
+  const frac = ((wei % ONE_FJ) * 10000n) / ONE_FJ
+  return `${whole}.${frac.toString().padStart(4, "0")} FJ`
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
-  const { secretKey, generated } = loadOrCreateSecret("ZKPASSPORT_DEPLOYER_SECRET")
+  const secretKey = requiredSecret()
   const salt = saltFromEnv()
 
   if (IS_PREVIEW) {
@@ -243,11 +251,6 @@ async function main() {
   writeDeploymentRecord(MANIFEST, manifest)
 
   console.log("---")
-  if (generated) {
-    // The leading space keeps the pasted command out of shell history
-    // (HISTCONTROL=ignoreboth / HIST_IGNORE_SPACE).
-    console.log(` export ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)
-  }
   console.log(`export ZKPASSPORT_REGISTRY_ADDRESS=${instance.address.toString()}`)
   const delayHours = (Number(INITIAL_DELAY) / 3600).toFixed(1)
   console.log(
