@@ -61,8 +61,9 @@ import {
   VALIDITY_WINDOW,
   WAIT,
   connectAndCheckNode,
+  createEphemeralWallet,
   defaultNodeUrl,
-  deriveDeployerAccount,
+  deriveSchnorrAccount,
   requiredRole,
   requiredSecret,
   saltFromEnv,
@@ -81,7 +82,7 @@ const IS_PREVIEW = process.env.PREVIEW_DELAY !== undefined
 const MANIFEST = `${IS_PREVIEW ? "testnet-preview" : "testnet"}.json`
 
 async function main() {
-  const secretKey = requiredSecret()
+  const secretKey = requiredSecret("ZKPASSPORT_DEPLOYER_SECRET")
   const salt = saltFromEnv()
 
   if (IS_PREVIEW) {
@@ -95,7 +96,8 @@ async function main() {
     "testnet",
   )
 
-  const { wallet, account: deployer } = await deriveDeployerAccount(NODE_URL, secretKey, salt, true)
+  const wallet = await createEphemeralWallet(NODE_URL, true)
+  const deployer = await deriveSchnorrAccount(wallet, secretKey, salt)
   console.log(`deployer (initializerless Schnorr, no deploy tx needed): ${deployer.address}`)
 
   const fpc = await verifySponsoredFPC(node, wallet)

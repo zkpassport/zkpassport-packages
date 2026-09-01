@@ -33,12 +33,12 @@ export const VALIDITY_WINDOW = 86400n
 /** Client-side proving is minutes-scale; never let the tx wait time out first. */
 export const WAIT = { timeout: 3600, interval: 2 } as const
 
-/** The deployer secret from the environment; only create-schnorr-account.ts mints one. */
-export function requiredSecret(): Fr {
-  const env = process.env.ZKPASSPORT_DEPLOYER_SECRET
+/** An account secret from the environment; only create-schnorr-account.ts mints secrets. */
+export function requiredSecret(envVar: string): Fr {
+  const env = process.env[envVar]
   if (!env) {
     console.error(
-      "ZKPASSPORT_DEPLOYER_SECRET is required: mint one with deployment/create-schnorr-account.ts and export it from your secret manager.",
+      `${envVar} is required: mint an account with deployment/create-schnorr-account.ts and export its secret from your secret manager.`,
     )
     process.exit(1)
   }
@@ -91,27 +91,24 @@ export async function connectAndCheckNode(nodeUrl: string, network: Network) {
   return { node, nodeVersion, l1ChainId, rollupVersion }
 }
 
-/**
- * Create an ephemeral wallet and rebuild the initializerless Schnorr account whose
- * address is a pure function of (secret, salt). No account-deploy tx is needed.
- * Disable proving for derive-only flows that never send a tx.
- */
-export async function deriveDeployerAccount(
-  nodeUrl: string,
-  secretKey: Fr,
-  salt: Fr,
-  proverEnabled: boolean,
-) {
-  const wallet = await EmbeddedWallet.create(nodeUrl, {
+/** In-memory wallet. Disable proving for derive-only flows that never send a tx. */
+export async function createEphemeralWallet(nodeUrl: string, proverEnabled: boolean) {
+  return EmbeddedWallet.create(nodeUrl, {
     ephemeral: true,
     pxe: { proverEnabled },
   })
-  const account = await wallet.createSchnorrInitializerlessAccount(
+}
+
+/**
+ * Rebuild the initializerless Schnorr account whose address is a pure function of
+ * (secret, salt). No account-deploy tx is needed.
+ */
+export async function deriveSchnorrAccount(wallet: EmbeddedWallet, secretKey: Fr, salt: Fr) {
+  return wallet.createSchnorrInitializerlessAccount(
     secretKey,
     salt,
     deriveMasterMessageSigningSecretKey(secretKey),
   )
-  return { wallet, account }
 }
 
 /**

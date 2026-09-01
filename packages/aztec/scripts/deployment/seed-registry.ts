@@ -33,15 +33,18 @@
  * Usage: npm run seed:testnet | npm run seed:mainnet   (or: npx tsx deployment/seed-registry.ts <network>)
  *
  * Env:
- *   ZKPASSPORT_DEPLOYER_SECRET   REQUIRED — the deploy script's secret. The sender must
- *                                hold the registry's oracle role (update_root) and admin
- *                                role (add_accepted_vk / set_version_status /
- *                                set_oprf_pk_hash); both default
- *                                to the deployer at deploy time.
+ *   REGISTRY_ORACLE_SECRET       REQUIRED: secret of the account holding the oracle
+ *                                role, which sends update_root.
+ *   REGISTRY_ADMIN_SECRET        REQUIRED: secret of the account holding the admin
+ *                                role, which sends add_accepted_vk /
+ *                                set_version_status / set_oprf_pk_hash. When one
+ *                                account holds both roles, repeat the same secret in
+ *                                both variables.
  *   ZKPASSPORT_REGISTRY_ADDRESS  registry to seed. Default: read from the deploy manifest
  *                                (deployments/<network>.json, else <network>-preview.json).
  *   AZTEC_NODE_URL               node RPC (default per network, same as the deploy scripts)
- *   SALT                         deployer account salt (default 0, must match the deploy)
+ *   SALT                         account salt for both senders (default 0, must match
+ *                                the salt their addresses were derived with)
  *   ZKP_REGISTRY_RPC_URL         Ethereum RPC for ZKPassport's RootRegistry
  *                                (default: public Sepolia RPC on testnet, mainnet RPC on mainnet)
  *   ZKP_REGISTRY_CHAIN_ID        chain of that RootRegistry (default matches the RPC above).
@@ -61,9 +64,8 @@
  *   DRY_RUN                      resolve + print everything, send nothing
  *
  * Fees: testnet uses the live SponsoredFPC (same 5.1.0-artifact pin + on-chain
- * verification as deploy-testnet.ts). Mainnet pays with the deployer's Fee Juice —
- * seeding costs a few small public txs, so the balance left from the deploy should
- * cover it (see deploy-mainnet.ts for bridging if not).
+ * verification as deploy-testnet.ts). Mainnet pays with each sender's own Fee Juice —
+ * seeding costs a few small public txs (see deploy-mainnet.ts for bridging).
  */
 import { AztecAddress } from "@aztec/aztec.js/addresses"
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee"
@@ -79,8 +81,9 @@ import {
   WAIT,
   connectAndCheckNode,
   defaultNodeUrl,
+  createEphemeralWallet,
   deploymentRecordPath,
-  deriveDeployerAccount,
+  deriveSchnorrAccount,
   requiredSecret,
   saltFromEnv,
   verifySponsoredFPC,
@@ -184,7 +187,8 @@ async function main() {
   const cfg = NETWORKS[network]
   if (!cfg) throw new Error(`usage: seed-registry.ts <testnet|mainnet> (got "${network}")`)
 
-  const secretKey = requiredSecret()
+  const oracleSecret = requiredSecret("REGISTRY_ORACLE_SECRET")
+  const adminSecret = requiredSecret("REGISTRY_ADMIN_SECRET")
   const salt = saltFromEnv()
   const nodeUrl = process.env.AZTEC_NODE_URL ?? cfg.nodeUrl
   const { address: registryAddress, source } = resolveRegistryAddress(network)
@@ -232,11 +236,16 @@ async function main() {
   const vkVersionFr = packCircuitManifestVersion(manifestSemver)
   console.log(`  circuit manifest version: ${manifestSemver} -> ${vkVersionFr}`)
 
-  // ── Connect + rebuild the deployer account ───────────────────────────────────
+  // ── Connect + rebuild the sender accounts ────────────────────────────────────
   const { node } = await connectAndCheckNode(nodeUrl, network)
 
-  const { wallet, account: sender } = await deriveDeployerAccount(nodeUrl, secretKey, salt, true)
-  console.log(`sender (must be the registry's oracle + admin): ${sender.address}`)
+  const wallet = await createEphemeralWallet(nodeUrl, true)
+  const oracleSender = await deriveSchnorrAccount(wallet, oracleSecret, salt)
+  const adminSender = adminSecret.equals(oracleSecret)
+    ? oracleSender
+    : await deriveSchnorrAccount(wallet, adminSecret, salt)
+  console.log(`oracle sender (update_root): ${oracleSender.address}`)
+  console.log(`admin sender (vk/version/oprf ops): ${adminSender.address}`)
 
   const instance = await node.getContract(registryAddress)
   if (!instance) throw new Error(`no contract on-chain at ${registryAddress} (${source})`)
@@ -251,7 +260,11 @@ async function main() {
     const fpc = await verifySponsoredFPC(node, wallet)
     fee = { paymentMethod: new SponsoredFeePaymentMethod(fpc.address) }
   }
-  const sendOpts = { from: sender.address, ...(fee ? { fee } : {}), wait: WAIT }
+  const sendOptsFor = (senderAddress: AztecAddress) => ({
+    from: senderAddress,
+    ...(fee ? { fee } : {}),
+    wait: WAIT,
+  })
 
   // ── Plan: compare against the registry's (delay-applied) current state ───────
   const nowSecs = BigInt(Math.floor(Date.now() / 1000))
@@ -267,7 +280,7 @@ async function main() {
   for (const r of roots) {
     const rootFr = Fr.fromHexString(r.root)
     const pair = unwrap<{ latest: bigint }>(
-      await registry.methods.get_latest_pair(r.id).simulate({ from: sender.address }),
+      await registry.methods.get_latest_pair(r.id).simulate({ from: oracleSender.address }),
     )
     const current = new Fr(pair.latest)
     if (current.equals(rootFr)) {
@@ -294,7 +307,9 @@ async function main() {
   for (const vk of vkHashes) {
     const hashFr = Fr.fromHexString(vk.hash)
     const accepted = unwrap<boolean>(
-      await registry.methods.is_vk_accepted(vkVersionFr, hashFr).simulate({ from: sender.address }),
+      await registry.methods
+        .is_vk_accepted(vkVersionFr, hashFr)
+        .simulate({ from: adminSender.address }),
     )
     if (accepted) {
       console.log(`vk ${vk.name} is already accepted — skipping`)
@@ -318,7 +333,9 @@ async function main() {
   }
   {
     const enabled = unwrap<boolean>(
-      await registry.methods.is_version_enabled(vkVersionFr).simulate({ from: sender.address }),
+      await registry.methods
+        .is_version_enabled(vkVersionFr)
+        .simulate({ from: adminSender.address }),
     )
     if (enabled) {
       console.log(`vk version ${manifestSemver} is already enabled — skipping`)
@@ -380,7 +397,7 @@ async function main() {
   for (const r of roots) {
     const rootFr = Fr.fromHexString(r.root)
     const pair = unwrap<{ latest: bigint }>(
-      await registry.methods.get_latest_pair(r.id).simulate({ from: sender.address }),
+      await registry.methods.get_latest_pair(r.id).simulate({ from: oracleSender.address }),
     )
     const current = new Fr(pair.latest)
     if (current.equals(rootFr)) continue
@@ -394,7 +411,7 @@ async function main() {
     if (sched.post[0].equals(rootFr) && sched.maturesAt > nowSecs) continue // reported in the plan
     const call = registry.methods.update_root(r.id, rootFr, current, nowSecs)
     try {
-      await call.simulate({ from: sender.address })
+      await call.simulate({ from: oracleSender.address })
     } catch (e) {
       const msg = (e as Error).message ?? String(e)
       if (msg.includes("root already exists")) {
@@ -412,7 +429,7 @@ async function main() {
       throw e
     }
     console.log(`update_root(${r.label}, ${r.root}) — proving + sending...`)
-    await call.send(sendOpts)
+    await call.send(sendOptsFor(oracleSender.address))
     console.log(`  done`)
     seeded[`${r.label}Root`] = r.root
   }
@@ -420,7 +437,9 @@ async function main() {
   for (const vk of vkHashes) {
     const hashFr = Fr.fromHexString(vk.hash)
     const accepted = unwrap<boolean>(
-      await registry.methods.is_vk_accepted(vkVersionFr, hashFr).simulate({ from: sender.address }),
+      await registry.methods
+        .is_vk_accepted(vkVersionFr, hashFr)
+        .simulate({ from: adminSender.address }),
     )
     if (accepted) continue
     const sched = await readScheduledChange(
@@ -434,14 +453,18 @@ async function main() {
     console.log(
       `add_accepted_vk(v${manifestSemver}, ${vk.name}, ${vk.hash}) — proving + sending...`,
     )
-    await registry.methods.add_accepted_vk(vkVersionFr, hashFr).send(sendOpts)
+    await registry.methods
+      .add_accepted_vk(vkVersionFr, hashFr)
+      .send(sendOptsFor(adminSender.address))
     console.log(`  done`)
     seeded[`vk:${vk.name}`] = vk.hash
   }
 
   {
     const enabled = unwrap<boolean>(
-      await registry.methods.is_version_enabled(vkVersionFr).simulate({ from: sender.address }),
+      await registry.methods
+        .is_version_enabled(vkVersionFr)
+        .simulate({ from: adminSender.address }),
     )
     const sched = await readScheduledChange(
       node,
@@ -453,7 +476,9 @@ async function main() {
     const pending = !sched.post[0].isZero() && sched.maturesAt > nowSecs
     if (!enabled && !pending) {
       console.log(`set_version_status(v${manifestSemver}, true) — proving + sending...`)
-      await registry.methods.set_version_status(vkVersionFr, true).send(sendOpts)
+      await registry.methods
+        .set_version_status(vkVersionFr, true)
+        .send(sendOptsFor(adminSender.address))
       console.log(`  done`)
       seeded[`version:${manifestSemver}`] = "enabled"
     }
@@ -462,7 +487,7 @@ async function main() {
   if (process.env.OPRF_PK_HASH && oprfNeeded) {
     const oprf = Fr.fromHexString(process.env.OPRF_PK_HASH)
     console.log(`set_oprf_pk_hash(${oprf}) — proving + sending...`)
-    await registry.methods.set_oprf_pk_hash(oprf).send(sendOpts)
+    await registry.methods.set_oprf_pk_hash(oprf).send(sendOptsFor(adminSender.address))
     console.log(`  done`)
     seeded.oprfPkHash = oprf.toString()
   }
@@ -471,7 +496,10 @@ async function main() {
     network,
     nodeUrl,
     registry: registryAddress.toString(),
-    sender: sender.address.toString(),
+    senders: {
+      oracle: oracleSender.address.toString(),
+      admin: adminSender.address.toString(),
+    },
     zkpassportRegistryChainId: zkpChainId,
     circuitManifestVersion: manifest.version ?? null,
     certRoot,

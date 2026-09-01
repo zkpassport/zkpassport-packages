@@ -57,8 +57,9 @@ import {
   VALIDITY_WINDOW,
   WAIT,
   connectAndCheckNode,
+  createEphemeralWallet,
   defaultNodeUrl,
-  deriveDeployerAccount,
+  deriveSchnorrAccount,
   requiredRole,
   requiredSecret,
   saltFromEnv,
@@ -89,7 +90,7 @@ function fj(wei: bigint): string {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
-  const secretKey = requiredSecret()
+  const secretKey = requiredSecret("ZKPASSPORT_DEPLOYER_SECRET")
   const salt = saltFromEnv()
 
   if (IS_PREVIEW) {
@@ -103,7 +104,8 @@ async function main() {
     "mainnet",
   )
 
-  const { wallet, account: deployer } = await deriveDeployerAccount(NODE_URL, secretKey, salt, true)
+  const wallet = await createEphemeralWallet(NODE_URL, true)
+  const deployer = await deriveSchnorrAccount(wallet, secretKey, salt)
   console.log(`deployer (initializerless Schnorr, no deploy tx needed): ${deployer.address}`)
 
   const admin = requiredRole("REGISTRY_ADMIN")
