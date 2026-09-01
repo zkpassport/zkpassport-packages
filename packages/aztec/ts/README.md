@@ -1,7 +1,7 @@
 # @zkpassport/aztec
 
 TS companion for the [`zkpassport.nr`](../zkpassport.nr) Aztec verification
-library — the app-side half that every consumer of the Noir library otherwise
+library: the app-side half that every consumer of the Noir library otherwise
 rewrites. Private (path-consumed) until the aztec stack merges; publish is a
 follow-up.
 
@@ -12,9 +12,7 @@ What it offers, mirroring the Noir side module-for-module:
   shared registry's artifact with the user's PXE (the verifier transitively
   `.view()`s it during local simulation/proving). The helper fetches the
   instance, **checks the artifact's contract class id against the on-chain
-  instance** (a different `INITIAL_DELAY` is a different class), and registers —
-  turning the cryptic claim-time "No artifact registered for contract class …"
-  into an actionable error at startup.
+  instance** (a different `INITIAL_DELAY` is a different class), and registers.
 - **`assembleProofCapsule` / `assembleDiscloseCapsule`** — build the
   `vk(115) ‖ proof(458) ‖ public_inputs(K+5)` blob for `PROOF_CAPSULE_SLOT` and
   the `mask(90) ‖ bytes(90)` disclose preimage for `DISCLOSE_CAPSULE_SLOT`,
