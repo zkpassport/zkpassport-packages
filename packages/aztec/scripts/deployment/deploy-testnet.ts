@@ -158,7 +158,11 @@ async function main() {
   writeDeploymentRecord(MANIFEST, manifest)
 
   console.log("---")
-  if (generated) console.log(`export ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)
+  if (generated) {
+    // The leading space keeps the pasted command out of shell history
+    // (HISTCONTROL=ignoreboth / HIST_IGNORE_SPACE).
+    console.log(` export ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)
+  }
   console.log(`export ZKPASSPORT_REGISTRY_ADDRESS=${instance.address.toString()}`)
   const delayHours = (Number(INITIAL_DELAY) / 3600).toFixed(1)
   console.log(
