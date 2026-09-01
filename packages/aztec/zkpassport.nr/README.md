@@ -68,9 +68,13 @@ fn claim(user: AztecAddress) {
 ```
 
 `verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
-a function argument. The client is responsible for stashing `vk ‖ proof ‖ public_inputs` into
+a function argument.
+
+The client is responsible for stashing `vk ‖ proof ‖ public_inputs` into
 the app's capsule slot (`zkpassport_core::constants::PROOF_CAPSULE_SLOT`, `= 1`) before sending
-the transaction. From `e2e/src/run-e2e.ts`:
+the transaction.
+
+From `e2e/src/run-e2e.ts`:
 
 ```typescript
 // Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT.
@@ -116,7 +120,7 @@ checks, registry validity) derived from it, so a malformed or malicious capsule 
    `verify_honk_proof` opcode is not enforced under TXE simulation, so `aztec test` proves
    control flow and storage semantics only. **`bb verify` (from the `test-harness/`) and the local
    network based e2e (`e2e/`) are the only checks that exercise real proof verification**: the
-   harness via native `bb prove`/`bb verify` on the wrapped core library, the e2e via a real 
+   harness via native `bb prove`/`bb verify` on the wrapped core library, the e2e via a real
    client-IVC proof produced by the local PXE.
 4. **Sanctions checking is opt-in, per service.** The registry's mandatory verify path
    (`assert_proof_valid`, called from `verify_zkpassport_proof`) only checks the certificate and
@@ -135,13 +139,13 @@ checks, registry validity) derived from it, so a malformed or malicious capsule 
    fold `bind_user_address_commitment(user.to_field())` into `expected_commitments` and have the
    ZKPassport request that produced the proof bind that same address. Then a leaked capsule
    authorizes nothing for anyone else, and any relayer may submit the transaction on the bound
-   user's behalf. The example function `claim` in the `AgeGate` contract at 
+   user's behalf. The example function `claim` in the `AgeGate` contract at
    `examples/age_gate_contract/src/main.nr` is the pattern to copy.
 
 ## Running the tests
 
-Five layers, from least to most end-to-end. They all use the Aztec `v5.2.0` toolchain,
-installed the same way CI does (`.github/workflows/aztec.yml`):
+All tests use the Aztec `v5.2.0` toolchain, installed the same way CI does (check out
+`.github/workflows/aztec.yml` for more details):
 
 ```bash
 aztec-up install 5.2.0
@@ -149,7 +153,7 @@ aztec-up install 5.2.0
 curl -fsSL https://install.aztec.network/5.2.0/install | bash
 ```
 
-Layers 1–3 run from `zkpassport.nr/`:
+First, the `zkpassport.nr/` tests:
 
 ```bash
 # 1. Registry contract unit tests (pure logic: root_validation, guards) — no TXE needed
@@ -164,9 +168,8 @@ aztec-nargo test --package zkpassport_core
 aztec test
 ```
 
-Layer 4 is the native `bb prove`/`bb verify` harness — the only nargo-test-layer check that
-enforces real recursive verification. It runs from `test-harness/` (a sibling of
-`zkpassport.nr/` under `packages/aztec/`) and takes several minutes per fixture:
+Then, the native `bb prove`/`bb verify` harness, which enforces real recursive verification. It
+runs from `test-harness/` (a sibling of `zkpassport.nr/` under `packages/aztec/`):
 
 ```bash
 ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
@@ -176,13 +179,13 @@ enforces real recursive verification. It runs from `test-harness/` (a sibling of
 The script resolves the toolchain at `~/.aztec/versions/5.2.0`; point `AZTEC_HOME` elsewhere for
 a non-default install location.
 
-Layer 5 is `e2e/`: a full deploy + real client-IVC `claim()` against a local Aztec network
-(`AztecNode` at `localhost:8080` by default). It needs a running sandbox and native client-IVC
-proving (minutes-scale), and — like the TXE suite — a fresh fixture (see below).
+Finally, the end to end test at `e2e/`. It runs a full deploy + real client-IVC `claim()` against
+a local Aztec network (`AztecNode` at `localhost:8080` by default). It needs a running sandbox and
+native client-IVC proving.
 
 **The workspace must be compiled first.** `e2e/src/artifacts/{ZKPassportRegistry,AgeGate}.ts`
 are tracked files that `import` from `zkpassport.nr/target/<contract>.json`, and
-`zkpassport.nr/target/` is gitignored — from a fresh clone the recipe below fails at module
+`zkpassport.nr/target/` is gitignored. From a fresh clone the recipe below fails at module
 resolution before a single line runs unless you compile first (and re-run `aztec codegen` if the
 ABI changed, so the tracked artifact `.ts` files match the freshly compiled JSON):
 
@@ -195,30 +198,28 @@ aztec codegen target -o ../e2e/src/artifacts
 cd ../e2e && npm install && npx tsx src/run-e2e.ts
 ```
 
-## Fixture freshness
+## Fixtures
 
 `test-harness/fixtures/*.json` and `zkpassport_core/src/fixtures/proof.nr` embed real
 ZKPassport outer proofs whose `current_date` public input is checked against the
 Aztec anchor-block timestamp with a 7-day `validity_period` (`ServiceConfig.validity_period`,
-see the AgeGate example above). The fixtures are deliberately **future-dated to 2050-01-01**
-(`FIXTURE_NOW` in `test-harness/generate-proof-fixtures.ts`): the TXE and sandbox clocks can only
-move forward, so a wall-clock-dated fixture would expire ~6 days after generation, while the
-future-dated one stays verifiable until 2050 — the TXE test and the e2e warp their clocks
-forward into its freshness window. The assertions (`proof dated in the future` / `proof too
-old`) live in `zkpassport_aztec::verify::verify_zkpassport_proof`, checked against the
-private-context anchor-block timestamp. Note `zkpassport_core::verify::verify_outer_proof_core`
-does **not** check freshness itself — its own doc comment says so explicitly (it has no
-`PrivateContext`, hence no notion of "now"); freshness is layered on top by the glue library.
+see the `AgeGate` example above).
 
-One budget remains, per sandbox instance: e2e warps are cumulative on a running sandbox, so one
-instance supports ~5 e2e runs before its clock leaves the fixture's 7-day window — restart the
-sandbox to reset (the next run re-warps to the fixture-anchored target).
+The fixtures are deliberately **future-dated to 2050-01-01**
+(`FIXTURE_NOW` in `test-harness/generate-proof-fixtures.ts`). This is a workaround because the TXE
+and sandbox clocks can only move forward. A wall-clock-dated fixture would expire ~6 days after
+generation, while the future-dated one stays verifiable until 2050, the TXE test and the e2e warp
+their clocks forward into its freshness window.
 
-Regenerate via `test-harness/generate-proof-fixtures.sh [disclose|age]`, then `test-harness/fixture-to-noir.ts` to
-refresh the embedded TXE fixture. Fixture generation needs a **separate 5.0.1 toolchain
-install** (`bb` 5.0.0-nightly, the build ZKPassport's production circuits were actually compiled
-and proved with) — the 5.2.0 toolchain used everywhere else in this workspace is only used
-afterwards, to verify the wrapper.
+A pair of assertions (`proof dated in the future` / `proof too old`) are enforced by
+`zkpassport_aztec::verify::verify_zkpassport_proof`, checked against the private-context anchor
+block timestamp. Note `zkpassport_core::verify::verify_outer_proof_core` does **not** check
+freshness itself, that requires an Aztec `PrivateContext` to provide a notion of `now`.
+
+Regenerate via `test-harness/generate-proof-fixtures.sh [disclose|age]`, then
+`test-harness/fixture-to-noir.ts` to refresh the embedded TXE fixture. Fixture generation needs a
+**separate 5.0.1 toolchain install** to be faithful to the barretenberg build ZKPassport's production circuits were actually compiled
+and proved with (`bb` 5.0.0-nightly). Everywhere else in this workspace the 5.2.0 toolchain is used.
 
 ## Toolchain & dependency pins
 
@@ -231,19 +232,3 @@ afterwards, to verify the wrapper.
 | ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport_core`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib`. The proof fixtures are generated from the `test-harness/circuits` **submodule**, pinned at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the commitment-fixture tests confirm identical commitments). Only fixture regeneration (`test-harness/generate-proof-fixtures.sh`) needs the submodule initialized — building/testing the workspace does not. |
 | `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/generate-commitment-fixtures.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/generate-proof-fixtures.ts` imports it from the `circuits` submodule's own node_modules, which pins the same version. Not a dependency of `e2e/` or any Noir package. |
 | `bb` (fixture generation only) | 5.0.0-nightly, from the separate `5.0.1` Aztec toolchain install | Matches the `bb` build ZKPassport's production circuits were compiled/proved with; required only by `test-harness/generate-proof-fixtures.sh`, never by test/build commands above. |
-
-`zkpassport_core/Nargo.toml`, verbatim:
-
-```toml
-[dependencies]
-bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v5.2.0", directory = "barretenberg/noir/bb_proof_verification" }
-poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }
-utils = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/utils" }
-disclose_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/disclose" }
-bind_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/bind" }
-compare_age_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/compare/age" }
-exclusion_check_sanctions_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/exclusion-check/sanctions" }
-```
-
-All dependencies are git-pinned (nargo git deps require a tag or branch name — bare commit
-SHAs don't resolve), so the workspace builds on any machine with no sibling checkouts.
