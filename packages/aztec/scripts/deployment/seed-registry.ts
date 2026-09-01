@@ -370,13 +370,7 @@ async function main() {
   let oprfNeeded = false
   if (process.env.OPRF_PK_HASH) {
     const oprf = Fr.fromHexString(process.env.OPRF_PK_HASH)
-    const sched = await readScheduledChange(
-      node,
-      registryAddress,
-      layout.oprf_pk_hash.slot,
-      [],
-      1,
-    )
+    const sched = await readScheduledChange(node, registryAddress, layout.oprf_pk_hash.slot, [], 1)
     if (sched.post[0].equals(oprf)) {
       if (sched.maturesAt > nowSecs) {
         console.log(
@@ -464,7 +458,9 @@ async function main() {
       1,
     )
     if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) continue // reported in the plan
-    console.log(`add_accepted_vk(v${manifestSemver}, ${vk.name}, ${vk.hash}) — proving + sending...`)
+    console.log(
+      `add_accepted_vk(v${manifestSemver}, ${vk.name}, ${vk.hash}) — proving + sending...`,
+    )
     await registry.methods.add_accepted_vk(vkVersionFr, hashFr).send(sendOpts)
     console.log(`  done`)
     seeded[`vk:${vk.name}`] = vk.hash
