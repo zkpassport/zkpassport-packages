@@ -2,7 +2,7 @@
  * Shared plumbing for the deployment scripts (create-deployer.ts, deploy-testnet.ts,
  * deploy-mainnet.ts, seed-registry.ts): network defaults, env parsing, node connection
  * checks, deployer-account derivation, SponsoredFPC verification, and deployment-record
- * paths. The safety checks live here once so copies cannot drift between scripts.
+ * paths.
  */
 import { type NoirCompiledContract, loadContractArtifact } from "@aztec/aztec.js/abi"
 import { AztecAddress } from "@aztec/aztec.js/addresses"
