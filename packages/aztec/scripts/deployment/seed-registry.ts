@@ -65,47 +65,46 @@
  * seeding costs a few small public txs, so the balance left from the deploy should
  * cover it (see deploy-mainnet.ts for bridging if not).
  */
-import { type NoirCompiledContract, loadContractArtifact } from "@aztec/aztec.js/abi"
 import { AztecAddress } from "@aztec/aztec.js/addresses"
-import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts"
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee"
 import { Fr } from "@aztec/aztec.js/fields"
-import { createAztecNodeClient } from "@aztec/aztec.js/node"
-import { SPONSORED_FPC_SALT } from "@aztec/constants"
 import { deriveStorageSlotInMap } from "@aztec/stdlib/hash"
 import { packCircuitManifestVersion } from "../e2e/circuit-version.js"
-import { deriveMasterMessageSigningSecretKey } from "@aztec/stdlib/keys"
-import { EmbeddedWallet } from "@aztec/wallets/embedded"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, readFileSync } from "fs"
 import { createRequire } from "node:module"
-import { fileURLToPath } from "node:url"
-import SponsoredFPCJson from "noir-contracts-5.1.0/artifacts/sponsored_fpc_contract-SponsoredFPC" with { type: "json" }
 import { ZKPassportRegistryContract } from "../artifacts/ZKPassportRegistry.js"
+import {
+  type Network,
+  type NodeClient,
+  WAIT,
+  connectAndCheckNode,
+  defaultNodeUrl,
+  deploymentRecordPath,
+  deriveDeployerAccount,
+  verifySponsoredFPC,
+  writeDeploymentRecord,
+} from "./common.js"
 
 // zkpassport_registry_contract::types registry ids
 const REGISTRY_CERTIFICATE = 1n
 const REGISTRY_CIRCUIT = 2n
 
-/** Client-side proving is minutes-scale; never let the tx wait time out first. */
-const WAIT = { timeout: 3600, interval: 2 } as const
-
 const NETWORKS = {
   testnet: {
-    nodeUrl: "https://v5.testnet.rpc.aztec-labs.com",
+    nodeUrl: defaultNodeUrl("testnet"),
     // Mock/dev-mode passports prove against the SEPOLIA RootRegistry.
     registryChainId: 11155111,
     registryRpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
     sponsored: true,
   },
   mainnet: {
-    nodeUrl: "https://aztec-mainnet.drpc.org",
+    nodeUrl: defaultNodeUrl("mainnet"),
     // Real passports prove against the ETHEREUM MAINNET RootRegistry.
     registryChainId: 1,
     registryRpcUrl: "https://ethereum-rpc.publicnode.com",
     sponsored: false,
   },
-} as const
-type Network = keyof typeof NETWORKS
+} as const satisfies Record<Network, object>
 
 // @zkpassport/registry is CJS-friendly; load it like voice's scripts do (its dependency
 // tree pulls JSON imports that Node's strict ESM loader rejects).
@@ -138,7 +137,7 @@ function unwrap<T>(res: unknown): T {
  * (M slots). `post` is the pending value until `maturesAt`, the current value after.
  */
 async function readScheduledChange(
-  node: ReturnType<typeof createAztecNodeClient>,
+  node: NodeClient,
   contract: AztecAddress,
   varSlot: Fr,
   mapKeys: Fr[],
@@ -165,7 +164,7 @@ function resolveRegistryAddress(network: Network): { address: AztecAddress; sour
   const env = process.env.ZKPASSPORT_REGISTRY_ADDRESS
   if (env) return { address: AztecAddress.fromStringUnsafe(env), source: "env" }
   for (const name of [`${network}.json`, `${network}-preview.json`]) {
-    const path = fileURLToPath(new URL(`../deployments/${name}`, import.meta.url))
+    const path = deploymentRecordPath(name)
     if (existsSync(path)) {
       const manifest = JSON.parse(readFileSync(path, "utf8")) as { registry?: string }
       if (manifest.registry) {
@@ -238,22 +237,9 @@ async function main() {
   console.log(`  circuit manifest version: ${manifestSemver} -> ${vkVersionFr}`)
 
   // ── Connect + rebuild the deployer account ───────────────────────────────────
-  const node = createAztecNodeClient(nodeUrl)
-  const { nodeVersion, l1ChainId } = await node.getNodeInfo()
-  console.log(`node ${nodeUrl}: version=${nodeVersion} l1ChainId=${l1ChainId}`)
-  if (!nodeVersion.startsWith("5.2.") && !nodeVersion.startsWith("5.1.")) {
-    throw new Error(`node version ${nodeVersion} is not 5.1.x/5.2.x`)
-  }
+  const { node } = await connectAndCheckNode(nodeUrl, network)
 
-  const wallet = await EmbeddedWallet.create(nodeUrl, {
-    ephemeral: true,
-    pxe: { proverEnabled: true },
-  })
-  const sender = await wallet.createSchnorrInitializerlessAccount(
-    secretKey,
-    salt,
-    deriveMasterMessageSigningSecretKey(secretKey),
-  )
+  const { wallet, account: sender } = await deriveDeployerAccount(nodeUrl, secretKey, salt, true)
   console.log(`sender (must be the registry's oracle + admin): ${sender.address}`)
 
   const instance = await node.getContract(registryAddress)
@@ -266,17 +252,8 @@ async function main() {
   // scripts), the sender's Fee Juice on mainnet.
   let fee: { paymentMethod: SponsoredFeePaymentMethod } | undefined
   if (cfg.sponsored) {
-    const fpcArtifact = loadContractArtifact(SponsoredFPCJson as NoirCompiledContract)
-    const fpc = await getContractInstanceFromInstantiationParams(fpcArtifact, {
-      salt: new Fr(SPONSORED_FPC_SALT),
-    })
-    const fpcOnChain = await node.getContract(fpc.address)
-    if (!fpcOnChain || !fpcOnChain.currentContractClassId.equals(fpc.currentContractClassId)) {
-      throw new Error(`SponsoredFPC at ${fpc.address} missing or class-mismatched on-chain`)
-    }
-    await wallet.registerContract(fpc, fpcArtifact)
+    const fpc = await verifySponsoredFPC(node, wallet)
     fee = { paymentMethod: new SponsoredFeePaymentMethod(fpc.address) }
-    console.log(`sponsored FPC verified on-chain: ${fpc.address}`)
   }
   const sendOpts = { from: sender.address, ...(fee ? { fee } : {}), wait: WAIT }
 
@@ -507,10 +484,7 @@ async function main() {
     seededThisRun: seeded,
     seededAt: new Date().toISOString(),
   }
-  const outPath = fileURLToPath(new URL(`../deployments/${network}-seed.json`, import.meta.url))
-  mkdirSync(fileURLToPath(new URL("../deployments", import.meta.url)), { recursive: true })
-  writeFileSync(outPath, JSON.stringify(record, null, 2) + "\n")
-  console.log(`wrote ${outPath}`)
+  writeDeploymentRecord(`${network}-seed.json`, record)
 
   console.log("---")
   console.log(

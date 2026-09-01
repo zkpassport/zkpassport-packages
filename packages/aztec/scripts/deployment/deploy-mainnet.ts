@@ -1,21 +1,20 @@
 /**
  * Deploy ZKPassportRegistry to Aztec mainnet.
  *
- * Same skeleton as deploy-testnet.ts (initializerless Schnorr deployer, deterministic
- * salt, precomputed address, idempotent re-runs, real proving) with one structural
- * difference: mainnet has NO SponsoredFPC, so the deployer pays from its own Fee Juice.
- * Fee Juice only enters L2 by bridging the fee asset ($AZTEC, which doubles as the
- * staking asset) from Ethereum L1 through the FeeJuicePortal — there is no faucet.
+ * Creates an initializerless Schnorr deployer account, with deterministic salt, precomputed
+ * address, idempotent re-runs, and real proving. The deployer pays from its own Fee Juice.
+ * Fee Juice only enters L2 by bridging the fee asset ($AZTEC) from Ethereum L1 through the
+ * FeeJuicePortal. There is no faucet.
  *
  * The fee flow, in order:
  *   1. Estimate the deploy cost (simulation + current base fees, then a 2x buffer).
  *   2. If the deployer's L2 Fee Juice balance covers it → deploy, paying from balance.
- *   3. Else, if L1_PRIVATE_KEY is set → bridge the shortfall from that L1 account
- *      (it must hold $AZTEC for the amount and ETH for gas; the portal manager sends
- *      approve + deposit), poll until the L1→L2 message is available (minutes), and
- *      deploy with FeeJuicePaymentMethodWithClaim — the deploy tx itself consumes the
- *      claim. A claim is single-use: if the deploy then fails, re-running spends the
- *      now-claimed balance via path 2 rather than re-bridging.
+ *   3. Else, if L1_PRIVATE_KEY is set → bridge the shortfall from that L1 account (it must hold
+ *      $AZTEC for the amount and ETH for gas; the portal manager sends approve + deposit), poll
+ *      until the L1→L2 message is available (note: this can take minutes), and deploy with
+ *      FeeJuicePaymentMethodWithClaim. The deploy tx itself consumes the claim. A claim is
+ *      single-use: if the deploy then fails, re-running spends the now-claimed balance rather than
+ *      re-bridging.
  *   4. Else → print the funding shortfall and exact instructions, and exit non-zero.
  *
  * Preferred entry point: ../deploy.sh mainnet — it compiles the registry first and
@@ -30,9 +29,8 @@
  *                               registry admin role: keep it safe.
  *   SALT                        account + contract salt (default 0, reproducible)
  *   REGISTRY_ADMIN / REGISTRY_ORACLE / REGISTRY_GUARDIAN
- *                               role addresses, all required. There is no deployer
- *                               fallback: putting a role on the deployer must be an
- *                               explicit choice.
+ *                               role addresses, all required. The same account can be used to play
+ *                               different roles, though that's not recommended.
  *   L1_RPC_URL                  Ethereum mainnet RPC (default: publicnode)
  *   L1_PRIVATE_KEY              L1 key holding $AZTEC + ETH; enables the auto-bridge
  *   FEE_JUICE_AMOUNT            override the bridged amount (Fee Juice wei, 1e18 = 1 FJ)
@@ -45,32 +43,31 @@
  * This deploys ONLY the registry, which comes up empty — see deploy-testnet.ts for the
  * seeding steps and the DelayedPublicMutable delay caveat.
  */
-import { AztecAddress } from "@aztec/aztec.js/addresses"
 import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum"
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee"
 import { Fr } from "@aztec/aztec.js/fields"
 import { createLogger } from "@aztec/aztec.js/log"
 import { isL1ToL2MessageReady } from "@aztec/aztec.js/messaging"
-import { createAztecNodeClient } from "@aztec/aztec.js/node"
 import { FeeJuiceContract } from "@aztec/aztec.js/protocol"
 import { createEthereumChain } from "@aztec/ethereum/chain"
 import { createExtendedL1Client } from "@aztec/ethereum/client"
-import { deriveMasterMessageSigningSecretKey } from "@aztec/stdlib/keys"
-import { EmbeddedWallet } from "@aztec/wallets/embedded"
-import { mkdirSync, writeFileSync } from "fs"
-import { fileURLToPath } from "node:url"
 import { ZKPassportRegistryContract } from "../artifacts/ZKPassportRegistry.js"
+import {
+  MODE_VALID_WITHIN_WINDOW,
+  VALIDITY_WINDOW,
+  WAIT,
+  connectAndCheckNode,
+  defaultNodeUrl,
+  deriveDeployerAccount,
+  fj,
+  loadOrCreateSecret,
+  requiredRole,
+  saltFromEnv,
+  writeDeploymentRecord,
+} from "./common.js"
 
-const NODE_URL = process.env.AZTEC_NODE_URL ?? "https://aztec-mainnet.drpc.org"
+const NODE_URL = process.env.AZTEC_NODE_URL ?? defaultNodeUrl("mainnet")
 const L1_RPC_URL = process.env.L1_RPC_URL ?? "https://ethereum-rpc.publicnode.com"
-
-/** zkpassport_registry_contract::types::MODE_VALID_WITHIN_WINDOW — the deployment default. */
-const MODE_VALID_WITHIN_WINDOW = 3
-/** Production validity window in seconds, matching L1's registry deployments (run-e2e.ts). */
-const VALIDITY_WINDOW = 86400n
-
-/** Client-side proving is minutes-scale; never let the tx wait time out first. */
-const WAIT = { timeout: 3600, interval: 2 } as const
 
 /** Estimated cost → bridge amount: cover wallet gas padding and base-fee drift. */
 const FEE_BUFFER_NUMERATOR = 2n
@@ -79,41 +76,13 @@ const FEE_BUFFER_NUMERATOR = 2n
 const INITIAL_DELAY = process.env.PREVIEW_DELAY ?? "86400"
 const IS_PREVIEW = process.env.PREVIEW_DELAY !== undefined
 
-const MANIFEST = fileURLToPath(
-  new URL(`../deployments/${IS_PREVIEW ? "mainnet-preview" : "mainnet"}.json`, import.meta.url),
-)
-
-const ONE_FJ = 10n ** 18n
-
-function fj(wei: bigint): string {
-  const whole = wei / ONE_FJ
-  const frac = ((wei % ONE_FJ) * 10000n) / ONE_FJ
-  return `${whole}.${frac.toString().padStart(4, "0")} FJ`
-}
-
-/** aztec-kit's loadOrCreateSecret: read the env var, or mint a fresh secret to echo back. */
-function loadOrCreateSecret(envVar: string): { secretKey: Fr; generated: boolean } {
-  const env = process.env[envVar]
-  if (env) return { secretKey: Fr.fromString(env), generated: false }
-  return { secretKey: Fr.random(), generated: true }
-}
-
-function requiredRole(envVar: string): AztecAddress {
-  const env = process.env[envVar]
-  if (!env) {
-    console.error(
-      `${envVar} is required. Roles never default to the deployer: pass the deployer address explicitly if that is really intended.`,
-    )
-    process.exit(1)
-  }
-  return AztecAddress.fromStringUnsafe(env)
-}
+const MANIFEST = `${IS_PREVIEW ? "mainnet-preview" : "mainnet"}.json`
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
   const { secretKey, generated } = loadOrCreateSecret("ZKPASSPORT_DEPLOYER_SECRET")
-  const salt = process.env.SALT ? Fr.fromString(process.env.SALT) : new Fr(0)
+  const salt = saltFromEnv()
 
   if (IS_PREVIEW) {
     console.log(
@@ -121,34 +90,12 @@ async function main() {
     )
   }
 
-  const node = createAztecNodeClient(NODE_URL)
-  const { nodeVersion, l1ChainId, rollupVersion } = await node.getNodeInfo()
-  console.log(
-    `node ${NODE_URL}: version=${nodeVersion} l1ChainId=${l1ChainId} rollupVersion=${rollupVersion}`,
+  const { node, nodeVersion, l1ChainId, rollupVersion } = await connectAndCheckNode(
+    NODE_URL,
+    "mainnet",
   )
-  if (l1ChainId !== 1) {
-    throw new Error(
-      `l1ChainId is ${l1ChainId}, not 1 — this node is not Aztec mainnet (use deploy-testnet.ts for testnet)`,
-    )
-  }
-  // v5.1.x and v5.2.x interoperate (protocol circuits are byte-identical — see the
-  // v5.2.0 release notes); mainnet nodes still report 5.1.0 client binaries.
-  if (!nodeVersion.startsWith("5.2.") && !nodeVersion.startsWith("5.1.")) {
-    throw new Error(
-      `node version ${nodeVersion} is not 5.1.x/5.2.x — this repo's toolchain and artifacts are pinned to 5.2.0`,
-    )
-  }
 
-  const wallet = await EmbeddedWallet.create(NODE_URL, {
-    ephemeral: true,
-    pxe: { proverEnabled: true },
-  })
-
-  const deployer = await wallet.createSchnorrInitializerlessAccount(
-    secretKey,
-    salt,
-    deriveMasterMessageSigningSecretKey(secretKey),
-  )
+  const { wallet, account: deployer } = await deriveDeployerAccount(NODE_URL, secretKey, salt, true)
   console.log(`deployer (initializerless Schnorr, no deploy tx needed): ${deployer.address}`)
 
   const admin = requiredRole("REGISTRY_ADMIN")
@@ -293,9 +240,7 @@ async function main() {
     salt: salt.toString(),
     deployedAt: new Date().toISOString(),
   }
-  mkdirSync(fileURLToPath(new URL("../deployments", import.meta.url)), { recursive: true })
-  writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n")
-  console.log(`wrote ${MANIFEST}`)
+  writeDeploymentRecord(MANIFEST, manifest)
 
   console.log("---")
   if (generated) console.log(`export ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)

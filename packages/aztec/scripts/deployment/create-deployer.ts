@@ -26,70 +26,39 @@
  *   ZKPASSPORT_DEPLOYER_SECRET  reuse an existing secret instead of minting one
  *   SALT                        account + contract salt (default 0, reproducible)
  */
-import { type NoirCompiledContract, loadContractArtifact } from "@aztec/aztec.js/abi"
-import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts"
 import { Fr } from "@aztec/aztec.js/fields"
-import { createAztecNodeClient } from "@aztec/aztec.js/node"
 import { FeeJuiceContract } from "@aztec/aztec.js/protocol"
-import { SPONSORED_FPC_SALT } from "@aztec/constants"
-import { deriveMasterMessageSigningSecretKey } from "@aztec/stdlib/keys"
-import { EmbeddedWallet } from "@aztec/wallets/embedded"
-import SponsoredFPCJson from "noir-contracts-5.1.0/artifacts/sponsored_fpc_contract-SponsoredFPC" with { type: "json" }
+import {
+  type Network,
+  connectAndCheckNode,
+  defaultNodeUrl,
+  deriveDeployerAccount,
+  fj,
+  loadOrCreateSecret,
+  saltFromEnv,
+  verifySponsoredFPC,
+} from "./common.js"
 
-const NETWORK = process.argv[2]
+const NETWORK = process.argv[2] as Network
 if (NETWORK !== "testnet" && NETWORK !== "mainnet") {
   console.error("usage: tsx deployment/create-deployer.ts <testnet|mainnet>")
   process.exit(1)
 }
 
-const NODE_URL =
-  process.env.AZTEC_NODE_URL ??
-  (NETWORK === "testnet"
-    ? "https://v5.testnet.rpc.aztec-labs.com"
-    : "https://aztec-mainnet.drpc.org")
-
-const ONE_FJ = 10n ** 18n
-
-function fj(wei: bigint): string {
-  const whole = wei / ONE_FJ
-  const frac = ((wei % ONE_FJ) * 10000n) / ONE_FJ
-  return `${whole}.${frac.toString().padStart(4, "0")} FJ`
-}
-
-/** aztec-kit's loadOrCreateSecret: read the env var, or mint a fresh secret to echo back. */
-function loadOrCreateSecret(envVar: string): { secretKey: Fr; generated: boolean } {
-  const env = process.env[envVar]
-  if (env) return { secretKey: Fr.fromString(env), generated: false }
-  return { secretKey: Fr.random(), generated: true }
-}
+const NODE_URL = process.env.AZTEC_NODE_URL ?? defaultNodeUrl(NETWORK)
 
 async function main() {
   const { secretKey, generated } = loadOrCreateSecret("ZKPASSPORT_DEPLOYER_SECRET")
-  const salt = process.env.SALT ? Fr.fromString(process.env.SALT) : new Fr(0)
+  const salt = saltFromEnv()
 
-  const node = createAztecNodeClient(NODE_URL)
-  const { nodeVersion, l1ChainId, rollupVersion } = await node.getNodeInfo()
-  console.log(
-    `node ${NODE_URL}: version=${nodeVersion} l1ChainId=${l1ChainId} rollupVersion=${rollupVersion}`,
-  )
-  if (NETWORK === "mainnet" && l1ChainId !== 1) {
-    throw new Error(`l1ChainId is ${l1ChainId}, not 1 — this node is not Aztec mainnet`)
-  }
-  if (!nodeVersion.startsWith("5.2.") && !nodeVersion.startsWith("5.1.")) {
-    throw new Error(
-      `node version ${nodeVersion} is not 5.1.x/5.2.x — this repo's toolchain and artifacts are pinned to 5.2.0`,
-    )
-  }
+  const { node } = await connectAndCheckNode(NODE_URL, NETWORK)
 
   // Derive-only: no tx is ever sent here, so no proving.
-  const wallet = await EmbeddedWallet.create(NODE_URL, {
-    ephemeral: true,
-    pxe: { proverEnabled: false },
-  })
-  const deployer = await wallet.createSchnorrInitializerlessAccount(
+  const { wallet, account: deployer } = await deriveDeployerAccount(
+    NODE_URL,
     secretKey,
     salt,
-    deriveMasterMessageSigningSecretKey(secretKey),
+    false,
   )
   console.log(`deployer (initializerless Schnorr, no deploy tx needed): ${deployer.address}`)
   console.log(`secret: ${generated ? "freshly minted" : "reused from ZKPASSPORT_DEPLOYER_SECRET"}`)
@@ -97,19 +66,8 @@ async function main() {
   if (NETWORK === "testnet") {
     // Same verification as deploy-testnet.ts: fees for deploy + seeding are sponsored,
     // so a verified FPC means the account is deploy-ready with zero funding.
-    const fpcArtifact = loadContractArtifact(SponsoredFPCJson as NoirCompiledContract)
-    const fpc = await getContractInstanceFromInstantiationParams(fpcArtifact, {
-      salt: new Fr(SPONSORED_FPC_SALT),
-    })
-    const fpcOnChain = await node.getContract(fpc.address)
-    if (!fpcOnChain) {
-      throw new Error(
-        `SponsoredFPC not found on-chain at derived address ${fpc.address} — the network's FPC no longer matches the pinned 5.1.0 artifact`,
-      )
-    }
-    console.log(
-      `funding: none needed — SponsoredFPC ${fpc.address} verified on-chain pays deploy + seed fees`,
-    )
+    await verifySponsoredFPC(node)
+    console.log("funding: none needed, the SponsoredFPC pays deploy + seed fees")
   } else {
     const feeJuice = FeeJuiceContract.at(wallet)
 
