@@ -1,33 +1,25 @@
 /**
- * Create the ZKPassportRegistry deployer account and save its keys to a file.
+ * Derive the ZKPassportRegistry deployer account.
  *
  * The deployer used by deploy-testnet.ts / deploy-mainnet.ts / seed-registry.ts is an
  * initializerless Schnorr account: its address is a pure function of (secret, salt) and
- * needs no account-deploy tx. "Creating" it therefore means deriving the address and
- * handling the secret, which differs by network:
+ * needs no account-deploy tx. "Creating" it therefore means deriving the address from
+ * ZKPASSPORT_DEPLOYER_SECRET, or from a freshly minted secret printed exactly once.
  *
- *   - testnet: writes a `source`-able deployer-testnet.env next to package.json (chmod
- *     600; gitignored via the repo-root `*.env*` rule), so later runs are just:
- *     source deployer-testnet.env && PREVIEW_DELAY=7200 ./deploy.sh testnet
- *   - mainnet: never writes the secret to disk. It controls real funds and the registry
- *     admin role, and a plaintext file in the working tree is one `git clean -xd` away
- *     from being lost forever and readable by anything in node_modules. A freshly minted
- *     secret is printed exactly once — store it in a real secret manager; the deploy and
- *     seed scripts read ZKPASSPORT_DEPLOYER_SECRET from the environment.
+ * The secret is never written to disk, on any network: a plaintext key file in the
+ * working tree is one `git clean -xd` away from being lost forever and readable by
+ * anything in node_modules. Operators should store it in a real secret manager; the
+ * deploy and seed scripts read ZKPASSPORT_DEPLOYER_SECRET from the environment.
  *
  * Funding:
- *   - testnet: nothing to fund — deploy and seeding pay via the SponsoredFPC, which this
+ *   - testnet: nothing to fund. Deployment and seeding are paid via the SponsoredFPC, which this
  *     script verifies on-chain so the account is known deploy-ready.
  *   - mainnet: the script reports the account's Fee Juice balance. Actual bridging is
  *     deliberately left to deploy-mainnet.ts (run with L1_PRIVATE_KEY set): bridged Fee
  *     Juice is an unclaimed L1->L2 message until some L2 tx claims it, and a fresh
- *     account cannot pay for a standalone claim tx — the deploy tx consumes the claim as
+ *     account cannot pay for a standalone claim tx. The deploy tx consumes the claim as
  *     its own fee payment (FeeJuicePaymentMethodWithClaim). Pre-funding by hand instead:
  *     `aztec-wallet bridge-fee-juice` (printed below when the balance is empty).
- *
- * Safety (testnet): if the keys file already exists the script refuses to overwrite it
- * with a different secret — source the file (or delete it) first. Re-running with the
- * same ZKPASSPORT_DEPLOYER_SECRET exported is idempotent.
  *
  * Env:
  *   AZTEC_NODE_URL              node RPC (defaults per network, same as the deploy scripts)
@@ -42,8 +34,6 @@ import { FeeJuiceContract } from "@aztec/aztec.js/protocol"
 import { SPONSORED_FPC_SALT } from "@aztec/constants"
 import { deriveMasterMessageSigningSecretKey } from "@aztec/stdlib/keys"
 import { EmbeddedWallet } from "@aztec/wallets/embedded"
-import { existsSync, readFileSync, writeFileSync } from "fs"
-import { fileURLToPath } from "node:url"
 import SponsoredFPCJson from "noir-contracts-5.1.0/artifacts/sponsored_fpc_contract-SponsoredFPC" with { type: "json" }
 
 const NETWORK = process.argv[2]
@@ -57,8 +47,6 @@ const NODE_URL =
   (NETWORK === "testnet"
     ? "https://v5.testnet.rpc.aztec-labs.com"
     : "https://aztec-mainnet.drpc.org")
-
-const KEYS_FILE = fileURLToPath(new URL(`../deployer-${NETWORK}.env`, import.meta.url))
 
 const ONE_FJ = 10n ** 18n
 
@@ -78,24 +66,6 @@ function loadOrCreateSecret(envVar: string): { secretKey: Fr; generated: boolean
 async function main() {
   const { secretKey, generated } = loadOrCreateSecret("ZKPASSPORT_DEPLOYER_SECRET")
   const salt = process.env.SALT ? Fr.fromString(process.env.SALT) : new Fr(0)
-
-  // Never silently replace saved keys: a lost deployer secret means a lost registry
-  // admin/oracle role.
-  if (NETWORK === "testnet" && existsSync(KEYS_FILE)) {
-    const saved = readFileSync(KEYS_FILE, "utf8").match(
-      /^export ZKPASSPORT_DEPLOYER_SECRET=(0x[0-9a-fA-F]+)$/m,
-    )
-    if (generated) {
-      console.error(`${KEYS_FILE} already exists — not minting a new secret over it.`)
-      console.error(`Either reuse it (source ${KEYS_FILE}) or remove the file first.`)
-      process.exit(1)
-    }
-    if (saved && !Fr.fromString(saved[1]).equals(secretKey)) {
-      console.error(`${KEYS_FILE} already holds a DIFFERENT secret than the environment.`)
-      console.error("Refusing to overwrite it; remove the file first if that is intended.")
-      process.exit(1)
-    }
-  }
 
   const node = createAztecNodeClient(NODE_URL)
   const { nodeVersion, l1ChainId, rollupVersion } = await node.getNodeInfo()
@@ -142,11 +112,14 @@ async function main() {
     )
   } else {
     const feeJuice = FeeJuiceContract.at(wallet)
+
     const { result: balanceRaw } = await feeJuice.methods
       .balance_of_public(deployer.address)
       .simulate({ from: deployer.address })
+
     const balance = BigInt(balanceRaw.toString())
     console.log(`funding: deployer Fee Juice balance is ${fj(balance)}`)
+
     if (balance === 0n) {
       console.log(
         "  The recommended path needs no pre-funding: run ./deploy.sh mainnet with " +
@@ -162,36 +135,20 @@ async function main() {
     }
   }
 
+  console.log("---")
+  if (generated) {
+    console.log("The freshly minted secret is printed ONCE below and never written to disk.")
+    console.log("Store it in a real secret manager now: it controls the registry admin/oracle")
+    console.log("roles and any funds the deployer holds, and cannot be recovered.")
+    console.log(`  ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)
+    console.log(`  SALT=${salt.toString()}`)
+  }
+  console.log("next (with the secret exported from your secret manager):")
+  console.log("  export ZKPASSPORT_DEPLOYER_SECRET=<secret>")
+  if (!salt.equals(new Fr(0))) console.log(`  export SALT=${salt.toString()}`)
   if (NETWORK === "testnet") {
-    const lines = [
-      `# ZKPassportRegistry deployer keys — written by create-deployer.ts, ${new Date().toISOString()}`,
-      `# network: ${NETWORK}   node: ${NODE_URL}`,
-      `# deployer address (derived from secret + salt, no deploy tx): ${deployer.address}`,
-      "# KEEP THIS FILE SAFE: the secret controls the registry admin/oracle roles.",
-      `# Usage: source ${KEYS_FILE.split("/").pop()}`,
-      `export ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`,
-      `export SALT=${salt.toString()}`,
-      "",
-    ]
-    writeFileSync(KEYS_FILE, lines.join("\n"), { mode: 0o600 })
-    console.log(`wrote ${KEYS_FILE} (mode 600, gitignored via the repo-root *.env* rule)`)
-
-    console.log("---")
-    console.log("next:")
-    console.log(`  source ${KEYS_FILE}`)
-    console.log("  PREVIEW_DELAY=7200 ./deploy.sh testnet   # then: npm run seed:testnet")
+    console.log("  PREVIEW_DELAY=3600 ./deploy.sh testnet   # then: npm run seed:testnet")
   } else {
-    console.log("---")
-    if (generated) {
-      console.log("The freshly minted secret is printed ONCE below and never written to disk.")
-      console.log("Store it in a real secret manager now — it controls the registry admin role")
-      console.log("and the deployer's funds, and cannot be recovered.")
-      console.log(`  ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)
-      console.log(`  SALT=${salt.toString()}`)
-    }
-    console.log("next (with the secret exported from your secret manager):")
-    console.log("  export ZKPASSPORT_DEPLOYER_SECRET=<secret>")
-    if (!salt.equals(new Fr(0))) console.log(`  export SALT=${salt.toString()}`)
     console.log("  ./deploy.sh mainnet                      # then: npm run seed:mainnet")
   }
 }
