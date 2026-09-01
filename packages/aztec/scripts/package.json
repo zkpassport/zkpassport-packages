@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "e2e": "tsx src/run-e2e.ts",
-    "format": "prettier -c -w src"
+    "e2e": "tsx e2e/run-e2e.ts",
+    "format": "prettier -c -w e2e"
   },
   "dependencies": {
     "@aztec/accounts": "5.2.0",
