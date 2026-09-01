@@ -111,8 +111,7 @@ const NETWORKS = {
   },
 } as const satisfies Record<Network, object>
 
-// @zkpassport/registry is CJS-friendly; load it like voice's scripts do (its dependency
-// tree pulls JSON imports that Node's strict ESM loader rejects).
+// @zkpassport/registry is CJS-friendly
 const require = createRequire(import.meta.url)
 type RegistryClientT = {
   getCircuitManifest(): Promise<{ version?: string; circuits: Record<string, { hash: string }> }>
