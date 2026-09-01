@@ -1,20 +1,14 @@
 /**
- * Task 13 — sandbox end-to-end with REAL client-IVC proving.
- *
  * Deploys ZKPassportRegistry + AgeGate to a local Aztec network, seeds the
  * certificate/circuit roots and the accepted VK hash, warps chain time past the
  * registry's 24h DelayedPublicMutable delay, and then executes a real private
  * `claim()` transaction whose proof is produced by the local PXE's client-IVC
- * prover. That last part is the point: only real proving enforces the
- * `verify_proof_with_type` recursion constraint, which TXE cannot do.
+ * prover.
  *
  * Three outcomes are asserted:
  *   CLAIM MINED           — the real proof verifies and the tx lands
  *   DOUBLE CLAIM REJECTED — the uniqueness nullifier collides
  *   TAMPERED PROOF REJECTED — a one-bit-flipped proof fails client-side proving
- *
- * The tampered control is the proving-mode canary: if it *succeeds*, proving was
- * simulated and the run is meaningless.
  */
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -32,8 +26,10 @@ const NODE_URL = process.env.AZTEC_NODE_URL ?? 'http://localhost:8080';
 
 /** Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT. */
 const PROOF_CAPSULE_SLOT = new Fr(1n);
-/** Must match zkpassport_registry_contract::types::INITIAL_DELAY (override only for the sed fallback). */
-const DELAY = BigInt(process.env.E2E_DELAY_SECONDS ?? '86400');
+
+/** Must match zkpassport_registry_contract::types::INITIAL_DELAY. */
+const DELAY = 86400n;
+
 // Circuit-manifest version seeded into the registry; must match AgeGate's
 // CIRCUIT_MANIFEST_VERSION (main.nr): packed("0.0.1"), the local/dev release id.
 const CIRCUIT_MANIFEST_VERSION = packCircuitManifestVersion('0.0.1');
