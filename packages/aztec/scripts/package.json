@@ -1,5 +1,5 @@
 {
-  "name": "zkpassport-aztec-e2e",
+  "name": "zkpassport-aztec-tooling",
   "private": true,
   "type": "module",
   "scripts": {
