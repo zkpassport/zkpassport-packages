@@ -9,7 +9,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec/aztec.js/keys';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import AgeGateContractArtifactJson from '../../../zkpassport.nr/target/age_gate_contract-AgeGate.json' with { type: 'json' };
+import AgeGateContractArtifactJson from '../../zkpassport.nr/target/age_gate_contract-AgeGate.json' with { type: 'json' };
 export const AgeGateContractArtifact = loadContractArtifact(AgeGateContractArtifactJson as NoirCompiledContract);
 
 
