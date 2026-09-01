@@ -1,29 +1,20 @@
 # zkpassport.nr
 
-An Aztec v5.2.0 Noir workspace: the `ZKPassportRegistry` contract plus a `zkpassport_aztec`
-verification library that lets any Aztec app privately verify a ZKPassport passport proof
-and mint a one-proof-per-passport-per-app uniqueness nullifier.
+A Noir workspace to streamline ZKPassport verifications from Aztec contracts and Noir projects. Its main components are:
 
-This is a port of ZKPassport's Ethereum on-chain registry/verification semantics
-(`RegistryInstance` × 3, `RootRegistry`, `SubVerifier`) onto Aztec's private/public split,
-using `DelayedPublicMutable` so private functions can read registry state that is written in
-public. Full design rationale, the nine locked-in decisions, and the M1/M2 split live in the
-design spec: `docs/superpowers/specs/2026-08-17-zkpassport-registry-design.md` in the local
-`zkpassport-aztec` planning checkout (not part of this repository).
+- The `ZKPassportRegistry` Aztec contract, whose canonical instance is the trusted authority for VKs and for the certificate, circuit, and sanctions roots. This is a port of ZKPassport's Ethereum on-chain registry/verification semantics onto Aztec's private/public split, which comes with different constraints and design tradeoffs.
+- The `zkpassport_core` crate, which implements network agnostic verification on Noir.
+- The `zkpassport_aztec` verification library, that lets any Aztec app privately verify a ZKPassport passport proof
+and mint a one-proof-per-passport uniqueness nullifier tailored to its needs.
+- An example `AgeGate` Aztec contract, that shows how everything fits together e2e.
 
-## Workspace layout
-
-```toml
-# zkpassport.nr/Nargo.toml
-[workspace]
-members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport_aztec", "examples/age_gate_contract"]
-```
+## Workspace Layout
 
 | Package | Type | Purpose | Key dependencies |
 |---|---|---|---|
-| `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`oracle`/`guardian`) are plain `PublicMutable` — writes take effect instantly (`main.nr:24-26`). Everything else — `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, the version-keyed accepted-VK sets with their per-version enabled flags, and the OPRF pubkey hash — is `DelayedPublicMutable` (24h delay). Exposes `update_root` (oracle), admin policy setters, and private `#[view]` functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers call. | `aztec` (git, tag `v5.2.0`) |
-| `zkpassport_core` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`) over the ZKPassport circuits' own Noir libs. This crate is what the `test-harness/` proves against natively (no TXE needed). | `bb_proof_verification` (git, tag `v5.2.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
-| `zkpassport_aztec` | `lib` | The glue apps actually depend on: re-exports `zkpassport_core`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport_core` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`oracle`/`guardian`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (oracle), admin policy setters, and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v5.2.0`) |
+| `zkpassport_core` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v5.2.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
+| `zkpassport_aztec` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport_core`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport_core` (path), `zkpassport_registry_contract` (path) |
 | `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`, granting a public soulbound badge (`has_badge`). | `aztec`, `zkpassport_aztec`, `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crates (upstream noir-contracts style):
@@ -45,6 +36,11 @@ use zkpassport_aztec::commitments::{age_commitment, bind_user_address_commitment
 
 global MIN_AGE: u8 = 18;
 
+// The CircuitManifest semver packed as 2-byte BE major/minor/patch, left-aligned bytes32.
+// This is packed("0.0.1") — the local/dev release the fixtures are built from.
+global CIRCUIT_MANIFEST_VERSION: Field =
+    0x0000000000010000000000000000000000000000000000000000000000000000;
+
 /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
 /// commitments = {age(18, 0), bind(user)}), burns the scoped nullifier — one claim per
 /// passport — and grants `user` a public soulbound badge. The bind commitment ties the
@@ -53,6 +49,7 @@ global MIN_AGE: u8 = 18;
 fn claim(user: AztecAddress) {
     let registry = self.storage.registry.read();
     let config = ServiceConfig {
+        version: CIRCUIT_MANIFEST_VERSION,
         scope: 0, // fixture/demo: no domain binding; a real app pins sha256(domain) >> 8
         subscope: 0,
         validity_period: 7 * 86400,
@@ -71,80 +68,75 @@ fn claim(user: AztecAddress) {
 ```
 
 `verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
-a function argument — the client is responsible for stashing `vk ‖ proof ‖ public_inputs` into
+a function argument. The client is responsible for stashing `vk ‖ proof ‖ public_inputs` into
 the app's capsule slot (`zkpassport_core::constants::PROOF_CAPSULE_SLOT`, `= 1`) before sending
 the transaction. From `e2e/src/run-e2e.ts`:
 
 ```typescript
-/** Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT. */
-const PROOF_CAPSULE_SLOT = new Fr(1n);
-const VK_FIELDS = 115;
-const PROOF_FIELDS = 458;
+// Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT.
+const PROOF_CAPSULE_SLOT = new Fr(1n)
+const VK_FIELDS = 115
+const PROOF_FIELDS = 458
 
 // ...
 
-const blob = [...FIXTURE.vkeyFields, ...FIXTURE.proof, ...FIXTURE.publicInputs].map((h) => Fr.fromHexString(h));
+const blob = [...FIXTURE.vkeyFields, ...FIXTURE.proof, ...FIXTURE.publicInputs].map((h) =>
+  Fr.fromHexString(h),
+)
 
-// The capsule is scoped to the SENDING account; the claim goes to the address the proof
-// is bound to, which needs no account of its own.
-const boundUser = AztecAddress.fromFieldUnsafe(Fr.fromHexString(FIXTURE.bindAddress));
-const capsule = (fields: Fr[]) => new Capsule(ageGate.address, PROOF_CAPSULE_SLOT, fields, user as AztecAddress);
+// The capsule is scoped to `user` — the sandbox account sending the transaction. The claim
+// itself goes to the fixture's bound address: the proof carries a bind commitment over it,
+// so the sender is effectively a relayer and the badge recipient needs no account here.
+const boundUser = AztecAddress.fromFieldUnsafe(Fr.fromHexString(FIXTURE.bindAddress))
+const capsule = (fields: Fr[]) =>
+  new Capsule(ageGate.address, PROOF_CAPSULE_SLOT, fields, user as AztecAddress)
 
 // ...
 
-const [{ receipt }, claimSecs] = await timed('claim (private tx, client-IVC proving)', () =>
+const [{ receipt }, claimSecs] = await timed("claim (private tx, client-IVC proving)", () =>
   ageGate.methods.claim(boundUser).send({ from: user, capsules: [capsule(blob)], wait: WAIT }),
-);
+)
 ```
 
-The capsule is scoped to `(app address, slot, sender)` and is consumed unconstrained inside
-`verify_zkpassport_proof` — everything downstream (recursive verification, scope/nullifier
-checks, registry validity) constrains every field derived from it, so a malformed or malicious
-capsule fails the proof rather than being trusted.
+The capsule is consumed by `verify_zkpassport_proof`, which constrains every field (recursive verification, scope/nullifier
+checks, registry validity) derived from it, so a malformed or malicious capsule fails the proof rather than being trusted.
 
-## Trust model
+## Trust considerations
 
-1. **Ethereum is the source of truth.** Certificate, circuit, and sanctions root sets are
-   maintained by ZKPassport's L1 `RegistryInstance` contracts; this Aztec registry mirrors them,
-   it does not originate policy.
-2. **In M1, roots are oracle-pushed, not bridged.** `update_root` is an
-   `#[external("public")]` function gated on an `oracle` role address set by `admin`; there is
-   no L1→L2 message consumption yet. M2 scope is an L1→L2 bridge that feeds the same
-   `update_root` write path, so the private verify path (and this library)
-   would not need to change.
-3. **All policy changes go through `DelayedPublicMutable` with a 24h delay — including
+1. **ZKPassportRegistry is the source of truth.** Certificate, circuit, and sanctions root sets are
+   maintained by the registry's oracle account, and it trails the Ethereum version of the registry.
+2. **All policy changes go through `DelayedPublicMutable` with a 24h delay, including
    revocation.** `set_revocation_status`, `set_root_validation_mode`, `set_validity_window`,
    `pause`/`unpause`, and the accepted-VK/version-status/OPRF-pubkey setters all call
    `schedule_value_change(..)`. A revoked or newly-invalid root therefore stays usable by
-   private verifiers for up to 24h after the change lands — this is the same latency Aztec's
+   private verifiers for up to 24h after the change lands. This is the same latency Aztec's
    `DelayedPublicMutable` privacy-optimal delay already implies, and it matches the 24h window
-   the L1 registries run today (see the design spec's cross-cutting conclusions).
-4. **TXE/`aztec-nargo test` no-op real recursion.** The `verify_proof_with_type`/
+   the L1 registries run today.
+3. **TXE/`aztec-nargo test` no-op real recursion.** The `verify_proof_with_type`/
    `verify_honk_proof` opcode is not enforced under TXE simulation, so `aztec test` proves
-   control flow and storage semantics only. **`bb verify` (the `test-harness/`) and the sandbox e2e
-   (`e2e/`) are the only checks that exercise real proof verification** — the harness via native
-   `bb prove`/`bb verify` on the wrapped core library, the e2e via a real client-IVC proof
-   produced by the local PXE.
-5. **Sanctions checking is opt-in, per service.** The registry's mandatory verify path
+   control flow and storage semantics only. **`bb verify` (from the `test-harness/`) and the local
+   network based e2e (`e2e/`) are the only checks that exercise real proof verification**: the
+   harness via native `bb prove`/`bb verify` on the wrapped core library, the e2e via a real 
+   client-IVC proof produced by the local PXE.
+4. **Sanctions checking is opt-in, per service.** The registry's mandatory verify path
    (`assert_proof_valid`, called from `verify_zkpassport_proof`) only checks the certificate and
    circuit registries. A service that wants sanctions screening calls `check_sanctions`
    separately (which calls the registry's `assert_sanctions_root_valid` view) and folds
    `sanctions_commitment(root, is_strict)` into its own `expected_commitments`, mirroring L1's
    `VerifierHelper` split between the mandatory `SubVerifier` checks and app-side sanctions
    verification.
-6. **The library verifies the *proof*; binding it to a claimant is the app's job.**
+5. **The library verifies the *proof*, binding it to a claimant is the app's job.**
    `verify_zkpassport_proof` takes `capsule_scope: AztecAddress` purely as the PXE capsule
-   scope (the sender's account) — no constraint ties the verified proof to that scope, to
+   scope (the sender's account). No constraint ties the verified proof to that scope, to
    `msg_sender`, or to anything caller-specific. A ZKPassport proof capsule
    (`vk ‖ proof ‖ public_inputs`) is otherwise **bearer authorization**: whoever holds the blob
    (leaked for support, restored from a backup, handed to a third-party service) can load it
-   into their own PXE under their own account and successfully verify it. The fix is what the
-   example does: fold `bind_user_address_commitment(user.to_field())` into
-   `expected_commitments` and have the ZKPassport request that produced the proof bind that
-   same address — then a leaked capsule authorizes nothing for anyone else, and any relayer
-   may submit the transaction on the bound user's behalf.
-   `examples/age_gate_contract/src/main.nr`'s `claim` is the pattern to copy; its
-   `claim_for_unbound_address_fails` TXE test is the negative control.
+   into their own PXE under their own account and successfully verify it. Alternatively, apps can
+   fold `bind_user_address_commitment(user.to_field())` into `expected_commitments` and have the
+   ZKPassport request that produced the proof bind that same address. Then a leaked capsule
+   authorizes nothing for anyone else, and any relayer may submit the transaction on the bound
+   user's behalf. The example function `claim` in the `AgeGate` contract at 
+   `examples/age_gate_contract/src/main.nr` is the pattern to copy.
 
 ## Running the tests
 
