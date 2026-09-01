@@ -140,31 +140,45 @@ checks, registry validity) derived from it, so a malformed or malicious capsule 
 
 ## Running the tests
 
-Four layers, from least to most end-to-end. Run from `zkpassport.nr/` unless noted; set
-`AZTEC=/mnt/user-data/martin/.aztec/versions/5.2.0` first.
+Five layers, from least to most end-to-end. They all use the Aztec `v5.2.0` toolchain,
+installed the same way CI does (`.github/workflows/aztec.yml`):
+
+```bash
+aztec-up install 5.2.0
+# or, without an existing aztec-up:
+curl -fsSL https://install.aztec.network/5.2.0/install | bash
+```
+
+Layers 1–3 run from `zkpassport.nr/`:
 
 ```bash
 # 1. Registry contract unit tests (pure logic: root_validation, guards) — no TXE needed
-$AZTEC/bin/aztec-nargo test --package zkpassport_registry_contract
+aztec-nargo test --package zkpassport_registry_contract
 
 # 2. Core library unit tests (parse, commitment fixtures) — no TXE needed
-$AZTEC/bin/aztec-nargo test --package zkpassport_core
+aztec-nargo test --package zkpassport_core
 
 # 3. TXE integration tests (colocated in the contract crates) — REQUIRES `aztec test`, not
 #    bare `aztec-nargo test`; these tests need the TXE server that `aztec test` starts (oracle
 #    capsules, contract deployment, the embedded fixture, warp cheatcodes).
-$AZTEC/bin/aztec test
-
-# 4. Native bb prove/verify harness (the only nargo-test-layer check that enforces real
-#    recursive verification) — from test-harness/, several minutes:
-cd ../test-harness && ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
+aztec test
 ```
 
-A fifth layer lives outside `zkpassport.nr/`: `e2e/` runs a full sandbox deploy + real
-client-IVC `claim()` against a local Aztec network (`AztecNode` at `localhost:8080` by default).
-It needs a running sandbox and native client-IVC proving (minutes-scale), and — like the TXE
-suite — a fresh fixture (see below). Note step 4 above leaves you in `test-harness/`; `e2e/` is a
-sibling of `test-harness/` and `zkpassport.nr/` under `packages/aztec/`.
+Layer 4 is the native `bb prove`/`bb verify` harness — the only nargo-test-layer check that
+enforces real recursive verification. It runs from `test-harness/` (a sibling of
+`zkpassport.nr/` under `packages/aztec/`) and takes several minutes per fixture:
+
+```bash
+./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
+./test-recursive-verification.sh fixtures/outer_count_5_age.json
+```
+
+The script resolves the toolchain at `~/.aztec/versions/5.2.0`; point `AZTEC_HOME` elsewhere for
+a non-default install location.
+
+Layer 5 is `e2e/`: a full deploy + real client-IVC `claim()` against a local Aztec network
+(`AztecNode` at `localhost:8080` by default). It needs a running sandbox and native client-IVC
+proving (minutes-scale), and — like the TXE suite — a fresh fixture (see below).
 
 **The workspace must be compiled first.** `e2e/src/artifacts/{ZKPassportRegistry,AgeGate}.ts`
 are tracked files that `import` from `zkpassport.nr/target/<contract>.json`, and
@@ -174,9 +188,9 @@ ABI changed, so the tracked artifact `.ts` files match the freshly compiled JSON
 
 ```bash
 # From zkpassport.nr/:
-$AZTEC/bin/aztec-nargo compile
+aztec compile
 # Only if the contract ABI changed since the tracked e2e/src/artifacts/*.ts were generated:
-$AZTEC/bin/aztec codegen target -o ../e2e/src/artifacts
+aztec codegen target -o ../e2e/src/artifacts
 
 cd ../e2e && npm install && npx tsx src/run-e2e.ts
 ```
@@ -210,7 +224,7 @@ afterwards, to verify the wrapper.
 
 | Component | Pin | Notes |
 |---|---|---|
-| Aztec toolchain | `v5.2.0` (`aztec-nargo`, `aztec test`, `bb` 5.2.0-nightly) | Everything under `zkpassport.nr/` and `e2e/` compiles/tests/runs against this. Path: `/mnt/user-data/martin/.aztec/versions/5.2.0`. |
+| Aztec toolchain | `v5.2.0` (`aztec-nargo`, `aztec test`, `bb` 5.2.0-nightly) | Everything under `zkpassport.nr/` and `e2e/` compiles/tests/runs against this. Installed via `aztec-up install 5.2.0` (lands in `~/.aztec/versions/5.2.0`). |
 | `aztec-nr` (the `aztec` crate) | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `noir-projects/aztec-nr/aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport_aztec`, `age_gate_contract`. Sourced from the monorepo (not the `aztec-nr` mirror) so all members share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v5.2.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport_core`'s recursive-verification dependency. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport_core` and `zkpassport_aztec`. |
