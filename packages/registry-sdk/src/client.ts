@@ -143,7 +143,7 @@ export class RegistryClient {
       circuitManifestUrlGenerator || chainConfig?.circuitManifestUrlGenerator
     this.packagedCircuitUrlGenerator =
       packagedCircuitUrlGenerator || chainConfig?.packagedCircuitUrlGenerator
-    this.retryCount = retryCount || DEFAULT_RETRY_COUNT
+    this.retryCount = retryCount ?? DEFAULT_RETRY_COUNT
   }
 
   /**

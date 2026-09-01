@@ -41,7 +41,7 @@ export interface RegistryClientOptions {
   packagedCircuitUrlGenerator?: (chainId: number, hash: string, cid?: string) => string
 
   /**
-   * Number of retries for fetching data, default is 3
+   * Number of retries for fetching data. Set to 0 to disable retries; defaults to 3.
    */
   retryCount?: number
 }
