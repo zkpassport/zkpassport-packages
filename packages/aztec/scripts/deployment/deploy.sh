@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compile-and-deploy wrapper for src/deploy-testnet.ts / src/deploy-mainnet.ts.
+# Compile-and-deploy wrapper for deploy-testnet.ts / deploy-mainnet.ts.
 #
 # Guarantees the deployed artifact matches the source it was built from — including an
 # optional shortened DelayedPublicMutable delay for preview deployments:
@@ -17,7 +17,7 @@
 #
 # All other env vars (AZTEC_NODE_URL, ZKPASSPORT_DEPLOYER_SECRET, SALT, REGISTRY_*,
 # and for mainnet L1_RPC_URL / L1_PRIVATE_KEY / FEE_JUICE_AMOUNT) pass through to the
-# TS script — see src/deploy-<network>.ts.
+# TS script — see deploy-<network>.ts.
 set -euo pipefail
 
 NETWORK="${1:-}"
