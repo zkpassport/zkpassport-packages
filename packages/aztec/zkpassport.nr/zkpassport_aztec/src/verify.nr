@@ -41,10 +41,9 @@ pub global UNIQUENESS_NULLIFIER_DOMAIN: Field =
 /// To tie the proof to an address, put `bind_user_address_commitment(address)` in
 /// `expected_commitments`.
 ///
-/// `expected_commitments` are matched as a multiset (any order, full coverage — see
-/// verify_outer_proof_core): the prover does not fix the subproof order and the ZKPassport SDK
-/// itself matches param commitments by membership, so e.g. a {constraint, bind} pair may
-/// arrive in either order.
+/// `expected_commitments` are matched as a multiset (any order): the prover does not fix the
+/// subproof order and the ZKPassport SDK itself matches param commitments by membership, so e.g.
+/// a {constraint, bind} pair may arrive in either order.
 pub fn verify_zkpassport_proof<let K: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -52,28 +51,32 @@ pub fn verify_zkpassport_proof<let K: u32>(
     config: ServiceConfig,
     expected_commitments: [Field; K - 3],
 ) -> VerifiedProof<K> {
-    // 1. Capsule load — unconstrained oracle data; EVERYTHING downstream constrains it.
+    // Capsule load is unconstrained oracle data, everything downstream constrains it (as it must).
     // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/
     // registry checks below constrain every field derived from it.
     let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + K + 5]> =
         unsafe { capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, capsule_scope) };
+
     assert(blob.is_some(), "missing zkpassport proof capsule");
+
     let blob = blob.unwrap();
 
     let mut vk = [0; VK_FIELDS];
     for i in 0..VK_FIELDS {
         vk[i] = blob[i];
     }
+
     let mut proof = [0; PROOF_FIELDS];
     for i in 0..PROOF_FIELDS {
         proof[i] = blob[VK_FIELDS + i];
     }
+
     let mut public_inputs = [0; K + 5];
     for i in 0..K + 5 {
         public_inputs[i] = blob[VK_FIELDS + PROOF_FIELDS + i];
     }
 
-    // 2-6. Stateless core: recursion, scope, nullifier policy, multiset commitment coverage.
+    // Stateless core: recursion, scope, nullifier policy, multiset commitment coverage.
     let out = verify_outer_proof_core::<K>(
         vk,
         proof,
@@ -85,12 +88,12 @@ pub fn verify_zkpassport_proof<let K: u32>(
     );
     let parsed = out.parsed;
 
-    // 7. Freshness vs the anchor-block timestamp (private functions have no "now" — spec §library.5)
+    // Freshness vs the anchor-block timestamp
     let anchor_ts = context.get_anchor_block_header().timestamp();
     assert(parsed.current_date <= anchor_ts + CURRENT_DATE_MAX_SKEW, "proof dated in the future");
     assert(parsed.current_date + config.validity_period > anchor_ts, "proof too old");
 
-    // 8. One registry view call: roots + vk acceptance + OPRF, all under the registry's DPM reads.
+    // Registry view call to verify roots + vk acceptance + OPRF
     ZKPassportRegistry::at(registry)
         .assert_proof_valid(
             config.version,
@@ -121,7 +124,9 @@ pub fn load_disclose_payload(
     // before being used as a bit or byte.
     let tail: Option<[Field; 180]> =
         unsafe { capsules::load(app, DISCLOSE_CAPSULE_SLOT, capsule_scope) };
+
     assert(tail.is_some(), "missing disclose capsule");
+
     let tail = tail.unwrap();
     let mut mask = [false; 90];
     let mut bytes = [0 as u8; 90];
@@ -132,12 +137,12 @@ pub fn load_disclose_payload(
         assert(b as Field == tail[90 + i], "disclosed byte out of range");
         bytes[i] = b;
     }
+
     (mask, bytes)
 }
 
-/// Opt-in sanctions check (spec decision #4): asserts the sanctions root (delivered by the app,
-/// typically from capsule slot 3) is valid in the registry, and returns the param commitment the
-/// caller must place in its expected_commitments slot — binding the checked root to the proof.
+/// Sanctions check: asserts the sanctions root is valid in the registry, and returns the param commitment the
+/// caller must place in its expected_commitments slot, binding the checked root to the proof.
 pub fn check_sanctions(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -155,7 +160,7 @@ pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier:
     // zkpassport_core::verify's "zero scoped nullifier" assert exempts NULLIFIER_TYPE_NONE (no uniqueness
     // requested), so a zero nullifier CAN reach here. This is where it actually matters: pushing
     // it would burn one single global nullifier slot and permanently block every future caller
-    // of this function, in every app, for the rest of time. Guard here, not in zkpassport_core.
+    // of this function, in every app, for the rest of time.
     assert(scoped_nullifier != 0, "no nullifier in this proof");
     context.push_nullifier_unsafe(Poseidon2::hash(
         [UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier],
