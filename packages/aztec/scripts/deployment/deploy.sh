@@ -24,8 +24,8 @@ NETWORK="${1:-}"
 [[ "$NETWORK" == "testnet" || "$NETWORK" == "mainnet" ]] || { echo "usage: $0 <testnet|mainnet>" >&2; exit 1; }
 
 AZTEC="${AZTEC:-$HOME/.aztec/versions/5.2.0}"
-E2E="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NR="$E2E/../zkpassport.nr"
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+NR="$SCRIPTS_DIR/../zkpassport.nr"
 TYPES="$NR/zkpassport_registry_contract/src/types.nr"
 
 if [[ -n "${PREVIEW_DELAY:-}" ]]; then
@@ -42,7 +42,7 @@ fi
 echo "compiling zkpassport_registry_contract with $AZTEC/bin/aztec compile..."
 (cd "$NR" && "$AZTEC/bin/aztec" compile --package zkpassport_registry_contract)
 
-(cd "$E2E" && npx tsx "deployment/deploy-$NETWORK.ts")
+(cd "$SCRIPTS_DIR" && npx tsx "deployment/deploy-$NETWORK.ts")
 
 if [[ -n "${PREVIEW_DELAY:-}" ]]; then
   echo "NOTE: $NR/target now holds the PREVIEW build (INITIAL_DELAY = $PREVIEW_DELAY)." >&2

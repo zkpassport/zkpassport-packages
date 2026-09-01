@@ -27,7 +27,7 @@
  * `npm run deploy:testnet` directly only when target/ is already a fresh production
  * build (same requirement as run-e2e.ts):
  *   cd ../zkpassport.nr && $AZTEC/bin/aztec-nargo compile && \
- *     $AZTEC/bin/aztec codegen target -o ../e2e/src/artifacts
+ *     $AZTEC/bin/aztec codegen target -o ../scripts/src/artifacts
  *
  * Env:
  *   AZTEC_NODE_URL              node RPC (default: the public v5 testnet endpoint)
