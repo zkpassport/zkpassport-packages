@@ -143,10 +143,15 @@ async function main() {
     console.log(`  ZKPASSPORT_DEPLOYER_SECRET=${secretKey.toString()}`)
     console.log(`  SALT=${salt.toString()}`)
   }
+
   console.log("next (with the secret exported from your secret manager):")
   console.log("  export ZKPASSPORT_DEPLOYER_SECRET=<secret>")
   console.log("  export REGISTRY_ADMIN=<addr> REGISTRY_ORACLE=<addr> REGISTRY_GUARDIAN=<addr>")
-  if (!salt.equals(new Fr(0))) console.log(`  export SALT=${salt.toString()}`)
+
+  if (!salt.equals(new Fr(0))) {
+    console.log(`  export SALT=${salt.toString()}`)
+  }
+
   if (NETWORK === "testnet") {
     console.log("  PREVIEW_DELAY=3600 ./deploy.sh testnet   # then: npm run seed:testnet")
   } else {
