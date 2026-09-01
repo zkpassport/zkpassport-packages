@@ -74,7 +74,7 @@ The client is responsible for stashing `vk ‖ proof ‖ public_inputs` into
 the app's capsule slot (`zkpassport_core::constants::PROOF_CAPSULE_SLOT`, `= 1`) before sending
 the transaction.
 
-From `scripts/src/run-e2e.ts`:
+From `scripts/e2e/run-e2e.ts`:
 
 ```typescript
 // Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT.
@@ -183,7 +183,7 @@ Finally, the end to end test at `scripts/`. It runs a full deploy + real client-
 a local Aztec network (`AztecNode` at `localhost:8080` by default). It needs a running sandbox and
 native client-IVC proving.
 
-**The workspace must be compiled first.** `scripts/src/artifacts/{ZKPassportRegistry,AgeGate}.ts`
+**The workspace must be compiled first.** `scripts/artifacts/{ZKPassportRegistry,AgeGate}.ts`
 are tracked files that `import` from `zkpassport.nr/target/<contract>.json`, and
 `zkpassport.nr/target/` is gitignored. From a fresh clone the recipe below fails at module
 resolution before a single line runs unless you compile first (and re-run `aztec codegen` if the
@@ -192,10 +192,10 @@ ABI changed, so the tracked artifact `.ts` files match the freshly compiled JSON
 ```bash
 # From zkpassport.nr/:
 aztec compile
-# Only if the contract ABI changed since the tracked scripts/src/artifacts/*.ts were generated:
-aztec codegen target -o ../scripts/src/artifacts
+# Only if the contract ABI changed since the tracked scripts/artifacts/*.ts were generated:
+aztec codegen target -o ../scripts/artifacts
 
-cd ../scripts && npm install && npx tsx src/run-e2e.ts
+cd ../scripts && npm install && npx tsx e2e/run-e2e.ts
 ```
 
 ## Fixtures
