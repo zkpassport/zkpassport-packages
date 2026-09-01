@@ -36,7 +36,9 @@
  *                               re-runs resolve the same deployer (and registry).
  *   SALT                        account + contract salt (default 0, reproducible)
  *   REGISTRY_ADMIN / REGISTRY_ORACLE / REGISTRY_GUARDIAN
- *                               role addresses; each defaults to the deployer.
+ *                               role addresses, all required. There is no deployer
+ *                               fallback: putting a role on the deployer must be an
+ *                               explicit choice.
  *   DRY_RUN                     if set, run every pre-flight check (node version, FPC
  *                               on-chain verification, address derivation) and stop
  *                               before sending the deploy tx.
@@ -92,9 +94,15 @@ function loadOrCreateSecret(envVar: string): { secretKey: Fr; generated: boolean
   return { secretKey: Fr.random(), generated: true }
 }
 
-function roleOverride(envVar: string): AztecAddress | undefined {
+function requiredRole(envVar: string): AztecAddress {
   const env = process.env[envVar]
-  return env ? AztecAddress.fromStringUnsafe(env) : undefined
+  if (!env) {
+    console.error(
+      `${envVar} is required. Roles never default to the deployer: pass the deployer address explicitly if that is really intended.`,
+    )
+    process.exit(1)
+  }
+  return AztecAddress.fromStringUnsafe(env)
 }
 
 async function main() {
@@ -156,9 +164,9 @@ async function main() {
   const paymentMethod = new SponsoredFeePaymentMethod(fpc.address)
   console.log(`sponsored FPC verified on-chain: ${fpc.address}`)
 
-  const admin = roleOverride("REGISTRY_ADMIN") ?? deployer.address
-  const oracle = roleOverride("REGISTRY_ORACLE") ?? deployer.address
-  const guardian = roleOverride("REGISTRY_GUARDIAN") ?? deployer.address
+  const admin = requiredRole("REGISTRY_ADMIN")
+  const oracle = requiredRole("REGISTRY_ORACLE")
+  const guardian = requiredRole("REGISTRY_GUARDIAN")
   console.log(
     `roles: admin=${admin} oracle=${oracle} guardian=${guardian} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
   )

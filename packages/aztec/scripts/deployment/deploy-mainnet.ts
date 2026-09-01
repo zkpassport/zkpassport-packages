@@ -30,7 +30,9 @@
  *                               registry admin role: keep it safe.
  *   SALT                        account + contract salt (default 0, reproducible)
  *   REGISTRY_ADMIN / REGISTRY_ORACLE / REGISTRY_GUARDIAN
- *                               role addresses; each defaults to the deployer.
+ *                               role addresses, all required. There is no deployer
+ *                               fallback: putting a role on the deployer must be an
+ *                               explicit choice.
  *   L1_RPC_URL                  Ethereum mainnet RPC (default: publicnode)
  *   L1_PRIVATE_KEY              L1 key holding $AZTEC + ETH; enables the auto-bridge
  *   FEE_JUICE_AMOUNT            override the bridged amount (Fee Juice wei, 1e18 = 1 FJ)
@@ -96,9 +98,15 @@ function loadOrCreateSecret(envVar: string): { secretKey: Fr; generated: boolean
   return { secretKey: Fr.random(), generated: true }
 }
 
-function roleOverride(envVar: string): AztecAddress | undefined {
+function requiredRole(envVar: string): AztecAddress {
   const env = process.env[envVar]
-  return env ? AztecAddress.fromStringUnsafe(env) : undefined
+  if (!env) {
+    console.error(
+      `${envVar} is required. Roles never default to the deployer: pass the deployer address explicitly if that is really intended.`,
+    )
+    process.exit(1)
+  }
+  return AztecAddress.fromStringUnsafe(env)
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -143,9 +151,9 @@ async function main() {
   )
   console.log(`deployer (initializerless Schnorr, no deploy tx needed): ${deployer.address}`)
 
-  const admin = roleOverride("REGISTRY_ADMIN") ?? deployer.address
-  const oracle = roleOverride("REGISTRY_ORACLE") ?? deployer.address
-  const guardian = roleOverride("REGISTRY_GUARDIAN") ?? deployer.address
+  const admin = requiredRole("REGISTRY_ADMIN")
+  const oracle = requiredRole("REGISTRY_ORACLE")
+  const guardian = requiredRole("REGISTRY_GUARDIAN")
   console.log(
     `roles: admin=${admin} oracle=${oracle} guardian=${guardian} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
   )
