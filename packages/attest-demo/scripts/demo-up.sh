@@ -51,5 +51,5 @@ fi
 bun --cwd "$repo_root/packages/attest-popup" dev &
 popup_pid=$!
 trap 'kill "$popup_pid" 2>/dev/null || true' EXIT
-echo "attest-popup on http://localhost:3000 (pid $popup_pid), attest-demo on http://localhost:3001"
+echo "attest-popup on http://localhost:3010 (pid $popup_pid), attest-demo on http://localhost:3001"
 bun --cwd "$demo_dir" dev

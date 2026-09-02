@@ -30,7 +30,7 @@ export function parseDemoConfig(raw: {
       `NEXT_PUBLIC_REGISTRY_ADDRESS must be a 0x-prefixed address (got "${raw.registry ?? ""}").`,
     )
   }
-  const popupUrl = (raw.popupUrl ?? "http://localhost:3000").replace(/\/$/, "")
+  const popupUrl = (raw.popupUrl ?? "http://localhost:3010").replace(/\/$/, "")
   const rpcUrl = raw.rpcUrl || DEFAULT_RPC_URL
   if (raw.deployBlock && !/^\d+$/.test(raw.deployBlock)) {
     throw new DemoConfigError(

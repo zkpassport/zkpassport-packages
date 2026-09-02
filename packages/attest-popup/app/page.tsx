@@ -20,6 +20,7 @@ import {
 } from "../lib/attest"
 import { resolveChain } from "../lib/chains"
 import { disclosureClaims } from "../lib/disclosure"
+import { notifyOpener } from "../lib/opener"
 import { parsePopupParams, PopupConfigError, type PopupConfig } from "../lib/params"
 import {
   connectWallet,
@@ -106,6 +107,7 @@ export default function Page() {
     try {
       const wallet = await connectWallet(session.chain, getInjectedProvider())
       const held = await checkCredential(session.ctx, wallet.account, session.config.policyId)
+      if (held) notifyOpener(session.config, "already-verified")
       setPhase(held ? { kind: "already-verified" } : { kind: "prove", wallet })
     } catch (reason) {
       setPhase({
@@ -128,6 +130,7 @@ export default function Page() {
       if (!held) {
         throw new Error("The mint transaction succeeded but the credential was not found.")
       }
+      notifyOpener(session.config, "issued")
       setPhase({ kind: "done", devProof: false })
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : String(reason)
@@ -150,6 +153,8 @@ export default function Page() {
       if (result.issueCall) {
         void mint(wallet, result.issueCall)
       } else {
+        const session = sessionRef.current
+        if (session) notifyOpener(session.config, "dev-verified")
         setPhase({ kind: "done", devProof: true })
       }
     },
