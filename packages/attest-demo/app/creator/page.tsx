@@ -52,7 +52,10 @@ function CreatorView() {
           salt: randomSalt(),
           validityPeriodSeconds: BigInt(validityDays) * DAY,
           unique: onePerDocument,
-          saltedNullifierOnly: true,
+          // Only constrain the nullifier type when a nullifier is actually
+          // needed: the mobile app ignores a NONE nullifier request and sends
+          // the legacy non-salted type, which a salted-only policy rejects.
+          saltedNullifierOnly: onePerDocument,
           minAge: minAgeEnabled ? minAge : 0,
           sanctionsCheck: sanctions,
           excludedCountries: excludeCountries
