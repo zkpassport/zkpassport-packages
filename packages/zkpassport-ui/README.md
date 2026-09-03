@@ -82,7 +82,7 @@ For your own button, pass a function as `children`:
 </VerifyWithZKPassportButton>
 ```
 
-To own the surrounding layout too, skip the component: `useVerifyWithZKPassport(options)` returns the same `{ verify, status, isLoading, error }`, and `createVerification(getOptions, onStateChange)` does the same outside React. `status` is `"idle" | "in-progress" | "success" | "error"`; `error` holds a message only when the user needs one, such as a blocked popup.
+Outside React, `createVerification(getOptions, onStateChange)` drives your own element: call `verify`, and `onStateChange` receives `{ status, error }`. `status` is `"idle" | "in-progress" | "success" | "error"`; `error` holds a message only when the user needs one, such as a blocked popup.
 
 ## Callbacks
 

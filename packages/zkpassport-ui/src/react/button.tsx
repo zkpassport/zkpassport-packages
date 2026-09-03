@@ -2,6 +2,8 @@
 import {
   useEffect,
   useLayoutEffect,
+  useRef,
+  useState,
   type CSSProperties,
   type ReactElement,
   type ReactNode,
@@ -10,6 +12,7 @@ import {
 import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
 import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
+import { createVerification, type VerificationState } from "../verification"
 import {
   BUTTON_FONT_SIZES,
   buttonTooltip,
@@ -21,10 +24,14 @@ import {
   SUCCESS_BUTTON_LABEL,
   type VerifyWithZKPassportButtonOptions,
 } from "../verify-button"
-import { useVerifyWithZKPassport, type ZKPassportVerification } from "./use-verification"
 
 // Styles go in before the first paint in the browser; useLayoutEffect warns when server-rendered
 const useStylesheet = typeof window === "undefined" ? useEffect : useLayoutEffect
+
+export type ZKPassportVerification = VerificationState & {
+  isLoading: boolean
+  verify: () => void
+}
 
 export type VerifyWithZKPassportButtonProps = VerifyWithZKPassportButtonOptions & {
   // Render your own trigger instead of the branded button
@@ -36,7 +43,18 @@ export function VerifyWithZKPassportButton({
   children,
   ...options
 }: VerifyWithZKPassportButtonProps): ReactElement {
-  const verification = useVerifyWithZKPassport(options)
+  const [state, setState] = useState<VerificationState>({ status: "idle", error: null })
+  // Read at click time, so callers don't have to memoise their options or callbacks
+  const latestOptions = useRef(options)
+  latestOptions.current = options
+  const [controller] = useState(() => createVerification(() => latestOptions.current, setState))
+  useEffect(() => controller.close, [controller])
+
+  const verification: ZKPassportVerification = {
+    ...state,
+    isLoading: state.status === "in-progress",
+    verify: controller.verify,
+  }
   if (children) return <>{children(verification)}</>
   return <BrandedButton options={options} verification={verification} />
 }
@@ -95,6 +113,5 @@ function BrandedButton({
   )
 }
 
-export { useVerifyWithZKPassport, type ZKPassportVerification } from "./use-verification"
 export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
 export type { VerificationOptions, VerificationState, VerificationStatus } from "../verification"
