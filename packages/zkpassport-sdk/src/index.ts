@@ -805,10 +805,11 @@ export class ZKPassport {
    * @param originalQuery The original query that was sent to the mobile app.
    * @param queryResult The query result to verify against
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
-   * @param scope Scope this request to a specific use case
+   * @param scope The scope used in the original request, if any. Proofs generated for a different scope fail verification.
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param writingDirectory The directory (e.g. `./tmp`) where the necessary temporary artifacts for verification are written to.
    * It should only be needed when running the `verify` function on a server with restricted write access (e.g. Vercel)
+   * @param oprfKeyId The OPRF key id used in the original request, if any.
    * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
    * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
@@ -836,6 +837,9 @@ export class ZKPassport {
     oprfKeyId?: string
     verifierMode?: VerifierMode
   }): Promise<VerificationResult> {
+    if (!originalQuery || !queryResult) {
+      throw new Error("verify() requires `originalQuery` and `queryResult`")
+    }
     const notVerified: VerificationResult = {
       uniqueIdentifier: undefined,
       uniqueIdentifierType: undefined,
@@ -1066,7 +1070,7 @@ export class ZKPassport {
     const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
     const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
-    let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${base64Config}&s=${base64Service}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
+    let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
     if (nullifierType) {
       url += `&nt=${nullifierType}`
     }

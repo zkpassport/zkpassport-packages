@@ -44,6 +44,13 @@ describe("verify() modes and the verifier API", () => {
     localSpy.mockRestore()
   })
 
+  test("rejects invalid parameters before verifying", async () => {
+    const zk = new ZKPassport("example.com")
+
+    await expect(zk.verify({ proofs, originalQuery } as any)).rejects.toThrow("queryResult")
+    expect(localSpy).not.toHaveBeenCalled()
+  })
+
   test("auto keeps a verified local result without calling the API", async () => {
     const localResult = { verified: true, uniqueIdentifier: "local-uid", uniqueIdentifierType: 1 }
     localSpy.mockResolvedValue(localResult)

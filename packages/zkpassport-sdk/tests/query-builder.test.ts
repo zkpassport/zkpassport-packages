@@ -33,7 +33,7 @@ describe("Query Builder", () => {
     const result = queryBuilder.eq("document_type", "passport").eq("gender", "female").done()
 
     expect(result.url).toContain("c=")
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     // Test exact structure and values
@@ -49,7 +49,7 @@ describe("Query Builder", () => {
   test("should build age comparison query with boundary validation", async () => {
     const result = queryBuilder.gte("age", 18).lt("age", 65).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.age).toEqual({
@@ -63,7 +63,7 @@ describe("Query Builder", () => {
     const endDate = new Date("2024-12-31")
     const result = queryBuilder.range("birthdate", startDate, endDate).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.birthdate.range).toEqual([startDate.toISOString(), endDate.toISOString()])
@@ -75,7 +75,7 @@ describe("Query Builder", () => {
       .out("nationality", ["USA", "GBR"])
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.nationality).toEqual({
@@ -90,7 +90,7 @@ describe("Query Builder", () => {
       .out("nationality", ["United States", "United Kingdom"])
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.nationality).toEqual({
@@ -102,7 +102,7 @@ describe("Query Builder", () => {
   test("should build disclosure request with validation", async () => {
     const result = queryBuilder.disclose("fullname").disclose("birthdate").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config).toEqual({
@@ -121,7 +121,7 @@ describe("Query Builder", () => {
       .range("expiry_date", startDate, new Date("2025-01-01"))
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     // Test complete structure
@@ -135,11 +135,11 @@ describe("Query Builder", () => {
 
     // Verify URL format
     expect(result.url).toMatch(
-      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+&dev=[^&]+$/,
+      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9%]+&s=[A-Za-z0-9%]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+&dev=[^&]+$/,
     )
 
     // Verify service info is included
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service).toEqual({
       name: "Test App",
@@ -148,10 +148,26 @@ describe("Query Builder", () => {
     })
   })
 
+  test("should URL-encode params whose base64 contains reserved characters", async () => {
+    const builder = await zkPassport.request({
+      name: "株式会社テスト",
+      logo: "https://test.jp/logo.png",
+      purpose: "年齢確認",
+    })
+    const result = builder.gte("age", 18).done()
+
+    // A raw "+" in the query string would be decoded as a space and corrupt the base64
+    expect(result.url.split("?")[1]).not.toContain("+")
+
+    const servicePart = new URL(result.url).searchParams.get("s")!
+    const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
+    expect(service.name).toBe("株式会社テスト")
+  })
+
   test("should handle inclusive bounds for age queries", async () => {
     const result = queryBuilder.gte("age", 18).lte("age", 25).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.age).toEqual({
@@ -163,7 +179,7 @@ describe("Query Builder", () => {
   test("should handle exclusive bounds for age queries", async () => {
     const result = queryBuilder.gt("age", 18).lt("age", 25).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.age).toEqual({
@@ -177,7 +193,7 @@ describe("Query Builder", () => {
       .gte("birthdate", new Date("2024-01-01"))
       .lte("birthdate", new Date("2024-12-31"))
       .done()
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.birthdate).toEqual({
@@ -191,7 +207,7 @@ describe("Query Builder", () => {
       .gt("birthdate", new Date("2024-01-01"))
       .lt("birthdate", new Date("2024-12-31"))
       .done()
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.birthdate).toEqual({
@@ -206,7 +222,7 @@ describe("Query Builder", () => {
       .lte("expiry_date", new Date("2024-12-31"))
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.expiry_date).toEqual({
@@ -221,7 +237,7 @@ describe("Query Builder", () => {
       .lt("expiry_date", new Date("2024-12-31"))
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.expiry_date).toEqual({
@@ -233,7 +249,7 @@ describe("Query Builder", () => {
   test("should build sanctions query defaulting to all countries and lists", async () => {
     const result = queryBuilder.sanctions().done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -250,7 +266,7 @@ describe("Query Builder", () => {
       })
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -263,7 +279,7 @@ describe("Query Builder", () => {
   /*test("should build sanctions query for single country", async () => {
     const result = queryBuilder.sanctions("GB").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -276,7 +292,7 @@ describe("Query Builder", () => {
   test("should build sanctions query for single country with custom list", async () => {
     const result = queryBuilder.sanctions("US", ["OFAC_SDN"]).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -289,7 +305,7 @@ describe("Query Builder", () => {
   test("should build sanctions query for multiple countries", async () => {
     const result = queryBuilder.sanctions(["US", "GB", "CH", "EU"]).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -307,7 +323,7 @@ describe("Query Builder", () => {
       .sanctions("EU")
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -320,7 +336,7 @@ describe("Query Builder", () => {
   test("should build facematch query with strict mode", async () => {
     const result = queryBuilder.facematch("strict").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.facematch).toEqual({
@@ -331,7 +347,7 @@ describe("Query Builder", () => {
   test("should build facematch query with regular mode", async () => {
     const result = queryBuilder.facematch("regular").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.facematch).toEqual({
@@ -526,7 +542,7 @@ describe("Policy-driven requests", () => {
     expect(result.policy).toBe("pol_xyz")
     expect(result.query).toEqual(sampleConfig.policies[0].query)
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service).toMatchObject({
       name: "Dashboard Brand",
@@ -552,7 +568,7 @@ describe("Policy-driven requests", () => {
     ).policy("pol_xyz")
     const result = queryBuilder.done()
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("White Label")
     expect(service.logo).toBe("https://white.example/logo.png")
@@ -572,7 +588,7 @@ describe("Policy-driven requests", () => {
     ).policy("pol_xyz")
     const result = queryBuilder.done()
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.purpose).toBe("Caller-supplied purpose")
     expect(service.scope).toBe("pol_xyz:3")
@@ -581,7 +597,7 @@ describe("Policy-driven requests", () => {
   test("self-serve callers get sensible defaults when no fields are supplied", async () => {
     const queryBuilder = await zkPassport.request({})
     const result = queryBuilder.done()
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     // name/logo come from the dashboard config when registered; purpose falls to a default;
     // scope stays undefined unless the caller (or a policy) supplies one.
@@ -706,7 +722,7 @@ describe("Policy-driven requests", () => {
 
     const queryBuilder = (await zkPassport.request({})).policy("pol_blank")
     const result = queryBuilder.done()
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("localhost")
     expect(service.logo).toBe("")
@@ -720,7 +736,7 @@ describe("Policy-driven requests", () => {
     const queryBuilder = await zkPassport.request({ purpose: "Custom purpose" })
     const result = queryBuilder.done()
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("Dashboard Brand")
     expect(service.logo).toBe("https://dashboard.example/logo.png")
