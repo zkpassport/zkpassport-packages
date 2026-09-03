@@ -221,3 +221,48 @@ describe("openVerificationPopup", () => {
     expect(isPopupMessage("ready")).toBe(false)
   })
 })
+
+describe("attest protocol extension", () => {
+  test("configure with an attest block survives postMessage cloning", () => {
+    const message = {
+      zkpassport: true,
+      type: "configure",
+      request: {
+        devMode: true,
+        attest: {
+          chain: "ethereum_sepolia",
+          policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+          walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+          registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+          rpcUrl: "http://localhost:8545",
+        },
+      },
+      query: {},
+    }
+    expect(structuredClone(message)).toEqual(message)
+    expect(isPopupMessage(message)).toBe(true)
+  })
+
+  test("a minted success's issueCall survives postMessage cloning, bigint included", () => {
+    const issueCall = {
+      address: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+      functionName: "issue",
+      abi: [{ type: "function", name: "issue", inputs: [] }],
+      args: [
+        "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        123456789012345678901234567890n,
+        { version: "1", committedInputs: "0xabc" },
+      ],
+    }
+    const message = {
+      zkpassport: true,
+      type: "success",
+      proofs: [],
+      result: {},
+      attest: { status: "minted", txHash: "0xdead", issueCall },
+    }
+    const cloned = structuredClone(message)
+    expect(cloned).toEqual(message)
+    expect(cloned.attest.issueCall.args[1]).toBe(123456789012345678901234567890n)
+  })
+})
