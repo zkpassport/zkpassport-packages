@@ -44,11 +44,3 @@ export {
 } from "../verification"
 export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
 export * from "../types"
-
-export { mountAttestButton, type AttestButtonHandle } from "./attest"
-export {
-  buildAttestCardOptions,
-  type AttestIssueCall,
-  type AttestVerifyOptions,
-  type AttestVerifyResult,
-} from "../attest-options"

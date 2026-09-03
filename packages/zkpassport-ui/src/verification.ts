@@ -1,11 +1,12 @@
 import { createOfflineQuery } from "@zkpassport/sdk/query"
 import {
   openVerificationPopup,
+  type PopupAttestConfig,
   type PopupCallbacks,
   type PopupRequestConfig,
   type VerificationPopupHandle,
 } from "@zkpassport/sdk/popup"
-import type { Query, QueryBuilder, QueryBuilderResult } from "@zkpassport/sdk"
+import type { Query, QueryBuilder, QueryBuilderResult, SupportedChain } from "@zkpassport/sdk"
 
 import { isInAppBrowser } from "./environment"
 import { logger } from "./logger"
@@ -18,12 +19,28 @@ export type VerificationState = {
   error: string | null
 }
 
-export type VerificationOptions = PopupRequestConfig &
+export type VerificationOptions = Omit<PopupRequestConfig, "attest"> &
   PopupCallbacks & {
     // URL of the hosted verification page (override for local development)
     popupUrl?: string
+    /** Dashboard policy id — or, with mintToken, the on-chain policy id as 0x hex. */
     policyId?: string
-    query: (queryBuilder: QueryBuilder) => QueryBuilderResult
+    /** Required unless mintToken is set (the on-chain policy defines the query). */
+    query?: (queryBuilder: QueryBuilder) => QueryBuilderResult
+    /**
+     * Mint an attestation credential: the popup resolves policyId on the
+     * registry, binds walletAddress into the proof and submits issue() when it
+     * can get a signer; the result's attest outcome reports minted/unminted.
+     */
+    mintToken?: boolean
+    /** mintToken only: chain the registry lives on (e.g. "ethereum_sepolia"). */
+    chain?: SupportedChain
+    /** mintToken only: credential recipient; issue() checks this binding. */
+    walletAddress?: `0x${string}`
+    /** mintToken only: ZKPassportAttest registry address. */
+    registry?: `0x${string}`
+    /** mintToken only: RPC override for dev registries. */
+    rpcUrl?: string
   }
 
 export type VerificationController = {
@@ -33,7 +50,8 @@ export type VerificationController = {
 }
 
 // The only fields sent to the popup; anything else stays on this page.
-const POPUP_REQUEST_FIELDS: Record<keyof PopupRequestConfig, true> = {
+// (attest is assembled separately in toAttestConfig, from the flat options.)
+const POPUP_REQUEST_FIELDS: Record<Exclude<keyof PopupRequestConfig, "attest">, true> = {
   name: true,
   logo: true,
   purpose: true,
@@ -80,8 +98,11 @@ export function createVerification(
 
     const thisAttempt = ++latestAttempt
     let query: Query
+    let attest: PopupAttestConfig | undefined
     try {
-      query = buildQuery(options)
+      attest = toAttestConfig(options)
+      // A mint request carries no query: the popup derives it from the policy
+      query = attest ? {} : buildQuery(options)
     } catch (reason) {
       logger.error(reason)
       setStatus("error")
@@ -89,9 +110,12 @@ export function createVerification(
       return
     }
 
+    const request = toPopupRequest(options)
+    if (attest) request.attest = attest
+
     const handle = openVerificationPopup({
       popupUrl: options.popupUrl,
-      request: toPopupRequest(options),
+      request,
       query,
       // Callbacks resolve at event time: results arrive minutes after the
       // click, and React consumers swap callbacks between renders
@@ -159,6 +183,9 @@ export function createVerification(
 }
 
 function buildQuery(options: VerificationOptions): Query {
+  if (!options.query) {
+    throw new Error("A query callback is required unless mintToken is set.")
+  }
   const builder = createOfflineQuery()
   if (options.policyId) {
     builder.policy(options.policyId)
@@ -167,10 +194,33 @@ function buildQuery(options: VerificationOptions): Query {
   return built.query
 }
 
+function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undefined {
+  if (!options.mintToken) return undefined
+  if (options.query) {
+    throw new Error(
+      "mintToken requests take their query from the on-chain policy; remove the query option.",
+    )
+  }
+  const { chain, policyId, walletAddress, registry, rpcUrl } = options
+  if (!chain || !policyId || !walletAddress || !registry) {
+    throw new Error("mintToken requires chain, policyId, walletAddress and registry.")
+  }
+  if (!policyId.startsWith("0x")) {
+    throw new Error("With mintToken, policyId is the on-chain policy id as 0x-prefixed hex.")
+  }
+  return {
+    chain,
+    policyId: policyId as `0x${string}`,
+    walletAddress,
+    registry,
+    ...(rpcUrl ? { rpcUrl } : {}),
+  }
+}
+
 function toPopupRequest(options: VerificationOptions): PopupRequestConfig {
   const request: Record<string, unknown> = {}
   for (const field of Object.keys(POPUP_REQUEST_FIELDS)) {
-    const value = options[field as keyof PopupRequestConfig]
+    const value = options[field as Exclude<keyof PopupRequestConfig, "attest">]
     if (value !== undefined) request[field] = value
   }
   return request as PopupRequestConfig
