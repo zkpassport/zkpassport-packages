@@ -83,7 +83,6 @@ export type SolidityVerifierParameters = {
 
 export type Policy = {
   id: string
-  version: number
   name: string
   purpose: string
   projectId: string | null

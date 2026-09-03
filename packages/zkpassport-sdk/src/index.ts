@@ -59,10 +59,6 @@ if (typeof globalThis.Buffer === "undefined") {
   }
 }
 
-function policyScope(policy: { id: string; version: number }): string {
-  return `${policy.id}:${policy.version}`
-}
-
 const DEFAULT_PURPOSE = "Verify identity privately"
 
 export {
@@ -129,10 +125,7 @@ export class ZKPassport {
   private topicToProofs: Record<string, Array<ProofResult>> = {}
   private topicToFailedProofCount: Record<string, number> = {}
   private topicToResults: Record<string, QueryResult> = {}
-  private topicToPolicy: Record<
-    string,
-    { id: string; version: number; proofStorageEnabled: boolean }
-  > = {}
+  private topicToPolicy: Record<string, { id: string; proofStorageEnabled: boolean }> = {}
   private dashboardConfig: DashboardConfig | null = null
   private dashboardConfigPromise: Promise<DashboardConfig | null> | null = null
   private dashboardConfigError: Error | null = null
@@ -500,11 +493,10 @@ export class ZKPassport {
           if (!this.topicToCallerPurpose[topic]) {
             svc.purpose = policy.purpose || DEFAULT_PURPOSE
           }
-          svc.scope = policyScope(policy)
+          svc.scope = policy.id
         }
         this.topicToPolicy[topic] = {
           id: policy.id,
-          version: policy.version,
           proofStorageEnabled: policy.proofStorageEnabled === true,
         }
         return this.getZkPassportRequest(topic)
@@ -631,11 +623,6 @@ export class ZKPassport {
         `Policy '${policyId}' not found for domain '${this.domain}'. The dashboard returned ${config.policies.length} policies for this domain.`,
       )
     }
-    if (!Number.isInteger(policy.version) || policy.version < 1) {
-      throw new Error(
-        `Invalid policy '${policyId}' for domain '${this.domain}': version must be a positive integer (got ${JSON.stringify(policy.version)}).`,
-      )
-    }
     if (!policy.query || typeof policy.query !== "object") {
       throw new Error(
         `Invalid policy '${policyId}' for domain '${this.domain}': missing query object.`,
@@ -666,7 +653,7 @@ export class ZKPassport {
    * @param name Your service name. Defaults to the dashboard branding, then the domain.
    * @param logo Your service logo. Defaults to the dashboard branding.
    * @param purpose Explanation shown to the user. Defaults to the policy's purpose (if any), then a generic message.
-   * @param scope Use-case scope (drives the nullifier). Defaults to the domain. Locked by `.policy()` (to `<id>:<version>`).
+   * @param scope Use-case scope (drives the nullifier). Defaults to the domain. Locked by `.policy()` (to the policy id).
    * @param projectID The project ID of your service
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param mode The proof mode (e.g. "fast" / "compressed").
