@@ -47,9 +47,11 @@ if [[ -n "$registry_deploy_block" ]]; then
 fi
 
 (cd "$repo_root" && bun install)
+# verify-popup serves @zkpassport/ui's hosted build from dist/
+(cd "$repo_root" && bunx turbo run build --filter=@zkpassport/ui)
 
-bun --cwd "$repo_root/packages/attest-popup" dev &
+bun --cwd "$repo_root/packages/verify-popup" dev &
 popup_pid=$!
 trap 'kill "$popup_pid" 2>/dev/null || true' EXIT
-echo "attest-popup on http://localhost:3010 (pid $popup_pid), attest-demo on http://localhost:3001"
+echo "verify-popup on http://localhost:5173 (pid $popup_pid), attest-demo on http://localhost:3001"
 bun --cwd "$demo_dir" dev

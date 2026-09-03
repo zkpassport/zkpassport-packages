@@ -7,7 +7,7 @@ import { useDemo } from "../../components/demo-context"
 import { TxStatus, useTx } from "../../components/tx-status"
 import { mockAuctionArtifact } from "../../lib/auction"
 import { listPoliciesWithDetails, type PolicyView } from "../../lib/policies"
-import { buildPopupUrl } from "../../lib/popup-url"
+import { openAttestPopup } from "../../lib/attest-popup"
 import { deployAndWait, ensureWalletChain } from "../../lib/wallet"
 
 const STORAGE_KEY = "attest-demo.auctions"
@@ -110,17 +110,17 @@ function LauncherView() {
                   /bidder?auction={a.address}
                 </a>
               </p>
-              <p className="mt-1">
-                Pre-launch verify link:{" "}
-                <a
-                  className="break-all text-sky-400 underline"
-                  href={buildPopupUrl(config, BigInt(a.policyId))}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {buildPopupUrl(config, BigInt(a.policyId))}
-                </a>
-              </p>
+              {wallet && (
+                <p className="mt-1">
+                  <button
+                    className="rounded bg-sky-600 px-3 py-1 text-xs"
+                    type="button"
+                    onClick={() => openAttestPopup(config, BigInt(a.policyId), wallet.account)}
+                  >
+                    Verify this wallet now
+                  </button>
+                </p>
+              )}
             </li>
           ))}
         </ul>

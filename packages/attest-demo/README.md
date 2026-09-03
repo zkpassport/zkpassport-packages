@@ -30,13 +30,13 @@ The script:
    registry's on-chain `domain()`, so proofs match it automatically.
 2. Writes the deployed registry address into `packages/attest-demo/.env.local`
    (`NEXT_PUBLIC_REGISTRY_ADDRESS`). The popup app needs no configuration for its defaults.
-3. Installs dependencies and starts attest-popup (port 3000) and attest-demo (port 3001).
+3. Installs dependencies and starts verify-popup (port 5173) and attest-demo (port 3001).
 
 ## Demo script
 
 1. **Creator** (`/creator`): create a policy (e.g. 18+, sanctions-clear).
-2. **Launcher** (`/launcher`): pick the policy, deploy a MockAuction, copy the bidder link and the
-   pre-launch verify link.
+2. **Launcher** (`/launcher`): pick the policy, deploy a MockAuction, copy the bidder link — or
+   verify the connected wallet right away with "Verify this wallet now".
 3. **Bidder** (bidder link): connect a wallet, "Verify with ZKPassport" (scan with the mobile app,
    mint from the popup), watch the gate flip, place a bid.
 4. **Holder** (`/holder`): same wallet — revoke the credential.
