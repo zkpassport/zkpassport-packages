@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   hydrateQueryBuilder,
   isPopupMessage,
@@ -60,12 +60,6 @@ export function App() {
     }
   }, [config])
 
-  // Auto-close once the flow is complete (after the outcome screen has shown)
-  const scheduleClose = useCallback((delayMs: number) => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current)
-    closeTimer.current = window.setTimeout(() => window.close(), delayMs)
-  }, [])
-
   if (standalone) {
     return (
       <Frame>
@@ -88,15 +82,16 @@ export function App() {
   const domain = new URL(config.rpOrigin).hostname
   const request = config.request
 
+  // Auto-close once the flow is complete (after the outcome screen has shown)
+  const scheduleClose = (delayMs: number) => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current)
+    closeTimer.current = window.setTimeout(() => window.close(), delayMs)
+  }
+
   if (request.attest) {
     return (
       <Frame>
-        <AttestFlow
-          request={request}
-          attest={request.attest}
-          send={send}
-          scheduleClose={scheduleClose}
-        />
+        <AttestFlow request={request} attest={request.attest} send={send} />
       </Frame>
     )
   }

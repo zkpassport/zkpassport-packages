@@ -22,7 +22,6 @@ type AttestFlowProps = {
   request: PopupConfigureMessage["request"]
   attest: PopupAttestConfig
   send: (message: OutgoingEvent) => void
-  scheduleClose: (delayMs: number) => void
 }
 
 type FlowState =
@@ -46,7 +45,7 @@ function toSuccessMessage(
   }
 }
 
-export function AttestFlow({ request, attest, send, scheduleClose }: AttestFlowProps) {
+export function AttestFlow({ request, attest, send }: AttestFlowProps) {
   const [state, setState] = useState<FlowState>({ step: "resolving" })
   const sendRef = useRef(send)
   sendRef.current = send
@@ -75,7 +74,6 @@ export function AttestFlow({ request, attest, send, scheduleClose }: AttestFlowP
           result: {},
           attest: { status: "already-verified" },
         })
-        scheduleClose(2000)
         return
       }
 
@@ -101,7 +99,6 @@ export function AttestFlow({ request, attest, send, scheduleClose }: AttestFlowP
           if (cancelled) return
           setState({ step: "minted", txHash })
           emit({ ...base, attest: { status: "minted", txHash, issueCall } })
-          scheduleClose(2500)
         } catch (reason) {
           if (cancelled) return
           setState({ step: "unminted" })
@@ -135,10 +132,7 @@ export function AttestFlow({ request, attest, send, scheduleClose }: AttestFlowP
             total: proof.total,
             name: proof.name,
           }),
-        onReject: () => {
-          emit({ type: "rejected" })
-          scheduleClose(1500)
-        },
+        onReject: () => emit({ type: "rejected" }),
         onError: (message) => emit({ type: "error", message: String(message) }),
         onResult: (result) => void finish(result),
       })
@@ -150,7 +144,7 @@ export function AttestFlow({ request, attest, send, scheduleClose }: AttestFlowP
     return () => {
       cancelled = true
     }
-  }, [request, attest, scheduleClose])
+  }, [request, attest])
 
   switch (state.step) {
     case "resolving":
