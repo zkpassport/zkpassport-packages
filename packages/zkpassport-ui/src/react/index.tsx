@@ -35,11 +35,3 @@ export {
 export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
 export type { VerificationOptions, VerificationState, VerificationStatus } from "../verification"
 export * from "../types"
-
-export { AttestVerifyButton, type AttestVerifyButtonProps } from "./attest"
-export {
-  buildAttestCardOptions,
-  type AttestIssueCall,
-  type AttestVerifyOptions,
-  type AttestVerifyResult,
-} from "../attest-options"

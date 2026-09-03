@@ -183,3 +183,105 @@ describe("createVerification", () => {
     expect(received).toEqual(["event-time"])
   })
 })
+
+describe("createVerification with mintToken", () => {
+  const mintOptions: VerificationOptions = {
+    mintToken: true,
+    chain: "ethereum_sepolia",
+    policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+    walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+    registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+    rpcUrl: "http://localhost:8545",
+    devMode: true,
+  }
+
+  test("sends the attest block and an empty query", () => {
+    const { sentToPopup, emitFromPopup } = setupFakeWindow()
+    createVerification(
+      () => mintOptions,
+      () => {},
+    ).verify()
+    emitFromPopup({ zkpassport: true, type: "ready" })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const configure = sentToPopup[0] as any
+    expect(configure.request).toEqual({
+      devMode: true,
+      attest: {
+        chain: "ethereum_sepolia",
+        policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+        walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+        rpcUrl: "http://localhost:8545",
+      },
+    })
+    expect(configure.query).toEqual({})
+  })
+
+  test("relays the attest outcome to onSuccess", () => {
+    const { emitFromPopup } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let outcome: any
+    createVerification(
+      () => ({
+        ...mintOptions,
+        onSuccess: (response) => {
+          outcome = response
+        },
+      }),
+      () => {},
+    ).verify()
+    emitFromPopup({
+      zkpassport: true,
+      type: "success",
+      proofs: [],
+      result: {},
+      attest: { status: "minted", txHash: "0xdead", issueCall: { functionName: "issue" } },
+    })
+
+    expect(outcome.attest).toEqual({
+      status: "minted",
+      txHash: "0xdead",
+      issueCall: { functionName: "issue" },
+    })
+  })
+
+  test("rejects a query alongside mintToken", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    const statuses: string[] = []
+    createVerification(
+      () => ({
+        ...mintOptions,
+        query: (builder) => builder.done(),
+        onError: (message) => errors.push(message),
+      }),
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+    expect(errors).toEqual(["Failed to build the verification query"])
+  })
+
+  test("rejects mintToken without the attest fields", () => {
+    setupFakeWindow()
+    const statuses: string[] = []
+    createVerification(
+      () => ({ mintToken: true, chain: "ethereum_sepolia" }),
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+  })
+
+  test("still requires a query without mintToken", () => {
+    setupFakeWindow()
+    const statuses: string[] = []
+    createVerification(
+      () => ({ name: "Aztec" }),
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+  })
+})
