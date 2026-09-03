@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   hydrateQueryBuilder,
   isPopupMessage,
@@ -6,6 +6,8 @@ import {
   type PopupEventMessage,
 } from "@zkpassport/sdk/popup"
 import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
+
+import { AttestFlow } from "./AttestFlow"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
@@ -58,6 +60,12 @@ export function App() {
     }
   }, [config])
 
+  // Auto-close once the flow is complete (after the outcome screen has shown)
+  const scheduleClose = useCallback((delayMs: number) => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current)
+    closeTimer.current = window.setTimeout(() => window.close(), delayMs)
+  }, [])
+
   if (standalone) {
     return (
       <Frame>
@@ -80,10 +88,17 @@ export function App() {
   const domain = new URL(config.rpOrigin).hostname
   const request = config.request
 
-  // Auto-close once the flow is complete (after the outcome screen has shown)
-  const scheduleClose = (delayMs: number) => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current)
-    closeTimer.current = window.setTimeout(() => window.close(), delayMs)
+  if (request.attest) {
+    return (
+      <Frame>
+        <AttestFlow
+          request={request}
+          attest={request.attest}
+          send={send}
+          scheduleClose={scheduleClose}
+        />
+      </Frame>
+    )
   }
 
   return (
@@ -104,7 +119,12 @@ export function App() {
         onRequestReceived={() => send({ type: "request-received" })}
         onGeneratingProof={() => send({ type: "generating" })}
         onProofGenerated={(proof) =>
-          send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
+          send({
+            type: "proof-generated",
+            index: proof.index,
+            total: proof.total,
+            name: proof.name,
+          })
         }
         onSuccess={({ proofs, result }) => {
           send({ type: "success", proofs, result })
