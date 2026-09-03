@@ -101,16 +101,16 @@ describe("openVerificationPopup", () => {
     ;(globalThis as any).window = fakeWindow
     try {
       const events: string[] = []
-      let resultPayload: unknown = null
+      let successPayload: unknown = null
       const handle = openVerificationPopup({
         popupUrl: "https://verify.zkpassport.id",
         request: { name: "Test", mode: "fast", devMode: true },
         query: { age: { gte: 18 } },
         callbacks: {
           onRequestReceived: () => events.push("request-received"),
-          onResult: (result) => {
-            events.push("result")
-            resultPayload = result
+          onSuccess: (response) => {
+            events.push("success")
+            successPayload = response
           },
           onError: (message) => events.push(`error:${message}`),
         },
@@ -140,18 +140,15 @@ describe("openVerificationPopup", () => {
       )
       emit("https://verify.zkpassport.id", {
         zkpassport: true,
-        type: "result",
-        proofs: [],
+        type: "success",
+        proofs: [{ proof: "0x1" }],
         result: {},
-        uniqueIdentifier: "0x1",
-        uniqueIdentifierType: undefined,
-        verified: true,
       })
-      expect(events).toEqual(["request-received", "result"])
+      expect(events).toEqual(["request-received", "success"])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((resultPayload as any).verified).toBe(true)
+      expect((successPayload as any).proofs).toEqual([{ proof: "0x1" }])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((resultPayload as any).zkpassport).toBeUndefined()
+      expect((successPayload as any).zkpassport).toBeUndefined()
 
       handle!.close()
       expect(popup.closed).toBe(true)
@@ -161,33 +158,35 @@ describe("openVerificationPopup", () => {
     }
   })
 
-  test("keeps listening after an unverified result, so a retry still reaches the page", () => {
+  test("keeps listening after an error, so a retry still reaches the page", () => {
     const { fakeWindow, emit } = setupFakeWindow()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(globalThis as any).window = fakeWindow
     try {
-      const outcomes: boolean[] = []
+      const events: string[] = []
       openVerificationPopup({
         popupUrl: "https://verify.zkpassport.id",
         request: {},
         query: {},
-        callbacks: { onResult: (result) => outcomes.push(result.verified) },
+        callbacks: {
+          onError: (message) => events.push(`error:${message}`),
+          onSuccess: () => events.push("success"),
+        },
       })
-      const sendResult = (verified: boolean) =>
-        emit("https://verify.zkpassport.id", {
-          zkpassport: true,
-          type: "result",
-          proofs: [],
-          result: {},
-          uniqueIdentifier: "0x1",
-          uniqueIdentifierType: undefined,
-          verified,
-        })
 
-      sendResult(false)
-      sendResult(true)
+      emit("https://verify.zkpassport.id", {
+        zkpassport: true,
+        type: "error",
+        message: "proof failed",
+      })
+      emit("https://verify.zkpassport.id", {
+        zkpassport: true,
+        type: "success",
+        proofs: [],
+        result: {},
+      })
 
-      expect(outcomes).toEqual([false, true])
+      expect(events).toEqual(["error:proof failed", "success"])
     } finally {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (globalThis as any).window

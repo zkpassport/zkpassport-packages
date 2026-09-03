@@ -106,18 +106,10 @@ export function App() {
         onProofGenerated={(proof) =>
           send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
         }
-        onResult={({ proofs, result, uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }) => {
-          send({
-            type: "result",
-            proofs,
-            result,
-            uniqueIdentifier,
-            uniqueIdentifierType,
-            verified,
-            queryResultErrors,
-          })
-          // Close after showing the success screen
-          if (verified) scheduleClose(2500)
+        onSuccess={({ proofs, result }) => {
+          send({ type: "success", proofs, result })
+          // Close after showing the completion screen
+          scheduleClose(2500)
         }}
         onReject={() => {
           send({ type: "rejected" })

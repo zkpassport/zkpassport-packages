@@ -1,4 +1,5 @@
 import type { Query } from "@zkpassport/utils"
+import type { OnSuccessVerdict } from "../types"
 import {
   DEFAULT_POPUP_URL,
   isPopupMessage,
@@ -6,13 +7,13 @@ import {
   type PopupRequestConfig,
 } from "./protocol"
 
-export type PopupResult = Extract<PopupEventMessage, { type: "result" }>
+export type PopupSuccess = Extract<PopupEventMessage, { type: "success" }>
 
 export type PopupCallbacks = {
   onRequestReceived?: () => void
   onGeneratingProof?: () => void
   onProofGenerated?: (progress: { index?: number; total?: number; name?: string }) => void
-  onResult?: (result: Omit<PopupResult, "zkpassport" | "type">) => void
+  onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type">) => OnSuccessVerdict
   onReject?: () => void
   onError?: (message: string) => void
   // Fired when the user closes the popup before a result was produced
@@ -110,10 +111,10 @@ export function openVerificationPopup(
       case "proof-generated":
         callbacks.onProofGenerated?.({ index: data.index, total: data.total, name: data.name })
         break
-      case "result": {
+      case "success": {
         finished = true
-        const { zkpassport: _z, type: _t, ...result } = data
-        callbacks.onResult?.(result)
+        const { zkpassport: _z, type: _t, ...response } = data
+        callbacks.onSuccess?.(response)
         break
       }
       case "rejected":

@@ -88,11 +88,16 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       onRequestReceived: _onRequestReceived,
       onGeneratingProof: _onGeneratingProof,
       onProofGenerated: _onProofGenerated,
-      onResult: _onResult,
+      onSuccess: _onSuccess,
+      onResult,
       onReject: _onReject,
       onError: _onError,
       ...sdkRequestArgs
     } = optionsRef.current
+
+    if (onResult && optionsRef.current.onSuccess) {
+      logger.warn("onResult is deprecated and drives the card; onSuccess return values are ignored")
+    }
 
     const fireReady = () => {
       if (readyFired) return
@@ -127,7 +132,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     }
 
     sdkRef
-      .current!.request({ ...sdkRequestArgs })
+      .current!.request({ ...sdkRequestArgs, verifierMode: "api" })
       .then((queryBuilder) => {
         if (cancelled) return
         let request: QueryBuilderResult
@@ -169,13 +174,47 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             safeCall(optionsRef.current.onProofGenerated, proof)
           }),
         )
-        request.onResult(
+        request.onSuccess(
           guard((response) => {
-            introActiveRef.current = false
-            setState(response.verified ? "success" : "error")
-            safeCall(optionsRef.current.onResult, response)
+            if (onResult) {
+              safeCall(optionsRef.current.onSuccess, response)
+              return
+            }
+            // Success waits for the app's onSuccess handler, which can veto it by
+            // returning false (e.g. when its backend did not verify the proofs)
+            const finish = (next: "success" | "error") => {
+              if (cancelled) return
+              introActiveRef.current = false
+              setState(next)
+            }
+            let verdict: unknown
+            try {
+              verdict = optionsRef.current.onSuccess?.(response)
+            } catch (reason) {
+              logger.error(reason)
+              finish("error")
+              return
+            }
+            Promise.resolve(verdict).then(
+              (value) => finish(value === false ? "error" : "success"),
+              (reason) => {
+                logger.error(reason)
+                finish("error")
+              },
+            )
           }),
         )
+        // The deprecated onResult drives the screens like before, with the
+        // verified flag coming from the ZKPassport verifier API
+        if (onResult) {
+          request.onResult(
+            guard((response) => {
+              introActiveRef.current = false
+              setState(response.verified ? "success" : "error")
+              safeCall(optionsRef.current.onResult, response)
+            }),
+          )
+        }
         request.onReject(
           guard(() => {
             introActiveRef.current = false

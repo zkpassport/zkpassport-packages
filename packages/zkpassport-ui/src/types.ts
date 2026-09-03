@@ -8,7 +8,12 @@ type SdkCallback<K extends keyof QueryBuilderResult> = QueryBuilderResult[K] ext
 
 type SdkRequestProps = Omit<
   Parameters<ZKPassport["request"]>[0],
-  "projectID" | "topicOverride" | "keyPairOverride" | "cloudProverUrl" | "bridgeUrl"
+  | "projectID"
+  | "topicOverride"
+  | "keyPairOverride"
+  | "cloudProverUrl"
+  | "bridgeUrl"
+  | "verifierMode"
 >
 
 // Toggles for optional card sections. Each defaults to shown; set false to hide.
@@ -33,6 +38,12 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   onRequestReceived?: SdkCallback<"onRequestReceived">
   onGeneratingProof?: SdkCallback<"onGeneratingProof">
   onProofGenerated?: SdkCallback<"onProofGenerated">
+  /**
+   * All proofs arrived (not verified yet — verify them on your backend).
+   * The component waits for this callback: return `false` (or throw) to show the error state.
+   */
+  onSuccess?: SdkCallback<"onSuccess">
+  /** @deprecated Use `onSuccess` and verify the proofs on your backend. */
   onResult?: SdkCallback<"onResult">
   onReject?: SdkCallback<"onReject">
   onError?: SdkCallback<"onError">

@@ -101,6 +101,16 @@ export type DashboardConfig = {
   policies: Policy[]
 }
 
+// The completed request's raw proofs and query result, before any verification
+export type RequestSuccess = {
+  proofs: ProofResult[]
+  result: QueryResult
+}
+
+// What an onSuccess handler may return: false (or a promise resolving to false)
+// makes the UI components show their error state instead of success
+export type OnSuccessVerdict = void | boolean | Promise<void | boolean>
+
 export type QueryBuilderResult = {
   /**
    * The URL of the request.
@@ -145,11 +155,23 @@ export type QueryBuilderResult = {
    */
   onProofGenerated: (callback: (proof: ProofResult) => void) => void
   /**
+   * Called when the user has completed the request and all proofs were received.
+   *
+   * The proofs are not verified at this point: send them along with the result
+   * to your backend and verify them there with `verify()`. The UI components wait
+   * for this callback before showing their success state; return `false` (or throw)
+   * to show the error state instead, e.g. when your backend rejects the proofs.
+   */
+  onSuccess: (callback: (response: RequestSuccess) => OnSuccessVerdict) => void
+  /**
    * Called when the user has sent the query result.
    *
    * The response contains the unique identifier associated to the user,
    * your domain name and chosen scope, along with the query result and whether
    * the proofs were successfully verified.
+   *
+   * @deprecated The verified flag can be tampered with in the browser. Use `onSuccess`
+   * and verify the proofs on your backend with `verify()`.
    */
   onResult: (
     callback: (response: {
