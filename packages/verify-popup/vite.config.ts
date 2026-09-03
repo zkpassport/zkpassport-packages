@@ -1,0 +1,47 @@
+import { fileURLToPath } from "node:url"
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
+
+// Grants crossOriginIsolated (SharedArrayBuffer → multithreaded WASM proving)
+// WITHOUT COOP, so the window.opener postMessage channel to the RP page survives.
+// Supported in Chromium; other browsers ignore it and prove single-threaded.
+const DOCUMENT_ISOLATION_HEADERS = {
+  "Document-Isolation-Policy": "isolate-and-credentialless",
+}
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      // internal build of @zkpassport/ui, not part of its public exports
+      "@zkpassport/ui/hosted": fileURLToPath(
+        new URL("../zkpassport-ui/dist/hosted.js", import.meta.url),
+      ),
+    },
+  },
+  server: {
+    port: 5173,
+    headers: DOCUMENT_ISOLATION_HEADERS,
+  },
+  preview: {
+    port: 5173,
+    headers: DOCUMENT_ISOLATION_HEADERS,
+  },
+  optimizeDeps: {
+    // These packages load WASM and spawn workers via import.meta.url, which
+    // breaks Vite's dependency pre-bundling — serve them as native ESM instead
+    exclude: [
+      "@aztec/bb.js",
+      "@aztec/bb.js-v4",
+      "@noir-lang/noir_js",
+      "@noir-lang/noirc_abi",
+      "@noir-lang/acvm_js",
+    ],
+    esbuildOptions: {
+      target: "esnext",
+    },
+  },
+  build: {
+    target: "esnext",
+  },
+})

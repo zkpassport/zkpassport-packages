@@ -276,6 +276,7 @@ export type Query = {
   bind?: BoundData
   sanctions?: SanctionsConfig
   facematch?: FacematchConfig
+  policy?: string
 }
 
 export type QueryResult = {
