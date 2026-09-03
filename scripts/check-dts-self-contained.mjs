@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Checks that the built type files work on their own, without the packages
 // they were bundled from. Nothing else fails when this breaks — only this check.
+// Runs from the ui package's validate-package script, which both CI and prepublish call.
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 
