@@ -1,6 +1,33 @@
-import type { NullifierType, ProofMode, ProofResult, Query, QueryResult } from "@zkpassport/utils"
+import type {
+  NullifierType,
+  ProofMode,
+  ProofResult,
+  Query,
+  QueryResult,
+  SupportedChain,
+} from "@zkpassport/utils"
+import type { SolidityVerifierParameters } from "../types"
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
+
+/**
+ * Attestation minting request. When present, the popup ignores the free-form
+ * query and instead resolves the on-chain policy from the registry, binds the
+ * recipient wallet and chain into the proof, and (when it can get a signer)
+ * submits ZKPassportAttest.issue() itself.
+ */
+export type PopupAttestConfig = {
+  /** Chain the registry lives on; also bound into the proof. */
+  chain: SupportedChain
+  /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
+  policyId: `0x${string}`
+  /** Credential recipient; bound into the proof, checked by issue(). */
+  walletAddress: `0x${string}`
+  /** ZKPassportAttest registry address. */
+  registry: `0x${string}`
+  /** RPC override for dev registries; the popup uses the chain default otherwise. */
+  rpcUrl?: string
+}
 
 export type PopupRequestConfig = {
   name?: string
@@ -12,7 +39,29 @@ export type PopupRequestConfig = {
   validity?: number
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   oprfKeyId?: string
+  attest?: PopupAttestConfig
 }
+
+/**
+ * Ready-to-send ZKPassportAttest.issue() call. `abi` is the registry ABI as
+ * plain data — cast it for your client (e.g. viem's `Abi`); the popup keeps
+ * this type dependency-free so relying parties don't inherit viem's types.
+ */
+export type PopupAttestIssueCall = {
+  address: `0x${string}`
+  functionName: "issue"
+  abi: readonly unknown[]
+  args: readonly [`0x${string}`, bigint, SolidityVerifierParameters]
+}
+
+/**
+ * issue() checks the wallet bound into the proof, not the transaction sender,
+ * so an "unminted" issueCall may be submitted by any account the RP controls.
+ */
+export type PopupAttestOutcome =
+  | { status: "minted"; txHash: `0x${string}`; issueCall: PopupAttestIssueCall }
+  | { status: "unminted"; reason?: string; issueCall: PopupAttestIssueCall }
+  | { status: "already-verified" }
 
 export type PopupConfigureMessage = {
   zkpassport: true
@@ -38,6 +87,7 @@ export type PopupEventMessage =
       type: "success"
       proofs: ProofResult[]
       result: QueryResult
+      attest?: PopupAttestOutcome
     }
   | { zkpassport: true; type: "rejected" }
   | { zkpassport: true; type: "error"; message: string }
