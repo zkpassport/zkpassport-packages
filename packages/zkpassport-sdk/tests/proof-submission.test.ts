@@ -28,14 +28,12 @@ describe("Proof submission", () => {
       topic?: string
       failedProofs?: number
       // Defaults to a storage-enabled policy; pass null to simulate a self-serve request.
-      policy?: { id: string; version: number; proofStorageEnabled: boolean } | null
+      policy?: { id: string; proofStorageEnabled: boolean } | null
     } = {},
   ) {
     const topic = opts.topic ?? "topic-1"
     const policy =
-      opts.policy === undefined
-        ? { id: "pol_xyz", version: 3, proofStorageEnabled: true }
-        : opts.policy
+      opts.policy === undefined ? { id: "pol_xyz", proofStorageEnabled: true } : opts.policy
     const proof = {
       proof: "0xdeadbeef",
       vkeyHash: "0x1",
@@ -50,7 +48,7 @@ describe("Proof submission", () => {
     i.topicToResults[topic] = { age: { gte: 18 } }
     i.topicToConfig[topic] = { age: { gte: 18 } }
     i.topicToLocalConfig[topic] = { validity: 0, devMode: false, oprfKeyId: null }
-    const scope = policy ? `${policy.id}:${policy.version}` : "test-scope"
+    const scope = policy ? policy.id : "test-scope"
     i.topicToService[topic] = { name: "n", logo: "l", purpose: "p", scope }
     if (policy) i.topicToPolicy[topic] = policy
     i.topicToPublicKey[topic] = "04deadbeefpubkey"
@@ -80,7 +78,7 @@ describe("Proof submission", () => {
     const body = JSON.parse(fetchedBodies[0])
     expect(body).toMatchObject({
       domain: "localhost",
-      scope: "pol_xyz:3",
+      scope: "pol_xyz",
       query: { age: { gte: 18 } },
       // The bridge public key (URL `p=`), not the topic — links the proof to its activity row.
       requestId: "04deadbeefpubkey",
@@ -102,7 +100,7 @@ describe("Proof submission", () => {
   test("does not submit when the policy has proof storage disabled", async () => {
     const zk = new ZKPassport("localhost")
     const { topic } = primeForHandleResult(zk, {
-      policy: { id: "pol_xyz", version: 3, proofStorageEnabled: false },
+      policy: { id: "pol_xyz", proofStorageEnabled: false },
     })
 
     await (zk as any).handleResult(topic)
