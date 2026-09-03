@@ -13,11 +13,6 @@ export type PopupCallbacks = {
   onRequestReceived?: () => void
   onGeneratingProof?: () => void
   onProofGenerated?: (progress: { index?: number; total?: number; name?: string }) => void
-  /**
-   * All proofs arrived (not verified yet — verify them on your backend).
-   * The `@zkpassport/ui` components wait for this callback: return `false` (or throw) to show
-   * the error state. This raw popup client ignores the return value.
-   */
   onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type">) => OnSuccessVerdict
   onReject?: () => void
   onError?: (message: string) => void
