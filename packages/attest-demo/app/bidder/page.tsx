@@ -6,7 +6,7 @@ import { PageShell } from "../../components/page-shell"
 import { useDemo } from "../../components/demo-context"
 import { TxStatus, useTx } from "../../components/tx-status"
 import { introspectAuction, submitBidRequest } from "../../lib/auction"
-import { buildPopupUrl } from "../../lib/popup-url"
+import { openAttestPopup } from "../../lib/attest-popup"
 import { ensureWalletChain, writeAndWait } from "../../lib/wallet"
 
 type Gate =
@@ -69,11 +69,12 @@ function BidderView() {
   }, [gate.kind, check])
 
   const openPopup = (policyId: bigint) => {
-    popupRef.current = window.open(
-      buildPopupUrl(config, policyId),
-      "zkpassport-verify",
-      "width=480,height=720",
-    )
+    if (!wallet) return
+    popupRef.current = openAttestPopup(config, policyId, wallet.account, {
+      // The popup mints straight to the bound wallet; re-check on any outcome
+      onSuccess: () => void check(),
+      onClose: () => void check(),
+    })
   }
 
   const placeBid = (policyId: bigint) =>

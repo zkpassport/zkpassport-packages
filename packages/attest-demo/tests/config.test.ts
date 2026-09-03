@@ -26,7 +26,7 @@ describe("parseDemoConfig", () => {
     expect(parseDemoConfig({ registry: REGISTRY })).toMatchObject({
       chain: "ethereum_sepolia",
       registry: REGISTRY,
-      popupUrl: "http://localhost:3010",
+      popupUrl: "http://localhost:5173",
     })
   })
 
