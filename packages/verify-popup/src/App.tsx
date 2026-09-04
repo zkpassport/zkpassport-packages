@@ -7,6 +7,8 @@ import {
 } from "@zkpassport/sdk/popup"
 import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 
+import { AttestFlow } from "./AttestFlow"
+
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
@@ -86,6 +88,14 @@ export function App() {
     closeTimer.current = window.setTimeout(() => window.close(), delayMs)
   }
 
+  if (request.attest) {
+    return (
+      <Frame>
+        <AttestFlow request={request} attest={request.attest} send={send} />
+      </Frame>
+    )
+  }
+
   return (
     <Frame>
       <ZKPassportQRCode
@@ -104,7 +114,12 @@ export function App() {
         onRequestReceived={() => send({ type: "request-received" })}
         onGeneratingProof={() => send({ type: "generating" })}
         onProofGenerated={(proof) =>
-          send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
+          send({
+            type: "proof-generated",
+            index: proof.index,
+            total: proof.total,
+            name: proof.name,
+          })
         }
         onSuccess={({ proofs, result }) => {
           send({ type: "success", proofs, result })

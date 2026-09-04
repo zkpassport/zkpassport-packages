@@ -9,13 +9,19 @@
     "build": "vite build",
     "preview": "vite preview --port 5173",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "test": "bun test",
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@rainbow-me/rainbowkit": "^2.2.11",
+    "@tanstack/react-query": "^5.102.8",
     "@zkpassport/sdk": "workspace:*",
     "@zkpassport/ui": "workspace:*",
+    "@zkpassport/utils": "workspace:*",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "viem": "^2.27.2",
+    "wagmi": "^2.19.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

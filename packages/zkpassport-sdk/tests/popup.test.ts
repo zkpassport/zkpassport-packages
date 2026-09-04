@@ -78,12 +78,16 @@ describe("openVerificationPopup", () => {
       },
       focus() {},
     }
+    const openCalls: unknown[][] = []
     const fakeWindow = {
       screenX: 0,
       screenY: 0,
       outerWidth: 1200,
       outerHeight: 900,
-      open: () => popup,
+      open: (...args: unknown[]) => {
+        openCalls.push(args)
+        return popup
+      },
       addEventListener: (_type: string, listener: Listener) => listeners.add(listener),
       removeEventListener: (_type: string, listener: Listener) => listeners.delete(listener),
     }
@@ -92,7 +96,7 @@ describe("openVerificationPopup", () => {
         listener({ origin, data, source } as MessageEvent)
       }
     }
-    return { fakeWindow, popup, openedMessages, emit, listeners }
+    return { fakeWindow, popup, openedMessages, openCalls, emit, listeners }
   }
 
   test("handshake: configure sent on ready; events relayed; origin checked", () => {
@@ -193,6 +197,24 @@ describe("openVerificationPopup", () => {
     }
   })
 
+  test("windowMode picks the window features: chromeless popup by default, plain tab on 'tab'", () => {
+    const { fakeWindow, openCalls } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      openVerificationPopup({ request: {}, query: {} })
+      expect(openCalls.length).toBe(1)
+      expect(String(openCalls[0][2])).toMatch(/^popup,/)
+
+      openVerificationPopup({ request: {}, query: {}, windowMode: "tab" })
+      expect(openCalls.length).toBe(2)
+      expect(openCalls[1].length).toBe(2)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
   test("returns null when the popup is blocked", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(globalThis as any).window = {
@@ -219,5 +241,49 @@ describe("openVerificationPopup", () => {
     expect(isPopupMessage({ type: "ready" })).toBe(false)
     expect(isPopupMessage(null)).toBe(false)
     expect(isPopupMessage("ready")).toBe(false)
+  })
+})
+
+describe("attest protocol extension", () => {
+  test("configure with an attest block survives postMessage cloning", () => {
+    const message = {
+      zkpassport: true,
+      type: "configure",
+      request: {
+        devMode: true,
+        attest: {
+          chain: "ethereum_sepolia",
+          policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+          registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+          rpcUrl: "http://localhost:8545",
+        },
+      },
+      query: {},
+    }
+    expect(structuredClone(message)).toEqual(message)
+    expect(isPopupMessage(message)).toBe(true)
+  })
+
+  test("a minted success's issueCall survives postMessage cloning, bigint included", () => {
+    const issueCall = {
+      address: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+      functionName: "issue",
+      abi: [{ type: "function", name: "issue", inputs: [] }],
+      args: [
+        "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        123456789012345678901234567890n,
+        { version: "1", committedInputs: "0xabc" },
+      ],
+    }
+    const message = {
+      zkpassport: true,
+      type: "success",
+      proofs: [],
+      result: {},
+      attest: { status: "minted", txHash: "0xdead", issueCall },
+    }
+    const cloned = structuredClone(message)
+    expect(cloned).toEqual(message)
+    expect(cloned.attest.issueCall.args[1]).toBe(123456789012345678901234567890n)
   })
 })
