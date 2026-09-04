@@ -83,3 +83,24 @@ jobs:
           ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof
           ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-public-input
         working-directory: packages/aztec/test-harness
+
+      # The TS companion package embeds the contract artifact from target/,
+      # produced by the compile step above.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/aztec/ts/package-lock.json
+
+      - name: Install TS package dependencies
+        run: npm ci
+        working-directory: packages/aztec/ts
+
+      - name: Typecheck TS package
+        run: npm run typecheck
+        working-directory: packages/aztec/ts
+
+      - name: Test TS package
+        run: npm run test
+        working-directory: packages/aztec/ts

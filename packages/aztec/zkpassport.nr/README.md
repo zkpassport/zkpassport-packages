@@ -25,6 +25,10 @@ bare `aztec-nargo test`).
 
 ## Consumer quick-start
 
+The app-side (TS) half — registering the registry artifact with the PXE, assembling the
+proof capsules, parsing disclosed data — lives in the [`../ts`](../ts) companion package
+(`@zkpassport/aztec`); pair it with the contract-side integration below.
+
 A consumer contract verifies a proof and mints its uniqueness nullifier in one call. From
 `examples/age_gate_contract/src/main.nr`:
 
