@@ -20,21 +20,20 @@ describe("Proof submission", () => {
     }) as unknown as typeof globalThis.fetch
   }
 
-  // Seed the private state that handleResult reads, and override verify()
-  // so the test does not need to drag in bb.js / the proof registry.
+  // Seed the private state that handleResult reads, so no bridge is needed.
+  // Submission does not depend on verification, which only runs for onResult listeners.
   function primeForHandleResult(
     zk: ZKPassport,
     opts: {
       topic?: string
-      verifyResult: {
-        verified: boolean
-        uniqueIdentifier?: string
-        uniqueIdentifierType?: number
-      }
       failedProofs?: number
-    },
+      // Defaults to a storage-enabled policy; pass null to simulate a self-serve request.
+      policy?: { id: string; proofStorageEnabled: boolean } | null
+    } = {},
   ) {
     const topic = opts.topic ?? "topic-1"
+    const policy =
+      opts.policy === undefined ? { id: "pol_xyz", proofStorageEnabled: true } : opts.policy
     const proof = {
       proof: "0xdeadbeef",
       vkeyHash: "0x1",
@@ -49,11 +48,13 @@ describe("Proof submission", () => {
     i.topicToResults[topic] = { age: { gte: 18 } }
     i.topicToConfig[topic] = { age: { gte: 18 } }
     i.topicToLocalConfig[topic] = { validity: 0, devMode: false, oprfKeyId: null }
-    i.topicToService[topic] = { name: "n", logo: "l", purpose: "p", scope: "test-scope" }
+    const scope = policy ? policy.id : "test-scope"
+    i.topicToService[topic] = { name: "n", logo: "l", purpose: "p", scope }
+    if (policy) i.topicToPolicy[topic] = policy
     i.topicToPublicKey[topic] = "04deadbeefpubkey"
     i.topicToFailedProofCount[topic] = opts.failedProofs ?? 0
+    i.onSuccessCallbacks[topic] = []
     i.onResultCallbacks[topic] = []
-    i.verify = async () => opts.verifyResult
     return { topic, proof }
   }
 
@@ -67,11 +68,9 @@ describe("Proof submission", () => {
     globalThis.fetch = originalFetch
   })
 
-  test("submits proof to the dashboard API when verification succeeds", async () => {
+  test("submits proof when the request ran a policy with proof storage enabled", async () => {
     const zk = new ZKPassport("localhost")
-    const { topic } = primeForHandleResult(zk, {
-      verifyResult: { verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 },
-    })
+    const { topic } = primeForHandleResult(zk)
 
     await (zk as any).handleResult(topic)
 
@@ -79,7 +78,7 @@ describe("Proof submission", () => {
     const body = JSON.parse(fetchedBodies[0])
     expect(body).toMatchObject({
       domain: "localhost",
-      scope: "test-scope",
+      scope: "pol_xyz",
       query: { age: { gte: 18 } },
       // The bridge public key (URL `p=`), not the topic — links the proof to its activity row.
       requestId: "04deadbeefpubkey",
@@ -89,11 +88,29 @@ describe("Proof submission", () => {
     expect(body.proofs[0]).toMatchObject({ proof: "0xdeadbeef", name: "outer_xyz" })
   })
 
-  test("omits requestId when the bridge public key is unavailable", async () => {
+  test("does not submit for a self-serve request (no policy)", async () => {
+    const zk = new ZKPassport("localhost")
+    const { topic } = primeForHandleResult(zk, { policy: null })
+
+    await (zk as any).handleResult(topic)
+
+    expect(fetchedUrls).toEqual([])
+  })
+
+  test("does not submit when the policy has proof storage disabled", async () => {
     const zk = new ZKPassport("localhost")
     const { topic } = primeForHandleResult(zk, {
-      verifyResult: { verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 },
+      policy: { id: "pol_xyz", proofStorageEnabled: false },
     })
+
+    await (zk as any).handleResult(topic)
+
+    expect(fetchedUrls).toEqual([])
+  })
+
+  test("omits requestId when the bridge public key is unavailable", async () => {
+    const zk = new ZKPassport("localhost")
+    const { topic } = primeForHandleResult(zk)
     delete (zk as any).topicToPublicKey[topic]
 
     await (zk as any).handleResult(topic)
@@ -102,22 +119,9 @@ describe("Proof submission", () => {
     expect("requestId" in body).toBe(false)
   })
 
-  test("does not submit when disableProofStorage is true", async () => {
-    const zk = new ZKPassport("localhost", { disableProofStorage: true })
-    const { topic } = primeForHandleResult(zk, {
-      verifyResult: { verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 },
-    })
-
-    await (zk as any).handleResult(topic)
-
-    expect(fetchedUrls).toEqual([])
-  })
-
   test("does not submit when devMode is enabled", async () => {
     const zk = new ZKPassport("localhost")
-    const { topic } = primeForHandleResult(zk, {
-      verifyResult: { verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 },
-    })
+    const { topic } = primeForHandleResult(zk)
     ;(zk as any).topicToLocalConfig[topic].devMode = true
 
     await (zk as any).handleResult(topic)
@@ -125,12 +129,9 @@ describe("Proof submission", () => {
     expect(fetchedUrls).toEqual([])
   })
 
-  test("does not submit when any proof failed to generate, even if verify() reports success", async () => {
+  test("does not submit when any proof failed to generate", async () => {
     const zk = new ZKPassport("localhost")
-    const { topic } = primeForHandleResult(zk, {
-      verifyResult: { verified: true, uniqueIdentifier: "uid-1", uniqueIdentifierType: 0 },
-      failedProofs: 1,
-    })
+    const { topic } = primeForHandleResult(zk, { failedProofs: 1 })
 
     await (zk as any).handleResult(topic)
 

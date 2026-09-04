@@ -33,7 +33,7 @@ describe("Query Builder", () => {
     const result = queryBuilder.eq("document_type", "passport").eq("gender", "female").done()
 
     expect(result.url).toContain("c=")
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     // Test exact structure and values
@@ -49,7 +49,7 @@ describe("Query Builder", () => {
   test("should build age comparison query with boundary validation", async () => {
     const result = queryBuilder.gte("age", 18).lt("age", 65).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.age).toEqual({
@@ -63,7 +63,7 @@ describe("Query Builder", () => {
     const endDate = new Date("2024-12-31")
     const result = queryBuilder.range("birthdate", startDate, endDate).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.birthdate.range).toEqual([startDate.toISOString(), endDate.toISOString()])
@@ -75,7 +75,7 @@ describe("Query Builder", () => {
       .out("nationality", ["USA", "GBR"])
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.nationality).toEqual({
@@ -90,7 +90,7 @@ describe("Query Builder", () => {
       .out("nationality", ["United States", "United Kingdom"])
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.nationality).toEqual({
@@ -102,7 +102,7 @@ describe("Query Builder", () => {
   test("should build disclosure request with validation", async () => {
     const result = queryBuilder.disclose("fullname").disclose("birthdate").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config).toEqual({
@@ -121,7 +121,7 @@ describe("Query Builder", () => {
       .range("expiry_date", startDate, new Date("2025-01-01"))
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     // Test complete structure
@@ -135,11 +135,11 @@ describe("Query Builder", () => {
 
     // Verify URL format
     expect(result.url).toMatch(
-      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9+/=]+&s=[A-Za-z0-9+/=]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+&dev=[^&]+$/,
+      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9%]+&s=[A-Za-z0-9%]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+&dev=[^&]+$/,
     )
 
     // Verify service info is included
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service).toEqual({
       name: "Test App",
@@ -148,10 +148,26 @@ describe("Query Builder", () => {
     })
   })
 
+  test("should URL-encode params whose base64 contains reserved characters", async () => {
+    const builder = await zkPassport.request({
+      name: "株式会社テスト",
+      logo: "https://test.jp/logo.png",
+      purpose: "年齢確認",
+    })
+    const result = builder.gte("age", 18).done()
+
+    // A raw "+" in the query string would be decoded as a space and corrupt the base64
+    expect(result.url.split("?")[1]).not.toContain("+")
+
+    const servicePart = new URL(result.url).searchParams.get("s")!
+    const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
+    expect(service.name).toBe("株式会社テスト")
+  })
+
   test("should handle inclusive bounds for age queries", async () => {
     const result = queryBuilder.gte("age", 18).lte("age", 25).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.age).toEqual({
@@ -163,7 +179,7 @@ describe("Query Builder", () => {
   test("should handle exclusive bounds for age queries", async () => {
     const result = queryBuilder.gt("age", 18).lt("age", 25).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.age).toEqual({
@@ -177,7 +193,7 @@ describe("Query Builder", () => {
       .gte("birthdate", new Date("2024-01-01"))
       .lte("birthdate", new Date("2024-12-31"))
       .done()
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.birthdate).toEqual({
@@ -191,7 +207,7 @@ describe("Query Builder", () => {
       .gt("birthdate", new Date("2024-01-01"))
       .lt("birthdate", new Date("2024-12-31"))
       .done()
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.birthdate).toEqual({
@@ -206,7 +222,7 @@ describe("Query Builder", () => {
       .lte("expiry_date", new Date("2024-12-31"))
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.expiry_date).toEqual({
@@ -221,7 +237,7 @@ describe("Query Builder", () => {
       .lt("expiry_date", new Date("2024-12-31"))
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.expiry_date).toEqual({
@@ -233,7 +249,7 @@ describe("Query Builder", () => {
   test("should build sanctions query defaulting to all countries and lists", async () => {
     const result = queryBuilder.sanctions().done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -250,7 +266,7 @@ describe("Query Builder", () => {
       })
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -263,7 +279,7 @@ describe("Query Builder", () => {
   /*test("should build sanctions query for single country", async () => {
     const result = queryBuilder.sanctions("GB").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -276,7 +292,7 @@ describe("Query Builder", () => {
   test("should build sanctions query for single country with custom list", async () => {
     const result = queryBuilder.sanctions("US", ["OFAC_SDN"]).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -289,7 +305,7 @@ describe("Query Builder", () => {
   test("should build sanctions query for multiple countries", async () => {
     const result = queryBuilder.sanctions(["US", "GB", "CH", "EU"]).done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -307,7 +323,7 @@ describe("Query Builder", () => {
       .sanctions("EU")
       .done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.sanctions).toEqual({
@@ -320,7 +336,7 @@ describe("Query Builder", () => {
   test("should build facematch query with strict mode", async () => {
     const result = queryBuilder.facematch("strict").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.facematch).toEqual({
@@ -331,7 +347,7 @@ describe("Query Builder", () => {
   test("should build facematch query with regular mode", async () => {
     const result = queryBuilder.facematch("regular").done()
 
-    const configPart = result.url.split("c=")[1].split("&")[0]
+    const configPart = new URL(result.url).searchParams.get("c")!
     const config = JSON.parse(Buffer.from(configPart, "base64").toString())
 
     expect(config.facematch).toEqual({
@@ -526,13 +542,13 @@ describe("Policy-driven requests", () => {
     expect(result.policy).toBe("pol_xyz")
     expect(result.query).toEqual(sampleConfig.policies[0].query)
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service).toMatchObject({
       name: "Dashboard Brand",
       logo: "https://dashboard.example/logo.png",
       purpose: "Policy purpose",
-      scope: "pol_xyz:3",
+      scope: "pol_xyz",
     })
   })
 
@@ -552,13 +568,13 @@ describe("Policy-driven requests", () => {
     ).policy("pol_xyz")
     const result = queryBuilder.done()
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("White Label")
     expect(service.logo).toBe("https://white.example/logo.png")
     // purpose/scope are locked by the policy
     expect(service.purpose).toBe("Policy purpose")
-    expect(service.scope).toBe("pol_xyz:3")
+    expect(service.scope).toBe("pol_xyz")
   })
 
   test("policy locks scope but caller's purpose still wins", async () => {
@@ -572,16 +588,16 @@ describe("Policy-driven requests", () => {
     ).policy("pol_xyz")
     const result = queryBuilder.done()
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.purpose).toBe("Caller-supplied purpose")
-    expect(service.scope).toBe("pol_xyz:3")
+    expect(service.scope).toBe("pol_xyz")
   })
 
   test("self-serve callers get sensible defaults when no fields are supplied", async () => {
     const queryBuilder = await zkPassport.request({})
     const result = queryBuilder.done()
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     // name/logo come from the dashboard config when registered; purpose falls to a default;
     // scope stays undefined unless the caller (or a policy) supplies one.
@@ -591,10 +607,17 @@ describe("Policy-driven requests", () => {
     expect(service.scope).toBeUndefined()
   })
 
-  test(".policy() throws a clear 'domain not registered' error on 404", async () => {
-    mockFetchReturning({}, 404)
+  test(".policy() throws a clear 'domain not registered' error when the dashboard returns a null project", async () => {
+    mockFetchReturning({ project: null, policies: [] })
     const builder = await zkPassport.request({})
     expect(() => builder.policy("pol_xyz")).toThrow(/Domain 'localhost' is not registered/i)
+  })
+
+  test("the 'not registered' answer is cached: multiple requests trigger one fetch", async () => {
+    mockFetchReturning({ project: null, policies: [] })
+    await zkPassport.request({})
+    await zkPassport.request({})
+    expect(fetchCount).toBe(1)
   })
 
   test(".policy() throws when the requested policy id is not in the dashboard's policies array", async () => {
@@ -656,32 +679,6 @@ describe("Policy-driven requests", () => {
     expect(() => builder.policy("")).toThrow(/non-empty string/)
   })
 
-  test(".policy() rejects a policy with an invalid version", async () => {
-    for (const version of [0, -1]) {
-      mockFetchReturning({
-        project: {
-          name: "Brand",
-          domain: "localhost",
-          logoUrl: "https://e/l.png",
-          allowedOrigins: [],
-        },
-        policies: [
-          {
-            id: "pol_x",
-            version,
-            name: "x",
-            purpose: "",
-            projectId: null,
-            query: { age: { gte: 18 } },
-          },
-        ],
-      })
-      const zk = new ZkPassportVerifier("localhost")
-      const builder = await zk.request({})
-      expect(() => builder.policy("pol_x")).toThrow(/Invalid policy/)
-    }
-  })
-
   test("policy with empty branding falls back to defaults (domain / generic purpose)", async () => {
     mockFetchReturning({
       project: { name: "", domain: "localhost", logoUrl: null, allowedOrigins: [] },
@@ -699,12 +696,12 @@ describe("Policy-driven requests", () => {
 
     const queryBuilder = (await zkPassport.request({})).policy("pol_blank")
     const result = queryBuilder.done()
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("localhost")
     expect(service.logo).toBe("")
     expect(service.purpose).toBe("Verify identity privately")
-    expect(service.scope).toBe("pol_blank:1")
+    expect(service.scope).toBe("pol_blank")
   })
 
   test("self-serve callers benefit from dashboard branding when the domain is registered", async () => {
@@ -713,7 +710,7 @@ describe("Policy-driven requests", () => {
     const queryBuilder = await zkPassport.request({ purpose: "Custom purpose" })
     const result = queryBuilder.done()
 
-    const servicePart = result.url.split("s=")[1].split("&")[0]
+    const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("Dashboard Brand")
     expect(service.logo).toBe("https://dashboard.example/logo.png")
@@ -821,5 +818,58 @@ describe("Salted nullifier facematch validation", () => {
       uniqueIdentifierType: NullifierType.NON_SALTED,
     })
     expect(() => qb.done()).not.toThrow()
+  })
+})
+
+describe("NONE nullifier type requests", () => {
+  let zkPassport: ZkPassportVerifier
+  let originalFetch: typeof globalThis.fetch
+
+  beforeEach(() => {
+    MockWebSocket.clearHub()
+    originalFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response("{}", {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      })) as unknown as typeof globalThis.fetch
+    zkPassport = new ZkPassportVerifier("localhost")
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  const noneRequest = (extra?: { oprfKeyId?: string }) =>
+    zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing NONE nullifier type",
+      uniqueIdentifierType: NullifierType.NONE,
+      ...extra,
+    })
+
+  test("encodes nt=4 in the request URL", async () => {
+    const qb = await noneRequest()
+    const result = qb.disclose("firstname").done()
+    expect(result.url).toContain(`&nt=${NullifierType.NONE}`)
+  })
+
+  test("NONE with a plain disclosure is allowed", async () => {
+    const qb = await noneRequest()
+    expect(() => qb.disclose("firstname").done()).not.toThrow()
+  })
+
+  test("NONE with facematch is allowed", async () => {
+    const strictQb = await noneRequest()
+    expect(() => strictQb.facematch("strict").done()).not.toThrow()
+    const regularQb = await noneRequest()
+    expect(() => regularQb.facematch("regular").done()).not.toThrow()
+  })
+
+  test("rejects an OPRF key combined with NONE", async () => {
+    await expect(noneRequest({ oprfKeyId: "some-oprf-key" })).rejects.toThrow(
+      "An OPRF key cannot be used with the NONE unique identifier type",
+    )
   })
 })

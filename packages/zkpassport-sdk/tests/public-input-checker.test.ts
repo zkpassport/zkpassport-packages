@@ -2093,6 +2093,27 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(queryResultErrors.age?.scope).toBeUndefined()
     })
+
+    test("fails when the proof has a scope but none is passed", async () => {
+      const proofSubscope = getScopeHash("my-scope")
+      const proofs = [makeDisclosureAge(domainScopeHash, proofSubscope)]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.scope?.message).toContain("none was passed")
+      expect(queryResultErrors.age?.scope?.received).toContain(proofSubscope.toString())
+    })
   })
 
   describe("non-outer proof path - current date validation", () => {
@@ -2390,6 +2411,47 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       )
 
       expect(queryResultErrors.outer?.date).toBeUndefined()
+    })
+  })
+
+  describe("outer proof path - scope validation", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const nullifier = 42n
+
+    // Outer proof public inputs: [certRegistryRoot, circuitRegistryRoot, currentDate,
+    // serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+    function makeScopedOuterProof(subscope: bigint): ProofResult {
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n, // certRegistryRoot (mocked)
+          2n, // circuitRegistryRoot (mocked)
+          BigInt(getTodayTimestamp()),
+          domainScopeHash,
+          subscope,
+          0n, // paramCommitment
+          0n, // nullifierType
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: {},
+      }
+    }
+
+    test("fails when the outer proof has a scope but none is passed", async () => {
+      const proofs = [makeScopedOuterProof(getScopeHash("my-scope"))]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.scope?.message).toContain("none was passed")
     })
   })
 

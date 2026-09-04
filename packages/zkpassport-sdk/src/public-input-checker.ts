@@ -1812,7 +1812,7 @@ export class PublicInputChecker {
     scope?: string,
   ) {
     let isCorrect = true
-    if (domain && getServiceScopeHash(domain) !== getServiceScopeFromDisclosureProof(proofData)) {
+    if (getServiceScopeHash(domain) !== getServiceScopeFromDisclosureProof(proofData)) {
       console.warn("The proof comes from a different domain than the one expected")
       isCorrect = false
       if (!queryResultErrors[key as keyof QueryResultErrors]) {
@@ -1820,20 +1820,23 @@ export class PublicInputChecker {
       }
       queryResultErrors[key as keyof QueryResultErrors]!.scope = {
         expected: `Scope: ${getServiceScopeHash(domain).toString()}`,
-        received: `Scope: ${BigInt(proofData.publicInputs[1]).toString()}`,
+        received: `Scope: ${getServiceScopeFromDisclosureProof(proofData).toString()}`,
         message: "The proof comes from a different domain than the one expected",
       }
     }
-    if (scope && getScopeHash(scope) !== getServiceSubScopeFromDisclosureProof(proofData)) {
-      console.warn("The proof uses a different scope than the one expected")
+    if (getScopeHash(scope) !== getServiceSubScopeFromDisclosureProof(proofData)) {
+      const scopeErrorMessage = scope
+        ? "The proof uses a different scope than the one expected"
+        : "The proof uses a scope but none was passed to verify()"
+      console.warn(scopeErrorMessage)
       isCorrect = false
       if (!queryResultErrors[key as keyof QueryResultErrors]) {
         queryResultErrors[key as keyof QueryResultErrors] = {}
       }
       queryResultErrors[key as keyof QueryResultErrors]!.scope = {
         expected: `Scope: ${getScopeHash(scope).toString()}`,
-        received: `Scope: ${BigInt(proofData.publicInputs[2]).toString()}`,
-        message: "The proof uses a different scope than the one expected",
+        received: `Scope: ${getServiceSubScopeFromDisclosureProof(proofData).toString()}`,
+        message: scopeErrorMessage,
       }
     }
     return { isCorrect, queryResultErrors }
@@ -2456,7 +2459,7 @@ export class PublicInputChecker {
             },
           }
         }
-        if (domain && getServiceScopeHash(domain) !== getScopeFromOuterProof(proofData)) {
+        if (getServiceScopeHash(domain) !== getScopeFromOuterProof(proofData)) {
           console.warn("The proof comes from a different domain than the one expected")
           isCorrect = false
           queryResultErrors.outer = {
@@ -2468,15 +2471,18 @@ export class PublicInputChecker {
             },
           }
         }
-        if (scope && getScopeHash(scope) !== getSubscopeFromOuterProof(proofData)) {
-          console.warn("The proof uses a different scope than the one expected")
+        if (getScopeHash(scope) !== getSubscopeFromOuterProof(proofData)) {
+          const scopeErrorMessage = scope
+            ? "The proof uses a different scope than the one expected"
+            : "The proof uses a scope but none was passed to verify()"
+          console.warn(scopeErrorMessage)
           isCorrect = false
           queryResultErrors.outer = {
             ...queryResultErrors.outer,
             scope: {
               expected: `Scope: ${getScopeHash(scope).toString()}`,
               received: `Scope: ${getSubscopeFromOuterProof(proofData).toString()}`,
-              message: "The proof uses a different scope than the one expected",
+              message: scopeErrorMessage,
             },
           }
         }
@@ -3753,6 +3759,16 @@ export class PublicInputChecker {
         console.warn("Failed to verify OPRF public key:", error)
         isCorrect = false
       }
+    }
+
+    if (uniqueIdentifierType === NullifierType.NONE) {
+      if (uniqueIdentifier !== undefined && BigInt(uniqueIdentifier) !== 0n) {
+        console.warn("Proofs with the NONE nullifier type cannot carry a unique identifier")
+        isCorrect = false
+      }
+      uniqueIdentifier = undefined
+    } else if (uniqueIdentifier !== undefined && BigInt(uniqueIdentifier) === 0n) {
+      uniqueIdentifier = undefined
     }
 
     return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }

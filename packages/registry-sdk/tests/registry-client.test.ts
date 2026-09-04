@@ -42,6 +42,8 @@ let fixturePackagedCircuit: PackagedCircuit
 // Set default timeout for all tests to 30 seconds
 setDefaultTimeout(30000)
 
+const SETUP_TIMEOUT_MS = 180000
+
 describe("Registry", () => {
   beforeAll(async () => {
     // Start Anvil and deploy contracts
@@ -65,7 +67,7 @@ describe("Registry", () => {
     fixturePackagedCircuit = loadPackagedCircuitFile(
       path.resolve(__dirname, "fixtures", "circuit_compare_age.json"),
     )
-  })
+  }, SETUP_TIMEOUT_MS)
   let originalFetch: typeof fetch
 
   beforeAll(async () => {

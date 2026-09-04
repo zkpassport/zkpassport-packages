@@ -27,8 +27,8 @@
     "build": "tsup --config tsup.config.ts",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
-    "test": "bun test tests/*.test.ts",
-    "coverage": "bun test tests/*.test.ts --coverage",
+    "test": "forge build --root ../registry-contracts && bun test tests/*.test.ts",
+    "coverage": "forge build --root ../registry-contracts && bun test tests/*.test.ts --coverage",
     "check": "prettier -c src tests && eslint src tests --ext .ts",
     "format": "prettier -c -w src tests",
     "validate-package": "../../scripts/validate-package.sh",
@@ -55,9 +55,6 @@
   "devDependencies": {
     "@sinonjs/fake-timers": "^15.0.0",
     "keccak256": "^1.0.6"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
   },
   "packageManager": "bun@1.3.1"
 }

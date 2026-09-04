@@ -1,0 +1,30 @@
+{
+  "description": "Conformance vectors for the ZKPassport parameter-commitment scheme (Poseidon2 variant). Every implementation of the scheme must reproduce each commitment from its params: this package's TS functions (tests/conformance.test.ts), the circuits repo's Noir libs, and downstream verifiers such as zkpassport.nr's commitment wrappers.",
+  "vectors": [
+    {
+      "name": "age_18_plus",
+      "proofType": "age",
+      "params": { "minAge": 18, "maxAge": 0 },
+      "commitment": "0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83"
+    },
+    {
+      "name": "disclose_nationality_aus",
+      "proofType": "disclose",
+      "params": {
+        "mrzLength": 90,
+        "maskIndices": [54, 55, 56],
+        "disclosedText": "AUS"
+      },
+      "commitment": "0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f"
+    },
+    {
+      "name": "bind_user_address",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "maxLength": 509
+      },
+      "commitment": "0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970"
+    }
+  ]
+}

@@ -276,6 +276,7 @@ export type Query = {
   bind?: BoundData
   sanctions?: SanctionsConfig
   facematch?: FacematchConfig
+  policy?: string
 }
 
 export type QueryResult = {
@@ -572,6 +573,7 @@ export enum NullifierType {
   SALTED = 1,
   NON_SALTED_MOCK = 2,
   SALTED_MOCK = 3,
+  NONE = 4,
 }
 
 export class SaltedValue<T extends number | string | bigint | Array<number>> {

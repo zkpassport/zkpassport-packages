@@ -25,8 +25,10 @@
     background: var(--zkp-bg);
     color: var(--zkp-fg);
     font-family: ui-sans-serif, system-ui, sans-serif;
+    text-align: left;
     font-size: 14px;
     line-height: 1.4;
+    min-height: 460px;
   }
 
   .zkp-card[data-theme="dark"] {
@@ -63,6 +65,19 @@
   .zkp-card button {
     font: inherit;
     cursor: pointer;
+  }
+  .zkp-card button:focus-visible,
+  .zkp-card a:focus-visible,
+  .zkp-card input:focus-visible {
+    outline: 2px solid var(--zkp-brand);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .zkp-card,
+    .zkp-card * {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 
   /* Header */
@@ -237,11 +252,15 @@
     opacity: 0.65;
   }
   .zkp-qr-slot[data-state="generating"] .zkp-qr,
+  .zkp-qr-slot[data-state="local-proving"] .zkp-qr,
+  .zkp-qr-slot[data-state="save-offer"] .zkp-qr,
   .zkp-qr-slot[data-state="success"] .zkp-qr,
   .zkp-qr-slot[data-state="error"] .zkp-qr {
     opacity: 0.35;
   }
   .zkp-qr-slot[data-state="generating"] .zkp-qr-logo,
+  .zkp-qr-slot[data-state="local-proving"] .zkp-qr-logo,
+  .zkp-qr-slot[data-state="save-offer"] .zkp-qr-logo,
   .zkp-qr-slot[data-state="success"] .zkp-qr-logo,
   .zkp-qr-slot[data-state="error"] .zkp-qr-logo {
     opacity: 0;
@@ -249,6 +268,8 @@
   .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
   .zkp-qr-slot[data-state="scanned"] .zkp-overlay,
   .zkp-qr-slot[data-state="generating"] .zkp-overlay,
+  .zkp-qr-slot[data-state="local-proving"] .zkp-overlay,
+  .zkp-qr-slot[data-state="save-offer"] .zkp-overlay,
   .zkp-qr-slot[data-state="success"] .zkp-overlay,
   .zkp-qr-slot[data-state="error"] .zkp-overlay {
     display: block;
@@ -422,28 +443,303 @@
     overflow: hidden;
   }
 
-  /* Open-in-app deep link (mobile only, waiting state) */
+  /* Open-in-app deep link (mobile: primary action; shown via .zkp-open-app-block) */
   .zkp-open-app {
-    display: none;
-    margin: 16px 0 0;
-    padding: 12px 16px;
-    border-radius: 10px;
-    background: var(--zkp-accent);
-    color: var(--zkp-bg);
-    font-size: 15px;
-    font-weight: 600;
-    text-align: center;
-    text-decoration: none;
-    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.18);
-    transition: transform 150ms ease;
+    display: none !important;
+    margin: 16px 0 0 !important;
+    padding: 16px !important;
+    border-radius: 8px !important;
+    background: var(--zkp-brand) !important;
+    color: var(--zkp-bg) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+    text-decoration: none !important;
+    transition: transform 150ms ease !important;
   }
   .zkp-open-app:active {
     transform: translateY(1px);
   }
-  @media (hover: none) and (pointer: coarse) {
-    .zkp-card[data-state="waiting"] .zkp-open-app {
-      display: block;
+  .zkp-open-app-block {
+    display: block !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  /* Mobile-first waiting screen: open-app primary, QR behind a toggle */
+  .zkp-open-app-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 8px 0 4px;
+  }
+  .zkp-open-app-loading {
+    display: flex;
+  }
+  .zkp-qr-reveal {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    border: none !important;
+    background: none !important;
+    padding: 4px !important;
+    cursor: pointer !important;
+    font-size: 12.5px !important;
+    color: var(--zkp-muted) !important;
+    text-decoration: underline !important;
+    text-underline-offset: 3px !important;
+  }
+  .zkp-inapp-hint {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--zkp-muted);
+  }
+
+  /* Intro screen */
+  .zkp-intro {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 16px;
+    margin-top: 18px;
+    animation: zkp-screen-in 240ms ease;
+  }
+  .zkp-screen {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    animation: zkp-screen-in 240ms ease;
+  }
+  @keyframes zkp-screen-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
     }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .zkp-intro > .zkp-divider {
+    margin: 2px 0;
+  }
+  /* Passport data-page style micro-label */
+  .zkp-eyebrow {
+    margin: 0 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--zkp-muted);
+    padding-bottom: 1rem;
+  }
+  .zkp-intro-request {
+    padding: 16px;
+    border: 1px solid var(--zkp-border);
+    border-radius: 12px;
+    background: var(--zkp-surface);
+  }
+  .zkp-skel-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .zkp-skel-row {
+    height: 12px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--zkp-muted) 25%, transparent);
+    animation: zkp-skel-pulse 1.4s ease-in-out infinite;
+  }
+  .zkp-skel-row-detail {
+    height: 9px;
+    margin-left: 25px;
+    opacity: 0.7;
+  }
+  @keyframes zkp-skel-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  .zkp-intro-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .zkp-intro-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .zkp-intro-list-hint {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--zkp-muted);
+    margin-top: 5px;
+    text-align: center;
+  }
+  .zkp-intro-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .zkp-intro-item-title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--zkp-fg);
+  }
+  .zkp-intro-item-detail {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--zkp-muted);
+  }
+  .zkp-intro-check {
+    flex: none;
+    display: inline-flex;
+    width: 15px;
+    height: 15px;
+    margin-top: 2px;
+    color: var(--zkp-brand);
+  }
+  .zkp-intro-check svg {
+    width: 100%;
+    height: 100%;
+  }
+  .zkp-intro-explainer {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--zkp-muted);
+  }
+  .zkp-intro-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 4px;
+    text-align: center;
+  }
+  .zkp-intro-footer .zkp-divider {
+    margin-bottom: 4px;
+  }
+  .zkp-intro-footer-note {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--zkp-muted);
+  }
+  /* Passport-label style privacy assurances */
+  .zkp-privacy-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--zkp-brand);
+  }
+  .zkp-privacy-dot {
+    color: var(--zkp-muted);
+    letter-spacing: 0;
+  }
+  .zkp-intro-question {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding-top: 6px;
+  }
+  .zkp-chip-symbol {
+    width: 54px;
+    color: var(--zkp-brand);
+  }
+  .zkp-chip-symbol svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .zkp-intro-question-hint {
+    margin: 0;
+    max-width: 340px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--zkp-muted);
+  }
+  .zkp-intro-question .zkp-intro-continue {
+    margin-top: 6px;
+  }
+
+  .zkp-intro-question-text {
+    margin: 4px 0 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--zkp-fg);
+  }
+  .zkp-intro-continue {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    display: block !important;
+    width: 100% !important;
+    padding: 16px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    background: var(--zkp-brand) !important;
+    color: var(--zkp-bg) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    transition:
+      filter 150ms ease,
+      transform 150ms ease !important;
+  }
+  .zkp-intro-continue:hover {
+    filter: brightness(1.08) !important;
+  }
+  .zkp-intro-continue:active {
+    transform: translateY(1px) !important;
+    filter: brightness(0.95) !important;
+  }
+  /* Dark --zkp-brand is a muted accent tint and makes the CTA read as
+     disabled; the primary action gets its own saturated fill */
+  .zkp-card[data-theme="dark"] .zkp-intro-continue {
+    background: #4a68dd !important;
+    color: #ffffff !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    .zkp-card[data-theme="auto"] .zkp-intro-continue {
+      background: #4a68dd !important;
+      color: #ffffff !important;
+    }
+  }
+
+  .zkp-intro-link {
+    align-self: center !important;
+    padding: 4px 8px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--zkp-muted) !important;
+    font-size: 13px !important;
+    text-decoration: underline !important;
+    cursor: pointer !important;
   }
 
   /* Retry */
