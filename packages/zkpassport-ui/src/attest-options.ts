@@ -23,7 +23,10 @@ export type AttestVerifyResult = {
   raw: CardResult
   /**
    * Ready-to-send ZKPassportAttest.issue() call; present when verified with
-   * an EVM proof on a non-dev request (dev-mode proofs revert on-chain).
+   * an EVM proof. The request's devMode must match the target chain: the app
+   * roots proofs in the mainnet registries unless devMode is set, in which
+   * case it uses the testnet registries — so testnet contracts only accept
+   * dev-mode proofs and mainnet contracts only non-dev ones.
    */
   issueCall?: AttestIssueCall
 }
@@ -98,7 +101,14 @@ export async function buildAttestCardOptions(
     scope,
     mode: "compressed-evm",
     devMode: options.devMode ?? false,
-    ...(policy.saltedNullifierOnly ? { uniqueIdentifierType: NullifierType.SALTED } : {}),
+    // Only uniqueness needs a nullifier to dedupe on; the contract accepts a
+    // nullifier-free proof for non-unique policies regardless of their
+    // saltedNullifierOnly flag, so those skip the nullifier and the face check.
+    uniqueIdentifierType: policy.unique
+      ? policy.saltedNullifierOnly
+        ? NullifierType.SALTED
+        : NullifierType.NON_SALTED
+      : NullifierType.NONE,
     query: (qb) => {
       let q = qb
       if (policy.minAge > 0) q = q.gte("age", policy.minAge)
@@ -109,7 +119,7 @@ export async function buildAttestCardOptions(
       // The contract verifies sanctions proofs in strict mode.
       if (policy.sanctionsCheck) q = q.sanctions("all", "all", { strict: true })
       // The SDK requires strict facematch whenever the salted nullifier is used.
-      if (policy.saltedNullifierOnly) q = q.facematch("strict")
+      if (policy.unique && policy.saltedNullifierOnly) q = q.facematch("strict")
       return q.bind("user_address", wallet).bind("chain", chain).done()
     },
     onReady: options.onReady,
@@ -136,8 +146,7 @@ function buildResultHandler(context: {
   return (response) => {
     let issueCall: AttestIssueCall | undefined
     const proof = response.proofs?.find((p) => p.name?.startsWith("outer_evm"))
-    // Dev-mode proofs revert on-chain, so no call is assembled for them.
-    if (response.verified && proof && !devMode) {
+    if (response.verified && proof) {
       try {
         const params = response.sdkInstance.getSolidityVerifierParameters({
           proof,

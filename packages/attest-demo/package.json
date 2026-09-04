@@ -1,12 +1,12 @@
 {
-  "name": "attest-popup",
-  "description": "ZKPassport attest verification popup",
+  "name": "attest-demo",
+  "description": "ZKPassport attest persona demo dapp",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3010",
+    "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3001",
     "test": "bun test",
     "clean": "rimraf .next dist tsconfig.tsbuildinfo",
     "check": "next lint && prettier -c .",
@@ -14,8 +14,6 @@
   },
   "dependencies": {
     "@zkpassport/sdk": "workspace:*",
-    "@zkpassport/ui": "workspace:*",
-    "i18n-iso-countries": "^7.13.0",
     "next": "14.2.16",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

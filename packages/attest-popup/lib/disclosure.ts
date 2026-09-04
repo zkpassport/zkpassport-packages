@@ -19,8 +19,12 @@ export function disclosureClaims(policy: AttestPolicy): string[] {
   if (policy.sanctionsCheck) {
     claims.push("You are not on sanctions lists")
   }
-  if (policy.saltedNullifierOnly) {
-    claims.push("One credential per person (face match required)")
+  if (policy.unique) {
+    claims.push(
+      policy.saltedNullifierOnly
+        ? "One credential per document (face match required)"
+        : "One credential per document",
+    )
   }
   return claims
 }

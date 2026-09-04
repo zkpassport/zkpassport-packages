@@ -19,7 +19,7 @@ refetching `balanceOf(wallet, policyId)` — there is no postMessage API.
     bun run dev          # from this package: next dev on :3000
 
 Example:
-http://localhost:3000/?chain=local&registry=0x5FbDB2315678afecb367f032d93F642f64180aa3&policyId=1&dev=1
+http://localhost:3010/?chain=local&registry=0x5FbDB2315678afecb367f032d93F642f64180aa3&policyId=1&dev=1
 
 ## Local end-to-end against anvil
 
