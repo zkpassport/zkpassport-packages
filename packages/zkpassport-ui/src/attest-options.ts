@@ -101,6 +101,10 @@ export async function buildAttestCardOptions(
     scope,
     mode: "compressed-evm",
     devMode: options.devMode ?? false,
+    // The hosted card verifies through the verifier API by default, but the
+    // attest flow needs a verdict before minting even where that API is not
+    // reachable (local dev has no CORS grant) — verify locally, API as backup.
+    verifierMode: "auto",
     // Only uniqueness needs a nullifier to dedupe on; the contract ignores the
     // nullifier for non-unique policies regardless of their saltedNullifierOnly
     // flag, so those leave the type unconstrained — the app includes a

@@ -8,12 +8,7 @@ type SdkCallback<K extends keyof QueryBuilderResult> = QueryBuilderResult[K] ext
 
 type SdkRequestProps = Omit<
   Parameters<ZKPassport["request"]>[0],
-  | "projectID"
-  | "topicOverride"
-  | "keyPairOverride"
-  | "cloudProverUrl"
-  | "bridgeUrl"
-  | "verifierMode"
+  "projectID" | "topicOverride" | "keyPairOverride" | "cloudProverUrl" | "bridgeUrl"
 >
 
 // Toggles for optional card sections. Each defaults to shown; set false to hide.
