@@ -176,6 +176,48 @@ describe("verify() modes and the verifier API", () => {
     expect(result).toEqual(localResult as any)
   })
 
+  test("accepts a mock proof with no unique identifier for a NONE request", async () => {
+    const localResult = {
+      verified: true,
+      uniqueIdentifier: undefined,
+      uniqueIdentifierType: NullifierType.NON_SALTED_MOCK,
+    }
+    localSpy.mockResolvedValue(localResult)
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      devMode: true,
+      uniqueIdentifierType: NullifierType.NONE,
+    })
+
+    expect(result).toEqual(localResult as any)
+  })
+
+  test("rejects a mock proof carrying a unique identifier for a NONE request", async () => {
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED_MOCK,
+    })
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      devMode: true,
+      uniqueIdentifierType: NullifierType.NONE,
+    })
+
+    expect(result).toEqual(notVerified)
+    expect(warnings).toEqual([
+      "Unique identifier type mismatch: requested NONE, got NON_SALTED_MOCK",
+    ])
+  })
+
   test("ignores a null unique identifier type from untyped callers", async () => {
     const localResult = {
       verified: true,

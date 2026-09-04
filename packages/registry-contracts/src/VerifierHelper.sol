@@ -477,19 +477,22 @@ contract VerifierHelper {
     /**
      * @notice Enforces that the proof was generated with the expected nullifier type
      * @dev A mock type matches its real counterpart, as mock proofs are only accepted in dev mode
-     * @param nullifierType The expected nullifier type
+     * @param expectedNullifierType The expected nullifier type
      * @param publicInputs The public inputs of the proof
      */
-    function enforceNullifierType(NullifierType nullifierType, bytes32[] calldata publicInputs) external pure {
-        require(_realNullifierType(getNullifierType(publicInputs)) == nullifierType, "Invalid nullifier type");
+    function enforceNullifierType(NullifierType expectedNullifierType, bytes32[] calldata publicInputs) external pure {
+        require(_realNullifierType(publicInputs) == expectedNullifierType, "Invalid nullifier type");
     }
 
-    function _realNullifierType(NullifierType nullifierType) private pure returns (NullifierType) {
-        if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
-            return NullifierType.NON_SALTED_NULLIFIER;
-        }
+    function _realNullifierType(bytes32[] calldata publicInputs) private pure returns (NullifierType) {
+        NullifierType nullifierType = getNullifierType(publicInputs);
         if (nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
             return NullifierType.SALTED_NULLIFIER;
+        }
+        if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
+            // Mock IDs keep their mock type even when the nullifier is hidden
+            bool hasNullifier = publicInputs[publicInputs.length - 2] != bytes32(0);
+            return hasNullifier ? NullifierType.NON_SALTED_NULLIFIER : NullifierType.NONE_NULLIFIER;
         }
         return nullifierType;
     }

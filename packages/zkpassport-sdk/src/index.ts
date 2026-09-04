@@ -109,10 +109,16 @@ function generalCompare(
   }
 }
 
-function realNullifierType(nullifierType: NullifierType): NullifierType {
-  if (nullifierType === NullifierType.NON_SALTED_MOCK) return NullifierType.NON_SALTED
-  if (nullifierType === NullifierType.SALTED_MOCK) return NullifierType.SALTED
-  return nullifierType
+function realNullifierType({
+  uniqueIdentifier,
+  uniqueIdentifierType,
+}: VerificationResult): NullifierType | undefined {
+  if (uniqueIdentifierType === NullifierType.SALTED_MOCK) return NullifierType.SALTED
+  if (uniqueIdentifierType === NullifierType.NON_SALTED_MOCK) {
+    // Mock IDs keep their mock type even when the identifier is hidden
+    return uniqueIdentifier === undefined ? NullifierType.NONE : NullifierType.NON_SALTED
+  }
+  return uniqueIdentifierType
 }
 
 function enforceUniqueIdentifierType(
@@ -120,11 +126,11 @@ function enforceUniqueIdentifierType(
   requestedType: RequestedNullifierType | undefined,
 ): VerificationResult {
   if (requestedType == null || !result.verified) return result
-  const actualType = result.uniqueIdentifierType
-  if (actualType !== undefined && realNullifierType(actualType) === requestedType) return result
-  const actualName = actualType === undefined ? "none" : NullifierType[actualType]
+  if (realNullifierType(result) === requestedType) return result
+  const proofType = result.uniqueIdentifierType
+  const proofTypeName = proofType === undefined ? "missing" : NullifierType[proofType]
   console.warn(
-    `Unique identifier type mismatch: requested ${NullifierType[requestedType]}, got ${actualName}`,
+    `Unique identifier type mismatch: requested ${NullifierType[requestedType]}, got ${proofTypeName}`,
   )
   return {
     ...result,

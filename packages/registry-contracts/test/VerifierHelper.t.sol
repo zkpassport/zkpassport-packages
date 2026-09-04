@@ -13,8 +13,17 @@ contract VerifierHelperTest is Test {
     }
 
     function publicInputsWithNullifierType(NullifierType nullifierType) internal pure returns (bytes32[] memory) {
+        return publicInputsWithNullifierType(nullifierType, bytes32(uint256(1)));
+    }
+
+    function publicInputsWithNullifierType(NullifierType nullifierType, bytes32 nullifier)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
         bytes32[] memory publicInputs = new bytes32[](8);
         publicInputs[publicInputs.length - 3] = bytes32(uint256(nullifierType));
+        publicInputs[publicInputs.length - 2] = nullifier;
         return publicInputs;
     }
 
@@ -48,5 +57,19 @@ contract VerifierHelperTest is Test {
 
         vm.expectRevert("Invalid nullifier type");
         helper.enforceNullifierType(NullifierType.SALTED_NULLIFIER, publicInputs);
+    }
+
+    function testEnforceNullifierTypeAcceptsMockWithHiddenNullifierForNone() public view {
+        bytes32[] memory publicInputs =
+            publicInputsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER, bytes32(0));
+
+        helper.enforceNullifierType(NullifierType.NONE_NULLIFIER, publicInputs);
+    }
+
+    function testEnforceNullifierTypeRejectsMockWithNullifierForNone() public {
+        bytes32[] memory publicInputs = publicInputsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER);
+
+        vm.expectRevert("Invalid nullifier type");
+        helper.enforceNullifierType(NullifierType.NONE_NULLIFIER, publicInputs);
     }
 }
