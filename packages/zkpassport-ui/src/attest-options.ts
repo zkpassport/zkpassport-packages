@@ -101,14 +101,16 @@ export async function buildAttestCardOptions(
     scope,
     mode: "compressed-evm",
     devMode: options.devMode ?? false,
-    // Only uniqueness needs a nullifier to dedupe on; the contract accepts a
-    // nullifier-free proof for non-unique policies regardless of their
-    // saltedNullifierOnly flag, so those skip the nullifier and the face check.
+    // Only uniqueness needs a nullifier to dedupe on; the contract ignores the
+    // nullifier for non-unique policies regardless of their saltedNullifierOnly
+    // flag, so those leave the type unconstrained — the app includes a
+    // non-salted nullifier even when NONE is requested, and the sdk's
+    // requested-type enforcement would reject that mismatch.
     uniqueIdentifierType: policy.unique
       ? policy.saltedNullifierOnly
         ? NullifierType.SALTED
         : NullifierType.NON_SALTED
-      : NullifierType.NONE,
+      : undefined,
     query: (qb) => {
       let q = qb
       if (policy.minAge > 0) q = q.gte("age", policy.minAge)
