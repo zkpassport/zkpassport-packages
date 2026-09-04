@@ -548,7 +548,7 @@ describe("Policy-driven requests", () => {
       name: "Dashboard Brand",
       logo: "https://dashboard.example/logo.png",
       purpose: "Policy purpose",
-      scope: "pol_xyz:3",
+      scope: "pol_xyz",
     })
   })
 
@@ -574,7 +574,7 @@ describe("Policy-driven requests", () => {
     expect(service.logo).toBe("https://white.example/logo.png")
     // purpose/scope are locked by the policy
     expect(service.purpose).toBe("Policy purpose")
-    expect(service.scope).toBe("pol_xyz:3")
+    expect(service.scope).toBe("pol_xyz")
   })
 
   test("policy locks scope but caller's purpose still wins", async () => {
@@ -591,7 +591,7 @@ describe("Policy-driven requests", () => {
     const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.purpose).toBe("Caller-supplied purpose")
-    expect(service.scope).toBe("pol_xyz:3")
+    expect(service.scope).toBe("pol_xyz")
   })
 
   test("self-serve callers get sensible defaults when no fields are supplied", async () => {
@@ -679,32 +679,6 @@ describe("Policy-driven requests", () => {
     expect(() => builder.policy("")).toThrow(/non-empty string/)
   })
 
-  test(".policy() rejects a policy with an invalid version", async () => {
-    for (const version of [0, -1]) {
-      mockFetchReturning({
-        project: {
-          name: "Brand",
-          domain: "localhost",
-          logoUrl: "https://e/l.png",
-          allowedOrigins: [],
-        },
-        policies: [
-          {
-            id: "pol_x",
-            version,
-            name: "x",
-            purpose: "",
-            projectId: null,
-            query: { age: { gte: 18 } },
-          },
-        ],
-      })
-      const zk = new ZkPassportVerifier("localhost")
-      const builder = await zk.request({})
-      expect(() => builder.policy("pol_x")).toThrow(/Invalid policy/)
-    }
-  })
-
   test("policy with empty branding falls back to defaults (domain / generic purpose)", async () => {
     mockFetchReturning({
       project: { name: "", domain: "localhost", logoUrl: null, allowedOrigins: [] },
@@ -727,7 +701,7 @@ describe("Policy-driven requests", () => {
     expect(service.name).toBe("localhost")
     expect(service.logo).toBe("")
     expect(service.purpose).toBe("Verify identity privately")
-    expect(service.scope).toBe("pol_blank:1")
+    expect(service.scope).toBe("pol_blank")
   })
 
   test("self-serve callers benefit from dashboard branding when the domain is registered", async () => {

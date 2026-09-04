@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.37.4",
+  "version": "0.38.0-beta.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkpassport/zkpassport-packages",
@@ -96,7 +96,8 @@
   },
   "files": [
     "dist/esm",
-    "dist/cjs"
+    "dist/cjs",
+    "conformance"
   ],
   "keywords": [
     "zkpassport",

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
-import { NullifierType, ZKPassport } from "../src/index"
+import { NullifierType, ZKPassport, type VerifierMode } from "../src/index"
 
 describe("verify() modes and the verifier API", () => {
   let originalFetch: typeof globalThis.fetch
@@ -286,5 +286,92 @@ describe("verify() modes and the verifier API", () => {
     const result = await zk.verify({ proofs, originalQuery, queryResult, verifierMode: "api" })
 
     expect(result).toEqual({ ...notVerified, queryResultErrors } as any)
+  })
+
+  // Seed the private state handleResult reads, so no bridge is needed
+  function primeForHandleResult(zk: ZKPassport, topic: string, verifierMode?: VerifierMode) {
+    const i = zk as any
+    i.topicToProofs[topic] = proofs
+    i.topicToResults[topic] = queryResult
+    i.topicToConfig[topic] = originalQuery
+    i.topicToLocalConfig[topic] = { validity: 0, devMode: false, oprfKeyId: null, verifierMode }
+    i.topicToService[topic] = { name: "n", logo: "l", purpose: "p" }
+    i.topicToFailedProofCount[topic] = 0
+    i.onSuccessCallbacks[topic] = []
+    i.onResultCallbacks[topic] = []
+    i.onErrorCallbacks[topic] = []
+    return i
+  }
+
+  test("handleResult fires onSuccess with the proofs and skips verification", async () => {
+    const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1")
+    let verifyCalls = 0
+    zk.verify = async () => {
+      verifyCalls++
+      return notVerified
+    }
+    const received: any[] = []
+    zk.onSuccessCallbacks["topic-1"] = [(response: any) => received.push(response)]
+
+    await zk.handleResult("topic-1")
+
+    expect(received).toEqual([{ proofs, result: queryResult }])
+    expect(verifyCalls).toBe(0)
+  })
+
+  test("handleResult does not fire onSuccess when a proof failed to generate", async () => {
+    const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1")
+    zk.topicToFailedProofCount["topic-1"] = 1
+    const received: any[] = []
+    zk.onSuccessCallbacks["topic-1"] = [(response: any) => received.push(response)]
+
+    await zk.handleResult("topic-1")
+
+    expect(received).toEqual([])
+  })
+
+  test("handleResult verifies with the verifierMode given to request() when onResult is used", async () => {
+    const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1", "api")
+    zk.onResultCallbacks["topic-1"] = [() => {}]
+    let seenMode: string | undefined
+    zk.verify = async (args: any) => {
+      seenMode = args.verifierMode
+      return notVerified
+    }
+
+    await zk.handleResult("topic-1")
+
+    expect(seenMode).toBe("api")
+  })
+
+  test("handleResult reports a verify() failure through onError", async () => {
+    const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1", "local")
+    zk.onResultCallbacks["topic-1"] = [() => {}]
+    zk.verify = async () => {
+      throw new Error("verifier crashed")
+    }
+    const errors: string[] = []
+    zk.onErrorCallbacks["topic-1"] = [(message: string) => errors.push(message)]
+
+    await zk.handleResult("topic-1")
+
+    expect(errors).toEqual(["verifier crashed"])
+  })
+
+  test("handleResult reports a unique identifier type mismatch through onResult", async () => {
+    const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1")
+    zk.topicToLocalConfig["topic-1"].uniqueIdentifierType = NullifierType.SALTED
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "uid-1",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    const results: any[] = []
+    zk.onResultCallbacks["topic-1"] = [(response: any) => results.push(response)]
+
+    await zk.handleResult("topic-1")
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ verified: false, uniqueIdentifier: undefined })
   })
 })
