@@ -6,14 +6,14 @@ export function policyIdHex(policyId: bigint): `0x${string}` {
 }
 
 /**
- * Open the hosted verify popup in attest mode for this demo's registry.
+ * Open the hosted verify popup in attest mode for this demo's registry. The
+ * popup asks the user to connect a wallet and pick the recipient account.
  * devMode makes the mobile app root the proof in the testnet registries; the
  * demo is testnet-only, and sepolia contracts reject mainnet-rooted proofs.
  */
 export function openAttestPopup(
   config: DemoConfig,
   policyId: bigint,
-  walletAddress: `0x${string}`,
   callbacks?: PopupCallbacks,
 ): Window | null {
   const handle = openVerificationPopup({
@@ -24,7 +24,6 @@ export function openAttestPopup(
       attest: {
         chain: config.chain,
         policyId: policyIdHex(policyId),
-        walletAddress,
         registry: config.registry,
         rpcUrl: config.rpcUrl,
       },

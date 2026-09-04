@@ -23,20 +23,21 @@ export type VerificationOptions = Omit<PopupRequestConfig, "attest"> &
   PopupCallbacks & {
     // URL of the hosted verification page (override for local development)
     popupUrl?: string
+    /** "popup" (default) opens a small chromeless window; "tab" a regular browser tab. */
+    windowMode?: "popup" | "tab"
     /** Dashboard policy id — or, with mintToken, the on-chain policy id as 0x hex. */
     policyId?: string
     /** Required unless mintToken is set (the on-chain policy defines the query). */
     query?: (queryBuilder: QueryBuilder) => QueryBuilderResult
     /**
      * Mint an attestation credential: the popup resolves policyId on the
-     * registry, binds walletAddress into the proof and submits issue() when it
-     * can get a signer; the result's attest outcome reports minted/unminted.
+     * registry, lets the user connect a wallet and pick the recipient account,
+     * binds that account into the proof and submits issue(); the result's
+     * attest outcome reports minted/unminted and the chosen account.
      */
     mintToken?: boolean
     /** mintToken only: chain the registry lives on (e.g. "ethereum_sepolia"). */
     chain?: SupportedChain
-    /** mintToken only: credential recipient; issue() checks this binding. */
-    walletAddress?: `0x${string}`
     /** mintToken only: ZKPassportAttest registry address. */
     registry?: `0x${string}`
     /** mintToken only: RPC override for dev registries. */
@@ -115,6 +116,7 @@ export function createVerification(
 
     const handle = openVerificationPopup({
       popupUrl: options.popupUrl,
+      windowMode: options.windowMode,
       request,
       query,
       // Callbacks resolve at event time: results arrive minutes after the
@@ -201,9 +203,9 @@ function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undef
       "mintToken requests take their query from the on-chain policy; remove the query option.",
     )
   }
-  const { chain, policyId, walletAddress, registry, rpcUrl } = options
-  if (!chain || !policyId || !walletAddress || !registry) {
-    throw new Error("mintToken requires chain, policyId, walletAddress and registry.")
+  const { chain, policyId, registry, rpcUrl } = options
+  if (!chain || !policyId || !registry) {
+    throw new Error("mintToken requires chain, policyId and registry.")
   }
   if (!policyId.startsWith("0x")) {
     throw new Error("With mintToken, policyId is the on-chain policy id as 0x-prefixed hex.")
@@ -211,7 +213,6 @@ function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undef
   return {
     chain,
     policyId: policyId as `0x${string}`,
-    walletAddress,
     registry,
     ...(rpcUrl ? { rpcUrl } : {}),
   }

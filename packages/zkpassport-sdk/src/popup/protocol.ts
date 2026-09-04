@@ -12,17 +12,17 @@ export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
 
 /**
  * Attestation minting request. When present, the popup ignores the free-form
- * query and instead resolves the on-chain policy from the registry, binds the
- * recipient wallet and chain into the proof, and (when it can get a signer)
- * submits ZKPassportAttest.issue() itself.
+ * query and instead resolves the on-chain policy from the registry, has the
+ * user connect a wallet and pick the recipient account, binds that account
+ * and the chain into the proof, and submits ZKPassportAttest.issue() itself.
+ * The recipient is chosen in the popup, not by the relying party; the outcome
+ * reports which account was used.
  */
 export type PopupAttestConfig = {
   /** Chain the registry lives on; also bound into the proof. */
   chain: SupportedChain
   /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
   policyId: `0x${string}`
-  /** Credential recipient; bound into the proof, checked by issue(). */
-  walletAddress: `0x${string}`
   /** ZKPassportAttest registry address. */
   registry: `0x${string}`
   /** RPC override for dev registries; the popup uses the chain default otherwise. */
@@ -57,11 +57,22 @@ export type PopupAttestIssueCall = {
 /**
  * issue() checks the wallet bound into the proof, not the transaction sender,
  * so an "unminted" issueCall may be submitted by any account the RP controls.
+ * `walletAddress` is the recipient account the user selected in the popup.
  */
 export type PopupAttestOutcome =
-  | { status: "minted"; txHash: `0x${string}`; issueCall: PopupAttestIssueCall }
-  | { status: "unminted"; reason?: string; issueCall: PopupAttestIssueCall }
-  | { status: "already-verified" }
+  | {
+      status: "minted"
+      walletAddress: `0x${string}`
+      txHash: `0x${string}`
+      issueCall: PopupAttestIssueCall
+    }
+  | {
+      status: "unminted"
+      walletAddress: `0x${string}`
+      reason?: string
+      issueCall: PopupAttestIssueCall
+    }
+  | { status: "already-verified"; walletAddress: `0x${string}` }
 
 export type PopupConfigureMessage = {
   zkpassport: true
