@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ConnectButton, RainbowKitProvider } from "@rainbow-me/rainbowkit"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WagmiProvider, useAccount, useWalletClient } from "wagmi"
@@ -10,6 +10,8 @@ import type {
 } from "@zkpassport/sdk/popup"
 import {
   buildAttestCardOptions,
+  ICON_ZKP_MARK,
+  injectStyles,
   ZKPassportQRCode,
   type AttestVerifyResult,
   type ZKPassportQRCodeOptions,
@@ -62,6 +64,10 @@ export function AttestFlow({ request, attest, send }: AttestFlowProps) {
     }
   }, [attest])
 
+  // The steps around the QR card reuse its `zkp-card` box; the stylesheet
+  // normally arrives with the card component, so inject it up front.
+  useLayoutEffect(injectStyles, [])
+
   useEffect(() => {
     if ("error" in resolved) {
       sendRef.current({ type: "error", message: resolved.error })
@@ -69,7 +75,13 @@ export function AttestFlow({ request, attest, send }: AttestFlowProps) {
   }, [resolved])
 
   if ("error" in resolved) {
-    return <p style={styles.notice}>{resolved.error}</p>
+    return (
+      <CardFrame logo={request.logo}>
+        <p className="zkp-intro-question-text" style={styles.centeredText}>
+          {resolved.error}
+        </p>
+      </CardFrame>
+    )
   }
 
   return (
@@ -241,12 +253,12 @@ function AttestFlowBody({
 
   const connectPrompt = (
     <div style={styles.column}>
-      <p style={styles.notice}>
+      <p className="zkp-intro-question-text" style={styles.centeredText}>
         Connect the wallet you want the credential minted to. It also pays for the mint transaction.
       </p>
       <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
       {injectedOnly ? (
-        <p style={styles.detail}>
+        <p className="zkp-intro-question-hint" style={styles.centeredText}>
           WalletConnect is not configured for this deployment; browser extension wallets only.
         </p>
       ) : null}
@@ -262,130 +274,187 @@ function AttestFlowBody({
     </div>
   )
 
-  switch (state.step) {
-    case "select":
-      if (!isConnected) return connectPrompt
-      return (
-        <div style={styles.column}>
-          <p style={styles.notice}>
-            Connect to the account you want to mint the ZKPassport credential to.
-          </p>
-          <div style={styles.accountList} role="radiogroup">
-            {accountChoices.map((account) => (
-              <button
-                key={account}
-                type="button"
-                role="radio"
-                aria-checked={account === selectedAccount}
-                style={{
-                  ...styles.accountOption,
-                  ...(account === selectedAccount ? styles.accountOptionSelected : {}),
-                }}
-                onClick={() => setChosen(account)}
-              >
-                <span aria-hidden="true" style={styles.radioDot}>
-                  {account === selectedAccount ? "●" : "○"}
-                </span>
-                {shortAddress(account)}
-              </button>
-            ))}
-          </div>
-          <p style={styles.detail}>
-            Missing an account? Authorize it in your wallet and it will appear here.
-          </p>
-          <button
-            type="button"
-            style={styles.primaryButton}
-            disabled={!selectedAccount}
-            onClick={() => selectedAccount && startWithAccount(selectedAccount)}
-          >
-            Continue
-          </button>
-        </div>
-      )
-    case "checking":
-      return (
-        <p style={styles.notice}>
-          Checking {shortAddress(state.account)} against the verification policy…
-        </p>
-      )
-    case "already-verified":
-      return (
-        <div style={styles.column}>
-          <p style={styles.notice}>
-            {shortAddress(state.account)} already holds this credential. You're all set.
-          </p>
-          <button type="button" style={styles.primaryButton} onClick={() => window.close()}>
-            Return to the app
-          </button>
+  // The QR card step draws its own zkp-card box; every other step borrows the
+  // same box via CardFrame so the whole flow reads as one bounded card.
+  if (state.step === "verify" || state.step === "minting") {
+    return (
+      <>
+        {state.step === "verify" ? (
           <button type="button" style={styles.linkButton} onClick={backToSelect}>
-            Use a different account
+            ← Use a different account ({shortAddress(state.account)})
           </button>
-        </div>
-      )
-    case "minted":
-      return (
-        <div style={styles.column}>
-          <p style={styles.notice}>
-            Credential minted to {shortAddress(state.account)}.
-            <span style={styles.detail}>tx {state.txHash.slice(0, 10)}…</span>
+        ) : null}
+        {cardOptions ? <ZKPassportQRCode {...cardOptions} showIntroScreen /> : null}
+        {!isConnected ? reconnectPrompt : null}
+        {state.step === "minting" ? (
+          <p style={styles.notice} role="status">
+            Confirm the mint transaction in your wallet — the credential goes to{" "}
+            {shortAddress(state.account)}.
           </p>
-          <button type="button" style={styles.primaryButton} onClick={() => window.close()}>
-            Return to the app
-          </button>
-        </div>
-      )
-    case "unminted":
-      return (
-        <div style={styles.column}>
-          <p style={styles.notice}>
-            Verification succeeded, but the credential wasn't minted to{" "}
-            {shortAddress(state.account)}.<span style={styles.detail}>{state.reason}</span>
-          </p>
-          {isConnected ? (
+        ) : null}
+      </>
+    )
+  }
+
+  return <CardFrame logo={request.logo}>{renderBoxedStep()}</CardFrame>
+
+  function renderBoxedStep() {
+    if (state.step === "select" && !isConnected) return connectPrompt
+    switch (state.step) {
+      case "select":
+        return (
+          <div style={styles.column}>
+            <p className="zkp-intro-question-text" style={styles.centeredText}>
+              Connect your wallet to mint your ZKPassport identity credential
+            </p>
+            <div style={styles.accountList} role="radiogroup">
+              {accountChoices.map((account) => (
+                <button
+                  key={account}
+                  type="button"
+                  role="radio"
+                  aria-checked={account === selectedAccount}
+                  style={{
+                    ...styles.accountOption,
+                    ...(account === selectedAccount ? styles.accountOptionSelected : {}),
+                  }}
+                  onClick={() => setChosen(account)}
+                >
+                  <span aria-hidden="true" style={styles.radioDot}>
+                    {account === selectedAccount ? "●" : "○"}
+                  </span>
+                  {shortAddress(account)}
+                </button>
+              ))}
+            </div>
+            <p className="zkp-intro-question-hint" style={styles.centeredText}>
+              Missing an account? Authorize it in your wallet and it will appear here.
+            </p>
             <button
               type="button"
-              style={styles.primaryButton}
-              onClick={() => void mintRef.current(state.base, state.issueCall, state.account)}
+              className="zkp-intro-continue"
+              disabled={!selectedAccount}
+              onClick={() => selectedAccount && startWithAccount(selectedAccount)}
             >
-              Try minting again
+              Continue
             </button>
-          ) : (
-            <>
-              <p style={styles.notice}>Reconnect a wallet to try minting again.</p>
-              <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
-            </>
-          )}
-          <button type="button" style={styles.linkButton} onClick={backToSelect}>
-            Start over with a different account
-          </button>
-        </div>
-      )
-    case "error":
-      return <p style={styles.notice}>{state.message}</p>
-    case "verify":
-    case "minting":
-      return (
-        <>
-          {state.step === "verify" ? (
-            <button type="button" style={styles.linkButton} onClick={backToSelect}>
-              ← Use a different account ({shortAddress(state.account)})
+          </div>
+        )
+      case "checking":
+        return (
+          <p className="zkp-intro-question-hint" style={styles.centeredText}>
+            Checking {shortAddress(state.account)} against the verification policy…
+          </p>
+        )
+      case "already-verified":
+        return (
+          <div style={styles.column}>
+            <p className="zkp-intro-question-text" style={styles.centeredText}>
+              {shortAddress(state.account)} already holds this credential. You're all set.
+            </p>
+            <button type="button" className="zkp-intro-continue" onClick={() => window.close()}>
+              Return to the app
             </button>
-          ) : null}
-          {cardOptions ? <ZKPassportQRCode {...cardOptions} showIntroScreen /> : null}
-          {!isConnected ? reconnectPrompt : null}
-          {state.step === "minting" ? (
-            <p style={styles.notice} role="status">
-              Confirm the mint transaction in your wallet — the credential goes to{" "}
+            <button type="button" className="zkp-intro-link" onClick={backToSelect}>
+              Use a different account
+            </button>
+          </div>
+        )
+      case "minted":
+        return (
+          <div style={styles.column}>
+            <p className="zkp-intro-question-text" style={styles.centeredText}>
+              Credential minted to {shortAddress(state.account)}.
+            </p>
+            <p className="zkp-intro-question-hint" style={styles.centeredText}>
+              tx {state.txHash.slice(0, 10)}…
+            </p>
+            <button type="button" className="zkp-intro-continue" onClick={() => window.close()}>
+              Return to the app
+            </button>
+          </div>
+        )
+      case "unminted":
+        return (
+          <div style={styles.column}>
+            <p className="zkp-intro-question-text" style={styles.centeredText}>
+              Verification succeeded, but the credential wasn't minted to{" "}
               {shortAddress(state.account)}.
             </p>
-          ) : null}
-        </>
-      )
+            <p className="zkp-intro-question-hint" style={styles.centeredText}>
+              {state.reason}
+            </p>
+            {isConnected ? (
+              <button
+                type="button"
+                className="zkp-intro-continue"
+                onClick={() => void mintRef.current(state.base, state.issueCall, state.account)}
+              >
+                Try minting again
+              </button>
+            ) : (
+              <>
+                <p className="zkp-intro-question-hint" style={styles.centeredText}>
+                  Reconnect a wallet to try minting again.
+                </p>
+                <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
+              </>
+            )}
+            <button type="button" className="zkp-intro-link" onClick={backToSelect}>
+              Start over with a different account
+            </button>
+          </div>
+        )
+      case "error":
+        return (
+          <p className="zkp-intro-question-text" style={styles.centeredText}>
+            {state.message}
+          </p>
+        )
+    }
   }
 }
 
+// data-theme mirrors the QR card's default ("auto") so both boxes always
+// resolve to the same light/dark palette; the header row matches the card's.
+function CardFrame({ logo, children }: { logo?: string; children: React.ReactNode }) {
+  return (
+    <div className="zkp-card" data-theme="auto" style={styles.cardFrame}>
+      <div className="zkp-header">
+        <div className="zkp-header-icons">
+          <div className="zkp-zkp-icon" dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }} />
+          {logo ? (
+            <>
+              <div className="zkp-header-dots">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="zkp-app-icon-slot">
+                <img className="zkp-app-icon" src={logo} alt="" />
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+      <div style={styles.cardBody}>{children}</div>
+    </div>
+  )
+}
+
 const styles: Record<string, React.CSSProperties> = {
+  cardFrame: {
+    gap: 12,
+  },
+  cardBody: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    width: "100%",
+  },
   column: {
     display: "flex",
     flexDirection: "column",
@@ -398,33 +467,28 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 8,
     width: 260,
   },
+  centeredText: {
+    textAlign: "center",
+    maxWidth: 300,
+  },
   accountOption: {
     padding: "10px 14px",
     borderRadius: 8,
-    border: "1px solid #d1d5db",
-    background: "#ffffff",
-    color: "#111827",
+    border: "1px solid var(--zkp-border)",
+    background: "var(--zkp-bg)",
+    color: "var(--zkp-fg)",
     fontSize: 14,
     fontFamily: "ui-monospace, monospace",
     cursor: "pointer",
     textAlign: "center",
   },
   accountOptionSelected: {
-    borderColor: "#2563eb",
-    boxShadow: "0 0 0 1px #2563eb",
+    borderColor: "var(--zkp-brand)",
+    boxShadow: "0 0 0 1px var(--zkp-brand)",
   },
   radioDot: {
     marginRight: 8,
-    color: "#2563eb",
-  },
-  primaryButton: {
-    padding: "10px 18px",
-    borderRadius: 8,
-    border: "none",
-    background: "#111827",
-    color: "#ffffff",
-    fontSize: 14,
-    cursor: "pointer",
+    color: "var(--zkp-brand)",
   },
   linkButton: {
     padding: 4,
