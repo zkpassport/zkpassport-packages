@@ -2889,6 +2889,28 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(queryResultErrors.facematch?.scope).toBeDefined()
       expect(queryResultErrors.facematch!.scope!.message).toContain("different domain")
     })
+
+    test("skips the domain and scope check for an OPRF auth bundle", async () => {
+      const proofs = [makeFacematchProof(commitment, getServiceScopeHash("customer.example"))]
+      const originalQuery: Query = { facematch: { mode: "regular" } }
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+        undefined,
+        undefined,
+        false,
+        true,
+      )
+
+      expect(queryResultErrors.facematch?.scope).toBeUndefined()
+    })
   })
 })
 

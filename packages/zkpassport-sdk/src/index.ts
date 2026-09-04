@@ -62,6 +62,14 @@ if (typeof globalThis.Buffer === "undefined") {
 
 const DEFAULT_PURPOSE = "Verify identity privately"
 
+const OPRF_AUTH_BUNDLE_PROOFS = [
+  "sig_check_dsc",
+  "sig_check_id_data",
+  "data_check_integrity",
+  "facematch",
+  "oprf_auth",
+]
+
 function realNullifierType({
   uniqueIdentifier,
   uniqueIdentifierType,
@@ -898,6 +906,48 @@ export class ZKPassport {
     return enforceUniqueIdentifierType(result, requestedType)
   }
 
+  /**
+   * Verifies the proofs the app shows the OPRF nodes to ask for a salted unique identifier.
+   * Does not check them against a domain or scope, so the caller must still check the blinded
+   * query point in the oprf_auth proof against its own request.
+   */
+  public static async verifyOprfAuth({
+    proofs,
+    facematchMode = "strict",
+    validity,
+    devMode = false,
+    writingDirectory,
+  }: {
+    proofs: Array<ProofResult>
+    facematchMode?: FacematchMode
+    validity?: number
+    devMode?: boolean
+    writingDirectory?: string
+  }): Promise<VerificationResult> {
+    const unexpectedProofs = proofs.filter(
+      (proof) => !OPRF_AUTH_BUNDLE_PROOFS.some((prefix) => proof.name?.startsWith(prefix)),
+    )
+    if (unexpectedProofs.length > 0) {
+      const names = unexpectedProofs.map((proof) => proof.name).join(", ")
+      throw new Error(`verifyOprfAuth() accepts an OPRF auth bundle only, got ${names}`)
+    }
+    const includesProof = (prefix: string) => proofs.some((proof) => proof.name?.startsWith(prefix))
+    if (!includesProof("facematch") || !includesProof("oprf_auth")) {
+      throw new Error("verifyOprfAuth() requires a facematch and an oprf_auth proof")
+    }
+
+    const unusedDomain = " "
+    return new ZKPassport(unusedDomain).verifyLocally({
+      proofs,
+      originalQuery: { facematch: { mode: facematchMode } },
+      queryResult: { facematch: { mode: facematchMode, passed: true } },
+      validity,
+      devMode,
+      writingDirectory,
+      isOprfAuthBundle: true,
+    })
+  }
+
   private async verifyLocally({
     proofs,
     originalQuery,
@@ -907,6 +957,7 @@ export class ZKPassport {
     devMode = false,
     writingDirectory,
     oprfKeyId,
+    isOprfAuthBundle,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -916,6 +967,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
+    isOprfAuthBundle?: boolean
   }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
@@ -947,6 +999,7 @@ export class ZKPassport {
         scope,
         oprfKeyId,
         devMode,
+        isOprfAuthBundle,
       )
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs

@@ -2315,6 +2315,7 @@ export class PublicInputChecker {
     scope?: string,
     oprfKeyId?: string,
     devMode?: boolean,
+    isOprfAuthBundle?: boolean,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -3672,14 +3673,17 @@ export class PublicInputChecker {
             },
           }
         }
+        // The OPRF nodes have no domain or scope of their own to check the proofs against
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
-          this.checkScopeFromDisclosureProof(
-            domain,
-            proofData,
-            queryResultErrors,
-            "facematch",
-            scope,
-          )
+          isOprfAuthBundle
+            ? { isCorrect: true, queryResultErrors }
+            : this.checkScopeFromDisclosureProof(
+                domain,
+                proofData,
+                queryResultErrors,
+                "facematch",
+                scope,
+              )
         const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
           await this.checkFacematchPublicInputs(
             originalQuery,
