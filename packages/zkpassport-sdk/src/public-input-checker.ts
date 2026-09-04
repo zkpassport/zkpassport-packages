@@ -1811,6 +1811,10 @@ export class PublicInputChecker {
     key: string,
     scope?: string,
   ) {
+    // The OPRF nodes cannot know which domain or scope a proof was made for
+    if (domain === "*") {
+      return { isCorrect: true, queryResultErrors }
+    }
     let isCorrect = true
     if (getServiceScopeHash(domain) !== getServiceScopeFromDisclosureProof(proofData)) {
       console.warn("The proof comes from a different domain than the one expected")
@@ -2315,7 +2319,6 @@ export class PublicInputChecker {
     scope?: string,
     oprfKeyId?: string,
     devMode?: boolean,
-    isOprfAuthBundle?: boolean,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -3673,17 +3676,14 @@ export class PublicInputChecker {
             },
           }
         }
-        // The OPRF nodes have no domain or scope of their own to check the proofs against
         const { isCorrect: isCorrectScope, queryResultErrors: queryResultErrorsScope } =
-          isOprfAuthBundle
-            ? { isCorrect: true, queryResultErrors }
-            : this.checkScopeFromDisclosureProof(
-                domain,
-                proofData,
-                queryResultErrors,
-                "facematch",
-                scope,
-              )
+          this.checkScopeFromDisclosureProof(
+            domain,
+            proofData,
+            queryResultErrors,
+            "facematch",
+            scope,
+          )
         const { isCorrect: isCorrectFacematch, queryResultErrors: queryResultErrorsFacematch } =
           await this.checkFacematchPublicInputs(
             originalQuery,
