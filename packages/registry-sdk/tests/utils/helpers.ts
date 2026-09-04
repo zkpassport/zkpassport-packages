@@ -220,83 +220,73 @@ export async function startAnvil({
   })
   if (verbose) console.log("Anvil started with PID:", anvilProcess.pid)
 
-  // Wait for Anvil to be ready
-  const isRunning = await waitForAnvil(maxWaitTimeMs)
-  if (!isRunning) throw new Error("Failed to start Anvil")
-
-  // Build and deploy contracts
-  if (verbose) console.log("Building contracts...")
   try {
-    execSync(`forge build`, {
-      stdio: ["ignore", verbose ? "inherit" : "ignore", "pipe"],
-      cwd: CONTRACTS_DIR,
-    })
-  } catch (error) {
-    console.error("Error building contracts")
-    if ((error as ExecException).stderr) {
-      console.error((error as ExecException)?.stderr?.toString())
+    // Wait for Anvil to be ready
+    const isRunning = await waitForAnvil(maxWaitTimeMs)
+    if (!isRunning) throw new Error("Failed to start Anvil")
+
+    if (verbose) console.log("Deploying contracts...")
+    let deployOutput = ""
+    try {
+      deployOutput = execSync(`script/test/deploy-root-registry.sh`, {
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, RPC_URL },
+        cwd: CONTRACTS_DIR,
+      })
+      verboseLog(deployOutput)
+    } catch (error) {
+      // Show the error output from the command
+      console.error("Error deploying contracts")
+      if ((error as ExecException)?.stderr) {
+        console.error((error as ExecException)?.stderr?.toString())
+      }
+      if ((error as ExecException)?.stdout) {
+        console.error((error as ExecException)?.stdout?.toString())
+      }
+      throw error
     }
+
+    // Get root registry address from deployment output
+    const registryAddress = deployOutput.match(/RootRegistry deployed at: (0x[a-fA-F0-9]{40})/)?.[1]
+    if (!registryAddress)
+      throw new Error("Could not extract root registry address from deployment output")
+
+    const helperAddress = deployOutput.match(/RegistryHelper deployed at: (0x[a-fA-F0-9]{40})/)?.[1]
+    if (!helperAddress) throw new Error("Could not extract helper address from deployment output")
+
+    // Seed registries with test data
+    if (verbose) console.log("Seeding registries...")
+    try {
+      const seedOutput = execSync(`script/test/seed-registries.sh`, {
+        encoding: "utf-8",
+        stdio: ["ignore", verbose ? "inherit" : "ignore", "pipe"],
+        env: { ...process.env, RPC_URL },
+        cwd: CONTRACTS_DIR,
+      })
+      verboseLog(seedOutput)
+    } catch (error) {
+      console.error("Error seeding registries")
+      if ((error as ExecException)?.stdout) {
+        console.error((error as ExecException)?.stdout?.toString())
+      }
+      throw error
+    }
+
+    return { anvilProcess, rootRegistry: registryAddress, registryHelper: helperAddress }
+  } catch (error) {
+    await stopAnvil({ anvilProcess, rootRegistry: "", registryHelper: "" })
     throw error
   }
-
-  if (verbose) console.log("Deploying contracts...")
-  let deployOutput = ""
-  try {
-    deployOutput = execSync(`script/test/deploy-root-registry.sh`, {
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, RPC_URL },
-      cwd: CONTRACTS_DIR,
-    })
-    verboseLog(deployOutput)
-  } catch (error) {
-    // Show the error output from the command
-    console.error("Error deploying contracts")
-    if ((error as ExecException)?.stderr) {
-      console.error((error as ExecException)?.stderr?.toString())
-    }
-    if ((error as ExecException)?.stdout) {
-      console.error((error as ExecException)?.stdout?.toString())
-    }
-    throw error
-  }
-
-  // Get root registry address from deployment output
-  const registryAddress = deployOutput.match(/RootRegistry deployed at: (0x[a-fA-F0-9]{40})/)?.[1]
-  if (!registryAddress)
-    throw new Error("Could not extract root registry address from deployment output")
-
-  const helperAddress = deployOutput.match(/RegistryHelper deployed at: (0x[a-fA-F0-9]{40})/)?.[1]
-  if (!helperAddress) throw new Error("Could not extract helper address from deployment output")
-
-  // Seed registries with test data
-  if (verbose) console.log("Seeding registries...")
-  try {
-    const seedOutput = execSync(`script/test/seed-registries.sh`, {
-      encoding: "utf-8",
-      stdio: ["ignore", verbose ? "inherit" : "ignore", "pipe"],
-      env: { ...process.env, RPC_URL },
-      cwd: CONTRACTS_DIR,
-    })
-    verboseLog(seedOutput)
-  } catch (error) {
-    console.error("Error seeding registries")
-    if ((error as ExecException)?.stdout) {
-      console.error((error as ExecException)?.stdout?.toString())
-    }
-    throw error
-  }
-
-  return { anvilProcess, rootRegistry: registryAddress, registryHelper: helperAddress }
 }
 
 /**
  * Stops a running Anvil instance
  * @param instance The Anvil instance to stop
  */
-export async function stopAnvil(instance: AnvilInstance): Promise<void> {
+export async function stopAnvil(instance?: AnvilInstance): Promise<void> {
   // Kill the Anvil process if it exists
-  if (instance.anvilProcess && instance.anvilProcess.pid) {
+  if (instance?.anvilProcess && instance.anvilProcess.pid) {
     try {
       instance.anvilProcess.kill("SIGINT")
     } catch (error) {
