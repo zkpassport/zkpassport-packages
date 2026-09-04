@@ -89,13 +89,13 @@ describe("buildAttestCardOptions request props", () => {
     expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
   })
 
-  test("non-unique policies request no unique identifier", async () => {
+  test("non-unique policies leave the unique identifier type unconstrained", async () => {
     const policy = { ...basePolicy, unique: false, saltedNullifierOnly: true }
     const options = await buildAttestCardOptions({
       ...baseOptions(policy),
       ...{ client: stubChain(policy).client },
     })
-    expect(options.uniqueIdentifierType).toBe(NullifierType.NONE)
+    expect(options.uniqueIdentifierType).toBeUndefined()
   })
 
   test("supplying policy, scope, and domain skips all reads", async () => {
