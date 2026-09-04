@@ -5,6 +5,7 @@ import { NullifierType, ZKPassport } from "../src/index"
 describe("verify() modes and the verifier API", () => {
   let originalFetch: typeof globalThis.fetch
   let originalWarn: typeof console.warn
+  let warnings: string[]
   let fetchedUrls: string[]
   let fetchedBodies: string[]
   let localSpy: ReturnType<typeof spyOn>
@@ -27,7 +28,10 @@ describe("verify() modes and the verifier API", () => {
   beforeEach(() => {
     originalFetch = globalThis.fetch
     originalWarn = console.warn
-    console.warn = () => {}
+    warnings = []
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "))
+    }
     fetchedUrls = []
     fetchedBodies = []
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -149,6 +153,7 @@ describe("verify() modes and the verifier API", () => {
     })
 
     expect(result).toEqual(notVerified)
+    expect(warnings).toEqual(["Unique identifier type mismatch: requested SALTED, got NON_SALTED"])
   })
 
   test("accepts a mock unique identifier type for the requested real one", async () => {
@@ -201,6 +206,7 @@ describe("verify() modes and the verifier API", () => {
     const result = await zk.verify({ proofs, originalQuery, queryResult, oprfKeyId: "key-1" })
 
     expect(result).toEqual(notVerified)
+    expect(warnings).toEqual(["Unique identifier type mismatch: requested SALTED, got NON_SALTED"])
   })
 
   test("enforces the requested unique identifier type on the API verdict", async () => {
@@ -222,6 +228,7 @@ describe("verify() modes and the verifier API", () => {
     })
 
     expect(result).toEqual(notVerified)
+    expect(warnings).toEqual(["Unique identifier type mismatch: requested NONE, got NON_SALTED"])
   })
 
   test("api returns the API's queryResultErrors when it rejects the proofs", async () => {
