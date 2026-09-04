@@ -26,7 +26,7 @@ import {
   getRSAPSSParams,
 } from "./cms/utils"
 import { DG1_INPUT_SIZE, E_CONTENT_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
-import { countryCodeAlpha2ToAlpha3 } from "./country/country"
+import { countryCodeAlpha2ToAlpha3, normalizeCountryCode } from "./country/country"
 import { computeMerkleProof } from "./merkle-tree"
 import {
   extractTBS,
@@ -200,7 +200,7 @@ function getCscaCandidates(
     }
   }
   const country = getDSCCountry(dsc)
-  const formattedCountry = country === "D<<" ? "DEU" : country
+  const formattedCountry = normalizeCountryCode(country)
 
   const checkAgainstAuthorityKeyIdentifier = (cert: PackagedCertificate) => {
     return (
