@@ -16,7 +16,8 @@ Point the button at it with `popupUrl="http://localhost:5173"`.
 ## Deployment
 
 Build with `bun run build` (static output in `dist/`). The host MUST send this
-response header on the page:
+response header on the page and on every asset it loads (the `bb.js` workers
+need it too), which `vercel.json` does for the Vercel deployment:
 
 ```
 Document-Isolation-Policy: isolate-and-credentialless
