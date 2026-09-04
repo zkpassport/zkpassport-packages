@@ -1,7 +1,7 @@
 import { AttestClient } from "@zkpassport/sdk"
 import type { PopupAttestConfig, PopupAttestIssueCall } from "@zkpassport/sdk/popup"
 import { createPublicClient, http, type Chain, type PublicClient } from "viem"
-import { connectWallet, ensureWalletChain, getInjectedProvider } from "./wallet"
+import { ensureWalletChain, type ConnectedWallet } from "./wallet"
 
 export type AttestContext = {
   chain: Chain
@@ -26,10 +26,6 @@ export async function hasCredential(
   return (await ctx.attest.balanceOf(wallet, policyId)) > 0n
 }
 
-export function canMintHere(): boolean {
-  return getInjectedProvider() !== undefined
-}
-
 /**
  * The single submission path for ZKPassportAttest.issue(). Any connected
  * account works as the sender — the credential goes to the wallet bound into
@@ -39,9 +35,9 @@ export function canMintHere(): boolean {
 export async function mintCredential(
   ctx: AttestContext,
   call: PopupAttestIssueCall,
+  wallet: ConnectedWallet,
   onSubmitted?: (hash: `0x${string}`) => void,
 ): Promise<`0x${string}`> {
-  const wallet = await connectWallet(ctx.chain)
   await ensureWalletChain(wallet, ctx.chain)
   const hash = await wallet.client.writeContract({
     address: call.address,

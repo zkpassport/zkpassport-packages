@@ -3,7 +3,6 @@ import { parseDemoConfig } from "../lib/config"
 import { openAttestPopup, policyIdHex } from "../lib/attest-popup"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111"
-const WALLET = "0x2222222222222222222222222222222222222222"
 
 afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +36,7 @@ describe("openAttestPopup", () => {
     }
 
     const config = parseDemoConfig({ registry: REGISTRY, popupUrl: "http://localhost:5173" })
-    const opened = openAttestPopup(config, 42n, WALLET)
+    const opened = openAttestPopup(config, 42n)
     for (const listener of listeners) {
       listener({
         origin: "http://localhost:5173",
@@ -55,7 +54,6 @@ describe("openAttestPopup", () => {
     expect(configure.request.attest).toEqual({
       chain: "ethereum_sepolia",
       policyId: policyIdHex(42n),
-      walletAddress: WALLET,
       registry: REGISTRY,
       rpcUrl: config.rpcUrl,
     })

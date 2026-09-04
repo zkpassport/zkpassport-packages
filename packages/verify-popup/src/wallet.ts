@@ -1,37 +1,57 @@
-import { createWalletClient, custom, type Chain, type WalletClient } from "viem"
-
-export type Eip1193Provider = {
-  request(args: { method: string; params?: unknown }): Promise<unknown>
-}
+import { getDefaultConfig } from "@rainbow-me/rainbowkit"
+import { injectedWallet } from "@rainbow-me/rainbowkit/wallets"
+import { http, type Chain, type WalletClient } from "viem"
+import type { Config } from "wagmi"
 
 export type ConnectedWallet = {
   account: `0x${string}`
   client: WalletClient
 }
 
-export function getInjectedProvider(): Eip1193Provider | undefined {
-  if (typeof window === "undefined") return undefined
-  return (window as { ethereum?: Eip1193Provider }).ethereum
+export type WalletSelection = {
+  projectId: string
+  /** True when no WalletConnect project id is configured (browser wallets only). */
+  injectedOnly: boolean
+}
+
+export function walletConnectProjectId(
+  env: Record<string, unknown> = import.meta.env,
+): string | undefined {
+  const id = env.VITE_WALLETCONNECT_PROJECT_ID
+  return typeof id === "string" && id.length > 0 ? id : undefined
 }
 
 /**
- * Connect a signer to pay for the mint transaction. Any account works:
- * issue() sends the credential to the wallet bound into the proof, not to
- * the transaction sender.
+ * Without a WalletConnect project id only the injected wallet is offered, so
+ * the placeholder id never reaches the relay — injected connections don't
+ * use it, and RainbowKit merely requires the field to be present.
  */
-export async function connectWallet(
+export function selectWallets(projectId: string | undefined): WalletSelection {
+  if (!projectId) return { projectId: "walletconnect-not-configured", injectedOnly: true }
+  return { projectId, injectedOnly: false }
+}
+
+export type WalletSetup = WalletSelection & { config: Config }
+
+/**
+ * Wagmi config for the chain the attest policy lives on. Built per configure
+ * message: the chain (and its RPC override) is only known at runtime.
+ */
+export function buildWalletSetup(
   chain: Chain,
-  provider: Eip1193Provider | undefined = getInjectedProvider(),
-): Promise<ConnectedWallet> {
-  if (!provider) {
-    throw new Error("No browser wallet found to submit the mint transaction.")
-  }
-  const client = createWalletClient({ chain, transport: custom(provider) })
-  const [account] = await client.requestAddresses()
-  if (!account) {
-    throw new Error("The wallet returned no accounts.")
-  }
-  return { account, client }
+  projectId: string | undefined = walletConnectProjectId(),
+): WalletSetup {
+  const selection = selectWallets(projectId)
+  const config = getDefaultConfig({
+    appName: "ZKPassport",
+    projectId: selection.projectId,
+    chains: [chain],
+    transports: { [chain.id]: http(chain.rpcUrls.default.http[0]) },
+    ...(selection.injectedOnly
+      ? { wallets: [{ groupName: "Wallets", wallets: [injectedWallet] }] }
+      : {}),
+  })
+  return { ...selection, config }
 }
 
 export async function ensureWalletChain(wallet: ConnectedWallet, chain: Chain): Promise<void> {

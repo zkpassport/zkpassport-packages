@@ -115,7 +115,7 @@ function LauncherView() {
                   <button
                     className="rounded bg-sky-600 px-3 py-1 text-xs"
                     type="button"
-                    onClick={() => openAttestPopup(config, BigInt(a.policyId), wallet.account)}
+                    onClick={() => openAttestPopup(config, BigInt(a.policyId))}
                   >
                     Verify this wallet now
                   </button>

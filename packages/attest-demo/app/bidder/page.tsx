@@ -70,8 +70,8 @@ function BidderView() {
 
   const openPopup = (policyId: bigint) => {
     if (!wallet) return
-    popupRef.current = openAttestPopup(config, policyId, wallet.account, {
-      // The popup mints straight to the bound wallet; re-check on any outcome
+    popupRef.current = openAttestPopup(config, policyId, {
+      // The popup mints to the account chosen there; re-check on any outcome
       onSuccess: () => void check(),
       onClose: () => void check(),
     })

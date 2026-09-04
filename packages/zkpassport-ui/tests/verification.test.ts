@@ -189,7 +189,6 @@ describe("createVerification with mintToken", () => {
     mintToken: true,
     chain: "ethereum_sepolia",
     policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
-    walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
     registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
     rpcUrl: "http://localhost:8545",
     devMode: true,
@@ -210,7 +209,6 @@ describe("createVerification with mintToken", () => {
       attest: {
         chain: "ethereum_sepolia",
         policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
-        walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
         registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
         rpcUrl: "http://localhost:8545",
       },
@@ -236,11 +234,17 @@ describe("createVerification with mintToken", () => {
       type: "success",
       proofs: [],
       result: {},
-      attest: { status: "minted", txHash: "0xdead", issueCall: { functionName: "issue" } },
+      attest: {
+        status: "minted",
+        walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        txHash: "0xdead",
+        issueCall: { functionName: "issue" },
+      },
     })
 
     expect(outcome.attest).toEqual({
       status: "minted",
+      walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
       txHash: "0xdead",
       issueCall: { functionName: "issue" },
     })
