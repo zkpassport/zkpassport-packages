@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
-import { ZKPassport, type VerifierMode } from "../src/index"
+import { NullifierType, ZKPassport, type VerifierMode } from "../src/index"
 
 describe("verify() modes and the verifier API", () => {
   let originalFetch: typeof globalThis.fetch
   let originalWarn: typeof console.warn
+  let warnings: string[]
   let fetchedUrls: string[]
   let fetchedBodies: string[]
   let localSpy: ReturnType<typeof spyOn>
@@ -27,7 +28,10 @@ describe("verify() modes and the verifier API", () => {
   beforeEach(() => {
     originalFetch = globalThis.fetch
     originalWarn = console.warn
-    console.warn = () => {}
+    warnings = []
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "))
+    }
     fetchedUrls = []
     fetchedBodies = []
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -133,6 +137,142 @@ describe("verify() modes and the verifier API", () => {
     expect(localSpy).not.toHaveBeenCalled()
   })
 
+  test("rejects proofs whose unique identifier type is not the requested one", async () => {
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      uniqueIdentifierType: NullifierType.SALTED,
+    })
+
+    expect(result).toEqual(notVerified)
+    expect(warnings).toEqual(["Unique identifier type mismatch: requested SALTED, got NON_SALTED"])
+  })
+
+  test("accepts a mock unique identifier type for the requested real one", async () => {
+    const localResult = {
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.SALTED_MOCK,
+    }
+    localSpy.mockResolvedValue(localResult)
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      devMode: true,
+      uniqueIdentifierType: NullifierType.SALTED,
+    })
+
+    expect(result).toEqual(localResult as any)
+  })
+
+  test("accepts a mock proof with no unique identifier for a NONE request", async () => {
+    const localResult = {
+      verified: true,
+      uniqueIdentifier: undefined,
+      uniqueIdentifierType: NullifierType.NON_SALTED_MOCK,
+    }
+    localSpy.mockResolvedValue(localResult)
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      devMode: true,
+      uniqueIdentifierType: NullifierType.NONE,
+    })
+
+    expect(result).toEqual(localResult as any)
+  })
+
+  test("rejects a mock proof carrying a unique identifier for a NONE request", async () => {
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED_MOCK,
+    })
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      devMode: true,
+      uniqueIdentifierType: NullifierType.NONE,
+    })
+
+    expect(result).toEqual(notVerified)
+    expect(warnings).toEqual([
+      "Unique identifier type mismatch: requested NONE, got NON_SALTED_MOCK",
+    ])
+  })
+
+  test("ignores a null unique identifier type from untyped callers", async () => {
+    const localResult = {
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    }
+    localSpy.mockResolvedValue(localResult)
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      uniqueIdentifierType: null as any,
+    })
+
+    expect(result).toEqual(localResult as any)
+  })
+
+  test("an oprf key requires a salted unique identifier", async () => {
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "local-uid",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({ proofs, originalQuery, queryResult, oprfKeyId: "key-1" })
+
+    expect(result).toEqual(notVerified)
+    expect(warnings).toEqual(["Unique identifier type mismatch: requested SALTED, got NON_SALTED"])
+  })
+
+  test("enforces the requested unique identifier type on the API verdict", async () => {
+    globalThis.fetch = (async () => {
+      return Response.json({
+        verified: true,
+        uniqueIdentifier: "uid-1",
+        uniqueIdentifierType: NullifierType.NON_SALTED,
+      })
+    }) as unknown as typeof globalThis.fetch
+    const zk = new ZKPassport("example.com")
+
+    const result = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      verifierMode: "api",
+      uniqueIdentifierType: NullifierType.NONE,
+    })
+
+    expect(result).toEqual(notVerified)
+    expect(warnings).toEqual(["Unique identifier type mismatch: requested NONE, got NON_SALTED"])
+  })
+
   test("api returns the API's queryResultErrors when it rejects the proofs", async () => {
     const queryResultErrors = { age: { gte: { message: "age check failed" } } }
     globalThis.fetch = (async () => {
@@ -216,5 +356,22 @@ describe("verify() modes and the verifier API", () => {
     await zk.handleResult("topic-1")
 
     expect(errors).toEqual(["verifier crashed"])
+  })
+
+  test("handleResult reports a unique identifier type mismatch through onResult", async () => {
+    const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1")
+    zk.topicToLocalConfig["topic-1"].uniqueIdentifierType = NullifierType.SALTED
+    localSpy.mockResolvedValue({
+      verified: true,
+      uniqueIdentifier: "uid-1",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    const results: any[] = []
+    zk.onResultCallbacks["topic-1"] = [(response: any) => results.push(response)]
+
+    await zk.handleResult("topic-1")
+
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ verified: false, uniqueIdentifier: undefined })
   })
 })

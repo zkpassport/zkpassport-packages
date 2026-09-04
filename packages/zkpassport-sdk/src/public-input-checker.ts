@@ -1811,6 +1811,10 @@ export class PublicInputChecker {
     key: string,
     scope?: string,
   ) {
+    // The OPRF nodes cannot know which domain or scope a proof was made for
+    if (domain === "*") {
+      return { isCorrect: true, queryResultErrors }
+    }
     let isCorrect = true
     if (getServiceScopeHash(domain) !== getServiceScopeFromDisclosureProof(proofData)) {
       console.warn("The proof comes from a different domain than the one expected")

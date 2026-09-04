@@ -2833,10 +2833,11 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     function makeFacematchProof(
       commitmentIn: bigint,
       scope: bigint = domainScopeHash,
+      subscope: bigint = 0n,
     ): ProofResult {
       return {
         name: "facematch_1234",
-        proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, 0n]),
+        proof: buildProofHex([commitmentIn, todayTs, scope, subscope, 0n, 0n, 0n]),
         total: 1,
         committedInputs: {
           facematch: {
@@ -2888,6 +2889,30 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.facematch?.scope).toBeDefined()
       expect(queryResultErrors.facematch!.scope!.message).toContain("different domain")
+    })
+
+    test("skips the domain and scope check when the domain is *", async () => {
+      const proofs = [
+        makeFacematchProof(
+          commitment,
+          getServiceScopeHash("customer.example"),
+          getScopeHash("age-check"),
+        ),
+      ]
+      const originalQuery: Query = { facematch: { mode: "regular" } }
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        "*",
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(queryResultErrors.facematch?.scope).toBeUndefined()
     })
   })
 })

@@ -819,6 +819,28 @@ describe("Salted nullifier facematch validation", () => {
     })
     expect(() => qb.done()).not.toThrow()
   })
+
+  test("encodes nt=0 in the request URL", async () => {
+    const qb = await zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing salted validation",
+      uniqueIdentifierType: NullifierType.NON_SALTED,
+    })
+    const result = qb.disclose("firstname").done()
+    expect(result.url).toContain(`&nt=${NullifierType.NON_SALTED}`)
+  })
+
+  test("omits nt from the URL when uniqueIdentifierType is null", async () => {
+    const qb = await zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing salted validation",
+      uniqueIdentifierType: null as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    })
+    const result = qb.disclose("firstname").done()
+    expect(result.url).not.toContain("&nt=")
+  })
 })
 
 describe("NONE nullifier type requests", () => {
