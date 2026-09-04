@@ -26,6 +26,10 @@ jobs:
         run: forge install
         working-directory: packages/registry-contracts
 
+      - name: Install Foundry dependencies (attest)
+        run: forge install
+        working-directory: packages/attest-contracts
+
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
