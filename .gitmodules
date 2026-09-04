@@ -1,3 +1,6 @@
 [submodule "packages/registry-contracts/lib/forge-std"]
 	path = packages/registry-contracts/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "packages/aztec/test-harness/circuits"]
+	path = packages/aztec/test-harness/circuits
+	url = https://github.com/zkpassport/circuits.git

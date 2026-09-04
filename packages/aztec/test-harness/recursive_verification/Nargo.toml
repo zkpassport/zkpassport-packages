@@ -1,0 +1,8 @@
+[package]
+name = "recursive_verification"
+type = "bin"
+authors = [""]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+zkpassport_core = { path = "../../zkpassport.nr/zkpassport_core" }

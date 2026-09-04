@@ -61,3 +61,25 @@ jobs:
       - name: Run tests
         run: aztec test
         working-directory: packages/aztec/zkpassport.nr
+
+      # The anchors in zkpassport_core/src/fixtures.nr must mirror the conformance
+      # vectors published by @zkpassport/utils (the nargo tests above hold the Noir
+      # side to the anchors; the SDK's own suite holds it to the vectors).
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.8
+
+      - name: Run commitment conformance tests
+        run: bun test packages/aztec/test-harness/fixture-conformance.test.ts
+
+      # Recursion-opcode coverage: nargo test no-ops std::verify_proof, so replay the
+      # checked-in disclose proof fixture through bb.
+      - name: Run bb recursion harness
+        env:
+          AZTEC_HOME: /home/runner/.aztec/versions/${{ steps.aztec-version.outputs.version }}
+        run: |
+          ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
+          ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof
+          ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-public-input
+        working-directory: packages/aztec/test-harness
