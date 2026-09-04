@@ -13,6 +13,15 @@ pub global AGE_18_COMMITMENT: Field =
 pub global DISCLOSE_COMMITMENT: Field =
     0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
 
+/// Stand-in for user.to_field() in the bind anchor. Every byte is distinct, so an endianness
+/// flip, offset bug, or wrong padding changes the commitment; it also stays below the BN254
+/// modulus, so it round-trips as a Field without reduction.
+pub global BIND_ACCOUNT: Field = 0x1122334455667788990011223344556677889900112233445566778899001122;
+
+/// bind_user_address_commitment(BIND_ACCOUNT).
+pub global BIND_COMMITMENT: Field =
+    0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970;
+
 /// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against
 /// dev-mode registries, current_date 2050-01-01), in the K=4 layout parse.nr decodes.
 pub global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
@@ -26,3 +35,7 @@ pub global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
     0x1c2de0aff0b433e96e0f1da31cec1d9e8b5e98c75d8d5c2e3e255ad689fe6354, // scoped_nullifier
     0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
 ];
+
+// Bulky generated data (the real proof-fixture globals) lives in its own file so the
+// generator can own it wholesale.
+pub mod proof;
