@@ -2,11 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {BoundData, NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "./interfaces/IRootVerifier.sol";
-import {PolicyValidationHook} from "./PolicyValidationHook.sol";
 
 /**
  * @title  ZKPassportAttest
@@ -23,7 +21,6 @@ contract ZKPassportAttest is ERC1155 {
         bool sanctionsCheck;
         string[] excludedCountries;
         string metadataURL;
-        address hook;
         uint64 retiredAt;
     }
 
@@ -51,7 +48,7 @@ contract ZKPassportAttest is ERC1155 {
     error ZKPassportAttest__NotAuthorized();
     error ZKPassportAttest__ZeroAddress();
 
-    event PolicyCreated(uint256 indexed policyId, address indexed owner, address hook);
+    event PolicyCreated(uint256 indexed policyId, address indexed owner);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
     event PolicyRetired(uint256 indexed policyId);
     event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
@@ -98,8 +95,6 @@ contract ZKPassportAttest is ERC1155 {
         policyId = uint256(keccak256(abi.encode(msg.sender, salt)));
         if (_policies[policyId].owner != address(0)) revert ZKPassportAttest__PolicyAlreadyExists(policyId);
 
-        address hook = address(new PolicyValidationHook{salt: bytes32(policyId)}(IERC1155(address(this)), policyId));
-
         Policy storage policy = _policies[policyId];
         policy.owner = msg.sender;
         policy.validityPeriod = validityPeriod;
@@ -111,9 +106,8 @@ contract ZKPassportAttest is ERC1155 {
             policy.excludedCountries.push(excludedCountries[i]);
         }
         policy.metadataURL = metadataURL;
-        policy.hook = hook;
 
-        emit PolicyCreated(policyId, msg.sender, hook);
+        emit PolicyCreated(policyId, msg.sender);
     }
 
     /// @notice Full policy struct; reverts for unknown ids
@@ -131,7 +125,7 @@ contract ZKPassportAttest is ERC1155 {
     }
 
     /// @notice Permanently stop new issuance and renewals for a policy; existing
-    ///         credentials stay valid until they expire, so hooks degrade gracefully
+    ///         credentials stay valid until they expire, so gates reading balanceOf degrade gracefully
     function retire(uint256 policyId) external {
         Policy storage policy = _policies[policyId];
         if (policy.owner != msg.sender) revert ZKPassportAttest__NotPolicyOwner();
