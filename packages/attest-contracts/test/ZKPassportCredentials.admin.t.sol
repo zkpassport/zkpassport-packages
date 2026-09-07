@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {AttestTestBase} from "./AttestTestBase.sol";
+import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportCredentialsAdminTest is AttestTestBase {
+contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
     uint256 internal policyId;
 
     function setUp() public {
@@ -15,65 +15,65 @@ contract ZKPassportCredentialsAdminTest is AttestTestBase {
 
     function testAdminAndGuardianCanPauseIssue() public {
         vm.prank(guardian);
-        attest.pause();
+        zkPassportCredentials.pause();
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
-        attest.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(wallet, policyId, _params());
     }
 
     function testOthersCannotPause() public {
         vm.prank(wallet);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
-        attest.pause();
+        zkPassportCredentials.pause();
     }
 
     function testOnlyAdminCanUnpause() public {
         vm.prank(admin);
-        attest.pause();
+        zkPassportCredentials.pause();
         vm.prank(guardian);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
-        attest.unpause();
+        zkPassportCredentials.unpause();
         vm.prank(admin);
-        attest.unpause();
-        attest.issue(wallet, policyId, _params());
-        assertEq(attest.balanceOf(wallet, policyId), 1);
+        zkPassportCredentials.unpause();
+        zkPassportCredentials.issue(wallet, policyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
     function testPauseDoesNotAffectBalanceOfAndRevoke() public {
-        attest.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(wallet, policyId, _params());
         vm.prank(admin);
-        attest.pause();
-        assertEq(attest.balanceOf(wallet, policyId), 1);
+        zkPassportCredentials.pause();
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
         vm.prank(wallet);
-        attest.revoke(wallet, policyId);
-        assertEq(attest.balanceOf(wallet, policyId), 0);
+        zkPassportCredentials.revoke(wallet, policyId);
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 
     function testPauseDoesNotAffectCreatePolicy() public {
         vm.prank(admin);
-        attest.pause();
+        zkPassportCredentials.pause();
         vm.prank(creator);
-        attest.createPolicy(bytes32(uint256(99)), 1 days, false, false, 0, false, noCountries, "x");
+        zkPassportCredentials.createPolicy(bytes32(uint256(99)), 1 days, false, false, 0, false, noCountries, "x");
     }
 
     function testTransferAdmin() public {
         address newAdmin = makeAddr("newAdmin");
         vm.prank(admin);
-        attest.transferAdmin(newAdmin);
-        assertEq(attest.admin(), newAdmin);
+        zkPassportCredentials.transferAdmin(newAdmin);
+        assertEq(zkPassportCredentials.admin(), newAdmin);
         vm.prank(newAdmin);
-        attest.pause();
+        zkPassportCredentials.pause();
     }
 
     function testSetGuardian() public {
         address newGuardian = makeAddr("newGuardian");
         vm.prank(admin);
-        attest.setGuardian(newGuardian);
-        assertEq(attest.guardian(), newGuardian);
+        zkPassportCredentials.setGuardian(newGuardian);
+        assertEq(zkPassportCredentials.guardian(), newGuardian);
     }
 
     function testCannotTransferAdminToZero() public {
         vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
-        attest.transferAdmin(address(0));
+        zkPassportCredentials.transferAdmin(address(0));
     }
 }
