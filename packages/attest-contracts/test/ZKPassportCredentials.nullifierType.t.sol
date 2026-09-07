@@ -2,10 +2,10 @@
 pragma solidity ^0.8.30;
 
 import {NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
-import {AttestTestBase} from "./AttestTestBase.sol";
+import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportCredentialsNullifierTypeTest is AttestTestBase {
+contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase {
     uint256 internal saltedUniqueId;
     uint256 internal saltedNonUniqueId;
 
@@ -13,11 +13,11 @@ contract ZKPassportCredentialsNullifierTypeTest is AttestTestBase {
         vm.warp(1_700_000_000);
         _deployWithMocks();
         vm.prank(creator);
-        saltedUniqueId = attest.createPolicy(
+        saltedUniqueId = zkPassportCredentials.createPolicy(
             bytes32(uint256(21)), 7 days, true, true, 0, false, noCountries, "https://p.example/su"
         );
         vm.prank(creator);
-        saltedNonUniqueId = attest.createPolicy(
+        saltedNonUniqueId = zkPassportCredentials.createPolicy(
             bytes32(uint256(22)), 7 days, false, true, 0, false, noCountries, "https://p.example/sn"
         );
     }
@@ -33,59 +33,71 @@ contract ZKPassportCredentialsNullifierTypeTest is AttestTestBase {
     }
 
     function testCreatePolicyStoresSaltedFlag() public {
-        assertTrue(attest.getPolicy(saltedUniqueId).saltedNullifierOnly);
+        assertTrue(zkPassportCredentials.getPolicy(saltedUniqueId).saltedNullifierOnly);
         uint256 defaultPolicyId = _createDefaultPolicy();
-        assertFalse(attest.getPolicy(defaultPolicyId).saltedNullifierOnly);
+        assertFalse(zkPassportCredentials.getPolicy(defaultPolicyId).saltedNullifierOnly);
     }
 
     function testSaltedUniqueAcceptsSaltedNullifier() public {
-        attest.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
-        assertEq(attest.balanceOf(wallet, saltedUniqueId), 1);
+        zkPassportCredentials.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+        assertEq(zkPassportCredentials.balanceOf(wallet, saltedUniqueId), 1);
     }
 
     function testSaltedUniqueRejectsNonSaltedNullifier() public {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__SaltedNullifierRequired.selector);
-        attest.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
+        zkPassportCredentials.issue(
+            wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER)
+        );
     }
 
     function testSaltedUniqueRejectsHiddenNullifier() public {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__SaltedNullifierRequired.selector);
-        attest.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
+        zkPassportCredentials.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
     }
 
     function testSaltedNonUniqueAcceptsHiddenNullifier() public {
-        attest.issue(wallet, saltedNonUniqueId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
-        assertEq(attest.balanceOf(wallet, saltedNonUniqueId), 1);
+        zkPassportCredentials.issue(wallet, saltedNonUniqueId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
+        assertEq(zkPassportCredentials.balanceOf(wallet, saltedNonUniqueId), 1);
     }
 
     function testSaltedNonUniqueAcceptsSaltedNullifier() public {
-        attest.issue(wallet, saltedNonUniqueId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
-        assertEq(attest.balanceOf(wallet, saltedNonUniqueId), 1);
+        zkPassportCredentials.issue(wallet, saltedNonUniqueId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+        assertEq(zkPassportCredentials.balanceOf(wallet, saltedNonUniqueId), 1);
     }
 
     function testSaltedNonUniqueRejectsNonSaltedNullifier() public {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__SaltedNullifierRequired.selector);
-        attest.issue(wallet, saltedNonUniqueId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
+        zkPassportCredentials.issue(
+            wallet, saltedNonUniqueId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER)
+        );
     }
 
     function testUnrestrictedPolicyAcceptsEveryRealNullifierType() public {
         uint256 defaultPolicyId = _createDefaultPolicy();
-        attest.issue(wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
-        attest.issue(wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
-        attest.issue(wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
-        assertEq(attest.balanceOf(wallet, defaultPolicyId), 1);
+        zkPassportCredentials.issue(
+            wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER)
+        );
+        zkPassportCredentials.issue(wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+        zkPassportCredentials.issue(wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
+        assertEq(zkPassportCredentials.balanceOf(wallet, defaultPolicyId), 1);
     }
 
     function testUnrestrictedPolicyRejectsMockNullifierTypes() public {
         uint256 defaultPolicyId = _createDefaultPolicy();
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__MockProofNotAllowed.selector);
-        attest.issue(wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER));
+        zkPassportCredentials.issue(
+            wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER)
+        );
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__MockProofNotAllowed.selector);
-        attest.issue(wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
+        zkPassportCredentials.issue(
+            wallet, defaultPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER)
+        );
     }
 
     function testSaltedUniqueRejectsMockSaltedNullifier() public {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__MockProofNotAllowed.selector);
-        attest.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
+        zkPassportCredentials.issue(
+            wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER)
+        );
     }
 }
