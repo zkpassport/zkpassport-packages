@@ -1,6 +1,6 @@
 // Generated from packages/attest-contracts (commit 8d9498ec). Do not edit by hand.
-// Source: forge build -> ZKPassportAttest.json -> .abi
-export const ZKPassportAttestAbi = [
+// Source: forge build -> ZKPassportCredentials.json -> .abi
+export const ZKPassportCredentialsAbi = [
   {
     type: "constructor",
     inputs: [
@@ -182,7 +182,7 @@ export const ZKPassportAttestAbi = [
       {
         name: "",
         type: "tuple",
-        internalType: "struct ZKPassportAttest.Policy",
+        internalType: "struct ZKPassportCredentials.Policy",
         components: [
           {
             name: "owner",
@@ -1074,62 +1074,62 @@ export const ZKPassportAttestAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportAttest__AgeBelowMinimum",
+    name: "ZKPassportCredentials__AgeBelowMinimum",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__ExcludedJurisdiction",
+    name: "ZKPassportCredentials__ExcludedJurisdiction",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__InvalidProof",
+    name: "ZKPassportCredentials__InvalidProof",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__InvalidValidityPeriod",
+    name: "ZKPassportCredentials__InvalidValidityPeriod",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__MissingNullifier",
+    name: "ZKPassportCredentials__MissingNullifier",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__MockProofNotAllowed",
+    name: "ZKPassportCredentials__MockProofNotAllowed",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__NotAuthorized",
+    name: "ZKPassportCredentials__NotAuthorized",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__NotPolicyOwner",
+    name: "ZKPassportCredentials__NotPolicyOwner",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__NotRevocable",
+    name: "ZKPassportCredentials__NotRevocable",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__NothingToRevoke",
+    name: "ZKPassportCredentials__NothingToRevoke",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__Paused",
+    name: "ZKPassportCredentials__Paused",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__PolicyAlreadyExists",
+    name: "ZKPassportCredentials__PolicyAlreadyExists",
     inputs: [
       {
         name: "policyId",
@@ -1140,7 +1140,7 @@ export const ZKPassportAttestAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportAttest__PolicyNotFound",
+    name: "ZKPassportCredentials__PolicyNotFound",
     inputs: [
       {
         name: "policyId",
@@ -1151,7 +1151,7 @@ export const ZKPassportAttestAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportAttest__PolicyRetired",
+    name: "ZKPassportCredentials__PolicyRetired",
     inputs: [
       {
         name: "policyId",
@@ -1162,27 +1162,27 @@ export const ZKPassportAttestAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportAttest__ProofNotBoundToChain",
+    name: "ZKPassportCredentials__ProofNotBoundToChain",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__ProofNotBoundToWallet",
+    name: "ZKPassportCredentials__ProofNotBoundToWallet",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__SaltedNullifierRequired",
+    name: "ZKPassportCredentials__SaltedNullifierRequired",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__StaleProof",
+    name: "ZKPassportCredentials__StaleProof",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__SybilDetected",
+    name: "ZKPassportCredentials__SybilDetected",
     inputs: [
       {
         name: "nullifier",
@@ -1193,22 +1193,22 @@ export const ZKPassportAttestAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportAttest__TokenIsSoulbound",
+    name: "ZKPassportCredentials__TokenIsSoulbound",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__UnexpectedBoundData",
+    name: "ZKPassportCredentials__UnexpectedBoundData",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__WrongScope",
+    name: "ZKPassportCredentials__WrongScope",
     inputs: [],
   },
   {
     type: "error",
-    name: "ZKPassportAttest__ZeroAddress",
+    name: "ZKPassportCredentials__ZeroAddress",
     inputs: [],
   },
 ] as const

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
 contract DeployAttestScript is Script {
@@ -16,11 +16,12 @@ contract DeployAttestScript is Script {
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
 
         vm.startBroadcast();
-        ZKPassportAttest attest =
-            new ZKPassportAttest{salt: create2Salt}(IRootVerifier(rootVerifier), domain, adminAddress, guardianAddress);
+        ZKPassportCredentials attest = new ZKPassportCredentials{salt: create2Salt}(
+            IRootVerifier(rootVerifier), domain, adminAddress, guardianAddress
+        );
         vm.stopBroadcast();
 
-        console.log("ZKPassportAttest deployed at:", address(attest));
+        console.log("ZKPassportCredentials deployed at:", address(attest));
 
         string memory json = "attest";
         vm.serializeAddress(json, "address", address(attest));

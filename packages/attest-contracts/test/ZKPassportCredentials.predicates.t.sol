@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportAttestPredicatesTest is AttestTestBase {
+contract ZKPassportCredentialsPredicatesTest is AttestTestBase {
     uint256 internal strictPolicyId;
 
     function setUp() public {
@@ -26,13 +26,13 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
 
     function testIssueRevertsWhenAgeTooLow() public {
         mockHelper.setAgeOk(false);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__AgeBelowMinimum.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__AgeBelowMinimum.selector);
         attest.issue(wallet, strictPolicyId, _params());
     }
 
     function testIssueRevertsOnExcludedJurisdiction() public {
         mockHelper.setNationalityOk(false);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ExcludedJurisdiction.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ExcludedJurisdiction.selector);
         attest.issue(wallet, strictPolicyId, _params());
     }
 
@@ -62,7 +62,9 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
         address mallory = makeAddr("mallory");
         mockHelper.setBoundData(mallory, block.chainid, "");
         vm.expectRevert(
-            abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__SybilDetected.selector, mockVerifier.nullifier())
+            abi.encodeWithSelector(
+                ZKPassportCredentials.ZKPassportCredentials__SybilDetected.selector, mockVerifier.nullifier()
+            )
         );
         attest.issue(mallory, strictPolicyId, _params());
     }
@@ -75,7 +77,7 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
 
     function testUniquePolicyRejectsZeroNullifier() public {
         mockVerifier.setNullifier(bytes32(0));
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__MissingNullifier.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__MissingNullifier.selector);
         attest.issue(wallet, strictPolicyId, _params());
     }
 
@@ -107,7 +109,9 @@ contract ZKPassportAttestPredicatesTest is AttestTestBase {
         address mallory = makeAddr("mallory2");
         mockHelper.setBoundData(mallory, block.chainid, "");
         vm.expectRevert(
-            abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__SybilDetected.selector, mockVerifier.nullifier())
+            abi.encodeWithSelector(
+                ZKPassportCredentials.ZKPassportCredentials__SybilDetected.selector, mockVerifier.nullifier()
+            )
         );
         attest.issue(mallory, strictPolicyId, _params());
     }

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportAttestAdminTest is AttestTestBase {
+contract ZKPassportCredentialsAdminTest is AttestTestBase {
     uint256 internal policyId;
 
     function setUp() public {
@@ -16,13 +16,13 @@ contract ZKPassportAttestAdminTest is AttestTestBase {
     function testAdminAndGuardianCanPauseIssue() public {
         vm.prank(guardian);
         attest.pause();
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__Paused.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testOthersCannotPause() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotAuthorized.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
         attest.pause();
     }
 
@@ -30,7 +30,7 @@ contract ZKPassportAttestAdminTest is AttestTestBase {
         vm.prank(admin);
         attest.pause();
         vm.prank(guardian);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotAuthorized.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
         attest.unpause();
         vm.prank(admin);
         attest.unpause();
@@ -73,7 +73,7 @@ contract ZKPassportAttestAdminTest is AttestTestBase {
 
     function testCannotTransferAdminToZero() public {
         vm.prank(admin);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ZeroAddress.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
         attest.transferAdmin(address(0));
     }
 }

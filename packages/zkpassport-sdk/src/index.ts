@@ -127,7 +127,7 @@ export {
   type AttestPolicySummary,
   type AttestReadClient,
 } from "./attest"
-export { ZKPassportAttestAbi } from "./assets/abi/zkpassport-attest"
+export { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 
 export * from "./types"
 export { createOfflineQuery } from "./offline-query"

@@ -50,7 +50,7 @@ export async function checkCredential(
 }
 
 /**
- * The single submission path for ZKPassportAttest.issue(). A relayer or
+ * The single submission path for ZKPassportCredentials.issue(). A relayer or
  * sponsored-gas flow replaces this function's internals; nothing upstream
  * changes.
  */
