@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 6cd2a7f2). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 4558d0bb). Do not edit by hand.
 // Source: forge build -> ZKPassportAttest.json -> .abi
 export const ZKPassportAttestAbi = [
   {
@@ -223,11 +223,6 @@ export const ZKPassportAttestAbi = [
             name: "metadataURL",
             type: "string",
             internalType: "string",
-          },
-          {
-            name: "hook",
-            type: "address",
-            internalType: "address",
           },
           {
             name: "retiredAt",
@@ -829,12 +824,6 @@ export const ZKPassportAttestAbi = [
         name: "owner",
         type: "address",
         indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "hook",
-        type: "address",
-        indexed: false,
         internalType: "address",
       },
     ],
