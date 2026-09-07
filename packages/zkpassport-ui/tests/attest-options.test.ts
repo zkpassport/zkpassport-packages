@@ -4,7 +4,6 @@ import { buildAttestCardOptions, type AttestVerifyOptions } from "../src/attest-
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
 const WALLET = "0x2222222222222222222222222222222222222222" as const
-const HOOK = "0x3333333333333333333333333333333333333333" as const
 const POLICY_ID = 42n
 const SCOPE = "attest:0x000000000000000000000000000000000000000000000000000000000000002a"
 const DOMAIN = "policy.example"
@@ -18,7 +17,6 @@ const basePolicy: AttestPolicy = {
   sanctionsCheck: false,
   excludedCountries: [],
   metadataURL: "https://policy.example/kyc",
-  hook: HOOK,
   retiredAt: 0n,
 }
 
