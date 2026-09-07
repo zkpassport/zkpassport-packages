@@ -3,9 +3,9 @@ pragma solidity ^0.8.30;
 
 import {NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {AttestTestBase} from "./AttestTestBase.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportAttestNullifierTypeTest is AttestTestBase {
+contract ZKPassportCredentialsNullifierTypeTest is AttestTestBase {
     uint256 internal saltedUniqueId;
     uint256 internal saltedNonUniqueId;
 
@@ -44,12 +44,12 @@ contract ZKPassportAttestNullifierTypeTest is AttestTestBase {
     }
 
     function testSaltedUniqueRejectsNonSaltedNullifier() public {
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__SaltedNullifierRequired.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__SaltedNullifierRequired.selector);
         attest.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
     }
 
     function testSaltedUniqueRejectsHiddenNullifier() public {
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__SaltedNullifierRequired.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__SaltedNullifierRequired.selector);
         attest.issue(wallet, saltedUniqueId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
     }
 
@@ -64,7 +64,7 @@ contract ZKPassportAttestNullifierTypeTest is AttestTestBase {
     }
 
     function testSaltedNonUniqueRejectsNonSaltedNullifier() public {
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__SaltedNullifierRequired.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__SaltedNullifierRequired.selector);
         attest.issue(wallet, saltedNonUniqueId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
     }
 

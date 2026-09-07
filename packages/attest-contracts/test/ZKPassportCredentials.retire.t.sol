@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportAttestRetireTest is AttestTestBase {
+contract ZKPassportCredentialsRetireTest is AttestTestBase {
     uint256 internal policyId;
 
     function setUp() public {
@@ -16,22 +16,22 @@ contract ZKPassportAttestRetireTest is AttestTestBase {
     function testOwnerCanRetire() public {
         vm.prank(creator);
         vm.expectEmit(true, false, false, false);
-        emit ZKPassportAttest.PolicyRetired(policyId);
+        emit ZKPassportCredentials.PolicyRetired(policyId);
         attest.retire(policyId);
         assertEq(attest.getPolicy(policyId).retiredAt, uint64(block.timestamp));
     }
 
     function testNonOwnerCannotRetire() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotPolicyOwner.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
         attest.retire(policyId);
 
         vm.prank(guardian);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotPolicyOwner.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
         attest.retire(policyId);
 
         vm.prank(admin);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotPolicyOwner.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
         attest.retire(policyId);
     }
 
@@ -39,20 +39,24 @@ contract ZKPassportAttestRetireTest is AttestTestBase {
         vm.prank(creator);
         attest.retire(policyId);
         vm.prank(creator);
-        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyRetired.selector, policyId));
+        vm.expectRevert(
+            abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyRetired.selector, policyId)
+        );
         attest.retire(policyId);
     }
 
     function testRetireUnknownPolicyReverts() public {
         vm.prank(creator);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotPolicyOwner.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
         attest.retire(uint256(999));
     }
 
     function testIssueRevertsForRetiredPolicy() public {
         vm.prank(creator);
         attest.retire(policyId);
-        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyRetired.selector, policyId));
+        vm.expectRevert(
+            abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyRetired.selector, policyId)
+        );
         attest.issue(wallet, policyId, _params());
     }
 
@@ -60,7 +64,9 @@ contract ZKPassportAttestRetireTest is AttestTestBase {
         attest.issue(wallet, policyId, _params());
         vm.prank(creator);
         attest.retire(policyId);
-        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyRetired.selector, policyId));
+        vm.expectRevert(
+            abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyRetired.selector, policyId)
+        );
         attest.issue(wallet, policyId, _params());
     }
 
