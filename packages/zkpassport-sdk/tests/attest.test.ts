@@ -4,7 +4,6 @@ import { SolidityVerifier } from "../src/solidity-verifier"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
 const WALLET = "0x2222222222222222222222222222222222222222" as const
-const HOOK = "0x3333333333333333333333333333333333333333" as const
 const POLICY_ID = 42n
 
 const SAMPLE_POLICY: AttestPolicy = {
@@ -16,7 +15,6 @@ const SAMPLE_POLICY: AttestPolicy = {
   sanctionsCheck: true,
   excludedCountries: ["PRK"],
   metadataURL: "https://policy.example/kyc",
-  hook: HOOK,
   retiredAt: 0n,
 }
 
@@ -72,12 +70,6 @@ describe("AttestClient reads", () => {
     expect(readCalls[1].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[2].args).toEqual([WALLET, POLICY_ID])
   })
-
-  test("hookFor returns the hook from getPolicy", async () => {
-    const { client } = stubClient(() => SAMPLE_POLICY)
-    const attest = new AttestClient({ client, address: REGISTRY })
-    expect(await attest.hookFor(POLICY_ID)).toBe(HOOK)
-  })
 })
 
 describe("AttestClient discovery", () => {
@@ -85,11 +77,11 @@ describe("AttestClient discovery", () => {
     const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
     ;(client as { getLogs: unknown }).getLogs = async (params: never) => {
       logCalls.push(params as Record<string, unknown>)
-      return [{ args: { policyId: POLICY_ID, owner: WALLET, hook: HOOK } }] as never
+      return [{ args: { policyId: POLICY_ID, owner: WALLET } }] as never
     }
     const attest = new AttestClient({ client, address: REGISTRY })
     const policies = await attest.listPolicies({ owner: WALLET, fromBlock: 5n })
-    expect(policies).toEqual([{ policyId: POLICY_ID, owner: WALLET, hook: HOOK }])
+    expect(policies).toEqual([{ policyId: POLICY_ID, owner: WALLET }])
     const call = logCalls[0] as { address: string; args?: { owner?: string }; fromBlock?: bigint }
     expect(call.address).toBe(REGISTRY)
     expect(call.args?.owner).toBe(WALLET)
@@ -103,37 +95,6 @@ describe("AttestClient discovery", () => {
     const call = logCalls[0] as { args?: unknown; fromBlock?: bigint }
     expect(call.args).toBeUndefined()
     expect(call.fromBlock).toBe(0n)
-  })
-
-  test("verifyHook accepts a matching hook and rejects mismatches", async () => {
-    const answersFor = (erc1155: string, tokenId: bigint) =>
-      stubClient((p) => (p.functionName === "erc1155" ? erc1155 : tokenId))
-    const good = new AttestClient({
-      client: answersFor(REGISTRY, POLICY_ID).client,
-      address: REGISTRY,
-    })
-    expect(await good.verifyHook(HOOK, POLICY_ID)).toBe(true)
-    const wrongRegistry = new AttestClient({
-      client: answersFor(WALLET, POLICY_ID).client,
-      address: REGISTRY,
-    })
-    expect(await wrongRegistry.verifyHook(HOOK, POLICY_ID)).toBe(false)
-    const wrongToken = new AttestClient({
-      client: answersFor(REGISTRY, 7n).client,
-      address: REGISTRY,
-    })
-    expect(await wrongToken.verifyHook(HOOK, POLICY_ID)).toBe(false)
-  })
-
-  test("verifyHook returns false when the address is not a hook", async () => {
-    const client = {
-      readContract: async () => {
-        throw new Error("execution reverted")
-      },
-      getLogs: async () => [],
-    } as unknown as AttestReadClient
-    const attest = new AttestClient({ client, address: REGISTRY })
-    expect(await attest.verifyHook(WALLET, POLICY_ID)).toBe(false)
   })
 })
 

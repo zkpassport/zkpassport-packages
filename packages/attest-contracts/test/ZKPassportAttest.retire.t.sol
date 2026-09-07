@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
 import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
-import {PolicyValidationHook} from "../src/PolicyValidationHook.sol";
 
 contract ZKPassportAttestRetireTest is AttestTestBase {
     uint256 internal policyId;
@@ -71,8 +70,6 @@ contract ZKPassportAttestRetireTest is AttestTestBase {
         attest.retire(policyId);
 
         assertEq(attest.balanceOf(wallet, policyId), 1);
-        PolicyValidationHook hook = PolicyValidationHook(attest.getPolicy(policyId).hook);
-        hook.validate(1e18, 100, wallet, wallet, "");
 
         vm.warp(uint256(attest.heldUntil(wallet, policyId)) + 1);
         assertEq(attest.balanceOf(wallet, policyId), 0);
