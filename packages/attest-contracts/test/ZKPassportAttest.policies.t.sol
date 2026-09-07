@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import {AttestTestBase} from "./AttestTestBase.sol";
 import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
 import {IRootVerifier} from "../src/interfaces/IRootVerifier.sol";
-import {PolicyValidationHook} from "../src/PolicyValidationHook.sol";
 
 contract ZKPassportAttestPoliciesTest is AttestTestBase {
     function setUp() public {
@@ -16,7 +15,7 @@ contract ZKPassportAttestPoliciesTest is AttestTestBase {
         assertEq(policyId, uint256(keccak256(abi.encode(creator, bytes32(uint256(1))))));
     }
 
-    function testCreatePolicyStoresFieldsAndDeploysHook() public {
+    function testCreatePolicyStoresFields() public {
         string[] memory excluded = new string[](1);
         excluded[0] = "PRK";
         vm.prank(creator);
@@ -30,15 +29,12 @@ contract ZKPassportAttestPoliciesTest is AttestTestBase {
         assertTrue(policy.sanctionsCheck);
         assertEq(policy.excludedCountries.length, 1);
         assertEq(policy.metadataURL, "https://policy.example/kyc");
-        PolicyValidationHook hook = PolicyValidationHook(policy.hook);
-        assertEq(address(hook.erc1155()), address(attest));
-        assertEq(hook.tokenId(), policyId);
     }
 
     function testCreatePolicyEmitsEvent() public {
         uint256 expectedId = uint256(keccak256(abi.encode(creator, bytes32(uint256(1)))));
         vm.expectEmit(true, true, false, false);
-        emit ZKPassportAttest.PolicyCreated(expectedId, creator, address(0));
+        emit ZKPassportAttest.PolicyCreated(expectedId, creator);
         _createDefaultPolicy();
     }
 
