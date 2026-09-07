@@ -9,7 +9,7 @@
 
 pragma solidity ^0.8.30;
 
-import {BoundData, ProofVerificationParams} from "./lib/Types.sol";
+import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
 
 interface IVerifierHelper {
     function getBoundData(bytes calldata committedInputs) external view returns (BoundData memory);
