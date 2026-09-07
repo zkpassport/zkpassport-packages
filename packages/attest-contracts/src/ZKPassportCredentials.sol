@@ -69,7 +69,6 @@ contract ZKPassportCredentials is ERC1155 {
     mapping(uint256 policyId => Policy) internal _policies;
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
     mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
-    mapping(uint256 policyId => mapping(address wallet => bytes32 nullifier)) internal _nullifierOf;
 
     constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin, address _guardian) ERC1155("") {
         if (_admin == address(0)) revert ZKPassportCredentials__ZeroAddress();
@@ -230,7 +229,6 @@ contract ZKPassportCredentials is ERC1155 {
         address prior = nullifierWallet[policyId][nullifier];
         if (prior != address(0) && prior != wallet) revert ZKPassportCredentials__SybilDetected(nullifier);
         nullifierWallet[policyId][nullifier] = wallet;
-        _nullifierOf[policyId][wallet] = nullifier;
     }
 
     /// @notice 1 while the wallet holds an unexpired credential for the policy, else 0
@@ -239,21 +237,18 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     /// @notice Remove a credential; only the holder or the ZKPassport guardian, never the policy owner.
-    ///         Guardian revocation is targeted incident response (court order, lost keys, wrongly
-    ///         issued credential) — sanctions propagation does NOT happen here: it is enforced at
+    ///         Guardian revocation is targeted incident response (court order, wrongly issued
+    ///         credential) — sanctions propagation does NOT happen here: it is enforced at
     ///         issuance/renewal against the current sanctions root, bounded by the policy's
     ///         validityPeriod, with no per-address enumeration.
+    ///         The nullifier stays bound to the wallet: releasing it would let a holder revoke and
+    ///         re-issue to a fresh wallet, timing repeated access to a one-per-document gate. The
+    ///         document can only ever re-credential the same wallet for this policy.
     function revoke(address wallet, uint256 policyId) external {
         if (msg.sender != wallet && msg.sender != guardian) revert ZKPassportCredentials__NotRevocable();
         if (heldUntil[wallet][policyId] == 0) revert ZKPassportCredentials__NothingToRevoke();
 
         heldUntil[wallet][policyId] = 0;
-
-        bytes32 nullifier = _nullifierOf[policyId][wallet];
-        if (nullifier != bytes32(0)) {
-            delete nullifierWallet[policyId][nullifier];
-            delete _nullifierOf[policyId][wallet];
-        }
 
         if (super.balanceOf(wallet, policyId) > 0) {
             _burn(wallet, policyId, 1);
