@@ -16,15 +16,15 @@ contract DeployAttestScript is Script {
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
 
         vm.startBroadcast();
-        ZKPassportCredentials attest = new ZKPassportCredentials{salt: create2Salt}(
+        ZKPassportCredentials zkPassportCredentials = new ZKPassportCredentials{salt: create2Salt}(
             IRootVerifier(rootVerifier), domain, adminAddress, guardianAddress
         );
         vm.stopBroadcast();
 
-        console.log("ZKPassportCredentials deployed at:", address(attest));
+        console.log("ZKPassportCredentials deployed at:", address(zkPassportCredentials));
 
         string memory json = "attest";
-        vm.serializeAddress(json, "address", address(attest));
+        vm.serializeAddress(json, "address", address(zkPassportCredentials));
         vm.serializeAddress(json, "root_verifier", rootVerifier);
         json = vm.serializeUint(json, "deployed_at", block.timestamp);
         vm.writeJson(json, string.concat("deployments/", vm.toString(block.chainid), ".json"));
