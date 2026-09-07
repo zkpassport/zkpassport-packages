@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {NullifierType, ProofVerificationParams, ProofVerificationData, ServiceConfig} from "@registry/lib/Types.sol";
 import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
-import {IRootVerifier} from "../src/interfaces/IRootVerifier.sol";
+import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
 contract AttestTestBase is Test {

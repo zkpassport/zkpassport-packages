@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
-import {IRootVerifier} from "../src/interfaces/IRootVerifier.sol";
+import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
 contract DeployAttestScript is Script {
     function run() public {
