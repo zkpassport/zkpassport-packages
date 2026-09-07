@@ -3,12 +3,12 @@ import { getAbiItem } from "viem"
 import type { ProofResult } from "@zkpassport/utils"
 import { SolidityVerifier } from "./solidity-verifier"
 import type { SolidityVerifierParameters } from "./types"
-import { ZKPassportAttestAbi } from "./assets/abi/zkpassport-attest"
+import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 
 /** Structural slice of viem's PublicClient — anything with these two methods works. */
 export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs">
 
-/** Mirrors ZKPassportAttest.Policy (packages/attest-contracts/src/ZKPassportAttest.sol). */
+/** Mirrors ZKPassportCredentials.Policy (packages/attest-contracts/src/ZKPassportCredentials.sol). */
 export type AttestPolicy = {
   owner: `0x${string}`
   validityPeriod: bigint
@@ -26,10 +26,10 @@ export type AttestPolicySummary = {
   owner: `0x${string}`
 }
 
-const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportAttestAbi, name: "PolicyCreated" })
+const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "PolicyCreated" })
 
 /**
- * Typed bindings for the ZKPassportAttest credential registry.
+ * Typed bindings for the ZKPassportCredentials credential registry.
  * Reads execute through the provided client; writes follow the
  * SolidityVerifier pattern (the consumer signs with their own wallet stack).
  */
@@ -45,7 +45,7 @@ export class AttestClient {
   private read(functionName: string, args: readonly unknown[]) {
     return this.client.readContract({
       address: this.address,
-      abi: ZKPassportAttestAbi,
+      abi: ZKPassportCredentialsAbi,
       functionName,
       args,
     } as never)
@@ -106,7 +106,7 @@ export class AttestClient {
   }
 
   /**
-   * Call details for ZKPassportAttest.issue(wallet, policyId, params).
+   * Call details for ZKPassportCredentials.issue(wallet, policyId, params).
    * The consumer executes with their own wallet stack (viem writeContract,
    * ethers, etc.) — the SDK never signs. Renewal is the same call: issuing
    * again extends heldUntil; there is no separate renew entrypoint.
@@ -122,9 +122,9 @@ export class AttestClient {
   getIssueDetails(): {
     address: `0x${string}`
     functionName: "issue"
-    abi: typeof ZKPassportAttestAbi
+    abi: typeof ZKPassportCredentialsAbi
   } {
-    return { address: this.address, functionName: "issue", abi: ZKPassportAttestAbi }
+    return { address: this.address, functionName: "issue", abi: ZKPassportCredentialsAbi }
   }
 
   /**
