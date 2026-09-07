@@ -7,8 +7,8 @@ import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
-contract AttestTestBase is Test {
-    ZKPassportCredentials internal attest;
+contract ZKPassportCredentialsTestBase is Test {
+    ZKPassportCredentials internal zkPassportCredentials;
     MockVerifierHelper internal mockHelper;
     MockRootVerifier internal mockVerifier;
     address internal admin = makeAddr("admin");
@@ -19,21 +19,21 @@ contract AttestTestBase is Test {
 
     string[] internal noCountries;
 
-    function _deployAttest(IRootVerifier verifier) internal {
-        attest = new ZKPassportCredentials(verifier, DOMAIN, admin, guardian);
+    function _deployZKPassportCredentials(IRootVerifier verifier) internal {
+        zkPassportCredentials = new ZKPassportCredentials(verifier, DOMAIN, admin, guardian);
     }
 
     function _deployWithMocks() internal {
         mockHelper = new MockVerifierHelper();
         mockVerifier = new MockRootVerifier(mockHelper);
-        _deployAttest(IRootVerifier(address(mockVerifier)));
+        _deployZKPassportCredentials(IRootVerifier(address(mockVerifier)));
         mockHelper.setBoundData(wallet, block.chainid, "");
         mockHelper.setProofTimestamp(block.timestamp);
     }
 
     function _createDefaultPolicy() internal returns (uint256) {
         vm.prank(creator);
-        return attest.createPolicy(
+        return zkPassportCredentials.createPolicy(
             bytes32(uint256(1)), 30 days, false, false, 0, false, noCountries, "https://policy.example/1"
         );
     }
