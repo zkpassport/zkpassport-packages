@@ -9,10 +9,10 @@ contract DeployAttestScript is Script {
     function run() public {
         address rootVerifier = vm.envAddress("ROOT_VERIFIER_ADDRESS");
         require(rootVerifier != address(0), "ROOT_VERIFIER_ADDRESS must be set");
-        string memory domain = vm.envOr("ATTEST_DOMAIN", string("zkpassport.id"));
-        address adminAddress = vm.envAddress("ATTEST_ADMIN_ADDRESS");
-        require(adminAddress != address(0), "ATTEST_ADMIN_ADDRESS must be set");
-        address guardianAddress = vm.envOr("ATTEST_GUARDIAN_ADDRESS", address(0));
+        string memory domain = vm.envOr("ZKPASSPORT_CREDENTIALS_DOMAIN", string("zkpassport.id"));
+        address adminAddress = vm.envAddress("ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS");
+        require(adminAddress != address(0), "ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS must be set");
+        address guardianAddress = vm.envOr("ZKPASSPORT_CREDENTIALS_GUARDIAN_ADDRESS", address(0));
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
 
         vm.startBroadcast();
