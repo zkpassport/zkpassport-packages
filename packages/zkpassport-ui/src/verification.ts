@@ -38,7 +38,7 @@ export type VerificationOptions = Omit<PopupRequestConfig, "attest"> &
     mintToken?: boolean
     /** mintToken only: chain the registry lives on (e.g. "ethereum_sepolia"). */
     chain?: SupportedChain
-    /** mintToken only: ZKPassportAttest registry address. */
+    /** mintToken only: ZKPassportCredentials registry address. */
     registry?: `0x${string}`
     /** mintToken only: RPC override for dev registries. */
     rpcUrl?: string

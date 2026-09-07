@@ -14,7 +14,7 @@ export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
  * Attestation minting request. When present, the popup ignores the free-form
  * query and instead resolves the on-chain policy from the registry, has the
  * user connect a wallet and pick the recipient account, binds that account
- * and the chain into the proof, and submits ZKPassportAttest.issue() itself.
+ * and the chain into the proof, and submits ZKPassportCredentials.issue() itself.
  * The recipient is chosen in the popup, not by the relying party; the outcome
  * reports which account was used.
  */
@@ -23,7 +23,7 @@ export type PopupAttestConfig = {
   chain: SupportedChain
   /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
   policyId: `0x${string}`
-  /** ZKPassportAttest registry address. */
+  /** ZKPassportCredentials registry address. */
   registry: `0x${string}`
   /** RPC override for dev registries; the popup uses the chain default otherwise. */
   rpcUrl?: string
@@ -43,7 +43,7 @@ export type PopupRequestConfig = {
 }
 
 /**
- * Ready-to-send ZKPassportAttest.issue() call. `abi` is the registry ABI as
+ * Ready-to-send ZKPassportCredentials.issue() call. `abi` is the registry ABI as
  * plain data — cast it for your client (e.g. viem's `Abi`); the popup keeps
  * this type dependency-free so relying parties don't inherit viem's types.
  */

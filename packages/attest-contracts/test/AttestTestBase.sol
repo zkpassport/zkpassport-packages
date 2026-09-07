@@ -3,12 +3,12 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {NullifierType, ProofVerificationParams, ProofVerificationData, ServiceConfig} from "@registry/lib/Types.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
 contract AttestTestBase is Test {
-    ZKPassportAttest internal attest;
+    ZKPassportCredentials internal attest;
     MockVerifierHelper internal mockHelper;
     MockRootVerifier internal mockVerifier;
     address internal admin = makeAddr("admin");
@@ -20,7 +20,7 @@ contract AttestTestBase is Test {
     string[] internal noCountries;
 
     function _deployAttest(IRootVerifier verifier) internal {
-        attest = new ZKPassportAttest(verifier, DOMAIN, admin, guardian);
+        attest = new ZKPassportCredentials(verifier, DOMAIN, admin, guardian);
     }
 
     function _deployWithMocks() internal {

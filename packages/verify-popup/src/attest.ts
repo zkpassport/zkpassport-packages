@@ -27,7 +27,7 @@ export async function hasCredential(
 }
 
 /**
- * The single submission path for ZKPassportAttest.issue(). Any connected
+ * The single submission path for ZKPassportCredentials.issue(). Any connected
  * account works as the sender — the credential goes to the wallet bound into
  * the proof. A relayer or sponsored-gas flow replaces this function's
  * internals; nothing upstream changes.
