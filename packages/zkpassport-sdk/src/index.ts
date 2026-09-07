@@ -128,7 +128,6 @@ export {
   type AttestReadClient,
 } from "./attest"
 export { ZKPassportAttestAbi } from "./assets/abi/zkpassport-attest"
-export { PolicyValidationHookAbi } from "./assets/abi/policy-validation-hook"
 
 export * from "./types"
 export { createOfflineQuery } from "./offline-query"

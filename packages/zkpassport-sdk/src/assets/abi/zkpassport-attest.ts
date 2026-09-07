@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 4558d0bb). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 8d9498ec). Do not edit by hand.
 // Source: forge build -> ZKPassportAttest.json -> .abi
 export const ZKPassportAttestAbi = [
   {
@@ -1079,11 +1079,6 @@ export const ZKPassportAttestAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportAttest__DevModeNotAllowed",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "ZKPassportAttest__ExcludedJurisdiction",
     inputs: [],
   },
@@ -1100,6 +1095,11 @@ export const ZKPassportAttestAbi = [
   {
     type: "error",
     name: "ZKPassportAttest__MissingNullifier",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZKPassportAttest__MockProofNotAllowed",
     inputs: [],
   },
   {
