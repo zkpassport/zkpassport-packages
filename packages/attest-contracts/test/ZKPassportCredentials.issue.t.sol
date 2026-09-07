@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportAttestIssueTest is AttestTestBase {
+contract ZKPassportCredentialsIssueTest is AttestTestBase {
     uint256 internal policyId;
 
     function setUp() public {
@@ -15,7 +15,7 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
 
     function testIssueGrantsCredential() public {
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportAttest.CredentialIssued(wallet, policyId, uint64(block.timestamp + 30 days));
+        emit ZKPassportCredentials.CredentialIssued(wallet, policyId, uint64(block.timestamp + 30 days));
         attest.issue(wallet, policyId, _params());
         assertEq(attest.heldUntil(wallet, policyId), uint64(block.timestamp + 30 days));
         assertEq(attest.balanceOf(wallet, policyId), 1);
@@ -29,31 +29,31 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
 
     function testIssueRevertsForUnknownPolicy() public {
         vm.expectRevert(
-            abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyNotFound.selector, uint256(999))
+            abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyNotFound.selector, uint256(999))
         );
         attest.issue(wallet, 999, _params());
     }
 
     function testIssueRevertsOnDevMode() public {
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__DevModeNotAllowed.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__DevModeNotAllowed.selector);
         attest.issue(wallet, policyId, _devModeParams());
     }
 
     function testIssueRevertsOnInvalidProof() public {
         mockVerifier.setValid(false);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__InvalidProof.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidProof.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsOnWrongScope() public {
         mockHelper.setScopesOk(false);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__WrongScope.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WrongScope.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsOnStaleProof() public {
         mockHelper.setProofTimestamp(block.timestamp - 1 hours - 1);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__StaleProof.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__StaleProof.selector);
         attest.issue(wallet, policyId, _params());
     }
 
@@ -65,19 +65,19 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
 
     function testIssueRevertsWhenBoundToOtherWallet() public {
         mockHelper.setBoundData(makeAddr("mallory"), block.chainid, "");
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ProofNotBoundToWallet.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ProofNotBoundToWallet.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsWhenBoundToOtherChain() public {
         mockHelper.setBoundData(wallet, block.chainid + 1, "");
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__ProofNotBoundToChain.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ProofNotBoundToChain.selector);
         attest.issue(wallet, policyId, _params());
     }
 
     function testIssueRevertsOnUnexpectedCustomData() public {
         mockHelper.setBoundData(wallet, block.chainid, "extra");
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__UnexpectedBoundData.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__UnexpectedBoundData.selector);
         attest.issue(wallet, policyId, _params());
     }
 
@@ -89,7 +89,7 @@ contract ZKPassportAttestIssueTest is AttestTestBase {
 
     function testIssueRevertsWhenScopesDoNotMatch() public {
         mockHelper.setExpectedScopes("evil.example", attest.policyScope(policyId));
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__WrongScope.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WrongScope.selector);
         attest.issue(wallet, policyId, _params());
     }
 }
