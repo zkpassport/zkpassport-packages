@@ -22,7 +22,7 @@ export type AttestVerifyResult = {
   /** The unmodified SDK result payload. */
   raw: CardResult
   /**
-   * Ready-to-send ZKPassportAttest.issue() call; present when verified with
+   * Ready-to-send ZKPassportCredentials.issue() call; present when verified with
    * an EVM proof on a non-dev request (dev-mode proofs revert on-chain).
    */
   issueCall?: AttestIssueCall
@@ -63,7 +63,7 @@ export type AttestVerifyOptions = ForwardedCardCallbacks & {
 /**
  * Resolve a policy from the attest registry (unless supplied) and build the
  * ZKPassportQRCodeOptions that make the existing QR card request exactly the
- * proof ZKPassportAttest.issue() verifies for that policy.
+ * proof ZKPassportCredentials.issue() verifies for that policy.
  */
 export async function buildAttestCardOptions(
   options: AttestVerifyOptions,

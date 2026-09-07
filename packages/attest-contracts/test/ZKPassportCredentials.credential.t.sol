@@ -2,11 +2,11 @@
 pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import {Vm} from "forge-std/Vm.sol";
 
-contract ZKPassportAttestCredentialTest is AttestTestBase {
+contract ZKPassportCredentialsCredentialTest is AttestTestBase {
     uint256 internal policyId;
 
     function setUp() public {
@@ -37,7 +37,7 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
         vm.warp(uint256(attest.heldUntil(wallet, policyId)) + 1);
         mockHelper.setProofTimestamp(block.timestamp);
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportAttest.CredentialRenewed(wallet, policyId, uint64(block.timestamp + 30 days));
+        emit ZKPassportCredentials.CredentialRenewed(wallet, policyId, uint64(block.timestamp + 30 days));
         Vm.Log[] memory logs = new Vm.Log[](0);
         vm.recordLogs();
         attest.issue(wallet, policyId, _params());
@@ -54,7 +54,7 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
 
     function testTransfersRevert() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__TokenIsSoulbound.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__TokenIsSoulbound.selector);
         attest.safeTransferFrom(wallet, makeAddr("receiver"), policyId, 1, "");
     }
 
@@ -64,20 +64,20 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
         uint256[] memory values = new uint256[](1);
         values[0] = 1;
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__TokenIsSoulbound.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__TokenIsSoulbound.selector);
         attest.safeBatchTransferFrom(wallet, makeAddr("receiver"), ids, values, "");
     }
 
     function testApprovalsRevert() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__TokenIsSoulbound.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__TokenIsSoulbound.selector);
         attest.setApprovalForAll(makeAddr("operator"), true);
     }
 
     function testHolderCanRevokeSelf() public {
         vm.prank(wallet);
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportAttest.CredentialRevoked(wallet, policyId, wallet);
+        emit ZKPassportCredentials.CredentialRevoked(wallet, policyId, wallet);
         attest.revoke(wallet, policyId);
         assertEq(attest.balanceOf(wallet, policyId), 0);
         assertEq(attest.heldUntil(wallet, policyId), 0);
@@ -91,14 +91,14 @@ contract ZKPassportAttestCredentialTest is AttestTestBase {
 
     function testPolicyOwnerCannotRevoke() public {
         vm.prank(creator);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NotRevocable.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotRevocable.selector);
         attest.revoke(wallet, policyId);
     }
 
     function testRevokeWithoutCredentialReverts() public {
         address stranger = makeAddr("stranger");
         vm.prank(stranger);
-        vm.expectRevert(ZKPassportAttest.ZKPassportAttest__NothingToRevoke.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NothingToRevoke.selector);
         attest.revoke(stranger, policyId);
     }
 
