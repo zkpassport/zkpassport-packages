@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
-import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
+import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportAttestFuzzTest is AttestTestBase {
+contract ZKPassportCredentialsFuzzTest is AttestTestBase {
     function setUp() public {
         vm.warp(1_700_000_000);
         _deployWithMocks();
@@ -46,12 +46,14 @@ contract ZKPassportAttestFuzzTest is AttestTestBase {
         assertEq(attest.balanceOf(wallet, policyId), expectedBalance);
     }
 
-    /// @notice Any policy id that was never created reverts with ZKPassportAttest__PolicyNotFound.
+    /// @notice Any policy id that was never created reverts with ZKPassportCredentials__PolicyNotFound.
     function testFuzzUnknownPolicyIdReverts(uint256 policyId) public {
         uint256 knownPolicyId = _createDefaultPolicy();
         vm.assume(policyId != knownPolicyId);
 
-        vm.expectRevert(abi.encodeWithSelector(ZKPassportAttest.ZKPassportAttest__PolicyNotFound.selector, policyId));
+        vm.expectRevert(
+            abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyNotFound.selector, policyId)
+        );
         attest.getPolicy(policyId);
     }
 }
