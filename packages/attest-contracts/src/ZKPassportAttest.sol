@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {BoundData, NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
-import {IRootVerifier, IVerifierHelper} from "./interfaces/IRootVerifier.sol";
+import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 
 /**
  * @title  ZKPassportAttest
