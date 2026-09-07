@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {AttestTestBase} from "./AttestTestBase.sol";
+import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
-contract ZKPassportCredentialsFuzzTest is AttestTestBase {
+contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
     function setUp() public {
         vm.warp(1_700_000_000);
         _deployWithMocks();
@@ -16,7 +16,7 @@ contract ZKPassportCredentialsFuzzTest is AttestTestBase {
         vm.assume(validityPeriod > 0);
 
         vm.prank(creator);
-        uint256 policyId = attest.createPolicy(
+        uint256 policyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(validityPeriod)),
             validityPeriod,
             false,
@@ -26,24 +26,24 @@ contract ZKPassportCredentialsFuzzTest is AttestTestBase {
             noCountries,
             "https://policy.example/fuzz"
         );
-        attest.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(wallet, policyId, _params());
 
         uint64 expectedHeldUntil = uint64(block.timestamp + validityPeriod);
-        assertEq(attest.heldUntil(wallet, policyId), expectedHeldUntil);
+        assertEq(zkPassportCredentials.heldUntil(wallet, policyId), expectedHeldUntil);
 
         uint256 expectedBalance = uint256(expectedHeldUntil) >= block.timestamp ? 1 : 0;
-        assertEq(attest.balanceOf(wallet, policyId), expectedBalance);
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), expectedBalance);
     }
 
     /// @notice Balance flips from 1 to 0 exactly at the policy's validity period boundary.
     function testFuzzExpiryBoundary(uint32 elapsed) public {
         uint256 policyId = _createDefaultPolicy();
-        attest.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(wallet, policyId, _params());
 
         vm.warp(block.timestamp + elapsed);
 
         uint256 expectedBalance = elapsed <= 30 days ? 1 : 0;
-        assertEq(attest.balanceOf(wallet, policyId), expectedBalance);
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), expectedBalance);
     }
 
     /// @notice Any policy id that was never created reverts with ZKPassportCredentials__PolicyNotFound.
@@ -54,6 +54,6 @@ contract ZKPassportCredentialsFuzzTest is AttestTestBase {
         vm.expectRevert(
             abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyNotFound.selector, policyId)
         );
-        attest.getPolicy(policyId);
+        zkPassportCredentials.getPolicy(policyId);
     }
 }
