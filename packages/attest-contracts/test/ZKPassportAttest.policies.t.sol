@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {AttestTestBase} from "./AttestTestBase.sol";
 import {ZKPassportAttest} from "../src/ZKPassportAttest.sol";
-import {IRootVerifier} from "../src/interfaces/IRootVerifier.sol";
+import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
 contract ZKPassportAttestPoliciesTest is AttestTestBase {
     function setUp() public {

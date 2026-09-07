@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
-import {IRootVerifier, IVerifierHelper} from "../../src/interfaces/IRootVerifier.sol";
+import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 
 contract MockVerifierHelper is IVerifierHelper {
     BoundData internal _boundData;
