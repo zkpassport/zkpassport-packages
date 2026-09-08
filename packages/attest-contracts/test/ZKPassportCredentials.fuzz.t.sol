@@ -26,7 +26,7 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
             noCountries,
             "https://policy.example/fuzz"
         );
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
 
         uint64 expectedHeldUntil = uint64(block.timestamp + credentialDuration);
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), expectedHeldUntil);
@@ -38,7 +38,7 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
     /// @notice Balance flips from 1 to 0 exactly at the policy's validity period boundary.
     function testFuzzExpiryBoundary(uint32 elapsed) public {
         uint256 policyId = _createDefaultPolicy();
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
 
         vm.warp(block.timestamp + elapsed);
 
