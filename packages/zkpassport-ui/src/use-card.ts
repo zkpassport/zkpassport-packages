@@ -50,7 +50,6 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   const optionsRef = useRef(options)
   optionsRef.current = options
 
-  const requestRef = useRef<QueryBuilderResult | null>(null)
   // The bridge/QR-flow state, tracked even while the intro screen is showing so
   // Continue lands on the right screen
   const bridgeStateRef = useRef<CardState>("preparing")
@@ -76,7 +75,6 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     setServiceName(null)
     setServiceLogo(null)
     setProofProgress({ received: 0, total: null })
-    requestRef.current = null
 
     const {
       domain: _domain,
@@ -106,10 +104,17 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       safeCall(optionsRef.current.onReady)
     }
 
+    // Update the QR-flow state; while the intro is showing only the ref advances
+    const applyBridgeState = (next: CardState, forceShow = false) => {
+      bridgeStateRef.current = next
+      if (forceShow) introActiveRef.current = false
+      if (!introActiveRef.current) setState(next)
+    }
+
     // onError is the only way to tell the host app that something went wrong
     const fail = (summary: string, reason: unknown) => {
       logger.error(reason)
-      setState("error")
+      applyBridgeState("error", true)
       const detail = reason instanceof Error ? reason.message : String(reason)
       safeCall(optionsRef.current.onError, `${summary}: ${detail}`)
     }
@@ -125,30 +130,19 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         }
       }
 
-    // Update the QR-flow state; while the intro is showing only the ref advances
-    const applyBridgeState = (next: CardState, forceShow = false) => {
-      bridgeStateRef.current = next
-      if (forceShow) introActiveRef.current = false
-      if (!introActiveRef.current) setState(next)
-    }
-
     sdkRef
       .current!.request({ ...sdkRequestArgs, verifierMode: "api" })
       .then((queryBuilder) => {
-        if (cancelled) {
-          // Restarted or unmounted while the request was still being set up: release its bridge
-          try {
-            sdkRef.current!.cancelRequest(queryBuilder.done().requestId)
-          } catch (reason) {
-            logger.error(reason)
-          }
-          return
-        }
         let request: QueryBuilderResult
         try {
           request = buildQuery(queryBuilder)
         } catch (reason) {
-          fail("Failed to build the verification query", reason)
+          if (!cancelled) fail("Failed to build the verification query", reason)
+          return
+        }
+        if (cancelled) {
+          // Restarted or unmounted while the request was still being set up: release its bridge
+          sdkRef.current!.cancelRequest(request.requestId)
           return
         }
 
@@ -156,18 +150,22 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         let stateBeforeLoss: CardState = "waiting"
         request.onBridgeConnect(
           guard(() => {
-            const current = bridgeStateRef.current
-            if (current === "preparing" || current === "connecting") applyBridgeState("waiting")
-            else if (current === "disconnected") applyBridgeState(stateBeforeLoss)
+            const bridgeState = bridgeStateRef.current
+            if (bridgeState === "preparing" || bridgeState === "connecting") {
+              applyBridgeState("waiting")
+            } else if (bridgeState === "disconnected") {
+              applyBridgeState(stateBeforeLoss)
+            }
             fireReady()
             safeCall(optionsRef.current.onBridgeConnect)
           }),
         )
         request.onBridgeConnectionLost(
           guard(() => {
-            const current = bridgeStateRef.current
-            if (current === "success" || current === "error") return
-            stateBeforeLoss = current
+            const bridgeState = bridgeStateRef.current
+            const flowIsOver = bridgeState === "success" || bridgeState === "error"
+            if (flowIsOver || bridgeState === "disconnected") return
+            stateBeforeLoss = bridgeState
             applyBridgeState("disconnected")
           }),
         )
@@ -203,8 +201,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             // returning false (e.g. when its backend did not verify the proofs)
             const finish = (next: "success" | "error") => {
               if (cancelled) return
-              introActiveRef.current = false
-              setState(next)
+              applyBridgeState(next, true)
             }
             let verdict: unknown
             try {
@@ -228,27 +225,23 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         if (onResult) {
           request.onResult(
             guard((response) => {
-              introActiveRef.current = false
-              setState(response.verified ? "success" : "error")
+              applyBridgeState(response.verified ? "success" : "error", true)
               safeCall(optionsRef.current.onResult, response)
             }),
           )
         }
         request.onReject(
           guard(() => {
-            introActiveRef.current = false
-            setState("error")
+            applyBridgeState("error", true)
             safeCall(optionsRef.current.onReject)
           }),
         )
         request.onError(
           guard((message) => {
-            introActiveRef.current = false
-            setState("error")
+            applyBridgeState("error", true)
             safeCall(optionsRef.current.onError, message)
           }),
         )
-        requestRef.current = request
         setQuery(request.query)
         // Branding resolved by the SDK (options first, then dashboard config)
         try {
@@ -286,8 +279,8 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
 
     return () => {
       cancelled = true
-      // Close the old bridge so it stops pinging and the phone cannot join a stale request
-      if (requestRef.current) sdkRef.current!.cancelRequest(requestRef.current.requestId)
+      // Close this card's bridge so it stops pinging and the phone cannot join a stale request
+      sdkRef.current!.clearAllRequests()
     }
   }, [retryNonce])
 

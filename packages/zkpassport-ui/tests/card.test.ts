@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { ZKPassport } from "@zkpassport/sdk"
-import type { QueryBuilderResult } from "@zkpassport/sdk"
+import type { QueryBuilder, QueryBuilderResult } from "@zkpassport/sdk"
 import { mount } from "../src/vanilla"
 
 beforeAll(() => {
@@ -20,6 +19,7 @@ type FakeRequest = {
   fire: (event: string, ...args: unknown[]) => void
   // Resolve the pending sdk.request() call
   release: () => void
+  ready: Promise<void>
 }
 
 function fakeRequest(id: string): FakeRequest {
@@ -46,32 +46,37 @@ function fakeRequest(id: string): FakeRequest {
   const fire = (name: string, ...args: unknown[]) => {
     for (const callback of listeners[name] ?? []) callback(...args)
   }
-  return { request, fire, release: () => {} }
+  let release!: () => void
+  const ready = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return { request, fire, release, ready }
 }
 
 const requests: FakeRequest[] = []
-const cancelled: string[] = []
+const sdkCalls: string[] = []
 let holdRequests = false
 let spies: Array<{ mockRestore: () => void }> = []
 
-function stubSdk() {
+beforeEach(() => {
   requests.length = 0
-  cancelled.length = 0
+  sdkCalls.length = 0
   holdRequests = false
   spies = [
-    spyOn(ZKPassport.prototype, "request").mockImplementation((() => {
+    spyOn(ZKPassport.prototype, "request").mockImplementation(() => {
       const fake = fakeRequest(`request-${requests.length + 1}`)
       requests.push(fake)
-      return new Promise((resolve) => {
-        fake.release = () => resolve({ done: () => fake.request })
-        if (!holdRequests) fake.release()
-      })
-    }) as any),
+      if (!holdRequests) fake.release()
+      return fake.ready.then(() => ({ done: () => fake.request }) as unknown as QueryBuilder)
+    }),
     spyOn(ZKPassport.prototype, "cancelRequest").mockImplementation((requestId: string) => {
-      cancelled.push(requestId)
+      sdkCalls.push(`cancelRequest:${requestId}`)
+    }),
+    spyOn(ZKPassport.prototype, "clearAllRequests").mockImplementation(() => {
+      sdkCalls.push("clearAllRequests")
     }),
   ]
-}
+})
 
 afterEach(() => {
   for (const spy of spies) spy.mockRestore()
@@ -87,6 +92,8 @@ async function waitFor(condition: () => boolean) {
   throw new Error("Timed out waiting for the card")
 }
 
+const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
+
 function mountCard() {
   const host = document.createElement("div")
   document.body.appendChild(host)
@@ -97,7 +104,6 @@ function mountCard() {
 
 describe("Card", () => {
   test("shows the connection lost state until the bridge comes back", async () => {
-    stubSdk()
     const { host, handle, state } = mountCard()
     await waitFor(() => state() === "connecting")
 
@@ -107,37 +113,52 @@ describe("Card", () => {
     requests[0].fire("onBridgeConnectionLost")
     await waitFor(() => state() === "disconnected")
     expect(host.querySelector(".zkp-overlay-caption")?.textContent).toBe("Connection lost")
-    expect(host.querySelector(".zkp-restart")).not.toBeNull()
+    expect(host.querySelector(".zkp-retry")).not.toBeNull()
 
+    // Every failed retry round reports the loss again
+    requests[0].fire("onBridgeConnectionLost")
+    await settle()
     requests[0].fire("onBridgeConnect")
     await waitFor(() => state() === "waiting")
     handle.unmount()
   })
 
+  test("keeps the final screen when the connection is lost after a result", async () => {
+    const { handle, state } = mountCard()
+    await waitFor(() => state() === "connecting")
+
+    requests[0].fire("onBridgeConnect")
+    requests[0].fire("onSuccess", { proofs: [], result: {} })
+    await waitFor(() => state() === "success")
+
+    requests[0].fire("onBridgeConnectionLost")
+    await settle()
+    expect(state()).toBe("success")
+    handle.unmount()
+  })
+
   test("restart cancels the previous request", async () => {
-    stubSdk()
     const { handle, state } = mountCard()
     await waitFor(() => state() === "connecting")
 
     handle.retry()
     await waitFor(() => requests.length === 2)
-    expect(cancelled).toEqual(["request-1"])
+    expect(sdkCalls).toEqual(["clearAllRequests"])
     handle.unmount()
   })
 
   test("unmount cancels the request, even one still being set up", async () => {
-    stubSdk()
     const first = mountCard()
     await waitFor(() => first.state() === "connecting")
     first.handle.unmount()
-    expect(cancelled).toEqual(["request-1"])
+    expect(sdkCalls).toEqual(["clearAllRequests"])
 
     holdRequests = true
     const second = mountCard()
     await waitFor(() => requests.length === 2)
     second.handle.unmount()
     requests[1].release()
-    await waitFor(() => cancelled.length === 2)
-    expect(cancelled).toEqual(["request-1", "request-2"])
+    await waitFor(() => sdkCalls.length === 3)
+    expect(sdkCalls).toEqual(["clearAllRequests", "clearAllRequests", "cancelRequest:request-2"])
   })
 })

@@ -65,7 +65,7 @@ export function Card({ options, controlRef }: CardProps) {
     state === "scanned" || state === "generating" || state === "success" || state === "error"
   const hasFacematch = !!query?.facematch
   const overlayCaption = getOverlayCaption(state)
-  const canRestart = state === "waiting" || state === "scanned" || state === "disconnected"
+  const canRestart = state === "waiting" || state === "scanned"
   // Phones can't scan their own screen: lead with the universal link into the
   // app; the QR stays behind a toggle for cross-device flows
   const [qrRevealed, setQrRevealed] = useState(false)
