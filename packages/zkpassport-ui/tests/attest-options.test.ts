@@ -11,8 +11,7 @@ const DOMAIN = "policy.example"
 const basePolicy: AttestPolicy = {
   owner: WALLET,
   validityPeriod: 2592000n,
-  unique: true,
-  saltedNullifierOnly: false,
+  uniqueIdentifierType: NullifierType.NON_SALTED,
   minAge: 0,
   sanctionsCheck: false,
   excludedCountries: [],
@@ -78,8 +77,8 @@ describe("buildAttestCardOptions request props", () => {
     ])
   })
 
-  test("unique salted policies request the salted unique identifier type", async () => {
-    const policy = { ...basePolicy, saltedNullifierOnly: true }
+  test("salted policies request the salted unique identifier type", async () => {
+    const policy: AttestPolicy = { ...basePolicy, uniqueIdentifierType: NullifierType.SALTED }
     const options = await buildAttestCardOptions({
       ...baseOptions(policy),
       ...{ client: stubChain(policy).client },
@@ -87,8 +86,8 @@ describe("buildAttestCardOptions request props", () => {
     expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
   })
 
-  test("non-unique policies leave the unique identifier type unconstrained", async () => {
-    const policy = { ...basePolicy, unique: false, saltedNullifierOnly: true }
+  test("policies without dedup leave the unique identifier type unconstrained", async () => {
+    const policy: AttestPolicy = { ...basePolicy, uniqueIdentifierType: NullifierType.NONE }
     const options = await buildAttestCardOptions({
       ...baseOptions(policy),
       ...{ client: stubChain(policy).client },
@@ -168,8 +167,8 @@ describe("buildAttestCardOptions query translation", () => {
     ])
   })
 
-  test("unique salted policy adds strict facematch, required by the salted nullifier", async () => {
-    const calls = await queryCalls({ ...basePolicy, saltedNullifierOnly: true })
+  test("salted policy adds strict facematch, required by the salted nullifier", async () => {
+    const calls = await queryCalls({ ...basePolicy, uniqueIdentifierType: NullifierType.SALTED })
     expect(calls).toEqual([
       { method: "facematch", args: ["strict"] },
       { method: "bind", args: ["user_address", WALLET] },
@@ -178,8 +177,8 @@ describe("buildAttestCardOptions query translation", () => {
     ])
   })
 
-  test("non-unique salted policy needs no nullifier, so no facematch", async () => {
-    const calls = await queryCalls({ ...basePolicy, unique: false, saltedNullifierOnly: true })
+  test("policy without dedup needs no nullifier, so no facematch", async () => {
+    const calls = await queryCalls({ ...basePolicy, uniqueIdentifierType: NullifierType.NONE })
     expect(calls).toEqual([
       { method: "bind", args: ["user_address", WALLET] },
       { method: "bind", args: ["chain", "ethereum_sepolia"] },

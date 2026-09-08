@@ -33,7 +33,13 @@ contract ZKPassportCredentialsTestBase is Test {
     function _createDefaultPolicy() internal returns (uint256) {
         vm.prank(creator);
         return zkPassportCredentials.createPolicy(
-            bytes32(uint256(1)), 30 days, false, false, 0, false, noCountries, "https://policy.example/1"
+            bytes32(uint256(1)),
+            30 days,
+            NullifierType.NONE_NULLIFIER,
+            0,
+            false,
+            noCountries,
+            "https://policy.example/1"
         );
     }
 

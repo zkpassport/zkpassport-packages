@@ -105,16 +105,13 @@ export async function buildAttestCardOptions(
     // attest flow needs a verdict before minting even where that API is not
     // reachable (local dev has no CORS grant) — verify locally, API as backup.
     verifierMode: "auto",
-    // Only uniqueness needs a nullifier to dedupe on; the contract ignores the
-    // nullifier for non-unique policies regardless of their saltedNullifierOnly
-    // flag, so those leave the type unconstrained — the app includes a
-    // non-salted nullifier even when NONE is requested, and the sdk's
-    // requested-type enforcement would reject that mismatch.
-    uniqueIdentifierType: policy.unique
-      ? policy.saltedNullifierOnly
-        ? NullifierType.SALTED
-        : NullifierType.NON_SALTED
-      : undefined,
+    // The policy's uniqueIdentifierType is the request's, except NONE: the
+    // contract skips the type check for those policies, and the app includes
+    // a non-salted nullifier even when NONE is requested — the sdk's
+    // requested-type enforcement would reject that mismatch, so NONE stays
+    // unconstrained.
+    uniqueIdentifierType:
+      policy.uniqueIdentifierType === NullifierType.NONE ? undefined : policy.uniqueIdentifierType,
     query: (qb) => {
       let q = qb
       if (policy.minAge > 0) q = q.gte("age", policy.minAge)
@@ -125,7 +122,7 @@ export async function buildAttestCardOptions(
       // The contract verifies sanctions proofs in strict mode.
       if (policy.sanctionsCheck) q = q.sanctions("all", "all", { strict: true })
       // The SDK requires strict facematch whenever the salted nullifier is used.
-      if (policy.unique && policy.saltedNullifierOnly) q = q.facematch("strict")
+      if (policy.uniqueIdentifierType === NullifierType.SALTED) q = q.facematch("strict")
       return q.bind("user_address", wallet).bind("chain", chain).done()
     },
     onReady: options.onReady,

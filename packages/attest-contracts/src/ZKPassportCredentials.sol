@@ -15,8 +15,7 @@ contract ZKPassportCredentials is ERC1155 {
     struct Policy {
         address owner;
         uint64 validityPeriod;
-        bool unique;
-        bool saltedNullifierOnly;
+        NullifierType uniqueIdentifierType;
         uint8 minAge;
         bool sanctionsCheck;
         string[] excludedCountries;
@@ -29,7 +28,8 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__InvalidValidityPeriod();
     error ZKPassportCredentials__NotPolicyOwner();
     error ZKPassportCredentials__PolicyRetired(uint256 policyId);
-    error ZKPassportCredentials__SaltedNullifierRequired();
+    error ZKPassportCredentials__InvalidNullifierType();
+    error ZKPassportCredentials__WrongNullifierType();
     error ZKPassportCredentials__MockProofNotAllowed();
     error ZKPassportCredentials__InvalidProof();
     error ZKPassportCredentials__WrongScope();
@@ -92,18 +92,24 @@ contract ZKPassportCredentials is ERC1155 {
         admin = _admin;
     }
 
-    /// @notice Create a policy; the id is namespaced by creator and salt and stable across chains
+    /// @notice Create a policy; the id is namespaced by creator and salt and stable across chains.
+    ///         uniqueIdentifierType NONE_NULLIFIER means no one-per-document dedup; NON_SALTED_NULLIFIER
+    ///         and SALTED_NULLIFIER demand exactly that nullifier type from every proof and dedup on it.
     function createPolicy(
         bytes32 salt,
         uint64 validityPeriod,
-        bool unique,
-        bool saltedNullifierOnly,
+        NullifierType uniqueIdentifierType,
         uint8 minAge,
         bool sanctionsCheck,
         string[] calldata excludedCountries,
         string calldata metadataURL
     ) external returns (uint256 policyId) {
         if (validityPeriod == 0) revert ZKPassportCredentials__InvalidValidityPeriod();
+        if (
+            uniqueIdentifierType != NullifierType.NONE_NULLIFIER
+                && uniqueIdentifierType != NullifierType.NON_SALTED_NULLIFIER
+                && uniqueIdentifierType != NullifierType.SALTED_NULLIFIER
+        ) revert ZKPassportCredentials__InvalidNullifierType();
 
         policyId = uint256(keccak256(abi.encode(msg.sender, salt)));
         if (_policies[policyId].owner != address(0)) revert ZKPassportCredentials__PolicyAlreadyExists(policyId);
@@ -111,8 +117,7 @@ contract ZKPassportCredentials is ERC1155 {
         Policy storage policy = _policies[policyId];
         policy.owner = msg.sender;
         policy.validityPeriod = validityPeriod;
-        policy.unique = unique;
-        policy.saltedNullifierOnly = saltedNullifierOnly;
+        policy.uniqueIdentifierType = uniqueIdentifierType;
         policy.minAge = minAge;
         policy.sanctionsCheck = sanctionsCheck;
         for (uint256 i = 0; i < excludedCountries.length; i++) {
@@ -194,11 +199,9 @@ contract ZKPassportCredentials is ERC1155 {
             revert ZKPassportCredentials__MockProofNotAllowed();
         }
 
-        if (policy.saltedNullifierOnly) {
-            bool acceptable = nullifierType == NullifierType.SALTED_NULLIFIER
-                || (!policy.unique && nullifierType == NullifierType.NONE_NULLIFIER);
-
-            if (!acceptable) revert ZKPassportCredentials__SaltedNullifierRequired();
+        if (policy.uniqueIdentifierType != NullifierType.NONE_NULLIFIER && nullifierType != policy.uniqueIdentifierType)
+        {
+            revert ZKPassportCredentials__WrongNullifierType();
         }
 
         _enforcePredicates(policy, helper, params.committedInputs);
@@ -236,7 +239,7 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     function _consumeNullifier(Policy storage policy, uint256 policyId, bytes32 nullifier, address wallet) internal {
-        if (!policy.unique) return;
+        if (policy.uniqueIdentifierType == NullifierType.NONE_NULLIFIER) return;
         if (nullifier == bytes32(0)) revert ZKPassportCredentials__MissingNullifier();
         address prior = nullifierWallet[policyId][nullifier];
         if (prior != address(0) && prior != wallet) revert ZKPassportCredentials__SybilDetected(nullifier);
