@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 
 contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase {
     uint256 internal saltedPolicyId;
@@ -71,9 +72,24 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         zkPassportCredentials.issue(nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
     }
 
-    function testUnrestrictedPolicyNeverReadsNullifierType() public {
+    function testUnrestrictedPolicyAcceptsEveryRealNullifierType() public {
         uint256 defaultPolicyId = _createDefaultPolicy();
-        zkPassportCredentials.issue(defaultPolicyId, _params());
+        zkPassportCredentials.issue(defaultPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
+        zkPassportCredentials.issue(defaultPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+        zkPassportCredentials.issue(defaultPolicyId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
         assertEq(zkPassportCredentials.balanceOf(wallet, defaultPolicyId), 1);
+    }
+
+    function testUnrestrictedPolicyRejectsMockNullifierTypes() public {
+        uint256 defaultPolicyId = _createDefaultPolicy();
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__MockProofNotAllowed.selector);
+        zkPassportCredentials.issue(defaultPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER));
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__MockProofNotAllowed.selector);
+        zkPassportCredentials.issue(defaultPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
+    }
+
+    function testSaltedPolicyRejectsMockSaltedNullifier() public {
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__MockProofNotAllowed.selector);
+        zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }
 }

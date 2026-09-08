@@ -35,9 +35,9 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.issue(999, _params());
     }
 
-    function testIssueRevertsOnDevMode() public {
-        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__DevModeNotAllowed.selector);
+    function testIssueAcceptsDevModeParams() public {
         zkPassportCredentials.issue(policyId, _devModeParams());
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
     function testIssueMintsToContractWalletWithoutReceiver() public {
