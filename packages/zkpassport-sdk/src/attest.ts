@@ -5,6 +5,7 @@ import type { RequestedNullifierType } from "./types"
 import { SolidityVerifier } from "./solidity-verifier"
 import type { SolidityVerifierParameters } from "./types"
 import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
+import { PolicyEvaluatorV1Abi } from "./assets/abi/policy-evaluator-v1"
 
 /** Structural slice of viem's PublicClient — anything with these two methods works. */
 export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs">
@@ -13,12 +14,19 @@ export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs">
 export type AttestPolicy = {
   owner: `0x${string}`
   credentialDuration: bigint
+  evaluator: `0x${string}`
+  /** Opaque requirements bytes; the schema is owned by the policy's evaluator. */
+  requirements: `0x${string}`
+  metadataURL: string
+  retiredAt: bigint
+}
+
+/** PolicyEvaluatorV1.PolicyRequirements, decoded through the evaluator itself. */
+export type AttestPolicyRequirements = {
   uniqueIdentifierType: RequestedNullifierType
   minAge: number
   sanctionsCheck: boolean
   excludedCountries: readonly string[]
-  metadataURL: string
-  retiredAt: bigint
 }
 
 export type AttestPolicySummary = {
@@ -53,6 +61,38 @@ export class AttestClient {
 
   async getPolicy(policyId: bigint): Promise<AttestPolicy> {
     return (await this.read("getPolicy", [policyId])) as AttestPolicy
+  }
+
+  /**
+   * Decode a policy's requirements through its own evaluator, so the request a
+   * client builds is derived from exactly what issue() will enforce. Fails
+   * loudly on an evaluator schema this SDK version does not know, rather than
+   * building a wrong proof request.
+   */
+  async getRequirements(policy: AttestPolicy): Promise<AttestPolicyRequirements> {
+    const evaluatorRead = (functionName: string, args: readonly unknown[]) =>
+      this.client.readContract({
+        address: policy.evaluator,
+        abi: PolicyEvaluatorV1Abi,
+        functionName,
+        args,
+      } as never)
+
+    const schemaVersion = (await evaluatorRead("schemaVersion", [])) as bigint
+    if (schemaVersion !== 1n) {
+      throw new Error(
+        `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema 1.`,
+      )
+    }
+    const decoded = (await evaluatorRead("decodeRequirements", [
+      policy.requirements,
+    ])) as AttestPolicyRequirements
+    return {
+      uniqueIdentifierType: decoded.uniqueIdentifierType,
+      minAge: decoded.minAge,
+      sanctionsCheck: decoded.sanctionsCheck,
+      excludedCountries: decoded.excludedCountries,
+    }
   }
 
   async uri(policyId: bigint): Promise<string> {

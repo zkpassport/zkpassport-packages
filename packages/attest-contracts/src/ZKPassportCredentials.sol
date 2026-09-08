@@ -3,22 +3,24 @@ pragma solidity ^0.8.30;
 
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {BoundData, NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
-import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
+import {ProofVerificationParams} from "@registry/lib/Types.sol";
+import {IIssuanceModule, IssuanceVerdict} from "./IIssuanceModule.sol";
+import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
  * @title  ZKPassportCredentials
- * @notice Soulbound ERC-1155 credential registry: one tokenId per policy,
- *         balance 1 while the credential is unexpired
+ * @notice Soulbound ERC-1155 credential ledger: one tokenId per policy, balance 1
+ *         while the credential is unexpired. Deployed once — proof-pipeline logic
+ *         lives in a swappable issuance module and policy criteria in per-policy
+ *         evaluators, so both can evolve while this address, its credentials, and
+ *         its nullifier bindings stay put.
  */
 contract ZKPassportCredentials is ERC1155 {
     struct Policy {
         address owner;
         uint64 credentialDuration;
-        NullifierType uniqueIdentifierType;
-        uint8 minAge;
-        bool sanctionsCheck;
-        string[] excludedCountries;
+        address evaluator;
+        bytes requirements;
         string metadataURL;
         uint64 retiredAt;
     }
@@ -28,15 +30,6 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__InvalidCredentialDuration();
     error ZKPassportCredentials__NotPolicyOwner();
     error ZKPassportCredentials__PolicyRetired(uint256 policyId);
-    error ZKPassportCredentials__InvalidNullifierType();
-    error ZKPassportCredentials__WrongNullifierType();
-    error ZKPassportCredentials__MockProofNotAllowed();
-    error ZKPassportCredentials__InvalidProof();
-    error ZKPassportCredentials__WrongScope();
-    error ZKPassportCredentials__StaleProof();
-    error ZKPassportCredentials__ProofNotBoundToChain();
-    error ZKPassportCredentials__AgeBelowMinimum();
-    error ZKPassportCredentials__ExcludedJurisdiction();
     error ZKPassportCredentials__SybilDetected(bytes32 nullifier);
     error ZKPassportCredentials__MissingNullifier();
     error ZKPassportCredentials__TokenIsSoulbound();
@@ -54,13 +47,12 @@ contract ZKPassportCredentials is ERC1155 {
     event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
     event PausedStatusChanged(bool paused);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
+    event IssuanceModuleUpdated(address indexed oldModule, address indexed newModule);
 
-    IRootVerifier public immutable rootVerifier;
     string public domain;
     address public admin;
+    IIssuanceModule public issuanceModule;
     bool public paused;
-
-    uint256 public constant PROOF_FRESHNESS = 1 hours;
 
     mapping(uint256 policyId => Policy) internal _policies;
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
@@ -83,33 +75,31 @@ contract ZKPassportCredentials is ERC1155 {
         _;
     }
 
-    constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin) ERC1155("") {
-        if (_admin == address(0)) revert ZKPassportCredentials__ZeroAddress();
-        rootVerifier = _rootVerifier;
+    constructor(string memory _domain, address _admin, IIssuanceModule _issuanceModule) ERC1155("") {
+        if (_admin == address(0) || address(_issuanceModule) == address(0)) {
+            revert ZKPassportCredentials__ZeroAddress();
+        }
         domain = _domain;
         admin = _admin;
+        issuanceModule = _issuanceModule;
     }
 
-    /// @notice Create a policy; the id is namespaced by creator and salt and stable across chains.
-    ///         uniqueIdentifierType NONE_NULLIFIER means no one-per-document dedup; NON_SALTED_NULLIFIER
-    ///         and SALTED_NULLIFIER demand exactly that nullifier type from every proof and dedup on it.
+    /// @notice Create a policy; the id is namespaced by creator and salt and stable across
+    ///         chains. Requirements are opaque bytes whose schema the evaluator owns —
+    ///         they are validated here once so malformed policies fail at creation.
+    ///         Evaluator and requirements are immutable for the life of the policy.
     function createPolicy(
         bytes32 salt,
         uint64 credentialDuration,
-        NullifierType uniqueIdentifierType,
-        uint8 minAge,
-        bool sanctionsCheck,
-        string[] calldata excludedCountries,
+        address evaluator,
+        bytes calldata requirements,
         string calldata metadataURL
     ) external returns (uint256 policyId) {
         if (credentialDuration == 0) {
             revert ZKPassportCredentials__InvalidCredentialDuration();
         }
-        if (
-            uniqueIdentifierType != NullifierType.NONE_NULLIFIER
-                && uniqueIdentifierType != NullifierType.NON_SALTED_NULLIFIER
-                && uniqueIdentifierType != NullifierType.SALTED_NULLIFIER
-        ) revert ZKPassportCredentials__InvalidNullifierType();
+        if (evaluator == address(0)) revert ZKPassportCredentials__ZeroAddress();
+        IPolicyEvaluator(evaluator).validateRequirements(requirements);
 
         policyId = uint256(keccak256(abi.encode(msg.sender, salt)));
         if (_policies[policyId].owner != address(0)) revert ZKPassportCredentials__PolicyAlreadyExists(policyId);
@@ -117,12 +107,8 @@ contract ZKPassportCredentials is ERC1155 {
         Policy storage policy = _policies[policyId];
         policy.owner = msg.sender;
         policy.credentialDuration = credentialDuration;
-        policy.uniqueIdentifierType = uniqueIdentifierType;
-        policy.minAge = minAge;
-        policy.sanctionsCheck = sanctionsCheck;
-        for (uint256 i = 0; i < excludedCountries.length; i++) {
-            policy.excludedCountries.push(excludedCountries[i]);
-        }
+        policy.evaluator = evaluator;
+        policy.requirements = requirements;
         policy.metadataURL = metadataURL;
 
         emit PolicyCreated(policyId, msg.sender);
@@ -135,7 +121,7 @@ contract ZKPassportCredentials is ERC1155 {
         return policy;
     }
 
-    /// @notice Update the display metadata URL; predicates are immutable
+    /// @notice Update the display metadata URL; requirements are immutable
     function setMetadataURL(uint256 policyId, string calldata url) external onlyPolicyOwner(policyId) {
         _policies[policyId].metadataURL = url;
         emit PolicyMetadataURLUpdated(policyId, url);
@@ -163,6 +149,9 @@ contract ZKPassportCredentials is ERC1155 {
     ///         bound to. Issuance is permissionless: anyone holding the proof, its verification
     ///         params, and the policyId — a relayer included — may submit; the proof itself pins
     ///         the recipient wallet and chain, so the caller can redirect nothing.
+    ///         The issuance module judges whether a credential may issue; this ledger alone
+    ///         decides how state mutates, so no module can rebind a nullifier, stretch a
+    ///         credential's lifetime, or alter the token.
     function issue(uint256 policyId, ProofVerificationParams calldata params) external {
         if (paused) revert ZKPassportCredentials__Paused();
 
@@ -170,44 +159,15 @@ contract ZKPassportCredentials is ERC1155 {
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
 
-        (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
-        if (!valid) revert ZKPassportCredentials__InvalidProof();
+        IssuanceVerdict memory verdict =
+            issuanceModule.judge(domain, policyScope(policyId), policy.evaluator, policy.requirements, params);
 
-        if (!helper.verifyScopes(params.proofVerificationData.publicInputs, domain, policyScope(policyId))) {
-            revert ZKPassportCredentials__WrongScope();
-        }
-
-        if (helper.getProofTimestamp(params.proofVerificationData.publicInputs) + PROOF_FRESHNESS < block.timestamp) {
-            revert ZKPassportCredentials__StaleProof();
-        }
-
-        BoundData memory bound = helper.getBoundData(params.committedInputs);
-        address wallet = bound.senderAddress;
+        address wallet = verdict.wallet;
         if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
-        if (bound.chainId != block.chainid) revert ZKPassportCredentials__ProofNotBoundToChain();
 
-        bytes32[] calldata publicInputs = params.proofVerificationData.publicInputs;
-        NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-
-        // serviceConfig.devMode is required on testnets (it is how real documents
-        // prove against the testnet registry roots) and inert on mainnets, where
-        // mock certificates are not in the registries. The root verifier only uses
-        // it to let mock-document proofs through, so reject those by nullifier type
-        // instead of rejecting dev mode itself.
-        if (
-            nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER
-                || nullifierType == NullifierType.SALTED_MOCK_NULLIFIER
-        ) {
-            revert ZKPassportCredentials__MockProofNotAllowed();
+        if (verdict.unique) {
+            _consumeNullifier(policyId, verdict.nullifier, wallet);
         }
-
-        if (policy.uniqueIdentifierType != NullifierType.NONE_NULLIFIER && nullifierType != policy.uniqueIdentifierType)
-        {
-            revert ZKPassportCredentials__WrongNullifierType();
-        }
-
-        _enforcePredicates(policy, helper, params.committedInputs);
-        _consumeNullifier(policy, policyId, nullifier, wallet);
 
         bool firstIssue = heldUntil[wallet][policyId] == 0;
         uint64 newHeldUntil = uint64(block.timestamp + policy.credentialDuration);
@@ -218,25 +178,9 @@ contract ZKPassportCredentials is ERC1155 {
         }
 
         if (firstIssue) {
-            emit CredentialIssued(wallet, policyId, newHeldUntil, bound.customData);
+            emit CredentialIssued(wallet, policyId, newHeldUntil, verdict.customData);
         } else {
-            emit CredentialRenewed(wallet, policyId, newHeldUntil, bound.customData);
-        }
-    }
-
-    function _enforcePredicates(Policy storage policy, IVerifierHelper helper, bytes calldata committedInputs)
-        internal
-        view
-    {
-        if (policy.minAge > 0 && !helper.isAgeAboveOrEqual(policy.minAge, committedInputs)) {
-            revert ZKPassportCredentials__AgeBelowMinimum();
-        }
-        if (policy.excludedCountries.length > 0 && !helper.isNationalityOut(policy.excludedCountries, committedInputs))
-        {
-            revert ZKPassportCredentials__ExcludedJurisdiction();
-        }
-        if (policy.sanctionsCheck) {
-            helper.enforceSanctionsRoot(block.timestamp, true, committedInputs);
+            emit CredentialRenewed(wallet, policyId, newHeldUntil, verdict.customData);
         }
     }
 
@@ -251,8 +195,7 @@ contract ZKPassportCredentials is ERC1155 {
         _update(address(0), wallet, ids, values);
     }
 
-    function _consumeNullifier(Policy storage policy, uint256 policyId, bytes32 nullifier, address wallet) internal {
-        if (policy.uniqueIdentifierType == NullifierType.NONE_NULLIFIER) return;
+    function _consumeNullifier(uint256 policyId, bytes32 nullifier, address wallet) internal {
         if (nullifier == bytes32(0)) revert ZKPassportCredentials__MissingNullifier();
         address prior = nullifierWallet[policyId][nullifier];
         if (prior != address(0) && prior != wallet) revert ZKPassportCredentials__SybilDetected(nullifier);
@@ -299,6 +242,14 @@ contract ZKPassportCredentials is ERC1155 {
         if (newAdmin == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit AdminUpdated(admin, newAdmin);
         admin = newAdmin;
+    }
+
+    /// @notice Swap the issuance pipeline; existing credentials, nullifier bindings,
+    ///         and policies are untouched — only future issuance goes through the new module
+    function setIssuanceModule(IIssuanceModule newModule) external onlyAdmin {
+        if (address(newModule) == address(0)) revert ZKPassportCredentials__ZeroAddress();
+        emit IssuanceModuleUpdated(address(issuanceModule), address(newModule));
+        issuanceModule = newModule;
     }
 
     function setApprovalForAll(address, bool) public pure override {
