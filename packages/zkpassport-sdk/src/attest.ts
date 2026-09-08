@@ -186,7 +186,9 @@ export class AttestClient {
    * - the proof must be bound to the recipient wallet and to the chain the
    *   registry lives on (request the proof with those bindings)
    * - the proof's bound customData must be empty
-   * - the proof must be generated in production mode (devMode always reverts)
+   * - the proof must come from a real document (mock-document proofs revert);
+   *   devMode itself is accepted — it selects which registry roots verify the
+   *   proof, so testnet deployments need dev-mode proofs and mainnet ones not
    * - the proof must be at most 1 hour old at inclusion time
    * - the policy must exist, not be retired, and the registry not paused
    */
