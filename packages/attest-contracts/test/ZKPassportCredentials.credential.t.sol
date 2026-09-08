@@ -37,7 +37,7 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         vm.warp(uint256(zkPassportCredentials.heldUntil(wallet, policyId)) + 1);
         mockHelper.setProofTimestamp(block.timestamp);
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportCredentials.CredentialRenewed(wallet, policyId, uint64(block.timestamp + 30 days));
+        emit ZKPassportCredentials.CredentialRenewed(wallet, policyId, uint64(block.timestamp + 30 days), "");
         Vm.Log[] memory logs = new Vm.Log[](0);
         vm.recordLogs();
         zkPassportCredentials.issue(policyId, _params());
