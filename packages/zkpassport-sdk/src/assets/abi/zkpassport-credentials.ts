@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 61a0e76e). Do not edit by hand.
+// Generated from packages/attest-contracts (commit aa44087d). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -679,6 +679,12 @@ export const ZKPassportCredentialsAbi = [
         indexed: false,
         internalType: "uint64",
       },
+      {
+        name: "customData",
+        type: "string",
+        indexed: false,
+        internalType: "string",
+      },
     ],
     anonymous: false,
   },
@@ -703,6 +709,12 @@ export const ZKPassportCredentialsAbi = [
         type: "uint64",
         indexed: false,
         internalType: "uint64",
+      },
+      {
+        name: "customData",
+        type: "string",
+        indexed: false,
+        internalType: "string",
       },
     ],
     anonymous: false,
@@ -1124,11 +1136,6 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__TokenIsSoulbound",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__UnexpectedBoundData",
     inputs: [],
   },
   {
