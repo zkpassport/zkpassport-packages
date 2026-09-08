@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test"
+import { NullifierType } from "@zkpassport/utils"
 import { AttestClient, type AttestPolicy, type AttestReadClient } from "../src/attest"
 import { SolidityVerifier } from "../src/solidity-verifier"
 
@@ -9,8 +10,7 @@ const POLICY_ID = 42n
 const SAMPLE_POLICY: AttestPolicy = {
   owner: WALLET,
   validityPeriod: 2592000n,
-  unique: true,
-  saltedNullifierOnly: false,
+  uniqueIdentifierType: NullifierType.SALTED,
   minAge: 18,
   sanctionsCheck: true,
   excludedCountries: ["PRK"],

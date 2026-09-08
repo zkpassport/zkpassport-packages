@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
+import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 
@@ -15,7 +16,13 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         excluded[1] = "IRN";
         vm.prank(creator);
         strictPolicyId = zkPassportCredentials.createPolicy(
-            bytes32(uint256(7)), 7 days, true, false, 18, true, excluded, "https://policy.example/kyc"
+            bytes32(uint256(7)),
+            7 days,
+            NullifierType.SALTED_NULLIFIER,
+            18,
+            true,
+            excluded,
+            "https://policy.example/kyc"
         );
     }
 
@@ -85,7 +92,13 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.issue(wallet, strictPolicyId, _params());
         vm.prank(creator);
         uint256 secondUnique = zkPassportCredentials.createPolicy(
-            bytes32(uint256(8)), 7 days, true, false, 0, false, noCountries, "https://policy.example/2"
+            bytes32(uint256(8)),
+            7 days,
+            NullifierType.SALTED_NULLIFIER,
+            0,
+            false,
+            noCountries,
+            "https://policy.example/2"
         );
         address other = makeAddr("other");
         mockHelper.setBoundData(other, block.chainid, "");

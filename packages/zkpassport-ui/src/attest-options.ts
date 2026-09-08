@@ -101,14 +101,9 @@ export async function buildAttestCardOptions(
     scope,
     mode: "compressed-evm",
     devMode: options.devMode ?? false,
-    // Only uniqueness needs a nullifier to dedupe on; the contract accepts a
-    // nullifier-free proof for non-unique policies regardless of their
-    // saltedNullifierOnly flag, so those skip the nullifier and the face check.
-    uniqueIdentifierType: policy.unique
-      ? policy.saltedNullifierOnly
-        ? NullifierType.SALTED
-        : NullifierType.NON_SALTED
-      : NullifierType.NONE,
+    // The policy's uniqueIdentifierType is the request's: issue() accepts only
+    // proofs carrying exactly that nullifier type (NONE skips the check).
+    uniqueIdentifierType: policy.uniqueIdentifierType,
     query: (qb) => {
       let q = qb
       if (policy.minAge > 0) q = q.gte("age", policy.minAge)
@@ -119,7 +114,7 @@ export async function buildAttestCardOptions(
       // The contract verifies sanctions proofs in strict mode.
       if (policy.sanctionsCheck) q = q.sanctions("all", "all", { strict: true })
       // The SDK requires strict facematch whenever the salted nullifier is used.
-      if (policy.unique && policy.saltedNullifierOnly) q = q.facematch("strict")
+      if (policy.uniqueIdentifierType === NullifierType.SALTED) q = q.facematch("strict")
       return q.bind("user_address", wallet).bind("chain", chain).done()
     },
     onReady: options.onReady,
