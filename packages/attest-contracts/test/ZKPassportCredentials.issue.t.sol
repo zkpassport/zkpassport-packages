@@ -15,7 +15,7 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
 
     function testIssueGrantsCredential() public {
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportCredentials.CredentialIssued(wallet, policyId, uint64(block.timestamp + 30 days));
+        emit ZKPassportCredentials.CredentialIssued(wallet, policyId, uint64(block.timestamp + 30 days), "");
         zkPassportCredentials.issue(policyId, _params());
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), uint64(block.timestamp + 30 days));
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
@@ -90,9 +90,21 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.issue(policyId, _params());
     }
 
-    function testIssueRevertsOnUnexpectedCustomData() public {
-        mockHelper.setBoundData(wallet, block.chainid, "extra");
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__UnexpectedBoundData.selector);
+    function testIssueEmitsBoundCustomData() public {
+        mockHelper.setBoundData(wallet, block.chainid, "customer:123");
+        vm.expectEmit(true, true, false, true);
+        emit ZKPassportCredentials.CredentialIssued(wallet, policyId, uint64(block.timestamp + 30 days), "customer:123");
+        zkPassportCredentials.issue(policyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
+    }
+
+    function testRenewalEmitsBoundCustomData() public {
+        zkPassportCredentials.issue(policyId, _params());
+        mockHelper.setBoundData(wallet, block.chainid, "customer:123");
+        vm.expectEmit(true, true, false, true);
+        emit ZKPassportCredentials.CredentialRenewed(
+            wallet, policyId, uint64(block.timestamp + 30 days), "customer:123"
+        );
         zkPassportCredentials.issue(policyId, _params());
     }
 
