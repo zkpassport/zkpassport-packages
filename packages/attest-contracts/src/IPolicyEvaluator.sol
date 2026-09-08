@@ -5,32 +5,26 @@ import {IVerifierHelper} from "@registry/IRootVerifier.sol";
 
 /**
  * @title  IPolicyEvaluator
- * @notice Stable, core-facing surface of a policy evaluator: a stateless contract
- *         that owns a requirements schema and judges proofs against it. Extending
- *         the requirements vocabulary means deploying a new evaluator version;
- *         this interface never changes. Typed accessors (the requirements struct,
- *         a decode view for off-chain request building) are version-specific and
- *         deliberately not part of it.
+ * @notice A stateless contract that owns a policy requirements schema and judges proofs
+ *         against it. Extending the requirements vocabulary requires deploying a new evaluator
+ *         version, and setting it as current in the ZKPassportCredentials contract.
  */
 interface IPolicyEvaluator {
-    /// @notice Reverts unless the bytes decode to a well-formed requirements
-    ///         value for this evaluator's schema; called once at policy creation
-    ///         so malformed requirements fail early
-    /// @param requirements The candidate requirements bytes
+    /// @notice Reverts unless the bytes decode to a well-formed requirements value for this
+    ///         evaluator's schema.
+    /// @param requirements The candidate requirements bytes.
     function validateRequirements(bytes calldata requirements) external view;
 
     /**
-     * @notice Judge a policy's requirements against a proof the issuance module
-     *         has already verified. Reverts with an evaluator-defined error when
-     *         a requirement fails.
-     * @param  requirements    The policy's stored requirements bytes
-     * @param  helper          The proof-version-routed helper returned by the
-     *                         root verifier — the only component that can parse
-     *                         committedInputs for this proof's circuit version
-     * @param  committedInputs The proof's committed inputs, opaque outside `helper`
-     * @param  publicInputs    The proof's public inputs
+     * @notice Judge a policy's requirements against the committed and public inputs of a proof.
+     *         Reverts with an evaluator-defined error when a requirement fails.
+     * @param  requirements    The policy's stored requirements bytes.
+     * @param  helper          The proof-version-routed helper returned by the root verifier,
+     *                         which is the only component that can parse committedInputs for
+     *                         this proof's circuit version.
+     * @param  committedInputs The proof's committed inputs, opaque outside `helper`.
+     * @param  publicInputs    The proof's public inputs.
      * @return unique          Whether the caller must consume the nullifier
-     *                         (one-per-document dedup)
      */
     function validate(
         bytes calldata requirements,
