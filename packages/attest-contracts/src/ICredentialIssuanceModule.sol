@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ProofVerificationParams} from "@registry/lib/Types.sol";
 
-struct IssuanceVerdict {
+struct CredentialIssuanceVerdict {
     address wallet;
     bytes32 nullifier;
     bool unique;
@@ -26,5 +26,5 @@ interface ICredentialIssuanceModule {
         address evaluator,
         bytes calldata requirements,
         ProofVerificationParams calldata params
-    ) external view returns (IssuanceVerdict memory verdict);
+    ) external view returns (CredentialIssuanceVerdict memory verdict);
 }
