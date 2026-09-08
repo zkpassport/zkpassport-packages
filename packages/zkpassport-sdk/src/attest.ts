@@ -1,6 +1,7 @@
 import type { PublicClient } from "viem"
 import { getAbiItem } from "viem"
-import type { NullifierType, ProofResult } from "@zkpassport/utils"
+import type { ProofResult } from "@zkpassport/utils"
+import type { RequestedNullifierType } from "./types"
 import { SolidityVerifier } from "./solidity-verifier"
 import type { SolidityVerifierParameters } from "./types"
 import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
@@ -12,7 +13,7 @@ export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs">
 export type AttestPolicy = {
   owner: `0x${string}`
   validityPeriod: bigint
-  uniqueIdentifierType: NullifierType
+  uniqueIdentifierType: RequestedNullifierType
   minAge: number
   sanctionsCheck: boolean
   excludedCountries: readonly string[]
