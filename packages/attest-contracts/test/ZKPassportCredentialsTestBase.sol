@@ -65,6 +65,7 @@ contract ZKPassportCredentialsTestBase is Test {
         return zkPassportCredentials.createPolicy(
             bytes32(uint256(1)),
             30 days,
+            false,
             _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             "https://policy.example/1"
         );
