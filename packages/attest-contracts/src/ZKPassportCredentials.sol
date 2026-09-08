@@ -48,10 +48,12 @@ contract ZKPassportCredentials is ERC1155 {
     event PausedStatusChanged(bool paused);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event CredentialIssuanceModuleUpdated(address indexed oldModule, address indexed newModule);
+    event PolicyEvaluatorUpdated(address indexed oldEvaluator, address indexed newEvaluator);
 
     string public domain;
     address public admin;
     ICredentialIssuanceModule public credentialIssuanceModule;
+    IPolicyEvaluator public policyEvaluator;
     bool public paused;
 
     mapping(uint256 policyId => Policy) internal _policies;
@@ -75,33 +77,42 @@ contract ZKPassportCredentials is ERC1155 {
         _;
     }
 
-    constructor(string memory _domain, address _admin, ICredentialIssuanceModule _credentialIssuanceModule)
-        ERC1155("")
-    {
-        if (_admin == address(0) || address(_credentialIssuanceModule) == address(0)) {
+    constructor(
+        string memory _domain,
+        address _admin,
+        ICredentialIssuanceModule _credentialIssuanceModule,
+        IPolicyEvaluator _policyEvaluator
+    ) ERC1155("") {
+        if (
+            _admin == address(0) || address(_credentialIssuanceModule) == address(0)
+                || address(_policyEvaluator) == address(0)
+        ) {
             revert ZKPassportCredentials__ZeroAddress();
         }
         domain = _domain;
         admin = _admin;
         credentialIssuanceModule = _credentialIssuanceModule;
+        policyEvaluator = _policyEvaluator;
     }
 
     /// @notice Create a policy; the id is namespaced by creator and salt and stable across
-    ///         chains. Requirements are opaque bytes whose schema the evaluator owns —
-    ///         they are validated here once so malformed policies fail at creation.
-    ///         Evaluator and requirements are immutable for the life of the policy.
+    ///         chains. Requirements are opaque bytes whose schema the current admin-set
+    ///         evaluator owns — they are validated here once so malformed policies fail at
+    ///         creation. The evaluator in force is recorded on the policy and, with the
+    ///         requirements, is immutable for the life of the policy: issuance and renewals
+    ///         keep evaluating under the schema the policy was created with, even after the
+    ///         admin points new policies at a newer evaluator.
     function createPolicy(
         bytes32 salt,
         uint64 credentialDuration,
-        address evaluator,
         bytes calldata requirements,
         string calldata metadataURL
     ) external returns (uint256 policyId) {
         if (credentialDuration == 0) {
             revert ZKPassportCredentials__InvalidCredentialDuration();
         }
-        if (evaluator == address(0)) revert ZKPassportCredentials__ZeroAddress();
-        IPolicyEvaluator(evaluator).validateRequirements(requirements);
+        IPolicyEvaluator evaluator = policyEvaluator;
+        evaluator.validateRequirements(requirements);
 
         policyId = uint256(keccak256(abi.encode(msg.sender, salt)));
         if (_policies[policyId].owner != address(0)) revert ZKPassportCredentials__PolicyAlreadyExists(policyId);
@@ -109,7 +120,7 @@ contract ZKPassportCredentials is ERC1155 {
         Policy storage policy = _policies[policyId];
         policy.owner = msg.sender;
         policy.credentialDuration = credentialDuration;
-        policy.evaluator = evaluator;
+        policy.evaluator = address(evaluator);
         policy.requirements = requirements;
         policy.metadataURL = metadataURL;
 
@@ -253,6 +264,16 @@ contract ZKPassportCredentials is ERC1155 {
         if (address(newModule) == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit CredentialIssuanceModuleUpdated(address(credentialIssuanceModule), address(newModule));
         credentialIssuanceModule = newModule;
+    }
+
+    /// @notice Point future policies at a new evaluator (a new requirements schema).
+    ///         Unlike a module swap, this touches nothing that already exists: each policy
+    ///         keeps the evaluator recorded at its creation, so existing policies — their
+    ///         issuance and renewals included — are unaffected.
+    function setPolicyEvaluator(IPolicyEvaluator newEvaluator) external onlyAdmin {
+        if (address(newEvaluator) == address(0)) revert ZKPassportCredentials__ZeroAddress();
+        emit PolicyEvaluatorUpdated(address(policyEvaluator), address(newEvaluator));
+        policyEvaluator = newEvaluator;
     }
 
     function setApprovalForAll(address, bool) public pure override {
