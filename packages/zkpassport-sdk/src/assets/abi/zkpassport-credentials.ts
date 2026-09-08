@@ -1,1110 +1,1155 @@
-// Generated from packages/attest-contracts (commit b2755c34). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 6f5e5b72). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
-    type: "constructor",
-    inputs: [
+    "type": "constructor",
+    "inputs": [
       {
-        name: "_domain",
-        type: "string",
-        internalType: "string",
+        "name": "_domain",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        name: "_admin",
-        type: "address",
-        internalType: "address",
+        "name": "_admin",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "_credentialIssuanceModule",
-        type: "address",
-        internalType: "contract ICredentialIssuanceModule",
+        "name": "_credentialIssuanceModule",
+        "type": "address",
+        "internalType": "contract ICredentialIssuanceModule"
       },
+      {
+        "name": "_policyEvaluator",
+        "type": "address",
+        "internalType": "contract IPolicyEvaluator"
+      }
     ],
-    stateMutability: "nonpayable",
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "admin",
-    inputs: [],
-    outputs: [
+    "type": "function",
+    "name": "admin",
+    "inputs": [],
+    "outputs": [
       {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "balanceOf",
-    inputs: [
+    "type": "function",
+    "name": "balanceOf",
+    "inputs": [
       {
-        name: "account",
-        type: "address",
-        internalType: "address",
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "id",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "balanceOfBatch",
-    inputs: [
+    "type": "function",
+    "name": "balanceOfBatch",
+    "inputs": [
       {
-        name: "accounts",
-        type: "address[]",
-        internalType: "address[]",
+        "name": "accounts",
+        "type": "address[]",
+        "internalType": "address[]"
       },
       {
-        name: "ids",
-        type: "uint256[]",
-        internalType: "uint256[]",
-      },
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "",
-        type: "uint256[]",
-        internalType: "uint256[]",
-      },
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "createPolicy",
-    inputs: [
+    "type": "function",
+    "name": "createPolicy",
+    "inputs": [
       {
-        name: "salt",
-        type: "bytes32",
-        internalType: "bytes32",
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
-        name: "credentialDuration",
-        type: "uint64",
-        internalType: "uint64",
+        "name": "credentialDuration",
+        "type": "uint64",
+        "internalType": "uint64"
       },
       {
-        name: "evaluator",
-        type: "address",
-        internalType: "address",
+        "name": "requirements",
+        "type": "bytes",
+        "internalType": "bytes"
       },
       {
-        name: "requirements",
-        type: "bytes",
-        internalType: "bytes",
-      },
-      {
-        name: "metadataURL",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "metadataURL",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    stateMutability: "nonpayable",
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "credentialIssuanceModule",
-    inputs: [],
-    outputs: [
+    "type": "function",
+    "name": "credentialIssuanceModule",
+    "inputs": [],
+    "outputs": [
       {
-        name: "",
-        type: "address",
-        internalType: "contract ICredentialIssuanceModule",
-      },
+        "name": "",
+        "type": "address",
+        "internalType": "contract ICredentialIssuanceModule"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "domain",
-    inputs: [],
-    outputs: [
+    "type": "function",
+    "name": "domain",
+    "inputs": [],
+    "outputs": [
       {
-        name: "",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "getPolicy",
-    inputs: [
+    "type": "function",
+    "name": "getPolicy",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "",
-        type: "tuple",
-        internalType: "struct ZKPassportCredentials.Policy",
-        components: [
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ZKPassportCredentials.Policy",
+        "components": [
           {
-            name: "owner",
-            type: "address",
-            internalType: "address",
+            "name": "owner",
+            "type": "address",
+            "internalType": "address"
           },
           {
-            name: "credentialDuration",
-            type: "uint64",
-            internalType: "uint64",
+            "name": "credentialDuration",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
-            name: "evaluator",
-            type: "address",
-            internalType: "address",
+            "name": "evaluator",
+            "type": "address",
+            "internalType": "address"
           },
           {
-            name: "requirements",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "requirements",
+            "type": "bytes",
+            "internalType": "bytes"
           },
           {
-            name: "metadataURL",
-            type: "string",
-            internalType: "string",
+            "name": "metadataURL",
+            "type": "string",
+            "internalType": "string"
           },
           {
-            name: "retiredAt",
-            type: "uint64",
-            internalType: "uint64",
-          },
-        ],
-      },
+            "name": "retiredAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "heldUntil",
-    inputs: [
+    "type": "function",
+    "name": "heldUntil",
+    "inputs": [
       {
-        name: "wallet",
-        type: "address",
-        internalType: "address",
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "",
-        type: "uint64",
-        internalType: "uint64",
-      },
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "isApprovedForAll",
-    inputs: [
+    "type": "function",
+    "name": "isApprovedForAll",
+    "inputs": [
       {
-        name: "account",
-        type: "address",
-        internalType: "address",
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "operator",
-        type: "address",
-        internalType: "address",
-      },
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "issue",
-    inputs: [
+    "type": "function",
+    "name": "issue",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        name: "params",
-        type: "tuple",
-        internalType: "struct ProofVerificationParams",
-        components: [
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct ProofVerificationParams",
+        "components": [
           {
-            name: "version",
-            type: "bytes32",
-            internalType: "bytes32",
+            "name": "version",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
-            name: "proofVerificationData",
-            type: "tuple",
-            internalType: "struct ProofVerificationData",
-            components: [
+            "name": "proofVerificationData",
+            "type": "tuple",
+            "internalType": "struct ProofVerificationData",
+            "components": [
               {
-                name: "vkeyHash",
-                type: "bytes32",
-                internalType: "bytes32",
+                "name": "vkeyHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
               },
               {
-                name: "proof",
-                type: "bytes",
-                internalType: "bytes",
+                "name": "proof",
+                "type": "bytes",
+                "internalType": "bytes"
               },
               {
-                name: "publicInputs",
-                type: "bytes32[]",
-                internalType: "bytes32[]",
-              },
-            ],
+                "name": "publicInputs",
+                "type": "bytes32[]",
+                "internalType": "bytes32[]"
+              }
+            ]
           },
           {
-            name: "committedInputs",
-            type: "bytes",
-            internalType: "bytes",
+            "name": "committedInputs",
+            "type": "bytes",
+            "internalType": "bytes"
           },
           {
-            name: "serviceConfig",
-            type: "tuple",
-            internalType: "struct ServiceConfig",
-            components: [
+            "name": "serviceConfig",
+            "type": "tuple",
+            "internalType": "struct ServiceConfig",
+            "components": [
               {
-                name: "validityPeriodInSeconds",
-                type: "uint256",
-                internalType: "uint256",
+                "name": "validityPeriodInSeconds",
+                "type": "uint256",
+                "internalType": "uint256"
               },
               {
-                name: "domain",
-                type: "string",
-                internalType: "string",
+                "name": "domain",
+                "type": "string",
+                "internalType": "string"
               },
               {
-                name: "scope",
-                type: "string",
-                internalType: "string",
+                "name": "scope",
+                "type": "string",
+                "internalType": "string"
               },
               {
-                name: "devMode",
-                type: "bool",
-                internalType: "bool",
-              },
-            ],
-          },
-        ],
-      },
+                "name": "devMode",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          }
+        ]
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "nullifierWallet",
-    inputs: [
+    "type": "function",
+    "name": "nullifierWallet",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        name: "nullifier",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
+        "name": "nullifier",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    outputs: [
+    "outputs": [
       {
-        name: "wallet",
-        type: "address",
-        internalType: "address",
-      },
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "pause",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "paused",
-    inputs: [],
-    outputs: [
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
       {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    stateMutability: "view",
+    "stateMutability": "view"
   },
   {
-    type: "function",
-    name: "policyScope",
-    inputs: [
+    "type": "function",
+    "name": "policyEvaluator",
+    "inputs": [],
+    "outputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "",
+        "type": "address",
+        "internalType": "contract IPolicyEvaluator"
+      }
     ],
-    outputs: [
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "policyScope",
+    "inputs": [
       {
-        name: "",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    stateMutability: "pure",
-  },
-  {
-    type: "function",
-    name: "retire",
-    inputs: [
+    "outputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "stateMutability": "pure"
   },
   {
-    type: "function",
-    name: "revoke",
-    inputs: [
+    "type": "function",
+    "name": "retire",
+    "inputs": [
       {
-        name: "wallet",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "safeBatchTransferFrom",
-    inputs: [
+    "type": "function",
+    "name": "revoke",
+    "inputs": [
       {
-        name: "from",
-        type: "address",
-        internalType: "address",
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "to",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "ids",
-        type: "uint256[]",
-        internalType: "uint256[]",
-      },
-      {
-        name: "values",
-        type: "uint256[]",
-        internalType: "uint256[]",
-      },
-      {
-        name: "data",
-        type: "bytes",
-        internalType: "bytes",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "safeTransferFrom",
-    inputs: [
+    "type": "function",
+    "name": "safeBatchTransferFrom",
+    "inputs": [
       {
-        name: "from",
-        type: "address",
-        internalType: "address",
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "to",
-        type: "address",
-        internalType: "address",
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "id",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "ids",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       },
       {
-        name: "value",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "values",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       },
       {
-        name: "data",
-        type: "bytes",
-        internalType: "bytes",
-      },
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "setApprovalForAll",
-    inputs: [
+    "type": "function",
+    "name": "safeTransferFrom",
+    "inputs": [
       {
-        name: "",
-        type: "address",
-        internalType: "address",
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "",
-        type: "bool",
-        internalType: "bool",
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
       },
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
     ],
-    outputs: [],
-    stateMutability: "pure",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "setCredentialIssuanceModule",
-    inputs: [
+    "type": "function",
+    "name": "setApprovalForAll",
+    "inputs": [
       {
-        name: "newModule",
-        type: "address",
-        internalType: "contract ICredentialIssuanceModule",
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       },
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "outputs": [],
+    "stateMutability": "pure"
   },
   {
-    type: "function",
-    name: "setMetadataURL",
-    inputs: [
+    "type": "function",
+    "name": "setCredentialIssuanceModule",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "url",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "newModule",
+        "type": "address",
+        "internalType": "contract ICredentialIssuanceModule"
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "supportsInterface",
-    inputs: [
+    "type": "function",
+    "name": "setMetadataURL",
+    "inputs": [
       {
-        name: "interfaceId",
-        type: "bytes4",
-        internalType: "bytes4",
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
       },
+      {
+        "name": "url",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    outputs: [
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPolicyEvaluator",
+    "inputs": [
       {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
+        "name": "newEvaluator",
+        "type": "address",
+        "internalType": "contract IPolicyEvaluator"
+      }
     ],
-    stateMutability: "view",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "function",
-    name: "transferAdmin",
-    inputs: [
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
       {
-        name: "newAdmin",
-        type: "address",
-        internalType: "address",
-      },
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "unpause",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "uri",
-    inputs: [
+    "outputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    outputs: [
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferAdmin",
+    "inputs": [
       {
-        name: "",
-        type: "string",
-        internalType: "string",
-      },
+        "name": "newAdmin",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    stateMutability: "view",
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    type: "event",
-    name: "AdminUpdated",
-    inputs: [
+    "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "uri",
+    "inputs": [
       {
-        name: "oldAdmin",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "newAdmin",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "ApprovalForAll",
-    inputs: [
+    "outputs": [
       {
-        name: "account",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "operator",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "approved",
-        type: "bool",
-        indexed: false,
-        internalType: "bool",
-      },
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    anonymous: false,
+    "stateMutability": "view"
   },
   {
-    type: "event",
-    name: "CredentialIssuanceModuleUpdated",
-    inputs: [
+    "type": "event",
+    "name": "AdminUpdated",
+    "inputs": [
       {
-        name: "oldModule",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "oldAdmin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "newModule",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
+        "name": "newAdmin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "CredentialIssued",
-    inputs: [
+    "type": "event",
+    "name": "ApprovalForAll",
+    "inputs": [
       {
-        name: "wallet",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "policyId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "heldUntil",
-        type: "uint64",
-        indexed: false,
-        internalType: "uint64",
-      },
-      {
-        name: "customData",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
+        "name": "approved",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "CredentialRenewed",
-    inputs: [
+    "type": "event",
+    "name": "CredentialIssuanceModuleUpdated",
+    "inputs": [
       {
-        name: "wallet",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "oldModule",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "policyId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "heldUntil",
-        type: "uint64",
-        indexed: false,
-        internalType: "uint64",
-      },
-      {
-        name: "customData",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
+        "name": "newModule",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "CredentialRevoked",
-    inputs: [
+    "type": "event",
+    "name": "CredentialIssued",
+    "inputs": [
       {
-        name: "wallet",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "wallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "policyId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
-        name: "by",
-        type: "address",
-        indexed: false,
-        internalType: "address",
+        "name": "heldUntil",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
       },
+      {
+        "name": "customData",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "PausedStatusChanged",
-    inputs: [
+    "type": "event",
+    "name": "CredentialRenewed",
+    "inputs": [
       {
-        name: "paused",
-        type: "bool",
-        indexed: false,
-        internalType: "bool",
+        "name": "wallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "heldUntil",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "customData",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "PolicyCreated",
-    inputs: [
+    "type": "event",
+    "name": "CredentialRevoked",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
+        "name": "wallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "owner",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
+      {
+        "name": "by",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "PolicyMetadataURLUpdated",
-    inputs: [
+    "type": "event",
+    "name": "PausedStatusChanged",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "url",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
+        "name": "paused",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "PolicyRetired",
-    inputs: [
+    "type": "event",
+    "name": "PolicyCreated",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "TransferBatch",
-    inputs: [
+    "type": "event",
+    "name": "PolicyEvaluatorUpdated",
+    "inputs": [
       {
-        name: "operator",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "oldEvaluator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "from",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "to",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "ids",
-        type: "uint256[]",
-        indexed: false,
-        internalType: "uint256[]",
-      },
-      {
-        name: "values",
-        type: "uint256[]",
-        indexed: false,
-        internalType: "uint256[]",
-      },
+        "name": "newEvaluator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "TransferSingle",
-    inputs: [
+    "type": "event",
+    "name": "PolicyMetadataURLUpdated",
+    "inputs": [
       {
-        name: "operator",
-        type: "address",
-        indexed: true,
-        internalType: "address",
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
-        name: "from",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "to",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "id",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "value",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
+        "name": "url",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "event",
-    name: "URI",
-    inputs: [
+    "type": "event",
+    "name": "PolicyRetired",
+    "inputs": [
       {
-        name: "value",
-        type: "string",
-        indexed: false,
-        internalType: "string",
-      },
-      {
-        name: "id",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
+        "name": "policyId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
     ],
-    anonymous: false,
+    "anonymous": false
   },
   {
-    type: "error",
-    name: "ERC1155InsufficientBalance",
-    inputs: [
+    "type": "event",
+    "name": "TransferBatch",
+    "inputs": [
       {
-        name: "sender",
-        type: "address",
-        internalType: "address",
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "balance",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "needed",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
       {
-        name: "tokenId",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "ids",
+        "type": "uint256[]",
+        "indexed": false,
+        "internalType": "uint256[]"
       },
+      {
+        "name": "values",
+        "type": "uint256[]",
+        "indexed": false,
+        "internalType": "uint256[]"
+      }
     ],
+    "anonymous": false
   },
   {
-    type: "error",
-    name: "ERC1155InvalidApprover",
-    inputs: [
+    "type": "event",
+    "name": "TransferSingle",
+    "inputs": [
       {
-        name: "approver",
-        type: "address",
-        internalType: "address",
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       },
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
     ],
+    "anonymous": false
   },
   {
-    type: "error",
-    name: "ERC1155InvalidArrayLength",
-    inputs: [
+    "type": "event",
+    "name": "URI",
+    "inputs": [
       {
-        name: "idsLength",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "value",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
       },
       {
-        name: "valuesLength",
-        type: "uint256",
-        internalType: "uint256",
-      },
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
     ],
+    "anonymous": false
   },
   {
-    type: "error",
-    name: "ERC1155InvalidOperator",
-    inputs: [
+    "type": "error",
+    "name": "ERC1155InsufficientBalance",
+    "inputs": [
       {
-        name: "operator",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ERC1155InvalidReceiver",
-    inputs: [
-      {
-        name: "receiver",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ERC1155InvalidSender",
-    inputs: [
-      {
-        name: "sender",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "ERC1155MissingApprovalForAll",
-    inputs: [
-      {
-        name: "operator",
-        type: "address",
-        internalType: "address",
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        name: "owner",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-  },
-  {
-    type: "error",
-    name: "StringsInsufficientHexLength",
-    inputs: [
-      {
-        name: "value",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        name: "length",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "needed",
+        "type": "uint256",
+        "internalType": "uint256"
       },
-    ],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__InvalidCredentialDuration",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__MissingNullifier",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__NotAuthorized",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__NotPolicyOwner",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__NotRevocable",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__NothingToRevoke",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__Paused",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__PolicyAlreadyExists",
-    inputs: [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
-    type: "error",
-    name: "ZKPassportCredentials__PolicyNotFound",
-    inputs: [
+    "type": "error",
+    "name": "ERC1155InvalidApprover",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
+        "name": "approver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
-    type: "error",
-    name: "ZKPassportCredentials__PolicyRetired",
-    inputs: [
+    "type": "error",
+    "name": "ERC1155InvalidArrayLength",
+    "inputs": [
       {
-        name: "policyId",
-        type: "uint256",
-        internalType: "uint256",
+        "name": "idsLength",
+        "type": "uint256",
+        "internalType": "uint256"
       },
-    ],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__SybilDetected",
-    inputs: [
       {
-        name: "nullifier",
-        type: "bytes32",
-        internalType: "bytes32",
+        "name": "valuesLength",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ERC1155InvalidOperator",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ERC1155InvalidReceiver",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ERC1155InvalidSender",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ERC1155MissingApprovalForAll",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
       },
-    ],
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
-    type: "error",
-    name: "ZKPassportCredentials__TokenIsSoulbound",
-    inputs: [],
+    "type": "error",
+    "name": "StringsInsufficientHexLength",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
-    type: "error",
-    name: "ZKPassportCredentials__ZeroAddress",
-    inputs: [],
+    "type": "error",
+    "name": "ZKPassportCredentials__InvalidCredentialDuration",
+    "inputs": []
   },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__MissingNullifier",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__NotAuthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__NotPolicyOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__NotRevocable",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__NothingToRevoke",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__Paused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__PolicyAlreadyExists",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__PolicyNotFound",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__PolicyRetired",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__SybilDetected",
+    "inputs": [
+      {
+        "name": "nullifier",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__TokenIsSoulbound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZKPassportCredentials__ZeroAddress",
+    "inputs": []
+  }
 ] as const
