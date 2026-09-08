@@ -9,7 +9,7 @@ import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
  * @title  ZKPassportCredentials
- * @notice Soulbound ERC-1155 credential ledger: one tokenId per policy (tokenId=policyId).
+ * @notice Soulbound ERC-1155 credential ledger: one tokenId per policy (where tokenId=policyId).
  *         Issuance logic is delegated to an `ICredentialIssuanceModule`, upgradeable by the
  *         contract admin via `setCredentialIssuanceModule`.
  *         Policy evaluation is similarly upgradeable by the contract admin via
@@ -22,6 +22,7 @@ contract ZKPassportCredentials is ERC1155 {
         address owner;
         uint64 credentialDuration;
         bool ownerGrantable;
+        bool ownerRevocable;
         address evaluator;
         bytes requirements;
         string metadataURL;
@@ -40,6 +41,8 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__NothingToRevoke();
     error ZKPassportCredentials__Paused();
     error ZKPassportCredentials__NotGrantable();
+    error ZKPassportCredentials__WalletBanned();
+    error ZKPassportCredentials__NotBanned();
     error ZKPassportCredentials__NotAuthorized();
     error ZKPassportCredentials__ZeroAddress();
 
@@ -55,6 +58,8 @@ contract ZKPassportCredentials is ERC1155 {
     event PolicyEvaluatorUpdated(address indexed oldEvaluator, address indexed newEvaluator);
     event DomainUpdated(string oldDomain, string newDomain);
     event CredentialGranted(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
+    event WalletBanned(address indexed wallet, uint256 indexed policyId);
+    event WalletUnbanned(address indexed wallet, uint256 indexed policyId);
 
     string public domain;
     address public admin;
@@ -65,6 +70,7 @@ contract ZKPassportCredentials is ERC1155 {
     mapping(uint256 policyId => Policy) internal _policies;
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
     mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
+    mapping(address wallet => mapping(uint256 policyId => bool)) public banned;
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
@@ -106,19 +112,26 @@ contract ZKPassportCredentials is ERC1155 {
         policyEvaluator = _policyEvaluator;
     }
 
-    /// @notice Create a policy; the id is namespaced by creator and salt and stable across
-    ///         chains. Requirements are opaque bytes whose schema the current admin-set
-    ///         evaluator owns — they are validated here once so malformed policies fail at
-    ///         creation. The evaluator in force is recorded on the policy and, with the
-    ///         requirements, is immutable for the life of the policy: issuance and renewals
-    ///         keep evaluating under the schema the policy was created with, even after the
-    ///         admin points new policies at a newer evaluator.
+    /// @notice Create a policy. The evaluator in force is recorded on the policy and, with
+    ///         the requirements, is immutable for the life of the policy.
+    /// @param salt Creator-scoped namespace: policyId = keccak256(creator, salt).
+    /// @param requirements Opaque requirement bytes whose schema the current policy evaluator
+    ///        owns.
+    /// @param credentialDuration Seconds a credential stays valid after each issuance or
+    ///        renewal; must be non-zero.
+    /// @param metadataURL Display metadata for the policy's token, served by uri(policyId)
+    /// @param ownerGrantable Whether the owner is allowed to issue credentials without a proof via
+    ///        grant(); immutable after creation.
+    /// @param ownerRevocable Whether the owner is allowed to revoke a holder's credential via
+    ///        revoke(), which also bans the wallet from the policy; immutable after creation.
+    /// @return policyId The policy id, also the ERC-1155 tokenId of its credentials.
     function createPolicy(
         bytes32 salt,
-        uint64 credentialDuration,
-        bool ownerGrantable,
         bytes calldata requirements,
-        string calldata metadataURL
+        uint64 credentialDuration,
+        string calldata metadataURL,
+        bool ownerGrantable,
+        bool ownerRevocable
     ) external whenNotPaused returns (uint256 policyId) {
         if (credentialDuration == 0) {
             revert ZKPassportCredentials__InvalidCredentialDuration();
@@ -133,6 +146,7 @@ contract ZKPassportCredentials is ERC1155 {
         policy.owner = msg.sender;
         policy.credentialDuration = credentialDuration;
         policy.ownerGrantable = ownerGrantable;
+        policy.ownerRevocable = ownerRevocable;
         policy.evaluator = address(evaluator);
         policy.requirements = requirements;
         policy.metadataURL = metadataURL;
@@ -140,21 +154,24 @@ contract ZKPassportCredentials is ERC1155 {
         emit PolicyCreated(policyId, msg.sender);
     }
 
-    /// @notice Full policy struct; reverts for unknown ids
+    /// @notice Get a policy. Reverts for unknown ids.
     function getPolicy(uint256 policyId) external view returns (Policy memory) {
         Policy memory policy = _policies[policyId];
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         return policy;
     }
 
-    /// @notice Update the display metadata URL; requirements are immutable
+    /// @notice Update the display metadata URL of a policy.
+    /// @param policyId The policy to update; only its owner may call.
+    /// @param url The new metadata URL served by uri(policyId).
     function setMetadataURL(uint256 policyId, string calldata url) external onlyPolicyOwner(policyId) {
         _policies[policyId].metadataURL = url;
         emit PolicyMetadataURLUpdated(policyId, url);
     }
 
-    /// @notice Permanently stop new issuance and renewals for a policy; existing
-    ///         credentials stay valid until they expire, so gates reading balanceOf degrade gracefully
+    /// @notice Permanently stop new issuance and renewals for a policy; existing credentials stay
+    ///         valid until they expire.
+    /// @param policyId The policy to retire; only its owner may call.
     function retire(uint256 policyId) external onlyPolicyOwner(policyId) {
         Policy storage policy = _policies[policyId];
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
@@ -162,33 +179,38 @@ contract ZKPassportCredentials is ERC1155 {
         emit PolicyRetired(policyId);
     }
 
+    /// @notice The policy's metadata URL (ERC-1155 token URI); empty for unknown ids.
+    /// @param policyId The policy, which is also the tokenId.
     function uri(uint256 policyId) public view override returns (string memory) {
         return _policies[policyId].metadataURL;
     }
 
     /// @notice The proof subscope a credential for this policy must be generated with
+    /// @param policyId The policy the proof targets
+    /// @return The subscope string: "attest:" followed by the hex-encoded policyId
     function policyScope(uint256 policyId) public pure returns (string memory) {
         return string.concat("attest:", Strings.toHexString(policyId, 32));
     }
 
     /// @notice Verify a proof and grant (or extend) a credential for the wallet the proof is
-    ///         bound to. Issuance is permissionless: anyone holding the proof, its verification
-    ///         params, and the policyId — a relayer included — may submit; the proof itself pins
-    ///         the recipient wallet and chain, so the caller can redirect nothing.
-    ///         The issuance module judges whether a credential may issue; this ledger alone
-    ///         decides how state mutates, so no module can rebind a nullifier, stretch a
-    ///         credential's lifetime, or alter the token.
-    function issue(uint256 policyId, ProofVerificationParams calldata params) external whenNotPaused {
+    ///         bound to. Issuance is permissionless: anyone who presents a proof, its verification
+    ///         params, and the policyId may submit. The proof itself pins the recipient address
+    ///         and chain.
+    /// @param policyId The policy to issue a credential under.
+    /// @param proofVerificationParams Proof and verification data, generated off-chain for
+    ///        this registry's domain and the policy's scope.
+    function issue(uint256 policyId, ProofVerificationParams calldata proofVerificationParams) external whenNotPaused {
         Policy storage policy = _policies[policyId];
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
 
         CredentialIssuanceVerdict memory verdict = credentialIssuanceModule.judge(
-            domain, policyScope(policyId), policy.evaluator, policy.requirements, params
+            domain, policyScope(policyId), policy.evaluator, policy.requirements, proofVerificationParams
         );
 
         address wallet = verdict.wallet;
         if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
+        if (banned[wallet][policyId]) revert ZKPassportCredentials__WalletBanned();
 
         if (verdict.unique) {
             _consumeNullifier(policyId, verdict.nullifier, wallet);
@@ -205,15 +227,17 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     /// @notice Issue (or extend) a credential by policy-owner authority, without a proof.
-    ///         Only available when the policy opted in at creation (`ownerGrantable`).
-    ///         Grants never touch nullifier bindings, so on `enforceUniqueness` policies
-    ///         they bypass one-per-document sybil protection — that is the meaning of
-    ///         owner authority; the proof path is unaffected.
+    ///         Only available when the policy opted in at creation (`ownerGrantable==true`).
+    ///         Note grants never touch nullifier bindings, so on `enforceUniqueness` policies
+    ///         they bypass one-per-document sybil protection.
+    /// @param wallet The recipient; must not be zero.
+    /// @param policyId The policy to grant a credential for; only the policy owner may call.
     function grant(address wallet, uint256 policyId) external whenNotPaused onlyPolicyOwner(policyId) {
         Policy storage policy = _policies[policyId];
         if (!policy.ownerGrantable) revert ZKPassportCredentials__NotGrantable();
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
         if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
+        if (banned[wallet][policyId]) revert ZKPassportCredentials__WalletBanned();
 
         uint64 newHeldUntil = _issueCredential(wallet, policyId, policy.credentialDuration);
         emit CredentialGranted(wallet, policyId, newHeldUntil);
@@ -231,9 +255,9 @@ contract ZKPassportCredentials is ERC1155 {
         }
     }
 
-    /// @dev _update instead of _mint: the soulbound token is granted by proof, not
-    ///      transferred, so the ERC-1155 receiver acceptance check would only stop
-    ///      contract wallets without onERC1155Received from ever holding a credential.
+    /// @dev note we use _update instead of _mint: the soulbound token is granted by proof, not
+    ///      transferred, so the ERC-1155 receiver acceptance check would only stop contract
+    ///      wallets without onERC1155Received from ever holding a credential.
     function _grantToken(address wallet, uint256 policyId) internal {
         uint256[] memory ids = new uint256[](1);
         ids[0] = policyId;
@@ -249,20 +273,31 @@ contract ZKPassportCredentials is ERC1155 {
         nullifierWallet[policyId][nullifier] = wallet;
     }
 
-    /// @notice 1 while the wallet holds an unexpired credential for the policy, else 0
+    /// @notice 1 while the wallet holds an unexpired credential for the policy, else 0.
+    /// @param account The wallet to check.
+    /// @param id The policyId / tokenId.
+    /// @return 1 or 0; expiry is time-based.
     function balanceOf(address account, uint256 id) public view override returns (uint256) {
         return heldUntil[account][id] >= block.timestamp ? 1 : 0;
     }
 
-    /// @notice Remove a credential; only the holder or the policy owner.
-    ///         Policy-owner revocation is targeted incident response (court order, wrongly
-    ///         issued credential) — sanctions propagation does NOT happen here: it is enforced at
-    ///         issuance/renewal against the current sanctions root, bounded by the policy's
-    ///         credentialDuration, with no per-address enumeration.
-    ///         The nullifier stays bound to the wallet: releasing it would let a holder revoke and
-    ///         re-issue to a fresh wallet, timing repeated access to a one-per-document gate. The
-    ///         document can only ever re-credential the same wallet for this policy.
+    /// @notice Revoke a credential. Holders may always revoke their own; the policy owner may
+    ///         revoke a holder's only when the policy opted in at creation (`ownerRevocable`),
+    ///         and doing so also bans the wallet: re-proving no longer re-issues until the
+    ///         owner calls unban(). Self-revocation never bans — the holder may re-prove at
+    ///         will.
+    ///         Note that policy-owner revocation is for targeted incident response: sanctions
+    ///         propagation does NOT happen here: it is enforced at issuance/renewal against the
+    ///         current sanctions root, bounded by the policy's credentialDuration.
+    ///         Also note the nullifier stays bound to the wallet even after revocation: releasing
+    ///         it would let a holder revoke and re-issue to a fresh wallet, timing repeated access
+    ///         to a one-per-document gate. The document can only ever re-credential the same
+    ///         wallet for this policy.
+    /// @param wallet The holder losing the credential
+    /// @param policyId The policy the credential was issued under
     function revoke(address wallet, uint256 policyId) external onlyHolderOrPolicyOwner(wallet, policyId) {
+        bool ownerRevocation = msg.sender != wallet;
+        if (ownerRevocation && !_policies[policyId].ownerRevocable) revert ZKPassportCredentials__NotRevocable();
         if (heldUntil[wallet][policyId] == 0) revert ZKPassportCredentials__NothingToRevoke();
 
         heldUntil[wallet][policyId] = 0;
@@ -272,37 +307,55 @@ contract ZKPassportCredentials is ERC1155 {
         }
 
         emit CredentialRevoked(wallet, policyId, msg.sender);
+
+        if (ownerRevocation) {
+            banned[wallet][policyId] = true;
+            emit WalletBanned(wallet, policyId);
+        }
     }
 
-    /// @notice Emergency stop for issuance and policy creation; reads and revocation stay live
+    /// @notice Lift the ban an owner revocation placed on a wallet for a given policy, restoring
+    ///         its ability to be issued (or granted) credentials under the policy.
+    /// @param wallet The banned wallet.
+    /// @param policyId The policy the ban applies to; only its owner may call.
+    function unban(address wallet, uint256 policyId) external onlyPolicyOwner(policyId) {
+        if (!banned[wallet][policyId]) revert ZKPassportCredentials__NotBanned();
+        banned[wallet][policyId] = false;
+        emit WalletUnbanned(wallet, policyId);
+    }
+
+    /// @notice Emergency stop for issuance and policy creation; reads and revocation stay live.
     function pause() external onlyAdmin {
         paused = true;
         emit PausedStatusChanged(true);
     }
 
+    /// @notice Lift the emergency stop.
     function unpause() external onlyAdmin {
         paused = false;
         emit PausedStatusChanged(false);
     }
 
+    /// @notice Hand the admin role to a new account.
+    /// @param newAdmin The new admin; must not be zero.
     function transferAdmin(address newAdmin) external onlyAdmin {
         if (newAdmin == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit AdminUpdated(admin, newAdmin);
         admin = newAdmin;
     }
 
-    /// @notice Swap the issuance pipeline; existing credentials, nullifier bindings,
-    ///         and policies are untouched — only future issuance goes through the new module
+    /// @notice Upgrade the issuance logic. Existing credentials, nullifier bindings,
+    ///         and policies are untouched: only future issuance goes through the new module.
     function setCredentialIssuanceModule(ICredentialIssuanceModule newModule) external onlyAdmin {
         if (address(newModule) == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit CredentialIssuanceModuleUpdated(address(credentialIssuanceModule), address(newModule));
         credentialIssuanceModule = newModule;
     }
 
-    /// @notice Point future policies at a new evaluator (a new requirements schema).
-    ///         Unlike a module swap, this touches nothing that already exists: each policy
-    ///         keeps the evaluator recorded at its creation, so existing policies — their
-    ///         issuance and renewals included — are unaffected.
+    /// @notice Point future policies at a new policy evaluator, which might define a new
+    ///         requirements schema. Each preexisting policy keeps the evaluator recorded at its
+    ///         creation.
+    /// @param newEvaluator The evaluator recorded by policies created from now on; must not be zero.
     function setPolicyEvaluator(IPolicyEvaluator newEvaluator) external onlyAdmin {
         if (address(newEvaluator) == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit PolicyEvaluatorUpdated(address(policyEvaluator), address(newEvaluator));
@@ -313,11 +366,13 @@ contract ZKPassportCredentials is ERC1155 {
     ///         issuance immediately: proofs are verified against the current domain at
     ///         issue-time, so proofs generated under the old domain stop verifying.
     ///         Existing credentials and nullifier bindings are untouched.
+    /// @param newDomain The domain future proofs must be bound to
     function setDomain(string calldata newDomain) external onlyAdmin {
         emit DomainUpdated(domain, newDomain);
         domain = newDomain;
     }
 
+    /// @notice Always reverts: credentials are soulbound
     function setApprovalForAll(address, bool) public pure override {
         revert ZKPassportCredentials__TokenIsSoulbound();
     }

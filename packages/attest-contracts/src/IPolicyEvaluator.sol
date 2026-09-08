@@ -16,18 +16,21 @@ interface IPolicyEvaluator {
     /// @notice Reverts unless the bytes decode to a well-formed requirements
     ///         value for this evaluator's schema; called once at policy creation
     ///         so malformed requirements fail early
+    /// @param requirements The candidate requirements bytes
     function validateRequirements(bytes calldata requirements) external view;
 
     /**
      * @notice Judge a policy's requirements against a proof the issuance module
      *         has already verified. Reverts with an evaluator-defined error when
      *         a requirement fails.
-     * @param  requirements     The policy's stored requirements bytes
-     * @param  helper           The proof-version-routed helper returned by the
-     *                          root verifier — the only component that can parse
-     *                          committedInputs for this proof's circuit version
-     * @return unique           Whether the caller must consume the nullifier
-     *                          (one-per-document dedup)
+     * @param  requirements    The policy's stored requirements bytes
+     * @param  helper          The proof-version-routed helper returned by the
+     *                         root verifier — the only component that can parse
+     *                         committedInputs for this proof's circuit version
+     * @param  committedInputs The proof's committed inputs, opaque outside `helper`
+     * @param  publicInputs    The proof's public inputs
+     * @return unique          Whether the caller must consume the nullifier
+     *                         (one-per-document dedup)
      */
     function validate(
         bytes calldata requirements,
@@ -37,5 +40,6 @@ interface IPolicyEvaluator {
     ) external view returns (bool unique);
 
     /// @notice Monotonic schema identifier, used off-chain to pick a decoder
+    /// @return The schema version this evaluator implements
     function schemaVersion() external pure returns (uint256);
 }
