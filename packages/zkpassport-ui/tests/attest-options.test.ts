@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { AttestPolicy } from "@zkpassport/sdk"
+import { NullifierType, type AttestPolicy } from "@zkpassport/sdk"
 import { buildAttestCardOptions, type AttestVerifyOptions } from "../src/attest-options"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
@@ -11,8 +11,7 @@ const DOMAIN = "policy.example"
 const basePolicy: AttestPolicy = {
   owner: WALLET,
   validityPeriod: 2592000n,
-  unique: true,
-  saltedNullifierOnly: false,
+  uniqueIdentifierType: NullifierType.NONE,
   minAge: 0,
   sanctionsCheck: false,
   excludedCountries: [],
@@ -79,7 +78,7 @@ describe("buildAttestCardOptions request props", () => {
   })
 
   test("salted policies request the salted unique identifier type", async () => {
-    const policy = { ...basePolicy, saltedNullifierOnly: true }
+    const policy: AttestPolicy = { ...basePolicy, uniqueIdentifierType: NullifierType.SALTED }
     const options = await buildAttestCardOptions({
       ...baseOptions(policy),
       ...{ client: stubChain(policy).client },
@@ -160,7 +159,7 @@ describe("buildAttestCardOptions query translation", () => {
   })
 
   test("salted policy adds strict facematch, required by the salted nullifier", async () => {
-    const calls = await queryCalls({ ...basePolicy, saltedNullifierOnly: true })
+    const calls = await queryCalls({ ...basePolicy, uniqueIdentifierType: NullifierType.SALTED })
     expect(calls).toEqual([
       { method: "facematch", args: ["strict"] },
       { method: "bind", args: ["user_address", WALLET] },
