@@ -9,7 +9,7 @@ const POLICY_ID = 42n
 
 const SAMPLE_POLICY: AttestPolicy = {
   owner: WALLET,
-  validityPeriod: 2592000n,
+  credentialDuration: 2592000n,
   uniqueIdentifierType: NullifierType.SALTED,
   minAge: 18,
   sanctionsCheck: true,
