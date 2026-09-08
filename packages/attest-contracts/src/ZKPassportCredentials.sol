@@ -35,7 +35,6 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__WrongScope();
     error ZKPassportCredentials__StaleProof();
     error ZKPassportCredentials__ProofNotBoundToChain();
-    error ZKPassportCredentials__UnexpectedBoundData();
     error ZKPassportCredentials__AgeBelowMinimum();
     error ZKPassportCredentials__ExcludedJurisdiction();
     error ZKPassportCredentials__SybilDetected(bytes32 nullifier);
@@ -50,8 +49,8 @@ contract ZKPassportCredentials is ERC1155 {
     event PolicyCreated(uint256 indexed policyId, address indexed owner);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
     event PolicyRetired(uint256 indexed policyId);
-    event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
-    event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
+    event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
+    event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
     event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
     event PausedStatusChanged(bool paused);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
@@ -188,7 +187,6 @@ contract ZKPassportCredentials is ERC1155 {
         address wallet = bound.senderAddress;
         if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
         if (bound.chainId != block.chainid) revert ZKPassportCredentials__ProofNotBoundToChain();
-        if (bytes(bound.customData).length != 0) revert ZKPassportCredentials__UnexpectedBoundData();
 
         if (policy.uniqueIdentifierType != NullifierType.NONE_NULLIFIER) {
             bytes32[] calldata publicInputs = params.proofVerificationData.publicInputs;
@@ -208,9 +206,9 @@ contract ZKPassportCredentials is ERC1155 {
         }
 
         if (firstIssue) {
-            emit CredentialIssued(wallet, policyId, newHeldUntil);
+            emit CredentialIssued(wallet, policyId, newHeldUntil, bound.customData);
         } else {
-            emit CredentialRenewed(wallet, policyId, newHeldUntil);
+            emit CredentialRenewed(wallet, policyId, newHeldUntil, bound.customData);
         }
     }
 
