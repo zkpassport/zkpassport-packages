@@ -89,6 +89,11 @@ export async function buildAttestCardOptions(
     throw new Error(`Policy ${options.policyId} is retired and no longer issues credentials.`)
   }
 
+  // Requirements are opaque bytes whose schema the policy's evaluator owns;
+  // decoding through the evaluator keeps the request derived from exactly
+  // what issue() will enforce.
+  const requirements = await attest.getRequirements(policy)
+
   const { policyId, wallet, chain } = options
 
   return {
@@ -105,24 +110,26 @@ export async function buildAttestCardOptions(
     // attest flow needs a verdict before minting even where that API is not
     // reachable (local dev has no CORS grant) — verify locally, API as backup.
     verifierMode: "auto",
-    // The policy's uniqueIdentifierType is the request's, except NONE: the
+    // The requirements' uniqueIdentifierType is the request's, except NONE: the
     // contract skips the type check for those policies, and the app includes
     // a non-salted nullifier even when NONE is requested — the sdk's
     // requested-type enforcement would reject that mismatch, so NONE stays
     // unconstrained.
     uniqueIdentifierType:
-      policy.uniqueIdentifierType === NullifierType.NONE ? undefined : policy.uniqueIdentifierType,
+      requirements.uniqueIdentifierType === NullifierType.NONE
+        ? undefined
+        : requirements.uniqueIdentifierType,
     query: (qb) => {
       let q = qb
-      if (policy.minAge > 0) q = q.gte("age", policy.minAge)
-      if (policy.excludedCountries.length > 0) {
+      if (requirements.minAge > 0) q = q.gte("age", requirements.minAge)
+      if (requirements.excludedCountries.length > 0) {
         // The registry stores ISO alpha-3 codes; the contract checks nationality.
-        q = q.out("nationality", [...policy.excludedCountries] as never)
+        q = q.out("nationality", [...requirements.excludedCountries] as never)
       }
       // The contract verifies sanctions proofs in strict mode.
-      if (policy.sanctionsCheck) q = q.sanctions("all", "all", { strict: true })
+      if (requirements.sanctionsCheck) q = q.sanctions("all", "all", { strict: true })
       // The SDK requires strict facematch whenever the salted nullifier is used.
-      if (policy.uniqueIdentifierType === NullifierType.SALTED) q = q.facematch("strict")
+      if (requirements.uniqueIdentifierType === NullifierType.SALTED) q = q.facematch("strict")
       return q.bind("user_address", wallet).bind("chain", chain).done()
     },
     onReady: options.onReady,

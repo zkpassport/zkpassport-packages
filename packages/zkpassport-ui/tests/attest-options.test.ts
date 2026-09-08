@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { NullifierType, type AttestPolicy } from "@zkpassport/sdk"
+import { NullifierType, type AttestPolicy, type AttestPolicyRequirements } from "@zkpassport/sdk"
 import { buildAttestCardOptions, type AttestVerifyOptions } from "../src/attest-options"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
@@ -8,18 +8,28 @@ const POLICY_ID = 42n
 const SCOPE = "attest:0x000000000000000000000000000000000000000000000000000000000000002a"
 const DOMAIN = "policy.example"
 
+const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
+
 const basePolicy: AttestPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
-  uniqueIdentifierType: NullifierType.NON_SALTED,
-  minAge: 0,
-  sanctionsCheck: false,
-  excludedCountries: [],
+  evaluator: EVALUATOR,
+  requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
   retiredAt: 0n,
 }
 
-function stubChain(policy: AttestPolicy) {
+const baseRequirements: AttestPolicyRequirements = {
+  uniqueIdentifierType: NullifierType.NON_SALTED,
+  minAge: 0,
+  sanctionsCheck: false,
+  excludedCountries: [],
+}
+
+function stubChain(
+  policy: AttestPolicy,
+  requirements: AttestPolicyRequirements = baseRequirements,
+) {
   const readCalls: { functionName: string; args?: readonly unknown[] }[] = []
   const client = {
     readContract: async (params: never) => {
@@ -28,6 +38,8 @@ function stubChain(policy: AttestPolicy) {
       if (p.functionName === "getPolicy") return policy
       if (p.functionName === "policyScope") return SCOPE
       if (p.functionName === "domain") return DOMAIN
+      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "decodeRequirements") return requirements
       throw new Error(`unexpected read ${p.functionName}`)
     },
     getLogs: async () => [],
@@ -71,31 +83,39 @@ describe("buildAttestCardOptions request props", () => {
     expect(options.devMode).toBe(false)
     expect(options.uniqueIdentifierType).toBe(NullifierType.NON_SALTED)
     expect(readCalls.map((c) => c.functionName).sort()).toEqual([
+      "decodeRequirements",
       "domain",
       "getPolicy",
       "policyScope",
+      "schemaVersion",
     ])
   })
 
   test("salted policies request the salted unique identifier type", async () => {
-    const policy: AttestPolicy = { ...basePolicy, uniqueIdentifierType: NullifierType.SALTED }
+    const salted: AttestPolicyRequirements = {
+      ...baseRequirements,
+      uniqueIdentifierType: NullifierType.SALTED,
+    }
     const options = await buildAttestCardOptions({
-      ...baseOptions(policy),
-      ...{ client: stubChain(policy).client },
+      ...baseOptions(basePolicy),
+      ...{ client: stubChain(basePolicy, salted).client },
     })
     expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
   })
 
   test("policies without dedup leave the unique identifier type unconstrained", async () => {
-    const policy: AttestPolicy = { ...basePolicy, uniqueIdentifierType: NullifierType.NONE }
+    const none: AttestPolicyRequirements = {
+      ...baseRequirements,
+      uniqueIdentifierType: NullifierType.NONE,
+    }
     const options = await buildAttestCardOptions({
-      ...baseOptions(policy),
-      ...{ client: stubChain(policy).client },
+      ...baseOptions(basePolicy),
+      ...{ client: stubChain(basePolicy, none).client },
     })
     expect(options.uniqueIdentifierType).toBeUndefined()
   })
 
-  test("supplying policy, scope, and domain skips all reads", async () => {
+  test("supplying policy, scope, and domain skips the registry reads", async () => {
     const { client, readCalls } = stubChain(basePolicy)
     const options = await buildAttestCardOptions({
       ...baseOptions(basePolicy),
@@ -106,7 +126,11 @@ describe("buildAttestCardOptions request props", () => {
     })
     expect(options.scope).toBe(SCOPE)
     expect(options.domain).toBe("custom.example")
-    expect(readCalls.length).toBe(0)
+    // Requirements always decode through the evaluator, even for a supplied policy.
+    expect(readCalls.map((c) => c.functionName).sort()).toEqual([
+      "decodeRequirements",
+      "schemaVersion",
+    ])
   })
 
   test("each escape hatch skips only its own read", async () => {
@@ -116,7 +140,12 @@ describe("buildAttestCardOptions request props", () => {
       client,
       policy: basePolicy,
     })
-    expect(readCalls.map((c) => c.functionName).sort()).toEqual(["domain", "policyScope"])
+    expect(readCalls.map((c) => c.functionName).sort()).toEqual([
+      "decodeRequirements",
+      "domain",
+      "policyScope",
+      "schemaVersion",
+    ])
   })
 
   test("retired policies are rejected", async () => {
@@ -128,10 +157,10 @@ describe("buildAttestCardOptions request props", () => {
 })
 
 describe("buildAttestCardOptions query translation", () => {
-  async function queryCalls(policy: AttestPolicy) {
+  async function queryCalls(requirements: AttestPolicyRequirements) {
     const options = await buildAttestCardOptions({
-      ...baseOptions(policy),
-      client: stubChain(policy).client,
+      ...baseOptions(basePolicy),
+      client: stubChain(basePolicy, requirements).client,
     })
     const { qb, calls } = fakeQueryBuilder()
     options.query(qb)
@@ -139,7 +168,7 @@ describe("buildAttestCardOptions query translation", () => {
   }
 
   test("bare policy: only binding, no predicates", async () => {
-    const calls = await queryCalls(basePolicy)
+    const calls = await queryCalls(baseRequirements)
     expect(calls).toEqual([
       { method: "bind", args: ["user_address", WALLET] },
       { method: "bind", args: ["chain", "ethereum_sepolia"] },
@@ -148,15 +177,15 @@ describe("buildAttestCardOptions query translation", () => {
   })
 
   test("full policy: age, nationality exclusion, strict sanctions, then binding", async () => {
-    const policy: AttestPolicy = {
-      ...basePolicy,
+    const requirements: AttestPolicyRequirements = {
+      ...baseRequirements,
       minAge: 21,
       // Stored sorted on-chain; contract-side ordering validation is a
       // registry follow-up, the query passes codes through as stored.
       excludedCountries: ["IRN", "PRK"],
       sanctionsCheck: true,
     }
-    const calls = await queryCalls(policy)
+    const calls = await queryCalls(requirements)
     expect(calls).toEqual([
       { method: "gte", args: ["age", 21] },
       { method: "out", args: ["nationality", ["IRN", "PRK"]] },
@@ -168,7 +197,10 @@ describe("buildAttestCardOptions query translation", () => {
   })
 
   test("salted policy adds strict facematch, required by the salted nullifier", async () => {
-    const calls = await queryCalls({ ...basePolicy, uniqueIdentifierType: NullifierType.SALTED })
+    const calls = await queryCalls({
+      ...baseRequirements,
+      uniqueIdentifierType: NullifierType.SALTED,
+    })
     expect(calls).toEqual([
       { method: "facematch", args: ["strict"] },
       { method: "bind", args: ["user_address", WALLET] },
@@ -178,7 +210,10 @@ describe("buildAttestCardOptions query translation", () => {
   })
 
   test("policy without dedup needs no nullifier, so no facematch", async () => {
-    const calls = await queryCalls({ ...basePolicy, uniqueIdentifierType: NullifierType.NONE })
+    const calls = await queryCalls({
+      ...baseRequirements,
+      uniqueIdentifierType: NullifierType.NONE,
+    })
     expect(calls).toEqual([
       { method: "bind", args: ["user_address", WALLET] },
       { method: "bind", args: ["chain", "ethereum_sepolia"] },
