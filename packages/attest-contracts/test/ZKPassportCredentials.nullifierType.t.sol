@@ -16,26 +16,16 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(21)),
             7 days,
-            _requirements(NullifierType.SALTED_NULLIFIER, 0, false, noCountries),
+            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             "https://p.example/s"
         );
         vm.prank(creator);
         nonSaltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(22)),
             7 days,
-            _requirements(NullifierType.NON_SALTED_NULLIFIER, 0, false, noCountries),
+            _requirements(NullifierType.NON_SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             "https://p.example/n"
         );
-    }
-
-    function _paramsWithNullifierType(NullifierType nullifierType)
-        internal
-        pure
-        returns (ProofVerificationParams memory params)
-    {
-        params = _params();
-        params.proofVerificationData.publicInputs = new bytes32[](3);
-        params.proofVerificationData.publicInputs[0] = bytes32(uint256(nullifierType));
     }
 
     function testCreatePolicyStoresNullifierType() public {

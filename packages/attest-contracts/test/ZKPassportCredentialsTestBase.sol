@@ -42,21 +42,20 @@ contract ZKPassportCredentialsTestBase is Test {
         returns (PolicyEvaluatorV1.PolicyRequirements memory r)
     {
         r.uniqueIdentifierType = uniqueIdentifierType;
+        r.enforceUniqueness = uniqueIdentifierType != NullifierType.NONE_NULLIFIER;
         r.includedNationalities = noCountries;
         r.excludedNationalities = noCountries;
-        r.includedIssuingCountries = noCountries;
-        r.excludedIssuingCountries = noCountries;
     }
 
     function _requirements(
         NullifierType uniqueIdentifierType,
         uint8 minAge,
-        bool sanctionsCheck,
+        PolicyEvaluatorV1.SanctionsMode sanctionsMode,
         string[] memory excludedNationalities
     ) internal view returns (bytes memory) {
         PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(uniqueIdentifierType);
         r.minAge = minAge;
-        r.sanctionsCheck = sanctionsCheck;
+        r.sanctionsMode = sanctionsMode;
         r.excludedNationalities = excludedNationalities;
         return abi.encode(r);
     }
@@ -66,7 +65,7 @@ contract ZKPassportCredentialsTestBase is Test {
         return zkPassportCredentials.createPolicy(
             bytes32(uint256(1)),
             30 days,
-            _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries),
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             "https://policy.example/1"
         );
     }
@@ -84,6 +83,16 @@ contract ZKPassportCredentialsTestBase is Test {
                 validityPeriodInSeconds: 0, domain: "zkpassport.id", scope: "", devMode: false
             })
         });
+    }
+
+    function _paramsWithNullifierType(NullifierType nullifierType)
+        internal
+        pure
+        returns (ProofVerificationParams memory params)
+    {
+        params = _params();
+        params.proofVerificationData.publicInputs = new bytes32[](3);
+        params.proofVerificationData.publicInputs[0] = bytes32(uint256(nullifierType));
     }
 
     function _devModeParams() internal pure returns (ProofVerificationParams memory params) {

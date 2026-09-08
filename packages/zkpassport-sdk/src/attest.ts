@@ -23,28 +23,31 @@ export type AttestPolicy = {
 
 /**
  * PolicyEvaluatorV1.PolicyRequirements, decoded through the evaluator itself.
- * Numeric bounds are inclusive and 0 (or 0n) means unbounded on that side;
- * dates are unix timestamps in seconds. Country lists are ISO 3166-1 alpha-3,
- * sorted ascending; an empty list disables that check.
+ * minAge 0 disables the age check; a non-NONE uniqueIdentifierType requires
+ * the proof to carry exactly that nullifier type, and enforceUniqueness turns
+ * on one-per-document dedup. Country lists are ISO 3166-1 alpha-3, sorted
+ * ascending; an empty list disables that check.
  */
 export type AttestPolicyRequirements = {
   uniqueIdentifierType: RequestedNullifierType
+  enforceUniqueness: boolean
   minAge: number
-  maxAge: number
-  minBirthdate: bigint
-  maxBirthdate: bigint
-  minExpiryDate: bigint
-  maxExpiryDate: bigint
-  sanctionsCheck: boolean
+  /** undefined when the policy does not require a sanctions check */
+  sanctionsMode?: "normal" | "strict"
   /** undefined when the policy does not require FaceMatch */
   facematchMode?: FacematchMode
   includedNationalities: readonly string[]
   excludedNationalities: readonly string[]
-  includedIssuingCountries: readonly string[]
-  excludedIssuingCountries: readonly string[]
 }
 
-/** PolicyEvaluatorV1.sol's FaceMatchMode enum: NONE, REGULAR, STRICT. */
+/** PolicyEvaluatorV1.sol's SanctionsMode enum: NONE, NORMAL, STRICT. */
+const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
+  0: undefined,
+  1: "normal",
+  2: "strict",
+}
+
+/** The registry's FaceMatchMode enum: NONE, REGULAR, STRICT. */
 const FACEMATCH_MODES: Record<number, FacematchMode | undefined> = {
   0: undefined,
   1: "regular",
@@ -108,22 +111,16 @@ export class AttestClient {
     }
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       AttestPolicyRequirements,
-      "facematchMode"
-    > & { faceMatchMode: number }
+      "sanctionsMode" | "facematchMode"
+    > & { sanctionsMode: number; faceMatchMode: number }
     return {
       uniqueIdentifierType: decoded.uniqueIdentifierType,
+      enforceUniqueness: decoded.enforceUniqueness,
       minAge: decoded.minAge,
-      maxAge: decoded.maxAge,
-      minBirthdate: decoded.minBirthdate,
-      maxBirthdate: decoded.maxBirthdate,
-      minExpiryDate: decoded.minExpiryDate,
-      maxExpiryDate: decoded.maxExpiryDate,
-      sanctionsCheck: decoded.sanctionsCheck,
+      sanctionsMode: SANCTIONS_MODES[decoded.sanctionsMode],
       facematchMode: FACEMATCH_MODES[decoded.faceMatchMode],
       includedNationalities: decoded.includedNationalities,
       excludedNationalities: decoded.excludedNationalities,
-      includedIssuingCountries: decoded.includedIssuingCountries,
-      excludedIssuingCountries: decoded.excludedIssuingCountries,
     }
   }
 
