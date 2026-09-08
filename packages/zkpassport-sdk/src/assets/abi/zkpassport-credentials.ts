@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 2b4ba6c7). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 64f118aa). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -90,6 +90,30 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
+    name: "banned",
+    inputs: [
+      {
+        name: "wallet",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "createPolicy",
     inputs: [
       {
@@ -98,9 +122,19 @@ export const ZKPassportCredentialsAbi = [
         internalType: "bytes32",
       },
       {
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
+      },
+      {
         name: "credentialDuration",
         type: "uint64",
         internalType: "uint64",
+      },
+      {
+        name: "metadataURL",
+        type: "string",
+        internalType: "string",
       },
       {
         name: "ownerGrantable",
@@ -108,14 +142,9 @@ export const ZKPassportCredentialsAbi = [
         internalType: "bool",
       },
       {
-        name: "requirements",
-        type: "bytes",
-        internalType: "bytes",
-      },
-      {
-        name: "metadataURL",
-        type: "string",
-        internalType: "string",
+        name: "ownerRevocable",
+        type: "bool",
+        internalType: "bool",
       },
     ],
     outputs: [
@@ -181,6 +210,11 @@ export const ZKPassportCredentialsAbi = [
           },
           {
             name: "ownerGrantable",
+            type: "bool",
+            internalType: "bool",
+          },
+          {
+            name: "ownerRevocable",
             type: "bool",
             internalType: "bool",
           },
@@ -285,7 +319,7 @@ export const ZKPassportCredentialsAbi = [
         internalType: "uint256",
       },
       {
-        name: "params",
+        name: "proofVerificationParams",
         type: "tuple",
         internalType: "struct ProofVerificationParams",
         components: [
@@ -629,6 +663,24 @@ export const ZKPassportCredentialsAbi = [
         name: "newAdmin",
         type: "address",
         internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "unban",
+    inputs: [
+      {
+        name: "wallet",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
       },
     ],
     outputs: [],
@@ -1031,6 +1083,44 @@ export const ZKPassportCredentialsAbi = [
     anonymous: false,
   },
   {
+    type: "event",
+    name: "WalletBanned",
+    inputs: [
+      {
+        name: "wallet",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "WalletUnbanned",
+    inputs: [
+      {
+        name: "wallet",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
     type: "error",
     name: "ERC1155InsufficientBalance",
     inputs: [
@@ -1165,6 +1255,11 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
+    name: "ZKPassportCredentials__NotBanned",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "ZKPassportCredentials__NotGrantable",
     inputs: [],
   },
@@ -1235,6 +1330,11 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__TokenIsSoulbound",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZKPassportCredentials__WalletBanned",
     inputs: [],
   },
   {
