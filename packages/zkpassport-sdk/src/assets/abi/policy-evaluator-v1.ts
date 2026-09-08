@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 21736f9c). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 6f70b8cb). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -110,6 +110,11 @@ export const PolicyEvaluatorV1Abi = [
   {
     type: "error",
     name: "PolicyEvaluator__ExcludedJurisdiction",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__InvalidCountryList",
     inputs: [],
   },
   {
