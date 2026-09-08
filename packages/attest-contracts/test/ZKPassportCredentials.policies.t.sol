@@ -35,7 +35,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         assertEq(uint8(decoded.uniqueIdentifierType), uint8(NullifierType.SALTED_NULLIFIER));
         assertEq(decoded.minAge, 18);
         assertTrue(decoded.sanctionsCheck);
-        assertEq(decoded.excludedCountries.length, 1);
+        assertEq(decoded.excludedNationalities.length, 1);
     }
 
     function testCreatePolicyEmitsEvent() public {
@@ -104,6 +104,52 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.createPolicy(
             bytes32(0), 30 days, _requirements(NullifierType.SALTED_MOCK_NULLIFIER, 0, false, noCountries), "x"
         );
+    }
+
+    function testCreatePolicyRejectsInvalidBounds() public {
+        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        r.minAge = 30;
+        r.maxAge = 18;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidBounds.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
+
+        r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        r.minBirthdate = 2;
+        r.maxBirthdate = 1;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidBounds.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
+
+        r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        r.minExpiryDate = 2;
+        r.maxExpiryDate = 1;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidBounds.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
+    }
+
+    function testCreatePolicyValidatesEveryCountryList() public {
+        string[] memory bad = new string[](1);
+        bad[0] = "usa";
+
+        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        r.includedNationalities = bad;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidCountryList.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
+
+        r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        r.includedIssuingCountries = bad;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidCountryList.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
+
+        r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        r.excludedIssuingCountries = bad;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidCountryList.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
     }
 
     function testCreatePolicyRejectsMalformedCountryEntries() public {

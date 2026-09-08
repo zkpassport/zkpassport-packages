@@ -36,20 +36,29 @@ contract ZKPassportCredentialsTestBase is Test {
         mockHelper.setProofTimestamp(block.timestamp);
     }
 
+    function _emptyRequirements(NullifierType uniqueIdentifierType)
+        internal
+        view
+        returns (PolicyEvaluatorV1.PolicyRequirements memory r)
+    {
+        r.uniqueIdentifierType = uniqueIdentifierType;
+        r.includedNationalities = noCountries;
+        r.excludedNationalities = noCountries;
+        r.includedIssuingCountries = noCountries;
+        r.excludedIssuingCountries = noCountries;
+    }
+
     function _requirements(
         NullifierType uniqueIdentifierType,
         uint8 minAge,
         bool sanctionsCheck,
-        string[] memory excludedCountries
-    ) internal pure returns (bytes memory) {
-        return abi.encode(
-            PolicyEvaluatorV1.PolicyRequirements({
-                uniqueIdentifierType: uniqueIdentifierType,
-                minAge: minAge,
-                sanctionsCheck: sanctionsCheck,
-                excludedCountries: excludedCountries
-            })
-        );
+        string[] memory excludedNationalities
+    ) internal view returns (bytes memory) {
+        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(uniqueIdentifierType);
+        r.minAge = minAge;
+        r.sanctionsCheck = sanctionsCheck;
+        r.excludedNationalities = excludedNationalities;
+        return abi.encode(r);
     }
 
     function _createDefaultPolicy() internal returns (uint256) {
