@@ -18,6 +18,7 @@ const SAMPLE_POLICY: AttestPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
   ownerGrantable: false,
+  ownerRevocable: false,
   evaluator: EVALUATOR,
   requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
@@ -98,11 +99,12 @@ describe("AttestClient reads", () => {
     )
   })
 
-  test("uri, balanceOf, heldUntil, policyScope forward the right calls", async () => {
+  test("uri, balanceOf, heldUntil, banned, policyScope forward the right calls", async () => {
     const results: Record<string, unknown> = {
       uri: "https://policy.example/kyc",
       balanceOf: 1n,
       heldUntil: 1702592000n,
+      banned: true,
       policyScope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
@@ -110,15 +112,18 @@ describe("AttestClient reads", () => {
     expect(await attest.uri(POLICY_ID)).toBe(results.uri as string)
     expect(await attest.balanceOf(WALLET, POLICY_ID)).toBe(1n)
     expect(await attest.heldUntil(WALLET, POLICY_ID)).toBe(1702592000n)
+    expect(await attest.banned(WALLET, POLICY_ID)).toBe(true)
     expect(await attest.policyScope(POLICY_ID)).toBe(results.policyScope as string)
     expect(readCalls.map((c) => c.functionName)).toEqual([
       "uri",
       "balanceOf",
       "heldUntil",
+      "banned",
       "policyScope",
     ])
     expect(readCalls[1].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[2].args).toEqual([WALLET, POLICY_ID])
+    expect(readCalls[3].args).toEqual([WALLET, POLICY_ID])
   })
 })
 
