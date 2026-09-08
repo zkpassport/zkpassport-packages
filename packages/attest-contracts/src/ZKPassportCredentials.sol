@@ -51,6 +51,7 @@ contract ZKPassportCredentials is ERC1155 {
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event CredentialIssuanceModuleUpdated(address indexed oldModule, address indexed newModule);
     event PolicyEvaluatorUpdated(address indexed oldEvaluator, address indexed newEvaluator);
+    event DomainUpdated(string oldDomain, string newDomain);
 
     string public domain;
     address public admin;
@@ -279,6 +280,15 @@ contract ZKPassportCredentials is ERC1155 {
         if (address(newEvaluator) == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit PolicyEvaluatorUpdated(address(policyEvaluator), address(newEvaluator));
         policyEvaluator = newEvaluator;
+    }
+
+    /// @notice Change the domain proofs must be bound to. Takes effect for all future
+    ///         issuance immediately: proofs are verified against the current domain at
+    ///         issue-time, so proofs generated under the old domain stop verifying.
+    ///         Existing credentials and nullifier bindings are untouched.
+    function setDomain(string calldata newDomain) external onlyAdmin {
+        emit DomainUpdated(domain, newDomain);
+        domain = newDomain;
     }
 
     function setApprovalForAll(address, bool) public pure override {

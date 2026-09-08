@@ -120,6 +120,31 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.setPolicyEvaluator(PolicyEvaluatorV1(address(0)));
     }
 
+    function testAdminCanSetDomain() public {
+        vm.prank(admin);
+        vm.expectEmit(false, false, false, true);
+        emit ZKPassportCredentials.DomainUpdated(DOMAIN, "attest.example");
+        zkPassportCredentials.setDomain("attest.example");
+        assertEq(zkPassportCredentials.domain(), "attest.example");
+    }
+
+    function testOthersCannotSetDomain() public {
+        vm.prank(wallet);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
+        zkPassportCredentials.setDomain("attest.example");
+    }
+
+    function testIssueVerifiesAgainstTheCurrentDomain() public {
+        mockHelper.setExpectedScopes(DOMAIN, zkPassportCredentials.policyScope(policyId));
+        vm.prank(admin);
+        zkPassportCredentials.setDomain("attest.example");
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__WrongScope.selector);
+        zkPassportCredentials.issue(policyId, _params());
+        mockHelper.setExpectedScopes("attest.example", zkPassportCredentials.policyScope(policyId));
+        zkPassportCredentials.issue(policyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
+    }
+
     function testCannotTransferAdminToZero() public {
         vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
