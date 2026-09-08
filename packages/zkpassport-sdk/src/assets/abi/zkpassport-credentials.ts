@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 8a162cf6). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 2b4ba6c7). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -103,6 +103,11 @@ export const ZKPassportCredentialsAbi = [
         internalType: "uint64",
       },
       {
+        name: "ownerGrantable",
+        type: "bool",
+        internalType: "bool",
+      },
+      {
         name: "requirements",
         type: "bytes",
         internalType: "bytes",
@@ -175,6 +180,11 @@ export const ZKPassportCredentialsAbi = [
             internalType: "uint64",
           },
           {
+            name: "ownerGrantable",
+            type: "bool",
+            internalType: "bool",
+          },
+          {
             name: "evaluator",
             type: "address",
             internalType: "address",
@@ -198,6 +208,24 @@ export const ZKPassportCredentialsAbi = [
       },
     ],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "grant",
+    inputs: [
+      {
+        name: "wallet",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -678,6 +706,31 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "event",
+    name: "CredentialGranted",
+    inputs: [
+      {
+        name: "wallet",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "heldUntil",
+        type: "uint64",
+        indexed: false,
+        internalType: "uint64",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "CredentialIssuanceModuleUpdated",
     inputs: [
       {
@@ -1108,6 +1161,11 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__NotAuthorized",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZKPassportCredentials__NotGrantable",
     inputs: [],
   },
   {
