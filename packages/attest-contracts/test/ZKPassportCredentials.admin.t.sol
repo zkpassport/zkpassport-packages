@@ -73,7 +73,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.pause();
     }
 
-    function testAdminCanSwapIssuanceModule() public {
+    function testAdminCanSwapCredentialIssuanceModule() public {
         CredentialIssuanceModuleV1 newModule = new CredentialIssuanceModuleV1(IRootVerifier(address(mockVerifier)));
         vm.prank(admin);
         vm.expectEmit(true, true, false, false);
@@ -86,13 +86,13 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
-    function testOthersCannotSwapIssuanceModule() public {
+    function testOthersCannotSwapCredentialIssuanceModule() public {
         vm.prank(wallet);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
         zkPassportCredentials.setCredentialIssuanceModule(credentialIssuanceModule);
     }
 
-    function testCannotSwapIssuanceModuleToZero() public {
+    function testCannotSwapCredentialIssuanceModuleToZero() public {
         vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
         zkPassportCredentials.setCredentialIssuanceModule(CredentialIssuanceModuleV1(address(0)));
