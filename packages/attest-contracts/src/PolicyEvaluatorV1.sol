@@ -6,13 +6,6 @@ import {IVerifierHelper} from "@registry/IRootVerifier.sol";
 import {IExtendedVerifierHelper} from "./IExtendedVerifierHelper.sol";
 import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
-/**
- * @title  PolicyEvaluatorV1
- * @notice First-generation requirements schema: one-per-document uniqueness by
- *         nullifier type, minimum age, nationality allow/deny lists, FaceMatch,
- *         and sanctions checking. Stateless — policies store their requirements
- *         as abi-encoded bytes and share this single deployment.
- */
 contract PolicyEvaluatorV1 is IPolicyEvaluator {
     enum SanctionsMode {
         NONE,
@@ -20,13 +13,11 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         STRICT
     }
 
-    /// @dev minAge 0 disables the age check. uniqueIdentifierType NONE leaves
-    ///      the proof's nullifier type unconstrained; any other value requires
-    ///      the proof to carry exactly that type. enforceUniqueness turns on
-    ///      one-per-document dedup (the ledger consumes the nullifier) and
-    ///      needs a constrained nullifier type to dedup on. Country lists are
-    ///      ISO 3166-1 alpha-3, strictly ascending; an empty list disables
-    ///      that check.
+    /// @dev minAge 0 disables the age check. uniqueIdentifierType NONE leaves the proof's
+    ///      nullifier type unconstrained; any other value requires the proof to carry exactly
+    ///      that type. enforceUniqueness turns on one-per-document dedup (the ledger consumes
+    ///      the nullifier) and needs a constrained nullifier type to dedup on. Country lists are
+    ///      ISO 3166-1 alpha-3, strictly ascending; an empty list disables that check.
     struct PolicyRequirements {
         NullifierType uniqueIdentifierType;
         bool enforceUniqueness;
@@ -54,9 +45,9 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
     /// @notice Typed decode for off-chain consumers (request building); the
     ///         return type is version-specific, so this is not part of
-    ///         IPolicyEvaluator
-    /// @param requirements The abi-encoded PolicyRequirements bytes
-    /// @return The decoded requirements struct
+    ///         IPolicyEvaluator.
+    /// @param requirements The abi-encoded PolicyRequirements bytes.
+    /// @return The decoded requirements struct.
     function decodeRequirements(bytes calldata requirements) public pure returns (PolicyRequirements memory) {
         return abi.decode(requirements, (PolicyRequirements));
     }
@@ -69,15 +60,18 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
                 && r.uniqueIdentifierType != NullifierType.NON_SALTED_NULLIFIER
                 && r.uniqueIdentifierType != NullifierType.SALTED_NULLIFIER
         ) revert PolicyEvaluator__InvalidNullifierType();
+
         if (r.enforceUniqueness && r.uniqueIdentifierType == NullifierType.NONE_NULLIFIER) {
             revert PolicyEvaluator__UniquenessRequiresNullifierType();
         }
-        // The app salts nullifiers through a strict FaceMatch attestation, so a
-        // salted-nullifier proof always commits STRICT mode — a policy pairing
-        // SALTED with REGULAR could never issue.
+
+        // The app salts nullifiers through a strict FaceMatch attestation, so a salted-nullifier
+        // proof always commits STRICT mode. A policy pairing SALTED with REGULAR could never
+        // issue.
         if (r.uniqueIdentifierType == NullifierType.SALTED_NULLIFIER && r.faceMatchMode == FaceMatchMode.REGULAR) {
             revert PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
         }
+
         _validateCountryList(r.includedNationalities);
         _validateCountryList(r.excludedNationalities);
     }
@@ -93,9 +87,19 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
         if (r.uniqueIdentifierType != NullifierType.NONE_NULLIFIER) {
             NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-            if (_realTwin(nullifierType) != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
+
+            // Mock documents (dev mode) carry the mock twin of the requested nullifier type,
+            // while policies constrain the real type, so we compare against the twin. This only
+            // matters where mock proofs verify at all: testnet registries, which contain the
+            // mock certificates; mainnet registries do not.
+            if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
+                nullifierType = NullifierType.NON_SALTED_NULLIFIER;
+            } else if (nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
+                nullifierType = NullifierType.SALTED_NULLIFIER;
+            }
+
+            if (nullifierType != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
         }
-        unique = r.enforceUniqueness;
 
         if (r.minAge > 0 && !helper.isAgeAboveOrEqual(r.minAge, committedInputs)) {
             revert PolicyEvaluator__AgeRequirementNotMet();
@@ -112,8 +116,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
             revert PolicyEvaluator__ExcludedNationality();
         }
 
-        // OS.ANY: a policy constrains the identity, not which phone OS attested
-        // the face match
+        // OS.ANY: a policy constrains the identity, not which phone OS attested the face match
         if (
             r.faceMatchMode != FaceMatchMode.NONE
                 && !extendedHelper.isFaceMatchVerified(r.faceMatchMode, OS.ANY, committedInputs)
@@ -124,16 +127,8 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         if (r.sanctionsMode != SanctionsMode.NONE) {
             helper.enforceSanctionsRoot(block.timestamp, r.sanctionsMode == SanctionsMode.STRICT, committedInputs);
         }
-    }
 
-    /// @dev Mock documents (dev mode) carry the mock twin of the requested nullifier type,
-    ///      while policies constrain the real type — so compare against the twin. This only
-    ///      matters where mock proofs verify at all: testnet registries, which contain the
-    ///      mock certificates; mainnet registries do not.
-    function _realTwin(NullifierType nullifierType) internal pure returns (NullifierType) {
-        if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) return NullifierType.NON_SALTED_NULLIFIER;
-        if (nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) return NullifierType.SALTED_NULLIFIER;
-        return nullifierType;
+        return r.enforceUniqueness;
     }
 
     /// @dev The verifier helper's country checks need the exact list committed
