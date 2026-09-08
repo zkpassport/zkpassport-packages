@@ -14,6 +14,8 @@ export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs">
 export type AttestPolicy = {
   owner: `0x${string}`
   credentialDuration: bigint
+  /** When true, the policy owner may issue credentials directly via grant(), without a proof. */
+  ownerGrantable: boolean
   evaluator: `0x${string}`
   /** Opaque requirements bytes; the schema is owned by the policy's evaluator. */
   requirements: `0x${string}`
