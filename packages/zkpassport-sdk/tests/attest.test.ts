@@ -17,6 +17,7 @@ const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
 const SAMPLE_POLICY: AttestPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
+  ownerGrantable: false,
   evaluator: EVALUATOR,
   requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
