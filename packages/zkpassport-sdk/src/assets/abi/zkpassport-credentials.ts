@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 07dbc973). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 8a162cf6). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -532,6 +532,19 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
+    name: "setDomain",
+    inputs: [
+      {
+        name: "newDomain",
+        type: "string",
+        internalType: "string",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "setMetadataURL",
     inputs: [
       {
@@ -765,6 +778,25 @@ export const ZKPassportCredentialsAbi = [
         type: "address",
         indexed: false,
         internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "DomainUpdated",
+    inputs: [
+      {
+        name: "oldDomain",
+        type: "string",
+        indexed: false,
+        internalType: "string",
+      },
+      {
+        name: "newDomain",
+        type: "string",
+        indexed: false,
+        internalType: "string",
       },
     ],
     anonymous: false,
