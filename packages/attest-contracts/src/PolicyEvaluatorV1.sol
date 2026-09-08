@@ -47,6 +47,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__FaceMatchRequirementNotMet();
     error PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
 
+    /// @inheritdoc IPolicyEvaluator
     function schemaVersion() external pure returns (uint256) {
         return 1;
     }
@@ -54,10 +55,13 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     /// @notice Typed decode for off-chain consumers (request building); the
     ///         return type is version-specific, so this is not part of
     ///         IPolicyEvaluator
+    /// @param requirements The abi-encoded PolicyRequirements bytes
+    /// @return The decoded requirements struct
     function decodeRequirements(bytes calldata requirements) public pure returns (PolicyRequirements memory) {
         return abi.decode(requirements, (PolicyRequirements));
     }
 
+    /// @inheritdoc IPolicyEvaluator
     function validateRequirements(bytes calldata requirements) external pure {
         PolicyRequirements memory r = decodeRequirements(requirements);
         if (
@@ -78,6 +82,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         _validateCountryList(r.excludedNationalities);
     }
 
+    /// @inheritdoc IPolicyEvaluator
     function validate(
         bytes calldata requirements,
         IVerifierHelper helper,

@@ -14,6 +14,7 @@ const basePolicy: AttestPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
   ownerGrantable: false,
+  ownerRevocable: false,
   evaluator: EVALUATOR,
   requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
