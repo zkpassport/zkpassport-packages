@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {ProofVerificationParams} from "@registry/lib/Types.sol";
-import {ICredentialIssuanceModule, IssuanceVerdict} from "./ICredentialIssuanceModule.sol";
+import {ICredentialIssuanceModule, CredentialIssuanceVerdict} from "./ICredentialIssuanceModule.sol";
 import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
@@ -172,7 +172,7 @@ contract ZKPassportCredentials is ERC1155 {
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
 
-        IssuanceVerdict memory verdict = credentialIssuanceModule.judge(
+        CredentialIssuanceVerdict memory verdict = credentialIssuanceModule.judge(
             domain, policyScope(policyId), policy.evaluator, policy.requirements, params
         );
 
