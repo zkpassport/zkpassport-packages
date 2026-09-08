@@ -12,25 +12,22 @@ struct CredentialIssuanceVerdict {
 
 /**
  * @title  ICredentialIssuanceModule
- * @notice Stable surface of the issuance pipeline: a stateless, view-only
- *         contract that verifies a proof through the root verifier, applies the
- *         universal checks (scope, freshness, chain binding), consults the
- *         policy's evaluator, and returns a verdict. The credential ledger
- *         commits verdicts under its own hard-coded invariants — a module
- *         decides whether a credential may issue, never how state mutates.
+ * @notice A stateless, view-only contract that verifies a proof through the root verifier,
+ *         applies checks (scope, freshness, chain binding), consults the policy's evaluator,
+ *         and returns a verdict on whether the credential may be issued or not.
  */
 interface ICredentialIssuanceModule {
     /**
      * @notice Verify a proof end-to-end and decide whether a credential may
      *         issue, reverting when any check fails.
      * @param  domain                  The domain proofs must be bound to (the ledger's
-     *                                 current domain)
-     * @param  subscope                The policy-specific proof scope (policyScope(policyId))
-     * @param  evaluator               The evaluator recorded on the policy at creation
-     * @param  requirements            The policy's stored requirements bytes
-     * @param  proofVerificationParams Proof and verification data submitted by the caller
+     *                                 current domain).
+     * @param  subscope                The policy-specific proof scope (policyScope(policyId)).
+     * @param  evaluator               The evaluator recorded on the policy at creation.
+     * @param  requirements            The policy's stored requirements bytes.
+     * @param  proofVerificationParams Proof and verification data submitted by the caller.
      * @return verdict                 The wallet to credit, the nullifier and whether the
-     *                                 ledger must consume it, and proof-bound customData
+     *                                 ledger must consume it, and proof-bound customData.
      */
     function judge(
         string calldata domain,

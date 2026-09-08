@@ -93,7 +93,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
         if (r.uniqueIdentifierType != NullifierType.NONE_NULLIFIER) {
             NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-            if (nullifierType != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
+            if (_realTwin(nullifierType) != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
         }
         unique = r.enforceUniqueness;
 
@@ -124,6 +124,16 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         if (r.sanctionsMode != SanctionsMode.NONE) {
             helper.enforceSanctionsRoot(block.timestamp, r.sanctionsMode == SanctionsMode.STRICT, committedInputs);
         }
+    }
+
+    /// @dev Mock documents (dev mode) carry the mock twin of the requested nullifier type,
+    ///      while policies constrain the real type — so compare against the twin. This only
+    ///      matters where mock proofs verify at all: testnet registries, which contain the
+    ///      mock certificates; mainnet registries do not.
+    function _realTwin(NullifierType nullifierType) internal pure returns (NullifierType) {
+        if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) return NullifierType.NON_SALTED_NULLIFIER;
+        if (nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) return NullifierType.SALTED_NULLIFIER;
+        return nullifierType;
     }
 
     /// @dev The verifier helper's country checks need the exact list committed

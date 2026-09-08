@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {BoundData, NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
+import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 import {ICredentialIssuanceModule, CredentialIssuanceVerdict} from "./ICredentialIssuanceModule.sol";
 import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
  * @title  CredentialIssuanceModuleV1
- * @notice First-generation issuance pipeline. Pins the root verifier this
- *         generation trusts; replacing the registry (or evolving the pipeline)
- *         means deploying a new module and pointing the credential ledger at it —
- *         the ledger's address and storage never move.
+ * @notice Issuance logic module for ZKPassportCredentials.
  */
 contract CredentialIssuanceModuleV1 is ICredentialIssuanceModule {
-    error CredentialIssuanceModule__MockProofNotAllowed();
     error CredentialIssuanceModule__InvalidProof();
     error CredentialIssuanceModule__WrongScope();
     error CredentialIssuanceModule__StaleProof();
@@ -29,6 +25,10 @@ contract CredentialIssuanceModuleV1 is ICredentialIssuanceModule {
     }
 
     /// @inheritdoc ICredentialIssuanceModule
+    /// @dev Mock-document proofs (dev mode) are deliberately not rejected here: the root
+    ///      verifier admits them only with serviceConfig.devMode set, and only testnet
+    ///      registries contain the mock certificates, so on mainnets they fail at the
+    ///      certificate root regardless of devMode.
     function judge(
         string calldata domain,
         string calldata subscope,
@@ -38,8 +38,6 @@ contract CredentialIssuanceModuleV1 is ICredentialIssuanceModule {
     ) external view returns (CredentialIssuanceVerdict memory verdict) {
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(proofVerificationParams);
         if (!valid) revert CredentialIssuanceModule__InvalidProof();
-
-        _rejectMockProofs(proofVerificationParams.proofVerificationData.publicInputs);
 
         if (!helper.verifyScopes(proofVerificationParams.proofVerificationData.publicInputs, domain, subscope)) {
             revert CredentialIssuanceModule__WrongScope();
@@ -65,20 +63,5 @@ contract CredentialIssuanceModuleV1 is ICredentialIssuanceModule {
                 proofVerificationParams.committedInputs,
                 proofVerificationParams.proofVerificationData.publicInputs
             );
-    }
-
-    /// @dev serviceConfig.devMode is required on testnets (it is how real documents
-    ///      prove against the testnet registry roots) and inert on mainnets, where
-    ///      mock certificates are not in the registries. The root verifier only uses
-    ///      it to let mock-document proofs through, so reject those by nullifier type
-    ///      instead of rejecting dev mode itself.
-    function _rejectMockProofs(bytes32[] calldata publicInputs) internal pure {
-        NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-        if (
-            nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER
-                || nullifierType == NullifierType.SALTED_MOCK_NULLIFIER
-        ) {
-            revert CredentialIssuanceModule__MockProofNotAllowed();
-        }
     }
 }
