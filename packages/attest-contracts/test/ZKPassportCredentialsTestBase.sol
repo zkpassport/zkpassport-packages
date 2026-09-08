@@ -12,7 +12,6 @@ contract ZKPassportCredentialsTestBase is Test {
     MockVerifierHelper internal mockHelper;
     MockRootVerifier internal mockVerifier;
     address internal admin = makeAddr("admin");
-    address internal guardian = makeAddr("guardian");
     address internal creator = makeAddr("creator");
     address internal wallet = makeAddr("wallet");
     string internal constant DOMAIN = "zkpassport.id";
@@ -20,7 +19,7 @@ contract ZKPassportCredentialsTestBase is Test {
     string[] internal noCountries;
 
     function _deployZKPassportCredentials(IRootVerifier verifier) internal {
-        zkPassportCredentials = new ZKPassportCredentials(verifier, DOMAIN, admin, guardian);
+        zkPassportCredentials = new ZKPassportCredentials(verifier, DOMAIN, admin);
     }
 
     function _deployWithMocks() internal {
