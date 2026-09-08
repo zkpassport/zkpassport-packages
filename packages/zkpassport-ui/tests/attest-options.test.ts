@@ -19,17 +19,26 @@ const basePolicy: AttestPolicy = {
   retiredAt: 0n,
 }
 
-const baseRequirements: AttestPolicyRequirements = {
+/** decodeRequirements as the contract returns it (faceMatchMode is the raw enum). */
+type RawRequirements = Omit<AttestPolicyRequirements, "facematchMode"> & { faceMatchMode: number }
+
+const baseRequirements: RawRequirements = {
   uniqueIdentifierType: NullifierType.NONE,
   minAge: 0,
+  maxAge: 0,
+  minBirthdate: 0n,
+  maxBirthdate: 0n,
+  minExpiryDate: 0n,
+  maxExpiryDate: 0n,
   sanctionsCheck: false,
-  excludedCountries: [],
+  faceMatchMode: 0,
+  includedNationalities: [],
+  excludedNationalities: [],
+  includedIssuingCountries: [],
+  excludedIssuingCountries: [],
 }
 
-function stubChain(
-  policy: AttestPolicy,
-  requirements: AttestPolicyRequirements = baseRequirements,
-) {
+function stubChain(policy: AttestPolicy, requirements: RawRequirements = baseRequirements) {
   const readCalls: { functionName: string; args?: readonly unknown[] }[] = []
   const client = {
     readContract: async (params: never) => {
@@ -50,7 +59,7 @@ function stubChain(
 function fakeQueryBuilder() {
   const calls: { method: string; args: unknown[] }[] = []
   const qb: Record<string, unknown> = {}
-  for (const method of ["gte", "out", "sanctions", "facematch", "bind"]) {
+  for (const method of ["gte", "lte", "range", "in", "out", "sanctions", "facematch", "bind"]) {
     qb[method] = (...args: unknown[]) => {
       calls.push({ method, args })
       return qb
@@ -92,7 +101,7 @@ describe("buildAttestCardOptions request props", () => {
   })
 
   test("salted policies request the salted unique identifier type", async () => {
-    const salted: AttestPolicyRequirements = {
+    const salted: RawRequirements = {
       ...baseRequirements,
       uniqueIdentifierType: NullifierType.SALTED,
     }
@@ -145,7 +154,7 @@ describe("buildAttestCardOptions request props", () => {
 })
 
 describe("buildAttestCardOptions query translation", () => {
-  async function queryCalls(requirements: AttestPolicyRequirements) {
+  async function queryCalls(requirements: RawRequirements) {
     const options = await buildAttestCardOptions({
       ...baseOptions(basePolicy),
       client: stubChain(basePolicy, requirements).client,
@@ -165,12 +174,12 @@ describe("buildAttestCardOptions query translation", () => {
   })
 
   test("full policy: age, nationality exclusion, strict sanctions, then binding", async () => {
-    const requirements: AttestPolicyRequirements = {
+    const requirements: RawRequirements = {
       ...baseRequirements,
       minAge: 21,
-      // Stored sorted on-chain; contract-side ordering validation is a
-      // registry follow-up, the query passes codes through as stored.
-      excludedCountries: ["IRN", "PRK"],
+      // Stored sorted on-chain (createPolicy validates order); the query
+      // passes codes through as stored.
+      excludedNationalities: ["IRN", "PRK"],
       sanctionsCheck: true,
     }
     const calls = await queryCalls(requirements)
@@ -178,6 +187,37 @@ describe("buildAttestCardOptions query translation", () => {
       { method: "gte", args: ["age", 21] },
       { method: "out", args: ["nationality", ["IRN", "PRK"]] },
       { method: "sanctions", args: ["all", "all", { strict: true }] },
+      { method: "bind", args: ["user_address", WALLET] },
+      { method: "bind", args: ["chain", "ethereum_sepolia"] },
+      { method: "done", args: [] },
+    ])
+  })
+
+  test("extended predicates: age range, date windows, lists, facematch", async () => {
+    const requirements: RawRequirements = {
+      ...baseRequirements,
+      minAge: 18,
+      maxAge: 40,
+      minBirthdate: 631_152_000n,
+      maxBirthdate: 946_684_800n,
+      maxExpiryDate: 1_900_000_000n,
+      includedNationalities: ["ARG", "FRA"],
+      includedIssuingCountries: ["FRA"],
+      excludedIssuingCountries: ["PRK"],
+      faceMatchMode: 1,
+    }
+    const calls = await queryCalls(requirements)
+    expect(calls).toEqual([
+      { method: "range", args: ["age", 18, 40] },
+      {
+        method: "range",
+        args: ["birthdate", new Date(631_152_000_000), new Date(946_684_800_000)],
+      },
+      { method: "lte", args: ["expiry_date", new Date(1_900_000_000_000)] },
+      { method: "in", args: ["nationality", ["ARG", "FRA"]] },
+      { method: "in", args: ["issuing_country", ["FRA"]] },
+      { method: "out", args: ["issuing_country", ["PRK"]] },
+      { method: "facematch", args: ["regular"] },
       { method: "bind", args: ["user_address", WALLET] },
       { method: "bind", args: ["chain", "ethereum_sepolia"] },
       { method: "done", args: [] },
