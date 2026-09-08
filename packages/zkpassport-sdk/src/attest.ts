@@ -16,6 +16,11 @@ export type AttestPolicy = {
   credentialDuration: bigint
   /** When true, the policy owner may issue credentials directly via grant(), without a proof. */
   ownerGrantable: boolean
+  /**
+   * When true, the policy owner may revoke a holder's credential, which also bans the
+   * wallet from the policy until the owner unbans it. Self-revocation is always allowed.
+   */
+  ownerRevocable: boolean
   evaluator: `0x${string}`
   /** Opaque requirements bytes; the schema is owned by the policy's evaluator. */
   requirements: `0x${string}`
@@ -148,6 +153,14 @@ export class AttestClient {
   }
 
   /**
+   * True while the wallet is banned from the policy by an owner revocation;
+   * issue() and grant() revert for banned wallets until the owner unbans.
+   */
+  async banned(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
+    return (await this.read("banned", [wallet, policyId])) as boolean
+  }
+
+  /**
    * The proof scope for a policy, read from the contract so it is
    * byte-identical to what issue() verifies. Never reimplemented locally.
    */
@@ -192,6 +205,8 @@ export class AttestClient {
    *   devMode itself is accepted — it selects which registry roots verify the
    *   proof, so testnet deployments need dev-mode proofs and mainnet ones not
    * - the proof must be at most 1 hour old at inclusion time
+   * - the recipient wallet must not be banned (an owner revocation bans it
+   *   until the policy owner unbans)
    * - the policy must exist, not be retired, and the registry not paused
    */
   getIssueDetails(): {
