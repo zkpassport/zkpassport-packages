@@ -12,13 +12,11 @@ contract DeployAttestScript is Script {
         string memory domain = vm.envOr("ZKPASSPORT_CREDENTIALS_DOMAIN", string("zkpassport.id"));
         address adminAddress = vm.envAddress("ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS");
         require(adminAddress != address(0), "ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS must be set");
-        address guardianAddress = vm.envOr("ZKPASSPORT_CREDENTIALS_GUARDIAN_ADDRESS", address(0));
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
 
         vm.startBroadcast();
-        ZKPassportCredentials zkPassportCredentials = new ZKPassportCredentials{salt: create2Salt}(
-            IRootVerifier(rootVerifier), domain, adminAddress, guardianAddress
-        );
+        ZKPassportCredentials zkPassportCredentials =
+            new ZKPassportCredentials{salt: create2Salt}(IRootVerifier(rootVerifier), domain, adminAddress);
         vm.stopBroadcast();
 
         console.log("ZKPassportCredentials deployed at:", address(zkPassportCredentials));

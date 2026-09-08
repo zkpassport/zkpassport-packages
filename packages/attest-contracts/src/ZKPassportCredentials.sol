@@ -56,12 +56,10 @@ contract ZKPassportCredentials is ERC1155 {
     event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
     event PausedStatusChanged(bool paused);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
-    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
 
     IRootVerifier public immutable rootVerifier;
     string public domain;
     address public admin;
-    address public guardian;
     bool public paused;
 
     uint256 public constant PROOF_FRESHNESS = 1 hours;
@@ -70,12 +68,11 @@ contract ZKPassportCredentials is ERC1155 {
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
     mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
 
-    constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin, address _guardian) ERC1155("") {
+    constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin) ERC1155("") {
         if (_admin == address(0)) revert ZKPassportCredentials__ZeroAddress();
         rootVerifier = _rootVerifier;
         domain = _domain;
         admin = _admin;
-        guardian = _guardian;
     }
 
     /// @notice Create a policy; the id is namespaced by creator and salt and stable across chains
@@ -225,16 +222,18 @@ contract ZKPassportCredentials is ERC1155 {
         return heldUntil[account][id] >= block.timestamp ? 1 : 0;
     }
 
-    /// @notice Remove a credential; only the holder or the ZKPassport guardian, never the policy owner.
-    ///         Guardian revocation is targeted incident response (court order, wrongly issued
-    ///         credential) — sanctions propagation does NOT happen here: it is enforced at
+    /// @notice Remove a credential; only the holder or the policy owner.
+    ///         Policy-owner revocation is targeted incident response (court order, wrongly
+    ///         issued credential) — sanctions propagation does NOT happen here: it is enforced at
     ///         issuance/renewal against the current sanctions root, bounded by the policy's
     ///         validityPeriod, with no per-address enumeration.
     ///         The nullifier stays bound to the wallet: releasing it would let a holder revoke and
     ///         re-issue to a fresh wallet, timing repeated access to a one-per-document gate. The
     ///         document can only ever re-credential the same wallet for this policy.
     function revoke(address wallet, uint256 policyId) external {
-        if (msg.sender != wallet && msg.sender != guardian) revert ZKPassportCredentials__NotRevocable();
+        if (msg.sender != wallet && msg.sender != _policies[policyId].owner) {
+            revert ZKPassportCredentials__NotRevocable();
+        }
         if (heldUntil[wallet][policyId] == 0) revert ZKPassportCredentials__NothingToRevoke();
 
         heldUntil[wallet][policyId] = 0;
@@ -248,7 +247,7 @@ contract ZKPassportCredentials is ERC1155 {
 
     /// @notice Emergency stop for issuance; reads and revocation stay live
     function pause() external {
-        if (msg.sender != admin && msg.sender != guardian) revert ZKPassportCredentials__NotAuthorized();
+        if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
         paused = true;
         emit PausedStatusChanged(true);
     }
@@ -264,12 +263,6 @@ contract ZKPassportCredentials is ERC1155 {
         if (newAdmin == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit AdminUpdated(admin, newAdmin);
         admin = newAdmin;
-    }
-
-    function setGuardian(address newGuardian) external {
-        if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
-        emit GuardianUpdated(guardian, newGuardian);
-        guardian = newGuardian;
     }
 
     function setApprovalForAll(address, bool) public pure override {
