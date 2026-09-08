@@ -13,8 +13,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         vm.warp(1_700_000_000);
         _deployWithMocks();
         string[] memory excluded = new string[](2);
-        excluded[0] = "PRK";
-        excluded[1] = "IRN";
+        excluded[0] = "IRN";
+        excluded[1] = "PRK";
         vm.prank(creator);
         strictPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(7)),
