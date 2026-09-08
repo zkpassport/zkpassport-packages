@@ -23,11 +23,37 @@ const SAMPLE_POLICY: AttestPolicy = {
   retiredAt: 0n,
 }
 
+/** decodeRequirements as the contract returns it (faceMatchMode is the raw enum). */
+const RAW_REQUIREMENTS = {
+  uniqueIdentifierType: NullifierType.SALTED,
+  minAge: 18,
+  maxAge: 0,
+  minBirthdate: 0n,
+  maxBirthdate: 0n,
+  minExpiryDate: 0n,
+  maxExpiryDate: 0n,
+  sanctionsCheck: true,
+  faceMatchMode: 2,
+  includedNationalities: [],
+  excludedNationalities: ["PRK"],
+  includedIssuingCountries: [],
+  excludedIssuingCountries: [],
+}
+
 const SAMPLE_REQUIREMENTS: AttestPolicyRequirements = {
   uniqueIdentifierType: NullifierType.SALTED,
   minAge: 18,
+  maxAge: 0,
+  minBirthdate: 0n,
+  maxBirthdate: 0n,
+  minExpiryDate: 0n,
+  maxExpiryDate: 0n,
   sanctionsCheck: true,
-  excludedCountries: ["PRK"],
+  facematchMode: "strict",
+  includedNationalities: [],
+  excludedNationalities: ["PRK"],
+  includedIssuingCountries: [],
+  excludedIssuingCountries: [],
 }
 
 function stubClient(
@@ -63,7 +89,7 @@ describe("AttestClient reads", () => {
   test("getRequirements decodes through the policy's evaluator", async () => {
     const { client, readCalls } = stubClient((p) => {
       if (p.functionName === "schemaVersion") return 1n
-      if (p.functionName === "decodeRequirements") return SAMPLE_REQUIREMENTS
+      if (p.functionName === "decodeRequirements") return RAW_REQUIREMENTS
       throw new Error(`unexpected read ${p.functionName}`)
     })
     const attest = new AttestClient({ client, address: REGISTRY })
