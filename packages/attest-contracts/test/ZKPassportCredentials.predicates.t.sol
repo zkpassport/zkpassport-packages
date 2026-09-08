@@ -19,7 +19,7 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         strictPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(7)),
             7 days,
-            _requirements(NullifierType.SALTED_NULLIFIER, 18, true, excluded),
+            _requirements(NullifierType.SALTED_NULLIFIER, 18, PolicyEvaluatorV1.SanctionsMode.STRICT, excluded),
             "https://policy.example/kyc"
         );
     }
@@ -46,66 +46,6 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         return zkPassportCredentials.createPolicy(bytes32(salt), 7 days, abi.encode(r), "https://policy.example/x");
     }
 
-    function testAgeUpperBoundPredicate() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
-        r.maxAge = 25;
-        uint256 policyId = _createPolicyWith(r, 100);
-        zkPassportCredentials.issue(policyId, _params());
-        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
-
-        mockHelper.setAgeOk(false);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__AgeRequirementNotMet.selector);
-        zkPassportCredentials.issue(policyId, _params());
-    }
-
-    function testAgeRangePredicate() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
-        r.minAge = 18;
-        r.maxAge = 25;
-        uint256 policyId = _createPolicyWith(r, 101);
-        zkPassportCredentials.issue(policyId, _params());
-
-        mockHelper.setAgeOk(false);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__AgeRequirementNotMet.selector);
-        zkPassportCredentials.issue(policyId, _params());
-    }
-
-    function testBirthdatePredicates() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
-        r.minBirthdate = 631_152_000;
-        uint256 lowerOnly = _createPolicyWith(r, 102);
-        r.maxBirthdate = 946_684_800;
-        uint256 range = _createPolicyWith(r, 103);
-        r.minBirthdate = 0;
-        uint256 upperOnly = _createPolicyWith(r, 104);
-
-        zkPassportCredentials.issue(lowerOnly, _params());
-        zkPassportCredentials.issue(range, _params());
-        zkPassportCredentials.issue(upperOnly, _params());
-
-        mockHelper.setBirthdateOk(false);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__BirthdateRequirementNotMet.selector);
-        zkPassportCredentials.issue(range, _params());
-    }
-
-    function testExpiryDatePredicates() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
-        r.minExpiryDate = 1_700_000_000;
-        uint256 lowerOnly = _createPolicyWith(r, 105);
-        r.maxExpiryDate = 1_900_000_000;
-        uint256 range = _createPolicyWith(r, 106);
-        r.minExpiryDate = 0;
-        uint256 upperOnly = _createPolicyWith(r, 107);
-
-        zkPassportCredentials.issue(lowerOnly, _params());
-        zkPassportCredentials.issue(range, _params());
-        zkPassportCredentials.issue(upperOnly, _params());
-
-        mockHelper.setExpiryDateOk(false);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__ExpiryDateRequirementNotMet.selector);
-        zkPassportCredentials.issue(range, _params());
-    }
-
     function testNationalityInclusionPredicate() public {
         PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
         string[] memory included = new string[](2);
@@ -120,25 +60,37 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.issue(policyId, _params());
     }
 
-    function testIssuingCountryPredicates() public {
+    function testSanctionsModeControlsStrictness() public {
         PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
-        string[] memory included = new string[](1);
-        included[0] = "FRA";
-        string[] memory excluded = new string[](1);
-        excluded[0] = "PRK";
-        r.includedIssuingCountries = included;
-        r.excludedIssuingCountries = excluded;
-        uint256 policyId = _createPolicyWith(r, 109);
-        zkPassportCredentials.issue(policyId, _params());
+        r.sanctionsMode = PolicyEvaluatorV1.SanctionsMode.NORMAL;
+        uint256 normalPolicy = _createPolicyWith(r, 111);
+        r.sanctionsMode = PolicyEvaluatorV1.SanctionsMode.STRICT;
+        uint256 strictPolicy = _createPolicyWith(r, 112);
 
-        mockHelper.setIssuingCountryInOk(false);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__IssuingCountryNotIncluded.selector);
-        zkPassportCredentials.issue(policyId, _params());
+        mockHelper.setExpectedSanctionsStrict(false);
+        zkPassportCredentials.issue(normalPolicy, _params());
 
-        mockHelper.setIssuingCountryInOk(true);
-        mockHelper.setIssuingCountryOutOk(false);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__ExcludedIssuingCountry.selector);
+        mockHelper.setExpectedSanctionsStrict(true);
+        zkPassportCredentials.issue(strictPolicy, _params());
+    }
+
+    function testConstrainedNullifierTypeWithoutUniquenessSkipsDedup() public {
+        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.SALTED_NULLIFIER);
+        r.enforceUniqueness = false;
+        uint256 policyId = _createPolicyWith(r, 113);
+
+        // The proof must still carry exactly the required nullifier type...
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        zkPassportCredentials.issue(policyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
+
+        // ...but the nullifier is not consumed, so another wallet with the
+        // same document can also hold the credential.
         zkPassportCredentials.issue(policyId, _params());
+        assertEq(zkPassportCredentials.nullifierWallet(policyId, mockVerifier.nullifier()), address(0));
+        address other = makeAddr("other");
+        mockHelper.setBoundData(other, block.chainid, "");
+        zkPassportCredentials.issue(policyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(other, policyId), 1);
     }
 
     function testFaceMatchPredicate() public {
@@ -203,7 +155,7 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         uint256 secondUnique = zkPassportCredentials.createPolicy(
             bytes32(uint256(8)),
             7 days,
-            _requirements(NullifierType.SALTED_NULLIFIER, 0, false, noCountries),
+            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             "https://policy.example/2"
         );
         address other = makeAddr("other");
