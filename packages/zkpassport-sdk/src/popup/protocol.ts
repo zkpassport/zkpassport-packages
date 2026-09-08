@@ -51,7 +51,7 @@ export type PopupAttestIssueCall = {
   address: `0x${string}`
   functionName: "issue"
   abi: readonly unknown[]
-  args: readonly [`0x${string}`, bigint, SolidityVerifierParameters]
+  args: readonly [bigint, SolidityVerifierParameters]
 }
 
 /**

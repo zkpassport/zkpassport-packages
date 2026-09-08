@@ -269,11 +269,7 @@ describe("attest protocol extension", () => {
       address: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
       functionName: "issue",
       abi: [{ type: "function", name: "issue", inputs: [] }],
-      args: [
-        "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
-        123456789012345678901234567890n,
-        { version: "1", committedInputs: "0xabc" },
-      ],
+      args: [123456789012345678901234567890n, { version: "1", committedInputs: "0xabc" }],
     }
     const message = {
       zkpassport: true,
@@ -284,6 +280,6 @@ describe("attest protocol extension", () => {
     }
     const cloned = structuredClone(message)
     expect(cloned).toEqual(message)
-    expect(cloned.attest.issueCall.args[1]).toBe(123456789012345678901234567890n)
+    expect(cloned.attest.issueCall.args[0]).toBe(123456789012345678901234567890n)
   })
 })
