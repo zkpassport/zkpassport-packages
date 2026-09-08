@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
-import {ICredentialIssuanceModule, IssuanceVerdict} from "./ICredentialIssuanceModule.sol";
+import {ICredentialIssuanceModule, CredentialIssuanceVerdict} from "./ICredentialIssuanceModule.sol";
 import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
@@ -34,7 +34,7 @@ contract CredentialIssuanceModuleV1 is ICredentialIssuanceModule {
         address evaluator,
         bytes calldata requirements,
         ProofVerificationParams calldata params
-    ) external view returns (IssuanceVerdict memory verdict) {
+    ) external view returns (CredentialIssuanceVerdict memory verdict) {
         if (params.serviceConfig.devMode) {
             revert CredentialIssuanceModule__DevModeNotAllowed();
         }
