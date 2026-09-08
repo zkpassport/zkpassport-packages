@@ -9,11 +9,13 @@ import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
  * @title  ZKPassportCredentials
- * @notice Soulbound ERC-1155 credential ledger: one tokenId per policy, balance 1
- *         while the credential is unexpired. Deployed once — proof-pipeline logic
- *         lives in a swappable issuance module and policy criteria in per-policy
- *         evaluators, so both can evolve while this address, its credentials, and
- *         its nullifier bindings stay put.
+ * @notice Soulbound ERC-1155 credential ledger: one tokenId per policy (tokenId=policyId).
+ *         Issuance logic is delegated to an `ICredentialIssuanceModule`, upgradeable by the
+ *         contract admin via `setCredentialIssuanceModule`.
+ *         Policy evaluation is similarly upgradeable by the contract admin via
+ *         `setPolicyEvaluator`. Policy `requirements` are generic (bytes): the policy evaluator
+ *         contract is responsible for decoding and evaluating whether a proof satisfies the
+ *         policy requirements.
  */
 contract ZKPassportCredentials is ERC1155 {
     struct Policy {
