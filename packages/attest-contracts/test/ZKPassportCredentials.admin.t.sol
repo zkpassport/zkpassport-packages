@@ -18,7 +18,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         vm.prank(admin);
         zkPassportCredentials.pause();
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
     }
 
     function testOthersCannotPause() public {
@@ -35,12 +35,12 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.unpause();
         vm.prank(admin);
         zkPassportCredentials.unpause();
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
     function testPauseDoesNotAffectBalanceOfAndRevoke() public {
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
         vm.prank(admin);
         zkPassportCredentials.pause();
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);

@@ -13,7 +13,7 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         vm.warp(1_700_000_000);
         _deployWithMocks();
         policyId = _createDefaultPolicy();
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
     }
 
     function testBalanceIsOneUntilHeldUntilInclusive() public {
@@ -40,7 +40,7 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         emit ZKPassportCredentials.CredentialRenewed(wallet, policyId, uint64(block.timestamp + 30 days));
         Vm.Log[] memory logs = new Vm.Log[](0);
         vm.recordLogs();
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
         logs = vm.getRecordedLogs();
         // Verify no TransferSingle was emitted (no double mint after expiry)
         bytes32 transferSingleSig = keccak256("TransferSingle(address,address,address,uint256,uint256)");
@@ -113,7 +113,7 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.revoke(wallet, policyId);
         vm.expectEmit(true, true, true, true);
         emit IERC1155.TransferSingle(address(this), address(0), wallet, policyId, 1);
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 }
