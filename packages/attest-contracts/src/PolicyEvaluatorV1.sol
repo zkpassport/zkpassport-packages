@@ -21,6 +21,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     }
 
     error PolicyEvaluator__InvalidNullifierType();
+    error PolicyEvaluator__InvalidCountryList();
     error PolicyEvaluator__WrongNullifierType();
     error PolicyEvaluator__AgeBelowMinimum();
     error PolicyEvaluator__ExcludedJurisdiction();
@@ -43,6 +44,29 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
                 && r.uniqueIdentifierType != NullifierType.NON_SALTED_NULLIFIER
                 && r.uniqueIdentifierType != NullifierType.SALTED_NULLIFIER
         ) revert PolicyEvaluator__InvalidNullifierType();
+        _validateCountryList(r.excludedCountries);
+    }
+
+    /// @dev The verifier helper's exclusion check needs the exact, alphabetically
+    ///      sorted list committed in the proof, and circuit country codes are ISO
+    ///      3166-1 alpha-3. A lowercase or padded entry round-trips consistently
+    ///      but never matches a real nationality, silently disabling the
+    ///      exclusion, and an unsorted list breaks the circuit's non-membership
+    ///      precondition — so reject both when the policy is created. Strictly
+    ///      ascending order also rules out duplicates.
+    function _validateCountryList(string[] memory countries) internal pure {
+        uint24 previous = 0;
+        for (uint256 i = 0; i < countries.length; i++) {
+            bytes memory country = bytes(countries[i]);
+            if (country.length != 3) revert PolicyEvaluator__InvalidCountryList();
+            uint24 value = 0;
+            for (uint256 j = 0; j < 3; j++) {
+                if (country[j] < "A" || country[j] > "Z") revert PolicyEvaluator__InvalidCountryList();
+                value = (value << 8) | uint24(uint8(country[j]));
+            }
+            if (i > 0 && value <= previous) revert PolicyEvaluator__InvalidCountryList();
+            previous = value;
+        }
     }
 
     function validate(
