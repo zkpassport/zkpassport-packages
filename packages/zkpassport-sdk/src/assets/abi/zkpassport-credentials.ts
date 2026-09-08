@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 25d22938). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 85a154cb). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -111,14 +111,9 @@ export const ZKPassportCredentialsAbi = [
         internalType: "uint64",
       },
       {
-        name: "unique",
-        type: "bool",
-        internalType: "bool",
-      },
-      {
-        name: "saltedNullifierOnly",
-        type: "bool",
-        internalType: "bool",
+        name: "uniqueIdentifierType",
+        type: "uint8",
+        internalType: "enum NullifierType",
       },
       {
         name: "minAge",
@@ -190,14 +185,9 @@ export const ZKPassportCredentialsAbi = [
             internalType: "uint64",
           },
           {
-            name: "unique",
-            type: "bool",
-            internalType: "bool",
-          },
-          {
-            name: "saltedNullifierOnly",
-            type: "bool",
-            internalType: "bool",
+            name: "uniqueIdentifierType",
+            type: "uint8",
+            internalType: "enum NullifierType",
           },
           {
             name: "minAge",
@@ -1039,6 +1029,11 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
+    name: "ZKPassportCredentials__InvalidNullifierType",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "ZKPassportCredentials__InvalidProof",
     inputs: [],
   },
@@ -1122,11 +1117,6 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportCredentials__SaltedNullifierRequired",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "ZKPassportCredentials__StaleProof",
     inputs: [],
   },
@@ -1149,6 +1139,11 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__UnexpectedBoundData",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZKPassportCredentials__WrongNullifierType",
     inputs: [],
   },
   {
