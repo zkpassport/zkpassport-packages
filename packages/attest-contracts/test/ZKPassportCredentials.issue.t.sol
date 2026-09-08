@@ -39,6 +39,13 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.issue(wallet, policyId, _devModeParams());
     }
 
+    function testIssueMintsToContractWalletWithoutReceiver() public {
+        address contractWallet = address(mockHelper);
+        mockHelper.setBoundData(contractWallet, block.chainid, "");
+        zkPassportCredentials.issue(contractWallet, policyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(contractWallet, policyId), 1);
+    }
+
     function testIssueRevertsOnInvalidProof() public {
         mockVerifier.setValid(false);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidProof.selector);
