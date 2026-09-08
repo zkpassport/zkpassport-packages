@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
+import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 
 contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
     function setUp() public {
@@ -20,7 +21,7 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         uint256 policyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(credentialDuration)),
             credentialDuration,
-            _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries),
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             "https://policy.example/fuzz"
         );
         zkPassportCredentials.issue(policyId, _params());
