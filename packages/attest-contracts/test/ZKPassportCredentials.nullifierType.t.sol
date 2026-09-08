@@ -51,37 +51,33 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
     }
 
     function testSaltedPolicyAcceptsSaltedNullifier() public {
-        zkPassportCredentials.issue(wallet, saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+        zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
         assertEq(zkPassportCredentials.balanceOf(wallet, saltedPolicyId), 1);
     }
 
     function testSaltedPolicyRejectsNonSaltedNullifier() public {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WrongNullifierType.selector);
-        zkPassportCredentials.issue(
-            wallet, saltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER)
-        );
+        zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
     }
 
     function testSaltedPolicyRejectsHiddenNullifier() public {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WrongNullifierType.selector);
-        zkPassportCredentials.issue(wallet, saltedPolicyId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
+        zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
     }
 
     function testNonSaltedPolicyAcceptsNonSaltedNullifier() public {
-        zkPassportCredentials.issue(
-            wallet, nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER)
-        );
+        zkPassportCredentials.issue(nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
         assertEq(zkPassportCredentials.balanceOf(wallet, nonSaltedPolicyId), 1);
     }
 
     function testNonSaltedPolicyRejectsSaltedNullifier() public {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WrongNullifierType.selector);
-        zkPassportCredentials.issue(wallet, nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+        zkPassportCredentials.issue(nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
     }
 
     function testUnrestrictedPolicyNeverReadsNullifierType() public {
         uint256 defaultPolicyId = _createDefaultPolicy();
-        zkPassportCredentials.issue(wallet, defaultPolicyId, _params());
+        zkPassportCredentials.issue(defaultPolicyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, defaultPolicyId), 1);
     }
 }
