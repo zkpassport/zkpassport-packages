@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit b320d973). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 38433df2). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -200,6 +200,11 @@ export const PolicyEvaluatorV1Abi = [
   {
     type: "error",
     name: "PolicyEvaluator__NationalityNotIncluded",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch",
     inputs: [],
   },
   {
