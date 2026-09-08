@@ -212,7 +212,14 @@ contract ZKPassportCredentials is ERC1155 {
         heldUntil[wallet][policyId] = newHeldUntil;
 
         if (super.balanceOf(wallet, policyId) == 0) {
-            _mint(wallet, policyId, 1, "");
+            // _update instead of _mint: the soulbound token is granted by proof, not
+            // transferred, so the ERC-1155 receiver acceptance check would only stop
+            // contract wallets without onERC1155Received from ever holding a credential.
+            uint256[] memory ids = new uint256[](1);
+            ids[0] = policyId;
+            uint256[] memory values = new uint256[](1);
+            values[0] = 1;
+            _update(address(0), wallet, ids, values);
         }
 
         if (firstIssue) {
