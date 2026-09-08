@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {IssuanceModuleV1} from "../src/IssuanceModuleV1.sol";
+import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 
 contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
     uint256 internal policyId;
@@ -49,19 +49,19 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
 
     function testIssueRevertsOnInvalidProof() public {
         mockVerifier.setValid(false);
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__InvalidProof.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__InvalidProof.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
     function testIssueRevertsOnWrongScope() public {
         mockHelper.setScopesOk(false);
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__WrongScope.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__WrongScope.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
     function testIssueRevertsOnStaleProof() public {
         mockHelper.setProofTimestamp(block.timestamp - 1 hours - 1);
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__StaleProof.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__StaleProof.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
@@ -87,7 +87,7 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
 
     function testIssueRevertsWhenBoundToOtherChain() public {
         mockHelper.setBoundData(wallet, block.chainid + 1, "");
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__ProofNotBoundToChain.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__ProofNotBoundToChain.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
@@ -117,7 +117,7 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
 
     function testIssueRevertsWhenScopesDoNotMatch() public {
         mockHelper.setExpectedScopes("evil.example", zkPassportCredentials.policyScope(policyId));
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__WrongScope.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__WrongScope.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 }
