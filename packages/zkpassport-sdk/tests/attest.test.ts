@@ -1,21 +1,33 @@
 import { describe, expect, spyOn, test } from "bun:test"
 import { NullifierType } from "@zkpassport/utils"
-import { AttestClient, type AttestPolicy, type AttestReadClient } from "../src/attest"
+import {
+  AttestClient,
+  type AttestPolicy,
+  type AttestPolicyRequirements,
+  type AttestReadClient,
+} from "../src/attest"
 import { SolidityVerifier } from "../src/solidity-verifier"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
 const WALLET = "0x2222222222222222222222222222222222222222" as const
 const POLICY_ID = 42n
 
+const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
+
 const SAMPLE_POLICY: AttestPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
+  evaluator: EVALUATOR,
+  requirements: "0xabcd",
+  metadataURL: "https://policy.example/kyc",
+  retiredAt: 0n,
+}
+
+const SAMPLE_REQUIREMENTS: AttestPolicyRequirements = {
   uniqueIdentifierType: NullifierType.SALTED,
   minAge: 18,
   sanctionsCheck: true,
   excludedCountries: ["PRK"],
-  metadataURL: "https://policy.example/kyc",
-  retiredAt: 0n,
 }
 
 function stubClient(
@@ -46,6 +58,29 @@ describe("AttestClient reads", () => {
     expect(readCalls[0].address).toBe(REGISTRY)
     expect(readCalls[0].functionName).toBe("getPolicy")
     expect(readCalls[0].args).toEqual([POLICY_ID])
+  })
+
+  test("getRequirements decodes through the policy's evaluator", async () => {
+    const { client, readCalls } = stubClient((p) => {
+      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "decodeRequirements") return SAMPLE_REQUIREMENTS
+      throw new Error(`unexpected read ${p.functionName}`)
+    })
+    const attest = new AttestClient({ client, address: REGISTRY })
+    const requirements = await attest.getRequirements(SAMPLE_POLICY)
+    expect(requirements).toEqual(SAMPLE_REQUIREMENTS)
+    expect(readCalls[0].address).toBe(EVALUATOR)
+    expect(readCalls[0].functionName).toBe("schemaVersion")
+    expect(readCalls[1].address).toBe(EVALUATOR)
+    expect(readCalls[1].args).toEqual(["0xabcd"])
+  })
+
+  test("getRequirements rejects unknown evaluator schemas", async () => {
+    const { client } = stubClient(() => 2n)
+    const attest = new AttestClient({ client, address: REGISTRY })
+    await expect(attest.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
+      "Unsupported policy evaluator schema",
+    )
   })
 
   test("uri, balanceOf, heldUntil, policyScope forward the right calls", async () => {

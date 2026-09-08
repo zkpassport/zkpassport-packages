@@ -1,14 +1,9 @@
-// Generated from packages/attest-contracts (commit 366f056c). Do not edit by hand.
+// Generated from packages/attest-contracts (commit b039eeb6). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
     type: "constructor",
     inputs: [
-      {
-        name: "_rootVerifier",
-        type: "address",
-        internalType: "contract IRootVerifier",
-      },
       {
         name: "_domain",
         type: "string",
@@ -19,21 +14,13 @@ export const ZKPassportCredentialsAbi = [
         type: "address",
         internalType: "address",
       },
-    ],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "PROOF_FRESHNESS",
-    inputs: [],
-    outputs: [
       {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
+        name: "_issuanceModule",
+        type: "address",
+        internalType: "contract IIssuanceModule",
       },
     ],
-    stateMutability: "view",
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -111,24 +98,14 @@ export const ZKPassportCredentialsAbi = [
         internalType: "uint64",
       },
       {
-        name: "uniqueIdentifierType",
-        type: "uint8",
-        internalType: "enum NullifierType",
+        name: "evaluator",
+        type: "address",
+        internalType: "address",
       },
       {
-        name: "minAge",
-        type: "uint8",
-        internalType: "uint8",
-      },
-      {
-        name: "sanctionsCheck",
-        type: "bool",
-        internalType: "bool",
-      },
-      {
-        name: "excludedCountries",
-        type: "string[]",
-        internalType: "string[]",
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
       },
       {
         name: "metadataURL",
@@ -185,24 +162,14 @@ export const ZKPassportCredentialsAbi = [
             internalType: "uint64",
           },
           {
-            name: "uniqueIdentifierType",
-            type: "uint8",
-            internalType: "enum NullifierType",
+            name: "evaluator",
+            type: "address",
+            internalType: "address",
           },
           {
-            name: "minAge",
-            type: "uint8",
-            internalType: "uint8",
-          },
-          {
-            name: "sanctionsCheck",
-            type: "bool",
-            internalType: "bool",
-          },
-          {
-            name: "excludedCountries",
-            type: "string[]",
-            internalType: "string[]",
+            name: "requirements",
+            type: "bytes",
+            internalType: "bytes",
           },
           {
             name: "metadataURL",
@@ -263,6 +230,19 @@ export const ZKPassportCredentialsAbi = [
         name: "",
         type: "bool",
         internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "issuanceModule",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "contract IIssuanceModule",
       },
     ],
     stateMutability: "view",
@@ -442,19 +422,6 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
-    name: "rootVerifier",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract IRootVerifier",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "safeBatchTransferFrom",
     inputs: [
       {
@@ -536,6 +503,19 @@ export const ZKPassportCredentialsAbi = [
     ],
     outputs: [],
     stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "setIssuanceModule",
+    inputs: [
+      {
+        name: "newModule",
+        type: "address",
+        internalType: "contract IIssuanceModule",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -739,6 +719,25 @@ export const ZKPassportCredentialsAbi = [
         name: "by",
         type: "address",
         indexed: false,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "IssuanceModuleUpdated",
+    inputs: [
+      {
+        name: "oldModule",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "newModule",
+        type: "address",
+        indexed: true,
         internalType: "address",
       },
     ],
@@ -1021,32 +1020,7 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportCredentials__AgeBelowMinimum",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__DevModeNotAllowed",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__ExcludedJurisdiction",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "ZKPassportCredentials__InvalidCredentialDuration",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__InvalidNullifierType",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__InvalidProof",
     inputs: [],
   },
   {
@@ -1114,16 +1088,6 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportCredentials__ProofNotBoundToChain",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__StaleProof",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "ZKPassportCredentials__SybilDetected",
     inputs: [
       {
@@ -1136,16 +1100,6 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__TokenIsSoulbound",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__WrongNullifierType",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__WrongScope",
     inputs: [],
   },
   {
