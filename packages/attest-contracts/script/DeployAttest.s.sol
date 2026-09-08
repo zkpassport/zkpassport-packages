@@ -20,8 +20,9 @@ contract DeployAttestScript is Script {
         CredentialIssuanceModuleV1 credentialIssuanceModule =
             new CredentialIssuanceModuleV1{salt: create2Salt}(IRootVerifier(rootVerifier));
         PolicyEvaluatorV1 policyEvaluator = new PolicyEvaluatorV1{salt: create2Salt}();
-        ZKPassportCredentials zkPassportCredentials =
-            new ZKPassportCredentials{salt: create2Salt}(domain, adminAddress, credentialIssuanceModule);
+        ZKPassportCredentials zkPassportCredentials = new ZKPassportCredentials{salt: create2Salt}(
+            domain, adminAddress, credentialIssuanceModule, policyEvaluator
+        );
         vm.stopBroadcast();
 
         console.log("ZKPassportCredentials deployed at:", address(zkPassportCredentials));
