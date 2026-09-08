@@ -23,37 +23,25 @@ const SAMPLE_POLICY: AttestPolicy = {
   retiredAt: 0n,
 }
 
-/** decodeRequirements as the contract returns it (faceMatchMode is the raw enum). */
+/** decodeRequirements as the contract returns it (sanctionsMode and faceMatchMode are raw enums). */
 const RAW_REQUIREMENTS = {
   uniqueIdentifierType: NullifierType.SALTED,
+  enforceUniqueness: true,
   minAge: 18,
-  maxAge: 0,
-  minBirthdate: 0n,
-  maxBirthdate: 0n,
-  minExpiryDate: 0n,
-  maxExpiryDate: 0n,
-  sanctionsCheck: true,
+  sanctionsMode: 1,
   faceMatchMode: 2,
   includedNationalities: [],
   excludedNationalities: ["PRK"],
-  includedIssuingCountries: [],
-  excludedIssuingCountries: [],
 }
 
 const SAMPLE_REQUIREMENTS: AttestPolicyRequirements = {
   uniqueIdentifierType: NullifierType.SALTED,
+  enforceUniqueness: true,
   minAge: 18,
-  maxAge: 0,
-  minBirthdate: 0n,
-  maxBirthdate: 0n,
-  minExpiryDate: 0n,
-  maxExpiryDate: 0n,
-  sanctionsCheck: true,
+  sanctionsMode: "normal",
   facematchMode: "strict",
   includedNationalities: [],
   excludedNationalities: ["PRK"],
-  includedIssuingCountries: [],
-  excludedIssuingCountries: [],
 }
 
 function stubClient(
