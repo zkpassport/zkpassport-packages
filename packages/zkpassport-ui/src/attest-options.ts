@@ -2,7 +2,6 @@ import { AttestClient, NullifierType } from "@zkpassport/sdk"
 import type {
   AttestPolicy,
   AttestReadClient,
-  QueryBuilder,
   SolidityVerifierParameters,
   SupportedChain,
 } from "@zkpassport/sdk"
@@ -64,20 +63,6 @@ export type AttestVerifyOptions = ForwardedCardCallbacks & {
   onResult?: (result: AttestVerifyResult) => void
 }
 
-/** Policy dates are unix seconds (0n = unbounded); the request API takes Dates. */
-function addDateBounds(
-  q: QueryBuilder,
-  key: "birthdate" | "expiry_date",
-  min: bigint,
-  max: bigint,
-): QueryBuilder {
-  const toDate = (seconds: bigint) => new Date(Number(seconds) * 1000)
-  if (min > 0n && max > 0n) return q.range(key, toDate(min), toDate(max))
-  if (min > 0n) return q.gte(key, toDate(min))
-  if (max > 0n) return q.lte(key, toDate(max))
-  return q
-}
-
 /**
  * Resolve a policy from the attest registry (unless supplied) and build the
  * ZKPassportQRCodeOptions that make the existing QR card request exactly the
@@ -126,15 +111,7 @@ export async function buildAttestCardOptions(
     uniqueIdentifierType: requirements.uniqueIdentifierType,
     query: (qb) => {
       let q = qb
-      if (requirements.minAge > 0 && requirements.maxAge > 0) {
-        q = q.range("age", requirements.minAge, requirements.maxAge)
-      } else if (requirements.minAge > 0) {
-        q = q.gte("age", requirements.minAge)
-      } else if (requirements.maxAge > 0) {
-        q = q.lte("age", requirements.maxAge)
-      }
-      q = addDateBounds(q, "birthdate", requirements.minBirthdate, requirements.maxBirthdate)
-      q = addDateBounds(q, "expiry_date", requirements.minExpiryDate, requirements.maxExpiryDate)
+      if (requirements.minAge > 0) q = q.gte("age", requirements.minAge)
       // The registry stores ISO alpha-3 codes; the contract compares them to
       // the exact lists committed in the proof.
       if (requirements.includedNationalities.length > 0) {
@@ -143,14 +120,9 @@ export async function buildAttestCardOptions(
       if (requirements.excludedNationalities.length > 0) {
         q = q.out("nationality", [...requirements.excludedNationalities] as never)
       }
-      if (requirements.includedIssuingCountries.length > 0) {
-        q = q.in("issuing_country", [...requirements.includedIssuingCountries] as never)
+      if (requirements.sanctionsMode) {
+        q = q.sanctions("all", "all", { strict: requirements.sanctionsMode === "strict" })
       }
-      if (requirements.excludedIssuingCountries.length > 0) {
-        q = q.out("issuing_country", [...requirements.excludedIssuingCountries] as never)
-      }
-      // The contract verifies sanctions proofs in strict mode.
-      if (requirements.sanctionsCheck) q = q.sanctions("all", "all", { strict: true })
       // The SDK requires strict facematch whenever the salted nullifier is
       // used, so it overrides whatever the policy asks for (createPolicy
       // rejects the one contradictory pairing, SALTED + regular).
