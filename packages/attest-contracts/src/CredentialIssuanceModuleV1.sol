@@ -28,34 +28,43 @@ contract CredentialIssuanceModuleV1 is ICredentialIssuanceModule {
         rootVerifier = _rootVerifier;
     }
 
+    /// @inheritdoc ICredentialIssuanceModule
     function judge(
         string calldata domain,
         string calldata subscope,
         address evaluator,
         bytes calldata requirements,
-        ProofVerificationParams calldata params
+        ProofVerificationParams calldata proofVerificationParams
     ) external view returns (CredentialIssuanceVerdict memory verdict) {
-        (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
+        (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(proofVerificationParams);
         if (!valid) revert CredentialIssuanceModule__InvalidProof();
 
-        _rejectMockProofs(params.proofVerificationData.publicInputs);
+        _rejectMockProofs(proofVerificationParams.proofVerificationData.publicInputs);
 
-        if (!helper.verifyScopes(params.proofVerificationData.publicInputs, domain, subscope)) {
+        if (!helper.verifyScopes(proofVerificationParams.proofVerificationData.publicInputs, domain, subscope)) {
             revert CredentialIssuanceModule__WrongScope();
         }
 
-        if (helper.getProofTimestamp(params.proofVerificationData.publicInputs) + PROOF_FRESHNESS < block.timestamp) {
+        if (
+            helper.getProofTimestamp(proofVerificationParams.proofVerificationData.publicInputs) + PROOF_FRESHNESS
+                < block.timestamp
+        ) {
             revert CredentialIssuanceModule__StaleProof();
         }
 
-        BoundData memory bound = helper.getBoundData(params.committedInputs);
+        BoundData memory bound = helper.getBoundData(proofVerificationParams.committedInputs);
         if (bound.chainId != block.chainid) revert CredentialIssuanceModule__ProofNotBoundToChain();
 
         verdict.wallet = bound.senderAddress;
         verdict.customData = bound.customData;
         verdict.nullifier = nullifier;
         verdict.unique = IPolicyEvaluator(evaluator)
-            .validate(requirements, helper, params.committedInputs, params.proofVerificationData.publicInputs);
+            .validate(
+                requirements,
+                helper,
+                proofVerificationParams.committedInputs,
+                proofVerificationParams.proofVerificationData.publicInputs
+            );
     }
 
     /// @dev serviceConfig.devMode is required on testnets (it is how real documents

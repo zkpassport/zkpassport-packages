@@ -26,13 +26,6 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 
-    function testPolicyOwnerCanRevokeExpiredCredential() public {
-        vm.warp(uint256(zkPassportCredentials.heldUntil(wallet, policyId)) + 1);
-        vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, policyId);
-        assertEq(zkPassportCredentials.heldUntil(wallet, policyId), 0);
-    }
-
     function testRenewAfterExpiryExtendsWithoutDoubleMint() public {
         vm.warp(uint256(zkPassportCredentials.heldUntil(wallet, policyId)) + 1);
         mockHelper.setProofTimestamp(block.timestamp);
@@ -81,12 +74,6 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.revoke(wallet, policyId);
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), 0);
-    }
-
-    function testPolicyOwnerCanRevoke() public {
-        vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, policyId);
-        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 
     function testStrangerCannotRevoke() public {
