@@ -16,7 +16,6 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(21)),
             7 days,
-            address(evaluator),
             _requirements(NullifierType.SALTED_NULLIFIER, 0, false, noCountries),
             "https://p.example/s"
         );
@@ -24,7 +23,6 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         nonSaltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(22)),
             7 days,
-            address(evaluator),
             _requirements(NullifierType.NON_SALTED_NULLIFIER, 0, false, noCountries),
             "https://p.example/n"
         );

@@ -25,7 +25,7 @@ contract ZKPassportCredentialsTestBase is Test {
     function _deployZKPassportCredentials(IRootVerifier verifier) internal {
         credentialIssuanceModule = new CredentialIssuanceModuleV1(verifier);
         evaluator = new PolicyEvaluatorV1();
-        zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, credentialIssuanceModule);
+        zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, credentialIssuanceModule, evaluator);
     }
 
     function _deployWithMocks() internal {
@@ -57,7 +57,6 @@ contract ZKPassportCredentialsTestBase is Test {
         return zkPassportCredentials.createPolicy(
             bytes32(uint256(1)),
             30 days,
-            address(evaluator),
             _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries),
             "https://policy.example/1"
         );

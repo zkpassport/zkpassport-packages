@@ -19,7 +19,6 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         strictPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(7)),
             7 days,
-            address(evaluator),
             _requirements(NullifierType.SALTED_NULLIFIER, 18, true, excluded),
             "https://policy.example/kyc"
         );
@@ -93,7 +92,6 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         uint256 secondUnique = zkPassportCredentials.createPolicy(
             bytes32(uint256(8)),
             7 days,
-            address(evaluator),
             _requirements(NullifierType.SALTED_NULLIFIER, 0, false, noCountries),
             "https://policy.example/2"
         );

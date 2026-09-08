@@ -20,7 +20,6 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         uint256 policyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(credentialDuration)),
             credentialDuration,
-            address(evaluator),
             _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries),
             "https://policy.example/fuzz"
         );
