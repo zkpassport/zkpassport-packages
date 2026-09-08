@@ -11,15 +11,15 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         _deployWithMocks();
     }
 
-    /// @notice heldUntil is stored via a truncating uint64 cast of block.timestamp + validityPeriod;
+    /// @notice heldUntil is stored via a truncating uint64 cast of block.timestamp + credentialDuration;
     ///         pin that the truncation is fail-safe (balance reflects the truncated value, never reverts).
-    function testFuzzValidityPeriodTruncationFailsSafe(uint64 validityPeriod) public {
-        vm.assume(validityPeriod > 0);
+    function testFuzzCredentialDurationTruncationFailsSafe(uint64 credentialDuration) public {
+        vm.assume(credentialDuration > 0);
 
         vm.prank(creator);
         uint256 policyId = zkPassportCredentials.createPolicy(
-            bytes32(uint256(validityPeriod)),
-            validityPeriod,
+            bytes32(uint256(credentialDuration)),
+            credentialDuration,
             NullifierType.NONE_NULLIFIER,
             0,
             false,
@@ -28,7 +28,7 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         );
         zkPassportCredentials.issue(wallet, policyId, _params());
 
-        uint64 expectedHeldUntil = uint64(block.timestamp + validityPeriod);
+        uint64 expectedHeldUntil = uint64(block.timestamp + credentialDuration);
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), expectedHeldUntil);
 
         uint256 expectedBalance = uint256(expectedHeldUntil) >= block.timestamp ? 1 : 0;
