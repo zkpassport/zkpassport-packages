@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
+import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 
 contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     uint256 internal strictPolicyId;
@@ -18,10 +19,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         strictPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(7)),
             7 days,
-            NullifierType.SALTED_NULLIFIER,
-            18,
-            true,
-            excluded,
+            address(evaluator),
+            _requirements(NullifierType.SALTED_NULLIFIER, 18, true, excluded),
             "https://policy.example/kyc"
         );
     }
@@ -33,13 +32,13 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
 
     function testIssueRevertsWhenAgeTooLow() public {
         mockHelper.setAgeOk(false);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__AgeBelowMinimum.selector);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__AgeBelowMinimum.selector);
         zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
     function testIssueRevertsOnExcludedJurisdiction() public {
         mockHelper.setNationalityOk(false);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ExcludedJurisdiction.selector);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__ExcludedJurisdiction.selector);
         zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
@@ -94,10 +93,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         uint256 secondUnique = zkPassportCredentials.createPolicy(
             bytes32(uint256(8)),
             7 days,
-            NullifierType.SALTED_NULLIFIER,
-            0,
-            false,
-            noCountries,
+            address(evaluator),
+            _requirements(NullifierType.SALTED_NULLIFIER, 0, false, noCountries),
             "https://policy.example/2"
         );
         address other = makeAddr("other");
