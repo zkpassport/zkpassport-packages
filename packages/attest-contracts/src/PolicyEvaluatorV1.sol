@@ -48,6 +48,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__IssuingCountryNotIncluded();
     error PolicyEvaluator__ExcludedIssuingCountry();
     error PolicyEvaluator__FaceMatchRequirementNotMet();
+    error PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
 
     function schemaVersion() external pure returns (uint256) {
         return 1;
@@ -67,6 +68,12 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
                 && r.uniqueIdentifierType != NullifierType.NON_SALTED_NULLIFIER
                 && r.uniqueIdentifierType != NullifierType.SALTED_NULLIFIER
         ) revert PolicyEvaluator__InvalidNullifierType();
+        // The app salts nullifiers through a strict FaceMatch attestation, so a
+        // salted-nullifier proof always commits STRICT mode — a policy pairing
+        // SALTED with REGULAR could never issue.
+        if (r.uniqueIdentifierType == NullifierType.SALTED_NULLIFIER && r.faceMatchMode == FaceMatchMode.REGULAR) {
+            revert PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
+        }
         if (r.minAge > 0 && r.maxAge > 0 && r.minAge > r.maxAge) revert PolicyEvaluator__InvalidBounds();
         if (r.minBirthdate > 0 && r.maxBirthdate > 0 && r.minBirthdate > r.maxBirthdate) {
             revert PolicyEvaluator__InvalidBounds();

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {NullifierType} from "@registry/lib/Types.sol";
+import {FaceMatchMode, NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
@@ -104,6 +104,18 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.createPolicy(
             bytes32(0), 30 days, _requirements(NullifierType.SALTED_MOCK_NULLIFIER, 0, false, noCountries), "x"
         );
+    }
+
+    function testCreatePolicyRejectsRegularFaceMatchWithSaltedNullifier() public {
+        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.SALTED_NULLIFIER);
+        r.faceMatchMode = FaceMatchMode.REGULAR;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
+
+        r.faceMatchMode = FaceMatchMode.STRICT;
+        vm.prank(creator);
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, abi.encode(r), "x");
     }
 
     function testCreatePolicyRejectsInvalidBounds() public {
