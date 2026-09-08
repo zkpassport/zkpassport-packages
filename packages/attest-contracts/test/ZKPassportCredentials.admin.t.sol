@@ -13,8 +13,8 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         policyId = _createDefaultPolicy();
     }
 
-    function testAdminAndGuardianCanPauseIssue() public {
-        vm.prank(guardian);
+    function testAdminCanPauseIssue() public {
+        vm.prank(admin);
         zkPassportCredentials.pause();
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
         zkPassportCredentials.issue(wallet, policyId, _params());
@@ -29,7 +29,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
     function testOnlyAdminCanUnpause() public {
         vm.prank(admin);
         zkPassportCredentials.pause();
-        vm.prank(guardian);
+        vm.prank(wallet);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
         zkPassportCredentials.unpause();
         vm.prank(admin);
@@ -62,13 +62,6 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.admin(), newAdmin);
         vm.prank(newAdmin);
         zkPassportCredentials.pause();
-    }
-
-    function testSetGuardian() public {
-        address newGuardian = makeAddr("newGuardian");
-        vm.prank(admin);
-        zkPassportCredentials.setGuardian(newGuardian);
-        assertEq(zkPassportCredentials.guardian(), newGuardian);
     }
 
     function testCannotTransferAdminToZero() public {

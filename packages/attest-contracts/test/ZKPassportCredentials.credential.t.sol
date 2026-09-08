@@ -26,9 +26,9 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 
-    function testGuardianCanRevokeExpiredCredential() public {
+    function testPolicyOwnerCanRevokeExpiredCredential() public {
         vm.warp(uint256(zkPassportCredentials.heldUntil(wallet, policyId)) + 1);
-        vm.prank(guardian);
+        vm.prank(creator);
         zkPassportCredentials.revoke(wallet, policyId);
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), 0);
     }
@@ -83,14 +83,20 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), 0);
     }
 
-    function testGuardianCanRevoke() public {
-        vm.prank(guardian);
+    function testPolicyOwnerCanRevoke() public {
+        vm.prank(creator);
         zkPassportCredentials.revoke(wallet, policyId);
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 
-    function testPolicyOwnerCannotRevoke() public {
-        vm.prank(creator);
+    function testStrangerCannotRevoke() public {
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotRevocable.selector);
+        zkPassportCredentials.revoke(wallet, policyId);
+    }
+
+    function testAdminCannotRevoke() public {
+        vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotRevocable.selector);
         zkPassportCredentials.revoke(wallet, policyId);
     }
