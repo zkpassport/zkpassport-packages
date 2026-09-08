@@ -323,9 +323,9 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
   // set so far. Used by the hosted popup.
   raw: (query: Query) => QueryBuilder<T>
   /**
-   * Applies an immutable policy fetched from the dashboard. The policy's query,
-   * purpose and scope are locked; combining with builder methods (except
-   * `.bind()`, which may follow it) or calling twice throws.
+   * Applies a policy fetched from the dashboard. The policy's query is locked, and its
+   * purpose and scope are used unless the request sets its own. Combining with builder
+   * methods (except `.bind()`, which may follow it) or calling twice throws.
    * @param id The policy id (e.g. `'pol_xyz'`).
    */
   policy: (id: string) => QueryBuilder<T>

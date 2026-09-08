@@ -572,14 +572,12 @@ describe("Policy-driven requests", () => {
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.name).toBe("White Label")
     expect(service.logo).toBe("https://white.example/logo.png")
-    // purpose/scope are locked by the policy
+    // purpose/scope still come from the policy
     expect(service.purpose).toBe("Policy purpose")
     expect(service.scope).toBe("pol_xyz")
   })
 
-  test("policy locks scope but caller's purpose still wins", async () => {
-    // scope drives the nullifier, so callers can't change it once a policy is bound.
-    // purpose is user-facing copy, so callers can override the policy default.
+  test("caller's purpose and scope win over the policy", async () => {
     const queryBuilder = (
       await zkPassport.request({
         purpose: "Caller-supplied purpose",
@@ -591,7 +589,7 @@ describe("Policy-driven requests", () => {
     const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
     expect(service.purpose).toBe("Caller-supplied purpose")
-    expect(service.scope).toBe("pol_xyz")
+    expect(service.scope).toBe("caller-supplied-scope")
   })
 
   test("self-serve callers get sensible defaults when no fields are supplied", async () => {
