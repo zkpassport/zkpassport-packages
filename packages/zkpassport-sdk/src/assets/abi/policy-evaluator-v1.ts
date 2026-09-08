@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 48bfc595). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 3354254d). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -23,39 +23,19 @@ export const PolicyEvaluatorV1Abi = [
             internalType: "enum NullifierType",
           },
           {
+            name: "enforceUniqueness",
+            type: "bool",
+            internalType: "bool",
+          },
+          {
             name: "minAge",
             type: "uint8",
             internalType: "uint8",
           },
           {
-            name: "maxAge",
+            name: "sanctionsMode",
             type: "uint8",
-            internalType: "uint8",
-          },
-          {
-            name: "minBirthdate",
-            type: "uint256",
-            internalType: "uint256",
-          },
-          {
-            name: "maxBirthdate",
-            type: "uint256",
-            internalType: "uint256",
-          },
-          {
-            name: "minExpiryDate",
-            type: "uint256",
-            internalType: "uint256",
-          },
-          {
-            name: "maxExpiryDate",
-            type: "uint256",
-            internalType: "uint256",
-          },
-          {
-            name: "sanctionsCheck",
-            type: "bool",
-            internalType: "bool",
+            internalType: "enum PolicyEvaluatorV1.SanctionsMode",
           },
           {
             name: "faceMatchMode",
@@ -69,16 +49,6 @@ export const PolicyEvaluatorV1Abi = [
           },
           {
             name: "excludedNationalities",
-            type: "string[]",
-            internalType: "string[]",
-          },
-          {
-            name: "includedIssuingCountries",
-            type: "string[]",
-            internalType: "string[]",
-          },
-          {
-            name: "excludedIssuingCountries",
             type: "string[]",
             internalType: "string[]",
           },
@@ -154,32 +124,12 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "error",
-    name: "PolicyEvaluator__BirthdateRequirementNotMet",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "PolicyEvaluator__ExcludedIssuingCountry",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "PolicyEvaluator__ExcludedNationality",
     inputs: [],
   },
   {
     type: "error",
-    name: "PolicyEvaluator__ExpiryDateRequirementNotMet",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "PolicyEvaluator__FaceMatchRequirementNotMet",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "PolicyEvaluator__InvalidBounds",
     inputs: [],
   },
   {
@@ -194,17 +144,17 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "error",
-    name: "PolicyEvaluator__IssuingCountryNotIncluded",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "PolicyEvaluator__NationalityNotIncluded",
     inputs: [],
   },
   {
     type: "error",
     name: "PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__UniquenessRequiresNullifierType",
     inputs: [],
   },
   {

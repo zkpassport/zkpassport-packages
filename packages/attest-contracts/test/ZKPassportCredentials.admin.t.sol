@@ -58,7 +58,10 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
         zkPassportCredentials.createPolicy(
-            bytes32(uint256(99)), 1 days, _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
+            bytes32(uint256(99)),
+            1 days,
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            "x"
         );
     }
 

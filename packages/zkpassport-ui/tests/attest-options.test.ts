@@ -19,23 +19,20 @@ const basePolicy: AttestPolicy = {
   retiredAt: 0n,
 }
 
-/** decodeRequirements as the contract returns it (faceMatchMode is the raw enum). */
-type RawRequirements = Omit<AttestPolicyRequirements, "facematchMode"> & { faceMatchMode: number }
+/** decodeRequirements as the contract returns it (sanctionsMode and faceMatchMode are raw enums). */
+type RawRequirements = Omit<AttestPolicyRequirements, "sanctionsMode" | "facematchMode"> & {
+  sanctionsMode: number
+  faceMatchMode: number
+}
 
 const baseRequirements: RawRequirements = {
   uniqueIdentifierType: NullifierType.NON_SALTED,
+  enforceUniqueness: true,
   minAge: 0,
-  maxAge: 0,
-  minBirthdate: 0n,
-  maxBirthdate: 0n,
-  minExpiryDate: 0n,
-  maxExpiryDate: 0n,
-  sanctionsCheck: false,
+  sanctionsMode: 0,
   faceMatchMode: 0,
   includedNationalities: [],
   excludedNationalities: [],
-  includedIssuingCountries: [],
-  excludedIssuingCountries: [],
 }
 
 function stubChain(policy: AttestPolicy, requirements: RawRequirements = baseRequirements) {
@@ -192,7 +189,7 @@ describe("buildAttestCardOptions query translation", () => {
       // Stored sorted on-chain (createPolicy validates order); the query
       // passes codes through as stored.
       excludedNationalities: ["IRN", "PRK"],
-      sanctionsCheck: true,
+      sanctionsMode: 2,
     }
     const calls = await queryCalls(requirements)
     expect(calls).toEqual([
@@ -205,30 +202,17 @@ describe("buildAttestCardOptions query translation", () => {
     ])
   })
 
-  test("extended predicates: age range, date windows, lists, facematch", async () => {
+  test("nationality allowlist, normal sanctions, and facematch map through", async () => {
     const requirements: RawRequirements = {
       ...baseRequirements,
-      minAge: 18,
-      maxAge: 40,
-      minBirthdate: 631_152_000n,
-      maxBirthdate: 946_684_800n,
-      maxExpiryDate: 1_900_000_000n,
       includedNationalities: ["ARG", "FRA"],
-      includedIssuingCountries: ["FRA"],
-      excludedIssuingCountries: ["PRK"],
+      sanctionsMode: 1,
       faceMatchMode: 1,
     }
     const calls = await queryCalls(requirements)
     expect(calls).toEqual([
-      { method: "range", args: ["age", 18, 40] },
-      {
-        method: "range",
-        args: ["birthdate", new Date(631_152_000_000), new Date(946_684_800_000)],
-      },
-      { method: "lte", args: ["expiry_date", new Date(1_900_000_000_000)] },
       { method: "in", args: ["nationality", ["ARG", "FRA"]] },
-      { method: "in", args: ["issuing_country", ["FRA"]] },
-      { method: "out", args: ["issuing_country", ["PRK"]] },
+      { method: "sanctions", args: ["all", "all", { strict: false }] },
       { method: "facematch", args: ["regular"] },
       { method: "bind", args: ["user_address", WALLET] },
       { method: "bind", args: ["chain", "ethereum_sepolia"] },
