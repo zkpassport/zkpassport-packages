@@ -14,7 +14,7 @@ import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 contract ZKPassportCredentials is ERC1155 {
     struct Policy {
         address owner;
-        uint64 validityPeriod;
+        uint64 credentialDuration;
         NullifierType uniqueIdentifierType;
         uint8 minAge;
         bool sanctionsCheck;
@@ -25,7 +25,7 @@ contract ZKPassportCredentials is ERC1155 {
 
     error ZKPassportCredentials__PolicyNotFound(uint256 policyId);
     error ZKPassportCredentials__PolicyAlreadyExists(uint256 policyId);
-    error ZKPassportCredentials__InvalidValidityPeriod();
+    error ZKPassportCredentials__InvalidCredentialDuration();
     error ZKPassportCredentials__NotPolicyOwner();
     error ZKPassportCredentials__PolicyRetired(uint256 policyId);
     error ZKPassportCredentials__InvalidNullifierType();
@@ -97,14 +97,16 @@ contract ZKPassportCredentials is ERC1155 {
     ///         and SALTED_NULLIFIER demand exactly that nullifier type from every proof and dedup on it.
     function createPolicy(
         bytes32 salt,
-        uint64 validityPeriod,
+        uint64 credentialDuration,
         NullifierType uniqueIdentifierType,
         uint8 minAge,
         bool sanctionsCheck,
         string[] calldata excludedCountries,
         string calldata metadataURL
     ) external returns (uint256 policyId) {
-        if (validityPeriod == 0) revert ZKPassportCredentials__InvalidValidityPeriod();
+        if (credentialDuration == 0) {
+            revert ZKPassportCredentials__InvalidCredentialDuration();
+        }
         if (
             uniqueIdentifierType != NullifierType.NONE_NULLIFIER
                 && uniqueIdentifierType != NullifierType.NON_SALTED_NULLIFIER
@@ -116,7 +118,7 @@ contract ZKPassportCredentials is ERC1155 {
 
         Policy storage policy = _policies[policyId];
         policy.owner = msg.sender;
-        policy.validityPeriod = validityPeriod;
+        policy.credentialDuration = credentialDuration;
         policy.uniqueIdentifierType = uniqueIdentifierType;
         policy.minAge = minAge;
         policy.sanctionsCheck = sanctionsCheck;
@@ -208,7 +210,7 @@ contract ZKPassportCredentials is ERC1155 {
         _consumeNullifier(policy, policyId, nullifier, wallet);
 
         bool firstIssue = heldUntil[wallet][policyId] == 0;
-        uint64 newHeldUntil = uint64(block.timestamp + policy.validityPeriod);
+        uint64 newHeldUntil = uint64(block.timestamp + policy.credentialDuration);
         heldUntil[wallet][policyId] = newHeldUntil;
 
         if (super.balanceOf(wallet, policyId) == 0) {
@@ -266,7 +268,7 @@ contract ZKPassportCredentials is ERC1155 {
     ///         Policy-owner revocation is targeted incident response (court order, wrongly
     ///         issued credential) — sanctions propagation does NOT happen here: it is enforced at
     ///         issuance/renewal against the current sanctions root, bounded by the policy's
-    ///         validityPeriod, with no per-address enumeration.
+    ///         credentialDuration, with no per-address enumeration.
     ///         The nullifier stays bound to the wallet: releasing it would let a holder revoke and
     ///         re-issue to a fresh wallet, timing repeated access to a one-per-document gate. The
     ///         document can only ever re-credential the same wallet for this policy.

@@ -25,7 +25,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         );
         ZKPassportCredentials.Policy memory policy = zkPassportCredentials.getPolicy(policyId);
         assertEq(policy.owner, creator);
-        assertEq(policy.validityPeriod, 7 days);
+        assertEq(policy.credentialDuration, 7 days);
         assertEq(uint8(policy.uniqueIdentifierType), uint8(NullifierType.SALTED_NULLIFIER));
         assertEq(policy.minAge, 18);
         assertTrue(policy.sanctionsCheck);
@@ -64,9 +64,9 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         assertTrue(first != second);
     }
 
-    function testCreatePolicyRevertsOnZeroValidityPeriod() public {
+    function testCreatePolicyRevertsOnZeroCredentialDuration() public {
         vm.prank(creator);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidValidityPeriod.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
         zkPassportCredentials.createPolicy(bytes32(0), 0, NullifierType.NONE_NULLIFIER, 0, false, noCountries, "x");
     }
 
