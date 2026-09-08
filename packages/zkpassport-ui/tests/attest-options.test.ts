@@ -10,7 +10,7 @@ const DOMAIN = "policy.example"
 
 const basePolicy: AttestPolicy = {
   owner: WALLET,
-  validityPeriod: 2592000n,
+  credentialDuration: 2592000n,
   uniqueIdentifierType: NullifierType.NONE,
   minAge: 0,
   sanctionsCheck: false,
