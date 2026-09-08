@@ -11,6 +11,7 @@ export type CardState =
   | "preparing"
   | "connecting"
   | "waiting"
+  | "disconnected"
   | "scanned"
   | "generating"
   | "success"
@@ -134,7 +135,15 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     sdkRef
       .current!.request({ ...sdkRequestArgs, verifierMode: "api" })
       .then((queryBuilder) => {
-        if (cancelled) return
+        if (cancelled) {
+          // Restarted or unmounted while the request was still being set up: release its bridge
+          try {
+            sdkRef.current!.cancelRequest(queryBuilder.done().requestId)
+          } catch (reason) {
+            logger.error(reason)
+          }
+          return
+        }
         let request: QueryBuilderResult
         try {
           request = buildQuery(queryBuilder)
@@ -143,13 +152,23 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
           return
         }
 
+        // Where the flow was when the bridge gave up, to return there if it comes back
+        let stateBeforeLoss: CardState = "waiting"
         request.onBridgeConnect(
           guard(() => {
-            if (bridgeStateRef.current === "preparing" || bridgeStateRef.current === "connecting") {
-              applyBridgeState("waiting")
-            }
+            const current = bridgeStateRef.current
+            if (current === "preparing" || current === "connecting") applyBridgeState("waiting")
+            else if (current === "disconnected") applyBridgeState(stateBeforeLoss)
             fireReady()
             safeCall(optionsRef.current.onBridgeConnect)
+          }),
+        )
+        request.onBridgeConnectionLost(
+          guard(() => {
+            const current = bridgeStateRef.current
+            if (current === "success" || current === "error") return
+            stateBeforeLoss = current
+            applyBridgeState("disconnected")
           }),
         )
         request.onRequestReceived(
@@ -267,6 +286,8 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
 
     return () => {
       cancelled = true
+      // Close the old bridge so it stops pinging and the phone cannot join a stale request
+      if (requestRef.current) sdkRef.current!.cancelRequest(requestRef.current.requestId)
     }
   }, [retryNonce])
 
