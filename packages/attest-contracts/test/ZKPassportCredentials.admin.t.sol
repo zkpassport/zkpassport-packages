@@ -5,6 +5,7 @@ import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
+import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
 contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
@@ -56,11 +57,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.pause();
         vm.prank(creator);
         zkPassportCredentials.createPolicy(
-            bytes32(uint256(99)),
-            1 days,
-            address(evaluator),
-            _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries),
-            "x"
+            bytes32(uint256(99)), 1 days, _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
         );
     }
 
@@ -96,6 +93,27 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
         zkPassportCredentials.setCredentialIssuanceModule(CredentialIssuanceModuleV1(address(0)));
+    }
+
+    function testAdminCanSwapPolicyEvaluator() public {
+        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1();
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, false);
+        emit ZKPassportCredentials.PolicyEvaluatorUpdated(address(evaluator), address(newEvaluator));
+        zkPassportCredentials.setPolicyEvaluator(newEvaluator);
+        assertEq(address(zkPassportCredentials.policyEvaluator()), address(newEvaluator));
+    }
+
+    function testOthersCannotSwapPolicyEvaluator() public {
+        vm.prank(wallet);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
+        zkPassportCredentials.setPolicyEvaluator(evaluator);
+    }
+
+    function testCannotSwapPolicyEvaluatorToZero() public {
+        vm.prank(admin);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
+        zkPassportCredentials.setPolicyEvaluator(PolicyEvaluatorV1(address(0)));
     }
 
     function testCannotTransferAdminToZero() public {
