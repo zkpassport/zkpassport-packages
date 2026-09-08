@@ -52,10 +52,11 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 
-    function testPauseDoesNotAffectCreatePolicy() public {
+    function testPauseBlocksCreatePolicy() public {
         vm.prank(admin);
         zkPassportCredentials.pause();
         vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
         zkPassportCredentials.createPolicy(
             bytes32(uint256(99)), 1 days, _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
         );
