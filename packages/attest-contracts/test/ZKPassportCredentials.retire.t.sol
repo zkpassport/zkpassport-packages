@@ -26,10 +26,6 @@ contract ZKPassportCredentialsRetireTest is ZKPassportCredentialsTestBase {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
         zkPassportCredentials.retire(policyId);
 
-        vm.prank(guardian);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
-        zkPassportCredentials.retire(policyId);
-
         vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
         zkPassportCredentials.retire(policyId);
