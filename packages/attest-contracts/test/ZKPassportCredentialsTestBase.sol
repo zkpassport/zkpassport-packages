@@ -4,14 +4,14 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {NullifierType, ProofVerificationParams, ProofVerificationData, ServiceConfig} from "@registry/lib/Types.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {IssuanceModuleV1} from "../src/IssuanceModuleV1.sol";
+import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
 contract ZKPassportCredentialsTestBase is Test {
     ZKPassportCredentials internal zkPassportCredentials;
-    IssuanceModuleV1 internal issuanceModule;
+    CredentialIssuanceModuleV1 internal credentialIssuanceModule;
     PolicyEvaluatorV1 internal evaluator;
     MockVerifierHelper internal mockHelper;
     MockRootVerifier internal mockVerifier;
@@ -23,9 +23,9 @@ contract ZKPassportCredentialsTestBase is Test {
     string[] internal noCountries;
 
     function _deployZKPassportCredentials(IRootVerifier verifier) internal {
-        issuanceModule = new IssuanceModuleV1(verifier);
+        credentialIssuanceModule = new CredentialIssuanceModuleV1(verifier);
         evaluator = new PolicyEvaluatorV1();
-        zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, issuanceModule);
+        zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, credentialIssuanceModule);
     }
 
     function _deployWithMocks() internal {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {NullifierType, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
-import {IssuanceModuleV1} from "../src/IssuanceModuleV1.sol";
+import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 
 contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase {
     uint256 internal saltedPolicyId;
@@ -94,14 +94,14 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
 
     function testUnrestrictedPolicyRejectsMockNullifierTypes() public {
         uint256 defaultPolicyId = _createDefaultPolicy();
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__MockProofNotAllowed.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__MockProofNotAllowed.selector);
         zkPassportCredentials.issue(defaultPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER));
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__MockProofNotAllowed.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__MockProofNotAllowed.selector);
         zkPassportCredentials.issue(defaultPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }
 
     function testSaltedPolicyRejectsMockSaltedNullifier() public {
-        vm.expectRevert(IssuanceModuleV1.IssuanceModule__MockProofNotAllowed.selector);
+        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__MockProofNotAllowed.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }
 }

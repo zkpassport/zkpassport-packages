@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {IssuanceModuleV1} from "../src/IssuanceModuleV1.sol";
+import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
 contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
@@ -73,27 +73,29 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.pause();
     }
 
-    function testAdminCanSwapIssuanceModule() public {
-        IssuanceModuleV1 newModule = new IssuanceModuleV1(IRootVerifier(address(mockVerifier)));
+    function testAdminCanSwapCredentialIssuanceModule() public {
+        CredentialIssuanceModuleV1 newModule = new CredentialIssuanceModuleV1(IRootVerifier(address(mockVerifier)));
         vm.prank(admin);
         vm.expectEmit(true, true, false, false);
-        emit ZKPassportCredentials.IssuanceModuleUpdated(address(issuanceModule), address(newModule));
-        zkPassportCredentials.setIssuanceModule(newModule);
-        assertEq(address(zkPassportCredentials.issuanceModule()), address(newModule));
+        emit ZKPassportCredentials.CredentialIssuanceModuleUpdated(
+            address(credentialIssuanceModule), address(newModule)
+        );
+        zkPassportCredentials.setCredentialIssuanceModule(newModule);
+        assertEq(address(zkPassportCredentials.credentialIssuanceModule()), address(newModule));
         zkPassportCredentials.issue(policyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
-    function testOthersCannotSwapIssuanceModule() public {
+    function testOthersCannotSwapCredentialIssuanceModule() public {
         vm.prank(wallet);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
-        zkPassportCredentials.setIssuanceModule(issuanceModule);
+        zkPassportCredentials.setCredentialIssuanceModule(credentialIssuanceModule);
     }
 
-    function testCannotSwapIssuanceModuleToZero() public {
+    function testCannotSwapCredentialIssuanceModuleToZero() public {
         vm.prank(admin);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
-        zkPassportCredentials.setIssuanceModule(IssuanceModuleV1(address(0)));
+        zkPassportCredentials.setCredentialIssuanceModule(CredentialIssuanceModuleV1(address(0)));
     }
 
     function testCannotTransferAdminToZero() public {
