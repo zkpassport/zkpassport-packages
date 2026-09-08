@@ -68,6 +68,23 @@ contract ZKPassportCredentials is ERC1155 {
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
     mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
 
+    modifier onlyAdmin() {
+        if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
+        _;
+    }
+
+    modifier onlyPolicyOwner(uint256 policyId) {
+        if (_policies[policyId].owner != msg.sender) revert ZKPassportCredentials__NotPolicyOwner();
+        _;
+    }
+
+    modifier onlyHolderOrPolicyOwner(address wallet, uint256 policyId) {
+        if (msg.sender != wallet && msg.sender != _policies[policyId].owner) {
+            revert ZKPassportCredentials__NotRevocable();
+        }
+        _;
+    }
+
     constructor(IRootVerifier _rootVerifier, string memory _domain, address _admin) ERC1155("") {
         if (_admin == address(0)) revert ZKPassportCredentials__ZeroAddress();
         rootVerifier = _rootVerifier;
@@ -114,17 +131,15 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     /// @notice Update the display metadata URL; predicates are immutable
-    function setMetadataURL(uint256 policyId, string calldata url) external {
-        if (_policies[policyId].owner != msg.sender) revert ZKPassportCredentials__NotPolicyOwner();
+    function setMetadataURL(uint256 policyId, string calldata url) external onlyPolicyOwner(policyId) {
         _policies[policyId].metadataURL = url;
         emit PolicyMetadataURLUpdated(policyId, url);
     }
 
     /// @notice Permanently stop new issuance and renewals for a policy; existing
     ///         credentials stay valid until they expire, so gates reading balanceOf degrade gracefully
-    function retire(uint256 policyId) external {
+    function retire(uint256 policyId) external onlyPolicyOwner(policyId) {
         Policy storage policy = _policies[policyId];
-        if (policy.owner != msg.sender) revert ZKPassportCredentials__NotPolicyOwner();
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
         policy.retiredAt = uint64(block.timestamp);
         emit PolicyRetired(policyId);
@@ -230,10 +245,7 @@ contract ZKPassportCredentials is ERC1155 {
     ///         The nullifier stays bound to the wallet: releasing it would let a holder revoke and
     ///         re-issue to a fresh wallet, timing repeated access to a one-per-document gate. The
     ///         document can only ever re-credential the same wallet for this policy.
-    function revoke(address wallet, uint256 policyId) external {
-        if (msg.sender != wallet && msg.sender != _policies[policyId].owner) {
-            revert ZKPassportCredentials__NotRevocable();
-        }
+    function revoke(address wallet, uint256 policyId) external onlyHolderOrPolicyOwner(wallet, policyId) {
         if (heldUntil[wallet][policyId] == 0) revert ZKPassportCredentials__NothingToRevoke();
 
         heldUntil[wallet][policyId] = 0;
@@ -246,20 +258,17 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     /// @notice Emergency stop for issuance; reads and revocation stay live
-    function pause() external {
-        if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
+    function pause() external onlyAdmin {
         paused = true;
         emit PausedStatusChanged(true);
     }
 
-    function unpause() external {
-        if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
+    function unpause() external onlyAdmin {
         paused = false;
         emit PausedStatusChanged(false);
     }
 
-    function transferAdmin(address newAdmin) external {
-        if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
+    function transferAdmin(address newAdmin) external onlyAdmin {
         if (newAdmin == address(0)) revert ZKPassportCredentials__ZeroAddress();
         emit AdminUpdated(admin, newAdmin);
         admin = newAdmin;
