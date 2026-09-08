@@ -22,9 +22,8 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         excluded[0] = "PRK";
         bytes memory requirements = _requirements(NullifierType.SALTED_NULLIFIER, 18, true, excluded);
         vm.prank(creator);
-        uint256 policyId = zkPassportCredentials.createPolicy(
-            bytes32(0), 7 days, address(evaluator), requirements, "https://policy.example/kyc"
-        );
+        uint256 policyId =
+            zkPassportCredentials.createPolicy(bytes32(0), 7 days, requirements, "https://policy.example/kyc");
         ZKPassportCredentials.Policy memory policy = zkPassportCredentials.getPolicy(policyId);
         assertEq(policy.owner, creator);
         assertEq(policy.credentialDuration, 7 days);
@@ -56,11 +55,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             )
         );
         zkPassportCredentials.createPolicy(
-            bytes32(uint256(1)),
-            30 days,
-            address(evaluator),
-            _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries),
-            "other"
+            bytes32(uint256(1)), 30 days, _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "other"
         );
     }
 
@@ -69,11 +64,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         address other = makeAddr("other");
         vm.prank(other);
         uint256 second = zkPassportCredentials.createPolicy(
-            bytes32(uint256(1)),
-            30 days,
-            address(evaluator),
-            _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries),
-            "x"
+            bytes32(uint256(1)), 30 days, _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
         );
         assertTrue(first != second);
     }
@@ -82,44 +73,43 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
         zkPassportCredentials.createPolicy(
-            bytes32(0), 0, address(evaluator), _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
+            bytes32(0), 0, _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
         );
     }
 
-    function testCreatePolicyRevertsOnZeroEvaluator() public {
+    function testPolicyKeepsItsCreationEvaluatorAfterSwap() public {
+        uint256 policyId = _createDefaultPolicy();
+        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1();
+        vm.prank(admin);
+        zkPassportCredentials.setPolicyEvaluator(newEvaluator);
+
+        assertEq(zkPassportCredentials.getPolicy(policyId).evaluator, address(evaluator));
+
         vm.prank(creator);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
-        zkPassportCredentials.createPolicy(
-            bytes32(0), 30 days, address(0), _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
+        uint256 laterPolicyId = zkPassportCredentials.createPolicy(
+            bytes32(uint256(2)), 30 days, _requirements(NullifierType.NONE_NULLIFIER, 0, false, noCountries), "x"
         );
+        assertEq(zkPassportCredentials.getPolicy(laterPolicyId).evaluator, address(newEvaluator));
     }
 
     function testCreatePolicyRejectsMockNullifierTypes() public {
         vm.prank(creator);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidNullifierType.selector);
         zkPassportCredentials.createPolicy(
-            bytes32(0),
-            30 days,
-            address(evaluator),
-            _requirements(NullifierType.NON_SALTED_MOCK_NULLIFIER, 0, false, noCountries),
-            "x"
+            bytes32(0), 30 days, _requirements(NullifierType.NON_SALTED_MOCK_NULLIFIER, 0, false, noCountries), "x"
         );
 
         vm.prank(creator);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidNullifierType.selector);
         zkPassportCredentials.createPolicy(
-            bytes32(0),
-            30 days,
-            address(evaluator),
-            _requirements(NullifierType.SALTED_MOCK_NULLIFIER, 0, false, noCountries),
-            "x"
+            bytes32(0), 30 days, _requirements(NullifierType.SALTED_MOCK_NULLIFIER, 0, false, noCountries), "x"
         );
     }
 
     function testCreatePolicyRejectsMalformedRequirements() public {
         vm.prank(creator);
         vm.expectRevert();
-        zkPassportCredentials.createPolicy(bytes32(0), 30 days, address(evaluator), hex"deadbeef", "x");
+        zkPassportCredentials.createPolicy(bytes32(0), 30 days, hex"deadbeef", "x");
     }
 
     function testUriReturnsMetadataURL() public {
