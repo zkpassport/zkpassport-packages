@@ -124,6 +124,7 @@ export {
 export {
   AttestClient,
   type AttestPolicy,
+  type AttestPolicyRequirements,
   type AttestPolicySummary,
   type AttestReadClient,
 } from "./attest"
