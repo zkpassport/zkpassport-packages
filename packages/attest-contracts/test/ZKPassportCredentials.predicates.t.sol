@@ -27,26 +27,26 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     }
 
     function testStrictPolicyIssuesWhenAllPredicatesPass() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, strictPolicyId), 1);
     }
 
     function testIssueRevertsWhenAgeTooLow() public {
         mockHelper.setAgeOk(false);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__AgeBelowMinimum.selector);
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
     function testIssueRevertsOnExcludedJurisdiction() public {
         mockHelper.setNationalityOk(false);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ExcludedJurisdiction.selector);
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
     function testIssueRevertsWhenSanctionsRootInvalid() public {
         mockHelper.setSanctionsOk(false);
         vm.expectRevert("MockVerifierHelper: sanctions root invalid");
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
     function testLaxPolicySkipsPredicateCalls() public {
@@ -54,18 +54,18 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         mockHelper.setAgeOk(false);
         mockHelper.setNationalityOk(false);
         mockHelper.setSanctionsOk(false);
-        zkPassportCredentials.issue(wallet, laxPolicyId, _params());
+        zkPassportCredentials.issue(laxPolicyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, laxPolicyId), 1);
         assertEq(zkPassportCredentials.nullifierWallet(laxPolicyId, mockVerifier.nullifier()), address(0));
     }
 
     function testUniquePolicyBindsNullifierToWallet() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         assertEq(zkPassportCredentials.nullifierWallet(strictPolicyId, mockVerifier.nullifier()), wallet);
     }
 
     function testSamePassportOtherWalletIsSybil() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         address mallory = makeAddr("mallory");
         mockHelper.setBoundData(mallory, block.chainid, "");
         vm.expectRevert(
@@ -73,23 +73,23 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
                 ZKPassportCredentials.ZKPassportCredentials__SybilDetected.selector, mockVerifier.nullifier()
             )
         );
-        zkPassportCredentials.issue(mallory, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
     function testSamePassportSameWalletCanRenew() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, strictPolicyId), 1);
     }
 
     function testUniquePolicyRejectsZeroNullifier() public {
         mockVerifier.setNullifier(bytes32(0));
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__MissingNullifier.selector);
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
     function testNullifiersAreScopedPerPolicy() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         vm.prank(creator);
         uint256 secondUnique = zkPassportCredentials.createPolicy(
             bytes32(uint256(8)),
@@ -102,12 +102,12 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         );
         address other = makeAddr("other");
         mockHelper.setBoundData(other, block.chainid, "");
-        zkPassportCredentials.issue(other, secondUnique, _params());
+        zkPassportCredentials.issue(secondUnique, _params());
         assertEq(zkPassportCredentials.balanceOf(other, secondUnique), 1);
     }
 
     function testRevokeKeepsNullifierBoundToOriginalWallet() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         vm.prank(wallet);
         zkPassportCredentials.revoke(wallet, strictPolicyId);
         assertEq(zkPassportCredentials.nullifierWallet(strictPolicyId, mockVerifier.nullifier()), wallet);
@@ -118,19 +118,19 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
                 ZKPassportCredentials.ZKPassportCredentials__SybilDetected.selector, mockVerifier.nullifier()
             )
         );
-        zkPassportCredentials.issue(mallory, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
     function testSameWalletCanReissueAfterRevoke() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         vm.prank(wallet);
         zkPassportCredentials.revoke(wallet, strictPolicyId);
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, strictPolicyId), 1);
     }
 
     function testActiveCredentialStillBlocksOtherWallets() public {
-        zkPassportCredentials.issue(wallet, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
         address mallory = makeAddr("mallory2");
         mockHelper.setBoundData(mallory, block.chainid, "");
         vm.expectRevert(
@@ -138,6 +138,6 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
                 ZKPassportCredentials.ZKPassportCredentials__SybilDetected.selector, mockVerifier.nullifier()
             )
         );
-        zkPassportCredentials.issue(mallory, strictPolicyId, _params());
+        zkPassportCredentials.issue(strictPolicyId, _params());
     }
 }

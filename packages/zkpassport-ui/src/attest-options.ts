@@ -13,7 +13,7 @@ export type AttestIssueCall = {
   address: `0x${string}`
   functionName: "issue"
   abi: ReturnType<AttestClient["getIssueDetails"]>["abi"]
-  args: readonly [`0x${string}`, bigint, SolidityVerifierParameters]
+  args: readonly [bigint, SolidityVerifierParameters]
 }
 
 export type AttestVerifyResult = {
@@ -161,7 +161,7 @@ function buildResultHandler(context: {
           address: details.address,
           functionName: details.functionName,
           abi: details.abi,
-          args: [wallet, policyId, params] as const,
+          args: [policyId, params] as const,
         }
       } catch (reason) {
         options.onError?.(reason instanceof Error ? reason.message : String(reason))

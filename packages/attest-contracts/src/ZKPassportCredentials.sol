@@ -34,7 +34,6 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__InvalidProof();
     error ZKPassportCredentials__WrongScope();
     error ZKPassportCredentials__StaleProof();
-    error ZKPassportCredentials__ProofNotBoundToWallet();
     error ZKPassportCredentials__ProofNotBoundToChain();
     error ZKPassportCredentials__UnexpectedBoundData();
     error ZKPassportCredentials__AgeBelowMinimum();
@@ -161,9 +160,11 @@ contract ZKPassportCredentials is ERC1155 {
         return string.concat("attest:", Strings.toHexString(policyId, 32));
     }
 
-    /// @notice Verify a proof and grant (or extend) the wallet's credential for a policy.
-    ///         Anyone may pay the gas; the proof itself pins the recipient wallet and chain.
-    function issue(address wallet, uint256 policyId, ProofVerificationParams calldata params) external {
+    /// @notice Verify a proof and grant (or extend) a credential for the wallet the proof is
+    ///         bound to. Issuance is permissionless: anyone holding the proof, its verification
+    ///         params, and the policyId — a relayer included — may submit; the proof itself pins
+    ///         the recipient wallet and chain, so the caller can redirect nothing.
+    function issue(uint256 policyId, ProofVerificationParams calldata params) external {
         if (paused) revert ZKPassportCredentials__Paused();
 
         Policy storage policy = _policies[policyId];
@@ -182,7 +183,8 @@ contract ZKPassportCredentials is ERC1155 {
         }
 
         BoundData memory bound = helper.getBoundData(params.committedInputs);
-        if (bound.senderAddress != wallet) revert ZKPassportCredentials__ProofNotBoundToWallet();
+        address wallet = bound.senderAddress;
+        if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
         if (bound.chainId != block.chainid) revert ZKPassportCredentials__ProofNotBoundToChain();
         if (bytes(bound.customData).length != 0) revert ZKPassportCredentials__UnexpectedBoundData();
 

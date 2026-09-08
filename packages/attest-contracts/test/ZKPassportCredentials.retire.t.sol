@@ -53,21 +53,21 @@ contract ZKPassportCredentialsRetireTest is ZKPassportCredentialsTestBase {
         vm.expectRevert(
             abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyRetired.selector, policyId)
         );
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
     }
 
     function testRenewalRevertsAfterRetirement() public {
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
         vm.prank(creator);
         zkPassportCredentials.retire(policyId);
         vm.expectRevert(
             abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__PolicyRetired.selector, policyId)
         );
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
     }
 
     function testExistingCredentialSurvivesRetirementUntilExpiry() public {
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
         vm.prank(creator);
         zkPassportCredentials.retire(policyId);
 
@@ -78,7 +78,7 @@ contract ZKPassportCredentialsRetireTest is ZKPassportCredentialsTestBase {
     }
 
     function testRevokeStillWorksAfterRetirement() public {
-        zkPassportCredentials.issue(wallet, policyId, _params());
+        zkPassportCredentials.issue(policyId, _params());
         vm.prank(creator);
         zkPassportCredentials.retire(policyId);
         vm.prank(wallet);
