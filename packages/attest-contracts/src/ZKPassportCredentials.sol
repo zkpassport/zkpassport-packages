@@ -21,6 +21,7 @@ contract ZKPassportCredentials is ERC1155 {
     struct Policy {
         address owner;
         uint64 credentialDuration;
+        bool ownerGrantable;
         address evaluator;
         bytes requirements;
         string metadataURL;
@@ -38,6 +39,7 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__NotRevocable();
     error ZKPassportCredentials__NothingToRevoke();
     error ZKPassportCredentials__Paused();
+    error ZKPassportCredentials__NotGrantable();
     error ZKPassportCredentials__NotAuthorized();
     error ZKPassportCredentials__ZeroAddress();
 
@@ -52,6 +54,7 @@ contract ZKPassportCredentials is ERC1155 {
     event CredentialIssuanceModuleUpdated(address indexed oldModule, address indexed newModule);
     event PolicyEvaluatorUpdated(address indexed oldEvaluator, address indexed newEvaluator);
     event DomainUpdated(string oldDomain, string newDomain);
+    event CredentialGranted(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
 
     string public domain;
     address public admin;
@@ -113,6 +116,7 @@ contract ZKPassportCredentials is ERC1155 {
     function createPolicy(
         bytes32 salt,
         uint64 credentialDuration,
+        bool ownerGrantable,
         bytes calldata requirements,
         string calldata metadataURL
     ) external whenNotPaused returns (uint256 policyId) {
@@ -128,6 +132,7 @@ contract ZKPassportCredentials is ERC1155 {
         Policy storage policy = _policies[policyId];
         policy.owner = msg.sender;
         policy.credentialDuration = credentialDuration;
+        policy.ownerGrantable = ownerGrantable;
         policy.evaluator = address(evaluator);
         policy.requirements = requirements;
         policy.metadataURL = metadataURL;
@@ -190,17 +195,39 @@ contract ZKPassportCredentials is ERC1155 {
         }
 
         bool firstIssue = heldUntil[wallet][policyId] == 0;
-        uint64 newHeldUntil = uint64(block.timestamp + policy.credentialDuration);
-        heldUntil[wallet][policyId] = newHeldUntil;
-
-        if (super.balanceOf(wallet, policyId) == 0) {
-            _grantToken(wallet, policyId);
-        }
+        uint64 newHeldUntil = _issueCredential(wallet, policyId, policy.credentialDuration);
 
         if (firstIssue) {
             emit CredentialIssued(wallet, policyId, newHeldUntil, verdict.customData);
         } else {
             emit CredentialRenewed(wallet, policyId, newHeldUntil, verdict.customData);
+        }
+    }
+
+    /// @notice Issue (or extend) a credential by policy-owner authority, without a proof.
+    ///         Only available when the policy opted in at creation (`ownerGrantable`).
+    ///         Grants never touch nullifier bindings, so on `enforceUniqueness` policies
+    ///         they bypass one-per-document sybil protection — that is the meaning of
+    ///         owner authority; the proof path is unaffected.
+    function grant(address wallet, uint256 policyId) external whenNotPaused onlyPolicyOwner(policyId) {
+        Policy storage policy = _policies[policyId];
+        if (!policy.ownerGrantable) revert ZKPassportCredentials__NotGrantable();
+        if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
+        if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
+
+        uint64 newHeldUntil = _issueCredential(wallet, policyId, policy.credentialDuration);
+        emit CredentialGranted(wallet, policyId, newHeldUntil);
+    }
+
+    function _issueCredential(address wallet, uint256 policyId, uint64 credentialDuration)
+        internal
+        returns (uint64 newHeldUntil)
+    {
+        newHeldUntil = uint64(block.timestamp + credentialDuration);
+        heldUntil[wallet][policyId] = newHeldUntil;
+
+        if (super.balanceOf(wallet, policyId) == 0) {
+            _grantToken(wallet, policyId);
         }
     }
 
