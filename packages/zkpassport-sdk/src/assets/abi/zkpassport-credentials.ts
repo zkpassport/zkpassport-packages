@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 85a154cb). Do not edit by hand.
+// Generated from packages/attest-contracts (commit ddf80b6b). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -106,7 +106,7 @@ export const ZKPassportCredentialsAbi = [
         internalType: "bytes32",
       },
       {
-        name: "validityPeriod",
+        name: "credentialDuration",
         type: "uint64",
         internalType: "uint64",
       },
@@ -180,7 +180,7 @@ export const ZKPassportCredentialsAbi = [
             internalType: "address",
           },
           {
-            name: "validityPeriod",
+            name: "credentialDuration",
             type: "uint64",
             internalType: "uint64",
           },
@@ -1029,17 +1029,17 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
+    name: "ZKPassportCredentials__InvalidCredentialDuration",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "ZKPassportCredentials__InvalidNullifierType",
     inputs: [],
   },
   {
     type: "error",
     name: "ZKPassportCredentials__InvalidProof",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__InvalidValidityPeriod",
     inputs: [],
   },
   {

@@ -12,7 +12,7 @@ export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs">
 /** Mirrors ZKPassportCredentials.Policy (packages/attest-contracts/src/ZKPassportCredentials.sol). */
 export type AttestPolicy = {
   owner: `0x${string}`
-  validityPeriod: bigint
+  credentialDuration: bigint
   uniqueIdentifierType: RequestedNullifierType
   minAge: number
   sanctionsCheck: boolean
