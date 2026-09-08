@@ -207,7 +207,7 @@ describe("enriched onResult", () => {
     expect(r.verified).toBe(true)
     expect(r.issueCall?.address).toBe(REGISTRY)
     expect(r.issueCall?.functionName).toBe("issue")
-    expect(r.issueCall?.args).toEqual([WALLET, POLICY_ID, PARAMS])
+    expect(r.issueCall?.args).toEqual([POLICY_ID, PARAMS])
     expect(calls[0]).toEqual({
       proof: { proof: "0xdead", name: "outer_evm_5", version: "0.21.0" },
       scope: SCOPE,
