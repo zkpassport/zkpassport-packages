@@ -65,6 +65,11 @@ contract ZKPassportCredentials is ERC1155 {
         _;
     }
 
+    modifier whenNotPaused() {
+        if (paused) revert ZKPassportCredentials__Paused();
+        _;
+    }
+
     modifier onlyPolicyOwner(uint256 policyId) {
         if (_policies[policyId].owner != msg.sender) revert ZKPassportCredentials__NotPolicyOwner();
         _;
@@ -107,7 +112,7 @@ contract ZKPassportCredentials is ERC1155 {
         uint64 credentialDuration,
         bytes calldata requirements,
         string calldata metadataURL
-    ) external returns (uint256 policyId) {
+    ) external whenNotPaused returns (uint256 policyId) {
         if (credentialDuration == 0) {
             revert ZKPassportCredentials__InvalidCredentialDuration();
         }
@@ -165,9 +170,7 @@ contract ZKPassportCredentials is ERC1155 {
     ///         The issuance module judges whether a credential may issue; this ledger alone
     ///         decides how state mutates, so no module can rebind a nullifier, stretch a
     ///         credential's lifetime, or alter the token.
-    function issue(uint256 policyId, ProofVerificationParams calldata params) external {
-        if (paused) revert ZKPassportCredentials__Paused();
-
+    function issue(uint256 policyId, ProofVerificationParams calldata params) external whenNotPaused {
         Policy storage policy = _policies[policyId];
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
@@ -241,7 +244,7 @@ contract ZKPassportCredentials is ERC1155 {
         emit CredentialRevoked(wallet, policyId, msg.sender);
     }
 
-    /// @notice Emergency stop for issuance; reads and revocation stay live
+    /// @notice Emergency stop for issuance and policy creation; reads and revocation stay live
     function pause() external onlyAdmin {
         paused = true;
         emit PausedStatusChanged(true);
