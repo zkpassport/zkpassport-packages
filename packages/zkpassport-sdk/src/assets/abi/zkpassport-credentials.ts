@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit ddf80b6b). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 0d3254bc). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -271,11 +271,6 @@ export const ZKPassportCredentialsAbi = [
     type: "function",
     name: "issue",
     inputs: [
-      {
-        name: "wallet",
-        type: "address",
-        internalType: "address",
-      },
       {
         name: "policyId",
         type: "uint256",
@@ -1108,11 +1103,6 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__ProofNotBoundToChain",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__ProofNotBoundToWallet",
     inputs: [],
   },
   {
