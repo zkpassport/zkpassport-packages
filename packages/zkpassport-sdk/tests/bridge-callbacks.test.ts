@@ -25,7 +25,7 @@ describe("Bridge connection callbacks", () => {
     const queryBuilder = await zkPassport.request({ name: "Test App", purpose: "Testing" })
     const request = queryBuilder.done()
     const bridge = (zkPassport as any).topicToBridge[request.requestId]
-    // Deliver a disconnect through the same listener the SDK registered on the bridge
+    // No websocket mock here, so fire the bridge's own disconnected event directly
     const disconnect = (options: { wasIntentionalClose: boolean; willReconnect: boolean }) =>
       bridge.connection.emit(
         "disconnected",

@@ -800,8 +800,8 @@ export class ZKPassport {
       await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
     })
     bridge.onDisconnect(async (event) => {
-      logger.debug("Bridge disconnected, will reconnect:", event.willReconnect)
       if (event.wasIntentionalClose || event.willReconnect) return
+      logger.debug("Bridge connection lost")
       await Promise.all(this.onBridgeConnectionLostCallbacks[topic].map((callback) => callback()))
     })
     bridge.onSecureChannelEstablished(async () => {

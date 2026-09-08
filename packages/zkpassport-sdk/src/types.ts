@@ -154,9 +154,7 @@ export type QueryBuilderResult = {
   onBridgeConnect: (callback: () => void) => void
   /**
    * Called when the connection to the bridge is lost and the SDK has stopped
-   * trying to reconnect on its own. The QR code will not work until the
-   * connection comes back (e.g. the page becomes visible again) or the request
-   * is recreated.
+   * trying to reconnect on its own. A later `onBridgeConnect` means it came back.
    */
   onBridgeConnectionLost: (callback: () => void) => void
   /**
