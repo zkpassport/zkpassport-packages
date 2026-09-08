@@ -1,6 +1,6 @@
 import type { PublicClient } from "viem"
 import { getAbiItem } from "viem"
-import type { ProofResult } from "@zkpassport/utils"
+import type { FacematchMode, ProofResult } from "@zkpassport/utils"
 import type { RequestedNullifierType } from "./types"
 import { SolidityVerifier } from "./solidity-verifier"
 import type { SolidityVerifierParameters } from "./types"
@@ -21,12 +21,34 @@ export type AttestPolicy = {
   retiredAt: bigint
 }
 
-/** PolicyEvaluatorV1.PolicyRequirements, decoded through the evaluator itself. */
+/**
+ * PolicyEvaluatorV1.PolicyRequirements, decoded through the evaluator itself.
+ * Numeric bounds are inclusive and 0 (or 0n) means unbounded on that side;
+ * dates are unix timestamps in seconds. Country lists are ISO 3166-1 alpha-3,
+ * sorted ascending; an empty list disables that check.
+ */
 export type AttestPolicyRequirements = {
   uniqueIdentifierType: RequestedNullifierType
   minAge: number
+  maxAge: number
+  minBirthdate: bigint
+  maxBirthdate: bigint
+  minExpiryDate: bigint
+  maxExpiryDate: bigint
   sanctionsCheck: boolean
-  excludedCountries: readonly string[]
+  /** undefined when the policy does not require FaceMatch */
+  facematchMode?: FacematchMode
+  includedNationalities: readonly string[]
+  excludedNationalities: readonly string[]
+  includedIssuingCountries: readonly string[]
+  excludedIssuingCountries: readonly string[]
+}
+
+/** PolicyEvaluatorV1.sol's FaceMatchMode enum: NONE, REGULAR, STRICT. */
+const FACEMATCH_MODES: Record<number, FacematchMode | undefined> = {
+  0: undefined,
+  1: "regular",
+  2: "strict",
 }
 
 export type AttestPolicySummary = {
@@ -84,14 +106,24 @@ export class AttestClient {
         `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema 1.`,
       )
     }
-    const decoded = (await evaluatorRead("decodeRequirements", [
-      policy.requirements,
-    ])) as AttestPolicyRequirements
+    const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
+      AttestPolicyRequirements,
+      "facematchMode"
+    > & { faceMatchMode: number }
     return {
       uniqueIdentifierType: decoded.uniqueIdentifierType,
       minAge: decoded.minAge,
+      maxAge: decoded.maxAge,
+      minBirthdate: decoded.minBirthdate,
+      maxBirthdate: decoded.maxBirthdate,
+      minExpiryDate: decoded.minExpiryDate,
+      maxExpiryDate: decoded.maxExpiryDate,
       sanctionsCheck: decoded.sanctionsCheck,
-      excludedCountries: decoded.excludedCountries,
+      facematchMode: FACEMATCH_MODES[decoded.faceMatchMode],
+      includedNationalities: decoded.includedNationalities,
+      excludedNationalities: decoded.excludedNationalities,
+      includedIssuingCountries: decoded.includedIssuingCountries,
+      excludedIssuingCountries: decoded.excludedIssuingCountries,
     }
   }
 
