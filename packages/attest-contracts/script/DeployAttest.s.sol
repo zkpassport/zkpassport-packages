@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {IssuanceModuleV1} from "../src/IssuanceModuleV1.sol";
+import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
@@ -17,19 +17,20 @@ contract DeployAttestScript is Script {
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
 
         vm.startBroadcast();
-        IssuanceModuleV1 issuanceModule = new IssuanceModuleV1{salt: create2Salt}(IRootVerifier(rootVerifier));
+        CredentialIssuanceModuleV1 credentialIssuanceModule =
+            new CredentialIssuanceModuleV1{salt: create2Salt}(IRootVerifier(rootVerifier));
         PolicyEvaluatorV1 policyEvaluator = new PolicyEvaluatorV1{salt: create2Salt}();
         ZKPassportCredentials zkPassportCredentials =
-            new ZKPassportCredentials{salt: create2Salt}(domain, adminAddress, issuanceModule);
+            new ZKPassportCredentials{salt: create2Salt}(domain, adminAddress, credentialIssuanceModule);
         vm.stopBroadcast();
 
         console.log("ZKPassportCredentials deployed at:", address(zkPassportCredentials));
-        console.log("IssuanceModuleV1 deployed at:", address(issuanceModule));
+        console.log("CredentialIssuanceModuleV1 deployed at:", address(credentialIssuanceModule));
         console.log("PolicyEvaluatorV1 deployed at:", address(policyEvaluator));
 
         string memory json = "attest";
         vm.serializeAddress(json, "address", address(zkPassportCredentials));
-        vm.serializeAddress(json, "issuance_module", address(issuanceModule));
+        vm.serializeAddress(json, "credential_issuance_module", address(credentialIssuanceModule));
         vm.serializeAddress(json, "policy_evaluator", address(policyEvaluator));
         vm.serializeAddress(json, "root_verifier", rootVerifier);
         json = vm.serializeUint(json, "deployed_at", block.timestamp);
