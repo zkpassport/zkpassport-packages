@@ -17,10 +17,11 @@ contract ZKPassportCredentialsGrantTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         grantablePolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(31)),
-            7 days,
-            true,
             _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
-            "https://policy.example/grantable"
+            7 days,
+            "https://policy.example/grantable",
+            true,
+            true
         );
         proofOnlyPolicyId = _createDefaultPolicy();
     }

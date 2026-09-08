@@ -18,10 +18,11 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         strictPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(7)),
-            7 days,
-            false,
             _requirements(NullifierType.SALTED_NULLIFIER, 18, PolicyEvaluatorV1.SanctionsMode.STRICT, excluded),
-            "https://policy.example/kyc"
+            7 days,
+            "https://policy.example/kyc",
+            false,
+            false
         );
     }
 
@@ -44,8 +45,9 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
 
     function _createPolicyWith(PolicyEvaluatorV1.PolicyRequirements memory r, uint256 salt) internal returns (uint256) {
         vm.prank(creator);
-        return
-            zkPassportCredentials.createPolicy(bytes32(salt), 7 days, false, abi.encode(r), "https://policy.example/x");
+        return zkPassportCredentials.createPolicy(
+            bytes32(salt), abi.encode(r), 7 days, "https://policy.example/x", false, false
+        );
     }
 
     function testNationalityInclusionPredicate() public {
@@ -156,10 +158,11 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         uint256 secondUnique = zkPassportCredentials.createPolicy(
             bytes32(uint256(8)),
-            7 days,
-            false,
             _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
-            "https://policy.example/2"
+            7 days,
+            "https://policy.example/2",
+            false,
+            false
         );
         address other = makeAddr("other");
         mockHelper.setBoundData(other, block.chainid, "");
