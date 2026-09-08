@@ -106,14 +106,16 @@ export class AttestClient {
   }
 
   /**
-   * Call details for ZKPassportCredentials.issue(wallet, policyId, params).
+   * Call details for ZKPassportCredentials.issue(policyId, params).
    * The consumer executes with their own wallet stack (viem writeContract,
-   * ethers, etc.) — the SDK never signs. Renewal is the same call: issuing
-   * again extends heldUntil; there is no separate renew entrypoint.
+   * ethers, etc.) — the SDK never signs. Issuance is permissionless: any
+   * sender (a relayer included) may submit, and the credential lands on the
+   * wallet the proof is bound to. Renewal is the same call: issuing again
+   * extends heldUntil; there is no separate renew entrypoint.
    *
    * On-chain preconditions the transaction must satisfy or issue() reverts:
-   * - the proof must be bound to the exact `wallet` argument and to the
-   *   chain the registry lives on (request the proof with those bindings)
+   * - the proof must be bound to the recipient wallet and to the chain the
+   *   registry lives on (request the proof with those bindings)
    * - the proof's bound customData must be empty
    * - the proof must be generated in production mode (devMode always reverts)
    * - the proof must be at most 1 hour old at inclusion time
