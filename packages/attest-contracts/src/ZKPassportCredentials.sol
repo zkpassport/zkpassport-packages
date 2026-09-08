@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {ProofVerificationParams} from "@registry/lib/Types.sol";
-import {IIssuanceModule, IssuanceVerdict} from "./IIssuanceModule.sol";
+import {ICredentialIssuanceModule, IssuanceVerdict} from "./ICredentialIssuanceModule.sol";
 import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
@@ -47,11 +47,11 @@ contract ZKPassportCredentials is ERC1155 {
     event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
     event PausedStatusChanged(bool paused);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
-    event IssuanceModuleUpdated(address indexed oldModule, address indexed newModule);
+    event CredentialIssuanceModuleUpdated(address indexed oldModule, address indexed newModule);
 
     string public domain;
     address public admin;
-    IIssuanceModule public issuanceModule;
+    ICredentialIssuanceModule public credentialIssuanceModule;
     bool public paused;
 
     mapping(uint256 policyId => Policy) internal _policies;
@@ -75,13 +75,15 @@ contract ZKPassportCredentials is ERC1155 {
         _;
     }
 
-    constructor(string memory _domain, address _admin, IIssuanceModule _issuanceModule) ERC1155("") {
-        if (_admin == address(0) || address(_issuanceModule) == address(0)) {
+    constructor(string memory _domain, address _admin, ICredentialIssuanceModule _credentialIssuanceModule)
+        ERC1155("")
+    {
+        if (_admin == address(0) || address(_credentialIssuanceModule) == address(0)) {
             revert ZKPassportCredentials__ZeroAddress();
         }
         domain = _domain;
         admin = _admin;
-        issuanceModule = _issuanceModule;
+        credentialIssuanceModule = _credentialIssuanceModule;
     }
 
     /// @notice Create a policy; the id is namespaced by creator and salt and stable across
@@ -159,8 +161,9 @@ contract ZKPassportCredentials is ERC1155 {
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
 
-        IssuanceVerdict memory verdict =
-            issuanceModule.judge(domain, policyScope(policyId), policy.evaluator, policy.requirements, params);
+        IssuanceVerdict memory verdict = credentialIssuanceModule.judge(
+            domain, policyScope(policyId), policy.evaluator, policy.requirements, params
+        );
 
         address wallet = verdict.wallet;
         if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
@@ -246,10 +249,10 @@ contract ZKPassportCredentials is ERC1155 {
 
     /// @notice Swap the issuance pipeline; existing credentials, nullifier bindings,
     ///         and policies are untouched — only future issuance goes through the new module
-    function setIssuanceModule(IIssuanceModule newModule) external onlyAdmin {
+    function setCredentialIssuanceModule(ICredentialIssuanceModule newModule) external onlyAdmin {
         if (address(newModule) == address(0)) revert ZKPassportCredentials__ZeroAddress();
-        emit IssuanceModuleUpdated(address(issuanceModule), address(newModule));
-        issuanceModule = newModule;
+        emit CredentialIssuanceModuleUpdated(address(credentialIssuanceModule), address(newModule));
+        credentialIssuanceModule = newModule;
     }
 
     function setApprovalForAll(address, bool) public pure override {

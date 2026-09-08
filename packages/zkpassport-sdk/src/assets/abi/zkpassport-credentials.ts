@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit b039eeb6). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 0041b4e3). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -15,9 +15,9 @@ export const ZKPassportCredentialsAbi = [
         internalType: "address",
       },
       {
-        name: "_issuanceModule",
+        name: "_credentialIssuanceModule",
         type: "address",
-        internalType: "contract IIssuanceModule",
+        internalType: "contract ICredentialIssuanceModule",
       },
     ],
     stateMutability: "nonpayable",
@@ -121,6 +121,19 @@ export const ZKPassportCredentialsAbi = [
       },
     ],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "credentialIssuanceModule",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "contract ICredentialIssuanceModule",
+      },
+    ],
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -230,19 +243,6 @@ export const ZKPassportCredentialsAbi = [
         name: "",
         type: "bool",
         internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "issuanceModule",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract IIssuanceModule",
       },
     ],
     stateMutability: "view",
@@ -506,12 +506,12 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
-    name: "setIssuanceModule",
+    name: "setCredentialIssuanceModule",
     inputs: [
       {
         name: "newModule",
         type: "address",
-        internalType: "contract IIssuanceModule",
+        internalType: "contract ICredentialIssuanceModule",
       },
     ],
     outputs: [],
@@ -639,6 +639,25 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "event",
+    name: "CredentialIssuanceModuleUpdated",
+    inputs: [
+      {
+        name: "oldModule",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "newModule",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "CredentialIssued",
     inputs: [
       {
@@ -719,25 +738,6 @@ export const ZKPassportCredentialsAbi = [
         name: "by",
         type: "address",
         indexed: false,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "IssuanceModuleUpdated",
-    inputs: [
-      {
-        name: "oldModule",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "newModule",
-        type: "address",
-        indexed: true,
         internalType: "address",
       },
     ],
