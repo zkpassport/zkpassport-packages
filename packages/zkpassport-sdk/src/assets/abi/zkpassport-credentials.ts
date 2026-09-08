@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit dc885c60). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 25d22938). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -16,11 +16,6 @@ export const ZKPassportCredentialsAbi = [
       },
       {
         name: "_admin",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "_guardian",
         type: "address",
         internalType: "address",
       },
@@ -230,19 +225,6 @@ export const ZKPassportCredentialsAbi = [
             internalType: "uint64",
           },
         ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "guardian",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
       },
     ],
     stateMutability: "view",
@@ -572,19 +554,6 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
-    name: "setGuardian",
-    inputs: [
-      {
-        name: "newGuardian",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "setMetadataURL",
     inputs: [
       {
@@ -773,25 +742,6 @@ export const ZKPassportCredentialsAbi = [
         name: "by",
         type: "address",
         indexed: false,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "GuardianUpdated",
-    inputs: [
-      {
-        name: "oldGuardian",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "newGuardian",
-        type: "address",
-        indexed: true,
         internalType: "address",
       },
     ],
