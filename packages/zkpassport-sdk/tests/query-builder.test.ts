@@ -359,6 +359,17 @@ describe("Query Builder", () => {
       mode: "regular",
     })
   })
+
+  test("encodes the return link that sends the user back to the previous app", async () => {
+    const qb = await zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing return link",
+      returnDeepLink: RETURN_DEEP_LINK_BACK,
+    })
+    const result = qb.disclose("firstname").done()
+    expect(result.url).toContain("&r=BACK")
+  })
 })
 
 describe("createQuery (offline mode)", () => {
@@ -834,17 +845,6 @@ describe("Salted nullifier facematch validation", () => {
     })
     const result = qb.disclose("firstname").done()
     expect(result.url).toContain(`&nt=${NullifierType.NON_SALTED}`)
-  })
-
-  test("encodes the return link that sends the user back to the previous app", async () => {
-    const qb = await zkPassport.request({
-      name: "Test App",
-      logo: "https://test.com/logo.png",
-      purpose: "Testing return link",
-      returnDeepLink: RETURN_DEEP_LINK_BACK,
-    })
-    const result = qb.disclose("firstname").done()
-    expect(result.url).toContain("&r=BACK")
   })
 
   test("omits nt from the URL when uniqueIdentifierType is null", async () => {

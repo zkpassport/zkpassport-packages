@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks"
 import QRCode from "qrcode"
-import { ZKPassport } from "@zkpassport/sdk"
+import { RETURN_DEEP_LINK_BACK, ZKPassport } from "@zkpassport/sdk"
 import type { Query, QueryBuilderResult } from "@zkpassport/sdk"
 
+import { isMobileLike } from "./environment"
 import { logger } from "./logger"
 import type { ZKPassportQRCodeOptions } from "./types"
 
@@ -94,6 +95,11 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       onError: _onError,
       ...sdkRequestArgs
     } = optionsRef.current
+
+    // Going back only works when this phone opened the link itself, not when another device scans the QR
+    if (sdkRequestArgs.returnDeepLink === RETURN_DEEP_LINK_BACK && !isMobileLike()) {
+      delete sdkRequestArgs.returnDeepLink
+    }
 
     if (onResult && optionsRef.current.onSuccess) {
       logger.warn("onResult is deprecated and drives the card; onSuccess return values are ignored")

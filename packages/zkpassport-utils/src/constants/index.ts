@@ -96,7 +96,7 @@ const DG1_INPUT_SIZE = 95
 const E_CONTENT_INPUT_SIZE = 700
 
 /**
- * Value for a request's returnDeepLink that sends the user back to the app
+ * Value for a request's returnDeepLink that guides the user back to the app
  * they came from once they finish, instead of opening a URL.
  */
 const RETURN_DEEP_LINK_BACK = "BACK"
