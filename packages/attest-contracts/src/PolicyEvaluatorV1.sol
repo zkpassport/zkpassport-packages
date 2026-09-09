@@ -7,6 +7,15 @@ import {IExtendedVerifierHelper} from "./IExtendedVerifierHelper.sol";
 import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 contract PolicyEvaluatorV1 is IPolicyEvaluator {
+    /// @dev The nullifier types a policy may constrain: only the real types, unlike the proof
+    ///      side's NullifierType. Mock nullifiers (dev mode) fold onto their real counterparts at
+    ///      issue time, and requirements bytes carrying any other value fail to decode.
+    enum PolicyNullifierType {
+        NON_SALTED_NULLIFIER,
+        SALTED_NULLIFIER,
+        NONE_NULLIFIER
+    }
+
     enum SanctionsMode {
         NONE,
         NORMAL,
@@ -19,7 +28,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     ///      the nullifier) and needs a constrained nullifier type to dedup on. Country lists are
     ///      ISO 3166-1 alpha-3, strictly ascending; an empty list disables that check.
     struct PolicyRequirements {
-        NullifierType uniqueIdentifierType;
+        PolicyNullifierType uniqueIdentifierType;
         bool enforceUniqueness;
         uint8 minAge;
         SanctionsMode sanctionsMode;
@@ -32,7 +41,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__WrongScope();
     error PolicyEvaluator__StaleProof();
     error PolicyEvaluator__ProofNotBoundToChain();
-    error PolicyEvaluator__InvalidNullifierType();
     error PolicyEvaluator__InvalidCountryList();
     error PolicyEvaluator__UniquenessRequiresNullifierType();
     error PolicyEvaluator__WrongNullifierType();
@@ -75,20 +83,15 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     /// @inheritdoc IPolicyEvaluator
     function validateRequirements(bytes calldata requirements) external pure {
         PolicyRequirements memory r = decodeRequirements(requirements);
-        if (
-            r.uniqueIdentifierType != NullifierType.NONE_NULLIFIER
-                && r.uniqueIdentifierType != NullifierType.NON_SALTED_NULLIFIER
-                && r.uniqueIdentifierType != NullifierType.SALTED_NULLIFIER
-        ) revert PolicyEvaluator__InvalidNullifierType();
-
-        if (r.enforceUniqueness && r.uniqueIdentifierType == NullifierType.NONE_NULLIFIER) {
+        if (r.enforceUniqueness && r.uniqueIdentifierType == PolicyNullifierType.NONE_NULLIFIER) {
             revert PolicyEvaluator__UniquenessRequiresNullifierType();
         }
 
         // The app salts nullifiers through a strict FaceMatch attestation, so a salted-nullifier
         // proof always commits STRICT mode. A policy pairing SALTED with REGULAR could never
         // issue.
-        if (r.uniqueIdentifierType == NullifierType.SALTED_NULLIFIER && r.faceMatchMode == FaceMatchMode.REGULAR) {
+        if (r.uniqueIdentifierType == PolicyNullifierType.SALTED_NULLIFIER && r.faceMatchMode == FaceMatchMode.REGULAR)
+        {
             revert PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
         }
 
@@ -139,20 +142,10 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     ) internal view returns (bool unique) {
         PolicyRequirements memory r = decodeRequirements(requirements);
 
-        if (r.uniqueIdentifierType != NullifierType.NONE_NULLIFIER) {
-            NullifierType nullifierType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-
-            // Mock documents (dev mode) carry the mock twin of the requested nullifier type,
-            // while policies constrain the real type, so we compare against the twin. This only
-            // matters where mock proofs verify at all: testnet registries, which contain the
-            // mock certificates; mainnet registries do not.
-            if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
-                nullifierType = NullifierType.NON_SALTED_NULLIFIER;
-            } else if (nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
-                nullifierType = NullifierType.SALTED_NULLIFIER;
-            }
-
-            if (nullifierType != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
+        if (r.uniqueIdentifierType != PolicyNullifierType.NONE_NULLIFIER) {
+            PolicyNullifierType proofType =
+                _toPolicyNullifierType(NullifierType(uint256(publicInputs[publicInputs.length - 3])));
+            if (proofType != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
         }
 
         if (r.minAge > 0 && !helper.isAgeAboveOrEqual(r.minAge, committedInputs)) {
@@ -183,6 +176,23 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         }
 
         return r.enforceUniqueness;
+    }
+
+    /// @dev Mock documents (dev mode) carry the mock twin of the requested nullifier type,
+    ///      while policies constrain the real type, so the twins fold onto their real
+    ///      counterparts. This only matters where mock proofs verify at all: testnet
+    ///      registries, which contain the mock certificates; mainnet registries do not.
+    function _toPolicyNullifierType(NullifierType nullifierType) internal pure returns (PolicyNullifierType) {
+        if (
+            nullifierType == NullifierType.NON_SALTED_NULLIFIER
+                || nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER
+        ) {
+            return PolicyNullifierType.NON_SALTED_NULLIFIER;
+        }
+        if (nullifierType == NullifierType.SALTED_NULLIFIER || nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
+            return PolicyNullifierType.SALTED_NULLIFIER;
+        }
+        return PolicyNullifierType.NONE_NULLIFIER;
     }
 
     /// @dev The verifier helper's country checks need the exact list committed
