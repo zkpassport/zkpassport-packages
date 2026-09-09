@@ -95,6 +95,12 @@ const SIGNED_ATTR_INPUT_SIZE = 256
 const DG1_INPUT_SIZE = 95
 const E_CONTENT_INPUT_SIZE = 700
 
+/**
+ * Value for a request's returnDeepLink that sends the user back to the app
+ * they came from once they finish, instead of opening a URL.
+ */
+const RETURN_DEEP_LINK_BACK = "BACK"
+
 // Doing it this way as this fixes a weird issue where the constant arrays are not being exported
 // if you export them directly when they are declared
 export {
@@ -107,4 +113,5 @@ export {
   SIGNED_ATTR_INPUT_SIZE,
   DG1_INPUT_SIZE,
   E_CONTENT_INPUT_SIZE,
+  RETURN_DEEP_LINK_BACK,
 }
