@@ -15,7 +15,12 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(21)),
-            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(
+                PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER,
+                0,
+                PolicyEvaluatorV1.SanctionsMode.NONE,
+                noCountries
+            ),
             7 days,
             "https://p.example/s",
             false,
@@ -24,7 +29,12 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         nonSaltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(22)),
-            _requirements(NullifierType.NON_SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(
+                PolicyEvaluatorV1.PolicyNullifierType.NON_SALTED_NULLIFIER,
+                0,
+                PolicyEvaluatorV1.SanctionsMode.NONE,
+                noCountries
+            ),
             7 days,
             "https://p.example/n",
             false,
@@ -38,7 +48,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
                 evaluator.decodeRequirements(zkPassportCredentials.getPolicy(saltedPolicyId).requirements)
                 .uniqueIdentifierType
             ),
-            uint8(NullifierType.SALTED_NULLIFIER)
+            uint8(PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER)
         );
         uint256 defaultPolicyId = _createDefaultPolicy();
         assertEq(
@@ -46,7 +56,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
                 evaluator.decodeRequirements(zkPassportCredentials.getPolicy(defaultPolicyId).requirements)
                 .uniqueIdentifierType
             ),
-            uint8(NullifierType.NONE_NULLIFIER)
+            uint8(PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER)
         );
     }
 

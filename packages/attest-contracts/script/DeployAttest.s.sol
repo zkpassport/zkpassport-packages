@@ -14,9 +14,12 @@ contract DeployAttestScript is Script {
         address adminAddress = vm.envAddress("ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS");
         require(adminAddress != address(0), "ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS must be set");
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
+        // Dev-mode evaluators accept mock-document proofs: testnets only, never mainnet.
+        bool devMode = vm.envOr("ATTEST_DEV_MODE", false);
 
         vm.startBroadcast();
-        PolicyEvaluatorV1 policyEvaluator = new PolicyEvaluatorV1{salt: create2Salt}(IRootVerifier(rootVerifier));
+        PolicyEvaluatorV1 policyEvaluator =
+            new PolicyEvaluatorV1{salt: create2Salt}(IRootVerifier(rootVerifier), devMode);
         ZKPassportCredentials zkPassportCredentials =
             new ZKPassportCredentials{salt: create2Salt}(domain, adminAddress, policyEvaluator);
         vm.stopBroadcast();
@@ -28,6 +31,7 @@ contract DeployAttestScript is Script {
         vm.serializeAddress(json, "address", address(zkPassportCredentials));
         vm.serializeAddress(json, "policy_evaluator", address(policyEvaluator));
         vm.serializeAddress(json, "root_verifier", rootVerifier);
+        vm.serializeBool(json, "dev_mode", devMode);
         vm.serializeUint(json, "deployed_at", block.timestamp);
         json = vm.serializeUint(json, "deployed_block", block.number);
         vm.writeJson(json, string.concat("deployments/", vm.toString(block.chainid), ".json"));

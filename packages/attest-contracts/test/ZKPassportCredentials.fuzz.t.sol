@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
@@ -20,7 +19,12 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         uint256 policyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(credentialDuration)),
-            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(
+                PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER,
+                0,
+                PolicyEvaluatorV1.SanctionsMode.NONE,
+                noCountries
+            ),
             credentialDuration,
             "https://policy.example/fuzz",
             false,
