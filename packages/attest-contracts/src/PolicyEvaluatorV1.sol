@@ -58,7 +58,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     ///         that requests dev-mode verification before it reaches the root verifier.
     bool public immutable devMode;
 
-    uint256 public constant PROOF_FRESHNESS = 1 hours;
+    uint256 public constant PROOF_FRESHNESS = 1 days;
 
     constructor(IRootVerifier _rootVerifier, bool _devMode) {
         rootVerifier = _rootVerifier;
