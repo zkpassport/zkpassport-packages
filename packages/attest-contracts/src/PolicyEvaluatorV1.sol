@@ -37,6 +37,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         string[] excludedNationalities;
     }
 
+    error PolicyEvaluator__DevModeProofRejected();
     error PolicyEvaluator__InvalidProof();
     error PolicyEvaluator__WrongScope();
     error PolicyEvaluator__StaleProof();
@@ -52,10 +53,16 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
     IRootVerifier public immutable rootVerifier;
 
+    /// @notice Whether dev-mode (mock document) proofs are accepted alongside real ones.
+    ///         Deploy with true on testnets only: a non-dev evaluator rejects any submission
+    ///         that requests dev-mode verification before it reaches the root verifier.
+    bool public immutable devMode;
+
     uint256 public constant PROOF_FRESHNESS = 1 hours;
 
-    constructor(IRootVerifier _rootVerifier) {
+    constructor(IRootVerifier _rootVerifier, bool _devMode) {
         rootVerifier = _rootVerifier;
+        devMode = _devMode;
     }
 
     /// @inheritdoc IPolicyEvaluator
@@ -100,10 +107,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     }
 
     /// @inheritdoc IPolicyEvaluator
-    /// @dev Mock-document proofs (dev mode) are deliberately not rejected here: the root
-    ///      verifier admits them only with serviceConfig.devMode set, and only testnet
-    ///      registries contain the mock certificates, so on mainnets they fail at the
-    ///      certificate root regardless of devMode.
     function evaluate(
         string calldata domain,
         string calldata subscope,
@@ -111,6 +114,8 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         bytes calldata proofData
     ) external view returns (PolicyEvaluationResult memory result) {
         ProofVerificationParams memory params = decodeProofData(proofData);
+
+        if (!devMode && params.serviceConfig.devMode) revert PolicyEvaluator__DevModeProofRejected();
 
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
         if (!valid) revert PolicyEvaluator__InvalidProof();
@@ -179,17 +184,17 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     }
 
     /// @dev Mock documents (dev mode) carry the mock twin of the requested nullifier type,
-    ///      while policies constrain the real type, so the twins fold onto their real
-    ///      counterparts. This only matters where mock proofs verify at all: testnet
-    ///      registries, which contain the mock certificates; mainnet registries do not.
-    function _toPolicyNullifierType(NullifierType nullifierType) internal pure returns (PolicyNullifierType) {
-        if (
-            nullifierType == NullifierType.NON_SALTED_NULLIFIER
-                || nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER
-        ) {
+    ///      while policies constrain the real type, so on dev deployments the twins fold onto
+    ///      their real counterparts. A non-dev evaluator never folds: mock types cannot come
+    ///      out of a proof it accepts, and treating them as never-matching keeps that a
+    ///      guarantee of this function rather than of the verification path.
+    function _toPolicyNullifierType(NullifierType nullifierType) internal view returns (PolicyNullifierType) {
+        if (nullifierType == NullifierType.NON_SALTED_NULLIFIER) return PolicyNullifierType.NON_SALTED_NULLIFIER;
+        if (nullifierType == NullifierType.SALTED_NULLIFIER) return PolicyNullifierType.SALTED_NULLIFIER;
+        if (devMode && nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
             return PolicyNullifierType.NON_SALTED_NULLIFIER;
         }
-        if (nullifierType == NullifierType.SALTED_NULLIFIER || nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
+        if (devMode && nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
             return PolicyNullifierType.SALTED_NULLIFIER;
         }
         return PolicyNullifierType.NONE_NULLIFIER;

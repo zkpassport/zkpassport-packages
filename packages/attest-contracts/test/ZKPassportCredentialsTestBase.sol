@@ -20,8 +20,10 @@ contract ZKPassportCredentialsTestBase is Test {
 
     string[] internal noCountries;
 
+    /// @dev Tests deploy a dev-mode evaluator so the mock-nullifier and dev-params paths are
+    ///      exercisable; the non-dev polarity is covered by the dedicated devMode tests.
     function _deployZKPassportCredentials(IRootVerifier verifier) internal {
-        evaluator = new PolicyEvaluatorV1(verifier);
+        evaluator = new PolicyEvaluatorV1(verifier, true);
         zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, evaluator);
     }
 

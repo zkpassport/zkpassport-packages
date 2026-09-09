@@ -80,7 +80,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
     }
 
     function testAdminCanSwapPolicyEvaluator() public {
-        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)));
+        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)), true);
         vm.prank(admin);
         vm.expectEmit(true, true, false, false);
         emit ZKPassportCredentials.PolicyEvaluatorUpdated(address(evaluator), address(newEvaluator));
