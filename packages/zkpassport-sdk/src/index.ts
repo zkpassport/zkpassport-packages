@@ -100,6 +100,7 @@ export {
   SCHENGEN_COUNTRIES,
   ASEAN_COUNTRIES,
   MERCOSUR_COUNTRIES,
+  RETURN_DEEP_LINK_BACK,
   ProofType,
   ProofTypeLength,
   NullifierType,
@@ -692,6 +693,9 @@ export class ZKPassport {
    * @param mode The proof mode (e.g. "fast" / "compressed").
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param verifierMode How the received proofs are verified: "local", "api" or "auto" (default).
+   * @param returnDeepLink Where the ZKPassport app sends the user once they finish. Use your
+   * native app's URL scheme, or `RETURN_DEEP_LINK_BACK` to return them to the app they came
+   * from without opening a URL (for flows started in a browser).
    * @returns The query builder object.
    */
   public async request({
