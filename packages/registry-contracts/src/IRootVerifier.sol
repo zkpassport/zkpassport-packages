@@ -9,12 +9,17 @@
 
 pragma solidity ^0.8.30;
 
-import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
+import {BoundData, FaceMatchMode, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 
 interface IVerifierHelper {
     function getBoundData(bytes calldata committedInputs) external view returns (BoundData memory);
     function isAgeAboveOrEqual(uint8 minAge, bytes calldata committedInputs) external view returns (bool);
+    function isNationalityIn(string[] memory countryList, bytes calldata committedInputs) external view returns (bool);
     function isNationalityOut(string[] memory countryList, bytes calldata committedInputs) external view returns (bool);
+    function isFaceMatchVerified(FaceMatchMode faceMatchMode, OS os, bytes calldata committedInputs)
+        external
+        view
+        returns (bool);
     function enforceSanctionsRoot(uint256 currentTimestamp, bool isStrict, bytes calldata committedInputs) external view;
     function verifyScopes(bytes32[] calldata publicInputs, string calldata scope, string calldata subscope)
         external

@@ -3,9 +3,8 @@ pragma solidity ^0.8.30;
 
 import {BoundData, FaceMatchMode, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
-import {IExtendedVerifierHelper} from "../../src/IExtendedVerifierHelper.sol";
 
-contract MockVerifierHelper is IExtendedVerifierHelper {
+contract MockVerifierHelper is IVerifierHelper {
     BoundData internal _boundData;
     bool public ageOk = true;
     bool public nationalityInOk = true;
