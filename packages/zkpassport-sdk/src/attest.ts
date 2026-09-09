@@ -19,8 +19,8 @@ export type AttestPolicy = {
    * expire. After expiration, credentials can be renewed by calling `issue` with a fresh proof.
    */
   credentialDuration: bigint
-  /** When true, the policy owner may issue credentials directly via grant(), without a proof. */
-  ownerGrantable: boolean
+  /** When true, the policy owner may issue credentials directly via ownerIssue(), without a proof. */
+  ownerIssuable: boolean
   /**
    * When true, the policy owner may revoke a holder's credential, which also bans the
    * wallet from the policy until the owner unbans it. Self-revocation is always allowed.
@@ -202,7 +202,7 @@ export class AttestClient {
   }
 
   /**
-   * True while the wallet is banned from the policy by an owner revocation; issue() and grant()
+   * True while the wallet is banned from the policy by an owner revocation; issue() and ownerIssue()
    * revert for banned wallets until the owner unbans.
    */
   async banned(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
