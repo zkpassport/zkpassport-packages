@@ -14,7 +14,7 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
         policyId = _createDefaultPolicy();
     }
 
-    function testIssueGrantsCredential() public {
+    function testIssueCreatesCredential() public {
         vm.expectEmit(true, true, false, true);
         emit ZKPassportCredentials.CredentialIssued(wallet, policyId, uint64(block.timestamp + 30 days), "");
         zkPassportCredentials.issue(policyId, _params());
