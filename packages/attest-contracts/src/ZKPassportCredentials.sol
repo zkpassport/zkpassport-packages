@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {CredentialIssuanceVerdict, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
+import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
  * @title  ZKPassportCredentials
@@ -191,24 +191,24 @@ contract ZKPassportCredentials is ERC1155 {
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
 
-        CredentialIssuanceVerdict memory verdict =
+        PolicyEvaluationResult memory result =
             IPolicyEvaluator(policy.evaluator).evaluate(domain, policyScope(policyId), policy.requirements, proofData);
 
-        address wallet = verdict.wallet;
+        address wallet = result.wallet;
         if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
         if (banned[wallet][policyId]) revert ZKPassportCredentials__WalletBanned();
 
-        if (verdict.unique) {
-            _consumeNullifier(policyId, verdict.nullifier, wallet);
+        if (result.unique) {
+            _consumeNullifier(policyId, result.nullifier, wallet);
         }
 
         bool firstIssue = heldUntil[wallet][policyId] == 0;
         uint64 newHeldUntil = _issueCredential(wallet, policyId, policy.credentialDuration);
 
         if (firstIssue) {
-            emit CredentialIssued(wallet, policyId, newHeldUntil, verdict.customData);
+            emit CredentialIssued(wallet, policyId, newHeldUntil, result.customData);
         } else {
-            emit CredentialRenewed(wallet, policyId, newHeldUntil, verdict.customData);
+            emit CredentialRenewed(wallet, policyId, newHeldUntil, result.customData);
         }
     }
 
