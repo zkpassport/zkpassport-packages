@@ -185,9 +185,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
     /// @dev Mock documents (dev mode) carry the mock twin of the requested nullifier type,
     ///      while policies constrain the real type, so on dev deployments the twins fold onto
-    ///      their real counterparts. A non-dev evaluator never folds: mock types cannot come
-    ///      out of a proof it accepts, and treating them as never-matching keeps that a
-    ///      guarantee of this function rather than of the verification path.
+    ///      their real counterparts.
     function _toPolicyNullifierType(NullifierType nullifierType) internal view returns (PolicyNullifierType) {
         if (nullifierType == NullifierType.NON_SALTED_NULLIFIER) return PolicyNullifierType.NON_SALTED_NULLIFIER;
         if (nullifierType == NullifierType.SALTED_NULLIFIER) return PolicyNullifierType.SALTED_NULLIFIER;
