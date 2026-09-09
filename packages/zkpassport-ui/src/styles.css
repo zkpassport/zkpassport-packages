@@ -469,6 +469,10 @@
     box-sizing: border-box !important;
   }
   /* Mobile-first waiting screen: open-app primary, QR behind a toggle */
+  /* The minimum card height fits the QR layout; the phone layout is much shorter */
+  .zkp-card:has(.zkp-open-app-hero) {
+    min-height: 0;
+  }
   .zkp-open-app-hero {
     display: flex;
     flex-direction: column;
