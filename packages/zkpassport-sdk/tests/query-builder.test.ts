@@ -368,7 +368,7 @@ describe("Query Builder", () => {
       returnDeepLink: RETURN_DEEP_LINK_BACK,
     })
     const result = qb.disclose("firstname").done()
-    expect(result.url).toContain("&r=BACK")
+    expect(new URL(result.url).searchParams.get("r")).toBe("BACK")
   })
 })
 
