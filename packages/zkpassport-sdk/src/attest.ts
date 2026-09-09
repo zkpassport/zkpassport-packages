@@ -7,12 +7,18 @@ import type { SolidityVerifierParameters } from "./types"
 import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./assets/abi/policy-evaluator-v1"
 
-/** Structural slice of viem's PublicClient — anything with these two methods works. */
-export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs">
+/** Structural slice of viem's PublicClient. */
+export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs" | "getBlockNumber">
 
-/** Mirrors ZKPassportCredentials.Policy (packages/attest-contracts/src/ZKPassportCredentials.sol). */
 export type AttestPolicy = {
+  /**
+   * Address that created the policy, and consequently has some special admin rights over it.
+   */
   owner: `0x${string}`
+  /**
+   * Time in seconds from the moment credentials for this policy are issued until they automatically
+   * expire. After expiration, credentials can be renewed by calling `issue` with a fresh proof.
+   */
   credentialDuration: bigint
   /** When true, the policy owner may issue credentials directly via grant(), without a proof. */
   ownerGrantable: boolean
@@ -21,40 +27,77 @@ export type AttestPolicy = {
    * wallet from the policy until the owner unbans it. Self-revocation is always allowed.
    */
   ownerRevocable: boolean
+  /**
+   * Address of the contract that defines and decodes the policy's requirements schema, and that
+   * determines whether a proof satisfies the requirements.
+   */
   evaluator: `0x${string}`
-  /** Opaque requirements bytes; the schema is owned by the policy's evaluator. */
+  /**
+   * Requirements bytes. Interpretation of these bytes is owned by the policy's evaluator.
+   */
   requirements: `0x${string}`
+  /**
+   * URL of the display metadata for the policy's token, returned as-is by the contract's
+   * ERC-1155 `uri(policyId)`. Updatable by the policy owner at any time.
+   */
   metadataURL: string
+  /**
+   * Timestamp that tracks whether the policy has been retired by its owner, and when.
+   */
   retiredAt: bigint
 }
 
 /**
- * PolicyEvaluatorV1.PolicyRequirements, decoded through the evaluator itself.
- * minAge 0 disables the age check; a non-NONE uniqueIdentifierType requires
- * the proof to carry exactly that nullifier type, and enforceUniqueness turns
- * on one-per-document dedup. Country lists are ISO 3166-1 alpha-3, sorted
- * ascending; an empty list disables that check.
+ * Policy requirements.
+ * - Country lists (`includedNationalities` and `excludedNationalities`) must be ISO 3166-1
+ *   alpha-3, sorted ascending; an empty list disables that check.
  */
 export type AttestPolicyRequirements = {
+  /**
+   * Any `uniqueIdentifierType` value other than `NONE` requires the proof to carry exactly that
+   * nullifier type.
+   */
   uniqueIdentifierType: RequestedNullifierType
+  /**
+   * `enforceUniqueness` limits issuance to one credential per document.
+   */
   enforceUniqueness: boolean
+  /**
+   * `minAge` defines an inclusive bound, so setting it to 0 means effectively no age check.
+   */
   minAge: number
-  /** undefined when the policy does not require a sanctions check */
+  /**
+   * Sanctions non-membership check the proof must carry. Undefined when the policy does not
+   * require one. In "normal" mode a match requires name + date of birth or document number +
+   * nationality; "strict" additionally matches on name alone, which is harder to evade but
+   * has a higher false-positive rate.
+   */
   sanctionsMode?: "normal" | "strict"
-  /** undefined when the policy does not require FaceMatch */
+  /**
+   * FaceMatch check (ID photo vs. live selfie) the proof must carry; undefined when the policy
+   * does not require one. "strict" runs an extensive liveness check, "regular" a basic, faster
+   * one. Salted-nullifier policies require "strict", as the app salts nullifiers through a
+   * strict FaceMatch attestation.
+   */
   facematchMode?: FacematchMode
+  /**
+   * Nationalities accepted by this policy. Must be ISO 3166-1 alpha-3, sorted ascending; an empty
+   * list disables that check.
+   */
   includedNationalities: readonly string[]
+  /**
+   * Nationalities rejected by this policy. Must be ISO 3166-1 alpha-3, sorted ascending; an empty
+   * list disables that check.
+   */
   excludedNationalities: readonly string[]
 }
 
-/** PolicyEvaluatorV1.sol's SanctionsMode enum: NONE, NORMAL, STRICT. */
 const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
   0: undefined,
   1: "normal",
   2: "strict",
 }
 
-/** The registry's FaceMatchMode enum: NONE, REGULAR, STRICT. */
 const FACEMATCH_MODES: Record<number, FacematchMode | undefined> = {
   0: undefined,
   1: "regular",
@@ -70,16 +113,18 @@ const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "
 
 /**
  * Typed bindings for the ZKPassportCredentials credential registry.
- * Reads execute through the provided client; writes follow the
- * SolidityVerifier pattern (the consumer signs with their own wallet stack).
+ * Reads execute through the provided client. Writes follow the SolidityVerifier pattern (the
+ * consumer signs with their own wallet stack).
  */
 export class AttestClient {
   private readonly client: AttestReadClient
   public readonly address: `0x${string}`
+  private readonly deployBlock?: bigint
 
-  constructor(options: { client: AttestReadClient; address: `0x${string}` }) {
+  constructor(options: { client: AttestReadClient; address: `0x${string}`; deployBlock?: bigint }) {
     this.client = options.client
     this.address = options.address
+    this.deployBlock = options.deployBlock
   }
 
   private read(functionName: string, args: readonly unknown[]) {
@@ -96,10 +141,9 @@ export class AttestClient {
   }
 
   /**
-   * Decode a policy's requirements through its own evaluator, so the request a
-   * client builds is derived from exactly what issue() will enforce. Fails
-   * loudly on an evaluator schema this SDK version does not know, rather than
-   * building a wrong proof request.
+   * Decode a policy's requirements through its own evaluator, so the request a client builds is
+   * derived from exactly what issue() will enforce. Fails on an evaluator schema this SDK version
+   * does not know, rather than building a wrong proof request.
    */
   async getRequirements(policy: AttestPolicy): Promise<AttestPolicyRequirements> {
     const evaluatorRead = (functionName: string, args: readonly unknown[]) =>
@@ -116,10 +160,12 @@ export class AttestClient {
         `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema 1.`,
       )
     }
+
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       AttestPolicyRequirements,
       "sanctionsMode" | "facematchMode"
     > & { sanctionsMode: number; faceMatchMode: number }
+
     return {
       uniqueIdentifierType: decoded.uniqueIdentifierType,
       enforceUniqueness: decoded.enforceUniqueness,
@@ -136,78 +182,104 @@ export class AttestClient {
   }
 
   /**
-   * 1 while the wallet holds an unexpired credential, else 0. Expiry is
-   * time-based: the balance drops to 0 the moment heldUntil passes, with
-   * no burn and no Transfer event — do not index balances from events.
+   * 1 while the wallet holds an unexpired credential, else 0. Expiry is time-based: the balance
+   * drops to 0 the moment `heldUntil` passes, with no burn and no `Transfer` event. Do not index
+   * balances from events.
    */
   async balanceOf(wallet: `0x${string}`, policyId: bigint): Promise<bigint> {
     return (await this.read("balanceOf", [wallet, policyId])) as bigint
   }
 
   /**
-   * Unix timestamp (seconds, as bigint) the credential is valid until;
-   * 0 means never issued or revoked.
+   * Unix timestamp (seconds, as bigint) the credential is valid until; 0 means never issued or
+   * revoked.
    */
   async heldUntil(wallet: `0x${string}`, policyId: bigint): Promise<bigint> {
     return (await this.read("heldUntil", [wallet, policyId])) as bigint
   }
 
   /**
-   * True while the wallet is banned from the policy by an owner revocation;
-   * issue() and grant() revert for banned wallets until the owner unbans.
+   * True while the wallet is banned from the policy by an owner revocation; issue() and grant()
+   * revert for banned wallets until the owner unbans.
    */
   async banned(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
     return (await this.read("banned", [wallet, policyId])) as boolean
   }
 
   /**
-   * The proof scope for a policy, read from the contract so it is
-   * byte-identical to what issue() verifies. Never reimplemented locally.
+   * The proof scope for a policy.
    */
   async policyScope(policyId: bigint): Promise<string> {
     return (await this.read("policyScope", [policyId])) as string
   }
 
   /**
-   * Enumerate policies from PolicyCreated logs (the registry has no on-chain
-   * list). fromBlock defaults to 0n, which many RPC providers reject or cap
-   * for getLogs — pass the registry's deployment block for production use.
+   * Enumerate policies from `PolicyCreated` logs. Policy ids are `keccak256(creator, salt)`,
+   * so the registry has no on-chain list; logs are the only on-chain enumeration. The scan is
+   * chunked into `blockRange`-sized `getLogs` calls (default 10,000 blocks) to stay under RPC
+   * provider range caps, so scanning a long history costs one request per window. Apps that
+   * need frequent or large listings should index `PolicyCreated` themselves instead.
+   *
+   * The scan starts at `fromBlock`, or the client's `deployBlock` when omitted; constructing
+   * the client without either is an error. It ends at `toBlock`, or the current block.
    */
   async listPolicies(
-    filter: { owner?: `0x${string}`; fromBlock?: bigint; toBlock?: bigint } = {},
+    filter: {
+      owner?: `0x${string}`
+      fromBlock?: bigint
+      toBlock?: bigint
+      blockRange?: bigint
+    } = {},
   ): Promise<AttestPolicySummary[]> {
-    const logs = await this.client.getLogs({
-      address: this.address,
-      event: POLICY_CREATED_EVENT,
-      args: filter.owner !== undefined ? { owner: filter.owner } : undefined,
-      fromBlock: filter.fromBlock ?? 0n,
-      toBlock: filter.toBlock,
-    } as never)
-    return (logs as unknown as { args: AttestPolicySummary }[]).map((log) => ({
-      policyId: log.args.policyId,
-      owner: log.args.owner,
-    }))
+    const fromBlock = filter.fromBlock ?? this.deployBlock
+    if (fromBlock === undefined) {
+      throw new Error(
+        "listPolicies needs a starting block: pass fromBlock, or construct AttestClient with the registry's deployBlock.",
+      )
+    }
+
+    const blockRange = filter.blockRange ?? 10_000n
+    if (blockRange < 1n) throw new Error("blockRange must be at least 1")
+
+    const toBlock = filter.toBlock ?? (await this.client.getBlockNumber())
+    const summaries: AttestPolicySummary[] = []
+
+    for (let start = fromBlock; start <= toBlock; start += blockRange) {
+      const end = start + blockRange - 1n < toBlock ? start + blockRange - 1n : toBlock
+      const logs = await this.client.getLogs({
+        address: this.address,
+        event: POLICY_CREATED_EVENT,
+        args: filter.owner !== undefined ? { owner: filter.owner } : undefined,
+        fromBlock: start,
+        toBlock: end,
+      } as never)
+
+      for (const log of logs as unknown as { args: AttestPolicySummary }[]) {
+        summaries.push({ policyId: log.args.policyId, owner: log.args.owner })
+      }
+    }
+
+    return summaries
   }
 
   /**
    * Call details for ZKPassportCredentials.issue(policyId, params).
-   * The consumer executes with their own wallet stack (viem writeContract,
-   * ethers, etc.) — the SDK never signs. Issuance is permissionless: any
-   * sender (a relayer included) may submit, and the credential lands on the
-   * wallet the proof is bound to. Renewal is the same call: issuing again
-   * extends heldUntil; there is no separate renew entrypoint.
    *
-   * On-chain preconditions the transaction must satisfy or issue() reverts:
-   * - the proof must be bound to the recipient wallet and to the chain the
-   *   registry lives on (request the proof with those bindings)
-   * - the proof's bound customData must be empty
-   * - devMode is accepted; mock-document proofs (dev mode) verify only against
-   *   testnet registries, which contain the mock certificates — on mainnet
-   *   deployments they fail the certificate root check
-   * - the proof must be at most 1 hour old at inclusion time
-   * - the recipient wallet must not be banned (an owner revocation bans it
-   *   until the policy owner unbans)
-   * - the policy must exist, not be retired, and the registry not paused
+   * Issuance is permissionless: any sender may submit, and the credential lands on the wallet the
+   * proof is bound to. Renewal is achieved through the same call: issuing again extends
+   * `heldUntil`.
+   *
+   * On-chain preconditions the transaction must satisfy or `issue()` reverts:
+   * - The proof must be bound to the recipient wallet and to the chain the registry lives on
+   *   (request the proof with those bindings).
+   * - The proof's bound `customData` must be empty.
+   * - `devMode` is accepted; mock-document proofs (dev mode) verify only against testnet
+   *   registries, which contain the mock certificates. On mainnet deployments they fail the
+   *   certificate root check.
+   * - The proof must be at most 1 hour old at inclusion time.
+   * - The recipient wallet must not be banned. An owner revocation bans it until the policy owner
+   *   unbans. Only relevant for `ownerRevocable` policies.
+   * - The policy must exist, not be retired, and the registry not paused.
    */
   getIssueDetails(): {
     address: `0x${string}`
@@ -218,9 +290,10 @@ export class AttestClient {
   }
 
   /**
-   * Build the ProofVerificationParams argument for issue() from an SDK proof.
-   * Pass the scope obtained from policyScope(policyId) — never a locally
-   * built string — so it is byte-identical to what the contract verifies.
+   * Build the `ProofVerificationParams` argument for `issue()` from an SDK proof.
+   *
+   * Pass the scope obtained from `policyScope(policyId)`. A manually built string risks not
+   * matching what the contract expects to verify.
    */
   static getIssueParameters(options: {
     proof: ProofResult

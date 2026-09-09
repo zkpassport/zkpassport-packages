@@ -61,6 +61,7 @@ function stubClient(
       logCalls.push(params as Record<string, unknown>)
       return []
     },
+    getBlockNumber: async () => 100n,
   } as unknown as AttestReadClient
   return { client, readCalls, logCalls }
 }
@@ -135,7 +136,7 @@ describe("AttestClient discovery", () => {
       return [{ args: { policyId: POLICY_ID, owner: WALLET } }] as never
     }
     const attest = new AttestClient({ client, address: REGISTRY })
-    const policies = await attest.listPolicies({ owner: WALLET, fromBlock: 5n })
+    const policies = await attest.listPolicies({ owner: WALLET, fromBlock: 5n, toBlock: 90n })
     expect(policies).toEqual([{ policyId: POLICY_ID, owner: WALLET }])
     const call = logCalls[0] as { address: string; args?: { owner?: string }; fromBlock?: bigint }
     expect(call.address).toBe(REGISTRY)
@@ -143,13 +144,41 @@ describe("AttestClient discovery", () => {
     expect(call.fromBlock).toBe(5n)
   })
 
-  test("listPolicies defaults: no owner topic filter, fromBlock 0n", async () => {
-    const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
+  test("listPolicies throws without fromBlock or deployBlock", async () => {
+    const { client } = stubClient(() => SAMPLE_POLICY)
     const attest = new AttestClient({ client, address: REGISTRY })
+    await expect(attest.listPolicies()).rejects.toThrow("needs a starting block")
+  })
+
+  test("listPolicies starts at the client's deployBlock and ends at the current block", async () => {
+    const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
+    const attest = new AttestClient({ client, address: REGISTRY, deployBlock: 40n })
     await attest.listPolicies()
-    const call = logCalls[0] as { args?: unknown; fromBlock?: bigint }
+    const call = logCalls[0] as { args?: unknown; fromBlock?: bigint; toBlock?: bigint }
     expect(call.args).toBeUndefined()
-    expect(call.fromBlock).toBe(0n)
+    expect(call.fromBlock).toBe(40n)
+    expect(call.toBlock).toBe(100n)
+  })
+
+  test("listPolicies chunks the scan into blockRange windows and aggregates results", async () => {
+    const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
+    ;(client as { getLogs: unknown }).getLogs = async (params: never) => {
+      const p = params as { fromBlock: bigint }
+      logCalls.push(params as Record<string, unknown>)
+      return [{ args: { policyId: p.fromBlock, owner: WALLET } }] as never
+    }
+    const attest = new AttestClient({ client, address: REGISTRY })
+    const policies = await attest.listPolicies({ fromBlock: 0n, toBlock: 25n, blockRange: 10n })
+    expect(logCalls.map((c) => [c.fromBlock, c.toBlock])).toEqual([
+      [0n, 9n],
+      [10n, 19n],
+      [20n, 25n],
+    ])
+    expect(policies).toEqual([
+      { policyId: 0n, owner: WALLET },
+      { policyId: 10n, owner: WALLET },
+      { policyId: 20n, owner: WALLET },
+    ])
   })
 })
 
