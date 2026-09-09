@@ -18,7 +18,7 @@ const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
 const basePolicy: AttestPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
-  ownerGrantable: false,
+  ownerIssuable: false,
   ownerRevocable: false,
   evaluator: EVALUATOR,
   requirements: "0xabcd",
