@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 64f118aa). Do not edit by hand.
+// Generated from packages/attest-contracts (commit fe873064). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -13,11 +13,6 @@ export const ZKPassportCredentialsAbi = [
         name: "_admin",
         type: "address",
         internalType: "address",
-      },
-      {
-        name: "_credentialIssuanceModule",
-        type: "address",
-        internalType: "contract ICredentialIssuanceModule",
       },
       {
         name: "_policyEvaluator",
@@ -155,19 +150,6 @@ export const ZKPassportCredentialsAbi = [
       },
     ],
     stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "credentialIssuanceModule",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract ICredentialIssuanceModule",
-      },
-    ],
-    stateMutability: "view",
   },
   {
     type: "function",
@@ -319,70 +301,9 @@ export const ZKPassportCredentialsAbi = [
         internalType: "uint256",
       },
       {
-        name: "proofVerificationParams",
-        type: "tuple",
-        internalType: "struct ProofVerificationParams",
-        components: [
-          {
-            name: "version",
-            type: "bytes32",
-            internalType: "bytes32",
-          },
-          {
-            name: "proofVerificationData",
-            type: "tuple",
-            internalType: "struct ProofVerificationData",
-            components: [
-              {
-                name: "vkeyHash",
-                type: "bytes32",
-                internalType: "bytes32",
-              },
-              {
-                name: "proof",
-                type: "bytes",
-                internalType: "bytes",
-              },
-              {
-                name: "publicInputs",
-                type: "bytes32[]",
-                internalType: "bytes32[]",
-              },
-            ],
-          },
-          {
-            name: "committedInputs",
-            type: "bytes",
-            internalType: "bytes",
-          },
-          {
-            name: "serviceConfig",
-            type: "tuple",
-            internalType: "struct ServiceConfig",
-            components: [
-              {
-                name: "validityPeriodInSeconds",
-                type: "uint256",
-                internalType: "uint256",
-              },
-              {
-                name: "domain",
-                type: "string",
-                internalType: "string",
-              },
-              {
-                name: "scope",
-                type: "string",
-                internalType: "string",
-              },
-              {
-                name: "devMode",
-                type: "bool",
-                internalType: "bool",
-              },
-            ],
-          },
-        ],
+        name: "proofData",
+        type: "bytes",
+        internalType: "bytes",
       },
     ],
     outputs: [],
@@ -581,19 +502,6 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
-    name: "setCredentialIssuanceModule",
-    inputs: [
-      {
-        name: "newModule",
-        type: "address",
-        internalType: "contract ICredentialIssuanceModule",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "setDomain",
     inputs: [
       {
@@ -777,25 +685,6 @@ export const ZKPassportCredentialsAbi = [
         type: "uint64",
         indexed: false,
         internalType: "uint64",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "CredentialIssuanceModuleUpdated",
-    inputs: [
-      {
-        name: "oldModule",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "newModule",
-        type: "address",
-        indexed: true,
-        internalType: "address",
       },
     ],
     anonymous: false,
