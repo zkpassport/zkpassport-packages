@@ -1,5 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test"
+import { decodeAbiParameters, getAbiItem } from "viem"
 import { NullifierType } from "@zkpassport/utils"
+import { PolicyEvaluatorV1Abi } from "../src/assets/abi/policy-evaluator-v1"
 import {
   AttestClient,
   type AttestPolicy,
@@ -192,25 +194,45 @@ describe("AttestClient issue helpers", () => {
     expect(details.abi.some((e) => e.type === "function" && e.name === "issue")).toBe(true)
   })
 
-  test("getIssueParameters delegates to SolidityVerifier.getParameters", () => {
-    const sentinel = { version: "sentinel" } as never
-    const spy = spyOn(SolidityVerifier, "getParameters").mockReturnValue(sentinel)
+  test("getIssueProofData abi-encodes the verifier parameters per the evaluator schema", () => {
+    const verifierParams = {
+      version: "0x0000000000000000000000000000000000000000000000000000000000000001",
+      proofVerificationData: {
+        vkeyHash: "0x00000000000000000000000000000000000000000000000000000000000000aa",
+        proof: "0xdeadbeef",
+        publicInputs: ["0x00000000000000000000000000000000000000000000000000000000000000bb"],
+      },
+      committedInputs: "0x1234",
+      serviceConfig: {
+        validityPeriodInSeconds: 3600,
+        domain: "demo.example.com",
+        scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
+        devMode: false,
+      },
+    } as const
+    const spy = spyOn(SolidityVerifier, "getParameters").mockReturnValue(verifierParams as never)
     try {
       const proof = { proof: "0xdeadbeef", version: "0.21.0", name: "outer_evm_5" } as never
-      const params = AttestClient.getIssueParameters({
+      const proofData = AttestClient.getIssueProofData({
         proof,
         domain: "demo.example.com",
         scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
         validityPeriodInSeconds: 3600,
         devMode: false,
       })
-      expect(params).toBe(sentinel)
-      expect(spy).toHaveBeenCalledWith({
-        proof,
-        domain: "demo.example.com",
-        scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
-        validityPeriodInSeconds: 3600,
-        devMode: false,
+
+      // The bytes must decode back through the evaluator's own decodeProofData layout.
+      const proofDataAbi = getAbiItem({
+        abi: PolicyEvaluatorV1Abi,
+        name: "decodeProofData",
+      }).outputs
+      const [decoded] = decodeAbiParameters(proofDataAbi, proofData)
+      expect(decoded.version).toBe(verifierParams.version)
+      expect(decoded.proofVerificationData).toEqual(verifierParams.proofVerificationData)
+      expect(decoded.committedInputs).toBe("0x1234")
+      expect(decoded.serviceConfig).toEqual({
+        ...verifierParams.serviceConfig,
+        validityPeriodInSeconds: 3600n,
       })
     } finally {
       spy.mockRestore()
