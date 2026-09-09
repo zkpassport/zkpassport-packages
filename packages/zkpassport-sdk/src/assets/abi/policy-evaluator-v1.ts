@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit fe873064). Do not edit by hand.
+// Generated from packages/attest-contracts (commit ee85c9ae). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -188,9 +188,9 @@ export const PolicyEvaluatorV1Abi = [
     ],
     outputs: [
       {
-        name: "verdict",
+        name: "result",
         type: "tuple",
-        internalType: "struct CredentialIssuanceVerdict",
+        internalType: "struct PolicyEvaluationResult",
         components: [
           {
             name: "wallet",
