@@ -6,7 +6,6 @@ import type {
   QueryResult,
   SupportedChain,
 } from "@zkpassport/utils"
-import type { SolidityVerifierParameters } from "../types"
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
 
@@ -46,12 +45,14 @@ export type PopupRequestConfig = {
  * Ready-to-send ZKPassportCredentials.issue() call. `abi` is the registry ABI as
  * plain data — cast it for your client (e.g. viem's `Abi`); the popup keeps
  * this type dependency-free so relying parties don't inherit viem's types.
+ * The second argument is the proof data pre-encoded per the policy's pinned
+ * evaluator schema; the contract treats it as opaque bytes.
  */
 export type PopupAttestIssueCall = {
   address: `0x${string}`
   functionName: "issue"
   abi: readonly unknown[]
-  args: readonly [bigint, SolidityVerifierParameters]
+  args: readonly [bigint, `0x${string}`]
 }
 
 /**

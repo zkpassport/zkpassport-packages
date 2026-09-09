@@ -1,10 +1,5 @@
 import { AttestClient, NullifierType } from "@zkpassport/sdk"
-import type {
-  AttestPolicy,
-  AttestReadClient,
-  SolidityVerifierParameters,
-  SupportedChain,
-} from "@zkpassport/sdk"
+import type { AttestPolicy, AttestReadClient, SupportedChain } from "@zkpassport/sdk"
 import type { ZKPassportQRCodeDisplayOptions, ZKPassportQRCodeOptions } from "./types"
 
 type CardResult = Parameters<NonNullable<ZKPassportQRCodeOptions["onResult"]>>[0]
@@ -13,7 +8,8 @@ export type AttestIssueCall = {
   address: `0x${string}`
   functionName: "issue"
   abi: ReturnType<AttestClient["getIssueDetails"]>["abi"]
-  args: readonly [bigint, SolidityVerifierParameters]
+  /** policyId plus the proof data pre-encoded per the policy's evaluator schema. */
+  args: readonly [bigint, `0x${string}`]
 }
 
 export type AttestVerifyResult = {
@@ -151,7 +147,7 @@ export async function buildAttestCardOptions(
     onProofGenerated: options.onProofGenerated,
     onReject: options.onReject,
     onError: options.onError,
-    onResult: buildResultHandler({ attest, options, policyId, wallet, scope }),
+    onResult: buildResultHandler({ attest, options, policyId, wallet, scope, domain }),
   }
 }
 
@@ -161,25 +157,22 @@ function buildResultHandler(context: {
   policyId: bigint
   wallet: `0x${string}`
   scope: string
+  domain: string
 }): (response: CardResult) => void {
-  const { attest, options, policyId, wallet, scope } = context
+  const { attest, options, policyId, wallet, scope, domain } = context
   const devMode = options.devMode ?? false
   return (response) => {
     let issueCall: AttestIssueCall | undefined
     const proof = response.proofs?.find((p) => p.name?.startsWith("outer_evm"))
     if (response.verified && proof) {
       try {
-        const params = response.sdkInstance.getSolidityVerifierParameters({
-          proof,
-          scope,
-          devMode,
-        })
+        const proofData = AttestClient.getIssueProofData({ proof, domain, scope, devMode })
         const details = attest.getIssueDetails()
         issueCall = {
           address: details.address,
           functionName: details.functionName,
           abi: details.abi,
-          args: [policyId, params] as const,
+          args: [policyId, proofData] as const,
         }
       } catch (reason) {
         options.onError?.(reason instanceof Error ? reason.message : String(reason))

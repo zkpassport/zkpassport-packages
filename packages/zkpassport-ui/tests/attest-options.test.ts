@@ -1,5 +1,10 @@
-import { describe, expect, test } from "bun:test"
-import { NullifierType, type AttestPolicy, type AttestPolicyRequirements } from "@zkpassport/sdk"
+import { describe, expect, spyOn, test } from "bun:test"
+import {
+  AttestClient,
+  NullifierType,
+  type AttestPolicy,
+  type AttestPolicyRequirements,
+} from "@zkpassport/sdk"
 import { buildAttestCardOptions, type AttestVerifyOptions } from "../src/attest-options"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
@@ -249,7 +254,7 @@ describe("buildAttestCardOptions query translation", () => {
 })
 
 describe("enriched onResult", () => {
-  const PARAMS = { version: "params-sentinel" } as never
+  const PROOF_DATA = "0xf00fda7a" as const
 
   function fakeResponse(overrides: Record<string, unknown> = {}) {
     return {
@@ -258,94 +263,116 @@ describe("enriched onResult", () => {
       uniqueIdentifierType: undefined,
       result: {},
       proofs: [{ proof: "0xdead", name: "outer_evm_5", version: "0.21.0" }],
-      sdkInstance: {
-        getSolidityVerifierParameters: (args: unknown) => {
-          calls.push(args)
-          return PARAMS
-        },
-      },
       ...overrides,
     } as never
   }
 
-  let calls: unknown[] = []
+  function withProofDataStub(
+    impl: (options: unknown) => `0x${string}`,
+    run: () => Promise<void>,
+  ): Promise<void> {
+    const spy = spyOn(AttestClient, "getIssueProofData").mockImplementation(impl as never)
+    return run().finally(() => spy.mockRestore())
+  }
 
   test("verified result carries a ready issue() call", async () => {
-    calls = []
-    const results: unknown[] = []
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      client: stubChain(basePolicy).client,
-      onResult: (r) => results.push(r),
-    })
-    options.onResult!(fakeResponse())
-    const r = results[0] as {
-      verified: boolean
-      issueCall?: { address: string; functionName: string; args: readonly unknown[] }
-    }
-    expect(r.verified).toBe(true)
-    expect(r.issueCall?.address).toBe(REGISTRY)
-    expect(r.issueCall?.functionName).toBe("issue")
-    expect(r.issueCall?.args).toEqual([POLICY_ID, PARAMS])
-    expect(calls[0]).toEqual({
-      proof: { proof: "0xdead", name: "outer_evm_5", version: "0.21.0" },
-      scope: SCOPE,
-      devMode: false,
-    })
+    const calls: unknown[] = []
+    await withProofDataStub(
+      (options) => {
+        calls.push(options)
+        return PROOF_DATA
+      },
+      async () => {
+        const results: unknown[] = []
+        const options = await buildAttestCardOptions({
+          ...baseOptions(basePolicy),
+          client: stubChain(basePolicy).client,
+          onResult: (r) => results.push(r),
+        })
+        options.onResult!(fakeResponse())
+        const r = results[0] as {
+          verified: boolean
+          issueCall?: { address: string; functionName: string; args: readonly unknown[] }
+        }
+        expect(r.verified).toBe(true)
+        expect(r.issueCall?.address).toBe(REGISTRY)
+        expect(r.issueCall?.functionName).toBe("issue")
+        expect(r.issueCall?.args).toEqual([POLICY_ID, PROOF_DATA])
+        expect(calls[0]).toEqual({
+          proof: { proof: "0xdead", name: "outer_evm_5", version: "0.21.0" },
+          domain: DOMAIN,
+          scope: SCOPE,
+          devMode: false,
+        })
+      },
+    )
   })
 
   test("unverified result omits issueCall", async () => {
-    const results: unknown[] = []
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      client: stubChain(basePolicy).client,
-      onResult: (r) => results.push(r),
-    })
-    options.onResult!(fakeResponse({ verified: false }))
-    expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
+    await withProofDataStub(
+      () => PROOF_DATA,
+      async () => {
+        const results: unknown[] = []
+        const options = await buildAttestCardOptions({
+          ...baseOptions(basePolicy),
+          client: stubChain(basePolicy).client,
+          onResult: (r) => results.push(r),
+        })
+        options.onResult!(fakeResponse({ verified: false }))
+        expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
+      },
+    )
   })
 
-  test("dev-mode requests carry an issueCall with dev-mode verifier params", async () => {
-    calls = []
-    const errors: string[] = []
-    const results: unknown[] = []
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      client: stubChain(basePolicy).client,
-      devMode: true,
-      onResult: (r) => results.push(r),
-      onError: (message) => errors.push(message),
-    })
-    options.onResult!(fakeResponse())
-    const r = results[0] as { issueCall?: { args: readonly unknown[] } }
-    expect(r.issueCall?.args).toEqual([POLICY_ID, PARAMS])
-    expect(calls[0]).toEqual({
-      proof: { proof: "0xdead", name: "outer_evm_5", version: "0.21.0" },
-      scope: SCOPE,
-      devMode: true,
-    })
-    expect(errors.length).toBe(0)
+  test("dev-mode requests carry an issueCall with dev-mode proof data", async () => {
+    const calls: unknown[] = []
+    await withProofDataStub(
+      (options) => {
+        calls.push(options)
+        return PROOF_DATA
+      },
+      async () => {
+        const errors: string[] = []
+        const results: unknown[] = []
+        const options = await buildAttestCardOptions({
+          ...baseOptions(basePolicy),
+          client: stubChain(basePolicy).client,
+          devMode: true,
+          onResult: (r) => results.push(r),
+          onError: (message) => errors.push(message),
+        })
+        options.onResult!(fakeResponse())
+        const r = results[0] as { issueCall?: { args: readonly unknown[] } }
+        expect(r.issueCall?.args).toEqual([POLICY_ID, PROOF_DATA])
+        expect(calls[0]).toEqual({
+          proof: { proof: "0xdead", name: "outer_evm_5", version: "0.21.0" },
+          domain: DOMAIN,
+          scope: SCOPE,
+          devMode: true,
+        })
+        expect(errors.length).toBe(0)
+      },
+    )
   })
 
   test("assembly failure omits issueCall and reports onError", async () => {
-    const errors: string[] = []
-    const results: unknown[] = []
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      client: stubChain(basePolicy).client,
-      onResult: (r) => results.push(r),
-      onError: (message) => errors.push(message),
-    })
-    options.onResult!(
-      fakeResponse({
-        sdkInstance: {
-          getSolidityVerifierParameters: () => {
-            throw new Error("no evm proof")
-          },
-        },
-      }),
+    await withProofDataStub(
+      () => {
+        throw new Error("no evm proof")
+      },
+      async () => {
+        const errors: string[] = []
+        const results: unknown[] = []
+        const options = await buildAttestCardOptions({
+          ...baseOptions(basePolicy),
+          client: stubChain(basePolicy).client,
+          onResult: (r) => results.push(r),
+          onError: (message) => errors.push(message),
+        })
+        options.onResult!(fakeResponse())
+        expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
+        expect(errors.length).toBe(1)
+      },
     )
-    expect((results[0] as { issueCall?: unknown }).issueCall).toBeUndefined()
-    expect(errors.length).toBe(1)
   })
 })
