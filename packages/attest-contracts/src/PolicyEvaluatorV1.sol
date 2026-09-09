@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {BoundData, FaceMatchMode, NullifierType, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 import {IExtendedVerifierHelper} from "./IExtendedVerifierHelper.sol";
-import {CredentialIssuanceVerdict, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
+import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 contract PolicyEvaluatorV1 is IPolicyEvaluator {
     enum SanctionsMode {
@@ -106,7 +106,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         string calldata subscope,
         bytes calldata requirements,
         bytes calldata proofData
-    ) external view returns (CredentialIssuanceVerdict memory verdict) {
+    ) external view returns (PolicyEvaluationResult memory result) {
         ProofVerificationParams memory params = decodeProofData(proofData);
 
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
@@ -123,10 +123,10 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         BoundData memory bound = helper.getBoundData(params.committedInputs);
         if (bound.chainId != block.chainid) revert PolicyEvaluator__ProofNotBoundToChain();
 
-        verdict.wallet = bound.senderAddress;
-        verdict.customData = bound.customData;
-        verdict.nullifier = nullifier;
-        verdict.unique = _validateRequirements(
+        result.wallet = bound.senderAddress;
+        result.customData = bound.customData;
+        result.nullifier = nullifier;
+        result.unique = _validateRequirements(
             requirements, helper, params.committedInputs, params.proofVerificationData.publicInputs
         );
     }

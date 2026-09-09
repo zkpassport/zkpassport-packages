@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {BoundData, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
-import {CredentialIssuanceVerdict, IPolicyEvaluator} from "../../src/IPolicyEvaluator.sol";
+import {PolicyEvaluationResult, IPolicyEvaluator} from "../../src/IPolicyEvaluator.sol";
 
 /// @dev A schema-2 evaluator with a deliberately different requirements layout —
 ///      abi.encode(uint256 minAge) — and its own root verifier, used to test that policies
@@ -32,7 +32,7 @@ contract MockEvaluatorV2 is IPolicyEvaluator {
     function evaluate(string calldata, string calldata, bytes calldata requirements, bytes calldata proofData)
         external
         view
-        returns (CredentialIssuanceVerdict memory verdict)
+        returns (PolicyEvaluationResult memory result)
     {
         ProofVerificationParams memory params = abi.decode(proofData, (ProofVerificationParams));
         (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
@@ -44,9 +44,9 @@ contract MockEvaluatorV2 is IPolicyEvaluator {
         }
 
         BoundData memory bound = helper.getBoundData(params.committedInputs);
-        verdict.wallet = bound.senderAddress;
-        verdict.customData = bound.customData;
-        verdict.nullifier = nullifier;
-        verdict.unique = false;
+        result.wallet = bound.senderAddress;
+        result.customData = bound.customData;
+        result.nullifier = nullifier;
+        result.unique = false;
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-struct CredentialIssuanceVerdict {
+struct PolicyEvaluationResult {
     address wallet;
     bytes32 nullifier;
     bool unique;
@@ -13,9 +13,9 @@ struct CredentialIssuanceVerdict {
  * @notice A stateless, view-only contract that owns a policy requirements schema and judges
  *         proofs against it: it verifies the proof through the root verifier, applies proof
  *         checks (scope, freshness, chain binding), evaluates the policy requirements, and
- *         returns a verdict on whether a credential may be issued.
+ *         returns the evaluation result the ledger issues from.
  *
- *         This interface and the verdict struct are the ledger's permanent ABI surface:
+ *         This interface and the result struct are the ledger's permanent ABI surface:
  *         proof-parameter changes, root-verifier upgrades, and requirements-schema changes are
  *         all absorbed by deploying a new evaluator, never by redeploying the ledger. Policies
  *         pin the evaluator in force at their creation, so new evaluator deployments never
@@ -35,15 +35,15 @@ interface IPolicyEvaluator {
      * @param  requirements The policy's stored requirements bytes.
      * @param  proofData    Caller-submitted proof and verification data, opaque to the ledger;
      *                      this evaluator owns its encoding.
-     * @return verdict      The wallet to credit, the nullifier and whether the ledger must
-     *                      consume it, and proof-bound customData.
+     * @return result       The wallet to credit, the nullifier and whether the ledger must
+     *                       consume it, and proof-bound customData.
      */
     function evaluate(
         string calldata domain,
         string calldata subscope,
         bytes calldata requirements,
         bytes calldata proofData
-    ) external view returns (CredentialIssuanceVerdict memory verdict);
+    ) external view returns (PolicyEvaluationResult memory result);
 
     /// @notice Monotonic schema identifier, used off-chain to pick requirement and proof-data
     ///         encoders.
