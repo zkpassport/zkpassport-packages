@@ -4,6 +4,7 @@ import { ZKPassport } from "@zkpassport/sdk"
 import type { QueryBuilder, QueryBuilderResult } from "@zkpassport/sdk"
 import { mount } from "../src/vanilla"
 
+// Test-only DOM so preact can render the card under bun. A dev dependency, never shipped.
 beforeAll(() => {
   GlobalRegistrator.register()
 })
