@@ -55,12 +55,12 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.issue(revocablePolicyId, _params());
     }
 
-    function testBannedWalletCannotBeGranted() public {
+    function testBannedWalletCannotBeOwnerIssued() public {
         vm.prank(creator);
         zkPassportCredentials.revoke(wallet, revocablePolicyId);
         vm.prank(creator);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WalletBanned.selector);
-        zkPassportCredentials.grant(wallet, revocablePolicyId);
+        zkPassportCredentials.ownerIssue(wallet, revocablePolicyId);
     }
 
     function testSelfRevokeDoesNotBan() public {
@@ -73,7 +73,7 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
 
     function testOwnerSelfRevokeDoesNotBan() public {
         vm.prank(creator);
-        zkPassportCredentials.grant(creator, revocablePolicyId);
+        zkPassportCredentials.ownerIssue(creator, revocablePolicyId);
         vm.prank(creator);
         zkPassportCredentials.revoke(creator, revocablePolicyId);
         assertFalse(zkPassportCredentials.banned(creator, revocablePolicyId));
