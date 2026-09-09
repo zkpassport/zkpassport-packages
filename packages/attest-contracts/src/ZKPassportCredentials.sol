@@ -3,19 +3,17 @@ pragma solidity ^0.8.30;
 
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {ProofVerificationParams} from "@registry/lib/Types.sol";
-import {ICredentialIssuanceModule, CredentialIssuanceVerdict} from "./ICredentialIssuanceModule.sol";
-import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
+import {CredentialIssuanceVerdict, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
  * @title  ZKPassportCredentials
  * @notice Soulbound ERC-1155 credential ledger: one tokenId per policy (where tokenId=policyId).
- *         Issuance logic is delegated to an `ICredentialIssuanceModule`, upgradeable by the
- *         contract admin via `setCredentialIssuanceModule`.
- *         Policy evaluation is similarly upgradeable by the contract admin via
- *         `setPolicyEvaluator`. Policy `requirements` are generic (bytes): the policy evaluator
- *         contract is responsible for decoding and evaluating whether a proof satisfies the
- *         policy requirements.
+ *         Proof verification, policy interpretation, and issuance judgment are delegated to an
+ *         `IPolicyEvaluator` pinned to each policy at creation, so the ledger never needs
+ *         redeploying when proof parameters, the root verifier, or the requirements schema
+ *         change — a new evaluator is deployed and set as current via `setPolicyEvaluator`,
+ *         affecting only policies created from then on. Policy `requirements` and issue-time
+ *         `proofData` are generic (bytes): the pinned evaluator owns both encodings.
  */
 contract ZKPassportCredentials is ERC1155 {
     struct Policy {
@@ -54,7 +52,6 @@ contract ZKPassportCredentials is ERC1155 {
     event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
     event PausedStatusChanged(bool paused);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
-    event CredentialIssuanceModuleUpdated(address indexed oldModule, address indexed newModule);
     event PolicyEvaluatorUpdated(address indexed oldEvaluator, address indexed newEvaluator);
     event DomainUpdated(string oldDomain, string newDomain);
     event CredentialGranted(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
@@ -63,7 +60,6 @@ contract ZKPassportCredentials is ERC1155 {
 
     string public domain;
     address public admin;
-    ICredentialIssuanceModule public credentialIssuanceModule;
     IPolicyEvaluator public policyEvaluator;
     bool public paused;
 
@@ -94,21 +90,12 @@ contract ZKPassportCredentials is ERC1155 {
         _;
     }
 
-    constructor(
-        string memory _domain,
-        address _admin,
-        ICredentialIssuanceModule _credentialIssuanceModule,
-        IPolicyEvaluator _policyEvaluator
-    ) ERC1155("") {
-        if (
-            _admin == address(0) || address(_credentialIssuanceModule) == address(0)
-                || address(_policyEvaluator) == address(0)
-        ) {
+    constructor(string memory _domain, address _admin, IPolicyEvaluator _policyEvaluator) ERC1155("") {
+        if (_admin == address(0) || address(_policyEvaluator) == address(0)) {
             revert ZKPassportCredentials__ZeroAddress();
         }
         domain = _domain;
         admin = _admin;
-        credentialIssuanceModule = _credentialIssuanceModule;
         policyEvaluator = _policyEvaluator;
     }
 
@@ -197,16 +184,15 @@ contract ZKPassportCredentials is ERC1155 {
     ///         params, and the policyId may submit. The proof itself pins the recipient address
     ///         and chain.
     /// @param policyId The policy to issue a credential under.
-    /// @param proofVerificationParams Proof and verification data, generated off-chain for
-    ///        this registry's domain and the policy's scope.
-    function issue(uint256 policyId, ProofVerificationParams calldata proofVerificationParams) external whenNotPaused {
+    /// @param proofData Proof and verification data, generated off-chain for this registry's
+    ///        domain and the policy's scope, encoded per the policy's pinned evaluator schema.
+    function issue(uint256 policyId, bytes calldata proofData) external whenNotPaused {
         Policy storage policy = _policies[policyId];
         if (policy.owner == address(0)) revert ZKPassportCredentials__PolicyNotFound(policyId);
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
 
-        CredentialIssuanceVerdict memory verdict = credentialIssuanceModule.judge(
-            domain, policyScope(policyId), policy.evaluator, policy.requirements, proofVerificationParams
-        );
+        CredentialIssuanceVerdict memory verdict =
+            IPolicyEvaluator(policy.evaluator).evaluate(domain, policyScope(policyId), policy.requirements, proofData);
 
         address wallet = verdict.wallet;
         if (wallet == address(0)) revert ZKPassportCredentials__ZeroAddress();
@@ -344,17 +330,10 @@ contract ZKPassportCredentials is ERC1155 {
         admin = newAdmin;
     }
 
-    /// @notice Upgrade the issuance logic. Existing credentials, nullifier bindings,
-    ///         and policies are untouched: only future issuance goes through the new module.
-    function setCredentialIssuanceModule(ICredentialIssuanceModule newModule) external onlyAdmin {
-        if (address(newModule) == address(0)) revert ZKPassportCredentials__ZeroAddress();
-        emit CredentialIssuanceModuleUpdated(address(credentialIssuanceModule), address(newModule));
-        credentialIssuanceModule = newModule;
-    }
-
     /// @notice Point future policies at a new policy evaluator, which might define a new
-    ///         requirements schema. Each preexisting policy keeps the evaluator recorded at its
-    ///         creation.
+    ///         requirements schema, proof-data encoding, or root verifier. Each preexisting
+    ///         policy keeps the evaluator recorded at its creation: existing credentials,
+    ///         nullifier bindings, and policies are untouched.
     /// @param newEvaluator The evaluator recorded by policies created from now on; must not be zero.
     function setPolicyEvaluator(IPolicyEvaluator newEvaluator) external onlyAdmin {
         if (address(newEvaluator) == address(0)) revert ZKPassportCredentials__ZeroAddress();

@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
@@ -76,33 +75,8 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.pause();
     }
 
-    function testAdminCanSwapCredentialIssuanceModule() public {
-        CredentialIssuanceModuleV1 newModule = new CredentialIssuanceModuleV1(IRootVerifier(address(mockVerifier)));
-        vm.prank(admin);
-        vm.expectEmit(true, true, false, false);
-        emit ZKPassportCredentials.CredentialIssuanceModuleUpdated(
-            address(credentialIssuanceModule), address(newModule)
-        );
-        zkPassportCredentials.setCredentialIssuanceModule(newModule);
-        assertEq(address(zkPassportCredentials.credentialIssuanceModule()), address(newModule));
-        zkPassportCredentials.issue(policyId, _params());
-        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
-    }
-
-    function testOthersCannotSwapCredentialIssuanceModule() public {
-        vm.prank(wallet);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotAuthorized.selector);
-        zkPassportCredentials.setCredentialIssuanceModule(credentialIssuanceModule);
-    }
-
-    function testCannotSwapCredentialIssuanceModuleToZero() public {
-        vm.prank(admin);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
-        zkPassportCredentials.setCredentialIssuanceModule(CredentialIssuanceModuleV1(address(0)));
-    }
-
     function testAdminCanSwapPolicyEvaluator() public {
-        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1();
+        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)));
         vm.prank(admin);
         vm.expectEmit(true, true, false, false);
         emit ZKPassportCredentials.PolicyEvaluatorUpdated(address(evaluator), address(newEvaluator));
@@ -140,7 +114,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         mockHelper.setExpectedScopes(DOMAIN, zkPassportCredentials.policyScope(policyId));
         vm.prank(admin);
         zkPassportCredentials.setDomain("attest.example");
-        vm.expectRevert(CredentialIssuanceModuleV1.CredentialIssuanceModule__WrongScope.selector);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongScope.selector);
         zkPassportCredentials.issue(policyId, _params());
         mockHelper.setExpectedScopes("attest.example", zkPassportCredentials.policyScope(policyId));
         zkPassportCredentials.issue(policyId, _params());

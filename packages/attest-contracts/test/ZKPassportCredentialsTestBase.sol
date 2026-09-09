@@ -4,14 +4,12 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {NullifierType, ProofVerificationParams, ProofVerificationData, ServiceConfig} from "@registry/lib/Types.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {CredentialIssuanceModuleV1} from "../src/CredentialIssuanceModuleV1.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
 contract ZKPassportCredentialsTestBase is Test {
     ZKPassportCredentials internal zkPassportCredentials;
-    CredentialIssuanceModuleV1 internal credentialIssuanceModule;
     PolicyEvaluatorV1 internal evaluator;
     MockVerifierHelper internal mockHelper;
     MockRootVerifier internal mockVerifier;
@@ -23,9 +21,8 @@ contract ZKPassportCredentialsTestBase is Test {
     string[] internal noCountries;
 
     function _deployZKPassportCredentials(IRootVerifier verifier) internal {
-        credentialIssuanceModule = new CredentialIssuanceModuleV1(verifier);
-        evaluator = new PolicyEvaluatorV1();
-        zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, credentialIssuanceModule, evaluator);
+        evaluator = new PolicyEvaluatorV1(verifier);
+        zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, evaluator);
     }
 
     function _deployWithMocks() internal {
@@ -72,8 +69,8 @@ contract ZKPassportCredentialsTestBase is Test {
         );
     }
 
-    function _params() internal pure returns (ProofVerificationParams memory) {
-        // issue() reads the nullifier type from publicInputs[length - 3], as in
+    function _rawParams() internal pure returns (ProofVerificationParams memory) {
+        // The evaluator reads the nullifier type from publicInputs[length - 3], as in
         // real outer proofs; the default is the everywhere-acceptable SALTED.
         bytes32[] memory publicInputs = new bytes32[](3);
         publicInputs[0] = bytes32(uint256(NullifierType.SALTED_NULLIFIER));
@@ -87,18 +84,22 @@ contract ZKPassportCredentialsTestBase is Test {
         });
     }
 
-    function _paramsWithNullifierType(NullifierType nullifierType)
-        internal
-        pure
-        returns (ProofVerificationParams memory params)
-    {
-        params = _params();
-        params.proofVerificationData.publicInputs = new bytes32[](3);
-        params.proofVerificationData.publicInputs[0] = bytes32(uint256(nullifierType));
+    // issue() takes evaluator-schema-encoded bytes; for PolicyEvaluatorV1 that is
+    // abi.encode(ProofVerificationParams).
+    function _params() internal pure returns (bytes memory) {
+        return abi.encode(_rawParams());
     }
 
-    function _devModeParams() internal pure returns (ProofVerificationParams memory params) {
-        params = _params();
+    function _paramsWithNullifierType(NullifierType nullifierType) internal pure returns (bytes memory) {
+        ProofVerificationParams memory params = _rawParams();
+        params.proofVerificationData.publicInputs = new bytes32[](3);
+        params.proofVerificationData.publicInputs[0] = bytes32(uint256(nullifierType));
+        return abi.encode(params);
+    }
+
+    function _devModeParams() internal pure returns (bytes memory) {
+        ProofVerificationParams memory params = _rawParams();
         params.serviceConfig.devMode = true;
+        return abi.encode(params);
     }
 }
