@@ -26,14 +26,25 @@ const basePolicy: AttestPolicy = {
   retiredAt: 0n,
 }
 
-/** decodeRequirements as the contract returns it (sanctionsMode and faceMatchMode are raw enums). */
-type RawRequirements = Omit<AttestPolicyRequirements, "sanctionsMode" | "facematchMode"> & {
+/**
+ * decodeRequirements as the contract returns it: raw enum numbers, with uniqueIdentifierType
+ * in the evaluator's three-member PolicyNullifierType numbering (0 non-salted, 1 salted, 2 none).
+ */
+type RawRequirements = Omit<
+  AttestPolicyRequirements,
+  "uniqueIdentifierType" | "sanctionsMode" | "facematchMode"
+> & {
+  uniqueIdentifierType: number
   sanctionsMode: number
   faceMatchMode: number
 }
 
+const POLICY_NON_SALTED = 0
+const POLICY_SALTED = 1
+const POLICY_NONE = 2
+
 const baseRequirements: RawRequirements = {
-  uniqueIdentifierType: NullifierType.NON_SALTED,
+  uniqueIdentifierType: POLICY_NON_SALTED,
   enforceUniqueness: true,
   minAge: 0,
   sanctionsMode: 0,
@@ -107,7 +118,7 @@ describe("buildAttestCardOptions request props", () => {
   test("salted policies request the salted unique identifier type", async () => {
     const salted: RawRequirements = {
       ...baseRequirements,
-      uniqueIdentifierType: NullifierType.SALTED,
+      uniqueIdentifierType: POLICY_SALTED,
     }
     const options = await buildAttestCardOptions({
       ...baseOptions(basePolicy),
@@ -119,7 +130,7 @@ describe("buildAttestCardOptions request props", () => {
   test("policies without dedup leave the unique identifier type unconstrained", async () => {
     const none: RawRequirements = {
       ...baseRequirements,
-      uniqueIdentifierType: NullifierType.NONE,
+      uniqueIdentifierType: POLICY_NONE,
     }
     const options = await buildAttestCardOptions({
       ...baseOptions(basePolicy),
@@ -230,7 +241,7 @@ describe("buildAttestCardOptions query translation", () => {
   test("salted policy adds strict facematch, required by the salted nullifier", async () => {
     const calls = await queryCalls({
       ...baseRequirements,
-      uniqueIdentifierType: NullifierType.SALTED,
+      uniqueIdentifierType: POLICY_SALTED,
     })
     expect(calls).toEqual([
       { method: "facematch", args: ["strict"] },
@@ -243,7 +254,7 @@ describe("buildAttestCardOptions query translation", () => {
   test("policy without dedup needs no nullifier, so no facematch", async () => {
     const calls = await queryCalls({
       ...baseRequirements,
-      uniqueIdentifierType: NullifierType.NONE,
+      uniqueIdentifierType: POLICY_NONE,
     })
     expect(calls).toEqual([
       { method: "bind", args: ["user_address", WALLET] },
