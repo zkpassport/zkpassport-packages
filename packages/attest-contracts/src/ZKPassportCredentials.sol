@@ -9,11 +9,7 @@ import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
  * @title  ZKPassportCredentials
  * @notice Soulbound ERC-1155 credential ledger: one tokenId per policy (where tokenId=policyId).
  *         Proof verification, policy interpretation, and issuance judgment are delegated to an
- *         `IPolicyEvaluator` pinned to each policy at creation, so the ledger never needs
- *         redeploying when proof parameters, the root verifier, or the requirements schema
- *         change — a new evaluator is deployed and set as current via `setPolicyEvaluator`,
- *         affecting only policies created from then on. Policy `requirements` and issue-time
- *         `proofData` are generic (bytes): the pinned evaluator owns both encodings.
+ *         `IPolicyEvaluator` pinned to each policy at creation.
  */
 contract ZKPassportCredentials is ERC1155 {
     struct Policy {
@@ -99,8 +95,7 @@ contract ZKPassportCredentials is ERC1155 {
         policyEvaluator = _policyEvaluator;
     }
 
-    /// @notice Create a policy. The evaluator in force is recorded on the policy and, with
-    ///         the requirements, is immutable for the life of the policy.
+    /// @notice Create a policy.
     /// @param salt Creator-scoped namespace: policyId = keccak256(creator, salt).
     /// @param requirements Opaque requirement bytes whose schema the current policy evaluator
     ///        owns.
@@ -179,7 +174,7 @@ contract ZKPassportCredentials is ERC1155 {
         return string.concat("attest:", Strings.toHexString(policyId, 32));
     }
 
-    /// @notice Verify a proof and grant (or extend) a credential for the wallet the proof is
+    /// @notice Verify a proof and issue (or renew) a credential for the wallet the proof is
     ///         bound to. Issuance is permissionless: anyone who presents a proof, its verification
     ///         params, and the policyId may submit. The proof itself pins the recipient address
     ///         and chain.
@@ -270,11 +265,10 @@ contract ZKPassportCredentials is ERC1155 {
     /// @notice Revoke a credential. Holders may always revoke their own; the policy owner may
     ///         revoke a holder's only when the policy opted in at creation (`ownerRevocable`),
     ///         and doing so also bans the wallet: re-proving no longer re-issues until the
-    ///         owner calls unban(). Self-revocation never bans — the holder may re-prove at
-    ///         will.
+    ///         owner calls unban(). Self-revocation never bans: the holder may re-issue at will.
     ///         Note that policy-owner revocation is for targeted incident response: sanctions
-    ///         propagation does NOT happen here: it is enforced at issuance/renewal against the
-    ///         current sanctions root, bounded by the policy's credentialDuration.
+    ///         propagation does NOT happen here, it is enforced at issuance/renewal against the
+    ///         current sanctions root, bounded by the policy's `credentialDuration`.
     ///         Also note the nullifier stays bound to the wallet even after revocation: releasing
     ///         it would let a holder revoke and re-issue to a fresh wallet, timing repeated access
     ///         to a one-per-document gate. The document can only ever re-credential the same
