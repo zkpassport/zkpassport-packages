@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {FaceMatchMode, NullifierType, OS} from "@registry/lib/Types.sol";
-import {IVerifierHelper} from "@registry/IRootVerifier.sol";
+import {BoundData, FaceMatchMode, NullifierType, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
+import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 import {IExtendedVerifierHelper} from "./IExtendedVerifierHelper.sol";
-import {IPolicyEvaluator} from "./IPolicyEvaluator.sol";
+import {CredentialIssuanceVerdict, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 contract PolicyEvaluatorV1 is IPolicyEvaluator {
     enum SanctionsMode {
@@ -28,6 +28,10 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         string[] excludedNationalities;
     }
 
+    error PolicyEvaluator__InvalidProof();
+    error PolicyEvaluator__WrongScope();
+    error PolicyEvaluator__StaleProof();
+    error PolicyEvaluator__ProofNotBoundToChain();
     error PolicyEvaluator__InvalidNullifierType();
     error PolicyEvaluator__InvalidCountryList();
     error PolicyEvaluator__UniquenessRequiresNullifierType();
@@ -37,6 +41,14 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__ExcludedNationality();
     error PolicyEvaluator__FaceMatchRequirementNotMet();
     error PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
+
+    IRootVerifier public immutable rootVerifier;
+
+    uint256 public constant PROOF_FRESHNESS = 1 hours;
+
+    constructor(IRootVerifier _rootVerifier) {
+        rootVerifier = _rootVerifier;
+    }
 
     /// @inheritdoc IPolicyEvaluator
     function schemaVersion() external pure returns (uint256) {
@@ -50,6 +62,14 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     /// @return The decoded requirements struct.
     function decodeRequirements(bytes calldata requirements) public pure returns (PolicyRequirements memory) {
         return abi.decode(requirements, (PolicyRequirements));
+    }
+
+    /// @notice Typed decode of the proof-data bytes this evaluator's `evaluate` expects;
+    ///         version-specific, so not part of IPolicyEvaluator.
+    /// @param proofData The abi-encoded ProofVerificationParams bytes.
+    /// @return The decoded proof verification params.
+    function decodeProofData(bytes calldata proofData) public pure returns (ProofVerificationParams memory) {
+        return abi.decode(proofData, (ProofVerificationParams));
     }
 
     /// @inheritdoc IPolicyEvaluator
@@ -77,12 +97,46 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     }
 
     /// @inheritdoc IPolicyEvaluator
-    function validate(
+    /// @dev Mock-document proofs (dev mode) are deliberately not rejected here: the root
+    ///      verifier admits them only with serviceConfig.devMode set, and only testnet
+    ///      registries contain the mock certificates, so on mainnets they fail at the
+    ///      certificate root regardless of devMode.
+    function evaluate(
+        string calldata domain,
+        string calldata subscope,
+        bytes calldata requirements,
+        bytes calldata proofData
+    ) external view returns (CredentialIssuanceVerdict memory verdict) {
+        ProofVerificationParams memory params = decodeProofData(proofData);
+
+        (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
+        if (!valid) revert PolicyEvaluator__InvalidProof();
+
+        if (!helper.verifyScopes(params.proofVerificationData.publicInputs, domain, subscope)) {
+            revert PolicyEvaluator__WrongScope();
+        }
+
+        if (helper.getProofTimestamp(params.proofVerificationData.publicInputs) + PROOF_FRESHNESS < block.timestamp) {
+            revert PolicyEvaluator__StaleProof();
+        }
+
+        BoundData memory bound = helper.getBoundData(params.committedInputs);
+        if (bound.chainId != block.chainid) revert PolicyEvaluator__ProofNotBoundToChain();
+
+        verdict.wallet = bound.senderAddress;
+        verdict.customData = bound.customData;
+        verdict.nullifier = nullifier;
+        verdict.unique = _validateRequirements(
+            requirements, helper, params.committedInputs, params.proofVerificationData.publicInputs
+        );
+    }
+
+    function _validateRequirements(
         bytes calldata requirements,
         IVerifierHelper helper,
-        bytes calldata committedInputs,
-        bytes32[] calldata publicInputs
-    ) external view returns (bool unique) {
+        bytes memory committedInputs,
+        bytes32[] memory publicInputs
+    ) internal view returns (bool unique) {
         PolicyRequirements memory r = decodeRequirements(requirements);
 
         if (r.uniqueIdentifierType != NullifierType.NONE_NULLIFIER) {

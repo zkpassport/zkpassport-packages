@@ -1,6 +1,110 @@
-// Generated from packages/attest-contracts (commit 3354254d). Do not edit by hand.
+// Generated from packages/attest-contracts (commit fe873064). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
+  {
+    type: "constructor",
+    inputs: [
+      {
+        name: "_rootVerifier",
+        type: "address",
+        internalType: "contract IRootVerifier",
+      },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "PROOF_FRESHNESS",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "decodeProofData",
+    inputs: [
+      {
+        name: "proofData",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "tuple",
+        internalType: "struct ProofVerificationParams",
+        components: [
+          {
+            name: "version",
+            type: "bytes32",
+            internalType: "bytes32",
+          },
+          {
+            name: "proofVerificationData",
+            type: "tuple",
+            internalType: "struct ProofVerificationData",
+            components: [
+              {
+                name: "vkeyHash",
+                type: "bytes32",
+                internalType: "bytes32",
+              },
+              {
+                name: "proof",
+                type: "bytes",
+                internalType: "bytes",
+              },
+              {
+                name: "publicInputs",
+                type: "bytes32[]",
+                internalType: "bytes32[]",
+              },
+            ],
+          },
+          {
+            name: "committedInputs",
+            type: "bytes",
+            internalType: "bytes",
+          },
+          {
+            name: "serviceConfig",
+            type: "tuple",
+            internalType: "struct ServiceConfig",
+            components: [
+              {
+                name: "validityPeriodInSeconds",
+                type: "uint256",
+                internalType: "uint256",
+              },
+              {
+                name: "domain",
+                type: "string",
+                internalType: "string",
+              },
+              {
+                name: "scope",
+                type: "string",
+                internalType: "string",
+              },
+              {
+                name: "devMode",
+                type: "bool",
+                internalType: "bool",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    stateMutability: "pure",
+  },
   {
     type: "function",
     name: "decodeRequirements",
@@ -59,6 +163,75 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "function",
+    name: "evaluate",
+    inputs: [
+      {
+        name: "domain",
+        type: "string",
+        internalType: "string",
+      },
+      {
+        name: "subscope",
+        type: "string",
+        internalType: "string",
+      },
+      {
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
+      },
+      {
+        name: "proofData",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [
+      {
+        name: "verdict",
+        type: "tuple",
+        internalType: "struct CredentialIssuanceVerdict",
+        components: [
+          {
+            name: "wallet",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "nullifier",
+            type: "bytes32",
+            internalType: "bytes32",
+          },
+          {
+            name: "unique",
+            type: "bool",
+            internalType: "bool",
+          },
+          {
+            name: "customData",
+            type: "string",
+            internalType: "string",
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "rootVerifier",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "contract IRootVerifier",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "schemaVersion",
     inputs: [],
     outputs: [
@@ -69,40 +242,6 @@ export const PolicyEvaluatorV1Abi = [
       },
     ],
     stateMutability: "pure",
-  },
-  {
-    type: "function",
-    name: "validate",
-    inputs: [
-      {
-        name: "requirements",
-        type: "bytes",
-        internalType: "bytes",
-      },
-      {
-        name: "helper",
-        type: "address",
-        internalType: "contract IVerifierHelper",
-      },
-      {
-        name: "committedInputs",
-        type: "bytes",
-        internalType: "bytes",
-      },
-      {
-        name: "publicInputs",
-        type: "bytes32[]",
-        internalType: "bytes32[]",
-      },
-    ],
-    outputs: [
-      {
-        name: "unique",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
   },
   {
     type: "function",
@@ -144,12 +283,27 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "error",
+    name: "PolicyEvaluator__InvalidProof",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "PolicyEvaluator__NationalityNotIncluded",
     inputs: [],
   },
   {
     type: "error",
+    name: "PolicyEvaluator__ProofNotBoundToChain",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__StaleProof",
     inputs: [],
   },
   {
@@ -160,6 +314,11 @@ export const PolicyEvaluatorV1Abi = [
   {
     type: "error",
     name: "PolicyEvaluator__WrongNullifierType",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__WrongScope",
     inputs: [],
   },
 ] as const

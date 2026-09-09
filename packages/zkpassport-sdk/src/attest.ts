@@ -1,9 +1,8 @@
 import type { PublicClient } from "viem"
-import { getAbiItem } from "viem"
+import { encodeAbiParameters, getAbiItem } from "viem"
 import type { FacematchMode, ProofResult } from "@zkpassport/utils"
 import type { RequestedNullifierType } from "./types"
 import { SolidityVerifier } from "./solidity-verifier"
-import type { SolidityVerifierParameters } from "./types"
 import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./assets/abi/policy-evaluator-v1"
 
@@ -110,6 +109,10 @@ export type AttestPolicySummary = {
 }
 
 const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "PolicyCreated" })
+
+// The tuple layout issue()'s proofData bytes must carry for a schema-1 evaluator, taken from
+// the evaluator's own decodeProofData so the encoding can never drift from the contract.
+const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeProofData" }).outputs
 
 /**
  * Typed bindings for the ZKPassportCredentials credential registry.
@@ -263,7 +266,7 @@ export class AttestClient {
   }
 
   /**
-   * Call details for ZKPassportCredentials.issue(policyId, params).
+   * Call details for ZKPassportCredentials.issue(policyId, proofData).
    *
    * Issuance is permissionless: any sender may submit, and the credential lands on the wallet the
    * proof is bound to. Renewal is achieved through the same call: issuing again extends
@@ -290,24 +293,28 @@ export class AttestClient {
   }
 
   /**
-   * Build the `ProofVerificationParams` argument for `issue()` from an SDK proof.
+   * Build the `proofData` argument for `issue()` from an SDK proof: the proof verification
+   * params encoded per PolicyEvaluatorV1's schema-1 layout. Policies pinned to another
+   * evaluator schema need that schema's encoding instead; `getRequirements` rejects such
+   * policies before a proof request is ever built.
    *
    * Pass the scope obtained from `policyScope(policyId)`. A manually built string risks not
    * matching what the contract expects to verify.
    */
-  static getIssueParameters(options: {
+  static getIssueProofData(options: {
     proof: ProofResult
     domain: string
     scope: string
     validityPeriodInSeconds?: number
     devMode?: boolean
-  }): SolidityVerifierParameters {
-    return SolidityVerifier.getParameters({
+  }): `0x${string}` {
+    const params = SolidityVerifier.getParameters({
       proof: options.proof,
       domain: options.domain,
       scope: options.scope,
       validityPeriodInSeconds: options.validityPeriodInSeconds,
       devMode: options.devMode ?? false,
     })
+    return encodeAbiParameters(PROOF_DATA_ABI, [params] as never)
   }
 }
