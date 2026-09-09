@@ -60,13 +60,13 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
     }
 
     function testIssueRevertsOnStaleProof() public {
-        mockHelper.setProofTimestamp(block.timestamp - 1 hours - 1);
+        mockHelper.setProofTimestamp(block.timestamp - 1 days - 1);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__StaleProof.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
     function testIssueAcceptsProofAtFreshnessBoundary() public {
-        mockHelper.setProofTimestamp(block.timestamp - 1 hours);
+        mockHelper.setProofTimestamp(block.timestamp - 1 days);
         zkPassportCredentials.issue(policyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
