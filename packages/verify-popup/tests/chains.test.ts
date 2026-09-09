@@ -15,6 +15,13 @@ describe("resolveAttestChain", () => {
     ])
   })
 
+  test("an RPC override keeps the chain's other endpoints", () => {
+    const base = resolveAttestChain("local")
+    const overridden = resolveAttestChain("local", "http://localhost:9999")
+    expect(overridden.rpcUrls.default.webSocket).toEqual(base.rpcUrls.default.webSocket)
+    expect(overridden.rpcUrls.default.webSocket?.length).toBeGreaterThan(0)
+  })
+
   test("rejects chains without a registry deployment", () => {
     expect(() => resolveAttestChain("base")).toThrow("not supported")
   })

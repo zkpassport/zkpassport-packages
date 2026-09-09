@@ -14,5 +14,8 @@ export function resolveAttestChain(chain: SupportedChain, rpcOverride?: string):
     throw new Error(`Attestation minting is not supported on '${chain}' yet.`)
   }
   if (!rpcOverride) return base
-  return { ...base, rpcUrls: { default: { http: [rpcOverride] } } }
+  return {
+    ...base,
+    rpcUrls: { ...base.rpcUrls, default: { ...base.rpcUrls.default, http: [rpcOverride] } },
+  }
 }

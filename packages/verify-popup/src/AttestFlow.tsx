@@ -507,10 +507,4 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.5,
     color: "#6b7280",
   },
-  detail: {
-    display: "block",
-    marginTop: 6,
-    fontSize: 12,
-    color: "#9ca3af",
-  },
 }

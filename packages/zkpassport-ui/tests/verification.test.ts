@@ -264,7 +264,9 @@ describe("createVerification with mintToken", () => {
     ).verify()
 
     expect(statuses).toEqual(["error"])
-    expect(errors).toEqual(["Failed to build the verification query"])
+    expect(errors).toEqual([
+      "mintToken requests take their query from the on-chain policy; remove the query option.",
+    ])
   })
 
   test("rejects mintToken without the attest fields", () => {

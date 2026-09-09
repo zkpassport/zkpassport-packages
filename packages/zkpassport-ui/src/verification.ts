@@ -107,7 +107,9 @@ export function createVerification(
     } catch (reason) {
       logger.error(reason)
       setStatus("error")
-      options.onError?.("Failed to build the verification query")
+      options.onError?.(
+        reason instanceof Error ? reason.message : "Failed to build the verification query",
+      )
       return
     }
 

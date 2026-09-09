@@ -54,10 +54,23 @@ export function buildWalletSetup(
   return { ...selection, config }
 }
 
+// EIP-1193 code 4902: the wallet does not recognize the chain. Only that case
+// warrants the add-chain fallback; anything else (e.g. 4001 user rejection)
+// would turn one rejected prompt into two more.
+function isUnrecognizedChainError(error: unknown): boolean {
+  let cause: unknown = error
+  while (cause && typeof cause === "object") {
+    if ((cause as { code?: unknown }).code === 4902) return true
+    cause = (cause as { cause?: unknown }).cause
+  }
+  return false
+}
+
 export async function ensureWalletChain(wallet: ConnectedWallet, chain: Chain): Promise<void> {
   try {
     await wallet.client.switchChain({ id: chain.id })
-  } catch {
+  } catch (error) {
+    if (!isUnrecognizedChainError(error)) throw error
     await wallet.client.addChain({ chain })
     await wallet.client.switchChain({ id: chain.id })
   }
