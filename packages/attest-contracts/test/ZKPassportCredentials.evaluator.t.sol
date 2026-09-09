@@ -7,7 +7,7 @@ import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {MockEvaluatorV2} from "./mocks/MockEvaluatorV2.sol";
-import {MockVerdictEvaluator} from "./mocks/MockVerdictEvaluator.sol";
+import {MockResultEvaluator} from "./mocks/MockResultEvaluator.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
 contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase {
@@ -111,41 +111,41 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
     }
 }
 
-contract ZKPassportCredentialsVerdictInvariantsTest is ZKPassportCredentialsTestBase {
-    MockVerdictEvaluator internal verdictEvaluator;
+contract ZKPassportCredentialsResultInvariantsTest is ZKPassportCredentialsTestBase {
+    MockResultEvaluator internal resultEvaluator;
     uint256 internal policyId;
     address internal recipient = makeAddr("recipient");
 
     function setUp() public {
         vm.warp(1_700_000_000);
         _deployWithMocks();
-        verdictEvaluator = new MockVerdictEvaluator();
+        resultEvaluator = new MockResultEvaluator();
         vm.prank(admin);
-        zkPassportCredentials.setPolicyEvaluator(verdictEvaluator);
+        zkPassportCredentials.setPolicyEvaluator(resultEvaluator);
         policyId = _createDefaultPolicy();
     }
 
-    function testLedgerRejectsZeroWalletVerdicts() public {
-        verdictEvaluator.setVerdict(address(0), bytes32(0), false, "");
+    function testLedgerRejectsZeroWalletResults() public {
+        resultEvaluator.setResult(address(0), bytes32(0), false, "");
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__ZeroAddress.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
-    function testLedgerRejectsUniqueVerdictsWithoutNullifier() public {
-        verdictEvaluator.setVerdict(recipient, bytes32(0), true, "");
+    function testLedgerRejectsUniqueResultsWithoutNullifier() public {
+        resultEvaluator.setResult(recipient, bytes32(0), true, "");
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__MissingNullifier.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
-    function testLedgerEnforcesSybilProtectionOnEvaluatorVerdicts() public {
+    function testLedgerEnforcesSybilProtectionOnEvaluatorResults() public {
         bytes32 nullifier = bytes32(uint256(0xBEEF));
-        verdictEvaluator.setVerdict(recipient, nullifier, true, "");
+        resultEvaluator.setResult(recipient, nullifier, true, "");
         zkPassportCredentials.issue(policyId, _params());
         assertEq(zkPassportCredentials.nullifierWallet(policyId, nullifier), recipient);
 
         // The same nullifier bound to a different wallet is rejected by the ledger,
         // whatever the evaluator claims.
-        verdictEvaluator.setVerdict(makeAddr("other"), nullifier, true, "");
+        resultEvaluator.setResult(makeAddr("other"), nullifier, true, "");
         vm.expectRevert(
             abi.encodeWithSelector(ZKPassportCredentials.ZKPassportCredentials__SybilDetected.selector, nullifier)
         );
