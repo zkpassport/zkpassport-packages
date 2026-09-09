@@ -96,7 +96,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       ...sdkRequestArgs
     } = optionsRef.current
 
-    // Going back only works when this phone opened the link itself, not when another device scans the QR
+    // A QR scanned by another phone would send that phone back to its camera app
     if (sdkRequestArgs.returnDeepLink === RETURN_DEEP_LINK_BACK && !isMobileLike()) {
       delete sdkRequestArgs.returnDeepLink
     }
