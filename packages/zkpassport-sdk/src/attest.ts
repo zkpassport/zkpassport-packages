@@ -1,5 +1,6 @@
 import type { PublicClient } from "viem"
 import { encodeAbiParameters, getAbiItem } from "viem"
+import { NullifierType } from "@zkpassport/utils"
 import type { FacematchMode, ProofResult } from "@zkpassport/utils"
 import type { RequestedNullifierType } from "./types"
 import { SolidityVerifier } from "./solidity-verifier"
@@ -97,6 +98,14 @@ const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
   2: "strict",
 }
 
+// The evaluator's PolicyNullifierType is a three-member enum (non-salted, salted, none), so
+// its NONE is 2 while the app-side NullifierType puts NONE at 4 behind the mock types.
+const POLICY_NULLIFIER_TYPES: Record<number, RequestedNullifierType> = {
+  0: NullifierType.NON_SALTED,
+  1: NullifierType.SALTED,
+  2: NullifierType.NONE,
+}
+
 const FACEMATCH_MODES: Record<number, FacematchMode | undefined> = {
   0: undefined,
   1: "regular",
@@ -166,11 +175,11 @@ export class AttestClient {
 
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       AttestPolicyRequirements,
-      "sanctionsMode" | "facematchMode"
-    > & { sanctionsMode: number; faceMatchMode: number }
+      "uniqueIdentifierType" | "sanctionsMode" | "facematchMode"
+    > & { uniqueIdentifierType: number; sanctionsMode: number; faceMatchMode: number }
 
     return {
-      uniqueIdentifierType: decoded.uniqueIdentifierType,
+      uniqueIdentifierType: POLICY_NULLIFIER_TYPES[decoded.uniqueIdentifierType],
       enforceUniqueness: decoded.enforceUniqueness,
       minAge: decoded.minAge,
       sanctionsMode: SANCTIONS_MODES[decoded.sanctionsMode],

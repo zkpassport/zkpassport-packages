@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 6ad011b0). Do not edit by hand.
+// Generated from packages/attest-contracts (commit ff39efce). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -8,6 +8,11 @@ export const PolicyEvaluatorV1Abi = [
         name: "_rootVerifier",
         type: "address",
         internalType: "contract IRootVerifier",
+      },
+      {
+        name: "_devMode",
+        type: "bool",
+        internalType: "bool",
       },
     ],
     stateMutability: "nonpayable",
@@ -124,7 +129,7 @@ export const PolicyEvaluatorV1Abi = [
           {
             name: "uniqueIdentifierType",
             type: "uint8",
-            internalType: "enum NullifierType",
+            internalType: "enum PolicyEvaluatorV1.PolicyNullifierType",
           },
           {
             name: "enforceUniqueness",
@@ -160,6 +165,19 @@ export const PolicyEvaluatorV1Abi = [
       },
     ],
     stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "devMode",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -263,6 +281,11 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "error",
+    name: "PolicyEvaluator__DevModeProofRejected",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "PolicyEvaluator__ExcludedNationality",
     inputs: [],
   },
@@ -274,11 +297,6 @@ export const PolicyEvaluatorV1Abi = [
   {
     type: "error",
     name: "PolicyEvaluator__InvalidCountryList",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "PolicyEvaluator__InvalidNullifierType",
     inputs: [],
   },
   {

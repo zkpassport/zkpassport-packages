@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit 6ad011b0). Do not edit by hand.
+// Generated from packages/attest-contracts (commit ff39efce). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
