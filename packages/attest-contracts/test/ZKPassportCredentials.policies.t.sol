@@ -96,7 +96,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
 
     function testPolicyKeepsItsCreationEvaluatorAfterSwap() public {
         uint256 policyId = _createDefaultPolicy();
-        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1();
+        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(mockVerifier);
         vm.prank(admin);
         zkPassportCredentials.setPolicyEvaluator(newEvaluator);
 
