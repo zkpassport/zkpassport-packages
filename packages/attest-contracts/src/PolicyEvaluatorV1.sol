@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {BoundData, FaceMatchMode, NullifierType, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
-import {IExtendedVerifierHelper} from "./IExtendedVerifierHelper.sol";
 import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 contract PolicyEvaluatorV1 is IPolicyEvaluator {
@@ -157,11 +156,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
             revert PolicyEvaluator__AgeRequirementNotMet();
         }
 
-        IExtendedVerifierHelper extendedHelper = IExtendedVerifierHelper(address(helper));
-        if (
-            r.includedNationalities.length > 0
-                && !extendedHelper.isNationalityIn(r.includedNationalities, committedInputs)
-        ) {
+        if (r.includedNationalities.length > 0 && !helper.isNationalityIn(r.includedNationalities, committedInputs)) {
             revert PolicyEvaluator__NationalityNotIncluded();
         }
         if (r.excludedNationalities.length > 0 && !helper.isNationalityOut(r.excludedNationalities, committedInputs)) {
@@ -171,7 +166,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         // OS.ANY: a policy constrains the identity, not which phone OS attested the face match
         if (
             r.faceMatchMode != FaceMatchMode.NONE
-                && !extendedHelper.isFaceMatchVerified(r.faceMatchMode, OS.ANY, committedInputs)
+                && !helper.isFaceMatchVerified(r.faceMatchMode, OS.ANY, committedInputs)
         ) {
             revert PolicyEvaluator__FaceMatchRequirementNotMet();
         }
