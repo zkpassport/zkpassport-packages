@@ -288,7 +288,7 @@ export class AttestClient {
    * - `devMode` is accepted; mock-document proofs (dev mode) verify only against testnet
    *   registries, which contain the mock certificates. On mainnet deployments they fail the
    *   certificate root check.
-   * - The proof must be at most 1 hour old at inclusion time.
+   * - The proof must be at most 1 day old at inclusion time.
    * - The recipient wallet must not be banned. An owner revocation bans it until the policy owner
    *   unbans. Only relevant for `ownerRevocable` policies.
    * - The policy must exist, not be retired, and the registry not paused.
