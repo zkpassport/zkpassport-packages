@@ -18,7 +18,12 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         strictPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(7)),
-            _requirements(NullifierType.SALTED_NULLIFIER, 18, PolicyEvaluatorV1.SanctionsMode.STRICT, excluded),
+            _requirements(
+                PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER,
+                18,
+                PolicyEvaluatorV1.SanctionsMode.STRICT,
+                excluded
+            ),
             7 days,
             "https://policy.example/kyc",
             false,
@@ -51,7 +56,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     }
 
     function testNationalityInclusionPredicate() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        PolicyEvaluatorV1.PolicyRequirements memory r =
+            _emptyRequirements(PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER);
         string[] memory included = new string[](2);
         included[0] = "ARG";
         included[1] = "FRA";
@@ -65,7 +71,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     }
 
     function testSanctionsModeControlsStrictness() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        PolicyEvaluatorV1.PolicyRequirements memory r =
+            _emptyRequirements(PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER);
         r.sanctionsMode = PolicyEvaluatorV1.SanctionsMode.NORMAL;
         uint256 normalPolicy = _createPolicyWith(r, 111);
         r.sanctionsMode = PolicyEvaluatorV1.SanctionsMode.STRICT;
@@ -79,7 +86,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     }
 
     function testConstrainedNullifierTypeWithoutUniquenessSkipsDedup() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.SALTED_NULLIFIER);
+        PolicyEvaluatorV1.PolicyRequirements memory r =
+            _emptyRequirements(PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER);
         r.enforceUniqueness = false;
         uint256 policyId = _createPolicyWith(r, 113);
 
@@ -98,7 +106,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     }
 
     function testFaceMatchPredicate() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
+        PolicyEvaluatorV1.PolicyRequirements memory r =
+            _emptyRequirements(PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER);
         r.faceMatchMode = FaceMatchMode.STRICT;
         uint256 policyId = _createPolicyWith(r, 110);
         zkPassportCredentials.issue(policyId, _params());
@@ -158,7 +167,12 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         uint256 secondUnique = zkPassportCredentials.createPolicy(
             bytes32(uint256(8)),
-            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(
+                PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER,
+                0,
+                PolicyEvaluatorV1.SanctionsMode.NONE,
+                noCountries
+            ),
             7 days,
             "https://policy.example/2",
             false,
