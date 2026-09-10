@@ -34,9 +34,8 @@ export type VerificationOptions = Omit<PopupRequestConfig, "attest"> &
      * When present, the button mints an attestation credential instead of a
      * plain verification: the popup resolves the on-chain policy, lets the
      * user connect a wallet and pick the recipient account, binds that account
-     * into the proof and submits issue(); the result's attest outcome reports
-     * minted/unminted and the chosen account. The canonical
-     * ZKPassportCredentials registry for the chain is implied.
+     * into the proof; the result's attest outcome reports minted/unminted and
+     * the chosen account.
      */
     mintCredential?: {
       /** Chain the credential lives on (e.g. "ethereum_sepolia"). */
