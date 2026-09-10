@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { resolveAttestChain } from "../src/chains"
+import { resolveAttestChain, rpcOverrideFromLocation } from "../src/chains"
 
 describe("resolveAttestChain", () => {
   test("resolves a supported chain", () => {
@@ -20,6 +20,14 @@ describe("resolveAttestChain", () => {
     const overridden = resolveAttestChain("local", "http://localhost:9999")
     expect(overridden.rpcUrls.default.webSocket).toEqual(base.rpcUrls.default.webSocket)
     expect(overridden.rpcUrls.default.webSocket?.length).toBeGreaterThan(0)
+  })
+
+  test("rpcOverrideFromLocation reads the rpc query param", () => {
+    expect(rpcOverrideFromLocation("?rpc=http%3A%2F%2Flocalhost%3A8545&x=1")).toBe(
+      "http://localhost:8545",
+    )
+    expect(rpcOverrideFromLocation("")).toBeUndefined()
+    expect(rpcOverrideFromLocation("?x=1")).toBeUndefined()
   })
 
   test("rejects chains without a registry deployment", () => {

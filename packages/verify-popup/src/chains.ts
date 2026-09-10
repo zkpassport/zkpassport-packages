@@ -8,6 +8,16 @@ const ATTEST_CHAINS: Partial<Record<SupportedChain, Chain>> = {
   local: anvil,
 }
 
+/**
+ * Dev RPC override from the popup's own URL (`?rpc=http://localhost:8545`),
+ * e.g. to read a Sepolia fork that carries the canonical registry state. This
+ * is deliberately not part of the page-facing options or the popup protocol —
+ * dev knobs travel on popupUrl.
+ */
+export function rpcOverrideFromLocation(search: string): string | undefined {
+  return new URLSearchParams(search).get("rpc") ?? undefined
+}
+
 export function resolveAttestChain(chain: SupportedChain, rpcOverride?: string): Chain {
   const base = ATTEST_CHAINS[chain]
   if (!base) {

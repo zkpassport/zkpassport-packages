@@ -20,7 +20,7 @@ import "@rainbow-me/rainbowkit/styles.css"
 import type { Chain } from "viem"
 
 import { createAttestContext, hasCredential, mintCredential } from "./attest"
-import { resolveAttestChain } from "./chains"
+import { resolveAttestChain, rpcOverrideFromLocation } from "./chains"
 import { buildWalletSetup, type WalletSetup } from "./wallet"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
@@ -57,7 +57,10 @@ export function AttestFlow({ request, attest, send }: AttestFlowProps) {
 
   const resolved = useMemo((): { chain: Chain; wallet: WalletSetup } | { error: string } => {
     try {
-      const chain = resolveAttestChain(attest.chain, attest.rpcUrl)
+      const chain = resolveAttestChain(
+        attest.chain,
+        rpcOverrideFromLocation(window.location.search),
+      )
       return { chain, wallet: buildWalletSetup(chain) }
     } catch (reason) {
       return { error: reason instanceof Error ? reason.message : String(reason) }

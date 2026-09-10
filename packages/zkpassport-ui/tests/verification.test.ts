@@ -184,13 +184,12 @@ describe("createVerification", () => {
   })
 })
 
-describe("createVerification with mintToken", () => {
+describe("createVerification with mintCredential", () => {
   const mintOptions: VerificationOptions = {
-    mintToken: true,
-    chain: "ethereum_sepolia",
-    policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
-    registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
-    rpcUrl: "http://localhost:8545",
+    mintCredential: {
+      chain: "ethereum_sepolia",
+      onchainPolicyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+    },
     devMode: true,
   }
 
@@ -209,11 +208,28 @@ describe("createVerification with mintToken", () => {
       attest: {
         chain: "ethereum_sepolia",
         policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+        // The canonical sepolia registry, resolved from `chain` — consumers
+        // never pass an address.
         registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
-        rpcUrl: "http://localhost:8545",
       },
     })
     expect(configure.query).toEqual({})
+  })
+
+  test("rejects chains without a recorded registry deployment", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    createVerification(
+      () => ({
+        ...mintOptions,
+        mintCredential: { ...mintOptions.mintCredential!, chain: "ethereum" },
+        onError: (e: string) => errors.push(e),
+      }),
+      () => {},
+    ).verify()
+    expect(errors).toEqual([
+      "Attestation minting is not supported on 'ethereum': no registry is deployed.",
+    ])
   })
 
   test("relays the attest outcome to onSuccess", () => {
@@ -250,7 +266,7 @@ describe("createVerification with mintToken", () => {
     })
   })
 
-  test("rejects a query alongside mintToken", () => {
+  test("rejects a query alongside mintCredential", () => {
     setupFakeWindow()
     const errors: string[] = []
     const statuses: string[] = []
@@ -265,22 +281,36 @@ describe("createVerification with mintToken", () => {
 
     expect(statuses).toEqual(["error"])
     expect(errors).toEqual([
-      "mintToken requests take their query from the on-chain policy; remove the query option.",
+      "mintCredential requests take their query from the on-chain policy; remove the query option.",
     ])
   })
 
-  test("rejects mintToken without the attest fields", () => {
+  test("rejects a dashboard policyId alongside mintCredential", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    createVerification(
+      () => ({ ...mintOptions, policyId: "dashboard-1", onError: (e: string) => errors.push(e) }),
+      () => {},
+    ).verify()
+
+    expect(errors).toEqual([
+      "mintCredential requests take their policy from the chain; remove the policyId option.",
+    ])
+  })
+
+  test("rejects mintCredential without its required fields", () => {
     setupFakeWindow()
     const statuses: string[] = []
     createVerification(
-      () => ({ mintToken: true, chain: "ethereum_sepolia" }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      () => ({ mintCredential: { chain: "ethereum_sepolia" } as any }),
       (state) => statuses.push(state.status),
     ).verify()
 
     expect(statuses).toEqual(["error"])
   })
 
-  test("still requires a query without mintToken", () => {
+  test("still requires a query without mintCredential", () => {
     setupFakeWindow()
     const statuses: string[] = []
     createVerification(

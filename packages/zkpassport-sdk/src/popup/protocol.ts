@@ -24,8 +24,6 @@ export type PopupAttestConfig = {
   policyId: `0x${string}`
   /** ZKPassportCredentials registry address. */
   registry: `0x${string}`
-  /** RPC override for dev registries; the popup uses the chain default otherwise. */
-  rpcUrl?: string
 }
 
 export type PopupRequestConfig = {

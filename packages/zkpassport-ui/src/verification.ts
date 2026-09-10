@@ -8,6 +8,7 @@ import {
 } from "@zkpassport/sdk/popup"
 import type { Query, QueryBuilder, QueryBuilderResult, SupportedChain } from "@zkpassport/sdk"
 
+import { getAttestRegistry } from "./attest-registries"
 import { isInAppBrowser } from "./environment"
 import { logger } from "./logger"
 
@@ -25,23 +26,24 @@ export type VerificationOptions = Omit<PopupRequestConfig, "attest"> &
     popupUrl?: string
     /** "popup" (default) opens a small chromeless window; "tab" a regular browser tab. */
     windowMode?: "popup" | "tab"
-    /** Dashboard policy id — or, with mintToken, the on-chain policy id as 0x hex. */
+    /** Dashboard policy id. Not allowed with mintCredential (same as query). */
     policyId?: string
-    /** Required unless mintToken is set (the on-chain policy defines the query). */
+    /** Required unless mintCredential is set (the on-chain policy defines the query). */
     query?: (queryBuilder: QueryBuilder) => QueryBuilderResult
     /**
-     * Mint an attestation credential: the popup resolves policyId on the
-     * registry, lets the user connect a wallet and pick the recipient account,
-     * binds that account into the proof and submits issue(); the result's
-     * attest outcome reports minted/unminted and the chosen account.
+     * When present, the button mints an attestation credential instead of a
+     * plain verification: the popup resolves the on-chain policy, lets the
+     * user connect a wallet and pick the recipient account, binds that account
+     * into the proof and submits issue(); the result's attest outcome reports
+     * minted/unminted and the chosen account. The canonical
+     * ZKPassportCredentials registry for the chain is implied.
      */
-    mintToken?: boolean
-    /** mintToken only: chain the registry lives on (e.g. "ethereum_sepolia"). */
-    chain?: SupportedChain
-    /** mintToken only: ZKPassportCredentials registry address. */
-    registry?: `0x${string}`
-    /** mintToken only: RPC override for dev registries. */
-    rpcUrl?: string
+    mintCredential?: {
+      /** Chain the credential lives on (e.g. "ethereum_sepolia"). */
+      chain: SupportedChain
+      /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
+      onchainPolicyId: `0x${string}`
+    }
   }
 
 export type VerificationController = {
@@ -188,7 +190,7 @@ export function createVerification(
 
 function buildQuery(options: VerificationOptions): Query {
   if (!options.query) {
-    throw new Error("A query callback is required unless mintToken is set.")
+    throw new Error("A query callback is required unless mintCredential is set.")
   }
   const builder = createOfflineQuery()
   if (options.policyId) {
@@ -199,24 +201,29 @@ function buildQuery(options: VerificationOptions): Query {
 }
 
 function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undefined {
-  if (!options.mintToken) return undefined
+  const mint = options.mintCredential
+  if (!mint) return undefined
   if (options.query) {
     throw new Error(
-      "mintToken requests take their query from the on-chain policy; remove the query option.",
+      "mintCredential requests take their query from the on-chain policy; remove the query option.",
     )
   }
-  const { chain, policyId, registry, rpcUrl } = options
-  if (!chain || !policyId || !registry) {
-    throw new Error("mintToken requires chain, policyId and registry.")
+  if (options.policyId) {
+    throw new Error(
+      "mintCredential requests take their policy from the chain; remove the policyId option.",
+    )
   }
-  if (!policyId.startsWith("0x")) {
-    throw new Error("With mintToken, policyId is the on-chain policy id as 0x-prefixed hex.")
+  const { chain, onchainPolicyId } = mint
+  if (!chain || !onchainPolicyId) {
+    throw new Error("mintCredential requires chain and onchainPolicyId.")
+  }
+  if (!onchainPolicyId.startsWith("0x")) {
+    throw new Error("onchainPolicyId is the on-chain policy id as 0x-prefixed hex.")
   }
   return {
     chain,
-    policyId: policyId as `0x${string}`,
-    registry,
-    ...(rpcUrl ? { rpcUrl } : {}),
+    policyId: onchainPolicyId,
+    registry: getAttestRegistry(chain),
   }
 }
 
