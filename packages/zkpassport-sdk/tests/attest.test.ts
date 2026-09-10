@@ -332,16 +332,23 @@ describe("buildAttestProofRequest", () => {
     ])
   })
 
-  test("mock-type policies request the real twin; NONE stays unconstrained", async () => {
-    for (const [raw, requested] of [
-      [NullifierType.SALTED_MOCK, NullifierType.SALTED],
-      [NullifierType.NON_SALTED_MOCK, NullifierType.NON_SALTED],
-      [NullifierType.NONE, undefined],
-    ] as const) {
-      const { client } = requestStub({ uniqueIdentifierType: raw, enforceUniqueness: false })
+  test("NONE leaves the request unconstrained", async () => {
+    const { client } = requestStub({
+      uniqueIdentifierType: NullifierType.NONE,
+      enforceUniqueness: false,
+    })
+    const attest = new AttestClient({ client, address: REGISTRY })
+    const request = await buildAttestProofRequest(attest, MINT)
+    expect(request.uniqueIdentifierType).toBeUndefined()
+  })
+
+  test("rejects policies requiring mock nullifier types — no mock/real mapping", async () => {
+    for (const raw of [NullifierType.SALTED_MOCK, NullifierType.NON_SALTED_MOCK]) {
+      const { client } = requestStub({ uniqueIdentifierType: raw })
       const attest = new AttestClient({ client, address: REGISTRY })
-      const request = await buildAttestProofRequest(attest, MINT)
-      expect(request.uniqueIdentifierType).toBe(requested as never)
+      await expect(buildAttestProofRequest(attest, MINT)).rejects.toThrow(
+        "requires a mock nullifier type and cannot be minted",
+      )
     }
   })
 
