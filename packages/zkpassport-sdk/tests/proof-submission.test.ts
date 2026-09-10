@@ -79,6 +79,7 @@ describe("Proof submission", () => {
     expect(body).toMatchObject({
       domain: "localhost",
       scope: "pol_xyz",
+      policyId: "pol_xyz",
       query: { age: { gte: 18 } },
       // The bridge public key (URL `p=`), not the topic — links the proof to its activity row.
       requestId: "04deadbeefpubkey",
@@ -86,6 +87,17 @@ describe("Proof submission", () => {
     expect(body.uniqueIdentifier).toBeUndefined()
     expect(body.proofs).toHaveLength(1)
     expect(body.proofs[0]).toMatchObject({ proof: "0xdeadbeef", name: "outer_xyz" })
+  })
+
+  test("reports the policy id when the caller overrode the scope", async () => {
+    const zk = new ZKPassport("localhost")
+    const { topic } = primeForHandleResult(zk)
+    ;(zk as any).topicToService[topic].scope = "exchange-signup"
+
+    await (zk as any).handleResult(topic)
+
+    const body = JSON.parse(fetchedBodies[0])
+    expect(body).toMatchObject({ scope: "exchange-signup", policyId: "pol_xyz" })
   })
 
   test("does not submit for a self-serve request (no policy)", async () => {

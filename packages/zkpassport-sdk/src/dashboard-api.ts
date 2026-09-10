@@ -9,6 +9,7 @@ export async function submitProof({
   query,
   queryResult,
   scope,
+  policyId,
   requestId,
 }: {
   domain: string
@@ -16,6 +17,7 @@ export async function submitProof({
   query: Query
   queryResult: QueryResult
   scope: string | undefined
+  policyId: string | undefined
   requestId: string | undefined
 }) {
   const payload = proofs.map((p) => ({
@@ -37,6 +39,7 @@ export async function submitProof({
         query,
         queryResult,
         scope,
+        policyId,
         sdkVersion: VERSION,
         requestId,
       }),

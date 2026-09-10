@@ -245,6 +245,7 @@ export class ZKPassport {
         query: this.topicToConfig[topic],
         queryResult: result,
         scope: this.topicToService[topic]?.scope,
+        policyId: this.topicToPolicy[topic]?.id,
         requestId: this.topicToPublicKey[topic],
       })
     }
@@ -520,13 +521,14 @@ export class ZKPassport {
         // later .bind() writes into it
         const { bind: _, ...policyQuery } = policy.query
         this.topicToConfig[topic] = policyQuery
-        // Policy locks scope; caller's purpose still wins when provided.
         const svc = this.topicToService[topic]
         if (svc) {
           if (!this.topicToCallerPurpose[topic]) {
             svc.purpose = policy.purpose || DEFAULT_PURPOSE
           }
-          svc.scope = policy.id
+          if (!svc.scope) {
+            svc.scope = policy.id
+          }
         }
         this.topicToPolicy[topic] = {
           id: policy.id,
@@ -682,11 +684,11 @@ export class ZKPassport {
 
   /**
    * @notice Create a new request. To apply a policy, chain `.policy('<id>')` on
-   * the returned builder; a policy locks the query and scope.
+   * the returned builder; a policy locks the query.
    * @param name Your service name. Defaults to the dashboard branding, then the domain.
    * @param logo Your service logo. Defaults to the dashboard branding.
    * @param purpose Explanation shown to the user. Defaults to the policy's purpose (if any), then a generic message.
-   * @param scope Use-case scope (drives the nullifier). Defaults to the domain. Locked by `.policy()` (to the policy id).
+   * @param scope Use-case scope (drives the nullifier). Defaults to the policy id (if any), then the domain.
    * @param projectID The project ID of your service
    * @param validity How many seconds ago the proof checking the expiry date of the ID should have been generated
    * @param mode The proof mode (e.g. "fast" / "compressed").
