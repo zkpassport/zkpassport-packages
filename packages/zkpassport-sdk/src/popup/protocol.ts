@@ -22,8 +22,6 @@ export type PopupAttestConfig = {
   chain: SupportedChain
   /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
   policyId: `0x${string}`
-  /** ZKPassportCredentials registry address. */
-  registry: `0x${string}`
 }
 
 export type PopupRequestConfig = {

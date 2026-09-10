@@ -197,7 +197,7 @@ function AttestFlowBody({
 
       const options = await buildAttestCardOptions({
         client: ctx.publicClient as never,
-        registryAddress: attest.registry,
+        registryAddress: ctx.attest.address,
         policyId,
         wallet: account,
         chain: attest.chain,

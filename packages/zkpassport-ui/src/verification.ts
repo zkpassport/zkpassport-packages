@@ -1,5 +1,6 @@
 import { createOfflineQuery } from "@zkpassport/sdk/query"
 import {
+  getAttestRegistry,
   openVerificationPopup,
   type PopupAttestConfig,
   type PopupCallbacks,
@@ -8,7 +9,6 @@ import {
 } from "@zkpassport/sdk/popup"
 import type { Query, QueryBuilder, QueryBuilderResult, SupportedChain } from "@zkpassport/sdk"
 
-import { getAttestRegistry } from "./attest-registries"
 import { isInAppBrowser } from "./environment"
 import { logger } from "./logger"
 
@@ -216,11 +216,10 @@ function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undef
   if (!onchainPolicyId.startsWith("0x")) {
     throw new Error("onchainPolicyId is the on-chain policy id as 0x-prefixed hex.")
   }
-  return {
-    chain,
-    policyId: onchainPolicyId,
-    registry: getAttestRegistry(chain),
-  }
+  // Fail at click time when the chain has no registry; the popup resolves the
+  // actual address itself.
+  getAttestRegistry(chain)
+  return { chain, policyId: onchainPolicyId }
 }
 
 function toPopupRequest(options: VerificationOptions): PopupRequestConfig {

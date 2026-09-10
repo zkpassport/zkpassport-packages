@@ -1,5 +1,9 @@
 import { AttestClient } from "@zkpassport/sdk"
-import type { PopupAttestConfig, PopupAttestIssueCall } from "@zkpassport/sdk/popup"
+import {
+  getAttestRegistry,
+  type PopupAttestConfig,
+  type PopupAttestIssueCall,
+} from "@zkpassport/sdk/popup"
 import { createPublicClient, http, type Chain, type PublicClient } from "viem"
 import { ensureWalletChain, type ConnectedWallet } from "./wallet"
 
@@ -14,7 +18,7 @@ export function createAttestContext(config: PopupAttestConfig, chain: Chain): At
   return {
     chain,
     publicClient,
-    attest: new AttestClient({ client: publicClient, address: config.registry }),
+    attest: new AttestClient({ client: publicClient, address: getAttestRegistry(config.chain) }),
   }
 }
 

@@ -207,9 +207,6 @@ describe("createVerification with mintCredential", () => {
     expect(configure.attest).toEqual({
       chain: "ethereum_sepolia",
       policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
-      // The canonical sepolia registry, resolved from `chain` — consumers
-      // never pass an address.
-      registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
     })
     expect(configure.query).toEqual({})
   })
