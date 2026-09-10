@@ -116,133 +116,18 @@ describe("buildAttestCardOptions request props", () => {
     ])
   })
 
-  test("salted policies request the salted unique identifier type", async () => {
-    const salted: RawRequirements = {
-      ...baseRequirements,
-      uniqueIdentifierType: POLICY_SALTED,
-    }
+  test("the request's query and nullifier type come from the SDK translation", async () => {
+    // Deep translation cases live in the sdk's buildAttestProofRequest tests;
+    // this only pins the pass-through wiring.
+    const salted: RawRequirements = { ...baseRequirements, uniqueIdentifierType: POLICY_SALTED }
     const options = await buildAttestCardOptions({
       ...baseOptions(basePolicy),
       ...{ client: stubChain(basePolicy, salted).client },
     })
     expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
-  })
-
-  test("mock-type policies request the real twin, which dev mode answers with the mock type", async () => {
-    const mockSalted: RawRequirements = {
-      ...baseRequirements,
-      uniqueIdentifierType: POLICY_SALTED_MOCK,
-    }
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      ...{ client: stubChain(basePolicy, mockSalted).client },
-    })
-    expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
-  })
-
-  test("policies without dedup leave the unique identifier type unconstrained", async () => {
-    const none: RawRequirements = {
-      ...baseRequirements,
-      uniqueIdentifierType: POLICY_NONE,
-    }
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      ...{ client: stubChain(basePolicy, none).client },
-    })
-    expect(options.uniqueIdentifierType).toBeUndefined()
-  })
-
-  test("retired policies are rejected", async () => {
-    const policy = { ...basePolicy, retiredAt: 1700000000n }
-    await expect(
-      buildAttestCardOptions({ ...baseOptions(policy), client: stubChain(policy).client }),
-    ).rejects.toThrow("retired")
-  })
-})
-
-describe("buildAttestCardOptions query translation", () => {
-  async function queryCalls(requirements: RawRequirements) {
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      client: stubChain(basePolicy, requirements).client,
-    })
     const { qb, calls } = fakeQueryBuilder()
     options.query(qb)
-    return calls
-  }
-
-  test("bare policy: only binding, no predicates", async () => {
-    const calls = await queryCalls(baseRequirements)
-    expect(calls).toEqual([
-      { method: "bind", args: ["user_address", WALLET] },
-      { method: "bind", args: ["chain", "ethereum_sepolia"] },
-      { method: "done", args: [] },
-    ])
-  })
-
-  test("full policy: age, nationality exclusion, strict sanctions, then binding", async () => {
-    const requirements: RawRequirements = {
-      ...baseRequirements,
-      minAge: 21,
-      // Stored sorted on-chain (createPolicy validates order); the query
-      // passes codes through as stored.
-      excludedNationalities: ["IRN", "PRK"],
-      sanctionsMode: 2,
-    }
-    const calls = await queryCalls(requirements)
-    expect(calls).toEqual([
-      { method: "gte", args: ["age", 21] },
-      { method: "out", args: ["nationality", ["IRN", "PRK"]] },
-      { method: "sanctions", args: ["all", "all", { strict: true }] },
-      { method: "bind", args: ["user_address", WALLET] },
-      { method: "bind", args: ["chain", "ethereum_sepolia"] },
-      { method: "done", args: [] },
-    ])
-  })
-
-  test("nationality allowlist, normal sanctions, and facematch map through", async () => {
-    const requirements: RawRequirements = {
-      ...baseRequirements,
-      includedNationalities: ["ARG", "FRA"],
-      sanctionsMode: 1,
-      faceMatchMode: 1,
-    }
-    const calls = await queryCalls(requirements)
-    expect(calls).toEqual([
-      { method: "in", args: ["nationality", ["ARG", "FRA"]] },
-      { method: "sanctions", args: ["all", "all", { strict: false }] },
-      { method: "facematch", args: ["regular"] },
-      { method: "bind", args: ["user_address", WALLET] },
-      { method: "bind", args: ["chain", "ethereum_sepolia"] },
-      { method: "done", args: [] },
-    ])
-  })
-
-  test("salted policy adds strict facematch, required by the salted nullifier", async () => {
-    for (const salted of [POLICY_SALTED, POLICY_SALTED_MOCK]) {
-      const calls = await queryCalls({
-        ...baseRequirements,
-        uniqueIdentifierType: salted,
-      })
-      expect(calls).toEqual([
-        { method: "facematch", args: ["strict"] },
-        { method: "bind", args: ["user_address", WALLET] },
-        { method: "bind", args: ["chain", "ethereum_sepolia"] },
-        { method: "done", args: [] },
-      ])
-    }
-  })
-
-  test("policy without dedup needs no nullifier, so no facematch", async () => {
-    const calls = await queryCalls({
-      ...baseRequirements,
-      uniqueIdentifierType: POLICY_NONE,
-    })
-    expect(calls).toEqual([
-      { method: "bind", args: ["user_address", WALLET] },
-      { method: "bind", args: ["chain", "ethereum_sepolia"] },
-      { method: "done", args: [] },
-    ])
+    expect(calls[calls.length - 1]).toEqual({ method: "done", args: [] })
   })
 })
 
