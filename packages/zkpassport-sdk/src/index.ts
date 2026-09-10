@@ -165,6 +165,7 @@ export class ZKPassport {
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
   private onGeneratingProofCallbacks: Record<string, Array<(topic: string) => void>> = {}
   private onBridgeConnectCallbacks: Record<string, Array<() => void>> = {}
+  private onBridgeConnectionLostCallbacks: Record<string, Array<() => void>> = {}
   private onProofGeneratedCallbacks: Record<string, Array<(proof: ProofResult) => void>> = {}
   private onSuccessCallbacks: Record<
     string,
@@ -578,6 +579,8 @@ export class ZKPassport {
             this.onGeneratingProofCallbacks[topic].push(callback),
           onBridgeConnect: (callback: () => void) =>
             this.onBridgeConnectCallbacks[topic].push(callback),
+          onBridgeConnectionLost: (callback: () => void) =>
+            this.onBridgeConnectionLostCallbacks[topic].push(callback),
           onProofGenerated: (callback: (proof: ProofResult) => void) =>
             this.onProofGeneratedCallbacks[topic].push(callback),
           onSuccess: (callback: (response: RequestSuccess) => OnSuccessVerdict) =>
@@ -780,6 +783,7 @@ export class ZKPassport {
     this.onRequestReceivedCallbacks[topic] = []
     this.onGeneratingProofCallbacks[topic] = []
     this.onBridgeConnectCallbacks[topic] = []
+    this.onBridgeConnectionLostCallbacks[topic] = []
     this.onProofGeneratedCallbacks[topic] = []
     this.onSuccessCallbacks[topic] = []
     this.onResultCallbacks[topic] = []
@@ -794,6 +798,11 @@ export class ZKPassport {
       logger.debug("Bridge connected")
       logger.debug("Is reconnection:", reconnection)
       await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
+    })
+    bridge.onDisconnect(async (event) => {
+      if (event.wasIntentionalClose || event.willReconnect) return
+      logger.debug("Bridge connection lost")
+      await Promise.all(this.onBridgeConnectionLostCallbacks[topic].map((callback) => callback()))
     })
     bridge.onSecureChannelEstablished(async () => {
       logger.debug("Secure channel established")
@@ -1147,6 +1156,7 @@ export class ZKPassport {
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []
+    this.onBridgeConnectionLostCallbacks[requestId] = []
     this.onProofGeneratedCallbacks[requestId] = []
     this.onRejectCallbacks[requestId] = []
     this.onErrorCallbacks[requestId] = []

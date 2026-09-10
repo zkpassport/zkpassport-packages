@@ -72,7 +72,7 @@
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^2.2.3",
     "@noir-lang/noir_js": "1.0.0-beta.22",
-    "@obsidion/bridge": "^0.11.2",
+    "@obsidion/bridge": "^0.12.2",
     "@zkpassport/registry": "workspace:*",
     "@zkpassport/utils": "workspace:*",
     "buffer": "^6.0.3",
