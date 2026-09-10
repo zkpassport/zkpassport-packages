@@ -2,8 +2,12 @@ import { describe, expect, spyOn, test } from "bun:test"
 import { decodeAbiParameters, getAbiItem } from "viem"
 import { NullifierType } from "@zkpassport/utils"
 import { PolicyEvaluatorV1Abi } from "../src/assets/abi/policy-evaluator-v1"
+import { sepolia } from "viem/chains"
 import {
   AttestClient,
+  createAttestContext,
+  submitIssueCall,
+  type AttestContext,
   type AttestPolicy,
   type AttestPolicyRequirements,
   type AttestReadClient,
@@ -269,4 +273,71 @@ describe("AttestClient issue helpers", () => {
 test("AttestClient is exported from the package entrypoint", async () => {
   const pkg = await import("../src/index")
   expect(pkg.AttestClient).toBe(AttestClient)
+})
+
+describe("createAttestContext", () => {
+  test("binds an AttestClient to the chain's canonical registry", () => {
+    const ctx = createAttestContext(sepolia)
+    expect(ctx.attest.address).toBe("0x2a615a175439b9eb0004b924aBdD2B4c7a871f11")
+    expect(ctx.chain).toBe(sepolia)
+  })
+
+  test("rejects chains without a recorded registry deployment", () => {
+    expect(() => createAttestContext({ ...sepolia, id: 1, name: "Ethereum" })).toThrow(
+      "Attestation minting is not supported on 'ethereum': no registry is deployed.",
+    )
+  })
+})
+
+describe("submitIssueCall", () => {
+  const CALL = {
+    address: REGISTRY,
+    functionName: "issue",
+    abi: [],
+    args: [POLICY_ID, "0xf00d"],
+  } as const
+
+  function fakeContext(status: "success" | "reverted") {
+    const writes: unknown[] = []
+    const ctx = {
+      chain: sepolia,
+      publicClient: { waitForTransactionReceipt: async () => ({ status }) },
+      attest: null,
+    } as unknown as AttestContext
+    const wallet = {
+      account: WALLET,
+      client: {
+        writeContract: async (params: unknown) => {
+          writes.push(params)
+          return "0xhash"
+        },
+      },
+    } as never
+    return { ctx, wallet, writes }
+  }
+
+  test("submits through the wallet client and resolves on inclusion", async () => {
+    const { ctx, wallet, writes } = fakeContext("success")
+    const submitted: string[] = []
+    const hash = await submitIssueCall(ctx, CALL, wallet, (h) => submitted.push(h))
+    expect(hash).toBe("0xhash")
+    expect(submitted).toEqual(["0xhash"])
+    expect(writes).toEqual([
+      {
+        address: REGISTRY,
+        abi: [],
+        functionName: "issue",
+        args: [POLICY_ID, "0xf00d"],
+        account: WALLET,
+        chain: sepolia,
+      },
+    ])
+  })
+
+  test("throws when the transaction reverts", async () => {
+    const { ctx, wallet } = fakeContext("reverted")
+    await expect(submitIssueCall(ctx, CALL, wallet)).rejects.toThrow(
+      "Credential mint reverted (tx 0xhash).",
+    )
+  })
 })

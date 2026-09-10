@@ -19,9 +19,10 @@ import {
 import "@rainbow-me/rainbowkit/styles.css"
 import type { Chain } from "viem"
 
-import { createAttestContext, mintCredential } from "./attest"
+import { createAttestContext, submitIssueCall } from "@zkpassport/sdk"
+
 import { resolveAttestChain, rpcOverrideFromLocation } from "./chains"
-import { buildWalletSetup, type WalletSetup } from "./wallet"
+import { buildWalletSetup, ensureWalletChain, type WalletSetup } from "./wallet"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
@@ -144,7 +145,7 @@ function AttestFlowBody({
   // superseded account can't overwrite the current one.
   const attemptRef = useRef(0)
 
-  const ctx = useMemo(() => createAttestContext(attest, chain), [attest, chain])
+  const ctx = useMemo(() => createAttestContext(chain), [chain])
 
   const emit = (message: OutgoingEvent) => sendRef.current(message)
 
@@ -159,7 +160,8 @@ function AttestFlowBody({
     setState({ step: "minting", account })
     try {
       const wallet = { account: client.account.address, client }
-      const txHash = await mintCredential(ctx, issueCall, wallet)
+      await ensureWalletChain(wallet, ctx.chain)
+      const txHash = await submitIssueCall(ctx, issueCall, wallet)
       setState({ step: "minted", account, txHash })
       emit({ ...base, attest: { status: "minted", walletAddress: account, txHash, issueCall } })
     } catch (reason) {

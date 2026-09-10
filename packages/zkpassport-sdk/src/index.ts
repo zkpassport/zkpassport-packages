@@ -123,6 +123,9 @@ export {
 
 export {
   AttestClient,
+  createAttestContext,
+  submitIssueCall,
+  type AttestContext,
   type AttestPolicy,
   type AttestPolicyRequirements,
   type AttestPolicySummary,
