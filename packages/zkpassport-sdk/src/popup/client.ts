@@ -3,7 +3,6 @@ import type { OnSuccessVerdict } from "../types"
 import {
   DEFAULT_POPUP_URL,
   isPopupMessage,
-  type PopupAttestConfig,
   type PopupEventMessage,
   type PopupRequestConfig,
 } from "./protocol"
@@ -23,14 +22,8 @@ export type PopupCallbacks = {
 
 export type OpenVerificationPopupOptions = {
   popupUrl?: string
-  /**
-   * "popup" (default) opens a small chromeless window; "tab" opens a regular
-   * browser tab (or window, per the user's browser settings) with full chrome.
-   */
-  windowMode?: "popup" | "tab"
   request: PopupRequestConfig
   query: Query
-  attest?: PopupAttestConfig
   callbacks?: PopupCallbacks
 }
 
@@ -42,21 +35,6 @@ export type VerificationPopupHandle = {
 const POPUP_WIDTH = 460
 const POPUP_HEIGHT = 780
 const CLOSE_POLL_INTERVAL = 500
-
-function openPopupWindow(popupUrl: string): Window | null {
-  // Centered on the current window
-  const left = Math.max(0, (window.screenX ?? 0) + (window.outerWidth - POPUP_WIDTH) / 2)
-  const top = Math.max(0, (window.screenY ?? 0) + (window.outerHeight - POPUP_HEIGHT) / 2)
-  return (
-    window.open(
-      popupUrl,
-      "zkpassport-verify",
-      `popup,width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${Math.round(left)},top=${Math.round(top)}`,
-    ) ??
-    // Popup blocked: retry as a regular new tab
-    window.open(popupUrl, "zkpassport-verify")
-  )
-}
 
 /**
  * Open the hosted verification popup. MUST be called from a user gesture
@@ -71,10 +49,17 @@ export function openVerificationPopup(
   const popupUrl = options.popupUrl ?? DEFAULT_POPUP_URL
   const popupOrigin = new URL(popupUrl).origin
 
+  // Centered on the current window
+  const left = Math.max(0, (window.screenX ?? 0) + (window.outerWidth - POPUP_WIDTH) / 2)
+  const top = Math.max(0, (window.screenY ?? 0) + (window.outerHeight - POPUP_HEIGHT) / 2)
   const popup =
-    options.windowMode === "tab"
-      ? window.open(popupUrl, "zkpassport-verify")
-      : openPopupWindow(popupUrl)
+    window.open(
+      popupUrl,
+      "zkpassport-verify",
+      `popup,width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${Math.round(left)},top=${Math.round(top)}`,
+    ) ??
+    // Popup blocked: retry as a regular new tab
+    window.open(popupUrl, "zkpassport-verify")
   if (!popup) return null
 
   const callbacks = options.callbacks ?? {}
@@ -103,7 +88,6 @@ export function openVerificationPopup(
               type: "configure",
               request: options.request,
               query: options.query,
-              ...(options.attest ? { attest: options.attest } : {}),
             },
             popupOrigin,
           )
