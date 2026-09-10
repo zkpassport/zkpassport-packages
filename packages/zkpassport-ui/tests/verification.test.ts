@@ -211,22 +211,6 @@ describe("createVerification with mintCredential", () => {
     expect(configure.query).toEqual({})
   })
 
-  test("rejects chains without a recorded registry deployment", () => {
-    setupFakeWindow()
-    const errors: string[] = []
-    createVerification(
-      () => ({
-        ...mintOptions,
-        mintCredential: { ...mintOptions.mintCredential!, chain: "ethereum" },
-        onError: (e: string) => errors.push(e),
-      }),
-      () => {},
-    ).verify()
-    expect(errors).toEqual([
-      "Attestation minting is not supported on 'ethereum': no registry is deployed.",
-    ])
-  })
-
   test("relays the attest outcome to onSuccess", () => {
     const { emitFromPopup } = setupFakeWindow()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
