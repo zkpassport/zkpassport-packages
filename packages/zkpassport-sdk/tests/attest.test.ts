@@ -28,8 +28,8 @@ const SAMPLE_POLICY: AttestPolicy = {
 }
 
 /**
- * decodeRequirements as the contract returns it: raw enum numbers, with uniqueIdentifierType
- * in the evaluator's three-member PolicyNullifierType numbering (1 = salted).
+ * decodeRequirements as the contract returns it: raw enum numbers. uniqueIdentifierType uses
+ * the same numbering as the app-side NullifierType (1 = salted).
  */
 const RAW_REQUIREMENTS = {
   uniqueIdentifierType: 1,
@@ -97,17 +97,18 @@ describe("AttestClient reads", () => {
     expect(readCalls[1].args).toEqual(["0xabcd"])
   })
 
-  test("getRequirements maps the policy NONE nullifier type onto the app-side enum", async () => {
-    // PolicyNullifierType.NONE_NULLIFIER is 2 on-chain; the app-side NullifierType.NONE is 4.
-    const { client } = stubClient((p) => {
-      if (p.functionName === "schemaVersion") return 1n
-      if (p.functionName === "decodeRequirements")
-        return { ...RAW_REQUIREMENTS, uniqueIdentifierType: 2, enforceUniqueness: false }
-      throw new Error(`unexpected read ${p.functionName}`)
-    })
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const requirements = await attest.getRequirements(SAMPLE_POLICY)
-    expect(requirements.uniqueIdentifierType).toBe(NullifierType.NONE)
+  test("getRequirements passes nullifier types through untranslated, mock and NONE included", async () => {
+    for (const raw of [NullifierType.SALTED_MOCK, NullifierType.NONE]) {
+      const { client } = stubClient((p) => {
+        if (p.functionName === "schemaVersion") return 1n
+        if (p.functionName === "decodeRequirements")
+          return { ...RAW_REQUIREMENTS, uniqueIdentifierType: raw, enforceUniqueness: false }
+        throw new Error(`unexpected read ${p.functionName}`)
+      })
+      const attest = new AttestClient({ client, address: REGISTRY })
+      const requirements = await attest.getRequirements(SAMPLE_POLICY)
+      expect(requirements.uniqueIdentifierType).toBe(raw)
+    }
   })
 
   test("getRequirements rejects unknown evaluator schemas", async () => {
