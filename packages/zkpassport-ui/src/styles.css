@@ -255,14 +255,16 @@
   .zkp-qr-slot[data-state="local-proving"] .zkp-qr,
   .zkp-qr-slot[data-state="save-offer"] .zkp-qr,
   .zkp-qr-slot[data-state="success"] .zkp-qr,
-  .zkp-qr-slot[data-state="error"] .zkp-qr {
+  .zkp-qr-slot[data-state="error"] .zkp-qr,
+  .zkp-qr-slot[data-state="disconnected"] .zkp-qr {
     opacity: 0.35;
   }
   .zkp-qr-slot[data-state="generating"] .zkp-qr-logo,
   .zkp-qr-slot[data-state="local-proving"] .zkp-qr-logo,
   .zkp-qr-slot[data-state="save-offer"] .zkp-qr-logo,
   .zkp-qr-slot[data-state="success"] .zkp-qr-logo,
-  .zkp-qr-slot[data-state="error"] .zkp-qr-logo {
+  .zkp-qr-slot[data-state="error"] .zkp-qr-logo,
+  .zkp-qr-slot[data-state="disconnected"] .zkp-qr-logo {
     opacity: 0;
   }
   .zkp-qr-slot[data-state="connecting"] .zkp-overlay,
@@ -271,7 +273,8 @@
   .zkp-qr-slot[data-state="local-proving"] .zkp-overlay,
   .zkp-qr-slot[data-state="save-offer"] .zkp-overlay,
   .zkp-qr-slot[data-state="success"] .zkp-overlay,
-  .zkp-qr-slot[data-state="error"] .zkp-overlay {
+  .zkp-qr-slot[data-state="error"] .zkp-overlay,
+  .zkp-qr-slot[data-state="disconnected"] .zkp-overlay {
     display: block;
   }
 

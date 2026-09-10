@@ -195,7 +195,7 @@ export function Card({ options, controlRef }: CardProps) {
             </div>
           ) : null}
 
-          {state === "error" ? (
+          {state === "error" || state === "disconnected" ? (
             <div className="zkp-result-actions">
               <button type="button" className="zkp-retry" onClick={retry}>
                 Try again
@@ -308,6 +308,8 @@ function getOverlayCaption(state: CardState): string {
       return "Request complete"
     case "error":
       return "Something went wrong"
+    case "disconnected":
+      return "Connection lost"
     default:
       return ""
   }
@@ -424,7 +426,7 @@ function QrSlot({
           {state === "success" ? (
             <div className="zkp-check" dangerouslySetInnerHTML={{ __html: ICON_CHECK }} />
           ) : null}
-          {state === "error" ? (
+          {state === "error" || state === "disconnected" ? (
             <div className="zkp-error-icon" dangerouslySetInnerHTML={{ __html: ICON_ERROR }} />
           ) : null}
         </div>
