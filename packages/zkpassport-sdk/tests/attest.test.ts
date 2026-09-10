@@ -275,6 +275,15 @@ test("AttestClient is exported from the package entrypoint", async () => {
   expect(pkg.AttestClient).toBe(AttestClient)
 })
 
+describe("getAttestChain", () => {
+  test("maps supported chains to viem configs and rejects the rest", async () => {
+    const { getAttestChain } = await import("../src/attest/chains")
+    expect(getAttestChain("ethereum_sepolia").id).toBe(11155111)
+    expect(getAttestChain("local").id).toBe(31337)
+    expect(() => getAttestChain("base")).toThrow("not supported")
+  })
+})
+
 describe("createAttestContext", () => {
   test("binds an AttestClient to the chain's canonical registry", () => {
     const ctx = createAttestContext(sepolia)

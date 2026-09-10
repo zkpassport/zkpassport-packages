@@ -1,12 +1,6 @@
+import { getAttestChain } from "@zkpassport/sdk"
 import type { SupportedChain } from "@zkpassport/utils"
 import type { Chain } from "viem"
-import { anvil, sepolia } from "viem/chains"
-
-// Chains the attest flow can mint on; extend as registries are deployed
-const ATTEST_CHAINS: Partial<Record<SupportedChain, Chain>> = {
-  ethereum_sepolia: sepolia,
-  local: anvil,
-}
 
 /**
  * Dev RPC override from the popup's own URL (`?rpc=http://localhost:8545`),
@@ -19,10 +13,7 @@ export function rpcOverrideFromLocation(search: string): string | undefined {
 }
 
 export function resolveAttestChain(chain: SupportedChain, rpcOverride?: string): Chain {
-  const base = ATTEST_CHAINS[chain]
-  if (!base) {
-    throw new Error(`Attestation minting is not supported on '${chain}' yet.`)
-  }
+  const base = getAttestChain(chain)
   if (!rpcOverride) return base
   return {
     ...base,
