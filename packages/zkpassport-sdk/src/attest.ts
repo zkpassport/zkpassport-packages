@@ -49,8 +49,6 @@ export type AttestPolicy = {
 
 /**
  * Policy requirements.
- * - Country lists (`includedNationalities` and `excludedNationalities`) must be ISO 3166-1
- *   alpha-3, sorted ascending; an empty list disables that check.
  */
 export type AttestPolicyRequirements = {
   /**
@@ -125,8 +123,6 @@ const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeProo
 
 /**
  * Typed bindings for the ZKPassportCredentials credential registry.
- * Reads execute through the provided client. Writes follow the SolidityVerifier pattern (the
- * consumer signs with their own wallet stack).
  */
 export class AttestClient {
   private readonly client: AttestReadClient
@@ -154,8 +150,7 @@ export class AttestClient {
 
   /**
    * Decode a policy's requirements through its own evaluator, so the request a client builds is
-   * derived from exactly what issue() will enforce. Fails on an evaluator schema this SDK version
-   * does not know, rather than building a wrong proof request.
+   * derived from exactly what issue() will enforce.
    */
   async getRequirements(policy: AttestPolicy): Promise<AttestPolicyRequirements> {
     const evaluatorRead = (functionName: string, args: readonly unknown[]) =>
@@ -227,9 +222,7 @@ export class AttestClient {
 
   /**
    * Enumerate policies from `PolicyCreated` logs. Policy ids are `keccak256(creator, salt)`,
-   * so the registry has no on-chain list; logs are the only on-chain enumeration. The scan is
-   * chunked into `blockRange`-sized `getLogs` calls (default 10,000 blocks) to stay under RPC
-   * provider range caps, so scanning a long history costs one request per window. Apps that
+   * so the registry has no on-chain list; logs are the only on-chain enumeration. Apps that
    * need frequent or large listings should index `PolicyCreated` themselves instead.
    *
    * The scan starts at `fromBlock`, or the client's `deployBlock` when omitted; constructing
