@@ -8,7 +8,7 @@ export default defineConfig(
       "index": "src/index.ts",
       "popup": "src/popup/index.ts",
       "query": "src/offline-query.ts",
-      "attest-registries": "src/attest-registries.ts",
+      "attest-registries": "src/attest/registries.ts",
     },
     dts: {
       compilerOptions: {

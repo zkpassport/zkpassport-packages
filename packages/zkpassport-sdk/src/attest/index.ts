@@ -2,10 +2,10 @@ import type { Chain, PublicClient, WalletClient } from "viem"
 import { createPublicClient, encodeAbiParameters, getAbiItem, http } from "viem"
 import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType, ProofResult } from "@zkpassport/utils"
-import { getAttestRegistry } from "./attest-registries"
-import { SolidityVerifier } from "./solidity-verifier"
-import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
-import { PolicyEvaluatorV1Abi } from "./assets/abi/policy-evaluator-v1"
+import { getAttestRegistry } from "./registries"
+import { SolidityVerifier } from "../solidity-verifier"
+import { ZKPassportCredentialsAbi } from "../assets/abi/zkpassport-credentials"
+import { PolicyEvaluatorV1Abi } from "../assets/abi/policy-evaluator-v1"
 
 /** Structural slice of viem's PublicClient. */
 export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs" | "getBlockNumber">
