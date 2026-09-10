@@ -1,8 +1,6 @@
 import type { PublicClient } from "viem"
 import { encodeAbiParameters, getAbiItem } from "viem"
-import { NullifierType } from "@zkpassport/utils"
-import type { FacematchMode, ProofResult } from "@zkpassport/utils"
-import type { RequestedNullifierType } from "./types"
+import type { FacematchMode, NullifierType, ProofResult } from "@zkpassport/utils"
 import { SolidityVerifier } from "./solidity-verifier"
 import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./assets/abi/policy-evaluator-v1"
@@ -53,9 +51,9 @@ export type AttestPolicy = {
 export type AttestPolicyRequirements = {
   /**
    * Any `uniqueIdentifierType` value other than `NONE` requires the proof to carry exactly that
-   * nullifier type.
+   * nullifier type — mock types included; the contract does no dev-mode folding.
    */
-  uniqueIdentifierType: RequestedNullifierType
+  uniqueIdentifierType: NullifierType
   /**
    * `enforceUniqueness` limits issuance to one credential per document.
    */
@@ -94,14 +92,6 @@ const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
   0: undefined,
   1: "normal",
   2: "strict",
-}
-
-// The evaluator's PolicyNullifierType is a three-member enum (non-salted, salted, none), so
-// its NONE is 2 while the app-side NullifierType puts NONE at 4 behind the mock types.
-const POLICY_NULLIFIER_TYPES: Record<number, RequestedNullifierType> = {
-  0: NullifierType.NON_SALTED,
-  1: NullifierType.SALTED,
-  2: NullifierType.NONE,
 }
 
 const FACEMATCH_MODES: Record<number, FacematchMode | undefined> = {
@@ -174,7 +164,7 @@ export class AttestClient {
     > & { uniqueIdentifierType: number; sanctionsMode: number; faceMatchMode: number }
 
     return {
-      uniqueIdentifierType: POLICY_NULLIFIER_TYPES[decoded.uniqueIdentifierType],
+      uniqueIdentifierType: decoded.uniqueIdentifierType as NullifierType,
       enforceUniqueness: decoded.enforceUniqueness,
       minAge: decoded.minAge,
       sanctionsMode: SANCTIONS_MODES[decoded.sanctionsMode],
