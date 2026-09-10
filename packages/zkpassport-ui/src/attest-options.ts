@@ -1,5 +1,5 @@
-import { AttestClient, NullifierType } from "@zkpassport/sdk"
-import type { AttestReadClient, RequestedNullifierType, SupportedChain } from "@zkpassport/sdk"
+import { AttestClient, buildAttestProofRequest } from "@zkpassport/sdk"
+import type { AttestReadClient, SupportedChain } from "@zkpassport/sdk"
 import type { ZKPassportQRCodeOptions } from "./types"
 
 // The QR card does not export its onResult payload type, so extract it from
@@ -84,34 +84,23 @@ export async function buildAttestCardOptions(
 ): Promise<ZKPassportQRCodeOptions> {
   const attest = new AttestClient({ client: options.client, address: options.registryAddress })
 
-  // On-chain reads keep each value byte-identical to what issue() verifies.
-  const [policy, scope, domain] = await Promise.all([
-    attest.getPolicy(options.policyId),
-    attest.policyScope(options.policyId),
-    options.client.readContract({
-      address: options.registryAddress,
-      abi: attest.getIssueDetails().abi,
-      functionName: "domain",
-    } as never) as Promise<string>,
-  ])
+  // The registry-semantics half — policy resolution and the requirements →
+  // proof-request translation — lives in the SDK; this module only adds the
+  // card presentation around it.
+  const request = await buildAttestProofRequest(attest, {
+    policyId: options.policyId,
+    wallet: options.wallet,
+    chain: options.chain,
+  })
 
-  if (policy.retiredAt !== 0n) {
-    throw new Error(`Policy ${options.policyId} is retired and no longer issues credentials.`)
-  }
-
-  // Requirements are opaque bytes whose schema the policy's evaluator owns;
-  // decoding through the evaluator keeps the request derived from exactly
-  // what issue() will enforce.
-  const requirements = await attest.getRequirements(policy)
-
-  const { policyId, wallet, chain } = options
+  const { policyId, wallet } = options
 
   return {
-    domain,
+    domain: request.domain,
     name: options.name,
     logo: options.logo,
     purpose: options.purpose,
-    scope,
+    scope: request.scope,
     mode: "compressed-evm",
     devMode: options.devMode ?? false,
     // The hosted card verifies through the verifier API by default, but the
@@ -120,32 +109,8 @@ export async function buildAttestCardOptions(
     // verification in-page with the SDK's bundled verifier first, and fall
     // back to the hosted API only when the local check is not conclusive.
     verifierMode: "auto",
-    uniqueIdentifierType: requestedNullifierType(requirements.uniqueIdentifierType),
-    query: (qb) => {
-      let q = qb
-      if (requirements.minAge > 0) q = q.gte("age", requirements.minAge)
-      // The registry stores ISO alpha-3 codes; the contract compares them to
-      // the exact lists committed in the proof.
-      if (requirements.includedNationalities.length > 0) {
-        q = q.in("nationality", [...requirements.includedNationalities] as never)
-      }
-      if (requirements.excludedNationalities.length > 0) {
-        q = q.out("nationality", [...requirements.excludedNationalities] as never)
-      }
-      if (requirements.sanctionsMode) {
-        q = q.sanctions("all", "all", { strict: requirements.sanctionsMode === "strict" })
-      }
-      // The SDK requires strict facematch whenever a salted nullifier is
-      // used, so it overrides whatever the policy asks for (createPolicy
-      // rejects the contradictory pairings, salted types + regular).
-      const facematchMode =
-        requirements.uniqueIdentifierType === NullifierType.SALTED ||
-        requirements.uniqueIdentifierType === NullifierType.SALTED_MOCK
-          ? "strict"
-          : requirements.facematchMode
-      if (facematchMode) q = q.facematch(facematchMode)
-      return q.bind("user_address", wallet).bind("chain", chain).done()
-    },
+    uniqueIdentifierType: request.uniqueIdentifierType,
+    query: request.query,
     onReady: options.onReady,
     onRetryClicked: options.onRetryClicked,
     onBridgeConnect: options.onBridgeConnect,
@@ -154,23 +119,15 @@ export async function buildAttestCardOptions(
     onProofGenerated: options.onProofGenerated,
     onReject: options.onReject,
     onError: options.onError,
-    onResult: buildResultHandler({ attest, options, policyId, wallet, scope, domain }),
+    onResult: buildResultHandler({
+      attest,
+      options,
+      policyId,
+      wallet,
+      scope: request.scope,
+      domain: request.domain,
+    }),
   }
-}
-
-/**
- * The request can only name real nullifier types; a mock-type policy maps to a request for its
- * real twin, which a mock document (dev mode) then answers with the mock type the policy
- * requires — the contract matches types exactly, with no folding. NONE stays unconstrained:
- * the contract skips the type check for those policies, and the app includes a non-salted
- * nullifier even when NONE is requested — the sdk's requested-type enforcement would reject
- * that mismatch.
- */
-function requestedNullifierType(policyType: NullifierType): RequestedNullifierType | undefined {
-  if (policyType === NullifierType.NONE) return undefined
-  if (policyType === NullifierType.NON_SALTED_MOCK) return NullifierType.NON_SALTED
-  if (policyType === NullifierType.SALTED_MOCK) return NullifierType.SALTED
-  return policyType
 }
 
 function buildResultHandler(context: {
