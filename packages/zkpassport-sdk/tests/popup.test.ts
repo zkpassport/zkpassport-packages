@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test"
 import type { Query } from "@zkpassport/utils"
 import { ZKPassport } from "../src/index"
 import { hydrateQueryBuilder } from "../src/popup/hydrate"
-import { getAttestRegistry, openVerificationPopup, isPopupMessage } from "../src/popup"
+import { openVerificationPopup, isPopupMessage } from "../src/popup"
+import { getAttestRegistry } from "../src/attest-registries"
 import type { QueryBuilder } from "../src/types"
 
 function buildOffline(build: (qb: QueryBuilder<"offline">) => unknown): Query {

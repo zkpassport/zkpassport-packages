@@ -1,9 +1,5 @@
-import { AttestClient } from "@zkpassport/sdk"
-import {
-  getAttestRegistry,
-  type PopupAttestConfig,
-  type PopupAttestIssueCall,
-} from "@zkpassport/sdk/popup"
+import { AttestClient, getAttestRegistry } from "@zkpassport/sdk"
+import type { PopupAttestConfig, PopupAttestIssueCall } from "@zkpassport/sdk/popup"
 import { createPublicClient, http, type Chain, type PublicClient } from "viem"
 import { ensureWalletChain, type ConnectedWallet } from "./wallet"
 

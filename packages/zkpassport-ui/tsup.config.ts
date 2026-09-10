@@ -62,6 +62,7 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
         "@zkpassport/sdk": ["../zkpassport-sdk/dist/esm/index.d.ts"],
         "@zkpassport/sdk/popup": ["../zkpassport-sdk/dist/esm/popup.d.ts"],
         "@zkpassport/sdk/query": ["../zkpassport-sdk/dist/esm/query.d.ts"],
+        "@zkpassport/sdk/attest-registries": ["../zkpassport-sdk/dist/esm/attest-registries.d.ts"],
         "@zkpassport/utils": ["../zkpassport-utils/dist/esm/index.d.ts"],
       },
     },

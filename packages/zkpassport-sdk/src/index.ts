@@ -128,6 +128,7 @@ export {
   type AttestPolicySummary,
   type AttestReadClient,
 } from "./attest"
+export { getAttestRegistry } from "./attest-registries"
 export { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 
 export * from "./types"

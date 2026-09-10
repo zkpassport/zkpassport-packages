@@ -1,6 +1,6 @@
 import { createOfflineQuery } from "@zkpassport/sdk/query"
+import { getAttestRegistry } from "@zkpassport/sdk/attest-registries"
 import {
-  getAttestRegistry,
   openVerificationPopup,
   type PopupAttestConfig,
   type PopupCallbacks,
