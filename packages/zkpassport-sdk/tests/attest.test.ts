@@ -12,6 +12,7 @@ import {
   type AttestPolicyRequirements,
   type AttestReadClient,
 } from "../src/attest"
+import { buildAttestProofRequest } from "../src/attest/request"
 import { SolidityVerifier } from "../src/solidity-verifier"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
@@ -273,6 +274,89 @@ describe("AttestClient issue helpers", () => {
 test("AttestClient is exported from the package entrypoint", async () => {
   const pkg = await import("../src/index")
   expect(pkg.AttestClient).toBe(AttestClient)
+})
+
+describe("buildAttestProofRequest", () => {
+  function requestStub(requirements: Partial<typeof RAW_REQUIREMENTS> = {}) {
+    return stubClient((p) => {
+      if (p.functionName === "getPolicy") return SAMPLE_POLICY
+      if (p.functionName === "policyScope") return "attest:0x2a"
+      if (p.functionName === "domain") return "verify.zkpassport.id"
+      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "decodeRequirements") return { ...RAW_REQUIREMENTS, ...requirements }
+      throw new Error(`unexpected read ${p.functionName}`)
+    })
+  }
+
+  function fakeQueryBuilder() {
+    const calls: { method: string; args: unknown[] }[] = []
+    const qb: Record<string, unknown> = {}
+    for (const method of ["gte", "in", "out", "sanctions", "facematch", "bind"]) {
+      qb[method] = (...args: unknown[]) => {
+        calls.push({ method, args })
+        return qb
+      }
+    }
+    qb.done = () => {
+      calls.push({ method: "done", args: [] })
+      return { url: "https://request.example" }
+    }
+    return { qb: qb as never, calls }
+  }
+
+  const MINT = {
+    policyId: POLICY_ID,
+    wallet: WALLET,
+    chain: "ethereum_sepolia",
+  } as const
+
+  test("reads scope and domain on-chain and applies predicates, facematch, and bindings", async () => {
+    const { client } = requestStub({ minAge: 18, excludedNationalities: ["PRK"] })
+    const attest = new AttestClient({ client, address: REGISTRY })
+    const request = await buildAttestProofRequest(attest, MINT)
+    expect(request.scope).toBe("attest:0x2a")
+    expect(request.domain).toBe("verify.zkpassport.id")
+    expect(request.uniqueIdentifierType).toBe(NullifierType.SALTED)
+
+    const { qb, calls } = fakeQueryBuilder()
+    request.query(qb)
+    expect(calls).toEqual([
+      { method: "gte", args: ["age", 18] },
+      { method: "out", args: ["nationality", ["PRK"]] },
+      { method: "sanctions", args: ["all", "all", { strict: false }] },
+      // Salted nullifiers force strict facematch regardless of the policy's mode.
+      { method: "facematch", args: ["strict"] },
+      { method: "bind", args: ["user_address", WALLET] },
+      { method: "bind", args: ["chain", "ethereum_sepolia"] },
+      { method: "done", args: [] },
+    ])
+  })
+
+  test("mock-type policies request the real twin; NONE stays unconstrained", async () => {
+    for (const [raw, requested] of [
+      [NullifierType.SALTED_MOCK, NullifierType.SALTED],
+      [NullifierType.NON_SALTED_MOCK, NullifierType.NON_SALTED],
+      [NullifierType.NONE, undefined],
+    ] as const) {
+      const { client } = requestStub({ uniqueIdentifierType: raw, enforceUniqueness: false })
+      const attest = new AttestClient({ client, address: REGISTRY })
+      const request = await buildAttestProofRequest(attest, MINT)
+      expect(request.uniqueIdentifierType).toBe(requested as never)
+    }
+  })
+
+  test("rejects retired policies before any proof request", async () => {
+    const { client } = stubClient((p) => {
+      if (p.functionName === "getPolicy") return { ...SAMPLE_POLICY, retiredAt: 1700000000n }
+      if (p.functionName === "policyScope") return "attest:0x2a"
+      if (p.functionName === "domain") return "verify.zkpassport.id"
+      throw new Error(`unexpected read ${p.functionName}`)
+    })
+    const attest = new AttestClient({ client, address: REGISTRY })
+    await expect(buildAttestProofRequest(attest, MINT)).rejects.toThrow(
+      "retired and no longer issues credentials",
+    )
+  })
 })
 
 describe("attest deployments", () => {
