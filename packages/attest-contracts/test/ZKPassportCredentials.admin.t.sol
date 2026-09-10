@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
+import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
@@ -57,12 +58,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
         zkPassportCredentials.createPolicy(
             bytes32(uint256(99)),
-            _requirements(
-                PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER,
-                0,
-                PolicyEvaluatorV1.SanctionsMode.NONE,
-                noCountries
-            ),
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             1 days,
             "x",
             false,

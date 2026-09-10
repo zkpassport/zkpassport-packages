@@ -6,28 +6,21 @@ import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 contract PolicyEvaluatorV1 is IPolicyEvaluator {
-    /// @dev The nullifier types a policy may constrain: only the real types, unlike the proof
-    ///      side's NullifierType. Mock nullifiers (dev mode) fold onto their real counterparts at
-    ///      issue time, and requirements bytes carrying any other value fail to decode.
-    enum PolicyNullifierType {
-        NON_SALTED_NULLIFIER,
-        SALTED_NULLIFIER,
-        NONE_NULLIFIER
-    }
-
     enum SanctionsMode {
         NONE,
         NORMAL,
         STRICT
     }
 
-    /// @dev minAge 0 disables the age check. uniqueIdentifierType NONE leaves the proof's
-    ///      nullifier type unconstrained; any other value requires the proof to carry exactly
-    ///      that type. enforceUniqueness turns on one-per-document dedup (the ledger consumes
-    ///      the nullifier) and needs a constrained nullifier type to dedup on. Country lists are
-    ///      ISO 3166-1 alpha-3, strictly ascending; an empty list disables that check.
+    /// @dev minAge 0 disables the age check. uniqueIdentifierType NONE_NULLIFIER leaves the
+    ///      proof's nullifier type unconstrained; any other value requires the proof to carry
+    ///      exactly that type — mock types included, with no dev-mode folding, so testing with
+    ///      mock proofs takes a policy that requires the mock type itself. enforceUniqueness
+    ///      turns on one-per-document dedup (the ledger consumes the nullifier) and needs a
+    ///      constrained nullifier type to dedup on. Country lists are ISO 3166-1 alpha-3,
+    ///      strictly ascending; an empty list disables that check.
     struct PolicyRequirements {
-        PolicyNullifierType uniqueIdentifierType;
+        NullifierType uniqueIdentifierType;
         bool enforceUniqueness;
         uint8 minAge;
         SanctionsMode sanctionsMode;
@@ -89,15 +82,18 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     /// @inheritdoc IPolicyEvaluator
     function validateRequirements(bytes calldata requirements) external pure {
         PolicyRequirements memory r = decodeRequirements(requirements);
-        if (r.enforceUniqueness && r.uniqueIdentifierType == PolicyNullifierType.NONE_NULLIFIER) {
+        if (r.enforceUniqueness && r.uniqueIdentifierType == NullifierType.NONE_NULLIFIER) {
             revert PolicyEvaluator__UniquenessRequiresNullifierType();
         }
 
-        // The app salts nullifiers through a strict FaceMatch attestation, so a salted-nullifier
-        // proof always commits STRICT mode. A policy pairing SALTED with REGULAR could never
-        // issue.
-        if (r.uniqueIdentifierType == PolicyNullifierType.SALTED_NULLIFIER && r.faceMatchMode == FaceMatchMode.REGULAR)
-        {
+        // The app salts nullifiers (mock ones included) through a strict FaceMatch attestation,
+        // so a salted-nullifier proof always commits STRICT mode. A policy pairing a salted type
+        // with REGULAR could never issue.
+        if (
+            (r.uniqueIdentifierType == NullifierType.SALTED_NULLIFIER
+                    || r.uniqueIdentifierType == NullifierType.SALTED_MOCK_NULLIFIER)
+                && r.faceMatchMode == FaceMatchMode.REGULAR
+        ) {
             revert PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
         }
 
@@ -146,9 +142,8 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     ) internal view returns (bool unique) {
         PolicyRequirements memory r = decodeRequirements(requirements);
 
-        if (r.uniqueIdentifierType != PolicyNullifierType.NONE_NULLIFIER) {
-            PolicyNullifierType proofType =
-                _toPolicyNullifierType(NullifierType(uint256(publicInputs[publicInputs.length - 3])));
+        if (r.uniqueIdentifierType != NullifierType.NONE_NULLIFIER) {
+            NullifierType proofType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
             if (proofType != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
         }
 
@@ -176,21 +171,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         }
 
         return r.enforceUniqueness;
-    }
-
-    /// @dev Mock documents (dev mode) carry the mock twin of the requested nullifier type,
-    ///      while policies constrain the real type, so on dev deployments the twins fold onto
-    ///      their real counterparts.
-    function _toPolicyNullifierType(NullifierType nullifierType) internal view returns (PolicyNullifierType) {
-        if (nullifierType == NullifierType.NON_SALTED_NULLIFIER) return PolicyNullifierType.NON_SALTED_NULLIFIER;
-        if (nullifierType == NullifierType.SALTED_NULLIFIER) return PolicyNullifierType.SALTED_NULLIFIER;
-        if (devMode && nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
-            return PolicyNullifierType.NON_SALTED_NULLIFIER;
-        }
-        if (devMode && nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
-            return PolicyNullifierType.SALTED_NULLIFIER;
-        }
-        return PolicyNullifierType.NONE_NULLIFIER;
     }
 
     /// @dev The verifier helper's country checks need the exact list committed
