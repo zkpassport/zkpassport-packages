@@ -275,12 +275,20 @@ test("AttestClient is exported from the package entrypoint", async () => {
   expect(pkg.AttestClient).toBe(AttestClient)
 })
 
-describe("getAttestChain", () => {
+describe("attest deployments", () => {
   test("maps supported chains to viem configs and rejects the rest", async () => {
-    const { getAttestChain } = await import("../src/attest/chains")
+    const { getAttestChain } = await import("../src/attest/deployments")
     expect(getAttestChain("ethereum_sepolia").id).toBe(11155111)
     expect(getAttestChain("local").id).toBe(31337)
     expect(() => getAttestChain("base")).toThrow("not supported")
+  })
+
+  test("resolves canonical registries and rejects chains without one", async () => {
+    const { getAttestRegistry } = await import("../src/attest/deployments")
+    expect(getAttestRegistry("ethereum_sepolia")).toBe("0x2a615a175439b9eb0004b924aBdD2B4c7a871f11")
+    expect(() => getAttestRegistry("local")).toThrow(
+      "Attestation minting is not supported on 'local': no registry is deployed.",
+    )
   })
 })
 
