@@ -132,6 +132,7 @@ export {
   type AttestReadClient,
 } from "./attest"
 export { getAttestChain, getAttestRegistry } from "./attest/deployments"
+export { buildAttestProofRequest, type AttestProofRequest } from "./attest/request"
 export { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 
 export * from "./types"
