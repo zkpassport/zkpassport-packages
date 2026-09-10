@@ -41,7 +41,6 @@ type RawRequirements = Omit<
 
 const POLICY_NON_SALTED = 0
 const POLICY_SALTED = 1
-const POLICY_SALTED_MOCK = 3
 const POLICY_NONE = 4
 
 const baseRequirements: RawRequirements = {
