@@ -152,39 +152,6 @@ describe("buildAttestCardOptions request props", () => {
     expect(options.uniqueIdentifierType).toBeUndefined()
   })
 
-  test("supplying policy, scope, and domain skips the registry reads", async () => {
-    const { client, readCalls } = stubChain(basePolicy)
-    const options = await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      client,
-      policy: basePolicy,
-      scope: SCOPE,
-      domain: "custom.example",
-    })
-    expect(options.scope).toBe(SCOPE)
-    expect(options.domain).toBe("custom.example")
-    // Requirements always decode through the evaluator, even for a supplied policy.
-    expect(readCalls.map((c) => c.functionName).sort()).toEqual([
-      "decodeRequirements",
-      "schemaVersion",
-    ])
-  })
-
-  test("each escape hatch skips only its own read", async () => {
-    const { client, readCalls } = stubChain(basePolicy)
-    await buildAttestCardOptions({
-      ...baseOptions(basePolicy),
-      client,
-      policy: basePolicy,
-    })
-    expect(readCalls.map((c) => c.functionName).sort()).toEqual([
-      "decodeRequirements",
-      "domain",
-      "policyScope",
-      "schemaVersion",
-    ])
-  })
-
   test("retired policies are rejected", async () => {
     const policy = { ...basePolicy, retiredAt: 1700000000n }
     await expect(

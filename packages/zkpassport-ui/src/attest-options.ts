@@ -1,14 +1,17 @@
 import { AttestClient, NullifierType } from "@zkpassport/sdk"
-import type {
-  AttestPolicy,
-  AttestReadClient,
-  RequestedNullifierType,
-  SupportedChain,
-} from "@zkpassport/sdk"
-import type { ZKPassportQRCodeDisplayOptions, ZKPassportQRCodeOptions } from "./types"
+import type { AttestReadClient, RequestedNullifierType, SupportedChain } from "@zkpassport/sdk"
+import type { ZKPassportQRCodeOptions } from "./types"
 
+// The QR card does not export its onResult payload type, so extract it from
+// the options; this stays in lockstep with whatever the card delivers.
 type CardResult = Parameters<NonNullable<ZKPassportQRCodeOptions["onResult"]>>[0]
 
+/**
+ * Ready-to-send ZKPassportCredentials.issue() call, assembled from the SDK's
+ * issue details so an onResult consumer can submit the mint without wiring up
+ * ABIs itself. `address` is the registry address; the field keeps viem's
+ * naming so the object spreads straight into writeContract/simulateContract.
+ */
 export type AttestIssueCall = {
   address: `0x${string}`
   functionName: "issue"
@@ -17,21 +20,33 @@ export type AttestIssueCall = {
   args: readonly [bigint, `0x${string}`]
 }
 
+/**
+ * Delivered to AttestVerifyOptions.onResult once the card flow settles; the
+ * popup's AttestFlow turns it into the protocol's success message and, when
+ * issueCall is present, into the mint transaction.
+ */
 export type AttestVerifyResult = {
+  /** Whether the proof checked out (per the card's verifier mode) — the verdict gating a mint. */
   verified: boolean
+  /** The proof's nullifier-derived unique identifier; present when verified and the policy requests one. */
   uniqueIdentifier?: string
-  /** The unmodified SDK result payload. */
+  /**
+   * The card's unmodified onResult payload (proofs, query result, verdict) for
+   * consumers that need more than the distilled fields above.
+   */
   raw: CardResult
   /**
-   * Ready-to-send ZKPassportCredentials.issue() call; present when verified with
-   * an EVM proof. The request's devMode must match the target chain: the app
-   * roots proofs in the mainnet registries unless devMode is set, in which
-   * case it uses the testnet registries — so testnet contracts only accept
-   * dev-mode proofs and mainnet contracts only non-dev ones.
+   * Ready-to-send ZKPassportCredentials.issue() call; present when the
+   * verification produced an EVM-verifiable outer proof (the card requests
+   * mode "compressed-evm", so this is absent only on failure or non-EVM
+   * results).
    */
   issueCall?: AttestIssueCall
 }
 
+// Every card callback except onResult, forwarded to the card verbatim;
+// onResult is wrapped by buildAttestCardOptions to enrich it with the issue()
+// call. Pick reuses the card's own types, so nothing is redeclared.
 type ForwardedCardCallbacks = Pick<
   ZKPassportQRCodeOptions,
   | "onReady"
@@ -44,20 +59,15 @@ type ForwardedCardCallbacks = Pick<
   | "onError"
 >
 
+/** Input to buildAttestCardOptions; consumed by the hosted popup's AttestFlow. */
 export type AttestVerifyOptions = ForwardedCardCallbacks & {
   client: AttestReadClient
   registryAddress: `0x${string}`
   policyId: bigint
   wallet: `0x${string}`
   chain: SupportedChain
-  /** Defaults to the registry's on-chain domain(), which issue() verifies against. */
-  domain?: string
+  /** Defaults to false; must be true for testnet registries (proofs root in the testnet registry set). */
   devMode?: boolean
-  /** Escape hatches: each supplied value skips its own on-chain read. */
-  policy?: AttestPolicy
-  scope?: string
-  theme?: "light" | "dark" | "auto"
-  display?: ZKPassportQRCodeDisplayOptions
   name?: string
   logo?: string
   purpose?: string
@@ -65,7 +75,7 @@ export type AttestVerifyOptions = ForwardedCardCallbacks & {
 }
 
 /**
- * Resolve a policy from the attest registry (unless supplied) and build the
+ * Resolve the policy from the attest registry and build the
  * ZKPassportQRCodeOptions that make the existing QR card request exactly the
  * proof ZKPassportCredentials.issue() verifies for that policy.
  */
@@ -76,14 +86,13 @@ export async function buildAttestCardOptions(
 
   // On-chain reads keep each value byte-identical to what issue() verifies.
   const [policy, scope, domain] = await Promise.all([
-    options.policy ?? attest.getPolicy(options.policyId),
-    options.scope ?? attest.policyScope(options.policyId),
-    options.domain ??
-      (options.client.readContract({
-        address: options.registryAddress,
-        abi: attest.getIssueDetails().abi,
-        functionName: "domain",
-      } as never) as Promise<string>),
+    attest.getPolicy(options.policyId),
+    attest.policyScope(options.policyId),
+    options.client.readContract({
+      address: options.registryAddress,
+      abi: attest.getIssueDetails().abi,
+      functionName: "domain",
+    } as never) as Promise<string>,
   ])
 
   if (policy.retiredAt !== 0n) {
@@ -99,8 +108,6 @@ export async function buildAttestCardOptions(
 
   return {
     domain,
-    theme: options.theme,
-    display: options.display,
     name: options.name,
     logo: options.logo,
     purpose: options.purpose,
@@ -109,7 +116,9 @@ export async function buildAttestCardOptions(
     devMode: options.devMode ?? false,
     // The hosted card verifies through the verifier API by default, but the
     // attest flow needs a verdict before minting even where that API is not
-    // reachable (local dev has no CORS grant) — verify locally, API as backup.
+    // reachable (local dev has no CORS grant) — so "auto": run the proof
+    // verification in-page with the SDK's bundled verifier first, and fall
+    // back to the hosted API only when the local check is not conclusive.
     verifierMode: "auto",
     uniqueIdentifierType: requestedNullifierType(requirements.uniqueIdentifierType),
     query: (qb) => {
