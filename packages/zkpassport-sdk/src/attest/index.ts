@@ -220,6 +220,13 @@ export class AttestClient {
   }
 
   /**
+   * The registry's domain, which issue() verifies proofs against.
+   */
+  async domain(): Promise<string> {
+    return (await this.read("domain", [])) as string
+  }
+
+  /**
    * Enumerate policies from `PolicyCreated` logs. Policy ids are `keccak256(creator, salt)`,
    * so the registry has no on-chain list; logs are the only on-chain enumeration. Apps that
    * need frequent or large listings should index `PolicyCreated` themselves instead.
