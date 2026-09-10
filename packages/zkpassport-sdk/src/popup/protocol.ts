@@ -36,7 +36,6 @@ export type PopupRequestConfig = {
   validity?: number
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   oprfKeyId?: string
-  attest?: PopupAttestConfig
 }
 
 /**
@@ -78,6 +77,8 @@ export type PopupConfigureMessage = {
   type: "configure"
   request: PopupRequestConfig
   query: Query
+  /** Mint mode; a sibling of `query` because each defines what to prove for its mode. */
+  attest?: PopupAttestConfig
 }
 
 export type PopupReadyMessage = { zkpassport: true; type: "ready" }

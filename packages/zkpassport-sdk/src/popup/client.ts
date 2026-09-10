@@ -3,6 +3,7 @@ import type { OnSuccessVerdict } from "../types"
 import {
   DEFAULT_POPUP_URL,
   isPopupMessage,
+  type PopupAttestConfig,
   type PopupEventMessage,
   type PopupRequestConfig,
 } from "./protocol"
@@ -29,6 +30,7 @@ export type OpenVerificationPopupOptions = {
   windowMode?: "popup" | "tab"
   request: PopupRequestConfig
   query: Query
+  attest?: PopupAttestConfig
   callbacks?: PopupCallbacks
 }
 
@@ -101,6 +103,7 @@ export function openVerificationPopup(
               type: "configure",
               request: options.request,
               query: options.query,
+              ...(options.attest ? { attest: options.attest } : {}),
             },
             popupOrigin,
           )

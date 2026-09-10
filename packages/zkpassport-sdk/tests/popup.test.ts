@@ -249,15 +249,13 @@ describe("attest protocol extension", () => {
     const message = {
       zkpassport: true,
       type: "configure",
-      request: {
-        devMode: true,
-        attest: {
-          chain: "ethereum_sepolia",
-          policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
-          registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
-        },
-      },
+      request: { devMode: true },
       query: {},
+      attest: {
+        chain: "ethereum_sepolia",
+        policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+        registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+      },
     }
     expect(structuredClone(message)).toEqual(message)
     expect(isPopupMessage(message)).toBe(true)

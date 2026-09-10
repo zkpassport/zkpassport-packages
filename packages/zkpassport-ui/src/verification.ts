@@ -20,7 +20,7 @@ export type VerificationState = {
   error: string | null
 }
 
-export type VerificationOptions = Omit<PopupRequestConfig, "attest"> &
+export type VerificationOptions = PopupRequestConfig &
   PopupCallbacks & {
     // URL of the hosted verification page (override for local development)
     popupUrl?: string
@@ -52,8 +52,7 @@ export type VerificationController = {
 }
 
 // The only fields sent to the popup; anything else stays on this page.
-// (attest is assembled separately in toAttestConfig, from the flat options.)
-const POPUP_REQUEST_FIELDS: Record<Exclude<keyof PopupRequestConfig, "attest">, true> = {
+const POPUP_REQUEST_FIELDS: Record<keyof PopupRequestConfig, true> = {
   name: true,
   logo: true,
   purpose: true,
@@ -114,14 +113,12 @@ export function createVerification(
       return
     }
 
-    const request = toPopupRequest(options)
-    if (attest) request.attest = attest
-
     const handle = openVerificationPopup({
       popupUrl: options.popupUrl,
       windowMode: options.windowMode,
-      request,
+      request: toPopupRequest(options),
       query,
+      attest,
       // Callbacks resolve at event time: results arrive minutes after the
       // click, and React consumers swap callbacks between renders
       callbacks: {
@@ -229,7 +226,7 @@ function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undef
 function toPopupRequest(options: VerificationOptions): PopupRequestConfig {
   const request: Record<string, unknown> = {}
   for (const field of Object.keys(POPUP_REQUEST_FIELDS)) {
-    const value = options[field as Exclude<keyof PopupRequestConfig, "attest">]
+    const value = options[field as keyof PopupRequestConfig]
     if (value !== undefined) request[field] = value
   }
   return request as PopupRequestConfig

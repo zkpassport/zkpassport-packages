@@ -15,6 +15,7 @@ type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type Configuration = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
+  attest: PopupConfigureMessage["attest"]
   // Browser-attested origin of the relying party page that opened this popup.
   rpOrigin: string
 }
@@ -40,6 +41,7 @@ export function App() {
           : {
               request: data.request,
               query: data.query,
+              attest: data.attest,
               rpOrigin: event.origin,
             },
       )
@@ -88,10 +90,10 @@ export function App() {
     closeTimer.current = window.setTimeout(() => window.close(), delayMs)
   }
 
-  if (request.attest) {
+  if (config.attest) {
     return (
       <Frame>
-        <AttestFlow request={request} attest={request.attest} send={send} />
+        <AttestFlow request={request} attest={config.attest} send={send} />
       </Frame>
     )
   }
