@@ -19,7 +19,7 @@ import {
 import "@rainbow-me/rainbowkit/styles.css"
 import type { Chain } from "viem"
 
-import { createAttestContext, hasCredential, mintCredential } from "./attest"
+import { createAttestContext, mintCredential } from "./attest"
 import { resolveAttestChain, rpcOverrideFromLocation } from "./chains"
 import { buildWalletSetup, type WalletSetup } from "./wallet"
 
@@ -183,7 +183,7 @@ function AttestFlowBody({
     const run = async () => {
       const policyId = BigInt(attest.policyId)
 
-      if (await hasCredential(ctx, account, policyId)) {
+      if (await ctx.attest.hasCredential(account, policyId)) {
         if (stale()) return
         setState({ step: "already-verified", account })
         emit({

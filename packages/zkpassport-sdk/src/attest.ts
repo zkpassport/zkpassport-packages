@@ -188,6 +188,13 @@ export class AttestClient {
   }
 
   /**
+   * True while the wallet holds an unexpired credential for the policy.
+   */
+  async hasCredential(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
+    return (await this.balanceOf(wallet, policyId)) > 0n
+  }
+
+  /**
    * Unix timestamp (seconds, as bigint) the credential is valid until; 0 means never issued or
    * revoked.
    */

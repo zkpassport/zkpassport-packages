@@ -18,14 +18,6 @@ export function createAttestContext(config: PopupAttestConfig, chain: Chain): At
   }
 }
 
-export async function hasCredential(
-  ctx: AttestContext,
-  wallet: `0x${string}`,
-  policyId: bigint,
-): Promise<boolean> {
-  return (await ctx.attest.balanceOf(wallet, policyId)) > 0n
-}
-
 /**
  * The single submission path for ZKPassportCredentials.issue(). Any connected
  * account works as the sender — the credential goes to the wallet bound into

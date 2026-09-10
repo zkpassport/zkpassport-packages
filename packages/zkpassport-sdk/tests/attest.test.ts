@@ -72,6 +72,15 @@ function stubClient(
 }
 
 describe("AttestClient reads", () => {
+  test("hasCredential is the expiry-masked balance check", async () => {
+    let balance = 1n
+    const { client } = stubClient(() => balance)
+    const attest = new AttestClient({ client, address: REGISTRY })
+    expect(await attest.hasCredential(WALLET, POLICY_ID)).toBe(true)
+    balance = 0n
+    expect(await attest.hasCredential(WALLET, POLICY_ID)).toBe(false)
+  })
+
   test("getPolicy forwards args and returns the decoded policy", async () => {
     const { client, readCalls } = stubClient(() => SAMPLE_POLICY)
     const attest = new AttestClient({ client, address: REGISTRY })
