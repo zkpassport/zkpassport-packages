@@ -42,6 +42,16 @@
         "types": "./dist/cjs/query.d.cts",
         "default": "./dist/cjs/query.cjs"
       }
+    },
+    "./attest-registries": {
+      "import": {
+        "types": "./dist/esm/attest-registries.d.ts",
+        "default": "./dist/esm/attest-registries.js"
+      },
+      "require": {
+        "types": "./dist/cjs/attest-registries.d.cts",
+        "default": "./dist/cjs/attest-registries.cjs"
+      }
     }
   },
   "scripts": {

@@ -5,9 +5,10 @@ const isDev = process.env.DEV_BUILD === "true"
 export default defineConfig(
   (["esm", "cjs"] as const).map((format) => ({
     entry: {
-      index: "src/index.ts",
-      popup: "src/popup/index.ts",
-      query: "src/offline-query.ts",
+      "index": "src/index.ts",
+      "popup": "src/popup/index.ts",
+      "query": "src/offline-query.ts",
+      "attest-registries": "src/attest/registries.ts",
     },
     dts: {
       compilerOptions: {
