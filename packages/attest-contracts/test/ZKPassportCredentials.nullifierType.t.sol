@@ -15,12 +15,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(21)),
-            _requirements(
-                PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER,
-                0,
-                PolicyEvaluatorV1.SanctionsMode.NONE,
-                noCountries
-            ),
+            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             7 days,
             "https://p.example/s",
             false,
@@ -29,12 +24,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         nonSaltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(22)),
-            _requirements(
-                PolicyEvaluatorV1.PolicyNullifierType.NON_SALTED_NULLIFIER,
-                0,
-                PolicyEvaluatorV1.SanctionsMode.NONE,
-                noCountries
-            ),
+            _requirements(NullifierType.NON_SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             7 days,
             "https://p.example/n",
             false,
@@ -48,7 +38,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
                 evaluator.decodeRequirements(zkPassportCredentials.getPolicy(saltedPolicyId).requirements)
                 .uniqueIdentifierType
             ),
-            uint8(PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER)
+            uint8(NullifierType.SALTED_NULLIFIER)
         );
         uint256 defaultPolicyId = _createDefaultPolicy();
         assertEq(
@@ -56,7 +46,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
                 evaluator.decodeRequirements(zkPassportCredentials.getPolicy(defaultPolicyId).requirements)
                 .uniqueIdentifierType
             ),
-            uint8(PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER)
+            uint8(NullifierType.NONE_NULLIFIER)
         );
     }
 
@@ -100,9 +90,9 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         assertEq(zkPassportCredentials.balanceOf(wallet, defaultPolicyId), 1);
     }
 
-    function testSaltedPolicyAcceptsMockSaltedNullifier() public {
+    function testSaltedPolicyRejectsMockSaltedNullifier() public {
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
-        assertEq(zkPassportCredentials.balanceOf(wallet, saltedPolicyId), 1);
     }
 
     function testSaltedPolicyRejectsMockNonSaltedNullifier() public {
@@ -110,15 +100,32 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER));
     }
 
-    function testNonSaltedPolicyAcceptsMockNonSaltedNullifier() public {
+    function testNonSaltedPolicyRejectsMockNonSaltedNullifier() public {
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(
             nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER)
         );
-        assertEq(zkPassportCredentials.balanceOf(wallet, nonSaltedPolicyId), 1);
     }
 
     function testNonSaltedPolicyRejectsMockSaltedNullifier() public {
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
+    }
+
+    function testMockSaltedPolicyMatchesMockSaltedNullifierExactly() public {
+        vm.prank(creator);
+        uint256 mockSaltedPolicyId = zkPassportCredentials.createPolicy(
+            bytes32(uint256(23)),
+            _requirements(NullifierType.SALTED_MOCK_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            7 days,
+            "https://p.example/ms",
+            false,
+            false
+        );
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        zkPassportCredentials.issue(mockSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+
+        zkPassportCredentials.issue(mockSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
+        assertEq(zkPassportCredentials.balanceOf(wallet, mockSaltedPolicyId), 1);
     }
 }

@@ -35,19 +35,19 @@ contract ZKPassportCredentialsTestBase is Test {
         mockHelper.setProofTimestamp(block.timestamp);
     }
 
-    function _emptyRequirements(PolicyEvaluatorV1.PolicyNullifierType uniqueIdentifierType)
+    function _emptyRequirements(NullifierType uniqueIdentifierType)
         internal
         view
         returns (PolicyEvaluatorV1.PolicyRequirements memory r)
     {
         r.uniqueIdentifierType = uniqueIdentifierType;
-        r.enforceUniqueness = uniqueIdentifierType != PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER;
+        r.enforceUniqueness = uniqueIdentifierType != NullifierType.NONE_NULLIFIER;
         r.includedNationalities = noCountries;
         r.excludedNationalities = noCountries;
     }
 
     function _requirements(
-        PolicyEvaluatorV1.PolicyNullifierType uniqueIdentifierType,
+        NullifierType uniqueIdentifierType,
         uint8 minAge,
         PolicyEvaluatorV1.SanctionsMode sanctionsMode,
         string[] memory excludedNationalities
@@ -63,12 +63,7 @@ contract ZKPassportCredentialsTestBase is Test {
         vm.prank(creator);
         return zkPassportCredentials.createPolicy(
             bytes32(uint256(1)),
-            _requirements(
-                PolicyEvaluatorV1.PolicyNullifierType.NONE_NULLIFIER,
-                0,
-                PolicyEvaluatorV1.SanctionsMode.NONE,
-                noCountries
-            ),
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
             "https://policy.example/1",
             false,

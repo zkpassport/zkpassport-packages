@@ -32,23 +32,18 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
-    function testNonDevEvaluatorDoesNotFoldMockNullifierTypes() public {
+    function testNonDevEvaluatorRejectsMockNullifierTypeClaims() public {
         vm.prank(creator);
         uint256 saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(61)),
-            _requirements(
-                PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER,
-                0,
-                PolicyEvaluatorV1.SanctionsMode.NONE,
-                noCountries
-            ),
+            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
             "x",
             false,
             false
         );
-        // A mock nullifier type cannot come out of a proof a non-dev evaluator accepts, but a
-        // submission may still claim one in its public inputs; it never matches a real type.
+        // Nullifier types match exactly on every deployment, so a submission claiming a mock
+        // type in its public inputs never satisfies a policy that requires the real type.
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }

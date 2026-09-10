@@ -61,12 +61,7 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         uint256 v1PolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(53)),
-            _requirements(
-                PolicyEvaluatorV1.PolicyNullifierType.SALTED_NULLIFIER,
-                0,
-                PolicyEvaluatorV1.SanctionsMode.NONE,
-                noCountries
-            ),
+            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
             "x",
             false,
