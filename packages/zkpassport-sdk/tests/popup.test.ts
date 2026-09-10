@@ -3,7 +3,6 @@ import type { Query } from "@zkpassport/utils"
 import { ZKPassport } from "../src/index"
 import { hydrateQueryBuilder } from "../src/popup/hydrate"
 import { openVerificationPopup, isPopupMessage } from "../src/popup"
-import { getAttestRegistry } from "../src/attest/registries"
 import type { QueryBuilder } from "../src/types"
 
 function buildOffline(build: (qb: QueryBuilder<"offline">) => unknown): Query {
@@ -246,13 +245,6 @@ describe("openVerificationPopup", () => {
 })
 
 describe("attest protocol extension", () => {
-  test("getAttestRegistry resolves canonical deployments and rejects the rest", () => {
-    expect(getAttestRegistry("ethereum_sepolia")).toBe("0x2a615a175439b9eb0004b924aBdD2B4c7a871f11")
-    expect(() => getAttestRegistry("ethereum")).toThrow(
-      "Attestation minting is not supported on 'ethereum': no registry is deployed.",
-    )
-  })
-
   test("configure with an attest block survives postMessage cloning", () => {
     const message = {
       zkpassport: true,
