@@ -123,11 +123,17 @@ export {
 
 export {
   AttestClient,
+  createAttestContext,
+  submitIssueCall,
+  type AttestContext,
   type AttestPolicy,
   type AttestPolicyRequirements,
   type AttestPolicySummary,
   type AttestReadClient,
 } from "./attest"
+export { getAttestChain } from "./attest/chains"
+export { getAttestRegistry } from "./attest/registries"
+export { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 
 export * from "./types"
 export { createOfflineQuery } from "./offline-query"
