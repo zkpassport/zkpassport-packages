@@ -1,9 +1,11 @@
-import type { PublicClient } from "viem"
-import { encodeAbiParameters, getAbiItem } from "viem"
+import type { Chain, PublicClient, WalletClient } from "viem"
+import { createPublicClient, encodeAbiParameters, getAbiItem, http } from "viem"
+import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType, ProofResult } from "@zkpassport/utils"
-import { SolidityVerifier } from "./solidity-verifier"
-import { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
-import { PolicyEvaluatorV1Abi } from "./assets/abi/policy-evaluator-v1"
+import { getAttestRegistry } from "./registries"
+import { SolidityVerifier } from "../solidity-verifier"
+import { ZKPassportCredentialsAbi } from "../assets/abi/zkpassport-credentials"
+import { PolicyEvaluatorV1Abi } from "../assets/abi/policy-evaluator-v1"
 
 /** Structural slice of viem's PublicClient. */
 export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs" | "getBlockNumber">
@@ -188,6 +190,13 @@ export class AttestClient {
   }
 
   /**
+   * True while the wallet holds an unexpired credential for the policy.
+   */
+  async hasCredential(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
+    return (await this.balanceOf(wallet, policyId)) > 0n
+  }
+
+  /**
    * Unix timestamp (seconds, as bigint) the credential is valid until; 0 means never issued or
    * revoked.
    */
@@ -309,4 +318,58 @@ export class AttestClient {
     })
     return encodeAbiParameters(PROOF_DATA_ABI, [params] as never)
   }
+}
+
+export type AttestContext = {
+  chain: Chain
+  publicClient: PublicClient
+  attest: AttestClient
+}
+
+/**
+ * Read context for the canonical registry on a chain: a public client on the
+ * chain's default RPC plus an AttestClient bound to the registry. The registry
+ * is derived from the viem chain's id, so chains without a recorded
+ * deployment are rejected here.
+ */
+export function createAttestContext(chain: Chain): AttestContext {
+  const publicClient = createPublicClient({ chain, transport: http() })
+  const attest = new AttestClient({
+    client: publicClient,
+    address: getAttestRegistry(getChainFromId(chain.id)),
+  })
+  return { chain, publicClient, attest }
+}
+
+/**
+ * Submit ZKPassportCredentials.issue() and wait for inclusion. Any sender
+ * works — the credential lands on the wallet the proof is bound to — so a
+ * relayer or sponsored-gas flow replaces this function and nothing upstream
+ * changes. The wallet client must already be on the context's chain.
+ */
+export async function submitIssueCall(
+  ctx: AttestContext,
+  call: {
+    address: `0x${string}`
+    functionName: "issue"
+    abi: readonly unknown[]
+    args: readonly [bigint, `0x${string}`]
+  },
+  wallet: { client: WalletClient; account: `0x${string}` },
+  onSubmitted?: (hash: `0x${string}`) => void,
+): Promise<`0x${string}`> {
+  const hash = await wallet.client.writeContract({
+    address: call.address,
+    abi: call.abi as never,
+    functionName: call.functionName,
+    args: call.args as never,
+    account: wallet.account,
+    chain: ctx.chain,
+  })
+  onSubmitted?.(hash)
+  const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash })
+  if (receipt.status === "reverted") {
+    throw new Error(`Credential mint reverted (tx ${hash}).`)
+  }
+  return hash
 }
