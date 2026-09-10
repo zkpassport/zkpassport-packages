@@ -1,5 +1,10 @@
 import { AttestClient, NullifierType } from "@zkpassport/sdk"
-import type { AttestPolicy, AttestReadClient, SupportedChain } from "@zkpassport/sdk"
+import type {
+  AttestPolicy,
+  AttestReadClient,
+  RequestedNullifierType,
+  SupportedChain,
+} from "@zkpassport/sdk"
 import type { ZKPassportQRCodeDisplayOptions, ZKPassportQRCodeOptions } from "./types"
 
 type CardResult = Parameters<NonNullable<ZKPassportQRCodeOptions["onResult"]>>[0]
@@ -106,15 +111,7 @@ export async function buildAttestCardOptions(
     // attest flow needs a verdict before minting even where that API is not
     // reachable (local dev has no CORS grant) — verify locally, API as backup.
     verifierMode: "auto",
-    // The requirements' uniqueIdentifierType is the request's, except NONE: the
-    // contract skips the type check for those policies, and the app includes
-    // a non-salted nullifier even when NONE is requested — the sdk's
-    // requested-type enforcement would reject that mismatch, so NONE stays
-    // unconstrained.
-    uniqueIdentifierType:
-      requirements.uniqueIdentifierType === NullifierType.NONE
-        ? undefined
-        : requirements.uniqueIdentifierType,
+    uniqueIdentifierType: requestedNullifierType(requirements.uniqueIdentifierType),
     query: (qb) => {
       let q = qb
       if (requirements.minAge > 0) q = q.gte("age", requirements.minAge)
@@ -129,11 +126,12 @@ export async function buildAttestCardOptions(
       if (requirements.sanctionsMode) {
         q = q.sanctions("all", "all", { strict: requirements.sanctionsMode === "strict" })
       }
-      // The SDK requires strict facematch whenever the salted nullifier is
+      // The SDK requires strict facematch whenever a salted nullifier is
       // used, so it overrides whatever the policy asks for (createPolicy
-      // rejects the one contradictory pairing, SALTED + regular).
+      // rejects the contradictory pairings, salted types + regular).
       const facematchMode =
-        requirements.uniqueIdentifierType === NullifierType.SALTED
+        requirements.uniqueIdentifierType === NullifierType.SALTED ||
+        requirements.uniqueIdentifierType === NullifierType.SALTED_MOCK
           ? "strict"
           : requirements.facematchMode
       if (facematchMode) q = q.facematch(facematchMode)
@@ -149,6 +147,21 @@ export async function buildAttestCardOptions(
     onError: options.onError,
     onResult: buildResultHandler({ attest, options, policyId, wallet, scope, domain }),
   }
+}
+
+/**
+ * The request can only name real nullifier types; a mock-type policy maps to a request for its
+ * real twin, which a mock document (dev mode) then answers with the mock type the policy
+ * requires — the contract matches types exactly, with no folding. NONE stays unconstrained:
+ * the contract skips the type check for those policies, and the app includes a non-salted
+ * nullifier even when NONE is requested — the sdk's requested-type enforcement would reject
+ * that mismatch.
+ */
+function requestedNullifierType(policyType: NullifierType): RequestedNullifierType | undefined {
+  if (policyType === NullifierType.NONE) return undefined
+  if (policyType === NullifierType.NON_SALTED_MOCK) return NullifierType.NON_SALTED
+  if (policyType === NullifierType.SALTED_MOCK) return NullifierType.SALTED
+  return policyType
 }
 
 function buildResultHandler(context: {

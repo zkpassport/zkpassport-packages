@@ -27,8 +27,8 @@ const basePolicy: AttestPolicy = {
 }
 
 /**
- * decodeRequirements as the contract returns it: raw enum numbers, with uniqueIdentifierType
- * in the evaluator's three-member PolicyNullifierType numbering (0 non-salted, 1 salted, 2 none).
+ * decodeRequirements as the contract returns it: raw enum numbers. uniqueIdentifierType uses
+ * the shared NullifierType numbering (0 non-salted, 1 salted, 2-3 mock twins, 4 none).
  */
 type RawRequirements = Omit<
   AttestPolicyRequirements,
@@ -41,7 +41,8 @@ type RawRequirements = Omit<
 
 const POLICY_NON_SALTED = 0
 const POLICY_SALTED = 1
-const POLICY_NONE = 2
+const POLICY_SALTED_MOCK = 3
+const POLICY_NONE = 4
 
 const baseRequirements: RawRequirements = {
   uniqueIdentifierType: POLICY_NON_SALTED,
@@ -123,6 +124,18 @@ describe("buildAttestCardOptions request props", () => {
     const options = await buildAttestCardOptions({
       ...baseOptions(basePolicy),
       ...{ client: stubChain(basePolicy, salted).client },
+    })
+    expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
+  })
+
+  test("mock-type policies request the real twin, which dev mode answers with the mock type", async () => {
+    const mockSalted: RawRequirements = {
+      ...baseRequirements,
+      uniqueIdentifierType: POLICY_SALTED_MOCK,
+    }
+    const options = await buildAttestCardOptions({
+      ...baseOptions(basePolicy),
+      ...{ client: stubChain(basePolicy, mockSalted).client },
     })
     expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
   })
@@ -239,16 +252,18 @@ describe("buildAttestCardOptions query translation", () => {
   })
 
   test("salted policy adds strict facematch, required by the salted nullifier", async () => {
-    const calls = await queryCalls({
-      ...baseRequirements,
-      uniqueIdentifierType: POLICY_SALTED,
-    })
-    expect(calls).toEqual([
-      { method: "facematch", args: ["strict"] },
-      { method: "bind", args: ["user_address", WALLET] },
-      { method: "bind", args: ["chain", "ethereum_sepolia"] },
-      { method: "done", args: [] },
-    ])
+    for (const salted of [POLICY_SALTED, POLICY_SALTED_MOCK]) {
+      const calls = await queryCalls({
+        ...baseRequirements,
+        uniqueIdentifierType: salted,
+      })
+      expect(calls).toEqual([
+        { method: "facematch", args: ["strict"] },
+        { method: "bind", args: ["user_address", WALLET] },
+        { method: "bind", args: ["chain", "ethereum_sepolia"] },
+        { method: "done", args: [] },
+      ])
+    }
   })
 
   test("policy without dedup needs no nullifier, so no facematch", async () => {
