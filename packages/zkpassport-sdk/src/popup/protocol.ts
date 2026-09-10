@@ -39,11 +39,11 @@ export type PopupRequestConfig = {
 }
 
 /**
- * Ready-to-send ZKPassportCredentials.issue() call. `abi` is the registry ABI as
- * plain data — cast it for your client (e.g. viem's `Abi`); the popup keeps
- * this type dependency-free so relying parties don't inherit viem's types.
- * The second argument is the proof data pre-encoded per the policy's pinned
- * evaluator schema; the contract treats it as opaque bytes.
+ * Ready-to-send ZKPassportCredentials.issue() call. `abi` is the
+ * `ZKPassportCredentials` ABI as plain data.
+ * Cast it for your client (e.g. viem's `Abi`).
+ * The first argument is the `policyId`.
+ * The second argument is the proof data.
  */
 export type PopupAttestIssueCall = {
   address: `0x${string}`
@@ -54,7 +54,8 @@ export type PopupAttestIssueCall = {
 
 /**
  * issue() checks the wallet bound into the proof, not the transaction sender,
- * so an "unminted" issueCall may be submitted by any account the RP controls.
+ * so an "unminted" issueCall may be submitted by any account the relying party
+ * controls.
  * `walletAddress` is the recipient account the user selected in the popup.
  */
 export type PopupAttestOutcome =
