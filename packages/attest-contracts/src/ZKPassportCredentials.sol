@@ -17,6 +17,7 @@ contract ZKPassportCredentials is ERC1155 {
         uint64 credentialDuration;
         bool ownerIssuable;
         bool ownerRevocable;
+        bool ownerEditable;
         address evaluator;
         bytes requirements;
         string metadataURL;
@@ -35,6 +36,7 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__NothingToRevoke();
     error ZKPassportCredentials__Paused();
     error ZKPassportCredentials__NotIssuableByOwner();
+    error ZKPassportCredentials__NotEditable();
     error ZKPassportCredentials__WalletBanned();
     error ZKPassportCredentials__NotBanned();
     error ZKPassportCredentials__NotAuthorized();
@@ -42,6 +44,7 @@ contract ZKPassportCredentials is ERC1155 {
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
+    event PolicyRequirementsChanged(uint256 indexed policyId);
     event PolicyRetired(uint256 indexed policyId);
     event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
     event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
@@ -106,6 +109,8 @@ contract ZKPassportCredentials is ERC1155 {
     ///        ownerIssue(); immutable after creation.
     /// @param ownerRevocable Whether the owner is allowed to revoke a holder's credential via
     ///        revoke(), which also bans the wallet from the policy; immutable after creation.
+    /// @param ownerEditable Whether the owner is allowed to change the policy's requirements
+    ///        after creation via setRequirements(); immutable after creation.
     /// @return policyId The policy id, also the ERC-1155 tokenId of its credentials.
     function createPolicy(
         bytes32 salt,
@@ -113,7 +118,8 @@ contract ZKPassportCredentials is ERC1155 {
         uint64 credentialDuration,
         string calldata metadataURL,
         bool ownerIssuable,
-        bool ownerRevocable
+        bool ownerRevocable,
+        bool ownerEditable
     ) external whenNotPaused returns (uint256 policyId) {
         if (credentialDuration == 0) {
             revert ZKPassportCredentials__InvalidCredentialDuration();
@@ -129,6 +135,7 @@ contract ZKPassportCredentials is ERC1155 {
         policy.credentialDuration = credentialDuration;
         policy.ownerIssuable = ownerIssuable;
         policy.ownerRevocable = ownerRevocable;
+        policy.ownerEditable = ownerEditable;
         policy.evaluator = address(evaluator);
         policy.requirements = requirements;
         policy.metadataURL = metadataURL;
@@ -149,6 +156,22 @@ contract ZKPassportCredentials is ERC1155 {
     function setMetadataURL(uint256 policyId, string calldata url) external onlyPolicyOwner(policyId) {
         _policies[policyId].metadataURL = url;
         emit PolicyMetadataURLUpdated(policyId, url);
+    }
+
+    /// @notice Replace a policy's requirements. Only available when the policy opted in at
+    ///         creation (`ownerEditable==true`). The new requirements are validated by the
+    ///         policy's pinned evaluator and apply to all future issuance and renewals;
+    ///         already-issued credentials are untouched until they expire or renew.
+    /// @param policyId The policy to update; only its owner may call.
+    /// @param requirements The new requirement bytes, encoded per the policy's pinned
+    ///        evaluator schema.
+    function setRequirements(uint256 policyId, bytes calldata requirements) external onlyPolicyOwner(policyId) {
+        Policy storage policy = _policies[policyId];
+        if (!policy.ownerEditable) revert ZKPassportCredentials__NotEditable();
+        IPolicyEvaluator(policy.evaluator).validateRequirements(requirements);
+
+        policy.requirements = requirements;
+        emit PolicyRequirementsChanged(policyId);
     }
 
     /// @notice Permanently stop new issuance and renewals for a policy; existing credentials stay
