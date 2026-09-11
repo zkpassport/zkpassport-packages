@@ -1,0 +1,11 @@
+{
+  "name": "attest-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "check": "forge fmt --check && forge lint src",
+    "format": "forge fmt"
+  }
+}

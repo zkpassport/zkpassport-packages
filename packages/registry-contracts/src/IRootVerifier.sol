@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2026 ZKPassport
+/*
+ ______ _     _  _____  _______ _______ _______  _____   _____   ______ _______
+  ____/ |____/  |_____] |_____| |______ |______ |_____] |     | |_____/    |
+ /_____ |    \_ |       |     | ______| ______| |       |_____| |    \_    |
+
+*/
+
+pragma solidity ^0.8.30;
+
+import {BoundData, FaceMatchMode, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
+
+interface IVerifierHelper {
+    function getBoundData(bytes calldata committedInputs) external view returns (BoundData memory);
+    function isAgeAboveOrEqual(uint8 minAge, bytes calldata committedInputs) external view returns (bool);
+    function isNationalityIn(string[] memory countryList, bytes calldata committedInputs) external view returns (bool);
+    function isNationalityOut(string[] memory countryList, bytes calldata committedInputs) external view returns (bool);
+    function isFaceMatchVerified(FaceMatchMode faceMatchMode, OS os, bytes calldata committedInputs)
+        external
+        view
+        returns (bool);
+    function enforceSanctionsRoot(uint256 currentTimestamp, bool isStrict, bytes calldata committedInputs) external view;
+    function verifyScopes(bytes32[] calldata publicInputs, string calldata scope, string calldata subscope)
+        external
+        view
+        returns (bool);
+    function getProofTimestamp(bytes32[] calldata publicInputs) external view returns (uint256);
+}
+
+interface IRootVerifier {
+    function verify(ProofVerificationParams calldata params)
+        external
+        view
+        returns (bool valid, bytes32 uniqueIdentifier, IVerifierHelper helper);
+}
