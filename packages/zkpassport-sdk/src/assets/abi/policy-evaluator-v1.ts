@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit ff39efce). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 7ee650d6). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -129,7 +129,7 @@ export const PolicyEvaluatorV1Abi = [
           {
             name: "uniqueIdentifierType",
             type: "uint8",
-            internalType: "enum PolicyEvaluatorV1.PolicyNullifierType",
+            internalType: "enum NullifierType",
           },
           {
             name: "enforceUniqueness",
@@ -337,6 +337,11 @@ export const PolicyEvaluatorV1Abi = [
   {
     type: "error",
     name: "PolicyEvaluator__WrongScope",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__ZeroAddress",
     inputs: [],
   },
 ] as const
