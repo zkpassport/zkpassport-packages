@@ -4,31 +4,32 @@ import {
   type VerifyWithZKPassportButtonOptions,
 } from "../verify-button"
 
-type ButtonTheme = NonNullable<VerifyWithZKPassportButtonOptions["theme"]>
-
-export function readButtonOptions(element: HTMLElement): VerifyWithZKPassportButtonOptions | null {
-  const attribute = (name: string) => element.dataset[name] || undefined
-  const policyId = attribute("policyId")
+export function readButtonOptions(
+  element: HTMLElement,
+  eventTarget: EventTarget = element,
+): VerifyWithZKPassportButtonOptions | null {
+  const dataAttribute = (name: string) => element.dataset[name] || undefined
+  const link = element.tagName === "A" ? (element as HTMLAnchorElement) : undefined
+  const linkUrl = link?.href ? new URL(link.href) : undefined
+  const policyId = dataAttribute("policyId") ?? linkUrl?.searchParams.get("policy")
   if (!policyId) return null
 
-  const size = attribute("size")
-  const emit = (name: string, detail?: unknown, cancelable = false) =>
-    element.dispatchEvent(
-      new CustomEvent(`zkpassport:${name}`, { detail, bubbles: true, cancelable }),
-    )
+  const size = dataAttribute("size")
+  const emit = (name: string, init: CustomEventInit = {}) =>
+    eventTarget.dispatchEvent(new CustomEvent(`zkpassport:${name}`, { bubbles: true, ...init }))
 
   return {
     policyId,
-    label: attribute("label"),
-    theme: attribute("theme") as ButtonTheme | undefined,
+    label: dataAttribute("label") ?? (link?.textContent?.trim() || undefined),
+    theme: dataAttribute("theme") as VerifyWithZKPassportButtonOptions["theme"],
     size: size && size in BUTTON_FONT_SIZES ? (size as VerifyButtonSize) : undefined,
     devMode: element.hasAttribute("data-dev-mode"),
-    popupUrl: attribute("popupUrl"),
+    popupUrl: dataAttribute("popupUrl") ?? linkUrl?.href,
     query: (builder) => builder.done(),
     // preventDefault() on the success event shows the error state instead
-    onSuccess: (response) => emit("success", response, true),
+    onSuccess: (response) => emit("success", { detail: response, cancelable: true }),
     onReject: () => emit("rejected"),
-    onError: (message) => emit("error", message),
+    onError: (message) => emit("error", { detail: message }),
     onClose: () => emit("closed"),
   }
 }

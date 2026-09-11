@@ -94,10 +94,12 @@ Outside React, `createVerification(getOptions, onStateChange)` drives your own e
 
 ## Script tag
 
-For sites without a bundler, one script serves the verify button from the popup's host. Every `[data-zkpassport]` element becomes a button; the query comes from a dashboard policy, so the HTML only names the policy.
+For sites without a bundler, one script serves the verify button from the popup's host. Every element with the class `zkpassport-button` becomes a button. The query comes from a dashboard policy, so the HTML only names the policy: a link carries it in its URL and its text becomes the label, any other element names it in `data-policy-id`.
 
 ```html
-<div data-zkpassport data-policy-id="age-check" data-label="Verify your age"></div>
+<a class="zkpassport-button" href="https://verify.zkpassport.id/?policy=age-check">Verify your age</a>
+<!-- or -->
+<div class="zkpassport-button" data-policy-id="age-check" data-label="Verify your age"></div>
 
 <script src="https://verify.zkpassport.id/v1/zkpassport.js"></script>
 <script>
@@ -108,7 +110,7 @@ For sites without a bundler, one script serves the verify button from the popup'
 </script>
 ```
 
-Optional attributes: `data-label`, `data-theme`, `data-size`, `data-dev-mode`, `data-popup-url`. The other outcomes fire `zkpassport:rejected`, `zkpassport:error` (`detail` is the message) and `zkpassport:closed`. `ZKPassport.scan(container)` mounts buttons added to the page later.
+The link is replaced by the button and keeps its class names, so listen for events on `document` or another ancestor. Optional attributes on either form: `data-label`, `data-theme`, `data-size`, `data-dev-mode`, `data-popup-url`. The other outcomes fire `zkpassport:rejected`, `zkpassport:error` (`detail` is the message) and `zkpassport:closed`. `ZKPassport.scan(container)` mounts buttons added to the page later.
 
 For your own button, use `ZKPassport.createVerification(getOptions, onStateChange)` as described above, or `ZKPassport.mountVerifyButton(element, options)` for the branded button with JS callbacks.
 
