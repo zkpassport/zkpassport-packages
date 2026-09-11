@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit ff39efce). Do not edit by hand.
+// Generated from packages/attest-contracts (commit d74aa4e9). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -141,6 +141,11 @@ export const ZKPassportCredentialsAbi = [
         type: "bool",
         internalType: "bool",
       },
+      {
+        name: "ownerEditable",
+        type: "bool",
+        internalType: "bool",
+      },
     ],
     outputs: [
       {
@@ -197,6 +202,11 @@ export const ZKPassportCredentialsAbi = [
           },
           {
             name: "ownerRevocable",
+            type: "bool",
+            internalType: "bool",
+          },
+          {
+            name: "ownerEditable",
             type: "bool",
             internalType: "bool",
           },
@@ -546,6 +556,24 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
+    name: "setRequirements",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "supportsInterface",
     inputs: [
       {
@@ -867,6 +895,19 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "event",
+    name: "PolicyRequirementsChanged",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "PolicyRetired",
     inputs: [
       {
@@ -1145,6 +1186,11 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__NotBanned",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZKPassportCredentials__NotEditable",
     inputs: [],
   },
   {
