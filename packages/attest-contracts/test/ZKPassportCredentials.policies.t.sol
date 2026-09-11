@@ -97,6 +97,24 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         );
     }
 
+    function testCreatePolicyRejectsDurationAboveMax() public {
+        uint64 max = zkPassportCredentials.MAX_CREDENTIAL_DURATION();
+        bytes memory requirements =
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries);
+
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), requirements, max + 1, "x", false, false, false);
+
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
+        zkPassportCredentials.createPolicy(bytes32(0), requirements, type(uint64).max, "x", false, false, false);
+
+        vm.prank(creator);
+        uint256 policyId = zkPassportCredentials.createPolicy(bytes32(0), requirements, max, "x", false, false, false);
+        assertEq(zkPassportCredentials.getPolicy(policyId).credentialDuration, max);
+    }
+
     function testPolicyKeepsItsCreationEvaluatorAfterSwap() public {
         uint256 policyId = _createDefaultPolicy();
         PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(mockVerifier, true);

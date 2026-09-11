@@ -57,6 +57,10 @@ contract ZKPassportCredentials is ERC1155 {
     event WalletBanned(address indexed wallet, uint256 indexed policyId);
     event WalletUnbanned(address indexed wallet, uint256 indexed policyId);
 
+    /// @notice Upper bound for a policy's credentialDuration, keeping block.timestamp +
+    ///         credentialDuration far below the uint64 range heldUntil is stored in.
+    uint64 public constant MAX_CREDENTIAL_DURATION = 10 * 365 days;
+
     string public domain;
     address public admin;
     IPolicyEvaluator public policyEvaluator;
@@ -96,7 +100,7 @@ contract ZKPassportCredentials is ERC1155 {
     /// @param requirements Opaque requirement bytes whose schema the current policy evaluator
     ///        owns.
     /// @param credentialDuration Seconds a credential stays valid after each issuance or
-    ///        renewal; must be non-zero.
+    ///        renewal; must be between 1 and MAX_CREDENTIAL_DURATION (10 years).
     /// @param metadataURL Display metadata for the policy's token, served by uri(policyId)
     /// @param ownerIssuable Whether the owner is allowed to issue credentials without a proof via
     ///        ownerIssue(); immutable after creation.
@@ -114,7 +118,7 @@ contract ZKPassportCredentials is ERC1155 {
         bool ownerBannable,
         bool ownerEditable
     ) external whenNotPaused returns (uint256 policyId) {
-        if (credentialDuration == 0) {
+        if (credentialDuration == 0 || credentialDuration > MAX_CREDENTIAL_DURATION) {
             revert ZKPassportCredentials__InvalidCredentialDuration();
         }
         IPolicyEvaluator evaluator = policyEvaluator;
@@ -245,6 +249,10 @@ contract ZKPassportCredentials is ERC1155 {
         returns (uint64 newHeldUntil)
     {
         newHeldUntil = uint64(block.timestamp + credentialDuration);
+        // MAX_CREDENTIAL_DURATION keeps the sum well inside uint64, but a truncated heldUntil
+        // would mint a token that balanceOf masks forever, so never let an expiry land in the
+        // past.
+        if (newHeldUntil <= block.timestamp) revert ZKPassportCredentials__InvalidCredentialDuration();
         heldUntil[wallet][policyId] = newHeldUntil;
 
         if (super.balanceOf(wallet, policyId) == 0) {
