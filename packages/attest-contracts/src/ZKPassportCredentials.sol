@@ -153,6 +153,7 @@ contract ZKPassportCredentials is ERC1155 {
     function setMetadataURL(uint256 policyId, string calldata url) external onlyPolicyOwner(policyId) {
         _policies[policyId].metadataURL = url;
         emit PolicyMetadataURLUpdated(policyId, url);
+        emit URI(url, policyId);
     }
 
     /// @notice Replace a policy's requirements. Only available when the policy opted in at

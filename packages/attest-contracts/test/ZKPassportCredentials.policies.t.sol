@@ -6,6 +6,7 @@ import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
+import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
     function setUp() public {
@@ -117,7 +118,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
 
     function testPolicyKeepsItsCreationEvaluatorAfterSwap() public {
         uint256 policyId = _createDefaultPolicy();
-        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(mockVerifier, true);
+        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(IRootVerifier(makeAddr("verifier")), true);
         vm.prank(admin);
         zkPassportCredentials.setPolicyEvaluator(newEvaluator);
 
@@ -388,6 +389,14 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
 
         zkPassportCredentials.issue(policyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
+    }
+
+    function testSetMetadataURLEmitsStandardURIEvent() public {
+        uint256 policyId = _createDefaultPolicy();
+        vm.prank(creator);
+        vm.expectEmit(false, true, false, true);
+        emit IERC1155.URI("https://policy.example/updated", policyId);
+        zkPassportCredentials.setMetadataURL(policyId, "https://policy.example/updated");
     }
 
     function testGetPolicyRevertsWhenUnknown() public {
