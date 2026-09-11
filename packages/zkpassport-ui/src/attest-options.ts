@@ -133,7 +133,7 @@ function buildResultHandler(context: {
     const proof = response.proofs?.find((p) => p.name?.startsWith("outer_evm"))
     if (response.verified && proof) {
       try {
-        issueCall = attest.getIssueCall({ policyId, proof, domain, scope, devMode })
+        issueCall = attest.buildIssueCall({ policyId, proof, domain, scope, devMode })
       } catch (reason) {
         options.onError?.(reason instanceof Error ? reason.message : String(reason))
       }
