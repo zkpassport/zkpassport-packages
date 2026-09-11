@@ -7,12 +7,15 @@ import {
 } from "@zkpassport/sdk/popup"
 import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 
+import { AttestFlow } from "./AttestFlow"
+
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
 type Configuration = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
+  attest: PopupConfigureMessage["attest"]
   // Browser-attested origin of the relying party page that opened this popup.
   rpOrigin: string
 }
@@ -38,6 +41,7 @@ export function App() {
           : {
               request: data.request,
               query: data.query,
+              attest: data.attest,
               rpOrigin: event.origin,
             },
       )
@@ -86,6 +90,14 @@ export function App() {
     closeTimer.current = window.setTimeout(() => window.close(), delayMs)
   }
 
+  if (config.attest) {
+    return (
+      <Frame>
+        <AttestFlow request={request} attest={config.attest} send={send} />
+      </Frame>
+    )
+  }
+
   return (
     <Frame>
       <ZKPassportQRCode
@@ -104,7 +116,12 @@ export function App() {
         onRequestReceived={() => send({ type: "request-received" })}
         onGeneratingProof={() => send({ type: "generating" })}
         onProofGenerated={(proof) =>
-          send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
+          send({
+            type: "proof-generated",
+            index: proof.index,
+            total: proof.total,
+            name: proof.name,
+          })
         }
         onSuccess={({ proofs, result }) => {
           send({ type: "success", proofs, result })

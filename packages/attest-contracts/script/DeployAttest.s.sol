@@ -32,7 +32,8 @@ contract DeployAttestScript is Script {
         vm.serializeAddress(json, "policy_evaluator", address(policyEvaluator));
         vm.serializeAddress(json, "root_verifier", rootVerifier);
         vm.serializeBool(json, "dev_mode", devMode);
-        json = vm.serializeUint(json, "deployed_at", block.timestamp);
+        vm.serializeUint(json, "deployed_at", block.timestamp);
+        json = vm.serializeUint(json, "deployed_block", block.number);
         vm.writeJson(json, string.concat("deployments/", vm.toString(block.chainid), ".json"));
     }
 }

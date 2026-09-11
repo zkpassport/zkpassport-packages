@@ -183,3 +183,120 @@ describe("createVerification", () => {
     expect(received).toEqual(["event-time"])
   })
 })
+
+describe("createVerification with mintCredential", () => {
+  const mintOptions: VerificationOptions = {
+    mintCredential: {
+      chain: "ethereum_sepolia",
+      onchainPolicyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+    },
+    devMode: true,
+  }
+
+  test("sends the attest block and an empty query", () => {
+    const { sentToPopup, emitFromPopup } = setupFakeWindow()
+    createVerification(
+      () => mintOptions,
+      () => {},
+    ).verify()
+    emitFromPopup({ zkpassport: true, type: "ready" })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const configure = sentToPopup[0] as any
+    expect(configure.request).toEqual({ devMode: true })
+    expect(configure.attest).toEqual({
+      chain: "ethereum_sepolia",
+      policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+    })
+    expect(configure.query).toEqual({})
+  })
+
+  test("relays the attest outcome to onSuccess", () => {
+    const { emitFromPopup } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let outcome: any
+    createVerification(
+      () => ({
+        ...mintOptions,
+        onSuccess: (response) => {
+          outcome = response
+        },
+      }),
+      () => {},
+    ).verify()
+    emitFromPopup({
+      zkpassport: true,
+      type: "success",
+      proofs: [],
+      result: {},
+      attest: {
+        status: "minted",
+        walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        txHash: "0xdead",
+        issueCall: { functionName: "issue" },
+      },
+    })
+
+    expect(outcome.attest).toEqual({
+      status: "minted",
+      walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+      txHash: "0xdead",
+      issueCall: { functionName: "issue" },
+    })
+  })
+
+  test("rejects a query alongside mintCredential", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    const statuses: string[] = []
+    createVerification(
+      () => ({
+        ...mintOptions,
+        query: (builder) => builder.done(),
+        onError: (message) => errors.push(message),
+      }),
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+    expect(errors).toEqual([
+      "mintCredential requests take their query from the on-chain policy; remove the query option.",
+    ])
+  })
+
+  test("rejects a dashboard policyId alongside mintCredential", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    createVerification(
+      () => ({ ...mintOptions, policyId: "dashboard-1", onError: (e: string) => errors.push(e) }),
+      () => {},
+    ).verify()
+
+    expect(errors).toEqual([
+      "mintCredential requests take their policy from the chain; remove the policyId option.",
+    ])
+  })
+
+  test("rejects mintCredential without its required fields", () => {
+    setupFakeWindow()
+    const statuses: string[] = []
+    createVerification(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      () => ({ mintCredential: { chain: "ethereum_sepolia" } as any }),
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+  })
+
+  test("still requires a query without mintCredential", () => {
+    setupFakeWindow()
+    const statuses: string[] = []
+    createVerification(
+      () => ({ name: "Aztec" }),
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+  })
+})

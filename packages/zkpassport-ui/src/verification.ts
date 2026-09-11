@@ -1,11 +1,12 @@
 import { createOfflineQuery } from "@zkpassport/sdk/query"
 import {
   openVerificationPopup,
+  type PopupAttestConfig,
   type PopupCallbacks,
   type PopupRequestConfig,
   type VerificationPopupHandle,
 } from "@zkpassport/sdk/popup"
-import type { Query, QueryBuilder, QueryBuilderResult } from "@zkpassport/sdk"
+import type { Query, QueryBuilder, QueryBuilderResult, SupportedChain } from "@zkpassport/sdk"
 
 import { isInAppBrowser } from "./environment"
 import { logger } from "./logger"
@@ -22,8 +23,25 @@ export type VerificationOptions = PopupRequestConfig &
   PopupCallbacks & {
     // URL of the hosted verification page (override for local development)
     popupUrl?: string
+    /** "popup" (default) opens a small chromeless window; "tab" a regular browser tab. */
+    windowMode?: "popup" | "tab"
+    /** Dashboard policy id. Not allowed with mintCredential (same as query). */
     policyId?: string
-    query: (queryBuilder: QueryBuilder) => QueryBuilderResult
+    /** Required unless mintCredential is set (the on-chain policy defines the query). */
+    query?: (queryBuilder: QueryBuilder) => QueryBuilderResult
+    /**
+     * When present, the button mints an attestation credential instead of a
+     * plain verification: the popup resolves the on-chain policy, lets the
+     * user connect a wallet and pick the recipient account, binds that account
+     * into the proof; the result's attest outcome reports minted/unminted and
+     * the chosen account.
+     */
+    mintCredential?: {
+      /** Chain the credential lives on (e.g. "ethereum_sepolia"). */
+      chain: SupportedChain
+      /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
+      onchainPolicyId: `0x${string}`
+    }
   }
 
 export type VerificationController = {
@@ -80,19 +98,26 @@ export function createVerification(
 
     const thisAttempt = ++latestAttempt
     let query: Query
+    let attest: PopupAttestConfig | undefined
     try {
-      query = buildQuery(options)
+      attest = toAttestConfig(options)
+      // A mint request carries no query: the popup derives it from the policy
+      query = attest ? {} : buildQuery(options)
     } catch (reason) {
       logger.error(reason)
       setStatus("error")
-      options.onError?.("Failed to build the verification query")
+      options.onError?.(
+        reason instanceof Error ? reason.message : "Failed to build the verification query",
+      )
       return
     }
 
     const handle = openVerificationPopup({
       popupUrl: options.popupUrl,
+      windowMode: options.windowMode,
       request: toPopupRequest(options),
       query,
+      attest,
       // Callbacks resolve at event time: results arrive minutes after the
       // click, and React consumers swap callbacks between renders
       callbacks: {
@@ -159,12 +184,40 @@ export function createVerification(
 }
 
 function buildQuery(options: VerificationOptions): Query {
+  if (!options.query) {
+    throw new Error("A query callback is required unless mintCredential is set.")
+  }
   const builder = createOfflineQuery()
   if (options.policyId) {
     builder.policy(options.policyId)
   }
   const built = options.query(builder as never) as unknown as { query: Query }
   return built.query
+}
+
+function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undefined {
+  const mint = options.mintCredential
+  if (!mint) return undefined
+  if (options.query) {
+    throw new Error(
+      "mintCredential requests take their query from the on-chain policy; remove the query option.",
+    )
+  }
+  if (options.policyId) {
+    throw new Error(
+      "mintCredential requests take their policy from the chain; remove the policyId option.",
+    )
+  }
+  const { chain, onchainPolicyId } = mint
+  if (!chain || !onchainPolicyId) {
+    throw new Error("mintCredential requires chain and onchainPolicyId.")
+  }
+  if (!onchainPolicyId.startsWith("0x")) {
+    throw new Error("onchainPolicyId is the on-chain policy id as 0x-prefixed hex.")
+  }
+  // Chain support is the popup's call: an unsupported chain errors there and
+  // reaches this page through the protocol's error message.
+  return { chain, policyId: onchainPolicyId }
 }
 
 function toPopupRequest(options: VerificationOptions): PopupRequestConfig {
