@@ -138,6 +138,7 @@ contract ZKPassportCredentials is ERC1155 {
         policy.metadataURL = metadataURL;
 
         emit PolicyCreated(policyId, msg.sender);
+        emit URI(metadataURL, policyId);
     }
 
     /// @notice Get a policy. Reverts for unknown ids.
