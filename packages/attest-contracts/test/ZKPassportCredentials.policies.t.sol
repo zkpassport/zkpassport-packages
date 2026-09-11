@@ -48,6 +48,13 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         _createDefaultPolicy();
     }
 
+    function testCreatePolicyEmitsStandardURIEvent() public {
+        uint256 expectedId = uint256(keccak256(abi.encode(creator, bytes32(uint256(1)))));
+        vm.expectEmit(false, true, false, true);
+        emit IERC1155.URI("https://policy.example/1", expectedId);
+        _createDefaultPolicy();
+    }
+
     function testCreatePolicyRevertsOnDuplicateSalt() public {
         _createDefaultPolicy();
         vm.prank(creator);
