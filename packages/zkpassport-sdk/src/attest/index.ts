@@ -1,5 +1,5 @@
 import type { Chain, PublicClient, WalletClient } from "viem"
-import { createPublicClient, encodeAbiParameters, getAbiItem, http } from "viem"
+import { createPublicClient, encodeAbiParameters, getAbiItem, http, keccak256 } from "viem"
 import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType, ProofResult } from "@zkpassport/utils"
 import { getAttestRegistry } from "./deployments"
@@ -27,6 +27,8 @@ export type AttestPolicy = {
    * wallet from the policy until the owner unbans it. Self-revocation is always allowed.
    */
   ownerRevocable: boolean
+  /** When true, the policy owner may replace the policy's requirements via setRequirements(). */
+  ownerEditable: boolean
   /**
    * Address of the contract that defines and decodes the policy's requirements schema, and that
    * determines whether a proof satisfies the requirements.
@@ -100,6 +102,56 @@ const FACEMATCH_MODES: Record<number, FacematchMode | undefined> = {
   0: undefined,
   1: "regular",
   2: "strict",
+}
+
+const SANCTIONS_MODE_VALUES: Record<"normal" | "strict", number> = { normal: 1, strict: 2 }
+
+const FACEMATCH_MODE_VALUES: Record<FacematchMode, number> = { regular: 1, strict: 2 }
+
+// The tuple layout createPolicy()'s and setRequirements()'s requirement bytes must carry for a
+// schema-1 evaluator, taken from the evaluator's own decodeRequirements so the encoding can
+// never drift from the contract.
+const REQUIREMENTS_ABI = getAbiItem({
+  abi: PolicyEvaluatorV1Abi,
+  name: "decodeRequirements",
+}).outputs
+
+/**
+ * Encode policy requirements per PolicyEvaluatorV1's schema-1 layout, the inverse of
+ * `AttestClient.getRequirements`. The encoder only shapes the bytes; validity (country-list
+ * format and ordering, salted-nullifier facematch, uniqueness needing a nullifier type) is
+ * enforced on-chain by the evaluator when the bytes reach createPolicy() or setRequirements().
+ */
+export function encodeAttestPolicyRequirements(
+  requirements: AttestPolicyRequirements,
+): `0x${string}` {
+  const value = {
+    uniqueIdentifierType: requirements.uniqueIdentifierType,
+    enforceUniqueness: requirements.enforceUniqueness,
+    minAge: requirements.minAge,
+    sanctionsMode:
+      requirements.sanctionsMode === undefined
+        ? 0
+        : SANCTIONS_MODE_VALUES[requirements.sanctionsMode],
+    faceMatchMode:
+      requirements.facematchMode === undefined
+        ? 0
+        : FACEMATCH_MODE_VALUES[requirements.facematchMode],
+    includedNationalities: requirements.includedNationalities,
+    excludedNationalities: requirements.excludedNationalities,
+  }
+  return encodeAbiParameters(REQUIREMENTS_ABI, [value] as never)
+}
+
+/**
+ * The policy id createPolicy() will assign for a creator and salt:
+ * `keccak256(abi.encode(creator, salt))`. Lets a caller know the id before the transaction
+ * lands (or after, without parsing logs).
+ */
+export function computePolicyId(creator: `0x${string}`, salt: `0x${string}`): bigint {
+  return BigInt(
+    keccak256(encodeAbiParameters([{ type: "address" }, { type: "bytes32" }], [creator, salt])),
+  )
 }
 
 export type AttestPolicySummary = {
@@ -331,7 +383,7 @@ export class AttestClient {
    * proof: this client's registry details plus the proof data encoded via
    * getIssueProofData.
    */
-  getIssueCall(options: {
+  buildIssueCall(options: {
     policyId: bigint
     proof: ProofResult
     domain: string
@@ -354,6 +406,127 @@ export class AttestClient {
       args: [options.policyId, proofData] as const,
     }
   }
+
+  private call<F extends string, A>(functionName: F, args: A): AttestCall<F, A> {
+    return { address: this.address, functionName, abi: ZKPassportCredentialsAbi, args }
+  }
+
+  /**
+   * Assemble the createPolicy() call. The sender becomes the policy owner; the policy id is
+   * `keccak256(creator, salt)` (predictable via `computePolicyId`), so a creator reusing a salt
+   * reverts. Requirements are encoded per the current evaluator's schema and validated on-chain
+   * at creation. The three owner-privilege flags default to false and are immutable afterwards.
+   */
+  buildCreatePolicyCall(options: {
+    /** Creator-scoped namespace for the policy id. */
+    salt: `0x${string}`
+    requirements: AttestPolicyRequirements
+    /** Seconds a credential stays valid after each issuance or renewal; must be non-zero. */
+    credentialDuration: bigint
+    /** Display metadata for the policy's token, served by uri(policyId). */
+    metadataURL: string
+    /** Allow proofless issuance via ownerIssue(). */
+    ownerIssuable?: boolean
+    /** Allow the owner to revoke (and thereby ban) holders via revoke(). */
+    ownerRevocable?: boolean
+    /** Allow the owner to replace requirements via setRequirements(). */
+    ownerEditable?: boolean
+  }): AttestCall<
+    "createPolicy",
+    readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean]
+  > {
+    return this.call("createPolicy", [
+      options.salt,
+      encodeAttestPolicyRequirements(options.requirements),
+      options.credentialDuration,
+      options.metadataURL,
+      options.ownerIssuable ?? false,
+      options.ownerRevocable ?? false,
+      options.ownerEditable ?? false,
+    ] as const)
+  }
+
+  /**
+   * Assemble the setRequirements() call, replacing a policy's requirements for all future
+   * issuance and renewals. Owner-only, and only for `ownerEditable` policies; the new bytes are
+   * validated on-chain by the policy's pinned evaluator, and the transaction emits
+   * PolicyRequirementsChanged. Already-issued credentials are untouched until they expire or
+   * renew.
+   */
+  buildSetRequirementsCall(
+    policyId: bigint,
+    requirements: AttestPolicyRequirements,
+  ): AttestCall<"setRequirements", readonly [bigint, `0x${string}`]> {
+    return this.call("setRequirements", [
+      policyId,
+      encodeAttestPolicyRequirements(requirements),
+    ] as const)
+  }
+
+  /** Assemble the setMetadataURL() call, updating a policy's display metadata URL. Owner-only. */
+  buildSetMetadataURLCall(
+    policyId: bigint,
+    url: string,
+  ): AttestCall<"setMetadataURL", readonly [bigint, string]> {
+    return this.call("setMetadataURL", [policyId, url] as const)
+  }
+
+  /**
+   * Assemble the retire() call, permanently stopping new issuance and renewals for a policy.
+   * Owner-only and one-way; existing credentials stay valid until they expire.
+   */
+  buildRetireCall(policyId: bigint): AttestCall<"retire", readonly [bigint]> {
+    return this.call("retire", [policyId] as const)
+  }
+
+  /**
+   * Assemble the ownerIssue() call, issuing (or extending) a credential without a proof.
+   * Owner-only, and only for `ownerIssuable` policies; reverts for banned wallets and retired
+   * policies. Owner issuance never touches nullifier bindings, so on `enforceUniqueness`
+   * policies it bypasses one-per-document sybil protection.
+   */
+  buildOwnerIssueCall(
+    wallet: `0x${string}`,
+    policyId: bigint,
+  ): AttestCall<"ownerIssue", readonly [`0x${string}`, bigint]> {
+    return this.call("ownerIssue", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the revoke() call. Sent by the holder it self-revokes, freely re-issuable; sent by
+   * the policy owner (allowed only for `ownerRevocable` policies) it also bans the wallet from
+   * the policy until unban(). The nullifier binding survives either way: the document can only
+   * ever re-credential the same wallet for this policy.
+   */
+  buildRevokeCall(
+    wallet: `0x${string}`,
+    policyId: bigint,
+  ): AttestCall<"revoke", readonly [`0x${string}`, bigint]> {
+    return this.call("revoke", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the unban() call, lifting the ban an owner revocation placed on a wallet.
+   * Owner-only.
+   */
+  buildUnbanCall(
+    wallet: `0x${string}`,
+    policyId: bigint,
+  ): AttestCall<"unban", readonly [`0x${string}`, bigint]> {
+    return this.call("unban", [wallet, policyId] as const)
+  }
+}
+
+/**
+ * Ready-to-send ZKPassportCredentials call assembled by an AttestClient. `address` is the
+ * registry address; the fields keep viem's naming so the object spreads straight into
+ * writeContract/simulateContract, or submits through `submitAttestCall`.
+ */
+export type AttestCall<F extends string = string, A = readonly unknown[]> = {
+  address: `0x${string}`
+  functionName: F
+  abi: typeof ZKPassportCredentialsAbi
+  args: A
 }
 
 /**
@@ -390,6 +563,36 @@ export function createAttestContext(chain: Chain): AttestContext {
   return { chain, publicClient, attest }
 }
 
+type SubmittableCall = {
+  address: `0x${string}`
+  functionName: string
+  abi: readonly unknown[]
+  args: readonly unknown[]
+}
+
+async function submitCall(
+  ctx: AttestContext,
+  call: SubmittableCall,
+  wallet: { client: WalletClient; account: `0x${string}` },
+  onSubmitted: ((hash: `0x${string}`) => void) | undefined,
+  revertMessage: (hash: `0x${string}`) => string,
+): Promise<`0x${string}`> {
+  const hash = await wallet.client.writeContract({
+    address: call.address,
+    abi: call.abi as never,
+    functionName: call.functionName,
+    args: call.args as never,
+    account: wallet.account,
+    chain: ctx.chain,
+  })
+  onSubmitted?.(hash)
+  const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash })
+  if (receipt.status === "reverted") {
+    throw new Error(revertMessage(hash))
+  }
+  return hash
+}
+
 /**
  * Submit ZKPassportCredentials.issue() and wait for inclusion. Any sender
  * works — the credential lands on the wallet the proof is bound to — so a
@@ -407,18 +610,32 @@ export async function submitIssueCall(
   wallet: { client: WalletClient; account: `0x${string}` },
   onSubmitted?: (hash: `0x${string}`) => void,
 ): Promise<`0x${string}`> {
-  const hash = await wallet.client.writeContract({
-    address: call.address,
-    abi: call.abi as never,
-    functionName: call.functionName,
-    args: call.args as never,
-    account: wallet.account,
-    chain: ctx.chain,
-  })
-  onSubmitted?.(hash)
-  const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash })
-  if (receipt.status === "reverted") {
-    throw new Error(`Credential mint reverted (tx ${hash}).`)
-  }
-  return hash
+  return submitCall(
+    ctx,
+    call,
+    wallet,
+    onSubmitted,
+    (hash) => `Credential mint reverted (tx ${hash}).`,
+  )
+}
+
+/**
+ * Submit an AttestClient-assembled registry call and wait for inclusion. Unlike issue(), the
+ * owner operations are permissioned: the wallet must be the policy's owner (or, for revoke(),
+ * the holder self-revoking) or the transaction reverts. The wallet client must already be on
+ * the context's chain.
+ */
+export async function submitAttestCall(
+  ctx: AttestContext,
+  call: AttestCall<string, readonly unknown[]>,
+  wallet: { client: WalletClient; account: `0x${string}` },
+  onSubmitted?: (hash: `0x${string}`) => void,
+): Promise<`0x${string}`> {
+  return submitCall(
+    ctx,
+    call,
+    wallet,
+    onSubmitted,
+    (hash) => `${call.functionName} transaction reverted (tx ${hash}).`,
+  )
 }
