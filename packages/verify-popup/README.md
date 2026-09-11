@@ -13,6 +13,13 @@ bun run dev   # http://localhost:5173
 
 Point the button at it with `popupUrl="http://localhost:5173"`.
 
+## Verification links
+
+`https://verify.zkpassport.id?vl=<link id>` runs the same card for a link created in the
+ZKPassport dashboard. The page loads the request from the dashboard API and posts the proofs
+back to it once the phone has answered. For a local API set
+`VITE_DASHBOARD_API_URL=http://localhost:3001`.
+
 ## Deployment
 
 Build with `bun run build` (static output in `dist/`). The host MUST send this
@@ -35,5 +42,6 @@ opener relationship and break result delivery to the relying party.
 
 The RP's identity is derived exclusively from the browser-attested
 `event.origin` of the `configure` postMessage — never from message payloads.
+In link mode it comes from the dashboard API, which owns the link.
 The mobile app's origin trust for `verify.zkpassport.id`
 (`ZKPASSPORT_TRUSTED_ORIGINS` in the app) depends on this invariant.
