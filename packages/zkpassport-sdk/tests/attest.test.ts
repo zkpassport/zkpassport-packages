@@ -28,7 +28,7 @@ const SAMPLE_POLICY: AttestPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
   ownerIssuable: false,
-  ownerRevocable: false,
+  ownerBannable: false,
   ownerEditable: false,
   evaluator: EVALUATOR,
   requirements: "0xabcd",
@@ -550,7 +550,7 @@ describe("AttestClient owner calls", () => {
       credentialDuration: 1n,
       metadataURL: "",
       ownerIssuable: true,
-      ownerRevocable: true,
+      ownerBannable: true,
       ownerEditable: true,
     })
     expect(call.args.slice(4)).toEqual([true, true, true])
@@ -576,8 +576,12 @@ describe("AttestClient owner calls", () => {
       functionName: "ownerIssue",
       args: [WALLET, POLICY_ID],
     })
-    expect(attest.buildRevokeCall(WALLET, POLICY_ID)).toMatchObject({
-      functionName: "revoke",
+    expect(attest.buildRenounceCall(POLICY_ID)).toMatchObject({
+      functionName: "renounce",
+      args: [POLICY_ID],
+    })
+    expect(attest.buildBanCall(WALLET, POLICY_ID)).toMatchObject({
+      functionName: "ban",
       args: [WALLET, POLICY_ID],
     })
     expect(attest.buildUnbanCall(WALLET, POLICY_ID)).toMatchObject({
