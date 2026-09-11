@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
-  hydrateQueryBuilder,
   isPopupMessage,
   type PopupConfigureMessage,
   type PopupEventMessage,
 } from "@zkpassport/sdk/popup"
-import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
+
+import { Frame, Notice } from "./layout"
+import { LinkVerification } from "./link-verification"
+import { VerificationCard } from "./verification-card"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
@@ -18,6 +20,7 @@ type Configuration = {
 }
 
 export function App() {
+  const linkId = new URLSearchParams(window.location.search).get("vl")
   const [config, setConfig] = useState<Configuration | null>(null)
   const [standalone, setStandalone] = useState(false)
   const closeTimer = useRef<number | null>(null)
@@ -58,13 +61,21 @@ export function App() {
     }
   }, [config])
 
+  if (linkId) {
+    return (
+      <Frame>
+        <LinkVerification linkId={linkId} />
+      </Frame>
+    )
+  }
+
   if (standalone) {
     return (
       <Frame>
-        <p style={styles.notice}>
+        <Notice>
           This page verifies your ID for websites that use ZKPassport. Open it from a website's
           "Verify with ZKPassport" button.
-        </p>
+        </Notice>
       </Frame>
     )
   }
@@ -72,13 +83,12 @@ export function App() {
   if (!config || !send) {
     return (
       <Frame>
-        <p style={styles.notice}>Connecting…</p>
+        <Notice>Connecting…</Notice>
       </Frame>
     )
   }
 
   const domain = new URL(config.rpOrigin).hostname
-  const request = config.request
 
   // Auto-close once the flow is complete (after the outcome screen has shown)
   const scheduleClose = (delayMs: number) => {
@@ -88,19 +98,8 @@ export function App() {
 
   return (
     <Frame>
-      <ZKPassportQRCode
-        domain={domain}
-        name={request.name ?? domain}
-        logo={request.logo}
-        purpose={request.purpose}
-        scope={request.scope}
-        mode={request.mode}
-        devMode={request.devMode}
-        validity={request.validity}
-        uniqueIdentifierType={request.uniqueIdentifierType}
-        oprfKeyId={request.oprfKeyId}
-        showIntroScreen
-        query={(builder) => hydrateQueryBuilder(builder, config.query)}
+      <VerificationCard
+        config={{ domain, request: config.request, query: config.query }}
         onRequestReceived={() => send({ type: "request-received" })}
         onGeneratingProof={() => send({ type: "generating" })}
         onProofGenerated={(proof) =>
@@ -119,37 +118,4 @@ export function App() {
       />
     </Frame>
   )
-}
-
-function Frame({ children }: { children: React.ReactNode }) {
-  return <div style={styles.frame}>{children}</div>
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  frame: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 12,
-    padding: "16px 12px 24px",
-    boxSizing: "border-box",
-  },
-  notice: {
-    maxWidth: 320,
-    marginTop: 80,
-    textAlign: "center",
-    fontSize: 14,
-    lineHeight: 1.5,
-    color: "#6b7280",
-  },
-  hint: {
-    maxWidth: 340,
-    margin: 0,
-    textAlign: "center",
-    fontSize: 11.5,
-    lineHeight: 1.5,
-    color: "#9ca3af",
-  },
 }
