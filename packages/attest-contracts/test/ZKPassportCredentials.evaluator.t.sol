@@ -33,7 +33,7 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
     function _createV2Policy() internal returns (uint256) {
         vm.prank(creator);
         return zkPassportCredentials.createPolicy(
-            bytes32(uint256(51)), v2Requirements, 30 days, "https://p.example/v2", false, false
+            bytes32(uint256(51)), v2Requirements, 30 days, "https://p.example/v2", false, false, false
         );
     }
 
@@ -42,7 +42,7 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         vm.expectRevert();
         zkPassportCredentials.createPolicy(
-            bytes32(uint256(51)), v2Requirements, 30 days, "https://p.example/v2", false, false
+            bytes32(uint256(51)), v2Requirements, 30 days, "https://p.example/v2", false, false, false
         );
 
         _swapToV2();
@@ -54,7 +54,9 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
         _swapToV2();
         vm.prank(creator);
         vm.expectRevert(MockEvaluatorV2.MockEvaluatorV2__InvalidRequirements.selector);
-        zkPassportCredentials.createPolicy(bytes32(uint256(52)), abi.encode(uint256(200)), 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(
+            bytes32(uint256(52)), abi.encode(uint256(200)), 30 days, "x", false, false, false
+        );
     }
 
     function testPoliciesIssueUnderTheirOwnSchema() public {
@@ -64,6 +66,7 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
             _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
             "x",
+            false,
             false,
             false
         );

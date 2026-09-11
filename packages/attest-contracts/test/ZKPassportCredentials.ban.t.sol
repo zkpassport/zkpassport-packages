@@ -20,7 +20,8 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
             30 days,
             "https://policy.example/revocable",
             true,
-            true
+            true,
+            false
         );
         proofOnlyPolicyId = _createDefaultPolicy();
         zkPassportCredentials.issue(revocablePolicyId, _params());

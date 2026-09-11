@@ -19,6 +19,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
             7 days,
             "https://p.example/s",
             false,
+            false,
             false
         );
         vm.prank(creator);
@@ -27,6 +28,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
             _requirements(NullifierType.NON_SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             7 days,
             "https://p.example/n",
+            false,
             false,
             false
         );
@@ -119,6 +121,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
             _requirements(NullifierType.SALTED_MOCK_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             7 days,
             "https://p.example/ms",
+            false,
             false,
             false
         );

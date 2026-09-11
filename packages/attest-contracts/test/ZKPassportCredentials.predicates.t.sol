@@ -22,6 +22,7 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
             7 days,
             "https://policy.example/kyc",
             false,
+            false,
             false
         );
     }
@@ -46,7 +47,7 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     function _createPolicyWith(PolicyEvaluatorV1.PolicyRequirements memory r, uint256 salt) internal returns (uint256) {
         vm.prank(creator);
         return zkPassportCredentials.createPolicy(
-            bytes32(salt), abi.encode(r), 7 days, "https://policy.example/x", false, false
+            bytes32(salt), abi.encode(r), 7 days, "https://policy.example/x", false, false, false
         );
     }
 
@@ -161,6 +162,7 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
             _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             7 days,
             "https://policy.example/2",
+            false,
             false,
             false
         );

@@ -40,6 +40,7 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
         // Nullifier types match exactly on every deployment, so a submission claiming a mock

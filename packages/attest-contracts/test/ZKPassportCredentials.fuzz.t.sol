@@ -24,6 +24,7 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
             credentialDuration,
             "https://policy.example/fuzz",
             false,
+            false,
             false
         );
         zkPassportCredentials.issue(policyId, _params());

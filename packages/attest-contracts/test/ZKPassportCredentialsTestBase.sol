@@ -67,6 +67,7 @@ contract ZKPassportCredentialsTestBase is Test {
             30 days,
             "https://policy.example/1",
             false,
+            false,
             false
         );
     }
