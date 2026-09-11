@@ -77,6 +77,33 @@ function stubClient(
 }
 
 describe("AttestClient reads", () => {
+  test("getIssueCall assembles the registry call around the encoded proof data", async () => {
+    const spy = spyOn(AttestClient, "getIssueProofData").mockReturnValue("0xf00d")
+    try {
+      const { client } = stubClient(() => null)
+      const attest = new AttestClient({ client, address: REGISTRY })
+      const call = attest.getIssueCall({
+        policyId: POLICY_ID,
+        proof: { proof: "0x1" } as never,
+        domain: "verify.zkpassport.id",
+        scope: "attest:0x2a",
+        devMode: true,
+      })
+      expect(call.address).toBe(REGISTRY)
+      expect(call.functionName).toBe("issue")
+      expect(call.args).toEqual([POLICY_ID, "0xf00d"])
+      expect(spy.mock.calls[0][0]).toEqual({
+        proof: { proof: "0x1" },
+        domain: "verify.zkpassport.id",
+        scope: "attest:0x2a",
+        validityPeriodInSeconds: undefined,
+        devMode: true,
+      })
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   test("hasCredential is the expiry-masked balance check", async () => {
     let balance = 1n
     const { client } = stubClient(() => balance)
