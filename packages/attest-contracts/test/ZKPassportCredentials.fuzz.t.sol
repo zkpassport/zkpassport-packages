@@ -12,10 +12,10 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         _deployWithMocks();
     }
 
-    /// @notice heldUntil is stored via a truncating uint64 cast of block.timestamp + credentialDuration;
-    ///         pin that the truncation is fail-safe (balance reflects the truncated value, never reverts).
-    function testFuzzCredentialDurationTruncationFailsSafe(uint64 credentialDuration) public {
-        vm.assume(credentialDuration > 0);
+    /// @notice Every duration createPolicy accepts must produce a live, strictly-future
+    ///         heldUntil; everything above MAX_CREDENTIAL_DURATION must be rejected at creation.
+    function testFuzzAcceptedDurationsIssueLiveCredentials(uint64 credentialDuration) public {
+        credentialDuration = uint64(bound(credentialDuration, 1, zkPassportCredentials.MAX_CREDENTIAL_DURATION()));
 
         vm.prank(creator);
         uint256 policyId = zkPassportCredentials.createPolicy(
@@ -29,11 +29,25 @@ contract ZKPassportCredentialsFuzzTest is ZKPassportCredentialsTestBase {
         );
         zkPassportCredentials.issue(policyId, _params());
 
-        uint64 expectedHeldUntil = uint64(block.timestamp + credentialDuration);
-        assertEq(zkPassportCredentials.heldUntil(wallet, policyId), expectedHeldUntil);
+        assertEq(zkPassportCredentials.heldUntil(wallet, policyId), block.timestamp + credentialDuration);
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
+    }
 
-        uint256 expectedBalance = uint256(expectedHeldUntil) >= block.timestamp ? 1 : 0;
-        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), expectedBalance);
+    function testFuzzOverlongDurationsAreRejectedAtCreation(uint64 credentialDuration) public {
+        credentialDuration =
+            uint64(bound(credentialDuration, zkPassportCredentials.MAX_CREDENTIAL_DURATION() + 1, type(uint64).max));
+
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
+        zkPassportCredentials.createPolicy(
+            bytes32(uint256(credentialDuration)),
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            credentialDuration,
+            "https://policy.example/fuzz",
+            false,
+            false,
+            false
+        );
     }
 
     /// @notice Balance flips from 1 to 0 exactly at the policy's validity period boundary.

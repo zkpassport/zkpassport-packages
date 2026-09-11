@@ -25,6 +25,11 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
         evaluatorV2 = new MockEvaluatorV2(IRootVerifier(address(v2Verifier)));
     }
 
+    function testEvaluatorRejectsZeroRootVerifier() public {
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__ZeroAddress.selector);
+        new PolicyEvaluatorV1(IRootVerifier(address(0)), true);
+    }
+
     function _swapToV2() internal {
         vm.prank(admin);
         zkPassportCredentials.setPolicyEvaluator(evaluatorV2);

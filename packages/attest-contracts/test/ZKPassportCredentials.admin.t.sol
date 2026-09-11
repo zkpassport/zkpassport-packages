@@ -41,13 +41,13 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
-    function testPauseDoesNotAffectBalanceOfAndRevoke() public {
+    function testPauseDoesNotAffectBalanceOfAndRenounce() public {
         zkPassportCredentials.issue(policyId, _params());
         vm.prank(admin);
         zkPassportCredentials.pause();
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
         vm.prank(wallet);
-        zkPassportCredentials.revoke(wallet, policyId);
+        zkPassportCredentials.renounce(policyId);
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 

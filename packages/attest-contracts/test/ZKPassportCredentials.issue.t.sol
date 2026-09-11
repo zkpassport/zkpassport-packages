@@ -14,6 +14,15 @@ contract ZKPassportCredentialsIssueTest is ZKPassportCredentialsTestBase {
         policyId = _createDefaultPolicy();
     }
 
+    function testIssueRejectsExpiryTruncatedPastUint64() public {
+        // Unreachable through the MAX_CREDENTIAL_DURATION bound until block.timestamp itself
+        // nears uint64 max; pin the defense-in-depth guard by warping there.
+        vm.warp(type(uint64).max - 1 days);
+        mockHelper.setProofTimestamp(block.timestamp);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
+        zkPassportCredentials.issue(policyId, _params());
+    }
+
     function testIssueCreatesCredential() public {
         vm.expectEmit(true, true, false, true);
         emit ZKPassportCredentials.CredentialIssued(wallet, policyId, uint64(block.timestamp + 30 days), "");

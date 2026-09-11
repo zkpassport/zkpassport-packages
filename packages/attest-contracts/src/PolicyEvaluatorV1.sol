@@ -42,6 +42,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__ExcludedNationality();
     error PolicyEvaluator__FaceMatchRequirementNotMet();
     error PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
+    error PolicyEvaluator__ZeroAddress();
 
     IRootVerifier public immutable rootVerifier;
 
@@ -53,6 +54,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     uint256 public constant PROOF_FRESHNESS = 1 days;
 
     constructor(IRootVerifier _rootVerifier, bool _devMode) {
+        if (address(_rootVerifier) == address(0)) revert PolicyEvaluator__ZeroAddress();
         rootVerifier = _rootVerifier;
         devMode = _devMode;
     }
