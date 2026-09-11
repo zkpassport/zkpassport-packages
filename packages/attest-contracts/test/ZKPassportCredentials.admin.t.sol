@@ -62,6 +62,7 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
             1 days,
             "x",
             false,
+            false,
             false
         );
     }

@@ -21,7 +21,8 @@ contract ZKPassportCredentialsOwnerIssueTest is ZKPassportCredentialsTestBase {
             7 days,
             "https://policy.example/owner-issuable",
             true,
-            true
+            true,
+            false
         );
         proofOnlyPolicyId = _createDefaultPolicy();
     }

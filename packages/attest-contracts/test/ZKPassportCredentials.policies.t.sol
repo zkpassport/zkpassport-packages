@@ -24,7 +24,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             _requirements(NullifierType.SALTED_NULLIFIER, 18, PolicyEvaluatorV1.SanctionsMode.STRICT, excluded);
         vm.prank(creator);
         uint256 policyId = zkPassportCredentials.createPolicy(
-            bytes32(0), requirements, 7 days, "https://policy.example/kyc", false, false
+            bytes32(0), requirements, 7 days, "https://policy.example/kyc", false, false, false
         );
         ZKPassportCredentials.Policy memory policy = zkPassportCredentials.getPolicy(policyId);
         assertEq(policy.owner, creator);
@@ -62,6 +62,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "other",
             false,
+            false,
             false
         );
     }
@@ -76,6 +77,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
         assertTrue(first != second);
@@ -89,6 +91,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             0,
             "x",
+            false,
             false,
             false
         );
@@ -109,6 +112,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
         assertEq(zkPassportCredentials.getPolicy(laterPolicyId).evaluator, address(newEvaluator));
@@ -121,7 +125,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             abi.encode(uint8(5), false, uint8(0), uint8(0), uint8(0), new string[](0), new string[](0));
         vm.prank(creator);
         vm.expectRevert();
-        zkPassportCredentials.createPolicy(bytes32(0), outOfRange, 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), outOfRange, 30 days, "x", false, false, false);
     }
 
     function testCreatePolicyRejectsRegularFaceMatchWithSaltedNullifier() public {
@@ -129,11 +133,11 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         r.faceMatchMode = FaceMatchMode.REGULAR;
         vm.prank(creator);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false, false);
 
         r.faceMatchMode = FaceMatchMode.STRICT;
         vm.prank(creator);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false, false);
     }
 
     function testCreatePolicyRejectsRegularFaceMatchWithMockSaltedNullifier() public {
@@ -141,7 +145,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         r.faceMatchMode = FaceMatchMode.REGULAR;
         vm.prank(creator);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false, false);
     }
 
     function testCreatePolicyRejectsUniquenessWithoutNullifierType() public {
@@ -149,7 +153,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         r.enforceUniqueness = true;
         vm.prank(creator);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__UniquenessRequiresNullifierType.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false, false);
     }
 
     function testCreatePolicyValidatesBothNationalityLists() public {
@@ -160,13 +164,13 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         r.includedNationalities = bad;
         vm.prank(creator);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidCountryList.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false, false);
 
         r = _emptyRequirements(NullifierType.NONE_NULLIFIER);
         r.excludedNationalities = bad;
         vm.prank(creator);
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidCountryList.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false, false);
     }
 
     function testCreatePolicyRejectsMalformedCountryEntries() public {
@@ -181,6 +185,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
 
@@ -193,6 +198,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
 
@@ -204,6 +210,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, excluded),
             30 days,
             "x",
+            false,
             false,
             false
         );
@@ -222,6 +229,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
 
@@ -235,6 +243,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
 
@@ -247,6 +256,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
             30 days,
             "x",
             false,
+            false,
             false
         );
     }
@@ -254,7 +264,7 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
     function testCreatePolicyRejectsMalformedRequirements() public {
         vm.prank(creator);
         vm.expectRevert();
-        zkPassportCredentials.createPolicy(bytes32(0), hex"deadbeef", 30 days, "x", false, false);
+        zkPassportCredentials.createPolicy(bytes32(0), hex"deadbeef", 30 days, "x", false, false, false);
     }
 
     function testUriReturnsMetadataURL() public {
@@ -271,6 +281,95 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         vm.prank(wallet);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
         zkPassportCredentials.setMetadataURL(policyId, "https://evil.example");
+    }
+
+    function _createEditablePolicy() internal returns (uint256) {
+        vm.prank(creator);
+        return zkPassportCredentials.createPolicy(
+            bytes32(uint256(7)),
+            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            30 days,
+            "https://policy.example/editable",
+            false,
+            false,
+            true
+        );
+    }
+
+    function testCreatePolicyStoresOwnerEditableFlag() public {
+        assertFalse(zkPassportCredentials.getPolicy(_createDefaultPolicy()).ownerEditable);
+        assertTrue(zkPassportCredentials.getPolicy(_createEditablePolicy()).ownerEditable);
+    }
+
+    function testSetRequirementsReplacesRequirements() public {
+        uint256 policyId = _createEditablePolicy();
+        bytes memory updated =
+            _requirements(NullifierType.SALTED_NULLIFIER, 21, PolicyEvaluatorV1.SanctionsMode.STRICT, noCountries);
+        vm.prank(creator);
+        zkPassportCredentials.setRequirements(policyId, updated);
+
+        assertEq(zkPassportCredentials.getPolicy(policyId).requirements, updated);
+        PolicyEvaluatorV1.PolicyRequirements memory decoded =
+            evaluator.decodeRequirements(zkPassportCredentials.getPolicy(policyId).requirements);
+        assertEq(decoded.minAge, 21);
+        assertEq(uint8(decoded.uniqueIdentifierType), uint8(NullifierType.SALTED_NULLIFIER));
+    }
+
+    function testSetRequirementsEmitsPolicyRequirementsChanged() public {
+        uint256 policyId = _createEditablePolicy();
+        vm.expectEmit(true, false, false, false);
+        emit ZKPassportCredentials.PolicyRequirementsChanged(policyId);
+        vm.prank(creator);
+        zkPassportCredentials.setRequirements(
+            policyId,
+            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries)
+        );
+    }
+
+    function testSetRequirementsRevertsWhenNotOwnerEditable() public {
+        uint256 policyId = _createDefaultPolicy();
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotEditable.selector);
+        zkPassportCredentials.setRequirements(
+            policyId, _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries)
+        );
+    }
+
+    function testOnlyPolicyOwnerCanSetRequirements() public {
+        uint256 policyId = _createEditablePolicy();
+        vm.prank(wallet);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
+        zkPassportCredentials.setRequirements(
+            policyId, _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries)
+        );
+    }
+
+    function testSetRequirementsValidatesThroughEvaluator() public {
+        uint256 policyId = _createEditablePolicy();
+        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(NullifierType.SALTED_NULLIFIER);
+        r.faceMatchMode = FaceMatchMode.REGULAR;
+        vm.prank(creator);
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch.selector);
+        zkPassportCredentials.setRequirements(policyId, abi.encode(r));
+    }
+
+    function testSetRequirementsAppliesToSubsequentIssuance() public {
+        vm.warp(1_700_000_000);
+        _deployWithMocks();
+        uint256 policyId = _createEditablePolicy();
+        zkPassportCredentials.issue(policyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+
+        vm.prank(creator);
+        zkPassportCredentials.setRequirements(
+            policyId,
+            _requirements(NullifierType.NON_SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries)
+        );
+
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        zkPassportCredentials.issue(policyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+
+        zkPassportCredentials.issue(policyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
     function testGetPolicyRevertsWhenUnknown() public {
