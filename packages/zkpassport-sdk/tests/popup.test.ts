@@ -262,7 +262,7 @@ describe("attest protocol extension", () => {
 
   test("a minted success's issueCall survives postMessage cloning, bigint included", () => {
     const issueCall = {
-      address: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11",
+      address: "0x3278117D873965036B5e0007112ADDd488Bde3e1",
       functionName: "issue",
       abi: [{ type: "function", name: "issue", inputs: [] }],
       args: [123456789012345678901234567890n, { version: "1", committedInputs: "0xabc" }],
