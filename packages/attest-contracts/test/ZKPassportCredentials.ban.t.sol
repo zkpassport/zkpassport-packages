@@ -7,121 +7,136 @@ import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 
 contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
-    uint256 internal revocablePolicyId;
+    uint256 internal bannablePolicyId;
     uint256 internal proofOnlyPolicyId;
 
     function setUp() public {
         vm.warp(1_700_000_000);
         _deployWithMocks();
         vm.prank(creator);
-        revocablePolicyId = zkPassportCredentials.createPolicy(
+        bannablePolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(41)),
             _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
-            "https://policy.example/revocable",
+            "https://policy.example/bannable",
             true,
             true,
             false
         );
         proofOnlyPolicyId = _createDefaultPolicy();
-        zkPassportCredentials.issue(revocablePolicyId, _params());
+        zkPassportCredentials.issue(bannablePolicyId, _params());
     }
 
-    function testOwnerCanRevoke() public {
-        vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
-        assertEq(zkPassportCredentials.balanceOf(wallet, revocablePolicyId), 0);
-        assertEq(zkPassportCredentials.heldUntil(wallet, revocablePolicyId), 0);
-    }
-
-    function testOwnerCanRevokeExpiredCredential() public {
-        vm.warp(uint256(zkPassportCredentials.heldUntil(wallet, revocablePolicyId)) + 1);
-        vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
-        assertEq(zkPassportCredentials.heldUntil(wallet, revocablePolicyId), 0);
-    }
-
-    function testOwnerRevokeBansWallet() public {
+    function testBanRemovesStandingCredentialImmediately() public {
         vm.prank(creator);
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportCredentials.WalletBanned(wallet, revocablePolicyId);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
-        assertTrue(zkPassportCredentials.banned(wallet, revocablePolicyId));
+        emit ZKPassportCredentials.WalletBanned(wallet, bannablePolicyId);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+        assertTrue(zkPassportCredentials.banned(wallet, bannablePolicyId));
+        assertEq(zkPassportCredentials.balanceOf(wallet, bannablePolicyId), 0);
+        assertEq(zkPassportCredentials.heldUntil(wallet, bannablePolicyId), 0);
     }
 
-    function testBannedWalletCannotReissue() public {
+    function testBanClearsAnExpiredCredentialRecord() public {
+        vm.warp(uint256(zkPassportCredentials.heldUntil(wallet, bannablePolicyId)) + 1);
         vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+        assertEq(zkPassportCredentials.heldUntil(wallet, bannablePolicyId), 0);
+    }
+
+    function testBanWorksWithoutLiveCredential() public {
+        // The would-be front-run: the holder renounces ahead of the owner's ban. The ban
+        // does not depend on a live credential, so it lands regardless of the ordering.
+        vm.prank(wallet);
+        zkPassportCredentials.renounce(bannablePolicyId);
+        vm.prank(creator);
+        vm.expectEmit(true, true, false, true);
+        emit ZKPassportCredentials.WalletBanned(wallet, bannablePolicyId);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+        assertTrue(zkPassportCredentials.banned(wallet, bannablePolicyId));
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WalletBanned.selector);
-        zkPassportCredentials.issue(revocablePolicyId, _params());
+        zkPassportCredentials.issue(bannablePolicyId, _params());
     }
 
     function testBannedWalletCannotBeOwnerIssued() public {
         vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
         vm.prank(creator);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WalletBanned.selector);
-        zkPassportCredentials.ownerIssue(wallet, revocablePolicyId);
+        zkPassportCredentials.ownerIssue(wallet, bannablePolicyId);
     }
 
-    function testSelfRevokeDoesNotBan() public {
+    function testBanRequiresOwnerBannablePolicy() public {
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotBannable.selector);
+        zkPassportCredentials.ban(wallet, proofOnlyPolicyId);
+    }
+
+    function testOthersCannotBan() public {
         vm.prank(wallet);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
-        assertFalse(zkPassportCredentials.banned(wallet, revocablePolicyId));
-        zkPassportCredentials.issue(revocablePolicyId, _params());
-        assertEq(zkPassportCredentials.balanceOf(wallet, revocablePolicyId), 1);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
     }
 
-    function testOwnerSelfRevokeDoesNotBan() public {
+    function testBanWhenAlreadyBannedReverts() public {
         vm.prank(creator);
-        zkPassportCredentials.ownerIssue(creator, revocablePolicyId);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
         vm.prank(creator);
-        zkPassportCredentials.revoke(creator, revocablePolicyId);
-        assertFalse(zkPassportCredentials.banned(creator, revocablePolicyId));
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WalletBanned.selector);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+    }
+
+    function testRenounceDoesNotBan() public {
+        vm.prank(wallet);
+        zkPassportCredentials.renounce(bannablePolicyId);
+        assertFalse(zkPassportCredentials.banned(wallet, bannablePolicyId));
+        zkPassportCredentials.issue(bannablePolicyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(wallet, bannablePolicyId), 1);
+    }
+
+    function testOwnerRenounceDoesNotBan() public {
+        vm.prank(creator);
+        zkPassportCredentials.ownerIssue(creator, bannablePolicyId);
+        vm.prank(creator);
+        zkPassportCredentials.renounce(bannablePolicyId);
+        assertFalse(zkPassportCredentials.banned(creator, bannablePolicyId));
     }
 
     function testUnbanRestoresIssuance() public {
         vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
         vm.prank(creator);
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportCredentials.WalletUnbanned(wallet, revocablePolicyId);
-        zkPassportCredentials.unban(wallet, revocablePolicyId);
-        zkPassportCredentials.issue(revocablePolicyId, _params());
-        assertEq(zkPassportCredentials.balanceOf(wallet, revocablePolicyId), 1);
+        emit ZKPassportCredentials.WalletUnbanned(wallet, bannablePolicyId);
+        zkPassportCredentials.unban(wallet, bannablePolicyId);
+        zkPassportCredentials.issue(bannablePolicyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(wallet, bannablePolicyId), 1);
     }
 
     function testOthersCannotUnban() public {
         vm.prank(creator);
-        zkPassportCredentials.revoke(wallet, revocablePolicyId);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
         vm.prank(wallet);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
-        zkPassportCredentials.unban(wallet, revocablePolicyId);
+        zkPassportCredentials.unban(wallet, bannablePolicyId);
     }
 
     function testUnbanWhenNotBannedReverts() public {
         vm.prank(creator);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotBanned.selector);
-        zkPassportCredentials.unban(wallet, revocablePolicyId);
+        zkPassportCredentials.unban(wallet, bannablePolicyId);
     }
 
-    function testOwnerCannotRevokeOnNonRevocablePolicy() public {
-        zkPassportCredentials.issue(proofOnlyPolicyId, _params());
-        vm.prank(creator);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotRevocable.selector);
-        zkPassportCredentials.revoke(wallet, proofOnlyPolicyId);
-    }
-
-    function testHolderCanSelfRevokeOnNonRevocablePolicy() public {
+    function testHolderCanRenounceOnNonBannablePolicy() public {
         zkPassportCredentials.issue(proofOnlyPolicyId, _params());
         vm.prank(wallet);
-        zkPassportCredentials.revoke(wallet, proofOnlyPolicyId);
+        zkPassportCredentials.renounce(proofOnlyPolicyId);
         assertEq(zkPassportCredentials.heldUntil(wallet, proofOnlyPolicyId), 0);
         assertFalse(zkPassportCredentials.banned(wallet, proofOnlyPolicyId));
     }
 
-    function testStoresOwnerRevocableFlag() public {
-        assertTrue(zkPassportCredentials.getPolicy(revocablePolicyId).ownerRevocable);
-        assertFalse(zkPassportCredentials.getPolicy(proofOnlyPolicyId).ownerRevocable);
+    function testStoresOwnerBannableFlag() public {
+        assertTrue(zkPassportCredentials.getPolicy(bannablePolicyId).ownerBannable);
+        assertFalse(zkPassportCredentials.getPolicy(proofOnlyPolicyId).ownerBannable);
     }
 }

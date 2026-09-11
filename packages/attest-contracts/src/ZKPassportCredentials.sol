@@ -16,7 +16,7 @@ contract ZKPassportCredentials is ERC1155 {
         address owner;
         uint64 credentialDuration;
         bool ownerIssuable;
-        bool ownerRevocable;
+        bool ownerBannable;
         bool ownerEditable;
         address evaluator;
         bytes requirements;
@@ -32,8 +32,8 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__SybilDetected(bytes32 nullifier);
     error ZKPassportCredentials__MissingNullifier();
     error ZKPassportCredentials__TokenIsSoulbound();
-    error ZKPassportCredentials__NotRevocable();
-    error ZKPassportCredentials__NothingToRevoke();
+    error ZKPassportCredentials__NotBannable();
+    error ZKPassportCredentials__NothingToRenounce();
     error ZKPassportCredentials__Paused();
     error ZKPassportCredentials__NotIssuableByOwner();
     error ZKPassportCredentials__NotEditable();
@@ -48,7 +48,7 @@ contract ZKPassportCredentials is ERC1155 {
     event PolicyRetired(uint256 indexed policyId);
     event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
     event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
-    event CredentialRevoked(address indexed wallet, uint256 indexed policyId, address by);
+    event CredentialRenounced(address indexed wallet, uint256 indexed policyId);
     event PausedStatusChanged(bool paused);
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event PolicyEvaluatorUpdated(address indexed oldEvaluator, address indexed newEvaluator);
@@ -82,13 +82,6 @@ contract ZKPassportCredentials is ERC1155 {
         _;
     }
 
-    modifier onlyHolderOrPolicyOwner(address wallet, uint256 policyId) {
-        if (msg.sender != wallet && msg.sender != _policies[policyId].owner) {
-            revert ZKPassportCredentials__NotRevocable();
-        }
-        _;
-    }
-
     constructor(string memory _domain, address _admin, IPolicyEvaluator _policyEvaluator) ERC1155("") {
         if (_admin == address(0) || address(_policyEvaluator) == address(0)) {
             revert ZKPassportCredentials__ZeroAddress();
@@ -107,8 +100,8 @@ contract ZKPassportCredentials is ERC1155 {
     /// @param metadataURL Display metadata for the policy's token, served by uri(policyId)
     /// @param ownerIssuable Whether the owner is allowed to issue credentials without a proof via
     ///        ownerIssue(); immutable after creation.
-    /// @param ownerRevocable Whether the owner is allowed to revoke a holder's credential via
-    ///        revoke(), which also bans the wallet from the policy; immutable after creation.
+    /// @param ownerBannable Whether the owner is allowed to ban a wallet via ban(), which also
+    ///        removes any standing credential; immutable after creation.
     /// @param ownerEditable Whether the owner is allowed to change the policy's requirements
     ///        after creation via setRequirements(); immutable after creation.
     /// @return policyId The policy id, also the ERC-1155 tokenId of its credentials.
@@ -118,7 +111,7 @@ contract ZKPassportCredentials is ERC1155 {
         uint64 credentialDuration,
         string calldata metadataURL,
         bool ownerIssuable,
-        bool ownerRevocable,
+        bool ownerBannable,
         bool ownerEditable
     ) external whenNotPaused returns (uint256 policyId) {
         if (credentialDuration == 0) {
@@ -134,7 +127,7 @@ contract ZKPassportCredentials is ERC1155 {
         policy.owner = msg.sender;
         policy.credentialDuration = credentialDuration;
         policy.ownerIssuable = ownerIssuable;
-        policy.ownerRevocable = ownerRevocable;
+        policy.ownerBannable = ownerBannable;
         policy.ownerEditable = ownerEditable;
         policy.evaluator = address(evaluator);
         policy.requirements = requirements;
@@ -285,40 +278,48 @@ contract ZKPassportCredentials is ERC1155 {
         return heldUntil[account][id] >= block.timestamp ? 1 : 0;
     }
 
-    /// @notice Revoke a credential. Holders may always revoke their own; the policy owner may
-    ///         revoke a holder's only when the policy opted in at creation (`ownerRevocable`),
-    ///         and doing so also bans the wallet: re-proving no longer re-issues until the
-    ///         owner calls unban(). Self-revocation never bans: the holder may re-issue at will.
-    ///         Note that policy-owner revocation is for targeted incident response: sanctions
-    ///         propagation does NOT happen here, it is enforced at issuance/renewal against the
-    ///         current sanctions root, bounded by the policy's `credentialDuration`.
-    ///         Also note the nullifier stays bound to the wallet even after revocation: releasing
-    ///         it would let a holder revoke and re-issue to a fresh wallet, timing repeated access
-    ///         to a one-per-document gate. The document can only ever re-credential the same
-    ///         wallet for this policy.
-    /// @param wallet The holder losing the credential
-    /// @param policyId The policy the credential was issued under
-    function revoke(address wallet, uint256 policyId) external onlyHolderOrPolicyOwner(wallet, policyId) {
-        bool ownerRevocation = msg.sender != wallet;
-        if (ownerRevocation && !_policies[policyId].ownerRevocable) revert ZKPassportCredentials__NotRevocable();
-        if (heldUntil[wallet][policyId] == 0) revert ZKPassportCredentials__NothingToRevoke();
+    /// @notice Lets the caller renounce their own credential for a policy. The caller
+    ///         may re-prove and re-issue at will. Note the nullifier stays bound to the wallet even after
+    ///         renouncing: releasing it would let a holder renounce and re-issue to a fresh
+    ///         wallet, timing repeated access to a one-per-document gate. The document can only
+    ///         ever re-credential the same wallet for this policy.
+    /// @param policyId The policy whose credential the caller is giving up.
+    function renounce(uint256 policyId) external {
+        if (heldUntil[msg.sender][policyId] == 0) revert ZKPassportCredentials__NothingToRenounce();
+        _clearCredential(msg.sender, policyId);
+        emit CredentialRenounced(msg.sender, policyId);
+    }
 
+    function _clearCredential(address wallet, uint256 policyId) internal {
         heldUntil[wallet][policyId] = 0;
 
         if (super.balanceOf(wallet, policyId) > 0) {
             _burn(wallet, policyId, 1);
         }
+    }
 
-        emit CredentialRevoked(wallet, policyId, msg.sender);
+    /// @notice Ban a wallet from a policy, effective immediately: any standing credential is
+    ///         removed in the same transaction, and issuance and renewal stay blocked until
+    ///         unban(). WalletBanned is the only event emitted — it implies the wallet holds no
+    ///         credential for the policy from this point. Only available on `ownerBannable`
+    ///         policies. Banning is for targeted incident response:
+    ///         sanctions propagation does NOT happen here, it is enforced at issuance/renewal
+    ///         against the current sanctions root, bounded by the policy's `credentialDuration`.
+    /// @param wallet The wallet to ban; must not already be banned.
+    /// @param policyId The policy the ban applies to; only its owner may call.
+    function ban(address wallet, uint256 policyId) external onlyPolicyOwner(policyId) {
+        if (!_policies[policyId].ownerBannable) revert ZKPassportCredentials__NotBannable();
+        if (banned[wallet][policyId]) revert ZKPassportCredentials__WalletBanned();
+        banned[wallet][policyId] = true;
+        emit WalletBanned(wallet, policyId);
 
-        if (ownerRevocation) {
-            banned[wallet][policyId] = true;
-            emit WalletBanned(wallet, policyId);
+        if (heldUntil[wallet][policyId] != 0) {
+            _clearCredential(wallet, policyId);
         }
     }
 
-    /// @notice Lift the ban an owner revocation placed on a wallet for a given policy, restoring
-    ///         its ability to be issued credentials (by proof or by the owner) under the policy.
+    /// @notice Lift a ban placed on a wallet for a given policy, restoring its ability to be
+    ///         issued credentials (by proof or by the owner) under the policy.
     /// @param wallet The banned wallet.
     /// @param policyId The policy the ban applies to; only its owner may call.
     function unban(address wallet, uint256 policyId) external onlyPolicyOwner(policyId) {
@@ -327,7 +328,7 @@ contract ZKPassportCredentials is ERC1155 {
         emit WalletUnbanned(wallet, policyId);
     }
 
-    /// @notice Emergency stop for issuance and policy creation; reads and revocation stay live.
+    /// @notice Emergency stop for issuance and policy creation; reads, renounce, and ban stay live.
     function pause() external onlyAdmin {
         paused = true;
         emit PausedStatusChanged(true);
