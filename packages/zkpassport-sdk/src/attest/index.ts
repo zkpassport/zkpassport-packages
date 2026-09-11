@@ -23,10 +23,11 @@ export type AttestPolicy = {
   /** When true, the policy owner may issue credentials directly via ownerIssue(), without a proof. */
   ownerIssuable: boolean
   /**
-   * When true, the policy owner may revoke a holder's credential, which also bans the
-   * wallet from the policy until the owner unbans it. Self-revocation is always allowed.
+   * When true, the policy owner may ban a wallet via ban(), which also removes any standing
+   * credential and blocks issuance and renewal until the owner unbans it. Holders may always
+   * renounce their own credential.
    */
-  ownerRevocable: boolean
+  ownerBannable: boolean
   /** When true, the policy owner may replace the policy's requirements via setRequirements(). */
   ownerEditable: boolean
   /**
@@ -249,15 +250,15 @@ export class AttestClient {
   }
 
   /**
-   * Unix timestamp (seconds, as bigint) the credential is valid until; 0 means never issued or
-   * revoked.
+   * Unix timestamp (seconds, as bigint) the credential is valid until; 0 means never issued,
+   * renounced, or removed by a ban.
    */
   async heldUntil(wallet: `0x${string}`, policyId: bigint): Promise<bigint> {
     return (await this.read("heldUntil", [wallet, policyId])) as bigint
   }
 
   /**
-   * True while the wallet is banned from the policy by an owner revocation; issue() and ownerIssue()
+   * True while the wallet is banned from the policy by its owner; issue() and ownerIssue()
    * revert for banned wallets until the owner unbans.
    */
   async banned(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
@@ -340,8 +341,8 @@ export class AttestClient {
    *   registries, which contain the mock certificates. On mainnet deployments they fail the
    *   certificate root check.
    * - The proof must be at most 1 day old at inclusion time.
-   * - The recipient wallet must not be banned. An owner revocation bans it until the policy owner
-   *   unbans. Only relevant for `ownerRevocable` policies.
+   * - The recipient wallet must not be banned. A ban blocks issuance until the policy owner
+   *   unbans. Only relevant for `ownerBannable` policies.
    * - The policy must exist, not be retired, and the registry not paused.
    */
   getIssueDetails(): {
@@ -427,8 +428,8 @@ export class AttestClient {
     metadataURL: string
     /** Allow proofless issuance via ownerIssue(). */
     ownerIssuable?: boolean
-    /** Allow the owner to revoke (and thereby ban) holders via revoke(). */
-    ownerRevocable?: boolean
+    /** Allow the owner to ban wallets (removing any standing credential) via ban(). */
+    ownerBannable?: boolean
     /** Allow the owner to replace requirements via setRequirements(). */
     ownerEditable?: boolean
   }): AttestCall<
@@ -441,7 +442,7 @@ export class AttestClient {
       options.credentialDuration,
       options.metadataURL,
       options.ownerIssuable ?? false,
-      options.ownerRevocable ?? false,
+      options.ownerBannable ?? false,
       options.ownerEditable ?? false,
     ] as const)
   }
@@ -493,21 +494,29 @@ export class AttestClient {
   }
 
   /**
-   * Assemble the revoke() call. Sent by the holder it self-revokes, freely re-issuable; sent by
-   * the policy owner (allowed only for `ownerRevocable` policies) it also bans the wallet from
-   * the policy until unban(). The nullifier binding survives either way: the document can only
-   * ever re-credential the same wallet for this policy.
+   * Assemble the renounce() call, giving up the sender's own credential for a policy.
+   * Renouncing never bans: the holder may re-prove and re-issue at will. The nullifier stays
+   * bound to the wallet, so the document can only ever re-credential the same wallet for
+   * this policy.
    */
-  buildRevokeCall(
-    wallet: `0x${string}`,
-    policyId: bigint,
-  ): AttestCall<"revoke", readonly [`0x${string}`, bigint]> {
-    return this.call("revoke", [wallet, policyId] as const)
+  buildRenounceCall(policyId: bigint): AttestCall<"renounce", readonly [bigint]> {
+    return this.call("renounce", [policyId] as const)
   }
 
   /**
-   * Assemble the unban() call, lifting the ban an owner revocation placed on a wallet.
-   * Owner-only.
+   * Assemble the ban() call, banning a wallet from a policy effective immediately: any
+   * standing credential is removed in the same transaction, and issuance and renewal stay
+   * blocked until unban(). Owner-only, and only for `ownerBannable` policies.
+   */
+  buildBanCall(
+    wallet: `0x${string}`,
+    policyId: bigint,
+  ): AttestCall<"ban", readonly [`0x${string}`, bigint]> {
+    return this.call("ban", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the unban() call, lifting a ban placed on a wallet. Owner-only.
    */
   buildUnbanCall(
     wallet: `0x${string}`,
@@ -621,8 +630,9 @@ export async function submitIssueCall(
 
 /**
  * Submit an AttestClient-assembled registry call and wait for inclusion. Unlike issue(), the
- * owner operations are permissioned: the wallet must be the policy's owner (or, for revoke(),
- * the holder self-revoking) or the transaction reverts. The wallet client must already be on
+ * owner operations are permissioned: the wallet must be the policy's owner (or, for
+ * renounce(), the holder giving up their own credential) or the transaction reverts. The
+ * wallet client must already be on
  * the context's chain.
  */
 export async function submitAttestCall(
