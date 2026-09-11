@@ -5,7 +5,10 @@ import { PolicyEvaluatorV1Abi } from "../src/assets/abi/policy-evaluator-v1"
 import { sepolia } from "viem/chains"
 import {
   AttestClient,
+  computePolicyId,
   createAttestContext,
+  encodeAttestPolicyRequirements,
+  submitAttestCall,
   submitIssueCall,
   type AttestContext,
   type AttestPolicy,
@@ -26,6 +29,7 @@ const SAMPLE_POLICY: AttestPolicy = {
   credentialDuration: 2592000n,
   ownerIssuable: false,
   ownerRevocable: false,
+  ownerEditable: false,
   evaluator: EVALUATOR,
   requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
@@ -77,12 +81,12 @@ function stubClient(
 }
 
 describe("AttestClient reads", () => {
-  test("getIssueCall assembles the registry call around the encoded proof data", async () => {
+  test("buildIssueCall assembles the registry call around the encoded proof data", async () => {
     const spy = spyOn(AttestClient, "getIssueProofData").mockReturnValue("0xf00d")
     try {
       const { client } = stubClient(() => null)
       const attest = new AttestClient({ client, address: REGISTRY })
-      const call = attest.getIssueCall({
+      const call = attest.buildIssueCall({
         policyId: POLICY_ID,
         proof: { proof: "0x1" } as never,
         domain: "verify.zkpassport.id",
@@ -424,6 +428,25 @@ describe("createAttestContext", () => {
   })
 })
 
+function fakeContext(status: "success" | "reverted") {
+  const writes: unknown[] = []
+  const ctx = {
+    chain: sepolia,
+    publicClient: { waitForTransactionReceipt: async () => ({ status }) },
+    attest: null,
+  } as unknown as AttestContext
+  const wallet = {
+    account: WALLET,
+    client: {
+      writeContract: async (params: unknown) => {
+        writes.push(params)
+        return "0xhash"
+      },
+    },
+  } as never
+  return { ctx, wallet, writes }
+}
+
 describe("submitIssueCall", () => {
   const CALL = {
     address: REGISTRY,
@@ -431,25 +454,6 @@ describe("submitIssueCall", () => {
     abi: [],
     args: [POLICY_ID, "0xf00d"],
   } as const
-
-  function fakeContext(status: "success" | "reverted") {
-    const writes: unknown[] = []
-    const ctx = {
-      chain: sepolia,
-      publicClient: { waitForTransactionReceipt: async () => ({ status }) },
-      attest: null,
-    } as unknown as AttestContext
-    const wallet = {
-      account: WALLET,
-      client: {
-        writeContract: async (params: unknown) => {
-          writes.push(params)
-          return "0xhash"
-        },
-      },
-    } as never
-    return { ctx, wallet, writes }
-  }
 
   test("submits through the wallet client and resolves on inclusion", async () => {
     const { ctx, wallet, writes } = fakeContext("success")
@@ -474,5 +478,141 @@ describe("submitIssueCall", () => {
     await expect(submitIssueCall(ctx, CALL, wallet)).rejects.toThrow(
       "Credential mint reverted (tx 0xhash).",
     )
+  })
+})
+
+const SALT = "0x0000000000000000000000000000000000000000000000000000000000000007" as const
+
+const REQUIREMENTS_ABI = getAbiItem({
+  abi: PolicyEvaluatorV1Abi,
+  name: "decodeRequirements",
+}).outputs
+
+describe("encodeAttestPolicyRequirements", () => {
+  test("round-trips through the evaluator's schema-1 layout", () => {
+    const encoded = encodeAttestPolicyRequirements(SAMPLE_REQUIREMENTS)
+    const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
+    expect(decoded).toEqual({
+      ...RAW_REQUIREMENTS,
+      includedNationalities: [],
+      excludedNationalities: ["PRK"],
+    })
+  })
+
+  test("encodes absent sanctions and facematch modes as NONE", () => {
+    const encoded = encodeAttestPolicyRequirements({
+      ...SAMPLE_REQUIREMENTS,
+      sanctionsMode: undefined,
+      facematchMode: undefined,
+    })
+    const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
+    expect(decoded.sanctionsMode).toBe(0)
+    expect(decoded.faceMatchMode).toBe(0)
+  })
+})
+
+describe("computePolicyId", () => {
+  test("matches the contract's keccak256(abi.encode(creator, salt))", () => {
+    // Pinned from `cast keccak $(cast abi-encode "f(address,bytes32)" <WALLET> <SALT>)`.
+    expect(computePolicyId(WALLET, SALT)).toBe(
+      BigInt("0x1a5bebf306955e90264bb0e0979d31084dac4a68dd7e7a845240a2890b6954bb"),
+    )
+  })
+})
+
+describe("AttestClient owner calls", () => {
+  const attest = new AttestClient({ client: stubClient(() => null).client, address: REGISTRY })
+
+  test("buildCreatePolicyCall encodes requirements and defaults the flags to false", () => {
+    const call = attest.buildCreatePolicyCall({
+      salt: SALT,
+      requirements: SAMPLE_REQUIREMENTS,
+      credentialDuration: 2592000n,
+      metadataURL: "https://policy.example/kyc",
+    })
+    expect(call.address).toBe(REGISTRY)
+    expect(call.functionName).toBe("createPolicy")
+    expect(call.args).toEqual([
+      SALT,
+      encodeAttestPolicyRequirements(SAMPLE_REQUIREMENTS),
+      2592000n,
+      "https://policy.example/kyc",
+      false,
+      false,
+      false,
+    ])
+  })
+
+  test("buildCreatePolicyCall forwards explicit owner-privilege flags", () => {
+    const call = attest.buildCreatePolicyCall({
+      salt: SALT,
+      requirements: SAMPLE_REQUIREMENTS,
+      credentialDuration: 1n,
+      metadataURL: "",
+      ownerIssuable: true,
+      ownerRevocable: true,
+      ownerEditable: true,
+    })
+    expect(call.args.slice(4)).toEqual([true, true, true])
+  })
+
+  test("buildSetRequirementsCall pairs the policy id with re-encoded requirements", () => {
+    const call = attest.buildSetRequirementsCall(POLICY_ID, SAMPLE_REQUIREMENTS)
+    expect(call.functionName).toBe("setRequirements")
+    expect(call.args).toEqual([POLICY_ID, encodeAttestPolicyRequirements(SAMPLE_REQUIREMENTS)])
+  })
+
+  test("the remaining owner calls mirror the contract signatures", () => {
+    expect(attest.buildSetMetadataURLCall(POLICY_ID, "https://p.example/2")).toMatchObject({
+      address: REGISTRY,
+      functionName: "setMetadataURL",
+      args: [POLICY_ID, "https://p.example/2"],
+    })
+    expect(attest.buildRetireCall(POLICY_ID)).toMatchObject({
+      functionName: "retire",
+      args: [POLICY_ID],
+    })
+    expect(attest.buildOwnerIssueCall(WALLET, POLICY_ID)).toMatchObject({
+      functionName: "ownerIssue",
+      args: [WALLET, POLICY_ID],
+    })
+    expect(attest.buildRevokeCall(WALLET, POLICY_ID)).toMatchObject({
+      functionName: "revoke",
+      args: [WALLET, POLICY_ID],
+    })
+    expect(attest.buildUnbanCall(WALLET, POLICY_ID)).toMatchObject({
+      functionName: "unban",
+      args: [WALLET, POLICY_ID],
+    })
+  })
+})
+
+describe("submitAttestCall", () => {
+  test("submits through the wallet client and resolves on inclusion", async () => {
+    const { ctx, wallet, writes } = fakeContext("success")
+    const attest = new AttestClient({ client: stubClient(() => null).client, address: REGISTRY })
+    const call = attest.buildRetireCall(POLICY_ID)
+    const submitted: string[] = []
+    const hash = await submitAttestCall(ctx, call, wallet, (h) => submitted.push(h))
+    expect(hash).toBe("0xhash")
+    expect(submitted).toEqual(["0xhash"])
+    expect(writes).toEqual([
+      {
+        address: REGISTRY,
+        abi: call.abi,
+        functionName: "retire",
+        args: [POLICY_ID],
+        account: WALLET,
+        chain: sepolia,
+      },
+    ])
+  })
+
+  test("names the reverted function in the error", async () => {
+    const { ctx, wallet } = fakeContext("reverted")
+    const attest = new AttestClient({ client: stubClient(() => null).client, address: REGISTRY })
+    await expect(
+      submitAttestCall(ctx, attest.buildUnbanCall(WALLET, POLICY_ID), wallet),
+    ).rejects.toThrow("unban transaction reverted (tx 0xhash).")
   })
 })
