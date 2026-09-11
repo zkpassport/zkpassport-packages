@@ -1,24 +1,12 @@
 import { AttestClient, buildAttestProofRequest } from "@zkpassport/sdk"
-import type { AttestReadClient, SupportedChain } from "@zkpassport/sdk"
+import type { AttestIssueCall, AttestReadClient, SupportedChain } from "@zkpassport/sdk"
 import type { ZKPassportQRCodeOptions } from "./types"
 
 // The QR card does not export its onResult payload type, so extract it from
 // the options; this stays in lockstep with whatever the card delivers.
 type CardResult = Parameters<NonNullable<ZKPassportQRCodeOptions["onResult"]>>[0]
 
-/**
- * Ready-to-send ZKPassportCredentials.issue() call, assembled from the SDK's
- * issue details so an onResult consumer can submit the mint without wiring up
- * ABIs itself. `address` is the registry address; the field keeps viem's
- * naming so the object spreads straight into writeContract/simulateContract.
- */
-export type AttestIssueCall = {
-  address: `0x${string}`
-  functionName: "issue"
-  abi: ReturnType<AttestClient["getIssueDetails"]>["abi"]
-  /** policyId plus the proof data pre-encoded per the policy's evaluator schema. */
-  args: readonly [bigint, `0x${string}`]
-}
+export type { AttestIssueCall }
 
 /**
  * Delivered to AttestVerifyOptions.onResult once the card flow settles; the
@@ -145,14 +133,7 @@ function buildResultHandler(context: {
     const proof = response.proofs?.find((p) => p.name?.startsWith("outer_evm"))
     if (response.verified && proof) {
       try {
-        const proofData = AttestClient.getIssueProofData({ proof, domain, scope, devMode })
-        const details = attest.getIssueDetails()
-        issueCall = {
-          address: details.address,
-          functionName: details.functionName,
-          abi: details.abi,
-          args: [policyId, proofData] as const,
-        }
+        issueCall = attest.getIssueCall({ policyId, proof, domain, scope, devMode })
       } catch (reason) {
         options.onError?.(reason instanceof Error ? reason.message : String(reason))
       }
