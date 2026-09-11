@@ -407,7 +407,7 @@ describe("attest deployments", () => {
 
   test("resolves canonical registries and rejects chains without one", async () => {
     const { getAttestRegistry } = await import("../src/attest/deployments")
-    expect(getAttestRegistry("ethereum_sepolia")).toBe("0x2a615a175439b9eb0004b924aBdD2B4c7a871f11")
+    expect(getAttestRegistry("ethereum_sepolia")).toBe("0x3278117D873965036B5e0007112ADDd488Bde3e1")
     expect(() => getAttestRegistry("local")).toThrow(
       "Attestation minting is not supported on 'local': no registry is deployed.",
     )
@@ -417,7 +417,7 @@ describe("attest deployments", () => {
 describe("createAttestContext", () => {
   test("binds an AttestClient to the chain's canonical registry", () => {
     const ctx = createAttestContext(sepolia)
-    expect(ctx.attest.address).toBe("0x2a615a175439b9eb0004b924aBdD2B4c7a871f11")
+    expect(ctx.attest.address).toBe("0x3278117D873965036B5e0007112ADDd488Bde3e1")
     expect(ctx.chain).toBe(sepolia)
   })
 
