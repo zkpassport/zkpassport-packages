@@ -96,11 +96,11 @@ contract ZKPassportCredentialsOwnerIssueTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(recipient, ownerIssuablePolicyId), 1);
     }
 
-    function testOwnerIssuedCredentialIsRevocable() public {
+    function testOwnerCanBanAnOwnerIssuedCredential() public {
         vm.prank(creator);
         zkPassportCredentials.ownerIssue(recipient, ownerIssuablePolicyId);
         vm.prank(creator);
-        zkPassportCredentials.revoke(recipient, ownerIssuablePolicyId);
+        zkPassportCredentials.ban(recipient, ownerIssuablePolicyId);
         assertEq(zkPassportCredentials.balanceOf(recipient, ownerIssuablePolicyId), 0);
     }
 

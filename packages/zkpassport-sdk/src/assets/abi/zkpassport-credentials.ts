@@ -1,4 +1,4 @@
-// Generated from packages/attest-contracts (commit d74aa4e9). Do not edit by hand.
+// Generated from packages/attest-contracts (commit 7ee650d6). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -21,6 +21,19 @@ export const ZKPassportCredentialsAbi = [
       },
     ],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "MAX_CREDENTIAL_DURATION",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint64",
+        internalType: "uint64",
+      },
+    ],
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -85,6 +98,24 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
+    name: "ban",
+    inputs: [
+      {
+        name: "wallet",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "banned",
     inputs: [
       {
@@ -137,7 +168,7 @@ export const ZKPassportCredentialsAbi = [
         internalType: "bool",
       },
       {
-        name: "ownerRevocable",
+        name: "ownerBannable",
         type: "bool",
         internalType: "bool",
       },
@@ -201,7 +232,7 @@ export const ZKPassportCredentialsAbi = [
             internalType: "bool",
           },
           {
-            name: "ownerRevocable",
+            name: "ownerBannable",
             type: "bool",
             internalType: "bool",
           },
@@ -397,7 +428,7 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
-    name: "retire",
+    name: "renounce",
     inputs: [
       {
         name: "policyId",
@@ -410,13 +441,8 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
-    name: "revoke",
+    name: "retire",
     inputs: [
-      {
-        name: "wallet",
-        type: "address",
-        internalType: "address",
-      },
       {
         name: "policyId",
         type: "uint256",
@@ -781,7 +807,7 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "event",
-    name: "CredentialRevoked",
+    name: "CredentialRenounced",
     inputs: [
       {
         name: "wallet",
@@ -794,12 +820,6 @@ export const ZKPassportCredentialsAbi = [
         type: "uint256",
         indexed: true,
         internalType: "uint256",
-      },
-      {
-        name: "by",
-        type: "address",
-        indexed: false,
-        internalType: "address",
       },
     ],
     anonymous: false,
@@ -1185,6 +1205,11 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
+    name: "ZKPassportCredentials__NotBannable",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "ZKPassportCredentials__NotBanned",
     inputs: [],
   },
@@ -1205,12 +1230,7 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
-    name: "ZKPassportCredentials__NotRevocable",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ZKPassportCredentials__NothingToRevoke",
+    name: "ZKPassportCredentials__NothingToRenounce",
     inputs: [],
   },
   {

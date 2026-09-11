@@ -67,37 +67,24 @@ contract ZKPassportCredentialsCredentialTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.setApprovalForAll(makeAddr("operator"), true);
     }
 
-    function testHolderCanRevokeSelf() public {
+    function testHolderCanRenounce() public {
         vm.prank(wallet);
         vm.expectEmit(true, true, false, true);
-        emit ZKPassportCredentials.CredentialRevoked(wallet, policyId, wallet);
-        zkPassportCredentials.revoke(wallet, policyId);
+        emit ZKPassportCredentials.CredentialRenounced(wallet, policyId);
+        zkPassportCredentials.renounce(policyId);
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), 0);
     }
 
-    function testStrangerCannotRevoke() public {
+    function testRenounceWithoutCredentialReverts() public {
         vm.prank(makeAddr("stranger"));
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotRevocable.selector);
-        zkPassportCredentials.revoke(wallet, policyId);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NothingToRenounce.selector);
+        zkPassportCredentials.renounce(policyId);
     }
 
-    function testAdminCannotRevoke() public {
-        vm.prank(admin);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotRevocable.selector);
-        zkPassportCredentials.revoke(wallet, policyId);
-    }
-
-    function testRevokeWithoutCredentialReverts() public {
-        address stranger = makeAddr("stranger");
-        vm.prank(stranger);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NothingToRevoke.selector);
-        zkPassportCredentials.revoke(stranger, policyId);
-    }
-
-    function testReissueAfterRevokeWorks() public {
+    function testReissueAfterRenounceWorks() public {
         vm.prank(wallet);
-        zkPassportCredentials.revoke(wallet, policyId);
+        zkPassportCredentials.renounce(policyId);
         vm.expectEmit(true, true, true, true);
         emit IERC1155.TransferSingle(address(this), address(0), wallet, policyId, 1);
         zkPassportCredentials.issue(policyId, _params());

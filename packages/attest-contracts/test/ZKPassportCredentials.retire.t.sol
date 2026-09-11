@@ -77,12 +77,12 @@ contract ZKPassportCredentialsRetireTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 0);
     }
 
-    function testRevokeStillWorksAfterRetirement() public {
+    function testRenounceStillWorksAfterRetirement() public {
         zkPassportCredentials.issue(policyId, _params());
         vm.prank(creator);
         zkPassportCredentials.retire(policyId);
         vm.prank(wallet);
-        zkPassportCredentials.revoke(wallet, policyId);
+        zkPassportCredentials.renounce(policyId);
         assertEq(zkPassportCredentials.heldUntil(wallet, policyId), 0);
     }
 }

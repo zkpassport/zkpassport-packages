@@ -172,10 +172,10 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(other, secondUnique), 1);
     }
 
-    function testRevokeKeepsNullifierBoundToOriginalWallet() public {
+    function testRenounceKeepsNullifierBoundToOriginalWallet() public {
         zkPassportCredentials.issue(strictPolicyId, _params());
         vm.prank(wallet);
-        zkPassportCredentials.revoke(wallet, strictPolicyId);
+        zkPassportCredentials.renounce(strictPolicyId);
         assertEq(zkPassportCredentials.nullifierWallet(strictPolicyId, mockVerifier.nullifier()), wallet);
         address mallory = makeAddr("recovered");
         mockHelper.setBoundData(mallory, block.chainid, "");
@@ -187,10 +187,10 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.issue(strictPolicyId, _params());
     }
 
-    function testSameWalletCanReissueAfterRevoke() public {
+    function testSameWalletCanReissueAfterRenounce() public {
         zkPassportCredentials.issue(strictPolicyId, _params());
         vm.prank(wallet);
-        zkPassportCredentials.revoke(wallet, strictPolicyId);
+        zkPassportCredentials.renounce(strictPolicyId);
         zkPassportCredentials.issue(strictPolicyId, _params());
         assertEq(zkPassportCredentials.balanceOf(wallet, strictPolicyId), 1);
     }
