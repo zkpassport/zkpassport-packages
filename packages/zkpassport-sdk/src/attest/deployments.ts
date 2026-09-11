@@ -12,7 +12,7 @@ import type { SupportedChain } from "@zkpassport/utils"
 const ATTEST_DEPLOYMENTS: Partial<
   Record<SupportedChain, { chain: Chain; registry?: `0x${string}` }>
 > = {
-  ethereum_sepolia: { chain: sepolia, registry: "0x2a615a175439b9eb0004b924aBdD2B4c7a871f11" },
+  ethereum_sepolia: { chain: sepolia, registry: "0x3278117D873965036B5e0007112ADDd488Bde3e1" },
   local: { chain: anvil },
 }
 
