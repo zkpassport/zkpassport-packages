@@ -325,6 +325,48 @@ export class AttestClient {
     })
     return encodeAbiParameters(PROOF_DATA_ABI, [params] as never)
   }
+
+  /**
+   * Assemble the ready-to-send issue() call for a policy from a verified
+   * proof: this client's registry details plus the proof data encoded via
+   * getIssueProofData.
+   */
+  getIssueCall(options: {
+    policyId: bigint
+    proof: ProofResult
+    domain: string
+    scope: string
+    validityPeriodInSeconds?: number
+    devMode?: boolean
+  }): AttestIssueCall {
+    const proofData = AttestClient.getIssueProofData({
+      proof: options.proof,
+      domain: options.domain,
+      scope: options.scope,
+      validityPeriodInSeconds: options.validityPeriodInSeconds,
+      devMode: options.devMode,
+    })
+    const details = this.getIssueDetails()
+    return {
+      address: details.address,
+      functionName: details.functionName,
+      abi: details.abi,
+      args: [options.policyId, proofData] as const,
+    }
+  }
+}
+
+/**
+ * Ready-to-send ZKPassportCredentials.issue() call. `address` is the registry
+ * address; the field keeps viem's naming so the object spreads straight into
+ * writeContract/simulateContract.
+ */
+export type AttestIssueCall = {
+  address: `0x${string}`
+  functionName: "issue"
+  abi: typeof ZKPassportCredentialsAbi
+  /** policyId plus the proof data pre-encoded per the policy's evaluator schema. */
+  args: readonly [bigint, `0x${string}`]
 }
 
 export type AttestContext = {

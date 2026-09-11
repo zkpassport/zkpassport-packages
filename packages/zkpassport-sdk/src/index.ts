@@ -126,6 +126,7 @@ export {
   createAttestContext,
   submitIssueCall,
   type AttestContext,
+  type AttestIssueCall,
   type AttestPolicy,
   type AttestPolicyRequirements,
   type AttestPolicySummary,
