@@ -2,19 +2,11 @@ import { describe, expect, test } from "bun:test"
 import { readButtonOptions } from "../src/cdn/options"
 
 class FakeElement extends EventTarget {
-  tagName = "DIV"
-  href?: string
-  textContent?: string
   constructor(
     public dataset: Record<string, string>,
-    link?: { href: string; text: string },
+    public textContent?: string,
   ) {
     super()
-    if (link) {
-      this.tagName = "A"
-      this.href = link.href
-      this.textContent = link.text
-    }
   }
   hasAttribute(name: string) {
     return name === "data-dev-mode" && "devMode" in this.dataset
@@ -24,13 +16,9 @@ class FakeElement extends EventTarget {
 const asElement = (fake: FakeElement) => fake as unknown as HTMLElement
 
 describe("readButtonOptions", () => {
-  test("requires a policy", () => {
-    expect(readButtonOptions(asElement(new FakeElement({ label: "Verify" })))).toBeNull()
-    const linkWithoutPolicy = new FakeElement(
-      {},
-      { href: "https://verify.zkpassport.id/", text: "Verify" },
-    )
-    expect(readButtonOptions(asElement(linkWithoutPolicy))).toBeNull()
+  test("requires data-policy-id", () => {
+    const element = new FakeElement({ label: "Verify" })
+    expect(readButtonOptions(asElement(element), element)).toBeNull()
   })
 
   test("maps data attributes to button options", () => {
@@ -43,9 +31,7 @@ describe("readButtonOptions", () => {
       popupUrl: "http://localhost:5173",
     })
 
-    const options = readButtonOptions(asElement(element))!
-
-    expect(options).toMatchObject({
+    expect(readButtonOptions(asElement(element), element)).toMatchObject({
       policyId: "pol_123",
       label: "Get verified",
       theme: "dark",
@@ -55,49 +41,48 @@ describe("readButtonOptions", () => {
     })
   })
 
-  test("reads a link's policy from its URL and its text as the label", () => {
-    const link = new FakeElement(
-      {},
-      { href: "https://verify.zkpassport.id/?policy=pol_123", text: " Verify your age " },
-    )
+  test("uses the element's own text as the label", () => {
+    const element = new FakeElement({ policyId: "pol_123" }, " Verify your age ")
 
-    const options = readButtonOptions(asElement(link))!
-
-    expect(options).toMatchObject({
-      policyId: "pol_123",
-      label: "Verify your age",
-      popupUrl: "https://verify.zkpassport.id/?policy=pol_123",
-    })
+    expect(readButtonOptions(asElement(element), element)!.label).toBe("Verify your age")
   })
 
-  test("reports the outcome as events on the given target", () => {
+  test("turns every callback into an event on the given target", () => {
     const element = new FakeElement({ policyId: "pol_123" })
     const target = new EventTarget()
-    const received: CustomEvent[] = []
-    for (const name of ["success", "rejected", "error", "closed"]) {
-      target.addEventListener(`zkpassport:${name}`, (event) => received.push(event as CustomEvent))
+    const received: Array<[string, unknown]> = []
+    const names = [
+      "request-received",
+      "generating-proof",
+      "proof-generated",
+      "success",
+      "reject",
+      "error",
+      "close",
+    ]
+    for (const name of names) {
+      target.addEventListener(`zkpassport:${name}`, (event) =>
+        received.push([event.type, (event as CustomEvent).detail]),
+      )
     }
     const options = readButtonOptions(asElement(element), target)!
 
+    options.onRequestReceived?.()
+    options.onGeneratingProof?.()
+    options.onProofGenerated?.({ index: 1, total: 2 })
     options.onSuccess?.({ proofs: [], result: {} } as never)
     options.onReject?.()
     options.onError?.("popup blocked")
     options.onClose?.()
 
-    expect(received.map((event) => [event.type, event.detail])).toEqual([
+    expect(received).toEqual([
+      ["zkpassport:request-received", null],
+      ["zkpassport:generating-proof", null],
+      ["zkpassport:proof-generated", { index: 1, total: 2 }],
       ["zkpassport:success", { proofs: [], result: {} }],
-      ["zkpassport:rejected", null],
+      ["zkpassport:reject", null],
       ["zkpassport:error", "popup blocked"],
-      ["zkpassport:closed", null],
+      ["zkpassport:close", null],
     ])
-  })
-
-  test("preventDefault on the success event vetoes the success state", () => {
-    const element = new FakeElement({ policyId: "pol_123" })
-    const options = readButtonOptions(asElement(element))!
-
-    expect(options.onSuccess?.({} as never)).toBe(true)
-    element.addEventListener("zkpassport:success", (event) => event.preventDefault())
-    expect(options.onSuccess?.({} as never)).toBe(false)
   })
 })

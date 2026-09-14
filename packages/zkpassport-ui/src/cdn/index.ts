@@ -11,20 +11,17 @@ export function scan(root: ParentNode = document): void {
   }
 }
 
-// A link is replaced by the button; any other element gets the button inside
 function mountFromMarkup(element: HTMLElement): void {
-  const isLink = element.tagName === "A"
-  const container = isLink ? document.createElement("span") : element
+  const container = document.createElement("span")
   const options = readButtonOptions(element, container)
   if (!options) {
-    logger.error("policy missing: set data-policy-id or ?policy= in the link", element)
+    logger.error("data-policy-id is required", element)
     return
   }
-  if (isLink) {
-    container.className = element.className
-    element.replaceWith(container)
-  }
+  container.className = element.className
+  if (element.id) container.id = element.id
   container.setAttribute(MOUNTED_ATTRIBUTE, "")
+  element.replaceWith(container)
   mountVerifyButton(container, options)
 }
 

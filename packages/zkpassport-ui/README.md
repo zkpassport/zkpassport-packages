@@ -94,25 +94,42 @@ Outside React, `createVerification(getOptions, onStateChange)` drives your own e
 
 ## Script tag
 
-For sites without a bundler, one script serves the verify button from the popup's host. Every element with the class `zkpassport-button` becomes a button. The query comes from a dashboard policy, so the HTML only names the policy: a link carries it in its URL and its text becomes the label, any other element names it in `data-policy-id`.
+For sites without a bundler. Any element with the class `zkpassport-button` becomes the button, and `data-policy-id` names the dashboard policy that defines the query.
 
 ```html
-<a class="zkpassport-button" href="https://verify.zkpassport.id/?policy=age-check">Verify your age</a>
-<!-- or -->
-<div class="zkpassport-button" data-policy-id="age-check" data-label="Verify your age"></div>
+<a class="zkpassport-button" data-policy-id="age-check" href="/verify">Verify your age</a>
 
 <script src="https://verify.zkpassport.id/v1/zkpassport.js"></script>
 <script>
   document.addEventListener("zkpassport:success", (event) => {
-    // event.detail is { proofs, result } — verify them on your backend
-    // event.preventDefault() shows the error state instead of success
+    fetch("/api/verify", { method: "POST", body: JSON.stringify(event.detail) })
   })
 </script>
 ```
 
-The link is replaced by the button and keeps its class names, so listen for events on `document` or another ancestor. Optional attributes on either form: `data-label`, `data-theme`, `data-size`, `data-dev-mode`, `data-popup-url`. The other outcomes fire `zkpassport:rejected`, `zkpassport:error` (`detail` is the message) and `zkpassport:closed`. `ZKPassport.scan(container)` mounts buttons added to the page later.
+The element is replaced by the button, which keeps its `class` and `id` and takes its text as the label, so listen on `document` or a parent. An `href` is only there for visitors the script never reaches.
 
-For your own button, use `ZKPassport.createVerification(getOptions, onStateChange)` as described above, or `ZKPassport.mountVerifyButton(element, options)` for the branded button with JS callbacks.
+Every callback above is also an event named after it without `on`: `zkpassport:success` (`detail` is `{ proofs, result }`), `zkpassport:reject`, `zkpassport:error` (`detail` is the message), `zkpassport:close`, `zkpassport:request-received`, `zkpassport:generating-proof`, `zkpassport:proof-generated`. Optional attributes: `data-label`, `data-theme`, `data-size`, `data-dev-mode`, `data-popup-url`.
+
+To have the button wait for your backend before it shows Verified:
+
+```html
+<div id="verify"></div>
+
+<script src="https://verify.zkpassport.id/v1/zkpassport.js"></script>
+<script>
+  ZKPassport.mountVerifyButton(document.getElementById("verify"), {
+    policyId: "age-check",
+    query: (queryBuilder) => queryBuilder.done(),
+    onSuccess: async ({ proofs, result }) => {
+      const res = await fetch("/api/verify", { method: "POST", body: JSON.stringify({ proofs, result }) })
+      return (await res.json()).verified === true
+    },
+  })
+</script>
+```
+
+`ZKPassport.scan()` mounts buttons added to the page later, and `ZKPassport.createVerification(getOptions, onStateChange)` drives an element of your own.
 
 ## Callbacks
 
