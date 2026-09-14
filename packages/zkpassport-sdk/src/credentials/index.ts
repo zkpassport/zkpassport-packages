@@ -2,15 +2,18 @@ import type { Chain, PublicClient, WalletClient } from "viem"
 import { createPublicClient, encodeAbiParameters, getAbiItem, http, keccak256 } from "viem"
 import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType, ProofResult } from "@zkpassport/utils"
-import { getAttestRegistry } from "./deployments"
+import { getCredentialsRegistry } from "./deployments"
 import { SolidityVerifier } from "../solidity-verifier"
 import { ZKPassportCredentialsAbi } from "../assets/abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "../assets/abi/policy-evaluator-v1"
 
 /** Structural slice of viem's PublicClient. */
-export type AttestReadClient = Pick<PublicClient, "readContract" | "getLogs" | "getBlockNumber">
+export type CredentialsReadClient = Pick<
+  PublicClient,
+  "readContract" | "getLogs" | "getBlockNumber"
+>
 
-export type AttestPolicy = {
+export type CredentialPolicy = {
   /**
    * Address that created the policy, and consequently has some special admin rights over it.
    */
@@ -53,7 +56,7 @@ export type AttestPolicy = {
 /**
  * Policy requirements.
  */
-export type AttestPolicyRequirements = {
+export type CredentialPolicyRequirements = {
   /**
    * Any `uniqueIdentifierType` value other than `NONE` requires the proof to carry exactly that
    * nullifier type — mock types included; the contract does no dev-mode folding.
@@ -119,12 +122,12 @@ const REQUIREMENTS_ABI = getAbiItem({
 
 /**
  * Encode policy requirements per PolicyEvaluatorV1's schema-1 layout, the inverse of
- * `AttestClient.getRequirements`. The encoder only shapes the bytes; validity (country-list
+ * `CredentialsClient.getRequirements`. The encoder only shapes the bytes; validity (country-list
  * format and ordering, salted-nullifier facematch, uniqueness needing a nullifier type) is
  * enforced on-chain by the evaluator when the bytes reach createPolicy() or setRequirements().
  */
-export function encodeAttestPolicyRequirements(
-  requirements: AttestPolicyRequirements,
+export function encodeCredentialPolicyRequirements(
+  requirements: CredentialPolicyRequirements,
 ): `0x${string}` {
   const value = {
     uniqueIdentifierType: requirements.uniqueIdentifierType,
@@ -155,7 +158,7 @@ export function computePolicyId(creator: `0x${string}`, salt: `0x${string}`): bi
   )
 }
 
-export type AttestPolicySummary = {
+export type CredentialPolicySummary = {
   policyId: bigint
   owner: `0x${string}`
 }
@@ -169,12 +172,16 @@ const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeProo
 /**
  * Typed bindings for the ZKPassportCredentials credential registry.
  */
-export class AttestClient {
-  private readonly client: AttestReadClient
+export class CredentialsClient {
+  private readonly client: CredentialsReadClient
   public readonly address: `0x${string}`
   private readonly deployBlock?: bigint
 
-  constructor(options: { client: AttestReadClient; address: `0x${string}`; deployBlock?: bigint }) {
+  constructor(options: {
+    client: CredentialsReadClient
+    address: `0x${string}`
+    deployBlock?: bigint
+  }) {
     this.client = options.client
     this.address = options.address
     this.deployBlock = options.deployBlock
@@ -189,15 +196,15 @@ export class AttestClient {
     } as never)
   }
 
-  async getPolicy(policyId: bigint): Promise<AttestPolicy> {
-    return (await this.read("getPolicy", [policyId])) as AttestPolicy
+  async getPolicy(policyId: bigint): Promise<CredentialPolicy> {
+    return (await this.read("getPolicy", [policyId])) as CredentialPolicy
   }
 
   /**
    * Decode a policy's requirements through its own evaluator, so the request a client builds is
    * derived from exactly what issue() will enforce.
    */
-  async getRequirements(policy: AttestPolicy): Promise<AttestPolicyRequirements> {
+  async getRequirements(policy: CredentialPolicy): Promise<CredentialPolicyRequirements> {
     const evaluatorRead = (functionName: string, args: readonly unknown[]) =>
       this.client.readContract({
         address: policy.evaluator,
@@ -214,7 +221,7 @@ export class AttestClient {
     }
 
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
-      AttestPolicyRequirements,
+      CredentialPolicyRequirements,
       "uniqueIdentifierType" | "sanctionsMode" | "facematchMode"
     > & { uniqueIdentifierType: number; sanctionsMode: number; faceMatchMode: number }
 
@@ -294,11 +301,11 @@ export class AttestClient {
       toBlock?: bigint
       blockRange?: bigint
     } = {},
-  ): Promise<AttestPolicySummary[]> {
+  ): Promise<CredentialPolicySummary[]> {
     const fromBlock = filter.fromBlock ?? this.deployBlock
     if (fromBlock === undefined) {
       throw new Error(
-        "listPolicies needs a starting block: pass fromBlock, or construct AttestClient with the registry's deployBlock.",
+        "listPolicies needs a starting block: pass fromBlock, or construct CredentialsClient with the registry's deployBlock.",
       )
     }
 
@@ -306,7 +313,7 @@ export class AttestClient {
     if (blockRange < 1n) throw new Error("blockRange must be at least 1")
 
     const toBlock = filter.toBlock ?? (await this.client.getBlockNumber())
-    const summaries: AttestPolicySummary[] = []
+    const summaries: CredentialPolicySummary[] = []
 
     for (let start = fromBlock; start <= toBlock; start += blockRange) {
       const end = start + blockRange - 1n < toBlock ? start + blockRange - 1n : toBlock
@@ -318,7 +325,7 @@ export class AttestClient {
         toBlock: end,
       } as never)
 
-      for (const log of logs as unknown as { args: AttestPolicySummary }[]) {
+      for (const log of logs as unknown as { args: CredentialPolicySummary }[]) {
         summaries.push({ policyId: log.args.policyId, owner: log.args.owner })
       }
     }
@@ -391,8 +398,8 @@ export class AttestClient {
     scope: string
     validityPeriodInSeconds?: number
     devMode?: boolean
-  }): AttestIssueCall {
-    const proofData = AttestClient.getIssueProofData({
+  }): CredentialIssueCall {
+    const proofData = CredentialsClient.getIssueProofData({
       proof: options.proof,
       domain: options.domain,
       scope: options.scope,
@@ -408,7 +415,7 @@ export class AttestClient {
     }
   }
 
-  private call<F extends string, A>(functionName: F, args: A): AttestCall<F, A> {
+  private call<F extends string, A>(functionName: F, args: A): CredentialsCall<F, A> {
     return { address: this.address, functionName, abi: ZKPassportCredentialsAbi, args }
   }
 
@@ -421,7 +428,7 @@ export class AttestClient {
   buildCreatePolicyCall(options: {
     /** Creator-scoped namespace for the policy id. */
     salt: `0x${string}`
-    requirements: AttestPolicyRequirements
+    requirements: CredentialPolicyRequirements
     /** Seconds a credential stays valid after each issuance or renewal; must be non-zero. */
     credentialDuration: bigint
     /** Display metadata for the policy's token, served by uri(policyId). */
@@ -432,13 +439,13 @@ export class AttestClient {
     ownerBannable?: boolean
     /** Allow the owner to replace requirements via setRequirements(). */
     ownerEditable?: boolean
-  }): AttestCall<
+  }): CredentialsCall<
     "createPolicy",
     readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean]
   > {
     return this.call("createPolicy", [
       options.salt,
-      encodeAttestPolicyRequirements(options.requirements),
+      encodeCredentialPolicyRequirements(options.requirements),
       options.credentialDuration,
       options.metadataURL,
       options.ownerIssuable ?? false,
@@ -456,11 +463,11 @@ export class AttestClient {
    */
   buildSetRequirementsCall(
     policyId: bigint,
-    requirements: AttestPolicyRequirements,
-  ): AttestCall<"setRequirements", readonly [bigint, `0x${string}`]> {
+    requirements: CredentialPolicyRequirements,
+  ): CredentialsCall<"setRequirements", readonly [bigint, `0x${string}`]> {
     return this.call("setRequirements", [
       policyId,
-      encodeAttestPolicyRequirements(requirements),
+      encodeCredentialPolicyRequirements(requirements),
     ] as const)
   }
 
@@ -468,7 +475,7 @@ export class AttestClient {
   buildSetMetadataURLCall(
     policyId: bigint,
     url: string,
-  ): AttestCall<"setMetadataURL", readonly [bigint, string]> {
+  ): CredentialsCall<"setMetadataURL", readonly [bigint, string]> {
     return this.call("setMetadataURL", [policyId, url] as const)
   }
 
@@ -476,7 +483,7 @@ export class AttestClient {
    * Assemble the retire() call, permanently stopping new issuance and renewals for a policy.
    * Owner-only and one-way; existing credentials stay valid until they expire.
    */
-  buildRetireCall(policyId: bigint): AttestCall<"retire", readonly [bigint]> {
+  buildRetireCall(policyId: bigint): CredentialsCall<"retire", readonly [bigint]> {
     return this.call("retire", [policyId] as const)
   }
 
@@ -489,7 +496,7 @@ export class AttestClient {
   buildOwnerIssueCall(
     wallet: `0x${string}`,
     policyId: bigint,
-  ): AttestCall<"ownerIssue", readonly [`0x${string}`, bigint]> {
+  ): CredentialsCall<"ownerIssue", readonly [`0x${string}`, bigint]> {
     return this.call("ownerIssue", [wallet, policyId] as const)
   }
 
@@ -499,7 +506,7 @@ export class AttestClient {
    * bound to the wallet, so the document can only ever re-credential the same wallet for
    * this policy.
    */
-  buildRenounceCall(policyId: bigint): AttestCall<"renounce", readonly [bigint]> {
+  buildRenounceCall(policyId: bigint): CredentialsCall<"renounce", readonly [bigint]> {
     return this.call("renounce", [policyId] as const)
   }
 
@@ -511,7 +518,7 @@ export class AttestClient {
   buildBanCall(
     wallet: `0x${string}`,
     policyId: bigint,
-  ): AttestCall<"ban", readonly [`0x${string}`, bigint]> {
+  ): CredentialsCall<"ban", readonly [`0x${string}`, bigint]> {
     return this.call("ban", [wallet, policyId] as const)
   }
 
@@ -521,17 +528,17 @@ export class AttestClient {
   buildUnbanCall(
     wallet: `0x${string}`,
     policyId: bigint,
-  ): AttestCall<"unban", readonly [`0x${string}`, bigint]> {
+  ): CredentialsCall<"unban", readonly [`0x${string}`, bigint]> {
     return this.call("unban", [wallet, policyId] as const)
   }
 }
 
 /**
- * Ready-to-send ZKPassportCredentials call assembled by an AttestClient. `address` is the
+ * Ready-to-send ZKPassportCredentials call assembled by a CredentialsClient. `address` is the
  * registry address; the fields keep viem's naming so the object spreads straight into
- * writeContract/simulateContract, or submits through `submitAttestCall`.
+ * writeContract/simulateContract, or submits through `submitCredentialsCall`.
  */
-export type AttestCall<F extends string = string, A = readonly unknown[]> = {
+export type CredentialsCall<F extends string = string, A = readonly unknown[]> = {
   address: `0x${string}`
   functionName: F
   abi: typeof ZKPassportCredentialsAbi
@@ -543,7 +550,7 @@ export type AttestCall<F extends string = string, A = readonly unknown[]> = {
  * address; the field keeps viem's naming so the object spreads straight into
  * writeContract/simulateContract.
  */
-export type AttestIssueCall = {
+export type CredentialIssueCall = {
   address: `0x${string}`
   functionName: "issue"
   abi: typeof ZKPassportCredentialsAbi
@@ -551,25 +558,25 @@ export type AttestIssueCall = {
   args: readonly [bigint, `0x${string}`]
 }
 
-export type AttestContext = {
+export type CredentialsContext = {
   chain: Chain
   publicClient: PublicClient
-  attest: AttestClient
+  credentials: CredentialsClient
 }
 
 /**
  * Read context for the canonical registry on a chain: a public client on the
- * chain's default RPC plus an AttestClient bound to the registry. The registry
+ * chain's default RPC plus a CredentialsClient bound to the registry. The registry
  * is derived from the viem chain's id, so chains without a recorded
  * deployment are rejected here.
  */
-export function createAttestContext(chain: Chain): AttestContext {
+export function createCredentialsContext(chain: Chain): CredentialsContext {
   const publicClient = createPublicClient({ chain, transport: http() })
-  const attest = new AttestClient({
+  const credentials = new CredentialsClient({
     client: publicClient,
-    address: getAttestRegistry(getChainFromId(chain.id)),
+    address: getCredentialsRegistry(getChainFromId(chain.id)),
   })
-  return { chain, publicClient, attest }
+  return { chain, publicClient, credentials }
 }
 
 type SubmittableCall = {
@@ -580,7 +587,7 @@ type SubmittableCall = {
 }
 
 async function submitCall(
-  ctx: AttestContext,
+  ctx: CredentialsContext,
   call: SubmittableCall,
   wallet: { client: WalletClient; account: `0x${string}` },
   onSubmitted: ((hash: `0x${string}`) => void) | undefined,
@@ -609,7 +616,7 @@ async function submitCall(
  * changes. The wallet client must already be on the context's chain.
  */
 export async function submitIssueCall(
-  ctx: AttestContext,
+  ctx: CredentialsContext,
   call: {
     address: `0x${string}`
     functionName: "issue"
@@ -629,15 +636,15 @@ export async function submitIssueCall(
 }
 
 /**
- * Submit an AttestClient-assembled registry call and wait for inclusion. Unlike issue(), the
+ * Submit a CredentialsClient-assembled registry call and wait for inclusion. Unlike issue(), the
  * owner operations are permissioned: the wallet must be the policy's owner (or, for
  * renounce(), the holder giving up their own credential) or the transaction reverts. The
  * wallet client must already be on
  * the context's chain.
  */
-export async function submitAttestCall(
-  ctx: AttestContext,
-  call: AttestCall<string, readonly unknown[]>,
+export async function submitCredentialsCall(
+  ctx: CredentialsContext,
+  call: CredentialsCall<string, readonly unknown[]>,
   wallet: { client: WalletClient; account: `0x${string}` },
   onSubmitted?: (hash: `0x${string}`) => void,
 ): Promise<`0x${string}`> {

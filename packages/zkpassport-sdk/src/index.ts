@@ -122,22 +122,22 @@ export {
 } from "@zkpassport/utils"
 
 export {
-  AttestClient,
+  CredentialsClient,
   computePolicyId,
-  createAttestContext,
-  encodeAttestPolicyRequirements,
-  submitAttestCall,
+  createCredentialsContext,
+  encodeCredentialPolicyRequirements,
+  submitCredentialsCall,
   submitIssueCall,
-  type AttestCall,
-  type AttestContext,
-  type AttestIssueCall,
-  type AttestPolicy,
-  type AttestPolicyRequirements,
-  type AttestPolicySummary,
-  type AttestReadClient,
-} from "./attest"
-export { getAttestChain, getAttestRegistry } from "./attest/deployments"
-export { buildAttestProofRequest, type AttestProofRequest } from "./attest/request"
+  type CredentialsCall,
+  type CredentialsContext,
+  type CredentialIssueCall,
+  type CredentialPolicy,
+  type CredentialPolicyRequirements,
+  type CredentialPolicySummary,
+  type CredentialsReadClient,
+} from "./credentials"
+export { getCredentialsChain, getCredentialsRegistry } from "./credentials/deployments"
+export { buildCredentialProofRequest, type CredentialProofRequest } from "./credentials/request"
 export { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
 
 export * from "./types"
