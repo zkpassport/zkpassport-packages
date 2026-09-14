@@ -306,9 +306,11 @@ describe("CredentialsClient issue helpers", () => {
   })
 })
 
-test("CredentialsClient is exported from the package entrypoint", async () => {
-  const pkg = await import("../src/index")
-  expect(pkg.CredentialsClient).toBe(CredentialsClient)
+test("CredentialsClient lives on the credentials entrypoint, not the root", async () => {
+  const entry = await import("../src/credentials/index")
+  expect(entry.CredentialsClient).toBe(CredentialsClient)
+  const root = (await import("../src/index")) as Record<string, unknown>
+  expect(root.CredentialsClient).toBeUndefined()
 })
 
 describe("buildCredentialProofRequest", () => {
