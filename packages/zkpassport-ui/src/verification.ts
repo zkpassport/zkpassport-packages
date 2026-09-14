@@ -30,7 +30,7 @@ export type VerificationOptions = PopupRequestConfig &
     /** Required unless mintCredential is set (the on-chain policy defines the query). */
     query?: (queryBuilder: QueryBuilder) => QueryBuilderResult
     /**
-     * When present, the button mints an attestation credential instead of a
+     * When present, the button mints a credential instead of running a
      * plain verification: the popup resolves the on-chain policy, lets the
      * user connect a wallet and pick the recipient account, binds that account
      * into the proof; the result's credential outcome reports minted/unminted and
