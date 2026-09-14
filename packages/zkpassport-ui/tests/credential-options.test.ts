@@ -1,10 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test"
+import { NullifierType } from "@zkpassport/sdk"
 import {
   CredentialsClient,
-  NullifierType,
   type CredentialPolicy,
   type CredentialPolicyRequirements,
-} from "@zkpassport/sdk"
+} from "@zkpassport/sdk/credentials"
 import { buildCredentialCardOptions, type CredentialVerifyOptions } from "../src/credential-options"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const

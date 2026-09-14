@@ -19,7 +19,7 @@ import {
 import "@rainbow-me/rainbowkit/styles.css"
 import type { Chain } from "viem"
 
-import { createCredentialsContext, submitIssueCall } from "@zkpassport/sdk"
+import { createCredentialsContext, submitIssueCall } from "@zkpassport/sdk/credentials"
 
 import { resolveCredentialsChain, rpcOverrideFromLocation } from "./chains"
 import { buildWalletSetup, ensureWalletChain, type WalletSetup } from "./wallet"

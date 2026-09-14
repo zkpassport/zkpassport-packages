@@ -1,5 +1,6 @@
-import { CredentialsClient, buildCredentialProofRequest } from "@zkpassport/sdk"
-import type { CredentialIssueCall, CredentialsReadClient, SupportedChain } from "@zkpassport/sdk"
+import { CredentialsClient, buildCredentialProofRequest } from "@zkpassport/sdk/credentials"
+import type { CredentialIssueCall, CredentialsReadClient } from "@zkpassport/sdk/credentials"
+import type { SupportedChain } from "@zkpassport/sdk"
 import type { ZKPassportQRCodeOptions } from "./types"
 
 // The QR card does not export its onResult payload type, so extract it from

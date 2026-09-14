@@ -1,4 +1,4 @@
-import { getCredentialsChain } from "@zkpassport/sdk"
+import { getCredentialsChain } from "@zkpassport/sdk/credentials"
 import type { SupportedChain } from "@zkpassport/utils"
 import type { Chain } from "viem"
 
