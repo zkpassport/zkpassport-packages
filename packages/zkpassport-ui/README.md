@@ -92,6 +92,45 @@ For your own button, pass a function as `children`:
 
 Outside React, `createVerification(getOptions, onStateChange)` drives your own element: call `verify`, and `onStateChange` receives `{ status, error }`. `status` is `"idle" | "in-progress" | "success" | "error"`; `error` holds a message only when the user needs one, such as a blocked popup.
 
+## Script tag
+
+For sites without a bundler. Any element with the class `zkpassport-button` becomes the button, and `data-policy-id` names the dashboard policy that defines the query.
+
+```html
+<a class="zkpassport-button" data-policy-id="age-check" href="/verify">Verify your age</a>
+
+<script src="https://verify.zkpassport.id/v1/zkpassport.js"></script>
+<script>
+  document.addEventListener("zkpassport:success", (event) => {
+    fetch("/api/verify", { method: "POST", body: JSON.stringify(event.detail) })
+  })
+</script>
+```
+
+The element is replaced by the button, which keeps its `class` and `id` and takes its text as the label, so listen on `document` or a parent. An `href` is only there for visitors the script never reaches.
+
+Every callback above is also an event named after it without `on`: `zkpassport:success` (`detail` is `{ proofs, result }`), `zkpassport:reject`, `zkpassport:error` (`detail` is the message), `zkpassport:close`, `zkpassport:request-received`, `zkpassport:generating-proof`, `zkpassport:proof-generated`. Optional attributes: `data-label`, `data-theme`, `data-size`, `data-dev-mode`, `data-popup-url`.
+
+To have the button wait for your backend before it shows Verified:
+
+```html
+<div id="verify"></div>
+
+<script src="https://verify.zkpassport.id/v1/zkpassport.js"></script>
+<script>
+  ZKPassport.mountVerifyButton(document.getElementById("verify"), {
+    policyId: "age-check",
+    query: (queryBuilder) => queryBuilder.done(),
+    onSuccess: async ({ proofs, result }) => {
+      const res = await fetch("/api/verify", { method: "POST", body: JSON.stringify({ proofs, result }) })
+      return (await res.json()).verified === true
+    },
+  })
+</script>
+```
+
+`ZKPassport.scan()` mounts buttons added to the page later, and `ZKPassport.createVerification(getOptions, onStateChange)` drives an element of your own.
+
 ## Callbacks
 
 All optional. The SDK lifecycle callbacks pass through verbatim — their signatures are derived from `@zkpassport/sdk`'s `QueryBuilderResult`, so any SDK change flows through here automatically.

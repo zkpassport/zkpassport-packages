@@ -97,6 +97,23 @@ const hostedConfig: Options = {
   loader: { ".css": "text" },
 }
 
+// Script-tag build: one self-contained file exposing window.ZKPassport
+const cdnConfig: Options = {
+  entry: { zkpassport: "src/cdn/index.ts" },
+  format: "iife",
+  globalName: "ZKPassport",
+  outDir: "dist/cdn",
+  outExtension: () => ({ js: ".js" }),
+  clean: true,
+  splitting: false,
+  sourcemap: true,
+  treeshake: !isDev,
+  minify: !isDev,
+  platform: "browser",
+  esbuildPlugins: [stubUnreachableDeps],
+  loader: { ".css": "text" },
+}
+
 const cssConfig: Options = {
   entry: { styles: "src/styles.css" },
   outDir: "dist",
@@ -112,4 +129,4 @@ const cssConfig: Options = {
   },
 }
 
-export default defineConfig([...npmConfigs, hostedConfig, cssConfig])
+export default defineConfig([...npmConfigs, hostedConfig, cdnConfig, cssConfig])

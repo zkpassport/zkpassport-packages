@@ -13,6 +13,12 @@ bun run dev   # http://localhost:5173
 
 Point the button at it with `popupUrl="http://localhost:5173"`.
 
+## Script tag
+
+The build also serves `@zkpassport/ui`'s script-tag bundle at `/v1/zkpassport.js`, so
+the button script and the popup it opens always ship together. Anything served
+under `/v1/` must stay compatible with pages that embedded it earlier.
+
 ## Deployment
 
 Build with `bun run build` (static output in `dist/`). The host MUST send this
