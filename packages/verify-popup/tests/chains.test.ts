@@ -1,23 +1,23 @@
 import { describe, expect, test } from "bun:test"
-import { resolveAttestChain, rpcOverrideFromLocation } from "../src/chains"
+import { resolveCredentialsChain, rpcOverrideFromLocation } from "../src/chains"
 
-describe("resolveAttestChain", () => {
+describe("resolveCredentialsChain", () => {
   test("resolves a supported chain", () => {
-    expect(resolveAttestChain("ethereum_sepolia").id).toBe(11155111)
-    expect(resolveAttestChain("local").id).toBe(31337)
+    expect(resolveCredentialsChain("ethereum_sepolia").id).toBe(11155111)
+    expect(resolveCredentialsChain("local").id).toBe(31337)
   })
 
   test("applies an RPC override without mutating the base chain", () => {
-    const overridden = resolveAttestChain("ethereum_sepolia", "http://localhost:8545")
+    const overridden = resolveCredentialsChain("ethereum_sepolia", "http://localhost:8545")
     expect(overridden.rpcUrls.default.http).toEqual(["http://localhost:8545"])
-    expect(resolveAttestChain("ethereum_sepolia").rpcUrls.default.http).not.toEqual([
+    expect(resolveCredentialsChain("ethereum_sepolia").rpcUrls.default.http).not.toEqual([
       "http://localhost:8545",
     ])
   })
 
   test("an RPC override keeps the chain's other endpoints", () => {
-    const base = resolveAttestChain("local")
-    const overridden = resolveAttestChain("local", "http://localhost:9999")
+    const base = resolveCredentialsChain("local")
+    const overridden = resolveCredentialsChain("local", "http://localhost:9999")
     expect(overridden.rpcUrls.default.webSocket).toEqual(base.rpcUrls.default.webSocket)
     expect(overridden.rpcUrls.default.webSocket?.length).toBeGreaterThan(0)
   })
@@ -31,6 +31,6 @@ describe("resolveAttestChain", () => {
   })
 
   test("rejects chains without a registry deployment", () => {
-    expect(() => resolveAttestChain("base")).toThrow("not supported")
+    expect(() => resolveCredentialsChain("base")).toThrow("not supported")
   })
 })

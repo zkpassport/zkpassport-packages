@@ -7,7 +7,7 @@ import {
 } from "@zkpassport/sdk/popup"
 import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 
-import { AttestFlow } from "./AttestFlow"
+import { CredentialFlow } from "./CredentialFlow"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
@@ -15,7 +15,7 @@ type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type Configuration = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
-  attest: PopupConfigureMessage["attest"]
+  credential: PopupConfigureMessage["credential"]
   // Browser-attested origin of the relying party page that opened this popup.
   rpOrigin: string
 }
@@ -41,7 +41,7 @@ export function App() {
           : {
               request: data.request,
               query: data.query,
-              attest: data.attest,
+              credential: data.credential,
               rpOrigin: event.origin,
             },
       )
@@ -90,10 +90,10 @@ export function App() {
     closeTimer.current = window.setTimeout(() => window.close(), delayMs)
   }
 
-  if (config.attest) {
+  if (config.credential) {
     return (
       <Frame>
-        <AttestFlow request={request} attest={config.attest} send={send} />
+        <CredentialFlow request={request} credential={config.credential} send={send} />
       </Frame>
     )
   }

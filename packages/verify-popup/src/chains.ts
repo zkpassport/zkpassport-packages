@@ -1,4 +1,4 @@
-import { getAttestChain } from "@zkpassport/sdk"
+import { getCredentialsChain } from "@zkpassport/sdk"
 import type { SupportedChain } from "@zkpassport/utils"
 import type { Chain } from "viem"
 
@@ -12,8 +12,8 @@ export function rpcOverrideFromLocation(search: string): string | undefined {
   return new URLSearchParams(search).get("rpc") ?? undefined
 }
 
-export function resolveAttestChain(chain: SupportedChain, rpcOverride?: string): Chain {
-  const base = getAttestChain(chain)
+export function resolveCredentialsChain(chain: SupportedChain, rpcOverride?: string): Chain {
+  const base = getCredentialsChain(chain)
   if (!rpcOverride) return base
   return {
     ...base,

@@ -7,7 +7,7 @@ import {
   walletConnectProjectId,
   type ConnectedWallet,
 } from "../src/wallet"
-import { resolveAttestChain } from "../src/chains"
+import { resolveCredentialsChain } from "../src/chains"
 
 describe("walletConnectProjectId", () => {
   test("reads a non-empty id from the env", () => {
@@ -35,7 +35,7 @@ describe("selectWallets", () => {
 
 describe("buildWalletSetup", () => {
   test("configures wagmi for the resolved chain, honoring an RPC override", () => {
-    const chain = resolveAttestChain("ethereum_sepolia", "http://localhost:8545")
+    const chain = resolveCredentialsChain("ethereum_sepolia", "http://localhost:8545")
     const setup = buildWalletSetup(chain, "abc123")
     expect(setup.injectedOnly).toBe(false)
     expect(setup.config.chains.map((c) => c.id)).toEqual([chain.id])
@@ -44,7 +44,7 @@ describe("buildWalletSetup", () => {
 })
 
 describe("ensureWalletChain", () => {
-  const chain = resolveAttestChain("ethereum_sepolia")
+  const chain = resolveCredentialsChain("ethereum_sepolia")
 
   function stubWallet(behavior: {
     switchChain: (calls: number) => Promise<void>

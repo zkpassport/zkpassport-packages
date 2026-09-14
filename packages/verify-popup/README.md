@@ -16,7 +16,7 @@ Point the button at it with `popupUrl="http://localhost:5173"`.
 ## Configuration
 
 - `VITE_WALLETCONNECT_PROJECT_ID` — WalletConnect (Reown) Cloud project id used
-  by the attest mint flow's wallet chooser. When unset, only browser extension
+  by the credential mint flow's wallet chooser. When unset, only browser extension
   wallets are offered. Set it in `.env.local` for development and as a project
   env var on the deployment host.
 

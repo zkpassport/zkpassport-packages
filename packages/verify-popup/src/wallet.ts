@@ -34,7 +34,7 @@ export function selectWallets(projectId: string | undefined): WalletSelection {
 export type WalletSetup = WalletSelection & { config: Config }
 
 /**
- * Wagmi config for the chain the attest policy lives on. Built per configure
+ * Wagmi config for the chain the credential policy lives on. Built per configure
  * message: the chain (and its RPC override) is only known at runtime.
  */
 export function buildWalletSetup(

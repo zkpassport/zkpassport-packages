@@ -3,40 +3,40 @@ import { ConnectButton, RainbowKitProvider } from "@rainbow-me/rainbowkit"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WagmiProvider, useAccount, useWalletClient } from "wagmi"
 import type {
-  PopupAttestConfig,
-  PopupAttestIssueCall,
+  PopupCredentialConfig,
+  PopupCredentialIssueCall,
   PopupConfigureMessage,
   PopupEventMessage,
 } from "@zkpassport/sdk/popup"
 import {
-  buildAttestCardOptions,
+  buildCredentialCardOptions,
   ICON_ZKP_MARK,
   injectStyles,
   ZKPassportQRCode,
-  type AttestVerifyResult,
+  type CredentialVerifyResult,
   type ZKPassportQRCodeOptions,
 } from "@zkpassport/ui/hosted"
 import "@rainbow-me/rainbowkit/styles.css"
 import type { Chain } from "viem"
 
-import { createAttestContext, submitIssueCall } from "@zkpassport/sdk"
+import { createCredentialsContext, submitIssueCall } from "@zkpassport/sdk"
 
-import { resolveAttestChain, rpcOverrideFromLocation } from "./chains"
+import { resolveCredentialsChain, rpcOverrideFromLocation } from "./chains"
 import { buildWalletSetup, ensureWalletChain, type WalletSetup } from "./wallet"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
-type AttestFlowProps = {
+type CredentialFlowProps = {
   request: PopupConfigureMessage["request"]
-  attest: PopupAttestConfig
+  credential: PopupCredentialConfig
   send: (message: OutgoingEvent) => void
 }
 
 // The card's raw result carries the live SDK instance; postMessage needs
 // only the serializable fields.
-function toSuccessMessage(raw: AttestVerifyResult["raw"]): SuccessMessage {
+function toSuccessMessage(raw: CredentialVerifyResult["raw"]): SuccessMessage {
   return {
     type: "success",
     proofs: raw.proofs ?? [],
@@ -51,22 +51,22 @@ function shortAddress(address: string): string {
 // Mounts the wagmi/RainbowKit providers once the chain is known; the chain
 // (and its RPC override) arrives at runtime in the configure message, so the
 // wagmi config cannot be a module-level constant.
-export function AttestFlow({ request, attest, send }: AttestFlowProps) {
+export function CredentialFlow({ request, credential, send }: CredentialFlowProps) {
   const sendRef = useRef(send)
   sendRef.current = send
   const [queryClient] = useState(() => new QueryClient())
 
   const resolved = useMemo((): { chain: Chain; wallet: WalletSetup } | { error: string } => {
     try {
-      const chain = resolveAttestChain(
-        attest.chain,
+      const chain = resolveCredentialsChain(
+        credential.chain,
         rpcOverrideFromLocation(window.location.search),
       )
       return { chain, wallet: buildWalletSetup(chain) }
     } catch (reason) {
       return { error: reason instanceof Error ? reason.message : String(reason) }
     }
-  }, [attest])
+  }, [credential])
 
   // The steps around the QR card reuse its `zkp-card` box; the stylesheet
   // normally arrives with the card component, so inject it up front.
@@ -92,9 +92,9 @@ export function AttestFlow({ request, attest, send }: AttestFlowProps) {
     <WagmiProvider config={resolved.wallet.config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
-          <AttestFlowBody
+          <CredentialFlowBody
             request={request}
-            attest={attest}
+            credential={credential}
             send={send}
             chain={resolved.chain}
             injectedOnly={resolved.wallet.injectedOnly}
@@ -119,17 +119,17 @@ type BodyState =
       account: Account
       reason: string
       base: SuccessMessage
-      issueCall: PopupAttestIssueCall
+      issueCall: PopupCredentialIssueCall
     }
   | { step: "error"; message: string }
 
-function AttestFlowBody({
+function CredentialFlowBody({
   request,
-  attest,
+  credential,
   send,
   chain,
   injectedOnly,
-}: AttestFlowProps & { chain: Chain; injectedOnly: boolean }) {
+}: CredentialFlowProps & { chain: Chain; injectedOnly: boolean }) {
   const [state, setState] = useState<BodyState>({ step: "select" })
   const [cardOptions, setCardOptions] = useState<ZKPassportQRCodeOptions | null>(null)
   const sendRef = useRef(send)
@@ -145,16 +145,23 @@ function AttestFlowBody({
   // superseded account can't overwrite the current one.
   const attemptRef = useRef(0)
 
-  const ctx = useMemo(() => createAttestContext(chain), [chain])
+  const ctx = useMemo(() => createCredentialsContext(chain), [chain])
 
   const emit = (message: OutgoingEvent) => sendRef.current(message)
 
-  const mint = async (base: SuccessMessage, issueCall: PopupAttestIssueCall, account: Account) => {
+  const mint = async (
+    base: SuccessMessage,
+    issueCall: PopupCredentialIssueCall,
+    account: Account,
+  ) => {
     const client = walletRef.current
     if (!client) {
       const reason = "Wallet disconnected before minting"
       setState({ step: "unminted", account, reason, base, issueCall })
-      emit({ ...base, attest: { status: "unminted", walletAddress: account, reason, issueCall } })
+      emit({
+        ...base,
+        credential: { status: "unminted", walletAddress: account, reason, issueCall },
+      })
       return
     }
     setState({ step: "minting", account })
@@ -163,13 +170,13 @@ function AttestFlowBody({
       await ensureWalletChain(wallet, ctx.chain)
       const txHash = await submitIssueCall(ctx, issueCall, wallet)
       setState({ step: "minted", account, txHash })
-      emit({ ...base, attest: { status: "minted", walletAddress: account, txHash, issueCall } })
+      emit({ ...base, credential: { status: "minted", walletAddress: account, txHash, issueCall } })
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : String(reason)
       setState({ step: "unminted", account, reason: message, base, issueCall })
       emit({
         ...base,
-        attest: { status: "unminted", walletAddress: account, reason: message, issueCall },
+        credential: { status: "unminted", walletAddress: account, reason: message, issueCall },
       })
     }
   }
@@ -183,26 +190,26 @@ function AttestFlowBody({
     setState({ step: "checking", account })
 
     const run = async () => {
-      const policyId = BigInt(attest.policyId)
+      const policyId = BigInt(credential.policyId)
 
-      if (await ctx.attest.hasCredential(account, policyId)) {
+      if (await ctx.credentials.hasCredential(account, policyId)) {
         if (stale()) return
         setState({ step: "already-verified", account })
         emit({
           type: "success",
           proofs: [],
           result: {},
-          attest: { status: "already-verified", walletAddress: account },
+          credential: { status: "already-verified", walletAddress: account },
         })
         return
       }
 
-      const options = await buildAttestCardOptions({
+      const options = await buildCredentialCardOptions({
         client: ctx.publicClient as never,
-        registryAddress: ctx.attest.address,
+        registryAddress: ctx.credentials.address,
         policyId,
         wallet: account,
-        chain: attest.chain,
+        chain: credential.chain,
         devMode: request.devMode,
         name: request.name,
         logo: request.logo,
@@ -225,7 +232,7 @@ function AttestFlowBody({
             emit(base)
             return
           }
-          void mintRef.current(base, result.issueCall as PopupAttestIssueCall, account)
+          void mintRef.current(base, result.issueCall as PopupCredentialIssueCall, account)
         },
       })
       if (stale()) return

@@ -1,7 +1,7 @@
 import { createOfflineQuery } from "@zkpassport/sdk/query"
 import {
   openVerificationPopup,
-  type PopupAttestConfig,
+  type PopupCredentialConfig,
   type PopupCallbacks,
   type PopupRequestConfig,
   type VerificationPopupHandle,
@@ -33,7 +33,7 @@ export type VerificationOptions = PopupRequestConfig &
      * When present, the button mints an attestation credential instead of a
      * plain verification: the popup resolves the on-chain policy, lets the
      * user connect a wallet and pick the recipient account, binds that account
-     * into the proof; the result's attest outcome reports minted/unminted and
+     * into the proof; the result's credential outcome reports minted/unminted and
      * the chosen account.
      */
     mintCredential?: {
@@ -98,11 +98,11 @@ export function createVerification(
 
     const thisAttempt = ++latestAttempt
     let query: Query
-    let attest: PopupAttestConfig | undefined
+    let credential: PopupCredentialConfig | undefined
     try {
-      attest = toAttestConfig(options)
+      credential = toCredentialConfig(options)
       // A mint request carries no query: the popup derives it from the policy
-      query = attest ? {} : buildQuery(options)
+      query = credential ? {} : buildQuery(options)
     } catch (reason) {
       logger.error(reason)
       setStatus("error")
@@ -117,7 +117,7 @@ export function createVerification(
       windowMode: options.windowMode,
       request: toPopupRequest(options),
       query,
-      attest,
+      credential,
       // Callbacks resolve at event time: results arrive minutes after the
       // click, and React consumers swap callbacks between renders
       callbacks: {
@@ -195,7 +195,7 @@ function buildQuery(options: VerificationOptions): Query {
   return built.query
 }
 
-function toAttestConfig(options: VerificationOptions): PopupAttestConfig | undefined {
+function toCredentialConfig(options: VerificationOptions): PopupCredentialConfig | undefined {
   const mint = options.mintCredential
   if (!mint) return undefined
   if (options.query) {

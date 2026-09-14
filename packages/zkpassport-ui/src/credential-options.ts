@@ -1,19 +1,19 @@
-import { AttestClient, buildAttestProofRequest } from "@zkpassport/sdk"
-import type { AttestIssueCall, AttestReadClient, SupportedChain } from "@zkpassport/sdk"
+import { CredentialsClient, buildCredentialProofRequest } from "@zkpassport/sdk"
+import type { CredentialIssueCall, CredentialsReadClient, SupportedChain } from "@zkpassport/sdk"
 import type { ZKPassportQRCodeOptions } from "./types"
 
 // The QR card does not export its onResult payload type, so extract it from
 // the options; this stays in lockstep with whatever the card delivers.
 type CardResult = Parameters<NonNullable<ZKPassportQRCodeOptions["onResult"]>>[0]
 
-export type { AttestIssueCall }
+export type { CredentialIssueCall }
 
 /**
- * Delivered to AttestVerifyOptions.onResult once the card flow settles; the
- * popup's AttestFlow turns it into the protocol's success message and, when
+ * Delivered to CredentialVerifyOptions.onResult once the card flow settles; the
+ * popup's CredentialFlow turns it into the protocol's success message and, when
  * issueCall is present, into the mint transaction.
  */
-export type AttestVerifyResult = {
+export type CredentialVerifyResult = {
   /** Whether the proof checked out (per the card's verifier mode) — the verdict gating a mint. */
   verified: boolean
   /** The proof's nullifier-derived unique identifier; present when verified and the policy requests one. */
@@ -29,11 +29,11 @@ export type AttestVerifyResult = {
    * mode "compressed-evm", so this is absent only on failure or non-EVM
    * results).
    */
-  issueCall?: AttestIssueCall
+  issueCall?: CredentialIssueCall
 }
 
 // Every card callback except onResult, forwarded to the card verbatim;
-// onResult is wrapped by buildAttestCardOptions to enrich it with the issue()
+// onResult is wrapped by buildCredentialCardOptions to enrich it with the issue()
 // call. Pick reuses the card's own types, so nothing is redeclared.
 type ForwardedCardCallbacks = Pick<
   ZKPassportQRCodeOptions,
@@ -47,9 +47,9 @@ type ForwardedCardCallbacks = Pick<
   | "onError"
 >
 
-/** Input to buildAttestCardOptions; consumed by the hosted popup's AttestFlow. */
-export type AttestVerifyOptions = ForwardedCardCallbacks & {
-  client: AttestReadClient
+/** Input to buildCredentialCardOptions; consumed by the hosted popup's CredentialFlow. */
+export type CredentialVerifyOptions = ForwardedCardCallbacks & {
+  client: CredentialsReadClient
   registryAddress: `0x${string}`
   policyId: bigint
   wallet: `0x${string}`
@@ -59,23 +59,26 @@ export type AttestVerifyOptions = ForwardedCardCallbacks & {
   name?: string
   logo?: string
   purpose?: string
-  onResult?: (result: AttestVerifyResult) => void
+  onResult?: (result: CredentialVerifyResult) => void
 }
 
 /**
- * Resolve the policy from the attest registry and build the
+ * Resolve the policy from the credentials registry and build the
  * ZKPassportQRCodeOptions that make the existing QR card request exactly the
  * proof ZKPassportCredentials.issue() verifies for that policy.
  */
-export async function buildAttestCardOptions(
-  options: AttestVerifyOptions,
+export async function buildCredentialCardOptions(
+  options: CredentialVerifyOptions,
 ): Promise<ZKPassportQRCodeOptions> {
-  const attest = new AttestClient({ client: options.client, address: options.registryAddress })
+  const credentials = new CredentialsClient({
+    client: options.client,
+    address: options.registryAddress,
+  })
 
   // The registry-semantics half — policy resolution and the requirements →
   // proof-request translation — lives in the SDK; this module only adds the
   // card presentation around it.
-  const request = await buildAttestProofRequest(attest, {
+  const request = await buildCredentialProofRequest(credentials, {
     policyId: options.policyId,
     wallet: options.wallet,
     chain: options.chain,
@@ -92,7 +95,7 @@ export async function buildAttestCardOptions(
     mode: "compressed-evm",
     devMode: options.devMode ?? false,
     // The hosted card verifies through the verifier API by default, but the
-    // attest flow needs a verdict before minting even where that API is not
+    // credential flow needs a verdict before minting even where that API is not
     // reachable (local dev has no CORS grant) — so "auto": run the proof
     // verification in-page with the SDK's bundled verifier first, and fall
     // back to the hosted API only when the local check is not conclusive.
@@ -108,7 +111,7 @@ export async function buildAttestCardOptions(
     onReject: options.onReject,
     onError: options.onError,
     onResult: buildResultHandler({
-      attest,
+      credentials,
       options,
       policyId,
       wallet,
@@ -119,21 +122,21 @@ export async function buildAttestCardOptions(
 }
 
 function buildResultHandler(context: {
-  attest: AttestClient
-  options: AttestVerifyOptions
+  credentials: CredentialsClient
+  options: CredentialVerifyOptions
   policyId: bigint
   wallet: `0x${string}`
   scope: string
   domain: string
 }): (response: CardResult) => void {
-  const { attest, options, policyId, wallet, scope, domain } = context
+  const { credentials, options, policyId, wallet, scope, domain } = context
   const devMode = options.devMode ?? false
   return (response) => {
-    let issueCall: AttestIssueCall | undefined
+    let issueCall: CredentialIssueCall | undefined
     const proof = response.proofs?.find((p) => p.name?.startsWith("outer_evm"))
     if (response.verified && proof) {
       try {
-        issueCall = attest.buildIssueCall({ policyId, proof, domain, scope, devMode })
+        issueCall = credentials.buildIssueCall({ policyId, proof, domain, scope, devMode })
       } catch (reason) {
         options.onError?.(reason instanceof Error ? reason.message : String(reason))
       }

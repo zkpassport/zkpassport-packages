@@ -193,7 +193,7 @@ describe("createVerification with mintCredential", () => {
     devMode: true,
   }
 
-  test("sends the attest block and an empty query", () => {
+  test("sends the credential block and an empty query", () => {
     const { sentToPopup, emitFromPopup } = setupFakeWindow()
     createVerification(
       () => mintOptions,
@@ -204,14 +204,14 @@ describe("createVerification with mintCredential", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const configure = sentToPopup[0] as any
     expect(configure.request).toEqual({ devMode: true })
-    expect(configure.attest).toEqual({
+    expect(configure.credential).toEqual({
       chain: "ethereum_sepolia",
       policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
     })
     expect(configure.query).toEqual({})
   })
 
-  test("relays the attest outcome to onSuccess", () => {
+  test("relays the credential outcome to onSuccess", () => {
     const { emitFromPopup } = setupFakeWindow()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let outcome: any
@@ -229,7 +229,7 @@ describe("createVerification with mintCredential", () => {
       type: "success",
       proofs: [],
       result: {},
-      attest: {
+      credential: {
         status: "minted",
         walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
         txHash: "0xdead",
@@ -237,7 +237,7 @@ describe("createVerification with mintCredential", () => {
       },
     })
 
-    expect(outcome.attest).toEqual({
+    expect(outcome.credential).toEqual({
       status: "minted",
       walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
       txHash: "0xdead",

@@ -17,7 +17,7 @@ export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
  * The recipient is chosen in the popup, not by the relying party; the outcome
  * reports which account was used.
  */
-export type PopupAttestConfig = {
+export type PopupCredentialConfig = {
   /** Chain the registry lives on; also bound into the proof. */
   chain: SupportedChain
   /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
@@ -43,7 +43,7 @@ export type PopupRequestConfig = {
  * The first argument is the `policyId`.
  * The second argument is the proof data.
  */
-export type PopupAttestIssueCall = {
+export type PopupCredentialIssueCall = {
   address: `0x${string}`
   functionName: "issue"
   abi: readonly unknown[]
@@ -56,18 +56,18 @@ export type PopupAttestIssueCall = {
  * controls.
  * `walletAddress` is the recipient account the user selected in the popup.
  */
-export type PopupAttestOutcome =
+export type PopupCredentialOutcome =
   | {
       status: "minted"
       walletAddress: `0x${string}`
       txHash: `0x${string}`
-      issueCall: PopupAttestIssueCall
+      issueCall: PopupCredentialIssueCall
     }
   | {
       status: "unminted"
       walletAddress: `0x${string}`
       reason?: string
-      issueCall: PopupAttestIssueCall
+      issueCall: PopupCredentialIssueCall
     }
   | { status: "already-verified"; walletAddress: `0x${string}` }
 
@@ -77,7 +77,7 @@ export type PopupConfigureMessage = {
   request: PopupRequestConfig
   query: Query
   /** Mint mode; a sibling of `query` because each defines what to prove for its mode. */
-  attest?: PopupAttestConfig
+  credential?: PopupCredentialConfig
 }
 
 export type PopupReadyMessage = { zkpassport: true; type: "ready" }
@@ -97,7 +97,7 @@ export type PopupEventMessage =
       type: "success"
       proofs: ProofResult[]
       result: QueryResult
-      attest?: PopupAttestOutcome
+      credential?: PopupCredentialOutcome
     }
   | { zkpassport: true; type: "rejected" }
   | { zkpassport: true; type: "error"; message: string }

@@ -1,11 +1,11 @@
 import { describe, expect, spyOn, test } from "bun:test"
 import {
-  AttestClient,
+  CredentialsClient,
   NullifierType,
-  type AttestPolicy,
-  type AttestPolicyRequirements,
+  type CredentialPolicy,
+  type CredentialPolicyRequirements,
 } from "@zkpassport/sdk"
-import { buildAttestCardOptions, type AttestVerifyOptions } from "../src/attest-options"
+import { buildCredentialCardOptions, type CredentialVerifyOptions } from "../src/credential-options"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
 const WALLET = "0x2222222222222222222222222222222222222222" as const
@@ -15,7 +15,7 @@ const DOMAIN = "policy.example"
 
 const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
 
-const basePolicy: AttestPolicy = {
+const basePolicy: CredentialPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
   ownerIssuable: false,
@@ -32,7 +32,7 @@ const basePolicy: AttestPolicy = {
  * the shared NullifierType numbering (0 non-salted, 1 salted, 2-3 mock twins, 4 none).
  */
 type RawRequirements = Omit<
-  AttestPolicyRequirements,
+  CredentialPolicyRequirements,
   "uniqueIdentifierType" | "sanctionsMode" | "facematchMode"
 > & {
   uniqueIdentifierType: number
@@ -54,7 +54,7 @@ const baseRequirements: RawRequirements = {
   excludedNationalities: [],
 }
 
-function stubChain(policy: AttestPolicy, requirements: RawRequirements = baseRequirements) {
+function stubChain(policy: CredentialPolicy, requirements: RawRequirements = baseRequirements) {
   const readCalls: { functionName: string; args?: readonly unknown[] }[] = []
   const client = {
     readContract: async (params: never) => {
@@ -88,7 +88,7 @@ function fakeQueryBuilder() {
   return { qb: qb as never, calls }
 }
 
-function baseOptions(policy: AttestPolicy): AttestVerifyOptions {
+function baseOptions(policy: CredentialPolicy): CredentialVerifyOptions {
   return {
     client: stubChain(policy).client,
     registryAddress: REGISTRY,
@@ -98,10 +98,10 @@ function baseOptions(policy: AttestPolicy): AttestVerifyOptions {
   }
 }
 
-describe("buildAttestCardOptions request props", () => {
+describe("buildCredentialCardOptions request props", () => {
   test("fetches policy, scope, and domain on-chain for an evm-mode request", async () => {
     const { client, readCalls } = stubChain(basePolicy)
-    const options = await buildAttestCardOptions({ ...baseOptions(basePolicy), client })
+    const options = await buildCredentialCardOptions({ ...baseOptions(basePolicy), client })
     expect(options.scope).toBe(SCOPE)
     expect(options.domain).toBe(DOMAIN)
     expect(options.mode).toBe("compressed-evm")
@@ -117,10 +117,10 @@ describe("buildAttestCardOptions request props", () => {
   })
 
   test("the request's query and nullifier type come from the SDK translation", async () => {
-    // Deep translation cases live in the sdk's buildAttestProofRequest tests;
+    // Deep translation cases live in the sdk's buildCredentialProofRequest tests;
     // this only pins the pass-through wiring.
     const salted: RawRequirements = { ...baseRequirements, uniqueIdentifierType: POLICY_SALTED }
-    const options = await buildAttestCardOptions({
+    const options = await buildCredentialCardOptions({
       ...baseOptions(basePolicy),
       ...{ client: stubChain(basePolicy, salted).client },
     })
@@ -149,7 +149,7 @@ describe("enriched onResult", () => {
     impl: (options: unknown) => `0x${string}`,
     run: () => Promise<void>,
   ): Promise<void> {
-    const spy = spyOn(AttestClient, "getIssueProofData").mockImplementation(impl as never)
+    const spy = spyOn(CredentialsClient, "getIssueProofData").mockImplementation(impl as never)
     return run().finally(() => spy.mockRestore())
   }
 
@@ -162,7 +162,7 @@ describe("enriched onResult", () => {
       },
       async () => {
         const results: unknown[] = []
-        const options = await buildAttestCardOptions({
+        const options = await buildCredentialCardOptions({
           ...baseOptions(basePolicy),
           client: stubChain(basePolicy).client,
           onResult: (r) => results.push(r),
@@ -191,7 +191,7 @@ describe("enriched onResult", () => {
       () => PROOF_DATA,
       async () => {
         const results: unknown[] = []
-        const options = await buildAttestCardOptions({
+        const options = await buildCredentialCardOptions({
           ...baseOptions(basePolicy),
           client: stubChain(basePolicy).client,
           onResult: (r) => results.push(r),
@@ -212,7 +212,7 @@ describe("enriched onResult", () => {
       async () => {
         const errors: string[] = []
         const results: unknown[] = []
-        const options = await buildAttestCardOptions({
+        const options = await buildCredentialCardOptions({
           ...baseOptions(basePolicy),
           client: stubChain(basePolicy).client,
           devMode: true,
@@ -241,7 +241,7 @@ describe("enriched onResult", () => {
       async () => {
         const errors: string[] = []
         const results: unknown[] = []
-        const options = await buildAttestCardOptions({
+        const options = await buildCredentialCardOptions({
           ...baseOptions(basePolicy),
           client: stubChain(basePolicy).client,
           onResult: (r) => results.push(r),

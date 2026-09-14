@@ -244,14 +244,14 @@ describe("openVerificationPopup", () => {
   })
 })
 
-describe("attest protocol extension", () => {
-  test("configure with an attest block survives postMessage cloning", () => {
+describe("credentials protocol extension", () => {
+  test("configure with a credential block survives postMessage cloning", () => {
     const message = {
       zkpassport: true,
       type: "configure",
       request: { devMode: true },
       query: {},
-      attest: {
+      credential: {
         chain: "ethereum_sepolia",
         policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
       },
@@ -272,10 +272,10 @@ describe("attest protocol extension", () => {
       type: "success",
       proofs: [],
       result: {},
-      attest: { status: "minted", txHash: "0xdead", issueCall },
+      credential: { status: "minted", txHash: "0xdead", issueCall },
     }
     const cloned = structuredClone(message)
     expect(cloned).toEqual(message)
-    expect(cloned.attest.issueCall.args[0]).toBe(123456789012345678901234567890n)
+    expect(cloned.credential.issueCall.args[0]).toBe(123456789012345678901234567890n)
   })
 })
