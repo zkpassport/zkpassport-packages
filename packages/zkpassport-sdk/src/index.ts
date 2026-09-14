@@ -136,6 +136,7 @@ function warnOnResultDeprecated() {
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
+  private rpcUrl?: string
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -206,12 +207,23 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string) {
+  /**
+   * @param _domain The domain of the service requesting the proofs
+   * @param rpcUrl Ethereum RPC used during local verification for the on-chain registry root
+   * checks and the Solidity verifier. It must point at the chain `devMode` selects: mainnet
+   * by default, Sepolia when `devMode` is true. Defaults to the built-in endpoint for that chain.
+   */
+  constructor(_domain?: string, rpcUrl?: string) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
+    this.rpcUrl = rpcUrl
+  }
+
+  private createRegistryClient(devMode: boolean): RegistryClient {
+    return new RegistryClient({ chainId: devMode ? 11155111 : 1, rpcUrl: this.rpcUrl })
   }
 
   private async handleResult(topic: string) {
@@ -933,6 +945,7 @@ export class ZKPassport {
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
     try {
+      const registryClient = this.createRegistryClient(devMode)
       const {
         isCorrect,
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
@@ -947,6 +960,7 @@ export class ZKPassport {
         scope,
         oprfKeyId,
         devMode,
+        registryClient,
       )
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
@@ -967,7 +981,6 @@ export class ZKPassport {
       }
       // Only proceed with the proof verification if the public inputs are correct
       if (verified) {
-        const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
         const circuitManifest = await registryClient.getCircuitManifest(undefined, {
           // We assume all proofs have the same version
           version: proofs[0].version,
@@ -988,9 +1001,11 @@ export class ZKPassport {
               const { sepolia } = await import("viem/chains")
               const { mainnet } = await import("viem/chains")
               const { address, abi, functionName } = this.getSolidityVerifierDetails()
-              const rpcUrl = devMode
-                ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-                : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+              const rpcUrl =
+                this.rpcUrl ||
+                (devMode
+                  ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
+                  : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G")
               const client = createPublicClient({
                 chain: devMode ? sepolia : mainnet,
                 transport: http(rpcUrl),

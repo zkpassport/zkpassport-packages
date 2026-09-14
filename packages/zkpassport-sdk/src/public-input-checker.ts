@@ -1853,11 +1853,12 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Point in time to check validity at, in seconds; defaults to now
     timestamp?: number,
+    registryClient?: RegistryClient,
   ) {
     let isCorrect = true
     try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCertificateRootValid(root, timestamp)
+      const client = registryClient ?? new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+      const isValid = await client.isCertificateRootValid(root, timestamp)
       if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
         isCorrect = false
@@ -1892,11 +1893,12 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
+    registryClient?: RegistryClient,
   ) {
     let isCorrect = true
     try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCircuitRootValid(root, timestamp)
+      const client = registryClient ?? new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+      const isValid = await client.isCircuitRootValid(root, timestamp)
       if (!isValid) {
         console.warn("The proof uses unrecognized circuits")
         isCorrect = false
@@ -2319,6 +2321,7 @@ export class PublicInputChecker {
     scope?: string,
     oprfKeyId?: string,
     devMode?: boolean,
+    registryClient?: RegistryClient,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -2395,6 +2398,7 @@ export class PublicInputChecker {
           true,
           devMode,
           rootTimestamp,
+          registryClient,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
@@ -2411,6 +2415,7 @@ export class PublicInputChecker {
           queryResultErrors,
           devMode,
           rootTimestamp,
+          registryClient,
         )
         isCorrect = isCorrect && isCorrectCircuitRegistryRoot
         queryResultErrors = {
@@ -2906,6 +2911,7 @@ export class PublicInputChecker {
           false,
           devMode,
           bundleRootTimestamp,
+          registryClient,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
