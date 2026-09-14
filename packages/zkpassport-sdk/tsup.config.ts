@@ -6,6 +6,7 @@ export default defineConfig(
   (["esm", "cjs"] as const).map((format) => ({
     entry: {
       index: "src/index.ts",
+      credentials: "src/credentials/index.ts",
       popup: "src/popup/index.ts",
       query: "src/offline-query.ts",
     },

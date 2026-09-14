@@ -23,6 +23,16 @@
         "default": "./dist/cjs/index.cjs"
       }
     },
+    "./credentials": {
+      "import": {
+        "types": "./dist/esm/credentials.d.ts",
+        "default": "./dist/esm/credentials.js"
+      },
+      "require": {
+        "types": "./dist/cjs/credentials.d.cts",
+        "default": "./dist/cjs/credentials.cjs"
+      }
+    },
     "./popup": {
       "import": {
         "types": "./dist/esm/popup.d.ts",
