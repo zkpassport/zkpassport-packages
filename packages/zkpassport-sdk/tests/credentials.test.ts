@@ -4,18 +4,18 @@ import { NullifierType } from "@zkpassport/utils"
 import { PolicyEvaluatorV1Abi } from "../src/assets/abi/policy-evaluator-v1"
 import { sepolia } from "viem/chains"
 import {
-  AttestClient,
+  CredentialsClient,
   computePolicyId,
-  createAttestContext,
-  encodeAttestPolicyRequirements,
-  submitAttestCall,
+  createCredentialsContext,
+  encodeCredentialPolicyRequirements,
+  submitCredentialsCall,
   submitIssueCall,
-  type AttestContext,
-  type AttestPolicy,
-  type AttestPolicyRequirements,
-  type AttestReadClient,
-} from "../src/attest"
-import { buildAttestProofRequest } from "../src/attest/request"
+  type CredentialsContext,
+  type CredentialPolicy,
+  type CredentialPolicyRequirements,
+  type CredentialsReadClient,
+} from "../src/credentials"
+import { buildCredentialProofRequest } from "../src/credentials/request"
 import { SolidityVerifier } from "../src/solidity-verifier"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
@@ -24,7 +24,7 @@ const POLICY_ID = 42n
 
 const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
 
-const SAMPLE_POLICY: AttestPolicy = {
+const SAMPLE_POLICY: CredentialPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
   ownerIssuable: false,
@@ -50,7 +50,7 @@ const RAW_REQUIREMENTS = {
   excludedNationalities: ["PRK"],
 }
 
-const SAMPLE_REQUIREMENTS: AttestPolicyRequirements = {
+const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
   uniqueIdentifierType: NullifierType.SALTED,
   enforceUniqueness: true,
   minAge: 18,
@@ -76,17 +76,17 @@ function stubClient(
       return []
     },
     getBlockNumber: async () => 100n,
-  } as unknown as AttestReadClient
+  } as unknown as CredentialsReadClient
   return { client, readCalls, logCalls }
 }
 
-describe("AttestClient reads", () => {
+describe("CredentialsClient reads", () => {
   test("buildIssueCall assembles the registry call around the encoded proof data", async () => {
-    const spy = spyOn(AttestClient, "getIssueProofData").mockReturnValue("0xf00d")
+    const spy = spyOn(CredentialsClient, "getIssueProofData").mockReturnValue("0xf00d")
     try {
       const { client } = stubClient(() => null)
-      const attest = new AttestClient({ client, address: REGISTRY })
-      const call = attest.buildIssueCall({
+      const credentials = new CredentialsClient({ client, address: REGISTRY })
+      const call = credentials.buildIssueCall({
         policyId: POLICY_ID,
         proof: { proof: "0x1" } as never,
         domain: "verify.zkpassport.id",
@@ -111,16 +111,16 @@ describe("AttestClient reads", () => {
   test("hasCredential is the expiry-masked balance check", async () => {
     let balance = 1n
     const { client } = stubClient(() => balance)
-    const attest = new AttestClient({ client, address: REGISTRY })
-    expect(await attest.hasCredential(WALLET, POLICY_ID)).toBe(true)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    expect(await credentials.hasCredential(WALLET, POLICY_ID)).toBe(true)
     balance = 0n
-    expect(await attest.hasCredential(WALLET, POLICY_ID)).toBe(false)
+    expect(await credentials.hasCredential(WALLET, POLICY_ID)).toBe(false)
   })
 
   test("getPolicy forwards args and returns the decoded policy", async () => {
     const { client, readCalls } = stubClient(() => SAMPLE_POLICY)
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const policy = await attest.getPolicy(POLICY_ID)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const policy = await credentials.getPolicy(POLICY_ID)
     expect(policy).toEqual(SAMPLE_POLICY)
     expect(readCalls[0].address).toBe(REGISTRY)
     expect(readCalls[0].functionName).toBe("getPolicy")
@@ -133,8 +133,8 @@ describe("AttestClient reads", () => {
       if (p.functionName === "decodeRequirements") return RAW_REQUIREMENTS
       throw new Error(`unexpected read ${p.functionName}`)
     })
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const requirements = await attest.getRequirements(SAMPLE_POLICY)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const requirements = await credentials.getRequirements(SAMPLE_POLICY)
     expect(requirements).toEqual(SAMPLE_REQUIREMENTS)
     expect(readCalls[0].address).toBe(EVALUATOR)
     expect(readCalls[0].functionName).toBe("schemaVersion")
@@ -150,16 +150,16 @@ describe("AttestClient reads", () => {
           return { ...RAW_REQUIREMENTS, uniqueIdentifierType: raw, enforceUniqueness: false }
         throw new Error(`unexpected read ${p.functionName}`)
       })
-      const attest = new AttestClient({ client, address: REGISTRY })
-      const requirements = await attest.getRequirements(SAMPLE_POLICY)
+      const credentials = new CredentialsClient({ client, address: REGISTRY })
+      const requirements = await credentials.getRequirements(SAMPLE_POLICY)
       expect(requirements.uniqueIdentifierType).toBe(raw)
     }
   })
 
   test("getRequirements rejects unknown evaluator schemas", async () => {
     const { client } = stubClient(() => 2n)
-    const attest = new AttestClient({ client, address: REGISTRY })
-    await expect(attest.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    await expect(credentials.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
       "Unsupported policy evaluator schema",
     )
   })
@@ -173,12 +173,12 @@ describe("AttestClient reads", () => {
       policyScope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
-    const attest = new AttestClient({ client, address: REGISTRY })
-    expect(await attest.uri(POLICY_ID)).toBe(results.uri as string)
-    expect(await attest.balanceOf(WALLET, POLICY_ID)).toBe(1n)
-    expect(await attest.heldUntil(WALLET, POLICY_ID)).toBe(1702592000n)
-    expect(await attest.banned(WALLET, POLICY_ID)).toBe(true)
-    expect(await attest.policyScope(POLICY_ID)).toBe(results.policyScope as string)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    expect(await credentials.uri(POLICY_ID)).toBe(results.uri as string)
+    expect(await credentials.balanceOf(WALLET, POLICY_ID)).toBe(1n)
+    expect(await credentials.heldUntil(WALLET, POLICY_ID)).toBe(1702592000n)
+    expect(await credentials.banned(WALLET, POLICY_ID)).toBe(true)
+    expect(await credentials.policyScope(POLICY_ID)).toBe(results.policyScope as string)
     expect(readCalls.map((c) => c.functionName)).toEqual([
       "uri",
       "balanceOf",
@@ -192,15 +192,15 @@ describe("AttestClient reads", () => {
   })
 })
 
-describe("AttestClient discovery", () => {
+describe("CredentialsClient discovery", () => {
   test("listPolicies maps PolicyCreated logs and forwards the owner filter", async () => {
     const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
     ;(client as { getLogs: unknown }).getLogs = async (params: never) => {
       logCalls.push(params as Record<string, unknown>)
       return [{ args: { policyId: POLICY_ID, owner: WALLET } }] as never
     }
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const policies = await attest.listPolicies({ owner: WALLET, fromBlock: 5n, toBlock: 90n })
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const policies = await credentials.listPolicies({ owner: WALLET, fromBlock: 5n, toBlock: 90n })
     expect(policies).toEqual([{ policyId: POLICY_ID, owner: WALLET }])
     const call = logCalls[0] as { address: string; args?: { owner?: string }; fromBlock?: bigint }
     expect(call.address).toBe(REGISTRY)
@@ -210,14 +210,14 @@ describe("AttestClient discovery", () => {
 
   test("listPolicies throws without fromBlock or deployBlock", async () => {
     const { client } = stubClient(() => SAMPLE_POLICY)
-    const attest = new AttestClient({ client, address: REGISTRY })
-    await expect(attest.listPolicies()).rejects.toThrow("needs a starting block")
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    await expect(credentials.listPolicies()).rejects.toThrow("needs a starting block")
   })
 
   test("listPolicies starts at the client's deployBlock and ends at the current block", async () => {
     const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
-    const attest = new AttestClient({ client, address: REGISTRY, deployBlock: 40n })
-    await attest.listPolicies()
+    const credentials = new CredentialsClient({ client, address: REGISTRY, deployBlock: 40n })
+    await credentials.listPolicies()
     const call = logCalls[0] as { args?: unknown; fromBlock?: bigint; toBlock?: bigint }
     expect(call.args).toBeUndefined()
     expect(call.fromBlock).toBe(40n)
@@ -231,8 +231,12 @@ describe("AttestClient discovery", () => {
       logCalls.push(params as Record<string, unknown>)
       return [{ args: { policyId: p.fromBlock, owner: WALLET } }] as never
     }
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const policies = await attest.listPolicies({ fromBlock: 0n, toBlock: 25n, blockRange: 10n })
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const policies = await credentials.listPolicies({
+      fromBlock: 0n,
+      toBlock: 25n,
+      blockRange: 10n,
+    })
     expect(logCalls.map((c) => [c.fromBlock, c.toBlock])).toEqual([
       [0n, 9n],
       [10n, 19n],
@@ -246,11 +250,11 @@ describe("AttestClient discovery", () => {
   })
 })
 
-describe("AttestClient issue helpers", () => {
-  test("getIssueDetails returns address, function name, and the attest ABI", () => {
+describe("CredentialsClient issue helpers", () => {
+  test("getIssueDetails returns address, function name, and the credentials ABI", () => {
     const { client } = stubClient(() => SAMPLE_POLICY)
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const details = attest.getIssueDetails()
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const details = credentials.getIssueDetails()
     expect(details.address).toBe(REGISTRY)
     expect(details.functionName).toBe("issue")
     expect(details.abi.some((e) => e.type === "function" && e.name === "issue")).toBe(true)
@@ -275,7 +279,7 @@ describe("AttestClient issue helpers", () => {
     const spy = spyOn(SolidityVerifier, "getParameters").mockReturnValue(verifierParams as never)
     try {
       const proof = { proof: "0xdeadbeef", version: "0.21.0", name: "outer_evm_5" } as never
-      const proofData = AttestClient.getIssueProofData({
+      const proofData = CredentialsClient.getIssueProofData({
         proof,
         domain: "demo.example.com",
         scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
@@ -302,12 +306,12 @@ describe("AttestClient issue helpers", () => {
   })
 })
 
-test("AttestClient is exported from the package entrypoint", async () => {
+test("CredentialsClient is exported from the package entrypoint", async () => {
   const pkg = await import("../src/index")
-  expect(pkg.AttestClient).toBe(AttestClient)
+  expect(pkg.CredentialsClient).toBe(CredentialsClient)
 })
 
-describe("buildAttestProofRequest", () => {
+describe("buildCredentialProofRequest", () => {
   function requestStub(requirements: Partial<typeof RAW_REQUIREMENTS> = {}) {
     return stubClient((p) => {
       if (p.functionName === "getPolicy") return SAMPLE_POLICY
@@ -343,8 +347,8 @@ describe("buildAttestProofRequest", () => {
 
   test("reads scope and domain on-chain and applies predicates, facematch, and bindings", async () => {
     const { client } = requestStub({ minAge: 18, excludedNationalities: ["PRK"] })
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const request = await buildAttestProofRequest(attest, MINT)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const request = await buildCredentialProofRequest(credentials, MINT)
     expect(request.scope).toBe("attest:0x2a")
     expect(request.domain).toBe("verify.zkpassport.id")
     expect(request.uniqueIdentifierType).toBe(NullifierType.SALTED)
@@ -368,16 +372,16 @@ describe("buildAttestProofRequest", () => {
       uniqueIdentifierType: NullifierType.NONE,
       enforceUniqueness: false,
     })
-    const attest = new AttestClient({ client, address: REGISTRY })
-    const request = await buildAttestProofRequest(attest, MINT)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const request = await buildCredentialProofRequest(credentials, MINT)
     expect(request.uniqueIdentifierType).toBeUndefined()
   })
 
   test("rejects policies requiring mock nullifier types — no mock/real mapping", async () => {
     for (const raw of [NullifierType.SALTED_MOCK, NullifierType.NON_SALTED_MOCK]) {
       const { client } = requestStub({ uniqueIdentifierType: raw })
-      const attest = new AttestClient({ client, address: REGISTRY })
-      await expect(buildAttestProofRequest(attest, MINT)).rejects.toThrow(
+      const credentials = new CredentialsClient({ client, address: REGISTRY })
+      await expect(buildCredentialProofRequest(credentials, MINT)).rejects.toThrow(
         "requires a mock nullifier type and cannot be minted",
       )
     }
@@ -390,40 +394,42 @@ describe("buildAttestProofRequest", () => {
       if (p.functionName === "domain") return "verify.zkpassport.id"
       throw new Error(`unexpected read ${p.functionName}`)
     })
-    const attest = new AttestClient({ client, address: REGISTRY })
-    await expect(buildAttestProofRequest(attest, MINT)).rejects.toThrow(
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    await expect(buildCredentialProofRequest(credentials, MINT)).rejects.toThrow(
       "retired and no longer issues credentials",
     )
   })
 })
 
-describe("attest deployments", () => {
+describe("credentials deployments", () => {
   test("maps supported chains to viem configs and rejects the rest", async () => {
-    const { getAttestChain } = await import("../src/attest/deployments")
-    expect(getAttestChain("ethereum_sepolia").id).toBe(11155111)
-    expect(getAttestChain("local").id).toBe(31337)
-    expect(() => getAttestChain("base")).toThrow("not supported")
+    const { getCredentialsChain } = await import("../src/credentials/deployments")
+    expect(getCredentialsChain("ethereum_sepolia").id).toBe(11155111)
+    expect(getCredentialsChain("local").id).toBe(31337)
+    expect(() => getCredentialsChain("base")).toThrow("not supported")
   })
 
   test("resolves canonical registries and rejects chains without one", async () => {
-    const { getAttestRegistry } = await import("../src/attest/deployments")
-    expect(getAttestRegistry("ethereum_sepolia")).toBe("0x3278117D873965036B5e0007112ADDd488Bde3e1")
-    expect(() => getAttestRegistry("local")).toThrow(
-      "Attestation minting is not supported on 'local': no registry is deployed.",
+    const { getCredentialsRegistry } = await import("../src/credentials/deployments")
+    expect(getCredentialsRegistry("ethereum_sepolia")).toBe(
+      "0x3278117D873965036B5e0007112ADDd488Bde3e1",
+    )
+    expect(() => getCredentialsRegistry("local")).toThrow(
+      "Credential minting is not supported on 'local': no registry is deployed.",
     )
   })
 })
 
-describe("createAttestContext", () => {
-  test("binds an AttestClient to the chain's canonical registry", () => {
-    const ctx = createAttestContext(sepolia)
-    expect(ctx.attest.address).toBe("0x3278117D873965036B5e0007112ADDd488Bde3e1")
+describe("createCredentialsContext", () => {
+  test("binds a CredentialsClient to the chain's canonical registry", () => {
+    const ctx = createCredentialsContext(sepolia)
+    expect(ctx.credentials.address).toBe("0x3278117D873965036B5e0007112ADDd488Bde3e1")
     expect(ctx.chain).toBe(sepolia)
   })
 
   test("rejects chains without a recorded registry deployment", () => {
-    expect(() => createAttestContext({ ...sepolia, id: 1, name: "Ethereum" })).toThrow(
-      "Attestation minting is not supported on 'ethereum': no registry is deployed.",
+    expect(() => createCredentialsContext({ ...sepolia, id: 1, name: "Ethereum" })).toThrow(
+      "Credential minting is not supported on 'ethereum': no registry is deployed.",
     )
   })
 })
@@ -433,8 +439,8 @@ function fakeContext(status: "success" | "reverted") {
   const ctx = {
     chain: sepolia,
     publicClient: { waitForTransactionReceipt: async () => ({ status }) },
-    attest: null,
-  } as unknown as AttestContext
+    credentials: null,
+  } as unknown as CredentialsContext
   const wallet = {
     account: WALLET,
     client: {
@@ -488,9 +494,9 @@ const REQUIREMENTS_ABI = getAbiItem({
   name: "decodeRequirements",
 }).outputs
 
-describe("encodeAttestPolicyRequirements", () => {
+describe("encodeCredentialPolicyRequirements", () => {
   test("round-trips through the evaluator's schema-1 layout", () => {
-    const encoded = encodeAttestPolicyRequirements(SAMPLE_REQUIREMENTS)
+    const encoded = encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded).toEqual({
       ...RAW_REQUIREMENTS,
@@ -500,7 +506,7 @@ describe("encodeAttestPolicyRequirements", () => {
   })
 
   test("encodes absent sanctions and facematch modes as NONE", () => {
-    const encoded = encodeAttestPolicyRequirements({
+    const encoded = encodeCredentialPolicyRequirements({
       ...SAMPLE_REQUIREMENTS,
       sanctionsMode: undefined,
       facematchMode: undefined,
@@ -520,11 +526,14 @@ describe("computePolicyId", () => {
   })
 })
 
-describe("AttestClient owner calls", () => {
-  const attest = new AttestClient({ client: stubClient(() => null).client, address: REGISTRY })
+describe("CredentialsClient owner calls", () => {
+  const credentials = new CredentialsClient({
+    client: stubClient(() => null).client,
+    address: REGISTRY,
+  })
 
   test("buildCreatePolicyCall encodes requirements and defaults the flags to false", () => {
-    const call = attest.buildCreatePolicyCall({
+    const call = credentials.buildCreatePolicyCall({
       salt: SALT,
       requirements: SAMPLE_REQUIREMENTS,
       credentialDuration: 2592000n,
@@ -534,7 +543,7 @@ describe("AttestClient owner calls", () => {
     expect(call.functionName).toBe("createPolicy")
     expect(call.args).toEqual([
       SALT,
-      encodeAttestPolicyRequirements(SAMPLE_REQUIREMENTS),
+      encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS),
       2592000n,
       "https://policy.example/kyc",
       false,
@@ -544,7 +553,7 @@ describe("AttestClient owner calls", () => {
   })
 
   test("buildCreatePolicyCall forwards explicit owner-privilege flags", () => {
-    const call = attest.buildCreatePolicyCall({
+    const call = credentials.buildCreatePolicyCall({
       salt: SALT,
       requirements: SAMPLE_REQUIREMENTS,
       credentialDuration: 1n,
@@ -557,47 +566,50 @@ describe("AttestClient owner calls", () => {
   })
 
   test("buildSetRequirementsCall pairs the policy id with re-encoded requirements", () => {
-    const call = attest.buildSetRequirementsCall(POLICY_ID, SAMPLE_REQUIREMENTS)
+    const call = credentials.buildSetRequirementsCall(POLICY_ID, SAMPLE_REQUIREMENTS)
     expect(call.functionName).toBe("setRequirements")
-    expect(call.args).toEqual([POLICY_ID, encodeAttestPolicyRequirements(SAMPLE_REQUIREMENTS)])
+    expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
   })
 
   test("the remaining owner calls mirror the contract signatures", () => {
-    expect(attest.buildSetMetadataURLCall(POLICY_ID, "https://p.example/2")).toMatchObject({
+    expect(credentials.buildSetMetadataURLCall(POLICY_ID, "https://p.example/2")).toMatchObject({
       address: REGISTRY,
       functionName: "setMetadataURL",
       args: [POLICY_ID, "https://p.example/2"],
     })
-    expect(attest.buildRetireCall(POLICY_ID)).toMatchObject({
+    expect(credentials.buildRetireCall(POLICY_ID)).toMatchObject({
       functionName: "retire",
       args: [POLICY_ID],
     })
-    expect(attest.buildOwnerIssueCall(WALLET, POLICY_ID)).toMatchObject({
+    expect(credentials.buildOwnerIssueCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "ownerIssue",
       args: [WALLET, POLICY_ID],
     })
-    expect(attest.buildRenounceCall(POLICY_ID)).toMatchObject({
+    expect(credentials.buildRenounceCall(POLICY_ID)).toMatchObject({
       functionName: "renounce",
       args: [POLICY_ID],
     })
-    expect(attest.buildBanCall(WALLET, POLICY_ID)).toMatchObject({
+    expect(credentials.buildBanCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "ban",
       args: [WALLET, POLICY_ID],
     })
-    expect(attest.buildUnbanCall(WALLET, POLICY_ID)).toMatchObject({
+    expect(credentials.buildUnbanCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "unban",
       args: [WALLET, POLICY_ID],
     })
   })
 })
 
-describe("submitAttestCall", () => {
+describe("submitCredentialsCall", () => {
   test("submits through the wallet client and resolves on inclusion", async () => {
     const { ctx, wallet, writes } = fakeContext("success")
-    const attest = new AttestClient({ client: stubClient(() => null).client, address: REGISTRY })
-    const call = attest.buildRetireCall(POLICY_ID)
+    const credentials = new CredentialsClient({
+      client: stubClient(() => null).client,
+      address: REGISTRY,
+    })
+    const call = credentials.buildRetireCall(POLICY_ID)
     const submitted: string[] = []
-    const hash = await submitAttestCall(ctx, call, wallet, (h) => submitted.push(h))
+    const hash = await submitCredentialsCall(ctx, call, wallet, (h) => submitted.push(h))
     expect(hash).toBe("0xhash")
     expect(submitted).toEqual(["0xhash"])
     expect(writes).toEqual([
@@ -614,9 +626,12 @@ describe("submitAttestCall", () => {
 
   test("names the reverted function in the error", async () => {
     const { ctx, wallet } = fakeContext("reverted")
-    const attest = new AttestClient({ client: stubClient(() => null).client, address: REGISTRY })
+    const credentials = new CredentialsClient({
+      client: stubClient(() => null).client,
+      address: REGISTRY,
+    })
     await expect(
-      submitAttestCall(ctx, attest.buildUnbanCall(WALLET, POLICY_ID), wallet),
+      submitCredentialsCall(ctx, credentials.buildUnbanCall(WALLET, POLICY_ID), wallet),
     ).rejects.toThrow("unban transaction reverted (tx 0xhash).")
   })
 })

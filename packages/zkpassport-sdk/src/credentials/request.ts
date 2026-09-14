@@ -1,7 +1,7 @@
 import { NullifierType } from "@zkpassport/utils"
 import type { SupportedChain } from "@zkpassport/utils"
 import type { QueryBuilder, QueryBuilderResult } from "../types"
-import type { AttestClient } from "./index"
+import type { CredentialsClient } from "./index"
 
 /**
  * A policy's on-chain requirements translated into the proof request that its
@@ -9,7 +9,7 @@ import type { AttestClient } from "./index"
  * card options) as they are; the query applies the policy's predicates and
  * the wallet + chain bindings.
  */
-export type AttestProofRequest = {
+export type CredentialProofRequest = {
   /** The registry's on-chain domain(), which issue() verifies the proof against. */
   domain: string
   /** The policy's proof scope, from policyScope(policyId). */
@@ -25,19 +25,19 @@ export type AttestProofRequest = {
 }
 
 /**
- * Resolve a policy and translate its requirements into an AttestProofRequest,
+ * Resolve a policy and translate its requirements into a CredentialProofRequest,
  * reading every value from the chain so the request derives from exactly what
  * issue() will enforce. Rejects retired policies before any proof is asked
  * for.
  */
-export async function buildAttestProofRequest(
-  attest: AttestClient,
+export async function buildCredentialProofRequest(
+  credentials: CredentialsClient,
   options: { policyId: bigint; wallet: `0x${string}`; chain: SupportedChain },
-): Promise<AttestProofRequest> {
+): Promise<CredentialProofRequest> {
   const [policy, scope, domain] = await Promise.all([
-    attest.getPolicy(options.policyId),
-    attest.policyScope(options.policyId),
-    attest.domain(),
+    credentials.getPolicy(options.policyId),
+    credentials.policyScope(options.policyId),
+    credentials.domain(),
   ])
 
   if (policy.retiredAt !== 0n) {
@@ -47,7 +47,7 @@ export async function buildAttestProofRequest(
   // Requirements are opaque bytes whose schema the policy's evaluator owns;
   // decoding through the evaluator keeps the request derived from exactly
   // what issue() will enforce.
-  const requirements = await attest.getRequirements(policy)
+  const requirements = await credentials.getRequirements(policy)
   const { wallet, chain } = options
 
   const { uniqueIdentifierType } = requirements
