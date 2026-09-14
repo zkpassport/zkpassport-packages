@@ -656,3 +656,7 @@ export async function submitCredentialsCall(
     (hash) => `${call.functionName} transaction reverted (tx ${hash}).`,
   )
 }
+
+export { ZKPassportCredentialsAbi }
+export { getCredentialsChain, getCredentialsRegistry } from "./deployments"
+export { buildCredentialProofRequest, type CredentialProofRequest } from "./request"

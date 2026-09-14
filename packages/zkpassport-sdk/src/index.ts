@@ -121,25 +121,6 @@ export {
   type Service,
 } from "@zkpassport/utils"
 
-export {
-  CredentialsClient,
-  computePolicyId,
-  createCredentialsContext,
-  encodeCredentialPolicyRequirements,
-  submitCredentialsCall,
-  submitIssueCall,
-  type CredentialsCall,
-  type CredentialsContext,
-  type CredentialIssueCall,
-  type CredentialPolicy,
-  type CredentialPolicyRequirements,
-  type CredentialPolicySummary,
-  type CredentialsReadClient,
-} from "./credentials"
-export { getCredentialsChain, getCredentialsRegistry } from "./credentials/deployments"
-export { buildCredentialProofRequest, type CredentialProofRequest } from "./credentials/request"
-export { ZKPassportCredentialsAbi } from "./assets/abi/zkpassport-credentials"
-
 export * from "./types"
 export { createOfflineQuery } from "./offline-query"
 
