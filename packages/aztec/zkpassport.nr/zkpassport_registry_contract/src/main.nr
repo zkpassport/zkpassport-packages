@@ -8,7 +8,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract ZKPassportRegistry {
     use crate::guards::{
-        assert_address_not_zero, assert_admin, assert_admin_or_oracle, assert_valid_registry_id,
+        assert_address_not_zero, assert_admin, assert_admin_or_oracle, assert_valid_mode,
+        assert_valid_registry_id,
     };
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
     use crate::types::{
@@ -58,7 +59,7 @@ pub contract ZKPassportRegistry {
         assert_address_not_zero(admin, "admin cannot be zero address");
         assert_address_not_zero(oracle, "oracle cannot be zero address");
         assert_address_not_zero(guardian, "guardian cannot be zero address");
-        assert(mode <= 3, "unknown validation mode");
+        assert_valid_mode(mode);
         self.storage.admin.write(admin);
         self.storage.oracle.write(oracle);
         self.storage.guardian.write(guardian);
@@ -178,7 +179,7 @@ pub contract ZKPassportRegistry {
             self.storage.oracle.read(),
         );
         assert_valid_registry_id(registry_id);
-        assert(mode <= 3, "unknown validation mode");
+        assert_valid_mode(mode);
         let slot = self.storage.config.at(registry_id);
         let (cfg, _) = slot.get_scheduled_value();
         slot.schedule_value_change(RegistryConfig { mode, window: cfg.window });
