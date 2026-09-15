@@ -1,2 +1,0 @@
-[workspace]
-members = ["zkpassport_registry_contract", "zkpassport_core", "zkpassport_aztec", "examples/age_gate_contract"]
