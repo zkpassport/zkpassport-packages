@@ -1,3 +1,9 @@
+// Germany is the only country whose MRZ code is not its ISO alpha-3 code:
+// ICAO Doc 9303 lets it use the historic "D" padded with "<" filler
+export function normalizeCountryCode(countryCode: string) {
+  return countryCode === "D<<" ? "DEU" : countryCode
+}
+
 export function countryCodeAlpha2ToAlpha3(countryCodeAlpha2: string) {
   return ccAlpha2ToAlpha3[countryCodeAlpha2.toUpperCase() as keyof typeof ccAlpha2ToAlpha3]
 }
