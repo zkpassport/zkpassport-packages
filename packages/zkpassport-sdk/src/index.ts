@@ -123,7 +123,6 @@ export {
 
 export * from "./types"
 export { createOfflineQuery } from "./offline-query"
-export { SolidityVerifier } from "./solidity-verifier"
 
 let onResultDeprecationWarned = false
 function warnOnResultDeprecated() {

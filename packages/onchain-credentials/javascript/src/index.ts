@@ -1,9 +1,8 @@
 import type { Chain, PublicClient, WalletClient } from "viem"
 import { createPublicClient, encodeAbiParameters, getAbiItem, http, keccak256 } from "viem"
 import { getChainFromId } from "@zkpassport/utils"
-import type { FacematchMode, NullifierType, ProofResult } from "@zkpassport/utils"
+import type { FacematchMode, NullifierType } from "@zkpassport/utils"
 import { getCredentialsRegistry } from "./deployments"
-import { SolidityVerifier } from "@zkpassport/sdk"
 import { ZKPassportCredentialsAbi } from "./abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./abi/policy-evaluator-v1"
 
@@ -168,6 +167,27 @@ const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "
 // The tuple layout issue()'s proofData bytes must carry for a schema-1 evaluator, taken from
 // the evaluator's own decodeProofData so the encoding can never drift from the contract.
 const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeProofData" }).outputs
+
+/**
+ * The verified proof as PolicyEvaluatorV1's `ProofVerificationParams` struct, which is what
+ * `issue()` decodes out of its `proofData` argument. `ZKPassport.getSolidityVerifierParameters()`
+ * returns this shape; deriving the params is the SDK's job, encoding them is this package's.
+ */
+export type IssueProofVerificationParams = {
+  version: string
+  proofVerificationData: {
+    vkeyHash: string
+    proof: string
+    publicInputs: readonly string[]
+  }
+  committedInputs: string
+  serviceConfig: {
+    validityPeriodInSeconds: number
+    domain: string
+    scope: string
+    devMode: boolean
+  }
+}
 
 /**
  * Typed bindings for the ZKPassportCredentials credential registry.
@@ -361,28 +381,16 @@ export class CredentialsClient {
   }
 
   /**
-   * Build the `proofData` argument for `issue()` from an SDK proof: the proof verification
-   * params encoded per PolicyEvaluatorV1's schema-1 layout. Policies pinned to another
-   * evaluator schema need that schema's encoding instead; `getRequirements` rejects such
-   * policies before a proof request is ever built.
+   * Build the `proofData` argument for `issue()`: the proof verification params encoded per
+   * PolicyEvaluatorV1's schema-1 layout. Policies pinned to another evaluator schema need that
+   * schema's encoding instead; `getRequirements` rejects such policies before a proof request
+   * is ever built.
    *
-   * Pass the scope obtained from `policyScope(policyId)`. A manually built string risks not
-   * matching what the contract expects to verify.
+   * The params must have been derived for this policy's own scope, from `policyScope(policyId)`,
+   * against the registry's `domain()`. A manually built scope string risks not matching what the
+   * contract expects to verify.
    */
-  static getIssueProofData(options: {
-    proof: ProofResult
-    domain: string
-    scope: string
-    validityPeriodInSeconds?: number
-    devMode?: boolean
-  }): `0x${string}` {
-    const params = SolidityVerifier.getParameters({
-      proof: options.proof,
-      domain: options.domain,
-      scope: options.scope,
-      validityPeriodInSeconds: options.validityPeriodInSeconds,
-      devMode: options.devMode ?? false,
-    })
+  static getIssueProofData(params: IssueProofVerificationParams): `0x${string}` {
     return encodeAbiParameters(PROOF_DATA_ABI, [params] as never)
   }
 
@@ -393,19 +401,9 @@ export class CredentialsClient {
    */
   buildIssueCall(options: {
     policyId: bigint
-    proof: ProofResult
-    domain: string
-    scope: string
-    validityPeriodInSeconds?: number
-    devMode?: boolean
+    params: IssueProofVerificationParams
   }): CredentialIssueCall {
-    const proofData = CredentialsClient.getIssueProofData({
-      proof: options.proof,
-      domain: options.domain,
-      scope: options.scope,
-      validityPeriodInSeconds: options.validityPeriodInSeconds,
-      devMode: options.devMode,
-    })
+    const proofData = CredentialsClient.getIssueProofData(options.params)
     const details = this.getIssueDetails()
     return {
       address: details.address,

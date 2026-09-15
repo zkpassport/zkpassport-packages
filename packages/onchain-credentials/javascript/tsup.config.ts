@@ -22,6 +22,6 @@ export default defineConfig(
     // For dev builds, inline them for instant edits
     ...(isDev
       ? { noExternal: [/@zkpassport\/.*/] }
-      : { external: ["@zkpassport/utils", "@zkpassport/sdk"] }),
+      : { external: ["@zkpassport/utils"] }),
   })),
 )

@@ -1,4 +1,4 @@
-import { describe, expect, spyOn, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { decodeAbiParameters, getAbiItem } from "viem"
 import { NullifierType } from "@zkpassport/utils"
 import { PolicyEvaluatorV1Abi } from "../src/abi/policy-evaluator-v1"
@@ -15,11 +15,26 @@ import {
   type CredentialPolicyRequirements,
   type CredentialsReadClient,
 } from "../src"
-import { SolidityVerifier } from "@zkpassport/sdk"
 
 const REGISTRY = "0x1111111111111111111111111111111111111111" as const
 const WALLET = "0x2222222222222222222222222222222222222222" as const
 const POLICY_ID = 42n
+
+const VERIFIER_PARAMS = {
+  version: "0x0000000000000000000000000000000000000000000000000000000000000001",
+  proofVerificationData: {
+    vkeyHash: "0x00000000000000000000000000000000000000000000000000000000000000aa",
+    proof: "0xdeadbeef",
+    publicInputs: ["0x00000000000000000000000000000000000000000000000000000000000000bb"],
+  },
+  committedInputs: "0x1234",
+  serviceConfig: {
+    validityPeriodInSeconds: 3600,
+    domain: "demo.example.com",
+    scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
+    devMode: false,
+  },
+} as const
 
 const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
 
@@ -81,30 +96,12 @@ function stubClient(
 
 describe("CredentialsClient reads", () => {
   test("buildIssueCall assembles the registry call around the encoded proof data", async () => {
-    const spy = spyOn(CredentialsClient, "getIssueProofData").mockReturnValue("0xf00d")
-    try {
-      const { client } = stubClient(() => null)
-      const credentials = new CredentialsClient({ client, address: REGISTRY })
-      const call = credentials.buildIssueCall({
-        policyId: POLICY_ID,
-        proof: { proof: "0x1" } as never,
-        domain: "verify.zkpassport.id",
-        scope: "attest:0x2a",
-        devMode: true,
-      })
-      expect(call.address).toBe(REGISTRY)
-      expect(call.functionName).toBe("issue")
-      expect(call.args).toEqual([POLICY_ID, "0xf00d"])
-      expect(spy.mock.calls[0][0]).toEqual({
-        proof: { proof: "0x1" },
-        domain: "verify.zkpassport.id",
-        scope: "attest:0x2a",
-        validityPeriodInSeconds: undefined,
-        devMode: true,
-      })
-    } finally {
-      spy.mockRestore()
-    }
+    const { client } = stubClient(() => null)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const call = credentials.buildIssueCall({ policyId: POLICY_ID, params: VERIFIER_PARAMS })
+    expect(call.address).toBe(REGISTRY)
+    expect(call.functionName).toBe("issue")
+    expect(call.args).toEqual([POLICY_ID, CredentialsClient.getIssueProofData(VERIFIER_PARAMS)])
   })
 
   test("hasCredential is the expiry-masked balance check", async () => {
@@ -260,48 +257,21 @@ describe("CredentialsClient issue helpers", () => {
   })
 
   test("getIssueProofData abi-encodes the verifier parameters per the evaluator schema", () => {
-    const verifierParams = {
-      version: "0x0000000000000000000000000000000000000000000000000000000000000001",
-      proofVerificationData: {
-        vkeyHash: "0x00000000000000000000000000000000000000000000000000000000000000aa",
-        proof: "0xdeadbeef",
-        publicInputs: ["0x00000000000000000000000000000000000000000000000000000000000000bb"],
-      },
-      committedInputs: "0x1234",
-      serviceConfig: {
-        validityPeriodInSeconds: 3600,
-        domain: "demo.example.com",
-        scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
-        devMode: false,
-      },
-    } as const
-    const spy = spyOn(SolidityVerifier, "getParameters").mockReturnValue(verifierParams as never)
-    try {
-      const proof = { proof: "0xdeadbeef", version: "0.21.0", name: "outer_evm_5" } as never
-      const proofData = CredentialsClient.getIssueProofData({
-        proof,
-        domain: "demo.example.com",
-        scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
-        validityPeriodInSeconds: 3600,
-        devMode: false,
-      })
+    const proofData = CredentialsClient.getIssueProofData(VERIFIER_PARAMS)
 
-      // The bytes must decode back through the evaluator's own decodeProofData layout.
-      const proofDataAbi = getAbiItem({
-        abi: PolicyEvaluatorV1Abi,
-        name: "decodeProofData",
-      }).outputs
-      const [decoded] = decodeAbiParameters(proofDataAbi, proofData)
-      expect(decoded.version).toBe(verifierParams.version)
-      expect(decoded.proofVerificationData).toEqual(verifierParams.proofVerificationData)
-      expect(decoded.committedInputs).toBe("0x1234")
-      expect(decoded.serviceConfig).toEqual({
-        ...verifierParams.serviceConfig,
-        validityPeriodInSeconds: 3600n,
-      })
-    } finally {
-      spy.mockRestore()
-    }
+    // The bytes must decode back through the evaluator's own decodeProofData layout.
+    const proofDataAbi = getAbiItem({
+      abi: PolicyEvaluatorV1Abi,
+      name: "decodeProofData",
+    }).outputs
+    const [decoded] = decodeAbiParameters(proofDataAbi, proofData)
+    expect(decoded.version).toBe(VERIFIER_PARAMS.version)
+    expect(decoded.proofVerificationData).toEqual(VERIFIER_PARAMS.proofVerificationData)
+    expect(decoded.committedInputs).toBe("0x1234")
+    expect(decoded.serviceConfig).toEqual({
+      ...VERIFIER_PARAMS.serviceConfig,
+      validityPeriodInSeconds: 3600n,
+    })
   })
 })
 

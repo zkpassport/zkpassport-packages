@@ -15,11 +15,9 @@ satisfies them.
 bun i @zkpassport/onchain-credentials
 ```
 
-`@zkpassport/sdk` is a peer dependency: it produces the `ProofResult` that `issue()` verifies.
-
-```bash
-bun i @zkpassport/sdk
-```
+The bindings only read the registry and shape calldata; they never touch a proof. Producing and
+verifying the proof `issue()` checks is `@zkpassport/sdk`'s job, so a minting flow installs that
+too.
 
 ## Usage
 
@@ -39,8 +37,9 @@ const expiresAt = await credentials.heldUntil(wallet, policyId)
 
 ### Minting a credential
 
-The proof must have been generated for the policy's own scope, from `policyScope(policyId)`,
-against the registry's `domain()`.
+`issue()` takes the proof as `ProofVerificationParams`, which the SDK derives from a verified
+proof. Derive them for the policy's own scope, from `policyScope(policyId)`, against the
+registry's `domain()` — a hand-built scope string risks not matching what the contract verifies.
 
 ```typescript
 import { submitIssueCall } from "@zkpassport/onchain-credentials"
@@ -48,7 +47,8 @@ import { submitIssueCall } from "@zkpassport/onchain-credentials"
 const scope = await credentials.policyScope(policyId)
 const domain = await credentials.domain()
 
-const call = credentials.buildIssueCall({ policyId, proof, domain, scope })
+const params = zkPassport.getSolidityVerifierParameters({ proof, domain, scope })
+const call = credentials.buildIssueCall({ policyId, params })
 const hash = await submitIssueCall(ctx, call, { client: walletClient, account })
 ```
 
