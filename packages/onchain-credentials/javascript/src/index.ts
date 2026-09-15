@@ -58,7 +58,7 @@ export type CredentialPolicy = {
 export type CredentialPolicyRequirements = {
   /**
    * Any `uniqueIdentifierType` value other than `NONE` requires the proof to carry exactly that
-   * nullifier type — mock types included; the contract does no dev-mode folding.
+   * nullifier type.
    */
   uniqueIdentifierType: NullifierType
   /**
@@ -111,19 +111,14 @@ const SANCTIONS_MODE_VALUES: Record<"normal" | "strict", number> = { normal: 1, 
 
 const FACEMATCH_MODE_VALUES: Record<FacematchMode, number> = { regular: 1, strict: 2 }
 
-// The tuple layout createPolicy()'s and setRequirements()'s requirement bytes must carry for a
-// schema-1 evaluator, taken from the evaluator's own decodeRequirements so the encoding can
-// never drift from the contract.
+// The tuple layout for createPolicy()'s and setRequirements()'s requirement bytes.
 const REQUIREMENTS_ABI = getAbiItem({
   abi: PolicyEvaluatorV1Abi,
   name: "decodeRequirements",
 }).outputs
 
 /**
- * Encode policy requirements per PolicyEvaluatorV1's schema-1 layout, the inverse of
- * `CredentialsClient.getRequirements`. The encoder only shapes the bytes; validity (country-list
- * format and ordering, salted-nullifier facematch, uniqueness needing a nullifier type) is
- * enforced on-chain by the evaluator when the bytes reach createPolicy() or setRequirements().
+ * Encode policy requirements.
  */
 export function encodeCredentialPolicyRequirements(
   requirements: CredentialPolicyRequirements,
@@ -164,8 +159,7 @@ export type CredentialPolicySummary = {
 
 const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "PolicyCreated" })
 
-// The tuple layout issue()'s proofData bytes must carry for a schema-1 evaluator, taken from
-// the evaluator's own decodeProofData so the encoding can never drift from the contract.
+// The tuple layout issue()'s proofData bytes.
 const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeProofData" }).outputs
 
 /**
@@ -221,7 +215,7 @@ export class CredentialsClient {
   }
 
   /**
-   * Decode a policy's requirements through its own evaluator, so the request a client builds is
+   * Decode a policy's requirements, so the request a client builds is
    * derived from exactly what issue() will enforce.
    */
   async getRequirements(policy: CredentialPolicy): Promise<CredentialPolicyRequirements> {
