@@ -1,6 +1,6 @@
 # @zkpassport/aztec
 
-TS companion for the [`zkpassport.nr`](../zkpassport.nr) Aztec verification
+TS companion for the [`zkpassport_aztec_verifier`](../noir/verifier) Aztec verification
 library: the app-side half that every consumer of the Noir library otherwise
 rewrites. Private (path-consumed) until the aztec stack merges; publish is a
 follow-up.
@@ -27,13 +27,13 @@ What it offers, mirroring the Noir side module-for-module:
 - **`fetchOuterVk(vkeyHash)`** — the outer vk from the live
   `circuits2.zkpassport.id` host (the SDK's own helper still targets the dead
   legacy host).
-- **`constants.ts`** — TS mirror of `zkpassport_core/src/constants.nr`.
+- **`constants.ts`** — TS mirror of `core/src/constants.nr`.
 
 Requires the Noir workspace compiled first (the artifact is imported from
-`zkpassport.nr/target/`, which is gitignored):
+`noir/target/`, which is gitignored):
 
 ```sh
-cd ../zkpassport.nr && ~/.aztec/versions/5.2.0/bin/aztec compile
+cd ../noir && ~/.aztec/versions/5.2.0/bin/aztec compile
 ```
 
 Checks:

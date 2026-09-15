@@ -1,5 +1,5 @@
 /**
- * TS twin of `zkpassport.nr`'s `zkpassport_core/src/disclosed_data.nr`.
+ * TS twin of `noir/core/src/disclosed_data.nr`.
  *
  * The app-side helpers here are convenience: they predict what the in-circuit
  * `disclosed_nationality` will accept so the claim value can be built (and bad

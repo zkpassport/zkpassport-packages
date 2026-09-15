@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "TS companion for the zkpassport.nr Aztec library: registry artifact + PXE registration, outer-proof capsule assembly, disclosed-data parsing",
+  "description": "TS companion for the ZKPassport Noir Aztec library: registry artifact + PXE registration, outer-proof capsule assembly, disclosed-data parsing",
   "exports": {
     ".": "./src/index.ts",
     "./artifact": "./src/artifact.ts",

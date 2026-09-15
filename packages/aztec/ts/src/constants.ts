@@ -1,5 +1,5 @@
 /**
- * TS mirror of `zkpassport.nr`'s `zkpassport_core/src/constants.nr`. Values are
+ * TS mirror of `noir/core/src/constants.nr`. Values are
  * fixed by the outer-proof shape and the library's capsule convention; if one
  * side changes, the other must change with it (the package tests pin the shape).
  */

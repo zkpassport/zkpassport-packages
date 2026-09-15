@@ -1,6 +1,6 @@
 /**
  * The compiled ZKPassportRegistry artifact, loaded from the Noir workspace's
- * (gitignored) `target/` output — compile `zkpassport.nr` first, same as the
+ * (gitignored) `target/` output — compile `noir/` first, same as the
  * scripts package's generated bindings.
  *
  * COUPLING: this is whatever build sits in `target/`. `INITIAL_DELAY` is a
@@ -16,7 +16,7 @@ import {
   loadContractArtifact,
   type NoirCompiledContract,
 } from "@aztec/aztec.js/abi"
-import ZKPassportRegistryJson from "../../zkpassport.nr/target/zkpassport_registry_contract-ZKPassportRegistry.json" with { type: "json" }
+import ZKPassportRegistryJson from "../../noir/target/zkpassport_registry_contract-ZKPassportRegistry.json" with { type: "json" }
 
 export const ZKPassportRegistryArtifact: ContractArtifact = loadContractArtifact(
   ZKPassportRegistryJson as NoirCompiledContract,
