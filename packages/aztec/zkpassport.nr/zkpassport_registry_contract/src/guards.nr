@@ -1,4 +1,7 @@
-use crate::types::{REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS};
+use crate::types::{
+    MODE_LATEST_AND_PREVIOUS, MODE_LATEST_ONLY, MODE_VALID_AT_TIMESTAMP, MODE_VALID_WITHIN_WINDOW,
+    REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS,
+};
 use aztec::protocol::address::AztecAddress;
 
 pub fn assert_valid_registry_id(registry_id: Field) {
@@ -6,6 +9,14 @@ pub fn assert_valid_registry_id(registry_id: Field) {
         | (registry_id == REGISTRY_CIRCUIT)
         | (registry_id == REGISTRY_SANCTIONS);
     assert(ok, "unknown registry id");
+}
+
+pub fn assert_valid_mode(mode: u8) {
+    let ok = (mode == MODE_LATEST_ONLY)
+        | (mode == MODE_LATEST_AND_PREVIOUS)
+        | (mode == MODE_VALID_AT_TIMESTAMP)
+        | (mode == MODE_VALID_WITHIN_WINDOW);
+    assert(ok, "unknown validation mode");
 }
 
 pub fn assert_admin(sender: AztecAddress, admin: AztecAddress) {
@@ -22,7 +33,8 @@ pub fn assert_address_not_zero<let N: u32>(address: AztecAddress, msg: str<N>) {
 
 mod test {
     use super::{
-        assert_address_not_zero, assert_admin, assert_admin_or_oracle, assert_valid_registry_id,
+        assert_address_not_zero, assert_admin, assert_admin_or_oracle, assert_valid_mode,
+        assert_valid_registry_id,
     };
     use aztec::protocol::address::AztecAddress;
     use aztec::protocol::traits::FromField;
@@ -35,6 +47,11 @@ mod test {
     #[test(should_fail_with = "unknown registry id")]
     fn rejects_unknown_registry_id() {
         assert_valid_registry_id(0);
+    }
+
+    #[test(should_fail_with = "unknown validation mode")]
+    fn rejects_unknown_validation_mode() {
+        assert_valid_mode(4);
     }
 
     #[test(should_fail_with = "caller is not admin")]
