@@ -1,3 +1,4 @@
+use bind_lib::calculate_param_commitment as bind_param_commitment;
 use compare_age_lib::calculate_param_commitment as age_param_commitment;
 use disclose_lib::calculate_param_commitment as disclose_param_commitment;
 use exclusion_check_sanctions_lib::param_commit::calculate_param_commitment as sanctions_param_commitment;
@@ -18,13 +19,32 @@ pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
 }
 
+/// bind(user_address): 509-byte bound-data layout
+/// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address][zero padding]
+pub fn bind_user_address_commitment(account: Field) -> Field {
+    let mut data = [0 as u8; 509];
+    data[0] = 1;
+    data[1] = 0;
+    data[2] = 32;
+    let bytes: [u8; 32] = account.to_be_bytes();
+    for i in 0..32 {
+        data[3 + i] = bytes[i];
+    }
+    bind_param_commitment(data)
+}
+
 mod test {
-    use crate::commitments::{age_commitment, disclose_commitment};
-    use crate::fixtures::{AGE_18_COMMITMENT, DISCLOSE_COMMITMENT};
+    use crate::commitments::{age_commitment, bind_user_address_commitment, disclose_commitment};
+    use crate::fixtures::{AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_COMMITMENT, DISCLOSE_COMMITMENT};
 
     #[test]
     fn age_matches_conformance_anchor() {
         assert(age_commitment(18, 0) == AGE_18_COMMITMENT);
+    }
+
+    #[test]
+    fn bind_matches_conformance_anchor() {
+        assert(bind_user_address_commitment(BIND_ACCOUNT) == BIND_COMMITMENT);
     }
 
     #[test]
