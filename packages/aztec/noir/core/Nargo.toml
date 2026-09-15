@@ -1,0 +1,11 @@
+[package]
+name = "zkpassport_core"
+type = "lib"
+
+[dependencies]
+bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v5.2.0", directory = "barretenberg/noir/bb_proof_verification" }
+poseidon = { tag = "v0.3.0", git = "https://github.com/noir-lang/poseidon" }
+utils = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/utils" }
+disclose_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/disclose" }
+compare_age_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/compare/age" }
+exclusion_check_sanctions_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0-beta.22", directory = "src/noir/lib/exclusion-check/sanctions" }
