@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Document-Isolation-Policy",
+          "value": "isolate-and-credentialless"
+        }
+      ]
+    }
+  ]
+}
