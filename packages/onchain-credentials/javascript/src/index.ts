@@ -659,4 +659,3 @@ export async function submitCredentialsCall(
 
 export { ZKPassportCredentialsAbi }
 export { getCredentialsChain, getCredentialsRegistry } from "./deployments"
-export { buildCredentialProofRequest, type CredentialProofRequest } from "./request"

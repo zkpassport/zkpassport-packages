@@ -4,10 +4,7 @@ import type { SupportedChain } from "@zkpassport/utils"
 
 /**
  * Canonical credentials deployments: the chains credentials run on and,
- * where one is deployed, the ZKPassportCredentials registry address. Deploy records live
- * in packages/onchain-credentials/contracts/deployments/; record new deployments here too.
- * `local` ships chain config only — dev setups add the registry address of
- * their own deployment.
+ * where one is deployed, the ZKPassportCredentials registry address.
  */
 const CREDENTIALS_DEPLOYMENTS: Partial<
   Record<SupportedChain, { chain: Chain; registry?: `0x${string}` }>

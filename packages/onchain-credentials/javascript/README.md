@@ -37,28 +37,16 @@ const held = await credentials.hasCredential(wallet, policyId)
 const expiresAt = await credentials.heldUntil(wallet, policyId)
 ```
 
-### Requesting a proof that satisfies a policy
-
-`buildCredentialProofRequest` reads the policy from the chain and translates its requirements
-into the query to hand the SDK, so the request derives from exactly what `issue()` enforces.
-It throws for retired policies and for policies requiring a mock nullifier type.
-
-```typescript
-import { buildCredentialProofRequest } from "@zkpassport/onchain-credentials"
-
-const { domain, scope, uniqueIdentifierType, query } = await buildCredentialProofRequest(
-  credentials,
-  { policyId, wallet, chain: "ethereum_sepolia" },
-)
-
-const queryBuilder = await zkPassport.request({ name, logo, purpose, scope, devMode })
-const { url } = query(queryBuilder)
-```
-
 ### Minting a credential
+
+The proof must have been generated for the policy's own scope, from `policyScope(policyId)`,
+against the registry's `domain()`.
 
 ```typescript
 import { submitIssueCall } from "@zkpassport/onchain-credentials"
+
+const scope = await credentials.policyScope(policyId)
+const domain = await credentials.domain()
 
 const call = credentials.buildIssueCall({ policyId, proof, domain, scope })
 const hash = await submitIssueCall(ctx, call, { client: walletClient, account })
