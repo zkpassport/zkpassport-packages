@@ -1,0 +1,21 @@
+{
+  "name": "zkpassport-aztec-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "tsx e2e/run-e2e.ts",
+    "format": "prettier -c -w e2e"
+  },
+  "dependencies": {
+    "@aztec/accounts": "5.2.0",
+    "@aztec/aztec.js": "5.2.0",
+    "@aztec/stdlib": "5.2.0",
+    "@aztec/wallets": "5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
