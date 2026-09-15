@@ -26,9 +26,9 @@ jobs:
         run: forge install
         working-directory: packages/registry-contracts
 
-      - name: Install Foundry dependencies (attest)
+      - name: Install Foundry dependencies (onchain-credentials)
         run: forge install
-        working-directory: packages/attest-contracts
+        working-directory: packages/onchain-credentials/contracts
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2

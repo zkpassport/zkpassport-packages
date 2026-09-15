@@ -6,7 +6,7 @@ import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 
-contract DeployAttestScript is Script {
+contract DeployZKPassportCredentialsScript is Script {
     function run() public {
         address rootVerifier = vm.envAddress("ROOT_VERIFIER_ADDRESS");
         require(rootVerifier != address(0), "ROOT_VERIFIER_ADDRESS must be set");
@@ -15,7 +15,7 @@ contract DeployAttestScript is Script {
         require(adminAddress != address(0), "ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS must be set");
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
         // Dev-mode evaluators accept mock-document proofs: testnets only, never mainnet.
-        bool devMode = vm.envOr("ATTEST_DEV_MODE", false);
+        bool devMode = vm.envOr("ZKPASSPORT_CREDENTIALS_DEV_MODE", false);
 
         vm.startBroadcast();
         PolicyEvaluatorV1 policyEvaluator =
@@ -27,7 +27,7 @@ contract DeployAttestScript is Script {
         console.log("ZKPassportCredentials deployed at:", address(zkPassportCredentials));
         console.log("PolicyEvaluatorV1 deployed at:", address(policyEvaluator));
 
-        string memory json = "attest";
+        string memory json = "credentials";
         vm.serializeAddress(json, "address", address(zkPassportCredentials));
         vm.serializeAddress(json, "policy_evaluator", address(policyEvaluator));
         vm.serializeAddress(json, "root_verifier", rootVerifier);

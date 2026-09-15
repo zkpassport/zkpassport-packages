@@ -1,5 +1,5 @@
 {
-  "name": "attest-contracts",
+  "name": "onchain-credentials-contracts",
   "version": "0.1.0",
   "private": true,
   "scripts": {
