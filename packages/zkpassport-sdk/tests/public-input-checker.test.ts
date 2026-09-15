@@ -2833,10 +2833,11 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     function makeFacematchProof(
       commitmentIn: bigint,
       scope: bigint = domainScopeHash,
+      subscope: bigint = 0n,
     ): ProofResult {
       return {
         name: "facematch_1234",
-        proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, 0n]),
+        proof: buildProofHex([commitmentIn, todayTs, scope, subscope, 0n, 0n, 0n]),
         total: 1,
         committedInputs: {
           facematch: {
@@ -2888,6 +2889,30 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.facematch?.scope).toBeDefined()
       expect(queryResultErrors.facematch!.scope!.message).toContain("different domain")
+    })
+
+    test("skips the domain and scope check when the domain is *", async () => {
+      const proofs = [
+        makeFacematchProof(
+          commitment,
+          getServiceScopeHash("customer.example"),
+          getScopeHash("age-check"),
+        ),
+      ]
+      const originalQuery: Query = { facematch: { mode: "regular" } }
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        "*",
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(queryResultErrors.facematch?.scope).toBeUndefined()
     })
   })
 })
@@ -3006,5 +3031,105 @@ describe("PublicInputChecker - query completeness", () => {
 
     expect(isCorrect).toBe(false)
     expect(queryResultErrors.sanctions?.commitment?.message).toContain("sanctions exclusion")
+  })
+})
+
+// The app reports "DEU" for the MRZ code "D<<", so the checker must parse it the same way
+describe("PublicInputChecker - German documents (D<< country code)", () => {
+  const germanPassportMRZ =
+    "P<D<<MUSTERMANN<<ERIKA<<<<<<<<<<<<<<<<<<<<<<C01X00T478D<<6408125F2702283<<<<<<<<<<<<<<<4"
+  const germanIDCardMRZ =
+    "IDD<<L01X00T471<<<<<<<<<<<<<<<6408125F2702283D<<<<<<<<<<<<<4MUSTERMANN<<ERIKA<<<<<<<<<<<<<"
+
+  const makeDiscloseProofFromMrz = (mrz: string, ...ranges: [number, number][]) => {
+    const mask = new Array(90).fill(0)
+    for (const [start, end] of ranges) mask.fill(1, start, end)
+    return makeDiscloseProof(getDisclosedBytesFromMrzAndMask(mrz, mask))
+  }
+
+  describe("passports (TD3)", () => {
+    test("nationality disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
+        { nationality: { disclose: true } },
+        { nationality: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.nationality).toBeUndefined()
+    })
+
+    test("issuing_country disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [2, 5]),
+        { issuing_country: { disclose: true } },
+        { issuing_country: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.issuing_country).toBeUndefined()
+    })
+
+    test("nationality eq accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
+        { nationality: { eq: "DEU" } },
+        { nationality: { eq: { expected: "DEU", result: true } } },
+      )
+      expect(queryResultErrors.nationality).toBeUndefined()
+    })
+
+    test("issuing_country eq accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [2, 5]),
+        { issuing_country: { eq: "DEU" } },
+        { issuing_country: { eq: { expected: "DEU", result: true } } },
+      )
+      expect(queryResultErrors.issuing_country).toBeUndefined()
+    })
+
+    test("still rejects a nationality the passport does not hold", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
+        { nationality: { disclose: true } },
+        { nationality: { disclose: { result: "FRA" } } },
+      )
+      expect(queryResultErrors.nationality?.disclose).toBeDefined()
+    })
+
+    test("the reported query passes end to end", () => {
+      const { isCorrect } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [5, 44], [54, 57], [57, 63]),
+        {
+          firstname: { disclose: true },
+          lastname: { disclose: true },
+          birthdate: { disclose: true },
+          nationality: { disclose: true },
+        },
+        {
+          firstname: { disclose: { result: "ERIKA" } },
+          lastname: { disclose: { result: "MUSTERMANN" } },
+          birthdate: { disclose: { result: new Date(Date.UTC(1964, 7, 12)) } },
+          nationality: { disclose: { result: "DEU" } },
+        },
+      )
+      expect(isCorrect).toBe(true)
+    })
+  })
+
+  describe("id cards (TD1)", () => {
+    test("nationality disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanIDCardMRZ, [45, 48]),
+        { nationality: { disclose: true } },
+        { nationality: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.nationality).toBeUndefined()
+    })
+
+    test("issuing_country disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanIDCardMRZ, [2, 5]),
+        { issuing_country: { disclose: true } },
+        { issuing_country: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.issuing_country).toBeUndefined()
+    })
   })
 })
