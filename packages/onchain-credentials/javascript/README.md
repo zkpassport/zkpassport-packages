@@ -1,6 +1,6 @@
 # ZKPassport Onchain Credentials
 
-Typed [viem](https://viem.sh) bindings for the ZKPassport onchain credential registry
+Typed [viem](https://viem.sh) bindings for the ZKPassport onchain credentials contract
 (`ZKPassportCredentials` and `PolicyEvaluatorV1`), whose Solidity sources live in
 [`packages/onchain-credentials/contracts`](../contracts).
 
