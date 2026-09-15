@@ -5,6 +5,8 @@
 
 set -e
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
 # Ensure script is being run with `bun publish` (not `npm publish`)
 # This is because bun publish resolves workspace:* refs, whereas npm publish does not
 if [ -z "$CI" ]; then
@@ -13,15 +15,15 @@ fi
 
 # Check for prerelease version accidentally being published to 'latest' tag
 if [ -z "$CI" ]; then
-  ../../scripts/check-prerelease-tag.sh
+  "$REPO_ROOT/scripts/check-prerelease-tag.sh"
 fi
 
 # Sync workspace dependencies
-(cd $(git rev-parse --show-toplevel) && scripts/sync-workspace-deps.sh)
+(cd "$REPO_ROOT" && scripts/sync-workspace-deps.sh)
 
 # Build and test all packages
 echo "📦 Building all packages..."
-(cd ../.. && bun run clean && bun run build && bun run check && bun run test)
+(cd "$REPO_ROOT" && bun run clean && bun run build && bun run check && bun run test)
 
 # Validate package
 bun run validate-package
