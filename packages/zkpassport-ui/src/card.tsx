@@ -139,7 +139,12 @@ export function Card({ options, controlRef }: CardProps) {
           {showOpenAppHero ? (
             <div className="zkp-open-app-hero">
               {state === "waiting" && url ? (
-                <a className="zkp-open-app zkp-open-app-block" href={url}>
+                <a
+                  className="zkp-open-app zkp-open-app-block"
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Open ZKPassport App
                 </a>
               ) : (
@@ -161,7 +166,12 @@ export function Card({ options, controlRef }: CardProps) {
           )}
 
           {state === "waiting" && url && mobile && qrRevealed ? (
-            <a className="zkp-open-app zkp-open-app-block" href={url}>
+            <a
+              className="zkp-open-app zkp-open-app-block"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Open in ZKPassport App
             </a>
           ) : null}
