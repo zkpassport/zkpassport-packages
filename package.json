@@ -13,7 +13,8 @@
     "clean:deep": "turbo run clean && rimraf .turbo **/node_modules && bun i"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/onchain-credentials/*"
   ],
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
