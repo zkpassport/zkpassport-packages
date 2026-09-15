@@ -9,7 +9,7 @@
 #   PREVIEW_DELAY=7200 DRY_RUN=1 ./deploy.sh mainnet   # full pre-flight, no tx
 #
 # INITIAL_DELAY is a compile-time const generic on DelayedPublicMutable, so a preview
-# delay means patching zkpassport_registry_contract/src/types.nr, recompiling, and
+# delay means patching registry_contract/src/types.nr, recompiling, and
 # deploying that class. The patch is deploy-time only: types.nr is restored on exit
 # (the committed source always keeps the production 86400). A different delay is a
 # different contract class, so preview and production registries get different
@@ -25,8 +25,8 @@ NETWORK="${1:-}"
 
 AZTEC="${AZTEC:-$HOME/.aztec/versions/5.2.0}"
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NR="$SCRIPTS_DIR/../zkpassport.nr"
-TYPES="$NR/zkpassport_registry_contract/src/types.nr"
+NR="$SCRIPTS_DIR/../noir"
+TYPES="$NR/registry_contract/src/types.nr"
 
 if [[ -n "${PREVIEW_DELAY:-}" ]]; then
   [[ "$PREVIEW_DELAY" =~ ^[0-9]+$ ]] || { echo "PREVIEW_DELAY must be an integer number of seconds, got '$PREVIEW_DELAY'" >&2; exit 1; }

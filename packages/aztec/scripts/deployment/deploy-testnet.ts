@@ -26,7 +26,7 @@
  * deployed class always matches the source) and supports PREVIEW_DELAY builds. Run
  * `npm run deploy:testnet` directly only when target/ is already a fresh production
  * build (same requirement as run-e2e.ts):
- *   cd ../zkpassport.nr && $AZTEC/bin/aztec-nargo compile && \
+ *   cd ../noir && $AZTEC/bin/aztec-nargo compile && \
  *     $AZTEC/bin/aztec codegen target -o ../scripts/artifacts
  *
  * Env:
