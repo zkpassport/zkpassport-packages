@@ -41,7 +41,7 @@ proof.
 import { ZKPassport } from "@zkpassport/sdk"
 import { submitIssueCall } from "@zkpassport/onchain-credentials"
 
-const zkPassport = new ZKPassport("demo.zkpassport.id")
+const zkPassport = new ZKPassport("verify.zkpassport.id")
 
 const scope = await credentials.policyScope(policyId)
 const domain = await credentials.domain()
