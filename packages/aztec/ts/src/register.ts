@@ -5,18 +5,15 @@ import type { ContractInstanceWithAddress } from "@aztec/stdlib/contract"
 
 import { ZKPassportRegistryArtifact } from "./artifact.ts"
 
-/** The one node method registration needs (structural, so any node client fits). */
 export interface RegistryNode {
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>
 }
 
-/** The wallet surface registration needs (structural: EmbeddedWallet et al. fit). */
 export interface RegistryWallet {
   registerContract(
     instance: ContractInstanceWithAddress,
     artifact: ContractArtifact,
   ): Promise<unknown>
-  /** Optional fast path: skip re-registering an already-known contract. */
   hasContract?(address: AztecAddress): Promise<boolean>
 }
 
@@ -25,13 +22,7 @@ export interface RegistryWallet {
  *
  * Any app whose verifier calls `verify_zkpassport_proof*` needs this once per
  * wallet: the verifier privately `.view()`s the registry, and the PXE executes
- * that call locally during simulation/proving — without the artifact the claim
- * dies mid-proof with "No artifact registered for contract class …" (err 14).
- *
- * The on-chain instance's class id is checked against the artifact first, so a
- * stale/mismatched build (e.g. a preview-delay artifact against the production
- * registry — a different `INITIAL_DELAY` is a different class) fails here with
- * an actionable message instead of at claim time.
+ * that call locally during simulation/proving.
  */
 export async function registerZKPassportRegistry(
   wallet: RegistryWallet,

@@ -1,15 +1,5 @@
 /**
- * The compiled ZKPassportRegistry artifact, loaded from the Noir workspace's
- * (gitignored) `target/` output — compile `noir/` first, same as the
- * scripts package's generated bindings.
- *
- * COUPLING: this is whatever build sits in `target/`. `INITIAL_DELAY` is a
- * compile-time constant, so a preview-delay build is a DIFFERENT contract class
- * than the production 24h one; registering an artifact whose class does not
- * match the on-chain registry instance leaves the PXE unable to execute the
- * verifier's `.view()` ("No artifact registered for contract class …").
- * `registerZKPassportRegistry` checks the class id up front so a mismatch fails
- * with an actionable error instead.
+ * The compiled ZKPassportRegistry artifact.
  */
 import {
   type ContractArtifact,

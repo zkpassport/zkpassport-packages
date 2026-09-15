@@ -1,7 +1,5 @@
 /**
- * TS mirror of `noir/core/src/constants.nr`. Values are
- * fixed by the outer-proof shape and the library's capsule convention; if one
- * side changes, the other must change with it (the package tests pin the shape).
+ * Note: this is a TS mirror of `noir/core/src/constants.nr`. That is the source of truth.
  */
 
 /** Fields in the outer circuit's UltraHonk verification key. */
