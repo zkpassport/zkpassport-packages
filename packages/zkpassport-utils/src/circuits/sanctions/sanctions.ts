@@ -132,14 +132,29 @@ export class SanctionsBuilder {
 
   async getSanctionsParameterCommitment(isStrict: boolean): Promise<bigint> {
     const rootHash = this.getRootHash()
-    const hash = await poseidon2HashAsync([
-      BigInt(ProofType.SANCTIONS_EXCLUSION),
-      BigInt(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard),
+    return getSanctionsParameterCommitmentFromRoot(
       BigInt(`0x${rootHash.toString("hex")}`),
-      isStrict ? 1n : 0n,
-    ])
-    return hash
+      isStrict,
+    )
   }
+}
+
+/**
+ * Get the parameter commitment for the sanctions exclusion proof from a given tree root.
+ * @param root - The sanctions merkle tree root.
+ * @param isStrict - Whether the strict check is enforced.
+ * @returns The parameter commitment.
+ */
+export async function getSanctionsParameterCommitmentFromRoot(
+  root: bigint,
+  isStrict: boolean,
+): Promise<bigint> {
+  return poseidon2HashAsync([
+    BigInt(ProofType.SANCTIONS_EXCLUSION),
+    BigInt(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard),
+    root,
+    isStrict ? 1n : 0n,
+  ])
 }
 
 function formatSanctionsProof(proof: SortedNonMembershipProof): CircuitSanctionsProof {

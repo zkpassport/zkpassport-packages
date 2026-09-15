@@ -6,6 +6,7 @@ import vectors from "../conformance/vectors.json"
 import { getAgeParameterCommitment } from "../src/circuits/age"
 import { formatBoundData, getBindParameterCommitment } from "../src/circuits/bind"
 import { getDiscloseParameterCommitment } from "../src/circuits/disclose"
+import { getSanctionsParameterCommitmentFromRoot } from "../src/circuits/sanctions/sanctions"
 
 type Vector = { name: string; proofType: string; params: Record<string, any>; commitment: string }
 const byType = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.proofType, v]))
@@ -13,7 +14,12 @@ const hex = (b: bigint) => "0x" + b.toString(16).padStart(64, "0")
 
 describe("Conformance vectors", () => {
   test("every vector is checked here", () => {
-    expect(vectors.vectors.map((v) => v.proofType).sort()).toEqual(["age", "bind", "disclose"])
+    expect(vectors.vectors.map((v) => v.proofType).sort()).toEqual([
+      "age",
+      "bind",
+      "disclose",
+      "sanctions",
+    ])
   })
 
   test("age", async () => {
@@ -31,6 +37,15 @@ describe("Conformance vectors", () => {
       disclosed[mrzIndex] = params.disclosedText.charCodeAt(i)
     })
     const result = await getDiscloseParameterCommitment(mask, disclosed)
+    expect(hex(result)).toEqual(commitment)
+  })
+
+  test("sanctions", async () => {
+    const { params, commitment } = byType.sanctions
+    const result = await getSanctionsParameterCommitmentFromRoot(
+      BigInt(params.root),
+      params.isStrict,
+    )
     expect(hex(result)).toEqual(commitment)
   })
 

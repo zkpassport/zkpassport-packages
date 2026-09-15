@@ -18,6 +18,15 @@
       "commitment": "0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f"
     },
     {
+      "name": "sanctions_strict",
+      "proofType": "sanctions",
+      "params": {
+        "root": "0x2233445566778899001122334455667788990011223344556677889900112233",
+        "isStrict": true
+      },
+      "commitment": "0x2606e9e340f2e14080b1ff4ab95a1182129793c30adb8326e1d6073aef4f5a4d"
+    },
+    {
       "name": "bind_user_address",
       "proofType": "bind",
       "params": {
