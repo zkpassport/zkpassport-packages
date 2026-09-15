@@ -1,4 +1,17 @@
-//! Pinned test fixtures shared across this crate's test modules.
+//! Pinned test fixtures shared across this crate's test modules, and the conformance
+//! anchors for the parameter-commitment scheme: fixed example policies and the commitment
+//! each must produce. Two independent implementations are held to the anchors: the
+//! circuits-repo Noir libs (tests in this crate) and the @zkpassport/utils TS SDK
+//! (test-harness/commitment-conformance.test.ts, which parses this file at test time).
+//! An anchor only changes when the scheme itself changes; a stale one fails both suites.
+
+/// age_commitment(18, 0): the age-gate example's policy (18+, no maximum).
+pub global AGE_18_COMMITMENT: Field =
+    0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83;
+
+/// disclose_commitment over a nationality-only TD3 mask: bytes 54..=56 disclosed as "AUS".
+pub global DISCLOSE_COMMITMENT: Field =
+    0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
 
 /// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against
 /// dev-mode registries, current_date 2050-01-01), in the K=4 layout parse.nr decodes.

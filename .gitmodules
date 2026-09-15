@@ -4,3 +4,6 @@
 [submodule "packages/onchain-credentials/contracts/lib/openzeppelin-contracts"]
 	path = packages/onchain-credentials/contracts/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "packages/aztec/test-harness/circuits"]
+	path = packages/aztec/test-harness/circuits
+	url = https://github.com/zkpassport/circuits.git
