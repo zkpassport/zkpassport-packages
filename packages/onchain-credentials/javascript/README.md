@@ -22,7 +22,8 @@ bun i @zkpassport/onchain-credentials
 ```typescript
 import { createCredentialsContext, getCredentialsChain } from "@zkpassport/onchain-credentials"
 
-const { credentials } = createCredentialsContext(getCredentialsChain("ethereum_sepolia"))
+const ctx = createCredentialsContext(getCredentialsChain("ethereum_sepolia"))
+const { credentials } = ctx
 
 const policy = await credentials.getPolicy(policyId)
 const requirements = await credentials.getRequirements(policy)
@@ -37,7 +38,10 @@ const expiresAt = await credentials.heldUntil(wallet, policyId)
 proof.
 
 ```typescript
+import { ZKPassport } from "@zkpassport/sdk"
 import { submitIssueCall } from "@zkpassport/onchain-credentials"
+
+const zkPassport = new ZKPassport("demo.zkpassport.id")
 
 const scope = await credentials.policyScope(policyId)
 const domain = await credentials.domain()
