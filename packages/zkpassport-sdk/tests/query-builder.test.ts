@@ -1,4 +1,9 @@
-import { QueryBuilder, ZKPassport as ZkPassportVerifier, NullifierType } from "../src/index"
+import {
+  QueryBuilder,
+  ZKPassport as ZkPassportVerifier,
+  NullifierType,
+  RETURN_DEEP_LINK_BACK,
+} from "../src/index"
 import { MockWebSocket } from "./helpers/mock-websocket"
 
 describe("Query Builder", () => {
@@ -353,6 +358,17 @@ describe("Query Builder", () => {
     expect(config.facematch).toEqual({
       mode: "regular",
     })
+  })
+
+  test("encodes the return link that sends the user back to the previous app", async () => {
+    const qb = await zkPassport.request({
+      name: "Test App",
+      logo: "https://test.com/logo.png",
+      purpose: "Testing return link",
+      returnDeepLink: RETURN_DEEP_LINK_BACK,
+    })
+    const result = qb.disclose("firstname").done()
+    expect(new URL(result.url).searchParams.get("r")).toBe("BACK")
   })
 })
 

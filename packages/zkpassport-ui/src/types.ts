@@ -67,6 +67,7 @@ export {
   SCHENGEN_COUNTRIES,
   ASEAN_COUNTRIES,
   MERCOSUR_COUNTRIES,
+  RETURN_DEEP_LINK_BACK,
 } from "@zkpassport/sdk"
 
 export type {
