@@ -92,7 +92,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     // (AGE_FIXTURE_CURRENT_DATE = 2050-01-01) precisely so one forward jump can satisfy both:
     //   - DPM landing: anchor_ts >= T0 + 86400 (the 24h delay counts from T0) — any 2050 target
     //     clears it;
-    //   - freshness (zkpassport_aztec::verify::verify_zkpassport_proof):
+    //   - freshness (zkpassport_aztec_verifier::verify::verify_zkpassport_proof):
     //       current_date <= anchor_ts + 3600   AND   current_date + 604800 > anchor_ts
     //     and anchor_ts = AGE_FIXTURE_CURRENT_DATE + 86401 sits well inside that 7-day window.
     // This is deterministic until real time reaches the year 2050.
@@ -118,7 +118,7 @@ unconstrained fn deliver_capsule(
     env.utility_context_at(age_gate, |_| {
         capsules::store(
             age_gate,
-            zkpassport_aztec::constants::PROOF_CAPSULE_SLOT,
+            zkpassport_aztec_verifier::constants::PROOF_CAPSULE_SLOT,
             AGE_FIXTURE_BLOB,
             sender,
         );

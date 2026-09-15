@@ -1,4 +1,4 @@
-// This test pins the fixtures we use to test zkpassport.nr to their external references:
+// This test pins the fixtures we use to test the Noir libraries to their external references:
 // - the commitment anchors in fixtures.nr to the SDK's conformance vectors,
 // - FIXTURE_PUBLIC_INPUTS to the public inputs of the checked-in disclose proof fixture,
 // - the proof fixtures themselves to the circuits submodule commit they were generated from.
@@ -14,7 +14,7 @@ import discloseFixture from "./fixtures/outer_count_4_disclose.json"
 import { evaluateExpressions, parseNoirFile } from "./vendor/constants-generator"
 
 const FIXTURES_NR = fileURLToPath(
-  new URL("../zkpassport.nr/zkpassport_core/src/fixtures.nr", import.meta.url),
+  new URL("../noir/core/src/fixtures.nr", import.meta.url),
 )
 // name => decimal string (or an array of them, for array globals)
 const anchors = evaluateExpressions(
@@ -98,7 +98,7 @@ test("each proof fixture records its own outer circuit", () => {
 // the JSON must stay in step with it.
 test("the proof-fixture globals match the age proof fixture", () => {
   const PROOF_NR = fileURLToPath(
-    new URL("../zkpassport.nr/zkpassport_core/src/fixtures/proof.nr", import.meta.url),
+    new URL("../noir/core/src/fixtures/proof.nr", import.meta.url),
   )
 
   const gen = evaluateExpressions(

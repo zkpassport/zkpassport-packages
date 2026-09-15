@@ -25,7 +25,7 @@ jobs:
       - name: Extract Aztec version
         id: aztec-version
         run: |
-          VERSION=$(sed -n 's/.*tag = "v\([0-9][0-9.]*\)".*/\1/p' packages/aztec/zkpassport.nr/zkpassport_registry_contract/Nargo.toml | head -1)
+          VERSION=$(sed -n 's/.*tag = "v\([0-9][0-9.]*\)".*/\1/p' packages/aztec/noir/registry_contract/Nargo.toml | head -1)
           test -n "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -52,17 +52,17 @@ jobs:
 
       - name: Check formatting
         run: aztec-nargo fmt --check
-        working-directory: packages/aztec/zkpassport.nr
+        working-directory: packages/aztec/noir
 
       - name: Compile contracts
         run: aztec compile
-        working-directory: packages/aztec/zkpassport.nr
+        working-directory: packages/aztec/noir
 
       - name: Run tests
         run: aztec test
-        working-directory: packages/aztec/zkpassport.nr
+        working-directory: packages/aztec/noir
 
-      # The anchors in zkpassport_core/src/fixtures.nr must mirror the conformance
+      # The anchors in core/src/fixtures.nr must mirror the conformance
       # vectors published by @zkpassport/utils (the nargo tests above hold the Noir
       # side to the anchors; the SDK's own suite holds it to the vectors).
       - name: Install Bun
