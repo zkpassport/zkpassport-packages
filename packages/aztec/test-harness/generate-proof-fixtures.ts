@@ -479,11 +479,11 @@ async function main() {
   // (the disclose fixture is consumed by test-recursive-verification.sh straight from the JSON).
   if (FIXTURE_KIND === "age") {
     const proofNr = new URL(
-      "../zkpassport.nr/zkpassport_core/src/fixtures/proof.nr",
+      "../noir/core/src/fixtures/proof.nr",
       import.meta.url,
     ).pathname
     emitProofGlobals(fixture, proofNr)
-    log(`proof globals written to ${proofNr} -- run aztec-nargo fmt over zkpassport.nr`)
+    log(`proof globals written to ${proofNr} -- run aztec-nargo fmt over noir/`)
   }
 }
 

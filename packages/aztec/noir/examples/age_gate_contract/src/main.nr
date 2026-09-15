@@ -9,8 +9,8 @@ pub contract AgeGate {
         protocol::{address::AztecAddress, traits::ToField},
         state_vars::{Map, PublicImmutable, PublicMutable},
     };
-    use zkpassport_aztec::commitments::{age_commitment, bind_user_address_commitment};
-    use zkpassport_aztec::verify::{
+    use zkpassport_aztec_verifier::commitments::{age_commitment, bind_user_address_commitment};
+    use zkpassport_aztec_verifier::verify::{
         emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
     };
 
