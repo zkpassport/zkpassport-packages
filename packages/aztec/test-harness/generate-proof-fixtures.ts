@@ -501,7 +501,7 @@ function toSubproofInput(
   }
 }
 
-// Emits zkpassport_core/src/fixtures/proof.nr, replacing it wholesale.
+// Emits core/src/fixtures/proof.nr, replacing it wholesale.
 function emitProofGlobals(
   fx: {
     circuit: string
