@@ -1,0 +1,2 @@
+[workspace]
+members = ["registry_contract", "core", "verifier", "examples/age_gate_contract"]
