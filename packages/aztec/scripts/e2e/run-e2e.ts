@@ -159,7 +159,7 @@ async function main() {
   //
   // The fixture is future-dated (FIXTURE.nowTimestamp = 2050-01-01), so the warp targets it
   // absolutely: past the DPM delay (counted from the seeding just above) AND into the proof's
-  // freshness window (zkpassport_aztec::verify::verify_zkpassport_proof requires
+  // freshness window (zkpassport_aztec_verifier::verify::verify_zkpassport_proof requires
   //   current_date <= anchor_ts + 3600   AND   current_date + 604800 > anchor_ts,
   // 604800s = 7 days = ServiceConfig.validity_period in AgeGate::claim).
   const before = await l2Timestamp(node)
