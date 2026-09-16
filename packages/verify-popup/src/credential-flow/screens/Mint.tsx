@@ -15,11 +15,10 @@ import {
   TxLink,
   Working,
 } from "./primitives"
-import { WalletPicker } from "./WalletPicker"
 
 type MintProps = {
   recipient: `0x${string}`
-  payer?: `0x${string}`
+  payer: `0x${string}`
   chain: Chain
   onRightChain: boolean
   phase: MintPhase
@@ -31,17 +30,19 @@ type MintProps = {
 }
 
 export function Mint(props: MintProps) {
-  const { recipient, payer, chain } = props
+  const { recipient, payer, chain, phase } = props
   return (
     <div className="zkp-flow-body">
       <div className="zkp-flow-heading">
         <Title>One last step</Title>
-        <Hint>Your ID is verified. Now add the credential to your wallet.</Hint>
+        {phase.name === "ready" ? (
+          <Hint>Your ID is verified. Now add the credential to your wallet.</Hint>
+        ) : null}
       </div>
       <Rows
         rows={[
-          { label: "Credential goes to", value: recipient, stacked: true },
-          { label: "Paying with", value: payer ? shortHex(payer) : "No wallet connected" },
+          { label: "Credential goes to", value: shortHex(recipient) },
+          { label: "Paying with", value: shortHex(payer) },
           { label: "Network", value: chain.name },
         ]}
       />
@@ -52,7 +53,7 @@ export function Mint(props: MintProps) {
   )
 }
 
-// Exactly one thing to do at a time: connect, switch network, mint, or recover
+// Exactly one thing to do at a time: switch network, mint, or recover
 function MintAction({
   recipient,
   payer,
@@ -65,14 +66,6 @@ function MintAction({
   onStartOver,
   onCheckTransaction,
 }: MintProps) {
-  if (!payer) {
-    return (
-      <>
-        <Hint>Connect a wallet to pay for the mint transaction.</Hint>
-        <WalletPicker />
-      </>
-    )
-  }
   if (!onRightChain) {
     return (
       <>
@@ -158,7 +151,7 @@ function MintAction({
             </Hint>
           ) : null}
           <Primary icon={ICON_SHIELD_CHECK} onClick={onMint}>
-            Mint credential
+            Add to my wallet
           </Primary>
           <LinkButton onClick={onChangeWallet}>Use a different wallet</LinkButton>
         </>

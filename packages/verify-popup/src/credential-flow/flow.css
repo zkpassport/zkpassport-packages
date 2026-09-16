@@ -16,6 +16,7 @@ body.zkp-flow-page {
 .zkp-flow-page .zkp-card {
   --zkp-bg: #0a1746;
   --zkp-surface: #182659;
+  --zkp-raised: #22326b;
   --zkp-border: #2a3a76;
   --zkp-fg: #ffffff;
   --zkp-muted: #c7cdee;
@@ -33,6 +34,12 @@ body.zkp-flow-page {
 .zkp-flow-card {
   border: none;
   border-radius: 20px;
+}
+/* The card's request panel groups by fill, like the flow's own panels */
+.zkp-flow-page .zkp-intro-request {
+  border: none;
+  padding: 18px 20px;
+  border-radius: 16px;
 }
 
 .zkp-flow-step {
@@ -66,6 +73,18 @@ body.zkp-flow-page {
 /* A screen with nothing to do centres its message instead of stacking it up top */
 .zkp-flow-body[data-centered] {
   justify-content: center;
+}
+/* The card sets its own width, so its wrapper must not shrink to fit */
+.zkp-flow-card-slot {
+  width: 100%;
+}
+/* The card keeps running while the phone works, so it is hidden, never unmounted */
+.zkp-flow-body[data-hidden] {
+  display: none;
+}
+/* The card's intro screen brings its own words; the heading belongs to the code */
+.zkp-flow-body:has(.zkp-intro) .zkp-flow-heading {
+  display: none;
 }
 /* Holds the button in the same spot while the mint screen moves between
    connecting, switching network, signing and retrying */
@@ -142,9 +161,8 @@ body.zkp-flow-page {
 .zkp-flow-rows {
   width: 100%;
   margin: 0;
-  padding: 0 18px;
-  border: 1px solid var(--zkp-border);
-  border-radius: 14px;
+  padding: 8px 20px;
+  border-radius: 16px;
   background: var(--zkp-surface);
   font-size: 14px;
   text-align: left;
@@ -153,10 +171,7 @@ body.zkp-flow-page {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 0;
-}
-.zkp-flow-row + .zkp-flow-row {
-  border-top: 1px solid var(--zkp-border);
+  padding: 12px 0;
 }
 .zkp-flow-row dt {
   color: var(--zkp-muted);
@@ -166,17 +181,6 @@ body.zkp-flow-page {
   color: var(--zkp-fg);
   font-weight: 600;
   text-align: right;
-  overflow-wrap: anywhere;
-}
-.zkp-flow-row[data-stacked] {
-  flex-direction: column;
-  gap: 6px;
-}
-.zkp-flow-row[data-stacked] dd {
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
 }
 .zkp-flow-status {
   margin: 0;
@@ -215,8 +219,8 @@ body.zkp-flow-page {
   }
 }
 .zkp-flow-seal {
-  width: 104px;
-  margin: 4px 0 0;
+  width: 124px;
+  margin: 14px 0 6px;
 }
 .zkp-flow-seal svg {
   width: 100%;
@@ -241,19 +245,20 @@ body.zkp-flow-page {
 .zkp-flow-wallet {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
-  padding: 14px 16px;
-  border: 1px solid var(--zkp-border);
-  border-radius: 14px;
+  padding: 16px 18px;
+  border: none;
+  border-radius: 16px;
   background: var(--zkp-surface);
   color: var(--zkp-fg);
   font-size: 15px;
   font-weight: 500;
   text-align: left;
+  transition: background 120ms ease;
 }
 .zkp-flow-wallet:hover:not(:disabled) {
-  border-color: var(--zkp-brand);
+  background: var(--zkp-raised);
 }
 .zkp-flow-wallet:disabled {
   opacity: 0.6;
@@ -278,9 +283,8 @@ body.zkp-flow-page {
   overflow-y: auto;
   overscroll-behavior: contain;
   margin: 0;
-  padding: 12px 14px;
-  border: 1px solid var(--zkp-border);
-  border-radius: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
   background: var(--zkp-surface);
   color: var(--zkp-dim);
   font-size: 12.5px;
@@ -290,14 +294,46 @@ body.zkp-flow-page {
   user-select: text;
 }
 .zkp-flow-detail-copy {
-  padding: 4px 12px;
-  border: 1px solid var(--zkp-border);
+  padding: 6px 14px;
+  border: none;
   border-radius: 999px;
-  background: transparent;
+  background: var(--zkp-surface);
   color: var(--zkp-muted);
   font-size: 12px;
+  transition: background 120ms ease;
 }
 .zkp-flow-detail-copy:hover {
+  background: var(--zkp-raised);
   color: var(--zkp-fg);
-  border-color: var(--zkp-dim);
+}
+
+/* The phone is working and there is nothing to read yet */
+.zkp-flow-dots {
+  display: flex;
+  gap: 12px;
+}
+.zkp-flow-dots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--zkp-brand);
+  animation: zkp-flow-dot 1.3s ease-in-out infinite;
+}
+.zkp-flow-dots span:nth-child(2) {
+  animation-delay: 180ms;
+}
+.zkp-flow-dots span:nth-child(3) {
+  animation-delay: 360ms;
+}
+@keyframes zkp-flow-dot {
+  0%,
+  65%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.75);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

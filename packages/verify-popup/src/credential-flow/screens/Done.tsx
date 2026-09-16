@@ -21,7 +21,7 @@ export function Done({ step, recipient, chain, appName }: DoneProps) {
           <Title>Credential added</Title>
           <Rows
             rows={[
-              { label: "Wallet", value: recipient, stacked: true },
+              { label: "Wallet", value: shortHex(recipient) },
               { label: "Network", value: chain.name },
               { label: "Transaction", value: <TxLink chain={chain} hash={step.hash} /> },
             ]}

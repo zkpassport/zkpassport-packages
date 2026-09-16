@@ -51,6 +51,9 @@ export type DoneStep =
 
 export type FlowStepKind = FlowStep["kind"]
 
+/** How far the phone has got, once it has picked the request up. */
+export type ScanProgress = "scanned" | "proving" | null
+
 type FlowStep =
   | { kind: "resolving" }
   | { kind: "verify"; cardOptions: ZKPassportQRCodeOptions }
@@ -75,6 +78,7 @@ function toSuccessMessage(raw: CredentialVerifyResult["raw"]): SuccessMessage {
 export function useCredentialFlow(params: CredentialFlowParams) {
   const { request, credential, appName, chain, send } = params
   const [step, setStep] = useState<FlowStep>({ kind: "resolving" })
+  const [scan, setScan] = useState<ScanProgress>(null)
   const sendRef = useRef(send)
   sendRef.current = send
 
@@ -97,6 +101,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     const attempt = ++resolveAttempt.current
     const stale = () => resolveAttempt.current !== attempt
     setStep({ kind: "resolving" })
+    setScan(null)
 
     const run = async () => {
       const policyId = BigInt(credential.policyId)
@@ -122,8 +127,14 @@ export function useCredentialFlow(params: CredentialFlowParams) {
         name: appName,
         logo: request.logo,
         purpose: request.purpose,
-        onRequestReceived: () => emit({ type: "request-received" }),
-        onGeneratingProof: () => emit({ type: "generating" }),
+        onRequestReceived: () => {
+          setScan("scanned")
+          emit({ type: "request-received" })
+        },
+        onGeneratingProof: () => {
+          setScan("proving")
+          emit({ type: "generating" })
+        },
         onProofGenerated: (progress) =>
           emit({
             type: "proof-generated",
@@ -131,8 +142,14 @@ export function useCredentialFlow(params: CredentialFlowParams) {
             total: progress.total,
             name: progress.name,
           }),
-        onReject: () => emit({ type: "rejected" }),
-        onError: (message) => emit({ type: "error", message: String(message) }),
+        onReject: () => {
+          setScan(null)
+          emit({ type: "rejected" })
+        },
+        onError: (message) => {
+          setScan(null)
+          emit({ type: "error", message: String(message) })
+        },
         onResult: (result) => {
           if (stale()) return
           // An unverified proof leaves the card in its own error state, with its retry
@@ -246,5 +263,5 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     void receipt.refetch()
   }
 
-  return { step, phase, payer, onRightChain, mint, startOver, checkTransaction }
+  return { step, scan, phase, payer, onRightChain, mint, startOver, checkTransaction }
 }

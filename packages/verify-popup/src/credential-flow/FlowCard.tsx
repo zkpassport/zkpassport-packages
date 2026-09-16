@@ -4,10 +4,11 @@ import { ICON_ZKP_MARK } from "@zkpassport/ui/hosted"
 import { ICON_CHECK } from "./screens/icons"
 
 /** Which part of the journey the user is on, or null once nothing is left to do. */
-export type FlowStage = "verify" | "mint" | null
+export type FlowStage = "verify" | "connect" | "mint" | null
 
 const STAGES = [
   { key: "verify", label: "Verify ID" },
+  { key: "connect", label: "Connect wallet" },
   { key: "mint", label: "Add to wallet" },
 ] as const
 

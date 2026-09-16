@@ -8,10 +8,13 @@ import type { Chain } from "viem"
 import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "../chains"
 import { buildWalletConfig } from "../wallet"
 import { FlowCard, type FlowStage } from "./FlowCard"
+import { Connect } from "./screens/Connect"
 import { Done } from "./screens/Done"
 import { ErrorScreen } from "./screens/ErrorScreen"
 import { Mint } from "./screens/Mint"
 import { Resolving } from "./screens/Resolving"
+import { Scan } from "./screens/Scan"
+import { Scanning } from "./screens/Scanning"
 import { useCredentialFlow, type FlowStepKind, type OutgoingEvent } from "./use-credential-flow"
 import "./flow.css"
 
@@ -88,15 +91,14 @@ type FlowBodyProps = Omit<CredentialFlowProps, "rpHost"> & {
 }
 
 function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) {
-  const { step, phase, payer, onRightChain, mint, startOver, checkTransaction } = useCredentialFlow(
-    {
+  const { step, scan, phase, payer, onRightChain, mint, startOver, checkTransaction } =
+    useCredentialFlow({
       request,
       credential,
       appName,
       chain,
       send,
-    },
-  )
+    })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
 
@@ -106,15 +108,22 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
         return <Resolving />
       case "verify":
         return (
-          <ZKPassportQRCode
-            {...step.cardOptions}
-            showIntroScreen
-            theme="light"
-            display={{ header: false, frame: false }}
-          />
+          <>
+            <Scan hidden={scan !== null}>
+              <ZKPassportQRCode
+                {...step.cardOptions}
+                showIntroScreen
+                theme="light"
+                display={{ header: false, frame: false, steps: false, appLinks: false }}
+              />
+            </Scan>
+            {scan ? <Scanning progress={scan} /> : null}
+          </>
         )
       case "mint":
-        return (
+        return !payer ? (
+          <Connect />
+        ) : (
           <Mint
             recipient={credential.recipient}
             payer={payer}
@@ -136,19 +145,24 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
   })()
 
   return (
-    <FlowCard name={appName} logo={request.logo} stage={railStage(step.kind)} stepKey={step.kind}>
+    <FlowCard
+      name={appName}
+      logo={request.logo}
+      stage={railStage(step.kind, payer !== undefined)}
+      stepKey={step.kind}
+    >
       {screen}
     </FlowCard>
   )
 }
 
-function railStage(kind: FlowStepKind): FlowStage {
+function railStage(kind: FlowStepKind, connected: boolean): FlowStage {
   switch (kind) {
     case "resolving":
     case "verify":
       return "verify"
     case "mint":
-      return "mint"
+      return connected ? "mint" : "connect"
     case "done":
     case "error":
       return null

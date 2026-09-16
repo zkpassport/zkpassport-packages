@@ -50,15 +50,13 @@ export function Working({ children }: { children: ReactNode }) {
 export type Row = {
   label: string
   value: ReactNode
-  // Puts the value on its own line, for values too long to sit next to the label
-  stacked?: boolean
 }
 
 export function Rows({ rows }: { rows: Row[] }) {
   return (
     <dl className="zkp-flow-rows">
       {rows.map((row) => (
-        <div key={row.label} className="zkp-flow-row" data-stacked={row.stacked ? "" : undefined}>
+        <div key={row.label} className="zkp-flow-row">
           <dt>{row.label}</dt>
           <dd>{row.value}</dd>
         </div>
