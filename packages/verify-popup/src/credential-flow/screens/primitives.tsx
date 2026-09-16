@@ -5,7 +5,7 @@ import { explorerTxUrl, shortHex } from "./format"
 import { ICON_EXTERNAL, ICON_SPINNER } from "./icons"
 
 // Sized in em, so every glyph matches the text it sits with
-function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: boolean }) {
+export function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: boolean }) {
   return (
     <span
       className={spin ? "zkp-flow-glyph zkp-flow-spinner" : "zkp-flow-glyph"}

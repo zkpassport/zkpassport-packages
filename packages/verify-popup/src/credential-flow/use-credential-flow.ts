@@ -52,7 +52,7 @@ export type DoneStep =
 export type FlowStepKind = FlowStep["kind"]
 
 /** How far the phone has got, once it has picked the request up. */
-export type ScanProgress = "scanned" | "proving" | null
+export type ScanProgress = "scanned" | "proving"
 
 type FlowStep =
   | { kind: "resolving" }
@@ -78,7 +78,7 @@ function toSuccessMessage(raw: CredentialVerifyResult["raw"]): SuccessMessage {
 export function useCredentialFlow(params: CredentialFlowParams) {
   const { request, credential, appName, chain, send } = params
   const [step, setStep] = useState<FlowStep>({ kind: "resolving" })
-  const [scan, setScan] = useState<ScanProgress>(null)
+  const [scan, setScan] = useState<ScanProgress | null>(null)
   const sendRef = useRef(send)
   sendRef.current = send
 

@@ -2,15 +2,16 @@ import type { ReactNode } from "react"
 import { ICON_ZKP_MARK } from "@zkpassport/ui/hosted"
 
 import { ICON_CHECK } from "./screens/icons"
-
-/** Which part of the journey the user is on, or null once nothing is left to do. */
-export type FlowStage = "verify" | "connect" | "mint" | null
+import { Glyph } from "./screens/primitives"
 
 const STAGES = [
   { key: "verify", label: "Verify ID" },
   { key: "connect", label: "Connect wallet" },
   { key: "mint", label: "Add to wallet" },
 ] as const
+
+/** Which part of the journey the user is on, or null once nothing is left to do. */
+export type FlowStage = (typeof STAGES)[number]["key"] | null
 
 type FlowCardProps = {
   name: string
@@ -74,13 +75,7 @@ function ProgressRail({ stage }: { stage: FlowStage }) {
         >
           <span className="zkp-flow-rail-bar" />
           <span className="zkp-flow-rail-label">
-            {index < current ? (
-              <span
-                className="zkp-flow-glyph"
-                aria-hidden="true"
-                dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
-              />
-            ) : null}
+            {index < current ? <Glyph icon={ICON_CHECK} /> : null}
             {item.label}
           </span>
         </li>

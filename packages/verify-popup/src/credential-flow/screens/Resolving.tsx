@@ -1,5 +1,5 @@
-// Wears the intro screen's request panel, so reaching the intro fills the panel
-// in rather than swapping one screen for another
+// Uses the intro screen's own panel, so the intro fills it in instead of
+// replacing the whole screen
 export function Resolving() {
   return (
     <div className="zkp-flow-body" role="status" aria-label="Preparing verification">
