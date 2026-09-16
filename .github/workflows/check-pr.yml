@@ -24,7 +24,7 @@ jobs:
             build
           requireScope: false
           scopes: |
-            (aztec|contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace)(,(aztec|contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace))*
+            (aztec|contracts|registry|onchain-credentials|explorer|registry-sdk|sdk|ui|utils|workspace)(,(aztec|contracts|registry|onchain-credentials|explorer|registry-sdk|sdk|ui|utils|workspace))*
           subjectPattern: ^[A-Z].+$
           subjectPatternError: |
             The subject must start with an uppercase letter.
@@ -38,7 +38,7 @@ jobs:
         with:
           requireScope: true
           scopes: |
-            (aztec|contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace)(,(aztec|contracts|registry|explorer|registry-sdk|sdk|ui|utils|workspace))*
+            (aztec|contracts|registry|onchain-credentials|explorer|registry-sdk|sdk|ui|utils|workspace)(,(aztec|contracts|registry|onchain-credentials|explorer|registry-sdk|sdk|ui|utils|workspace))*
           subjectPattern: ^[A-Z].+$
           subjectPatternError: |
             The subject must start with an uppercase letter.

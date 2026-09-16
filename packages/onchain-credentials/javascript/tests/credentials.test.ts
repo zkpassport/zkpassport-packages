@@ -8,6 +8,7 @@ import {
   computePolicyId,
   createCredentialsContext,
   encodeCredentialPolicyRequirements,
+  encodeIssueProofData,
   submitCredentialsCall,
   submitIssueCall,
   type CredentialsContext,
@@ -95,13 +96,13 @@ function stubClient(
 }
 
 describe("CredentialsClient reads", () => {
-  test("buildIssueCall assembles the registry call around the encoded proof data", async () => {
+  test("buildIssueCall assembles the contract call around the encoded proof data", async () => {
     const { client } = stubClient(() => null)
     const credentials = new CredentialsClient({ client, address: REGISTRY })
     const call = credentials.buildIssueCall({ policyId: POLICY_ID, params: VERIFIER_PARAMS })
     expect(call.address).toBe(REGISTRY)
     expect(call.functionName).toBe("issue")
-    expect(call.args).toEqual([POLICY_ID, CredentialsClient.getIssueProofData(VERIFIER_PARAMS)])
+    expect(call.args).toEqual([POLICY_ID, encodeIssueProofData(VERIFIER_PARAMS)])
   })
 
   test("hasCredential is the expiry-masked balance check", async () => {
@@ -247,17 +248,8 @@ describe("CredentialsClient discovery", () => {
 })
 
 describe("CredentialsClient issue helpers", () => {
-  test("getIssueDetails returns address, function name, and the credentials ABI", () => {
-    const { client } = stubClient(() => SAMPLE_POLICY)
-    const credentials = new CredentialsClient({ client, address: REGISTRY })
-    const details = credentials.getIssueDetails()
-    expect(details.address).toBe(REGISTRY)
-    expect(details.functionName).toBe("issue")
-    expect(details.abi.some((e) => e.type === "function" && e.name === "issue")).toBe(true)
-  })
-
-  test("getIssueProofData abi-encodes the verifier parameters per the evaluator schema", () => {
-    const proofData = CredentialsClient.getIssueProofData(VERIFIER_PARAMS)
+  test("encodeIssueProofData abi-encodes the verifier parameters per the evaluator schema", () => {
+    const proofData = encodeIssueProofData(VERIFIER_PARAMS)
 
     // The bytes must decode back through the evaluator's own decodeProofData layout.
     const proofDataAbi = getAbiItem({
@@ -284,26 +276,28 @@ describe("credentials deployments", () => {
   })
 
   test("resolves canonical registries and rejects chains without one", async () => {
-    const { getCredentialsRegistry } = await import("../src/deployments")
-    expect(getCredentialsRegistry("ethereum_sepolia")).toBe(
-      "0x3278117D873965036B5e0007112ADDd488Bde3e1",
+    const { getCredentialsAddress } = await import("../src/deployments")
+    // Mainnet and Sepolia share an address: same CREATE2 salt and constructor args on both.
+    expect(getCredentialsAddress("ethereum")).toBe("0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c")
+    expect(getCredentialsAddress("ethereum_sepolia")).toBe(
+      "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c",
     )
-    expect(() => getCredentialsRegistry("local")).toThrow(
-      "Credential minting is not supported on 'local': no registry is deployed.",
+    expect(() => getCredentialsAddress("local")).toThrow(
+      "Credential minting is not supported on 'local': no credentials contract is deployed.",
     )
   })
 })
 
 describe("createCredentialsContext", () => {
-  test("binds a CredentialsClient to the chain's canonical registry", () => {
+  test("binds a CredentialsClient to the chain's canonical contract", () => {
     const ctx = createCredentialsContext(sepolia)
-    expect(ctx.credentials.address).toBe("0x3278117D873965036B5e0007112ADDd488Bde3e1")
+    expect(ctx.credentials.address).toBe("0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c")
     expect(ctx.chain).toBe(sepolia)
   })
 
-  test("rejects chains without a recorded registry deployment", () => {
-    expect(() => createCredentialsContext({ ...sepolia, id: 1, name: "Ethereum" })).toThrow(
-      "Credential minting is not supported on 'ethereum': no registry is deployed.",
+  test("rejects chains without a recorded deployment", () => {
+    expect(() => createCredentialsContext({ ...sepolia, id: 31337, name: "Local" })).toThrow(
+      "Credential minting is not supported on 'local': no credentials contract is deployed.",
     )
   })
 })
