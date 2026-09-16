@@ -11,7 +11,7 @@ import {
   isErrorVisible,
   joinClasses,
   SUCCESS_BUTTON_LABEL,
-  type VerifyWithZKPassportButtonOptions,
+  type VerifyWithZKPassportOptions,
 } from "../verify-button"
 
 function createButtonState(className: string, icon: string) {
@@ -26,14 +26,14 @@ function createButtonState(className: string, icon: string) {
 }
 
 export type VerifyButtonHandle = {
-  update(next: VerifyWithZKPassportButtonOptions): void
+  update(next: VerifyWithZKPassportOptions): void
   unmount(): void
 }
 
 // Button-only entry: the hosted-popup button without the QR card (no bridge, no qrcode).
 export function mountVerifyButton(
   element: HTMLElement,
-  options: VerifyWithZKPassportButtonOptions,
+  options: VerifyWithZKPassportOptions,
 ): VerifyButtonHandle {
   if (typeof document === "undefined" || typeof window === "undefined") {
     throw new Error("@zkpassport/ui: mountVerifyButton() requires a browser environment.")
@@ -91,7 +91,7 @@ export function mountVerifyButton(
       renderState(verification.state)
     },
     unmount() {
-      verification.close()
+      verification.dispose()
       root.remove()
     },
   }
@@ -104,7 +104,7 @@ export {
   type VerificationState,
   type VerificationStatus,
 } from "../verification"
-export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
+export type { VerifyButtonSize, VerifyWithZKPassportOptions } from "../verify-button"
 
 // Headless integration: wire any element to the hosted popup yourself
 export {

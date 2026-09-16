@@ -59,6 +59,17 @@
     }
   }
 
+  /* Embedded in a frame of its own: the host draws the box, and the restart
+     button sits in the host's corner instead of the card's */
+  .zkp-card[data-frame="none"] {
+    position: static;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
   .zkp-card * {
     box-sizing: border-box;
   }

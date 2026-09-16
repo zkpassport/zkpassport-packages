@@ -5,6 +5,7 @@ import {
   type PopupEventMessage,
 } from "@zkpassport/sdk/popup"
 
+import { CredentialFlow } from "./credential-flow/CredentialFlow"
 import { Frame, Notice } from "./layout"
 import { LinkVerification } from "./link-verification"
 import { VerificationCard } from "./verification-card"
@@ -15,6 +16,7 @@ type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type Configuration = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
+  credential: PopupConfigureMessage["credential"]
   // Browser-attested origin of the relying party page that opened this popup.
   rpOrigin: string
 }
@@ -41,6 +43,7 @@ export function App() {
           : {
               request: data.request,
               query: data.query,
+              credential: data.credential,
               rpOrigin: event.origin,
             },
       )
@@ -89,6 +92,19 @@ export function App() {
   }
 
   const domain = new URL(config.rpOrigin).hostname
+
+  if (config.credential) {
+    return (
+      <Frame>
+        <CredentialFlow
+          request={config.request}
+          credential={config.credential}
+          rpHost={domain}
+          send={send}
+        />
+      </Frame>
+    )
+  }
 
   // Auto-close once the flow is complete (after the outcome screen has shown)
   const scheduleClose = (delayMs: number) => {

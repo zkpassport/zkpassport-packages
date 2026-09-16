@@ -67,9 +67,9 @@ const handle = mount(document.getElementById("zk-passport")!, {
 Opens the verification flow in a popup hosted by ZKPassport, where saved IDs work across every site. Options are the card's, minus the QR-only ones, plus `label`, `size`, `theme` (`"light"` by default, `"auto"` to follow the OS), `classes`, `policyId` and `popupUrl`. Progress and success show inside the button; the only thing rendered outside it is the error message, which `showErrorMessage: false` turns off if you would rather use `onError`. Callbacks are the SDK's, plus `onClose` when the user closes the popup without a result.
 
 ```tsx
-import { VerifyWithZKPassportButton } from "@zkpassport/ui/react-button"
+import { VerifyWithZKPassport } from "@zkpassport/ui/react-button"
 
-<VerifyWithZKPassportButton name="Aztec" scope="age-check" query={…} onSuccess={…} />
+<VerifyWithZKPassport name="Aztec" scope="age-check" query={…} onSuccess={…} />
 ```
 
 ```ts
@@ -81,13 +81,25 @@ const handle = mountVerifyButton(document.getElementById("verify")!, options)
 For your own button, pass a function as `children`:
 
 ```tsx
-<VerifyWithZKPassportButton name="Aztec" scope="age-check" query={…}>
+<VerifyWithZKPassport name="Aztec" scope="age-check" query={…}>
   {({ verify, isLoading }) => (
     <button onClick={verify} disabled={isLoading}>
       {isLoading ? <Spinner /> : "Get verified"}
     </button>
   )}
-</VerifyWithZKPassportButton>
+</VerifyWithZKPassport>
+```
+
+### Minting a credential
+
+`mintCredential` turns the button into a credential mint: the popup resolves the on-chain policy, binds `recipient` and `chain` into the proof and, once the proof is verified, lets the user connect a wallet to pay for `ZKPassportCredentials.issue()`. Any wallet may pay; the credential always goes to `recipient`. Not allowed together with `query` or the dashboard `policyId`. Your `devMode` option is ignored: the popup derives it from the chain and the policy's evaluator, so the proof is rooted where the contract can verify it. The outcome arrives in `onSuccess` as `response.credential` with `status` `"minted"` or `"already-verified"`.
+
+```tsx
+<VerifyWithZKPassport
+  name="Aztec"
+  mintCredential={{ chain: "ethereum_sepolia", onchainPolicyId: "0x…", recipient: "0x…" }}
+  onSuccess={({ credential }) => console.log(credential?.status)}
+/>
 ```
 
 Outside React, `createVerification(getOptions, onStateChange)` drives your own element: call `verify`, and `onStateChange` receives `{ status, error }`. `status` is `"idle" | "in-progress" | "success" | "error"`; `error` holds a message only when the user needs one, such as a blocked popup.

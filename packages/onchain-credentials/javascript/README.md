@@ -27,6 +27,7 @@ const { credentials } = ctx
 
 const policy = await credentials.getPolicy(policyId)
 const requirements = await credentials.getRequirements(policy)
+const devMode = await credentials.getDevMode(policy)
 
 const held = await credentials.hasCredential(wallet, policyId)
 const expiresAt = await credentials.heldUntil(wallet, policyId)

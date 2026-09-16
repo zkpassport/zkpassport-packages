@@ -5,7 +5,7 @@ export const BUTTON_FONT_SIZES = { small: "13px", medium: "15px", large: "18px" 
 
 export type VerifyButtonSize = keyof typeof BUTTON_FONT_SIZES
 
-export type VerifyWithZKPassportButtonOptions = VerificationOptions & {
+export type VerifyWithZKPassportOptions = VerificationOptions & {
   // Defaults to "light"; "auto" follows the operating system
   theme?: "light" | "dark" | "auto"
   // Defaults to "medium"; for anything in between, set --zkp-btn-font-size yourself
@@ -37,7 +37,7 @@ export function buttonTooltip(status: VerificationStatus): string {
 
 export function isErrorVisible(
   status: VerificationStatus,
-  options: VerifyWithZKPassportButtonOptions,
+  options: VerifyWithZKPassportOptions,
 ): boolean {
   return status === "error" && options.showErrorMessage !== false
 }

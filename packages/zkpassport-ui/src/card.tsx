@@ -59,6 +59,7 @@ export function Card({ options, controlRef }: CardProps) {
   const displayHeader = options.display?.header ?? true
   const displaySteps = options.display?.steps ?? true
   const displayAppLinks = options.display?.appLinks ?? true
+  const displayFrame = options.display?.frame ?? true
   const headerName = options.name ?? serviceName ?? options.domain ?? ""
   const headerIcon = options.logo ?? serviceLogo ?? ""
   const appJoined =
@@ -82,7 +83,12 @@ export function Card({ options, controlRef }: CardProps) {
   )
 
   return (
-    <div className="zkp-card" data-state={state} data-theme={options.theme ?? "auto"}>
+    <div
+      className="zkp-card"
+      data-state={state}
+      data-theme={options.theme ?? "auto"}
+      data-frame={displayFrame ? undefined : "none"}
+    >
       {canRestart ? (
         <button
           type="button"

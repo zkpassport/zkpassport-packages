@@ -42,5 +42,5 @@ export {
   type VerificationState,
   type VerificationStatus,
 } from "../verification"
-export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
+export type { VerifyButtonSize, VerifyWithZKPassportOptions } from "../verify-button"
 export * from "../types"
