@@ -78,12 +78,16 @@ describe("openVerificationPopup", () => {
       },
       focus() {},
     }
+    const openCalls: unknown[][] = []
     const fakeWindow = {
       screenX: 0,
       screenY: 0,
       outerWidth: 1200,
       outerHeight: 900,
-      open: () => popup,
+      open: (...args: unknown[]) => {
+        openCalls.push(args)
+        return popup
+      },
       addEventListener: (_type: string, listener: Listener) => listeners.add(listener),
       removeEventListener: (_type: string, listener: Listener) => listeners.delete(listener),
     }
@@ -92,7 +96,7 @@ describe("openVerificationPopup", () => {
         listener({ origin, data, source } as MessageEvent)
       }
     }
-    return { fakeWindow, popup, openedMessages, emit, listeners }
+    return { fakeWindow, popup, openedMessages, openCalls, emit, listeners }
   }
 
   test("handshake: configure sent on ready; events relayed; origin checked", () => {
@@ -193,6 +197,24 @@ describe("openVerificationPopup", () => {
     }
   })
 
+  test("windowMode picks the window features: chromeless popup by default, plain tab on 'tab'", () => {
+    const { fakeWindow, openCalls } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      openVerificationPopup({ request: {}, query: {} })
+      expect(openCalls.length).toBe(1)
+      expect(String(openCalls[0][2])).toMatch(/^popup,/)
+
+      openVerificationPopup({ request: {}, query: {}, windowMode: "tab" })
+      expect(openCalls.length).toBe(2)
+      expect(openCalls[1].length).toBe(2)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
   test("returns null when the popup is blocked", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(globalThis as any).window = {
@@ -214,10 +236,65 @@ describe("openVerificationPopup", () => {
     }
   })
 
+  test("release stops relaying events but leaves the popup open", () => {
+    const { fakeWindow, popup, emit, listeners } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      const events: string[] = []
+      const handle = openVerificationPopup({
+        popupUrl: "https://verify.zkpassport.id",
+        request: {},
+        query: {},
+        callbacks: { onSuccess: () => events.push("success") },
+      })
+
+      handle!.release()
+      emit("https://verify.zkpassport.id", {
+        zkpassport: true,
+        type: "success",
+        proofs: [],
+        result: {},
+      })
+
+      expect(events).toEqual([])
+      expect(listeners.size).toBe(0)
+      expect(popup.closed).toBe(false)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
   test("isPopupMessage filters garbage", () => {
     expect(isPopupMessage({ zkpassport: true, type: "ready" })).toBe(true)
     expect(isPopupMessage({ type: "ready" })).toBe(false)
     expect(isPopupMessage(null)).toBe(false)
     expect(isPopupMessage("ready")).toBe(false)
+  })
+})
+
+describe("credentials protocol extension", () => {
+  test("a minted success's issueCall survives postMessage cloning, bigint included", () => {
+    const issueCall = {
+      address: "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c",
+      functionName: "issue",
+      args: [123456789012345678901234567890n, "0xabc"],
+    }
+    const message = {
+      zkpassport: true,
+      type: "success",
+      proofs: [],
+      result: {},
+      credential: {
+        status: "minted",
+        recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        txHash: "0xdead",
+        issueCall,
+      },
+    }
+    const cloned = structuredClone(message)
+    expect(cloned).toEqual(message)
+    expect(cloned.credential.issueCall.args[0]).toBe(123456789012345678901234567890n)
   })
 })

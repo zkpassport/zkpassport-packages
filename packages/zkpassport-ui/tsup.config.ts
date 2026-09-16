@@ -83,7 +83,7 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
 
 // Hosted build (internal): for the popup only; the real SDK stays external
 const hostedConfig: Options = {
-  entry: { hosted: "src/react/index.tsx" },
+  entry: { hosted: "src/hosted.ts" },
   format: "esm",
   outDir: "dist",
   dts: { compilerOptions: { composite: false } },
@@ -93,7 +93,7 @@ const hostedConfig: Options = {
   treeshake: !isDev,
   minify: !isDev,
   platform: "browser",
-  external: ["react", "react-dom", "react/jsx-runtime", /^@zkpassport\/sdk/],
+  external: ["react", "react-dom", "react/jsx-runtime", /^@zkpassport\/(sdk|onchain-credentials)/],
   loader: { ".css": "text" },
 }
 

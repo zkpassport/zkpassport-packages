@@ -161,6 +161,13 @@ describe("CredentialsClient reads", () => {
     )
   })
 
+  test("getDevMode reads the flag off the policy's evaluator", async () => {
+    const { client, readCalls } = stubClient(() => true)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    expect(await credentials.getDevMode(SAMPLE_POLICY)).toBe(true)
+    expect(readCalls[0]).toMatchObject({ address: EVALUATOR, functionName: "devMode" })
+  })
+
   test("uri, balanceOf, heldUntil, banned, policyScope forward the right calls", async () => {
     const results: Record<string, unknown> = {
       uri: "https://policy.example/kyc",

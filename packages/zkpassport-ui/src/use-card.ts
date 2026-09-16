@@ -132,7 +132,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     }
 
     sdkRef
-      .current!.request({ ...sdkRequestArgs, verifierMode: "api" })
+      .current!.request({ ...sdkRequestArgs, verifierMode: sdkRequestArgs.verifierMode ?? "api" })
       .then((queryBuilder) => {
         if (cancelled) return
         let request: QueryBuilderResult

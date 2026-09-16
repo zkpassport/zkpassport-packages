@@ -22,7 +22,7 @@ import {
   isErrorVisible,
   joinClasses,
   SUCCESS_BUTTON_LABEL,
-  type VerifyWithZKPassportButtonOptions,
+  type VerifyWithZKPassportOptions,
 } from "../verify-button"
 
 // Styles go in before the first paint in the browser; useLayoutEffect warns when server-rendered
@@ -33,22 +33,22 @@ export type ZKPassportVerification = VerificationState & {
   verify: () => void
 }
 
-export type VerifyWithZKPassportButtonProps = VerifyWithZKPassportButtonOptions & {
+export type VerifyWithZKPassportProps = VerifyWithZKPassportOptions & {
   // Render your own trigger instead of the branded button
   children?: (verification: ZKPassportVerification) => ReactNode
 }
 
 /** Button that opens the hosted verification popup. */
-export function VerifyWithZKPassportButton({
+export function VerifyWithZKPassport({
   children,
   ...options
-}: VerifyWithZKPassportButtonProps): ReactElement {
+}: VerifyWithZKPassportProps): ReactElement {
   const [state, setState] = useState<VerificationState>({ status: "idle", error: null })
   // Read at click time, so callers don't have to memoise their options or callbacks
   const latestOptions = useRef(options)
   latestOptions.current = options
   const [controller] = useState(() => createVerification(() => latestOptions.current, setState))
-  useEffect(() => controller.close, [controller])
+  useEffect(() => controller.dispose, [controller])
 
   const verification: ZKPassportVerification = {
     ...state,
@@ -63,7 +63,7 @@ function BrandedButton({
   options,
   verification,
 }: {
-  options: VerifyWithZKPassportButtonOptions
+  options: VerifyWithZKPassportOptions
   verification: ZKPassportVerification
 }): ReactElement {
   useStylesheet(() => injectStylesheet(buttonStyles, "button"), [])
@@ -113,5 +113,10 @@ function BrandedButton({
   )
 }
 
-export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
-export type { VerificationOptions, VerificationState, VerificationStatus } from "../verification"
+export type { VerifyButtonSize, VerifyWithZKPassportOptions } from "../verify-button"
+export type {
+  MintCredentialOptions,
+  VerificationOptions,
+  VerificationState,
+  VerificationStatus,
+} from "../verification"

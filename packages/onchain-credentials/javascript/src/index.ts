@@ -266,6 +266,19 @@ export class CredentialsClient {
     }
   }
 
+  /**
+   * Whether the policy's evaluator accepts mock-document proofs. Submit it as the `devMode` in
+   * issue()'s proof params: an evaluator that is not in dev mode reverts any submission claiming
+   * it. Which registries a proof is rooted in is a separate question, set by the chain.
+   */
+  async getDevMode(policy: CredentialPolicy): Promise<boolean> {
+    return (await this.client.readContract({
+      address: policy.evaluator,
+      abi: PolicyEvaluatorV1Abi,
+      functionName: "devMode",
+    } as never)) as boolean
+  }
+
   async uri(policyId: bigint): Promise<string> {
     return (await this.read("uri", [policyId])) as string
   }
@@ -631,5 +644,5 @@ export async function submitCredentialsCall(
   )
 }
 
-export { ZKPassportCredentialsAbi }
+export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi }
 export { getCredentialsChain, getCredentialsAddress } from "./deployments"

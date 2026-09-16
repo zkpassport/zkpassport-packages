@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { createVerification, type VerificationOptions } from "../src/verification"
-import type { VerifyWithZKPassportButtonOptions } from "../src/verify-button"
+import type { QueryBuilder } from "@zkpassport/sdk"
+import type { VerifyWithZKPassportOptions } from "../src/verify-button"
 
 const POPUP_ORIGIN = "https://verify.zkpassport.id"
 
@@ -53,7 +54,7 @@ afterEach(() => {
 describe("createVerification", () => {
   test("sends only the request fields the popup needs", () => {
     const { sentToPopup, emitFromPopup } = setupFakeWindow()
-    const options: VerifyWithZKPassportButtonOptions = {
+    const options: VerifyWithZKPassportOptions = {
       name: "Aztec",
       scope: "age-check",
       devMode: true,
@@ -154,6 +155,49 @@ describe("createVerification", () => {
     verification.close()
   })
 
+  test("dispose after a result leaves the popup open for the user", () => {
+    const { popups, emitFromPopup } = setupFakeWindow()
+    const verification = createVerification(
+      () => ({ name: "Aztec", query: (builder) => builder.done() }),
+      () => {},
+    )
+
+    verification.verify()
+    emitFromPopup({ zkpassport: true, type: "ready" })
+    emitFromPopup({ zkpassport: true, type: "success", proofs: [], result: {} })
+    verification.dispose()
+
+    expect(popups[0].closed).toBe(false)
+  })
+
+  test("close after a result still closes the popup", () => {
+    const { popups, emitFromPopup } = setupFakeWindow()
+    const verification = createVerification(
+      () => ({ name: "Aztec", query: (builder) => builder.done() }),
+      () => {},
+    )
+
+    verification.verify()
+    emitFromPopup({ zkpassport: true, type: "ready" })
+    emitFromPopup({ zkpassport: true, type: "success", proofs: [], result: {} })
+    verification.close()
+
+    expect(popups[0].closed).toBe(true)
+  })
+
+  test("dispose before a result closes the popup", () => {
+    const { popups } = setupFakeWindow()
+    const verification = createVerification(
+      () => ({ name: "Aztec", query: (builder) => builder.done() }),
+      () => {},
+    )
+
+    verification.verify()
+    verification.dispose()
+
+    expect(popups[0].closed).toBe(true)
+  })
+
   test("reads callbacks at event time, not click time", () => {
     const { emitFromPopup } = setupFakeWindow()
     const received: string[] = []
@@ -181,5 +225,141 @@ describe("createVerification", () => {
     emitFromPopup({ zkpassport: true, type: "success", proofs: [], result: {} })
 
     expect(received).toEqual(["event-time"])
+  })
+})
+
+describe("createVerification with mintCredential", () => {
+  const mintOptions = {
+    mintCredential: {
+      chain: "ethereum_sepolia",
+      onchainPolicyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+      recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+    },
+    devMode: true,
+  } satisfies VerificationOptions
+
+  test("sends the credential block and an empty query", () => {
+    const { sentToPopup, emitFromPopup } = setupFakeWindow()
+    createVerification(
+      () => mintOptions,
+      () => {},
+    ).verify()
+    emitFromPopup({ zkpassport: true, type: "ready" })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const configure = sentToPopup[0] as any
+    expect(configure.request).toEqual({ devMode: true })
+    expect(configure.credential).toEqual({
+      chain: "ethereum_sepolia",
+      policyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
+      recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+    })
+    expect(configure.query).toEqual({})
+  })
+
+  test("rejects a malformed recipient", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    const malformed = { ...mintOptions.mintCredential!, recipient: "0x1234" as `0x${string}` }
+    createVerification(
+      () => ({ ...mintOptions, mintCredential: malformed, onError: (e: string) => errors.push(e) }),
+      () => {},
+    ).verify()
+
+    expect(errors).toEqual(["recipient must be a 0x-prefixed 20-byte Ethereum address."])
+  })
+
+  test("relays the credential outcome to onSuccess", () => {
+    const { emitFromPopup } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let outcome: any
+    createVerification(
+      () => ({
+        ...mintOptions,
+        onSuccess: (response) => {
+          outcome = response
+        },
+      }),
+      () => {},
+    ).verify()
+    emitFromPopup({
+      zkpassport: true,
+      type: "success",
+      proofs: [],
+      result: {},
+      credential: {
+        status: "minted",
+        recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        txHash: "0xdead",
+        issueCall: { functionName: "issue" },
+      },
+    })
+
+    expect(outcome.credential).toEqual({
+      status: "minted",
+      recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+      txHash: "0xdead",
+      issueCall: { functionName: "issue" },
+    })
+  })
+
+  test("rejects a query alongside mintCredential", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    const statuses: string[] = []
+    createVerification(
+      () =>
+        ({
+          ...mintOptions,
+          query: (builder: QueryBuilder) => builder.done(),
+          onError: (message: string) => errors.push(message),
+        }) as unknown as VerificationOptions,
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+    expect(errors).toEqual([
+      "mintCredential requests take their query from the on-chain policy; remove the query option.",
+    ])
+  })
+
+  test("rejects a dashboard policyId alongside mintCredential", () => {
+    setupFakeWindow()
+    const errors: string[] = []
+    createVerification(
+      () =>
+        ({
+          ...mintOptions,
+          policyId: "dashboard-1",
+          onError: (e: string) => errors.push(e),
+        }) as unknown as VerificationOptions,
+      () => {},
+    ).verify()
+
+    expect(errors).toEqual([
+      "mintCredential requests take their policy from the chain; remove the policyId option.",
+    ])
+  })
+
+  test("rejects mintCredential without its required fields", () => {
+    setupFakeWindow()
+    const statuses: string[] = []
+    createVerification(
+      () => ({ mintCredential: { chain: "ethereum_sepolia" } }) as unknown as VerificationOptions,
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
+  })
+
+  test("still requires a query without mintCredential", () => {
+    setupFakeWindow()
+    const statuses: string[] = []
+    createVerification(
+      () => ({ name: "Aztec" }) as unknown as VerificationOptions,
+      (state) => statuses.push(state.status),
+    ).verify()
+
+    expect(statuses).toEqual(["error"])
   })
 })

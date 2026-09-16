@@ -1,6 +1,29 @@
-import type { NullifierType, ProofMode, ProofResult, Query, QueryResult } from "@zkpassport/utils"
+import type {
+  NullifierType,
+  ProofMode,
+  ProofResult,
+  Query,
+  QueryResult,
+  SupportedChain,
+} from "@zkpassport/utils"
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
+
+/**
+ * Credential minting request. When present, the popup ignores the free-form
+ * query and instead resolves the on-chain policy from the registry, binds the
+ * recipient and the chain into the proof, and once the proof is verified has
+ * the user connect a wallet to submit ZKPassportCredentials.issue(). Any
+ * account may pay for the mint; the credential always lands on `recipient`.
+ */
+export type PopupCredentialConfig = {
+  /** Chain the registry lives on; also bound into the proof. */
+  chain: SupportedChain
+  /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
+  policyId: `0x${string}`
+  /** Wallet the credential is issued to, chosen by the relying party and bound into the proof. */
+  recipient: `0x${string}`
+}
 
 export type PopupRequestConfig = {
   name?: string
@@ -14,11 +37,48 @@ export type PopupRequestConfig = {
   oprfKeyId?: string
 }
 
+/**
+ * Ready-to-send ZKPassportCredentials.issue() call, minus the ABI: pair it with
+ * `ZKPassportCredentialsAbi` from `@zkpassport/onchain-credentials`.
+ * The first argument is the `policyId`.
+ * The second argument is the proof data.
+ */
+export type PopupCredentialIssueCall = {
+  address: `0x${string}`
+  functionName: "issue"
+  args: readonly [bigint, `0x${string}`]
+}
+
+/**
+ * issue() checks the wallet bound into the proof, not the transaction sender,
+ * so an "unminted" issueCall may be submitted by any account the relying party
+ * controls. The hosted popup emits "minted" or "already-verified" only;
+ * "unminted" is reserved for a flow that hands the issue() call over instead
+ * of submitting it.
+ * `recipient` is the one the relying party passed in.
+ */
+export type PopupCredentialOutcome =
+  | {
+      status: "minted"
+      recipient: `0x${string}`
+      txHash: `0x${string}`
+      issueCall: PopupCredentialIssueCall
+    }
+  | {
+      status: "unminted"
+      recipient: `0x${string}`
+      reason?: string
+      issueCall: PopupCredentialIssueCall
+    }
+  | { status: "already-verified"; recipient: `0x${string}` }
+
 export type PopupConfigureMessage = {
   zkpassport: true
   type: "configure"
   request: PopupRequestConfig
   query: Query
+  /** Mint mode; a sibling of `query` because each defines what to prove for its mode. */
+  credential?: PopupCredentialConfig
 }
 
 export type PopupReadyMessage = { zkpassport: true; type: "ready" }
@@ -38,6 +98,7 @@ export type PopupEventMessage =
       type: "success"
       proofs: ProofResult[]
       result: QueryResult
+      credential?: PopupCredentialOutcome
     }
   | { zkpassport: true; type: "rejected" }
   | { zkpassport: true; type: "error"; message: string }

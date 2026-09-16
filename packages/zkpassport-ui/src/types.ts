@@ -8,12 +8,7 @@ type SdkCallback<K extends keyof QueryBuilderResult> = QueryBuilderResult[K] ext
 
 type SdkRequestProps = Omit<
   Parameters<ZKPassport["request"]>[0],
-  | "projectID"
-  | "topicOverride"
-  | "keyPairOverride"
-  | "cloudProverUrl"
-  | "bridgeUrl"
-  | "verifierMode"
+  "projectID" | "topicOverride" | "keyPairOverride" | "cloudProverUrl" | "bridgeUrl"
 >
 
 // Toggles for optional card sections. Each defaults to shown; set false to hide.
@@ -24,6 +19,8 @@ export type ZKPassportQRCodeDisplayOptions = {
   steps?: boolean
   // The "ZKPassport App" footer with the App Store / Google Play download links.
   appLinks?: boolean
+  // The card's own box (border, padding, min height); false embeds the card in your own frame.
+  frame?: boolean
 }
 
 export type ZKPassportQRCodeOptions = SdkRequestProps & {

@@ -28,10 +28,15 @@ export function ZKPassportQRCode(props: ZKPassportQRCodeProps): ReactElement {
 }
 
 export {
-  VerifyWithZKPassportButton,
-  type VerifyWithZKPassportButtonProps,
+  VerifyWithZKPassport,
+  type VerifyWithZKPassportProps,
   type ZKPassportVerification,
 } from "./button"
-export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
-export type { VerificationOptions, VerificationState, VerificationStatus } from "../verification"
+export type { VerifyButtonSize, VerifyWithZKPassportOptions } from "../verify-button"
+export type {
+  MintCredentialOptions,
+  VerificationOptions,
+  VerificationState,
+  VerificationStatus,
+} from "../verification"
 export * from "../types"
