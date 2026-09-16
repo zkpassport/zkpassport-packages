@@ -1,13 +1,11 @@
 import type { ReactNode } from "react"
-import { ICON_ZKP_MARK } from "@zkpassport/ui/hosted"
 
-import { ICON_CHECK } from "./screens/icons"
-import { Glyph } from "./screens/primitives"
+import { ZKPASSPORT_WORDMARK } from "./screens/zkpassport-logo"
 
 const STAGES = [
-  { key: "verify", label: "Verify ID" },
-  { key: "connect", label: "Connect wallet" },
-  { key: "mint", label: "Add to wallet" },
+  { key: "verify", label: "Verify" },
+  { key: "connect", label: "Connect" },
+  { key: "mint", label: "Mint" },
 ] as const
 
 /** Which part of the journey the user is on, or null once nothing is left to do. */
@@ -29,21 +27,11 @@ export function FlowCard({ name, logo, stage, stepKey, children }: FlowCardProps
   return (
     <div className="zkp-card zkp-flow-card" data-theme="light">
       <div className="zkp-header">
-        <div className="zkp-header-icons">
-          <div className="zkp-zkp-icon" dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }} />
-          {logo ? (
-            <>
-              <div className="zkp-header-dots">
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className="zkp-app-icon-slot">
-                <img className="zkp-app-icon" src={logo} alt="" />
-              </div>
-            </>
-          ) : null}
-        </div>
+        {logo ? (
+          <div className="zkp-app-icon-slot">
+            <img className="zkp-app-icon" src={logo} alt="" />
+          </div>
+        ) : null}
         <p className="zkp-title">
           <strong>{name}</strong>
           {" uses "}
@@ -52,10 +40,10 @@ export function FlowCard({ name, logo, stage, stepKey, children }: FlowCardProps
         </p>
       </div>
       <ProgressRail stage={stage} />
-      <div className="zkp-divider zkp-divider-header" />
       <div key={stepKey} className="zkp-flow-step">
         {children}
       </div>
+      <div className="zkp-flow-footer" dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }} />
     </div>
   )
 }
@@ -74,10 +62,7 @@ function ProgressRail({ stage }: { stage: FlowStage }) {
           aria-current={index === current ? "step" : undefined}
         >
           <span className="zkp-flow-rail-bar" />
-          <span className="zkp-flow-rail-label">
-            {index < current ? <Glyph icon={ICON_CHECK} /> : null}
-            {item.label}
-          </span>
+          <span className="zkp-flow-rail-label">{item.label}</span>
         </li>
       ))}
     </ol>

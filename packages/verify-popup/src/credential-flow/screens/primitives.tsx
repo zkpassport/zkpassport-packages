@@ -1,11 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react"
 import type { Chain, Hex } from "viem"
 
-import { explorerTxUrl, shortHex } from "./format"
+import { explorerAddressUrl, explorerTxUrl, shortHex } from "./format"
 import { ICON_EXTERNAL, ICON_SPINNER } from "./icons"
 
 // Sized in em, so every glyph matches the text it sits with
-export function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: boolean }) {
+function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: boolean }) {
   return (
     <span
       className={spin ? "zkp-flow-glyph zkp-flow-spinner" : "zkp-flow-glyph"}
@@ -65,6 +65,16 @@ export function Rows({ rows }: { rows: Row[] }) {
   )
 }
 
+/** The one fact a screen is about, address included. */
+export function Statement({ children }: { children: ReactNode }) {
+  return <p className="zkp-flow-statement">{children}</p>
+}
+
+/** Small print under the statement. */
+export function Meta({ children }: { children: ReactNode }) {
+  return <p className="zkp-flow-meta">{children}</p>
+}
+
 export function Primary({
   icon,
   onClick,
@@ -90,8 +100,7 @@ export function LinkButton({ onClick, children }: { onClick: () => void; childre
   )
 }
 
-/** A revert reason or RPC failure, kept short on screen and easy to hand over. */
-export function ErrorDetail({ text }: { text: string }) {
+export function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -105,24 +114,43 @@ export function ErrorDetail({ text }: { text: string }) {
       await navigator.clipboard.writeText(text)
       setCopied(true)
     } catch {
-      // The text stays selectable, so a blocked clipboard still leaves a way to copy
+      // Anything shown next to this button stays selectable, so a blocked
+      // clipboard still leaves a way to copy
     }
   }
 
+  return (
+    <button type="button" className="zkp-flow-copy" onClick={copy}>
+      {copied ? "Copied" : label}
+    </button>
+  )
+}
+
+/** A revert reason or RPC failure, kept short on screen and easy to hand over. */
+export function ErrorDetail({ text }: { text: string }) {
   return (
     <div className="zkp-flow-detail-block">
       <p className="zkp-flow-detail" role="alert">
         {text}
       </p>
-      <button type="button" className="zkp-flow-detail-copy" onClick={copy}>
-        {copied ? "Copied" : "Copy"}
-      </button>
+      <CopyButton text={text} label="Copy" />
     </div>
   )
 }
 
+export function AddressLink({ chain, address }: { chain: Chain; address: `0x${string}` }) {
+  const text = <span className="zkp-flow-address">{shortHex(address)}</span>
+  const url = explorerAddressUrl(chain, address)
+  if (!url) return text
+  return (
+    <a className="zkp-flow-link" href={url} target="_blank" rel="noopener noreferrer">
+      {text}
+    </a>
+  )
+}
+
 export function TxLink({ chain, hash, label }: { chain: Chain; hash: Hex; label?: string }) {
-  const text = label ?? shortHex(hash)
+  const text = label ?? <span className="zkp-flow-address">{shortHex(hash)}</span>
   const url = explorerTxUrl(chain, hash)
   if (!url) return <>{text}</>
   return (

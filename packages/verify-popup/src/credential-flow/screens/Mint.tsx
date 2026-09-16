@@ -1,10 +1,10 @@
 import type { Chain } from "viem"
 
 import type { MintPhase } from "../use-credential-flow"
-import { shortHex } from "./format"
 import { ICON_REFRESH, ICON_SHIELD_CHECK, ICON_SWAP, ICON_WALLET } from "./icons"
 import {
   Actions,
+  AddressLink,
   ErrorDetail,
   Hint,
   LinkButton,
@@ -41,8 +41,11 @@ export function Mint(props: MintProps) {
       </div>
       <Rows
         rows={[
-          { label: "Credential goes to", value: shortHex(recipient) },
-          { label: "Paying with", value: shortHex(payer) },
+          {
+            label: "Credential goes to",
+            value: <AddressLink chain={chain} address={recipient} />,
+          },
+          { label: "Paying with", value: <AddressLink chain={chain} address={payer} /> },
           { label: "Network", value: chain.name },
         ]}
       />
@@ -81,12 +84,7 @@ function MintAction({
     case "preflight":
       return <Working>Checking the transaction…</Working>
     case "signing":
-      return (
-        <Working>
-          Confirm the mint transaction in your wallet — the credential goes to {shortHex(recipient)}
-          .
-        </Working>
-      )
+      return <Working>Confirm the transaction in your wallet.</Working>
     case "pending":
       return (
         <>
@@ -144,12 +142,7 @@ function MintAction({
       return (
         <>
           {error ? <Hint>Transaction cancelled in your wallet.</Hint> : null}
-          {!error && payerDiffers ? (
-            <Hint>
-              This wallet only pays the network fee; the credential still goes to{" "}
-              {shortHex(recipient)}.
-            </Hint>
-          ) : null}
+          {!error && payerDiffers ? <Hint>This wallet only pays the network fee.</Hint> : null}
           <Primary icon={ICON_SHIELD_CHECK} onClick={onMint}>
             Add to my wallet
           </Primary>

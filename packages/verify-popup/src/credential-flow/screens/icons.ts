@@ -11,8 +11,6 @@ export const ICON_CROSS = line(
   2.5,
 )
 
-export const ICON_CHECK = line(`<polyline points="20 6 9 17 4 12"/>`, 3)
-
 export const ICON_ARROW_LEFT = line(
   `<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>`,
 )

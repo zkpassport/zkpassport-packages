@@ -34,6 +34,8 @@ body.zkp-flow-page {
 .zkp-flow-card {
   border: none;
   border-radius: 20px;
+  /* Fills the popup window, so short screens do not float in empty space */
+  min-height: 640px;
 }
 /* The card's request panel groups by fill, like the flow's own panels */
 .zkp-flow-page .zkp-intro-request {
@@ -78,7 +80,6 @@ body.zkp-flow-page {
 .zkp-flow-card-slot {
   width: 100%;
 }
-/* The card keeps running while the phone works, so it is hidden, never unmounted */
 .zkp-flow-body[data-hidden] {
   display: none;
 }
@@ -110,12 +111,13 @@ body.zkp-flow-page {
   width: 100%;
 }
 
-/* Two stages, filling left to right, so verifying never reads as the finish line */
+/* One bar split by hairline gaps, so the steps read as checkpoints along it */
 .zkp-flow-rail {
   display: flex;
-  gap: 10px;
+  gap: 3px;
   width: 100%;
-  margin: 18px 0 0;
+  max-width: 260px;
+  margin: 16px auto 0;
   padding: 0;
   list-style: none;
 }
@@ -124,29 +126,31 @@ body.zkp-flow-page {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  text-align: left;
 }
 .zkp-flow-rail-bar {
   height: 4px;
-  border-radius: 999px;
-  background: var(--zkp-border);
+  background: var(--zkp-raised);
+  transition: background 320ms ease;
+}
+.zkp-flow-rail-stage:first-child .zkp-flow-rail-bar {
+  border-radius: 999px 0 0 999px;
+}
+.zkp-flow-rail-stage:last-child .zkp-flow-rail-bar {
+  border-radius: 0 999px 999px 0;
 }
 .zkp-flow-rail-stage:not([data-state="upcoming"]) .zkp-flow-rail-bar {
   background: var(--zkp-brand);
 }
 .zkp-flow-rail-label {
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
   color: var(--zkp-dim);
-}
-.zkp-flow-rail-stage[data-state="done"] .zkp-flow-rail-label {
-  color: var(--zkp-muted);
 }
 .zkp-flow-rail-stage[data-state="current"] .zkp-flow-rail-label {
   color: var(--zkp-fg);
+  font-weight: 600;
 }
-/* Wears the intro's own panel so the request box is already drawn when the
-   items drop in */
 .zkp-flow-skeleton {
   width: 100%;
 }
@@ -182,6 +186,28 @@ body.zkp-flow-page {
   font-weight: 600;
   text-align: right;
 }
+.zkp-flow-statement {
+  margin: 0;
+  padding: 0 12px;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: -0.02em;
+  color: var(--zkp-fg);
+}
+.zkp-flow-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--zkp-dim);
+}
+.zkp-flow-address {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
 .zkp-flow-status {
   margin: 0;
   font-size: 14px;
@@ -190,8 +216,7 @@ body.zkp-flow-page {
 }
 .zkp-flow-link {
   color: var(--zkp-brand);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
 }
 /* Sized in em, so a glyph always matches the text beside it */
 .zkp-flow-glyph {
@@ -217,6 +242,16 @@ body.zkp-flow-page {
   to {
     transform: rotate(360deg);
   }
+}
+.zkp-flow-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+.zkp-flow-footer svg {
+  width: 100px;
+  height: auto;
+  display: block;
 }
 .zkp-flow-seal {
   width: 124px;
@@ -293,7 +328,7 @@ body.zkp-flow-page {
   overflow-wrap: anywhere;
   user-select: text;
 }
-.zkp-flow-detail-copy {
+.zkp-flow-copy {
   padding: 6px 14px;
   border: none;
   border-radius: 999px;
@@ -302,7 +337,7 @@ body.zkp-flow-page {
   font-size: 12px;
   transition: background 120ms ease;
 }
-.zkp-flow-detail-copy:hover {
+.zkp-flow-copy:hover {
   background: var(--zkp-raised);
   color: var(--zkp-fg);
 }

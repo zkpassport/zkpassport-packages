@@ -1,9 +1,9 @@
 import type { Chain } from "viem"
 
 import type { DoneStep } from "../use-credential-flow"
-import { shortHex } from "./format"
+import { explorerTxUrl } from "./format"
 import { ICON_ARROW_LEFT, ICON_VERIFIED_MARK } from "./icons"
-import { Actions, Primary, Rows, Status, Title, TxLink } from "./primitives"
+import { Actions, AddressLink, CopyButton, Meta, Primary, Statement, TxLink } from "./primitives"
 
 type DoneProps = {
   step: DoneStep
@@ -18,17 +18,18 @@ export function Done({ step, recipient, chain, appName }: DoneProps) {
       <div className="zkp-flow-seal" dangerouslySetInnerHTML={{ __html: ICON_VERIFIED_MARK }} />
       {step.outcome === "minted" ? (
         <>
-          <Title>Credential added</Title>
-          <Rows
-            rows={[
-              { label: "Wallet", value: shortHex(recipient) },
-              { label: "Network", value: chain.name },
-              { label: "Transaction", value: <TxLink chain={chain} hash={step.hash} /> },
-            ]}
-          />
+          <Statement>
+            Credential minted to <AddressLink chain={chain} address={recipient} />
+          </Statement>
+          <Meta>
+            <TxLink chain={chain} hash={step.hash} />
+            <CopyButton text={explorerTxUrl(chain, step.hash) ?? step.hash} label="Copy link" />
+          </Meta>
         </>
       ) : (
-        <Status>{shortHex(recipient)} already holds this credential. You're all set.</Status>
+        <Statement>
+          Credential already in <AddressLink chain={chain} address={recipient} />
+        </Statement>
       )}
       <Actions>
         <Primary icon={ICON_ARROW_LEFT} onClick={() => window.close()}>
