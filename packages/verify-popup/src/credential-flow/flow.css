@@ -1,5 +1,40 @@
 /* Popup-only layout on top of the card's tokens. The card sheet lives in a
    cascade layer, so these unlayered rules win without extra specificity. */
+
+/* The flow paints the whole popup, not just the card. The class is on the body
+   only while the flow is mounted, which keeps the colours below off the popup's
+   other screens — this file is bundled into the page either way. */
+body.zkp-flow-page {
+  background: #04091c;
+  color-scheme: dark;
+}
+
+/* The ZKPassport app's colours, applied to the whole flow. FlowCard and the
+   embedded QR card both ask for the "light" theme, so the sheet's own dark
+   overrides never fire and these are the only colours in play — the popup looks
+   the same whichever theme the operating system is set to. */
+.zkp-flow-page .zkp-card {
+  --zkp-bg: #0a1746;
+  --zkp-surface: #182659;
+  --zkp-border: #2a3a76;
+  --zkp-fg: #ffffff;
+  --zkp-muted: #c7cdee;
+  --zkp-dim: #8d99cd;
+  --zkp-accent: #ffffff;
+  --zkp-brand: #f9d59e;
+  --zkp-success: #00d39e;
+  --zkp-error: #f95a7e;
+  /* The QR stays black on white, so it needs a quiet zone against a dark card */
+  --zkp-qr-padding: 15px;
+}
+
+/* No outline and a deeper corner: the card reads as an app sheet on the darker
+   page rather than a box on a web page */
+.zkp-flow-card {
+  border: none;
+  border-radius: 20px;
+}
+
 .zkp-flow-step {
   display: flex;
   flex-direction: column;
@@ -21,31 +56,95 @@
   flex-direction: column;
   flex: 1;
   align-items: center;
-  justify-content: center;
   gap: 16px;
-  padding: 20px 0 4px;
+  padding: 18px 0 4px;
   text-align: center;
 }
 .zkp-flow-body .zkp-intro-question-hint {
   margin: 0;
 }
+/* A screen with nothing to do centres its message instead of stacking it up top */
+.zkp-flow-body[data-centered] {
+  justify-content: center;
+}
+/* Holds the button in the same spot while the mint screen moves between
+   connecting, switching network, signing and retrying */
+.zkp-flow-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: auto;
+}
 .zkp-flow-title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--zkp-fg);
 }
+.zkp-flow-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+/* Two stages, filling left to right, so verifying never reads as the finish line */
+.zkp-flow-rail {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.zkp-flow-rail-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: left;
+}
+.zkp-flow-rail-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--zkp-border);
+}
+.zkp-flow-rail-stage:not([data-state="upcoming"]) .zkp-flow-rail-bar {
+  background: var(--zkp-brand);
+}
+.zkp-flow-rail-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--zkp-dim);
+}
+.zkp-flow-rail-stage[data-state="done"] .zkp-flow-rail-label {
+  color: var(--zkp-muted);
+}
+.zkp-flow-rail-stage[data-state="current"] .zkp-flow-rail-label {
+  color: var(--zkp-fg);
+}
+/* Wears the intro's own panel so the request box is already drawn when the
+   items drop in */
 .zkp-flow-skeleton {
   width: 100%;
-  padding: 16px 0;
+}
+/* Sits in the real eyebrow's line box, so the panel keeps its height when the
+   placeholder gives way to the heading */
+.zkp-flow-skeleton-eyebrow {
+  display: inline-block;
+  vertical-align: middle;
+  width: 45%;
+  height: 9px;
 }
 .zkp-flow-rows {
   width: 100%;
   margin: 0;
-  padding: 0 16px;
+  padding: 0 18px;
   border: 1px solid var(--zkp-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--zkp-surface);
   font-size: 14px;
   text-align: left;
@@ -54,7 +153,7 @@
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 0;
+  padding: 14px 0;
 }
 .zkp-flow-row + .zkp-flow-row {
   border-top: 1px solid var(--zkp-border);
@@ -71,7 +170,7 @@
 }
 .zkp-flow-row[data-stacked] {
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 .zkp-flow-row[data-stacked] dd {
   font-family: ui-monospace, monospace;
@@ -90,13 +189,53 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* Sized in em, so a glyph always matches the text beside it */
+.zkp-flow-glyph {
+  display: inline-block;
+  vertical-align: -0.15em;
+  width: 1.1em;
+  height: 1.1em;
+  margin-right: 0.5em;
+}
+.zkp-flow-glyph[data-after] {
+  margin-right: 0;
+  margin-left: 0.35em;
+}
+.zkp-flow-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.zkp-flow-spinner {
+  animation: zkp-flow-spin 900ms linear infinite;
+}
+@keyframes zkp-flow-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.zkp-flow-seal {
+  width: 104px;
+  margin: 4px 0 0;
+}
+.zkp-flow-seal svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
 .zkp-flow-wallets {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  /* Cuts off mid-row, so a long list of announced wallets scrolls inside the
+     card instead of stretching it */
+  max-height: 236px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0;
-  padding: 0;
+  /* Room for the focus ring, which a scrolling box would otherwise clip */
+  padding: 2px;
   list-style: none;
 }
 .zkp-flow-wallet {
@@ -104,9 +243,9 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid var(--zkp-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--zkp-surface);
   color: var(--zkp-fg);
   font-size: 15px;
@@ -124,4 +263,41 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
+}
+.zkp-flow-detail-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  width: 100%;
+}
+/* A revert reason or RPC failure can run long; cap it and let it scroll */
+.zkp-flow-detail {
+  width: 100%;
+  max-height: 132px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--zkp-border);
+  border-radius: 14px;
+  background: var(--zkp-surface);
+  color: var(--zkp-dim);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.zkp-flow-detail-copy {
+  padding: 4px 12px;
+  border: 1px solid var(--zkp-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--zkp-muted);
+  font-size: 12px;
+}
+.zkp-flow-detail-copy:hover {
+  color: var(--zkp-fg);
+  border-color: var(--zkp-dim);
 }

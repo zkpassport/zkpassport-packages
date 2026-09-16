@@ -2,7 +2,19 @@ import type { Chain } from "viem"
 
 import type { MintPhase } from "../use-credential-flow"
 import { shortHex } from "./format"
-import { Hint, LinkButton, Primary, Rows, Status, Title, TxLink } from "./primitives"
+import { ICON_REFRESH, ICON_SHIELD_CHECK, ICON_SWAP, ICON_WALLET } from "./icons"
+import {
+  Actions,
+  ErrorDetail,
+  Hint,
+  LinkButton,
+  Primary,
+  Rows,
+  Status,
+  Title,
+  TxLink,
+  Working,
+} from "./primitives"
 import { WalletPicker } from "./WalletPicker"
 
 type MintProps = {
@@ -22,7 +34,10 @@ export function Mint(props: MintProps) {
   const { recipient, payer, chain } = props
   return (
     <div className="zkp-flow-body">
-      <Title>Verification succeeded.</Title>
+      <div className="zkp-flow-heading">
+        <Title>One last step</Title>
+        <Hint>Your ID is verified. Now add the credential to your wallet.</Hint>
+      </div>
       <Rows
         rows={[
           { label: "Credential goes to", value: recipient, stacked: true },
@@ -30,7 +45,9 @@ export function Mint(props: MintProps) {
           { label: "Network", value: chain.name },
         ]}
       />
-      <MintAction {...props} />
+      <Actions>
+        <MintAction {...props} />
+      </Actions>
     </div>
   )
 }
@@ -60,25 +77,27 @@ function MintAction({
     return (
       <>
         <Hint>Switch your wallet to {chain.name} to mint.</Hint>
-        <Primary onClick={onSwitchChain}>Switch to {chain.name}</Primary>
+        <Primary icon={ICON_SWAP} onClick={onSwitchChain}>
+          Switch to {chain.name}
+        </Primary>
         <LinkButton onClick={onChangeWallet}>Use a different wallet</LinkButton>
       </>
     )
   }
   switch (phase.name) {
     case "preflight":
-      return <Status>Checking the transaction…</Status>
+      return <Working>Checking the transaction…</Working>
     case "signing":
       return (
-        <Status>
+        <Working>
           Confirm the mint transaction in your wallet — the credential goes to {shortHex(recipient)}
           .
-        </Status>
+        </Working>
       )
     case "pending":
       return (
         <>
-          <Status>Minting…</Status>
+          <Working>Minting…</Working>
           <TxLink chain={chain} hash={phase.hash} label="View transaction" />
         </>
       )
@@ -87,7 +106,9 @@ function MintAction({
         <>
           <Status>The transaction was sent, but we couldn't confirm it.</Status>
           <TxLink chain={chain} hash={phase.hash} label="View transaction" />
-          <Primary onClick={onCheckTransaction}>Check again</Primary>
+          <Primary icon={ICON_REFRESH} onClick={onCheckTransaction}>
+            Check again
+          </Primary>
         </>
       )
     case "ready":
@@ -97,23 +118,31 @@ function MintAction({
         return (
           <>
             <Hint>This wallet doesn't have enough ETH for the fee.</Hint>
-            <Primary onClick={onChangeWallet}>Use a different wallet</Primary>
+            <Primary icon={ICON_WALLET} onClick={onChangeWallet}>
+              Use a different wallet
+            </Primary>
           </>
         )
       }
       if (error?.kind === "reverted") {
         return (
           <>
-            <Hint>The mint would fail: {error.detail}.</Hint>
-            <Primary onClick={onStartOver}>Start over</Primary>
+            <Hint>The mint would fail.</Hint>
+            {error.detail ? <ErrorDetail text={error.detail} /> : null}
+            <Primary icon={ICON_REFRESH} onClick={onStartOver}>
+              Start over
+            </Primary>
           </>
         )
       }
       if (error?.kind === "failed") {
         return (
           <>
-            <Hint>Transaction failed. {error.detail}</Hint>
-            <Primary onClick={onMint}>Try again</Primary>
+            <Hint>Transaction failed.</Hint>
+            {error.detail ? <ErrorDetail text={error.detail} /> : null}
+            <Primary icon={ICON_REFRESH} onClick={onMint}>
+              Try again
+            </Primary>
             <LinkButton onClick={onChangeWallet}>Use a different wallet</LinkButton>
           </>
         )
@@ -128,7 +157,9 @@ function MintAction({
               {shortHex(recipient)}.
             </Hint>
           ) : null}
-          <Primary onClick={onMint}>Mint credential</Primary>
+          <Primary icon={ICON_SHIELD_CHECK} onClick={onMint}>
+            Mint credential
+          </Primary>
           <LinkButton onClick={onChangeWallet}>Use a different wallet</LinkButton>
         </>
       )

@@ -7,12 +7,12 @@ import type { Chain } from "viem"
 
 import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "../chains"
 import { buildWalletConfig } from "../wallet"
-import { FlowCard } from "./FlowCard"
+import { FlowCard, type FlowStage } from "./FlowCard"
 import { Done } from "./screens/Done"
 import { ErrorScreen } from "./screens/ErrorScreen"
 import { Mint } from "./screens/Mint"
 import { Resolving } from "./screens/Resolving"
-import { useCredentialFlow, type OutgoingEvent } from "./use-credential-flow"
+import { useCredentialFlow, type FlowStepKind, type OutgoingEvent } from "./use-credential-flow"
 import "./flow.css"
 
 type CredentialFlowProps = {
@@ -46,6 +46,13 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   // The frame reuses the card's classes, so inject that stylesheet up front
   useLayoutEffect(injectStyles, [])
 
+  // Only this flow paints the page behind the card; the other popup screens keep
+  // the default background
+  useLayoutEffect(() => {
+    document.body.classList.add("zkp-flow-page")
+    return () => document.body.classList.remove("zkp-flow-page")
+  }, [])
+
   useEffect(() => {
     if ("error" in resolved) {
       sendRef.current({ type: "error", message: resolved.error })
@@ -54,7 +61,7 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
 
   if ("error" in resolved) {
     return (
-      <FlowCard name={appName} logo={request.logo} stepKey="error">
+      <FlowCard name={appName} logo={request.logo} stage={null} stepKey="error">
         <ErrorScreen message={resolved.error} />
       </FlowCard>
     )
@@ -102,6 +109,7 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
           <ZKPassportQRCode
             {...step.cardOptions}
             showIntroScreen
+            theme="light"
             display={{ header: false, frame: false }}
           />
         )
@@ -128,8 +136,21 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
   })()
 
   return (
-    <FlowCard name={appName} logo={request.logo} stepKey={step.kind}>
+    <FlowCard name={appName} logo={request.logo} stage={railStage(step.kind)} stepKey={step.kind}>
       {screen}
     </FlowCard>
   )
+}
+
+function railStage(kind: FlowStepKind): FlowStage {
+  switch (kind) {
+    case "resolving":
+    case "verify":
+      return "verify"
+    case "mint":
+      return "mint"
+    case "done":
+    case "error":
+      return null
+  }
 }

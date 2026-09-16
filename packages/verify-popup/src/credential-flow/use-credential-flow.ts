@@ -49,6 +49,8 @@ export type DoneStep =
   | { kind: "done"; outcome: "minted"; hash: Hex }
   | { kind: "done"; outcome: "already-verified" }
 
+export type FlowStepKind = FlowStep["kind"]
+
 type FlowStep =
   | { kind: "resolving" }
   | { kind: "verify"; cardOptions: ZKPassportQRCodeOptions }
