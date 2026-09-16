@@ -19,32 +19,43 @@ export type VerificationState = {
   error: string | null
 }
 
-export type VerificationOptions = PopupRequestConfig &
+/**
+ * Mints a credential onchain against a policy
+ */
+export type MintCredentialOptions = {
+  /** Chain the credential lives on (e.g. "ethereum_sepolia"). */
+  chain: SupportedChain
+  /** On-chain policy id, as a 0x-prefixed hex string of at most 32 bytes. */
+  onchainPolicyId: `0x${string}`
+  /** Wallet the credential is issued to; bound into the proof, so it cannot change later. */
+  recipient: `0x${string}`
+}
+
+type BaseVerificationOptions = PopupRequestConfig &
   PopupCallbacks & {
     // URL of the hosted verification page (override for local development)
     popupUrl?: string
     /** "popup" (default) opens a small chromeless window; "tab" a regular browser tab. */
     windowMode?: "popup" | "tab"
-    /** Dashboard policy id. Not allowed with mintCredential (same as query). */
-    policyId?: string
-    /** Required unless mintCredential is set (the on-chain policy defines the query). */
-    query?: (queryBuilder: QueryBuilder) => QueryBuilderResult
-    /**
-     * When present, the button mints a credential instead of running a
-     * plain verification: the popup resolves the on-chain policy, binds
-     * `recipient` and `chain` into the proof and, once the proof is verified,
-     * lets the user connect a wallet to pay for the mint. The result's
-     * credential outcome reports minted/unminted for that recipient.
-     */
-    mintCredential?: {
-      /** Chain the credential lives on (e.g. "ethereum_sepolia"). */
-      chain: SupportedChain
-      /** On-chain policy id, as a 0x-prefixed 32-byte hex string. */
-      onchainPolicyId: `0x${string}`
-      /** Wallet the credential is issued to; bound into the proof, so it cannot change later. */
-      recipient: `0x${string}`
-    }
   }
+
+/**
+ * A verification is driven either by a query (optionally narrowed by a
+ * dashboard policy) or by a credential mint, whose query comes from the
+ * on-chain policy. The two never combine.
+ */
+export type VerificationOptions =
+  | (BaseVerificationOptions & {
+      query: (queryBuilder: QueryBuilder) => QueryBuilderResult
+      /** Dashboard policy id. */
+      policyId?: string
+      mintCredential?: never
+    })
+  | (BaseVerificationOptions & {
+      mintCredential: MintCredentialOptions
+      query?: never
+      policyId?: never
+    })
 
 export type VerificationController = {
   readonly state: VerificationState
@@ -233,8 +244,11 @@ function toCredentialConfig(options: VerificationOptions): PopupCredentialConfig
   if (!chain || !onchainPolicyId || !recipient) {
     throw new Error("mintCredential requires chain, onchainPolicyId and recipient.")
   }
-  if (!onchainPolicyId.startsWith("0x")) {
-    throw new Error("onchainPolicyId is the on-chain policy id as 0x-prefixed hex.")
+  // The id is a uint256 on-chain, so a caller may write it padded to 32 bytes or trimmed
+  if (!/^0x[0-9a-fA-F]{1,64}$/.test(onchainPolicyId)) {
+    throw new Error(
+      `onchainPolicyId must be a 0x-prefixed hex string of at most 32 bytes, got "${onchainPolicyId}".`,
+    )
   }
   if (!/^0x[0-9a-fA-F]{40}$/.test(recipient)) {
     throw new Error("recipient must be a 0x-prefixed 20-byte Ethereum address.")

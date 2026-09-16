@@ -64,7 +64,9 @@ const handle = mount(document.getElementById("zk-passport")!, {
 
 ## Verify button
 
-Opens the verification flow in a popup hosted by ZKPassport, where saved IDs work across every site. Options are the card's, minus the QR-only ones, plus `label`, `size`, `theme` (`"light"` by default, `"auto"` to follow the OS), `classes`, `policyId` and `popupUrl`. Progress and success show inside the button; the only thing rendered outside it is the error message, which `showErrorMessage: false` turns off if you would rather use `onError`. Callbacks are the SDK's, plus `onClose` when the user closes the popup without a result.
+Opens the verification flow in a popup hosted by ZKPassport, where saved IDs work across every site. Options are the card's, minus the QR-only ones, plus `label`, `size`, `theme` (`"light"` by default, `"auto"` to follow the OS), `classes`, `policyId`, `popupUrl` and `windowMode`. Progress and success show inside the button; the only thing rendered outside it is the error message, which `showErrorMessage: false` turns off if you would rather use `onError`. Callbacks are the SDK's, plus `onClose` when the user closes the popup without a result.
+
+`windowMode` picks the window: `"popup"` (default) opens a small chromeless window, `"tab"` a regular browser tab. Use `"tab"` when the flow needs a wallet extension — `mintCredential` in particular — since wallet discovery and approval prompts behave better in a tab with full browser chrome.
 
 ```tsx
 import { VerifyWithZKPassport } from "@zkpassport/ui/react-button"
@@ -94,9 +96,12 @@ For your own button, pass a function as `children`:
 
 `mintCredential` turns the button into a credential mint: the popup resolves the on-chain policy, binds `recipient` and `chain` into the proof and, once the proof is verified, lets the user connect a wallet to pay for `ZKPassportCredentials.issue()`. Any wallet may pay; the credential always goes to `recipient`. Not allowed together with `query` or the dashboard `policyId`. Your `devMode` option is ignored: the popup derives it from the chain and the policy's evaluator, so the proof is rooted where the contract can verify it. The outcome arrives in `onSuccess` as `response.credential` with `status` `"minted"` or `"already-verified"`.
 
+`"already-verified"` means `recipient` already holds an unexpired credential for that policy, so the popup asks for nothing: `onSuccess` fires with `proofs: []` and an empty `result`, and no proof was generated.
+
 ```tsx
 <VerifyWithZKPassport
   name="Aztec"
+  windowMode="tab"
   mintCredential={{ chain: "ethereum_sepolia", onchainPolicyId: "0x…", recipient: "0x…" }}
   onSuccess={({ credential }) => console.log(credential?.status)}
 />

@@ -5,14 +5,18 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi"
-import type { Abi, Chain, Hex } from "viem"
+import type { Chain, Hex } from "viem"
 import type {
   PopupCredentialConfig,
   PopupCredentialIssueCall,
   PopupConfigureMessage,
   PopupEventMessage,
 } from "@zkpassport/sdk/popup"
-import { createCredentialsContext } from "@zkpassport/onchain-credentials"
+import {
+  createCredentialsContext,
+  ZKPassportCredentialsAbi,
+  type CredentialIssueCall,
+} from "@zkpassport/onchain-credentials"
 import {
   buildCredentialCardOptions,
   type CredentialVerifyResult,
@@ -25,7 +29,13 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
-type VerifiedProof = { success: SuccessMessage; issueCall: PopupCredentialIssueCall }
+type VerifiedProof = { success: SuccessMessage; issueCall: CredentialIssueCall }
+
+// The relying party pairs the call with ZKPassportCredentialsAbi itself, so the
+// ABI never travels over postMessage.
+function toPopupIssueCall(call: CredentialIssueCall): PopupCredentialIssueCall {
+  return { address: call.address, functionName: call.functionName, args: call.args }
+}
 
 export type MintPhase =
   | { name: "preflight" }
@@ -96,7 +106,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
           type: "success",
           proofs: [],
           result: {},
-          credential: { status: "already-verified", walletAddress: recipient },
+          credential: { status: "already-verified", recipient },
         })
         return
       }
@@ -135,7 +145,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
             kind: "mint",
             proof: {
               success: toSuccessMessage(result.raw),
-              issueCall: result.issueCall as PopupCredentialIssueCall,
+              issueCall: result.issueCall,
             },
           })
         },
@@ -164,8 +174,10 @@ export function useCredentialFlow(params: CredentialFlowParams) {
   const issueCall = step.kind === "mint" ? step.proof.issueCall : null
   const simulation = useSimulateContract({
     address: issueCall?.address,
-    abi: issueCall?.abi as Abi | undefined,
-    functionName: issueCall?.functionName,
+    abi: ZKPassportCredentialsAbi,
+    // Literal, not issueCall.functionName: it narrows the simulated request to
+    // issue(), so write.mutate() below accepts it without a cast
+    functionName: "issue",
     args: issueCall?.args,
     account: payer,
     chainId: chain.id,
@@ -192,9 +204,9 @@ export function useCredentialFlow(params: CredentialFlowParams) {
       ...step.proof.success,
       credential: {
         status: "minted",
-        walletAddress: recipient,
+        recipient,
         txHash: mintedHash,
-        issueCall: step.proof.issueCall,
+        issueCall: toPopupIssueCall(step.proof.issueCall),
       },
     })
   }, [mintedHash])

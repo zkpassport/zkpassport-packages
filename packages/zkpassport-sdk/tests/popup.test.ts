@@ -279,15 +279,19 @@ describe("credentials protocol extension", () => {
     const issueCall = {
       address: "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c",
       functionName: "issue",
-      abi: [{ type: "function", name: "issue", inputs: [] }],
-      args: [123456789012345678901234567890n, { version: "1", committedInputs: "0xabc" }],
+      args: [123456789012345678901234567890n, "0xabc"],
     }
     const message = {
       zkpassport: true,
       type: "success",
       proofs: [],
       result: {},
-      credential: { status: "minted", txHash: "0xdead", issueCall },
+      credential: {
+        status: "minted",
+        recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        txHash: "0xdead",
+        issueCall,
+      },
     }
     const cloned = structuredClone(message)
     expect(cloned).toEqual(message)

@@ -100,6 +100,7 @@ export function mountVerifyButton(
 export {
   createVerification,
   type VerificationController,
+  type MintCredentialOptions,
   type VerificationOptions,
   type VerificationState,
   type VerificationStatus,

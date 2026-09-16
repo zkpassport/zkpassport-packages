@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { createVerification, type VerificationOptions } from "../src/verification"
+import type { QueryBuilder } from "@zkpassport/sdk"
 import type { VerifyWithZKPassportOptions } from "../src/verify-button"
 
 const POPUP_ORIGIN = "https://verify.zkpassport.id"
@@ -228,14 +229,14 @@ describe("createVerification", () => {
 })
 
 describe("createVerification with mintCredential", () => {
-  const mintOptions: VerificationOptions = {
+  const mintOptions = {
     mintCredential: {
       chain: "ethereum_sepolia",
       onchainPolicyId: "0x919a000000000000000000000000000000000000000000000000000000002187",
       recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
     },
     devMode: true,
-  }
+  } satisfies VerificationOptions
 
   test("sends the credential block and an empty query", () => {
     const { sentToPopup, emitFromPopup } = setupFakeWindow()
@@ -288,7 +289,7 @@ describe("createVerification with mintCredential", () => {
       result: {},
       credential: {
         status: "minted",
-        walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+        recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
         txHash: "0xdead",
         issueCall: { functionName: "issue" },
       },
@@ -296,7 +297,7 @@ describe("createVerification with mintCredential", () => {
 
     expect(outcome.credential).toEqual({
       status: "minted",
-      walletAddress: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+      recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
       txHash: "0xdead",
       issueCall: { functionName: "issue" },
     })
@@ -307,11 +308,12 @@ describe("createVerification with mintCredential", () => {
     const errors: string[] = []
     const statuses: string[] = []
     createVerification(
-      () => ({
-        ...mintOptions,
-        query: (builder) => builder.done(),
-        onError: (message) => errors.push(message),
-      }),
+      () =>
+        ({
+          ...mintOptions,
+          query: (builder: QueryBuilder) => builder.done(),
+          onError: (message: string) => errors.push(message),
+        }) as unknown as VerificationOptions,
       (state) => statuses.push(state.status),
     ).verify()
 
@@ -325,7 +327,12 @@ describe("createVerification with mintCredential", () => {
     setupFakeWindow()
     const errors: string[] = []
     createVerification(
-      () => ({ ...mintOptions, policyId: "dashboard-1", onError: (e: string) => errors.push(e) }),
+      () =>
+        ({
+          ...mintOptions,
+          policyId: "dashboard-1",
+          onError: (e: string) => errors.push(e),
+        }) as unknown as VerificationOptions,
       () => {},
     ).verify()
 
@@ -338,8 +345,7 @@ describe("createVerification with mintCredential", () => {
     setupFakeWindow()
     const statuses: string[] = []
     createVerification(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      () => ({ mintCredential: { chain: "ethereum_sepolia" } as any }),
+      () => ({ mintCredential: { chain: "ethereum_sepolia" } }) as unknown as VerificationOptions,
       (state) => statuses.push(state.status),
     ).verify()
 
@@ -350,7 +356,7 @@ describe("createVerification with mintCredential", () => {
     setupFakeWindow()
     const statuses: string[] = []
     createVerification(
-      () => ({ name: "Aztec" }),
+      () => ({ name: "Aztec" }) as unknown as VerificationOptions,
       (state) => statuses.push(state.status),
     ).verify()
 

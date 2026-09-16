@@ -33,5 +33,10 @@ export {
   type ZKPassportVerification,
 } from "./button"
 export type { VerifyButtonSize, VerifyWithZKPassportOptions } from "../verify-button"
-export type { VerificationOptions, VerificationState, VerificationStatus } from "../verification"
+export type {
+  MintCredentialOptions,
+  VerificationOptions,
+  VerificationState,
+  VerificationStatus,
+} from "../verification"
 export * from "../types"

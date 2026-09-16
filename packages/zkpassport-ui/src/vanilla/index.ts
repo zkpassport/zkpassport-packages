@@ -38,6 +38,7 @@ export { mountVerifyButton, type VerifyButtonHandle } from "../button/index"
 export {
   createVerification,
   type VerificationController,
+  type MintCredentialOptions,
   type VerificationOptions,
   type VerificationState,
   type VerificationStatus,
