@@ -63,8 +63,10 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   }
 
   useEffect(() => {
+    const sdk = sdkRef.current!
     let cancelled = false
     let readyFired = false
+    let activeRequestId: string | null = null
     const intro = optionsRef.current.showIntroScreen === true
     introActiveRef.current = intro
     bridgeStateRef.current = "preparing"
@@ -131,15 +133,22 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       if (!introActiveRef.current) setState(next)
     }
 
-    sdkRef
-      .current!.request({ ...sdkRequestArgs, verifierMode: sdkRequestArgs.verifierMode ?? "api" })
+    sdk
+      .request({ ...sdkRequestArgs, verifierMode: sdkRequestArgs.verifierMode ?? "api" })
       .then((queryBuilder) => {
-        if (cancelled) return
         let request: QueryBuilderResult
         try {
           request = buildQuery(queryBuilder)
         } catch (reason) {
-          fail("Failed to build the verification query", reason)
+          if (!cancelled) fail("Failed to build the verification query", reason)
+          return
+        }
+        // The bridge is live by now, so a card that went away while the request
+        // was starting still has to hang up. Only this one: a retry reuses the
+        // SDK instance, so clearAllRequests() would close its bridge too.
+        activeRequestId = request.requestId
+        if (cancelled) {
+          sdk.cancelRequest(request.requestId)
           return
         }
 
@@ -233,7 +242,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         setQuery(request.query)
         // Branding resolved by the SDK (options first, then dashboard config)
         try {
-          const service = sdkRef.current!.getServiceDetails(request.requestId)
+          const service = sdk.getServiceDetails(request.requestId)
           if (service) {
             setServiceName(service.name || null)
             setServiceLogo(service.logo || null)
@@ -267,6 +276,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
 
     return () => {
       cancelled = true
+      if (activeRequestId) sdk.cancelRequest(activeRequestId)
     }
   }, [retryNonce])
 
