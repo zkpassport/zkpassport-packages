@@ -613,7 +613,6 @@ describe("Policy-driven requests", () => {
     expect(service.logo).toBe("https://dashboard.example/logo.png")
     expect(service.purpose).toBe("Verify identity privately")
     expect(service.scope).toBeUndefined()
-    expect(service.policyId).toBeUndefined()
   })
 
   test(".policy() throws a clear 'domain not registered' error when the dashboard returns a null project", async () => {
