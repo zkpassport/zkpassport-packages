@@ -33,9 +33,7 @@ export type MintCredentialOptions = {
 
 type BaseVerificationOptions = PopupRequestConfig &
   PopupCallbacks & {
-    // URL of the hosted verification page (override for local development)
     popupUrl?: string
-    /** "popup" (default) opens a small chromeless window; "tab" a regular browser tab. */
     windowMode?: "popup" | "tab"
   }
 
