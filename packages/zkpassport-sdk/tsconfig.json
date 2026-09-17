@@ -14,6 +14,6 @@
     }
   },
   // "include" controls type-checking only; build output is controlled by tsup.config.ts entry points
-  "include": ["src/**/*.ts", "src/**/*.json", "tests/**/*.ts", "tsup.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*.json", "tests/**/*.ts", "tsup.config.ts", "package.json"],
   "references": [{ "path": "../zkpassport-utils" }, { "path": "../registry-sdk" }]
 }
