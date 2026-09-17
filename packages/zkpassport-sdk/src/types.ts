@@ -153,6 +153,11 @@ export type QueryBuilderResult = {
    */
   onBridgeConnect: (callback: () => void) => void
   /**
+   * Called when the connection to the bridge is lost and the SDK has stopped
+   * trying to reconnect on its own. A later `onBridgeConnect` means it came back.
+   */
+  onBridgeConnectionLost: (callback: () => void) => void
+  /**
    * Called when the user has generated a proof.
    *
    * There is a minimum of 4 proofs, but there can be more depending
