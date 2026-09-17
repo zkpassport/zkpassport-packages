@@ -405,6 +405,7 @@ export type Service = {
   logo: string
   purpose: string
   scope?: string
+  policyId?: string
   projectID?: string
   chainId?: number
   cloudProverUrl?: string

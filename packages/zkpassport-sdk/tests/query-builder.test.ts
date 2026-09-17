@@ -592,6 +592,16 @@ describe("Policy-driven requests", () => {
     expect(service.scope).toBe("caller-supplied-scope")
   })
 
+  test("the service names the policy even when the caller supplies its own scope", async () => {
+    const result = (await zkPassport.request({ scope: "caller-supplied-scope" }))
+      .policy("pol_xyz")
+      .done()
+
+    const servicePart = new URL(result.url).searchParams.get("s")!
+    const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
+    expect(service.policyId).toBe("pol_xyz")
+  })
+
   test("self-serve callers get sensible defaults when no fields are supplied", async () => {
     const queryBuilder = await zkPassport.request({})
     const result = queryBuilder.done()
@@ -603,6 +613,7 @@ describe("Policy-driven requests", () => {
     expect(service.logo).toBe("https://dashboard.example/logo.png")
     expect(service.purpose).toBe("Verify identity privately")
     expect(service.scope).toBeUndefined()
+    expect(service.policyId).toBeUndefined()
   })
 
   test(".policy() throws a clear 'domain not registered' error when the dashboard returns a null project", async () => {

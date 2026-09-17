@@ -529,6 +529,7 @@ export class ZKPassport {
           if (!svc.scope) {
             svc.scope = policy.id
           }
+          svc.policyId = policy.id
         }
         this.topicToPolicy[topic] = {
           id: policy.id,
