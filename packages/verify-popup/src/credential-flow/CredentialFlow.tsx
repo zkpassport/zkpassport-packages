@@ -91,7 +91,7 @@ type FlowBodyProps = Omit<CredentialFlowProps, "rpHost"> & {
 }
 
 function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) {
-  const { step, scan, phase, payer, onRightChain, mint, startOver, checkTransaction } =
+  const { step, scan, phase, payer, wallet, onRightChain, mint, startOver, checkTransaction } =
     useCredentialFlow({
       request,
       credential,
@@ -127,6 +127,7 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
           <Mint
             recipient={credential.recipient}
             payer={payer}
+            wallet={wallet}
             chain={chain}
             onRightChain={onRightChain}
             phase={phase}
@@ -164,6 +165,7 @@ function railStage(kind: FlowStepKind, connected: boolean): FlowStage {
     case "mint":
       return connected ? "mint" : "connect"
     case "done":
+      return "done"
     case "error":
       return null
   }

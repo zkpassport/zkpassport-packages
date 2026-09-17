@@ -5,22 +5,25 @@
    only while the flow is mounted, which keeps the colours below off the popup's
    other screens — this file is bundled into the page either way. */
 body.zkp-flow-page {
-  background: #04091c;
+  background: #060c22;
   color-scheme: dark;
 }
 
 /* The ZKPassport app's colours, applied to the whole flow. FlowCard and the
    embedded QR card both ask for the "light" theme, so the sheet's own dark
    overrides never fire and these are the only colours in play — the popup looks
-   the same whichever theme the operating system is set to. */
+   the same whichever theme the operating system is set to.
+
+   Three roles, nothing else: gold marks what you act on next, white is the
+   content, muted blue-grey is everything that only supports it. */
 .zkp-flow-page .zkp-card {
   --zkp-bg: #0a1746;
-  --zkp-surface: #182659;
+  --zkp-surface: #16244f;
   --zkp-raised: #22326b;
-  --zkp-border: #2a3a76;
+  --zkp-border: #263571;
   --zkp-fg: #ffffff;
-  --zkp-muted: #c7cdee;
-  --zkp-dim: #8d99cd;
+  --zkp-muted: #aab4dd;
+  --zkp-dim: #8390c4;
   --zkp-accent: #ffffff;
   --zkp-brand: #f9d59e;
   --zkp-success: #00d39e;
@@ -32,28 +35,70 @@ body.zkp-flow-page {
 /* No outline and a deeper corner: the card reads as an app sheet on the darker
    page rather than a box on a web page */
 .zkp-flow-card {
+  padding: 18px 0 20px;
   border: none;
-  border-radius: 20px;
-  /* Fills the popup window, so short screens do not float in empty space */
-  min-height: 640px;
+  border-radius: 22px;
+  /* Tall enough that the short steps keep some air under the button, without
+     leaving a hole on the ones that have nothing more to say */
+  min-height: 520px;
 }
-/* The card's request panel groups by fill, like the flow's own panels */
-.zkp-flow-page .zkp-intro-request {
-  border: none;
-  padding: 18px 20px;
-  border-radius: 16px;
+
+/* Who is asking on the left, who is checking on the right */
+.zkp-flow-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 22px;
+}
+.zkp-flow-id-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  object-fit: contain;
+}
+.zkp-flow-id-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--zkp-fg);
+}
+.zkp-flow-id-mark {
+  margin-left: auto;
+  line-height: 0;
+}
+.zkp-flow-id-mark svg {
+  width: 84px;
+  height: auto;
+  display: block;
+  opacity: 0.45;
+}
+/* Only the opening screen explains the pairing; every later step has a title of
+   its own, and the card's intro is the one screen that does not */
+.zkp-flow-id-note {
+  display: none;
+  margin: 10px 22px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--zkp-muted);
+}
+.zkp-flow-card:has(.zkp-intro, .zkp-flow-skeleton) .zkp-flow-id-note {
+  display: block;
+}
+.zkp-flow-id-note strong {
+  color: var(--zkp-fg);
+  font-weight: 600;
 }
 
 .zkp-flow-step {
   display: flex;
   flex-direction: column;
   flex: 1;
+  padding: 0 22px;
   animation: zkp-flow-slide-in 220ms ease-out;
 }
 @keyframes zkp-flow-slide-in {
   from {
     opacity: 0;
-    transform: translateX(24px);
+    transform: translateX(20px);
   }
   to {
     opacity: 1;
@@ -64,118 +109,214 @@ body.zkp-flow-page {
   display: flex;
   flex-direction: column;
   flex: 1;
-  align-items: center;
-  gap: 16px;
-  padding: 18px 0 4px;
-  text-align: center;
+  gap: 18px;
+  padding-top: 18px;
 }
-.zkp-flow-body .zkp-intro-question-hint {
-  margin: 0;
+/* Everything above the button */
+.zkp-flow-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 16px;
 }
 /* A screen with nothing to do centres its message instead of stacking it up top */
 .zkp-flow-body[data-centered] {
   justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.zkp-flow-body[data-hidden] {
+  display: none;
 }
 /* The card sets its own width, so its wrapper must not shrink to fit */
 .zkp-flow-card-slot {
   width: 100%;
 }
-.zkp-flow-body[data-hidden] {
-  display: none;
+/* The card's intro screen is shared with every site that embeds the QR card, so
+   the popup restyles it here instead of editing the published sheet. The shape
+   follows the ZKPassport app: a plain heading, then one panel holding the list. */
+.zkp-flow-page .zkp-intro {
+  margin-top: 0;
+  gap: 22px;
 }
-/* The card's intro screen brings its own words; the heading belongs to the code */
+.zkp-flow-page .zkp-intro-request {
+  padding: 0;
+  border: none;
+  background: none;
+}
+.zkp-flow-page .zkp-eyebrow {
+  margin: 0 0 10px;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--zkp-fg);
+}
+.zkp-flow-page .zkp-intro-list {
+  gap: 0;
+  border-radius: 16px;
+  background: var(--zkp-surface);
+}
+.zkp-flow-page .zkp-intro-list li {
+  align-items: center;
+  gap: 13px;
+  padding: 14px 16px;
+}
+.zkp-flow-page .zkp-intro-list li + li {
+  border-top: 1px solid var(--zkp-border);
+}
+/* A filled disc, the way the app marks a check that passed */
+.zkp-flow-page .zkp-intro-check {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--zkp-success) 18%, transparent);
+  color: var(--zkp-success);
+}
+.zkp-flow-page .zkp-intro-check svg {
+  width: 13px;
+  height: 13px;
+}
+.zkp-flow-page .zkp-intro-item-title {
+  font-size: 14.5px;
+}
+.zkp-flow-page .zkp-intro-item-detail {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--zkp-dim);
+}
+.zkp-flow-page .zkp-intro-question {
+  gap: 9px;
+  padding-top: 0;
+}
+.zkp-flow-page .zkp-chip-symbol {
+  width: 40px;
+  color: var(--zkp-muted);
+}
+.zkp-flow-page .zkp-intro-question-text {
+  margin: 0;
+  font-size: 14.5px;
+}
+.zkp-flow-page .zkp-intro-question-hint {
+  max-width: none;
+  font-size: 12.5px;
+  color: var(--zkp-dim);
+}
+.zkp-flow-page .zkp-intro-footer {
+  gap: 8px;
+}
+.zkp-flow-page .zkp-divider {
+  background: var(--zkp-border);
+}
+/* Sentence case, and quiet: it reassures, it does not shout */
+.zkp-flow-page .zkp-privacy-strip {
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--zkp-muted);
+}
+.zkp-flow-page .zkp-intro-footer-note {
+  font-size: 11.5px;
+  color: var(--zkp-dim);
+}
+/* The resolving screen borrows the request panel, which no longer carries a
+   surface of its own */
+.zkp-flow-skeleton {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--zkp-surface);
+}
+.zkp-flow-body:has(.zkp-intro) {
+  padding-top: 14px;
+}
+/* The card swaps its intro for the QR on its own, so the scan heading waits for
+   it rather than sitting above words that already say the same thing */
 .zkp-flow-body:has(.zkp-intro) .zkp-flow-heading {
   display: none;
 }
-/* Holds the button in the same spot while the mint screen moves between
-   connecting, switching network, signing and retrying */
-.zkp-flow-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  margin-top: auto;
-}
-.zkp-flow-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--zkp-fg);
-}
+
 .zkp-flow-heading {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: 100%;
+  gap: 5px;
+}
+.zkp-flow-title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--zkp-fg);
+}
+/* One line, in plain words */
+.zkp-flow-hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--zkp-muted);
 }
 
-/* One bar split by hairline gaps, so the steps read as checkpoints along it */
-.zkp-flow-rail {
-  display: flex;
-  gap: 3px;
-  width: 100%;
-  max-width: 260px;
-  margin: 16px auto 0;
-  padding: 0;
-  list-style: none;
-}
-.zkp-flow-rail-stage {
-  flex: 1;
+/* Holds the button at the foot of the card, so it stays put while the screen
+   above it moves between connecting, switching network, signing and retrying */
+.zkp-flow-actions {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
+  margin-top: auto;
+  padding: 18px 0;
 }
-.zkp-flow-rail-bar {
-  height: 4px;
-  background: var(--zkp-raised);
-  transition: background 320ms ease;
+.zkp-flow-actions:empty {
+  display: none;
 }
-.zkp-flow-rail-stage:first-child .zkp-flow-rail-bar {
-  border-radius: 999px 0 0 999px;
-}
-.zkp-flow-rail-stage:last-child .zkp-flow-rail-bar {
-  border-radius: 0 999px 999px 0;
-}
-.zkp-flow-rail-stage:not([data-state="upcoming"]) .zkp-flow-rail-bar {
-  background: var(--zkp-brand);
-}
-.zkp-flow-rail-label {
-  font-size: 11px;
-  font-weight: 500;
-  text-align: center;
-  color: var(--zkp-dim);
-}
-.zkp-flow-rail-stage[data-state="current"] .zkp-flow-rail-label {
-  color: var(--zkp-fg);
-  font-weight: 600;
-}
-.zkp-flow-skeleton {
-  width: 100%;
-}
-/* Sits in the real eyebrow's line box, so the panel keeps its height when the
-   placeholder gives way to the heading */
-.zkp-flow-skeleton-eyebrow {
-  display: inline-block;
-  vertical-align: middle;
-  width: 45%;
-  height: 9px;
-}
-.zkp-flow-rows {
-  width: 100%;
-  margin: 0;
-  padding: 8px 20px;
+
+/* The connected wallet, named and addressed, so it is never a guess which one
+   pays */
+.zkp-flow-panel {
   border-radius: 16px;
   background: var(--zkp-surface);
+}
+.zkp-flow-wallet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.zkp-flow-wallet-row img {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+.zkp-flow-wallet-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+.zkp-flow-wallet-name {
   font-size: 14px;
-  text-align: left;
+  font-weight: 600;
+  color: var(--zkp-fg);
+}
+.zkp-flow-rows {
+  margin: 0;
+  padding: 0 16px;
+  border-top: 1px solid var(--zkp-border);
+  font-size: 13.5px;
 }
 .zkp-flow-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 0;
+  padding: 11px 0;
 }
 .zkp-flow-row dt {
   color: var(--zkp-muted);
@@ -186,49 +327,118 @@ body.zkp-flow-page {
   font-weight: 600;
   text-align: right;
 }
-.zkp-flow-statement {
-  margin: 0;
-  padding: 0 12px;
-  font-size: 25px;
-  font-weight: 700;
-  line-height: 1.32;
-  letter-spacing: -0.02em;
+.zkp-flow-address {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--zkp-dim);
+}
+.zkp-flow-row .zkp-flow-address {
+  color: var(--zkp-fg);
+  font-weight: 600;
+}
+
+/* A quiet text button beside the thing it changes */
+.zkp-flow-ghost {
+  flex: none;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--zkp-raised);
+  color: var(--zkp-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.zkp-flow-ghost:hover {
+  background: #2c3d84;
   color: var(--zkp-fg);
 }
-.zkp-flow-meta {
+
+/* Square button for an action that a single glyph already explains */
+.zkp-flow-iconbtn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--zkp-surface);
+  color: var(--zkp-muted);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.zkp-flow-iconbtn:hover {
+  background: var(--zkp-raised);
+  color: var(--zkp-fg);
+}
+.zkp-flow-iconbtn .zkp-flow-glyph {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+/* Small print under the panel: what is being saved, or what just went wrong */
+.zkp-flow-note {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--zkp-dim);
+}
+.zkp-flow-note[data-tone="alert"] {
+  color: var(--zkp-fg);
+}
+.zkp-flow-note[data-tone="alert"]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 8px 2px 0;
+  border-radius: 50%;
+  background: var(--zkp-error);
+  vertical-align: middle;
+}
+.zkp-flow-status {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   margin: 0;
-  font-size: 13px;
-  color: var(--zkp-dim);
-}
-.zkp-flow-address {
-  font-family: ui-monospace, monospace;
-  font-weight: 600;
-}
-.zkp-flow-status {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--zkp-fg);
+  font-size: 13.5px;
+  color: var(--zkp-muted);
 }
 .zkp-flow-link {
-  color: var(--zkp-brand);
+  display: inline-flex;
+  align-items: center;
+  color: var(--zkp-muted);
   text-decoration: none;
+  transition: color 120ms ease;
+}
+.zkp-flow-link:hover {
+  color: var(--zkp-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.zkp-flow-link:hover .zkp-flow-address {
+  color: inherit;
 }
 /* Sized in em, so a glyph always matches the text beside it */
 .zkp-flow-glyph {
   display: inline-block;
-  vertical-align: -0.15em;
-  width: 1.1em;
-  height: 1.1em;
-  margin-right: 0.5em;
+  flex: none;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.45em;
 }
 .zkp-flow-glyph[data-after] {
   margin-right: 0;
-  margin-left: 0.35em;
+  margin-left: 0.4em;
 }
 .zkp-flow-glyph svg {
   width: 100%;
@@ -243,38 +453,139 @@ body.zkp-flow-page {
     transform: rotate(360deg);
   }
 }
-.zkp-flow-footer {
+
+/* Where you are, at the foot of the card: a tick for what is behind you, a ring
+   for the stage you are working through, an outline for what is still ahead */
+.zkp-flow-steps {
   display: flex;
-  justify-content: center;
-  margin-top: 18px;
+  margin: 0;
+  padding: 18px 22px 0;
+  list-style: none;
 }
-.zkp-flow-footer svg {
-  width: 100px;
-  height: auto;
+.zkp-flow-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+/* Runs from the dot before it to this one, so the row reads as one track */
+.zkp-flow-stage + .zkp-flow-stage::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--zkp-raised);
+}
+.zkp-flow-stage[data-state="done"]::before,
+.zkp-flow-stage[data-state="current"]::before {
+  background: var(--zkp-brand);
+}
+.zkp-flow-stage-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--zkp-raised);
+  background: var(--zkp-bg);
+}
+/* Only a stage that is behind you wears the tick */
+.zkp-flow-stage-dot svg {
+  width: 9px;
+  height: 9px;
   display: block;
+  visibility: hidden;
+}
+.zkp-flow-stage[data-state="done"] .zkp-flow-stage-dot {
+  border-color: var(--zkp-brand);
+  background: var(--zkp-brand);
+  color: var(--zkp-bg);
+}
+.zkp-flow-stage[data-state="done"] .zkp-flow-stage-dot svg {
+  visibility: visible;
+}
+.zkp-flow-stage[data-state="current"] .zkp-flow-stage-dot {
+  border-color: var(--zkp-brand);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--zkp-brand) 18%, transparent);
+  animation: zkp-flow-pulse 1.8s ease-in-out infinite;
+}
+@keyframes zkp-flow-pulse {
+  50% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--zkp-brand) 8%, transparent);
+  }
+}
+.zkp-flow-stage-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--zkp-dim);
+}
+.zkp-flow-stage[data-state="current"] .zkp-flow-stage-label {
+  color: var(--zkp-fg);
+  font-weight: 600;
+}
+
+/* Success: a small mark and plenty of air, so the screen reads as a full stop */
+.zkp-flow-done {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  text-align: center;
 }
 .zkp-flow-seal {
-  width: 124px;
-  margin: 14px 0 6px;
+  width: 104px;
 }
 .zkp-flow-seal svg {
   width: 100%;
   height: auto;
   display: block;
 }
-.zkp-flow-wallets {
+.zkp-flow-done-text {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: 100%;
-  /* Cuts off mid-row, so a long list of announced wallets scrolls inside the
-     card instead of stretching it */
-  max-height: 236px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+}
+.zkp-flow-done-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--zkp-fg);
+}
+.zkp-flow-done-sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--zkp-muted);
+}
+.zkp-flow-receipt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The list is the screen, so it takes the room the screen has */
+.zkp-flow-wallets {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
   margin: 0;
   /* Room for the focus ring, which a scrolling box would otherwise clip */
   padding: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   list-style: none;
 }
 .zkp-flow-wallet {
@@ -282,12 +593,12 @@ body.zkp-flow-page {
   align-items: center;
   gap: 14px;
   width: 100%;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border: none;
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--zkp-surface);
   color: var(--zkp-fg);
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 500;
   text-align: left;
   transition: background 120ms ease;
@@ -302,24 +613,95 @@ body.zkp-flow-page {
 .zkp-flow-wallet img {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
+
+/* The phone is working and there is nothing to read yet: a band of light runs
+   round the ring, so the wait has a heartbeat */
+.zkp-flow-orbit {
+  position: relative;
+  width: 172px;
+  height: 172px;
+}
+.zkp-flow-orbit svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.zkp-flow-orbit circle {
+  fill: var(--zkp-brand);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: zkp-flow-sweep 2.6s ease-in-out infinite;
+}
+@keyframes zkp-flow-sweep {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.72);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.zkp-flow-orbit-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--zkp-fg);
+}
+.zkp-flow-orbit-icon svg {
+  width: 50px;
+  height: auto;
+  display: block;
+}
+
+/* Three dots that keep time under the caption, the way a chat shows thinking */
+.zkp-flow-ellipsis {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 3px;
+  vertical-align: baseline;
+}
+.zkp-flow-ellipsis i {
+  width: 3px;
+  height: 3px;
+  margin-bottom: 1px;
+  align-self: flex-end;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: zkp-flow-think 1.4s ease-in-out infinite;
+}
+.zkp-flow-ellipsis i:nth-child(2) {
+  animation-delay: 200ms;
+}
+.zkp-flow-ellipsis i:nth-child(3) {
+  animation-delay: 400ms;
+}
+@keyframes zkp-flow-think {
+  30% {
+    opacity: 1;
+  }
+}
+
+/* A revert reason or RPC failure can run long; cap it and let it scroll */
 .zkp-flow-detail-block {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
 }
-/* A revert reason or RPC failure can run long; cap it and let it scroll */
 .zkp-flow-detail {
-  width: 100%;
+  flex: 1;
   max-height: 132px;
   overflow-y: auto;
   overscroll-behavior: contain;
   margin: 0;
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
   background: var(--zkp-surface);
   color: var(--zkp-dim);
   font-size: 12.5px;
@@ -328,47 +710,65 @@ body.zkp-flow-page {
   overflow-wrap: anywhere;
   user-select: text;
 }
-.zkp-flow-copy {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 999px;
-  background: var(--zkp-surface);
-  color: var(--zkp-muted);
-  font-size: 12px;
-  transition: background 120ms ease;
-}
-.zkp-flow-copy:hover {
-  background: var(--zkp-raised);
-  color: var(--zkp-fg);
+
+/* Sits in the real eyebrow's line box, so the panel keeps its height when the
+   placeholder gives way to the heading */
+.zkp-flow-skeleton-eyebrow {
+  display: inline-block;
+  vertical-align: middle;
+  width: 45%;
+  height: 9px;
 }
 
-/* The phone is working and there is nothing to read yet */
-.zkp-flow-dots {
-  display: flex;
-  gap: 12px;
-}
-.zkp-flow-dots span {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--zkp-brand);
-  animation: zkp-flow-dot 1.3s ease-in-out infinite;
-}
-.zkp-flow-dots span:nth-child(2) {
-  animation-delay: 180ms;
-}
-.zkp-flow-dots span:nth-child(3) {
-  animation-delay: 360ms;
-}
-@keyframes zkp-flow-dot {
-  0%,
-  65%,
-  100% {
-    opacity: 0.25;
-    transform: scale(0.75);
+@media (prefers-reduced-motion: reduce) {
+  .zkp-flow-step,
+  .zkp-flow-orbit circle,
+  .zkp-flow-ellipsis i,
+  .zkp-flow-stage-dot {
+    animation: none;
   }
-  30% {
-    opacity: 1;
-    transform: scale(1);
+  .zkp-flow-orbit circle {
+    opacity: 0.55;
+  }
+}
+
+/* The published card sheet marks the button's own look !important from inside
+   its cascade layer, which no unlayered rule can beat. Joining the layer and
+   out-specifying it is the only way to restyle the shared buttons — the flow and
+   the embedded card then offer the same button. */
+@layer zkpassport {
+  .zkp-flow-page .zkp-card .zkp-intro-continue {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 15px 18px !important;
+    border-radius: 14px !important;
+    background: var(--zkp-brand) !important;
+    color: #0a1746 !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+  }
+  .zkp-flow-page .zkp-card .zkp-intro-continue:disabled {
+    background: var(--zkp-surface) !important;
+    color: var(--zkp-muted) !important;
+    cursor: default !important;
+  }
+  .zkp-flow-page .zkp-card .zkp-intro-continue:disabled:hover {
+    filter: none !important;
+  }
+  .zkp-flow-page .zkp-card .zkp-intro-link {
+    align-self: center !important;
+    padding: 6px 10px !important;
+    color: var(--zkp-muted) !important;
+    font-size: 13px !important;
+    text-decoration: none !important;
+    transition: color 120ms ease !important;
+  }
+  .zkp-flow-page .zkp-card .zkp-intro-link:hover {
+    color: var(--zkp-fg) !important;
+    text-decoration: underline !important;
   }
 }

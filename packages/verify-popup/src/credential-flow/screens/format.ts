@@ -16,3 +16,10 @@ export function explorerTxUrl(chain: Chain, hash: Hex): string | null {
 export function explorerAddressUrl(chain: Chain, address: Address): string | null {
   return explorerUrl(chain, `address/${address}`)
 }
+
+// Wagmi names the plain injected connector "Injected", which says nothing to
+// someone who only knows the wallet by the extension in their browser.
+export function walletLabel(connector: { id: string; name: string } | undefined): string {
+  if (!connector) return "Connected wallet"
+  return connector.id === "injected" ? "Browser wallet" : connector.name
+}

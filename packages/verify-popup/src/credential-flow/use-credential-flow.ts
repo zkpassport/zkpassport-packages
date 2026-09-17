@@ -83,7 +83,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
   sendRef.current = send
 
   // The connected wallet only pays the fee
-  const { address: payer, chainId } = useConnection()
+  const { address: payer, chainId, connector: wallet } = useConnection()
   const onRightChain = chainId === chain.id
 
   const { credentials: credentialsContract, publicClient } = useMemo(
@@ -263,5 +263,5 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     void receipt.refetch()
   }
 
-  return { step, scan, phase, payer, onRightChain, mint, startOver, checkTransaction }
+  return { step, scan, phase, payer, wallet, onRightChain, mint, startOver, checkTransaction }
 }

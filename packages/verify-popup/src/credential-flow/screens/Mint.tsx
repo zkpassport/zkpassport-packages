@@ -1,24 +1,26 @@
 import type { Chain } from "viem"
+import type { Connector } from "wagmi"
 
 import type { MintPhase } from "../use-credential-flow"
-import { ICON_REFRESH, ICON_SHIELD_CHECK, ICON_SWAP, ICON_WALLET } from "./icons"
+import { walletLabel } from "./format"
 import {
   Actions,
-  AddressLink,
+  Address,
   ErrorDetail,
-  Hint,
-  LinkButton,
+  Heading,
+  Main,
+  Note,
+  Panel,
   Primary,
   Rows,
-  Status,
-  Title,
   TxLink,
-  Working,
+  type Row,
 } from "./primitives"
 
 type MintProps = {
   recipient: `0x${string}`
   payer: `0x${string}`
+  wallet?: Connector
   chain: Chain
   onRightChain: boolean
   phase: MintPhase
@@ -30,25 +32,39 @@ type MintProps = {
 }
 
 export function Mint(props: MintProps) {
-  const { recipient, payer, chain, phase } = props
+  const { recipient, payer, wallet, chain, onRightChain, phase, onChangeWallet } = props
+  const payerDiffers = payer.toLowerCase() !== recipient.toLowerCase()
+
+  const rows: Row[] = [{ label: "Network", value: chain.name }]
+  if (payerDiffers) {
+    rows.unshift({ label: "Verification goes to", value: <Address value={recipient} /> })
+  }
+  // Once the transaction is out there, the receipt belongs with the other facts,
+  // so the button below never moves to make room for it
+  const hash = phase.name === "pending" || phase.name === "unconfirmed" ? phase.hash : null
+  if (hash) {
+    rows.push({ label: "Transaction", value: <TxLink chain={chain} hash={hash} label="View" /> })
+  }
+
   return (
     <div className="zkp-flow-body">
-      <div className="zkp-flow-heading">
-        <Title>One last step</Title>
-        {phase.name === "ready" ? (
-          <Hint>Your ID is verified. Now add the credential to your wallet.</Hint>
-        ) : null}
-      </div>
-      <Rows
-        rows={[
-          {
-            label: "Credential goes to",
-            value: <AddressLink chain={chain} address={recipient} />,
-          },
-          { label: "Paying with", value: <AddressLink chain={chain} address={payer} /> },
-          { label: "Network", value: chain.name },
-        ]}
-      />
+      <Main>
+        <Heading title="Mint your verification" hint="You pay a small network fee." />
+        <Panel>
+          <div className="zkp-flow-wallet-row">
+            {wallet?.icon ? <img src={wallet.icon} alt="" /> : null}
+            <span className="zkp-flow-wallet-who">
+              <span className="zkp-flow-wallet-name">{walletLabel(wallet)}</span>
+              <Address value={payer} />
+            </span>
+            <button type="button" className="zkp-flow-ghost" onClick={onChangeWallet}>
+              Change
+            </button>
+          </div>
+          <Rows rows={rows} />
+        </Panel>
+        <MintNote {...props} payerDiffers={payerDiffers} />
+      </Main>
       <Actions>
         <MintAction {...props} />
       </Actions>
@@ -56,10 +72,54 @@ export function Mint(props: MintProps) {
   )
 }
 
-// Exactly one thing to do at a time: switch network, mint, or recover
+// Either what went wrong, or what is being saved — never both, and never nothing
+function MintNote({
+  chain,
+  onRightChain,
+  phase,
+  payerDiffers,
+}: MintProps & { payerDiffers: boolean }) {
+  if (!onRightChain) {
+    return <Note alert>This wallet is on another network. Switch it to {chain.name} to go on.</Note>
+  }
+  switch (phase.name) {
+    case "unconfirmed":
+      return <Note alert>The transaction was sent, but we could not confirm it yet.</Note>
+    case "failed": {
+      const error = phase.error
+      if (error.kind === "insufficient-funds") {
+        return <Note alert>This wallet does not have enough {chain.nativeCurrency.symbol}.</Note>
+      }
+      if (error.kind === "reverted") {
+        return (
+          <>
+            <Note alert>The verification cannot be minted from this wallet.</Note>
+            {error.detail ? <ErrorDetail text={error.detail} /> : null}
+          </>
+        )
+      }
+      if (error.kind === "failed") {
+        return (
+          <>
+            <Note alert>The transaction failed. Nothing was charged.</Note>
+            {error.detail ? <ErrorDetail text={error.detail} /> : null}
+          </>
+        )
+      }
+      return <Note alert>You cancelled the transaction in this wallet.</Note>
+    }
+    default:
+      return (
+        <Note>
+          It holds no personal details — only that you passed the check.
+          {payerDiffers ? " This wallet only pays the fee." : ""}
+        </Note>
+      )
+  }
+}
+
+// Exactly one thing to do at a time: switch network, save, or recover
 function MintAction({
-  recipient,
-  payer,
   chain,
   onRightChain,
   phase,
@@ -70,85 +130,43 @@ function MintAction({
   onCheckTransaction,
 }: MintProps) {
   if (!onRightChain) {
-    return (
-      <>
-        <Hint>Switch your wallet to {chain.name} to mint.</Hint>
-        <Primary icon={ICON_SWAP} onClick={onSwitchChain}>
-          Switch to {chain.name}
-        </Primary>
-        <LinkButton onClick={onChangeWallet}>Use a different wallet</LinkButton>
-      </>
-    )
+    return <Primary onClick={onSwitchChain}>Switch to {chain.name}</Primary>
   }
   switch (phase.name) {
     case "preflight":
-      return <Working>Checking the transaction…</Working>
+      return (
+        <Primary busy onClick={onMint}>
+          Checking…
+        </Primary>
+      )
     case "signing":
-      return <Working>Confirm the transaction in your wallet.</Working>
+      return (
+        <Primary busy onClick={onMint}>
+          Confirm in this wallet
+        </Primary>
+      )
     case "pending":
       return (
-        <>
-          <Working>Minting…</Working>
-          <TxLink chain={chain} hash={phase.hash} label="View transaction" />
-        </>
+        <Primary busy onClick={onMint}>
+          Sending transaction…
+        </Primary>
       )
     case "unconfirmed":
-      return (
-        <>
-          <Status>The transaction was sent, but we couldn't confirm it.</Status>
-          <TxLink chain={chain} hash={phase.hash} label="View transaction" />
-          <Primary icon={ICON_REFRESH} onClick={onCheckTransaction}>
-            Check again
-          </Primary>
-        </>
-      )
-    case "ready":
+      return <Primary onClick={onCheckTransaction}>Check again</Primary>
     case "failed": {
-      const error = phase.name === "failed" ? phase.error : null
-      if (error?.kind === "insufficient-funds") {
-        return (
-          <>
-            <Hint>This wallet doesn't have enough ETH for the fee.</Hint>
-            <Primary icon={ICON_WALLET} onClick={onChangeWallet}>
-              Use a different wallet
-            </Primary>
-          </>
-        )
+      const error = phase.error
+      if (error.kind === "insufficient-funds") {
+        return <Primary onClick={onChangeWallet}>Use another wallet</Primary>
       }
-      if (error?.kind === "reverted") {
-        return (
-          <>
-            <Hint>The mint would fail.</Hint>
-            {error.detail ? <ErrorDetail text={error.detail} /> : null}
-            <Primary icon={ICON_REFRESH} onClick={onStartOver}>
-              Start over
-            </Primary>
-          </>
-        )
+      if (error.kind === "reverted") {
+        return <Primary onClick={onStartOver}>Start over</Primary>
       }
-      if (error?.kind === "failed") {
-        return (
-          <>
-            <Hint>Transaction failed.</Hint>
-            {error.detail ? <ErrorDetail text={error.detail} /> : null}
-            <Primary icon={ICON_REFRESH} onClick={onMint}>
-              Try again
-            </Primary>
-            <LinkButton onClick={onChangeWallet}>Use a different wallet</LinkButton>
-          </>
-        )
+      if (error.kind === "failed") {
+        return <Primary onClick={onMint}>Try again</Primary>
       }
-      const payerDiffers = payer.toLowerCase() !== recipient.toLowerCase()
-      return (
-        <>
-          {error ? <Hint>Transaction cancelled in your wallet.</Hint> : null}
-          {!error && payerDiffers ? <Hint>This wallet only pays the network fee.</Hint> : null}
-          <Primary icon={ICON_SHIELD_CHECK} onClick={onMint}>
-            Add to my wallet
-          </Primary>
-          <LinkButton onClick={onChangeWallet}>Use a different wallet</LinkButton>
-        </>
-      )
+      return <Primary onClick={onMint}>Mint verification</Primary>
     }
+    case "ready":
+      return <Primary onClick={onMint}>Mint verification</Primary>
   }
 }

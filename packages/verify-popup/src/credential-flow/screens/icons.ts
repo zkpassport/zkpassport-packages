@@ -11,24 +11,18 @@ export const ICON_CROSS = line(
   2.5,
 )
 
+/** Marks a stage of the journey that is behind you. */
+export const ICON_TICK = line(`<polyline points="4 12.5 9.5 18 20 6.5"/>`, 3.2)
+
 export const ICON_ARROW_LEFT = line(
   `<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>`,
 )
 
-export const ICON_SHIELD_CHECK = line(
-  `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 11.5 11 13.5 15 9.5"/>`,
-)
+/** Sits inside the ring of dots while the phone works. */
+export const ICON_ID_CARD = `<svg viewBox="0 0 48 36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1.6" y="1.6" width="44.8" height="32.8" rx="5.4"/><circle cx="16" cy="15" r="4.4"/><path d="M8.8 27.2c1.3-3.5 3.9-5.3 7.2-5.3s5.9 1.8 7.2 5.3"/><path d="M30 13.6h9M30 20h9"/></svg>`
 
-export const ICON_REFRESH = line(
-  `<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>`,
-)
-
-export const ICON_SWAP = line(
-  `<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>`,
-)
-
-export const ICON_WALLET = line(
-  `<path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>`,
+export const ICON_COPY = line(
+  `<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>`,
 )
 
 export const ICON_EXTERNAL = line(

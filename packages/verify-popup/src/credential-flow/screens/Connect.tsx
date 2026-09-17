@@ -1,16 +1,13 @@
-import { Actions, Hint, Title } from "./primitives"
+import { Heading, Main } from "./primitives"
 import { WalletPicker } from "./WalletPicker"
 
 export function Connect() {
   return (
     <div className="zkp-flow-body">
-      <div className="zkp-flow-heading">
-        <Title>Connect a wallet</Title>
-        <Hint>Your wallet pays a small network fee to add the credential.</Hint>
-      </div>
-      <Actions>
+      <Main>
+        <Heading title="Connect a wallet" hint="The wallet you pick pays a small network fee." />
         <WalletPicker />
-      </Actions>
+      </Main>
     </div>
   )
 }
