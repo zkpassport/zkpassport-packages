@@ -374,6 +374,7 @@ describe("createQuery (offline mode)", () => {
     expect((result as Record<string, unknown>).onReject).toBeUndefined()
     expect((result as Record<string, unknown>).onError).toBeUndefined()
     expect((result as Record<string, unknown>).onBridgeConnect).toBeUndefined()
+    expect((result as Record<string, unknown>).onBridgeConnectionLost).toBeUndefined()
     expect((result as Record<string, unknown>).onRequestReceived).toBeUndefined()
     expect((result as Record<string, unknown>).onGeneratingProof).toBeUndefined()
     expect((result as Record<string, unknown>).onProofGenerated).toBeUndefined()
