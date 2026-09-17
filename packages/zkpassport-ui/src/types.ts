@@ -55,6 +55,7 @@ export type QRCardHandle = {
 // Re-export essential types
 export {
   ZKPassport,
+  VERSION as SDK_VERSION,
   NullifierType,
   ProofType,
   ProofTypeLength,

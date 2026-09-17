@@ -123,6 +123,7 @@ export {
 
 export * from "./types"
 export { createOfflineQuery } from "./offline-query"
+export { VERSION } from "./constants"
 
 let onResultDeprecationWarned = false
 function warnOnResultDeprecated() {
