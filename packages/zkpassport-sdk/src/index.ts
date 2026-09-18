@@ -1162,6 +1162,8 @@ export class ZKPassport {
     this.onBridgeConnectCallbacks[requestId] = []
     this.onBridgeConnectionLostCallbacks[requestId] = []
     this.onProofGeneratedCallbacks[requestId] = []
+    this.onSuccessCallbacks[requestId] = []
+    this.onResultCallbacks[requestId] = []
     this.onRejectCallbacks[requestId] = []
     this.onErrorCallbacks[requestId] = []
   }
