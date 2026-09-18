@@ -36,10 +36,12 @@ export function Mint(props: MintProps) {
   const { recipient, payer, wallet, chain, onRightChain, phase, onChangeWallet } = props
   const payerDiffers = payer.toLowerCase() !== recipient.toLowerCase()
 
-  const rows: Row[] = [{ label: "Network", value: chain.name }]
-  if (payerDiffers) {
-    rows.unshift({ label: "Token goes to", value: <Address value={recipient} /> })
-  }
+  // issue() is permissionless and the proof pins the recipient, so the connected
+  // wallet never implies where the token lands: always name the destination
+  const rows: Row[] = [
+    { label: "Token goes to", value: <Address value={recipient} /> },
+    { label: "Network", value: chain.name },
+  ]
   // Once the transaction is out there, the receipt belongs with the other facts,
   // so the button below never moves to make room for it
   const hash = phase.name === "pending" || phase.name === "unconfirmed" ? phase.hash : null
