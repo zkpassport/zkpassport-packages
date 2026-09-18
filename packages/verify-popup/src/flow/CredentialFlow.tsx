@@ -38,7 +38,7 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   const sendRef = useRef(send)
   sendRef.current = send
   const [queryClient] = useState(() => new QueryClient())
-  const appName = request.name ?? rpHost
+  const appName = request.name || rpHost
   useFlowPage()
 
   const resolved = useMemo((): { chain: Chain; config: Config } | { error: string } => {
@@ -90,7 +90,7 @@ type FlowBodyProps = Omit<CredentialFlowProps, "rpHost"> & {
 }
 
 function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) {
-  const { step, scan, phase, payer, wallet, onRightChain, mint, startOver, checkTransaction } =
+  const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
     useCredentialFlow({ request, credential, appName, chain, send })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
@@ -117,7 +117,7 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
           <Mint
             recipient={credential.recipient}
             payer={payer}
-            wallet={wallet}
+            connector={connector}
             chain={chain}
             onRightChain={onRightChain}
             phase={phase}
@@ -150,7 +150,7 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
 function doneOutcome(step: DoneStep, recipient: `0x${string}`, chain: Chain): DoneOutcome {
   return step.outcome === "minted"
     ? { kind: "minted", hash: step.hash, recipient, chain }
-    : { kind: "already-verified", recipient }
+    : { kind: "already-verified", recipient, chain }
 }
 
 // Two steps: prove who you are, then mint the token

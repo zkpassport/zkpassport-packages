@@ -26,7 +26,7 @@ export function Scanning({ progress }: { progress: ScanProgress }) {
 function caption(progress: ScanProgress): string {
   if (progress.stage === "scanned") return "Approve in the ZKPassport app"
   const { done, total } = progress
-  if (total === null || done === 0) return "Your phone is working on it..."
+  if (total === null) return "Your phone is working on it..."
   if (done < total) return `Checking your details · ${done} of ${total}`
   return "Finishing up..."
 }

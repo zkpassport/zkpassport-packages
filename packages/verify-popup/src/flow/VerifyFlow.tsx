@@ -20,7 +20,7 @@ type VerifyFlowProps = {
 export function VerifyFlow({ request, query, rpHost, send }: VerifyFlowProps) {
   const [scan, setScan] = useState<ScanProgress | null>(null)
   const [verified, setVerified] = useState(false)
-  const appName = request.name ?? rpHost
+  const appName = request.name || rpHost
   useFlowPage()
 
   return (

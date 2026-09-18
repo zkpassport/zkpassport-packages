@@ -1,13 +1,13 @@
 import type { Chain, Hex } from "viem"
 
 import { ICON_SEAL_CHECK } from "./icons"
-import { Actions, Address, AddressLink, Primary, TxLink } from "./primitives"
+import { Actions, AddressLink, Primary, TxLink } from "./primitives"
 
 /** How the flow ended; "verified" is the outcome when nothing is minted. */
 export type DoneOutcome =
   | { kind: "verified" }
   | { kind: "minted"; hash: Hex; recipient: `0x${string}`; chain: Chain }
-  | { kind: "already-verified"; recipient: `0x${string}` }
+  | { kind: "already-verified"; recipient: `0x${string}`; chain: Chain }
 
 export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: string }) {
   return (
@@ -32,14 +32,14 @@ function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }
     return (
       <>
         <p className="zkp-flow-done-sub">Verification token already minted to</p>
-        <Address value={outcome.recipient} chip />
+        <AddressLink chain={outcome.chain} address={outcome.recipient} chip />
       </>
     )
   }
   return (
     <>
       <p className="zkp-flow-done-sub">Verification token minted to</p>
-      <AddressLink chain={outcome.chain} address={outcome.recipient} />
+      <AddressLink chain={outcome.chain} address={outcome.recipient} chip />
       <TxLink chain={outcome.chain} hash={outcome.hash} label="Transaction" quiet />
     </>
   )

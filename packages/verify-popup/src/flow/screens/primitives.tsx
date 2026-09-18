@@ -116,10 +116,48 @@ export function Address({ value, chip }: { value: string; chip?: boolean }) {
   )
 }
 
-/** The same plate, linked to the address on the chain's explorer. */
-export function AddressLink({ chain, address }: { chain: Chain; address: `0x${string}` }) {
+/** An explorer link: the text, then the mark that says it leaves the popup. */
+function ExplorerLink({
+  url,
+  text,
+  title,
+  address,
+  quiet,
+}: {
+  url: string
+  text: string
+  title?: string
+  address?: boolean
+  quiet?: boolean
+}) {
+  return (
+    <a
+      className={address ? "zkp-flow-link zkp-flow-address" : "zkp-flow-link"}
+      data-quiet={quiet ? "" : undefined}
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={title}
+    >
+      {text}
+      <Glyph icon={ICON_EXTERNAL} after />
+    </a>
+  )
+}
+
+/** The address on the chain's explorer; `chip` sets it on a plate of its own. */
+export function AddressLink({
+  chain,
+  address,
+  chip,
+}: {
+  chain: Chain
+  address: `0x${string}`
+  chip?: boolean
+}) {
   const url = explorerAddressUrl(chain, address)
-  if (!url) return <Address value={address} chip />
+  if (!url) return <Address value={address} chip={chip} />
+  if (!chip) return <ExplorerLink url={url} text={shortHex(address)} title={address} address />
   return (
     <a
       className="zkp-flow-address"
@@ -192,16 +230,5 @@ export function TxLink({
 }) {
   const url = explorerTxUrl(chain, hash)
   if (!url) return <Address value={hash} />
-  return (
-    <a
-      className="zkp-flow-link"
-      data-quiet={quiet ? "" : undefined}
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {label ?? shortHex(hash)}
-      <Glyph icon={ICON_EXTERNAL} after />
-    </a>
-  )
+  return <ExplorerLink url={url} text={label ?? shortHex(hash)} quiet={quiet} />
 }

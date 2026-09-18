@@ -1,22 +1,18 @@
 /* Popup-only layout on top of the card's tokens. The card sheet lives in a
    cascade layer, so these unlayered rules win without extra specificity. */
 
-/* The flow paints the whole popup, not just the card. The class is on the body
-   only while a flow is mounted, which keeps the colours below off the popup's
-   other screens — this file is bundled into the page either way. */
+/* On the body only while a flow is mounted, so these colours stay off the
+   popup's other screens. */
 body.zkp-flow-page {
   background: #060c22;
   color-scheme: dark;
+  /* A step slides in from 20px to the right, which would show a scrollbar in a
+     narrow window */
+  overflow-x: hidden;
 }
 
-/* The ZKPassport app's colours, applied to the whole flow. FlowCard and the
-   embedded QR card both ask for the "light" theme, so the sheet's own dark
-   overrides never fire and these are the only colours in play — the popup looks
-   the same whichever theme the operating system is set to.
-
-   Three depths: the card is darkest, the stage inside it is a shade lighter,
-   and anything you read or act on sits a shade lighter again. Gold marks what
-   you act on next, white is the content, muted blue-grey only supports it. */
+/* Both cards ask for the "light" theme, so the sheet's own dark overrides never
+   fire and the popup looks the same whatever theme the system is set to. */
 .zkp-flow-page .zkp-card {
   --zkp-bg: #0a1746;
   --zkp-stage: #182659;
@@ -57,8 +53,8 @@ body.zkp-flow-page {
   background: var(--zkp-stage);
 }
 
-/* Who is asking on the left, who is checking on the right, and three dots in
-   the middle to show the two are paired */
+/* Who is asking on the left, who is checking on the right. Nothing countable
+   here — it would read as a step indicator. */
 .zkp-flow-id {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -85,16 +81,20 @@ body.zkp-flow-page {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.zkp-flow-id-dots {
-  display: flex;
-  gap: 5px;
-}
-.zkp-flow-id-dots i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--zkp-muted);
-  opacity: 0.45;
+.zkp-flow-id-tie {
+  width: 46px;
+  height: 1px;
+  /* Keeps the rule clear of a long app name once it has ellipsised, where a
+     line butted against the text would read as part of it */
+  margin: 0 10px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--zkp-muted) 30%,
+    var(--zkp-muted) 70%,
+    transparent
+  );
+  opacity: 0.5;
 }
 .zkp-flow-id-mark {
   justify-self: end;
@@ -153,9 +153,8 @@ body.zkp-flow-page {
 .zkp-flow-card-slot {
   width: 100%;
 }
-/* Frameless, the card drops out of the flow and its restart button lands in the
-   page corner. Ordering it last inside the card's own column puts it under the
-   QR, where asking for a fresh code belongs. */
+/* Frameless, the restart button lands in the page corner; ordering it last puts
+   it under the QR where it belongs. */
 .zkp-flow-page .zkp-card[data-frame="none"] .zkp-restart {
   order: 10;
   position: static;
@@ -187,10 +186,8 @@ body.zkp-flow-page {
   height: 13px;
 }
 
-/* The card's intro screen is shared with every site that embeds the QR card, so
-   the popup restyles it here instead of editing the published sheet. The shape
-   follows the ZKPassport app: the note above says who is asking, then one panel
-   holding what they want to know. */
+/* The intro screen is shared with every site embedding the card, so the popup
+   restyles it here rather than editing the published sheet. */
 .zkp-flow-page .zkp-intro {
   margin-top: 0;
   gap: 16px;
@@ -460,6 +457,14 @@ body.zkp-flow-page {
 a.zkp-flow-address[data-chip]:hover {
   background: var(--zkp-raised);
 }
+/* Linking a row's address must not dim it to the weight of a supporting link:
+   the destination is the row a reader is here to check */
+.zkp-flow-row .zkp-flow-link.zkp-flow-address {
+  color: var(--zkp-fg);
+}
+.zkp-flow-row .zkp-flow-link.zkp-flow-address:hover {
+  color: var(--zkp-brand);
+}
 
 /* A quiet text button beside the thing it changes */
 .zkp-flow-ghost {
@@ -569,9 +574,8 @@ a.zkp-flow-address[data-chip]:hover {
   }
 }
 
-/* How far along you are, at the foot of the card: one bar per step, half full
-   while that step is running and full once it is behind you. No labels — the
-   title of the step above already says what is happening. */
+/* One bar per step, half full while it runs and full once it is behind you. No
+   labels: the step's own title says what is happening. */
 .zkp-flow-progress {
   display: flex;
   justify-content: center;
@@ -635,6 +639,9 @@ a.zkp-flow-address[data-chip]:hover {
   width: 84px;
   margin-bottom: 18px;
   color: var(--zkp-success);
+  /* The ending's one flourish. Nothing else on the screen animates, so a
+     dropped or unsupported animation can never leave content invisible. */
+  animation: zkp-flow-seal-in 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .zkp-flow-seal[data-tone="error"] {
   color: var(--zkp-error);
@@ -643,6 +650,20 @@ a.zkp-flow-address[data-chip]:hover {
   width: 100%;
   height: auto;
   display: block;
+}
+@keyframes zkp-flow-seal-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .zkp-flow-done-title {
   margin: 0;
@@ -846,7 +867,8 @@ a.zkp-flow-address[data-chip]:hover {
 @media (prefers-reduced-motion: reduce) {
   .zkp-flow-step,
   .zkp-flow-dots i,
-  .zkp-flow-phone-knob {
+  .zkp-flow-phone-knob,
+  .zkp-flow-seal {
     animation: none;
   }
   .zkp-flow-dots i {
@@ -854,10 +876,8 @@ a.zkp-flow-address[data-chip]:hover {
   }
 }
 
-/* The published card sheet marks the button's own look !important from inside
-   its cascade layer, which no unlayered rule can beat. Joining the layer and
-   out-specifying it is the only way to restyle the shared buttons — the flow and
-   the embedded card then offer the same button. */
+/* The published sheet marks these !important inside a cascade layer, so joining
+   the layer and out-specifying it is the only way to restyle them. */
 @layer zkpassport {
   .zkp-flow-page .zkp-card .zkp-intro-continue {
     display: flex !important;

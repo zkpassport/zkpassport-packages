@@ -25,11 +25,7 @@ export function FlowCard({ name, logo, progress, screenKey, children }: FlowCard
           {logo ? <img className="zkp-flow-id-logo" src={logo} alt="" /> : null}
           <span className="zkp-flow-id-name">{name}</span>
         </span>
-        <span className="zkp-flow-id-dots" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
+        <span className="zkp-flow-id-tie" aria-hidden="true" />
         <span
           className="zkp-flow-id-mark"
           dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }}

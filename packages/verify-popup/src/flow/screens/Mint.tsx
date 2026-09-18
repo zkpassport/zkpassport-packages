@@ -6,6 +6,7 @@ import { walletLabel } from "./format"
 import {
   Actions,
   Address,
+  AddressLink,
   ErrorDetail,
   Heading,
   Main,
@@ -21,7 +22,7 @@ import {
 type MintProps = {
   recipient: `0x${string}`
   payer: `0x${string}`
-  wallet?: Connector
+  connector?: Connector
   chain: Chain
   onRightChain: boolean
   phase: MintPhase
@@ -33,18 +34,17 @@ type MintProps = {
 }
 
 export function Mint(props: MintProps) {
-  const { recipient, payer, wallet, chain, onRightChain, phase, onChangeWallet } = props
+  const { recipient, payer, connector, chain, onRightChain, phase, onChangeWallet } = props
   const payerDiffers = payer.toLowerCase() !== recipient.toLowerCase()
 
-  // issue() is permissionless and the proof pins the recipient, so the connected
-  // wallet never implies where the token lands: always name the destination
+  // Anyone can pay, so the connected wallet is not where the token lands
   const rows: Row[] = [
-    { label: "Token goes to", value: <Address value={recipient} /> },
+    { label: "Token goes to", value: <AddressLink chain={chain} address={recipient} /> },
     { label: "Network", value: chain.name },
   ]
   // Once the transaction is out there, the receipt belongs with the other facts,
   // so the button below never moves to make room for it
-  const hash = phase.name === "pending" || phase.name === "unconfirmed" ? phase.hash : null
+  const hash = phase.kind === "pending" || phase.kind === "unconfirmed" ? phase.hash : null
   if (hash) {
     rows.push({ label: "Transaction", value: <TxLink chain={chain} hash={hash} /> })
   }
@@ -55,9 +55,9 @@ export function Mint(props: MintProps) {
         <Heading title="Mint your verification" badge={<VerifiedBadge />} />
         <Panel>
           <div className="zkp-flow-wallet-row">
-            {wallet?.icon ? <img src={wallet.icon} alt="" /> : null}
+            {connector?.icon ? <img src={connector.icon} alt="" /> : null}
             <span className="zkp-flow-wallet-who">
-              <span className="zkp-flow-wallet-name">{walletLabel(wallet)}</span>
+              <span className="zkp-flow-wallet-name">{walletLabel(connector)}</span>
               <Address value={payer} />
             </span>
             {/* Swapping wallets after the transaction is handed over would only
@@ -89,7 +89,7 @@ function MintNote({
   if (!onRightChain) {
     return <Note alert>This wallet is on another network. Switch it to {chain.name} to go on.</Note>
   }
-  switch (phase.name) {
+  switch (phase.kind) {
     case "unconfirmed":
       return <Note alert>The transaction was sent, but we could not confirm it yet.</Note>
     case "failed": {
@@ -139,7 +139,7 @@ function MintAction({
   if (!onRightChain) {
     return <Primary onClick={onSwitchChain}>Switch to {chain.name}</Primary>
   }
-  switch (phase.name) {
+  switch (phase.kind) {
     case "preflight":
       return (
         <Primary busy onClick={onMint}>

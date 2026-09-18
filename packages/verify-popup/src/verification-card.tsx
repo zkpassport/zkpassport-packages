@@ -30,7 +30,7 @@ export function VerificationCard({ config, onRequestCreated, ...rest }: Verifica
   return (
     <ZKPassportQRCode
       domain={domain}
-      name={request.name ?? domain}
+      name={request.name || domain}
       logo={request.logo}
       purpose={request.purpose}
       scope={request.scope}
