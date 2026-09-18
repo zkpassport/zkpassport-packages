@@ -19,11 +19,6 @@ export const ICON_SEAL_CROSS = seal(
   `<path d="M49 49L94 94M94 49L49 94" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>`,
 )
 
-/** Points back and up, the way the relying party's tab sits behind this one. */
-export const ICON_ARROW_BACK = line(
-  `<line x1="18" y1="18" x2="7" y2="7"/><polyline points="7 14.5 7 7 14.5 7"/>`,
-)
-
 export const ICON_COPY = line(
   `<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>`,
 )

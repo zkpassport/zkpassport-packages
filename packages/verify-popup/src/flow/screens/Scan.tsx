@@ -9,15 +9,15 @@ import { Heading, Main } from "./primitives"
  * says there will be.
  */
 export type ScanProgress =
-  | { name: "scanned" }
-  | { name: "proving"; done: number; total: number | null }
+  | { stage: "scanned" }
+  | { stage: "proving"; done: number; total: number | null }
 
 /** Folds one proof into the progress; anything before proving is left alone. */
 export function withProof(
   progress: ScanProgress | null,
   proof: { total?: number },
 ): ScanProgress | null {
-  if (progress?.name !== "proving") return progress
+  if (progress?.stage !== "proving") return progress
   return { ...progress, done: progress.done + 1, total: proof.total ?? progress.total }
 }
 

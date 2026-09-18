@@ -2,7 +2,7 @@ import type { ScanProgress } from "./Scan"
 import { Heading, Main } from "./primitives"
 
 export function Scanning({ progress }: { progress: ScanProgress }) {
-  const approving = progress.name === "scanned"
+  const approving = progress.stage === "scanned"
   return (
     <div className="zkp-flow-body">
       <Main>
@@ -24,7 +24,7 @@ export function Scanning({ progress }: { progress: ScanProgress }) {
 // Proving runs for several seconds, so the line follows the proofs the bridge
 // sends back rather than a timer
 function caption(progress: ScanProgress): string {
-  if (progress.name === "scanned") return "Approve in the ZKPassport app"
+  if (progress.stage === "scanned") return "Approve in the ZKPassport app"
   const { done, total } = progress
   if (total === null || done === 0) return "Your phone is working on it..."
   if (done < total) return `Checking your details · ${done} of ${total}`

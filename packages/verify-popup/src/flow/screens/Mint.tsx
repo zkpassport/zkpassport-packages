@@ -1,7 +1,7 @@
 import type { Chain } from "viem"
 import type { Connector } from "wagmi"
 
-import type { MintPhase } from "../use-credential-flow"
+import { walletHasTransaction, type MintPhase } from "../use-credential-flow"
 import { walletLabel } from "./format"
 import {
   Actions,
@@ -58,9 +58,9 @@ export function Mint(props: MintProps) {
               <span className="zkp-flow-wallet-name">{walletLabel(wallet)}</span>
               <Address value={payer} />
             </span>
-            {/* Once the transaction is signed the payer is settled, so swapping
-                wallets here would only strand the user on the connect screen */}
-            {isSettled(phase) ? null : (
+            {/* Swapping wallets after the transaction is handed over would only
+                strand the user on the connect screen while it lands */}
+            {walletHasTransaction(phase) ? null : (
               <button type="button" className="zkp-flow-ghost" onClick={onChangeWallet}>
                 Change
               </button>
@@ -77,12 +77,7 @@ export function Mint(props: MintProps) {
   )
 }
 
-/** True once the wallet has the transaction and changing it can no longer help. */
-function isSettled(phase: MintPhase): boolean {
-  return phase.name === "signing" || phase.name === "pending" || phase.name === "unconfirmed"
-}
-
-// Either what went wrong, or what is being saved — never both, and never nothing
+// Either what went wrong, or what the token holds — never both, and never nothing
 function MintNote({
   chain,
   onRightChain,
@@ -128,7 +123,7 @@ function MintNote({
   }
 }
 
-// Exactly one thing to do at a time: switch network, save, or recover
+// Exactly one thing to do at a time: switch network, mint, or recover
 function MintAction({
   chain,
   onRightChain,

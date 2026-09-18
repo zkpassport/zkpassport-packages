@@ -16,11 +16,7 @@ type VerifyFlowProps = {
   send: (message: OutgoingEvent) => void
 }
 
-/**
- * The flow for a plain identity check, with no token to mint. It shares the
- * credential flow's card, so both hosted flows look the same; with a single
- * step there is no progress bar to show.
- */
+/** A plain identity check with no token to mint: one step, so no progress bar. */
 export function VerifyFlow({ request, query, rpHost, send }: VerifyFlowProps) {
   const [scan, setScan] = useState<ScanProgress | null>(null)
   const [verified, setVerified] = useState(false)
@@ -28,7 +24,7 @@ export function VerifyFlow({ request, query, rpHost, send }: VerifyFlowProps) {
   useFlowPage()
 
   return (
-    <FlowCard name={appName} logo={request.logo} stepKey={verified ? "done" : "verify"}>
+    <FlowCard name={appName} logo={request.logo} screenKey={verified ? "done" : "verify"}>
       {verified ? (
         <Done outcome={{ kind: "verified" }} appName={appName} />
       ) : (
@@ -38,11 +34,11 @@ export function VerifyFlow({ request, query, rpHost, send }: VerifyFlowProps) {
             theme="light"
             display={{ header: false, frame: false, steps: false, appLinks: false }}
             onRequestReceived={() => {
-              setScan({ name: "scanned" })
+              setScan({ stage: "scanned" })
               send({ type: "request-received" })
             }}
             onGeneratingProof={() => {
-              setScan({ name: "proving", done: 0, total: null })
+              setScan({ stage: "proving", done: 0, total: null })
               send({ type: "generating" })
             }}
             onProofGenerated={(proof) => {

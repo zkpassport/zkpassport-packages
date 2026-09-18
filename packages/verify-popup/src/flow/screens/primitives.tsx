@@ -16,12 +16,10 @@ function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: bo
   )
 }
 
-/** Everything a step has to say, above the button. */
 export function Main({ children }: { children: ReactNode }) {
   return <div className="zkp-flow-main">{children}</div>
 }
 
-/** What this step is for, in one line each. */
 export function Heading({
   title,
   hint,
@@ -44,7 +42,7 @@ export function Heading({
   )
 }
 
-/** Small print under the panel: what is being saved, or what just went wrong. */
+/** Small print under the panel; `alert` turns it into a warning. */
 export function Note({ alert, children }: { alert?: boolean; children: ReactNode }) {
   return (
     <p
@@ -57,7 +55,6 @@ export function Note({ alert, children }: { alert?: boolean; children: ReactNode
   )
 }
 
-/** Carries the step just behind you, so minting does not feel like a fresh start. */
 export function VerifiedBadge() {
   return (
     <p className="zkp-flow-badge">
@@ -67,25 +64,22 @@ export function VerifiedBadge() {
   )
 }
 
-/** Sits at the foot of the card and holds the one thing to do next. */
 export function Actions({ children }: { children: ReactNode }) {
   return <div className="zkp-flow-actions">{children}</div>
 }
 
 export function Primary({
-  icon,
   busy,
   onClick,
   children,
 }: {
-  icon?: string
   busy?: boolean
   onClick: () => void
   children: ReactNode
 }) {
   return (
     <button type="button" className="zkp-intro-continue" disabled={busy} onClick={onClick}>
-      {busy ? <Glyph icon={ICON_SPINNER} spin /> : icon ? <Glyph icon={icon} /> : null}
+      {busy ? <Glyph icon={ICON_SPINNER} spin /> : null}
       {children}
     </button>
   )
@@ -113,7 +107,7 @@ export function Rows({ rows }: { rows: Row[] }) {
   )
 }
 
-/** An address, shortened; `chip` sets it on its own plate to be read out loud. */
+/** An address, shortened; `chip` sets it on a plate of its own. */
 export function Address({ value, chip }: { value: string; chip?: boolean }) {
   return (
     <span className="zkp-flow-address" data-chip={chip ? "" : undefined} title={value}>
@@ -122,7 +116,7 @@ export function Address({ value, chip }: { value: string; chip?: boolean }) {
   )
 }
 
-/** The same plate, but it opens the address on the chain's explorer. */
+/** The same plate, linked to the address on the chain's explorer. */
 export function AddressLink({ chain, address }: { chain: Chain; address: `0x${string}` }) {
   const url = explorerAddressUrl(chain, address)
   if (!url) return <Address value={address} chip />
@@ -140,7 +134,7 @@ export function AddressLink({ chain, address }: { chain: Chain; address: `0x${st
   )
 }
 
-export function CopyButton({ text, label }: { text: string; label: string }) {
+function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -172,7 +166,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
   )
 }
 
-/** A revert reason or RPC failure, kept short on screen and easy to hand over. */
+/** A revert reason or RPC failure, capped on screen and easy to copy. */
 export function ErrorDetail({ text }: { text: string }) {
   return (
     <div className="zkp-flow-detail-block">
@@ -184,7 +178,7 @@ export function ErrorDetail({ text }: { text: string }) {
   )
 }
 
-/** Without a label the hash speaks for itself; `quiet` keeps it out of the way. */
+/** Without a label the shortened hash is the link text. */
 export function TxLink({
   chain,
   hash,

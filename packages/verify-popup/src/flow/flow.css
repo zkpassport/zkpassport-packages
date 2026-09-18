@@ -698,8 +698,8 @@ a.zkp-flow-address[data-chip]:hover {
   border-radius: 9px;
 }
 
-/* Waiting on the phone: a tap landing on the app's approve button, over and
-   over, so it is clear the next move happens there and not here */
+/* Waiting on the phone: the app's slider running itself, over and over, so it
+   is clear the next move happens there and not here */
 .zkp-flow-phone {
   width: 150px;
 }
@@ -715,9 +715,7 @@ a.zkp-flow-address[data-chip]:hover {
   stroke-width: 2.5;
 }
 .zkp-flow-phone-notch,
-.zkp-flow-phone-line {
-  fill: var(--zkp-raised);
-}
+.zkp-flow-phone-line,
 .zkp-flow-phone-track {
   fill: var(--zkp-raised);
 }
@@ -853,9 +851,6 @@ a.zkp-flow-address[data-chip]:hover {
   }
   .zkp-flow-dots i {
     opacity: 0.55;
-  }
-  .zkp-flow-phone-tap {
-    opacity: 0;
   }
 }
 

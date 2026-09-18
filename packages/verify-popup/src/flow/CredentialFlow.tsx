@@ -8,7 +8,7 @@ import type { Chain } from "viem"
 import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "../chains"
 import type { OutgoingEvent } from "../events"
 import { buildWalletConfig } from "../wallet"
-import { FlowCard, type StepState } from "./FlowCard"
+import { FlowCard, type ProgressSegment } from "./FlowCard"
 import { useFlowPage } from "./use-flow-page"
 import { Connect } from "./screens/Connect"
 import { Done, type DoneOutcome } from "./screens/Done"
@@ -17,6 +17,7 @@ import { Mint } from "./screens/Mint"
 import { Resolving } from "./screens/Resolving"
 import { ScanStep } from "./screens/Scan"
 import {
+  mintInProgress,
   useCredentialFlow,
   type DoneStep,
   type FlowStepKind,
@@ -62,7 +63,7 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   // nothing to retry
   if ("error" in resolved) {
     return (
-      <FlowCard name={appName} logo={request.logo} stepKey="error">
+      <FlowCard name={appName} logo={request.logo} screenKey="error">
         <ErrorScreen message={resolved.error} />
       </FlowCard>
     )
@@ -138,8 +139,8 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
     <FlowCard
       name={appName}
       logo={request.logo}
-      steps={progressSteps(step.kind, payer !== undefined, phase)}
-      stepKey={step.kind}
+      progress={progressSegments(step.kind, payer !== undefined, phase)}
+      screenKey={step.kind}
     >
       {screen}
     </FlowCard>
@@ -152,24 +153,21 @@ function doneOutcome(step: DoneStep, recipient: `0x${string}`, chain: Chain): Do
     : { kind: "already-verified", recipient }
 }
 
-// Two steps: prove who you are, then mint the token. A bar fills by half while
-// something is running and all the way once that step is behind you.
-function progressSteps(
+// Two steps: prove who you are, then mint the token
+function progressSegments(
   kind: FlowStepKind,
   connected: boolean,
   phase: MintPhase,
-): StepState[] | undefined {
+): ProgressSegment[] | undefined {
   switch (kind) {
     case "resolving":
     case "verify":
       return ["active", "todo"]
     case "mint":
-      return ["done", connected && isMinting(phase) ? "active" : "todo"]
+      // With no wallet the phase sits at its default, so check for one first
+      // rather than show work that has not started
+      return ["done", connected && mintInProgress(phase) ? "active" : "todo"]
     default:
       return undefined
   }
-}
-
-function isMinting(phase: MintPhase): boolean {
-  return phase.name === "preflight" || phase.name === "signing" || phase.name === "pending"
 }

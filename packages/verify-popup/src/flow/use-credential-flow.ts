@@ -44,6 +44,16 @@ export type MintPhase =
   | { name: "unconfirmed"; hash: Hex }
   | { name: "failed"; error: MintError }
 
+/** Something is running, so the progress bar's second segment is under way. */
+export function mintInProgress(phase: MintPhase): boolean {
+  return phase.name === "preflight" || phase.name === "signing" || phase.name === "pending"
+}
+
+/** The wallet has the transaction, so there is no point swapping wallets now. */
+export function walletHasTransaction(phase: MintPhase): boolean {
+  return phase.name === "signing" || phase.name === "pending" || phase.name === "unconfirmed"
+}
+
 export type DoneStep =
   | { kind: "done"; outcome: "minted"; hash: Hex }
   | { kind: "done"; outcome: "already-verified" }
@@ -124,11 +134,11 @@ export function useCredentialFlow(params: CredentialFlowParams) {
         logo: request.logo,
         purpose: request.purpose,
         onRequestReceived: () => {
-          setScan({ name: "scanned" })
+          setScan({ stage: "scanned" })
           emit({ type: "request-received" })
         },
         onGeneratingProof: () => {
-          setScan({ name: "proving", done: 0, total: null })
+          setScan({ stage: "proving", done: 0, total: null })
           emit({ type: "generating" })
         },
         onProofGenerated: (progress) => {
