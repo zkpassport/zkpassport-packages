@@ -14,13 +14,15 @@ body.zkp-flow-page {
    overrides never fire and these are the only colours in play — the popup looks
    the same whichever theme the operating system is set to.
 
-   Three roles, nothing else: gold marks what you act on next, white is the
-   content, muted blue-grey is everything that only supports it. */
+   Three depths: the card is darkest, the stage inside it is a shade lighter,
+   and anything you read or act on sits a shade lighter again. Gold marks what
+   you act on next, white is the content, muted blue-grey only supports it. */
 .zkp-flow-page .zkp-card {
   --zkp-bg: #0a1746;
-  --zkp-surface: #16244f;
-  --zkp-raised: #22326b;
-  --zkp-border: #263571;
+  --zkp-stage: #182659;
+  --zkp-surface: #27366e;
+  --zkp-raised: #35447f;
+  --zkp-border: #3a4a85;
   --zkp-fg: #ffffff;
   --zkp-muted: #aab4dd;
   --zkp-dim: #8390c4;
@@ -35,12 +37,24 @@ body.zkp-flow-page {
 /* No outline and a deep corner: the card reads as an app sheet on the darker
    page rather than a box on a web page */
 .zkp-flow-card {
-  padding: 18px 0 20px;
+  max-width: 352px;
+  padding: 16px 10px 14px;
   border: none;
   border-radius: 26px;
   /* Tall enough that the short steps keep some air under the button, without
      leaving a hole on the ones that have nothing more to say */
-  min-height: 540px;
+  min-height: 528px;
+}
+/* The lighter box the step lives on, so the eye lands on the step and not on
+   the header or the progress bar that frame it */
+.zkp-flow-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-top: 16px;
+  padding: 0 12px;
+  border-radius: 20px;
+  background: var(--zkp-stage);
 }
 
 /* Who is asking on the left, who is checking on the right, and three dots in
@@ -49,22 +63,22 @@ body.zkp-flow-page {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 0 22px;
+  padding: 0 12px;
 }
 .zkp-flow-id-app {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   min-width: 0;
 }
 .zkp-flow-id-logo {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
   object-fit: contain;
 }
 .zkp-flow-id-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--zkp-fg);
   white-space: nowrap;
@@ -87,36 +101,14 @@ body.zkp-flow-page {
   line-height: 0;
 }
 .zkp-flow-id-mark svg {
-  width: 88px;
+  width: 84px;
   height: auto;
   display: block;
-  opacity: 0.5;
 }
-/* Only the opening screen explains the pairing; every later step has a title of
-   its own, and the card's intro is the one screen that does not */
-.zkp-flow-id-note {
-  display: none;
-  margin: 16px 22px 0;
-  padding: 13px 16px;
-  border-radius: 16px;
-  background: var(--zkp-surface);
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--zkp-muted);
-}
-.zkp-flow-card:has(.zkp-intro, .zkp-flow-skeleton) .zkp-flow-id-note {
-  display: block;
-}
-.zkp-flow-id-note strong {
-  color: var(--zkp-fg);
-  font-weight: 600;
-}
-
 .zkp-flow-step {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 0 22px;
   animation: zkp-flow-slide-in 220ms ease-out;
 }
 @keyframes zkp-flow-slide-in {
@@ -134,14 +126,14 @@ body.zkp-flow-page {
   flex-direction: column;
   flex: 1;
   gap: 18px;
-  padding-top: 18px;
+  padding: 30px 0 24px;
 }
 /* Everything above the button */
 .zkp-flow-main {
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 16px;
+  gap: 20px;
 }
 /* A step that is only waiting puts its picture in the middle of the room the
    title leaves, so the title stays where every other step keeps it */
@@ -161,6 +153,39 @@ body.zkp-flow-page {
 .zkp-flow-card-slot {
   width: 100%;
 }
+/* Frameless, the card drops out of the flow and its restart button lands in the
+   page corner. Ordering it last inside the card's own column puts it under the
+   QR, where asking for a fresh code belongs. */
+.zkp-flow-page .zkp-card[data-frame="none"] .zkp-restart {
+  order: 10;
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  height: auto;
+  margin: 18px auto 0;
+  padding: 7px 13px;
+  border: none;
+  background: none;
+  color: var(--zkp-dim);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+.zkp-flow-page .zkp-card[data-frame="none"] .zkp-restart:hover {
+  background: var(--zkp-surface);
+  color: var(--zkp-muted);
+}
+.zkp-flow-page .zkp-card[data-frame="none"] .zkp-restart::after {
+  content: "New code";
+}
+.zkp-flow-page .zkp-card[data-frame="none"] .zkp-restart svg {
+  width: 13px;
+  height: 13px;
+}
 
 /* The card's intro screen is shared with every site that embeds the QR card, so
    the popup restyles it here instead of editing the published sheet. The shape
@@ -168,34 +193,40 @@ body.zkp-flow-page {
    holding what they want to know. */
 .zkp-flow-page .zkp-intro {
   margin-top: 0;
-  gap: 22px;
+  gap: 16px;
 }
 .zkp-flow-page .zkp-intro-request {
   padding: 0;
   border: none;
-  background: none;
-}
-/* The note above the step already names the app and what it wants */
-.zkp-flow-page .zkp-eyebrow {
-  display: none;
-}
-.zkp-flow-page .zkp-intro-list {
-  gap: 0;
   border-radius: 18px;
   background: var(--zkp-surface);
 }
+/* The panel's own header, so the ask and the checks read as one block */
+.zkp-flow-page .zkp-eyebrow {
+  margin: 0;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--zkp-border);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--zkp-muted);
+}
+.zkp-flow-page .zkp-intro-list {
+  gap: 0;
+}
 .zkp-flow-page .zkp-intro-list li {
   align-items: center;
-  gap: 13px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 13px 16px;
 }
 .zkp-flow-page .zkp-intro-list li + li {
   border-top: 1px solid var(--zkp-border);
 }
 /* A filled disc, the way the app marks a check that passed */
 .zkp-flow-page .zkp-intro-check {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   margin: 0;
   align-items: center;
   justify-content: center;
@@ -204,23 +235,31 @@ body.zkp-flow-page {
   color: var(--zkp-success);
 }
 .zkp-flow-page .zkp-intro-check svg {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
 }
 .zkp-flow-page .zkp-intro-item-title {
-  font-size: 14.5px;
+  font-size: 13px;
+  font-weight: 500;
 }
+/* One line per check, the way the app lists them; the footer covers privacy
+   once for the whole list instead of repeating it under every row */
 .zkp-flow-page .zkp-intro-item-detail {
-  margin-top: 2px;
-  font-size: 12.5px;
-  color: var(--zkp-dim);
+  display: none;
 }
 .zkp-flow-page .zkp-intro-question {
-  gap: 9px;
-  padding-top: 0;
+  gap: 8px;
+  padding-top: 16px;
+}
+.zkp-flow-page .zkp-intro-question .zkp-divider {
+  margin-top: 8px;
+}
+.zkp-flow-page .zkp-intro-question .zkp-intro-continue {
+  margin-top: 8px !important;
 }
 .zkp-flow-page .zkp-chip-symbol {
-  width: 44px;
+  width: 38px;
+  margin-bottom: 3px;
   color: var(--zkp-fg);
 }
 .zkp-flow-page .zkp-intro-question-text {
@@ -228,35 +267,63 @@ body.zkp-flow-page {
   font-size: 14.5px;
 }
 .zkp-flow-page .zkp-intro-question-hint {
-  max-width: none;
+  max-width: 264px;
+  margin-inline: auto;
   font-size: 12.5px;
   color: var(--zkp-dim);
 }
 .zkp-flow-page .zkp-intro-footer {
   gap: 10px;
+  padding-top: 0;
 }
 .zkp-flow-page .zkp-divider {
   background: var(--zkp-border);
 }
 .zkp-flow-page .zkp-intro-footer-note {
+  padding: 0 10px;
   font-size: 12px;
   color: var(--zkp-dim);
 }
+/* The card's own badges would be boxed in with the note; the flow shows its own
+   pair at the foot, where every other screen keeps the progress bar */
 .zkp-flow-page .zkp-privacy-strip {
+  display: none;
+}
+.zkp-flow-privacy {
+  display: none;
+  justify-content: center;
   gap: 8px;
+  margin: 0;
+  padding: 16px 0 0;
   font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
   color: var(--zkp-brand);
+}
+.zkp-flow-privacy span + span::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--zkp-dim);
+}
+.zkp-flow-card:has(.zkp-intro) .zkp-flow-privacy {
+  display: flex;
 }
 /* The resolving screen borrows the request panel, which no longer carries a
    surface of its own */
 .zkp-flow-skeleton {
   width: 100%;
-  padding: 18px;
   border-radius: 18px;
   background: var(--zkp-surface);
+}
+.zkp-flow-skeleton .zkp-skel-rows {
+  padding: 16px;
+}
+/* Stands in the header's line box, so the panel keeps its height when the real
+   heading arrives */
+.zkp-flow-skeleton .zkp-eyebrow .zkp-skel-row {
+  display: inline-block;
+  vertical-align: middle;
+  width: 45%;
+  height: 9px;
 }
 .zkp-flow-body:has(.zkp-intro) {
   padding-top: 14px;
@@ -274,6 +341,19 @@ body.zkp-flow-page {
   align-items: center;
   gap: 6px;
   text-align: center;
+}
+/* Confirms the step behind you without competing with the title */
+.zkp-flow-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  margin: -8px 0 8px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--zkp-success) 14%, transparent);
+  color: var(--zkp-success);
+  font-size: 11.5px;
+  font-weight: 600;
 }
 .zkp-flow-title {
   margin: 0;
@@ -298,7 +378,7 @@ body.zkp-flow-page {
   flex-direction: column;
   gap: 10px;
   margin-top: auto;
-  padding: 18px 0 8px;
+  padding: 18px 0 0;
 }
 .zkp-flow-actions:empty {
   display: none;
@@ -367,12 +447,18 @@ body.zkp-flow-page {
 }
 /* On its own plate, when the address is the one thing the screen is about */
 .zkp-flow-address[data-chip] {
-  padding: 9px 16px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
   border-radius: 12px;
   background: var(--zkp-surface);
   color: var(--zkp-fg);
   font-size: 14px;
   letter-spacing: 0.02em;
+  text-decoration: none;
+}
+a.zkp-flow-address[data-chip]:hover {
+  background: var(--zkp-raised);
 }
 
 /* A quiet text button beside the thing it changes */
@@ -422,24 +508,21 @@ body.zkp-flow-page {
 
 /* Small print under the panel: what is being saved, or what just went wrong */
 .zkp-flow-note {
-  margin: 0;
-  padding: 0 2px;
+  max-width: 280px;
+  margin: 0 auto;
   font-size: 12.5px;
   line-height: 1.5;
+  text-align: center;
   color: var(--zkp-dim);
 }
+/* The mirror of the "ID verified" badge: what went wrong, on its own tint */
 .zkp-flow-note[data-tone="alert"] {
-  color: var(--zkp-fg);
-}
-.zkp-flow-note[data-tone="alert"]::before {
-  content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin: 0 8px 2px 0;
-  border-radius: 50%;
-  background: var(--zkp-error);
-  vertical-align: middle;
+  align-self: center;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--zkp-error) 14%, transparent);
+  color: var(--zkp-error);
+  font-weight: 500;
 }
 .zkp-flow-link {
   display: inline-flex;
@@ -453,6 +536,12 @@ body.zkp-flow-page {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* An aside, not an action: it sits below the thing the screen is really about */
+.zkp-flow-link[data-quiet] {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--zkp-dim);
+}
 /* Sized in em, so a glyph always matches the text beside it */
 .zkp-flow-glyph {
   display: inline-block;
@@ -464,6 +553,7 @@ body.zkp-flow-page {
 .zkp-flow-glyph[data-after] {
   margin-right: 0;
   margin-left: 0.4em;
+  opacity: 0.65;
 }
 .zkp-flow-glyph svg {
   width: 100%;
@@ -485,17 +575,26 @@ body.zkp-flow-page {
 .zkp-flow-progress {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 3px;
   margin: 0;
-  padding: 20px 22px 0;
+  padding: 16px 0 0;
   list-style: none;
 }
 .zkp-flow-progress li {
-  width: 64px;
+  width: 30px;
   height: 3px;
-  border-radius: 999px;
-  background: var(--zkp-raised);
   overflow: hidden;
+  background: #3f4b77;
+}
+/* Only the outer ends are rounded, so the run reads as one bar cut in two */
+.zkp-flow-progress li:first-child {
+  border-radius: 999px 0 0 999px;
+}
+.zkp-flow-progress li:last-child {
+  border-radius: 0 999px 999px 0;
+}
+.zkp-flow-progress li[data-state="active"] {
+  background: #68749d;
 }
 .zkp-flow-progress li::before {
   content: "";
@@ -508,22 +607,17 @@ body.zkp-flow-page {
 }
 .zkp-flow-progress li[data-state="active"]::before {
   width: 50%;
-  animation: zkp-flow-creep 2s ease-in-out infinite;
 }
 .zkp-flow-progress li[data-state="done"]::before {
   width: 100%;
 }
-/* The opening screen has nothing behind it to count, but it keeps the bar's
-   room so nothing shifts when the card swaps its intro for the QR */
-.zkp-flow-card:has(.zkp-intro, .zkp-flow-skeleton) .zkp-flow-progress {
+/* The opening screen has nothing behind it to count */
+.zkp-flow-card:has(.zkp-intro) .zkp-flow-progress {
+  display: none;
+}
+.zkp-flow-card:has(.zkp-flow-skeleton) .zkp-flow-progress {
   visibility: hidden;
 }
-@keyframes zkp-flow-creep {
-  50% {
-    width: 62%;
-  }
-}
-
 /* An ending: a big mark, a short line, and the way back */
 .zkp-flow-done {
   display: flex;
@@ -532,29 +626,23 @@ body.zkp-flow-page {
   align-items: center;
   justify-content: center;
   gap: 12px;
+  padding-top: 40px;
   text-align: center;
 }
+/* The disc and its mark both come from the artwork, so the seal only has to say
+   how big it is and which colour it takes */
 .zkp-flow-seal {
-  width: 88px;
-  margin-bottom: 6px;
+  width: 84px;
+  margin-bottom: 18px;
   color: var(--zkp-success);
+}
+.zkp-flow-seal[data-tone="error"] {
+  color: var(--zkp-error);
 }
 .zkp-flow-seal svg {
   width: 100%;
   height: auto;
   display: block;
-}
-.zkp-flow-seal[data-tone="error"] {
-  display: grid;
-  place-items: center;
-  width: 74px;
-  height: 74px;
-  border-radius: 50%;
-  border: 4px solid var(--zkp-error);
-  color: var(--zkp-error);
-}
-.zkp-flow-seal[data-tone="error"] span {
-  width: 34px;
 }
 .zkp-flow-done-title {
   margin: 0;
@@ -630,66 +718,65 @@ body.zkp-flow-page {
 .zkp-flow-phone-line {
   fill: var(--zkp-raised);
 }
-.zkp-flow-phone-button,
-.zkp-flow-phone-check,
-.zkp-flow-phone-tap {
-  transform-box: fill-box;
-  transform-origin: center;
+.zkp-flow-phone-track {
+  fill: var(--zkp-raised);
 }
-.zkp-flow-phone-button,
-.zkp-flow-phone-check {
-  animation: zkp-flow-tap-press 2.4s ease-in-out infinite;
-}
-.zkp-flow-phone-button {
-  fill: var(--zkp-brand);
-}
-.zkp-flow-phone-check {
-  fill: none;
-  stroke: var(--zkp-bg);
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transform-origin: 62px 130px;
-}
-.zkp-flow-phone-tap {
+.zkp-flow-phone-chevron {
   fill: none;
   stroke: var(--zkp-brand);
-  stroke-width: 2.5;
-  animation: zkp-flow-tap-ring 2.4s ease-out infinite;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.4;
 }
-@keyframes zkp-flow-tap-press {
+.zkp-flow-phone-knob {
+  fill: var(--zkp-brand);
+  animation: zkp-flow-swipe 3.2s ease-in-out infinite;
+}
+/* Fades out at the far end rather than snapping back to the start */
+@keyframes zkp-flow-swipe {
   0%,
+  10% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  22%,
+  58% {
+    opacity: 1;
+  }
   58%,
-  76%,
+  74% {
+    transform: translateX(36px);
+  }
+  74%,
   100% {
-    transform: scale(1);
-  }
-  67% {
-    transform: scale(0.93);
-  }
-}
-@keyframes zkp-flow-tap-ring {
-  0%,
-  62% {
+    transform: translateX(36px);
     opacity: 0;
-    transform: scale(1);
-  }
-  70% {
-    opacity: 0.8;
-    transform: scale(1.08);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.45);
   }
 }
 
 /* Building the proof takes seconds with nothing to show, so three dots keep
    time until it lands */
+.zkp-flow-waiting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.zkp-flow-waiting .zkp-flow-hint {
+  font-size: 13px;
+  color: var(--zkp-dim);
+}
+/* Closing the tab drops the bridge, so the wait comes with a warning */
+.zkp-flow-keep-open {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--zkp-dim);
+  opacity: 0.7;
+}
 .zkp-flow-dots {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   height: 150px;
 }
 .zkp-flow-dots i {
@@ -715,6 +802,23 @@ body.zkp-flow-page {
     opacity: 1;
     transform: scale(1.25);
   }
+}
+
+/* The card marks its own failure over the dimmed QR; give that mark the same
+   tinted disc the flow's seals use */
+.zkp-flow-page .zkp-error-icon {
+  width: 62px;
+  height: 62px;
+  background: color-mix(in srgb, var(--zkp-error) 21%, transparent);
+  color: var(--zkp-error);
+}
+.zkp-flow-page .zkp-error-icon svg {
+  width: 46%;
+  height: 46%;
+}
+.zkp-flow-page .zkp-overlay-caption {
+  font-size: 15px;
+  font-weight: 600;
 }
 
 /* A revert reason or RPC failure can run long; cap it and let it scroll */
@@ -744,10 +848,7 @@ body.zkp-flow-page {
 @media (prefers-reduced-motion: reduce) {
   .zkp-flow-step,
   .zkp-flow-dots i,
-  .zkp-flow-phone-button,
-  .zkp-flow-phone-check,
-  .zkp-flow-phone-tap,
-  .zkp-flow-progress li::before {
+  .zkp-flow-phone-knob {
     animation: none;
   }
   .zkp-flow-dots i {
@@ -784,6 +885,14 @@ body.zkp-flow-page {
   }
   .zkp-flow-page .zkp-card .zkp-intro-continue:disabled:hover {
     filter: none !important;
+  }
+  .zkp-flow-page .zkp-card .zkp-retry {
+    margin-top: 16px !important;
+    padding: 12px 26px !important;
+    background: var(--zkp-brand) !important;
+    color: #0a1746 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
   }
   .zkp-flow-page .zkp-card .zkp-intro-link {
     align-self: center !important;

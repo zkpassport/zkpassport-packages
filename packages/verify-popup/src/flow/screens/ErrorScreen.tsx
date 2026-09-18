@@ -1,4 +1,4 @@
-import { ICON_CROSS } from "./icons"
+import { ICON_SEAL_CROSS } from "./icons"
 import { Actions, ErrorDetail, Heading, Primary } from "./primitives"
 
 type ErrorScreenProps = {
@@ -11,9 +11,11 @@ export function ErrorScreen({ message, onRetry }: ErrorScreenProps) {
   return (
     <div className="zkp-flow-body">
       <div className="zkp-flow-done">
-        <div className="zkp-flow-seal" data-tone="error">
-          <span dangerouslySetInnerHTML={{ __html: ICON_CROSS }} />
-        </div>
+        <div
+          className="zkp-flow-seal"
+          data-tone="error"
+          dangerouslySetInnerHTML={{ __html: ICON_SEAL_CROSS }}
+        />
         <Heading title="Something went wrong" />
         <ErrorDetail text={message} />
       </div>

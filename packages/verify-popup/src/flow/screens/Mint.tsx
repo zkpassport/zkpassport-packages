@@ -14,6 +14,7 @@ import {
   Primary,
   Rows,
   TxLink,
+  VerifiedBadge,
   type Row,
 } from "./primitives"
 
@@ -43,13 +44,13 @@ export function Mint(props: MintProps) {
   // so the button below never moves to make room for it
   const hash = phase.name === "pending" || phase.name === "unconfirmed" ? phase.hash : null
   if (hash) {
-    rows.push({ label: "Transaction", value: <TxLink chain={chain} hash={hash} label="View" /> })
+    rows.push({ label: "Transaction", value: <TxLink chain={chain} hash={hash} /> })
   }
 
   return (
     <div className="zkp-flow-body">
       <Main>
-        <Heading title="Mint your verification" hint="You pay a small network fee." />
+        <Heading title="Mint your verification" badge={<VerifiedBadge />} />
         <Panel>
           <div className="zkp-flow-wallet-row">
             {wallet?.icon ? <img src={wallet.icon} alt="" /> : null}
@@ -57,9 +58,13 @@ export function Mint(props: MintProps) {
               <span className="zkp-flow-wallet-name">{walletLabel(wallet)}</span>
               <Address value={payer} />
             </span>
-            <button type="button" className="zkp-flow-ghost" onClick={onChangeWallet}>
-              Change
-            </button>
+            {/* Once the transaction is signed the payer is settled, so swapping
+                wallets here would only strand the user on the connect screen */}
+            {isSettled(phase) ? null : (
+              <button type="button" className="zkp-flow-ghost" onClick={onChangeWallet}>
+                Change
+              </button>
+            )}
           </div>
           <Rows rows={rows} />
         </Panel>
@@ -70,6 +75,11 @@ export function Mint(props: MintProps) {
       </Actions>
     </div>
   )
+}
+
+/** True once the wallet has the transaction and changing it can no longer help. */
+function isSettled(phase: MintPhase): boolean {
+  return phase.name === "signing" || phase.name === "pending" || phase.name === "unconfirmed"
 }
 
 // Either what went wrong, or what is being saved — never both, and never nothing
@@ -106,12 +116,12 @@ function MintNote({
           </>
         )
       }
-      return <Note alert>You cancelled the transaction in this wallet.</Note>
+      return <Note alert>You cancelled the transaction.</Note>
     }
     default:
       return (
         <Note>
-          The token holds no personal details — only that you passed the check.
+          The token holds no personal data. It only proves you passed the check.
           {payerDiffers ? " This wallet only pays the fee." : ""}
         </Note>
       )
@@ -142,7 +152,7 @@ function MintAction({
     case "signing":
       return (
         <Primary busy onClick={onMint}>
-          Confirm in this wallet
+          Confirm in wallet
         </Primary>
       )
     case "pending":
@@ -164,9 +174,9 @@ function MintAction({
       if (error.kind === "failed") {
         return <Primary onClick={onMint}>Try again</Primary>
       }
-      return <Primary onClick={onMint}>Mint verification token</Primary>
+      return <Primary onClick={onMint}>Mint</Primary>
     }
     case "ready":
-      return <Primary onClick={onMint}>Mint verification token</Primary>
+      return <Primary onClick={onMint}>Mint</Primary>
   }
 }

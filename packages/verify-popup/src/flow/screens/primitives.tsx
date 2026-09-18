@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react"
 import type { Chain, Hex } from "viem"
 
-import { explorerTxUrl, shortHex } from "./format"
-import { ICON_COPY, ICON_EXTERNAL, ICON_SPINNER } from "./icons"
+import { explorerAddressUrl, explorerTxUrl, shortHex } from "./format"
+import { ICON_CHECK, ICON_COPY, ICON_EXTERNAL, ICON_SPINNER } from "./icons"
 
 // Sized in em, so every glyph matches the text it sits with
 function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: boolean }) {
@@ -22,9 +22,18 @@ export function Main({ children }: { children: ReactNode }) {
 }
 
 /** What this step is for, in one line each. */
-export function Heading({ title, hint }: { title: string; hint?: string }) {
+export function Heading({
+  title,
+  hint,
+  badge,
+}: {
+  title: string
+  hint?: string
+  badge?: ReactNode
+}) {
   return (
     <div className="zkp-flow-heading">
+      {badge}
       <p className="zkp-flow-title">{title}</p>
       {hint ? (
         <p className="zkp-flow-hint" role="status">
@@ -44,6 +53,16 @@ export function Note({ alert, children }: { alert?: boolean; children: ReactNode
       role={alert ? "status" : undefined}
     >
       {children}
+    </p>
+  )
+}
+
+/** Carries the step just behind you, so minting does not feel like a fresh start. */
+export function VerifiedBadge() {
+  return (
+    <p className="zkp-flow-badge">
+      <Glyph icon={ICON_CHECK} />
+      ID verified
     </p>
   )
 }
@@ -103,6 +122,24 @@ export function Address({ value, chip }: { value: string; chip?: boolean }) {
   )
 }
 
+/** The same plate, but it opens the address on the chain's explorer. */
+export function AddressLink({ chain, address }: { chain: Chain; address: `0x${string}` }) {
+  const url = explorerAddressUrl(chain, address)
+  if (!url) return <Address value={address} chip />
+  return (
+    <a
+      className="zkp-flow-address"
+      data-chip=""
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={address}
+    >
+      {shortHex(address)}
+    </a>
+  )
+}
+
 export function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -147,12 +184,29 @@ export function ErrorDetail({ text }: { text: string }) {
   )
 }
 
-export function TxLink({ chain, hash, label }: { chain: Chain; hash: Hex; label: string }) {
+/** Without a label the hash speaks for itself; `quiet` keeps it out of the way. */
+export function TxLink({
+  chain,
+  hash,
+  label,
+  quiet,
+}: {
+  chain: Chain
+  hash: Hex
+  label?: string
+  quiet?: boolean
+}) {
   const url = explorerTxUrl(chain, hash)
   if (!url) return <Address value={hash} />
   return (
-    <a className="zkp-flow-link" href={url} target="_blank" rel="noopener noreferrer">
-      {label}
+    <a
+      className="zkp-flow-link"
+      data-quiet={quiet ? "" : undefined}
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {label ?? shortHex(hash)}
       <Glyph icon={ICON_EXTERNAL} after />
     </a>
   )

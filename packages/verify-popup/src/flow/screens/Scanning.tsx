@@ -1,34 +1,39 @@
-import { useEffect, useState } from "react"
-
 import type { ScanProgress } from "./Scan"
 import { Heading, Main } from "./primitives"
 
-// Proving runs for several seconds with nothing to show for it, so the line
-// under the title moves on even when the phone has no news.
-const PROVING_CAPTIONS = ["Your phone is working on it", "This takes a few seconds", "Almost there"]
-const CAPTION_SECONDS = 3.5
-
 export function Scanning({ progress }: { progress: ScanProgress }) {
-  const approving = progress === "scanned"
-  const provingCaption = useRotatingCaption(PROVING_CAPTIONS)
-  const caption = approving ? "Tap Approve in the ZKPassport app" : provingCaption
+  const approving = progress.name === "scanned"
   return (
     <div className="zkp-flow-body">
       <Main>
-        <Heading title={approving ? "Check your phone" : "Checking your ID"} />
+        <Heading title={approving ? "Check your phone" : "Generating proof"} />
         <div className="zkp-flow-waiting">
-          {approving ? <PhoneTap /> : <PulsingDots />}
-          <p className="zkp-flow-hint" role="status">
-            {caption}
-          </p>
+          {approving ? <PhoneSwipe /> : <PulsingDots />}
+          <div className="zkp-flow-waiting-text">
+            <p className="zkp-flow-hint" role="status">
+              {caption(progress)}
+            </p>
+            <p className="zkp-flow-keep-open">Keep this window open</p>
+          </div>
         </div>
       </Main>
     </div>
   )
 }
 
-// A phone with its approve button lit up, and a tap landing on it over and over
-function PhoneTap() {
+// Proving runs for several seconds, so the line follows the proofs the bridge
+// sends back rather than a timer
+function caption(progress: ScanProgress): string {
+  if (progress.name === "scanned") return "Approve in the ZKPassport app"
+  const { done, total } = progress
+  if (total === null || done === 0) return "Your phone is working on it..."
+  if (done < total) return `Checking your details · ${done} of ${total}`
+  return "Finishing up..."
+}
+
+// The app confirms with a slide, not a tap, so the knob runs the track over and
+// over rather than a button being pressed
+function PhoneSwipe() {
   return (
     <div className="zkp-flow-phone" aria-hidden="true">
       <svg viewBox="0 0 124 176">
@@ -36,9 +41,10 @@ function PhoneTap() {
         <rect className="zkp-flow-phone-notch" x="50" y="15" width="24" height="5" rx="2.5" />
         <rect className="zkp-flow-phone-line" x="32" y="46" width="60" height="7" rx="3.5" />
         <rect className="zkp-flow-phone-line" x="32" y="63" width="42" height="7" rx="3.5" />
-        <rect className="zkp-flow-phone-button" x="30" y="116" width="64" height="28" rx="14" />
-        <polyline className="zkp-flow-phone-check" points="53 130 59 136 71 124" />
-        <rect className="zkp-flow-phone-tap" x="30" y="116" width="64" height="28" rx="14" />
+        <rect className="zkp-flow-phone-track" x="30" y="116" width="64" height="28" rx="14" />
+        <polyline className="zkp-flow-phone-chevron" points="70 125 76 130 70 135" />
+        <polyline className="zkp-flow-phone-chevron" points="79 125 85 130 79 135" />
+        <circle className="zkp-flow-phone-knob" cx="44" cy="130" r="11" />
       </svg>
     </div>
   )
@@ -53,20 +59,4 @@ function PulsingDots() {
       <i />
     </div>
   )
-}
-
-// Holds on the last line rather than looping, so a long wait never looks like it
-// went back to the start
-function useRotatingCaption(captions: readonly string[]): string {
-  const [index, setIndex] = useState(0)
-
-  useEffect(() => {
-    const timer = window.setInterval(
-      () => setIndex((current) => Math.min(current + 1, captions.length - 1)),
-      CAPTION_SECONDS * 1000,
-    )
-    return () => window.clearInterval(timer)
-  }, [captions])
-
-  return captions[index]
 }

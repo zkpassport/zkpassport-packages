@@ -24,7 +24,7 @@ import {
 
 import type { OutgoingEvent } from "../events"
 import { describeMintError, type MintError } from "./mint-errors"
-import type { ScanProgress } from "./screens/Scan"
+import { withProof, type ScanProgress } from "./screens/Scan"
 
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
@@ -124,20 +124,22 @@ export function useCredentialFlow(params: CredentialFlowParams) {
         logo: request.logo,
         purpose: request.purpose,
         onRequestReceived: () => {
-          setScan("scanned")
+          setScan({ name: "scanned" })
           emit({ type: "request-received" })
         },
         onGeneratingProof: () => {
-          setScan("proving")
+          setScan({ name: "proving", done: 0, total: null })
           emit({ type: "generating" })
         },
-        onProofGenerated: (progress) =>
+        onProofGenerated: (progress) => {
+          setScan((current) => withProof(current, progress))
           emit({
             type: "proof-generated",
             index: progress.index,
             total: progress.total,
             name: progress.name,
-          }),
+          })
+        },
         onReject: () => {
           setScan(null)
           emit({ type: "rejected" })

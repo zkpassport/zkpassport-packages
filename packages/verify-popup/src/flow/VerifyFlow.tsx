@@ -6,7 +6,7 @@ import { VerificationCard } from "../verification-card"
 import { FlowCard } from "./FlowCard"
 import { useFlowPage } from "./use-flow-page"
 import { Done } from "./screens/Done"
-import { ScanStep, type ScanProgress } from "./screens/Scan"
+import { ScanStep, withProof, type ScanProgress } from "./screens/Scan"
 
 type VerifyFlowProps = {
   request: PopupConfigureMessage["request"]
@@ -38,21 +38,22 @@ export function VerifyFlow({ request, query, rpHost, send }: VerifyFlowProps) {
             theme="light"
             display={{ header: false, frame: false, steps: false, appLinks: false }}
             onRequestReceived={() => {
-              setScan("scanned")
+              setScan({ name: "scanned" })
               send({ type: "request-received" })
             }}
             onGeneratingProof={() => {
-              setScan("proving")
+              setScan({ name: "proving", done: 0, total: null })
               send({ type: "generating" })
             }}
-            onProofGenerated={(proof) =>
+            onProofGenerated={(proof) => {
+              setScan((current) => withProof(current, proof))
               send({
                 type: "proof-generated",
                 index: proof.index,
                 total: proof.total,
                 name: proof.name,
               })
-            }
+            }}
             onSuccess={({ proofs, result }) => {
               setVerified(true)
               send({ type: "success", proofs, result })

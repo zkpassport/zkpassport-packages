@@ -214,9 +214,8 @@ export function Card({ options, controlRef }: CardProps) {
   )
 }
 
-// The ICAO e-passport symbol printed on the cover of biometric passports:
-// a rounded rectangle with a horizontal line broken by a solid circle
-const ICON_EPASSPORT_CHIP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 36" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="1.6" y="1.6" width="48.8" height="32.8" rx="5"/><line x1="8.5" y1="18" x2="17" y2="18"/><line x1="35" y1="18" x2="43.5" y2="18"/><circle cx="26" cy="18" r="6.5" fill="currentColor" stroke="none"/></svg>`
+// The ICAO e-passport symbol printed on the cover of biometric passports
+const ICON_EPASSPORT_CHIP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 32" fill="currentColor" aria-hidden="true"><circle cx="27.5033" cy="15.722" r="7.48372"/><path d="M55.1719 31.4604H0V17.3281H17.0845C17.857 22.3884 22.2278 26.265 27.504 26.265C32.7802 26.265 37.151 22.3884 37.9235 17.3281H55.1719V31.4604Z"/><path d="M55.1719 14.1192H37.9236C37.1511 9.05887 32.7803 5.18223 27.504 5.18223C22.2278 5.18223 17.857 9.05887 17.0845 14.1192H0V0H55.1719V14.1192Z"/></svg>`
 
 function IntroSection({
   appName,
@@ -266,9 +265,10 @@ function IntroSection({
           aria-hidden="true"
           dangerouslySetInnerHTML={{ __html: ICON_EPASSPORT_CHIP }}
         />
-        <p className="zkp-intro-question-text">Look for this symbol on your ID or passport</p>
+        <p className="zkp-intro-question-text">Biometric ID</p>
         <p className="zkp-intro-question-hint">
-          Your phone reads the chip over NFC. The document itself is never shared.
+          Look for this symbol on your ID or passport. Only biometric IDs work. Your phone reads the
+          chip over NFC.
         </p>
         <div className="zkp-divider" />
         <button type="button" className="zkp-intro-continue" onClick={onContinue}>

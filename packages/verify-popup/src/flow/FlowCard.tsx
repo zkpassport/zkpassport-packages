@@ -15,8 +15,8 @@ type FlowCardProps = {
   children: ReactNode
 }
 
-// One box for the whole flow: who is asking stays at the top and how far along
-// you are stays at the foot, while the step between them changes.
+// Who is asking and how far along you are frame the card from outside; the step
+// itself sits on a lighter stage between them, so the eye lands there first.
 // The "light" theme switches off the card sheet's own dark variant, leaving the
 // flow's colours in flow.css as the only ones that apply.
 export function FlowCard({ name, logo, steps, stepKey, children }: FlowCardProps) {
@@ -37,14 +37,17 @@ export function FlowCard({ name, logo, steps, stepKey, children }: FlowCardProps
           dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }}
         />
       </div>
-      {/* flow.css keeps this on the opening screen only; every later step says what it wants */}
-      <p className="zkp-flow-id-note">
-        <strong>{name}</strong> wants to check your identity privately with{" "}
-        <strong>ZKPassport</strong>.
-      </p>
-      <div key={stepKey} className="zkp-flow-step">
-        {children}
+      <div className="zkp-flow-stage">
+        <div key={stepKey} className="zkp-flow-step">
+          {children}
+        </div>
       </div>
+      {/* The opening screen has no progress to show, so it puts these here instead */}
+      <p className="zkp-flow-privacy">
+        <span>Private</span>
+        <span>Encrypted</span>
+        <span>On your device</span>
+      </p>
       {steps ? (
         <ol className="zkp-flow-progress" aria-hidden="true">
           {steps.map((state, index) => (

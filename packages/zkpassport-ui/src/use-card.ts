@@ -54,6 +54,9 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   // Continue lands on the right screen
   const bridgeStateRef = useRef<CardState>("preparing")
   const introActiveRef = useRef(introEnabled)
+  // Once the intro is behind you it stays behind you, so asking for a fresh
+  // request lands back on the QR rather than replaying the explanation
+  const introSeenRef = useRef(false)
 
   // Held in a ref so StrictMode / Fast Refresh don't spin up a second SDK
   // and orphan the bridge the phone is already talking to.
@@ -67,7 +70,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     let cancelled = false
     let readyFired = false
     let activeRequestId: string | null = null
-    const intro = optionsRef.current.showIntroScreen === true
+    const intro = optionsRef.current.showIntroScreen === true && !introSeenRef.current
     introActiveRef.current = intro
     bridgeStateRef.current = "preparing"
     setState(intro ? "intro" : "preparing")
@@ -288,6 +291,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   // Intro → QR screen (phone flow)
   const continueWithPhone = useCallback(() => {
     introActiveRef.current = false
+    introSeenRef.current = true
     setState(bridgeStateRef.current)
   }, [])
 

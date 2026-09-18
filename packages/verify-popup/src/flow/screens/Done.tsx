@@ -1,7 +1,7 @@
 import type { Chain, Hex } from "viem"
 
-import { ICON_ARROW_LEFT, ICON_CHECK_CIRCLE } from "./icons"
-import { Actions, Address, Primary, TxLink } from "./primitives"
+import { ICON_SEAL_CHECK } from "./icons"
+import { Actions, Address, AddressLink, Primary, TxLink } from "./primitives"
 
 /** How the flow ended; "verified" is the outcome when nothing is minted. */
 export type DoneOutcome =
@@ -13,14 +13,12 @@ export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: stri
   return (
     <div className="zkp-flow-body">
       <div className="zkp-flow-done">
-        <div className="zkp-flow-seal" dangerouslySetInnerHTML={{ __html: ICON_CHECK_CIRCLE }} />
-        <p className="zkp-flow-done-title">You're verified</p>
+        <div className="zkp-flow-seal" dangerouslySetInnerHTML={{ __html: ICON_SEAL_CHECK }} />
+        <p className="zkp-flow-done-title">Verified</p>
         <Outcome outcome={outcome} appName={appName} />
       </div>
       <Actions>
-        <Primary icon={ICON_ARROW_LEFT} onClick={() => window.close()}>
-          Return to {appName}
-        </Primary>
+        <Primary onClick={() => window.close()}>Return to {appName}</Primary>
       </Actions>
     </div>
   )
@@ -33,16 +31,16 @@ function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }
   if (outcome.kind === "already-verified") {
     return (
       <>
-        <p className="zkp-flow-done-sub">This wallet already holds a verification token:</p>
+        <p className="zkp-flow-done-sub">Verification token already minted to</p>
         <Address value={outcome.recipient} chip />
       </>
     )
   }
   return (
     <>
-      <p className="zkp-flow-done-sub">Your verification token was minted to:</p>
-      <Address value={outcome.recipient} chip />
-      <TxLink chain={outcome.chain} hash={outcome.hash} label="View transaction" />
+      <p className="zkp-flow-done-sub">Verification token minted to</p>
+      <AddressLink chain={outcome.chain} address={outcome.recipient} />
+      <TxLink chain={outcome.chain} hash={outcome.hash} label="Transaction" quiet />
     </>
   )
 }
