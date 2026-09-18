@@ -266,13 +266,11 @@ function IntroSection({
           aria-hidden="true"
           dangerouslySetInnerHTML={{ __html: ICON_EPASSPORT_CHIP }}
         />
-        <p className="zkp-intro-question-text">Do you have a passport or ID card with a chip?</p>
+        <p className="zkp-intro-question-text">Look for this symbol on your ID or passport</p>
         <p className="zkp-intro-question-hint">
-          You can verify with a chip-enabled passport or ID without sharing your document. Your
-          phone can read it over NFC.
-          <br />
-          Look for this symbol on the cover.
+          Your phone reads the chip over NFC. The document itself is never shared.
         </p>
+        <div className="zkp-divider" />
         <button type="button" className="zkp-intro-continue" onClick={onContinue}>
           Continue
         </button>
@@ -280,6 +278,10 @@ function IntroSection({
 
       <div className="zkp-intro-footer">
         <div className="zkp-divider" />
+        <p className="zkp-intro-footer-note">
+          Your passport data never leaves your device. {appName} and ZKPassport only see what you
+          choose to share.
+        </p>
         <div className="zkp-privacy-strip" aria-label="Private, encrypted, on your device">
           <span>Private</span>
           <span className="zkp-privacy-dot" aria-hidden="true">
@@ -291,10 +293,6 @@ function IntroSection({
           </span>
           <span>On your device</span>
         </div>
-        <p className="zkp-intro-footer-note">
-          Neither {appName} nor ZKPassport ever sees any personal information beyond what you choose
-          to share. Your raw passport data stays on your devices.
-        </p>
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 import type { Chain, Hex } from "viem"
 
-import { explorerAddressUrl, explorerTxUrl, shortHex } from "./format"
+import { explorerTxUrl, shortHex } from "./format"
 import { ICON_COPY, ICON_EXTERNAL, ICON_SPINNER } from "./icons"
 
 // Sized in em, so every glyph matches the text it sits with
@@ -26,13 +26,13 @@ export function Heading({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="zkp-flow-heading">
       <p className="zkp-flow-title">{title}</p>
-      {hint ? <p className="zkp-flow-hint">{hint}</p> : null}
+      {hint ? (
+        <p className="zkp-flow-hint" role="status">
+          {hint}
+        </p>
+      ) : null}
     </div>
   )
-}
-
-export function Title({ children }: { children: ReactNode }) {
-  return <p className="zkp-flow-title">{children}</p>
 }
 
 /** Small print under the panel: what is being saved, or what just went wrong. */
@@ -94,8 +94,13 @@ export function Rows({ rows }: { rows: Row[] }) {
   )
 }
 
-export function Address({ value }: { value: string }) {
-  return <span className="zkp-flow-address">{shortHex(value)}</span>
+/** An address, shortened; `chip` sets it on its own plate to be read out loud. */
+export function Address({ value, chip }: { value: string; chip?: boolean }) {
+  return (
+    <span className="zkp-flow-address" data-chip={chip ? "" : undefined} title={value}>
+      {shortHex(value)}
+    </span>
+  )
 }
 
 export function CopyButton({ text, label }: { text: string; label: string }) {
@@ -139,16 +144,6 @@ export function ErrorDetail({ text }: { text: string }) {
       </p>
       <CopyButton text={text} label="Copy the details" />
     </div>
-  )
-}
-
-export function AddressLink({ chain, address }: { chain: Chain; address: `0x${string}` }) {
-  const url = explorerAddressUrl(chain, address)
-  if (!url) return <Address value={address} />
-  return (
-    <a className="zkp-flow-link" href={url} target="_blank" rel="noopener noreferrer">
-      <Address value={address} />
-    </a>
   )
 }
 

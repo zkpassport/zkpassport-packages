@@ -10,6 +10,8 @@ export type VerificationConfig = {
 
 type VerificationCardProps = Pick<
   ZKPassportQRCodeProps,
+  | "theme"
+  | "display"
   | "onRequestReceived"
   | "onGeneratingProof"
   | "onProofGenerated"
@@ -21,7 +23,7 @@ type VerificationCardProps = Pick<
   onRequestCreated?: (sdkRequest: QueryBuilderResult) => void
 }
 
-export function VerificationCard({ config, onRequestCreated, ...events }: VerificationCardProps) {
+export function VerificationCard({ config, onRequestCreated, ...rest }: VerificationCardProps) {
   const { domain, request, query } = config
 
   // Listed one by one so the opening website cannot pass extra request options
@@ -43,7 +45,7 @@ export function VerificationCard({ config, onRequestCreated, ...events }: Verifi
         onRequestCreated?.(sdkRequest)
         return sdkRequest
       }}
-      {...events}
+      {...rest}
     />
   )
 }

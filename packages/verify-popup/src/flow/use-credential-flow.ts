@@ -10,7 +10,6 @@ import type {
   PopupCredentialConfig,
   PopupCredentialIssueCall,
   PopupConfigureMessage,
-  PopupEventMessage,
 } from "@zkpassport/sdk/popup"
 import {
   createCredentialsContext,
@@ -23,10 +22,10 @@ import {
   type ZKPassportQRCodeOptions,
 } from "@zkpassport/ui/hosted"
 
+import type { OutgoingEvent } from "../events"
 import { describeMintError, type MintError } from "./mint-errors"
+import type { ScanProgress } from "./screens/Scan"
 
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
-export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
 type VerifiedProof = { success: SuccessMessage; issueCall: CredentialIssueCall }
@@ -50,9 +49,6 @@ export type DoneStep =
   | { kind: "done"; outcome: "already-verified" }
 
 export type FlowStepKind = FlowStep["kind"]
-
-/** How far the phone has got, once it has picked the request up. */
-export type ScanProgress = "scanned" | "proving"
 
 type FlowStep =
   | { kind: "resolving" }

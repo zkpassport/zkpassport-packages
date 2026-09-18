@@ -698,6 +698,10 @@
   .zkp-intro-question .zkp-intro-continue {
     margin-top: 6px;
   }
+  .zkp-intro-question .zkp-divider {
+    align-self: stretch;
+    margin-top: 10px;
+  }
 
   .zkp-intro-question-text {
     margin: 4px 0 0;

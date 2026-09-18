@@ -37,7 +37,7 @@ export function Mint(props: MintProps) {
 
   const rows: Row[] = [{ label: "Network", value: chain.name }]
   if (payerDiffers) {
-    rows.unshift({ label: "Verification goes to", value: <Address value={recipient} /> })
+    rows.unshift({ label: "Token goes to", value: <Address value={recipient} /> })
   }
   // Once the transaction is out there, the receipt belongs with the other facts,
   // so the button below never moves to make room for it
@@ -111,7 +111,7 @@ function MintNote({
     default:
       return (
         <Note>
-          It holds no personal details — only that you passed the check.
+          The token holds no personal details — only that you passed the check.
           {payerDiffers ? " This wallet only pays the fee." : ""}
         </Note>
       )
@@ -164,9 +164,9 @@ function MintAction({
       if (error.kind === "failed") {
         return <Primary onClick={onMint}>Try again</Primary>
       }
-      return <Primary onClick={onMint}>Mint verification</Primary>
+      return <Primary onClick={onMint}>Mint verification token</Primary>
     }
     case "ready":
-      return <Primary onClick={onMint}>Mint verification</Primary>
+      return <Primary onClick={onMint}>Mint verification token</Primary>
   }
 }
