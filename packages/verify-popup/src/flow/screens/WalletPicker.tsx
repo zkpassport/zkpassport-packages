@@ -1,7 +1,8 @@
 import { ProviderNotFoundError, useConnect, useConnectors, type Connector } from "wagmi"
 import { BaseError, UserRejectedRequestError } from "viem"
 
-import { Hint } from "./primitives"
+import { walletLabel } from "./format"
+import { Note } from "./primitives"
 
 // Wagmi lists every wallet announced via EIP-6963 as its own connector, plus the
 // plain injected one for wallets that only set window.ethereum. The plain one is
@@ -27,25 +28,25 @@ export function WalletPicker() {
               onClick={() => connect.mutate({ connector })}
             >
               {connector.icon ? <img src={connector.icon} alt="" /> : null}
-              <span>{connector.id === "injected" ? "Browser wallet" : connector.name}</span>
+              <span>{walletLabel(connector)}</span>
             </button>
           </li>
         ))}
       </ul>
-      {connect.error ? <Hint>{describeConnectError(connect.error)}</Hint> : null}
+      {connect.error ? <Note alert>{describeConnectError(connect.error)}</Note> : null}
     </>
   )
 }
 
 function describeConnectError(error: Error): string {
   if (error instanceof ProviderNotFoundError) {
-    return "No browser wallet found. Install a wallet extension and reload this page."
+    return "No wallet found. Install a wallet extension, then reload this page."
   }
   if (
     error instanceof BaseError &&
     error.walk((cause) => cause instanceof UserRejectedRequestError)
   ) {
-    return "Connection cancelled in your wallet."
+    return "You cancelled the connection."
   }
-  return "Could not connect to the wallet."
+  return "Could not connect to that wallet."
 }

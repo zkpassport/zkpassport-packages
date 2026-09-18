@@ -16,7 +16,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "flex-start",
     gap: 12,
-    padding: "16px 12px 24px",
+    padding: "32px 12px 24px",
     boxSizing: "border-box",
   },
   notice: {
