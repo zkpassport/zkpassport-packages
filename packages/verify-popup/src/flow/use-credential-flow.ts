@@ -10,7 +10,6 @@ import type {
   PopupCredentialConfig,
   PopupCredentialIssueCall,
   PopupConfigureMessage,
-  PopupEventMessage,
 } from "@zkpassport/sdk/popup"
 import {
   createCredentialsContext,
@@ -23,10 +22,10 @@ import {
   type ZKPassportQRCodeOptions,
 } from "@zkpassport/ui/hosted"
 
+import type { OutgoingEvent } from "../events"
 import { describeMintError, type MintError } from "./mint-errors"
+import { withProof, type ScanProgress } from "./screens/Scan"
 
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
-export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
 type VerifiedProof = { success: SuccessMessage; issueCall: CredentialIssueCall }
@@ -38,16 +37,28 @@ function toPopupIssueCall(call: CredentialIssueCall): PopupCredentialIssueCall {
 }
 
 export type MintPhase =
-  | { name: "preflight" }
-  | { name: "ready" }
-  | { name: "signing" }
-  | { name: "pending"; hash: Hex }
-  | { name: "unconfirmed"; hash: Hex }
-  | { name: "failed"; error: MintError }
+  | { kind: "preflight" }
+  | { kind: "ready" }
+  | { kind: "signing" }
+  | { kind: "pending"; hash: Hex }
+  | { kind: "unconfirmed"; hash: Hex }
+  | { kind: "failed"; error: MintError }
+
+/** Something is running, so the progress bar's second segment is under way. */
+export function mintInProgress(phase: MintPhase): boolean {
+  return phase.kind === "preflight" || phase.kind === "signing" || phase.kind === "pending"
+}
+
+/** The wallet has the transaction, so there is no point swapping wallets now. */
+export function walletHasTransaction(phase: MintPhase): boolean {
+  return phase.kind === "signing" || phase.kind === "pending" || phase.kind === "unconfirmed"
+}
 
 export type DoneStep =
   | { kind: "done"; outcome: "minted"; hash: Hex }
   | { kind: "done"; outcome: "already-verified" }
+
+export type FlowStepKind = FlowStep["kind"]
 
 type FlowStep =
   | { kind: "resolving" }
@@ -73,11 +84,12 @@ function toSuccessMessage(raw: CredentialVerifyResult["raw"]): SuccessMessage {
 export function useCredentialFlow(params: CredentialFlowParams) {
   const { request, credential, appName, chain, send } = params
   const [step, setStep] = useState<FlowStep>({ kind: "resolving" })
+  const [scan, setScan] = useState<ScanProgress | null>(null)
   const sendRef = useRef(send)
   sendRef.current = send
 
   // The connected wallet only pays the fee
-  const { address: payer, chainId } = useConnection()
+  const { address: payer, chainId, connector } = useConnection()
   const onRightChain = chainId === chain.id
 
   const { credentials: credentialsContract, publicClient } = useMemo(
@@ -95,6 +107,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     const attempt = ++resolveAttempt.current
     const stale = () => resolveAttempt.current !== attempt
     setStep({ kind: "resolving" })
+    setScan(null)
 
     const run = async () => {
       const policyId = BigInt(credential.policyId)
@@ -120,21 +133,38 @@ export function useCredentialFlow(params: CredentialFlowParams) {
         name: appName,
         logo: request.logo,
         purpose: request.purpose,
-        onRequestReceived: () => emit({ type: "request-received" }),
-        onGeneratingProof: () => emit({ type: "generating" }),
-        onProofGenerated: (progress) =>
+        onRequestReceived: () => {
+          setScan({ stage: "scanned" })
+          emit({ type: "request-received" })
+        },
+        onGeneratingProof: () => {
+          setScan({ stage: "proving", done: 0, total: null })
+          emit({ type: "generating" })
+        },
+        onProofGenerated: (proof) => {
+          setScan((current) => withProof(current, proof))
           emit({
             type: "proof-generated",
-            index: progress.index,
-            total: progress.total,
-            name: progress.name,
-          }),
-        onReject: () => emit({ type: "rejected" }),
-        onError: (message) => emit({ type: "error", message: String(message) }),
+            index: proof.index,
+            total: proof.total,
+            name: proof.name,
+          })
+        },
+        onReject: () => {
+          setScan(null)
+          emit({ type: "rejected" })
+        },
+        onError: (message) => {
+          setScan(null)
+          emit({ type: "error", message: String(message) })
+        },
         onResult: (result) => {
           if (stale()) return
           // An unverified proof leaves the card in its own error state, with its retry
-          if (!result.verified) return
+          if (!result.verified) {
+            setScan(null)
+            return
+          }
           if (!result.issueCall) {
             const message = "The proof cannot be verified on-chain."
             setStep({ kind: "error", message })
@@ -212,22 +242,30 @@ export function useCredentialFlow(params: CredentialFlowParams) {
   }, [mintedHash])
 
   const derivePhase = (): MintPhase => {
+    // Re-sending would only revert again, so offer a fresh start, not a retry
     if (receipt.data?.status === "reverted") {
-      return { name: "failed", error: { kind: "failed", detail: "The transaction reverted." } }
+      return { kind: "failed", error: { kind: "reverted", detail: "The transaction reverted." } }
     }
-    if (write.isPending) return { name: "signing" }
+    if (write.isPending) return { kind: "signing" }
     if (write.data && !mintedHash) {
       // The transaction is already out there, so a lookup failure must never offer to resend
-      if (receipt.error) return { name: "unconfirmed", hash: write.data }
-      return { name: "pending", hash: write.data }
+      if (receipt.error) return { kind: "unconfirmed", hash: write.data }
+      return { kind: "pending", hash: write.data }
     }
-    if (write.error) return { name: "failed", error: describeMintError(write.error) }
-    if (simulation.isFetching) return { name: "preflight" }
-    if (simulation.error) return { name: "failed", error: describeMintError(simulation.error) }
-    if (simulation.data) return { name: "ready" }
-    return { name: "preflight" }
+    if (write.error) return { kind: "failed", error: describeMintError(write.error) }
+    if (simulation.isFetching) return { kind: "preflight" }
+    if (simulation.error) return { kind: "failed", error: describeMintError(simulation.error) }
+    if (simulation.data) return { kind: "ready" }
+    return { kind: "preflight" }
   }
   const phase = derivePhase()
+
+  // Clear the last wallet's failure, or the next wallet inherits it. A
+  // transaction already sent is left alone.
+  useEffect(() => {
+    if (walletHasTransaction(phase)) return
+    write.reset()
+  }, [payer])
 
   // Sends the simulated call; after a failed simulation it re-checks instead
   const mint = () => {
@@ -244,5 +282,5 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     void receipt.refetch()
   }
 
-  return { step, phase, payer, onRightChain, mint, startOver, checkTransaction }
+  return { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction }
 }

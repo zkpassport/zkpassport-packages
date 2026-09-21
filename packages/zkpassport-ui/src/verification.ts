@@ -168,7 +168,6 @@ export function createVerification(
           )
         },
         onReject: () => {
-          if (latestAttempt === thisAttempt) popupFinished = true
           setStatus("error")
           getOptions().onReject?.()
         },

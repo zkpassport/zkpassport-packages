@@ -1,4 +1,4 @@
-import type { IDCredential, Query } from "@zkpassport/sdk"
+import type { BoundData, IDCredential, Query } from "@zkpassport/sdk"
 
 /**
  * Render a query as human-readable items for the intro screen.
@@ -138,6 +138,15 @@ function describeField(field: IDCredential, conditions: any, items: QueryDescrip
     items.push({ title: `Share your ${fieldLabel}`, detail: DISCLOSE_DETAIL })
 }
 
+// A bound proof only counts for the wallet it names, which is the part worth
+// showing; with no wallet, the chain and custom payload are all there is to say.
+function describeBinding(bound: BoundData): string {
+  const wallet = bound.user_address
+  if (!wallet) return "Attach the provided data to this verification"
+  const short = wallet.length > 12 ? `${wallet.slice(0, 6)}…${wallet.slice(-4)}` : wallet
+  return `Only valid for wallet ${short}`
+}
+
 export function describeQuery(query: Query | null | undefined): QueryDescriptionItem[] {
   if (!query) return []
   const items: QueryDescriptionItem[] = []
@@ -158,7 +167,7 @@ export function describeQuery(query: Query | null | undefined): QueryDescription
       continue
     }
     if (field === "bind") {
-      items.push({ title: "Attach the provided data to this verification" })
+      items.push({ title: describeBinding(conditions as BoundData) })
       continue
     }
     describeField(field as IDCredential, conditions, items)

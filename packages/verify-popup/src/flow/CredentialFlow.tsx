@@ -1,19 +1,28 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WagmiProvider, useDisconnect, useSwitchChain, type Config } from "wagmi"
 import type { PopupCredentialConfig, PopupConfigureMessage } from "@zkpassport/sdk/popup"
-import { injectStyles, ZKPassportQRCode } from "@zkpassport/ui/hosted"
+import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 import type { Chain } from "viem"
 
 import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "../chains"
+import type { OutgoingEvent } from "../events"
 import { buildWalletConfig } from "../wallet"
-import { FlowCard } from "./FlowCard"
-import { Done } from "./screens/Done"
+import { FlowCard, type ProgressSegment } from "./FlowCard"
+import { useFlowPage } from "./use-flow-page"
+import { Connect } from "./screens/Connect"
+import { Done, type DoneOutcome } from "./screens/Done"
 import { ErrorScreen } from "./screens/ErrorScreen"
 import { Mint } from "./screens/Mint"
 import { Resolving } from "./screens/Resolving"
-import { useCredentialFlow, type OutgoingEvent } from "./use-credential-flow"
-import "./flow.css"
+import { ScanStep } from "./screens/Scan"
+import {
+  mintInProgress,
+  useCredentialFlow,
+  type DoneStep,
+  type FlowStepKind,
+  type MintPhase,
+} from "./use-credential-flow"
 
 type CredentialFlowProps = {
   request: PopupConfigureMessage["request"]
@@ -29,7 +38,8 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   const sendRef = useRef(send)
   sendRef.current = send
   const [queryClient] = useState(() => new QueryClient())
-  const appName = request.name ?? rpHost
+  const appName = request.name || rpHost
+  useFlowPage()
 
   const resolved = useMemo((): { chain: Chain; config: Config } | { error: string } => {
     try {
@@ -43,18 +53,17 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
     }
   }, [credential])
 
-  // The frame reuses the card's classes, so inject that stylesheet up front
-  useLayoutEffect(injectStyles, [])
-
   useEffect(() => {
     if ("error" in resolved) {
       sendRef.current({ type: "error", message: resolved.error })
     }
   }, [resolved])
 
+  // A chain the popup cannot reach is a configuration fault, so there is
+  // nothing to retry
   if ("error" in resolved) {
     return (
-      <FlowCard name={appName} logo={request.logo} stepKey="error">
+      <FlowCard name={appName} logo={request.logo} screenKey="error">
         <ErrorScreen message={resolved.error} />
       </FlowCard>
     )
@@ -81,15 +90,8 @@ type FlowBodyProps = Omit<CredentialFlowProps, "rpHost"> & {
 }
 
 function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) {
-  const { step, phase, payer, onRightChain, mint, startOver, checkTransaction } = useCredentialFlow(
-    {
-      request,
-      credential,
-      appName,
-      chain,
-      send,
-    },
-  )
+  const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
+    useCredentialFlow({ request, credential, appName, chain, send })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
 
@@ -99,17 +101,23 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
         return <Resolving />
       case "verify":
         return (
-          <ZKPassportQRCode
-            {...step.cardOptions}
-            showIntroScreen
-            display={{ header: false, frame: false }}
-          />
+          <ScanStep progress={scan}>
+            <ZKPassportQRCode
+              {...step.cardOptions}
+              showIntroScreen
+              theme="light"
+              display={{ header: false, frame: false, steps: false, appLinks: false }}
+            />
+          </ScanStep>
         )
       case "mint":
-        return (
+        return !payer ? (
+          <Connect />
+        ) : (
           <Mint
             recipient={credential.recipient}
             payer={payer}
+            connector={connector}
             chain={chain}
             onRightChain={onRightChain}
             phase={phase}
@@ -121,15 +129,45 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
           />
         )
       case "done":
-        return <Done step={step} recipient={credential.recipient} chain={chain} appName={appName} />
+        return <Done outcome={doneOutcome(step, credential.recipient, chain)} appName={appName} />
       case "error":
-        return <ErrorScreen message={step.message} />
+        return <ErrorScreen message={step.message} onRetry={startOver} />
     }
   })()
 
   return (
-    <FlowCard name={appName} logo={request.logo} stepKey={step.kind}>
+    <FlowCard
+      name={appName}
+      logo={request.logo}
+      progress={progressSegments(step.kind, payer !== undefined, phase)}
+      screenKey={step.kind}
+    >
       {screen}
     </FlowCard>
   )
+}
+
+function doneOutcome(step: DoneStep, recipient: `0x${string}`, chain: Chain): DoneOutcome {
+  return step.outcome === "minted"
+    ? { kind: "minted", hash: step.hash, recipient, chain }
+    : { kind: "already-verified", recipient, chain }
+}
+
+// Two steps: prove who you are, then mint the token
+function progressSegments(
+  kind: FlowStepKind,
+  connected: boolean,
+  phase: MintPhase,
+): ProgressSegment[] | undefined {
+  switch (kind) {
+    case "resolving":
+    case "verify":
+      return ["active", "todo"]
+    case "mint":
+      // With no wallet the phase sits at its default, so check for one first
+      // rather than show work that has not started
+      return ["done", connected && mintInProgress(phase) ? "active" : "todo"]
+    default:
+      return undefined
+  }
 }
