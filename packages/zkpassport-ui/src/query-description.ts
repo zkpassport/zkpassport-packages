@@ -139,11 +139,12 @@ function describeField(field: IDCredential, conditions: any, items: QueryDescrip
 }
 
 // A bound proof only counts for the wallet it names, which is the part worth
-// showing; the chain and any custom payload are plumbing.
+// showing; with no wallet, the chain and custom payload are all there is to say.
 function describeBinding(bound: BoundData): string {
   const wallet = bound.user_address
-  if (!wallet) return "Only valid for this request"
-  return `Only valid for wallet ${wallet.slice(0, 6)}…${wallet.slice(-4)}`
+  if (!wallet) return "Attach the provided data to this verification"
+  const short = wallet.length > 12 ? `${wallet.slice(0, 6)}…${wallet.slice(-4)}` : wallet
+  return `Only valid for wallet ${short}`
 }
 
 export function describeQuery(query: Query | null | undefined): QueryDescriptionItem[] {

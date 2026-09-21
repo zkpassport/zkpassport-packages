@@ -161,7 +161,10 @@ export function useCredentialFlow(params: CredentialFlowParams) {
         onResult: (result) => {
           if (stale()) return
           // An unverified proof leaves the card in its own error state, with its retry
-          if (!result.verified) return
+          if (!result.verified) {
+            setScan(null)
+            return
+          }
           if (!result.issueCall) {
             const message = "The proof cannot be verified on-chain."
             setStep({ kind: "error", message })
