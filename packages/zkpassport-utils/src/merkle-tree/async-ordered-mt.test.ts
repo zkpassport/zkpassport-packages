@@ -5,6 +5,7 @@ import AsyncOrderedMT, {
   SortedNonMembershipProof,
   Node,
   BN254_MODULUS_MINUS_ONE,
+  nodeToHex,
 } from "./async-ordered-mt"
 import { poseidon2 } from "./index"
 
@@ -217,5 +218,42 @@ describe("AsyncOrderedMT (ordered set)", () => {
     const bad2: any = [...serialized]
     bad2[0] = null
     await expect(AsyncOrderedMT.fromSerialized(bad2, poseidon2)).rejects.toThrow()
+  })
+  test("initialize rejects unsorted, duplicate and sentinel-valued leaves", async () => {
+    const tree = await AsyncOrderedMT.create(3, poseidon2)
+    await expect(tree.initialize([3n, 1n])).rejects.toThrow("sorted ascending and unique")
+    await expect(tree.initialize([1n, 1n])).rejects.toThrow("sorted ascending and unique")
+    await expect(tree.initialize([0n, 1n])).rejects.toThrow("reserved as a sentinel")
+    await expect(tree.initialize([1n, BN254_MODULUS_MINUS_ONE])).rejects.toThrow(
+      "reserved as a sentinel",
+    )
+  })
+
+  test("initialize leaves its argument untouched", async () => {
+    const tree = await AsyncOrderedMT.create(3, poseidon2)
+    const input = [2n, 4n]
+    await tree.initialize(input)
+    expect(input).toEqual([2n, 4n])
+  })
+
+  test("leaves returns the real leaves, sorted, without sentinels, after build or load", async () => {
+    const tree = await AsyncOrderedMT.create(3, poseidon2)
+    await tree.initializeAndSort([9n, 4n, 4n, 2n])
+    expect(tree.leaves).toEqual([2n, 4n, 9n])
+
+    const loaded = await AsyncOrderedMT.fromSerialized(tree.serialize(), poseidon2)
+    expect(loaded.leaves).toEqual([2n, 4n, 9n])
+    expect(loaded.root).toBe(tree.root)
+
+    const empty = await AsyncOrderedMT.create(3, poseidon2)
+    expect(empty.leaves).toEqual([])
+  })
+
+  test("nodeToHex is 0x-prefixed 32-byte lower-case hex, as serialize writes nodes", async () => {
+    expect(nodeToHex(0n)).toBe(`0x${"0".repeat(64)}`)
+    expect(nodeToHex(255n)).toBe(`0x${"0".repeat(62)}ff`)
+    const tree = await AsyncOrderedMT.create(2, poseidon2)
+    await tree.initialize([5n])
+    expect(tree.serialize()[2][0]).toBe(nodeToHex(tree.root))
   })
 })

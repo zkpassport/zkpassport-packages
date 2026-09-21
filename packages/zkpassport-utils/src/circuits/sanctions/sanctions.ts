@@ -8,7 +8,7 @@ import {
   withRetry,
 } from "@/utils"
 import { sha256 } from "@noble/hashes/sha2.js"
-import { poseidon2, AsyncOrderedMT } from "@/merkle-tree"
+import { poseidon2, AsyncOrderedMT, nodeToHex } from "@/merkle-tree"
 import { SortedNonMembershipProof } from "@/merkle-tree/async-ordered-mt"
 import {
   getBirthdateRange,
@@ -21,6 +21,12 @@ import {
 } from "@/passport/getters"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { ProofType, ProofTypeLength } from "@/index"
+import {
+  documentNumberAndNationalityLeafPreimage,
+  nameAndDobLeafPreimage,
+  nameAndYobLeafPreimage,
+  nameLeafPreimage,
+} from "./leaves"
 
 export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
@@ -40,11 +46,11 @@ export class SanctionsBuilder {
   }
 
   getRootHash(): Buffer {
-    return Buffer.from(this.tree.root.toString(16).padStart(64, "0"), "hex")
+    return Buffer.from(this.getRoot().slice(2), "hex")
   }
 
   getRoot(): string {
-    return `0x${this.tree.root.toString(16).padStart(64, "0")}`
+    return nodeToHex(this.tree.root)
   }
 
   async getSanctionsMerkleProofs(
@@ -220,9 +226,9 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   const name2Bytes = stringToAsciiStringArray(name2)
   const name3Bytes = stringToAsciiStringArray(name3)
 
-  const name1Hash = await poseidon2(name1Bytes)
-  const name2Hash = await poseidon2(name2Bytes)
-  const name3Hash = await poseidon2(name3Bytes)
+  const name1Hash = await poseidon2(nameLeafPreimage(name1Bytes))
+  const name2Hash = await poseidon2(nameLeafPreimage(name2Bytes))
+  const name3Hash = await poseidon2(nameLeafPreimage(name3Bytes))
 
   const dateOfBirthBytes = stringToAsciiStringArray(
     passport.mrz.slice(...getBirthdateRange(passport)),
@@ -232,13 +238,17 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   )
   const nationalityBytes = stringToAsciiStringArray(getNationality(passport))
 
-  const name1AndDOBBytes = [...name1Bytes, ...dateOfBirthBytes]
-  const name1AndYobBytes = [...name1Bytes, ...dateOfBirthBytes.slice(0, 2)]
-  const name2AndDOBBytes = [...name2Bytes, ...dateOfBirthBytes]
-  const name2AndYobBytes = [...name2Bytes, ...dateOfBirthBytes.slice(0, 2)]
-  const name3AndDOBBytes = [...name3Bytes, ...dateOfBirthBytes]
-  const name3AndYobBytes = [...name3Bytes, ...dateOfBirthBytes.slice(0, 2)]
-  const documentNumberAndNationalityBytes = [...documentNumberBytes, ...nationalityBytes]
+  const yearOfBirthBytes = dateOfBirthBytes.slice(0, 2)
+  const name1AndDOBBytes = nameAndDobLeafPreimage(name1Bytes, dateOfBirthBytes)
+  const name1AndYobBytes = nameAndYobLeafPreimage(name1Bytes, yearOfBirthBytes)
+  const name2AndDOBBytes = nameAndDobLeafPreimage(name2Bytes, dateOfBirthBytes)
+  const name2AndYobBytes = nameAndYobLeafPreimage(name2Bytes, yearOfBirthBytes)
+  const name3AndDOBBytes = nameAndDobLeafPreimage(name3Bytes, dateOfBirthBytes)
+  const name3AndYobBytes = nameAndYobLeafPreimage(name3Bytes, yearOfBirthBytes)
+  const documentNumberAndNationalityBytes = documentNumberAndNationalityLeafPreimage(
+    documentNumberBytes,
+    nationalityBytes,
+  )
 
   const name1AndDOBHash = await poseidon2(name1AndDOBBytes)
   const name1AndYobHash = await poseidon2(name1AndYobBytes)
