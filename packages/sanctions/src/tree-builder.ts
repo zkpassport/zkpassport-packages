@@ -3,7 +3,6 @@
  * whose root the Sanctions Registry publishes and the circuit proves non-membership against.
  */
 import {
-  AsyncOrderedMT,
   countryCodeAlpha2ToAlpha3,
   dateToMrz,
   documentNumberAndNationalityLeafPreimage,
@@ -16,6 +15,12 @@ import {
   stringToAsciiStringArray,
 } from "@zkpassport/utils"
 import { LeafFamilyCounts, SanctionsPerson } from "./types"
+
+/**
+ * The tree constructor lives in @zkpassport/utils, next to the packaged sanctions file it feeds,
+ * so a client can rebuild a tree from a downloaded file without this package's parser.
+ */
+export { buildSanctionsTree } from "@zkpassport/utils"
 
 /**
  * All leaves of all four families for a set of persons (unsorted; may overlap across families)
@@ -39,18 +44,6 @@ export async function buildSanctionsLeaves(
     },
     mrzCount: names.length,
   }
-}
-
-/**
- * Build the tree from the leaves of all four families (in any order, repeats allowed). The depth
- * must be the one the sanctions circuit is compiled for
- * (`SANCTIONS_ORDERED_MERKLE_TREE_LEAF_DEPTH` in the circuits repo), which the Sanctions Registry
- * also records as its tree height.
- */
-export async function buildSanctionsTree(leaves: bigint[], depth: number): Promise<AsyncOrderedMT> {
-  const tree = await AsyncOrderedMT.create(depth, poseidon2)
-  await tree.initializeAndSort(leaves)
-  return tree
 }
 
 // ---- internals: MRZ layout, leaf inputs and the four hash families ----

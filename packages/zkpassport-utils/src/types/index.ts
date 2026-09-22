@@ -652,6 +652,10 @@ export type {
   PackagedCertificatesFileV0,
   PackagedCertificatesFileV1,
   IntermediateCertificateRevocation,
+  PackagedSanctionsFile,
+  PackagedSanctionsFileV1,
+  PackagedSanctionsBuilder,
+  SanctionsSource,
   CircuitManifest,
   CircuitManifestEntry,
 } from "./registry"
