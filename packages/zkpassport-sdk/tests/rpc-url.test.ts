@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { RegistryClient } from "@zkpassport/registry"
 import { ZKPassport } from "../src/index"
 
-describe("ZKPassport rpcUrl argument", () => {
+describe("ZKPassport rpcUrl option", () => {
   let originalFetch: typeof globalThis.fetch
   let requests: { url: string; body: any }[]
 
@@ -22,7 +22,7 @@ describe("ZKPassport rpcUrl argument", () => {
   })
 
   test("root checks go through the supplied RPC URL", async () => {
-    const zk = new ZKPassport("example.com", "http://rpc.test")
+    const zk = new ZKPassport("example.com", { rpcUrl: "http://rpc.test" })
     const client: RegistryClient = (zk as any).createRegistryClient(false)
 
     const valid = await client.isCertificateRootValid("ab")
@@ -33,7 +33,7 @@ describe("ZKPassport rpcUrl argument", () => {
   })
 
   test("devMode keeps the supplied RPC URL and targets the Sepolia registry", async () => {
-    const zk = new ZKPassport("example.com", "http://rpc.test")
+    const zk = new ZKPassport("example.com", { rpcUrl: "http://rpc.test" })
     const client: RegistryClient = (zk as any).createRegistryClient(true)
 
     await client.isCircuitRootValid("ab")

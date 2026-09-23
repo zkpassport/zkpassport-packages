@@ -37,6 +37,7 @@ import {
   VerifierMode,
   VerificationResult,
   RequestedNullifierType,
+  ZKPassportOptions,
 } from "./types"
 import {
   createOfflineQuery,
@@ -136,7 +137,7 @@ function warnOnResultDeprecated() {
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
-  private rpcUrl?: string
+  private options: ZKPassportOptions
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -209,21 +210,19 @@ export class ZKPassport {
 
   /**
    * @param _domain The domain of the service requesting the proofs
-   * @param rpcUrl Ethereum RPC used during local verification for the on-chain registry root
-   * checks and the Solidity verifier. It must point at the chain `devMode` selects: mainnet
-   * by default, Sepolia when `devMode` is true. Defaults to the built-in endpoint for that chain.
+   * @param options Optional settings, see {@link ZKPassportOptions}
    */
-  constructor(_domain?: string, rpcUrl?: string) {
+  constructor(_domain?: string, options: ZKPassportOptions = {}) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
-    this.rpcUrl = rpcUrl
+    this.options = options
   }
 
   private createRegistryClient(devMode: boolean): RegistryClient {
-    return new RegistryClient({ chainId: devMode ? 11155111 : 1, rpcUrl: this.rpcUrl })
+    return new RegistryClient({ chainId: devMode ? 11155111 : 1, rpcUrl: this.options.rpcUrl })
   }
 
   private async handleResult(topic: string) {
@@ -1002,7 +1001,7 @@ export class ZKPassport {
               const { mainnet } = await import("viem/chains")
               const { address, abi, functionName } = this.getSolidityVerifierDetails()
               const rpcUrl =
-                this.rpcUrl ||
+                this.options.rpcUrl ||
                 (devMode
                   ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
                   : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G")
