@@ -25,13 +25,8 @@ bun i @zkpassport/sanctions
 ## Usage
 
 ```typescript
-import {
-  buildSanctionsLeaves,
-  buildSanctionsTree,
-  extractAllPersons,
-  parseFtmEntities,
-} from "@zkpassport/sanctions"
-import { nodeToHex } from "@zkpassport/utils"
+import { buildSanctionsLeaves, extractAllPersons, parseFtmEntities } from "@zkpassport/sanctions"
+import { buildSanctionsTree, nodeToHex } from "@zkpassport/utils"
 
 const entities = parseFtmEntities(await Bun.file("us_ofac_sdn.ftm.json").text())
 const { persons, dropped } = extractAllPersons(entities)
@@ -40,6 +35,11 @@ const { leaves } = await buildSanctionsLeaves(persons)
 const tree = await buildSanctionsTree(leaves, 18)
 console.log(nodeToHex(tree.root), tree.leaves.length, "leaves;", dropped.length, "names dropped")
 ```
+
+`createPackagedSanctionsFile` builds the same tree and wraps its root and leaves, together with one
+record per upstream snapshot, in the packaged sanctions file the sanctions publisher uploads with
+each root. The file's type and the checks a client runs on a downloaded file
+(`checkPackagedSanctionsFileShape`, `calculatePackagedSanctionsRoot`) are in `@zkpassport/utils`.
 
 ## Pipeline
 
@@ -69,9 +69,10 @@ records into leaves and the leaves into the tree, whatever produced the records.
    a 3-letter nationality. Four Poseidon2 families: name; name ‖ date of birth; name ‖ year of
    birth; document number ‖ nationality. The byte layout of each family comes from the leaf preimage
    functions of `@zkpassport/utils`, which the verifier uses too.
-5. **Tree** (same file). The leaves of all four families, sorted and deduplicated, in an
-   `AsyncOrderedMT` of the caller's depth from `@zkpassport/utils`. The tree exposes its sorted
-   leaves and root; reading a published tree back is `AsyncOrderedMT.fromSerialized`.
+5. **Tree and packaged file** (`buildSanctionsTree` in `@zkpassport/utils`,
+   `createPackagedSanctionsFile` in `tree-builder.ts`). The leaves of all four families, sorted and
+   deduplicated, in an `AsyncOrderedMT` of the caller's depth. The tree exposes its sorted leaves
+   and root; reading a published tree back is `AsyncOrderedMT.fromSerialized`.
 
 ## Scripts and transliteration policy
 

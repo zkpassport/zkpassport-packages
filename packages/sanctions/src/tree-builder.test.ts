@@ -1,8 +1,19 @@
 // The sanctions tree: the leaves a sanctioned person produces, checked against the verifier's own
-// encoding, and the tree over them.
+// encoding, and the packaged sanctions file that records the tree over them.
 import { describe, expect, test } from "bun:test"
-import { AsyncOrderedMT, poseidon2, stringToAsciiStringArray } from "@zkpassport/utils"
-import { buildSanctionsLeaves, buildSanctionsTree } from "./tree-builder"
+import {
+  calculatePackagedSanctionsRoot,
+  checkPackagedSanctionsFileShape,
+  nodeToHex,
+  poseidon2,
+  stringToAsciiStringArray,
+  type SanctionsSource,
+} from "@zkpassport/utils"
+import {
+  buildSanctionsLeaves,
+  createPackagedSanctionsFile,
+  type CreatePackagedSanctionsFileInput,
+} from "./tree-builder"
 import type { SanctionsPerson } from "./types"
 
 function person(overrides: Partial<SanctionsPerson>): SanctionsPerson {
@@ -137,18 +148,83 @@ describe("all leaves", () => {
   })
 })
 
-describe("sanctions tree", () => {
-  test("sorts and dedupes the leaves and matches a reference AsyncOrderedMT", async () => {
-    const tree = await buildSanctionsTree([50n, 10n, 30n, 10n, 20n], 6)
-    expect(tree.leaves).toEqual([10n, 20n, 30n, 50n])
+describe("packaged sanctions file", () => {
+  const hex32 = (n: bigint | number) => nodeToHex(BigInt(n))
+  const sources: SanctionsSource[] = [
+    {
+      dataset: "us_ofac_sdn",
+      url: "https://data.opensanctions.org/artifacts/us_ofac_sdn/20260918081735-mcz/entities.ftm.json",
+      build: "20260918081735-mcz",
+      sha256: hex32(0xabc),
+      size: 53_017_458,
+      entities: 11_842,
+    },
+    {
+      dataset: "eu_fsf",
+      url: "https://data.opensanctions.org/artifacts/eu_fsf/20260918100001-abc/entities.ftm.json",
+      build: "20260918100001-abc",
+      sha256: hex32(0xdef),
+      size: 15_000_000,
+      entities: 4_000,
+    },
+  ]
+  const input: CreatePackagedSanctionsFileInput = {
+    timestamp: 1_758_186_000,
+    environment: "test",
+    previous_root: "0xABC",
+    leaves: [9n, 3n, 5n, 3n],
+    tree_depth: 4,
+    sources,
+    sanctions_version: "0.1.0",
+    utils_version: "0.39.0-beta.2",
+    attribution:
+      "Derived from OpenSanctions (https://www.opensanctions.org), licensed CC BY-NC 4.0",
+  }
 
-    const reference = await AsyncOrderedMT.create(6, poseidon2)
-    await reference.initialize([10n, 20n, 30n, 50n])
-    expect(tree.root).toBe(reference.root)
+  test("lists the tree's sorted, deduplicated leaves and its root", async () => {
+    const { file, tree } = await createPackagedSanctionsFile(input)
+
+    expect(file.leaves).toEqual([hex32(3), hex32(5), hex32(9)])
+    expect(file.root).toBe(nodeToHex(tree.root))
+    expect(await calculatePackagedSanctionsRoot(file)).toBe(file.root)
   })
 
-  test("builds at the requested depth", async () => {
-    const tree = await buildSanctionsTree([1n, 2n], 5)
-    expect(tree.serialize().length).toBe(6)
+  test("records the provenance, sorted by dataset, the builder and the attribution", async () => {
+    const { file } = await createPackagedSanctionsFile(input)
+
+    expect(file).toMatchObject({
+      version: 1,
+      timestamp: input.timestamp,
+      environment: "test",
+      previous_root: hex32(0xabc),
+      builder: { sanctions_version: "0.1.0", utils_version: "0.39.0-beta.2", tree_depth: 4 },
+      attribution: input.attribution,
+    })
+    expect(file.sources.map((s) => s.dataset)).toEqual(["eu_fsf", "us_ofac_sdn"])
+  })
+
+  test("leaves environment and previous_root out when there are none", async () => {
+    const { file } = await createPackagedSanctionsFile({
+      ...input,
+      environment: undefined,
+      previous_root: undefined,
+    })
+
+    expect("environment" in file).toBe(false)
+    expect("previous_root" in file).toBe(false)
+  })
+
+  test("refuses an empty tree and a sentinel value as a leaf", async () => {
+    await expect(createPackagedSanctionsFile({ ...input, leaves: [] })).rejects.toThrow(
+      /at least one leaf/,
+    )
+    await expect(createPackagedSanctionsFile({ ...input, leaves: [0n, 1n] })).rejects.toThrow(
+      /reserved as a sentinel/,
+    )
+  })
+
+  test("produces a file the shape check accepts", async () => {
+    const { file } = await createPackagedSanctionsFile(input)
+    expect(checkPackagedSanctionsFileShape(file)).toEqual([])
   })
 })

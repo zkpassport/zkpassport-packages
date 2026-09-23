@@ -1,8 +1,13 @@
 /**
- * Sanctions tree module: Poseidon2 leaves for every sanctioned person, in an ordered Merkle tree
- * whose root the Sanctions Registry publishes and the circuit proves non-membership against.
+ * Sanctions tree module: Poseidon2 leaves for every sanctioned person, the ordered Merkle tree
+ * over them whose root the Sanctions Registry publishes and the circuit proves non-membership
+ * against, and the packaged sanctions file that records the tree for publication.
+ *
+ * Reading a packaged sanctions file back (its type, the shape check and the root recomputation)
+ * lives in @zkpassport/utils, so a client can verify a downloaded file without this package.
  */
 import {
+  buildSanctionsTree,
   countryCodeAlpha2ToAlpha3,
   dateToMrz,
   documentNumberAndNationalityLeafPreimage,
@@ -13,16 +18,71 @@ import {
   nameAndDobLeafPreimage,
   nameAndYobLeafPreimage,
   nameLeafPreimage,
+  nodeToHex,
   poseidon2,
   stringToAsciiStringArray,
+  type AsyncOrderedMT,
+  type PackagedSanctionsFileV1,
+  type SanctionsSource,
 } from "@zkpassport/utils"
 import { LeafFamilyCounts, SanctionsPerson } from "./types"
 
 /**
- * The tree constructor lives in @zkpassport/utils, next to the packaged sanctions file it feeds,
- * so a client can rebuild a tree from a downloaded file without this package's parser.
+ * Input for {@link createPackagedSanctionsFile}.
  */
-export { buildSanctionsTree } from "@zkpassport/utils"
+export type CreatePackagedSanctionsFileInput = {
+  /** Unix seconds at which the package is built; also published with the root */
+  timestamp: number
+  /** Environment label, e.g. "test"; omit for production */
+  environment?: string
+  /** The root this one supersedes, if any */
+  previous_root?: string
+  /** Leaf hashes from all sources and all leaf families, in any order, duplicates allowed */
+  leaves: bigint[]
+  /** Depth of the sanctions tree; the Sanctions Registry records it as its tree height */
+  tree_depth: number
+  /** One record per upstream snapshot the leaves were derived from */
+  sources: SanctionsSource[]
+  /** Version of @zkpassport/sanctions, which parsed the snapshots and hashed the leaves */
+  sanctions_version: string
+  /** Version of @zkpassport/utils, which provides poseidon2 and AsyncOrderedMT */
+  utils_version: string
+  /** Licence attribution of the upstream data, e.g. OpenSanctions' CC BY-NC 4.0 notice */
+  attribution: string
+}
+
+/**
+ * Build the sanctions tree from the leaves and assemble a {@link PackagedSanctionsFileV1} around
+ * its root. The tree is returned as well, so a publisher can serialise it without building it
+ * twice.
+ */
+export async function createPackagedSanctionsFile(
+  input: CreatePackagedSanctionsFileInput,
+): Promise<{ file: PackagedSanctionsFileV1; tree: AsyncOrderedMT }> {
+  if (input.leaves.length === 0) {
+    throw new Error("A packaged sanctions file needs at least one leaf")
+  }
+  const tree = await buildSanctionsTree(input.leaves, input.tree_depth)
+
+  const file: PackagedSanctionsFileV1 = {
+    version: 1,
+    timestamp: input.timestamp,
+    ...(input.environment !== undefined && { environment: input.environment }),
+    root: nodeToHex(tree.root),
+    ...(input.previous_root !== undefined && {
+      previous_root: nodeToHex(BigInt(input.previous_root)),
+    }),
+    leaves: tree.leaves.map(nodeToHex),
+    sources: [...input.sources].sort((a, b) => a.dataset.localeCompare(b.dataset)),
+    builder: {
+      sanctions_version: input.sanctions_version,
+      utils_version: input.utils_version,
+      tree_depth: input.tree_depth,
+    },
+    attribution: input.attribution,
+  }
+  return { file, tree }
+}
 
 /**
  * All leaves of all four families for a set of persons, deduplicated within each family (a leaf
