@@ -8,6 +8,8 @@ import {
   documentNumberAndNationalityLeafPreimage,
   documentNumberToMrz,
   formatMrzName,
+  MRZ_DOCUMENT_NUMBER_LENGTH,
+  MRZ_NAME_LENGTH,
   nameAndDobLeafPreimage,
   nameAndYobLeafPreimage,
   nameLeafPreimage,
@@ -23,17 +25,38 @@ import { LeafFamilyCounts, SanctionsPerson } from "./types"
 export { buildSanctionsTree } from "@zkpassport/utils"
 
 /**
- * All leaves of all four families for a set of persons (unsorted; may overlap across families)
+ * All leaves of all four families for a set of persons, deduplicated within each family (a leaf
+ * may still occur in more than one family). `mrzCount` is the number of given-name × family-name
+ * combinations the persons produced before deduplication.
+ *
+ * The persons are first reduced to the distinct MRZ field values of each family, as strings, and
+ * only those are encoded and hashed: a sanctions list expands to millions of name combinations of
+ * which a few percent are distinct, so materialising the byte array of every combination costs
+ * tens of gigabytes.
  */
 export async function buildSanctionsLeaves(
   persons: SanctionsPerson[],
 ): Promise<{ leaves: bigint[]; counts: LeafFamilyCounts; mrzCount: number }> {
-  const names = nameLeafInputs(persons)
-  const documents = documentLeafInputs(persons)
-  const name = await hashName(names)
-  const nameAndDob = await hashNameAndDob(names)
-  const nameAndYob = await hashNameAndYob(names)
-  const passportAndCountry = await hashPassportNoAndCountry(documents)
+  const fields = collectLeafFields(persons)
+  const name = await hashAll(fields.name, (f) => nameLeafPreimage(asciiBytes(f)))
+  const nameAndDob = await hashAll(fields.nameAndDob, (f) =>
+    nameAndDobLeafPreimage(
+      asciiBytes(f.slice(0, MRZ_NAME_LENGTH)),
+      asciiBytes(f.slice(MRZ_NAME_LENGTH)),
+    ),
+  )
+  const nameAndYob = await hashAll(fields.nameAndYob, (f) =>
+    nameAndYobLeafPreimage(
+      asciiBytes(f.slice(0, MRZ_NAME_LENGTH)),
+      asciiBytes(f.slice(MRZ_NAME_LENGTH)),
+    ),
+  )
+  const passportAndCountry = await hashAll(fields.passportAndCountry, (f) =>
+    documentNumberAndNationalityLeafPreimage(
+      asciiBytes(f.slice(0, MRZ_DOCUMENT_NUMBER_LENGTH)),
+      asciiBytes(f.slice(MRZ_DOCUMENT_NUMBER_LENGTH)),
+    ),
+  )
   return {
     leaves: name.concat(nameAndDob, nameAndYob, passportAndCountry),
     counts: {
@@ -42,31 +65,78 @@ export async function buildSanctionsLeaves(
       nameAndYob: nameAndYob.length,
       passportAndCountry: passportAndCountry.length,
     },
-    mrzCount: names.length,
+    mrzCount: fields.combinations,
   }
 }
 
-// ---- internals: MRZ layout, leaf inputs and the four hash families ----
+// ---- internals: MRZ fields per leaf family, then their hashes ----
 
 /**
- * One LASTNAME<<FIRSTNAME variant of a sanctioned person with the birth-date fields the three
- * name leaf families need: each MRZ string next to its ASCII bytes
+ * The distinct MRZ field values of each leaf family, each value being the family's fixed-width
+ * fields concatenated in leaf order
  */
-type NameLeafInput = {
-  name: string
-  nameMRZ: bigint[]
-  dob: string | null
-  dobMRZ: bigint[] | null
-  yob: string | null
-  yobMRZ: bigint[] | null
+type LeafFields = {
+  /** Family 1: the 39-character `PRIMARY<<SECONDARY` name field */
+  name: Set<string>
+  /** Family 2: name field ‖ `YYMMDD` date of birth */
+  nameAndDob: Set<string>
+  /** Family 3: name field ‖ `YY` year of birth */
+  nameAndYob: Set<string>
+  /** Family 4: 9-character document number field ‖ alpha-3 nationality */
+  passportAndCountry: Set<string>
+  /** Given-name × family-name combinations seen, before deduplication */
+  combinations: number
 }
 
-/** The document number and nationality of a sanctioned person's passport, as MRZ fields */
-type DocumentLeafInput = {
-  passportNo: string
-  passportNoMRZ: bigint[]
-  passportCountry: string
-  passportCountryMRZ: bigint[]
+function collectLeafFields(persons: SanctionsPerson[]): LeafFields {
+  const fields: LeafFields = {
+    name: new Set(),
+    nameAndDob: new Set(),
+    nameAndYob: new Set(),
+    passportAndCountry: new Set(),
+    combinations: 0,
+  }
+  for (const p of persons) {
+    const birth = p.birthDate ? birthFields(p.birthDate) : null
+    for (const first of p.firstNames) {
+      for (const last of p.lastNames) {
+        const name = formatMrzName(last, first)
+        fields.combinations += 1
+        fields.name.add(name)
+        if (birth?.dob) fields.nameAndDob.add(name + birth.dob)
+        if (birth) fields.nameAndYob.add(name + birth.yob)
+      }
+    }
+
+    const document = passportNoAndCountry(p)
+    if (document) fields.passportAndCountry.add(document)
+  }
+  return fields
+}
+
+/**
+ * MRZ date of birth (`YYMMDD`) and two-digit year of birth from an ISO date at any precision. The
+ * date of birth is null when the month or day is unknown; the year is always available.
+ */
+function birthFields(birthDate: string): { dob: string | null; yob: string } {
+  const [year, month, day] = birthDate.split("-")
+  const dob = month !== undefined && day !== undefined ? dateToMrz(birthDate) : null
+  return { dob, yob: year.slice(-2) }
+}
+
+/**
+ * The document leaf's fields: the first passport number in the 9-character document number
+ * field, followed by the alpha-3 code of the first nationality, falling back to the first
+ * associated country. Null when either is unavailable.
+ */
+function passportNoAndCountry(p: SanctionsPerson): string | null {
+  if (p.passports.length === 0 || (p.nationalities.length === 0 && p.countries.length === 0)) {
+    return null
+  }
+  const alpha2 = p.nationalities.length > 0 ? p.nationalities[0] : p.countries[0]
+  const passportCountry = alpha2.length === 2 ? countryCodeAlpha2ToAlpha3(alpha2) : alpha2
+  if (!passportCountry) return null
+  return documentNumberToMrz(p.passports[0]) + passportCountry
 }
 
 /**
@@ -76,130 +146,14 @@ type DocumentLeafInput = {
 const asciiBytes = (str: string): bigint[] => stringToAsciiStringArray(str).map(BigInt)
 
 /**
- * Every LASTNAME<<FIRSTNAME combination of a person, as MRZ strings and as byte arrays
+ * Poseidon2 of every field value, laid out by one of the leaf preimage functions of
+ * `@zkpassport/utils`, which the verifier uses too, so builder and verifier cannot drift apart.
  */
-function nameCombinationsToMrz(
-  firstNames: string[],
-  lastNames: string[],
-): { nameMRZ: bigint[][]; name: string[] } {
-  const names: string[] = []
-  const namesMRZ: bigint[][] = []
-  for (const first of firstNames) {
-    for (const last of lastNames) {
-      const mrz = formatMrzName(last, first)
-      names.push(mrz)
-      namesMRZ.push(asciiBytes(mrz))
-    }
-  }
-  return { nameMRZ: namesMRZ, name: names }
-}
-
-/**
- * MRZ date of birth (YYMMDD) and two-digit year of birth from an ISO date at any precision. The
- * date of birth is null when the month or day is unknown; the year is always available.
- */
-function processDob(birthDate: string): {
-  dob: string | null
-  dobMRZ: bigint[] | null
-  yob: string
-  yobMRZ: bigint[]
-} {
-  const [year, month, day] = birthDate.split("-")
-  const yob = year.slice(-2)
-  const yobMRZ = asciiBytes(yob)
-  if (month === undefined || day === undefined) return { dob: null, dobMRZ: null, yob, yobMRZ }
-  const dob = dateToMrz(birthDate)
-  return { dob, dobMRZ: asciiBytes(dob), yob, yobMRZ }
-}
-
-function nameLeafInputs(persons: SanctionsPerson[]): NameLeafInput[] {
-  const out: NameLeafInput[] = []
-  for (const p of persons) {
-    const d = p.birthDate ? processDob(p.birthDate) : null
-    const { nameMRZ, name } = nameCombinationsToMrz(p.firstNames, p.lastNames)
-    for (let i = 0; i < nameMRZ.length; i++) {
-      out.push({
-        name: name[i],
-        nameMRZ: nameMRZ[i],
-        dob: d?.dob ?? null,
-        dobMRZ: d?.dobMRZ ?? null,
-        yob: d?.yob ?? null,
-        yobMRZ: d?.yobMRZ ?? null,
-      })
-    }
-  }
-  return out
-}
-
-/**
- * The passport-side leaf input: the first passport number in the 9-character document number
- * field, and the alpha-3 code of the first nationality, falling back to the first associated
- * country. Null when either is unavailable.
- */
-function passportNoAndCountry(p: SanctionsPerson): DocumentLeafInput | null {
-  if (p.passports.length === 0 || (p.nationalities.length === 0 && p.countries.length === 0)) {
-    return null
-  }
-  const passportNo = documentNumberToMrz(p.passports[0])
-  const alpha2 = p.nationalities.length > 0 ? p.nationalities[0] : p.countries[0]
-  const passportCountry = alpha2.length === 2 ? countryCodeAlpha2ToAlpha3(alpha2) : alpha2
-  if (!passportCountry) return null
-  return {
-    passportNo,
-    passportNoMRZ: asciiBytes(passportNo),
-    passportCountry,
-    passportCountryMRZ: asciiBytes(passportCountry),
-  }
-}
-
-function documentLeafInputs(persons: SanctionsPerson[]): DocumentLeafInput[] {
-  const out: DocumentLeafInput[] = []
-  for (const p of persons) {
-    const m = passportNoAndCountry(p)
-    if (m) out.push(m)
-  }
-  return out
-}
-
-async function hashUnique(inputs: bigint[][]): Promise<bigint[]> {
-  const seen = new Set<string>()
+async function hashAll(
+  fields: Set<string>,
+  preimage: (field: string) => bigint[],
+): Promise<bigint[]> {
   const hashes: bigint[] = []
-  for (const input of inputs) {
-    const key = input.join(",")
-    if (seen.has(key)) continue
-    seen.add(key)
-    hashes.push(await poseidon2(input))
-  }
+  for (const field of fields) hashes.push(await poseidon2(preimage(field)))
   return hashes
-}
-
-// The four leaf layouts come from @zkpassport/utils, where the checker side uses the same
-// functions, so the builder and the verifier cannot drift apart.
-
-/** Leaf family 1: Poseidon2(39 name bytes) */
-function hashName(inputs: NameLeafInput[]): Promise<bigint[]> {
-  return hashUnique(inputs.map((m) => nameLeafPreimage(m.nameMRZ)))
-}
-
-/** Leaf family 2: Poseidon2(39 name bytes ‖ 6 DOB bytes) */
-function hashNameAndDob(inputs: NameLeafInput[]): Promise<bigint[]> {
-  return hashUnique(
-    inputs.filter((m) => m.dobMRZ).map((m) => nameAndDobLeafPreimage(m.nameMRZ, m.dobMRZ!)),
-  )
-}
-
-/** Leaf family 3: Poseidon2(39 name bytes ‖ 2 year-of-birth bytes) */
-function hashNameAndYob(inputs: NameLeafInput[]): Promise<bigint[]> {
-  return hashUnique(
-    inputs.filter((m) => m.yobMRZ).map((m) => nameAndYobLeafPreimage(m.nameMRZ, m.yobMRZ!)),
-  )
-}
-
-/** Leaf family 4: Poseidon2(9 document number bytes ‖ 3 nationality bytes) */
-function hashPassportNoAndCountry(inputs: DocumentLeafInput[]): Promise<bigint[]> {
-  return hashUnique(
-    inputs.map((p) =>
-      documentNumberAndNationalityLeafPreimage(p.passportNoMRZ, p.passportCountryMRZ),
-    ),
-  )
 }

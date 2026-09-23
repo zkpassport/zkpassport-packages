@@ -120,6 +120,21 @@ describe("all leaves", () => {
     // hyphens inside a name part become fillers
     expect(leaves).toContain(await leafOf(nameField("ONEIL", "MARY<ANN")))
   })
+
+  test("the name-variant records of one entity repeat its name parts; each combination is hashed once", async () => {
+    // extractPersons emits one record per full-name variant, all carrying the entity's whole
+    // firstNames and lastNames, so the combinations below occur three times over
+    const shared = { id: "e", firstNames: ["A", "B"], lastNames: ["X"], birthDate: "1975-03-07" }
+    const persons = [
+      person({ ...shared, name: "A X" }),
+      person({ ...shared, name: "B X" }),
+      person({ ...shared, name: "A B X" }),
+    ]
+    const { leaves, counts, mrzCount } = await buildSanctionsLeaves(persons)
+    expect(mrzCount).toBe(6)
+    expect(counts).toEqual({ name: 2, nameAndDob: 2, nameAndYob: 2, passportAndCountry: 0 })
+    expect(new Set(leaves).size).toBe(6)
+  })
 })
 
 describe("sanctions tree", () => {
