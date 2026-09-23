@@ -186,17 +186,26 @@ function birthFields(birthDate: string): { dob: string | null; yob: string } {
 
 /**
  * The document leaf's fields: the first passport number in the 9-character document number
- * field, followed by the alpha-3 code of the first nationality, falling back to the first
- * associated country. Null when either is unavailable.
+ * field, followed by the 3-letter code of the first nationality that has one, falling back to the
+ * associated countries in order. Null when the person has no passport number or no country value
+ * resolves.
  */
 function passportNoAndCountry(p: SanctionsPerson): string | null {
-  if (p.passports.length === 0 || (p.nationalities.length === 0 && p.countries.length === 0)) {
-    return null
-  }
-  const alpha2 = p.nationalities.length > 0 ? p.nationalities[0] : p.countries[0]
-  const passportCountry = alpha2.length === 2 ? countryCodeAlpha2ToAlpha3(alpha2) : alpha2
+  if (p.passports.length === 0) return null
+  const passportCountry = [...p.nationalities, ...p.countries].map(mrzCountryCode).find(Boolean)
   if (!passportCountry) return null
   return documentNumberToMrz(p.passports[0]) + passportCountry
+}
+
+/**
+ * A source country value as the 3-letter code the MRZ nationality field holds: an ISO alpha-2 code
+ * through the ISO table, a 3-letter value as given (ICAO issues codes ISO does not have, such as
+ * GBD or RKS). Anything else resolves to nothing; OpenSanctions also emits the four-letter ISO
+ * 3166-3 codes of former states, such as SUHH for the Soviet Union, which no passport carries.
+ */
+function mrzCountryCode(value: string): string | undefined {
+  if (value.length === 2) return countryCodeAlpha2ToAlpha3(value)
+  return value.length === 3 ? value : undefined
 }
 
 /**

@@ -96,11 +96,21 @@ describe("document leaf", () => {
     expect(byCountry.leaves).toContain(await leafOf("1<<<<<<<<", "DEU"))
   })
 
+  test("a country value that is not a 2- or 3-letter code is passed over for the next one", async () => {
+    // ISO 3166-3 code of the Soviet Union, as OpenSanctions emits for people born there
+    const { leaves, counts } = await buildSanctionsLeaves([
+      person({ passports: ["1"], nationalities: ["SUHH", "RU"], countries: ["RU", "SUHH"] }),
+    ])
+    expect(counts.passportAndCountry).toBe(1)
+    expect(leaves).toContain(await leafOf("1<<<<<<<<", "RUS"))
+  })
+
   test("no document leaf without a passport number or without a resolvable country", async () => {
     for (const p of [
       person({ nationalities: ["RU"] }),
       person({ passports: ["1"] }),
       person({ passports: ["1"], nationalities: ["XX"] }),
+      person({ passports: ["1"], nationalities: ["SUHH"], countries: ["SUHH"] }),
     ]) {
       expect((await buildSanctionsLeaves([p])).counts.passportAndCountry).toBe(0)
     }
