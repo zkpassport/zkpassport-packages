@@ -1,4 +1,5 @@
 import { PublicInputChecker } from "../src/public-input-checker"
+import { RegistryClient } from "@zkpassport/registry"
 import type {
   Query,
   QueryResult,
@@ -3131,5 +3132,137 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
       )
       expect(queryResultErrors.issuing_country).toBeUndefined()
     })
+  })
+})
+
+describe("PublicInputChecker - registry root checks with a supplied client", () => {
+  let originalFetch: typeof globalThis.fetch
+  let originalWarn: typeof console.warn
+
+  // Records the roots it is asked about and accepts them all
+  class StubRegistryClient extends RegistryClient {
+    checkedRoots: string[] = []
+
+    constructor() {
+      super({ chainId: 1 })
+    }
+
+    override async isCertificateRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+
+    override async isCircuitRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+  }
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch
+    originalWarn = console.warn
+    console.warn = () => {}
+    // Any request reaching the default client fails without touching the network
+    globalThis.fetch = (async () =>
+      Response.json({ error: { message: "unreachable in tests" } })) as unknown as typeof fetch
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    console.warn = originalWarn
+  })
+
+  test("checkCertificateRegistryRoot uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCertificateRegistryRoot(
+      "abc",
+      {},
+      false,
+      false,
+      undefined,
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(queryResultErrors).toEqual({})
+    expect(client.checkedRoots).toEqual(["abc"])
+  })
+
+  test("checkCircuitRegistryRoot uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCircuitRegistryRoot(
+      "def",
+      {},
+      false,
+      undefined,
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(queryResultErrors).toEqual({})
+    expect(client.checkedRoots).toEqual(["def"])
+  })
+
+  test("falls back to the default client when none is supplied", async () => {
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCertificateRegistryRoot(
+      "abc",
+      {},
+      false,
+      false,
+    )
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.sig_check_dsc.certificate.received).toBe(
+      "Got invalid certificate registry root: abc",
+    )
+  })
+
+  test("checkPublicInputs forwards the client to the root checks", async () => {
+    const domain = "example.com"
+    const todayTs = BigInt(getTodayTimestamp())
+    const paramCommitment = await getAgeParameterCommitment(18, 0)
+    const proofs: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 111n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([111n, 222n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([222n, 333n]), total: 5 },
+      {
+        name: "compare_age",
+        proof: buildProofHex([
+          333n,
+          todayTs,
+          getServiceScopeHash(domain),
+          0n,
+          paramCommitment,
+          0n,
+          999n,
+        ]),
+        total: 5,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      },
+    ]
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    const client = new StubRegistryClient()
+    const withClient = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+      undefined,
+      undefined,
+      false,
+      client,
+    )
+    expect(withClient.isCorrect).toBe(true)
+    expect(client.checkedRoots).toEqual(["1"])
+
+    const withoutClient = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+    )
+    expect(withoutClient.isCorrect).toBe(false)
+    expect(withoutClient.queryResultErrors.sig_check_dsc?.certificate).toBeDefined()
   })
 })
