@@ -9,6 +9,7 @@
 import {
   buildSanctionsTree,
   countryCodeAlpha2ToAlpha3,
+  countryCodeToMrz,
   dateToMrz,
   documentNumberAndNationalityLeafPreimage,
   documentNumberToMrz,
@@ -198,14 +199,15 @@ function passportNoAndCountry(p: SanctionsPerson): string | null {
 }
 
 /**
- * A source country value as the 3-letter code the MRZ nationality field holds: an ISO alpha-2 code
- * through the ISO table, a 3-letter value as given (ICAO issues codes ISO does not have, such as
- * GBD or RKS). Anything else resolves to nothing; OpenSanctions also emits the four-letter ISO
- * 3166-3 codes of former states, such as SUHH for the Soviet Union, which no passport carries.
+ * A source country value as the MRZ nationality field prints it: an ISO alpha-2 code through the
+ * ISO table, a 3-letter value as given (ICAO issues codes ISO does not have, such as GBD or RKS),
+ * and Germany's `DEU` as the `D<<` its documents carry. Anything else resolves to nothing;
+ * OpenSanctions also emits the four-letter ISO 3166-3 codes of former states, such as SUHH for
+ * the Soviet Union, which no passport carries.
  */
 function mrzCountryCode(value: string): string | undefined {
-  if (value.length === 2) return countryCodeAlpha2ToAlpha3(value)
-  return value.length === 3 ? value : undefined
+  const alpha3 = value.length === 2 ? countryCodeAlpha2ToAlpha3(value) : value
+  return alpha3?.length === 3 ? countryCodeToMrz(alpha3) : undefined
 }
 
 /**

@@ -1,6 +1,7 @@
 // ICAO Doc 9303 Part 4 (TD3): writing identity attributes into MRZ fields.
 import { describe, expect, test } from "bun:test"
 import {
+  countryCodeToMrz,
   dateToMrz,
   documentNumberToMrz,
   formatMrzName,
@@ -48,5 +49,13 @@ describe("document number field (§4.2.2.2)", () => {
 
   test("longer numbers keep only the first 9 characters, as the MRZ does", () => {
     expect(documentNumberToMrz("1234567890123")).toBe("123456789")
+  })
+})
+
+describe("nationality field (Part 3 §5)", () => {
+  test("alpha-3 codes as they are, Germany as the historic D with fillers", () => {
+    expect(countryCodeToMrz("FRA")).toBe("FRA")
+    expect(countryCodeToMrz("GBD")).toBe("GBD")
+    expect(countryCodeToMrz("DEU")).toBe("D<<")
   })
 })

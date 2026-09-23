@@ -1,6 +1,7 @@
 import { PASSPORTS } from "../../../tests/fixtures/passports"
 import { getNameCombinations, processName, SanctionsBuilder } from "./sanctions"
 import { AsyncOrderedMT, poseidon2 } from "@/merkle-tree"
+import { stringToAsciiStringArray } from "@/utils"
 
 describe("Sanctions", () => {
   test("should get the correct name combinations for passport", () => {
@@ -174,5 +175,30 @@ describe("SanctionsBuilder", () => {
       expect(root).toBe(builder.getRoot())
       expect(Object.keys(proofs).length).toBeGreaterThan(0)
     }
+  })
+
+  test("hashes a German document's nationality as the MRZ prints it, D<< rather than DEU", async () => {
+    // The circuit hashes the raw nationality bytes, so the list side writes D<< for Germany and
+    // the verifier side must look that leaf up, not the normalised DEU
+    const german = {
+      ...PASSPORTS.john,
+      mrz: "P<D<<MUSTERMANN<<ERIKA<<<<<<<<<<<<<<<<<<<<<<C01X00T478D<<6408125F2702283<<<<<<<<<<<<<<<4",
+    }
+    const leafFor = (nationality: string) =>
+      poseidon2(stringToAsciiStringArray("C01X00T47" + nationality))
+
+    const treeWithPrintedCode = await AsyncOrderedMT.create(4, poseidon2)
+    await treeWithPrintedCode.initialize([await leafFor("D<<")])
+    await expect(
+      new SanctionsBuilder(treeWithPrintedCode).getSanctionsMerkleProofs(german, true),
+    ).rejects.toThrow("Target exists")
+
+    const treeWithIsoCode = await AsyncOrderedMT.create(4, poseidon2)
+    await treeWithIsoCode.initialize([await leafFor("DEU")])
+    const { proofs } = await new SanctionsBuilder(treeWithIsoCode).getSanctionsMerkleProofs(
+      german,
+      true,
+    )
+    expect(Object.keys(proofs).length).toBeGreaterThan(0)
   })
 })

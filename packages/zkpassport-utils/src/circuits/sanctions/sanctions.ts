@@ -15,7 +15,7 @@ import {
   getDocumentNumberRange,
   getFirstNameRange,
   getFullNameRange,
-  getNationality,
+  getNationalityRange,
   getSecondNameRange,
   getThirdNameRange,
 } from "@/passport/getters"
@@ -236,7 +236,11 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   const documentNumberBytes = stringToAsciiStringArray(
     passport.mrz.slice(...getDocumentNumberRange(passport)),
   )
-  const nationalityBytes = stringToAsciiStringArray(getNationality(passport))
+  // The raw field, not getNationality's normalised code: the circuit hashes the MRZ bytes as
+  // printed, so a German document's leaf ends in D<< and not DEU
+  const nationalityBytes = stringToAsciiStringArray(
+    passport.mrz.slice(...getNationalityRange(passport)),
+  )
 
   const yearOfBirthBytes = dateOfBirthBytes.slice(0, 2)
   const name1AndDOBBytes = nameAndDobLeafPreimage(name1Bytes, dateOfBirthBytes)

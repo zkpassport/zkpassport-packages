@@ -91,9 +91,18 @@ describe("document leaf", () => {
     ])
     expect(byNationality.leaves).toContain(await leafOf("1<<<<<<<<", "BLR"))
     const byCountry = await buildSanctionsLeaves([
-      person({ passports: ["1"], countries: ["DE", "RU"] }),
+      person({ passports: ["1"], countries: ["FR", "RU"] }),
     ])
-    expect(byCountry.leaves).toContain(await leafOf("1<<<<<<<<", "DEU"))
+    expect(byCountry.leaves).toContain(await leafOf("1<<<<<<<<", "FRA"))
+  })
+
+  test("Germany is written as D<<, the way German documents print it and the circuit hashes it", async () => {
+    for (const p of [
+      person({ passports: ["1"], nationalities: ["DE"] }),
+      person({ passports: ["1"], nationalities: ["DEU"] }),
+    ]) {
+      expect((await buildSanctionsLeaves([p])).leaves).toContain(await leafOf("1<<<<<<<<", "D<<"))
+    }
   })
 
   test("a country value that is not a 2- or 3-letter code is passed over for the next one", async () => {

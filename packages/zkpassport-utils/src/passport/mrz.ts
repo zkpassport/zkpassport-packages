@@ -32,6 +32,16 @@ export function formatMrzName(primary: string, secondary: string): string {
     : joined.padEnd(MRZ_NAME_LENGTH, MRZ_FILLER)
 }
 
+/**
+ * The nationality or issuing state field for an ISO alpha-3 code. Germany is the one state whose
+ * documents do not carry its alpha-3 code: ICAO Doc 9303 Part 3 lets it print the historic `D`,
+ * filler-padded to the 3-character field, and `normalizeCountryCode` in country.ts reads that
+ * back as `DEU`.
+ */
+export function countryCodeToMrz(alpha3: string): string {
+  return alpha3 === "DEU" ? "D".padEnd(MRZ_COUNTRY_CODE_LENGTH, MRZ_FILLER) : alpha3
+}
+
 /** `YYMMDD` from an ISO `YYYY-MM-DD` date */
 export function dateToMrz(isoDate: string): string {
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(isoDate)
