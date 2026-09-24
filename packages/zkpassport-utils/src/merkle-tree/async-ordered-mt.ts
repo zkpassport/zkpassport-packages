@@ -26,6 +26,11 @@ export const BN254_MODULUS_MINUS_ONE: Node = BigInt(
   "0x2523648240000001ba344d80000000086121000000000013a700000000000012",
 )
 
+/** A node as 0x-prefixed, 32-byte, lower-case hex: the form roots and leaves take on chain */
+export function nodeToHex(node: Node): string {
+  return `0x${node.toString(16).padStart(64, "0")}`
+}
+
 /**
  * Sorted Merkle Set for membership and non-membership proofs.
  * - Leaves are unique and sorted ascending
@@ -40,7 +45,7 @@ export default class AsyncOrderedMT {
 
   private zeroes: Node[] = [] // per-level zero values
   private layers: Node[][] = [] // layers[0] = leaves (padded), ... layers[depth][0] = root
-  private leaves: Node[] = [] // sorted unique input leaves (un-padded)
+  private entries: Node[] = [] // sorted unique leaves with the two sentinels around them (un-padded)
 
   private constructor(depth: number, hash: AsyncHashFunction) {
     this.depth = depth
@@ -49,6 +54,11 @@ export default class AsyncOrderedMT {
 
   public static async create(depth: number, hash: AsyncHashFunction): Promise<AsyncOrderedMT> {
     return new AsyncOrderedMT(depth, hash)
+  }
+
+  /** The leaves this tree was built from, sorted ascending, sentinels excluded */
+  public get leaves(): Node[] {
+    return this.entries.filter((leaf) => leaf !== ZERO_NODE && leaf !== BN254_MODULUS_MINUS_ONE)
   }
 
   public get root(): Node {
@@ -71,26 +81,36 @@ export default class AsyncOrderedMT {
   }
 
   /**
-   * Initialize from leaf hashes. Assumes leaves are already sorted and unique.
+   * Initialize from leaf hashes, which must be sorted ascending and unique, and must not include
+   * the sentinel values the tree adds itself. The argument is not modified.
    */
   public async initialize(leafHashes: Node[]) {
-    const cap = 1 << this.depth
-    if (leafHashes.length > cap) {
-      throw new Error(`Too many leaves for depth ${this.depth}: ${leafHashes.length} > ${cap}`)
+    for (let i = 0; i < leafHashes.length; i += 1) {
+      const leaf = leafHashes[i]
+      if (leaf === ZERO_NODE || leaf === BN254_MODULUS_MINUS_ONE) {
+        throw new Error(`Leaf ${nodeToHex(leaf)} is reserved as a sentinel`)
+      }
+      if (i > 0 && !(leafHashes[i - 1] < leaf)) {
+        throw new Error(`Leaves must be sorted ascending and unique (at index ${i})`)
+      }
     }
 
     // To get around the edge case where we need to provide a non membership proof for the first item in the tree
     // or the last item in the tree, we will insert 0, and BN254.MODULUS into the tree
-    leafHashes.unshift(0n)
-    leafHashes.push(BN254_MODULUS_MINUS_ONE)
+    const entries = [ZERO_NODE, ...leafHashes, BN254_MODULUS_MINUS_ONE]
 
-    this.leaves = leafHashes
+    const cap = 1 << this.depth
+    if (entries.length > cap) {
+      throw new Error(`Too many leaves for depth ${this.depth}: ${entries.length} > ${cap}`)
+    }
+
+    this.entries = entries
 
     await this.computeZeroes()
 
     // Build level 0 padded to capacity with zero leaf value
     const level0: Node[] = new Array(cap)
-    for (let i = 0; i < cap; i += 1) level0[i] = leafHashes[i] ?? ZERO_NODE
+    for (let i = 0; i < cap; i += 1) level0[i] = entries[i] ?? ZERO_NODE
     this.layers = new Array(this.depth + 1)
     this.layers[0] = level0
 
@@ -155,15 +175,15 @@ export default class AsyncOrderedMT {
     const left =
       leftIndex !== null
         ? {
-            leaf: this.leaves[leftIndex],
-            proof: this.createMembershipProof(this.leaves[leftIndex]),
+            leaf: this.entries[leftIndex],
+            proof: this.createMembershipProof(this.entries[leftIndex]),
           }
         : undefined
     const right =
       rightIndex !== null
         ? {
-            leaf: this.leaves[rightIndex],
-            proof: this.createMembershipProof(this.leaves[rightIndex]),
+            leaf: this.entries[rightIndex],
+            proof: this.createMembershipProof(this.entries[rightIndex]),
           }
         : undefined
 
@@ -206,7 +226,7 @@ export default class AsyncOrderedMT {
     leftIndex: number | null
     rightIndex: number | null
   } {
-    const numberOfLeaves = this.leaves.length
+    const numberOfLeaves = this.entries.length
     if (numberOfLeaves === 0)
       return { exists: false, index: null, leftIndex: null, rightIndex: null }
 
@@ -214,13 +234,13 @@ export default class AsyncOrderedMT {
     let high = numberOfLeaves
     while (low < high) {
       const mid = (low + high) >> 1
-      const midVal = this.leaves[mid]
+      const midVal = this.entries[mid]
       if (midVal < leaf) low = mid + 1
       else high = mid
     }
 
     const pos = low
-    const exists = pos < numberOfLeaves && this.leaves[pos] === leaf
+    const exists = pos < numberOfLeaves && this.entries[pos] === leaf
     const leftIndex = pos - 1 >= 0 ? pos - 1 : null
     const rightIndex = (exists ? pos + 1 : pos) < numberOfLeaves ? (exists ? pos + 1 : pos) : null
 
@@ -240,9 +260,7 @@ export default class AsyncOrderedMT {
    * Serialize the tree
    */
   public serialize() {
-    return this.layers.map((layer) =>
-      layer.map((node) => `0x${node.toString(16).padStart(64, "0")}`),
-    )
+    return this.layers.map((layer) => layer.map(nodeToHex))
   }
 
   public async loadFromSerialized(serialized: string[][]) {
@@ -283,11 +301,11 @@ export default class AsyncOrderedMT {
 
     await this.computeZeroes()
 
-    // Reconstruct leaves from layer 0 by trimming trailing ZERO_NODE padding
+    // Reconstruct the entries from layer 0 by trimming trailing ZERO_NODE padding
     const l0 = this.layers[0]
     let count = l0.length
     while (count > 0 && l0[count - 1] === ZERO_NODE) count -= 1
-    this.leaves = l0.slice(0, count)
+    this.entries = l0.slice(0, count)
   }
 
   public static async fromSerialized(serialized: string[][], hash: AsyncHashFunction) {

@@ -5,6 +5,7 @@
     { "path": "./packages/registry-sdk" },
     { "path": "./packages/zkpassport-sdk" },
     { "path": "./packages/onchain-credentials/javascript" },
+    { "path": "./packages/sanctions" },
     { "path": "./packages/registry-explorer" }
   ],
   "include": [".eslintrc.cjs"]
