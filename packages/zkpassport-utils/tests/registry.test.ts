@@ -9,7 +9,10 @@ import {
   buildMerkleTreeFromRevocations,
   buildMerkleTreeFromMasterlists,
   buildRevocationExclusionProof,
+  CERTIFICATE_MERKLE_TREE_HEIGHT,
   createPackagedCertificatesFile,
+  getCertificateLeafHashes,
+  getCertificateMerkleProofFromFile,
   getRevocationLeafHash,
   getRevocationLeafHashes,
   verifyRevocationExclusionProof,
@@ -17,7 +20,7 @@ import {
   REVOCATION_MERKLE_TREE_HEIGHT,
   MASTERLIST_MERKLE_TREE_HEIGHT,
 } from "../src/registry"
-import { AsyncIMT, poseidon2 } from "../src/merkle-tree"
+import { AsyncIMT, computeMerkleProof, poseidon2 } from "../src/merkle-tree"
 import {
   IntermediateCertificateRevocation,
   PackagedCertificate,
@@ -372,6 +375,40 @@ describe("Registry", () => {
     const tree = await buildMerkleTreeFromCerts(fixture.certificates, 1)
     expect(tree.root).toEqual("0x262fde787e0055a157c6d229620775d479c0e1d1b2410af62d41c01948f05795")
     expect(tree.serialize()).toEqual(fixture.certificates_serialised)
+  })
+
+  test("getCertificateMerkleProofFromFile should match the proof from the rebuilt tree", async () => {
+    const fixture = rootCertsV1 as PackagedCertificatesFileV1
+    const leaves = await getCertificateLeafHashes(fixture.certificates, 1)
+    const revocationRoot = (await buildMerkleTreeFromRevocations(fixture.revocations ?? [])).root
+    const masterlistRoot = (await buildMerkleTreeFromMasterlists(fixture.masterlists)).root
+    for (const index of [0, 274, leaves.length - 1]) {
+      const proof = await getCertificateMerkleProofFromFile(
+        fixture,
+        leaves[index],
+        revocationRoot,
+        masterlistRoot,
+      )
+      expect(proof).toEqual(await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT))
+    }
+  })
+
+  test("getCertificateMerkleProofFromFile should return null when the stored tree does not lead to the file root", async () => {
+    const fixture = rootCertsV1 as PackagedCertificatesFileV1
+    const layers = fixture.certificates_serialised!
+    const leaf = BigInt(layers[0][0])
+    const revocationRoot = (await buildMerkleTreeFromRevocations(fixture.revocations ?? [])).root
+    const masterlistRoot = (await buildMerkleTreeFromMasterlists(fixture.masterlists)).root
+    const withWrongSibling = [[layers[0][0], ...layers[0].slice(2)], ...layers.slice(1)]
+    for (const file of [
+      { ...fixture, certificates_serialised: undefined },
+      { ...fixture, certificates_serialised: withWrongSibling },
+      { ...fixture, root: "0x01" },
+    ]) {
+      expect(
+        await getCertificateMerkleProofFromFile(file, leaf, revocationRoot, masterlistRoot),
+      ).toBeNull()
+    }
   })
 
   test("buildMerkleTreeFromMasterlists should be sort-invariant and deterministic", async () => {
