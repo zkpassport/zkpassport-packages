@@ -139,7 +139,10 @@ export type SanctionsSource = {
   sha256: string
   /** Size of the downloaded snapshot in bytes */
   size: number
-  /** Number of person records parsed out of this snapshot */
+  /**
+   * Number of distinct sanctioned persons (upstream entities) in this snapshot that contributed
+   * leaves. A person with several name variants counts once.
+   */
   entities: number
 }
 
