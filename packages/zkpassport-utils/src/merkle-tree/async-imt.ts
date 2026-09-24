@@ -386,12 +386,13 @@ export class AsyncIMT {
 
   /**
    * Load a tree that was previously generated via serialize().
-   * This reconstructs all layers without recomputing hashes.
-   * It is O(n) on the number of stored nodes and should be almost instant
-   * compared to rebuilding via initialize().
+   * This loads all layers without recomputing their hashes, so it is much faster
+   * than rebuilding via initialize(). Proofs use a zero value for each missing
+   * sibling, and serialize() does not store them, so they are hashed again here
+   * from a zero leaf of 0.
    * @param serialized Matrix as returned by serialize()
    */
-  public loadFromSerialized(serialized: string[][]): void {
+  public async loadFromSerialized(serialized: string[][]): Promise<void> {
     if (!Array.isArray(serialized) || serialized.length === 0) {
       throw new Error("Invalid serialized tree: empty payload")
     }
@@ -416,10 +417,11 @@ export class AsyncIMT {
       throw new Error("Invalid serialized tree: missing root")
     }
 
-    // Zeroes are not required for reading/serialization; initialize placeholders for consistency
-    if (this.zeroes.length !== this.depth) {
-      this.zeroes.length = 0
-      for (let i = 0; i < this.depth; i += 1) this.zeroes.push(0n)
+    this._zeroes.length = 0
+    let zeroValue: IMTNode = 0n
+    for (let level = 0; level < this.depth; level += 1) {
+      this._zeroes.push(zeroValue)
+      zeroValue = await this._hash(Array(this._arity).fill(zeroValue))
     }
   }
 
@@ -429,17 +431,17 @@ export class AsyncIMT {
    * @param serialized Matrix as returned by serialize()
    * @param arity Arity of the tree (defaults to 2)
    */
-  public static fromSerialized(
+  public static async fromSerialized(
     hash: IMTAsyncHashFunction,
     serialized: string[][],
     arity = 2,
-  ): AsyncIMT {
+  ): Promise<AsyncIMT> {
     if (!Array.isArray(serialized) || serialized.length === 0) {
       throw new Error("Invalid serialized tree: empty payload")
     }
     const depth = serialized.length - 1
     const tree = new AsyncIMT(hash, depth, arity)
-    tree.loadFromSerialized(serialized)
+    await tree.loadFromSerialized(serialized)
     return tree
   }
 }
