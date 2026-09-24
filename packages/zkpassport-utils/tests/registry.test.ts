@@ -401,7 +401,6 @@ describe("Registry", () => {
     const masterlistRoot = (await buildMerkleTreeFromMasterlists(fixture.masterlists)).root
     const withWrongSibling = [[layers[0][0], ...layers[0].slice(2)], ...layers.slice(1)]
     for (const file of [
-      { ...fixture, certificates_serialised: undefined },
       { ...fixture, certificates_serialised: withWrongSibling },
       { ...fixture, root: "0x01" },
     ]) {

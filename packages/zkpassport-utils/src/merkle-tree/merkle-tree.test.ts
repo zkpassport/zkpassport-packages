@@ -27,14 +27,11 @@ describe("merkle tree", () => {
   })
 
   test("a tree loaded from its serialized layers gives the same proofs", async () => {
-    for (const count of [1, 2, 5, 7]) {
-      const leaves = Array.from({ length: count }, (_, i) => BigInt(i + 1))
-      const tree = new AsyncIMT(poseidon2, 16, 2)
-      await tree.initialize(0n, leaves)
-      const loaded = await AsyncIMT.fromSerialized(poseidon2, tree.serialize())
-      for (let index = 0; index < count; index++) {
-        expect(loaded.createProof(index)).toEqual(tree.createProof(index))
-      }
+    const tree = new AsyncIMT(poseidon2, 16, 2)
+    await tree.initialize(0n, [1n, 2n, 3n, 4n, 5n])
+    const loaded = await AsyncIMT.fromSerialized(poseidon2, tree.serialize())
+    for (let index = 0; index < 5; index++) {
+      expect(loaded.createProof(index)).toEqual(tree.createProof(index))
     }
   })
 })

@@ -386,10 +386,9 @@ export class AsyncIMT {
 
   /**
    * Load a tree that was previously generated via serialize().
-   * This loads all layers without recomputing their hashes, so it is much faster
-   * than rebuilding via initialize(). Proofs use a zero value for each missing
-   * sibling, and serialize() does not store them, so they are hashed again here
-   * from a zero leaf of 0.
+   * This reconstructs all layers without recomputing hashes.
+   * It is O(n) on the number of stored nodes and should be almost instant
+   * compared to rebuilding via initialize().
    * @param serialized Matrix as returned by serialize()
    */
   public async loadFromSerialized(serialized: string[][]): Promise<void> {
@@ -417,6 +416,8 @@ export class AsyncIMT {
       throw new Error("Invalid serialized tree: missing root")
     }
 
+    // Proofs use these for empty siblings and serialize() does not store them,
+    // so rebuild them like initialize() does for a zero leaf of 0
     this._zeroes.length = 0
     let zeroValue: IMTNode = 0n
     for (let level = 0; level < this.depth; level += 1) {
