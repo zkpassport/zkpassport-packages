@@ -518,12 +518,11 @@ export async function getDSCCircuitInputs(
   // Get the CSCA for this passport's DSC using the async version with signature verification fallback
   const csca = await getCscaForPassportAsync(passport.sod.certificate, packagedCerts.certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
-  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   const revocationTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
   const masterlistTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
-
   // Generate the certificate tree merkle proof
   const cscaLeaf = await getCertificateLeafHash(csca, { version: schemaVersion })
+  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
   let merkleProof =
     overrideMerkleProof ??
     (await getCertificateMerkleProofFromFile(

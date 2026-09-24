@@ -716,20 +716,12 @@ export async function calculatePackagedCertificatesStateRoot(
 }
 
 /**
- * Get the Merkle proof for a certificate from the certificate tree stored in a packaged
- * certificates file. This is much cheaper than rebuilding the tree, which hashes every
- * certificate.
- *
- * The file comes from the network, so the proof is only returned if the leaf, the proof
- * and the file's other roots hash to the file's root, which is the same check the
- * certificate circuit makes.
- *
- * @param packagedCerts Packaged certificates file (version 1)
- * @param leaf Leaf hash of the certificate
+ * Get a certificate's Merkle proof from the tree stored in a packaged certificates file,
+ * which is much faster than rebuilding the tree. The proof is only returned if it leads
+ * to the file's root, the same check the certificate circuit makes.
  * @param revocationRoot Revocation tree root of the same file
  * @param masterlistRoot Masterlist tree root of the same file
- * @returns The Merkle proof, or null if the file has no usable tree, the leaf is not in it,
- *          or the proof does not lead to the file's root
+ * @returns The Merkle proof, or null if the stored tree cannot be used
  */
 export async function getCertificateMerkleProofFromFile(
   packagedCerts: PackagedCertificatesFileV1,
@@ -745,17 +737,17 @@ export async function getCertificateMerkleProofFromFile(
     if (index === -1) return null
     const proof = tree.createProof(index)
     if (!(await AsyncIMT.verifyProof(proof, poseidon2))) return null
-    const treeRoot = normaliseHex(BigInt(proof.root))
-    const { certificateRoot } = await calculateCertificateRootV1({
+    const certificateTreeRoot = normaliseHex(BigInt(proof.root))
+    const { certificateRoot: registryRoot } = await calculateCertificateRootV1({
       schemaVersion: packagedCerts.version,
       timestamp: packagedCerts.timestamp,
-      certificateRoot: treeRoot,
+      certificateRoot: certificateTreeRoot,
       revocationRoot,
       masterlistRoot,
     })
-    if (BigInt(certificateRoot) !== BigInt(packagedCerts.root)) return null
+    if (BigInt(registryRoot) !== BigInt(packagedCerts.root)) return null
     return {
-      root: treeRoot,
+      root: certificateTreeRoot,
       index,
       path: proof.siblings.flat().map((node) => normaliseHex(BigInt(node))),
     }
