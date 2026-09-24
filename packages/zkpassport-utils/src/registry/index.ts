@@ -11,7 +11,7 @@ import {
   RSAPublicKey,
   TwoLetterCode,
 } from "../types"
-import { assert, packBeBytesIntoFields } from "../utils"
+import { assert, normaliseHex, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
 import { AsyncIMT, poseidon2 } from "../merkle-tree"
 import type { IMTMerkleProof } from "../merkle-tree/async-imt"
@@ -713,6 +713,48 @@ export async function calculatePackagedCertificatesStateRoot(
 
   const stateRootBn = await poseidon2HashAsync([certBn, revBn, mlBn])
   return `0x${stateRootBn.toString(16).padStart(64, "0")}`
+}
+
+/**
+ * Get a certificate's Merkle proof from the tree stored in a packaged certificates file,
+ * which is much faster than rebuilding the tree. The proof is only returned if it leads
+ * to the file's root, the same check the certificate circuit makes.
+ * @param revocationRoot Revocation tree root of the same file
+ * @param masterlistRoot Masterlist tree root of the same file
+ * @returns The Merkle proof, or null if the stored tree cannot be used
+ */
+export async function getCertificateMerkleProofFromFile(
+  packagedCerts: PackagedCertificatesFileV1,
+  leaf: bigint,
+  revocationRoot: string,
+  masterlistRoot: string,
+): Promise<{ root: string; index: number; path: string[] } | null> {
+  const layers = packagedCerts.certificates_serialised
+  if (layers?.length !== CERTIFICATE_MERKLE_TREE_HEIGHT + 1) return null
+  try {
+    const tree = await AsyncIMT.fromSerialized(poseidon2, layers)
+    const index = tree.indexOf(leaf)
+    if (index === -1) return null
+    const proof = tree.createProof(index)
+    if (!(await AsyncIMT.verifyProof(proof, poseidon2))) return null
+    const certificateTreeRoot = normaliseHex(BigInt(proof.root))
+    const { certificateRoot: registryRoot } = await calculateCertificateRootV1({
+      schemaVersion: packagedCerts.version,
+      timestamp: packagedCerts.timestamp,
+      certificateRoot: certificateTreeRoot,
+      revocationRoot,
+      masterlistRoot,
+    })
+    if (BigInt(registryRoot) !== BigInt(packagedCerts.root)) return null
+    return {
+      root: certificateTreeRoot,
+      index,
+      path: proof.siblings.flat().map((node) => normaliseHex(BigInt(node))),
+    }
+  } catch {
+    // A stored tree that cannot be parsed is treated like a missing one
+    return null
+  }
 }
 
 /**

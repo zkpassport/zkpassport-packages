@@ -1,4 +1,4 @@
-import { computeMerkleProof } from "."
+import { AsyncIMT, computeMerkleProof, poseidon2 } from "."
 
 describe("merkle tree", () => {
   test("compute merkle proof", async () => {
@@ -24,5 +24,14 @@ describe("merkle tree", () => {
       "0x1c4954081e324939350febc2b918a293ebcdaead01be95ec02fcbe8d2c1635d1",
     ])
     expect(proof.root).toEqual("0x2a9ad141437856f3f43031151bf1b11938c541cfdb67c06639fa4a047eadc706")
+  })
+
+  test("a tree loaded from its serialized layers gives the same proofs", async () => {
+    const tree = new AsyncIMT(poseidon2, 16, 2)
+    await tree.initialize(0n, [1n, 2n, 3n, 4n, 5n])
+    const loaded = await AsyncIMT.fromSerialized(poseidon2, tree.serialize())
+    for (let index = 0; index < 5; index++) {
+      expect(loaded.createProof(index)).toEqual(tree.createProof(index))
+    }
   })
 })

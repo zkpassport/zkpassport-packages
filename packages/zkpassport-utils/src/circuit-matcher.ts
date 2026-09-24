@@ -40,6 +40,7 @@ import {
   CERTIFICATE_MERKLE_TREE_HEIGHT,
   getCertificateLeafHash,
   getCertificateLeafHashes,
+  getCertificateMerkleProofFromFile,
   tagsArrayToBitsFlag,
 } from "./registry"
 import type {
@@ -517,18 +518,28 @@ export async function getDSCCircuitInputs(
   // Get the CSCA for this passport's DSC using the async version with signature verification fallback
   const csca = await getCscaForPassportAsync(passport.sod.certificate, packagedCerts.certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
-  // Generate the certificate tree merkle proof
-  const cscaLeaf = await getCertificateLeafHash(csca, { version: schemaVersion })
-  const leaves =
-    overrideCertLeaves ??
-    (await getCertificateLeafHashes(packagedCerts.certificates, schemaVersion))
-  const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
-  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
-  const merkleProof =
-    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT))
-
   const revocationTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
   const masterlistTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
+  // Generate the certificate tree merkle proof
+  const cscaLeaf = await getCertificateLeafHash(csca, { version: schemaVersion })
+  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
+  let merkleProof =
+    overrideMerkleProof ??
+    (await getCertificateMerkleProofFromFile(
+      packagedCerts,
+      cscaLeaf,
+      revocationTree.root,
+      masterlistTree.root,
+    ))
+  // Rebuilding the tree hashes every certificate, which takes seconds on a phone,
+  // so it is only done when the file's stored tree cannot be used
+  if (!merkleProof) {
+    const leaves =
+      overrideCertLeaves ??
+      (await getCertificateLeafHashes(packagedCerts.certificates, schemaVersion))
+    const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
+    merkleProof = await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT)
+  }
 
   const inputs = {
     certificate_registry_root: packagedCerts.root,
