@@ -159,6 +159,30 @@ describe("Retry Logic", () => {
   })
 
   describe("Custom Retry Count", () => {
+    it("should respect retryCount of 0", async () => {
+      clock = FakeTimers.install()
+
+      const registryWithoutRetries = new RegistryClient({
+        chainId: 31337,
+        rpcUrl: MOCK_RPC_URL,
+        rootRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        registryHelper: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+        retryCount: 0,
+      })
+
+      globalThis.fetch = (async (_: RequestInfo | URL): Promise<Response> => {
+        attemptCount++
+        throw new TypeError("Network error")
+      }) as typeof fetch
+
+      const certPromise = registryWithoutRetries.getCertificates(MOCK_ROOT, { validate: false })
+
+      const [, error] = await Promise.all([clock.runAllAsync(), certPromise.catch((e) => e)])
+
+      expect(error).toBeInstanceOf(TypeError)
+      expect(attemptCount).toBe(1) // Initial attempt only
+    })
+
     it("should respect retryCount of 1", async () => {
       clock = FakeTimers.install()
 
