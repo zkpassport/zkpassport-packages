@@ -13,7 +13,21 @@ import {
   SupportedChain,
   Query,
 } from "@zkpassport/utils"
+import type { RegistryNetwork, RegistryNetworkOptions } from "@zkpassport/registry"
 import type { ZKPassport } from "./index"
+
+export type ZKPassportOptions = {
+  /**
+   * The registry network that local verification reads certificate and circuit roots from.
+   * Defaults to "testnet" in dev mode and "mainnet" otherwise.
+   */
+  network?: RegistryNetwork
+  /**
+   * Overrides for that network's registry settings, e.g. a local anvil RPC, its contract
+   * addresses and a local file server for "dev".
+   */
+  registry?: RegistryNetworkOptions
+}
 
 export type QueryResultError<T> = {
   expected?: T

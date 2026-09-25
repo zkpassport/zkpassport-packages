@@ -47,6 +47,16 @@ export interface RegistryClientOptions {
 }
 
 /**
+ * A registry network, named by what it is for rather than by chain ID
+ */
+export type RegistryNetwork = "mainnet" | "testnet" | "dev"
+
+/**
+ * Overrides for a network's registry settings (everything but the chain, which the network fixes)
+ */
+export type RegistryNetworkOptions = Omit<Partial<RegistryClientOptions>, "chainId">
+
+/**
  * Root details from the registry
  */
 export interface RootDetails {

@@ -22,8 +22,8 @@ import {
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
-import { RegistryClient } from "@zkpassport/registry"
-// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
+import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
+import { defaultRegistryNetwork } from "./registry-network"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -37,6 +37,7 @@ import {
   VerifierMode,
   VerificationResult,
   RequestedNullifierType,
+  ZKPassportOptions,
 } from "./types"
 import {
   createOfflineQuery,
@@ -137,6 +138,7 @@ function warnOnResultDeprecated() {
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
+  private options: ZKPassportOptions
   private topicToConfig: Record<string, Query> = {}
   private topicToLocalConfig: Record<
     string,
@@ -208,12 +210,21 @@ export class ZKPassport {
     )
   }
 
-  constructor(_domain?: string) {
+  constructor(_domain?: string, options: ZKPassportOptions = {}) {
     if (!_domain && typeof window === "undefined") {
       throw new Error("Domain argument is required in Node.js environment")
     }
     this.domainProvided = !!_domain
     this.domain = this.normalizeDomain(_domain || window.location.hostname)
+    this.options = options
+  }
+
+  /** The registry client for local verification: the configured network, else the dev mode default */
+  private getRegistryClient(devMode?: boolean): RegistryClient {
+    return createRegistryClient(
+      this.options.network ?? defaultRegistryNetwork(devMode),
+      this.options.registry,
+    )
   }
 
   private async handleResult(topic: string) {
@@ -945,6 +956,7 @@ export class ZKPassport {
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
+    const registryClient = this.getRegistryClient(devMode)
     try {
       const {
         isCorrect,
@@ -960,6 +972,7 @@ export class ZKPassport {
         scope,
         oprfKeyId,
         devMode,
+        registryClient,
       )
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
@@ -980,7 +993,6 @@ export class ZKPassport {
       }
       // Only proceed with the proof verification if the public inputs are correct
       if (verified) {
-        const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
         const circuitManifest = await registryClient.getCircuitManifest(undefined, {
           // We assume all proofs have the same version
           version: proofs[0].version,
