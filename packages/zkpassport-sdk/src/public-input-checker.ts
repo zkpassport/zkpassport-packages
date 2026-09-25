@@ -1847,16 +1847,31 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
-  private static async isRegistryRootValid(
+  private static async checkRegistryRoot(
     check: (registry: RegistryClient) => Promise<boolean>,
-    devMode?: boolean,
-  ): Promise<boolean> {
+    devMode: boolean | undefined,
+    queryResultErrors: any,
+    invalid: {
+      section: string
+      field: string
+      expected: string
+      received: string
+      message: string
+    },
+  ) {
+    let isCorrect: boolean
     try {
-      return await check(new RegistryClient({ chainId: devMode ? 11155111 : 1 }))
+      isCorrect = await check(new RegistryClient({ chainId: devMode ? 11155111 : 1 }))
     } catch (error) {
       console.warn(error)
-      return false
+      isCorrect = false
     }
+    if (!isCorrect) {
+      console.warn(invalid.message)
+      const { section, field, ...error } = invalid
+      queryResultErrors[section] = { ...queryResultErrors[section], [field]: error }
+    }
+    return { isCorrect, queryResultErrors }
   }
 
   public static async checkCertificateRegistryRoot(
@@ -1867,21 +1882,18 @@ export class PublicInputChecker {
     // Point in time to check validity at, in seconds; defaults to now
     timestamp?: number,
   ) {
-    const isCorrect = await this.isRegistryRootValid(
+    return this.checkRegistryRoot(
       (registry) => registry.isCertificateRootValid(root, timestamp),
       devMode,
-    )
-    if (!isCorrect) {
-      console.warn("The ID was signed by an unrecognized root certificate")
-      const key = outer ? "outer" : "sig_check_dsc"
-      if (!queryResultErrors[key]) queryResultErrors[key] = {}
-      queryResultErrors[key].certificate = {
-        expected: `A valid root from ZKPassport Registry`,
+      queryResultErrors,
+      {
+        section: outer ? "outer" : "sig_check_dsc",
+        field: "certificate",
+        expected: "A valid root from ZKPassport Registry",
         received: `Got invalid certificate registry root: ${root}`,
         message: "The ID was signed by an unrecognized root certificate",
-      }
-    }
-    return { isCorrect, queryResultErrors }
+      },
+    )
   }
 
   public static async checkCircuitRegistryRoot(
@@ -1891,20 +1903,18 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
   ) {
-    const isCorrect = await this.isRegistryRootValid(
+    return this.checkRegistryRoot(
       (registry) => registry.isCircuitRootValid(root, timestamp),
       devMode,
-    )
-    if (!isCorrect) {
-      console.warn("The proof uses unrecognized circuits")
-      if (!queryResultErrors.outer) queryResultErrors.outer = {}
-      queryResultErrors.outer.circuit = {
-        expected: `A valid circuit from ZKPassport Registry`,
+      queryResultErrors,
+      {
+        section: "outer",
+        field: "circuit",
+        expected: "A valid circuit from ZKPassport Registry",
         received: `Got invalid circuit registry root: ${root}`,
         message: "The proof uses an unrecognized circuit",
-      }
-    }
-    return { isCorrect, queryResultErrors }
+      },
+    )
   }
 
   public static async checkSanctionsRegistryRoot(
@@ -1914,22 +1924,18 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
   ) {
-    const isCorrect = await this.isRegistryRootValid(
+    return this.checkRegistryRoot(
       (registry) => registry.isSanctionsRootValid(root, timestamp),
       devMode,
+      queryResultErrors,
+      {
+        section: "sanctions",
+        field: "eq",
+        expected: "A valid root from ZKPassport Registry",
+        received: `Got invalid sanctions registry root: ${root}`,
+        message: "Invalid sanctions registry root",
+      },
     )
-    if (!isCorrect) {
-      console.warn("Invalid sanctions registry root")
-      queryResultErrors.sanctions = {
-        ...queryResultErrors.sanctions,
-        eq: {
-          expected: `A valid root from ZKPassport Registry`,
-          received: `Got invalid sanctions registry root: ${root}`,
-          message: "Invalid sanctions registry root",
-        },
-      }
-    }
-    return { isCorrect, queryResultErrors }
   }
 
   public static checkBindPublicInputs(
