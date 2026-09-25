@@ -41,6 +41,11 @@ export interface RegistryClientOptions {
   packagedCircuitUrlGenerator?: (chainId: number, hash: string, cid?: string) => string
 
   /**
+   * Serialised sanctions tree file URL generator
+   */
+  sanctionsTreeUrlGenerator?: (chainId: number, root: string) => string
+
+  /**
    * Number of retries for fetching data, default is 3
    */
   retryCount?: number

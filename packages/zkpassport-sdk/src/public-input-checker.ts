@@ -53,7 +53,8 @@ import {
   getBirthdateMinDateTimestamp,
   getBirthdateMaxDateTimestamp,
   SanctionsCommittedInputs,
-  SanctionsBuilder,
+  getSanctionsEvmParameterCommitment,
+  getSanctionsParameterCommitment,
   SECONDS_BETWEEN_1900_AND_1970,
   FacematchCommittedInputs,
   getFacematchEvmParameterCommitment,
@@ -1921,6 +1922,45 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
+  public static async checkSanctionsRegistryRoot(
+    root: string,
+    queryResultErrors: any,
+    devMode?: boolean,
+    // Same as above, see checkCertificateRegistryRoot
+    timestamp?: number,
+  ) {
+    let isCorrect = true
+    try {
+      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+      const isValid = await registryClient.isSanctionsRootValid(root, timestamp)
+      if (!isValid) {
+        console.warn("Invalid sanctions registry root")
+        isCorrect = false
+        queryResultErrors.sanctions = {
+          ...queryResultErrors.sanctions,
+          eq: {
+            expected: `A valid root from ZKPassport Registry`,
+            received: `Got invalid sanctions registry root: ${root}`,
+            message: "Invalid sanctions registry root",
+          },
+        }
+      }
+    } catch (error) {
+      console.warn(error)
+      console.warn("Invalid sanctions registry root")
+      isCorrect = false
+      queryResultErrors.sanctions = {
+        ...queryResultErrors.sanctions,
+        eq: {
+          expected: `A valid root from ZKPassport Registry`,
+          received: `Got invalid sanctions registry root: ${root}`,
+          message: "Invalid sanctions registry root",
+        },
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   public static checkBindPublicInputs(
     originalQuery: Query,
     queryResult: QueryResult,
@@ -1995,7 +2035,9 @@ export class PublicInputChecker {
     originalQuery: Query,
     queryResult: QueryResult,
     sanctionsCommittedInputs: SanctionsCommittedInputs,
-    sanctionsBuilder: SanctionsBuilder,
+    devMode?: boolean,
+    // Same as above, see checkCertificateRegistryRoot
+    timestamp?: number,
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
@@ -2013,20 +2055,13 @@ export class PublicInputChecker {
       }
     }
     if (queryResult.sanctions && queryResult.sanctions.passed) {
-      // For now it's fixed until we streamline the update of the sanctions registry
-      const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
-      if (sanctionsCommittedInputs.rootHash !== EXPECTED_ROOT) {
-        console.warn("Invalid sanctions registry root")
-        isCorrect = false
-        queryResultErrors.sanctions = {
-          ...queryResultErrors.sanctions,
-          eq: {
-            expected: EXPECTED_ROOT,
-            received: sanctionsCommittedInputs.rootHash,
-            message: "Invalid sanctions registry root",
-          },
-        }
-      }
+      const { isCorrect: isCorrectRoot } = await this.checkSanctionsRegistryRoot(
+        sanctionsCommittedInputs.rootHash,
+        queryResultErrors,
+        devMode,
+        timestamp,
+      )
+      isCorrect = isCorrect && isCorrectRoot
       if (queryResult.sanctions.isStrict !== sanctionsCommittedInputs.isStrict) {
         console.warn("Invalid sanctions strict mode")
         isCorrect = false
@@ -2812,15 +2847,16 @@ export class PublicInputChecker {
           !!committedInputs?.exclusion_check_sanctions ||
           !!committedInputs?.exclusion_check_sanctions_evm
         ) {
-          const sanctionsBuilder = await SanctionsBuilder.create()
           const exclusionCheckSanctionsCommittedInputs =
             (committedInputs?.exclusion_check_sanctions as SanctionsCommittedInputs) ??
             (committedInputs?.exclusion_check_sanctions_evm as SanctionsCommittedInputs)
           const exclusionCheckSanctionsParameterCommitment = isForEVM
-            ? await sanctionsBuilder.getSanctionsEvmParameterCommitment(
+            ? await getSanctionsEvmParameterCommitment(
+                exclusionCheckSanctionsCommittedInputs.rootHash,
                 exclusionCheckSanctionsCommittedInputs.isStrict,
               )
-            : await sanctionsBuilder.getSanctionsParameterCommitment(
+            : await getSanctionsParameterCommitment(
+                exclusionCheckSanctionsCommittedInputs.rootHash,
                 exclusionCheckSanctionsCommittedInputs.isStrict,
               )
           if (!paramCommitments.includes(exclusionCheckSanctionsParameterCommitment)) {
@@ -2842,7 +2878,8 @@ export class PublicInputChecker {
             originalQuery,
             queryResult,
             exclusionCheckSanctionsCommittedInputs,
-            sanctionsBuilder,
+            devMode,
+            rootTimestamp,
           )
           isCorrect = isCorrect && isCorrectSanctionsExclusion
           queryResultErrors = {
@@ -3579,10 +3616,10 @@ export class PublicInputChecker {
             },
           }
         }
-        const sanctionsBuilder = await SanctionsBuilder.create()
         const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
           ?.exclusion_check_sanctions as SanctionsCommittedInputs
-        const calculatedParamCommitment = await sanctionsBuilder.getSanctionsParameterCommitment(
+        const calculatedParamCommitment = await getSanctionsParameterCommitment(
+          exclusionCheckSanctionsCommittedInputs.rootHash,
           exclusionCheckSanctionsCommittedInputs.isStrict,
         )
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -3616,7 +3653,8 @@ export class PublicInputChecker {
           originalQuery,
           queryResult,
           exclusionCheckSanctionsCommittedInputs,
-          sanctionsBuilder,
+          devMode,
+          bundleRootTimestamp,
         )
         isCorrect = isCorrect && isCorrectSanctionsExclusion && isCorrectScope
         queryResultErrors = {

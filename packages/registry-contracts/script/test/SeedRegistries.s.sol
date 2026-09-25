@@ -35,7 +35,7 @@ contract SeedRegistriesScript is Script {
         0x23e802a448e80b578b81ed587e325cd0dcfb0dac0e6cc6dd6464012fdcdcfd2d;
     bytes32 constant DEFAULT_CIRCUIT_REGISTRY_ROOT = 0x068f6e356f993bd2afaf3d3466efff1dd4bc06f61952ac336085b832b93289a7;
     bytes32 constant DEFAULT_SANCTIONS_REGISTRY_ROOT =
-        0x099699583ea7729a4a05821667645e927b74feb4e6e5382c6e4370e35ed2b23c;
+        0x11bf8199f0eb9e91f45ea1c2bfa21b0dc2f66c1bea3ee530639aa7028066a57c;
     // CIDs for the 10th roots
     bytes32 constant CERTIFICATE_REGISTRY_CID = 0x2faca44e2b6e4e88a8bbba15bc53b0a7604b693c7733d3d4995c445b5a6258a2; // QmRYkZEm7ueX8XT82QuYTdL6iivv3gryoi2jJsPzvsdu6H
     bytes32 constant CIRCUIT_REGISTRY_CID = 0xc49583d83cde885ac798b7bd39f9910ba72b72faf27cbda4a5fcf951c3282019; // bafybeigeswb5qpg6rbnmpgfxxu47teilu4vxf6xsps62jjp47fi4gkbade

@@ -8,6 +8,7 @@ import {
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
   hexToCidv0,
+  SANCTIONS_REGISTRY_ID,
 } from "@zkpassport/utils/registry"
 import type {
   CircuitManifest,
@@ -28,6 +29,7 @@ import {
   PACKAGED_CERTIFICATES_URL_TEMPLATE,
   PACKAGED_CIRCUIT_URL_TEMPLATE,
   REGISTRIES_MAPPING_SIGNATURE,
+  SANCTIONS_TREE_URL_TEMPLATE,
 } from "./constants"
 import {
   DocumentSupport,
@@ -51,6 +53,7 @@ interface ChainConfig {
     { root, version, cid }: { root?: string; version?: string; cid?: string },
   ) => string
   packagedCircuitUrlGenerator: (chainId: number, hash: string, cid?: string) => string
+  sanctionsTreeUrlGenerator: (chainId: number, root: string) => string
 }
 
 const CHAIN_CONFIG: Record<number, ChainConfig> = {
@@ -63,6 +66,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
+    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
   },
   // Base Mainnet
   8453: {
@@ -73,6 +77,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
+    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
   },
   // Sepolia Testnet
   11155111: {
@@ -83,6 +88,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
+    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
   },
   // Local Development (Anvil)
   31337: {
@@ -92,6 +98,7 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
+    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
   },
 }
 
@@ -117,6 +124,7 @@ export class RegistryClient {
     hash: string,
     cid?: string,
   ) => string
+  private readonly sanctionsTreeUrlGenerator: (chainId: number, root: string) => string
   private readonly retryCount: number
 
   constructor({
@@ -127,6 +135,7 @@ export class RegistryClient {
     packagedCertsUrlGenerator,
     circuitManifestUrlGenerator,
     packagedCircuitUrlGenerator,
+    sanctionsTreeUrlGenerator,
     retryCount,
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
@@ -143,6 +152,8 @@ export class RegistryClient {
       circuitManifestUrlGenerator || chainConfig?.circuitManifestUrlGenerator
     this.packagedCircuitUrlGenerator =
       packagedCircuitUrlGenerator || chainConfig?.packagedCircuitUrlGenerator
+    this.sanctionsTreeUrlGenerator =
+      sanctionsTreeUrlGenerator || chainConfig?.sanctionsTreeUrlGenerator
     this.retryCount = retryCount || DEFAULT_RETRY_COUNT
   }
 
@@ -667,6 +678,127 @@ export class RegistryClient {
     if (!response.ok) {
       throw new Error(
         `Failed to get latest circuit root details: ${response.status} ${response.statusText}`,
+      )
+    }
+    return this._handleRootDetailsResponse(response)
+  }
+
+  /**
+   * Get latest Sanctions Registry root
+   */
+  async getLatestSanctionsRoot(): Promise<string> {
+    log("Getting latest sanctions root", { registry: this.rootRegistry })
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      LATEST_ROOT_WITH_PARAM_SIGNATURE + SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0"),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get latest sanctions root: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    log(`Got latest sanctions root: ${rpcData.result}`)
+    return rpcData.result
+  }
+
+  /**
+   * Check if a sanctions root is valid
+   *
+   * @param root The root hash to check
+   * @param timestamp Optional timestamp to check validity for (defaults to current time)
+   * @returns True if the root is valid, false otherwise
+   */
+  async isSanctionsRootValid(root: string, timestamp?: number): Promise<boolean> {
+    root = normaliseHash(root)
+    const ts = timestamp ?? Math.floor(Date.now() / 1000)
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      IS_ROOT_VALID_SIGNATURE +
+        SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0") +
+        strip0x(root) +
+        ts.toString(16).padStart(64, "0"),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Error checking if sanctions root is valid: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    return parseInt(strip0x(rpcData.result)) === 1
+  }
+
+  /**
+   * Get the serialised sanctions tree published for a root
+   *
+   * The file holds the layers of the ordered Merkle tree, as `AsyncOrderedMT.serialize()` returns
+   * them, so `AsyncOrderedMT.fromSerialized()` loads it without rebuilding the tree.
+   *
+   * @param root The root hash to get the tree for (defaults to latest root)
+   * @param validate Whether to check that the tree's root node matches the root hash (defaults to true)
+   */
+  async getSanctionsTree(
+    root?: string,
+    { validate = true }: { validate?: boolean } = {},
+  ): Promise<{ root: string; serialised: string[][] }> {
+    if (!root) root = await this.getLatestSanctionsRoot()
+    else root = normaliseHash(root)
+
+    const url = this.sanctionsTreeUrlGenerator(this.chainId, root)
+    log("Getting sanctions tree from:", url)
+    const response = await withRetry(
+      () => fetch(url, { headers: { "Accept-Encoding": "gzip" } }),
+      this.retryCount,
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get sanctions tree for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
+      )
+    }
+    const serialised = (await response.json()) as string[][]
+    if (!Array.isArray(serialised) || !serialised.every((layer) => Array.isArray(layer)))
+      throw new Error("Invalid serialised sanctions tree returned")
+    log(`Got sanctions tree with ${serialised.length} layers for root ${root}`)
+
+    // Only the root node is checked: rehashing 2^18 leaves is too slow on a phone
+    if (validate) {
+      const treeRoot = serialised[serialised.length - 1]?.[0]
+      const valid = treeRoot !== undefined && normaliseHash(treeRoot) === root.toLowerCase()
+      if (!valid) throw new Error(`Validation failed for sanctions tree: ${root}`)
+    }
+    return { root, serialised }
+  }
+
+  /**
+   * Get sanctions root details
+   * @param root Optional root to get details for (defaults to latest)
+   */
+  async getSanctionsRootDetails(root?: string): Promise<RootDetails> {
+    if (root) {
+      log("Getting sanctions root details")
+      const response = await this.rpcRequest(
+        this.registryHelper,
+        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
+          SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0") +
+          strip0x(root).padStart(64, "0"),
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Failed to get sanctions root details: ${response.status} ${response.statusText}`,
+        )
+      }
+      return this._handleRootDetailsResponse(response)
+    }
+    log("Getting latest sanctions root details")
+    const response = await this.rpcRequest(
+      this.registryHelper,
+      GET_LATEST_ROOT_DETAILS_SIGNATURE + SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0"),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get latest sanctions root details: ${response.status} ${response.statusText}`,
       )
     }
     return this._handleRootDetailsResponse(response)
