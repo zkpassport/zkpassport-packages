@@ -1,10 +1,10 @@
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { PublicInputChecker } from "../src/public-input-checker"
 import type {
   Query,
   QueryResult,
   ProofResult,
   DiscloseCommittedInputs,
-  SanctionsBuilder,
   FacematchCommittedInputs,
 } from "@zkpassport/utils"
 import {
@@ -20,6 +20,16 @@ import {
   ZKPASSPORT_IOS_APP_ID_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
 } from "../src/constants"
+import { RegistryClient } from "@zkpassport/registry"
+
+// A sanctions root the mocked registry reports as valid
+const VALID_SANCTIONS_ROOT = "0x" + "ab".repeat(32)
+
+function mockSanctionsRootValidity() {
+  return spyOn(RegistryClient.prototype, "isSanctionsRootValid").mockImplementation(
+    async (root: string) => root === VALID_SANCTIONS_ROOT,
+  )
+}
 
 // Helper to build a minimal disclose proof with committed inputs
 function makeDiscloseProof(disclosedBytes: number[]): ProofResult {
@@ -1618,33 +1628,53 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     const originalQuery: Query = {
       sanctions: { countries: "all", lists: "all", strict: false },
     }
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
 
-    test("passes when root hash and strict match", async () => {
+    beforeEach(() => {
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      isSanctionsRootValid.mockRestore()
+    })
+
+    test("passes when the root is valid in the registry and strict matches", async () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: false },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
         originalQuery,
         queryResult,
-        { rootHash: "abc123", isStrict: false },
-        sanctionsBuilder,
+        { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
       )
       expect(isCorrect).toBe(true)
     })
 
-    test("fails when root hash does not match", async () => {
+    test("fails when the root is not valid in the registry", async () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: false },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect, queryResultErrors } =
-        await PublicInputChecker.checkSanctionsExclusionPublicInputs(
-          originalQuery,
-          queryResult,
-          { rootHash: "wrong_root", isStrict: false },
-          sanctionsBuilder,
-        )
+        await PublicInputChecker.checkSanctionsExclusionPublicInputs(originalQuery, queryResult, {
+          rootHash: "0x" + "cd".repeat(32),
+          isStrict: false,
+        })
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
+    })
+
+    test("fails when the registry lookup throws", async () => {
+      isSanctionsRootValid.mockImplementation(async () => {
+        throw new Error("RPC unavailable")
+      })
+      const queryResult: QueryResult = {
+        sanctions: { passed: true, isStrict: false },
+      }
+      const { isCorrect, queryResultErrors } =
+        await PublicInputChecker.checkSanctionsExclusionPublicInputs(originalQuery, queryResult, {
+          rootHash: VALID_SANCTIONS_ROOT,
+          isStrict: false,
+        })
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
     })
@@ -1656,13 +1686,11 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: true },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect, queryResultErrors } =
         await PublicInputChecker.checkSanctionsExclusionPublicInputs(
           oq,
           queryResult,
-          { rootHash: "abc123", isStrict: false }, // committed says non-strict
-          sanctionsBuilder,
+          { rootHash: VALID_SANCTIONS_ROOT, isStrict: false }, // committed says non-strict
         )
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.sanctions?.eq?.message).toContain("strict mode")
@@ -2764,6 +2792,15 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     const todayTs = BigInt(getTodayTimestamp())
     const commitment = 100n
     const nullifier = 42n
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
+
+    beforeEach(() => {
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      isSanctionsRootValid.mockRestore()
+    })
 
     function makeSanctionsProof(
       commitmentIn: bigint,
@@ -2774,7 +2811,7 @@ describe("PublicInputChecker - checkPublicInputs", () => {
         proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, nullifier]),
         total: 1,
         committedInputs: {
-          exclusion_check_sanctions: { rootHash: "abc", isStrict: false },
+          exclusion_check_sanctions: { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
         },
       }
     }

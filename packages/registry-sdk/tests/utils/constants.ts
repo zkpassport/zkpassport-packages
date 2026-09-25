@@ -20,6 +20,14 @@ export const CIRCUIT_MANIFEST_FIXTURES_ROOT =
 // The CIDv0 of the circuit manifest fixture: tests/fixtures/manifest.json
 export const CIRCUIT_MANIFEST_FIXTURES_CID = "Qmba2rG7zkg5DCppvUQHvc6LxUSHQdAs6ryrYv15CNX6RN"
 
+// The root of the serialised sanctions tree fixture: tests/fixtures/sanctions_tree.json
+export const SANCTIONS_FIXTURES_ROOT =
+  "0x11bf8199f0eb9e91f45ea1c2bfa21b0dc2f66c1bea3ee530639aa7028066a57c"
+
+// The genesis root hash of the sanctions registry
+export const SANCTIONS_GENESIS_ROOT =
+  "0x6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+
 // An invalid root hash
 export const INVALID_HASH = "0x1111111111111111111111111111111111111111111111111111111111111111"
 

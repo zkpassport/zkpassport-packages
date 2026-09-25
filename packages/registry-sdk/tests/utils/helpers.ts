@@ -339,3 +339,13 @@ export function loadPackagedCircuitFile(filePath: string): PackagedCircuit {
     throw new Error(`Error loading packaged circuit: ${filePath}`)
   }
 }
+
+export function loadSanctionsTreeFile(filePath: string): string[][] {
+  try {
+    const fileData = fs.readFileSync(filePath, "utf8")
+    const fileJson = JSON.parse(fileData)
+    return fileJson
+  } catch (_) {
+    throw new Error(`Error loading sanctions tree: ${filePath}`)
+  }
+}

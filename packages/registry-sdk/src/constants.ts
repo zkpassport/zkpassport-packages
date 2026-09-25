@@ -39,6 +39,29 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
 }
 
 /**
+ * Serialised sanctions tree URLs
+ */
+export const SANCTIONS_TREE_URL_MAINNET = "https://cdn.zkpassport.id/sanctions/mainnet"
+export const SANCTIONS_TREE_URL_TESTNET = "https://cdn.zkpassport.id/sanctions/testnet"
+export const SANCTIONS_TREE_URL_DEV = "http://localhost:8000/sanctions"
+
+/**
+ * Serialised sanctions tree URL generator
+ * @param chainId - The chain ID
+ * @param root - The sanctions root hash
+ */
+export const SANCTIONS_TREE_URL_TEMPLATE = (chainId: number, root: string) => {
+  root = normaliseHash(root)
+  if (chainId === 1 || chainId === 8453) {
+    return `${SANCTIONS_TREE_URL_MAINNET}/${root}.tree.json.gz`
+  } else if (chainId === 11155111) {
+    return `${SANCTIONS_TREE_URL_TESTNET}/${root}.tree.json.gz`
+  } else {
+    return `${SANCTIONS_TREE_URL_DEV}/${root}.tree.json.gz`
+  }
+}
+
+/**
  * Circuit URLs
  */
 export const CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
