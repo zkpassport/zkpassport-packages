@@ -10,9 +10,10 @@
  *     seed-registries.sh, with the committed zkpassport-utils/tests/fixtures/root-certs-v1.json
  *     root (549 certs incl. the 2 ZKR CSCAs) as the latest certificate root
  *   - a static file server with the layout the registry's dev URLs use (/root, /by-version, /by-hash)
- *   - @zkpassport/registry swapped (bun mock.module) for a RegistryClient pinned to that anvil and
- *     file server. This stands in for the SDK network option that doesn't exist yet: the SDK
- *     hard-codes RegistryClient({ chainId: devMode ? 11155111 : 1 }).
+ *   - the SDK and the stand-in both given network "dev" plus overrides for that anvil and file
+ *     server, through the SDK's new ZKPassportOptions ({ network, registry }) and registry-sdk's
+ *     createRegistryClient(). (Before that option existed, this step swapped @zkpassport/registry
+ *     with bun mock.module.)
  *   - a fetch guard that blocks and records every non-local request
  *
  * Needs anvil, forge and jq on PATH, registry-contracts built (forge build, forge-std submodule
@@ -20,16 +21,13 @@
  *
  * Run from the repo root: bun packages/zkpassport-sdk/scripts/prototype-anvil.ts
  */
-import { mock } from "bun:test"
 import { execSync, spawn } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { dirname, join, resolve } from "node:path"
-// Nothing that imports @zkpassport/registry may load before mock.module below, so no static
-// import of prototype-prove / prototype-flow here.
-const CIRCUIT_VERSION = "0.21.0"
-const log = (...args: unknown[]) =>
-  console.log(`[${new Date().toISOString().slice(11, 23)}]`, ...args)
+import type { RegistryNetworkOptions } from "@zkpassport/registry"
+import { runBridgeFlow } from "./prototype-flow"
+import { CIRCUIT_VERSION, log } from "./prototype-prove"
 
 const CONTRACTS_DIR = resolve(import.meta.dir, "../../registry-contracts")
 const CERTS_FIXTURE = resolve(
@@ -151,39 +149,26 @@ async function main() {
   const files = startFileServer(certificateRoot)
   log(`file server on ${files.url}`)
 
-  // --- 4. Every RegistryClient, the SDK's included, now reads anvil and the file server ---
-  const real = await import("@zkpassport/registry")
-  const requestedChains: number[] = []
-  class AnvilRegistryClient extends real.RegistryClient {
-    constructor(options: any) {
-      requestedChains.push(options?.chainId)
-      super({
-        ...options,
-        chainId: 31337,
-        rpcUrl: devnet.rpcUrl,
-        rootRegistry: devnet.rootRegistry,
-        registryHelper: devnet.registryHelper,
-        packagedCertsUrlGenerator: (_chainId: number, root: string) =>
-          `${files.url}/root/${root}.json`,
-        circuitManifestUrlGenerator: (
-          _chainId: number,
-          { root, version }: { root?: string; version?: string },
-        ) =>
-          version
-            ? `${files.url}/by-version/${version}/manifest.json`
-            : `${files.url}/by-root/${root}/manifest.json`,
-        packagedCircuitUrlGenerator: (_chainId: number, hash: string) =>
-          `${files.url}/by-hash/${hash}.json`,
-      })
-    }
+  // --- 4. The "dev" network, pointed at this anvil and file server ---
+  const registry: RegistryNetworkOptions = {
+    rpcUrl: devnet.rpcUrl,
+    rootRegistry: devnet.rootRegistry,
+    registryHelper: devnet.registryHelper,
+    packagedCertsUrlGenerator: (_chainId, root) => `${files.url}/root/${root}.json`,
+    circuitManifestUrlGenerator: (_chainId, { root, version }) =>
+      version
+        ? `${files.url}/by-version/${version}/manifest.json`
+        : `${files.url}/by-root/${root}/manifest.json`,
+    packagedCircuitUrlGenerator: (_chainId, hash) => `${files.url}/by-hash/${hash}.json`,
   }
-  mock.module("@zkpassport/registry", () => ({ ...real, RegistryClient: AnvilRegistryClient }))
 
   // --- 5. From here on, only 127.0.0.1 is reachable through fetch ---
   const blocked: string[] = []
+  let anvilRpcCalls = 0
   const realFetch = globalThis.fetch
   globalThis.fetch = (async (input: any, init?: any) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+    if (url.startsWith(devnet.rpcUrl)) anvilRpcCalls++
     if (["127.0.0.1", "localhost"].includes(new URL(url).hostname)) return realFetch(input, init)
     blocked.push(url)
     throw new Error(`prototype network guard: blocked ${url}`)
@@ -191,11 +176,8 @@ async function main() {
 
   let exitCode = 1
   try {
-    const { runBridgeFlow } = await import("./prototype-flow")
-    const { verification, roundTripMs } = await runBridgeFlow()
-    log(
-      `RegistryClient constructions: ${requestedChains.length} (chainIds requested by callers: ${[...new Set(requestedChains)].join(", ")}; all served by anvil 31337)`,
-    )
+    const { verification, roundTripMs } = await runBridgeFlow({ network: "dev", registry })
+    log(`anvil RPC calls during the flow: ${anvilRpcCalls}`)
     log(`file server requests: ${files.hits.length} (${[...new Set(files.hits)].join(", ")})`)
     log(
       `blocked non-local fetches: ${blocked.length}${blocked.length ? " → " + blocked.join(", ") : ""}`,

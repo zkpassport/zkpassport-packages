@@ -7,11 +7,12 @@
  *
  * The stand-in parses the request URL and joins the bridge the way zkpassport-mobile-app does
  * (src/hooks/useParseDeepLinkParams.ts, src/context/WebSocketContext.tsx). Proving: prototype-prove.ts.
- * Which registry both sides read is decided by whoever imports this module (step 3 swaps
- * @zkpassport/registry for an anvil-backed client before importing it).
+ * Which registry both sides read comes from the caller: step 2 passes nothing (dev mode → testnet),
+ * step 3 passes network "dev" with its anvil and file-server overrides.
  */
 import { homedir } from "node:os"
 import { Bridge } from "@obsidion/bridge"
+import type { RegistryNetwork, RegistryNetworkOptions } from "@zkpassport/registry"
 import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import { ZKPassport } from "../src/index"
 import { log, proveJohnFastMode } from "./prototype-prove"
@@ -24,7 +25,9 @@ export const json = (v: unknown) =>
 const decodeBase64Json = (s: string) => JSON.parse(Buffer.from(s, "base64").toString("utf8"))
 
 // --- App stand-in: the phone's half of the request, headless ---
-async function runStandIn(requestUrl: string) {
+type RegistryChoice = { network?: RegistryNetwork; registry?: RegistryNetworkOptions }
+
+async function runStandIn(requestUrl: string, { network, registry }: RegistryChoice) {
   // Same params the app's useParseDeepLinkParams.ts reads
   const params = new URL(requestUrl).searchParams
   const domain = params.get("d")!
@@ -59,6 +62,8 @@ async function runStandIn(requestUrl: string) {
     scope: service.scope,
     query,
     devMode,
+    network,
+    registryOverrides: registry,
   })
   // The app sends all proofs after proving (AccessRequestView.tsx), then done after a short delay
   for (const proof of proofs) {
@@ -72,7 +77,7 @@ async function runStandIn(requestUrl: string) {
   return bridge
 }
 
-export async function runBridgeFlow() {
+export async function runBridgeFlow({ network, registry }: RegistryChoice = {}) {
   const { startServer } = await import(`${RELAY_DIR}/server/server.ts`)
   const { MemoryDataStore } = await import(`${RELAY_DIR}/server/datastore/memory.ts`)
   const relay = startServer({
@@ -82,7 +87,7 @@ export async function runBridgeFlow() {
   const bridgeUrl = `ws://127.0.0.1:${relay.port}`
   log(`relay listening on ${bridgeUrl}`)
 
-  const zkPassport = new ZKPassport(DOMAIN)
+  const zkPassport = new ZKPassport(DOMAIN, { network, registry })
   const queryBuilder = await zkPassport.request({
     name: "E2E prototype",
     logo: "https://zkpassport.id/favicon.png",
@@ -119,7 +124,7 @@ export async function runBridgeFlow() {
   })
 
   const t0 = Date.now()
-  const standInBridge = await runStandIn(url)
+  const standInBridge = await runStandIn(url, { network, registry })
   const { proofs, result } = await success
   const roundTripMs = Date.now() - t0
   log(`round trip from stand-in join to onSuccess: ${roundTripMs} ms`)

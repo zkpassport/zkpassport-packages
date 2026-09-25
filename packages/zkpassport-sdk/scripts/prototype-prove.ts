@@ -8,7 +8,12 @@
 import { createHash } from "node:crypto"
 import { Noir } from "@noir-lang/noir_js"
 import { Barretenberg, UltraHonkBackend } from "@aztec/bb.js"
-import { RegistryClient } from "@zkpassport/registry"
+import {
+  createRegistryClient,
+  type RegistryNetwork,
+  type RegistryNetworkOptions,
+} from "@zkpassport/registry"
+import { defaultRegistryNetwork } from "../src/registry-network"
 import {
   Binary,
   SOD,
@@ -130,11 +135,16 @@ export async function proveJohnFastMode({
   scope,
   query,
   devMode,
+  network,
+  registryOverrides,
 }: {
   domain: string
   scope?: string
   query: Query
   devMode: boolean
+  // Which registry the stand-in reads; defaults like the app (testnet for dev requests)
+  network?: RegistryNetwork
+  registryOverrides?: RegistryNetworkOptions
 }): Promise<{ proofs: ProofResult[]; queryResult: QueryResult }> {
   const keys = Object.keys(query).sort().join(",")
   if (keys !== "age,nationality" || !query.age?.gte || !query.nationality?.disclose) {
@@ -143,8 +153,7 @@ export async function proveJohnFastMode({
     )
   }
   const passport = buildJohn()
-  // Same registry choice as the app: Sepolia for dev requests (where the ZKR CSCAs live)
-  const registry = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+  const registry = createRegistryClient(network ?? defaultRegistryNetwork(devMode), registryOverrides)
 
   const packagedCerts = await registry.getCertificates()
   const manifest = await registry.getCircuitManifest(undefined, { version: CIRCUIT_VERSION })
