@@ -43,6 +43,9 @@ import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
 
+/** A registry ID as the bytes32 word the Root Registry's functions take */
+const registryIdWord = (registryId: number) => registryId.toString(16).padStart(64, "0")
+
 interface ChainConfig {
   rpcUrl: string
   rootRegistry: string
@@ -161,20 +164,7 @@ export class RegistryClient {
    * Get latest Certificate Registry root
    */
   async getLatestCertificateRoot(): Promise<string> {
-    log("Getting latest certificate root", { registry: this.rootRegistry })
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      LATEST_ROOT_WITH_PARAM_SIGNATURE + CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest certificate root: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    log(`Got latest certificates root: ${rpcData.result}`)
-    return rpcData.result
+    return this.getLatestRoot(CERTIFICATE_REGISTRY_ID, "certificate")
   }
 
   /**
@@ -185,23 +175,7 @@ export class RegistryClient {
    * @returns True if the root is valid, false otherwise
    */
   async isCertificateRootValid(root: string, timestamp?: number): Promise<boolean> {
-    root = normaliseHash(root)
-    const ts = timestamp ?? Math.floor(Date.now() / 1000)
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      IS_ROOT_VALID_SIGNATURE +
-        CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0") +
-        strip0x(root) +
-        ts.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Error checking if certificate root is valid: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    return parseInt(strip0x(rpcData.result)) === 1
+    return this.isRootValid(CERTIFICATE_REGISTRY_ID, "certificate", root, timestamp)
   }
 
   /**
@@ -220,15 +194,10 @@ export class RegistryClient {
     // TODO: Add support for IPFS flag by looking up the CID for this root
     if (ipfs) throw new Error("IPFS flag not implemented")
 
-    const url = this.packagedCertsUrlGenerator(this.chainId, root)
-    log("Getting certificates from:", url)
-    const response = await withRetry(() => fetch(url), this.retryCount)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get certificates for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
-      )
-    }
-    const data = (await response.json()) as PackagedCertificatesFile
+    const data = await this.fetchJson<PackagedCertificatesFile>(
+      this.packagedCertsUrlGenerator(this.chainId, root),
+      `certificates for root ${root}`,
+    )
     if (!data.version) data.version = 0
     log(
       `Got ${data.certificates?.length || 0} packaged certificates (schema version ${data.version})`,
@@ -369,52 +338,14 @@ export class RegistryClient {
    * @param root Optional root to get details for (defaults to latest)
    */
   async getCertificateRootDetails(root?: string): Promise<RootDetails> {
-    if (root) {
-      log("Getting certificate root details")
-      const response = await this.rpcRequest(
-        this.registryHelper,
-        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
-          CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0") +
-          strip0x(root).padStart(64, "0"),
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Failed to get certificate root details: ${response.status} ${response.statusText}`,
-        )
-      }
-      return this._handleRootDetailsResponse(response)
-    }
-    log("Getting latest certificate root details")
-    const response = await this.rpcRequest(
-      this.registryHelper,
-      GET_LATEST_ROOT_DETAILS_SIGNATURE + CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest certificate root details: ${response.status} ${response.statusText}`,
-      )
-    }
-    return this._handleRootDetailsResponse(response)
+    return this.getRootDetails(CERTIFICATE_REGISTRY_ID, "certificate", root)
   }
 
   /**
    * Get latest Circuit Registry root
    */
   async getLatestCircuitRoot(): Promise<string> {
-    log("Getting latest circuit root", { registry: this.rootRegistry })
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      LATEST_ROOT_WITH_PARAM_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest circuit root: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    log(`Got latest circuit root: ${rpcData.result}`)
-    return rpcData.result
+    return this.getLatestRoot(CIRCUIT_REGISTRY_ID, "circuit")
   }
 
   /**
@@ -425,23 +356,7 @@ export class RegistryClient {
    * @returns True if the root is valid, false otherwise
    */
   async isCircuitRootValid(root: string, timestamp?: number): Promise<boolean> {
-    root = normaliseHash(root)
-    const ts = timestamp ?? Math.floor(Date.now() / 1000)
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      IS_ROOT_VALID_SIGNATURE +
-        CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") +
-        strip0x(root) +
-        ts.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Error checking if circuit root is valid: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    return parseInt(strip0x(rpcData.result)) === 1
+    return this.isRootValid(CIRCUIT_REGISTRY_ID, "circuit", root, timestamp)
   }
 
   /**
@@ -465,15 +380,10 @@ export class RegistryClient {
     // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
 
-    const url = this.circuitManifestUrlGenerator(this.chainId, { root, version })
-    log("Getting circuit manifest from:", url)
-    const response = await withRetry(() => fetch(url), this.retryCount)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get circuit manifest for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
-      )
-    }
-    const data = (await response.json()) as CircuitManifest
+    const data = await this.fetchJson<CircuitManifest>(
+      this.circuitManifestUrlGenerator(this.chainId, { root, version }),
+      `circuit manifest for root ${root}`,
+    )
     if (!data.version || !data.root || !data.circuits)
       throw new Error("Invalid circuit manifest returned")
     log(`Got circuit manifest for root ${root}`)
@@ -544,15 +454,10 @@ export class RegistryClient {
     const circuitHash = manifest.circuits[circuit]?.hash || null
     if (!circuitHash) throw new Error(`Circuit ${circuit} not found in manifest`)
 
-    const url = this.packagedCircuitUrlGenerator(this.chainId, circuitHash)
-    log("Getting packaged circuit from:", url)
-    const response = await withRetry(() => fetch(url), this.retryCount)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get packaged circuit for ${circuit}: ${response.status} ${response.statusText}`,
-      )
-    }
-    const data = (await response.json()) as PackagedCircuit
+    const data = await this.fetchJson<PackagedCircuit>(
+      this.packagedCircuitUrlGenerator(this.chainId, circuitHash),
+      `packaged circuit for ${circuit}`,
+    )
     if (!data.name || !data.hash || !data.noir_version || !data.bb_version)
       throw new Error(`Invalid packaged circuit returned for ${circuit}`)
     log(`Got packaged circuit for ${circuit}`)
@@ -655,52 +560,14 @@ export class RegistryClient {
    * @param root Optional root to get details for (defaults to latest)
    */
   async getCircuitRootDetails(root?: string): Promise<RootDetails> {
-    if (root) {
-      log("Getting circuit root details")
-      const response = await this.rpcRequest(
-        this.registryHelper,
-        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
-          CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") +
-          strip0x(root).padStart(64, "0"),
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Failed to get circuit root details: ${response.status} ${response.statusText}`,
-        )
-      }
-      return this._handleRootDetailsResponse(response)
-    }
-    log("Getting latest circuit root details")
-    const response = await this.rpcRequest(
-      this.registryHelper,
-      GET_LATEST_ROOT_DETAILS_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest circuit root details: ${response.status} ${response.statusText}`,
-      )
-    }
-    return this._handleRootDetailsResponse(response)
+    return this.getRootDetails(CIRCUIT_REGISTRY_ID, "circuit", root)
   }
 
   /**
    * Get latest Sanctions Registry root
    */
   async getLatestSanctionsRoot(): Promise<string> {
-    log("Getting latest sanctions root", { registry: this.rootRegistry })
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      LATEST_ROOT_WITH_PARAM_SIGNATURE + SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest sanctions root: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    log(`Got latest sanctions root: ${rpcData.result}`)
-    return rpcData.result
+    return this.getLatestRoot(SANCTIONS_REGISTRY_ID, "sanctions")
   }
 
   /**
@@ -711,23 +578,7 @@ export class RegistryClient {
    * @returns True if the root is valid, false otherwise
    */
   async isSanctionsRootValid(root: string, timestamp?: number): Promise<boolean> {
-    root = normaliseHash(root)
-    const ts = timestamp ?? Math.floor(Date.now() / 1000)
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      IS_ROOT_VALID_SIGNATURE +
-        SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0") +
-        strip0x(root) +
-        ts.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Error checking if sanctions root is valid: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    return parseInt(strip0x(rpcData.result)) === 1
+    return this.isRootValid(SANCTIONS_REGISTRY_ID, "sanctions", root, timestamp)
   }
 
   /**
@@ -746,18 +597,11 @@ export class RegistryClient {
     if (!root) root = await this.getLatestSanctionsRoot()
     else root = normaliseHash(root)
 
-    const url = this.sanctionsTreeUrlGenerator(this.chainId, root)
-    log("Getting sanctions tree from:", url)
-    const response = await withRetry(
-      () => fetch(url, { headers: { "Accept-Encoding": "gzip" } }),
-      this.retryCount,
+    const serialised = await this.fetchJson<string[][]>(
+      this.sanctionsTreeUrlGenerator(this.chainId, root),
+      `sanctions tree for root ${root}`,
+      { headers: { "Accept-Encoding": "gzip" } },
     )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get sanctions tree for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
-      )
-    }
-    const serialised = (await response.json()) as string[][]
     if (!Array.isArray(serialised) || !serialised.every((layer) => Array.isArray(layer)))
       throw new Error("Invalid serialised sanctions tree returned")
     log(`Got sanctions tree with ${serialised.length} layers for root ${root}`)
@@ -776,32 +620,7 @@ export class RegistryClient {
    * @param root Optional root to get details for (defaults to latest)
    */
   async getSanctionsRootDetails(root?: string): Promise<RootDetails> {
-    if (root) {
-      log("Getting sanctions root details")
-      const response = await this.rpcRequest(
-        this.registryHelper,
-        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
-          SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0") +
-          strip0x(root).padStart(64, "0"),
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Failed to get sanctions root details: ${response.status} ${response.statusText}`,
-        )
-      }
-      return this._handleRootDetailsResponse(response)
-    }
-    log("Getting latest sanctions root details")
-    const response = await this.rpcRequest(
-      this.registryHelper,
-      GET_LATEST_ROOT_DETAILS_SIGNATURE + SANCTIONS_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest sanctions root details: ${response.status} ${response.statusText}`,
-      )
-    }
-    return this._handleRootDetailsResponse(response)
+    return this.getRootDetails(SANCTIONS_REGISTRY_ID, "sanctions", root)
   }
 
   /**
@@ -942,6 +761,92 @@ export class RegistryClient {
 
   getUrlForPackagedCircuits(hash: string, cid?: string): string {
     return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
+  }
+
+  private async getLatestRoot(registryId: number, registryName: string): Promise<string> {
+    log(`Getting latest ${registryName} root`, { registry: this.rootRegistry })
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      LATEST_ROOT_WITH_PARAM_SIGNATURE + registryIdWord(registryId),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get latest ${registryName} root: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    log(`Got latest ${registryName} root: ${rpcData.result}`)
+    return rpcData.result
+  }
+
+  private async isRootValid(
+    registryId: number,
+    registryName: string,
+    root: string,
+    timestamp?: number,
+  ): Promise<boolean> {
+    root = normaliseHash(root)
+    const ts = timestamp ?? Math.floor(Date.now() / 1000)
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      IS_ROOT_VALID_SIGNATURE +
+        registryIdWord(registryId) +
+        strip0x(root) +
+        ts.toString(16).padStart(64, "0"),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Error checking if ${registryName} root is valid: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    return parseInt(strip0x(rpcData.result)) === 1
+  }
+
+  private async getRootDetails(
+    registryId: number,
+    registryName: string,
+    root?: string,
+  ): Promise<RootDetails> {
+    if (root) {
+      log(`Getting ${registryName} root details`)
+      const response = await this.rpcRequest(
+        this.registryHelper,
+        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
+          registryIdWord(registryId) +
+          strip0x(root).padStart(64, "0"),
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Failed to get ${registryName} root details: ${response.status} ${response.statusText}`,
+        )
+      }
+      return this._handleRootDetailsResponse(response)
+    }
+    log(`Getting latest ${registryName} root details`)
+    const response = await this.rpcRequest(
+      this.registryHelper,
+      GET_LATEST_ROOT_DETAILS_SIGNATURE + registryIdWord(registryId),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get latest ${registryName} root details: ${response.status} ${response.statusText}`,
+      )
+    }
+    return this._handleRootDetailsResponse(response)
+  }
+
+  private async fetchJson<T>(url: string, what: string, init?: RequestInit): Promise<T> {
+    log(`Getting ${what} from:`, url)
+    const response = await withRetry(() => fetch(url, init), this.retryCount)
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get ${what}: ${response.status} ${response.statusText}, URL: ${url}`,
+      )
+    }
+    return (await response.json()) as T
   }
 
   private async rpcRequest(to: string, data: string): Promise<Response> {
