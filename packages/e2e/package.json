@@ -1,0 +1,20 @@
+{
+  "name": "@zkpassport/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests: SDK request → bridge relay → headless app stand-in → proofs → SDK verify, on a local anvil registry",
+  "scripts": {
+    "test:e2e": "bun test tests",
+    "check": "prettier -c src tests && eslint src tests --ext .ts",
+    "format": "prettier -c -w src tests"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "5.0.0",
+    "@noir-lang/noir_js": "1.0.0-beta.22",
+    "@obsidion/bridge": "^0.12.2",
+    "@zkpassport/registry": "workspace:*",
+    "@zkpassport/sdk": "workspace:*",
+    "@zkpassport/utils": "workspace:*"
+  }
+}
