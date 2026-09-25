@@ -1847,6 +1847,18 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
+  private static async isRegistryRootValid(
+    check: (registry: RegistryClient) => Promise<boolean>,
+    devMode?: boolean,
+  ): Promise<boolean> {
+    try {
+      return await check(new RegistryClient({ chainId: devMode ? 11155111 : 1 }))
+    } catch (error) {
+      console.warn(error)
+      return false
+    }
+  }
+
   public static async checkCertificateRegistryRoot(
     root: string,
     queryResultErrors: any,
@@ -1855,30 +1867,15 @@ export class PublicInputChecker {
     // Point in time to check validity at, in seconds; defaults to now
     timestamp?: number,
   ) {
-    let isCorrect = true
-    try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCertificateRootValid(root, timestamp)
-      if (!isValid) {
-        console.warn("The ID was signed by an unrecognized root certificate")
-        isCorrect = false
-        if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
-          queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
-        }
-        queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
-          expected: `A valid root from ZKPassport Registry`,
-          received: `Got invalid certificate registry root: ${root}`,
-          message: "The ID was signed by an unrecognized root certificate",
-        }
-      }
-    } catch (error) {
-      console.warn(error)
+    const isCorrect = await this.isRegistryRootValid(
+      (registry) => registry.isCertificateRootValid(root, timestamp),
+      devMode,
+    )
+    if (!isCorrect) {
       console.warn("The ID was signed by an unrecognized root certificate")
-      isCorrect = false
-      if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
-        queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
-      }
-      queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
+      const key = outer ? "outer" : "sig_check_dsc"
+      if (!queryResultErrors[key]) queryResultErrors[key] = {}
+      queryResultErrors[key].certificate = {
         expected: `A valid root from ZKPassport Registry`,
         received: `Got invalid certificate registry root: ${root}`,
         message: "The ID was signed by an unrecognized root certificate",
@@ -1894,24 +1891,12 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
   ) {
-    let isCorrect = true
-    try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCircuitRootValid(root, timestamp)
-      if (!isValid) {
-        console.warn("The proof uses unrecognized circuits")
-        isCorrect = false
-        if (!queryResultErrors.outer) queryResultErrors.outer = {}
-        queryResultErrors.outer.circuit = {
-          expected: `A valid circuit from ZKPassport Registry`,
-          received: `Got invalid circuit registry root: ${root}`,
-          message: "The proof uses an unrecognized circuit",
-        }
-      }
-    } catch (error) {
-      console.warn(error)
+    const isCorrect = await this.isRegistryRootValid(
+      (registry) => registry.isCircuitRootValid(root, timestamp),
+      devMode,
+    )
+    if (!isCorrect) {
       console.warn("The proof uses unrecognized circuits")
-      isCorrect = false
       if (!queryResultErrors.outer) queryResultErrors.outer = {}
       queryResultErrors.outer.circuit = {
         expected: `A valid circuit from ZKPassport Registry`,
@@ -1929,26 +1914,12 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
   ) {
-    let isCorrect = true
-    try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isSanctionsRootValid(root, timestamp)
-      if (!isValid) {
-        console.warn("Invalid sanctions registry root")
-        isCorrect = false
-        queryResultErrors.sanctions = {
-          ...queryResultErrors.sanctions,
-          eq: {
-            expected: `A valid root from ZKPassport Registry`,
-            received: `Got invalid sanctions registry root: ${root}`,
-            message: "Invalid sanctions registry root",
-          },
-        }
-      }
-    } catch (error) {
-      console.warn(error)
+    const isCorrect = await this.isRegistryRootValid(
+      (registry) => registry.isSanctionsRootValid(root, timestamp),
+      devMode,
+    )
+    if (!isCorrect) {
       console.warn("Invalid sanctions registry root")
-      isCorrect = false
       queryResultErrors.sanctions = {
         ...queryResultErrors.sanctions,
         eq: {
