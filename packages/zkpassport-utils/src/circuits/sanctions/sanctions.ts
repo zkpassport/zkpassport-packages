@@ -4,6 +4,7 @@ import {
   leftPadArrayWithZeros,
   numberToBytesBE,
   packBeBytesIntoField,
+  strip0x,
   stringToAsciiStringArray,
   withRetry,
 } from "@/utils"
@@ -114,32 +115,51 @@ export class SanctionsBuilder {
   }
 
   async getSanctionsEvmParameterCommitment(isStrict: boolean): Promise<bigint> {
-    const rootHash = this.getRootHash()
-
-    const rootHashArr: number[] = Array.from(rootHash).map((x) => Number(x))
-    const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
-    const hash = sha256(
-      new Uint8Array([
-        ProofType.SANCTIONS_EXCLUSION,
-        ...numberToBytesBE(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm, 2),
-        ...rootHashNumberArray,
-        isStrict ? 1 : 0,
-      ]),
-    )
-    const hashBigInt = packBeBytesIntoField(hash, 31)
-    return hashBigInt
+    return getSanctionsEvmParameterCommitment(this.getRoot(), isStrict)
   }
 
   async getSanctionsParameterCommitment(isStrict: boolean): Promise<bigint> {
-    const rootHash = this.getRootHash()
-    const hash = await poseidon2HashAsync([
-      BigInt(ProofType.SANCTIONS_EXCLUSION),
-      BigInt(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard),
-      BigInt(`0x${rootHash.toString("hex")}`),
-      isStrict ? 1n : 0n,
-    ])
-    return hash
+    return getSanctionsParameterCommitment(this.getRoot(), isStrict)
   }
+}
+
+/**
+ * Parameter commitment of a sanctions exclusion proof for the EVM circuits
+ * @param root The root of the sanctions tree the proof was generated against, as a hex string
+ * @param isStrict Whether the proof also checks the name-only sanctions entries
+ */
+export async function getSanctionsEvmParameterCommitment(
+  root: string,
+  isStrict: boolean,
+): Promise<bigint> {
+  const rootHashArr: number[] = Array.from(Buffer.from(strip0x(root).padStart(64, "0"), "hex"))
+  const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
+  const hash = sha256(
+    new Uint8Array([
+      ProofType.SANCTIONS_EXCLUSION,
+      ...numberToBytesBE(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm, 2),
+      ...rootHashNumberArray,
+      isStrict ? 1 : 0,
+    ]),
+  )
+  return packBeBytesIntoField(hash, 31)
+}
+
+/**
+ * Parameter commitment of a sanctions exclusion proof for the standard circuits
+ * @param root The root of the sanctions tree the proof was generated against, as a hex string
+ * @param isStrict Whether the proof also checks the name-only sanctions entries
+ */
+export async function getSanctionsParameterCommitment(
+  root: string,
+  isStrict: boolean,
+): Promise<bigint> {
+  return poseidon2HashAsync([
+    BigInt(ProofType.SANCTIONS_EXCLUSION),
+    BigInt(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard),
+    BigInt(`0x${strip0x(root)}`),
+    isStrict ? 1n : 0n,
+  ])
 }
 
 function formatSanctionsProof(proof: SortedNonMembershipProof): CircuitSanctionsProof {
