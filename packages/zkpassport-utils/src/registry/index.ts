@@ -87,6 +87,12 @@ export const CERTIFICATE_REGISTRY_ID = 1
 export const CIRCUIT_REGISTRY_ID = 2
 
 /**
+ * Sanctions Registry ID
+ * Used to identify the sanctions registry in the root registry
+ */
+export const SANCTIONS_REGISTRY_ID = 3
+
+/**
  * @deprecated Use tagsArrayToBitsFlag instead
  * Convert an array of certificate tags to a bigint byte flag
  * Each tag position in PACKAGED_CERTIFICATE_TAGS represents a byte flag
