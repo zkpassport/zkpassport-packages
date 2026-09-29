@@ -24,9 +24,7 @@ export type CredentialProofRequest = {
   /**
    * Nullifier type to request: the evaluator's uniqueIdentifierType for a
    * policy that enforces uniqueness; undefined leaves the request unconstrained
-   * for any other policy. Uniqueness policies on a mock-type evaluator are
-   * rejected: nullifier types match exactly on-chain and there is no mapping
-   * between mock and real types.
+   * for any other policy.
    */
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   query: (qb: QueryBuilder) => QueryBuilderResult
