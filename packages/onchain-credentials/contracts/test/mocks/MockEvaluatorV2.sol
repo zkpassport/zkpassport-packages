@@ -24,12 +24,12 @@ contract MockEvaluatorV2 is IPolicyEvaluator {
         return 2;
     }
 
-    function validateRequirements(bytes calldata requirements) external pure {
+    function validateRequirements(bytes calldata requirements, bool) external pure {
         uint256 minAge = abi.decode(requirements, (uint256));
         if (minAge > 150) revert MockEvaluatorV2__InvalidRequirements();
     }
 
-    function evaluate(string calldata, string calldata, bytes calldata requirements, bytes calldata proofData)
+    function evaluate(string calldata, string calldata, bytes calldata requirements, bool, bytes calldata proofData)
         external
         view
         returns (PolicyEvaluationResult memory result)
@@ -47,6 +47,5 @@ contract MockEvaluatorV2 is IPolicyEvaluator {
         result.wallet = bound.senderAddress;
         result.customData = bound.customData;
         result.nullifier = nullifier;
-        result.unique = false;
     }
 }

@@ -14,6 +14,14 @@ contract MockVerifierHelper is IVerifierHelper {
     bool public scopesOk = true;
     bool internal expectedSanctionsStrict;
     bool internal checkSanctionsStrict;
+    uint8 internal expectedMinAge;
+    bool internal checkMinAge;
+    bytes32 internal expectedNationalitiesInHash;
+    bool internal checkNationalitiesIn;
+    bytes32 internal expectedNationalitiesOutHash;
+    bool internal checkNationalitiesOut;
+    FaceMatchMode internal expectedFaceMatchMode;
+    bool internal checkFaceMatchMode;
     uint256 public proofTimestamp;
     bytes32 internal expectedScopeHash;
     bytes32 internal expectedSubscopeHash;
@@ -48,6 +56,26 @@ contract MockVerifierHelper is IVerifierHelper {
         checkSanctionsStrict = true;
     }
 
+    function setExpectedMinAge(uint8 value) external {
+        expectedMinAge = value;
+        checkMinAge = true;
+    }
+
+    function setExpectedNationalitiesIn(string[] memory countries) external {
+        expectedNationalitiesInHash = keccak256(abi.encode(countries));
+        checkNationalitiesIn = true;
+    }
+
+    function setExpectedNationalitiesOut(string[] memory countries) external {
+        expectedNationalitiesOutHash = keccak256(abi.encode(countries));
+        checkNationalitiesOut = true;
+    }
+
+    function setExpectedFaceMatchMode(FaceMatchMode value) external {
+        expectedFaceMatchMode = value;
+        checkFaceMatchMode = true;
+    }
+
     function setScopesOk(bool value) external {
         scopesOk = value;
     }
@@ -66,19 +94,39 @@ contract MockVerifierHelper is IVerifierHelper {
         return _boundData;
     }
 
-    function isAgeAboveOrEqual(uint8, bytes calldata) external view returns (bool) {
+    function isAgeAboveOrEqual(uint8 minAge, bytes calldata) external view returns (bool) {
+        if (checkMinAge) {
+            require(minAge == expectedMinAge, "MockVerifierHelper: wrong minimum age");
+        }
         return ageOk;
     }
 
-    function isNationalityIn(string[] memory, bytes calldata) external view returns (bool) {
+    function isNationalityIn(string[] memory countries, bytes calldata) external view returns (bool) {
+        if (checkNationalitiesIn) {
+            require(
+                keccak256(abi.encode(countries)) == expectedNationalitiesInHash,
+                "MockVerifierHelper: wrong included nationalities"
+            );
+        }
         return nationalityInOk;
     }
 
-    function isNationalityOut(string[] memory, bytes calldata) external view returns (bool) {
+    function isNationalityOut(string[] memory countries, bytes calldata) external view returns (bool) {
+        if (checkNationalitiesOut) {
+            require(
+                keccak256(abi.encode(countries)) == expectedNationalitiesOutHash,
+                "MockVerifierHelper: wrong excluded nationalities"
+            );
+        }
         return nationalityOutOk;
     }
 
-    function isFaceMatchVerified(FaceMatchMode, OS, bytes calldata) external view returns (bool) {
+    function isFaceMatchVerified(FaceMatchMode faceMatchMode, OS os, bytes calldata) external view returns (bool) {
+        if (checkFaceMatchMode) {
+            require(
+                faceMatchMode == expectedFaceMatchMode && os == OS.ANY, "MockVerifierHelper: wrong face match arguments"
+            );
+        }
         return faceMatchOk;
     }
 

@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 struct PolicyEvaluationResult {
     address wallet;
     bytes32 nullifier;
-    bool unique;
     string customData;
 }
 
@@ -23,9 +22,12 @@ struct PolicyEvaluationResult {
  */
 interface IPolicyEvaluator {
     /// @notice Reverts unless the bytes decode to a well-formed requirements value for this
-    ///         evaluator's schema.
-    /// @param requirements The candidate requirements bytes.
-    function validateRequirements(bytes calldata requirements) external view;
+    ///         evaluator's schema, and one a policy with the given uniqueness setting can issue
+    ///         under.
+    /// @param requirements      The candidate requirements bytes.
+    /// @param enforceUniqueness Whether the policy consumes nullifiers (one credential per
+    ///                          document).
+    function validateRequirements(bytes calldata requirements, bool enforceUniqueness) external view;
 
     /**
      * @notice Verify a proof end-to-end and judge it against a policy's requirements, reverting
@@ -33,15 +35,18 @@ interface IPolicyEvaluator {
      * @param  domain       The domain proofs must be bound to (the ledger's current domain).
      * @param  subscope     The policy-specific proof scope (policyScope(policyId)).
      * @param  requirements The policy's stored requirements bytes.
+     * @param  enforceUniqueness Whether the policy consumes nullifiers; the evaluator then
+     *                      requires a proof whose nullifier the ledger can dedup on.
      * @param  proofData    Caller-submitted proof and verification data, opaque to the ledger;
      *                      this evaluator owns its encoding.
-     * @return result       The wallet to credit, the nullifier and whether the ledger must
-     *                       consume it, and proof-bound customData.
+     * @return result       The wallet to credit, the proof's nullifier, and proof-bound
+     *                       customData.
      */
     function evaluate(
         string calldata domain,
         string calldata subscope,
         bytes calldata requirements,
+        bool enforceUniqueness,
         bytes calldata proofData
     ) external view returns (PolicyEvaluationResult memory result);
 
