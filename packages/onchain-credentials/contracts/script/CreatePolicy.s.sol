@@ -39,7 +39,7 @@ contract CreatePolicyScript is Script {
 
         // Reject a malformed policy here rather than halfway through a broadcast.
         IPolicyEvaluator evaluator = credentials.policyEvaluator();
-        evaluator.validateRequirements(encoded, enforceUniqueness);
+        evaluator.validateRequirements(encoded);
         console.log("credentials ", address(credentials));
         console.log("evaluator   ", address(evaluator));
         console.log("domain      ", credentials.domain());

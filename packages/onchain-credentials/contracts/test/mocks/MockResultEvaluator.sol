@@ -16,7 +16,7 @@ contract MockResultEvaluator is IPolicyEvaluator {
         return type(uint256).max;
     }
 
-    function validateRequirements(bytes calldata, bool) external pure {}
+    function validateRequirements(bytes calldata) external pure {}
 
     function evaluate(string calldata, string calldata, bytes calldata, bool, bytes calldata)
         external

@@ -24,7 +24,7 @@ contract MockEvaluatorV2 is IPolicyEvaluator {
         return 2;
     }
 
-    function validateRequirements(bytes calldata requirements, bool) external pure {
+    function validateRequirements(bytes calldata requirements) external pure {
         uint256 minAge = abi.decode(requirements, (uint256));
         if (minAge > 150) revert MockEvaluatorV2__InvalidRequirements();
     }

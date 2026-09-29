@@ -28,13 +28,11 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__StaleProof();
     error PolicyEvaluator__ProofNotBoundToChain();
     error PolicyEvaluator__InvalidCountryList();
-    error PolicyEvaluator__UniquenessRequiresNullifierType();
     error PolicyEvaluator__WrongNullifierType();
     error PolicyEvaluator__AgeRequirementNotMet();
     error PolicyEvaluator__NationalityNotIncluded();
     error PolicyEvaluator__ExcludedNationality();
     error PolicyEvaluator__FaceMatchRequirementNotMet();
-    error PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
     error PolicyEvaluator__ZeroAddress();
 
     IRootVerifier public immutable rootVerifier;
@@ -46,7 +44,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
     /// @notice The nullifier type a proof must carry to issue under a policy that enforces
     ///         uniqueness; other policies leave the proof's nullifier type unconstrained.
-    ///         NONE_NULLIFIER deploys an evaluator that only accepts policies without uniqueness.
+    ///         Under NONE_NULLIFIER no uniqueness policy can issue: a NONE proof has no nullifier.
     NullifierType public immutable uniqueIdentifierType;
 
     uint256 public constant PROOF_FRESHNESS = 1 days;
@@ -81,25 +79,8 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     }
 
     /// @inheritdoc IPolicyEvaluator
-    function validateRequirements(bytes calldata requirements, bool enforceUniqueness) external view {
+    function validateRequirements(bytes calldata requirements) external pure {
         PolicyRequirements memory r = decodeRequirements(requirements);
-        // A NONE-type proof carries a zero nullifier, which the ledger cannot dedup on.
-        if (enforceUniqueness && uniqueIdentifierType == NullifierType.NONE_NULLIFIER) {
-            revert PolicyEvaluator__UniquenessRequiresNullifierType();
-        }
-
-        // The app salts nullifiers (mock ones included) through a strict FaceMatch attestation,
-        // so a salted-nullifier proof always commits STRICT mode. A uniqueness policy on a
-        // salted evaluator that requires REGULAR could never issue.
-        if (
-            enforceUniqueness
-                && (uniqueIdentifierType == NullifierType.SALTED_NULLIFIER
-                    || uniqueIdentifierType == NullifierType.SALTED_MOCK_NULLIFIER)
-                && r.faceMatchMode == FaceMatchMode.REGULAR
-        ) {
-            revert PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
-        }
-
         _validateCountryList(r.includedNationalities);
         _validateCountryList(r.excludedNationalities);
     }

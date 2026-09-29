@@ -184,8 +184,8 @@ contract ZKPassportCredentialsPredicatesTest is ZKPassportCredentialsTestBase {
     }
 
     function testRegularFaceMatchPredicate() public {
-        // Allowed on a salted evaluator because the policy does not enforce uniqueness, so a
-        // non-salted proof with a REGULAR attestation can satisfy it.
+        // The policy does not enforce uniqueness, so on a salted evaluator a non-salted proof
+        // with a REGULAR attestation satisfies it.
         PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
         r.faceMatchMode = FaceMatchMode.REGULAR;
         uint256 policyId = _createPolicyWith(r, 114);

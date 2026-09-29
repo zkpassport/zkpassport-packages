@@ -22,12 +22,9 @@ struct PolicyEvaluationResult {
  */
 interface IPolicyEvaluator {
     /// @notice Reverts unless the bytes decode to a well-formed requirements value for this
-    ///         evaluator's schema, and one a policy with the given uniqueness setting can issue
-    ///         under.
-    /// @param requirements      The candidate requirements bytes.
-    /// @param enforceUniqueness Whether the policy consumes nullifiers (one credential per
-    ///                          document).
-    function validateRequirements(bytes calldata requirements, bool enforceUniqueness) external view;
+    ///         evaluator's schema.
+    /// @param requirements The candidate requirements bytes.
+    function validateRequirements(bytes calldata requirements) external view;
 
     /**
      * @notice Verify a proof end-to-end and judge it against a policy's requirements, reverting

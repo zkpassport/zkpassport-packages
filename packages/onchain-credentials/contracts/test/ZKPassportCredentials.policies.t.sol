@@ -157,53 +157,16 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         zkPassportCredentials.createPolicy(bytes32(0), outOfRange, 30 days, "x", false, false, false, false);
     }
 
-    function testCreatePolicyRejectsRegularFaceMatchOnSaltedUniquenessPolicy() public {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
-        r.faceMatchMode = FaceMatchMode.REGULAR;
-        vm.prank(creator);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", true, false, false, false);
-
-        r.faceMatchMode = FaceMatchMode.STRICT;
-        vm.prank(creator);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", true, false, false, false);
-    }
-
-    function testCreatePolicyAllowsRegularFaceMatchWithoutUniqueness() public {
-        // A non-unique policy leaves the proof's nullifier type unconstrained, so a proof
-        // without a salted nullifier can satisfy REGULAR.
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
-        r.faceMatchMode = FaceMatchMode.REGULAR;
-        vm.prank(creator);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", false, false, false, false);
-    }
-
-    function testCreatePolicyRejectsRegularFaceMatchOnMockSaltedUniquenessPolicy() public {
-        _swapEvaluator(NullifierType.SALTED_MOCK_NULLIFIER);
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
-        r.faceMatchMode = FaceMatchMode.REGULAR;
-        vm.prank(creator);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", true, false, false, false);
-    }
-
-    function testCreatePolicyAllowsRegularFaceMatchOnNonSaltedUniquenessPolicy() public {
-        _swapEvaluator(NullifierType.NON_SALTED_NULLIFIER);
+    function testCreatePolicyValidationIgnoresUniqueness() public {
+        // Requirements validation does not see the policy's uniqueness flag, so a salted
+        // evaluator accepts REGULAR face match on uniqueness policies too, although a salted
+        // proof always commits STRICT and such a policy cannot issue.
         PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
         r.faceMatchMode = FaceMatchMode.REGULAR;
         vm.prank(creator);
         zkPassportCredentials.createPolicy(bytes32(0), abi.encode(r), 30 days, "x", true, false, false, false);
-    }
-
-    function testCreatePolicyRejectsUniquenessOnNoneEvaluator() public {
-        _swapEvaluator(NullifierType.NONE_NULLIFIER);
-        bytes memory requirements = _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries);
         vm.prank(creator);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__UniquenessRequiresNullifierType.selector);
-        zkPassportCredentials.createPolicy(bytes32(0), requirements, 30 days, "x", true, false, false, false);
-
-        vm.prank(creator);
-        zkPassportCredentials.createPolicy(bytes32(0), requirements, 30 days, "x", false, false, false, false);
+        zkPassportCredentials.createPolicy(bytes32(uint256(1)), abi.encode(r), 30 days, "x", false, false, false, false);
     }
 
     function testCreatePolicyValidatesBothNationalityLists() public {
@@ -399,27 +362,12 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
     }
 
     function testSetRequirementsValidatesThroughEvaluator() public {
-        vm.prank(creator);
-        uint256 uniquePolicyId = zkPassportCredentials.createPolicy(
-            bytes32(uint256(8)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
-            30 days,
-            "https://policy.example/editable-unique",
-            true,
-            false,
-            false,
-            true
-        );
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
-        r.faceMatchMode = FaceMatchMode.REGULAR;
-        vm.prank(creator);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch.selector);
-        zkPassportCredentials.setRequirements(uniquePolicyId, abi.encode(r));
-
-        // The same requirements are fine on a policy that does not enforce uniqueness.
         uint256 policyId = _createEditablePolicy();
+        string[] memory bad = new string[](1);
+        bad[0] = "usa";
         vm.prank(creator);
-        zkPassportCredentials.setRequirements(policyId, abi.encode(r));
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidCountryList.selector);
+        zkPassportCredentials.setRequirements(policyId, _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, bad));
     }
 
     function testSetRequirementsAppliesToSubsequentIssuance() public {

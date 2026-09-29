@@ -44,7 +44,7 @@ contract DeployZKPassportCredentialsScript is Script {
 
     /// @dev The nullifier type uniqueness policies require, matched exactly with no mock-to-real
     ///      folding: a dev-mode chain needs a mock type for uniqueness to be testable at all.
-    ///      "none" deploys an evaluator that rejects uniqueness policies.
+    ///      Under "none" no uniqueness policy can issue: a NONE proof has no nullifier.
     function _nullifierType(string memory value) private pure returns (NullifierType) {
         bytes32 h = keccak256(bytes(value));
         if (h == keccak256("none")) return NullifierType.NONE_NULLIFIER;

@@ -127,7 +127,7 @@ contract ZKPassportCredentials is ERC1155 {
             revert ZKPassportCredentials__InvalidCredentialDuration();
         }
         IPolicyEvaluator evaluator = policyEvaluator;
-        evaluator.validateRequirements(requirements, enforceUniqueness);
+        evaluator.validateRequirements(requirements);
 
         policyId = uint256(keccak256(abi.encode(msg.sender, salt)));
         if (_policies[policyId].owner != address(0)) revert ZKPassportCredentials__PolicyAlreadyExists(policyId);
@@ -173,7 +173,7 @@ contract ZKPassportCredentials is ERC1155 {
     function setRequirements(uint256 policyId, bytes calldata requirements) external onlyPolicyOwner(policyId) {
         CredentialsPolicy storage policy = _policies[policyId];
         if (!policy.ownerEditable) revert ZKPassportCredentials__NotEditable();
-        IPolicyEvaluator(policy.evaluator).validateRequirements(requirements, policy.enforceUniqueness);
+        IPolicyEvaluator(policy.evaluator).validateRequirements(requirements);
 
         policy.requirements = requirements;
         emit PolicyRequirementsChanged(policyId);

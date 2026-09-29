@@ -38,6 +38,29 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
+    function testUniquenessPolicyOnNoneEvaluatorCannotIssue() public {
+        _swapEvaluator(NullifierType.NONE_NULLIFIER);
+        vm.prank(creator);
+        uint256 policyId = zkPassportCredentials.createPolicy(
+            bytes32(uint256(54)),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            30 days,
+            "x",
+            true,
+            false,
+            false,
+            false
+        );
+
+        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        zkPassportCredentials.issue(policyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
+
+        // A NONE proof carries a zero nullifier, which the ledger cannot bind.
+        mockVerifier.setNullifier(bytes32(0));
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__MissingNullifier.selector);
+        zkPassportCredentials.issue(policyId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
+    }
+
     function _swapToV2() internal {
         vm.prank(admin);
         zkPassportCredentials.setPolicyEvaluator(evaluatorV2);
