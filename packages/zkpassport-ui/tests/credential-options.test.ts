@@ -45,6 +45,7 @@ describe("buildCredentialCardOptions request props", () => {
       "getPolicy",
       "policyScope",
       "schemaVersion",
+      "uniqueIdentifierType",
     ])
   })
 
@@ -56,9 +57,7 @@ describe("buildCredentialCardOptions request props", () => {
 
   test("the request's query and nullifier type come from the policy translation", async () => {
     // Translation cases live in the credential-request tests; this pins the wiring.
-    const options = await cardOptions({
-      requirements: { uniqueIdentifierType: NullifierType.SALTED },
-    }).options
+    const options = await cardOptions({ uniqueIdentifierType: NullifierType.SALTED }).options
     expect(options.uniqueIdentifierType).toBe(NullifierType.SALTED)
     const { qb, calls } = fakeQueryBuilder()
     options.query(qb)

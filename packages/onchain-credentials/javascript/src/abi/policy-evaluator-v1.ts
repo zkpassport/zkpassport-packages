@@ -1,4 +1,4 @@
-// Generated from packages/onchain-credentials/contracts (commit 736705f2). Do not edit by hand.
+// Generated from packages/onchain-credentials/contracts (commit bcd38b06). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -13,6 +13,11 @@ export const PolicyEvaluatorV1Abi = [
         name: "_devMode",
         type: "bool",
         internalType: "bool",
+      },
+      {
+        name: "_uniqueIdentifierType",
+        type: "uint8",
+        internalType: "enum NullifierType",
       },
     ],
     stateMutability: "nonpayable",
@@ -127,16 +132,6 @@ export const PolicyEvaluatorV1Abi = [
         internalType: "struct PolicyEvaluatorV1.PolicyRequirements",
         components: [
           {
-            name: "uniqueIdentifierType",
-            type: "uint8",
-            internalType: "enum NullifierType",
-          },
-          {
-            name: "enforceUniqueness",
-            type: "bool",
-            internalType: "bool",
-          },
-          {
             name: "minAge",
             type: "uint8",
             internalType: "uint8",
@@ -199,6 +194,11 @@ export const PolicyEvaluatorV1Abi = [
         internalType: "bytes",
       },
       {
+        name: "enforceUniqueness",
+        type: "bool",
+        internalType: "bool",
+      },
+      {
         name: "proofData",
         type: "bytes",
         internalType: "bytes",
@@ -219,11 +219,6 @@ export const PolicyEvaluatorV1Abi = [
             name: "nullifier",
             type: "bytes32",
             internalType: "bytes32",
-          },
-          {
-            name: "unique",
-            type: "bool",
-            internalType: "bool",
           },
           {
             name: "customData",
@@ -263,6 +258,19 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "function",
+    name: "uniqueIdentifierType",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint8",
+        internalType: "enum NullifierType",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "validateRequirements",
     inputs: [
       {
@@ -270,9 +278,14 @@ export const PolicyEvaluatorV1Abi = [
         type: "bytes",
         internalType: "bytes",
       },
+      {
+        name: "enforceUniqueness",
+        type: "bool",
+        internalType: "bool",
+      },
     ],
     outputs: [],
-    stateMutability: "pure",
+    stateMutability: "view",
   },
   {
     type: "error",
