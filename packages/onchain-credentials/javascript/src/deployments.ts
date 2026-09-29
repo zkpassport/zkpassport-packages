@@ -10,7 +10,7 @@ const CREDENTIALS_DEPLOYMENTS: Partial<
   Record<SupportedChain, { chain: Chain; address?: `0x${string}` }>
 > = {
   ethereum: { chain: mainnet, address: "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c" },
-  ethereum_sepolia: { chain: sepolia, address: "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c" },
+  ethereum_sepolia: { chain: sepolia, address: "0x10df0DbBBEf6a57D1c2e1b5a2977e82e572b1381" },
   local: { chain: anvil },
 }
 
