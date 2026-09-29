@@ -113,10 +113,11 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         BoundData memory bound = helper.getBoundData(params.committedInputs);
         if (bound.chainId != block.chainid) revert PolicyEvaluator__ProofNotBoundToChain();
 
-        if (enforceUniqueness) {
-            bytes32[] memory publicInputs = params.proofVerificationData.publicInputs;
-            NullifierType proofType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-            if (proofType != uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
+        if (
+            enforceUniqueness
+                && helper.getNullifierType(params.proofVerificationData.publicInputs) != uniqueIdentifierType
+        ) {
+            revert PolicyEvaluator__WrongNullifierType();
         }
 
         result.wallet = bound.senderAddress;

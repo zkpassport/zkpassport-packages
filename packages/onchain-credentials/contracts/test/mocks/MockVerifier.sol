@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {BoundData, FaceMatchMode, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
+import {BoundData, FaceMatchMode, NullifierType, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
 
 contract MockVerifierHelper is IVerifierHelper {
@@ -151,6 +151,11 @@ contract MockVerifierHelper is IVerifierHelper {
 
     function getProofTimestamp(bytes32[] calldata) external view returns (uint256) {
         return proofTimestamp;
+    }
+
+    /// @dev Reads the same public input as VerifierHelper.getNullifierType.
+    function getNullifierType(bytes32[] calldata publicInputs) external pure returns (NullifierType) {
+        return NullifierType(uint256(publicInputs[publicInputs.length - 3]));
     }
 }
 
