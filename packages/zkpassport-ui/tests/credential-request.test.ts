@@ -24,8 +24,8 @@ function credentialsOn(stub: Parameters<typeof stubChain>[0]) {
 describe("buildCredentialProofRequest", () => {
   test("reads scope and domain on-chain and applies predicates, facematch, and bindings", async () => {
     const { credentials } = credentialsOn({
+      uniqueIdentifierType: NullifierType.SALTED,
       requirements: {
-        uniqueIdentifierType: NullifierType.SALTED,
         minAge: 18,
         sanctionsMode: 1,
         faceMatchMode: 2,
@@ -68,21 +68,44 @@ describe("buildCredentialProofRequest", () => {
     }
   })
 
-  test("NONE leaves the request unconstrained", async () => {
+  test("a uniqueness policy requests its evaluator's nullifier type", async () => {
+    for (const raw of [NullifierType.NON_SALTED, NullifierType.SALTED] as const) {
+      const { credentials } = credentialsOn({ uniqueIdentifierType: raw })
+      expect((await buildCredentialProofRequest(credentials, MINT)).uniqueIdentifierType).toBe(raw)
+    }
+  })
+
+  test("a policy without uniqueness leaves the request unconstrained, whatever the evaluator's type", async () => {
     const { credentials } = credentialsOn({
-      requirements: { uniqueIdentifierType: NullifierType.NONE, enforceUniqueness: false },
+      policy: { ...SAMPLE_POLICY, enforceUniqueness: false },
+      uniqueIdentifierType: NullifierType.SALTED,
+      requirements: { faceMatchMode: 1 },
     })
     const request = await buildCredentialProofRequest(credentials, MINT)
     expect(request.uniqueIdentifierType).toBeUndefined()
+
+    // No salted nullifier is requested, so the policy's regular facematch stands.
+    const { qb, calls } = fakeQueryBuilder()
+    request.query(qb)
+    expect(calls).toContainEqual({ method: "facematch", args: ["regular"] })
   })
 
-  test("rejects policies requiring mock nullifier types — no mock/real mapping", async () => {
+  test("rejects uniqueness policies on mock-type evaluators — no mock/real mapping", async () => {
     for (const raw of [NullifierType.SALTED_MOCK, NullifierType.NON_SALTED_MOCK]) {
-      const { credentials } = credentialsOn({ requirements: { uniqueIdentifierType: raw } })
+      const { credentials } = credentialsOn({ uniqueIdentifierType: raw })
       await expect(buildCredentialProofRequest(credentials, MINT)).rejects.toThrow(
         "requires a mock nullifier type and cannot be minted",
       )
     }
+  })
+
+  test("a policy without uniqueness mints on a mock-type evaluator", async () => {
+    const { credentials } = credentialsOn({
+      policy: { ...SAMPLE_POLICY, enforceUniqueness: false },
+      uniqueIdentifierType: NullifierType.SALTED_MOCK,
+    })
+    const request = await buildCredentialProofRequest(credentials, MINT)
+    expect(request.uniqueIdentifierType).toBeUndefined()
   })
 
   test("rejects retired policies before any proof request", async () => {

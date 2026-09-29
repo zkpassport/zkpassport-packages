@@ -10,6 +10,7 @@ export const DOMAIN = "policy.example"
 export const SAMPLE_POLICY: CredentialPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
+  enforceUniqueness: true,
   ownerIssuable: false,
   ownerBannable: false,
   ownerEditable: false,
@@ -19,13 +20,8 @@ export const SAMPLE_POLICY: CredentialPolicy = {
   retiredAt: 0n,
 }
 
-/**
- * decodeRequirements as the contract returns it: raw enum numbers. uniqueIdentifierType uses
- * the shared NullifierType numbering (0 non-salted, 1 salted, 2-3 mock twins, 4 none).
- */
+/** decodeRequirements as the contract returns it: raw enum numbers. */
 export type RawRequirements = {
-  uniqueIdentifierType: number
-  enforceUniqueness: boolean
   minAge: number
   sanctionsMode: number
   faceMatchMode: number
@@ -34,8 +30,6 @@ export type RawRequirements = {
 }
 
 export const RAW_REQUIREMENTS: RawRequirements = {
-  uniqueIdentifierType: 0,
-  enforceUniqueness: true,
   minAge: 0,
   sanctionsMode: 0,
   faceMatchMode: 0,
@@ -51,6 +45,11 @@ export function stubChain(
     policy?: CredentialPolicy
     requirements?: Partial<RawRequirements>
     devMode?: boolean
+    /**
+     * The evaluator's uniqueIdentifierType, in the shared NullifierType numbering (0 non-salted,
+     * 1 salted, 2-3 mock twins, 4 none); defaults to non-salted.
+     */
+    uniqueIdentifierType?: number
   } = {},
 ) {
   const policy = stub.policy ?? SAMPLE_POLICY
@@ -73,6 +72,8 @@ export function stubChain(
           return requirements
         case "devMode":
           return stub.devMode ?? false
+        case "uniqueIdentifierType":
+          return stub.uniqueIdentifierType ?? 0
       }
       throw new Error(`unexpected read ${call.functionName}`)
     },

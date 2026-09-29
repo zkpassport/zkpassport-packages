@@ -15,7 +15,7 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
         vm.warp(1_700_000_000);
         mockHelper = new MockVerifierHelper();
         mockVerifier = new MockRootVerifier(mockHelper);
-        evaluator = new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)), false);
+        evaluator = new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)), false, NullifierType.SALTED_NULLIFIER);
         zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, evaluator);
         mockHelper.setBoundData(wallet, block.chainid, "");
         mockHelper.setProofTimestamp(block.timestamp);
@@ -36,15 +36,17 @@ contract ZKPassportCredentialsDevModeTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         uint256 saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(61)),
-            _requirements(NullifierType.SALTED_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
             "x",
+            true,
             false,
             false,
             false
         );
         // Nullifier types match exactly on every deployment, so a submission claiming a mock
-        // type in its public inputs never satisfies a policy that requires the real type.
+        // type in its public inputs never satisfies a uniqueness policy on an evaluator that
+        // requires the real type.
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }

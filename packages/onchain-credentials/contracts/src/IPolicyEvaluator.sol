@@ -4,7 +4,6 @@ pragma solidity ^0.8.30;
 struct PolicyEvaluationResult {
     address wallet;
     bytes32 nullifier;
-    bool unique;
     string customData;
 }
 
@@ -33,15 +32,18 @@ interface IPolicyEvaluator {
      * @param  domain       The domain proofs must be bound to (the ledger's current domain).
      * @param  subscope     The policy-specific proof scope (policyScope(policyId)).
      * @param  requirements The policy's stored requirements bytes.
+     * @param  enforceUniqueness Whether the policy consumes nullifiers; the evaluator then
+     *                      requires a proof whose nullifier the ledger can dedup on.
      * @param  proofData    Caller-submitted proof and verification data, opaque to the ledger;
      *                      this evaluator owns its encoding.
-     * @return result       The wallet to credit, the nullifier and whether the ledger must
-     *                       consume it, and proof-bound customData.
+     * @return result       The wallet to credit, the proof's nullifier, and proof-bound
+     *                       customData.
      */
     function evaluate(
         string calldata domain,
         string calldata subscope,
         bytes calldata requirements,
+        bool enforceUniqueness,
         bytes calldata proofData
     ) external view returns (PolicyEvaluationResult memory result);
 

@@ -22,6 +22,12 @@ export type CredentialPolicy = {
    * expire. After expiration, credentials can be renewed by calling `issue` with a fresh proof.
    */
   credentialDuration: bigint
+  /**
+   * When true, the policy issues at most one credential per document: each issuance consumes the
+   * proof's nullifier, which must then be of the evaluator's `uniqueIdentifierType`. Immutable
+   * after creation.
+   */
+  enforceUniqueness: boolean
   /** When true, the policy owner may issue credentials directly via ownerIssue(), without a proof. */
   ownerIssuable: boolean
   /**
@@ -57,15 +63,6 @@ export type CredentialPolicy = {
  */
 export type CredentialPolicyRequirements = {
   /**
-   * Any `uniqueIdentifierType` value other than `NONE` requires the proof to carry exactly that
-   * nullifier type.
-   */
-  uniqueIdentifierType: NullifierType
-  /**
-   * `enforceUniqueness` limits issuance to one credential per document.
-   */
-  enforceUniqueness: boolean
-  /**
    * Minimum age the proof must commit to. The on-chain check is an exact match, not a lower
    * bound: a policy requiring 18 rejects a proof generated for 21. Request the proof with this
    * exact value. 0 disables the check.
@@ -81,8 +78,8 @@ export type CredentialPolicyRequirements = {
   /**
    * FaceMatch check (ID photo vs. live selfie) the proof must carry; undefined when the policy
    * does not require one. "strict" runs an extensive liveness check, "regular" a basic, faster
-   * one. Salted-nullifier policies require "strict", as the app salts nullifiers through a
-   * strict FaceMatch attestation.
+   * one. Uniqueness policies on a salted evaluator require "strict", as the app salts nullifiers
+   * through a strict FaceMatch attestation.
    */
   facematchMode?: FacematchMode
   /**
@@ -126,8 +123,6 @@ export function encodeCredentialPolicyRequirements(
   requirements: CredentialPolicyRequirements,
 ): `0x${string}` {
   const value = {
-    uniqueIdentifierType: requirements.uniqueIdentifierType,
-    enforceUniqueness: requirements.enforceUniqueness,
     minAge: requirements.minAge,
     sanctionsMode:
       requirements.sanctionsMode === undefined
@@ -252,12 +247,10 @@ export class CredentialsClient {
 
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       CredentialPolicyRequirements,
-      "uniqueIdentifierType" | "sanctionsMode" | "facematchMode"
-    > & { uniqueIdentifierType: number; sanctionsMode: number; faceMatchMode: number }
+      "sanctionsMode" | "facematchMode"
+    > & { sanctionsMode: number; faceMatchMode: number }
 
     return {
-      uniqueIdentifierType: decoded.uniqueIdentifierType as NullifierType,
-      enforceUniqueness: decoded.enforceUniqueness,
       minAge: decoded.minAge,
       sanctionsMode: SANCTIONS_MODES[decoded.sanctionsMode],
       facematchMode: FACEMATCH_MODES[decoded.faceMatchMode],
@@ -277,6 +270,19 @@ export class CredentialsClient {
       abi: PolicyEvaluatorV1Abi,
       functionName: "devMode",
     } as never)) as boolean
+  }
+
+  /**
+   * The nullifier type the policy's evaluator requires of proofs for policies that enforce
+   * uniqueness (`policy.enforceUniqueness`); other policies leave the type unconstrained. The
+   * type is matched exactly, mock types included. Under `NONE` no uniqueness policy can issue.
+   */
+  async getUniqueIdentifierType(policy: CredentialPolicy): Promise<NullifierType> {
+    return (await this.client.readContract({
+      address: policy.evaluator,
+      abi: PolicyEvaluatorV1Abi,
+      functionName: "uniqueIdentifierType",
+    } as never)) as NullifierType
   }
 
   async uri(policyId: bigint): Promise<string> {
@@ -410,7 +416,8 @@ export class CredentialsClient {
    * Assemble the createPolicy() call. The sender becomes the policy owner; the policy id is
    * `keccak256(creator, salt)` (predictable via `computePolicyId`), so a creator reusing a salt
    * reverts. Requirements are encoded per the current evaluator's schema and validated on-chain
-   * at creation. The three owner-privilege flags default to false and are immutable afterwards.
+   * at creation. `enforceUniqueness` and the three owner-privilege flags are immutable
+   * afterwards; the owner flags default to false.
    */
   buildCreatePolicyCall(options: {
     /** Creator-scoped namespace for the policy id. */
@@ -420,6 +427,11 @@ export class CredentialsClient {
     credentialDuration: bigint
     /** Display metadata for the policy's token, served by uri(policyId). */
     metadataURL: string
+    /**
+     * Issue at most one credential per document. No credential can issue if the current
+     * evaluator's `uniqueIdentifierType` is `NONE`.
+     */
+    enforceUniqueness: boolean
     /** Allow proofless issuance via ownerIssue(). */
     ownerIssuable?: boolean
     /** Allow the owner to ban wallets (removing any standing credential) via ban(). */
@@ -428,13 +440,14 @@ export class CredentialsClient {
     ownerEditable?: boolean
   }): CredentialsCall<
     "createPolicy",
-    readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean]
+    readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean, boolean]
   > {
     return this.call("createPolicy", [
       options.salt,
       encodeCredentialPolicyRequirements(options.requirements),
       options.credentialDuration,
       options.metadataURL,
+      options.enforceUniqueness,
       options.ownerIssuable ?? false,
       options.ownerBannable ?? false,
       options.ownerEditable ?? false,

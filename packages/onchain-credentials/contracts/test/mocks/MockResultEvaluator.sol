@@ -8,8 +8,8 @@ import {PolicyEvaluationResult, IPolicyEvaluator} from "../../src/IPolicyEvaluat
 contract MockResultEvaluator is IPolicyEvaluator {
     PolicyEvaluationResult internal _result;
 
-    function setResult(address wallet, bytes32 nullifier, bool unique, string memory customData) external {
-        _result = PolicyEvaluationResult({wallet: wallet, nullifier: nullifier, unique: unique, customData: customData});
+    function setResult(address wallet, bytes32 nullifier, string memory customData) external {
+        _result = PolicyEvaluationResult({wallet: wallet, nullifier: nullifier, customData: customData});
     }
 
     function schemaVersion() external pure returns (uint256) {
@@ -18,7 +18,7 @@ contract MockResultEvaluator is IPolicyEvaluator {
 
     function validateRequirements(bytes calldata) external pure {}
 
-    function evaluate(string calldata, string calldata, bytes calldata, bytes calldata)
+    function evaluate(string calldata, string calldata, bytes calldata, bool, bytes calldata)
         external
         view
         returns (PolicyEvaluationResult memory)

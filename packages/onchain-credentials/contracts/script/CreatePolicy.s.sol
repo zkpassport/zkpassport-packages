@@ -5,7 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IPolicyEvaluator} from "../src/IPolicyEvaluator.sol";
-import {FaceMatchMode, NullifierType} from "@registry/lib/Types.sol";
+import {FaceMatchMode} from "@registry/lib/Types.sol";
 
 /**
  * Create a policy on a ZKPassportCredentials deployment. Every requirement is read from the
@@ -19,9 +19,8 @@ import {FaceMatchMode, NullifierType} from "@registry/lib/Types.sol";
  *   POLICY_MIN_AGE                   required; the proof must commit this exact value, 0 disables
  *   POLICY_SANCTIONS_MODE            required, none | normal | strict
  *   POLICY_FACEMATCH_MODE            required, none | regular | strict
- *   POLICY_NULLIFIER_TYPE            required, none | salted | non_salted | salted_mock |
- *                                    non_salted_mock
- *   POLICY_ENFORCE_UNIQUENESS        required; needs a nullifier type other than none
+ *   POLICY_ENFORCE_UNIQUENESS        required; one credential per document, proven with the
+ *                                    evaluator's uniqueIdentifierType nullifier
  *   POLICY_INCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
  *   POLICY_EXCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
  *   POLICY_DURATION_DAYS             default 90; also bounds how stale a sanctions check may be
@@ -35,6 +34,8 @@ contract CreatePolicyScript is Script {
         ZKPassportCredentials credentials = ZKPassportCredentials(vm.envAddress("ZKPASSPORT_CREDENTIALS_ADDRESS"));
         bytes32 salt = vm.envBytes32("POLICY_SALT");
         bytes memory encoded = _requirements();
+        bool enforceUniqueness = vm.envBool("POLICY_ENFORCE_UNIQUENESS");
+        console.log("uniqueness  ", enforceUniqueness);
 
         // Reject a malformed policy here rather than halfway through a broadcast.
         IPolicyEvaluator evaluator = credentials.policyEvaluator();
@@ -49,6 +50,7 @@ contract CreatePolicyScript is Script {
             encoded,
             uint64(vm.envOr("POLICY_DURATION_DAYS", uint256(90)) * 1 days),
             vm.envString("POLICY_METADATA_URL"),
+            enforceUniqueness,
             vm.envOr("POLICY_OWNER_ISSUABLE", false),
             vm.envOr("POLICY_OWNER_BANNABLE", false),
             vm.envOr("POLICY_OWNER_EDITABLE", false)
@@ -62,8 +64,6 @@ contract CreatePolicyScript is Script {
 
     function _requirements() internal view returns (bytes memory) {
         PolicyEvaluatorV1.PolicyRequirements memory r = PolicyEvaluatorV1.PolicyRequirements({
-            uniqueIdentifierType: _nullifierType(vm.envString("POLICY_NULLIFIER_TYPE")),
-            enforceUniqueness: vm.envBool("POLICY_ENFORCE_UNIQUENESS"),
             minAge: uint8(vm.envUint("POLICY_MIN_AGE")),
             sanctionsMode: _sanctionsMode(vm.envString("POLICY_SANCTIONS_MODE")),
             faceMatchMode: _faceMatchMode(vm.envString("POLICY_FACEMATCH_MODE")),
@@ -71,7 +71,6 @@ contract CreatePolicyScript is Script {
             excludedNationalities: _countries("POLICY_EXCLUDED_NATIONALITIES")
         });
         console.log("minAge      ", r.minAge);
-        console.log("uniqueness  ", r.enforceUniqueness);
         console.log("included    ", r.includedNationalities.length);
         console.log("excluded    ", r.excludedNationalities.length);
         return abi.encode(r);
@@ -102,18 +101,6 @@ contract CreatePolicyScript is Script {
         if (h == keccak256("regular")) return FaceMatchMode.REGULAR;
         if (h == keccak256("strict")) return FaceMatchMode.STRICT;
         revert("POLICY_FACEMATCH_MODE must be none, regular or strict");
-    }
-
-    /// @dev The evaluator matches the proof's nullifier type exactly, with no mock-to-real folding,
-    ///      so a dev-mode chain needs a policy that names a mock type to be testable at all.
-    function _nullifierType(string memory value) private pure returns (NullifierType) {
-        bytes32 h = keccak256(bytes(value));
-        if (h == keccak256("none")) return NullifierType.NONE_NULLIFIER;
-        if (h == keccak256("salted")) return NullifierType.SALTED_NULLIFIER;
-        if (h == keccak256("non_salted")) return NullifierType.NON_SALTED_NULLIFIER;
-        if (h == keccak256("salted_mock")) return NullifierType.SALTED_MOCK_NULLIFIER;
-        if (h == keccak256("non_salted_mock")) return NullifierType.NON_SALTED_MOCK_NULLIFIER;
-        revert("POLICY_NULLIFIER_TYPE must be none, salted, non_salted, salted_mock or non_salted_mock");
     }
 
     /// @dev An empty value means the list is unset, which disables that nationality check.
@@ -157,7 +144,6 @@ contract CreatePolicyScript is Script {
  *   export POLICY_MIN_AGE=18
  *   export POLICY_SANCTIONS_MODE=strict
  *   export POLICY_FACEMATCH_MODE=strict
- *   export POLICY_NULLIFIER_TYPE=none
  *   export POLICY_ENFORCE_UNIQUENESS=false
  *   export POLICY_INCLUDED_NATIONALITIES=""
  *   export POLICY_EXCLUDED_NATIONALITIES="SYR,CUB,PRK,IRN"
