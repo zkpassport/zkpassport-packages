@@ -275,8 +275,7 @@ export class CredentialsClient {
   /**
    * The nullifier type the policy's evaluator requires of proofs for policies that enforce
    * uniqueness (`policy.enforceUniqueness`); other policies leave the type unconstrained. The
-   * type is matched exactly, mock types included. `NONE` marks an evaluator that only accepts
-   * policies without uniqueness.
+   * type is matched exactly, mock types included. Under `NONE` no uniqueness policy can issue.
    */
   async getUniqueIdentifierType(policy: CredentialPolicy): Promise<NullifierType> {
     return (await this.client.readContract({
@@ -429,8 +428,8 @@ export class CredentialsClient {
     /** Display metadata for the policy's token, served by uri(policyId). */
     metadataURL: string
     /**
-     * Issue at most one credential per document. Reverts on-chain if the current evaluator's
-     * `uniqueIdentifierType` is `NONE`.
+     * Issue at most one credential per document. No credential can issue if the current
+     * evaluator's `uniqueIdentifierType` is `NONE`.
      */
     enforceUniqueness: boolean
     /** Allow proofless issuance via ownerIssue(). */

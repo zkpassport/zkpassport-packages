@@ -94,9 +94,9 @@ export async function buildCredentialProofRequest(
         q = q.sanctions("all", "all", { strict: requirements.sanctionsMode === "strict" })
       }
       // The SDK requires strict facematch whenever the salted nullifier is
-      // used, so it overrides whatever the policy asks for (createPolicy
-      // rejects the one contradictory pairing, a salted uniqueness policy
-      // requiring regular).
+      // used, so it overrides whatever the policy asks for (a salted
+      // uniqueness policy requiring regular cannot issue at all, as a salted
+      // proof always commits strict).
       const facematchMode =
         uniqueIdentifierType === NullifierType.SALTED ? "strict" : requirements.facematchMode
       if (facematchMode) q = q.facematch(facematchMode)

@@ -1,4 +1,4 @@
-// Generated from packages/onchain-credentials/contracts (commit bcd38b06). Do not edit by hand.
+// Generated from packages/onchain-credentials/contracts (commit 1e0de461). Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -278,14 +278,9 @@ export const PolicyEvaluatorV1Abi = [
         type: "bytes",
         internalType: "bytes",
       },
-      {
-        name: "enforceUniqueness",
-        type: "bool",
-        internalType: "bool",
-      },
     ],
     outputs: [],
-    stateMutability: "view",
+    stateMutability: "pure",
   },
   {
     type: "error",
@@ -329,17 +324,7 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "error",
-    name: "PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "PolicyEvaluator__StaleProof",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "PolicyEvaluator__UniquenessRequiresNullifierType",
     inputs: [],
   },
   {
