@@ -1,3 +1,5 @@
+import { getIdFromChain } from "@zkpassport/utils"
+import type { SupportedChain } from "@zkpassport/utils/types"
 import { normaliseHash } from "./utils"
 
 /**
@@ -29,13 +31,7 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
     return `https://ipfs.zkpassport.id/ipfs/${cid}`
   }
   root = normaliseHash(root)
-  if (chainId === 1 || chainId === 8453) {
-    return `${PACKAGED_CERTIFICATES_URL_MAINNET}/${root}.json`
-  } else if (chainId === 11155111) {
-    return `${PACKAGED_CERTIFICATES_URL_TESTNET}/${root}.json`
-  } else {
-    return `${PACKAGED_CERTIFICATES_URL_DEV}/${root}.json`
-  }
+  return `${getNetworkConstants(chainId).packagedCertificatesUrl}/${root}.json`
 }
 
 /**
@@ -58,21 +54,9 @@ export const CIRCUIT_MANIFEST_URL_TEMPLATE = (
 ) => {
   if (root) {
     root = normaliseHash(root)
-    if (chainId === 1) {
-      return `${CIRCUIT_URL_MAINNET}/by-root/${root}/manifest.json`
-    } else if (chainId === 11155111) {
-      return `${CIRCUIT_URL_SEPOLIA}/by-root/${root}/manifest.json`
-    } else {
-      return `${CIRCUIT_URL_DEV}/by-root/${root}/manifest.json`
-    }
+    return `${getNetworkConstants(chainId).circuitUrl}/by-root/${root}/manifest.json`
   } else if (version) {
-    if (chainId === 1) {
-      return `${CIRCUIT_URL_MAINNET}/by-version/${version}/manifest.json`
-    } else if (chainId === 11155111) {
-      return `${CIRCUIT_URL_SEPOLIA}/by-version/${version}/manifest.json`
-    } else {
-      return `${CIRCUIT_URL_DEV}/by-version/${version}/manifest.json`
-    }
+    return `${getNetworkConstants(chainId).circuitUrl}/by-version/${version}/manifest.json`
   } else if (cid) {
     return `https://ipfs.zkpassport.id/ipfs/${cid}`
   } else {
@@ -91,13 +75,7 @@ export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid
     return `https://ipfs.zkpassport.id/ipfs/${cid}`
   }
   hash = normaliseHash(hash)
-  if (chainId === 1) {
-    return `${CIRCUIT_URL_MAINNET}/by-hash/${hash}.json`
-  } else if (chainId === 11155111) {
-    return `${CIRCUIT_URL_SEPOLIA}/by-hash/${hash}.json`
-  } else {
-    return `${CIRCUIT_URL_DEV}/by-hash/${hash}.json`
-  }
+  return `${getNetworkConstants(chainId).circuitUrl}/by-hash/${hash}.json`
 }
 
 /**
@@ -144,3 +122,56 @@ export const GET_ROOT_DETAILS_BY_ROOT_SIGNATURE = "0xbb3dd539"
  * Function signature for isRootValid(bytes32,bytes32,uint256)
  */
 export const IS_ROOT_VALID_SIGNATURE = "0x2aae4296"
+
+type NetworkType = "mainnet" | "testnet" | "dev"
+
+type NetworkConstants = {
+  chainId: number
+  chain: SupportedChain
+  type: NetworkType
+  packagedCertificatesUrl: string
+  circuitUrl: string
+}
+
+/**
+ * Network constants of each chain RegistryClient supports
+ */
+const NETWORKS: NetworkConstants[] = [
+  {
+    chainId: getIdFromChain("ethereum"),
+    chain: "ethereum",
+    type: "mainnet",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
+    circuitUrl: CIRCUIT_URL_MAINNET,
+  },
+  {
+    chainId: getIdFromChain("base"),
+    chain: "base",
+    type: "mainnet",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
+    circuitUrl: CIRCUIT_URL_MAINNET,
+  },
+  {
+    chainId: getIdFromChain("ethereum_sepolia"),
+    chain: "ethereum_sepolia",
+    type: "testnet",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_TESTNET,
+    circuitUrl: CIRCUIT_URL_SEPOLIA,
+  },
+  {
+    chainId: getIdFromChain("local"),
+    chain: "local",
+    type: "dev",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_DEV,
+    circuitUrl: CIRCUIT_URL_DEV,
+  },
+]
+
+function getNetworkConstants(chainId: number): NetworkConstants {
+  const network = NETWORKS.find((candidate) => candidate.chainId === chainId)
+  if (!network) {
+    throw new Error(`Unsupported chain ID: ${chainId}`)
+  }
+
+  return network
+}
