@@ -17,14 +17,22 @@ contract DeployZKPassportCredentialsScript is Script {
         bytes32 create2Salt = vm.envOr("CREATE2_SALT", bytes32(0));
         bytes32 evaluatorSalt = vm.envOr("EVALUATOR_SALT", create2Salt);
         bytes32 credentialsSalt = vm.envOr("CREDENTIALS_SALT", create2Salt);
+        require(credentialsSalt != bytes32(0), "CREDENTIALS_SALT must be a non-zero 0x-prefixed bytes32");
+        // Reusing an evaluator already at its CREATE2 address: deploying it again would revert
+        address existingEvaluator = vm.envOr("POLICY_EVALUATOR_ADDRESS", address(0));
+        require(
+            existingEvaluator != address(0) || evaluatorSalt != bytes32(0),
+            "EVALUATOR_SALT must be a non-zero 0x-prefixed bytes32, or set POLICY_EVALUATOR_ADDRESS"
+        );
         // Dev-mode evaluators accept mock-document proofs: testnets only, never mainnet.
         bool devMode = vm.envOr("ZKPASSPORT_CREDENTIALS_DEV_MODE", false);
         NullifierType uniqueIdentifierType =
             _nullifierType(vm.envString("ZKPASSPORT_CREDENTIALS_UNIQUE_IDENTIFIER_TYPE"));
 
         vm.startBroadcast();
-        PolicyEvaluatorV1 policyEvaluator =
-            new PolicyEvaluatorV1{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
+        PolicyEvaluatorV1 policyEvaluator = existingEvaluator != address(0)
+            ? PolicyEvaluatorV1(existingEvaluator)
+            : new PolicyEvaluatorV1{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
         ZKPassportCredentials zkPassportCredentials =
             new ZKPassportCredentials{salt: credentialsSalt}(domain, adminAddress, policyEvaluator);
         vm.stopBroadcast();
