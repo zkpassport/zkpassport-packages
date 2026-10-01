@@ -19,11 +19,11 @@ import {
   getProofData,
   getNumberOfPublicInputs,
   formatQueryResultDates,
+  getChainFromQuery,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
-import { RegistryClient } from "@zkpassport/registry"
-// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
+import { createRegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -980,7 +980,7 @@ export class ZKPassport {
       }
       // Only proceed with the proof verification if the public inputs are correct
       if (verified) {
-        const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+        const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode))
         const circuitManifest = await registryClient.getCircuitManifest(undefined, {
           // We assume all proofs have the same version
           version: proofs[0].version,
@@ -998,16 +998,8 @@ export class ZKPassport {
           if (isOuterEVM) {
             try {
               const { createPublicClient, http } = await import("viem")
-              const { sepolia } = await import("viem/chains")
-              const { mainnet } = await import("viem/chains")
               const { address, abi, functionName } = this.getSolidityVerifierDetails()
-              const rpcUrl = devMode
-                ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-                : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-              const client = createPublicClient({
-                chain: devMode ? sepolia : mainnet,
-                transport: http(rpcUrl),
-              })
+              const client = createPublicClient({ transport: http(registryClient.getRpcUrl()) })
               const params = this.getSolidityVerifierParameters({
                 proof,
                 validityPeriodInSeconds: validity,
