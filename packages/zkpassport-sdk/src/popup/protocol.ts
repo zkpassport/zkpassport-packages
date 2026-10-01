@@ -39,40 +39,14 @@ export type PopupRequestConfig = {
   domain?: string
 }
 
-/**
- * Ready-to-send ZKPassportCredentials.issue() call, minus the ABI: pair it with
- * `ZKPassportCredentialsAbi` from `@zkpassport/onchain-credentials`.
- * The first argument is the `policyId`.
- * The second argument is the proof data.
- */
-export type PopupCredentialIssueCall = {
-  address: `0x${string}`
-  functionName: "issue"
-  args: readonly [bigint, `0x${string}`]
-}
 
-/**
- * issue() checks the wallet bound into the proof, not the transaction sender,
- * so an "unminted" issueCall may be submitted by any account the relying party
- * controls. The hosted popup emits "minted" or "already-verified" only;
- * "unminted" is reserved for a flow that hands the issue() call over instead
- * of submitting it.
- * `recipient` is the one the relying party passed in.
- */
-export type PopupCredentialOutcome =
-  | {
-      status: "minted"
-      recipient: `0x${string}`
-      txHash: `0x${string}`
-      issueCall: PopupCredentialIssueCall
-    }
-  | {
-      status: "unminted"
-      recipient: `0x${string}`
-      reason?: string
-      issueCall: PopupCredentialIssueCall
-    }
-  | { status: "already-verified"; recipient: `0x${string}` }
+export type PopupCredentialOutcome = {
+  policyId: `0x${string}`
+  account: `0x${string}`
+  chainId: number
+  contract: `0x${string}`
+  txHash?: `0x${string}`
+}
 
 export type PopupConfigureMessage = {
   zkpassport: true

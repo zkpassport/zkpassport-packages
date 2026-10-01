@@ -6,11 +6,7 @@ import {
   useWriteContract,
 } from "wagmi"
 import { type Chain, type Hex } from "viem"
-import type {
-  PopupCredentialConfig,
-  PopupCredentialIssueCall,
-  PopupConfigureMessage,
-} from "@zkpassport/sdk/popup"
+import type { PopupCredentialConfig, PopupConfigureMessage } from "@zkpassport/sdk/popup"
 import {
   createCredentialsContext,
   ZKPassportCredentialsAbi,
@@ -29,12 +25,6 @@ import { describeMintError, type MintError } from "./errors"
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
 type VerifiedProof = { success: SuccessMessage; issueCall: CredentialIssueCall }
-
-// The relying party pairs the call with ZKPassportCredentialsAbi itself, so the
-// ABI never travels over postMessage.
-function toPopupIssueCall(call: CredentialIssueCall): PopupCredentialIssueCall {
-  return { address: call.address, functionName: call.functionName, args: call.args }
-}
 
 export type MintPhase =
   | { kind: "preflight" }
@@ -117,7 +107,12 @@ export function useCredentialFlow(params: CredentialFlowParams) {
           type: "success",
           proofs: [],
           result: {},
-          credential: { status: "already-verified", recipient },
+          credential: {
+            policyId: credential.policyId,
+            account: recipient,
+            chainId: chain.id,
+            contract: credentialsContract.address,
+          },
         })
         return
       }
@@ -231,10 +226,11 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     emit({
       ...step.proof.success,
       credential: {
-        status: "minted",
-        recipient,
+        policyId: credential.policyId,
+        account: recipient,
+        chainId: chain.id,
+        contract: credentialsContract.address,
         txHash: mintedHash,
-        issueCall: toPopupIssueCall(step.proof.issueCall),
       },
     })
   }, [mintedHash])

@@ -411,9 +411,21 @@ describe("createVerification with mint", () => {
       type: "success",
       proofs: [],
       result: {},
-      credential: { status: "minted", recipient: account, txHash: "0xdead" },
+      credential: {
+        policyId: "0x919a",
+        account,
+        chainId: 11155111,
+        contract: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
+        txHash: "0xdead",
+      },
     })
 
-    expect(outcome.credential).toEqual({ status: "minted", recipient: account, txHash: "0xdead" })
+    expect(outcome.credential).toEqual({
+      policyId: "0x919a",
+      account,
+      chainId: 11155111,
+      contract: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
+      txHash: "0xdead",
+    })
   })
 })

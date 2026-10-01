@@ -275,26 +275,23 @@ describe("openVerificationPopup", () => {
 })
 
 describe("credentials protocol extension", () => {
-  test("a minted success's issueCall survives postMessage cloning, bigint included", () => {
-    const issueCall = {
-      address: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
-      functionName: "issue",
-      args: [123456789012345678901234567890n, "0xabc"],
-    }
-    const message = {
-      zkpassport: true,
-      type: "success",
-      proofs: [],
-      result: {},
-      credential: {
-        status: "minted",
-        recipient: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
-        txHash: "0xdead",
-        issueCall,
-      },
-    }
-    const cloned = structuredClone(message)
-    expect(cloned).toEqual(message)
-    expect(cloned.credential.issueCall.args[0]).toBe(123456789012345678901234567890n)
+  const credential = {
+    policyId: "0x784721ee894919ed4260b68bea43b93de08a94dc20c8e51d90e4ba4a52b0df56",
+    account: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+    chainId: 11155111,
+    contract: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
+    txHash: "0xdead",
+  }
+
+  test("a minted credential survives postMessage cloning", () => {
+    const message = { zkpassport: true, type: "success", proofs: [], result: {}, credential }
+    expect(structuredClone(message)).toEqual(message)
+  })
+
+  test("an already-held credential carries no txHash", () => {
+    const { txHash, ...alreadyHeld } = credential
+    expect(txHash).toBeDefined()
+    expect(structuredClone(alreadyHeld)).toEqual(alreadyHeld)
+    expect("txHash" in alreadyHeld).toBe(false)
   })
 })
