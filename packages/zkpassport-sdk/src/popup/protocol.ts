@@ -35,8 +35,6 @@ export type PopupRequestConfig = {
   validity?: number
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   oprfKeyId?: string
-  policyId?: string
-  domain?: string
 }
 
 /**

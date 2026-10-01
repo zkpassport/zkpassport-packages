@@ -1,5 +1,5 @@
-import { ICON_SEAL_CROSS } from "../shared/icons"
-import { Actions, ErrorDetail, Heading, Primary } from "../shared/controls"
+import { ICON_SEAL_CROSS } from "./icons"
+import { Actions, ErrorDetail, Heading, Primary } from "./primitives"
 
 type ErrorScreenProps = {
   message: string
@@ -9,10 +9,10 @@ type ErrorScreenProps = {
 
 export function ErrorScreen({ message, onRetry }: ErrorScreenProps) {
   return (
-    <div className="flow-body">
-      <div className="flow-done">
+    <div className="zkp-flow-body">
+      <div className="zkp-flow-done">
         <div
-          className="flow-seal"
+          className="zkp-flow-seal"
           data-tone="error"
           dangerouslySetInnerHTML={{ __html: ICON_SEAL_CROSS }}
         />

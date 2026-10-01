@@ -1,24 +1,19 @@
 import { useEffect, useMemo, useState } from "react"
 import { isPopupMessage, type PopupConfigureMessage } from "@zkpassport/sdk/popup"
 
-import type { PopupEventMessage } from "@zkpassport/sdk/popup"
-import { CredentialFlow } from "./mint"
-import { VerifyFlow } from "./verify"
-import { Frame, Notice } from "./shared/frame"
-import { LinkVerification } from "./link"
+import type { OutgoingEvent } from "./events"
+import { CredentialFlow } from "./flow/CredentialFlow"
+import { VerifyFlow } from "./flow/VerifyFlow"
+import { Frame, Notice } from "./layout"
+import { LinkVerification } from "./link-verification"
 
 type Configuration = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
   credential: PopupConfigureMessage["credential"]
-  // Browser-attested origin of the page that opened this popup
+  // Browser-attested origin of the relying party page that opened this popup.
   rpOrigin: string
 }
-
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
-
-// The transport adds the zkpassport marker, so it is omitted here
-export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
 export function App() {
   const linkId = new URLSearchParams(window.location.search).get("vl")

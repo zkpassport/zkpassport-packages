@@ -1,8 +1,8 @@
 import type { Chain } from "viem"
 import type { Connector } from "wagmi"
 
-import { walletHasTransaction, type MintPhase } from "./use-mint"
-import { walletLabel } from "../shared/controls"
+import { walletHasTransaction, type MintPhase } from "../use-credential-flow"
+import { walletLabel } from "./format"
 import {
   Actions,
   Address,
@@ -17,7 +17,7 @@ import {
   TxLink,
   VerifiedBadge,
   type Row,
-} from "../shared/controls"
+} from "./primitives"
 
 type MintProps = {
   recipient: `0x${string}`
@@ -50,20 +50,20 @@ export function Mint(props: MintProps) {
   }
 
   return (
-    <div className="flow-body">
+    <div className="zkp-flow-body">
       <Main>
         <Heading title="Mint your verification" badge={<VerifiedBadge />} />
         <Panel>
-          <div className="flow-wallet-row">
+          <div className="zkp-flow-wallet-row">
             {connector?.icon ? <img src={connector.icon} alt="" /> : null}
-            <span className="flow-wallet-who">
-              <span className="flow-wallet-name">{walletLabel(connector)}</span>
+            <span className="zkp-flow-wallet-who">
+              <span className="zkp-flow-wallet-name">{walletLabel(connector)}</span>
               <Address value={payer} />
             </span>
             {/* Swapping wallets after the transaction is handed over would only
                 strand the user on the connect screen while it lands */}
             {walletHasTransaction(phase) ? null : (
-              <button type="button" className="flow-ghost" onClick={onChangeWallet}>
+              <button type="button" className="zkp-flow-ghost" onClick={onChangeWallet}>
                 Change
               </button>
             )}

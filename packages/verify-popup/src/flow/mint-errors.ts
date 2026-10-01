@@ -8,13 +8,13 @@ import {
 } from "viem"
 import { PolicyEvaluatorV1Abi } from "@zkpassport/onchain-credentials"
 
-// Pure mapping from a viem failure to something worth showing. Kept apart from
-// use-mint so it stays testable without loading the whole flow.
 export type MintError = {
   kind: "cancelled" | "insufficient-funds" | "reverted" | "failed"
+  /** The revert reason or failure message; the screen phrases it. */
   detail?: string
 }
 
+/** Sort a pre-flight or transaction error into what the Mint screen offers next. */
 export function describeMintError(error: unknown): MintError {
   if (!(error instanceof BaseError)) {
     return { kind: "failed", detail: error instanceof Error ? error.message : String(error) }

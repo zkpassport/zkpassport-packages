@@ -94,8 +94,6 @@ function enforceUniqueIdentifierType(
 }
 
 export {
-  getChainFromId,
-  getIdFromChain,
   SANCTIONED_COUNTRIES,
   EU_COUNTRIES,
   EEA_COUNTRIES,
@@ -124,7 +122,7 @@ export {
 } from "@zkpassport/utils"
 
 export * from "./types"
-export { createOfflineQuery, normalizeCountry } from "./offline-query"
+export { createOfflineQuery } from "./offline-query"
 export { VERSION } from "./constants"
 
 let onResultDeprecationWarned = false
@@ -517,8 +515,7 @@ export class ZKPassport {
         if (!this.dashboardConfig) {
           if (this.dashboardConfigError) throw this.dashboardConfigError
           throw new Error(
-            `${this.domain} is not set up for ZKPassport verification. If this is your site, ` +
-              `register the domain at https://dashboard.zkpassport.id.`,
+            `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id.`,
           )
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
@@ -818,11 +815,7 @@ export class ZKPassport {
     // eslint-disable-next-line
     bridge.onSecureMessage(async (message: any) => {
       logger.debug("Received message:", message)
-      try {
-        await this.handleEncryptedMessage(topic, message)
-      } catch (reason) {
-        logger.error("Failed to handle a bridge message:", reason)
-      }
+      this.handleEncryptedMessage(topic, message)
     })
     return this.getZkPassportRequest(topic)
   }

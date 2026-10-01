@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { buildWalletConfig } from "../src/mint/wagmi"
-import { resolveCredentialsChain } from "../src/mint/wagmi"
+import { buildWalletConfig } from "../src/wallet"
+import { resolveCredentialsChain } from "../src/chains"
 
 describe("buildWalletConfig", () => {
   test("configures wagmi for the resolved chain, honoring an RPC override", () => {
