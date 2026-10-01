@@ -3,6 +3,7 @@
 import {
   type ProofResult,
   type QueryResult,
+  getChainFromQuery,
   getProofData,
   getCommitmentFromDSCProof,
   getCommitmentInFromIDDataProof,
@@ -71,7 +72,7 @@ import {
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
-import { RegistryClient } from "@zkpassport/registry"
+import { createRegistryClient } from "@zkpassport/registry"
 // import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -1853,10 +1854,13 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Point in time to check validity at, in seconds; defaults to now
     timestamp?: number,
+    originalQuery: Query = {},
   ) {
     let isCorrect = true
     try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+      const registryClient = createRegistryClient(
+        getChainFromQuery(originalQuery, Boolean(devMode)),
+      )
       const isValid = await registryClient.isCertificateRootValid(root, timestamp)
       if (!isValid) {
         console.warn("The ID was signed by an unrecognized root certificate")
@@ -1892,10 +1896,13 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
+    originalQuery: Query = {},
   ) {
     let isCorrect = true
     try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
+      const registryClient = createRegistryClient(
+        getChainFromQuery(originalQuery, Boolean(devMode)),
+      )
       const isValid = await registryClient.isCircuitRootValid(root, timestamp)
       if (!isValid) {
         console.warn("The proof uses unrecognized circuits")
@@ -2395,6 +2402,7 @@ export class PublicInputChecker {
           true,
           devMode,
           rootTimestamp,
+          originalQuery,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
@@ -2411,6 +2419,7 @@ export class PublicInputChecker {
           queryResultErrors,
           devMode,
           rootTimestamp,
+          originalQuery,
         )
         isCorrect = isCorrect && isCorrectCircuitRegistryRoot
         queryResultErrors = {
@@ -2906,6 +2915,7 @@ export class PublicInputChecker {
           false,
           devMode,
           bundleRootTimestamp,
+          originalQuery,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {

@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { PublicInputChecker } from "../src/public-input-checker"
 import type {
   Query,
@@ -6,9 +7,11 @@ import type {
   DiscloseCommittedInputs,
   SanctionsBuilder,
   FacematchCommittedInputs,
+  SupportedChain,
 } from "@zkpassport/utils"
 import {
   SECONDS_BETWEEN_1900_AND_1970,
+  getIdFromChain,
   getServiceScopeHash,
   getScopeHash,
   getAgeParameterCommitment,
@@ -20,6 +23,7 @@ import {
   ZKPASSPORT_IOS_APP_ID_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
 } from "../src/constants"
+import { RegistryClient } from "@zkpassport/registry"
 
 // Helper to build a minimal disclose proof with committed inputs
 function makeDiscloseProof(disclosedBytes: number[]): ProofResult {
@@ -3131,5 +3135,66 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
       )
       expect(queryResultErrors.issuing_country).toBeUndefined()
     })
+  })
+})
+
+describe("PublicInputChecker - registry chain", () => {
+  const certificateRoot = "0x" + "cd".repeat(32)
+  let certificateRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every certificate root valid on the registries of the given chains only
+  function mockCertificateRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    certificateRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isCertificateRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isCertificateRootAccepted(query: Query, devMode: boolean) {
+    const { isCorrect } = await PublicInputChecker.checkCertificateRegistryRoot(
+      certificateRoot,
+      {},
+      false,
+      devMode,
+      undefined,
+      query,
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    certificateRootValidity.mockRestore()
+  })
+
+  test("accepts a root valid on the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      true,
+    )
+  })
+
+  test("rejects a root valid only on another chain than the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      false,
+    )
+  })
+
+  test("rejects a query bound to a chain without a registry", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "arbitrum" } }, false)).toBe(false)
+  })
+
+  test("checks an unbound query on Sepolia in dev mode and on Ethereum otherwise", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({}, true)).toBe(true)
+    expect(await isCertificateRootAccepted({}, false)).toBe(false)
   })
 })
