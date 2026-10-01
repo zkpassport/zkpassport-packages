@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { bigIntToBuffer } from "@zk-kit/utils"
-import { HashAlgorithm, QueryResult, SupportedChain } from "./types"
+import { HashAlgorithm, Query, QueryResult, SupportedChain } from "./types"
 import { hexToBytes } from "@noble/hashes/utils.js"
 import {
   HASH_ALGORITHM_SHA1,
@@ -288,6 +288,16 @@ export function getChainFromId(chainId: number): SupportedChain {
     }
   }
   throw new Error(`Unsupported chain ID: ${chainId}`)
+}
+
+/**
+ * Get the chain whose registry a request is proven and verified against
+ * @param query - The request's query
+ * @param devMode - Whether the request is in dev mode
+ * @returns The bound chain, else Ethereum Sepolia in dev mode and Ethereum otherwise
+ */
+export function getRegistryChain(query: Query, devMode: boolean): SupportedChain {
+  return query.bind?.chain ?? (devMode ? "ethereum_sepolia" : "ethereum")
 }
 
 export function getChainDisplayName(chain: SupportedChain): string {

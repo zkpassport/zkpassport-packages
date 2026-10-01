@@ -2,6 +2,7 @@ import {
   getChainDisplayName,
   getChainFromId,
   getIdFromChain,
+  getRegistryChain,
   packBeBitsIntoField,
   packBeBytesIntoFields,
 } from "./utils"
@@ -191,5 +192,24 @@ describe("Utils", () => {
     expect(getChainDisplayName("linea_sepolia")).toBe("Linea Sepolia")
     expect(getChainDisplayName("world_chain_sepolia")).toBe("World Chain Sepolia")
     expect(getChainDisplayName("local")).toBe("Local")
+  })
+
+  test("getRegistryChain should return the bound chain in any mode", () => {
+    const query = { bind: { chain: "base" as const } }
+
+    expect(getRegistryChain(query, false)).toBe("base")
+    expect(getRegistryChain(query, true)).toBe("base")
+  })
+
+  test("getRegistryChain should fall back to Sepolia in dev mode and Ethereum otherwise", () => {
+    const unboundQuery = {}
+    const queryBoundWithoutChain = {
+      bind: { user_address: "0x04Fb06E8BF44eC60b6A99D2F98551172b2F2dED8" },
+    }
+
+    expect(getRegistryChain(unboundQuery, true)).toBe("ethereum_sepolia")
+    expect(getRegistryChain(unboundQuery, false)).toBe("ethereum")
+    expect(getRegistryChain(queryBoundWithoutChain, true)).toBe("ethereum_sepolia")
+    expect(getRegistryChain(queryBoundWithoutChain, false)).toBe("ethereum")
   })
 })
