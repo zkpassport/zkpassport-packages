@@ -291,12 +291,12 @@ export function getChainFromId(chainId: number): SupportedChain {
 }
 
 /**
- * Get the chain whose registry a request is proven and verified against
- * @param query - The request's query
- * @param devMode - Whether the request is in dev mode
+ * Get the chain for a query
+ * @param query - The query
+ * @param devMode - Whether the query's request is in dev mode
  * @returns The bound chain, else Ethereum Sepolia in dev mode and Ethereum otherwise
  */
-export function getRegistryChain(query: Query, devMode: boolean): SupportedChain {
+export function getChainFromQuery(query: Query, devMode: boolean): SupportedChain {
   return query.bind?.chain ?? (devMode ? "ethereum_sepolia" : "ethereum")
 }
 
