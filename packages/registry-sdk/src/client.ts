@@ -1,5 +1,5 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { Binary } from "@zkpassport/utils"
+import { Binary, getIdFromChain } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
@@ -13,6 +13,7 @@ import type {
   CircuitManifest,
   CircuitManifestEntry,
   PackagedCircuit,
+  SupportedChain,
 } from "@zkpassport/utils/types"
 import debug from "debug"
 import {
@@ -65,6 +66,24 @@ export class RegistryClient {
     cid?: string,
   ) => string
   private readonly retryCount: number
+
+  /**
+   * Create a client for a chain RegistryClient supports
+   * @param chain - The chain
+   * @param overrides - Options that take precedence over the chain's network constants
+   * @throws If RegistryClient does not support the chain
+   */
+  static forChain(
+    chain: SupportedChain,
+    overrides: Omit<Partial<RegistryClientOptions>, "chainId"> = {},
+  ): RegistryClient {
+    const chainId = getIdFromChain(chain)
+    if (!findNetworkConstants(chainId)) {
+      throw new Error(`Unsupported chain: ${chain}`)
+    }
+
+    return new RegistryClient({ ...overrides, chainId })
+  }
 
   constructor({
     rpcUrl,
