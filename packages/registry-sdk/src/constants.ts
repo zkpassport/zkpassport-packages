@@ -152,6 +152,13 @@ const NETWORKS: NetworkConstants[] = [
     circuitUrl: CIRCUIT_URL_MAINNET,
   },
   {
+    chainId: getIdFromChain("robinhood"),
+    chain: "robinhood",
+    type: "mainnet",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
+    circuitUrl: CIRCUIT_URL_MAINNET,
+  },
+  {
     chainId: getIdFromChain("ethereum_sepolia"),
     chain: "ethereum_sepolia",
     type: "testnet",

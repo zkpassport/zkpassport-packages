@@ -44,7 +44,7 @@ const log = debug("zkpassport:registry")
 interface ChainConfig {
   rpcUrl: string
   rootRegistry: string
-  registryHelper: string
+  registryHelper?: string
   packagedCertsUrlGenerator: (chainId: number, root: string, cid?: string) => string
   circuitManifestUrlGenerator: (
     chainId: number,
@@ -70,6 +70,15 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7",
     // registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7", // New RegistryHelper for canonical root registry
+    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
+    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
+    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
+  },
+  // Robinhood Chain Mainnet
+  // No RegistryHelper is deployed on this chain, so root details and historical roots are unavailable
+  4663: {
+    rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
+    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
     packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
@@ -102,7 +111,7 @@ export class RegistryClient {
   private readonly chainId: number
   private readonly rpcUrl: string
   private readonly rootRegistry: string
-  private readonly registryHelper: string
+  private readonly registryHelper: string | undefined
   private readonly packagedCertsUrlGenerator: (
     chainId: number,
     root: string,
@@ -358,6 +367,7 @@ export class RegistryClient {
    * @param root Optional root to get details for (defaults to latest)
    */
   async getCertificateRootDetails(root?: string): Promise<RootDetails> {
+    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     if (root) {
       log("Getting certificate root details")
       const response = await this.rpcRequest(
@@ -644,6 +654,7 @@ export class RegistryClient {
    * @param root Optional root to get details for (defaults to latest)
    */
   async getCircuitRootDetails(root?: string): Promise<RootDetails> {
+    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     if (root) {
       log("Getting circuit root details")
       const response = await this.rpcRequest(
@@ -771,8 +782,10 @@ export class RegistryClient {
   /**
    * Get the address of the Registry Helper
    * @returns The address of the Registry Helper
+   * @throws If no Registry Helper is configured for this chain
    */
   getRegistryHelperAddress(): string {
+    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     return this.registryHelper
   }
 
