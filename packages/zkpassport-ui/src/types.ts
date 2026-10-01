@@ -57,6 +57,7 @@ export {
   ZKPassport,
   VERSION as SDK_VERSION,
   NullifierType,
+  NullifierType as UniqueIdentifierType,
   ProofType,
   ProofTypeLength,
   SANCTIONED_COUNTRIES,

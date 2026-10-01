@@ -59,6 +59,7 @@
   "scripts": {
     "build": "tsup --config tsup.config.ts",
     "dev:build": "DEV_BUILD=true bun run build",
+    "dev": "DEV_WATCH=true tsup --config tsup.config.ts --watch src",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "test": "bun test",
     "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts,.tsx",

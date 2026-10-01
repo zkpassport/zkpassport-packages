@@ -277,7 +277,7 @@ describe("openVerificationPopup", () => {
 describe("credentials protocol extension", () => {
   test("a minted success's issueCall survives postMessage cloning, bigint included", () => {
     const issueCall = {
-      address: "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c",
+      address: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
       functionName: "issue",
       args: [123456789012345678901234567890n, "0xabc"],
     }

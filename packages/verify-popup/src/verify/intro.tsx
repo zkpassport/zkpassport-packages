@@ -54,8 +54,6 @@ export function Intro({
 }
 
 function Asks({ items, purpose }: { items: QueryDescriptionItem[]; purpose?: string }) {
-  // Claims are about the holder and carry a tick; notes are facts about the
-  // proof itself, so they sit with the purpose at the foot of the panel
   const claims = items.filter((item) => !item.note)
   const notes = items.filter((item) => item.note)
 

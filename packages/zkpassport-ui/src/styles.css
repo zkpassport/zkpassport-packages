@@ -19,9 +19,9 @@
     width: 100%;
     min-width: 280px;
     max-width: 380px;
-    padding: 26px 20px 18px;
+    padding: 26px 22px 22px;
     border: 1px solid var(--zkp-border);
-    border-radius: 14px;
+    border-radius: 6px;
     background: var(--zkp-bg);
     color: var(--zkp-fg);
     font-family: ui-sans-serif, system-ui, sans-serif;
@@ -96,7 +96,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 24px;
   }
   .zkp-header-icons {
     display: flex;
@@ -200,12 +200,12 @@
     position: relative;
     width: 100%;
     aspect-ratio: 1;
-    margin: 16px 0 0;
+    margin: 26px 0 0;
     background: #ffffff;
     display: grid;
     place-items: center;
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: 4px;
   }
   .zkp-qr {
     width: 100%;
@@ -243,7 +243,7 @@
   .zkp-skeleton {
     position: absolute;
     inset: 0;
-    border-radius: 8px;
+    border-radius: 4px;
     background: var(--zkp-surface);
   }
 
@@ -413,7 +413,7 @@
   .zkp-step[data-mode="icon"] .zkp-step-marker {
     width: 28px;
     height: 28px;
-    border-radius: 7px;
+    border-radius: 5px;
     border: 1px solid var(--zkp-border);
     color: var(--zkp-fg);
     animation: none;
@@ -457,9 +457,9 @@
   /* Open-in-app deep link (mobile: primary action; shown via .zkp-open-app-block) */
   .zkp-open-app {
     display: none !important;
-    margin: 16px 0 0 !important;
-    padding: 16px !important;
-    border-radius: 8px !important;
+    margin: 26px 0 0 !important;
+    padding: 20px !important;
+    border-radius: 4px !important;
     background: var(--zkp-brand) !important;
     color: var(--zkp-bg) !important;
     font-size: 13px !important;
@@ -488,8 +488,8 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
-    padding: 8px 0 4px;
+    gap: 20px;
+    padding: 16px 0 8px;
   }
   .zkp-open-app-loading {
     display: flex;
@@ -519,8 +519,8 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    gap: 16px;
-    margin-top: 18px;
+    gap: 24px;
+    margin-top: 26px;
     animation: zkp-screen-in 240ms ease;
   }
   .zkp-screen {
@@ -532,11 +532,9 @@
   @keyframes zkp-screen-in {
     from {
       opacity: 0;
-      transform: translateY(4px);
     }
     to {
       opacity: 1;
-      transform: none;
     }
   }
   .zkp-intro > .zkp-divider {
@@ -553,26 +551,40 @@
     padding-bottom: 1rem;
   }
   .zkp-intro-request {
-    padding: 16px;
+    padding: 24px;
     border: 1px solid var(--zkp-border);
-    border-radius: 12px;
+    border-radius: 5px;
     background: var(--zkp-surface);
   }
-  .zkp-skel-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .zkp-skel-row {
-    height: 12px;
-    border-radius: 6px;
+  /* Fills the check slot without changing its geometry */
+  .zkp-skel-check {
+    border-radius: 50%;
     background: color-mix(in srgb, var(--zkp-muted) 25%, transparent);
     animation: zkp-skel-pulse 1.4s ease-in-out infinite;
   }
-  .zkp-skel-row-detail {
-    height: 9px;
-    margin-left: 25px;
-    opacity: 0.7;
+  /* The zero-width space forms a full text line box, so the row is exactly as
+     tall as a real single-line row whatever the title's font metrics are */
+  .zkp-skel-text {
+    position: relative;
+  }
+  .zkp-skel-text::before {
+    content: "\200B";
+  }
+  .zkp-skel-bar {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    height: 10px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--zkp-muted) 25%, transparent);
+    animation: zkp-skel-pulse 1.4s ease-in-out infinite;
+  }
+  .zkp-skel-row {
+    height: 12px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--zkp-muted) 25%, transparent);
+    animation: zkp-skel-pulse 1.4s ease-in-out infinite;
   }
   @keyframes zkp-skel-pulse {
     0%,
@@ -583,18 +595,35 @@
       opacity: 1;
     }
   }
+  /* Why the app is asking, in its own words, under the checks it maps to */
+  .zkp-intro-purpose {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin: 20px 0 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--zkp-muted);
+  }
+  .zkp-intro-purpose-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
   .zkp-intro-list {
     margin: 0;
     padding: 0;
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 20px;
   }
   .zkp-intro-list li {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
   }
   .zkp-intro-list-hint {
     font-size: 12px;
@@ -606,7 +635,7 @@
   .zkp-intro-item {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 5px;
     min-width: 0;
   }
   .zkp-intro-item-title {
@@ -616,8 +645,13 @@
     color: var(--zkp-fg);
   }
   .zkp-intro-item-detail {
-    font-size: 12px;
-    line-height: 1.4;
+    margin-top: 3px;
+    padding: 5px 7px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--zkp-fg) 4%, transparent);
+    font-size: 10.5px;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
     color: var(--zkp-muted);
   }
   .zkp-intro-check {
@@ -641,9 +675,9 @@
   .zkp-intro-footer {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
     margin-top: auto;
-    padding-top: 4px;
+    padding-top: 12px;
     text-align: center;
   }
   .zkp-intro-footer .zkp-divider {
@@ -651,6 +685,7 @@
   }
   .zkp-intro-footer-note {
     margin: 0;
+    padding-bottom: 12px;
     font-size: 11.5px;
     line-height: 1.55;
     color: var(--zkp-muted);
@@ -676,8 +711,8 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 8px;
-    padding-top: 6px;
+    gap: 14px;
+    padding: 20px 16px 0;
   }
   .zkp-chip-symbol {
     width: 54px;
@@ -690,21 +725,16 @@
   }
   .zkp-intro-question-hint {
     margin: 0;
-    max-width: 340px;
+    max-width: 320px;
     font-size: 12.5px;
-    line-height: 1.45;
+    line-height: 1.55;
     color: var(--zkp-muted);
   }
   .zkp-intro-question .zkp-intro-continue {
-    margin-top: 6px;
-  }
-  .zkp-intro-question .zkp-divider {
-    align-self: stretch;
     margin-top: 10px;
   }
-
   .zkp-intro-question-text {
-    margin: 4px 0 0;
+    margin: 6px 0 0;
     font-size: 15px;
     font-weight: 600;
     color: var(--zkp-fg);
@@ -715,9 +745,9 @@
     -webkit-tap-highlight-color: transparent !important;
     display: block !important;
     width: 100% !important;
-    padding: 16px !important;
+    padding: 20px !important;
     border: none !important;
-    border-radius: 8px !important;
+    border-radius: 4px !important;
     background: var(--zkp-brand) !important;
     color: var(--zkp-bg) !important;
     font-size: 13px !important;

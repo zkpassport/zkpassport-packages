@@ -10,17 +10,11 @@ import {
 } from "@zkpassport/sdk"
 import { hydrateQueryBuilder, type PopupRequestConfig } from "@zkpassport/sdk/popup"
 
-/**
- * The popup's own card: it creates the request, holds the bridge open and turns
- * the request URL into a QR, and stops there. Everything the phone does after
- * picking the request up is a screen, not a state of this hook.
- */
+// Stops at `waiting`: everything after the phone joins is a screen, not a state
 export type RequestState = "preparing" | "connecting" | "waiting"
 
-/** A plain query, or the builder callback the credential flow constructs. */
 export type QuerySource = Query | ((builder: QueryBuilder) => QueryBuilderResult)
 
-/** The subset of SDK request options either journey sets. */
 export type RequestOptions = Omit<PopupRequestConfig, "uniqueIdentifierType"> & {
   // Wider than the popup protocol's: the credential flow may ask for NONE
   uniqueIdentifierType?: Parameters<ZKPassport["request"]>[0]["uniqueIdentifierType"]
@@ -38,8 +32,7 @@ export type RequestCallbacks = {
   onProving?: () => void
   onProof?: (proof: ProofResult) => void
   onSuccess?: (response: { proofs: ProofResult[]; result: QueryResult }) => void
-  // The credential flow needs the verified result to build its issue call, which
-  // only the SDK's onResult provides
+  // The credential flow needs onResult's verified payload to build its issue call
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onResult?: (result: any) => void
   onReject?: () => void
@@ -103,8 +96,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
             ? wanted(builder)
             : hydrateQueryBuilder(builder, wanted)
 
-        // An empty query proves nothing, so it must never reach the user as a
-        // consent screen that looks like a real check
+        // An empty query would render as a consent screen that asks for nothing
         if (Object.keys(built.query).length === 0) {
           throw new Error("The verification request asks for nothing. Set a query or a policyId.")
         }
@@ -159,8 +151,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
   return { state, url, qrSvg, query, retry }
 }
 
-// Circular dot modules + concentric-ring finder patterns. ECC "Q" leaves room
-// for the mark overlaid at the centre.
+// ECC "Q" leaves room for the mark overlaid at the centre
 function renderQrSvg(url: string): string {
   const qr = QRCode.create(url, { errorCorrectionLevel: "Q" })
   const size = qr.modules.size

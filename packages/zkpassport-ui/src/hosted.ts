@@ -3,4 +3,5 @@
 export * from "./react/index"
 export { injectStyles } from "./card"
 export { ICON_CHECK, ICON_ZKP_MARK } from "./assets"
+export { describeQuery, type QueryDescriptionItem } from "./query-description"
 export { buildCredentialCardOptions, type CredentialVerifyResult } from "./credential-options"

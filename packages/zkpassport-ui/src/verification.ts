@@ -1,15 +1,17 @@
-import { createOfflineQuery } from "@zkpassport/sdk/query"
 import {
   openVerificationPopup,
   type PopupCredentialConfig,
-  type PopupCallbacks,
   type PopupRequestConfig,
+  type PopupSuccess,
   type VerificationPopupHandle,
 } from "@zkpassport/sdk/popup"
-import type { Query, QueryBuilder, QueryBuilderResult, SupportedChain } from "@zkpassport/sdk"
+import { getChainFromId, NullifierType, type ProofMode } from "@zkpassport/sdk"
 
 import { isInAppBrowser } from "./environment"
+import { ZKPassportError, type ZKPassportErrorKind } from "./errors"
 import { logger } from "./logger"
+import { DEFAULT_POLICY_CHAIN_ID, parsePolicyId } from "./policy-id"
+import { toWireQuery, type BoundData, type Query } from "./query-wire"
 
 export type VerificationStatus = "idle" | "in-progress" | "success" | "error"
 
@@ -17,42 +19,55 @@ export type VerificationState = {
   status: VerificationStatus
   // Only set when there is a message worth showing the user
   error: string | null
+  errorKind: ZKPassportErrorKind | null
+}
+
+/** What the service accepts, as opposed to what the query asks about the credential. */
+export type ServiceConfig = {
+  domain?: string
+  scope?: string
+  uniqueIdentifierType?: "salted" | "non-salted" | "none"
+  devMode?: boolean
+}
+
+/** Points the flow at your own deployment of the services ZKPassport runs. */
+export type VerificationOverrides = {
+  bridgeUrl?: string
+  cloudProverUrl?: string
+  rpcUrl?: string
+  /** @internal Points the flow at another popup origin; for testing. */
+  popupUrl?: string
+}
+
+type Callbacks = {
+  onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type">) => unknown
+  onError?: (error: ZKPassportError) => void
+}
+
+type BaseVerificationOptions = Callbacks & {
+  purpose?: string
+  service?: ServiceConfig
+  bind?: BoundData
+  overrides?: VerificationOverrides
 }
 
 /**
- * Mints a credential onchain against a policy
- */
-export type MintCredentialOptions = {
-  /** Chain the credential lives on (e.g. "ethereum_sepolia"). */
-  chain: SupportedChain
-  /** On-chain policy id, as a 0x-prefixed hex string of at most 32 bytes. */
-  onchainPolicyId: `0x${string}`
-  /** Wallet the credential is issued to; bound into the proof, so it cannot change later. */
-  recipient: `0x${string}`
-}
-
-type BaseVerificationOptions = PopupRequestConfig &
-  PopupCallbacks & {
-    popupUrl?: string
-    windowMode?: "popup" | "tab"
-  }
-
-/**
- * A verification is driven either by a query (optionally narrowed by a
- * dashboard policy) or by a credential mint, whose query comes from the
- * on-chain policy. The two never combine.
+ * A verification proves a query, or mints the credential a policy defines. `mint` only adds the
+ * issuing step: the same policy works without it, with the proof going to the RP's backend.
  */
 export type VerificationOptions =
   | (BaseVerificationOptions & {
-      query: (queryBuilder: QueryBuilder) => QueryBuilderResult
-      /** Dashboard policy id. */
+      query?: Query
       policyId?: string
-      mintCredential?: never
+      mode?: ProofMode
+      mint?: never
     })
   | (BaseVerificationOptions & {
-      mintCredential: MintCredentialOptions
+      mint: true
+      policyId: string
+      bind: BoundData & { account: `0x${string}`; chainId: number }
       query?: never
-      policyId?: never
+      mode?: never
     })
 
 export type VerificationController = {
@@ -67,29 +82,22 @@ export type VerificationController = {
   dispose: () => void
 }
 
-// The only fields sent to the popup; anything else stays on this page.
-const POPUP_REQUEST_FIELDS: Record<keyof PopupRequestConfig, true> = {
-  name: true,
-  logo: true,
-  purpose: true,
-  scope: true,
-  mode: true,
-  devMode: true,
-  validity: true,
-  uniqueIdentifierType: true,
-  oprfKeyId: true,
-}
-
-const POPUP_BLOCKED_MESSAGE = "Popup blocked. Allow popups for this site and try again."
+const POPUP_BLOCKED_MESSAGE =
+  "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
 const IN_APP_BROWSER_MESSAGE =
-  "Couldn't open the verification window here. Open this page in Safari or Chrome and try again."
+  "This browser can't open the verification window. Open this page in Safari or Chrome to continue."
+
+const IDENTIFIER_TYPES = {
+  "salted": NullifierType.SALTED,
+  "non-salted": NullifierType.NON_SALTED,
+} as const
 
 // Opens the hosted popup and tracks the outcome. Shared by both buttons and the React hook.
 export function createVerification(
   getOptions: () => VerificationOptions,
   onStateChange: (state: VerificationState) => void,
 ): VerificationController {
-  let state: VerificationState = { status: "idle", error: null }
+  let state: VerificationState = { status: "idle", error: null, errorKind: null }
   let popupHandle: VerificationPopupHandle | null = null
   // Set once the popup delivered a result; from then on the window belongs to the user
   let popupFinished = false
@@ -97,8 +105,12 @@ export function createVerification(
   // can't overwrite the status of a newer one
   let latestAttempt = 0
 
-  const setStatus = (status: VerificationStatus, error: string | null = null) => {
-    state = { status, error }
+  const setStatus = (
+    status: VerificationStatus,
+    error: string | null = null,
+    errorKind: ZKPassportErrorKind | null = null,
+  ) => {
+    state = { status, error, errorKind }
     onStateChange(state)
   }
 
@@ -117,37 +129,42 @@ export function createVerification(
 
     const thisAttempt = ++latestAttempt
     popupFinished = false
-    let query: Query
-    let credential: PopupCredentialConfig | undefined
+
+    // Only one terminal callback ever fires: a failure followed by the user closing the window is
+    // one outcome, not two
+    let settled = false
+    const fail = (kind: ZKPassportError["kind"], message: string, status?: VerificationStatus) => {
+      if (settled || latestAttempt !== thisAttempt) return
+      settled = true
+      setStatus(status ?? "error", kind === "closed" ? null : message, kind)
+      getOptions().onError?.(new ZKPassportError(kind, message))
+    }
+
+    let request: { config: PopupRequestConfig; query: object; credential?: PopupCredentialConfig }
     try {
-      credential = toCredentialConfig(options)
-      // A mint request carries no query: the popup derives it from the policy
-      query = credential ? {} : buildQuery(options)
+      request = buildRequest(options)
     } catch (reason) {
       logger.error(reason)
-      setStatus("error")
-      options.onError?.(
-        reason instanceof Error ? reason.message : "Failed to build the verification query",
-      )
+      const message =
+        reason instanceof Error ? reason.message : "Failed to build the verification request"
+      fail("failed", message)
       return
     }
 
     const handle = openVerificationPopup({
-      popupUrl: options.popupUrl,
-      windowMode: options.windowMode,
-      request: toPopupRequest(options),
-      query,
-      credential,
+      popupUrl: options.overrides?.popupUrl,
+      request: request.config,
+      query: request.query as never,
+      credential: request.credential,
       // Callbacks resolve at event time: results arrive minutes after the
       // click, and React consumers swap callbacks between renders
       callbacks: {
-        onRequestReceived: () => getOptions().onRequestReceived?.(),
-        onGeneratingProof: () => getOptions().onGeneratingProof?.(),
-        onProofGenerated: (progress) => getOptions().onProofGenerated?.(progress),
         // Success waits for the app's onSuccess handler, which can veto it by
         // returning false (e.g. when its backend did not verify the proofs)
         onSuccess: (response) => {
-          if (latestAttempt === thisAttempt) popupFinished = true
+          if (latestAttempt !== thisAttempt) return
+          popupFinished = true
+          settled = true
           const finish = (next: "success" | "error") => {
             if (latestAttempt === thisAttempt) setStatus(next)
           }
@@ -167,21 +184,16 @@ export function createVerification(
             },
           )
         },
-        onReject: () => {
-          setStatus("error")
-          getOptions().onReject?.()
-        },
-        onError: (message) => getOptions().onError?.(message),
-        onClose: () => {
-          setStatus("idle")
-          getOptions().onClose?.()
-        },
+        onReject: () => fail("rejected", "Verification was declined."),
+        onError: (message) => fail("failed", message),
+        // Closing without a result returns the button to idle: nothing failed, the user left
+        onClose: () => fail("closed", "The verification window was closed.", "idle"),
       },
     })
 
     if (!handle) {
-      setStatus("error", isInAppBrowser() ? IN_APP_BROWSER_MESSAGE : POPUP_BLOCKED_MESSAGE)
-      options.onError?.("Popup blocked")
+      const message = isInAppBrowser() ? IN_APP_BROWSER_MESSAGE : POPUP_BLOCKED_MESSAGE
+      fail("blocked", message)
       return
     }
 
@@ -212,54 +224,90 @@ export function createVerification(
   }
 }
 
-function buildQuery(options: VerificationOptions): Query {
-  if (!options.query) {
-    throw new Error("A query callback is required unless mintCredential is set.")
+function buildRequest(options: VerificationOptions): {
+  config: PopupRequestConfig
+  query: object
+  credential?: PopupCredentialConfig
+} {
+  const policy = options.policyId ? parsePolicyId(options.policyId) : undefined
+
+  if (options.mint) {
+    if (!policy || policy.kind !== "onchain") {
+      throw new Error(
+        "mint requires an on-chain policyId, for example eip155:8453:0x7b — a dashboard policy has " +
+          "no contract to evaluate it.",
+      )
+    }
+    const { account, chainId } = options.bind
+    if (!/^0x[0-9a-fA-F]{40}$/.test(account)) {
+      throw new Error(
+        "bind.account must be a 0x-prefixed 20-byte address; it receives the credential.",
+      )
+    }
+    // A chainless id resolves to the bound chain: the credential is minted there, so that is the
+    // only chain whose copy of the policy could govern it
+    if (policy.chainId !== undefined && policy.chainId !== chainId) {
+      throw new Error(
+        `bind.chainId (${chainId}) must match the policy's chain (${policy.chainId}).`,
+      )
+    }
+    return {
+      // No scope fallback: the evaluator checks the scope the contract stores, so the popup takes it
+      // from the policy rather than from anything this page sends
+      config: toPopupRequest(options),
+      // A mint request carries no query: the popup derives it from the policy
+      query: {},
+      credential: {
+        chain: getChainFromId(chainId),
+        policyId: policy.policyId,
+        recipient: account,
+      },
+    }
   }
-  const builder = createOfflineQuery()
-  if (options.policyId) {
-    builder.policy(options.policyId)
+
+  if (policy?.kind === "onchain" && policy.chainId === undefined) {
+    const chainId = options.bind?.chainId ?? DEFAULT_POLICY_CHAIN_ID
+    logger.warn(
+      `Policy "${options.policyId}" carries no chain and was resolved on eip155:${chainId}. ` +
+        `Write eip155:<chainId>:${policy.policyId} to target another chain.`,
+    )
   }
-  const built = options.query(builder as never) as unknown as { query: Query }
-  return built.query
+  if (!options.query && !policy) {
+    throw new Error("A query or a policyId is required.")
+  }
+  if (options.query && policy) {
+    throw new Error(
+      "A policyId carries its own query; remove the query option or drop the policyId.",
+    )
+  }
+
+  return {
+    config: toPopupRequest(options, policy?.kind === "dashboard" ? policy.id : undefined),
+    query: toWireQuery(options.query ?? {}, options.bind),
+  }
 }
 
-function toCredentialConfig(options: VerificationOptions): PopupCredentialConfig | undefined {
-  const mint = options.mintCredential
-  if (!mint) return undefined
-  if (options.query) {
-    throw new Error(
-      "mintCredential requests take their query from the on-chain policy; remove the query option.",
-    )
+function toPopupRequest(
+  options: VerificationOptions,
+  dashboardPolicy?: string,
+): PopupRequestConfig {
+  const service = options.service ?? {}
+  const identifier = service.uniqueIdentifierType
+  const config: PopupRequestConfig = {
+    purpose: options.purpose,
+    policyId: dashboardPolicy,
+    domain: service.domain,
+    // The identifier is scoped to the flow, so a policy is the natural default: the same person is
+    // recognised across visits to it and not across a service's other flows
+    scope: service.scope ?? dashboardPolicy,
+    mode: options.mint ? "compressed-evm" : options.mode,
+    devMode: service.devMode,
   }
-  if (options.policyId) {
-    throw new Error(
-      "mintCredential requests take their policy from the chain; remove the policyId option.",
-    )
+  if (identifier && identifier !== "none") {
+    config.uniqueIdentifierType = IDENTIFIER_TYPES[identifier]
   }
-  const { chain, onchainPolicyId, recipient } = mint
-  if (!chain || !onchainPolicyId || !recipient) {
-    throw new Error("mintCredential requires chain, onchainPolicyId and recipient.")
+  for (const key of Object.keys(config) as Array<keyof PopupRequestConfig>) {
+    if (config[key] === undefined) delete config[key]
   }
-  // The id is a uint256 on-chain, so a caller may write it padded to 32 bytes or trimmed
-  if (!/^0x[0-9a-fA-F]{1,64}$/.test(onchainPolicyId)) {
-    throw new Error(
-      `onchainPolicyId must be a 0x-prefixed hex string of at most 32 bytes, got "${onchainPolicyId}".`,
-    )
-  }
-  if (!/^0x[0-9a-fA-F]{40}$/.test(recipient)) {
-    throw new Error("recipient must be a 0x-prefixed 20-byte Ethereum address.")
-  }
-  // Chain support is the popup's call: an unsupported chain errors there and
-  // reaches this page through the protocol's error message.
-  return { chain, policyId: onchainPolicyId, recipient }
-}
-
-function toPopupRequest(options: VerificationOptions): PopupRequestConfig {
-  const request: Record<string, unknown> = {}
-  for (const field of Object.keys(POPUP_REQUEST_FIELDS)) {
-    const value = options[field as keyof PopupRequestConfig]
-    if (value !== undefined) request[field] = value
-  }
-  return request as PopupRequestConfig
+  return config
 }

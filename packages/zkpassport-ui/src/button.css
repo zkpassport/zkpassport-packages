@@ -2,26 +2,31 @@
   /* "Verify with ZKPassport" button (opens the hosted popup).
      Customize via CSS custom properties on the mount element or any ancestor:
      --zkp-btn-bg/-fg/-border-color/-radius/-padding/-font/-font-size/-letter-spacing/
-     -text-transform, and --zkp-btn-success/-error for the verified and failed states.
+     -text-transform.
      Sizing hangs off --zkp-btn-font-size: the icon, gap and padding are all in em.
 
      !important throughout: host resets (e.g. Tailwind preflight) are unlayered
      and would otherwise strip these. */
   .zkp-verify-button {
-    --zkp-bg: #ffffff;
-    --zkp-brand: #2139a3;
-    --zkp-border: #d3d9e8;
+    --zkp-bg: #2139a3;
+    --zkp-bg-hover: #2c4bcc;
+    --zkp-fg: #ffffff;
+    --zkp-border: #2139a3;
     appearance: none !important;
     -webkit-appearance: none !important;
     -webkit-tap-highlight-color: transparent !important;
     display: inline-flex !important;
     align-items: center !important;
-    justify-content: center !important;
-    padding: var(--zkp-btn-padding, 0.8667em 1.6em) !important;
+    /* Left-aligned, so the label and caption keep their place when the host
+       stretches the button */
+    justify-content: flex-start !important;
+    width: 100% !important;
+    gap: 0.8em !important;
+    padding: var(--zkp-btn-padding, 0.7333em 1.3333em) !important;
     border: 1px solid var(--zkp-btn-border-color, var(--zkp-border)) !important;
     border-radius: var(--zkp-btn-radius, 8px) !important;
     background: var(--zkp-btn-bg, var(--zkp-bg)) !important;
-    color: var(--zkp-btn-fg, var(--zkp-brand)) !important;
+    color: var(--zkp-btn-fg, var(--zkp-fg)) !important;
     font-family: var(
       --zkp-btn-font,
       ui-sans-serif,
@@ -29,7 +34,7 @@
       -apple-system,
       sans-serif
     ) !important;
-    font-size: var(--zkp-btn-font-size, 15px) !important;
+    font-size: var(--zkp-btn-font-size, 16px) !important;
     white-space: nowrap !important;
     font-weight: 600 !important;
     letter-spacing: var(--zkp-btn-letter-spacing, 0.04em) !important;
@@ -37,51 +42,144 @@
     line-height: 1.2 !important;
     cursor: pointer !important;
     transition:
+      background 160ms ease,
+      border-color 160ms ease,
       filter 150ms ease,
       transform 150ms ease;
   }
-  .zkp-verify-wrap[data-theme="dark"] .zkp-verify-button {
-    --zkp-bg: #0f172a;
-    --zkp-brand: #93b0f5;
-    --zkp-border: #334155;
+  /* No fill to carry its own contrast, so the brand colour moves to the text
+     and the border, and the page shows through */
+  .zkp-verify-wrap[data-variant="outline"] .zkp-verify-button {
+    --zkp-bg: transparent;
+    --zkp-bg-hover: color-mix(in srgb, #2139a3 7%, transparent);
+    --zkp-fg: #2139a3;
+    --zkp-border: color-mix(in srgb, #2139a3 45%, transparent);
+    --zkp-border-hover: #2139a3;
   }
+  .zkp-verify-wrap[data-variant="outline"] .zkp-verify-caption {
+    opacity: 0.85 !important;
+  }
+  .zkp-verify-wrap[data-variant="outline"] .zkp-verify-external {
+    opacity: 0.9 !important;
+  }
+  /* Lifted off the brand blue, which reads as near-black against a dark page */
   @media (prefers-color-scheme: dark) {
-    .zkp-verify-wrap[data-theme="auto"] .zkp-verify-button {
-      --zkp-bg: #0f172a;
-      --zkp-brand: #93b0f5;
-      --zkp-border: #334155;
+    .zkp-verify-button {
+      --zkp-bg: #2f4bc4;
+      --zkp-bg-hover: #4763e0;
+      --zkp-fg: #ffffff;
+      --zkp-border: #2f4bc4;
+    }
+    .zkp-verify-wrap[data-variant="outline"] .zkp-verify-button {
+      --zkp-bg: transparent;
+      --zkp-bg-hover: color-mix(in srgb, #8ea6ff 10%, transparent);
+      --zkp-fg: #8ea6ff;
+      --zkp-border: color-mix(in srgb, #8ea6ff 45%, transparent);
+      --zkp-border-hover: #8ea6ff;
+    }
+    .zkp-verify-wrap[data-variant="outline"] .zkp-verify-caption {
+      opacity: 0.85 !important;
+    }
+    .zkp-verify-wrap[data-variant="outline"] .zkp-verify-external {
+      opacity: 0.9 !important;
     }
   }
-  .zkp-verify-button:hover:not(:disabled) {
-    filter: brightness(0.97);
+  /* A lighter blue rather than a filter, so a host that overrides --zkp-btn-bg
+     keeps its own colour and only picks up the lift */
+  .zkp-verify-button:hover:not(:disabled),
+  .zkp-verify-button:focus-visible:not(:disabled) {
+    background: var(--zkp-btn-bg-hover, var(--zkp-bg-hover)) !important;
+    border-color: var(
+      --zkp-btn-border-hover,
+      var(--zkp-border-hover, var(--zkp-btn-bg-hover, var(--zkp-bg-hover)))
+    ) !important;
+  }
+  /* The caption and the arrow come up to full strength with it */
+  .zkp-verify-button:hover:not(:disabled) .zkp-verify-caption,
+  .zkp-verify-button:focus-visible:not(:disabled) .zkp-verify-caption {
+    opacity: 1 !important;
+  }
+  .zkp-verify-button:hover:not(:disabled) .zkp-verify-external {
+    opacity: 1 !important;
+    transform: translate(0.1em, -0.1em);
   }
   .zkp-verify-button:active:not(:disabled) {
     transform: translateY(1px);
     filter: brightness(0.95);
+  }
+  /* The label line over the caption; the mark sits beside both */
+  .zkp-verify-body {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.0667em !important;
   }
   /* Both states share one grid cell, so the button is as wide as the longer of the two
      and never resizes when it switches to "Verified" */
   .zkp-verify-content {
     display: grid !important;
     grid-template-areas: "state" !important;
-    justify-items: center !important;
+    justify-items: start !important;
   }
   .zkp-verify-state {
     grid-area: state !important;
+    min-width: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 0.7333em !important;
+    /* The label leads; the caption under it stays at the button's own size */
+    font-size: 1.0667em !important;
+    gap: 0.4667em !important;
   }
-  .zkp-verify-button:not([data-status="success"]) .zkp-verify-state-success,
-  .zkp-verify-button[data-status="success"] .zkp-verify-state-default {
+  .zkp-verify-state > span:first-child {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  /* Marks and labels both swap on success, so one rule covers the pair */
+  .zkp-verify-button:not([data-status="success"]) [data-state="success"],
+  .zkp-verify-button[data-status="success"] [data-state="default"] {
     visibility: hidden !important;
   }
+  /* Says the click leaves the page for the ZKPassport window; it steps that way
+     on hover */
+  .zkp-verify-external {
+    font-size: 1em !important;
+    line-height: 1 !important;
+    opacity: 0.75 !important;
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease !important;
+  }
+  /* What the button is really promising, in the quieter voice of small print */
+  .zkp-verify-caption {
+    display: block !important;
+    font-size: 0.625em !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
+    line-height: 1.25 !important;
+    opacity: 0.7 !important;
+    transition: opacity 160ms ease !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .zkp-verify-button,
+    .zkp-verify-caption,
+    .zkp-verify-external {
+      transition: none !important;
+    }
+  }
+  /* Both marks share one cell, for the same reason the labels do */
   .zkp-verify-button-mark {
     position: relative;
-    display: inline-flex;
-    width: 1.3333em;
-    height: 1.3333em;
+    display: grid;
+    grid-template-areas: "mark";
+    width: 1.7333em;
+    height: 1.7333em;
     flex: none;
+  }
+  .zkp-verify-button-mark > span {
+    grid-area: mark;
+    display: block;
   }
   .zkp-verify-button-mark svg {
     width: 100%;
@@ -93,37 +191,33 @@
   .zkp-verify-button[data-status="in-progress"] .zkp-verify-button-mark::after {
     content: "" !important;
     position: absolute !important;
-    inset: -0.3333em !important;
+    inset: -0.2667em !important;
     border-radius: 50% !important;
     border: 0.1333em solid color-mix(in srgb, currentColor 35%, transparent) !important;
     border-top-color: currentColor !important;
     box-sizing: border-box !important;
     animation: zkp-spinner-rotate 0.9s linear infinite !important;
   }
-  .zkp-verify-wrap {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    --zkp-success: #15803d;
-    --zkp-error: #dc2626;
-  }
-  .zkp-verify-wrap[data-theme="dark"] {
-    --zkp-success: #4ade80;
-    --zkp-error: #f87171;
-  }
-  @media (prefers-color-scheme: dark) {
-    .zkp-verify-wrap[data-theme="auto"] {
-      --zkp-success: #4ade80;
-      --zkp-error: #f87171;
-    }
-  }
-  .zkp-verify-error {
-    margin: 0 !important;
+  .zkp-verify-notice {
+    margin: 8px 0 0 !important;
     font-family: ui-sans-serif, system-ui, sans-serif !important;
     font-size: 12.5px !important;
     line-height: 1.4 !important;
-    color: var(--zkp-btn-error, var(--zkp-error)) !important;
+    text-align: center !important;
+    color: var(--zkp-btn-notice, #b45309) !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    .zkp-verify-notice {
+      color: var(--zkp-btn-notice, #fbbf24) !important;
+    }
+  }
+  /* Sizes to the host's form rather than to its own content: full width, but
+     never too narrow to read the label nor wider than a comfortable line */
+  .zkp-verify-wrap {
+    display: block;
+    width: 100%;
+    min-width: 260px;
+    max-width: var(--zkp-btn-max-width, 360px);
   }
   .zkp-verify-button:disabled {
     cursor: default !important;
@@ -134,10 +228,6 @@
     opacity: 0.65 !important;
     filter: saturate(0.75) !important;
   }
-  .zkp-verify-button[data-status="success"] {
-    color: var(--zkp-btn-success, var(--zkp-success)) !important;
-  }
-
   @keyframes zkp-spinner-rotate {
     to {
       transform: rotate(360deg);

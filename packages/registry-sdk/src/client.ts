@@ -53,7 +53,7 @@ interface ChainConfig {
   packagedCircuitUrlGenerator: (chainId: number, hash: string, cid?: string) => string
 }
 
-const CHAIN_CONFIG: Record<number, ChainConfig> = {
+export const CHAIN_CONFIG: Record<number, ChainConfig> = {
   // Ethereum Mainnet
   1: {
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
@@ -93,6 +93,10 @@ const CHAIN_CONFIG: Record<number, ChainConfig> = {
     circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
     packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
   },
+}
+
+export function getChainRpcUrl(chainId: number): string | undefined {
+  return CHAIN_CONFIG[chainId]?.rpcUrl
 }
 
 /**

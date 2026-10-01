@@ -16,8 +16,6 @@ export function Scan({
   url: string | null
   qrSvg: string | null
 }) {
-  // A phone cannot scan its own screen, so it gets the deep link instead and
-  // keeps the QR behind a toggle for cross-device use
   const [qrRevealed, setQrRevealed] = useState(false)
   const [mobile] = useState(isMobileLike)
 
@@ -73,8 +71,7 @@ export function Scan({
   )
 }
 
-// Feature-detected once: most desktop browsers have no share sheet, and an
-// inert Share button is worse than none
+// Most desktop browsers have no share sheet, and an inert button is worse than none
 function canShare(): boolean {
   return typeof navigator !== "undefined" && typeof navigator.share === "function"
 }
@@ -98,8 +95,7 @@ function Fallback({ url }: { url: string | null }) {
       setCopied(true)
       setFailed(false)
     } catch {
-      // Clipboard access is denied in some embedded browsers; say so rather
-      // than leaving the button looking broken
+      // Some embedded browsers deny clipboard access; say so rather than look broken
       setFailed(true)
     }
   }

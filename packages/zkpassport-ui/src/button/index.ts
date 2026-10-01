@@ -3,26 +3,26 @@ import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
 import { createVerification, type VerificationState } from "../verification"
 import {
-  BUTTON_FONT_SIZES,
+  BUTTON_CAPTION,
   buttonTooltip,
-  DEFAULT_BUTTON_LABEL,
-  errorMessage,
+  buttonLabel,
   isButtonDisabled,
-  isErrorVisible,
-  joinClasses,
   SUCCESS_BUTTON_LABEL,
   type VerifyWithZKPassportOptions,
 } from "../verify-button"
 
-function createButtonState(className: string, icon: string) {
-  const element = document.createElement("span")
-  element.className = `zkp-verify-state ${className}`
+// One layer of the mark, and the label line that goes with it; the button shows
+// the pair whose state matches its status
+function createButtonState(state: "default" | "success", icon: string) {
   const mark = document.createElement("span")
-  mark.className = "zkp-verify-button-mark"
+  mark.dataset.state = state
   mark.innerHTML = icon
+  const element = document.createElement("span")
+  element.className = "zkp-verify-state"
+  element.dataset.state = state
   const label = document.createElement("span")
-  element.append(mark, label)
-  return { element, label }
+  element.append(label)
+  return { mark, element, label }
 }
 
 export type VerifyButtonHandle = {
@@ -44,40 +44,52 @@ export function mountVerifyButton(
 
   const root = document.createElement("div")
   const button = document.createElement("button")
+  const mark = document.createElement("span")
+  const body = document.createElement("span")
   const content = document.createElement("span")
-  const defaultState = createButtonState("zkp-verify-state-default", ICON_ZKP_MARK)
-  const successState = createButtonState("zkp-verify-state-success", ICON_CHECK)
-  const errorLine = document.createElement("p")
+  const defaultState = createButtonState("default", ICON_ZKP_MARK)
+  const successState = createButtonState("success", ICON_CHECK)
+  const external = document.createElement("span")
+  const caption = document.createElement("span")
+  const notice = document.createElement("p")
 
   button.type = "button"
+  mark.className = "zkp-verify-button-mark"
+  body.className = "zkp-verify-body"
   content.className = "zkp-verify-content"
   successState.label.textContent = SUCCESS_BUTTON_LABEL
-  errorLine.setAttribute("role", "alert")
+  external.className = "zkp-verify-external"
+  external.setAttribute("aria-hidden", "true")
+  // North-east arrow: the click opens the hosted ZKPassport window
+  external.textContent = "\u2197"
+  notice.setAttribute("role", "alert")
+  caption.className = "zkp-verify-caption"
+  caption.textContent = BUTTON_CAPTION
+  defaultState.element.append(external)
+  mark.append(defaultState.mark, successState.mark)
   content.append(defaultState.element, successState.element)
-  button.append(content)
+  body.append(content, caption)
+  button.append(mark, body)
   root.append(button)
 
   function renderState(state: VerificationState) {
-    root.className = joinClasses("zkp-verify-wrap", currentOptions.classes?.root)
-    root.dataset.theme = currentOptions.theme ?? "light"
-    if (currentOptions.size) {
-      root.style.setProperty("--zkp-btn-font-size", BUTTON_FONT_SIZES[currentOptions.size])
+    const style = currentOptions.style ?? {}
+    root.className = "zkp-verify-wrap"
+    root.dataset.variant = style.variant ?? "filled"
+
+    // Only the blocked case: no window of ours can appear to carry the message
+    if (state.errorKind === "blocked" && state.error) {
+      notice.className = "zkp-verify-notice"
+      notice.textContent = state.error
+      root.append(notice)
     } else {
-      root.style.removeProperty("--zkp-btn-font-size")
+      notice.remove()
     }
-    button.className = joinClasses("zkp-verify-button", currentOptions.classes?.button)
+    button.className = "zkp-verify-button"
     button.dataset.status = state.status
     button.disabled = isButtonDisabled(state.status)
     button.title = buttonTooltip(state.status)
-    defaultState.label.textContent = currentOptions.label ?? DEFAULT_BUTTON_LABEL
-
-    if (isErrorVisible(state.status, currentOptions)) {
-      errorLine.className = joinClasses("zkp-verify-error", currentOptions.classes?.error)
-      errorLine.textContent = errorMessage(state.error)
-      root.append(errorLine)
-    } else {
-      errorLine.remove()
-    }
+    defaultState.label.textContent = buttonLabel(style.label)
   }
 
   const verification = createVerification(() => currentOptions, renderState)
@@ -100,12 +112,13 @@ export function mountVerifyButton(
 export {
   createVerification,
   type VerificationController,
-  type MintCredentialOptions,
+  type ServiceConfig,
+  type VerificationOverrides,
   type VerificationOptions,
   type VerificationState,
   type VerificationStatus,
 } from "../verification"
-export type { VerifyButtonSize, VerifyWithZKPassportOptions } from "../verify-button"
+export type { VerifyWithZKPassportOptions } from "../verify-button"
 
 // Headless integration: wire any element to the hosted popup yourself
 export {
