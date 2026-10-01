@@ -1,5 +1,4 @@
-import { getIdFromChain } from "@zkpassport/utils"
-import type { SupportedChain } from "@zkpassport/utils/types"
+import { getNetworkConstants } from "./networks"
 import { normaliseHash } from "./utils"
 
 /**
@@ -14,13 +13,6 @@ export const DEFAULT_RETRY_COUNT = 3
 export const CERTIFICATE_REGISTRY_ID = 1
 
 /**
- * Packaged certificates URLs
- */
-export const PACKAGED_CERTIFICATES_URL_MAINNET = "https://certificates.zkpassport.id/mainnet"
-export const PACKAGED_CERTIFICATES_URL_TESTNET = "https://certificates.zkpassport.id/testnet"
-export const PACKAGED_CERTIFICATES_URL_DEV = "http://localhost:8000/root"
-
-/**
  * Packaged certificates URL generator
  * @param chainId - The chain ID
  * @param root - The certificates root hash
@@ -33,13 +25,6 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
   root = normaliseHash(root)
   return `${getNetworkConstants(chainId).packagedCertificatesUrl}/${root}.json`
 }
-
-/**
- * Circuit URLs
- */
-export const CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
-export const CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/testnet"
-export const CIRCUIT_URL_DEV = "http://localhost:8000"
 
 /**
  * Circuit manifest URL generator
@@ -122,63 +107,3 @@ export const GET_ROOT_DETAILS_BY_ROOT_SIGNATURE = "0xbb3dd539"
  * Function signature for isRootValid(bytes32,bytes32,uint256)
  */
 export const IS_ROOT_VALID_SIGNATURE = "0x2aae4296"
-
-type NetworkType = "mainnet" | "testnet" | "dev"
-
-type NetworkConstants = {
-  chainId: number
-  chain: SupportedChain
-  type: NetworkType
-  packagedCertificatesUrl: string
-  circuitUrl: string
-}
-
-/**
- * Network constants of each chain RegistryClient supports
- */
-const NETWORKS: NetworkConstants[] = [
-  {
-    chainId: getIdFromChain("ethereum"),
-    chain: "ethereum",
-    type: "mainnet",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
-    circuitUrl: CIRCUIT_URL_MAINNET,
-  },
-  {
-    chainId: getIdFromChain("base"),
-    chain: "base",
-    type: "mainnet",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
-    circuitUrl: CIRCUIT_URL_MAINNET,
-  },
-  {
-    chainId: getIdFromChain("robinhood"),
-    chain: "robinhood",
-    type: "mainnet",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
-    circuitUrl: CIRCUIT_URL_MAINNET,
-  },
-  {
-    chainId: getIdFromChain("ethereum_sepolia"),
-    chain: "ethereum_sepolia",
-    type: "testnet",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_TESTNET,
-    circuitUrl: CIRCUIT_URL_SEPOLIA,
-  },
-  {
-    chainId: getIdFromChain("local"),
-    chain: "local",
-    type: "dev",
-    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_DEV,
-    circuitUrl: CIRCUIT_URL_DEV,
-  },
-]
-
-function getNetworkConstants(chainId: number): NetworkConstants {
-  const network = NETWORKS.find((candidate) => candidate.chainId === chainId)
-  if (!network) {
-    throw new Error(`Unsupported chain ID: ${chainId}`)
-  }
-
-  return network
-}
