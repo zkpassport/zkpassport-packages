@@ -1,3 +1,5 @@
+// The standalone verification link is a page of its own rather than a flow
+// step, so it renders the self-contained embeddable card.
 import type { Query, QueryBuilderResult } from "@zkpassport/sdk"
 import { hydrateQueryBuilder, type PopupRequestConfig } from "@zkpassport/sdk/popup"
 import { ZKPassportQRCode, type ZKPassportQRCodeProps } from "@zkpassport/ui/hosted"

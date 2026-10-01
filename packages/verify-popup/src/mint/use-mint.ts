@@ -5,7 +5,7 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi"
-import type { Chain, Hex } from "viem"
+import { type Chain, type Hex } from "viem"
 import type {
   PopupCredentialConfig,
   PopupCredentialIssueCall,
@@ -22,9 +22,9 @@ import {
   type ZKPassportQRCodeOptions,
 } from "@zkpassport/ui/hosted"
 
-import type { OutgoingEvent } from "../events"
-import { describeMintError, type MintError } from "./mint-errors"
-import { withProof, type ScanProgress } from "./screens/Scan"
+import type { OutgoingEvent } from "../app"
+import { withProof, type ScanProgress } from "../verify/waiting"
+import { describeMintError, type MintError } from "./errors"
 
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
@@ -44,12 +44,10 @@ export type MintPhase =
   | { kind: "unconfirmed"; hash: Hex }
   | { kind: "failed"; error: MintError }
 
-/** Something is running, so the progress bar's second segment is under way. */
 export function mintInProgress(phase: MintPhase): boolean {
   return phase.kind === "preflight" || phase.kind === "signing" || phase.kind === "pending"
 }
 
-/** The wallet has the transaction, so there is no point swapping wallets now. */
 export function walletHasTransaction(phase: MintPhase): boolean {
   return phase.kind === "signing" || phase.kind === "pending" || phase.kind === "unconfirmed"
 }

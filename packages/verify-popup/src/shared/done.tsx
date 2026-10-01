@@ -1,9 +1,8 @@
 import type { Chain, Hex } from "viem"
 
-import { ICON_SEAL_CHECK } from "./icons"
-import { Actions, AddressLink, Primary, TxLink } from "./primitives"
+import { ICON_SEAL_CHECK } from "../shared/icons"
+import { Actions, AddressLink, Primary, TxLink } from "../shared/controls"
 
-/** How the flow ended; "verified" is the outcome when nothing is minted. */
 export type DoneOutcome =
   | { kind: "verified" }
   | { kind: "minted"; hash: Hex; recipient: `0x${string}`; chain: Chain }
@@ -11,10 +10,10 @@ export type DoneOutcome =
 
 export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: string }) {
   return (
-    <div className="zkp-flow-body">
-      <div className="zkp-flow-done">
-        <div className="zkp-flow-seal" dangerouslySetInnerHTML={{ __html: ICON_SEAL_CHECK }} />
-        <p className="zkp-flow-done-title">Verified</p>
+    <div className="flow-body">
+      <div className="flow-done">
+        <div className="flow-seal" dangerouslySetInnerHTML={{ __html: ICON_SEAL_CHECK }} />
+        <p className="flow-done-title">Verified</p>
         <Outcome outcome={outcome} appName={appName} />
       </div>
       <Actions>
@@ -26,19 +25,19 @@ export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: stri
 
 function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }) {
   if (outcome.kind === "verified") {
-    return <p className="zkp-flow-done-sub">{appName} has everything it needs.</p>
+    return <p className="flow-done-sub">{appName} has everything it needs.</p>
   }
   if (outcome.kind === "already-verified") {
     return (
       <>
-        <p className="zkp-flow-done-sub">Verification token already minted to</p>
+        <p className="flow-done-sub">Verification token already minted to</p>
         <AddressLink chain={outcome.chain} address={outcome.recipient} chip />
       </>
     )
   }
   return (
     <>
-      <p className="zkp-flow-done-sub">Verification token minted to</p>
+      <p className="flow-done-sub">Verification token minted to</p>
       <AddressLink chain={outcome.chain} address={outcome.recipient} chip />
       <TxLink chain={outcome.chain} hash={outcome.hash} label="Transaction" quiet />
     </>

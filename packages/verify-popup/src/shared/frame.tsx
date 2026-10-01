@@ -10,13 +10,16 @@ export function Notice({ children }: { children: ReactNode }) {
 
 const styles: Record<string, CSSProperties> = {
   frame: {
-    minHeight: "100vh",
+    // The popup window is a fixed size, so the page is too: whatever a screen
+    // cannot fit scrolls inside the card, never the window
+    height: "100%",
+    minHeight: "100dvh",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "flex-start",
     gap: 12,
-    padding: "32px 12px 24px",
+    padding: "18px 18px 20px",
     boxSizing: "border-box",
   },
   notice: {
