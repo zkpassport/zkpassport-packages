@@ -731,6 +731,14 @@ export class RegistryClient {
   }
 
   /**
+   * Get the URL of the RPC endpoint the client calls
+   * @returns The RPC URL
+   */
+  getRpcUrl(): string {
+    return this.rpcUrl
+  }
+
+  /**
    * Get the address of the Root Registry
    * @returns The address of the Root Registry
    */
