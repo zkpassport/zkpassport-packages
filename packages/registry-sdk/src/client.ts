@@ -44,6 +44,24 @@ import documentSupportRules from "./document-support-rules.json"
 const log = debug("zkpassport:registry")
 
 /**
+ * Create a registry client for a chain RegistryClient supports
+ * @param chain - The chain
+ * @param overrides - Options that take precedence over the chain's network constants
+ * @throws If RegistryClient does not support the chain
+ */
+export function createRegistryClient(
+  chain: SupportedChain,
+  overrides: Omit<Partial<RegistryClientOptions>, "chainId"> = {},
+): RegistryClient {
+  const chainId = getIdFromChain(chain)
+  if (!findNetworkConstants(chainId)) {
+    throw new Error(`Unsupported chain: ${chain}`)
+  }
+
+  return new RegistryClient({ ...overrides, chainId })
+}
+
+/**
  * Client for interacting with the ZKPassport Registry
  */
 export class RegistryClient {
@@ -66,24 +84,6 @@ export class RegistryClient {
     cid?: string,
   ) => string
   private readonly retryCount: number
-
-  /**
-   * Create a client for a chain RegistryClient supports
-   * @param chain - The chain
-   * @param overrides - Options that take precedence over the chain's network constants
-   * @throws If RegistryClient does not support the chain
-   */
-  static forChain(
-    chain: SupportedChain,
-    overrides: Omit<Partial<RegistryClientOptions>, "chainId"> = {},
-  ): RegistryClient {
-    const chainId = getIdFromChain(chain)
-    if (!findNetworkConstants(chainId)) {
-      throw new Error(`Unsupported chain: ${chain}`)
-    }
-
-    return new RegistryClient({ ...overrides, chainId })
-  }
 
   constructor({
     rpcUrl,
