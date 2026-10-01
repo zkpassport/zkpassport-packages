@@ -326,6 +326,7 @@ export type SupportedChain =
   | "scroll"
   | "linea"
   | "world_chain"
+  | "robinhood"
   // Testnets
   | "ethereum_sepolia"
   | "base_sepolia"
