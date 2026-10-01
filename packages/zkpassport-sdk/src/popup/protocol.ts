@@ -39,7 +39,6 @@ export type PopupRequestConfig = {
   domain?: string
 }
 
-
 export type PopupCredentialOutcome = {
   policyId: `0x${string}`
   account: `0x${string}`
