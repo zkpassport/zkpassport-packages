@@ -45,15 +45,15 @@ const log = debug("zkpassport:registry")
 
 /**
  * Create a registry client for a chain RegistryClient supports
- * @param chain - The chain
+ * @param chain - The chain's name or ID
  * @param overrides - Options that take precedence over the chain's network constants
  * @throws If RegistryClient does not support the chain
  */
 export function createRegistryClient(
-  chain: SupportedChain,
+  chain: SupportedChain | number,
   overrides: Omit<Partial<RegistryClientOptions>, "chainId"> = {},
 ): RegistryClient {
-  const chainId = getIdFromChain(chain)
+  const chainId = typeof chain === "number" ? chain : getIdFromChain(chain)
   if (!findNetworkConstants(chainId)) {
     throw new Error(`Unsupported chain: ${chain}`)
   }
