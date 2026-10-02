@@ -3233,3 +3233,44 @@ describe("PublicInputChecker - registry chain", () => {
     expect(await isCertificateRootAccepted({}, false)).toBe(false)
   })
 })
+
+describe("PublicInputChecker - sanctions registry chain", () => {
+  const sanctionsRoot = "0x" + "ef".repeat(32)
+  let sanctionsRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every sanctions root valid on the registries of the given chains only
+  function mockSanctionsRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    sanctionsRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isSanctionsRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isSanctionsRootAccepted(boundChain: SupportedChain) {
+    const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
+      { sanctions: { countries: "all", lists: "all", strict: false }, bind: { chain: boundChain } },
+      { sanctions: { passed: true, isStrict: false } },
+      { rootHash: sanctionsRoot, isStrict: false },
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    sanctionsRootValidity.mockRestore()
+  })
+
+  test("accepts a sanctions root valid on the query's bound chain", async () => {
+    mockSanctionsRootValidOn("base")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(true)
+  })
+
+  test("rejects a sanctions root valid only on another chain than the query's bound chain", async () => {
+    mockSanctionsRootValidOn("ethereum")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(false)
+  })
+})
