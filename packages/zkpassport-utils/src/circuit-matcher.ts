@@ -80,8 +80,12 @@ import {
   getNationalityRange,
 } from "./passport/getters"
 import { type OPRFProof, OPRF_ZERO_PROOF } from "./oprf"
-import { SanctionsBuilder } from "./circuits/sanctions"
-export { SanctionsBuilder }
+import {
+  SanctionsBuilder,
+  getSanctionsEvmParameterCommitment,
+  getSanctionsParameterCommitment,
+} from "./circuits/sanctions"
+export { SanctionsBuilder, getSanctionsEvmParameterCommitment, getSanctionsParameterCommitment }
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]

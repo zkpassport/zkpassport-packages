@@ -1,6 +1,6 @@
 # ZKPassport Registry Client
 
-JavaScript SDK for interacting with the ZKPassport certificate and circuit registries.
+JavaScript SDK for interacting with the ZKPassport certificate, circuit and sanctions registries.
 
 ## Installation
 
@@ -14,6 +14,7 @@ bun i @zkpassport/registry
 
 ```typescript
 import { RegistryClient } from "@zkpassport/registry"
+import { AsyncOrderedMT, poseidon2 } from "@zkpassport/utils"
 
 // Initialize registry client
 const client = new RegistryClient({ chainId: 11155111 })
@@ -34,4 +35,12 @@ console.log(`Got ${certs.length} certificates for root ${forRoot}`)
 // Validate certificates against a root
 const valid = await client.validateCertificates(certsForRoot, forRoot)
 console.log(`Certificates are ${valid ? "valid" : "invalid"}`)
+
+// Get latest sanctions root
+const sanctionsRoot = await client.getLatestSanctionsRoot()
+console.log(`Latest sanctions root: ${sanctionsRoot}`)
+
+// Get the serialised sanctions tree for a root (defaults to the latest root)
+const { serialised } = await client.getSanctionsTree(sanctionsRoot)
+const sanctionsTree = await AsyncOrderedMT.fromSerialized(serialised, poseidon2)
 ```
