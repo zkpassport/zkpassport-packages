@@ -15,9 +15,7 @@ export type RequestState = "preparing" | "connecting" | "waiting"
 
 export type QuerySource = Query | ((builder: QueryBuilder) => QueryBuilderResult)
 
-export type RequestOptions = Omit<PopupRequestConfig, "uniqueIdentifierType"> & {
-  // Wider than the popup protocol's: the credential flow may ask for NONE
-  uniqueIdentifierType?: Parameters<ZKPassport["request"]>[0]["uniqueIdentifierType"]
+export type RequestOptions = PopupRequestConfig & {
   verifierMode?: "local" | "api" | "auto"
 }
 

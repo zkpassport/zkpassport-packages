@@ -90,6 +90,7 @@ const IN_APP_BROWSER_MESSAGE =
 const IDENTIFIER_TYPES = {
   "salted": NullifierType.SALTED,
   "non-salted": NullifierType.NON_SALTED,
+  "none": NullifierType.NONE,
 } as const
 
 // Opens the hosted popup and tracks the outcome. Shared by both buttons and the React hook.
@@ -302,9 +303,8 @@ function toPopupRequest(
     scope: service.scope ?? dashboardPolicy,
     mode: options.mint ? "compressed-evm" : options.mode,
     devMode: service.devMode,
-  }
-  if (identifier && identifier !== "none") {
-    config.uniqueIdentifierType = IDENTIFIER_TYPES[identifier]
+    // Left unset when not configured, so the SDK's own default applies
+    uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
   }
   for (const key of Object.keys(config) as Array<keyof PopupRequestConfig>) {
     if (config[key] === undefined) delete config[key]

@@ -1,11 +1,5 @@
-import type {
-  NullifierType,
-  ProofMode,
-  ProofResult,
-  Query,
-  QueryResult,
-  SupportedChain,
-} from "@zkpassport/utils"
+import type { ProofMode, ProofResult, Query, QueryResult, SupportedChain } from "@zkpassport/utils"
+import type { RequestedNullifierType } from "../types"
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
 
@@ -33,7 +27,7 @@ export type PopupRequestConfig = {
   mode?: ProofMode
   devMode?: boolean
   validity?: number
-  uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
+  uniqueIdentifierType?: RequestedNullifierType
   oprfKeyId?: string
   policyId?: string
   domain?: string
