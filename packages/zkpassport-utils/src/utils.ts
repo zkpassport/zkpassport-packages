@@ -260,6 +260,7 @@ const CHAIN_IDS = {
   scroll: 534352,
   linea: 59144,
   world_chain: 480,
+  robinhood: 4663,
   // Testnets
   ethereum_sepolia: 11155111,
   base_sepolia: 84532,
