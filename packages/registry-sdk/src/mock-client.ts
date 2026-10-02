@@ -48,4 +48,8 @@ export class MockRegistryClient extends RegistryClient {
   override async isCircuitRootValid(_root: string, _timestamp?: number): Promise<boolean> {
     return true
   }
+
+  override async isSanctionsRootValid(_root: string, _timestamp?: number): Promise<boolean> {
+    return true
+  }
 }
