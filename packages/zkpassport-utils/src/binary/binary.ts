@@ -5,13 +5,7 @@ declare global {
 }
 
 export type BinaryInput =
-  | bigint
-  | Buffer
-  | Uint8Array
-  | number[]
-  | string
-  | number
-  | ArrayBufferLike
+  bigint | Buffer | Uint8Array | number[] | string | number | ArrayBufferLike
 export type HexString = string & { readonly __hex: unique symbol }
 
 export class Binary {

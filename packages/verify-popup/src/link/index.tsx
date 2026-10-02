@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import type { ProofResult, QueryBuilderResult, QueryResult } from "@zkpassport/sdk"
 
-import { Notice } from "./layout"
-import { VerificationCard, type VerificationConfig } from "./verification-card"
-
-const DASHBOARD_API_URL = (
-  import.meta.env.VITE_DASHBOARD_API_URL || "https://dashboard-api.zkpassport.id"
-).replace(/\/$/, "")
+import { Notice } from "../shared/frame"
+import { DASHBOARD_API_URL } from "../shared/trusted-domain"
+import { VerificationCard, type VerificationConfig } from "./card"
 
 const UNAVAILABLE_MESSAGE = "The verification service is unavailable. Try again later."
 

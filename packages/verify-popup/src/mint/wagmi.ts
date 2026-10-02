@@ -1,14 +1,10 @@
 import { getCredentialsChain } from "@zkpassport/onchain-credentials"
-import type { SupportedChain } from "@zkpassport/utils"
+import { getNetworkConstants } from "@zkpassport/registry"
+import { getIdFromChain, type SupportedChain } from "@zkpassport/utils"
 import type { Chain } from "viem"
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"])
 
-/**
- * Dev RPC override from the popup's own URL (`?rpc=http://localhost:8545`), e.g. to
- * read a Sepolia fork that carries the canonical registry state. Honoured only when
- * the popup itself runs on localhost; dev knobs travel on popupUrl, not the protocol.
- */
 export function rpcOverrideFromLocation(location: {
   hostname: string
   search: string
@@ -17,13 +13,13 @@ export function rpcOverrideFromLocation(location: {
   return new URLSearchParams(location.search).get("rpc") ?? undefined
 }
 
-/** Production RPC for a chain from `VITE_RPC_URL_<CHAIN>`; unset means viem's public default. */
 export function configuredRpcUrl(
   chain: SupportedChain,
   env: Record<string, unknown> = import.meta.env,
 ): string | undefined {
   const url = env[`VITE_RPC_URL_${chain.toUpperCase()}`]
-  return typeof url === "string" && url.length > 0 ? url : undefined
+  if (typeof url === "string" && url.length > 0) return url
+  return getNetworkConstants(getIdFromChain(chain)).rpcUrl
 }
 
 export function resolveCredentialsChain(chain: SupportedChain, rpcUrl?: string): Chain {
@@ -33,4 +29,23 @@ export function resolveCredentialsChain(chain: SupportedChain, rpcUrl?: string):
     ...base,
     rpcUrls: { ...base.rpcUrls, default: { ...base.rpcUrls.default, http: [rpcUrl] } },
   }
+}
+
+import { createConfig, http, injected, type Config } from "wagmi"
+import { walletConnect } from "wagmi/connectors"
+
+const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined
+
+export function buildWalletConfig(chain: Chain): Config {
+  const connectors = [injected()]
+  if (WALLETCONNECT_PROJECT_ID) {
+    connectors.push(
+      walletConnect({ projectId: WALLETCONNECT_PROJECT_ID, showQrModal: true }) as never,
+    )
+  }
+  return createConfig({
+    chains: [chain],
+    connectors,
+    transports: { [chain.id]: http(chain.rpcUrls.default.http[0]) },
+  })
 }

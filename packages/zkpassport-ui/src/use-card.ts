@@ -7,14 +7,7 @@ import { logger } from "./logger"
 import type { ZKPassportQRCodeOptions } from "./types"
 
 export type CardState =
-  | "intro"
-  | "preparing"
-  | "connecting"
-  | "waiting"
-  | "scanned"
-  | "generating"
-  | "success"
-  | "error"
+  "intro" | "preparing" | "connecting" | "waiting" | "scanned" | "generating" | "success" | "error"
 
 export type ProofStreamProgress = { received: number; total: number | null }
 

@@ -41,8 +41,7 @@ export async function verifyWithVerifierApi({
       return null
     }
     const body = (await response.json().catch(() => null)) as
-      | (VerificationResult & { error?: string })
-      | null
+      (VerificationResult & { error?: string }) | null
     if (!body || typeof body.verified !== "boolean") {
       console.warn(`Unexpected verifier API response (status ${response.status})`)
       return null

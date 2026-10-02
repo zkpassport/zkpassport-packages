@@ -1,29 +1,32 @@
 import type { VerificationOptions, VerificationStatus } from "./verification"
 
-// A size is only a font size; the icon, gap and padding scale from it (see button.css)
-export const BUTTON_FONT_SIZES = { small: "13px", medium: "15px", large: "18px" } as const
+// Longer labels are truncated: the button is one line at its 260px minimum
+export const MAX_LABEL_LENGTH = 32
 
-export type VerifyButtonSize = keyof typeof BUTTON_FONT_SIZES
+export type VerifyButtonVariant = "filled" | "outline"
+
+/** Finer control than this is the --zkp-btn-* custom properties in button.css. */
+export type VerifyButtonStyle = {
+  variant?: VerifyButtonVariant
+  label?: string
+}
 
 export type VerifyWithZKPassportOptions = VerificationOptions & {
-  // Defaults to "light"; "auto" follows the operating system
-  theme?: "light" | "dark" | "auto"
-  // Defaults to "medium"; for anything in between, set --zkp-btn-font-size yourself
-  size?: VerifyButtonSize
-  label?: string
-  // The error message is the only thing rendered outside the button; turn it off and use onError
-  showErrorMessage?: boolean
-  // Extra class names per element; prefer the --zkp-btn-* CSS custom properties
-  classes?: {
-    root?: string
-    button?: string
-    error?: string
-  }
+  style?: VerifyButtonStyle
 }
 
 // Both states are always in the DOM so the button never changes size; see button.css
-export const DEFAULT_BUTTON_LABEL = "Verify with ZKPassport"
+export const DEFAULT_BUTTON_LABEL = "Verify your identity"
 export const SUCCESS_BUTTON_LABEL = "Verified"
+
+export function buttonLabel(label: string | undefined): string {
+  const text = label?.trim() || DEFAULT_BUTTON_LABEL
+  return text.length > MAX_LABEL_LENGTH ? `${text.slice(0, MAX_LABEL_LENGTH - 1)}\u2026` : text
+}
+
+// Second line inside the button, carrying the ZKPassport name the label no
+// longer does
+export const BUTTON_CAPTION = "Private identity verification by ZKPassport"
 
 export function isButtonDisabled(status: VerificationStatus): boolean {
   return status === "in-progress" || status === "success"
@@ -33,19 +36,4 @@ export function buttonTooltip(status: VerificationStatus): string {
   if (status === "in-progress") return "Verification is running in the ZKPassport window"
   if (status === "success") return "Verification complete"
   return "Opens a secure ZKPassport window"
-}
-
-export function isErrorVisible(
-  status: VerificationStatus,
-  options: VerifyWithZKPassportOptions,
-): boolean {
-  return status === "error" && options.showErrorMessage !== false
-}
-
-export function errorMessage(error: string | null): string {
-  return error ?? "Verification failed. Click to try again."
-}
-
-export function joinClasses(base: string, extra?: string): string {
-  return extra ? `${base} ${extra}` : base
 }

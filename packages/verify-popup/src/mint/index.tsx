@@ -2,27 +2,31 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WagmiProvider, useDisconnect, useSwitchChain, type Config } from "wagmi"
 import type { PopupCredentialConfig, PopupConfigureMessage } from "@zkpassport/sdk/popup"
-import { ZKPassportQRCode } from "@zkpassport/ui/hosted"
 import type { Chain } from "viem"
 
-import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "../chains"
-import type { OutgoingEvent } from "../events"
-import { buildWalletConfig } from "../wallet"
-import { FlowCard, type ProgressSegment } from "./FlowCard"
-import { useFlowPage } from "./use-flow-page"
-import { Connect } from "./screens/Connect"
-import { Done, type DoneOutcome } from "./screens/Done"
-import { ErrorScreen } from "./screens/ErrorScreen"
-import { Mint } from "./screens/Mint"
-import { Resolving } from "./screens/Resolving"
-import { ScanStep } from "./screens/Scan"
+import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "./wagmi"
+import type { OutgoingEvent } from "../app"
+import { buildWalletConfig } from "./wagmi"
+import { FlowCard, type ProgressSegment } from "../shared/flow-card"
+import { useConfirmClose } from "../shared/use-confirm-close"
+import { Connect } from "./wallet"
+import { Done, type DoneOutcome } from "../shared/done"
+import { ErrorScreen } from "../shared/error"
+import { Mint } from "./confirm"
+import { Resolving } from "./resolving"
+import type { ZKPassportQRCodeOptions } from "@zkpassport/ui/hosted"
+import type { ScanProgress } from "../verify/waiting"
+import { Intro } from "../verify/intro"
+import { Scan } from "../verify/scan"
+import { Waiting } from "../verify/waiting"
+import { useRequest } from "../request"
 import {
   mintInProgress,
   useCredentialFlow,
   type DoneStep,
   type FlowStepKind,
   type MintPhase,
-} from "./use-credential-flow"
+} from "./use-mint"
 
 type CredentialFlowProps = {
   request: PopupConfigureMessage["request"]
@@ -39,7 +43,6 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   sendRef.current = send
   const [queryClient] = useState(() => new QueryClient())
   const appName = request.name || rpHost
-  useFlowPage()
 
   const resolved = useMemo((): { chain: Chain; config: Config } | { error: string } => {
     try {
@@ -76,6 +79,7 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
           request={request}
           credential={credential}
           appName={appName}
+          rpHost={rpHost}
           send={send}
           chain={resolved.chain}
         />
@@ -84,16 +88,20 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   )
 }
 
-type FlowBodyProps = Omit<CredentialFlowProps, "rpHost"> & {
+type FlowBodyProps = CredentialFlowProps & {
   appName: string
   chain: Chain
 }
 
-function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) {
+function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBodyProps) {
   const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
     useCredentialFlow({ request, credential, appName, chain, send })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
+
+  // Verifying costs the user real work, and a verified proof waiting to be
+  // minted is lost with the window. Resolving and the endings are cheap.
+  useConfirmClose(step.kind === "verify" || step.kind === "mint")
 
   const screen = (() => {
     switch (step.kind) {
@@ -101,14 +109,13 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
         return <Resolving />
       case "verify":
         return (
-          <ScanStep progress={scan}>
-            <ZKPassportQRCode
-              {...step.cardOptions}
-              showIntroScreen
-              theme="light"
-              display={{ header: false, frame: false, steps: false, appLinks: false }}
-            />
-          </ScanStep>
+          <VerifyStep
+            appName={appName}
+            rpHost={rpHost}
+            purpose={request.purpose}
+            options={step.cardOptions}
+            progress={scan}
+          />
         )
       case "mint":
         return !payer ? (
@@ -170,4 +177,79 @@ function progressSegments(
     default:
       return undefined
   }
+}
+
+/**
+ * The same consent and QR screens the verify journey uses, driven by the card
+ * options the credential policy produced.
+ */
+function VerifyStep({
+  appName,
+  rpHost,
+  purpose,
+  options,
+  progress,
+}: {
+  appName: string
+  rpHost: string
+  purpose?: string
+  options: ZKPassportQRCodeOptions
+  progress: ScanProgress | null
+}) {
+  const [consented, setConsented] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const req = useRequest(
+    {
+      // The policy's domain is read from the chain, not from the opener
+      domain: options.domain ?? rpHost,
+      request: {
+        name: options.name,
+        logo: options.logo,
+        purpose: options.purpose,
+        scope: options.scope,
+        mode: options.mode,
+        devMode: options.devMode,
+        uniqueIdentifierType: options.uniqueIdentifierType,
+        oprfKeyId: options.oprfKeyId,
+        verifierMode: options.verifierMode,
+      },
+      query: options.query,
+    },
+    {
+      onReceived: options.onRequestReceived,
+      onProving: options.onGeneratingProof,
+      onProof: options.onProofGenerated,
+      onResult: (result) => {
+        if (!result.verified) setFailure("Your ID could not be verified. Please try again.")
+        options.onResult?.(result)
+      },
+      onReject: () => {
+        setFailure("The request was declined on your phone.")
+        options.onReject?.()
+      },
+      onError: (message) => {
+        setFailure(String(message))
+        options.onError?.(message)
+      },
+    },
+  )
+
+  const tryAgain = () => {
+    setFailure(null)
+    req.retry()
+  }
+
+  if (failure) return <ErrorScreen message={failure} onRetry={tryAgain} />
+  if (progress) return <Waiting progress={progress} />
+  if (!consented) {
+    return (
+      <Intro
+        appName={appName}
+        query={req.query}
+        purpose={purpose}
+        onContinue={() => setConsented(true)}
+      />
+    )
+  }
+  return <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} />
 }

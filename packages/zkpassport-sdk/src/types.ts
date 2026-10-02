@@ -22,16 +22,18 @@ export type QueryResultError<T> = {
 }
 
 export type QueryResultErrors = {
-  [key in
-    | IDCredential
-    | "sig_check_dsc"
-    | "sig_check_id_data"
-    | "data_check_integrity"
-    | "outer"
-    | "disclose"
-    | "bind"
-    | "facematch"
-    | "sanctions"]: {
+  [
+    key in
+      | IDCredential
+      | "sig_check_dsc"
+      | "sig_check_id_data"
+      | "data_check_integrity"
+      | "outer"
+      | "disclose"
+      | "bind"
+      | "facematch"
+      | "sanctions"
+  ]: {
     disclose?: QueryResultError<string | number | Date>
     gte?: QueryResultError<number | Date>
     gt?: QueryResultError<number | Date>
@@ -55,9 +57,7 @@ export type VerifierMode = "auto" | "local" | "api"
 
 // The nullifier types a service can ask for. The mock ones only ever come from the app in dev mode.
 export type RequestedNullifierType =
-  | NullifierType.NON_SALTED
-  | NullifierType.SALTED
-  | NullifierType.NONE
+  NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
 
 export type VerificationResult = {
   uniqueIdentifier: string | undefined

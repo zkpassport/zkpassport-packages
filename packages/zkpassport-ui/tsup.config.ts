@@ -5,6 +5,7 @@ import { defineConfig, type Options } from "tsup"
 type EsbuildPlugin = NonNullable<Options["esbuildPlugins"]>[number]
 
 const isDev = process.env.DEV_BUILD === "true"
+const isWatch = process.env.DEV_WATCH === "true"
 
 // esbuild strips module directives; re-prepend "use client" on the React entries
 async function prependUseClient(outDir: string, format: "esm" | "cjs") {
@@ -112,4 +113,8 @@ const cssConfig: Options = {
   },
 }
 
-export default defineConfig([...npmConfigs, hostedConfig, cssConfig])
+export default defineConfig(
+  isWatch
+    ? [{ ...hostedConfig, dts: false, minify: false, treeshake: false }]
+    : [...npmConfigs, hostedConfig, cssConfig],
+)

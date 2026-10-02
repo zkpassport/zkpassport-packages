@@ -5,12 +5,8 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi"
-import type { Chain, Hex } from "viem"
-import type {
-  PopupCredentialConfig,
-  PopupCredentialIssueCall,
-  PopupConfigureMessage,
-} from "@zkpassport/sdk/popup"
+import { type Chain, type Hex } from "viem"
+import type { PopupCredentialConfig, PopupConfigureMessage } from "@zkpassport/sdk/popup"
 import {
   createCredentialsContext,
   ZKPassportCredentialsAbi,
@@ -22,19 +18,13 @@ import {
   type ZKPassportQRCodeOptions,
 } from "@zkpassport/ui/hosted"
 
-import type { OutgoingEvent } from "../events"
-import { describeMintError, type MintError } from "./mint-errors"
-import { withProof, type ScanProgress } from "./screens/Scan"
+import type { OutgoingEvent } from "../app"
+import { withProof, type ScanProgress } from "../verify/waiting"
+import { describeMintError, type MintError } from "./errors"
 
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
 type VerifiedProof = { success: SuccessMessage; issueCall: CredentialIssueCall }
-
-// The relying party pairs the call with ZKPassportCredentialsAbi itself, so the
-// ABI never travels over postMessage.
-function toPopupIssueCall(call: CredentialIssueCall): PopupCredentialIssueCall {
-  return { address: call.address, functionName: call.functionName, args: call.args }
-}
 
 export type MintPhase =
   | { kind: "preflight" }
@@ -44,12 +34,10 @@ export type MintPhase =
   | { kind: "unconfirmed"; hash: Hex }
   | { kind: "failed"; error: MintError }
 
-/** Something is running, so the progress bar's second segment is under way. */
 export function mintInProgress(phase: MintPhase): boolean {
   return phase.kind === "preflight" || phase.kind === "signing" || phase.kind === "pending"
 }
 
-/** The wallet has the transaction, so there is no point swapping wallets now. */
 export function walletHasTransaction(phase: MintPhase): boolean {
   return phase.kind === "signing" || phase.kind === "pending" || phase.kind === "unconfirmed"
 }
@@ -119,7 +107,12 @@ export function useCredentialFlow(params: CredentialFlowParams) {
           type: "success",
           proofs: [],
           result: {},
-          credential: { status: "already-verified", recipient },
+          credential: {
+            policyId: credential.policyId,
+            account: recipient,
+            chainId: chain.id,
+            contract: credentialsContract.address,
+          },
         })
         return
       }
@@ -160,7 +153,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
         },
         onResult: (result) => {
           if (stale()) return
-          // An unverified proof leaves the card in its own error state, with its retry
+          // The verify step shows the failure and offers a retry; the flow only steps back
           if (!result.verified) {
             setScan(null)
             return
@@ -233,10 +226,11 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     emit({
       ...step.proof.success,
       credential: {
-        status: "minted",
-        recipient,
+        policyId: credential.policyId,
+        account: recipient,
+        chainId: chain.id,
+        contract: credentialsContract.address,
         txHash: mintedHash,
-        issueCall: toPopupIssueCall(step.proof.issueCall),
       },
     })
   }, [mintedHash])

@@ -1,0 +1,1242 @@
+/* The popup's own stylesheet: it owns every class here, so nothing reaches into
+   another package's markup. */
+
+/* On the body only while a flow is mounted, so these colours stay off the
+   popup's other screens. */
+body.flow-page {
+  --zkp-bg: #0a1746;
+  --zkp-stage: #182659;
+  --zkp-surface: #27366e;
+  --zkp-raised: #35447f;
+  --zkp-border: #3a4a85;
+  --zkp-fg: #ffffff;
+  --zkp-muted: #aab4dd;
+  --zkp-dim: #8390c4;
+  --zkp-accent: #ffffff;
+  --zkp-brand: #f9d59e;
+  --zkp-success: #00d39e;
+  --zkp-error: #f95a7e;
+  /* The QR stays black on white, so it needs a quiet zone against a dark card */
+  --zkp-qr-padding: 15px;
+  background: #060c22;
+  color-scheme: dark;
+  /* The window is a fixed size and the card fills it, so the page itself never
+     scrolls; a screen that outgrows the card scrolls inside the stage */
+  overflow: hidden;
+}
+
+/* No outline and a deep corner: the card reads as an app sheet on the darker
+   page rather than a box on a web page */
+.flow-card {
+  position: relative;
+  box-sizing: border-box;
+  /* A column whose stage is the only part that scrolls; min-height: 0 is what
+     lets that stage shrink instead of pushing the card past the window */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Fills the popup window, which is ~460px; capped so a mint opening in a
+     full browser tab keeps the same column instead of stretching */
+  width: 100%;
+  max-width: 420px;
+  flex: 1;
+  max-height: 780px;
+  padding: 14px 8px 12px;
+  border: none;
+  border-radius: 26px;
+  background: var(--zkp-bg);
+  color: var(--zkp-fg);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+}
+.flow-card *,
+.flow-card *::before,
+.flow-card *::after {
+  box-sizing: border-box;
+}
+.flow-card button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* The lighter box the step lives on, so the eye lands on the step and not on
+   the header or the progress bar that frame it */
+.flow-stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  /* The card is the height of the window, so the stage is what gives way: the
+     rare screen that is taller than the window scrolls here, inside the card */
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  margin-top: 16px;
+  padding: 0 8px;
+  border-radius: 20px;
+  background: var(--zkp-stage);
+}
+
+/* Who is asking on the left, who is checking on the right. Nothing countable
+   here — it would read as a step indicator. */
+.flow-id {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.flow-id-app {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.flow-id-logo {
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.flow-id-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--zkp-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Names the pair as a handshake between the two, and keeps clear of a long app
+   name once it has ellipsised */
+.flow-id-tie {
+  margin: 0 12px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--zkp-dim);
+}
+
+.flow-id-mark {
+  justify-self: end;
+  line-height: 0;
+}
+
+.flow-id-mark svg {
+  width: 84px;
+  height: auto;
+  display: block;
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  /* Screens cross over by fading; moving them sideways reads as navigation the
+     user didn't ask for, especially on the first screen */
+  animation: flow-fade-in 200ms ease-out;
+}
+
+@keyframes flow-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.flow-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 18px;
+  padding: 26px 0 20px;
+}
+
+/* Everything above the button */
+.flow-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 20px;
+}
+
+/* A step that is only waiting puts its picture in the middle of the room the
+   title leaves, so the title stays where every other step keeps it */
+.flow-waiting {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  text-align: center;
+}
+
+.flow-body[data-hidden] {
+  display: none;
+}
+
+/* The card sets its own width, so its wrapper must not shrink to fit */
+.flow-card-slot {
+  width: 100%;
+}
+
+.flow-page .zkp-chip-symbol {
+  width: 38px;
+  margin-bottom: 3px;
+  color: var(--zkp-fg);
+}
+
+.flow-privacy {
+  display: none;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 0 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--zkp-brand);
+}
+
+.flow-privacy span + span::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--zkp-dim);
+}
+
+/* The resolving screen borrows the request panel, which no longer carries a
+   surface of its own */
+.flow-skeleton {
+  width: 100%;
+  border-radius: 18px;
+  background: var(--zkp-surface);
+}
+
+/* What the whole flow is for, said once, above the checks it is about */
+.flow-lede {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--zkp-muted);
+}
+
+/* The card owns the intro/QR switch, so the flow follows it from the outside */
+.flow-when-intro,
+.flow-when-qr {
+  display: none;
+}
+
+.scan-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.scan-fallback-label {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--zkp-fg);
+}
+
+.scan-fallback-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.flow-quietbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--zkp-border);
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: var(--zkp-fg);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.flow-quietbtn:hover {
+  background: color-mix(in srgb, var(--zkp-fg) 5%, transparent);
+}
+
+.flow-quietbtn .flow-glyph {
+  width: 13px;
+  height: 13px;
+}
+
+.scan-fallback-hint {
+  margin: 0;
+  max-width: 280px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--zkp-dim, var(--zkp-muted));
+}
+
+/* Every step leads with its title, centred over whatever it is introducing */
+.flow-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+/* Confirms the step behind you without competing with the title */
+.flow-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  margin: -8px 0 8px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--zkp-success) 14%, transparent);
+  color: var(--zkp-success);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.flow-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--zkp-fg);
+}
+
+/* One line, in plain words */
+.flow-hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--zkp-muted);
+}
+
+/* Holds the button at the foot of the card, so it stays put while the screen
+   above it moves between connecting, switching network, signing and retrying */
+.flow-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding: 16px 0 0;
+}
+
+.flow-actions:empty {
+  display: none;
+}
+
+/* The connected wallet, named and addressed, so it is never a guess which one
+   pays */
+.flow-panel {
+  border-radius: 18px;
+  background: var(--zkp-surface);
+}
+
+.flow-wallet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.flow-wallet-row img {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.flow-wallet-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.flow-wallet-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--zkp-fg);
+}
+
+.flow-rows {
+  margin: 0;
+  padding: 0 16px;
+  border-top: 1px solid var(--zkp-border);
+  font-size: 13.5px;
+}
+
+.flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+}
+
+.flow-row dt {
+  color: var(--zkp-muted);
+}
+
+.flow-row dd {
+  margin: 0;
+  color: var(--zkp-fg);
+  font-weight: 600;
+  text-align: right;
+}
+
+.flow-address {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--zkp-dim);
+}
+
+.flow-row .flow-address {
+  color: var(--zkp-fg);
+  font-weight: 600;
+}
+
+/* On its own plate, when the address is the one thing the screen is about */
+.flow-address[data-chip] {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: var(--zkp-surface);
+  color: var(--zkp-fg);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+a.flow-address[data-chip]:hover {
+  background: var(--zkp-raised);
+}
+
+/* Linking a row's address must not dim it to the weight of a supporting link:
+   the destination is the row a reader is here to check */
+.flow-row .flow-link.flow-address {
+  color: var(--zkp-fg);
+}
+
+.flow-row .flow-link.flow-address:hover {
+  color: var(--zkp-brand);
+}
+
+/* A quiet text button beside the thing it changes */
+.flow-ghost {
+  flex: none;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--zkp-raised);
+  color: var(--zkp-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.flow-ghost:hover {
+  background: #2c3d84;
+  color: var(--zkp-fg);
+}
+
+/* Square button for an action that a single glyph already explains */
+.flow-iconbtn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--zkp-surface);
+  color: var(--zkp-muted);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.flow-iconbtn:hover {
+  background: var(--zkp-raised);
+  color: var(--zkp-fg);
+}
+
+.flow-iconbtn .flow-glyph {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+/* Small print under the panel: what is being saved, or what just went wrong */
+.flow-note {
+  max-width: 280px;
+  margin: 0 auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--zkp-dim);
+}
+
+/* The mirror of the "ID verified" badge: what went wrong, on its own tint */
+.flow-note[data-tone="alert"] {
+  align-self: center;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--zkp-error) 14%, transparent);
+  color: var(--zkp-error);
+  font-weight: 500;
+}
+
+.flow-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--zkp-muted);
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.flow-link:hover {
+  color: var(--zkp-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* An aside, not an action: it sits below the thing the screen is really about */
+.flow-link[data-quiet] {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--zkp-dim);
+}
+
+/* Sized in em, so a glyph always matches the text beside it */
+.flow-glyph {
+  display: inline-block;
+  flex: none;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.45em;
+}
+
+.flow-glyph[data-after] {
+  margin-right: 0;
+  margin-left: 0.4em;
+  opacity: 0.65;
+}
+
+.flow-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.flow-spinner {
+  animation: flow-spin 900ms linear infinite;
+}
+
+@keyframes flow-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* One bar per step, half full while it runs and full once it is behind you. No
+   labels: the step's own title says what is happening. */
+.flow-progress {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  margin: 0;
+  padding: 16px 0 0;
+  list-style: none;
+}
+
+.flow-progress li {
+  width: 30px;
+  height: 3px;
+  overflow: hidden;
+  background: #3f4b77;
+}
+
+/* Only the outer ends are rounded, so the run reads as one bar cut in two */
+.flow-progress li:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.flow-progress li:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
+.flow-progress li[data-state="active"] {
+  background: #68749d;
+}
+
+.flow-progress li::before {
+  content: "";
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--zkp-fg);
+  transition: width 400ms ease;
+}
+
+.flow-progress li[data-state="active"]::before {
+  width: 50%;
+}
+
+.flow-progress li[data-state="done"]::before {
+  width: 100%;
+}
+
+.flow-card:has(.flow-skeleton) .flow-progress {
+  visibility: hidden;
+}
+
+/* An ending: a big mark, a short line, and the way back */
+.flow-done {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 40px;
+  text-align: center;
+}
+
+/* The disc and its mark both come from the artwork, so the seal only has to say
+   how big it is and which colour it takes */
+.flow-seal {
+  width: 84px;
+  margin-bottom: 18px;
+  color: var(--zkp-success);
+  /* The ending's one flourish. Nothing else on the screen animates, so a
+     dropped or unsupported animation can never leave content invisible. */
+  animation: flow-seal-in 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.flow-seal[data-tone="error"] {
+  color: var(--zkp-error);
+}
+
+.flow-seal svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+@keyframes flow-seal-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.flow-done-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--zkp-fg);
+}
+
+.flow-done-sub {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--zkp-muted);
+}
+
+/* The list is the screen, so it takes the room the screen has */
+.flow-wallets {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+  margin: 0;
+  /* Room for the focus ring, which a scrolling box would otherwise clip */
+  padding: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.flow-wallet {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 16px;
+  background: var(--zkp-surface);
+  color: var(--zkp-fg);
+  font-size: 14.5px;
+  font-weight: 500;
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.flow-wallet:hover:not(:disabled) {
+  background: var(--zkp-raised);
+}
+
+.flow-wallet:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.flow-wallet img {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+}
+
+/* Waiting on the phone: the app's slider running itself, over and over, so it
+   is clear the next move happens there and not here */
+.flow-phone {
+  width: 150px;
+}
+
+.flow-phone svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.flow-phone-body {
+  fill: var(--zkp-surface);
+  stroke: var(--zkp-raised);
+  stroke-width: 2.5;
+}
+
+.flow-phone-notch,
+.flow-phone-line,
+.flow-phone-track {
+  fill: var(--zkp-raised);
+}
+
+.flow-phone-chevron {
+  fill: none;
+  stroke: var(--zkp-brand);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.4;
+}
+
+.flow-phone-knob {
+  fill: var(--zkp-brand);
+  animation: flow-swipe 3.2s ease-in-out infinite;
+}
+
+/* Fades out at the far end rather than snapping back to the start */
+@keyframes flow-swipe {
+  0%,
+  10% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+
+  22%,
+  58% {
+    opacity: 1;
+  }
+
+  58%,
+  74% {
+    transform: translateX(36px);
+  }
+
+  74%,
+  100% {
+    transform: translateX(36px);
+    opacity: 0;
+  }
+}
+
+/* Building the proof takes seconds with nothing to show, so three dots keep
+   time until it lands */
+.flow-waiting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-waiting .flow-hint {
+  font-size: 13px;
+  color: var(--zkp-dim);
+}
+
+/* Closing the tab drops the bridge, so the wait comes with a warning */
+.flow-keep-open {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--zkp-dim);
+  opacity: 0.7;
+}
+
+.flow-dots {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 150px;
+}
+
+.flow-dots i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--zkp-muted);
+  animation: flow-throb 1.5s ease-in-out infinite;
+}
+
+.flow-dots i:nth-child(2) {
+  animation-delay: 200ms;
+}
+
+.flow-dots i:nth-child(3) {
+  animation-delay: 400ms;
+}
+
+@keyframes flow-throb {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.7);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* The card marks its own failure over the dimmed QR; give that mark the same
+   tinted disc the flow's seals use */
+.flow-page .zkp-error-icon {
+  width: 62px;
+  height: 62px;
+  background: color-mix(in srgb, var(--zkp-error) 21%, transparent);
+  color: var(--zkp-error);
+}
+
+.flow-page .zkp-error-icon svg {
+  width: 46%;
+  height: 46%;
+}
+
+/* A revert reason or RPC failure can run long; cap it and let it scroll */
+.flow-detail {
+  width: 100%;
+  max-height: 132px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--zkp-surface);
+  color: var(--zkp-dim);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-step,
+  .flow-dots i,
+  .flow-phone-knob,
+  .flow-seal {
+    animation: none;
+  }
+
+  .flow-dots i {
+    opacity: 0.55;
+  }
+}
+
+/* The published sheet marks these !important inside a cascade layer, so joining
+   the layer and out-specifying it is the only way to restyle them. */
+@layer zkpassport {
+  .flow-page .zkp-card .zkp-intro-continue {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 18px !important;
+    border-radius: 16px !important;
+    background: var(--zkp-brand) !important;
+    color: #0a1746 !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+  }
+}
+
+/* ─── Consent ────────────────────────────────────────────────────────────── */
+
+/* The ask and its checks read as one panel, the way the app shows them */
+.intro-asks {
+  border-radius: 8px;
+  background: var(--zkp-surface);
+}
+.intro-asks-head {
+  margin: 0;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--zkp-border);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--zkp-muted);
+}
+.intro-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.intro-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 16px;
+}
+.intro-list li + li {
+  border-top: 1px solid var(--zkp-border);
+}
+/* A filled disc, the way the app marks a check that passed */
+.intro-tick {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin: -1px 0 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--zkp-success) 18%, transparent);
+  color: var(--zkp-success);
+}
+.intro-tick svg {
+  width: 12px;
+  height: 12px;
+}
+/* Reserves the disc's footprint while the query resolves, without claiming a pass */
+.intro-tick-blank {
+  background: color-mix(in srgb, var(--zkp-muted) 22%, transparent);
+}
+.intro-ask {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 5px;
+}
+.intro-ask-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--zkp-fg);
+}
+/* Only long value lists land here, so it reads as data rather than prose */
+.intro-ask-detail {
+  margin-top: 3px;
+  padding: 5px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--zkp-fg) 4%, transparent);
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  /* A bound wallet address has no spaces to break on */
+  overflow-wrap: anywhere;
+  color: var(--zkp-dim, var(--zkp-muted));
+}
+/* The zero-width space forms a full line box, so the row is exactly as tall as
+   a real one and nothing reflows when the query arrives */
+.intro-ask-loading {
+  position: relative;
+}
+.intro-ask-loading::before {
+  content: "\200B";
+}
+.intro-bar {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  height: 10px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--zkp-muted) 25%, transparent);
+  animation: intro-pulse 1.4s ease-in-out infinite;
+}
+@keyframes intro-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+/* Facts about the proof rather than the holder: no tick, and grouped together
+   under the checks they qualify */
+.intro-list li.intro-note {
+  display: block;
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--zkp-border);
+  font-size: 12.5px;
+  color: var(--zkp-dim, var(--zkp-muted));
+}
+.intro-note-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.intro-note-text {
+  display: block;
+  color: var(--zkp-muted);
+}
+.intro-note-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.intro-note-rows > div {
+  display: flex;
+  gap: 6px;
+}
+.intro-note-rows dt {
+  flex: none;
+  min-width: 42px;
+  color: var(--zkp-dim, var(--zkp-muted));
+}
+/* Tracked in slightly so a 42-character wallet address clears the column */
+.intro-note-rows dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 12.5px;
+  letter-spacing: -0.015em;
+  /* An address has no spaces to break on, so any overflow breaks mid-string */
+  overflow-wrap: anywhere;
+  color: var(--zkp-muted);
+}
+
+/* The chip question and its button sit at the foot, so the checks stay put
+   however many of them there are */
+.intro-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+.intro-chip-mark {
+  width: 38px;
+  margin-bottom: 3px;
+  color: var(--zkp-fg);
+}
+.intro-chip-mark svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.intro-chip-question {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--zkp-fg);
+}
+.intro-chip-hint {
+  margin: 0;
+  margin-bottom: 10px;
+  margin-inline: auto;
+  padding: 0 12px;
+  font-size: 12.5px;
+  color: var(--zkp-dim);
+}
+.intro-privacy {
+  margin: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+  color: var(--zkp-dim, var(--zkp-muted));
+}
+
+.flow-primary {
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 16px 18px;
+  border: none;
+  border-radius: 16px;
+  background: var(--zkp-brand);
+  color: #0a1746;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+.flow-primary:hover {
+  filter: brightness(1.05);
+}
+.flow-primary:disabled {
+  background: var(--zkp-surface);
+  color: var(--zkp-muted);
+  cursor: default;
+  filter: none;
+}
+
+/* ─── The QR ─────────────────────────────────────────────────────────────── */
+
+.scan-slot {
+  position: relative;
+  /* Never shrink: as a flex child it would be squashed below its aspect ratio
+     and overflow: hidden would crop the bottom rows off the code */
+  flex: none;
+  align-self: center;
+  height: min(360px, 56vh);
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 1;
+  margin: 22px auto 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #ffffff;
+}
+.scan-qr {
+  width: 100%;
+  height: 100%;
+  padding: var(--zkp-qr-padding);
+  color: #000000;
+  background: #ffffff;
+}
+.scan-qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.scan-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14%;
+  aspect-ratio: 1;
+  padding: 3px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: grid;
+  place-items: center;
+}
+.scan-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.scan-skeleton {
+  position: absolute;
+  inset: 0;
+  display: none;
+  border-radius: 4px;
+  background: var(--zkp-surface);
+  animation: intro-pulse 1.4s ease-in-out infinite;
+}
+/* Nothing to show until the bridge hands back a URL */
+.scan-slot[data-state="preparing"] .scan-skeleton,
+.scan-slot[data-state="connecting"] .scan-skeleton {
+  display: block;
+}
+.scan-slot[data-state="preparing"] .scan-qr,
+.scan-slot[data-state="preparing"] .scan-mark {
+  visibility: hidden;
+}
+.scan-slot[data-state="connecting"] .scan-qr {
+  opacity: 0.65;
+}
+
+.scan-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  padding: 12px 0 6px;
+}
+.scan-reveal {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 4px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--zkp-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+a.flow-primary {
+  text-align: center;
+  text-decoration: none;
+}

@@ -137,6 +137,7 @@ export function Card({ options, controlRef }: CardProps) {
         <IntroSection
           appName={headerName || "This app"}
           items={describeQuery(query)}
+          purpose={options.purpose}
           loading={query === null}
           onContinue={continueWithPhone}
         />
@@ -214,17 +215,43 @@ export function Card({ options, controlRef }: CardProps) {
   )
 }
 
+// One placeholder per requested-claims row
+const SKELETON_ROWS = 2
+
+function IntroNote({ item }: { item: QueryDescriptionItem }) {
+  return (
+    <li className="zkp-intro-note">
+      <span className="zkp-intro-note-label">{item.note}</span>
+      {item.rows ? (
+        <dl className="zkp-intro-note-rows">
+          {item.rows.map((row) => (
+            <div key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <span className="zkp-intro-note-text">{item.title}</span>
+      )}
+      {item.detail ? <span className="zkp-intro-item-detail">{item.detail}</span> : null}
+    </li>
+  )
+}
+
 // The ICAO e-passport symbol printed on the cover of biometric passports
 const ICON_EPASSPORT_CHIP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 32" fill="currentColor" aria-hidden="true"><circle cx="27.5033" cy="15.722" r="7.48372"/><path d="M55.1719 31.4604H0V17.3281H17.0845C17.857 22.3884 22.2278 26.265 27.504 26.265C32.7802 26.265 37.151 22.3884 37.9235 17.3281H55.1719V31.4604Z"/><path d="M55.1719 14.1192H37.9236C37.1511 9.05887 32.7803 5.18223 27.504 5.18223C22.2278 5.18223 17.857 9.05887 17.0845 14.1192H0V0H55.1719V14.1192Z"/></svg>`
 
 function IntroSection({
   appName,
   items,
+  purpose,
   loading,
   onContinue,
 }: {
   appName: string
   items: QueryDescriptionItem[]
+  purpose?: string
   loading: boolean
   onContinue: () => void
 }) {
@@ -233,30 +260,46 @@ function IntroSection({
       <div className="zkp-intro-request">
         <p className="zkp-eyebrow">{appName} wants to verify</p>
         {loading ? (
-          <div className="zkp-skel-rows" role="status" aria-label="Loading request">
-            <span className="zkp-skel-row" style={{ width: "68%" }} />
-            <span className="zkp-skel-row zkp-skel-row-detail" style={{ width: "48%" }} />
-            <span className="zkp-skel-row" style={{ width: "56%" }} />
-            <span className="zkp-skel-row zkp-skel-row-detail" style={{ width: "48%" }} />
-          </div>
-        ) : (
-          <ul className="zkp-intro-list">
-            {items.map((item) => (
-              <li key={item.title}>
-                <span
-                  className="zkp-intro-check"
-                  dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
-                />
+          <ul className="zkp-intro-list" role="status" aria-label="Loading request">
+            {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+              <li key={index}>
+                <span className="zkp-intro-check zkp-skel-check" />
                 <span className="zkp-intro-item">
-                  <span className="zkp-intro-item-title">{item.title}</span>
-                  {item.detail ? (
-                    <span className="zkp-intro-item-detail">{item.detail}</span>
-                  ) : null}
+                  <span className="zkp-intro-item-title zkp-skel-text">
+                    <span className="zkp-skel-bar" style={{ width: "80%" }} />
+                  </span>
                 </span>
               </li>
             ))}
           </ul>
+        ) : (
+          <ul className="zkp-intro-list">
+            {items.map((item, index) =>
+              item.note ? (
+                <IntroNote key={index} item={item} />
+              ) : (
+                <li key={index}>
+                  <span
+                    className="zkp-intro-check"
+                    dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
+                  />
+                  <span className="zkp-intro-item">
+                    <span className="zkp-intro-item-title">{item.title}</span>
+                    {item.detail ? (
+                      <span className="zkp-intro-item-detail">{item.detail}</span>
+                    ) : null}
+                  </span>
+                </li>
+              ),
+            )}
+          </ul>
         )}
+        {purpose && !loading ? (
+          <p className="zkp-intro-purpose">
+            <span className="zkp-intro-purpose-label">Purpose</span>
+            {purpose}
+          </p>
+        ) : null}
       </div>
 
       <div className="zkp-intro-question">
@@ -265,12 +308,10 @@ function IntroSection({
           aria-hidden="true"
           dangerouslySetInnerHTML={{ __html: ICON_EPASSPORT_CHIP }}
         />
-        <p className="zkp-intro-question-text">Biometric ID</p>
+        <p className="zkp-intro-question-text">Do you have a passport or ID with a chip?</p>
         <p className="zkp-intro-question-hint">
-          Look for this symbol on your ID or passport. Only biometric IDs work. Your phone reads the
-          chip over NFC.
+          Look for this symbol on your passport or ID card. Your phone reads the chip over NFC.
         </p>
-        <div className="zkp-divider" />
         <button type="button" className="zkp-intro-continue" onClick={onContinue}>
           Continue
         </button>
@@ -278,10 +319,7 @@ function IntroSection({
 
       <div className="zkp-intro-footer">
         <div className="zkp-divider" />
-        <p className="zkp-intro-footer-note">
-          Your passport data never leaves your device. {appName} and ZKPassport only see what you
-          choose to share.
-        </p>
+        <p className="zkp-intro-footer-note">Your ID data never leaves your device.</p>
         <div className="zkp-privacy-strip" aria-label="Private, encrypted, on your device">
           <span>Private</span>
           <span className="zkp-privacy-dot" aria-hidden="true">

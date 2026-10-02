@@ -4,7 +4,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactElement,
   type ReactNode,
 } from "react"
@@ -14,13 +13,10 @@ import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
 import { createVerification, type VerificationState } from "../verification"
 import {
-  BUTTON_FONT_SIZES,
+  BUTTON_CAPTION,
   buttonTooltip,
-  DEFAULT_BUTTON_LABEL,
-  errorMessage,
+  buttonLabel,
   isButtonDisabled,
-  isErrorVisible,
-  joinClasses,
   SUCCESS_BUTTON_LABEL,
   type VerifyWithZKPassportOptions,
 } from "../verify-button"
@@ -43,7 +39,11 @@ export function VerifyWithZKPassport({
   children,
   ...options
 }: VerifyWithZKPassportProps): ReactElement {
-  const [state, setState] = useState<VerificationState>({ status: "idle", error: null })
+  const [state, setState] = useState<VerificationState>({
+    status: "idle",
+    error: null,
+    errorKind: null,
+  })
   // Read at click time, so callers don't have to memoise their options or callbacks
   const latestOptions = useRef(options)
   latestOptions.current = options
@@ -67,55 +67,52 @@ function BrandedButton({
   verification: ZKPassportVerification
 }): ReactElement {
   useStylesheet(() => injectStylesheet(buttonStyles, "button"), [])
-  const { status } = verification
+  const { status, error, errorKind } = verification
+  const style = options.style ?? {}
 
   return (
-    <div
-      className={joinClasses("zkp-verify-wrap", options.classes?.root)}
-      data-theme={options.theme ?? "light"}
-      style={
-        options.size
-          ? ({ "--zkp-btn-font-size": BUTTON_FONT_SIZES[options.size] } as CSSProperties)
-          : undefined
-      }
-    >
+    <div className="zkp-verify-wrap" data-variant={style.variant ?? "filled"}>
       <button
         type="button"
-        className={joinClasses("zkp-verify-button", options.classes?.button)}
+        className="zkp-verify-button"
         data-status={status}
         disabled={isButtonDisabled(status)}
         title={buttonTooltip(status)}
         onClick={verification.verify}
       >
-        <span className="zkp-verify-content">
-          <span className="zkp-verify-state zkp-verify-state-default">
-            <span
-              className="zkp-verify-button-mark"
-              dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }}
-            />
-            <span>{options.label ?? DEFAULT_BUTTON_LABEL}</span>
+        <span className="zkp-verify-button-mark">
+          <span data-state="default" dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }} />
+          <span data-state="success" dangerouslySetInnerHTML={{ __html: ICON_CHECK }} />
+        </span>
+        <span className="zkp-verify-body">
+          <span className="zkp-verify-content">
+            <span className="zkp-verify-state" data-state="default">
+              <span>{buttonLabel(style.label)}</span>
+              {/* North-east arrow: the click opens the hosted ZKPassport window */}
+              <span className="zkp-verify-external" aria-hidden="true">
+                {"\u2197"}
+              </span>
+            </span>
+            <span className="zkp-verify-state" data-state="success">
+              <span>{SUCCESS_BUTTON_LABEL}</span>
+            </span>
           </span>
-          <span className="zkp-verify-state zkp-verify-state-success">
-            <span
-              className="zkp-verify-button-mark"
-              dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
-            />
-            <span>{SUCCESS_BUTTON_LABEL}</span>
-          </span>
+          <span className="zkp-verify-caption">{BUTTON_CAPTION}</span>
         </span>
       </button>
-      {isErrorVisible(status, options) && (
-        <p className={joinClasses("zkp-verify-error", options.classes?.error)} role="alert">
-          {errorMessage(verification.error)}
+      {errorKind === "blocked" && (
+        <p className="zkp-verify-notice" role="alert">
+          {error}
         </p>
       )}
     </div>
   )
 }
 
-export type { VerifyButtonSize, VerifyWithZKPassportOptions } from "../verify-button"
+export type { VerifyWithZKPassportOptions } from "../verify-button"
 export type {
-  MintCredentialOptions,
+  ServiceConfig,
+  VerificationOverrides,
   VerificationOptions,
   VerificationState,
   VerificationStatus,
