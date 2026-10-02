@@ -32,7 +32,7 @@ const VERIFIER_PARAMS = {
   serviceConfig: {
     validityPeriodInSeconds: 3600,
     domain: "demo.example.com",
-    scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
+    scope: "0x000000000000000000000000000000000000000000000000000000000000002a",
     devMode: false,
   },
 } as const
@@ -42,6 +42,7 @@ const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
 const SAMPLE_POLICY: CredentialPolicy = {
   owner: WALLET,
   credentialDuration: 2592000n,
+  enforceUniqueness: true,
   ownerIssuable: false,
   ownerBannable: false,
   ownerEditable: false,
@@ -51,13 +52,8 @@ const SAMPLE_POLICY: CredentialPolicy = {
   retiredAt: 0n,
 }
 
-/**
- * decodeRequirements as the contract returns it: raw enum numbers. uniqueIdentifierType uses
- * the same numbering as the app-side NullifierType (1 = salted).
- */
+/** decodeRequirements as the contract returns it: raw enum numbers. */
 const RAW_REQUIREMENTS = {
-  uniqueIdentifierType: 1,
-  enforceUniqueness: true,
   minAge: 18,
   sanctionsMode: 1,
   faceMatchMode: 2,
@@ -66,8 +62,6 @@ const RAW_REQUIREMENTS = {
 }
 
 const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
-  uniqueIdentifierType: NullifierType.SALTED,
-  enforceUniqueness: true,
   minAge: 18,
   sanctionsMode: "normal",
   facematchMode: "strict",
@@ -139,17 +133,17 @@ describe("CredentialsClient reads", () => {
     expect(readCalls[1].args).toEqual(["0xabcd"])
   })
 
-  test("getRequirements passes nullifier types through untranslated, mock and NONE included", async () => {
-    for (const raw of [NullifierType.SALTED_MOCK, NullifierType.NONE]) {
-      const { client } = stubClient((p) => {
-        if (p.functionName === "schemaVersion") return 1n
-        if (p.functionName === "decodeRequirements")
-          return { ...RAW_REQUIREMENTS, uniqueIdentifierType: raw, enforceUniqueness: false }
-        throw new Error(`unexpected read ${p.functionName}`)
-      })
+  test("getUniqueIdentifierType reads the type off the policy's evaluator untranslated", async () => {
+    // The evaluator's NullifierType uses the same numbering as the app-side enum, mock and NONE
+    // included (1 = salted).
+    for (const raw of [NullifierType.SALTED, NullifierType.SALTED_MOCK, NullifierType.NONE]) {
+      const { client, readCalls } = stubClient(() => raw)
       const credentials = new CredentialsClient({ client, address: REGISTRY })
-      const requirements = await credentials.getRequirements(SAMPLE_POLICY)
-      expect(requirements.uniqueIdentifierType).toBe(raw)
+      expect(await credentials.getUniqueIdentifierType(SAMPLE_POLICY)).toBe(raw)
+      expect(readCalls[0]).toMatchObject({
+        address: EVALUATOR,
+        functionName: "uniqueIdentifierType",
+      })
     }
   })
 
@@ -174,7 +168,7 @@ describe("CredentialsClient reads", () => {
       balanceOf: 1n,
       heldUntil: 1702592000n,
       banned: true,
-      policyScope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
+      policyScope: "0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
     const credentials = new CredentialsClient({ client, address: REGISTRY })
@@ -285,9 +279,9 @@ describe("credentials deployments", () => {
   test("resolves canonical registries and rejects chains without one", async () => {
     const { getCredentialsAddress } = await import("../src/deployments")
     // Mainnet and Sepolia share an address: same CREATE2 salt and constructor args on both.
-    expect(getCredentialsAddress("ethereum")).toBe("0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c")
+    expect(getCredentialsAddress("ethereum")).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
     expect(getCredentialsAddress("ethereum_sepolia")).toBe(
-      "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c",
+      "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
     )
     expect(() => getCredentialsAddress("local")).toThrow(
       "Credential minting is not supported on 'local': no credentials contract is deployed.",
@@ -298,7 +292,7 @@ describe("credentials deployments", () => {
 describe("createCredentialsContext", () => {
   test("binds a CredentialsClient to the chain's canonical contract", () => {
     const ctx = createCredentialsContext(sepolia)
-    expect(ctx.credentials.address).toBe("0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c")
+    expect(ctx.credentials.address).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
     expect(ctx.chain).toBe(sepolia)
   })
 
@@ -407,12 +401,13 @@ describe("CredentialsClient owner calls", () => {
     address: REGISTRY,
   })
 
-  test("buildCreatePolicyCall encodes requirements and defaults the flags to false", () => {
+  test("buildCreatePolicyCall encodes requirements and defaults the owner flags to false", () => {
     const call = credentials.buildCreatePolicyCall({
       salt: SALT,
       requirements: SAMPLE_REQUIREMENTS,
       credentialDuration: 2592000n,
       metadataURL: "https://policy.example/kyc",
+      enforceUniqueness: true,
     })
     expect(call.address).toBe(REGISTRY)
     expect(call.functionName).toBe("createPolicy")
@@ -421,6 +416,7 @@ describe("CredentialsClient owner calls", () => {
       encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS),
       2592000n,
       "https://policy.example/kyc",
+      true,
       false,
       false,
       false,
@@ -433,11 +429,12 @@ describe("CredentialsClient owner calls", () => {
       requirements: SAMPLE_REQUIREMENTS,
       credentialDuration: 1n,
       metadataURL: "",
+      enforceUniqueness: false,
       ownerIssuable: true,
       ownerBannable: true,
       ownerEditable: true,
     })
-    expect(call.args.slice(4)).toEqual([true, true, true])
+    expect(call.args.slice(4)).toEqual([false, true, true, true])
   })
 
   test("buildSetRequirementsCall pairs the policy id with re-encoded requirements", () => {

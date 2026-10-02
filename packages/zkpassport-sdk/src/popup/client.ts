@@ -23,10 +23,7 @@ export type PopupCallbacks = {
 
 export type OpenVerificationPopupOptions = {
   popupUrl?: string
-  /**
-   * "popup" (default) opens a small chromeless window; "tab" opens a regular
-   * browser tab (or window, per the user's browser settings) with full chrome.
-   */
+  // Ignored when `credential` is set: a mint always opens a tab.
   windowMode?: "popup" | "tab"
   request: PopupRequestConfig
   query: Query
@@ -74,10 +71,9 @@ export function openVerificationPopup(
   const popupUrl = options.popupUrl ?? DEFAULT_POPUP_URL
   const popupOrigin = new URL(popupUrl).origin
 
+  const windowMode = options.credential ? "tab" : options.windowMode
   const popup =
-    options.windowMode === "tab"
-      ? window.open(popupUrl, "zkpassport-verify")
-      : openPopupWindow(popupUrl)
+    windowMode === "tab" ? window.open(popupUrl, "zkpassport-verify") : openPopupWindow(popupUrl)
   if (!popup) return null
 
   const callbacks = options.callbacks ?? {}

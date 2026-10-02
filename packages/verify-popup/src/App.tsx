@@ -1,17 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react"
-import {
-  isPopupMessage,
-  type PopupConfigureMessage,
-  type PopupEventMessage,
-} from "@zkpassport/sdk/popup"
+import { useEffect, useMemo, useState } from "react"
+import { isPopupMessage, type PopupConfigureMessage } from "@zkpassport/sdk/popup"
 
-import { CredentialFlow } from "./credential-flow/CredentialFlow"
+import type { OutgoingEvent } from "./events"
+import { CredentialFlow } from "./flow/CredentialFlow"
+import { VerifyFlow } from "./flow/VerifyFlow"
 import { Frame, Notice } from "./layout"
 import { LinkVerification } from "./link-verification"
-import { VerificationCard } from "./verification-card"
-
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
-type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
 type Configuration = {
   request: PopupConfigureMessage["request"]
@@ -25,7 +19,6 @@ export function App() {
   const linkId = new URLSearchParams(window.location.search).get("vl")
   const [config, setConfig] = useState<Configuration | null>(null)
   const [standalone, setStandalone] = useState(false)
-  const closeTimer = useRef<number | null>(null)
 
   useEffect(() => {
     const opener = window.opener as Window | null
@@ -106,32 +99,9 @@ export function App() {
     )
   }
 
-  // Auto-close once the flow is complete (after the outcome screen has shown)
-  const scheduleClose = (delayMs: number) => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current)
-    closeTimer.current = window.setTimeout(() => window.close(), delayMs)
-  }
-
   return (
     <Frame>
-      <VerificationCard
-        config={{ domain, request: config.request, query: config.query }}
-        onRequestReceived={() => send({ type: "request-received" })}
-        onGeneratingProof={() => send({ type: "generating" })}
-        onProofGenerated={(proof) =>
-          send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
-        }
-        onSuccess={({ proofs, result }) => {
-          send({ type: "success", proofs, result })
-          // Close after showing the completion screen
-          scheduleClose(2500)
-        }}
-        onReject={() => {
-          send({ type: "rejected" })
-          scheduleClose(1500)
-        }}
-        onError={(message) => send({ type: "error", message: String(message) })}
-      />
+      <VerifyFlow request={config.request} query={config.query} rpHost={domain} send={send} />
     </Frame>
   )
 }

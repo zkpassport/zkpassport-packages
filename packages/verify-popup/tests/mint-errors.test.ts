@@ -7,7 +7,7 @@ import {
   encodeErrorResult,
 } from "viem"
 import { PolicyEvaluatorV1Abi, ZKPassportCredentialsAbi } from "@zkpassport/onchain-credentials"
-import { describeMintError } from "../src/credential-flow/mint-errors"
+import { describeMintError } from "../src/flow/mint-errors"
 
 describe("describeMintError", () => {
   test("a rejection in the wallet is a cancellation, however deeply wrapped", () => {

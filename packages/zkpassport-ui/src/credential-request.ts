@@ -22,10 +22,9 @@ export type CredentialProofRequest = {
    */
   evaluatorDevMode: boolean
   /**
-   * Nullifier type to request; undefined leaves the request unconstrained
-   * (the policy requires none). Policies requiring mock types are rejected:
-   * nullifier types match exactly on-chain and there is no mapping between
-   * mock and real types.
+   * Nullifier type to request: the evaluator's uniqueIdentifierType for a
+   * policy that enforces uniqueness; undefined leaves the request unconstrained
+   * for any other policy.
    */
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   query: (qb: QueryBuilder) => QueryBuilderResult
@@ -54,13 +53,14 @@ export async function buildCredentialProofRequest(
   // Requirements are opaque bytes whose schema the policy's evaluator owns;
   // decoding through the evaluator keeps the request derived from exactly
   // what issue() will enforce.
-  const [requirements, evaluatorDevMode] = await Promise.all([
+  const [requirements, evaluatorDevMode, uniqueIdentifierType] = await Promise.all([
     credentials.getRequirements(policy),
     credentials.getDevMode(policy),
+    // The evaluator only checks the nullifier type for policies that enforce uniqueness.
+    policy.enforceUniqueness ? credentials.getUniqueIdentifierType(policy) : NullifierType.NONE,
   ])
   const { wallet, chain } = options
 
-  const { uniqueIdentifierType } = requirements
   if (
     uniqueIdentifierType === NullifierType.NON_SALTED_MOCK ||
     uniqueIdentifierType === NullifierType.SALTED_MOCK
@@ -76,7 +76,7 @@ export async function buildCredentialProofRequest(
     devMode: getCredentialsChain(chain).testnet === true,
     evaluatorDevMode,
     // NONE leaves the request unconstrained: the contract skips the type
-    // check for those policies, and a NONE nullifier cannot be requested.
+    // check for non-unique policies, and a NONE nullifier cannot be requested.
     uniqueIdentifierType:
       uniqueIdentifierType === NullifierType.NONE ? undefined : uniqueIdentifierType,
     query: (qb) => {
@@ -94,12 +94,11 @@ export async function buildCredentialProofRequest(
         q = q.sanctions("all", "all", { strict: requirements.sanctionsMode === "strict" })
       }
       // The SDK requires strict facematch whenever the salted nullifier is
-      // used, so it overrides whatever the policy asks for (createPolicy
-      // rejects the one contradictory pairing, SALTED + regular).
+      // used, so it overrides whatever the policy asks for (a salted
+      // uniqueness policy requiring regular cannot issue at all, as a salted
+      // proof always commits strict).
       const facematchMode =
-        requirements.uniqueIdentifierType === NullifierType.SALTED
-          ? "strict"
-          : requirements.facematchMode
+        uniqueIdentifierType === NullifierType.SALTED ? "strict" : requirements.facematchMode
       if (facematchMode) q = q.facematch(facematchMode)
       return q.bind("user_address", wallet).bind("chain", chain).done()
     },

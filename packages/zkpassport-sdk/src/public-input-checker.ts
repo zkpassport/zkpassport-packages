@@ -53,7 +53,8 @@ import {
   getBirthdateMinDateTimestamp,
   getBirthdateMaxDateTimestamp,
   SanctionsCommittedInputs,
-  SanctionsBuilder,
+  getSanctionsEvmParameterCommitment,
+  getSanctionsParameterCommitment,
   SECONDS_BETWEEN_1900_AND_1970,
   FacematchCommittedInputs,
   getFacematchEvmParameterCommitment,
@@ -1846,6 +1847,33 @@ export class PublicInputChecker {
     return { isCorrect, queryResultErrors }
   }
 
+  private static async checkRegistryRoot(
+    check: (registry: RegistryClient) => Promise<boolean>,
+    devMode: boolean | undefined,
+    queryResultErrors: any,
+    invalid: {
+      section: string
+      field: string
+      expected: string
+      received: string
+      message: string
+    },
+  ) {
+    let isCorrect: boolean
+    try {
+      isCorrect = await check(new RegistryClient({ chainId: devMode ? 11155111 : 1 }))
+    } catch (error) {
+      console.warn(error)
+      isCorrect = false
+    }
+    if (!isCorrect) {
+      console.warn(invalid.message)
+      const { section, field, ...error } = invalid
+      queryResultErrors[section] = { ...queryResultErrors[section], [field]: error }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
   public static async checkCertificateRegistryRoot(
     root: string,
     queryResultErrors: any,
@@ -1854,36 +1882,18 @@ export class PublicInputChecker {
     // Point in time to check validity at, in seconds; defaults to now
     timestamp?: number,
   ) {
-    let isCorrect = true
-    try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCertificateRootValid(root, timestamp)
-      if (!isValid) {
-        console.warn("The ID was signed by an unrecognized root certificate")
-        isCorrect = false
-        if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
-          queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
-        }
-        queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
-          expected: `A valid root from ZKPassport Registry`,
-          received: `Got invalid certificate registry root: ${root}`,
-          message: "The ID was signed by an unrecognized root certificate",
-        }
-      }
-    } catch (error) {
-      console.warn(error)
-      console.warn("The ID was signed by an unrecognized root certificate")
-      isCorrect = false
-      if (!queryResultErrors[outer ? "outer" : "sig_check_dsc"]) {
-        queryResultErrors[outer ? "outer" : "sig_check_dsc"] = {}
-      }
-      queryResultErrors[outer ? "outer" : "sig_check_dsc"].certificate = {
-        expected: `A valid root from ZKPassport Registry`,
+    return this.checkRegistryRoot(
+      (registry) => registry.isCertificateRootValid(root, timestamp),
+      devMode,
+      queryResultErrors,
+      {
+        section: outer ? "outer" : "sig_check_dsc",
+        field: "certificate",
+        expected: "A valid root from ZKPassport Registry",
         received: `Got invalid certificate registry root: ${root}`,
         message: "The ID was signed by an unrecognized root certificate",
-      }
-    }
-    return { isCorrect, queryResultErrors }
+      },
+    )
   }
 
   public static async checkCircuitRegistryRoot(
@@ -1893,32 +1903,39 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
   ) {
-    let isCorrect = true
-    try {
-      const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
-      const isValid = await registryClient.isCircuitRootValid(root, timestamp)
-      if (!isValid) {
-        console.warn("The proof uses unrecognized circuits")
-        isCorrect = false
-        if (!queryResultErrors.outer) queryResultErrors.outer = {}
-        queryResultErrors.outer.circuit = {
-          expected: `A valid circuit from ZKPassport Registry`,
-          received: `Got invalid circuit registry root: ${root}`,
-          message: "The proof uses an unrecognized circuit",
-        }
-      }
-    } catch (error) {
-      console.warn(error)
-      console.warn("The proof uses unrecognized circuits")
-      isCorrect = false
-      if (!queryResultErrors.outer) queryResultErrors.outer = {}
-      queryResultErrors.outer.circuit = {
-        expected: `A valid circuit from ZKPassport Registry`,
+    return this.checkRegistryRoot(
+      (registry) => registry.isCircuitRootValid(root, timestamp),
+      devMode,
+      queryResultErrors,
+      {
+        section: "outer",
+        field: "circuit",
+        expected: "A valid circuit from ZKPassport Registry",
         received: `Got invalid circuit registry root: ${root}`,
         message: "The proof uses an unrecognized circuit",
-      }
-    }
-    return { isCorrect, queryResultErrors }
+      },
+    )
+  }
+
+  public static async checkSanctionsRegistryRoot(
+    root: string,
+    queryResultErrors: any,
+    devMode?: boolean,
+    // Same as above, see checkCertificateRegistryRoot
+    timestamp?: number,
+  ) {
+    return this.checkRegistryRoot(
+      (registry) => registry.isSanctionsRootValid(root, timestamp),
+      devMode,
+      queryResultErrors,
+      {
+        section: "sanctions",
+        field: "eq",
+        expected: "A valid root from ZKPassport Registry",
+        received: `Got invalid sanctions registry root: ${root}`,
+        message: "Invalid sanctions registry root",
+      },
+    )
   }
 
   public static checkBindPublicInputs(
@@ -1995,7 +2012,9 @@ export class PublicInputChecker {
     originalQuery: Query,
     queryResult: QueryResult,
     sanctionsCommittedInputs: SanctionsCommittedInputs,
-    sanctionsBuilder: SanctionsBuilder,
+    devMode?: boolean,
+    // Same as above, see checkCertificateRegistryRoot
+    timestamp?: number,
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
@@ -2013,20 +2032,13 @@ export class PublicInputChecker {
       }
     }
     if (queryResult.sanctions && queryResult.sanctions.passed) {
-      // For now it's fixed until we streamline the update of the sanctions registry
-      const EXPECTED_ROOT = await sanctionsBuilder.getRoot()
-      if (sanctionsCommittedInputs.rootHash !== EXPECTED_ROOT) {
-        console.warn("Invalid sanctions registry root")
-        isCorrect = false
-        queryResultErrors.sanctions = {
-          ...queryResultErrors.sanctions,
-          eq: {
-            expected: EXPECTED_ROOT,
-            received: sanctionsCommittedInputs.rootHash,
-            message: "Invalid sanctions registry root",
-          },
-        }
-      }
+      const { isCorrect: isCorrectRoot } = await this.checkSanctionsRegistryRoot(
+        sanctionsCommittedInputs.rootHash,
+        queryResultErrors,
+        devMode,
+        timestamp,
+      )
+      isCorrect = isCorrect && isCorrectRoot
       if (queryResult.sanctions.isStrict !== sanctionsCommittedInputs.isStrict) {
         console.warn("Invalid sanctions strict mode")
         isCorrect = false
@@ -2812,15 +2824,16 @@ export class PublicInputChecker {
           !!committedInputs?.exclusion_check_sanctions ||
           !!committedInputs?.exclusion_check_sanctions_evm
         ) {
-          const sanctionsBuilder = await SanctionsBuilder.create()
           const exclusionCheckSanctionsCommittedInputs =
             (committedInputs?.exclusion_check_sanctions as SanctionsCommittedInputs) ??
             (committedInputs?.exclusion_check_sanctions_evm as SanctionsCommittedInputs)
           const exclusionCheckSanctionsParameterCommitment = isForEVM
-            ? await sanctionsBuilder.getSanctionsEvmParameterCommitment(
+            ? await getSanctionsEvmParameterCommitment(
+                exclusionCheckSanctionsCommittedInputs.rootHash,
                 exclusionCheckSanctionsCommittedInputs.isStrict,
               )
-            : await sanctionsBuilder.getSanctionsParameterCommitment(
+            : await getSanctionsParameterCommitment(
+                exclusionCheckSanctionsCommittedInputs.rootHash,
                 exclusionCheckSanctionsCommittedInputs.isStrict,
               )
           if (!paramCommitments.includes(exclusionCheckSanctionsParameterCommitment)) {
@@ -2842,7 +2855,8 @@ export class PublicInputChecker {
             originalQuery,
             queryResult,
             exclusionCheckSanctionsCommittedInputs,
-            sanctionsBuilder,
+            devMode,
+            rootTimestamp,
           )
           isCorrect = isCorrect && isCorrectSanctionsExclusion
           queryResultErrors = {
@@ -3579,10 +3593,10 @@ export class PublicInputChecker {
             },
           }
         }
-        const sanctionsBuilder = await SanctionsBuilder.create()
         const exclusionCheckSanctionsCommittedInputs = proof.committedInputs
           ?.exclusion_check_sanctions as SanctionsCommittedInputs
-        const calculatedParamCommitment = await sanctionsBuilder.getSanctionsParameterCommitment(
+        const calculatedParamCommitment = await getSanctionsParameterCommitment(
+          exclusionCheckSanctionsCommittedInputs.rootHash,
           exclusionCheckSanctionsCommittedInputs.isStrict,
         )
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
@@ -3616,7 +3630,8 @@ export class PublicInputChecker {
           originalQuery,
           queryResult,
           exclusionCheckSanctionsCommittedInputs,
-          sanctionsBuilder,
+          devMode,
+          bundleRootTimestamp,
         )
         isCorrect = isCorrect && isCorrectSanctionsExclusion && isCorrectScope
         queryResultErrors = {
