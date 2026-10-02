@@ -1,5 +1,5 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { Binary } from "@zkpassport/utils"
+import { Binary, getIdFromChain } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
@@ -14,6 +14,7 @@ import type {
   CircuitManifest,
   CircuitManifestEntry,
   PackagedCircuit,
+  SupportedChain,
 } from "@zkpassport/utils/types"
 import debug from "debug"
 import {
@@ -31,6 +32,7 @@ import {
   REGISTRIES_MAPPING_SIGNATURE,
   SANCTIONS_TREE_URL_TEMPLATE,
 } from "./constants"
+import { findNetworkConstants } from "./networks"
 import {
   DocumentSupport,
   DocumentSupportRule,
@@ -46,68 +48,24 @@ const log = debug("zkpassport:registry")
 /** A registry ID as the bytes32 word the Root Registry's functions take */
 const registryIdWord = (registryId: number) => registryId.toString(16).padStart(64, "0")
 
-interface ChainConfig {
-  rpcUrl: string
-  rootRegistry: string
-  registryHelper: string
-  packagedCertsUrlGenerator: (chainId: number, root: string, cid?: string) => string
-  circuitManifestUrlGenerator: (
-    chainId: number,
-    { root, version, cid }: { root?: string; version?: string; cid?: string },
-  ) => string
-  packagedCircuitUrlGenerator: (chainId: number, hash: string, cid?: string) => string
-  sanctionsTreeUrlGenerator: (chainId: number, root: string) => string
+/**
+ * Create a registry client for a chain RegistryClient supports
+ * @param chain - The chain's name or ID
+ * @param overrides - Options that take precedence over the chain's network constants
+ * @throws If RegistryClient does not support the chain
+ */
+export function createRegistryClient(
+  chain: SupportedChain | number,
+  overrides: Omit<Partial<RegistryClientOptions>, "chainId"> = {},
+): RegistryClient {
+  const chainId = typeof chain === "number" ? chain : getIdFromChain(chain)
+  if (!findNetworkConstants(chainId)) {
+    throw new Error(`Unsupported chain: ${chain}`)
+  }
+
+  return new RegistryClient({ ...overrides, chainId })
 }
 
-export const CHAIN_CONFIG: Record<number, ChainConfig> = {
-  // Ethereum Mainnet
-  1: {
-    rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0x8C93bB3a7ED88dA0647Ea53f8cd3f57832a513Cd",
-    // registryHelper: "0x0467c57Cadfc256E6a93abd5401BAF26Bdd382ef", // New RegistryHelper for canonical root registry
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
-  },
-  // Base Mainnet
-  8453: {
-    rpcUrl: "https://base-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7",
-    // registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7", // New RegistryHelper for canonical root registry
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
-  },
-  // Sepolia Testnet
-  11155111: {
-    rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0x6Ee299B1E8049fadc3494f1110A3479f5BE8EC0e",
-    // registryHelper: "0xbcc295c3f2a5398d459c81355540270d66563a61", // New RegistryHelper for canonical root registry
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
-  },
-  // Local Development (Anvil)
-  31337: {
-    rpcUrl: "http://localhost:8545",
-    rootRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    registryHelper: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-    sanctionsTreeUrlGenerator: SANCTIONS_TREE_URL_TEMPLATE,
-  },
-}
-
-export function getChainRpcUrl(chainId: number): string | undefined {
-  return CHAIN_CONFIG[chainId]?.rpcUrl
-}
 
 /**
  * Client for interacting with the ZKPassport Registry
@@ -147,20 +105,22 @@ export class RegistryClient {
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
     this.chainId = chainId
-    // Get chain config based on chainId
-    const chainConfig = CHAIN_CONFIG[chainId]
-    // Set config values using provided values or from chain config
-    this.rpcUrl = rpcUrl || chainConfig?.rpcUrl
-    this.rootRegistry = rootRegistry || chainConfig?.rootRegistry
-    this.registryHelper = registryHelper || chainConfig?.registryHelper
-    this.packagedCertsUrlGenerator =
-      packagedCertsUrlGenerator || chainConfig?.packagedCertsUrlGenerator
-    this.circuitManifestUrlGenerator =
-      circuitManifestUrlGenerator || chainConfig?.circuitManifestUrlGenerator
-    this.packagedCircuitUrlGenerator =
-      packagedCircuitUrlGenerator || chainConfig?.packagedCircuitUrlGenerator
-    this.sanctionsTreeUrlGenerator =
-      sanctionsTreeUrlGenerator || chainConfig?.sanctionsTreeUrlGenerator
+
+    const network = findNetworkConstants(chainId)
+    const resolvedRpcUrl = rpcUrl || network?.rpcUrl
+    const resolvedRootRegistry = rootRegistry || network?.rootRegistry
+    const resolvedRegistryHelper = registryHelper || network?.registryHelper
+    if (!resolvedRpcUrl || !resolvedRootRegistry || !resolvedRegistryHelper) {
+      throw new Error(`Unsupported chain ID: ${chainId}`)
+    }
+
+    this.rpcUrl = resolvedRpcUrl
+    this.rootRegistry = resolvedRootRegistry
+    this.registryHelper = resolvedRegistryHelper
+    this.packagedCertsUrlGenerator = packagedCertsUrlGenerator || PACKAGED_CERTIFICATES_URL_TEMPLATE
+    this.circuitManifestUrlGenerator = circuitManifestUrlGenerator || CIRCUIT_MANIFEST_URL_TEMPLATE
+    this.packagedCircuitUrlGenerator = packagedCircuitUrlGenerator || PACKAGED_CIRCUIT_URL_TEMPLATE
+    this.sanctionsTreeUrlGenerator = sanctionsTreeUrlGenerator || SANCTIONS_TREE_URL_TEMPLATE
     this.retryCount = retryCount || DEFAULT_RETRY_COUNT
   }
 
@@ -262,7 +222,6 @@ export class RegistryClient {
     from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
     const requestData =
       typeof fromRoot === "number"
@@ -311,8 +270,6 @@ export class RegistryClient {
       isLastPage: boolean,
     ) => void,
   ): Promise<RootDetails[]> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address is not configured")
-
     let pageNumber = 0
     let isLastPage = false
     let currentIndex = 1
@@ -484,7 +441,6 @@ export class RegistryClient {
     from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
     const requestData =
       typeof fromRoot === "number"
@@ -533,8 +489,6 @@ export class RegistryClient {
       isLastPage: boolean,
     ) => void,
   ): Promise<RootDetails[]> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address is not configured")
-
     let pageNumber = 0
     let isLastPage = false
     let currentIndex = 1
@@ -713,6 +667,14 @@ export class RegistryClient {
     } else {
       return DocumentSupport.NOT_SUPPORTED
     }
+  }
+
+  /**
+   * Get the URL of the RPC endpoint the client calls
+   * @returns The RPC URL
+   */
+  getRpcUrl(): string {
+    return this.rpcUrl
   }
 
   /**

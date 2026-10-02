@@ -122,6 +122,72 @@ export type PackagedCertificatesFileV1 = PackagedCertificatesFileBase & {
  */
 export type PackagedCertificatesFile = PackagedCertificatesFileV0 | PackagedCertificatesFileV1
 
+/**
+ * Where one set of sanctions leaves came from: an upstream snapshot (for OpenSanctions, one
+ * dataset's `entities.ftm.json` build), identified by its immutable URL, build id and hash.
+ * Packaged certificates files record their inputs as a `masterlists` array of leaf hashes; a
+ * sanctions snapshot is not itself a leaf, so it is recorded as a structured entry instead.
+ */
+export type SanctionsSource = {
+  /** Upstream dataset name, e.g. an OpenSanctions dataset such as "us_ofac_sdn" */
+  dataset: string
+  /** Immutable URL of the snapshot that was parsed */
+  url: string
+  /** Upstream build identifier of the snapshot, e.g. an OpenSanctions build id "20260918081735-mcz" */
+  build: string
+  /** 0x-prefixed SHA-256 of the downloaded snapshot */
+  sha256: string
+  /** Size of the downloaded snapshot in bytes */
+  size: number
+  /**
+   * Number of distinct sanctioned persons (upstream entities) in this snapshot that contributed
+   * leaves. A person with several name variants counts once.
+   */
+  entities: number
+}
+
+/**
+ * Versions of the code that turned the snapshots into leaves and the leaves into a tree, so a
+ * packaged sanctions file can be reproduced.
+ */
+export type PackagedSanctionsBuilder = {
+  /** Version of @zkpassport/sanctions, which parses the snapshots and hashes the leaves */
+  sanctions_version: string
+  /** Version of @zkpassport/utils, which provides poseidon2 and the AsyncOrderedMT tree */
+  utils_version: string
+  /** Depth of the sanctions tree, as the Sanctions Registry records it in its tree height */
+  tree_depth: number
+}
+
+/**
+ * Packaged sanctions file, version 1: the JSON document published with each sanctions root, whose
+ * IPFS CIDv0 the Sanctions Registry stores next to the root. Built and checked by the functions in
+ * `registry/sanctions.ts`.
+ */
+export type PackagedSanctionsFileV1 = {
+  version: 1
+  /** Unix seconds at which the package was built; also published with the root */
+  timestamp: number
+  /** Environment label, e.g. "test"; omitted for production */
+  environment?: string
+  /** Root of the sanctions tree; the value published to the Sanctions Registry */
+  root: string
+  /** The root this one superseded, if any */
+  previous_root?: string
+  /**
+   * Sorted, unique, non-zero Poseidon2 leaf hashes (0x + 64 hex). AsyncOrderedMT's two sentinel
+   * leaves, 0 and its fixed upper bound, are not listed.
+   */
+  leaves: string[]
+  /** One entry per upstream snapshot, sorted by dataset name */
+  sources: SanctionsSource[]
+  builder: PackagedSanctionsBuilder
+  /** Licence attribution of the upstream data */
+  attribution: string
+}
+
+export type PackagedSanctionsFile = PackagedSanctionsFileV1
+
 export type IntermediateCertificateRevocation = {
   // Fingerprint of the issuing CSCA (Poseidon2 hash of the CSCA DER bytes)
   fingerprint: string
