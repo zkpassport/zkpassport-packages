@@ -1,5 +1,5 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { Binary } from "@zkpassport/utils"
+import { Binary, getIdFromChain } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
@@ -14,6 +14,7 @@ import type {
   CircuitManifest,
   CircuitManifestEntry,
   PackagedCircuit,
+  SupportedChain,
 } from "@zkpassport/utils/types"
 import debug from "debug"
 import {
@@ -46,6 +47,24 @@ const log = debug("zkpassport:registry")
 
 /** A registry ID as the bytes32 word the Root Registry's functions take */
 const registryIdWord = (registryId: number) => registryId.toString(16).padStart(64, "0")
+
+/**
+ * Create a registry client for a chain RegistryClient supports
+ * @param chain - The chain's name or ID
+ * @param overrides - Options that take precedence over the chain's network constants
+ * @throws If RegistryClient does not support the chain
+ */
+export function createRegistryClient(
+  chain: SupportedChain | number,
+  overrides: Omit<Partial<RegistryClientOptions>, "chainId"> = {},
+): RegistryClient {
+  const chainId = typeof chain === "number" ? chain : getIdFromChain(chain)
+  if (!findNetworkConstants(chainId)) {
+    throw new Error(`Unsupported chain: ${chain}`)
+  }
+
+  return new RegistryClient({ ...overrides, chainId })
+}
 
 /**
  * Client for interacting with the ZKPassport Registry

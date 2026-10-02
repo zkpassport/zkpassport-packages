@@ -6,9 +6,11 @@ import type {
   ProofResult,
   DiscloseCommittedInputs,
   FacematchCommittedInputs,
+  SupportedChain,
 } from "@zkpassport/utils"
 import {
   SECONDS_BETWEEN_1900_AND_1970,
+  getIdFromChain,
   getServiceScopeHash,
   getScopeHash,
   getAgeParameterCommitment,
@@ -3168,5 +3170,107 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
       )
       expect(queryResultErrors.issuing_country).toBeUndefined()
     })
+  })
+})
+
+describe("PublicInputChecker - registry chain", () => {
+  const certificateRoot = "0x" + "cd".repeat(32)
+  let certificateRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every certificate root valid on the registries of the given chains only
+  function mockCertificateRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    certificateRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isCertificateRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isCertificateRootAccepted(query: Query, devMode: boolean) {
+    const { isCorrect } = await PublicInputChecker.checkCertificateRegistryRoot(
+      certificateRoot,
+      {},
+      false,
+      devMode,
+      undefined,
+      query,
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    certificateRootValidity.mockRestore()
+  })
+
+  test("accepts a root valid on the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      true,
+    )
+  })
+
+  test("rejects a root valid only on another chain than the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      false,
+    )
+  })
+
+  test("rejects a query bound to a chain without a registry", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "arbitrum" } }, false)).toBe(false)
+  })
+
+  test("checks an unbound query on Sepolia in dev mode and on Ethereum otherwise", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({}, true)).toBe(true)
+    expect(await isCertificateRootAccepted({}, false)).toBe(false)
+  })
+})
+
+describe("PublicInputChecker - sanctions registry chain", () => {
+  const sanctionsRoot = "0x" + "ef".repeat(32)
+  let sanctionsRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every sanctions root valid on the registries of the given chains only
+  function mockSanctionsRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    sanctionsRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isSanctionsRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isSanctionsRootAccepted(boundChain: SupportedChain) {
+    const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
+      { sanctions: { countries: "all", lists: "all", strict: false }, bind: { chain: boundChain } },
+      { sanctions: { passed: true, isStrict: false } },
+      { rootHash: sanctionsRoot, isStrict: false },
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    sanctionsRootValidity.mockRestore()
+  })
+
+  test("accepts a sanctions root valid on the query's bound chain", async () => {
+    mockSanctionsRootValidOn("base")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(true)
+  })
+
+  test("rejects a sanctions root valid only on another chain than the query's bound chain", async () => {
+    mockSanctionsRootValidOn("ethereum")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(false)
   })
 })

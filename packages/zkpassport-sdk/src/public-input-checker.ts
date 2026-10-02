@@ -3,6 +3,7 @@
 import {
   type ProofResult,
   type QueryResult,
+  getChainFromQuery,
   getProofData,
   getCommitmentFromDSCProof,
   getCommitmentInFromIDDataProof,
@@ -72,8 +73,7 @@ import {
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
-import { RegistryClient } from "@zkpassport/registry"
-// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
+import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   DEFAULT_DATE_VALUE,
@@ -1850,6 +1850,7 @@ export class PublicInputChecker {
   private static async checkRegistryRoot(
     check: (registry: RegistryClient) => Promise<boolean>,
     devMode: boolean | undefined,
+    originalQuery: Query,
     queryResultErrors: any,
     invalid: {
       section: string
@@ -1861,7 +1862,9 @@ export class PublicInputChecker {
   ) {
     let isCorrect: boolean
     try {
-      isCorrect = await check(new RegistryClient({ chainId: devMode ? 11155111 : 1 }))
+      isCorrect = await check(
+        createRegistryClient(getChainFromQuery(originalQuery, Boolean(devMode))),
+      )
     } catch (error) {
       console.warn(error)
       isCorrect = false
@@ -1881,10 +1884,12 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Point in time to check validity at, in seconds; defaults to now
     timestamp?: number,
+    originalQuery: Query = {},
   ) {
     return this.checkRegistryRoot(
       (registry) => registry.isCertificateRootValid(root, timestamp),
       devMode,
+      originalQuery,
       queryResultErrors,
       {
         section: outer ? "outer" : "sig_check_dsc",
@@ -1902,10 +1907,12 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
+    originalQuery: Query = {},
   ) {
     return this.checkRegistryRoot(
       (registry) => registry.isCircuitRootValid(root, timestamp),
       devMode,
+      originalQuery,
       queryResultErrors,
       {
         section: "outer",
@@ -1923,10 +1930,12 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
+    originalQuery: Query = {},
   ) {
     return this.checkRegistryRoot(
       (registry) => registry.isSanctionsRootValid(root, timestamp),
       devMode,
+      originalQuery,
       queryResultErrors,
       {
         section: "sanctions",
@@ -2037,6 +2046,7 @@ export class PublicInputChecker {
         queryResultErrors,
         devMode,
         timestamp,
+        originalQuery,
       )
       isCorrect = isCorrect && isCorrectRoot
       if (queryResult.sanctions.isStrict !== sanctionsCommittedInputs.isStrict) {
@@ -2407,6 +2417,7 @@ export class PublicInputChecker {
           true,
           devMode,
           rootTimestamp,
+          originalQuery,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
@@ -2423,6 +2434,7 @@ export class PublicInputChecker {
           queryResultErrors,
           devMode,
           rootTimestamp,
+          originalQuery,
         )
         isCorrect = isCorrect && isCorrectCircuitRegistryRoot
         queryResultErrors = {
@@ -2920,6 +2932,7 @@ export class PublicInputChecker {
           false,
           devMode,
           bundleRootTimestamp,
+          originalQuery,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
