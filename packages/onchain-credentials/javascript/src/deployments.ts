@@ -9,8 +9,8 @@ import type { SupportedChain } from "@zkpassport/utils"
 const CREDENTIALS_DEPLOYMENTS: Partial<
   Record<SupportedChain, { chain: Chain; address?: `0x${string}` }>
 > = {
-  ethereum: { chain: mainnet, address: "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c" },
-  ethereum_sepolia: { chain: sepolia, address: "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c" },
+  ethereum: { chain: mainnet, address: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C" },
+  ethereum_sepolia: { chain: sepolia, address: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C" },
   local: { chain: anvil },
 }
 

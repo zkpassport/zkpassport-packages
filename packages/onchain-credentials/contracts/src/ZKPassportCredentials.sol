@@ -197,9 +197,9 @@ contract ZKPassportCredentials is ERC1155 {
 
     /// @notice The proof subscope a credential for this policy must be generated with
     /// @param policyId The policy the proof targets
-    /// @return The subscope string: "attest:" followed by the hex-encoded policyId
+    /// @return The subscope string: the policyId as 32-byte hex
     function policyScope(uint256 policyId) public pure returns (string memory) {
-        return string.concat("attest:", Strings.toHexString(policyId, 32));
+        return Strings.toHexString(policyId, 32);
     }
 
     /// @notice Verify a proof and issue (or renew) a credential for the wallet the proof is

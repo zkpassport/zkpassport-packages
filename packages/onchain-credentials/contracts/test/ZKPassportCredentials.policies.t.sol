@@ -7,6 +7,7 @@ import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
     function setUp() public {
@@ -442,7 +443,6 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
 
     function testPolicyScopeFormat() public {
         uint256 policyId = _createDefaultPolicy();
-        string memory scope = zkPassportCredentials.policyScope(policyId);
-        assertEq(bytes(scope).length, 7 + 66);
+        assertEq(zkPassportCredentials.policyScope(policyId), Strings.toHexString(policyId, 32));
     }
 }

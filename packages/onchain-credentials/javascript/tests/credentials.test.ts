@@ -32,7 +32,7 @@ const VERIFIER_PARAMS = {
   serviceConfig: {
     validityPeriodInSeconds: 3600,
     domain: "demo.example.com",
-    scope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
+    scope: "0x000000000000000000000000000000000000000000000000000000000000002a",
     devMode: false,
   },
 } as const
@@ -168,7 +168,7 @@ describe("CredentialsClient reads", () => {
       balanceOf: 1n,
       heldUntil: 1702592000n,
       banned: true,
-      policyScope: "attest:0x000000000000000000000000000000000000000000000000000000000000002a",
+      policyScope: "0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
     const credentials = new CredentialsClient({ client, address: REGISTRY })
@@ -279,9 +279,9 @@ describe("credentials deployments", () => {
   test("resolves canonical registries and rejects chains without one", async () => {
     const { getCredentialsAddress } = await import("../src/deployments")
     // Mainnet and Sepolia share an address: same CREATE2 salt and constructor args on both.
-    expect(getCredentialsAddress("ethereum")).toBe("0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c")
+    expect(getCredentialsAddress("ethereum")).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
     expect(getCredentialsAddress("ethereum_sepolia")).toBe(
-      "0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c",
+      "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
     )
     expect(() => getCredentialsAddress("local")).toThrow(
       "Credential minting is not supported on 'local': no credentials contract is deployed.",
@@ -292,7 +292,7 @@ describe("credentials deployments", () => {
 describe("createCredentialsContext", () => {
   test("binds a CredentialsClient to the chain's canonical contract", () => {
     const ctx = createCredentialsContext(sepolia)
-    expect(ctx.credentials.address).toBe("0x0000C0DeeB514524CfcB8d0d3D0a801dC1F7153c")
+    expect(ctx.credentials.address).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
     expect(ctx.chain).toBe(sepolia)
   })
 
