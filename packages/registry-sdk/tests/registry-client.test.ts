@@ -1,5 +1,5 @@
 import { describe, beforeAll, afterAll, it, expect, setDefaultTimeout } from "bun:test"
-import { strip0x } from "@zkpassport/utils"
+import { AsyncOrderedMT, poseidon2, strip0x } from "@zkpassport/utils"
 import {
   CircuitManifest,
   PackagedCircuit,
@@ -20,6 +20,8 @@ import {
   INVALID_HASH,
   NONEXISTENT_REGISTRY_ID,
   PACKAGED_CIRCUIT_FIXTURE_VKEY_HASH,
+  SANCTIONS_FIXTURES_ROOT,
+  SANCTIONS_GENESIS_ROOT,
 } from "./utils/constants"
 import {
   AnvilInstance,
@@ -29,6 +31,7 @@ import {
   loadCircuitManifestFile,
   loadPackagedCertificatesFile,
   loadPackagedCircuitFile,
+  loadSanctionsTreeFile,
   startAnvil,
   stopAnvil,
 } from "./utils/helpers"
@@ -38,6 +41,7 @@ let registry: RegistryClient
 let fixturePackagedCerts: PackagedCertificatesFileV1
 let fixtureCircuitManifest: CircuitManifest
 let fixturePackagedCircuit: PackagedCircuit
+let fixtureSanctionsTree: string[][]
 
 // Set default timeout for all tests to 30 seconds
 setDefaultTimeout(30000)
@@ -66,6 +70,10 @@ describe("Registry", () => {
     // Load packaged circuit fixture
     fixturePackagedCircuit = loadPackagedCircuitFile(
       path.resolve(__dirname, "fixtures", "circuit_compare_age.json"),
+    )
+    // Load serialised sanctions tree fixture
+    fixtureSanctionsTree = loadSanctionsTreeFile(
+      path.resolve(__dirname, "fixtures", "sanctions_tree.json"),
     )
   }, SETUP_TIMEOUT_MS)
   let originalFetch: typeof fetch
@@ -120,6 +128,14 @@ describe("Registry", () => {
           }),
           { status: 200 },
         )
+      }
+      // Return the serialised sanctions tree
+      else if (url.endsWith(`/sanctions/${SANCTIONS_FIXTURES_ROOT}.tree.json.gz`)) {
+        return new Response(JSON.stringify(fixtureSanctionsTree), { status: 200 })
+      }
+      // Return a sanctions tree whose root is not the one requested
+      else if (url.endsWith(`/sanctions/${INVALID_HASH}.tree.json.gz`)) {
+        return new Response(JSON.stringify(fixtureSanctionsTree), { status: 200 })
       }
       // Pass through to the original fetch
       else {
@@ -355,6 +371,71 @@ describe("Registry", () => {
       const manifest = await registry.getCircuitManifest()
       expect(manifest.root).toBe(CIRCUIT_MANIFEST_FIXTURES_ROOT)
       await expect(registry.getPackagedCircuit("unknown", manifest)).rejects.toThrow(/not found/i)
+    })
+  })
+
+  describe("SanctionsRegistry", () => {
+    it("should get latest root", async () => {
+      const latestRoot = await registry.getLatestSanctionsRoot()
+      expect(latestRoot).toBe(SANCTIONS_FIXTURES_ROOT)
+    })
+
+    it("should get latest sanctions tree", async () => {
+      const { root, serialised } = await registry.getSanctionsTree()
+      expect(root).toBe(SANCTIONS_FIXTURES_ROOT)
+      expect(serialised).toEqual(fixtureSanctionsTree)
+    })
+
+    it("should fetch sanctions tree for a specific root", async () => {
+      const { root, serialised } = await registry.getSanctionsTree(strip0x(SANCTIONS_FIXTURES_ROOT))
+      expect(root).toBe(SANCTIONS_FIXTURES_ROOT)
+      expect(serialised).toEqual(fixtureSanctionsTree)
+    })
+
+    it("should fail to get sanctions tree on invalid root hash", async () => {
+      await expect(registry.getSanctionsTree(INVALID_HASH)).rejects.toThrow(/validation failed/i)
+    })
+
+    it("should get sanctions tree without validation", async () => {
+      const { serialised } = await registry.getSanctionsTree(INVALID_HASH, { validate: false })
+      expect(serialised).toEqual(fixtureSanctionsTree)
+    })
+
+    it("should load the sanctions tree into an ordered Merkle tree with the same root", async () => {
+      const { root, serialised } = await registry.getSanctionsTree()
+      const tree = await AsyncOrderedMT.fromSerialized(serialised, poseidon2)
+      expect(tree.root).toBe(BigInt(root))
+    })
+
+    it("should get latest sanctions root details", async () => {
+      const details = await registry.getSanctionsRootDetails()
+      expect(details.root).toBe(SANCTIONS_FIXTURES_ROOT)
+      expect(details.leaves).toBe(5)
+      expect(details.revoked).toBe(false)
+      expect(details.index).toBe(10)
+      expect(details.isLatest).toBe(true)
+      expect(details.validTo).toBeUndefined()
+    })
+
+    it("should get specific sanctions root details", async () => {
+      const details = await registry.getSanctionsRootDetails(SANCTIONS_GENESIS_ROOT)
+      expect(details.root).toBe(SANCTIONS_GENESIS_ROOT)
+      expect(details.leaves).toBe(100)
+      expect(details.revoked).toBe(false)
+      expect(details.index).toBe(1)
+      expect(details.isLatest).toBe(false)
+    })
+
+    it("should check if a sanctions root is valid", async () => {
+      const valid = await registry.isSanctionsRootValid(SANCTIONS_FIXTURES_ROOT)
+      expect(valid).toBe(true)
+      const valid2 = await registry.isSanctionsRootValid(strip0x(SANCTIONS_FIXTURES_ROOT))
+      expect(valid2).toBe(true)
+    })
+
+    it("should check if a sanctions root is invalid", async () => {
+      const valid = await registry.isSanctionsRootValid(INVALID_HASH)
+      expect(valid).toBe(false)
     })
   })
 
