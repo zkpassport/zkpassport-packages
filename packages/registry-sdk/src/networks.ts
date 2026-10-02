@@ -9,7 +9,7 @@ type NetworkConstants = {
   type: NetworkType
   rpcUrl: string
   rootRegistry: string
-  registryHelper?: string
+  registryHelper: string
   packagedCertificatesUrl: string
   circuitUrl: string
 }
@@ -77,13 +77,13 @@ const NETWORKS: NetworkConstants[] = [
     packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
     circuitUrl: CIRCUIT_URL_MAINNET,
   },
-  // No RegistryHelper is deployed on Robinhood Chain
   {
     chainId: getIdFromChain("robinhood"),
     chain: "robinhood",
     type: "mainnet",
     rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
     rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
+    registryHelper: "0x0A55cA59e98e17666C1A9a099d546E676088bC1A",
     packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
     circuitUrl: CIRCUIT_URL_MAINNET,
   },

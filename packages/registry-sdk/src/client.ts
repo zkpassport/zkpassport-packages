@@ -54,7 +54,7 @@ export class RegistryClient {
   private readonly chainId: number
   private readonly rpcUrl: string
   private readonly rootRegistry: string
-  private readonly registryHelper: string | undefined
+  private readonly registryHelper: string
   private readonly packagedCertsUrlGenerator: (
     chainId: number,
     root: string,
@@ -89,13 +89,14 @@ export class RegistryClient {
     const network = findNetworkConstants(chainId)
     const resolvedRpcUrl = rpcUrl || network?.rpcUrl
     const resolvedRootRegistry = rootRegistry || network?.rootRegistry
-    if (!resolvedRpcUrl || !resolvedRootRegistry) {
+    const resolvedRegistryHelper = registryHelper || network?.registryHelper
+    if (!resolvedRpcUrl || !resolvedRootRegistry || !resolvedRegistryHelper) {
       throw new Error(`Unsupported chain ID: ${chainId}`)
     }
 
     this.rpcUrl = resolvedRpcUrl
     this.rootRegistry = resolvedRootRegistry
-    this.registryHelper = registryHelper || network?.registryHelper
+    this.registryHelper = resolvedRegistryHelper
     this.packagedCertsUrlGenerator = packagedCertsUrlGenerator || PACKAGED_CERTIFICATES_URL_TEMPLATE
     this.circuitManifestUrlGenerator = circuitManifestUrlGenerator || CIRCUIT_MANIFEST_URL_TEMPLATE
     this.packagedCircuitUrlGenerator = packagedCircuitUrlGenerator || PACKAGED_CIRCUIT_URL_TEMPLATE
@@ -201,7 +202,6 @@ export class RegistryClient {
     from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
     const requestData =
       typeof fromRoot === "number"
@@ -250,8 +250,6 @@ export class RegistryClient {
       isLastPage: boolean,
     ) => void,
   ): Promise<RootDetails[]> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address is not configured")
-
     let pageNumber = 0
     let isLastPage = false
     let currentIndex = 1
@@ -423,7 +421,6 @@ export class RegistryClient {
     from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
     const requestData =
       typeof fromRoot === "number"
@@ -472,8 +469,6 @@ export class RegistryClient {
       isLastPage: boolean,
     ) => void,
   ): Promise<RootDetails[]> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address is not configured")
-
     let pageNumber = 0
     let isLastPage = false
     let currentIndex = 1
@@ -665,10 +660,8 @@ export class RegistryClient {
   /**
    * Get the address of the Registry Helper
    * @returns The address of the Registry Helper
-   * @throws If no Registry Helper is configured for this chain
    */
   getRegistryHelperAddress(): string {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     return this.registryHelper
   }
 
@@ -755,7 +748,6 @@ export class RegistryClient {
     registryName: string,
     root?: string,
   ): Promise<RootDetails> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     if (root) {
       log(`Getting ${registryName} root details`)
       const response = await this.rpcRequest(
