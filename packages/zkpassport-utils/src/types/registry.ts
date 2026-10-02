@@ -151,9 +151,7 @@ export type SanctionsSource = {
  * packaged sanctions file can be reproduced.
  */
 export type PackagedSanctionsBuilder = {
-  /** Version of @zkpassport/sanctions, which parses the snapshots and hashes the leaves */
-  sanctions_version: string
-  /** Version of @zkpassport/utils, which provides poseidon2 and the AsyncOrderedMT tree */
+  /** Version of @zkpassport/utils, which parses the snapshots, hashes the leaves and builds the tree */
   utils_version: string
   /** Depth of the sanctions tree, as the Sanctions Registry records it in its tree height */
   tree_depth: number

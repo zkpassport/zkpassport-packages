@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.39.0-beta.2",
+  "version": "0.39.0-beta.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkpassport/zkpassport-packages",
@@ -73,6 +73,10 @@
     "./registry": {
       "import": "./dist/esm/registry/index.js",
       "require": "./dist/cjs/registry/index.cjs"
+    },
+    "./sanctions": {
+      "import": "./dist/esm/sanctions/index.js",
+      "require": "./dist/cjs/sanctions/index.cjs"
     },
     "./types": {
       "import": "./dist/esm/types/index.js",
