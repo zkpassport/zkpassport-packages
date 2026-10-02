@@ -96,12 +96,12 @@ describe("document leaf", () => {
     expect(byCountry.leaves).toContain(await leafOf("1<<<<<<<<", "FRA"))
   })
 
-  test("Germany is written as D<<, the way German documents print it and the circuit hashes it", async () => {
+  test("Germany is written as DEU, the code the circuit turns a German document's D<< into", async () => {
     for (const p of [
       person({ passports: ["1"], nationalities: ["DE"] }),
       person({ passports: ["1"], nationalities: ["DEU"] }),
     ]) {
-      expect((await buildSanctionsLeaves([p])).leaves).toContain(await leafOf("1<<<<<<<<", "D<<"))
+      expect((await buildSanctionsLeaves([p])).leaves).toContain(await leafOf("1<<<<<<<<", "DEU"))
     }
   })
 
