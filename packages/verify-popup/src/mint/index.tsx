@@ -79,6 +79,7 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
           request={request}
           credential={credential}
           appName={appName}
+          rpHost={rpHost}
           send={send}
           chain={resolved.chain}
         />
@@ -87,12 +88,12 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   )
 }
 
-type FlowBodyProps = Omit<CredentialFlowProps, "rpHost"> & {
+type FlowBodyProps = CredentialFlowProps & {
   appName: string
   chain: Chain
 }
 
-function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) {
+function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBodyProps) {
   const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
     useCredentialFlow({ request, credential, appName, chain, send })
   const switchChain = useSwitchChain()
@@ -110,6 +111,7 @@ function FlowBody({ request, credential, appName, send, chain }: FlowBodyProps) 
         return (
           <VerifyStep
             appName={appName}
+            rpHost={rpHost}
             purpose={request.purpose}
             options={step.cardOptions}
             progress={scan}
@@ -183,11 +185,13 @@ function progressSegments(
  */
 function VerifyStep({
   appName,
+  rpHost,
   purpose,
   options,
   progress,
 }: {
   appName: string
+  rpHost: string
   purpose?: string
   options: ZKPassportQRCodeOptions
   progress: ScanProgress | null
@@ -195,7 +199,8 @@ function VerifyStep({
   const [consented, setConsented] = useState(false)
   const req = useRequest(
     {
-      domain: options.domain ?? window.location.hostname,
+      // The policy's domain is read from the chain, not from the opener
+      domain: options.domain ?? rpHost,
       request: {
         name: options.name,
         logo: options.logo,
