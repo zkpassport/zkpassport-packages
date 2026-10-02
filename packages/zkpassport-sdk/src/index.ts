@@ -37,6 +37,7 @@ import {
   VerifierMode,
   VerificationResult,
   RequestedNullifierType,
+  VerificationConfig,
 } from "./types"
 import {
   createOfflineQuery,
@@ -148,6 +149,7 @@ export class ZKPassport {
       oprfKeyId: string | null
       returnDeepLink: string | undefined
       verifierMode: VerifierMode | undefined
+      config: VerificationConfig | undefined
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -279,6 +281,7 @@ export class ZKPassport {
         oprfKeyId: this.topicToLocalConfig[topic]?.oprfKeyId ?? undefined,
         uniqueIdentifierType: this.topicToLocalConfig[topic]?.uniqueIdentifierType,
         verifierMode: this.topicToLocalConfig[topic]?.verifierMode,
+        config: this.topicToLocalConfig[topic]?.config,
       })
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
@@ -699,6 +702,7 @@ export class ZKPassport {
    * @param mode The proof mode (e.g. "fast" / "compressed").
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param verifierMode How the received proofs are verified: "local", "api" or "auto" (default).
+   * @param config Settings for verifying the received proofs, see {@link VerificationConfig}.
    * @returns The query builder object.
    */
   public async request({
@@ -718,6 +722,7 @@ export class ZKPassport {
     bridgeUrl,
     returnDeepLink,
     verifierMode,
+    config,
   }: {
     name?: string
     logo?: string
@@ -735,6 +740,7 @@ export class ZKPassport {
     bridgeUrl?: string
     returnDeepLink?: string
     verifierMode?: VerifierMode
+    config?: VerificationConfig
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
@@ -746,9 +752,9 @@ export class ZKPassport {
       )
     }
 
-    let config: DashboardConfig | null = null
+    let dashboardConfig: DashboardConfig | null = null
     try {
-      config = await this.getDashboardConfig()
+      dashboardConfig = await this.getDashboardConfig()
       this.dashboardConfigError = null
     } catch (e) {
       this.dashboardConfigError = e as Error
@@ -765,8 +771,8 @@ export class ZKPassport {
     this.topicToConfig[topic] = {}
     this.topicToCallerPurpose[topic] = purpose
     this.topicToService[topic] = {
-      name: name || config?.project?.name || this.domain,
-      logo: logo || config?.project?.logoUrl || "",
+      name: name || dashboardConfig?.project?.name || this.domain,
+      logo: logo || dashboardConfig?.project?.logoUrl || "",
       purpose: purpose || DEFAULT_PURPOSE,
       scope,
       projectID,
@@ -782,6 +788,7 @@ export class ZKPassport {
       oprfKeyId: oprfKeyId ?? null,
       returnDeepLink,
       verifierMode,
+      config,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -848,6 +855,7 @@ export class ZKPassport {
    * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
    * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
+   * @param config Verification settings such as the RPC URL, see {@link VerificationConfig}.
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
@@ -862,6 +870,7 @@ export class ZKPassport {
     oprfKeyId,
     uniqueIdentifierType,
     verifierMode = "auto",
+    config,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -873,6 +882,7 @@ export class ZKPassport {
     oprfKeyId?: string
     uniqueIdentifierType?: RequestedNullifierType
     verifierMode?: VerifierMode
+    config?: VerificationConfig
   }): Promise<VerificationResult> {
     if (!originalQuery || !queryResult) {
       throw new Error("verify() requires `originalQuery` and `queryResult`")
@@ -888,7 +898,7 @@ export class ZKPassport {
       return notVerified
     }
     const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
-    const localParams = { ...params, writingDirectory }
+    const localParams = { ...params, writingDirectory, config }
     const apiParams = { ...params, domain: this.domain }
     const requestedType = oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType
 
@@ -920,6 +930,7 @@ export class ZKPassport {
     devMode = false,
     writingDirectory,
     oprfKeyId,
+    config,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -929,6 +940,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
+    config?: VerificationConfig
   }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
@@ -946,6 +958,7 @@ export class ZKPassport {
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
     try {
+      const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode), config)
       const {
         isCorrect,
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
@@ -960,6 +973,7 @@ export class ZKPassport {
         scope,
         oprfKeyId,
         devMode,
+        registryClient,
       )
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
@@ -980,7 +994,6 @@ export class ZKPassport {
       }
       // Only proceed with the proof verification if the public inputs are correct
       if (verified) {
-        const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode))
         const circuitManifest = await registryClient.getCircuitManifest(undefined, {
           // We assume all proofs have the same version
           version: proofs[0].version,
