@@ -10,7 +10,7 @@ import { getChainFromId, NullifierType, type ProofMode } from "@zkpassport/sdk"
 import { isInAppBrowser } from "./environment"
 import { ZKPassportError, type ZKPassportErrorKind } from "./errors"
 import { logger } from "./logger"
-import { DEFAULT_POLICY_CHAIN_ID, parsePolicyId } from "./policy-id"
+import { parsePolicyId } from "./policy-id"
 import { toWireQuery, type BoundData, type Query } from "./query-wire"
 
 export type VerificationStatus = "idle" | "in-progress" | "success" | "error"
@@ -27,6 +27,7 @@ export type ServiceConfig = {
   domain?: string
   scope?: string
   uniqueIdentifierType?: "salted" | "non-salted" | "none"
+  validity?: number
   devMode?: boolean
 }
 
@@ -34,7 +35,6 @@ export type ServiceConfig = {
 export type VerificationOverrides = {
   bridgeUrl?: string
   cloudProverUrl?: string
-  rpcUrl?: string
   /** @internal Points the flow at another popup origin; for testing. */
   popupUrl?: string
 }
@@ -52,8 +52,8 @@ type BaseVerificationOptions = Callbacks & {
 }
 
 /**
- * A verification proves a query, or mints the credential a policy defines. `mint` only adds the
- * issuing step: the same policy works without it, with the proof going to the RP's backend.
+ * A verification proves a query, proves a dashboard policy, or mints the credential an on-chain
+ * policy defines. An on-chain policy is only evaluated by its contract, so it always mints.
  */
 export type VerificationOptions =
   | (BaseVerificationOptions & {
@@ -266,11 +266,10 @@ function buildRequest(options: VerificationOptions): {
     }
   }
 
-  if (policy?.kind === "onchain" && policy.chainId === undefined) {
-    const chainId = options.bind?.chainId ?? DEFAULT_POLICY_CHAIN_ID
-    logger.warn(
-      `Policy "${options.policyId}" carries no chain and was resolved on eip155:${chainId}. ` +
-        `Write eip155:<chainId>:${policy.policyId} to target another chain.`,
+  if (policy?.kind === "onchain") {
+    throw new Error(
+      `Policy "${options.policyId}" lives on-chain and can only be used with mint: true. To ` +
+        "verify without minting, use a dashboard policy or a query.",
     )
   }
   if (!options.query && !policy) {
@@ -302,7 +301,10 @@ function toPopupRequest(
     // recognised across visits to it and not across a service's other flows
     scope: service.scope ?? dashboardPolicy,
     mode: options.mint ? "compressed-evm" : options.mode,
+    validity: service.validity,
     devMode: service.devMode,
+    bridgeUrl: options.overrides?.bridgeUrl,
+    cloudProverUrl: options.overrides?.cloudProverUrl,
     // Left unset when not configured, so the SDK's own default applies
     uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
   }

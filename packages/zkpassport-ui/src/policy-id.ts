@@ -16,9 +16,6 @@ export type ParsedPolicyId =
 const ONCHAIN_ID = /^0x[0-9a-fA-F]{1,64}$/
 const CAIP = /^eip155:(\d+):(0x[0-9a-fA-F]{1,64})$/
 
-/** The chain a bare `0x…` id resolves to when nothing else names one. */
-export const DEFAULT_POLICY_CHAIN_ID = 1
-
 export function parsePolicyId(id: string): ParsedPolicyId {
   const caip = CAIP.exec(id)
   if (caip) {

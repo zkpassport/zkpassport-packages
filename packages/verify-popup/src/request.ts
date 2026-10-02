@@ -85,14 +85,18 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         validity: options.validity,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
+        bridgeUrl: options.bridgeUrl,
+        cloudProverUrl: options.cloudProverUrl,
         verifierMode: options.verifierMode ?? "api",
       })
       .then((builder) => {
-        const built = options.policyId
-          ? builder.policy(options.policyId).done()
-          : typeof wanted === "function"
+        const built =
+          typeof wanted === "function"
             ? wanted(builder)
-            : hydrateQueryBuilder(builder, wanted)
+            : hydrateQueryBuilder(
+                builder,
+                options.policyId ? { ...wanted, policy: options.policyId } : wanted,
+              )
 
         // An empty query would render as a consent screen that asks for nothing
         if (Object.keys(built.query).length === 0) {

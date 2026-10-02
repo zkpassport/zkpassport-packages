@@ -31,6 +31,8 @@ export type PopupRequestConfig = {
   oprfKeyId?: string
   policyId?: string
   domain?: string
+  bridgeUrl?: string
+  cloudProverUrl?: string
 }
 
 export type PopupCredentialOutcome = {

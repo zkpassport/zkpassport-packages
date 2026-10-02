@@ -197,6 +197,7 @@ function VerifyStep({
   progress: ScanProgress | null
 }) {
   const [consented, setConsented] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
   const req = useRequest(
     {
       // The policy's domain is read from the chain, not from the opener
@@ -218,12 +219,27 @@ function VerifyStep({
       onReceived: options.onRequestReceived,
       onProving: options.onGeneratingProof,
       onProof: options.onProofGenerated,
-      onResult: options.onResult,
-      onReject: options.onReject,
-      onError: options.onError,
+      onResult: (result) => {
+        if (!result.verified) setFailure("Your ID could not be verified. Please try again.")
+        options.onResult?.(result)
+      },
+      onReject: () => {
+        setFailure("The request was declined on your phone.")
+        options.onReject?.()
+      },
+      onError: (message) => {
+        setFailure(String(message))
+        options.onError?.(message)
+      },
     },
   )
 
+  const tryAgain = () => {
+    setFailure(null)
+    req.retry()
+  }
+
+  if (failure) return <ErrorScreen message={failure} onRetry={tryAgain} />
   if (progress) return <Waiting progress={progress} />
   if (!consented) {
     return (

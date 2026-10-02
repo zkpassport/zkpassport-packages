@@ -153,7 +153,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
         },
         onResult: (result) => {
           if (stale()) return
-          // An unverified proof leaves the card in its own error state, with its retry
+          // The verify step shows the failure and offers a retry; the flow only steps back
           if (!result.verified) {
             setScan(null)
             return

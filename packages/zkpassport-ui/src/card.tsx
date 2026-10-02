@@ -218,6 +218,27 @@ export function Card({ options, controlRef }: CardProps) {
 // One placeholder per requested-claims row
 const SKELETON_ROWS = 2
 
+function IntroNote({ item }: { item: QueryDescriptionItem }) {
+  return (
+    <li className="zkp-intro-note">
+      <span className="zkp-intro-note-label">{item.note}</span>
+      {item.rows ? (
+        <dl className="zkp-intro-note-rows">
+          {item.rows.map((row) => (
+            <div key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <span className="zkp-intro-note-text">{item.title}</span>
+      )}
+      {item.detail ? <span className="zkp-intro-item-detail">{item.detail}</span> : null}
+    </li>
+  )
+}
+
 // The ICAO e-passport symbol printed on the cover of biometric passports
 const ICON_EPASSPORT_CHIP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 32" fill="currentColor" aria-hidden="true"><circle cx="27.5033" cy="15.722" r="7.48372"/><path d="M55.1719 31.4604H0V17.3281H17.0845C17.857 22.3884 22.2278 26.265 27.504 26.265C32.7802 26.265 37.151 22.3884 37.9235 17.3281H55.1719V31.4604Z"/><path d="M55.1719 14.1192H37.9236C37.1511 9.05887 32.7803 5.18223 27.504 5.18223C22.2278 5.18223 17.857 9.05887 17.0845 14.1192H0V0H55.1719V14.1192Z"/></svg>`
 
@@ -253,20 +274,24 @@ function IntroSection({
           </ul>
         ) : (
           <ul className="zkp-intro-list">
-            {items.map((item) => (
-              <li key={item.title}>
-                <span
-                  className="zkp-intro-check"
-                  dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
-                />
-                <span className="zkp-intro-item">
-                  <span className="zkp-intro-item-title">{item.title}</span>
-                  {item.detail ? (
-                    <span className="zkp-intro-item-detail">{item.detail}</span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
+            {items.map((item, index) =>
+              item.note ? (
+                <IntroNote key={index} item={item} />
+              ) : (
+                <li key={index}>
+                  <span
+                    className="zkp-intro-check"
+                    dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
+                  />
+                  <span className="zkp-intro-item">
+                    <span className="zkp-intro-item-title">{item.title}</span>
+                    {item.detail ? (
+                      <span className="zkp-intro-item-detail">{item.detail}</span>
+                    ) : null}
+                  </span>
+                </li>
+              ),
+            )}
           </ul>
         )}
         {purpose && !loading ? (
