@@ -66,7 +66,6 @@ export function createRegistryClient(
   return new RegistryClient({ ...overrides, chainId })
 }
 
-
 /**
  * Client for interacting with the ZKPassport Registry
  */

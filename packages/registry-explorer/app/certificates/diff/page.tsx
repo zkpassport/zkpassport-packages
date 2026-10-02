@@ -42,12 +42,7 @@ interface DiffState {
 }
 
 type ChangeCategory =
-  | "added"
-  | "removed"
-  | "trust_increased"
-  | "trust_decreased"
-  | "trust_changed"
-  | "other"
+  "added" | "removed" | "trust_increased" | "trust_decreased" | "trust_changed" | "other"
 
 interface FieldChange {
   field: string
