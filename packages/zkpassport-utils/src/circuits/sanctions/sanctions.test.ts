@@ -1,5 +1,10 @@
 import { PASSPORTS } from "../../../tests/fixtures/passports"
-import { getNameCombinations, processName } from "./sanctions"
+import {
+  getNameCombinations,
+  getSanctionsEvmParameterCommitment,
+  getSanctionsParameterCommitment,
+  processName,
+} from "./sanctions"
 
 describe("Sanctions", () => {
   test("should get the correct name combinations for passport", () => {
@@ -156,5 +161,36 @@ describe("Sanctions", () => {
       "SMITH<<MARY<MILLER<<<<<<<<<<<<<<<<<<<<<",
       "SMITH<<MARY<MILLER<<<<<<<<<<<<<<<<<<<<<",
     ])
+  })
+})
+
+describe("Sanctions parameter commitments", () => {
+  const root = "0x11bf8199f0eb9e91f45ea1c2bfa21b0dc2f66c1bea3ee530639aa7028066a57c"
+
+  test("should compute the standard commitment for a root", async () => {
+    expect(await getSanctionsParameterCommitment(root, true)).toBe(
+      5295707067144596394251772399148470508411191506092852339205029779394605045166n,
+    )
+    expect(await getSanctionsParameterCommitment(root, false)).toBe(
+      7662163913083502769211158705780214141844908219718967618056027582550521276512n,
+    )
+  })
+
+  test("should compute the EVM commitment for a root", async () => {
+    expect(await getSanctionsEvmParameterCommitment(root, true)).toBe(
+      205099242533093984409193765616318451334906338903611604332323086265114798019n,
+    )
+    expect(await getSanctionsEvmParameterCommitment(root, false)).toBe(
+      304549916997615609259488675250376195137335508594587425464481168511724345632n,
+    )
+  })
+
+  test("should accept a root without the 0x prefix", async () => {
+    expect(await getSanctionsParameterCommitment(root.slice(2), true)).toBe(
+      await getSanctionsParameterCommitment(root, true),
+    )
+    expect(await getSanctionsEvmParameterCommitment(root.slice(2), true)).toBe(
+      await getSanctionsEvmParameterCommitment(root, true),
+    )
   })
 })
