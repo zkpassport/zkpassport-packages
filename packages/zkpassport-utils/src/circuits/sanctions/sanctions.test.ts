@@ -4,7 +4,10 @@ import {
   getSanctionsEvmParameterCommitment,
   getSanctionsParameterCommitment,
   processName,
+  SanctionsBuilder,
 } from "./sanctions"
+import { AsyncOrderedMT, poseidon2 } from "@/merkle-tree"
+import { stringToAsciiStringArray } from "@/utils"
 
 describe("Sanctions", () => {
   test("should get the correct name combinations for passport", () => {
@@ -161,6 +164,48 @@ describe("Sanctions", () => {
       "SMITH<<MARY<MILLER<<<<<<<<<<<<<<<<<<<<<",
       "SMITH<<MARY<MILLER<<<<<<<<<<<<<<<<<<<<<",
     ])
+  })
+})
+
+describe("SanctionsBuilder", () => {
+  test("builds non-membership proofs for a passport and an ID card against a local tree", async () => {
+    const tree = await AsyncOrderedMT.create(4, poseidon2)
+    await tree.initialize([10n, 20n, 30n])
+    const builder = new SanctionsBuilder(tree)
+    const idCard = {
+      ...PASSPORTS.john,
+      mrz: "I<ZKRZID222222<<<<<<<<<<<<<<<<9801157F3001018ZKR<<<<<<<<<<<2DOE<<JOHN<<<<<<<<<<<<<<<<<<<<<",
+    }
+    for (const doc of [PASSPORTS.john, PASSPORTS.mary, idCard]) {
+      const { proofs, root } = await builder.getSanctionsMerkleProofs(doc, true)
+      expect(root).toBe(builder.getRoot())
+      expect(Object.keys(proofs).length).toBeGreaterThan(0)
+    }
+  })
+
+  test("hashes a German document's nationality as DEU, not the D<< the MRZ prints", async () => {
+    // The circuit reads the nationality through get_nationality_from_mrz, which turns D<< into DEU
+    // before hashing, so the proof must be built around the DEU leaf
+    const german = {
+      ...PASSPORTS.john,
+      mrz: "P<D<<MUSTERMANN<<ERIKA<<<<<<<<<<<<<<<<<<<<<<C01X00T478D<<6408125F2702283<<<<<<<<<<<<<<<4",
+    }
+    const leafFor = (nationality: string) =>
+      poseidon2(stringToAsciiStringArray("C01X00T47" + nationality))
+
+    const treeWithIsoCode = await AsyncOrderedMT.create(4, poseidon2)
+    await treeWithIsoCode.initialize([await leafFor("DEU")])
+    await expect(
+      new SanctionsBuilder(treeWithIsoCode).getSanctionsMerkleProofs(german, true),
+    ).rejects.toThrow("Target exists")
+
+    const treeWithPrintedCode = await AsyncOrderedMT.create(4, poseidon2)
+    await treeWithPrintedCode.initialize([await leafFor("D<<")])
+    const { proofs } = await new SanctionsBuilder(treeWithPrintedCode).getSanctionsMerkleProofs(
+      german,
+      true,
+    )
+    expect(Object.keys(proofs).length).toBeGreaterThan(0)
   })
 })
 

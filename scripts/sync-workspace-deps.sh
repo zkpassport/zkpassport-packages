@@ -11,6 +11,7 @@ echo "Ensuring workspace dependencies are synced"
 (cd packages/registry-sdk && bun update @zkpassport/utils)
 (cd packages/zkpassport-ui && bun update @zkpassport/sdk)
 (cd packages/onchain-credentials/javascript && bun update @zkpassport/utils)
+(cd packages/sanctions && bun update @zkpassport/utils)
 
 bun install
 
