@@ -17,6 +17,7 @@ import { AsyncIMT, poseidon2 } from "../merkle-tree"
 import type { IMTMerkleProof } from "../merkle-tree/async-imt"
 import { computeMerkleProof } from ".."
 export { cidv0ToHex, hexToCidv0 } from "./cid"
+export * from "./sanctions"
 
 /**
  * Canonical height of the certificate merkle tree (in the Certificate Registry)
