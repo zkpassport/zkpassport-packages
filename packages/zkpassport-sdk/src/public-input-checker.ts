@@ -1859,11 +1859,12 @@ export class PublicInputChecker {
       received: string
       message: string
     },
+    registryClient?: RegistryClient,
   ) {
     let isCorrect: boolean
     try {
       isCorrect = await check(
-        createRegistryClient(getChainFromQuery(originalQuery, Boolean(devMode))),
+        registryClient ?? createRegistryClient(getChainFromQuery(originalQuery, Boolean(devMode))),
       )
     } catch (error) {
       console.warn(error)
@@ -1885,6 +1886,7 @@ export class PublicInputChecker {
     // Point in time to check validity at, in seconds; defaults to now
     timestamp?: number,
     originalQuery: Query = {},
+    registryClient?: RegistryClient,
   ) {
     return this.checkRegistryRoot(
       (registry) => registry.isCertificateRootValid(root, timestamp),
@@ -1898,6 +1900,7 @@ export class PublicInputChecker {
         received: `Got invalid certificate registry root: ${root}`,
         message: "The ID was signed by an unrecognized root certificate",
       },
+      registryClient,
     )
   }
 
@@ -1908,6 +1911,7 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
     originalQuery: Query = {},
+    registryClient?: RegistryClient,
   ) {
     return this.checkRegistryRoot(
       (registry) => registry.isCircuitRootValid(root, timestamp),
@@ -1921,6 +1925,7 @@ export class PublicInputChecker {
         received: `Got invalid circuit registry root: ${root}`,
         message: "The proof uses an unrecognized circuit",
       },
+      registryClient,
     )
   }
 
@@ -1931,6 +1936,7 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
     originalQuery: Query = {},
+    registryClient?: RegistryClient,
   ) {
     return this.checkRegistryRoot(
       (registry) => registry.isSanctionsRootValid(root, timestamp),
@@ -1944,6 +1950,7 @@ export class PublicInputChecker {
         received: `Got invalid sanctions registry root: ${root}`,
         message: "Invalid sanctions registry root",
       },
+      registryClient,
     )
   }
 
@@ -2024,6 +2031,7 @@ export class PublicInputChecker {
     devMode?: boolean,
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
+    registryClient?: RegistryClient,
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
@@ -2047,6 +2055,7 @@ export class PublicInputChecker {
         devMode,
         timestamp,
         originalQuery,
+        registryClient,
       )
       isCorrect = isCorrect && isCorrectRoot
       if (queryResult.sanctions.isStrict !== sanctionsCommittedInputs.isStrict) {
@@ -2341,6 +2350,7 @@ export class PublicInputChecker {
     scope?: string,
     oprfKeyId?: string,
     devMode?: boolean,
+    registryClient?: RegistryClient,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -2418,6 +2428,7 @@ export class PublicInputChecker {
           devMode,
           rootTimestamp,
           originalQuery,
+          registryClient,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
@@ -2435,6 +2446,7 @@ export class PublicInputChecker {
           devMode,
           rootTimestamp,
           originalQuery,
+          registryClient,
         )
         isCorrect = isCorrect && isCorrectCircuitRegistryRoot
         queryResultErrors = {
@@ -2869,6 +2881,7 @@ export class PublicInputChecker {
             exclusionCheckSanctionsCommittedInputs,
             devMode,
             rootTimestamp,
+            registryClient,
           )
           isCorrect = isCorrect && isCorrectSanctionsExclusion
           queryResultErrors = {
@@ -2933,6 +2946,7 @@ export class PublicInputChecker {
           devMode,
           bundleRootTimestamp,
           originalQuery,
+          registryClient,
         )
         isCorrect = isCorrect && isCorrectCertificateRegistryRoot
         queryResultErrors = {
