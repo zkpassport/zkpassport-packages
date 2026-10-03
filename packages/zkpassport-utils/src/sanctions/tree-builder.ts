@@ -4,27 +4,27 @@
  * against, and the packaged sanctions file that records the tree for publication.
  *
  * Reading a packaged sanctions file back (its type, the shape check and the root recomputation)
- * lives in @zkpassport/utils, so a client can verify a downloaded file without this package.
+ * is in registry/sanctions.ts, which the package root exports, so a client can verify a downloaded
+ * file without importing `@zkpassport/utils/sanctions`.
  */
 import {
-  buildSanctionsTree,
-  countryCodeAlpha2ToAlpha3,
-  dateToMrz,
   documentNumberAndNationalityLeafPreimage,
+  nameAndDobLeafPreimage,
+  nameAndYobLeafPreimage,
+  nameLeafPreimage,
+} from "../circuits/sanctions/leaves"
+import { countryCodeAlpha2ToAlpha3 } from "../country/country"
+import { type AsyncOrderedMT, nodeToHex, poseidon2 } from "../merkle-tree"
+import {
+  dateToMrz,
   documentNumberToMrz,
   formatMrzName,
   MRZ_DOCUMENT_NUMBER_LENGTH,
   MRZ_NAME_LENGTH,
-  nameAndDobLeafPreimage,
-  nameAndYobLeafPreimage,
-  nameLeafPreimage,
-  nodeToHex,
-  poseidon2,
-  stringToAsciiStringArray,
-  type AsyncOrderedMT,
-  type PackagedSanctionsFileV1,
-  type SanctionsSource,
-} from "@zkpassport/utils"
+} from "../passport/mrz"
+import { buildSanctionsTree } from "../registry/sanctions"
+import type { PackagedSanctionsFileV1, SanctionsSource } from "../types"
+import { stringToAsciiStringArray } from "../utils"
 import { LeafFamilyCounts, SanctionsPerson } from "./types"
 
 /**
@@ -43,9 +43,7 @@ export type CreatePackagedSanctionsFileInput = {
   tree_depth: number
   /** One record per upstream snapshot the leaves were derived from */
   sources: SanctionsSource[]
-  /** Version of @zkpassport/sanctions, which parsed the snapshots and hashed the leaves */
-  sanctions_version: string
-  /** Version of @zkpassport/utils, which provides poseidon2 and AsyncOrderedMT */
+  /** Version of @zkpassport/utils, which parsed the snapshots, hashed the leaves and built the tree */
   utils_version: string
   /** Licence attribution of the upstream data, e.g. OpenSanctions' CC BY-NC 4.0 notice */
   attribution: string
@@ -75,7 +73,6 @@ export async function createPackagedSanctionsFile(
     leaves: tree.leaves.map(nodeToHex),
     sources: [...input.sources].sort((a, b) => a.dataset.localeCompare(b.dataset)),
     builder: {
-      sanctions_version: input.sanctions_version,
       utils_version: input.utils_version,
       tree_depth: input.tree_depth,
     },
@@ -210,13 +207,15 @@ function mrzCountryCode(value: string): string | undefined {
 
 /**
  * MRZ bytes as Poseidon2 inputs. Uses the same encoder as the verifier side
- * (`getSanctionsHashesFromIdData` in `@zkpassport/utils`), so builder and checker cannot drift.
+ * (`getSanctionsHashesFromIdData` in `circuits/sanctions/sanctions.ts`), so builder and checker
+ * cannot drift.
  */
 const asciiBytes = (str: string): bigint[] => stringToAsciiStringArray(str).map(BigInt)
 
 /**
  * Poseidon2 of every field value, laid out by one of the leaf preimage functions of
- * `@zkpassport/utils`, which the verifier uses too, so builder and verifier cannot drift apart.
+ * `circuits/sanctions/leaves.ts`, which the verifier uses too, so builder and verifier cannot drift
+ * apart.
  */
 async function hashAll(
   fields: Set<string>,

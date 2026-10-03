@@ -1,14 +1,13 @@
 // The sanctions tree: the leaves a sanctioned person produces, checked against the verifier's own
 // encoding, and the packaged sanctions file that records the tree over them.
 import { describe, expect, test } from "bun:test"
+import { nodeToHex, poseidon2 } from "../merkle-tree"
 import {
   calculatePackagedSanctionsRoot,
   checkPackagedSanctionsFileShape,
-  nodeToHex,
-  poseidon2,
-  stringToAsciiStringArray,
-  type SanctionsSource,
-} from "@zkpassport/utils"
+} from "../registry/sanctions"
+import type { SanctionsSource } from "../types"
+import { stringToAsciiStringArray } from "../utils"
 import {
   buildSanctionsLeaves,
   createPackagedSanctionsFile,
@@ -194,8 +193,7 @@ describe("packaged sanctions file", () => {
     leaves: [9n, 3n, 5n, 3n],
     tree_depth: 4,
     sources,
-    sanctions_version: "0.1.0",
-    utils_version: "0.39.0-beta.2",
+    utils_version: "0.39.0-beta.3",
     attribution:
       "Derived from OpenSanctions (https://www.opensanctions.org), licensed CC BY-NC 4.0",
   }
@@ -216,7 +214,7 @@ describe("packaged sanctions file", () => {
       timestamp: input.timestamp,
       environment: "test",
       previous_root: hex32(0xabc),
-      builder: { sanctions_version: "0.1.0", utils_version: "0.39.0-beta.2", tree_depth: 4 },
+      builder: { utils_version: "0.39.0-beta.3", tree_depth: 4 },
       attribution: input.attribution,
     })
     expect(file.sources.map((s) => s.dataset)).toEqual(["eu_fsf", "us_ofac_sdn"])

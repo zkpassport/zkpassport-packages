@@ -10,7 +10,7 @@ import {
 
 const hex32 = (n: bigint | number) => nodeToHex(BigInt(n))
 
-/** A well-formed file, as @zkpassport/sanctions' createPackagedSanctionsFile writes it */
+/** A well-formed file, as createPackagedSanctionsFile writes it */
 const file: PackagedSanctionsFile = {
   version: 1,
   timestamp: 1_758_186_000,
@@ -36,7 +36,7 @@ const file: PackagedSanctionsFile = {
       entities: 11_842,
     },
   ],
-  builder: { sanctions_version: "0.1.0", utils_version: "0.39.0-beta.2", tree_depth: 4 },
+  builder: { utils_version: "0.39.0-beta.3", tree_depth: 4 },
   attribution: "Derived from OpenSanctions (https://www.opensanctions.org), licensed CC BY-NC 4.0",
 }
 

@@ -5,8 +5,8 @@
  * (historicalRoots[root].cid), so holding the file is enough to rebuild the tree and check the
  * root, as calculatePackagedCertificatesRoot does for the Certificate Registry's file.
  *
- * @zkpassport/sanctions' createPackagedSanctionsFile writes these files for the sanctions publisher
- * (zkpassport-publishing); a client that downloads one validates it with
+ * createPackagedSanctionsFile (`@zkpassport/utils/sanctions`) writes these files for the sanctions
+ * publisher (zkpassport-publishing); a client that downloads one validates it with
  * checkPackagedSanctionsFileShape and calculatePackagedSanctionsRoot.
  */
 import { AsyncOrderedMT, nodeToHex, poseidon2 } from "../merkle-tree"
@@ -106,7 +106,6 @@ export function checkPackagedSanctionsFileShape(file: unknown): string[] {
   if (!builder) {
     problems.push("builder missing")
   } else {
-    if (typeof builder.sanctions_version !== "string") problems.push("builder.sanctions_version")
     if (typeof builder.utils_version !== "string") problems.push("builder.utils_version")
     if (!isInteger(builder.tree_depth, 1)) {
       problems.push("builder.tree_depth must be a positive integer")

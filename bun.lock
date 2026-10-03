@@ -92,14 +92,6 @@
         "keccak256": "^1.0.6",
       },
     },
-    "packages/sanctions": {
-      "name": "@zkpassport/sanctions",
-      "version": "0.1.0",
-      "dependencies": {
-        "@zkpassport/utils": "workspace:*",
-        "tslib": "^2.8.1",
-      },
-    },
     "packages/verify-popup": {
       "name": "verify-popup",
       "version": "0.1.0",
@@ -177,7 +169,7 @@
     },
     "packages/zkpassport-utils": {
       "name": "@zkpassport/utils",
-      "version": "0.39.0-beta.2",
+      "version": "0.39.0-beta.3",
       "dependencies": {
         "@lapo/asn1js": "^2.0.4",
         "@noble/ciphers": "^1.0.0",
@@ -926,8 +918,6 @@
     "@zkpassport/poseidon2": ["@zkpassport/poseidon2@0.6.2", "", {}, "sha512-6sFHX9kAcrmDmBEEndvjZ8DA9FomunirQ5oCV6oD7bqr/lP0n0OBSRn86SZgQBXwRR+vq7sk16y31OgRBIOJ5Q=="],
 
     "@zkpassport/registry": ["@zkpassport/registry@workspace:packages/registry-sdk"],
-
-    "@zkpassport/sanctions": ["@zkpassport/sanctions@workspace:packages/sanctions"],
 
     "@zkpassport/sdk": ["@zkpassport/sdk@workspace:packages/zkpassport-sdk"],
 

@@ -1,6 +1,6 @@
-# ZKPassport Sanctions
+# Sanctions tree builder
 
-Builds the ZKPassport sanctions tree from OpenSanctions data: parses
+`@zkpassport/utils/sanctions` builds the ZKPassport sanctions tree from OpenSanctions data: parses
 [FollowTheMoney](https://followthemoney.tech) exports, performs ICAO 9303 transliteration and MRZ
 formatting.
 
@@ -16,16 +16,14 @@ Four families of leaves are computed with Poseidon2 over the MRZ bytes of each s
 The resulting Merkle tree is meant to be used by the Sanctions Registry. The sanctions circuit
 proves that the hashes it recomputes from a passport's MRZ are absent from the tree.
 
-## Installation
-
-```bash
-bun i @zkpassport/sanctions
-```
-
 ## Usage
 
 ```typescript
-import { buildSanctionsLeaves, extractAllPersons, parseFtmEntities } from "@zkpassport/sanctions"
+import {
+  buildSanctionsLeaves,
+  extractAllPersons,
+  parseFtmEntities,
+} from "@zkpassport/utils/sanctions"
 import { buildSanctionsTree, nodeToHex } from "@zkpassport/utils"
 
 const entities = parseFtmEntities(await Bun.file("us_ofac_sdn.ftm.json").text())
@@ -39,11 +37,12 @@ console.log(nodeToHex(tree.root), tree.leaves.length, "leaves;", dropped.length,
 `createPackagedSanctionsFile` builds the same tree and wraps its root and leaves, together with one
 record per upstream snapshot, in the packaged sanctions file the sanctions publisher uploads with
 each root. The file's type and the checks a client runs on a downloaded file
-(`checkPackagedSanctionsFileShape`, `calculatePackagedSanctionsRoot`) are in `@zkpassport/utils`.
+(`checkPackagedSanctionsFileShape`, `calculatePackagedSanctionsRoot`) are exported from the package
+root, `@zkpassport/utils`.
 
 ## Pipeline
 
-`src/parser/` is specific to OpenSanctions: it turns FollowTheMoney entities into `SanctionsPerson`
+`parser/` is specific to OpenSanctions: it turns FollowTheMoney entities into `SanctionsPerson`
 records with MRZ-ready names. `tree-builder.ts` does not depend on it: it turns `SanctionsPerson`
 records into leaves and the leaves into the tree, whatever produced the records.
 
@@ -64,12 +63,12 @@ records into leaves and the leaves into the tree, whatever produced the records.
    `XAH`. Scripts ICAO gives no table for (Greek, Hebrew, Georgian, CJK) are not transliterated:
    such a name variant is reported as dropped and the person's Latin variants still enter the tree.
 4. **MRZ layout and leaves** (`tree-builder.ts`). Each attribute is written as its ICAO Doc 9303
-   Part 4 TD3 field with the MRZ writers of `@zkpassport/utils`: `PRIMARY<<SECONDARY` padded with
-   `<` to 39 characters (spaces and hyphens become `<`), `YYMMDD`, a 9-character document number and
-   a 3-letter nationality. Four Poseidon2 families: name; name ‖ date of birth; name ‖ year of
-   birth; document number ‖ nationality. The byte layout of each family comes from the leaf preimage
-   functions of `@zkpassport/utils`, which the verifier uses too.
-5. **Tree and packaged file** (`buildSanctionsTree` in `@zkpassport/utils`,
+   Part 4 TD3 field with the MRZ writers in `passport/mrz.ts`: `PRIMARY<<SECONDARY` padded with `<`
+   to 39 characters (spaces and hyphens become `<`), `YYMMDD`, a 9-character document number and a
+   3-letter nationality. Four Poseidon2 families: name; name ‖ date of birth; name ‖ year of birth;
+   document number ‖ nationality. The byte layout of each family comes from the leaf preimage
+   functions in `circuits/sanctions/leaves.ts`, which the verifier uses too.
+5. **Tree and packaged file** (`buildSanctionsTree` in `registry/sanctions.ts`,
    `createPackagedSanctionsFile` in `tree-builder.ts`). The leaves of all four families, sorted and
    deduplicated, in an `AsyncOrderedMT` of the caller's depth. The tree exposes its sorted leaves
    and root; reading a published tree back is `AsyncOrderedMT.fromSerialized`.
@@ -97,7 +96,7 @@ above), not to skip the entity.
 ## Tests
 
 ```bash
-bun test
+bun test src/sanctions
 ```
 
 The tests are written against the specifications (ICAO 9303 Parts 3 and 4, the FollowTheMoney Person
