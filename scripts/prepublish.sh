@@ -27,3 +27,6 @@ echo "📦 Building all packages..."
 
 # Validate package
 bun run validate-package
+
+# Load the package against the dependency versions it pins on npm
+"$REPO_ROOT/scripts/smoke-test-package.sh"
