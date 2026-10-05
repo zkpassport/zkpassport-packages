@@ -15,6 +15,7 @@ import {
   getScopeHash,
   getAgeParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
+  getSanctionsParameterCommitment,
 } from "@zkpassport/utils"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -3425,5 +3426,51 @@ describe("PublicInputChecker - registry root checks with a supplied client", () 
     )
     expect(withoutClient.isCorrect).toBe(false)
     expect(withoutClient.queryResultErrors.sig_check_dsc?.certificate).toBeDefined()
+  })
+
+  test("checkPublicInputs forwards the client to the root check of a standalone sanctions proof", async () => {
+    const domain = "example.com"
+    const todayTs = BigInt(getTodayTimestamp())
+    const sanctionsRoot = "0x" + "0e".repeat(32)
+    const paramCommitment = await getSanctionsParameterCommitment(sanctionsRoot, true)
+    const proofs: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 111n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([111n, 222n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([222n, 333n]), total: 5 },
+      {
+        name: "exclusion_check_sanctions",
+        proof: buildProofHex([
+          333n,
+          todayTs,
+          getServiceScopeHash(domain),
+          0n,
+          paramCommitment,
+          0n,
+          999n,
+        ]),
+        total: 5,
+        committedInputs: {
+          exclusion_check_sanctions: { rootHash: sanctionsRoot, isStrict: true },
+        },
+      },
+    ]
+    const originalQuery: Query = { sanctions: { countries: "all", lists: "all", strict: true } }
+    const queryResult: QueryResult = { sanctions: { passed: true, isStrict: true } }
+
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+      undefined,
+      undefined,
+      false,
+      client,
+    )
+    expect(queryResultErrors).toEqual({})
+    expect(isCorrect).toBe(true)
+    expect(client.checkedRoots).toContain(sanctionsRoot)
   })
 })

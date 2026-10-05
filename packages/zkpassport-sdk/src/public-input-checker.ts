@@ -3659,6 +3659,7 @@ export class PublicInputChecker {
           exclusionCheckSanctionsCommittedInputs,
           devMode,
           bundleRootTimestamp,
+          registryClient,
         )
         isCorrect = isCorrect && isCorrectSanctionsExclusion && isCorrectScope
         queryResultErrors = {
