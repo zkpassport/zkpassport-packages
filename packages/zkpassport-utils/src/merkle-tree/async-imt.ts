@@ -391,7 +391,7 @@ export class AsyncIMT {
    * compared to rebuilding via initialize().
    * @param serialized Matrix as returned by serialize()
    */
-  public loadFromSerialized(serialized: string[][]): void {
+  public async loadFromSerialized(serialized: string[][]): Promise<void> {
     if (!Array.isArray(serialized) || serialized.length === 0) {
       throw new Error("Invalid serialized tree: empty payload")
     }
@@ -416,10 +416,13 @@ export class AsyncIMT {
       throw new Error("Invalid serialized tree: missing root")
     }
 
-    // Zeroes are not required for reading/serialization; initialize placeholders for consistency
-    if (this.zeroes.length !== this.depth) {
-      this.zeroes.length = 0
-      for (let i = 0; i < this.depth; i += 1) this.zeroes.push(0n)
+    // Proofs use these for empty siblings and serialize() does not store them,
+    // so rebuild them like initialize() does for a zero leaf of 0
+    this._zeroes.length = 0
+    let zeroValue: IMTNode = 0n
+    for (let level = 0; level < this.depth; level += 1) {
+      this._zeroes.push(zeroValue)
+      zeroValue = await this._hash(Array(this._arity).fill(zeroValue))
     }
   }
 
@@ -429,17 +432,17 @@ export class AsyncIMT {
    * @param serialized Matrix as returned by serialize()
    * @param arity Arity of the tree (defaults to 2)
    */
-  public static fromSerialized(
+  public static async fromSerialized(
     hash: IMTAsyncHashFunction,
     serialized: string[][],
     arity = 2,
-  ): AsyncIMT {
+  ): Promise<AsyncIMT> {
     if (!Array.isArray(serialized) || serialized.length === 0) {
       throw new Error("Invalid serialized tree: empty payload")
     }
     const depth = serialized.length - 1
     const tree = new AsyncIMT(hash, depth, arity)
-    tree.loadFromSerialized(serialized)
+    await tree.loadFromSerialized(serialized)
     return tree
   }
 }

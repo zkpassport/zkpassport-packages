@@ -216,6 +216,23 @@ describe("Circuit Matcher - RSA", () => {
     )
   })
 
+  it("should get the same DSC circuit inputs when the file has no stored tree", async () => {
+    const withoutTree = { ...rootCerts, certificates_serialised: undefined }
+    expect(
+      await getDSCCircuitInputs(
+        PASSPORTS.john,
+        SALT,
+        withoutTree as unknown as PackagedCertificatesFile,
+      ),
+    ).toEqual(
+      await getDSCCircuitInputs(
+        PASSPORTS.john,
+        SALT,
+        rootCerts as unknown as PackagedCertificatesFile,
+      ),
+    )
+  })
+
   it("should get the correct DSC circuit inputs (v1)", async () => {
     const result = await getDSCCircuitInputs(
       PASSPORTS.john,
