@@ -211,6 +211,75 @@
       color: var(--zkp-btn-notice, #fbbf24) !important;
     }
   }
+  /* The way out of a browser that can't host the verification window */
+  .zkp-escape {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin: 8px 0 0 !important;
+    padding: 12px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    font-family: ui-sans-serif, system-ui, sans-serif !important;
+    color: #111827 !important;
+    background: #ffffff !important;
+  }
+  .zkp-escape-message {
+    margin: 0 !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+  }
+  .zkp-escape-url {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 8px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    background: #f3f4f6 !important;
+    color: inherit !important;
+    font-family: ui-monospace, monospace !important;
+    font-size: 12px !important;
+    text-overflow: ellipsis !important;
+  }
+  .zkp-escape-actions {
+    display: flex !important;
+    gap: 8px !important;
+  }
+  .zkp-escape-action {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    flex: 1 !important;
+    padding: 8px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    color: inherit !important;
+    font-family: inherit !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+  }
+  .zkp-escape-hint {
+    margin: 0 !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    opacity: 0.7 !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    .zkp-escape {
+      border-color: #334155 !important;
+      background: #0f172a !important;
+      color: #f1f5f9 !important;
+    }
+    .zkp-escape-url,
+    .zkp-escape-action {
+      border-color: #334155 !important;
+    }
+    .zkp-escape-url {
+      background: #1e293b !important;
+    }
+  }
   /* Sizes to the host's form rather than to its own content: full width, but
      never too narrow to read the label nor wider than a comfortable line */
   .zkp-verify-wrap {

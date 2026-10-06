@@ -20,6 +20,11 @@ export type VerificationState = {
   // Only set when there is a message worth showing the user
   error: string | null
   errorKind: ZKPassportErrorKind | null
+  /**
+   * This page's own URL, set when the browser can't host the verification window. The user has to
+   * reopen it in a real browser, so the buttons offer it to copy or share.
+   */
+  openInBrowserUrl: string | null
 }
 
 /** What the service accepts, as opposed to what the query asks about the credential. */
@@ -98,7 +103,12 @@ export function createVerification(
   getOptions: () => VerificationOptions,
   onStateChange: (state: VerificationState) => void,
 ): VerificationController {
-  let state: VerificationState = { status: "idle", error: null, errorKind: null }
+  let state: VerificationState = {
+    status: "idle",
+    error: null,
+    errorKind: null,
+    openInBrowserUrl: null,
+  }
   let popupHandle: VerificationPopupHandle | null = null
   // Set once the popup delivered a result; from then on the window belongs to the user
   let popupFinished = false
@@ -110,8 +120,9 @@ export function createVerification(
     status: VerificationStatus,
     error: string | null = null,
     errorKind: ZKPassportErrorKind | null = null,
+    openInBrowserUrl: string | null = null,
   ) => {
-    state = { status, error, errorKind }
+    state = { status, error, errorKind, openInBrowserUrl }
     onStateChange(state)
   }
 
@@ -134,10 +145,19 @@ export function createVerification(
     // Only one terminal callback ever fires: a failure followed by the user closing the window is
     // one outcome, not two
     let settled = false
-    const fail = (kind: ZKPassportError["kind"], message: string, status?: VerificationStatus) => {
+    const fail = (
+      kind: ZKPassportError["kind"],
+      message: string,
+      { status, openInBrowserUrl }: { status?: VerificationStatus; openInBrowserUrl?: string } = {},
+    ) => {
       if (settled || latestAttempt !== thisAttempt) return
       settled = true
-      setStatus(status ?? "error", kind === "closed" ? null : message, kind)
+      setStatus(
+        status ?? "error",
+        kind === "closed" ? null : message,
+        kind,
+        openInBrowserUrl ?? null,
+      )
       getOptions().onError?.(new ZKPassportError(kind, message))
     }
 
@@ -149,6 +169,13 @@ export function createVerification(
       const message =
         reason instanceof Error ? reason.message : "Failed to build the verification request"
       fail("failed", message)
+      return
+    }
+
+    // Checked before opening, not after: an in-app browser can return a null handle and still
+    // perform the navigation, leaving a dead second window on top of the message
+    if (isInAppBrowser()) {
+      fail("blocked", IN_APP_BROWSER_MESSAGE, { openInBrowserUrl: window.location.href })
       return
     }
 
@@ -188,13 +215,12 @@ export function createVerification(
         onReject: () => fail("rejected", "Verification was declined."),
         onError: (message) => fail("failed", message),
         // Closing without a result returns the button to idle: nothing failed, the user left
-        onClose: () => fail("closed", "The verification window was closed.", "idle"),
+        onClose: () => fail("closed", "The verification window was closed.", { status: "idle" }),
       },
     })
 
     if (!handle) {
-      const message = isInAppBrowser() ? IN_APP_BROWSER_MESSAGE : POPUP_BLOCKED_MESSAGE
-      fail("blocked", message)
+      fail("blocked", POPUP_BLOCKED_MESSAGE)
       return
     }
 

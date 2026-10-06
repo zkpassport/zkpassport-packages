@@ -1,6 +1,7 @@
 import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
 import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
+import { createOpenInBrowserPanel } from "../open-in-browser-panel"
 import { createVerification, type VerificationState } from "../verification"
 import {
   BUTTON_CAPTION,
@@ -41,6 +42,7 @@ export function mountVerifyButton(
   injectStylesheet(buttonStyles, "button")
 
   let currentOptions = options
+  let openInBrowserPanel: HTMLElement | null = null
 
   const root = document.createElement("div")
   const button = document.createElement("button")
@@ -77,13 +79,20 @@ export function mountVerifyButton(
     root.className = "zkp-verify-wrap"
     root.dataset.variant = style.variant ?? "filled"
 
+    notice.remove()
+    openInBrowserPanel?.remove()
+    openInBrowserPanel = null
     // Only the blocked case: no window of ours can appear to carry the message
-    if (state.errorKind === "blocked" && state.error) {
+    if (state.openInBrowserUrl && state.error) {
+      openInBrowserPanel = createOpenInBrowserPanel({
+        message: state.error,
+        url: state.openInBrowserUrl,
+      })
+      root.append(openInBrowserPanel)
+    } else if (state.errorKind === "blocked" && state.error) {
       notice.className = "zkp-verify-notice"
       notice.textContent = state.error
       root.append(notice)
-    } else {
-      notice.remove()
     }
     button.className = "zkp-verify-button"
     button.dataset.status = state.status
