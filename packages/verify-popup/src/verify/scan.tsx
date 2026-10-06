@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { openRequestInApp } from "@zkpassport/ui/app-link"
+import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
-import { ICON_LINK, ICON_SHARE, ICON_ZKP_MARK } from "../shared/icons"
+import { ICON_ZKP_MARK } from "../shared/icons"
 import { Heading, Main } from "../shared/controls"
-import { isMobileLike } from "../shared/environment"
+import { LinkActions } from "../shared/link-actions"
+import { StoreBadges } from "../shared/store-badges"
 import type { RequestState } from "../request"
-
-const COPIED_RESET_MS = 2000
 
 export function Scan({
   state,
@@ -20,31 +21,7 @@ export function Scan({
   const [mobile] = useState(isMobileLike)
 
   if (mobile && !qrRevealed) {
-    return (
-      <div className="flow-body">
-        <Main>
-          <Heading title="Continue in the app" />
-          <p className="flow-lede">
-            Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to
-            a server.
-          </p>
-          <div className="scan-hero">
-            {url ? (
-              <a className="flow-primary" href={url}>
-                Open ZKPassport App
-              </a>
-            ) : (
-              <span className="flow-primary" aria-disabled="true">
-                Preparing…
-              </span>
-            )}
-            <button type="button" className="scan-reveal" onClick={() => setQrRevealed(true)}>
-              Scan a QR code with another device instead
-            </button>
-          </div>
-        </Main>
-      </div>
-    )
+    return <ContinueInApp requestUrl={url} onRevealQr={() => setQrRevealed(true)} />
   }
 
   return (
@@ -71,66 +48,107 @@ export function Scan({
   )
 }
 
-// Most desktop browsers have no share sheet, and an inert button is worse than none
-function canShare(): boolean {
-  return typeof navigator !== "undefined" && typeof navigator.share === "function"
+function ContinueInApp({
+  requestUrl,
+  onRevealQr,
+}: {
+  requestUrl: string | null
+  onRevealQr: () => void
+}) {
+  const [inAppBrowser] = useState(isInAppBrowser)
+  const [appDidNotOpen, setAppDidNotOpen] = useState(false)
+
+  return (
+    <div className="flow-body">
+      <Main>
+        <Heading title="Continue in the app" />
+        <p className="flow-lede">
+          Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to a
+          server.
+        </p>
+        <div className="scan-hero">
+          {requestUrl ? (
+            <OpenAppButton
+              requestUrl={requestUrl}
+              // An in-app browser swallows the custom scheme even when the app is installed, so a
+              // probe there would always report a miss
+              onOpened={inAppBrowser ? undefined : (opened) => setAppDidNotOpen(!opened)}
+            />
+          ) : (
+            <span className="flow-primary" aria-disabled="true">
+              Preparing…
+            </span>
+          )}
+          {inAppBrowser && requestUrl ? (
+            <div className="scan-escape">
+              <p className="scan-fallback-hint">
+                This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in
+                Safari or Chrome instead.
+              </p>
+              <LinkActions url={requestUrl} />
+            </div>
+          ) : null}
+          <button type="button" className="scan-reveal" onClick={onRevealQr}>
+            Scan a QR code with another device instead
+          </button>
+          <InstallOptions requestUrl={requestUrl} promoted={appDidNotOpen} />
+        </div>
+      </Main>
+    </div>
+  )
+}
+
+function OpenAppButton({
+  requestUrl,
+  onOpened,
+}: {
+  requestUrl: string
+  onOpened?: (opened: boolean) => void
+}) {
+  const stopProbe = useRef<(() => void) | null>(null)
+  useEffect(() => () => stopProbe.current?.(), [])
+
+  const openApp = () => {
+    stopProbe.current?.()
+    stopProbe.current = openRequestInApp(requestUrl, onOpened)
+  }
+
+  return (
+    <button type="button" className="flow-primary" onClick={openApp}>
+      Open ZKPassport App
+    </button>
+  )
+}
+
+// Always on screen, so a probe that wrongly concludes the app is missing costs the user nothing
+function InstallOptions({
+  requestUrl,
+  promoted,
+}: {
+  requestUrl: string | null
+  promoted: boolean
+}) {
+  return (
+    <div className="scan-install" data-promoted={promoted ? "" : undefined}>
+      <p className="scan-install-title">Don&rsquo;t have the app yet?</p>
+      <p className="scan-install-note">
+        Verification happens in the ZKPassport app: it reads the chip in your passport or ID card,
+        and that data never leaves your phone. Free on iOS and Android.
+      </p>
+      <StoreBadges requestUrl={requestUrl} />
+    </div>
+  )
 }
 
 function Fallback({ url }: { url: string | null }) {
-  const [copied, setCopied] = useState(false)
   const [failed, setFailed] = useState(false)
-  const [shareable] = useState(canShare)
-
-  useEffect(() => {
-    if (!copied) return
-    const timer = window.setTimeout(() => setCopied(false), COPIED_RESET_MS)
-    return () => window.clearTimeout(timer)
-  }, [copied])
 
   if (!url) return null
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setFailed(false)
-    } catch {
-      // Some embedded browsers deny clipboard access; say so rather than look broken
-      setFailed(true)
-    }
-  }
-
-  const share = async () => {
-    try {
-      await navigator.share({ url, title: "Verify with ZKPassport" })
-    } catch {
-      // A dismissed share sheet rejects too, so there is nothing to report
-    }
-  }
 
   return (
     <div className="scan-fallback">
       <p className="scan-fallback-label">Can&rsquo;t scan the code?</p>
-      <div className="scan-fallback-actions">
-        <button type="button" className="flow-quietbtn" onClick={copy}>
-          <span
-            className="flow-glyph"
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: ICON_LINK }}
-          />
-          {copied ? "Link copied" : "Copy link"}
-        </button>
-        {shareable ? (
-          <button type="button" className="flow-quietbtn" onClick={share}>
-            <span
-              className="flow-glyph"
-              aria-hidden="true"
-              dangerouslySetInnerHTML={{ __html: ICON_SHARE }}
-            />
-            Share
-          </button>
-        ) : null}
-      </div>
+      <LinkActions url={url} onCopyFailedChange={setFailed} />
       <p className="scan-fallback-hint" role={failed ? "alert" : undefined}>
         {failed
           ? "Couldn’t reach the clipboard. Select the QR code and use your browser’s share menu."

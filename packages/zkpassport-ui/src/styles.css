@@ -456,6 +456,12 @@
 
   /* Open-in-app deep link (mobile: primary action; shown via .zkp-open-app-block) */
   .zkp-open-app {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    border: none !important;
+    font-family: inherit !important;
+    cursor: pointer !important;
     display: none !important;
     margin: 26px 0 0 !important;
     padding: 20px !important;
@@ -512,6 +518,37 @@
     line-height: 1.5;
     text-align: center;
     color: var(--zkp-muted);
+  }
+  /* Secondary on the mobile screen until the app-open probe promotes it */
+  .zkp-install {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid var(--zkp-border);
+    border-radius: 6px;
+    transition:
+      background 200ms ease,
+      border-color 200ms ease;
+  }
+  .zkp-install[data-promoted] {
+    background: var(--zkp-surface);
+    border-color: var(--zkp-brand);
+  }
+  .zkp-install-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .zkp-install-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--zkp-muted);
+  }
+  .zkp-install-stores {
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   /* Intro screen */
