@@ -35,7 +35,7 @@ export class SanctionsBuilder {
   static async create(): Promise<SanctionsBuilder> {
     // TODO: Consider a caching strategy for this
     const treeData = await withRetry(() =>
-      fetch("https://d2s3icdelg77xm.cloudfront.net/all_sanctions_tree.json.gz", {
+      fetch("https://sanctions.zkpassport.id/all_sanctions_tree.json.gz", {
         headers: {
           "Accept-Encoding": "gzip",
         },

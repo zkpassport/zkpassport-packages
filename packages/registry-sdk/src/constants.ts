@@ -29,8 +29,8 @@ export const PACKAGED_CERTIFICATES_URL_TEMPLATE = (chainId: number, root: string
 /**
  * Serialised sanctions tree URLs
  */
-export const SANCTIONS_TREE_URL_MAINNET = "https://d2s3icdelg77xm.cloudfront.net/mainnet"
-export const SANCTIONS_TREE_URL_TESTNET = "https://d2s3icdelg77xm.cloudfront.net/testnet"
+export const SANCTIONS_TREE_URL_MAINNET = "https://sanctions.zkpassport.id/mainnet"
+export const SANCTIONS_TREE_URL_TESTNET = "https://sanctions.zkpassport.id/testnet"
 export const SANCTIONS_TREE_URL_DEV = "http://localhost:8000/sanctions"
 
 /**
