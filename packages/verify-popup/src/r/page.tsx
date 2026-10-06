@@ -59,7 +59,7 @@ function OpenAppPrompt({ requestUrl, appName }: { requestUrl: string; appName: s
 
   return (
     <div className="r-actions">
-      <button type="button" className="flow-quietbtn" onClick={openApp}>
+      <button type="button" className="flow-primary" onClick={openApp}>
         Already installed? Open the app
       </button>
       {appDidNotOpen ? (
