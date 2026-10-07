@@ -520,7 +520,7 @@ function OpenAppHero({
       )}
       {inAppBrowser ? (
         <p className="zkp-inapp-hint">
-          If nothing opens, open this page in Safari or Chrome and try again.
+          If nothing opens, open this page in your browser and try again.
         </p>
       ) : null}
       <InstallOptions requestUrl={requestUrl} appNotFound={openState === "nothing-opened"} />

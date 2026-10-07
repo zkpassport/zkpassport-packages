@@ -88,8 +88,8 @@ function ContinueInApp({
           {inAppBrowser && requestUrl ? (
             <div className="scan-escape">
               <p className="scan-fallback-hint">
-                This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in
-                Safari or Chrome instead.
+                This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link
+                in your browser instead.
               </p>
               <LinkActions url={requestUrl} />
             </div>

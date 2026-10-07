@@ -85,7 +85,7 @@ export type VerificationController = {
 const POPUP_BLOCKED_MESSAGE =
   "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
 const IN_APP_BROWSER_MESSAGE =
-  "This browser can't open the verification window. Open this page in Safari or Chrome to continue."
+  "This browser can't open the verification window. Open this page in your browser to continue."
 
 const IDENTIFIER_TYPES = {
   "salted": NullifierType.SALTED,
