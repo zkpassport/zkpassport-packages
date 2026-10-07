@@ -46,6 +46,8 @@ export type PopupCredentialOutcome = {
 export type PopupConfigureMessage = {
   zkpassport: true
   type: "configure"
+  /** Names the verification, matching the popup's own URL, so a reopened popup knows which one. */
+  session?: string
   request: PopupRequestConfig
   query: Query
   /** Mint mode; a sibling of `query` because each defines what to prove for its mode. */
