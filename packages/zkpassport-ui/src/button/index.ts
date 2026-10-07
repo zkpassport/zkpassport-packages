@@ -98,8 +98,8 @@ export function mountVerifyButton(
     button.className = "zkp-verify-button"
     button.dataset.status = state.status
     button.disabled = isButtonDisabled(state.status)
-    button.title = buttonTooltip(state.status)
-    defaultState.label.textContent = buttonLabel(style.label)
+    button.title = buttonTooltip(state.status, state.resumable)
+    defaultState.label.textContent = buttonLabel(style.label, state.resumable)
   }
 
   const verification = createVerification(() => currentOptions, renderState)
