@@ -40,16 +40,19 @@ export function VerifyWithZKPassport({
   children,
   ...options
 }: VerifyWithZKPassportProps): ReactElement {
-  const [state, setState] = useState<VerificationState>({
-    status: "idle",
-    error: null,
-    errorKind: null,
-    openInBrowserUrl: null,
-  })
   // Read at click time, so callers don't have to memoise their options or callbacks
   const latestOptions = useRef(options)
   latestOptions.current = options
-  const [controller] = useState(() => createVerification(() => latestOptions.current, setState))
+  // Built before the state, because it may open with a verification left over from an earlier page
+  const publish = useRef<(next: VerificationState) => void>(() => {})
+  const [controller] = useState(() =>
+    createVerification(
+      () => latestOptions.current,
+      (next) => publish.current(next),
+    ),
+  )
+  const [state, setState] = useState<VerificationState>(controller.state)
+  publish.current = setState
   useEffect(() => controller.dispose, [controller])
 
   const verification: ZKPassportVerification = {
@@ -69,7 +72,7 @@ function BrandedButton({
   verification: ZKPassportVerification
 }): ReactElement {
   useStylesheet(() => injectStylesheet(buttonStyles, "button"), [])
-  const { status, error, errorKind, openInBrowserUrl } = verification
+  const { status, error, errorKind, openInBrowserUrl, resumable } = verification
   const style = options.style ?? {}
 
   return (
@@ -79,7 +82,7 @@ function BrandedButton({
         className="zkp-verify-button"
         data-status={status}
         disabled={isButtonDisabled(status)}
-        title={buttonTooltip(status)}
+        title={buttonTooltip(status, resumable)}
         onClick={verification.verify}
       >
         <span className="zkp-verify-button-mark">
@@ -89,7 +92,7 @@ function BrandedButton({
         <span className="zkp-verify-body">
           <span className="zkp-verify-content">
             <span className="zkp-verify-state" data-state="default">
-              <span>{buttonLabel(style.label)}</span>
+              <span>{buttonLabel(style.label, resumable)}</span>
               {/* North-east arrow: the click opens the hosted ZKPassport window */}
               <span className="zkp-verify-external" aria-hidden="true">
                 {"\u2197"}
