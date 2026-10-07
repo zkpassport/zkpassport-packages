@@ -11,9 +11,9 @@ import "../main.css"
  * installed app, so whoever sees this page almost certainly has to install it first.
  */
 export function RequestPage() {
-  const requestUrl = window.location.href
   const request = parseVerifyRequest(window.location.search)
-  const appName = request ? (request.serviceName ?? request.domain) : null
+  const requestUrl = request ? window.location.href : null
+  const siteName = request ? (request.serviceName ?? request.domain) : null
 
   return (
     <Frame>
@@ -25,18 +25,18 @@ export function RequestPage() {
               <div className="flow-main">
                 <div className="flow-heading">
                   <h1 className="flow-title">
-                    {appName
-                      ? `${appName} uses ZKPassport to verify your identity`
+                    {siteName
+                      ? `${siteName} uses ZKPassport to verify your identity`
                       : "Prove your data privately with ZKPassport"}
                   </h1>
                 </div>
                 <p className="flow-lede">
-                  {appName ? "To continue, download" : "Download"} the ZKPassport app — free on iOS
+                  {siteName ? "To continue, download" : "Download"} the ZKPassport app — free on iOS
                   and Android. Your passport or ID card is read on your phone, and its data never
                   leaves your device.
                 </p>
-                <StoreBadges requestUrl={request ? requestUrl : null} />
-                {request ? <OpenAppPrompt requestUrl={requestUrl} appName={appName} /> : null}
+                <StoreBadges requestUrl={requestUrl} />
+                {requestUrl ? <OpenAppPrompt requestUrl={requestUrl} siteName={siteName} /> : null}
               </div>
             </div>
           </div>
@@ -46,23 +46,23 @@ export function RequestPage() {
   )
 }
 
-function OpenAppPrompt({ requestUrl, appName }: { requestUrl: string; appName: string | null }) {
-  const { state, openApp } = useOpenApp(requestUrl, { probe: true })
-  const opening = state === "opening"
+function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName: string | null }) {
+  const { openState, openApp } = useOpenApp(requestUrl, { probe: true })
+  const opening = openState === "opening"
 
   return (
     <div className="r-actions">
       <Primary busy={opening} onClick={openApp}>
         {opening ? "Opening…" : "Already installed? Open the app"}
       </Primary>
-      {state === "nothing-opened" ? (
+      {openState === "nothing-opened" ? (
         <p className="r-note" role="status">
           App not found. Install it above, then tap Open again.
         </p>
       ) : null}
       <p className="r-note">
-        Once you finish in the app, go back to {appName ?? "the site that asked"} in your browser to
-        complete the request.
+        Once you finish in the app, go back to {siteName ?? "the site that asked"} in your browser
+        to complete the request.
       </p>
     </div>
   )

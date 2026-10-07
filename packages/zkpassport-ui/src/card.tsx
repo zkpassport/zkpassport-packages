@@ -507,11 +507,11 @@ function OpenAppHero({
       {requestUrl ? (
         <OpenAppButton
           requestUrl={requestUrl}
-          label="Open ZKPassport App"
-          state={openState}
+          openState={openState}
+          onOpenStateChange={setOpenState}
           // An in-app browser swallows the custom scheme even when the app is installed, so a
           // probe there would always report a miss
-          onStateChange={inAppBrowser ? undefined : setOpenState}
+          probe={!inAppBrowser}
         />
       ) : (
         <div className="zkp-open-app-loading" role="status" aria-label="Preparing request">
@@ -533,31 +533,31 @@ function OpenAppHero({
 
 function OpenAppButton({
   requestUrl,
-  label,
-  state,
-  onStateChange,
+  openState,
+  onOpenStateChange,
+  probe,
 }: {
   requestUrl: string
-  label: string
-  state: AppOpenState
-  onStateChange?: (state: AppOpenState) => void
+  openState: AppOpenState
+  onOpenStateChange: (openState: AppOpenState) => void
+  probe: boolean
 }) {
   const stopProbe = useRef<(() => void) | null>(null)
   useEffect(() => () => stopProbe.current?.(), [])
 
   const openApp = () => {
     stopProbe.current?.()
-    if (!onStateChange) {
+    if (!probe) {
       stopProbe.current = openRequestInApp(requestUrl)
       return
     }
-    onStateChange("opening")
+    onOpenStateChange("opening")
     stopProbe.current = openRequestInApp(requestUrl, (opened) =>
-      onStateChange(opened ? "idle" : "nothing-opened"),
+      onOpenStateChange(opened ? "idle" : "nothing-opened"),
     )
   }
 
-  const opening = state === "opening"
+  const opening = openState === "opening"
 
   return (
     <button
@@ -569,7 +569,7 @@ function OpenAppButton({
       {opening ? (
         <span className="zkp-spinner" dangerouslySetInnerHTML={{ __html: SPINNER_SVG }} />
       ) : null}
-      {opening ? "Opening…" : label}
+      {opening ? "Opening…" : "Open ZKPassport App"}
     </button>
   )
 }

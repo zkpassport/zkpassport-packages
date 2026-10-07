@@ -64,8 +64,8 @@ function ContinueInApp({
   const [inAppBrowser] = useState(isInAppBrowser)
   // An in-app browser swallows the custom scheme even when the app is installed, so a probe there
   // would always report a miss
-  const { state, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
-  const opening = state === "opening"
+  const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
+  const opening = openState === "opening"
 
   return (
     <div className="flow-body">
@@ -75,7 +75,7 @@ function ContinueInApp({
           Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to a
           server.
         </p>
-        <div className="scan-hero" data-state={state}>
+        <div className="scan-hero" data-state={openState}>
           {requestUrl ? (
             <Primary busy={opening} onClick={openApp}>
               {opening ? "Opening…" : "Open ZKPassport App"}
@@ -88,13 +88,13 @@ function ContinueInApp({
           {inAppBrowser && requestUrl ? (
             <div className="scan-escape">
               <p className="scan-fallback-hint">
-                This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link
-                in your browser instead.
+                This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in
+                your browser instead.
               </p>
               <LinkActions url={requestUrl} />
             </div>
           ) : null}
-          <InstallOptions requestUrl={requestUrl} appNotFound={state === "nothing-opened"} />
+          <InstallOptions requestUrl={requestUrl} appNotFound={openState === "nothing-opened"} />
           <button type="button" className="scan-reveal" onClick={onRevealQr}>
             Scan a QR code with another device instead
           </button>

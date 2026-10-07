@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react"
 import { openRequestInApp } from "@zkpassport/ui/app-link"
 
-export type AppOpenState = "idle" | "opening" | "nothing-opened"
+type AppOpenState = "idle" | "opening" | "nothing-opened"
 
 /**
- * Hands the request to the app and reports what came of it: "opening" while the probe runs, then
- * "nothing-opened" if it reports a miss. A late hand-over takes the miss back.
+ * Opens the request in the app. With `probe`, reports "opening" and then "nothing-opened" when the
+ * app does not take the link; switching to the app later takes that back.
  */
 export function useOpenApp(requestUrl: string | null, { probe }: { probe: boolean }) {
-  const [state, setState] = useState<AppOpenState>("idle")
+  const [openState, setOpenState] = useState<AppOpenState>("idle")
   const stopProbe = useRef<(() => void) | null>(null)
   useEffect(() => () => stopProbe.current?.(), [])
 
@@ -19,11 +19,11 @@ export function useOpenApp(requestUrl: string | null, { probe }: { probe: boolea
       stopProbe.current = openRequestInApp(requestUrl)
       return
     }
-    setState("opening")
+    setOpenState("opening")
     stopProbe.current = openRequestInApp(requestUrl, (opened) =>
-      setState(opened ? "idle" : "nothing-opened"),
+      setOpenState(opened ? "idle" : "nothing-opened"),
     )
   }
 
-  return { state, openApp }
+  return { openState, openApp }
 }

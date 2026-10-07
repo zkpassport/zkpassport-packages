@@ -515,9 +515,6 @@ a.flow-address[data-chip]:hover {
   font-weight: 500;
 }
 
-/* The open-app probe's verdict, said in words. Brand tint, not the error tint: nothing failed,
-   the app simply did not take the link. */
-
 .flow-link {
   display: inline-flex;
   align-items: center;
