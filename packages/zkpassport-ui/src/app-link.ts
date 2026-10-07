@@ -19,6 +19,7 @@ export function openRequestInApp(
   onOpened?: (opened: boolean) => void,
 ): () => void {
   const appSchemeUrl = toAppSchemeUrl(requestUrl)
+  // Unreachable with a request from the SDK, which always hands over a URL
   if (!appSchemeUrl) return () => {}
   if (!onOpened) {
     window.location.href = appSchemeUrl

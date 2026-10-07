@@ -1,5 +1,5 @@
 import { type ComponentChildren } from "preact"
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks"
+import { useEffect, useLayoutEffect, useState } from "preact/hooks"
 
 import {
   APP_STORE_BADGE,
@@ -17,10 +17,11 @@ import {
   SPINNER_SVG,
   ZKPASSPORT_DOWNLOAD_URL,
 } from "./assets"
-import { detectMobileOs, openRequestInApp, playStoreUrlWithReferrer } from "./app-link"
+import { detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
 import cardStyles from "./styles.css"
 import { injectStylesheet } from "./inject-styles"
 import { useCard, type CardState, type ProofStreamProgress } from "./use-card"
+import { useOpenApp } from "./use-open-app"
 import { describeQuery, type QueryDescriptionItem } from "./query-description"
 import { isInAppBrowser, isMobileLike } from "./environment"
 import type { ZKPassportQRCodeOptions } from "./types"
@@ -489,8 +490,6 @@ function ProgressStep({
   )
 }
 
-type AppOpenState = "idle" | "opening" | "nothing-opened"
-
 function OpenAppHero({
   requestUrl,
   inAppBrowser,
@@ -500,19 +499,25 @@ function OpenAppHero({
   inAppBrowser: boolean
   onRevealQr: () => void
 }) {
-  const [openState, setOpenState] = useState<AppOpenState>("idle")
+  // An in-app browser swallows the custom scheme even when the app is installed, so a probe
+  // there would always report a miss
+  const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
+  const opening = openState === "opening"
 
   return (
     <div className="zkp-open-app-hero" data-state={openState}>
       {requestUrl ? (
-        <OpenAppButton
-          requestUrl={requestUrl}
-          openState={openState}
-          onOpenStateChange={setOpenState}
-          // An in-app browser swallows the custom scheme even when the app is installed, so a
-          // probe there would always report a miss
-          probe={!inAppBrowser}
-        />
+        <button
+          type="button"
+          className="zkp-open-app zkp-open-app-block"
+          disabled={opening}
+          onClick={openApp}
+        >
+          {opening ? (
+            <span className="zkp-spinner" dangerouslySetInnerHTML={{ __html: SPINNER_SVG }} />
+          ) : null}
+          {opening ? "Opening…" : "Open ZKPassport App"}
+        </button>
       ) : (
         <div className="zkp-open-app-loading" role="status" aria-label="Preparing request">
           <span className="zkp-skel-row" style={{ width: "100%", height: "48px" }} />
@@ -528,49 +533,6 @@ function OpenAppHero({
         Scan a QR code with another device instead
       </button>
     </div>
-  )
-}
-
-function OpenAppButton({
-  requestUrl,
-  openState,
-  onOpenStateChange,
-  probe,
-}: {
-  requestUrl: string
-  openState: AppOpenState
-  onOpenStateChange: (openState: AppOpenState) => void
-  probe: boolean
-}) {
-  const stopProbe = useRef<(() => void) | null>(null)
-  useEffect(() => () => stopProbe.current?.(), [])
-
-  const openApp = () => {
-    stopProbe.current?.()
-    if (!probe) {
-      stopProbe.current = openRequestInApp(requestUrl)
-      return
-    }
-    onOpenStateChange("opening")
-    stopProbe.current = openRequestInApp(requestUrl, (opened) =>
-      onOpenStateChange(opened ? "idle" : "nothing-opened"),
-    )
-  }
-
-  const opening = openState === "opening"
-
-  return (
-    <button
-      type="button"
-      className="zkp-open-app zkp-open-app-block"
-      disabled={opening}
-      onClick={openApp}
-    >
-      {opening ? (
-        <span className="zkp-spinner" dangerouslySetInnerHTML={{ __html: SPINNER_SVG }} />
-      ) : null}
-      {opening ? "Opening…" : "Open ZKPassport App"}
-    </button>
   )
 }
 
