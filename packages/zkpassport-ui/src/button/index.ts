@@ -81,16 +81,16 @@ export function mountVerifyButton(
 
     notice.remove()
     // Only the blocked case: no window of ours can appear to carry the message
-    const openInBrowserUrl = state.error ? state.openInBrowserUrl : null
-    // Rebuilt only for a new address: otherwise it would wipe the "Link copied" reply mid-read
-    if ((openInBrowserPanel?.url ?? null) !== openInBrowserUrl) {
+    const panelUrl = state.error ? state.openInBrowserUrl : null
+    // Reusing the panel keeps the "Link copied" reply the user may be reading
+    if ((openInBrowserPanel?.url ?? null) !== panelUrl) {
       openInBrowserPanel?.element.remove()
-      openInBrowserPanel = openInBrowserUrl
-        ? { url: openInBrowserUrl, element: createOpenInBrowserPanel({ url: openInBrowserUrl }) }
+      openInBrowserPanel = panelUrl
+        ? { url: panelUrl, element: createOpenInBrowserPanel({ url: panelUrl }) }
         : null
       if (openInBrowserPanel) root.append(openInBrowserPanel.element)
     }
-    if (!openInBrowserUrl && state.errorKind === "blocked" && state.error) {
+    if (!panelUrl && state.errorKind === "blocked" && state.error) {
       notice.className = "zkp-verify-notice"
       notice.textContent = state.error
       root.append(notice)

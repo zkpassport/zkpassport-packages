@@ -21,10 +21,10 @@ afterEach(() => {
 
 function mountOpenApp() {
   const container = fakeDom()
-  let hook: ReturnType<typeof useOpenApp> | null = null
+  let api: ReturnType<typeof useOpenApp> | null = null
 
   function Probe({ requestUrl }: { requestUrl: string | null }) {
-    hook = useOpenApp(requestUrl, { probe: true })
+    api = useOpenApp(requestUrl, { probe: true })
     return null
   }
 
@@ -33,21 +33,21 @@ function mountOpenApp() {
       act(() => {
         render(createElement(Probe, { requestUrl }), container)
       }),
-    tapOpen: () => act(() => hook!.openApp()),
-    openState: () => hook!.openState,
+    tapOpen: () => act(() => api!.openApp()),
+    state: () => api!.openState,
   }
 }
 
 describe("useOpenApp", () => {
   test("stops waiting on the app once the request is replaced", async () => {
-    const card = mountOpenApp()
-    await card.showRequest("https://zkpassport.id/r?t=first")
-    await card.tapOpen()
-    expect(card.openState()).toBe("opening")
+    const openApp = mountOpenApp()
+    await openApp.showRequest("https://zkpassport.id/r?t=first")
+    await openApp.tapOpen()
+    expect(openApp.state()).toBe("opening")
 
-    await card.showRequest(null)
-    await card.showRequest("https://zkpassport.id/r?t=second")
+    await openApp.showRequest(null)
+    await openApp.showRequest("https://zkpassport.id/r?t=second")
 
-    expect(card.openState()).toBe("idle")
+    expect(openApp.state()).toBe("idle")
   })
 })
