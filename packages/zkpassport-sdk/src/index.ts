@@ -24,7 +24,7 @@ import {
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
 import { createRegistryClient } from "@zkpassport/registry"
-import { Bridge, BridgeInterface } from "@obsidion/bridge"
+import { Bridge, BridgeInterface, type KeyPair } from "@obsidion/bridge"
 import {
   QueryBuilder,
   QueryBuilderResult,
@@ -126,6 +126,7 @@ export {
 
 export * from "./types"
 export { createOfflineQuery, normalizeCountry } from "./offline-query"
+export type { KeyPair } from "@obsidion/bridge"
 export { VERSION } from "./constants"
 
 let onResultDeprecationWarned = false
@@ -135,6 +136,18 @@ function warnOnResultDeprecated() {
   console.warn(
     "[zkpassport] onResult is deprecated. Use onSuccess and verify the proofs on your backend with verify().",
   )
+}
+
+// The bridge only asks for missed messages after a reconnect it drove itself, which a freshly
+// loaded page never had. A topic belongs to one request, so everything on it is what was missed.
+function requestMessageReplay(bridge: BridgeInterface) {
+  const socket = bridge.connection.getWebSocket()
+  if (!socket) return
+  try {
+    socket.send(JSON.stringify({ method: "replay", params: { timestamp: 1 } }))
+  } catch (reason) {
+    logger.error("Failed to ask the bridge for missed messages:", reason)
+  }
 }
 
 export class ZKPassport {
@@ -705,6 +718,8 @@ export class ZKPassport {
    * @param mode The proof mode (e.g. "fast" / "compressed").
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param verifierMode How the received proofs are verified: "local", "api" or "auto" (default).
+   * @param keyPairOverride A keypair from {@link getRequestKeyPair}, which keeps the request ID and bridge topic.
+   * @param replayMissedMessages Redelivers what was already sent on this topic, for a request resumed on a new page.
    * @param config Settings for verifying the received proofs, see {@link VerificationConfig}.
    * @returns The query builder object.
    */
@@ -721,6 +736,7 @@ export class ZKPassport {
     oprfKeyId,
     topicOverride,
     keyPairOverride,
+    replayMissedMessages,
     cloudProverUrl,
     bridgeUrl,
     returnDeepLink,
@@ -738,7 +754,8 @@ export class ZKPassport {
     uniqueIdentifierType?: RequestedNullifierType
     oprfKeyId?: string
     topicOverride?: string
-    keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
+    keyPairOverride?: KeyPair
+    replayMissedMessages?: boolean
     cloudProverUrl?: string
     bridgeUrl?: string
     returnDeepLink?: string
@@ -811,6 +828,7 @@ export class ZKPassport {
     bridge.onConnect(async (reconnection: boolean) => {
       logger.debug("Bridge connected")
       logger.debug("Is reconnection:", reconnection)
+      if (replayMissedMessages && !reconnection) requestMessageReplay(bridge)
       await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
     })
     bridge.onDisconnect(async (event) => {
@@ -1151,6 +1169,16 @@ export class ZKPassport {
    */
   public getServiceDetails(requestId: string): Service | undefined {
     return this.topicToService[requestId]
+  }
+
+  /**
+   * @notice Returns the bridge keypair of a request. A request ID is its public key, so passing the
+   * keypair back as `keyPairOverride` rebuilds the same request on the same bridge topic.
+   * @param requestId The request ID.
+   * @returns The keypair, or undefined once the request has been cancelled.
+   */
+  public getRequestKeyPair(requestId: string): KeyPair | undefined {
+    return this.topicToBridge[requestId]?.getKeyPair()
   }
 
   /**
