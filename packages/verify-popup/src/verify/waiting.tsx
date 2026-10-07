@@ -17,7 +17,13 @@ export function withProof(
   return { ...progress, done: progress.done + 1, total: proof.total ?? progress.total }
 }
 
-export function Waiting({ progress }: { progress: ScanProgress }) {
+export function Waiting({
+  progress,
+  disconnected,
+}: {
+  progress: ScanProgress
+  disconnected?: boolean
+}) {
   const approving = progress.stage === "scanned"
   return (
     <div className="flow-body">
@@ -29,7 +35,9 @@ export function Waiting({ progress }: { progress: ScanProgress }) {
             <p className="flow-hint" role="status">
               {caption(progress)}
             </p>
-            <p className="flow-keep-open">Keep this window open</p>
+            <p className="flow-keep-open">
+              {disconnected ? "Reconnecting…" : "Keep this window open"}
+            </p>
           </div>
         </div>
       </Main>

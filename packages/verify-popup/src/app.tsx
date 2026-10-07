@@ -1,68 +1,75 @@
-import { useEffect, useMemo, useState } from "react"
-import { isPopupMessage, type PopupConfigureMessage } from "@zkpassport/sdk/popup"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { isPopupMessage } from "@zkpassport/sdk/popup"
 import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
 import type { PopupEventMessage } from "@zkpassport/sdk/popup"
 import { CredentialFlow } from "./mint"
 import { VerifyFlow } from "./verify"
+import { Done } from "./shared/done"
+import { FlowCard } from "./shared/flow-card"
 import { Frame, Notice } from "./shared/frame"
 import { LinkActions } from "./shared/link-actions"
 import { LinkVerification } from "./link"
-
-type Configuration = {
-  request: PopupConfigureMessage["request"]
-  query: PopupConfigureMessage["query"]
-  credential: PopupConfigureMessage["credential"]
-  // Browser-attested origin of the page that opened this popup
-  rpOrigin: string
-}
+import { openSession, readSession, updateSession, type SessionConfiguration } from "./session"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 // The transport adds the zkpassport marker, so it is omitted here
 export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
+function post(message: OutgoingEvent, rpOrigin: string, target: Window | null) {
+  target?.postMessage({ zkpassport: true, ...message }, rpOrigin)
+}
+
 export function App() {
-  const linkId = new URLSearchParams(window.location.search).get("vl")
-  const [config, setConfig] = useState<Configuration | null>(null)
-  const [standalone, setStandalone] = useState(false)
+  const linkId = useMemo(() => new URLSearchParams(window.location.search).get("vl"), [])
+  // The link flow answers to the dashboard rather than to an opener, so it needs no session
+  const session = useMemo(() => (linkId ? null : openSession()), [linkId])
+  const restored = useMemo(() => (session ? readSession(session) : null), [session])
+  const [config, setConfig] = useState<SessionConfiguration | null>(
+    () => restored?.configuration ?? null,
+  )
+  // Only a result this page found waiting for it; one produced while it runs belongs to the flow
+  const alreadyDone = restored?.result ?? null
+  // A discarded tab loses window.opener, and a reloaded opener loses its handle on us, so replies
+  // go to whichever window last got in touch
+  const replyTo = useRef<Window | null>(null)
 
   useEffect(() => {
-    const opener = window.opener as Window | null
-    if (!opener) {
-      setStandalone(true)
-      return
-    }
+    if (!session) return
     const onMessage = (event: MessageEvent) => {
-      if (event.source !== opener) return
       const data = event.data
       if (!isPopupMessage(data) || data.type !== "configure") return
-      setConfig((current) =>
-        current
-          ? current
-          : {
-              request: data.request,
-              query: data.query,
-              credential: data.credential,
-              rpOrigin: event.origin,
-            },
-      )
+      if (data.session && data.session !== session.id) return
+      const known = readSession(session)
+      // Once an origin has been attested for a verification, only that origin may drive it
+      if (known?.configuration && known.configuration.rpOrigin !== event.origin) return
+      if (event.source) replyTo.current = event.source as Window
+      const configuration = known?.configuration ?? {
+        request: data.request,
+        query: data.query,
+        credential: data.credential,
+        rpOrigin: event.origin,
+      }
+      if (!known?.configuration) updateSession(session, { configuration })
+      setConfig((current) => current ?? configuration)
+      // A result produced while the asking page was gone is still waiting to be handed over
+      if (known?.result) post(known.result, configuration.rpOrigin, replyTo.current)
     }
     window.addEventListener("message", onMessage)
     // Announce readiness; carries no data, so a wildcard target is safe
-    opener.postMessage({ zkpassport: true, type: "ready" }, "*")
+    ;(window.opener as Window | null)?.postMessage({ zkpassport: true, type: "ready" }, "*")
     return () => window.removeEventListener("message", onMessage)
-  }, [])
+  }, [session])
 
   const send = useMemo(() => {
-    if (!config) return null
+    if (!config || !session) return null
     return (message: OutgoingEvent) => {
-      ;(window.opener as Window | null)?.postMessage(
-        { zkpassport: true, ...message },
-        config.rpOrigin,
-      )
+      // Held before it is sent, so a page that was not there to receive it can still be given it
+      if (message.type === "success") updateSession(session, { result: message })
+      post(message, config.rpOrigin, replyTo.current ?? (window.opener as Window | null))
     }
-  }, [config])
+  }, [config, session])
 
   if (linkId) {
     return (
@@ -72,13 +79,13 @@ export function App() {
     )
   }
 
-  if (standalone) {
+  if (!config && !window.opener) {
     // In an in-app browser the user did press the button, so point them to a real browser rather
     // than tell them they opened the page by mistake
     return <Frame>{isInAppBrowser() ? <InAppBrowserNotice /> : <OpenedDirectlyNotice />}</Frame>
   }
 
-  if (!config || !send) {
+  if (!session || !config || !send) {
     return (
       <Frame>
         <Notice>Connecting…</Notice>
@@ -87,6 +94,18 @@ export function App() {
   }
 
   const domain = new URL(config.rpOrigin).hostname
+  const appName = config.request.name || domain
+
+  // The proving happened before this page was rebuilt, so all that is left is to hand it over
+  if (alreadyDone) {
+    return (
+      <Frame>
+        <FlowCard name={appName} logo={config.request.logo} screenKey="done">
+          <Done outcome={{ kind: "verified" }} appName={appName} />
+        </FlowCard>
+      </Frame>
+    )
+  }
 
   if (config.credential) {
     return (
@@ -103,7 +122,13 @@ export function App() {
 
   return (
     <Frame>
-      <VerifyFlow request={config.request} query={config.query} rpHost={domain} send={send} />
+      <VerifyFlow
+        request={config.request}
+        query={config.query}
+        rpHost={domain}
+        session={session}
+        send={send}
+      />
     </Frame>
   )
 }
