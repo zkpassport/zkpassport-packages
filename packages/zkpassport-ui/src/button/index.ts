@@ -42,7 +42,7 @@ export function mountVerifyButton(
   injectStylesheet(buttonStyles, "button")
 
   let currentOptions = options
-  let openInBrowserPanel: HTMLElement | null = null
+  let openInBrowserPanel: { url: string; element: HTMLElement } | null = null
 
   const root = document.createElement("div")
   const button = document.createElement("button")
@@ -80,13 +80,17 @@ export function mountVerifyButton(
     root.dataset.variant = style.variant ?? "filled"
 
     notice.remove()
-    openInBrowserPanel?.remove()
-    openInBrowserPanel = null
     // Only the blocked case: no window of ours can appear to carry the message
-    if (state.openInBrowserUrl && state.error) {
-      openInBrowserPanel = createOpenInBrowserPanel({ url: state.openInBrowserUrl })
-      root.append(openInBrowserPanel)
-    } else if (state.errorKind === "blocked" && state.error) {
+    const openInBrowserUrl = state.error ? state.openInBrowserUrl : null
+    // Rebuilt only for a new address: otherwise it would wipe the "Link copied" reply mid-read
+    if ((openInBrowserPanel?.url ?? null) !== openInBrowserUrl) {
+      openInBrowserPanel?.element.remove()
+      openInBrowserPanel = openInBrowserUrl
+        ? { url: openInBrowserUrl, element: createOpenInBrowserPanel({ url: openInBrowserUrl }) }
+        : null
+      if (openInBrowserPanel) root.append(openInBrowserPanel.element)
+    }
+    if (!openInBrowserUrl && state.errorKind === "blocked" && state.error) {
       notice.className = "zkp-verify-notice"
       notice.textContent = state.error
       root.append(notice)
