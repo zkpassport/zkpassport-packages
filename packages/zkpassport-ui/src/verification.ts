@@ -20,10 +20,7 @@ export type VerificationState = {
   // Only set when there is a message worth showing the user
   error: string | null
   errorKind: ZKPassportErrorKind | null
-  /**
-   * This page's own URL, set when the browser can't host the verification window. The user has to
-   * reopen it in a real browser, so the buttons offer it to copy or share.
-   */
+  /** This page's own URL, set when the browser can't host the verification window. */
   openInBrowserUrl: string | null
 }
 
@@ -89,8 +86,7 @@ export type VerificationController = {
 
 const POPUP_BLOCKED_MESSAGE =
   "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
-// Names the site so the user knows what to reopen, and says the request does not travel with
-// them: a different browser means starting the verification over.
+// Names the site so the user knows what to reopen
 function inAppBrowserMessage(): string {
   const site = window.location.hostname.replace(/^www\./, "") || "this page"
   return `This browser can’t open the verification window. Open ${site} in your browser instead.`

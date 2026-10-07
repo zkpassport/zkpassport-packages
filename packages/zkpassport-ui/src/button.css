@@ -260,12 +260,6 @@
     font-weight: 600 !important;
     cursor: pointer !important;
   }
-  .zkp-escape-hint {
-    margin: 0 !important;
-    font-size: 12px !important;
-    line-height: 1.4 !important;
-    opacity: 0.7 !important;
-  }
   @media (prefers-color-scheme: dark) {
     .zkp-escape {
       border-color: #334155 !important;
