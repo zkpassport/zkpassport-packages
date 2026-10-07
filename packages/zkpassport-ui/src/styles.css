@@ -480,10 +480,23 @@
     transform: translateY(1px);
   }
   .zkp-open-app-block {
-    display: block !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
     margin-top: 0 !important;
     width: 100% !important;
     box-sizing: border-box !important;
+  }
+  .zkp-open-app:disabled {
+    background: var(--zkp-surface) !important;
+    color: var(--zkp-muted) !important;
+    cursor: default !important;
+  }
+  .zkp-open-app .zkp-spinner {
+    width: 18px;
+    height: 18px;
+    color: inherit;
   }
   /* Mobile-first waiting screen: open-app primary, QR behind a toggle */
   /* The minimum card height fits the QR layout; the phone layout is much shorter */
@@ -499,6 +512,9 @@
   }
   .zkp-open-app-loading {
     display: flex;
+  }
+  .zkp-qr-back {
+    margin-top: 16px !important;
   }
   .zkp-qr-reveal {
     appearance: none !important;
@@ -531,9 +547,17 @@
       background 200ms ease,
       border-color 200ms ease;
   }
-  .zkp-install[data-promoted] {
+  /* Nothing opened: installing leads, and opening the app steps back to a secondary action the
+     user can still take if the probe got it wrong */
+  .zkp-open-app-hero[data-state="nothing-opened"] .zkp-install {
     background: var(--zkp-surface);
     border-color: var(--zkp-brand);
+    box-shadow: 0 0 0 1px var(--zkp-brand);
+  }
+  .zkp-open-app-hero[data-state="nothing-opened"] .zkp-open-app {
+    background: transparent !important;
+    color: var(--zkp-brand) !important;
+    box-shadow: inset 0 0 0 1px var(--zkp-border) !important;
   }
   .zkp-install-title {
     margin: 0;

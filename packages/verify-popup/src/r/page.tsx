@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react"
-import { openRequestInApp } from "@zkpassport/ui/app-link"
-
 import { Frame } from "../shared/frame"
+import { Primary } from "../shared/controls"
 import { ZKPASSPORT_WORDMARK } from "../shared/icons"
 import { StoreBadges } from "../shared/store-badges"
+import { useOpenApp } from "../shared/use-open-app"
 import { parseVerifyRequest } from "./request-link"
 import "../main.css"
 
@@ -48,23 +47,17 @@ export function RequestPage() {
 }
 
 function OpenAppPrompt({ requestUrl, appName }: { requestUrl: string; appName: string | null }) {
-  const [appDidNotOpen, setAppDidNotOpen] = useState(false)
-  const stopProbe = useRef<(() => void) | null>(null)
-  useEffect(() => () => stopProbe.current?.(), [])
-
-  const openApp = () => {
-    stopProbe.current?.()
-    stopProbe.current = openRequestInApp(requestUrl, (opened) => setAppDidNotOpen(!opened))
-  }
+  const { state, openApp } = useOpenApp(requestUrl, { probe: true })
+  const opening = state === "opening"
 
   return (
     <div className="r-actions">
-      <button type="button" className="flow-primary" onClick={openApp}>
-        Already installed? Open the app
-      </button>
-      {appDidNotOpen ? (
+      <Primary busy={opening} onClick={openApp}>
+        {opening ? "Opening…" : "Already installed? Open the app"}
+      </Primary>
+      {state === "nothing-opened" ? (
         <p className="r-note" role="status">
-          Nothing opened. Install the app above, then come back here.
+          App not found. Install it above, then tap Open again.
         </p>
       ) : null}
       <p className="r-note">

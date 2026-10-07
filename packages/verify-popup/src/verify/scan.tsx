@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react"
-import { openRequestInApp } from "@zkpassport/ui/app-link"
+import { useState } from "react"
 import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
 import { ICON_ZKP_MARK } from "../shared/icons"
-import { Heading, Main } from "../shared/controls"
+import { Heading, Main, Primary } from "../shared/controls"
 import { LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
+import { useOpenApp } from "../shared/use-open-app"
 import type { RequestState } from "../request"
 
 export function Scan({
@@ -27,10 +27,11 @@ export function Scan({
   return (
     <div className="flow-body">
       <Main>
-        <Heading title="Continue on your phone" />
+        <Heading title={mobile ? "Scan from another device" : "Continue on your phone"} />
         <p className="flow-lede">
-          Scan this code with your phone&rsquo;s camera to continue. Your ID is read on your phone
-          and never sent to a server.
+          {mobile
+            ? "Open the camera on another phone and scan this code. Your ID is read on that phone and never sent to a server."
+            : "Scan this code with your phone’s camera to continue. Your ID is read on your phone and never sent to a server."}
         </p>
         <div className="scan-slot" data-state={state}>
           <div className="scan-skeleton" />
@@ -42,6 +43,11 @@ export function Scan({
             <div className="scan-mark" dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }} />
           ) : null}
         </div>
+        {mobile ? (
+          <button type="button" className="scan-reveal" onClick={() => setQrRevealed(false)}>
+            Open the ZKPassport app instead
+          </button>
+        ) : null}
         <Fallback url={url} />
       </Main>
     </div>
@@ -56,7 +62,10 @@ function ContinueInApp({
   onRevealQr: () => void
 }) {
   const [inAppBrowser] = useState(isInAppBrowser)
-  const [appDidNotOpen, setAppDidNotOpen] = useState(false)
+  // An in-app browser swallows the custom scheme even when the app is installed, so a probe there
+  // would always report a miss
+  const { state, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
+  const opening = state === "opening"
 
   return (
     <div className="flow-body">
@@ -66,14 +75,11 @@ function ContinueInApp({
           Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to a
           server.
         </p>
-        <div className="scan-hero">
+        <div className="scan-hero" data-state={state}>
           {requestUrl ? (
-            <OpenAppButton
-              requestUrl={requestUrl}
-              // An in-app browser swallows the custom scheme even when the app is installed, so a
-              // probe there would always report a miss
-              onOpened={inAppBrowser ? undefined : (opened) => setAppDidNotOpen(!opened)}
-            />
+            <Primary busy={opening} onClick={openApp}>
+              {opening ? "Opening…" : "Open ZKPassport App"}
+            </Primary>
           ) : (
             <span className="flow-primary" aria-disabled="true">
               Preparing…
@@ -88,52 +94,33 @@ function ContinueInApp({
               <LinkActions url={requestUrl} />
             </div>
           ) : null}
+          <InstallOptions requestUrl={requestUrl} appNotFound={state === "nothing-opened"} />
           <button type="button" className="scan-reveal" onClick={onRevealQr}>
             Scan a QR code with another device instead
           </button>
-          <InstallOptions requestUrl={requestUrl} promoted={appDidNotOpen} />
         </div>
       </Main>
     </div>
   )
 }
 
-function OpenAppButton({
-  requestUrl,
-  onOpened,
-}: {
-  requestUrl: string
-  onOpened?: (opened: boolean) => void
-}) {
-  const stopProbe = useRef<(() => void) | null>(null)
-  useEffect(() => () => stopProbe.current?.(), [])
-
-  const openApp = () => {
-    stopProbe.current?.()
-    stopProbe.current = openRequestInApp(requestUrl, onOpened)
-  }
-
-  return (
-    <button type="button" className="flow-primary" onClick={openApp}>
-      Open ZKPassport App
-    </button>
-  )
-}
-
 // Always on screen, so a probe that wrongly concludes the app is missing costs the user nothing
 function InstallOptions({
   requestUrl,
-  promoted,
+  appNotFound,
 }: {
   requestUrl: string | null
-  promoted: boolean
+  appNotFound: boolean
 }) {
   return (
-    <div className="scan-install" data-promoted={promoted ? "" : undefined}>
-      <p className="scan-install-title">Don&rsquo;t have the app yet?</p>
+    <div className="scan-install">
+      <p className="scan-install-title" role={appNotFound ? "status" : undefined}>
+        {appNotFound ? "App not found" : "Don’t have the app yet?"}
+      </p>
       <p className="scan-install-note">
-        Verification happens in the ZKPassport app: it reads the chip in your passport or ID card,
-        and that data never leaves your phone. Free on iOS and Android.
+        {appNotFound
+          ? "Install the ZKPassport app, then tap Open again. It reads the chip in your passport or ID card, and that data never leaves your phone."
+          : "Verification happens in the ZKPassport app: it reads the chip in your passport or ID card, and that data never leaves your phone. Free on iOS and Android."}
       </p>
       <StoreBadges requestUrl={requestUrl} />
     </div>

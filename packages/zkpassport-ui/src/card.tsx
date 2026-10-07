@@ -154,8 +154,14 @@ export function Card({ options, controlRef }: CardProps) {
             <QrSlot state={state} qrSvg={qrSvg} caption={overlayCaption} />
           )}
 
-          {state === "waiting" && url && mobile && qrRevealed ? (
-            <OpenAppButton requestUrl={url} label="Open in ZKPassport App" />
+          {mobile && qrRevealed && preQr ? (
+            <button
+              type="button"
+              className="zkp-qr-reveal zkp-qr-back"
+              onClick={() => setQrRevealed(false)}
+            >
+              Open the ZKPassport app instead
+            </button>
           ) : null}
 
           {displaySteps && steps.length > 0 ? (
@@ -483,6 +489,8 @@ function ProgressStep({
   )
 }
 
+type AppOpenState = "idle" | "opening" | "nothing-opened"
+
 function OpenAppHero({
   requestUrl,
   inAppBrowser,
@@ -492,17 +500,18 @@ function OpenAppHero({
   inAppBrowser: boolean
   onRevealQr: () => void
 }) {
-  const [appDidNotOpen, setAppDidNotOpen] = useState(false)
+  const [openState, setOpenState] = useState<AppOpenState>("idle")
 
   return (
-    <div className="zkp-open-app-hero">
+    <div className="zkp-open-app-hero" data-state={openState}>
       {requestUrl ? (
         <OpenAppButton
           requestUrl={requestUrl}
           label="Open ZKPassport App"
+          state={openState}
           // An in-app browser swallows the custom scheme even when the app is installed, so a
           // probe there would always report a miss
-          onOpened={inAppBrowser ? undefined : (opened) => setAppDidNotOpen(!opened)}
+          onStateChange={inAppBrowser ? undefined : setOpenState}
         />
       ) : (
         <div className="zkp-open-app-loading" role="status" aria-label="Preparing request">
@@ -514,10 +523,10 @@ function OpenAppHero({
           If nothing opens, open this page in Safari or Chrome and try again.
         </p>
       ) : null}
+      <InstallOptions requestUrl={requestUrl} appNotFound={openState === "nothing-opened"} />
       <button type="button" className="zkp-qr-reveal" onClick={onRevealQr}>
         Scan a QR code with another device instead
       </button>
-      <InstallOptions requestUrl={requestUrl} promoted={appDidNotOpen} />
     </div>
   )
 }
@@ -525,23 +534,42 @@ function OpenAppHero({
 function OpenAppButton({
   requestUrl,
   label,
-  onOpened,
+  state,
+  onStateChange,
 }: {
   requestUrl: string
   label: string
-  onOpened?: (opened: boolean) => void
+  state: AppOpenState
+  onStateChange?: (state: AppOpenState) => void
 }) {
   const stopProbe = useRef<(() => void) | null>(null)
   useEffect(() => () => stopProbe.current?.(), [])
 
   const openApp = () => {
     stopProbe.current?.()
-    stopProbe.current = openRequestInApp(requestUrl, onOpened)
+    if (!onStateChange) {
+      stopProbe.current = openRequestInApp(requestUrl)
+      return
+    }
+    onStateChange("opening")
+    stopProbe.current = openRequestInApp(requestUrl, (opened) =>
+      onStateChange(opened ? "idle" : "nothing-opened"),
+    )
   }
 
+  const opening = state === "opening"
+
   return (
-    <button type="button" className="zkp-open-app zkp-open-app-block" onClick={openApp}>
-      {label}
+    <button
+      type="button"
+      className="zkp-open-app zkp-open-app-block"
+      disabled={opening}
+      onClick={openApp}
+    >
+      {opening ? (
+        <span className="zkp-spinner" dangerouslySetInnerHTML={{ __html: SPINNER_SVG }} />
+      ) : null}
+      {opening ? "Opening…" : label}
     </button>
   )
 }
@@ -549,19 +577,22 @@ function OpenAppButton({
 // Always on screen, so a probe that wrongly concludes the app is missing costs the user nothing
 function InstallOptions({
   requestUrl,
-  promoted,
+  appNotFound,
 }: {
   requestUrl: string | null
-  promoted: boolean
+  appNotFound: boolean
 }) {
   const os = detectMobileOs()
 
   return (
-    <div className="zkp-install" data-promoted={promoted ? "" : undefined}>
-      <p className="zkp-install-title">Don’t have the app yet?</p>
+    <div className="zkp-install">
+      <p className="zkp-install-title" role={appNotFound ? "status" : undefined}>
+        {appNotFound ? "App not found" : "Don’t have the app yet?"}
+      </p>
       <p className="zkp-install-note">
-        Verification happens in the ZKPassport app: it reads the chip in your passport or ID card,
-        and that data never leaves your phone. Free on iOS and Android.
+        {appNotFound
+          ? "Install the ZKPassport app, then tap Open again. It reads the chip in your passport or ID card, and that data never leaves your phone."
+          : "Verification happens in the ZKPassport app: it reads the chip in your passport or ID card, and that data never leaves your phone. Free on iOS and Android."}
       </p>
       <div className="zkp-store-buttons zkp-install-stores">
         {os !== "android" ? <StoreButton href={APP_STORE_URL} badge={APP_STORE_BADGE} /> : null}
