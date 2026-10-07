@@ -89,8 +89,12 @@ export type VerificationController = {
 
 const POPUP_BLOCKED_MESSAGE =
   "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
-const IN_APP_BROWSER_MESSAGE =
-  "This browser can't open the verification window. Open this page in your browser to continue."
+// Names the site so the user knows what to reopen, and says the request does not travel with
+// them: a different browser means starting the verification over.
+function inAppBrowserMessage(): string {
+  const site = window.location.hostname.replace(/^www\./, "") || "this page"
+  return `This browser can’t open the verification window. Open ${site} in your browser instead.`
+}
 
 const IDENTIFIER_TYPES = {
   "salted": NullifierType.SALTED,
@@ -175,7 +179,7 @@ export function createVerification(
     // Checked before opening, not after: an in-app browser can return a null handle and still
     // perform the navigation, leaving a dead second window on top of the message
     if (isInAppBrowser()) {
-      fail("blocked", IN_APP_BROWSER_MESSAGE, { openInBrowserUrl: window.location.href })
+      fail("blocked", inAppBrowserMessage(), { openInBrowserUrl: window.location.href })
       return
     }
 
