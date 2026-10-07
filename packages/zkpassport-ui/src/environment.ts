@@ -24,8 +24,14 @@ export function isInAppBrowser(): boolean {
   }
   // Android WebView marks itself with "; wv"
   if (/Android/.test(ua) && /; wv\)/.test(ua)) return true
+  if (isIosHomeScreenApp()) return false
   // iOS WKWebViews lack the Safari token (real Safari, Chrome iOS and Firefox
   // iOS all include it)
   if (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua)) return true
   return false
+}
+
+// A page added to the iOS home screen looks like a WKWebView but is a browser of its own
+function isIosHomeScreenApp(): boolean {
+  return (navigator as Navigator & { standalone?: boolean }).standalone === true
 }
