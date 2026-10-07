@@ -103,7 +103,7 @@ function BrandedButton({
         </span>
       </button>
       {openInBrowserUrl && error ? (
-        <OpenInBrowserPanel message={error} url={openInBrowserUrl} />
+        <OpenInBrowserPanel url={openInBrowserUrl} />
       ) : errorKind === "blocked" ? (
         <p className="zkp-verify-notice" role="alert">
           {error}
@@ -114,15 +114,15 @@ function BrandedButton({
 }
 
 // Plain DOM, so the React button and the vanilla one show the same panel
-function OpenInBrowserPanel({ message, url }: { message: string; url: string }): ReactElement {
+function OpenInBrowserPanel({ url }: { url: string }): ReactElement {
   const slot = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!slot.current) return
-    const panel = createOpenInBrowserPanel({ message, url })
+    const panel = createOpenInBrowserPanel({ url })
     slot.current.append(panel)
     return () => panel.remove()
-  }, [message, url])
+  }, [url])
 
   return <div ref={slot} />
 }

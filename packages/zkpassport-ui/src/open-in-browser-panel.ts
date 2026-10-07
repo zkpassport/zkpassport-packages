@@ -1,5 +1,3 @@
-import { detectMobileOs } from "./app-link"
-
 const COPIED_RESET_MS = 2000
 
 // Most desktop browsers have no share sheet, and an inert button is worse than none
@@ -7,32 +5,18 @@ function canShare(): boolean {
   return typeof navigator !== "undefined" && typeof navigator.share === "function"
 }
 
-function openInBrowserHint(): string {
-  const os = detectMobileOs()
-  if (os === "ios") return "Or open this app’s menu and choose “Open in Safari”."
-  if (os === "android") return "Or open this app’s menu and choose “Open in Chrome”."
-  return "Or open this app’s menu and choose to open the page in your browser."
-}
-
 /** The page's own address, ready for the user to carry into a browser that can host the window. */
-export function createOpenInBrowserPanel({
-  message,
-  url,
-}: {
-  message: string
-  url: string
-}): HTMLElement {
+export function createOpenInBrowserPanel({ url }: { url: string }): HTMLElement {
   const panel = document.createElement("div")
   const lead = document.createElement("p")
   const field = document.createElement("input")
   const actions = document.createElement("div")
   const copyButton = document.createElement("button")
-  const hint = document.createElement("p")
 
   panel.className = "zkp-escape"
   panel.setAttribute("role", "alert")
   lead.className = "zkp-escape-message"
-  lead.textContent = message
+  lead.textContent = "Open this page in your browser to continue."
   field.className = "zkp-escape-url"
   field.readOnly = true
   field.value = url
@@ -42,9 +26,6 @@ export function createOpenInBrowserPanel({
   copyButton.type = "button"
   copyButton.className = "zkp-escape-action"
   copyButton.textContent = "Copy link"
-  hint.className = "zkp-escape-hint"
-  hint.textContent = openInBrowserHint()
-
   let copiedResetTimer = 0
   copyButton.addEventListener("click", async () => {
     try {
@@ -74,6 +55,6 @@ export function createOpenInBrowserPanel({
     actions.append(shareButton)
   }
 
-  panel.append(lead, field, actions, hint)
+  panel.append(lead, field, actions)
   return panel
 }

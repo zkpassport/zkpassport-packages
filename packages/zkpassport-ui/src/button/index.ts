@@ -84,10 +84,7 @@ export function mountVerifyButton(
     openInBrowserPanel = null
     // Only the blocked case: no window of ours can appear to carry the message
     if (state.openInBrowserUrl && state.error) {
-      openInBrowserPanel = createOpenInBrowserPanel({
-        message: state.error,
-        url: state.openInBrowserUrl,
-      })
+      openInBrowserPanel = createOpenInBrowserPanel({ url: state.openInBrowserUrl })
       root.append(openInBrowserPanel)
     } else if (state.errorKind === "blocked" && state.error) {
       notice.className = "zkp-verify-notice"

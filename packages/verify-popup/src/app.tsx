@@ -123,7 +123,7 @@ function InAppBrowserNotice() {
     <>
       <Notice>
         You&rsquo;re in an app&rsquo;s built-in browser, which can&rsquo;t complete verification.
-        Open {site ? site.host : "the site that sent you here"} in Safari or Chrome and start again.
+        Open {site ? site.host : "the site that sent you here"} in your browser and start again.
       </Notice>
       {site ? <LinkActions url={site.url} /> : null}
     </>
