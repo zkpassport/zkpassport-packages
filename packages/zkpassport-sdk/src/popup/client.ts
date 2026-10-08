@@ -191,10 +191,12 @@ export function openVerificationPopup(
     else configure()
   }, CONFIGURE_RETRY_INTERVAL)
   closePoll = setInterval(() => {
-    if (popup.closed) {
-      cleanup()
-      if (!finished) callbacks.onClose?.()
-    }
+    if (!popup.closed) return
+    // A browser that discards the tab reports it as closed and may still rebuild it, so only the
+    // watch stops here. The listener stays on for a result that arrives after the window is gone.
+    clearInterval(closePoll!)
+    closePoll = null
+    if (!finished) callbacks.onClose?.()
   }, CLOSE_POLL_INTERVAL)
 
   return {
