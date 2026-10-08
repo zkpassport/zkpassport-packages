@@ -58,7 +58,13 @@ function setupFakeWindow(storage: Map<string, string> = new Map()) {
       listener({ origin: POPUP_ORIGIN, data, source: popups[popups.length - 1] } as MessageEvent)
     }
   }
-  return { sentToPopup, emitFromPopup, popups, openedUrls, storage }
+  // What a popup the browser discarded and rebuilt looks like: same origin, different window
+  const emitFromRebuiltPopup = (data: unknown) => {
+    for (const listener of [...listeners]) {
+      listener({ origin: POPUP_ORIGIN, data, source: {} } as MessageEvent)
+    }
+  }
+  return { sentToPopup, emitFromPopup, emitFromRebuiltPopup, popups, openedUrls, storage }
 }
 
 function sessionOf(popupUrl: string): string | null {
@@ -567,5 +573,59 @@ describe("picking a verification back up after the page was rebuilt", () => {
 
     controller.verify()
     expect(sessionOf(openedUrls[0])).not.toBe("stale")
+  })
+})
+
+describe("a popup the browser rebuilt", () => {
+  test("delivers its result, since the window handle no longer identifies it", () => {
+    const { emitFromRebuiltPopup, openedUrls } = setupFakeWindow()
+    let delivered: unknown = null
+    createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onSuccess: (response) => void (delivered = response) }),
+      () => {},
+    ).verify()
+
+    emitFromRebuiltPopup({
+      zkpassport: true,
+      type: "success",
+      session: sessionOf(openedUrls[0]),
+      proofs: [],
+      result: {},
+    })
+
+    expect(delivered).toEqual({ proofs: [], result: {} })
+  })
+
+  test("is ignored when it names a different verification", () => {
+    const { emitFromRebuiltPopup } = setupFakeWindow()
+    let delivered: unknown = null
+    createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onSuccess: (response) => void (delivered = response) }),
+      () => {},
+    ).verify()
+
+    emitFromRebuiltPopup({
+      zkpassport: true,
+      type: "success",
+      session: "someone-else",
+      proofs: [],
+      result: {},
+    })
+
+    expect(delivered).toBeNull()
+  })
+
+  test("a window that vanished still leaves the verification to continue", () => {
+    const storage = new Map<string, string>()
+    const { popups } = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+
+    popups[0].closed = true
+    Bun.sleepSync(0)
+
+    expect(storage.has(PENDING_KEY)).toBe(true)
   })
 })

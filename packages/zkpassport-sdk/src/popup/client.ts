@@ -14,7 +14,7 @@ export type PopupCallbacks = {
   onRequestReceived?: () => void
   onGeneratingProof?: () => void
   onProofGenerated?: (progress: { index?: number; total?: number; name?: string }) => void
-  onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type">) => OnSuccessVerdict
+  onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type" | "session">) => OnSuccessVerdict
   onReject?: () => void
   onError?: (message: string) => void
   // Fired when the user closes the popup before a result was produced
@@ -148,9 +148,12 @@ export function openVerificationPopup(
 
   const onMessage = (event: MessageEvent) => {
     if (event.origin !== popupOrigin) return
-    if (event.source !== popup) return
     const data = event.data
     if (!isPopupMessage(data)) return
+    // The session names the verification, which the window handle no longer can: a browser that
+    // discards the popup's tab rebuilds it as a different window. Older popups send no session, so
+    // those still have to prove themselves by handle.
+    if (data.session ? data.session !== session : event.source !== popup) return
     // Anything at all means the popup is listening, so stop configuring it blindly
     stopConfiguring()
     switch (data.type) {
@@ -168,7 +171,7 @@ export function openVerificationPopup(
         break
       case "success": {
         finished = true
-        const { zkpassport: _z, type: _t, ...response } = data
+        const { zkpassport: _z, type: _t, session: _s, ...response } = data
         callbacks.onSuccess?.(response)
         break
       }
