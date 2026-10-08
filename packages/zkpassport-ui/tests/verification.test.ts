@@ -29,7 +29,7 @@ function setupFakeWindow(storage: Map<string, string> = new Map()) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(globalThis as any).window = {
     location: { href: PAGE_URL, hostname: "merchant.example" },
-    localStorage: {
+    sessionStorage: {
       getItem: (key: string) => storage.get(key) ?? null,
       setItem: (key: string, value: string) => void storage.set(key, value),
       removeItem: (key: string) => void storage.delete(key),
