@@ -17,8 +17,10 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 // The transport adds the zkpassport marker, so it is omitted here
 export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
-function post(message: OutgoingEvent, rpOrigin: string, target: Window | null) {
-  target?.postMessage({ zkpassport: true, ...message }, rpOrigin)
+// The session goes out with every message: a tab the browser discarded comes back as a different
+// window, and the page waiting for the result has no other way to recognise it
+function post(message: OutgoingEvent, session: string, rpOrigin: string, target: Window | null) {
+  target?.postMessage({ zkpassport: true, session, ...message }, rpOrigin)
 }
 
 export function App() {
@@ -54,11 +56,14 @@ export function App() {
       if (!known?.configuration) updateSession(session, { configuration })
       setConfig((current) => current ?? configuration)
       // A result produced while the asking page was gone is still waiting to be handed over
-      if (known?.result) post(known.result, configuration.rpOrigin, replyTo.current)
+      if (known?.result) post(known.result, session.id, configuration.rpOrigin, replyTo.current)
     }
     window.addEventListener("message", onMessage)
     // Announce readiness; carries no data, so a wildcard target is safe
-    ;(window.opener as Window | null)?.postMessage({ zkpassport: true, type: "ready" }, "*")
+    ;(window.opener as Window | null)?.postMessage(
+      { zkpassport: true, type: "ready", session: session.id },
+      "*",
+    )
     return () => window.removeEventListener("message", onMessage)
   }, [session])
 
@@ -67,7 +72,12 @@ export function App() {
     return (message: OutgoingEvent) => {
       // Held before it is sent, so a page that was not there to receive it can still be given it
       if (message.type === "success") updateSession(session, { result: message })
-      post(message, config.rpOrigin, replyTo.current ?? (window.opener as Window | null))
+      post(
+        message,
+        session.id,
+        config.rpOrigin,
+        replyTo.current ?? (window.opener as Window | null),
+      )
     }
   }, [config, session])
 

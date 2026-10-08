@@ -54,27 +54,27 @@ export type PopupConfigureMessage = {
   credential?: PopupCredentialConfig
 }
 
-export type PopupReadyMessage = { zkpassport: true; type: "ready" }
+export type PopupReadyMessage = { zkpassport: true; type: "ready"; session?: string }
+
+/**
+ * Every message names its verification. The window handle alone is not enough to recognise the
+ * popup: a browser that discards its tab rebuilds it as a different window, and the page waiting
+ * for the result still has to accept what it sends.
+ */
+type Addressed<T> = T & { zkpassport: true; session?: string }
 
 export type PopupEventMessage =
-  | { zkpassport: true; type: "request-received" }
-  | { zkpassport: true; type: "generating" }
-  | {
-      zkpassport: true
-      type: "proof-generated"
-      index?: number
-      total?: number
-      name?: string
-    }
-  | {
-      zkpassport: true
+  | Addressed<{ type: "request-received" }>
+  | Addressed<{ type: "generating" }>
+  | Addressed<{ type: "proof-generated"; index?: number; total?: number; name?: string }>
+  | Addressed<{
       type: "success"
       proofs: ProofResult[]
       result: QueryResult
       credential?: PopupCredentialOutcome
-    }
-  | { zkpassport: true; type: "rejected" }
-  | { zkpassport: true; type: "error"; message: string }
+    }>
+  | Addressed<{ type: "rejected" }>
+  | Addressed<{ type: "error"; message: string }>
 
 export type PopupMessage = PopupConfigureMessage | PopupReadyMessage | PopupEventMessage
 
