@@ -614,18 +614,4 @@ describe("a popup the browser rebuilt", () => {
 
     expect(delivered).toBeNull()
   })
-
-  test("a window that vanished still leaves the verification to continue", () => {
-    const storage = new Map<string, string>()
-    const { popups } = setupFakeWindow(storage)
-    createVerification(
-      () => SIMPLE_OPTIONS,
-      () => {},
-    ).verify()
-
-    popups[0].closed = true
-    Bun.sleepSync(0)
-
-    expect(storage.has(PENDING_KEY)).toBe(true)
-  })
 })

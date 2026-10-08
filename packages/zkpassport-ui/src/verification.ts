@@ -167,9 +167,9 @@ export function createVerification(
     ) => {
       if (settled || latestAttempt !== thisAttempt) return
       settled = true
-      // A missing window is not an outcome for the verification: "blocked" is this browser refusing
-      // to open one, and "closed" is what a discarded tab looks like, which the browser rebuilds
-      if (kind !== "blocked" && kind !== "closed") forgetPendingVerification()
+      // "blocked" is this browser refusing to open a window, not an outcome for the verification:
+      // allowing pop-ups and clicking again should still reach the one already running
+      if (kind !== "blocked") forgetPendingVerification()
       setStatus(
         status ?? "error",
         kind === "closed" ? null : message,
