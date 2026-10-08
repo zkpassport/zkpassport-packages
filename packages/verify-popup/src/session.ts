@@ -4,8 +4,8 @@ import type { KeyPair } from "@zkpassport/sdk"
 import type { PopupConfigureMessage, PopupSuccess } from "@zkpassport/sdk/popup"
 
 const STORAGE_PREFIX = "zkpassport:session:"
-// Long enough for an App Store install and an ID scan, short enough that the bridge private key is
-// not left lying around afterwards
+// The store belongs to this tab, so it goes when the tab does. This only guards a tab left open for
+// a long time after the user walked away.
 const SESSION_MAX_AGE_MS = 30 * 60 * 1000
 
 export type SessionConfiguration = {
@@ -41,7 +41,6 @@ type StoredSession = Omit<SessionState, "keyPair"> & {
  * browser rebuilds a discarded tab from; everything behind it lives in this origin's storage.
  */
 export function openSession(): Session {
-  sweepExpiredSessions()
   const fromUrl = new URLSearchParams(window.location.search).get("s")
   if (fromUrl) return { id: fromUrl, resumed: read(fromUrl) !== null }
 
@@ -91,8 +90,10 @@ export function updateSession(session: Session, patch: Partial<SessionState>): v
 
 function read(id: string): StoredSession | null {
   try {
-    const raw = window.localStorage.getItem(STORAGE_PREFIX + id)
-    return raw ? (JSON.parse(raw) as StoredSession) : null
+    const raw = window.sessionStorage.getItem(STORAGE_PREFIX + id)
+    if (!raw) return null
+    const stored = JSON.parse(raw) as StoredSession
+    return Date.now() - stored.createdAt < SESSION_MAX_AGE_MS ? stored : null
   } catch {
     // Private mode or blocked site data: nothing to recover from
     return null
@@ -101,25 +102,8 @@ function read(id: string): StoredSession | null {
 
 function write(id: string, state: StoredSession): void {
   try {
-    window.localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(state))
+    window.sessionStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(state))
   } catch {
     // Without storage the flow still runs, it just cannot survive a reload
-  }
-}
-
-// Dropped on load rather than on a timer, so the bridge private key of a verification the user
-// walked away from does not sit here indefinitely
-function sweepExpiredSessions(): void {
-  try {
-    const expired: string[] = []
-    for (let index = 0; index < window.localStorage.length; index++) {
-      const key = window.localStorage.key(index)
-      if (!key?.startsWith(STORAGE_PREFIX)) continue
-      const { createdAt } = JSON.parse(window.localStorage.getItem(key)!) as StoredSession
-      if (Date.now() - createdAt >= SESSION_MAX_AGE_MS) expired.push(key)
-    }
-    for (const key of expired) window.localStorage.removeItem(key)
-  } catch {
-    // Nothing to sweep if the store cannot be read
   }
 }

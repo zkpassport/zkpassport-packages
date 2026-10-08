@@ -18,7 +18,7 @@ function setupWindow(search = ""): Store {
         ;(globalThis as any).window.location = { href: next.href, search: next.search }
       },
     },
-    localStorage: {
+    sessionStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
       removeItem: (key: string) => void store.delete(key),
@@ -33,7 +33,7 @@ function setupWindow(search = ""): Store {
 
 function brokenStorage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(globalThis as any).window.localStorage = {
+  ;(globalThis as any).window.sessionStorage = {
     getItem: () => {
       throw new Error("The operation is insecure.")
     },
@@ -54,7 +54,7 @@ function brokenStorage() {
 
 function store(id: string, state: unknown) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(globalThis as any).window.localStorage.setItem(PREFIX + id, JSON.stringify(state))
+  ;(globalThis as any).window.sessionStorage.setItem(PREFIX + id, JSON.stringify(state))
 }
 
 const CONFIGURATION = {
@@ -93,17 +93,11 @@ describe("openSession", () => {
     expect(new URL((globalThis as any).window.location.href).searchParams.get("s")).toBe(session.id)
   })
 
-  test("drops records too old to still be running, including other verifications'", () => {
-    const stored = setupWindow("?s=abc-123")
-    const expired = Date.now() - 31 * 60 * 1000
-    store("abc-123", { createdAt: expired, configuration: CONFIGURATION })
-    store("abandoned", { createdAt: expired, configuration: CONFIGURATION })
-    store("live", { createdAt: Date.now(), configuration: CONFIGURATION })
+  test("drops a record too old to still be running", () => {
+    setupWindow("?s=abc-123")
+    store("abc-123", { createdAt: Date.now() - 31 * 60 * 1000, configuration: CONFIGURATION })
 
     expect(openSession()).toEqual({ id: "abc-123", resumed: false })
-    expect(stored.has(PREFIX + "abc-123")).toBe(false)
-    expect(stored.has(PREFIX + "abandoned")).toBe(false)
-    expect(stored.has(PREFIX + "live")).toBe(true)
   })
 })
 
