@@ -17,12 +17,6 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 // The transport adds the zkpassport marker, so it is omitted here
 export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
-// The session goes out with every message: a tab the browser discarded comes back as a different
-// window, and the page waiting for the result has no other way to recognise it
-function post(message: OutgoingEvent, session: string, rpOrigin: string, target: Window | null) {
-  target?.postMessage({ zkpassport: true, session, ...message }, rpOrigin)
-}
-
 export function App() {
   const linkId = useMemo(() => new URLSearchParams(window.location.search).get("vl"), [])
   // The link flow answers to the dashboard rather than to an opener, so it needs no session
@@ -36,6 +30,13 @@ export function App() {
   // A discarded tab loses window.opener, and a reloaded opener loses its handle on us, so replies
   // go to whichever window last got in touch
   const replyTo = useRef<Window | null>(null)
+
+  // The session goes out with every message: a tab the browser discarded comes back as a different
+  // window, and the page waiting for the result has no other way to recognise it
+  const post = (message: OutgoingEvent, rpOrigin: string) => {
+    const target = replyTo.current ?? (window.opener as Window | null)
+    target?.postMessage({ zkpassport: true, session: session?.id, ...message }, rpOrigin)
+  }
 
   useEffect(() => {
     if (!session) return
@@ -56,7 +57,7 @@ export function App() {
       if (!known?.configuration) updateSession(session, { configuration })
       setConfig((current) => current ?? configuration)
       // A result produced while the asking page was gone is still waiting to be handed over
-      if (known?.result) post(known.result, session.id, configuration.rpOrigin, replyTo.current)
+      if (known?.result) post(known.result, configuration.rpOrigin)
     }
     window.addEventListener("message", onMessage)
     // Announce readiness; carries no data, so a wildcard target is safe
@@ -72,12 +73,7 @@ export function App() {
     return (message: OutgoingEvent) => {
       // Held before it is sent, so a page that was not there to receive it can still be given it
       if (message.type === "success") updateSession(session, { result: message })
-      post(
-        message,
-        session.id,
-        config.rpOrigin,
-        replyTo.current ?? (window.opener as Window | null),
-      )
+      post(message, config.rpOrigin)
     }
   }, [config, session])
 

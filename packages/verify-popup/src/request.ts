@@ -58,7 +58,8 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
   const [url, setUrl] = useState<string | null>(null)
   const [qrSvg, setQrSvg] = useState<string | null>(null)
   const [query, setQuery] = useState<Query | null>(null)
-  const [attempt, setAttempt] = useState({ count: 0, keepBridge: false })
+  // A fresh object each time, so pressing Try again twice restarts the request twice
+  const [attempt, setAttempt] = useState(() => ({ keepBridge: config.session?.resumed ?? false }))
 
   // Read through refs so a re-render never restarts the request
   const configRef = useRef(config)
@@ -74,8 +75,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
 
     // The old keypair brings the old bridge topic with it, so the phone is still talking to this
     // request. A plain retry asks for a new one instead.
-    const keepBridge = attempt.count === 0 ? session?.resumed : attempt.keepBridge
-    const resumeWith = keepBridge && session ? readSession(session)?.keyPair : undefined
+    const resumeWith = attempt.keepBridge && session ? readSession(session)?.keyPair : undefined
 
     const fail = (summary: string, reason: unknown) => {
       const detail = reason instanceof Error ? reason.message : String(reason)
@@ -171,14 +171,8 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
     }
   }, [attempt])
 
-  const retry = useCallback(
-    () => setAttempt((a) => ({ count: a.count + 1, keepBridge: false })),
-    [],
-  )
-  const resume = useCallback(
-    () => setAttempt((a) => ({ count: a.count + 1, keepBridge: true })),
-    [],
-  )
+  const retry = useCallback(() => setAttempt({ keepBridge: false }), [])
+  const resume = useCallback(() => setAttempt({ keepBridge: true }), [])
 
   return { state, url, qrSvg, query, retry, resume }
 }
