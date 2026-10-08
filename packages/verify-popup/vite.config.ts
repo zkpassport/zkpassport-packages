@@ -30,6 +30,8 @@ export default defineConfig({
   preview: {
     port: 5173,
     headers: DOCUMENT_ISOLATION_HEADERS,
+    // Phone testing goes through a Cloudflare quick tunnel, and preview rejects unknown hosts
+    allowedHosts: [".trycloudflare.com"],
   },
   optimizeDeps: {
     // These packages load WASM and spawn workers via import.meta.url, which
