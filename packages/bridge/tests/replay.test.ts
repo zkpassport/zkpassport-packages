@@ -15,7 +15,7 @@
  * Layers:
  *   1. DataStore unit tests (deterministic; LOCAL only — they test this repo's stores).
  *   2. Protocol tests over a real WebSocket.
- *   3. End-to-end through the real Obsidion client.
+ *   3. End-to-end through the real ZKPassport Bridge client.
  *
  * Targeting a remote server
  * -------------------------
@@ -397,7 +397,7 @@ for (const backend of protocolBackends) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. End-to-end through the real Obsidion Bridge client
+// 3. End-to-end through the real ZKPassport Bridge client
 // ---------------------------------------------------------------------------
 
 const waitForCb = <T = any>(cb: (resolve: (v?: T) => void) => void): Promise<T> =>
@@ -418,7 +418,7 @@ function e2eBridgeUrl(): string {
   return REMOTE ?? `ws://127.0.0.1:${makeServer().port}`
 }
 
-describe("replay end-to-end (Obsidion client)", () => {
+describe("replay end-to-end (ZKPassport Bridge client)", () => {
   // Uses in-process connection-count introspection to make the "gone" window
   // deterministic, so it only runs against the local server.
   localOnly("a peer receives an encrypted message it missed while disconnected, via replay", async () => {

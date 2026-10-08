@@ -1,8 +1,10 @@
-# Obsidion Bridge WebSocket Relay Server
+# ZKPassport Bridge
+
+This is not the currently deployed ZKPassport bridge. It is used only in tests.
 
 A standalone, self-hostable WebSocket **bridge** — a transparent relay that lets two
 end-to-end-encrypted peers (a *creator* and a *joiner*) talk to each other through a
-shared bridge id. It speaks the [Obsidion Bridge](https://github.com/zkpassport) wire protocol.
+shared bridge id. It speaks the [ZKPassport Bridge](https://github.com/zkpassport) wire protocol.
 
 The server never decrypts anything — it only routes encrypted JSON frames between the
 connections that share a bridge id, injects the sender's origin, and caches encrypted messages so a
@@ -31,10 +33,10 @@ bun install
 bun run start            # listens on ws://0.0.0.0:8080 by default
 ```
 
-Point the Obsidion Bridge client at it:
+Point the bridge client in `acceptance/src` at it:
 
 ```ts
-import { Bridge } from "@obsidion/bridge"
+import { Bridge } from "./acceptance/src"
 
 const creator = await Bridge.create({ bridgeUrl: "ws://localhost:8080" })
 const joiner  = await Bridge.join(creator.connectionString, { bridgeUrl: "ws://localhost:8080" })
@@ -73,8 +75,8 @@ server/
     sqlite.ts         bun:sqlite backend (default)
     memory.ts         in-memory backend (tests / fallback)
 acceptance/
-  src/                Vendored Obsidion Bridge client (verbatim — needed to run the tests)
-  tests/              Vendored Obsidion Bridge test suite (verbatim — the acceptance spec)
+  src/                Vendored ZKPassport Bridge client (needed to run the tests)
+  tests/              Vendored ZKPassport Bridge test suite (the acceptance spec)
   setup.real.ts       Preload that boots this server and points the client at it
 examples/
   replay-demo.ts      Protocol-level demonstration/verification of replay
@@ -88,7 +90,7 @@ is used by the test harness.
 
 ## Testing
 
-The acceptance suite is the **verbatim** Obsidion Bridge client test suite. It runs in two modes:
+The acceptance suite is the ZKPassport Bridge client test suite. It runs in two modes:
 
 ```bash
 bun run test:mock    # acceptance suite against the in-memory mock (sanity check of the vendored suite)
@@ -104,7 +106,7 @@ endpoint to it — the test files themselves are never modified. All tests pass 
 ### Message Replay tests
 
 `tests/replay.test.ts` covers replay at three layers: DataStore unit tests (both backends),
-protocol tests over a real WebSocket, and an end-to-end test through the real Obsidion client.
+protocol tests over a real WebSocket, and an end-to-end test through the real ZKPassport Bridge client.
 By default each test spins up an in-process server.
 
 To run the protocol- and client-level tests against an **external** bridge instead, set

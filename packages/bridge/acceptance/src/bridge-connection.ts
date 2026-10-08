@@ -775,9 +775,9 @@ export class BridgeConnection {
   public get connectionString(): string {
     const oocParam = this.originOnConnect ? "&ooc" : ""
     if (this.role === "creator") {
-      return `obsidion:${this.getPublicKey()}?d=${this.bridgeOrigin!}&v=${PROTOCOL_VERSION}${oocParam}`
+      return `zkpassport:${this.getPublicKey()}?d=${this.bridgeOrigin!}&v=${PROTOCOL_VERSION}${oocParam}`
     } else {
-      return `obsidion:${this.getBridgeId()}?d=${this.bridgeOrigin!}&v=${PROTOCOL_VERSION}${oocParam}`
+      return `zkpassport:${this.getBridgeId()}?d=${this.bridgeOrigin!}&v=${PROTOCOL_VERSION}${oocParam}`
     }
   }
 

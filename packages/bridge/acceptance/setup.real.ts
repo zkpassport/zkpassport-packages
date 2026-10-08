@@ -1,7 +1,7 @@
 /**
  * Acceptance test harness.
  *
- * This preload makes the *verbatim* Obsidion Bridge test suite (acceptance/tests)
+ * This preload makes the ZKPassport Bridge client test suite (acceptance/tests)
  * run against the real standalone server in this repo instead of the in-memory
  * mock. It does two things:
  *

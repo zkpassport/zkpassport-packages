@@ -2,7 +2,7 @@
   "name": "bridge",
   "version": "0.1.0",
   "private": true,
-  "description": "Standalone Bun/Node WebSocket bridge — a self-hosted, transparent relay for the Obsidion Bridge client.",
+  "description": "Standalone Bun/Node WebSocket bridge — a self-hosted, transparent relay for the ZKPassport Bridge client.",
   "license": "Apache-2.0",
   "type": "module",
   "module": "server/index.ts",
