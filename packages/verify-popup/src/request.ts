@@ -13,9 +13,8 @@ import { isMobileLike } from "@zkpassport/ui/hosted"
 
 import { readSession, updateSession, type Session } from "./session"
 
-// Stops at `waiting`: everything after the phone joins is a screen, not a state.
-// `disconnected` is not an ending — the bridge reconnects by itself.
-export type RequestState = "preparing" | "connecting" | "waiting" | "disconnected"
+// Stops at `waiting`: everything after the phone joins is a screen, not a state
+export type RequestState = "preparing" | "connecting" | "waiting"
 
 export type QuerySource = Query | ((builder: QueryBuilder) => QueryBuilderResult)
 
@@ -48,7 +47,10 @@ export type RequestHandle = {
   url: string | null
   qrSvg: string | null
   query: Query | null
+  /** Start over on a new bridge. */
   retry: () => void
+  /** Try again on the same bridge, keeping whatever the phone has already sent. */
+  resume: () => void
 }
 
 export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): RequestHandle {
@@ -56,7 +58,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
   const [url, setUrl] = useState<string | null>(null)
   const [qrSvg, setQrSvg] = useState<string | null>(null)
   const [query, setQuery] = useState<Query | null>(null)
-  const [attempt, setAttempt] = useState(0)
+  const [attempt, setAttempt] = useState({ count: 0, keepBridge: false })
 
   // Read through refs so a re-render never restarts the request
   const configRef = useRef(config)
@@ -71,8 +73,9 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
     let requestId: string | null = null
 
     // The old keypair brings the old bridge topic with it, so the phone is still talking to this
-    // request. A retry is a new request, so it never resumes.
-    const resumeWith = attempt === 0 && session?.resumed ? readSession(session)?.keyPair : undefined
+    // request. A plain retry asks for a new one instead.
+    const keepBridge = attempt.count === 0 ? session?.resumed : attempt.keepBridge
+    const resumeWith = keepBridge && session ? readSession(session)?.keyPair : undefined
 
     const fail = (summary: string, reason: unknown) => {
       const detail = reason instanceof Error ? reason.message : String(reason)
@@ -130,9 +133,9 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         }
 
         built.onBridgeConnect(() => setState((s) => (s === "waiting" ? s : "waiting")))
-        // Coming back from the app looks exactly like this, and the bridge reconnects by itself,
-        // so it is a screen to wait on rather than a failure to report
-        built.onBridgeConnectionLost(() => setState("disconnected"))
+        built.onBridgeConnectionLost(() =>
+          callbacksRef.current.onError?.("The connection to your phone was lost."),
+        )
         built.onRequestReceived(() => callbacksRef.current.onReceived?.())
         built.onGeneratingProof(() => callbacksRef.current.onProving?.())
         built.onProofGenerated((proof) => callbacksRef.current.onProof?.(proof))
@@ -168,9 +171,16 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
     }
   }, [attempt])
 
-  const retry = useCallback(() => setAttempt((n) => n + 1), [])
+  const retry = useCallback(
+    () => setAttempt((a) => ({ count: a.count + 1, keepBridge: false })),
+    [],
+  )
+  const resume = useCallback(
+    () => setAttempt((a) => ({ count: a.count + 1, keepBridge: true })),
+    [],
+  )
 
-  return { state, url, qrSvg, query, retry }
+  return { state, url, qrSvg, query, retry, resume }
 }
 
 // ECC "Q" leaves room for the mark overlaid at the centre
