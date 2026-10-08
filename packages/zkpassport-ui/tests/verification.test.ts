@@ -577,6 +577,34 @@ describe("picking a verification back up after the page was rebuilt", () => {
 })
 
 describe("a popup the browser rebuilt", () => {
+  test("delivers its result even after the window was reported gone", async () => {
+    const { emitFromRebuiltPopup, openedUrls, popups } = setupFakeWindow()
+    let delivered: unknown = null
+    let closed = false
+    createVerification(
+      () => ({
+        ...SIMPLE_OPTIONS,
+        onSuccess: (response) => void (delivered = response),
+        onError: (error) => void (closed = error.kind === "closed"),
+      }),
+      () => {},
+    ).verify()
+
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(closed).toBe(true)
+
+    emitFromRebuiltPopup({
+      zkpassport: true,
+      type: "success",
+      session: sessionOf(openedUrls[0]),
+      proofs: [],
+      result: {},
+    })
+
+    expect(delivered).toEqual({ proofs: [], result: {} })
+  })
+
   test("delivers its result, since the window handle no longer identifies it", () => {
     const { emitFromRebuiltPopup, openedUrls } = setupFakeWindow()
     let delivered: unknown = null
