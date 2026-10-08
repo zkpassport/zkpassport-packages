@@ -111,13 +111,16 @@ export function openVerificationPopup(
     configurePoll = null
   }
 
+  const stopWatchingForClose = () => {
+    if (!closePoll) return
+    clearInterval(closePoll)
+    closePoll = null
+  }
+
   const cleanup = () => {
     window.removeEventListener("message", onMessage)
     stopConfiguring()
-    if (closePoll) {
-      clearInterval(closePoll)
-      closePoll = null
-    }
+    stopWatchingForClose()
   }
 
   const configure = () => {
@@ -150,10 +153,9 @@ export function openVerificationPopup(
     if (event.origin !== popupOrigin) return
     const data = event.data
     if (!isPopupMessage(data)) return
-    // The session names the verification, which the window handle no longer can: a browser that
-    // discards the popup's tab rebuilds it as a different window. Older popups send no session, so
-    // those still have to prove themselves by handle.
-    if (data.session ? data.session !== session : event.source !== popup) return
+    // Older popups send no session and still have to prove themselves by their window
+    const isOurs = data.session ? data.session === session : event.source === popup
+    if (!isOurs) return
     // Anything at all means the popup is listening, so stop configuring it blindly
     stopConfiguring()
     switch (data.type) {
@@ -192,10 +194,9 @@ export function openVerificationPopup(
   }, CONFIGURE_RETRY_INTERVAL)
   closePoll = setInterval(() => {
     if (!popup.closed) return
-    // A browser that discards the tab reports it as closed and may still rebuild it, so only the
-    // watch stops here. The listener stays on for a result that arrives after the window is gone.
-    clearInterval(closePoll!)
-    closePoll = null
+    // A discarded tab also reports as closed and may come back, so only the watch stops here: the
+    // listener stays on for a result that arrives after the window is gone
+    stopWatchingForClose()
     if (!finished) callbacks.onClose?.()
   }, CLOSE_POLL_INTERVAL)
 

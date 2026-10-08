@@ -43,25 +43,21 @@ export type PopupCredentialOutcome = {
   txHash?: `0x${string}`
 }
 
-export type PopupConfigureMessage = {
-  zkpassport: true
+/**
+ * Every message names its verification, because a browser that discards the popup's tab rebuilds it
+ * as a different window and the handle no longer recognises it.
+ */
+type Addressed<T> = T & { zkpassport: true; session?: string }
+
+export type PopupConfigureMessage = Addressed<{
   type: "configure"
-  /** Names the verification, matching the popup's own URL, so a reopened popup knows which one. */
-  session?: string
   request: PopupRequestConfig
   query: Query
   /** Mint mode; a sibling of `query` because each defines what to prove for its mode. */
   credential?: PopupCredentialConfig
-}
+}>
 
-export type PopupReadyMessage = { zkpassport: true; type: "ready"; session?: string }
-
-/**
- * Every message names its verification. The window handle alone is not enough to recognise the
- * popup: a browser that discards its tab rebuilds it as a different window, and the page waiting
- * for the result still has to accept what it sends.
- */
-type Addressed<T> = T & { zkpassport: true; session?: string }
+export type PopupReadyMessage = Addressed<{ type: "ready" }>
 
 export type PopupEventMessage =
   | Addressed<{ type: "request-received" }>
