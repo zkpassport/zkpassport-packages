@@ -149,20 +149,17 @@ function VerifyRequest({
     return consented ? "scan" : "intro"
   })()
 
-  // A fresh request needs a fresh bridge, so retry restarts it rather than
-  // just clearing the message
+  // Keeps the bridge, so a proof the phone made while the connection was down is still delivered
   const tryAgain = () => {
     setFailure(null)
-    req.retry()
+    req.resume()
   }
 
   return (
     <FlowCard name={appName} logo={logo} screenKey={screen}>
       {screen === "done" ? <Done outcome={{ kind: "verified" }} appName={appName} /> : null}
       {screen === "error" && failure ? <ErrorScreen message={failure} onRetry={tryAgain} /> : null}
-      {screen === "waiting" && scan ? (
-        <Waiting progress={scan} disconnected={req.state === "disconnected"} />
-      ) : null}
+      {screen === "waiting" && scan ? <Waiting progress={scan} /> : null}
       {screen === "scan" ? <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} /> : null}
       {screen === "intro" ? (
         <Intro
