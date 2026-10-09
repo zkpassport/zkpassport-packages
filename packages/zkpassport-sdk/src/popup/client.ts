@@ -172,6 +172,7 @@ export function openVerificationPopup(
         callbacks.onProofGenerated?.({ index: data.index, total: data.total, name: data.name })
         break
       case "success": {
+        if (finished) break
         finished = true
         const { zkpassport: _z, type: _t, session: _s, ...response } = data
         callbacks.onSuccess?.(response)

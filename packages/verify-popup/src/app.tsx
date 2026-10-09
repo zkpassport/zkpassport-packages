@@ -60,7 +60,7 @@ export function App() {
       if (known?.result) post(known.result, configuration.rpOrigin)
     }
     window.addEventListener("message", onMessage)
-    // Announce readiness; carries no data, so a wildcard target is safe
+    // Announce readiness. The wildcard is safe: only the opener receives it, and it chose the id
     ;(window.opener as Window | null)?.postMessage(
       { zkpassport: true, type: "ready", session: session.id },
       "*",
