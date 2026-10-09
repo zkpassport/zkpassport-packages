@@ -24,6 +24,8 @@ type VerifyFlowProps = {
 
 type DomainResolution = { domain: string } | { error: string } | null
 
+type Failure = { message: string; keepsBridge?: boolean }
+
 /**
  * Settles which domain the request is made under before anything is sent to the bridge: the
  * attested host, or a claimed one the dashboard vouches for.
@@ -104,7 +106,7 @@ function VerifyRequest({
   const hasQuery = Object.keys(query ?? {}).length > 0
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
   const [verified, setVerified] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
+  const [failure, setFailure] = useState<Failure | null>(null)
 
   // Started before consent, so the QR is ready the moment Continue is pressed
   const req = useRequest(
@@ -130,13 +132,19 @@ function VerifyRequest({
       },
       onReject: () => {
         setScan(null)
-        setFailure("The request was declined on your phone.")
+        setFailure({ message: "The request was declined on your phone." })
         send({ type: "rejected" })
       },
       onError: (message) => {
         setScan(null)
-        setFailure(String(message))
+        setFailure({ message: String(message) })
         send({ type: "error", message: String(message) })
+      },
+      onConnectionLost: () => {
+        const message = "The connection to your phone was lost."
+        setScan(null)
+        setFailure({ message, keepsBridge: true })
+        send({ type: "error", message })
       },
     },
   )
@@ -152,16 +160,21 @@ function VerifyRequest({
     return consented ? "scan" : "intro"
   })()
 
-  // Keeps the bridge, so a proof the phone made while the connection was down is still delivered
+  // Only a dropped connection leaves anything worth keeping. Starting over after a decline would
+  // replay the decline itself.
   const tryAgain = () => {
+    const keepsBridge = failure?.keepsBridge
     setFailure(null)
-    req.resume()
+    if (keepsBridge) req.resume()
+    else req.retry()
   }
 
   return (
     <FlowCard name={appName} logo={logo} screenKey={screen}>
       {screen === "done" ? <Done outcome={{ kind: "verified" }} appName={appName} /> : null}
-      {screen === "error" && failure ? <ErrorScreen message={failure} onRetry={tryAgain} /> : null}
+      {screen === "error" && failure ? (
+        <ErrorScreen message={failure.message} onRetry={tryAgain} />
+      ) : null}
       {screen === "waiting" && scan ? <Waiting progress={scan} /> : null}
       {screen === "scan" ? <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} /> : null}
       {screen === "intro" ? (
