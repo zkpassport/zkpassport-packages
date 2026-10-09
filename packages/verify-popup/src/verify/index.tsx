@@ -108,6 +108,13 @@ function VerifyRequest({
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
 
+  const failWith = (reason: Failure) => {
+    setScan(null)
+    // Without the bridge the phone cannot still be working, so forget how far it got
+    if (!reason.keepsBridge) updateSession(session, { stage: undefined })
+    setFailure(reason)
+  }
+
   // Started before consent, so the QR is ready the moment Continue is pressed
   const req = useRequest(
     { domain, request, query, session },
@@ -131,19 +138,16 @@ function VerifyRequest({
         send({ type: "success", proofs, result })
       },
       onReject: () => {
-        setScan(null)
-        setFailure({ message: "The request was declined on your phone." })
+        failWith({ message: "The request was declined on your phone." })
         send({ type: "rejected" })
       },
       onError: (message) => {
-        setScan(null)
-        setFailure({ message: String(message) })
+        failWith({ message: String(message) })
         send({ type: "error", message: String(message) })
       },
       onConnectionLost: () => {
         const message = "The connection to your phone was lost."
-        setScan(null)
-        setFailure({ message, keepsBridge: true })
+        failWith({ message, keepsBridge: true })
         send({ type: "error", message })
       },
     },

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { openSession, readSession, updateSession, type Session } from "../src/session"
+import {
+  finishSession,
+  openSession,
+  readSession,
+  updateSession,
+  type Session,
+} from "../src/session"
 
 const ORIGIN = "https://verify.zkpassport.id"
 const PREFIX = "zkpassport:session:"
@@ -105,6 +111,19 @@ describe("openSession", () => {
     expect(stored.has(PREFIX + "abandoned")).toBe(false)
     expect(stored.has(PREFIX + "live")).toBe(true)
   })
+
+  test("drops a record it cannot read rather than giving up on the rest", () => {
+    const stored = setupWindow("?s=abc-123")
+    stored.set(PREFIX + "unreadable", "{ not json")
+    store("live", { createdAt: Date.now(), configuration: CONFIGURATION })
+    store("abandoned", { createdAt: Date.now() - 31 * 60 * 1000, configuration: CONFIGURATION })
+
+    openSession()
+
+    expect(stored.has(PREFIX + "unreadable")).toBe(false)
+    expect(stored.has(PREFIX + "abandoned")).toBe(false)
+    expect(stored.has(PREFIX + "live")).toBe(true)
+  })
 })
 
 describe("readSession and updateSession", () => {
@@ -135,6 +154,24 @@ describe("readSession and updateSession", () => {
     expect(state?.configuration).toEqual(CONFIGURATION)
     expect(state?.keyPair?.privateKey).toEqual(Uint8Array.from([1]))
     expect(state?.result?.type).toBe("success")
+  })
+})
+
+describe("finishSession", () => {
+  test("keeps the result to hand over and drops the bridge key", () => {
+    setupWindow("?s=abc-123")
+    const session: Session = { id: "abc-123", resumed: false }
+    updateSession(session, {
+      configuration: CONFIGURATION,
+      keyPair: { privateKey: Uint8Array.from([1]), publicKey: Uint8Array.from([2]) },
+    })
+
+    finishSession(session, { type: "success", proofs: [], result: {} } as never)
+
+    const state = readSession(session)
+    expect(state?.keyPair).toBeUndefined()
+    expect(state?.result?.type).toBe("success")
+    expect(state?.configuration).toEqual(CONFIGURATION)
   })
 })
 
