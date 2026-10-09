@@ -10,6 +10,12 @@ import { getChainFromId, NullifierType, type ProofMode } from "@zkpassport/sdk"
 import { isInAppBrowser } from "./environment"
 import { ZKPassportError, type ZKPassportErrorKind } from "./errors"
 import { logger } from "./logger"
+import {
+  forgetPendingVerification,
+  loadPendingVerification,
+  markPhoneJoined,
+  rememberPendingVerification,
+} from "./pending-verification"
 import { parsePolicyId } from "./policy-id"
 import { toWireQuery, type BoundData, type Query } from "./query-wire"
 
@@ -22,6 +28,8 @@ export type VerificationState = {
   errorKind: ZKPassportErrorKind | null
   /** This page's own URL, set when the browser can't host the verification window. */
   openInBrowserUrl: string | null
+  /** A verification started before this page loaded is still open; verify() picks that one up. */
+  resumable: boolean
 }
 
 /** What the service accepts, as opposed to what the query asks about the credential. */
@@ -42,7 +50,7 @@ export type VerificationOverrides = {
 }
 
 type Callbacks = {
-  onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type">) => unknown
+  onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type" | "session">) => unknown
   onError?: (error: ZKPassportError) => void
 }
 
@@ -108,6 +116,8 @@ export function createVerification(
     error: null,
     errorKind: null,
     openInBrowserUrl: null,
+    // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
+    resumable: !!loadPendingVerification(toRequestKey(getOptions())),
   }
   let popupHandle: VerificationPopupHandle | null = null
   // Set once the popup delivered a result; from then on the window belongs to the user
@@ -122,12 +132,17 @@ export function createVerification(
     errorKind: ZKPassportErrorKind | null = null,
     openInBrowserUrl: string | null = null,
   ) => {
-    state = { status, error, errorKind, openInBrowserUrl }
+    // Any outcome at all settles the verification this page was offering to resume
+    state = { status, error, errorKind, openInBrowserUrl, resumable: false }
     onStateChange(state)
   }
 
   const verify = () => {
     const options = getOptions()
+    // Reopening with the same session returns to the verification already running, rather than
+    // starting a second one the phone knows nothing about
+    const requestKey = toRequestKey(options)
+    const resuming = loadPendingVerification(requestKey)
 
     if (popupHandle) {
       if (!popupHandle.popup.closed) {
@@ -152,6 +167,12 @@ export function createVerification(
     ) => {
       if (settled || latestAttempt !== thisAttempt) return
       settled = true
+      // A discarded tab also reports as closed, so only a phone that never joined ends things here.
+      // "blocked" is this browser refusing to open a window, not an outcome for the verification.
+      const stillRunning =
+        kind === "blocked" ||
+        (kind === "closed" && loadPendingVerification(requestKey)?.phoneJoined === true)
+      if (!stillRunning) forgetPendingVerification()
       setStatus(
         status ?? "error",
         kind === "closed" ? null : message,
@@ -181,18 +202,23 @@ export function createVerification(
 
     const handle = openVerificationPopup({
       popupUrl: options.overrides?.popupUrl,
+      session: resuming?.session,
       request: request.config,
       query: request.query as never,
       credential: request.credential,
       // Callbacks resolve at event time: results arrive minutes after the
       // click, and React consumers swap callbacks between renders
       callbacks: {
+        onRequestReceived: () => {
+          if (latestAttempt === thisAttempt) markPhoneJoined()
+        },
         // Success waits for the app's onSuccess handler, which can veto it by
         // returning false (e.g. when its backend did not verify the proofs)
         onSuccess: (response) => {
           if (latestAttempt !== thisAttempt) return
           popupFinished = true
           settled = true
+          forgetPendingVerification()
           const finish = (next: "success" | "error") => {
             if (latestAttempt === thisAttempt) setStatus(next)
           }
@@ -225,11 +251,14 @@ export function createVerification(
     }
 
     popupHandle = handle
+    // Noted before the user leaves for the app, so a page rebuilt while they are away can return
+    rememberPendingVerification(handle.session, requestKey)
     setStatus("in-progress")
   }
 
   const close = () => {
     latestAttempt++
+    forgetPendingVerification()
     popupHandle?.close()
     popupHandle = null
   }
@@ -249,6 +278,11 @@ export function createVerification(
     close,
     dispose,
   }
+}
+
+/** Identifies what a button asks for, so a pending verification is only offered back to its own. */
+function toRequestKey(options: VerificationOptions): string {
+  return JSON.stringify([options.policyId ?? null, options.query ?? null, options.mint ?? false])
 }
 
 function buildRequest(options: VerificationOptions): {

@@ -8,6 +8,7 @@ import { useConfirmClose } from "../shared/use-confirm-close"
 import { ErrorScreen } from "../shared/error"
 import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
+import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
 import { Scan } from "./scan"
 import { Waiting, withProof, type ScanProgress } from "./waiting"
@@ -17,16 +18,19 @@ type VerifyFlowProps = {
   query: PopupConfigureMessage["query"]
   // Hostname of the relying party page; the header falls back to it when no name is sent
   rpHost: string
+  session: Session
   send: (message: OutgoingEvent) => void
 }
 
 type DomainResolution = { domain: string } | { error: string } | null
 
+type Failure = { message: string; keepsBridge?: boolean }
+
 /**
  * Settles which domain the request is made under before anything is sent to the bridge: the
  * attested host, or a claimed one the dashboard vouches for.
  */
-export function VerifyFlow({ request, query, rpHost, send }: VerifyFlowProps) {
+export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlowProps) {
   const [resolution, setResolution] = useState<DomainResolution>(null)
   const [attempt, setAttempt] = useState(0)
   const appName = request.name || rpHost
@@ -73,6 +77,7 @@ export function VerifyFlow({ request, query, rpHost, send }: VerifyFlowProps) {
       query={query}
       appName={appName}
       logo={request.logo}
+      session={session}
       send={send}
     />
   )
@@ -84,6 +89,7 @@ function VerifyRequest({
   query,
   appName,
   logo,
+  session,
   send,
 }: {
   domain: string
@@ -91,25 +97,36 @@ function VerifyRequest({
   query: PopupConfigureMessage["query"]
   appName: string
   logo?: string
+  session: Session
   send: (message: OutgoingEvent) => void
 }) {
-  const [consented, setConsented] = useState(false)
+  // Coming back to this page should not ask for anything the user has already done
+  const [consented, setConsented] = useState(session.resumed)
   // A dashboard policy arrives as {}: the real checks come back from the SDK
   const hasQuery = Object.keys(query ?? {}).length > 0
-  const [scan, setScan] = useState<ScanProgress | null>(null)
+  const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
   const [verified, setVerified] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
+  const [failure, setFailure] = useState<Failure | null>(null)
+
+  const failWith = (reason: Failure) => {
+    setScan(null)
+    // Without the bridge the phone cannot still be working, so forget how far it got
+    if (!reason.keepsBridge) updateSession(session, { stage: undefined })
+    setFailure(reason)
+  }
 
   // Started before consent, so the QR is ready the moment Continue is pressed
   const req = useRequest(
-    { domain, request, query },
+    { domain, request, query, session },
     {
       onReceived: () => {
         setScan({ stage: "scanned" })
+        updateSession(session, { stage: "scanned" })
         send({ type: "request-received" })
       },
       onProving: () => {
         setScan({ stage: "proving", done: 0, total: null })
+        updateSession(session, { stage: "proving" })
         send({ type: "generating" })
       },
       onProof: (proof) => {
@@ -121,14 +138,17 @@ function VerifyRequest({
         send({ type: "success", proofs, result })
       },
       onReject: () => {
-        setScan(null)
-        setFailure("The request was declined on your phone.")
+        failWith({ message: "The request was declined on your phone." })
         send({ type: "rejected" })
       },
       onError: (message) => {
-        setScan(null)
-        setFailure(String(message))
+        failWith({ message: String(message) })
         send({ type: "error", message: String(message) })
+      },
+      onConnectionLost: () => {
+        const message = "The connection to your phone was lost."
+        failWith({ message, keepsBridge: true })
+        send({ type: "error", message })
       },
     },
   )
@@ -144,17 +164,21 @@ function VerifyRequest({
     return consented ? "scan" : "intro"
   })()
 
-  // A fresh request needs a fresh bridge, so retry restarts it rather than
-  // just clearing the message
+  // Only a dropped connection leaves anything worth keeping. Starting over after a decline would
+  // replay the decline itself.
   const tryAgain = () => {
+    const keepsBridge = failure?.keepsBridge
     setFailure(null)
-    req.retry()
+    if (keepsBridge) req.resume()
+    else req.retry()
   }
 
   return (
     <FlowCard name={appName} logo={logo} screenKey={screen}>
       {screen === "done" ? <Done outcome={{ kind: "verified" }} appName={appName} /> : null}
-      {screen === "error" && failure ? <ErrorScreen message={failure} onRetry={tryAgain} /> : null}
+      {screen === "error" && failure ? (
+        <ErrorScreen message={failure.message} onRetry={tryAgain} />
+      ) : null}
       {screen === "waiting" && scan ? <Waiting progress={scan} /> : null}
       {screen === "scan" ? <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} /> : null}
       {screen === "intro" ? (
@@ -167,4 +191,10 @@ function VerifyRequest({
       ) : null}
     </FlowCard>
   )
+}
+
+function progressSoFar(session: Session): ScanProgress | null {
+  const stage = readSession(session)?.stage
+  if (!stage) return null
+  return stage === "proving" ? { stage, done: 0, total: null } : { stage }
 }
