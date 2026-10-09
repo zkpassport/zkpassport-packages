@@ -73,6 +73,12 @@ function sessionOf(popupUrl: string): string | null {
 
 const PENDING_KEY = "zkpassport:pending-verification"
 
+function expirePending(storage: Map<string, string>) {
+  const pending = JSON.parse(storage.get(PENDING_KEY)!)
+  const pastTheLimit = pending.startedAt - 31 * 60 * 1000
+  storage.set(PENDING_KEY, JSON.stringify({ ...pending, startedAt: pastTheLimit }))
+}
+
 const SIMPLE_OPTIONS: VerificationOptions = { query: { age: { min: 18 } } }
 
 function stubInAppBrowser() {
@@ -559,12 +565,15 @@ describe("picking a verification back up after the page was rebuilt", () => {
 
   test("does not offer to continue a verification too old to still be running", () => {
     const storage = new Map<string, string>()
-    storage.set(
-      PENDING_KEY,
-      JSON.stringify({ session: "stale", startedAt: Date.now() - 31 * 60 * 1000 }),
-    )
-    const { openedUrls } = setupFakeWindow(storage)
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const stale = sessionOf(first.openedUrls[0])
+    expirePending(storage)
 
+    const { openedUrls } = setupFakeWindow(storage)
     const controller = createVerification(
       () => SIMPLE_OPTIONS,
       () => {},
@@ -572,7 +581,63 @@ describe("picking a verification back up after the page was rebuilt", () => {
     expect(controller.state.resumable).toBe(false)
 
     controller.verify()
-    expect(sessionOf(openedUrls[0])).not.toBe("stale")
+    expect(sessionOf(openedUrls[0])).not.toBe(stale)
+  })
+
+  test("does not offer a verification to a button asking for something else", () => {
+    const storage = new Map<string, string>()
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const ageCheck = sessionOf(first.openedUrls[0])
+
+    const { openedUrls } = setupFakeWindow(storage)
+    const otherQuery = createVerification(
+      () => ({ query: { nationality: { eq: "FRA" } } }) as VerificationOptions,
+      () => {},
+    )
+    expect(otherQuery.state.resumable).toBe(false)
+
+    otherQuery.verify()
+    expect(sessionOf(openedUrls[0])).not.toBe(ageCheck)
+  })
+})
+
+describe("a popup window that reports closed", () => {
+  test("leaves the verification to continue once the phone has the request", async () => {
+    const storage = new Map<string, string>()
+    const { emitFromPopup, popups } = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+
+    emitFromPopup({ zkpassport: true, type: "request-received" })
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    expect(
+      createVerification(
+        () => SIMPLE_OPTIONS,
+        () => {},
+      ).state.resumable,
+    ).toBe(true)
+  })
+
+  test("ends the verification when the phone never got the request", async () => {
+    const storage = new Map<string, string>()
+    const { popups } = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    expect(storage.has(PENDING_KEY)).toBe(false)
   })
 })
 
@@ -646,9 +711,14 @@ describe("a popup the browser rebuilt", () => {
 
 describe("a verification that is still running", () => {
   test("is reopened by a retry after the browser blocked the window", () => {
-    const storage = new Map([
-      [PENDING_KEY, JSON.stringify({ session: "already-running", startedAt: Date.now() })],
-    ])
+    const storage = new Map<string, string>()
+    const running = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const session = sessionOf(running.openedUrls[0])
+
     setupFakeWindow(storage)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(globalThis as any).window.open = () => null
@@ -661,7 +731,7 @@ describe("a verification that is still running", () => {
     const allowed = setupFakeWindow(storage)
     controller.verify()
 
-    expect(sessionOf(allowed.openedUrls[0])).toBe("already-running")
+    expect(sessionOf(allowed.openedUrls[0])).toBe(session)
   })
 
   test("hands its result over once, however many times the popup sends it", () => {
