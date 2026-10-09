@@ -40,6 +40,8 @@ export type RequestCallbacks = {
   onResult?: (result: any) => void
   onReject?: () => void
   onError?: (message: string) => void
+  /** The bridge gave up. Unlike other failures, resuming can still recover a finished proof. */
+  onConnectionLost?: () => void
 }
 
 export type RequestHandle = {
@@ -134,7 +136,9 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
 
         built.onBridgeConnect(() => setState((s) => (s === "waiting" ? s : "waiting")))
         built.onBridgeConnectionLost(() =>
-          callbacksRef.current.onError?.("The connection to your phone was lost."),
+          callbacksRef.current.onConnectionLost
+            ? callbacksRef.current.onConnectionLost()
+            : callbacksRef.current.onError?.("The connection to your phone was lost."),
         )
         built.onRequestReceived(() => callbacksRef.current.onReceived?.())
         built.onGeneratingProof(() => callbacksRef.current.onProving?.())
