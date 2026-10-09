@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react"
+
 import { Heading, Main } from "../shared/controls"
 
 /**
@@ -19,6 +21,7 @@ export function withProof(
 
 export function Waiting({ progress }: { progress: ScanProgress }) {
   const approving = progress.stage === "scanned"
+  const slow = useSlowProgress(progress.stage)
   return (
     <div className="flow-body">
       <Main>
@@ -29,12 +32,30 @@ export function Waiting({ progress }: { progress: ScanProgress }) {
             <p className="flow-hint" role="status">
               {caption(progress)}
             </p>
-            <p className="flow-keep-open">Keep this window open</p>
+            <p className="flow-keep-open">
+              {slow
+                ? "Taking longer than usual. Check your phone, or close this window and start again."
+                : "Keep this window open"}
+            </p>
           </div>
         </div>
       </Main>
     </div>
   )
+}
+
+// Nothing tells this page whether the phone is still working or gone, so after a while it stops
+// promising that waiting will help and offers both answers
+const SLOW_AFTER_MS = 3 * 60 * 1000
+
+function useSlowProgress(stage: ScanProgress["stage"]): boolean {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    setSlow(false)
+    const timer = window.setTimeout(() => setSlow(true), SLOW_AFTER_MS)
+    return () => window.clearTimeout(timer)
+  }, [stage])
+  return slow
 }
 
 // Proving runs for several seconds, so the line follows the proofs the bridge
