@@ -8,7 +8,7 @@ import { useConfirmClose } from "../shared/use-confirm-close"
 import { ErrorScreen } from "../shared/error"
 import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
-import type { Session } from "../session"
+import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
 import { Scan } from "./scan"
 import { Waiting, withProof, type ScanProgress } from "./waiting"
@@ -98,10 +98,11 @@ function VerifyRequest({
   session: Session
   send: (message: OutgoingEvent) => void
 }) {
-  const [consented, setConsented] = useState(false)
+  // Coming back to this page should not ask for anything the user has already done
+  const [consented, setConsented] = useState(session.resumed)
   // A dashboard policy arrives as {}: the real checks come back from the SDK
   const hasQuery = Object.keys(query ?? {}).length > 0
-  const [scan, setScan] = useState<ScanProgress | null>(null)
+  const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
 
@@ -111,10 +112,12 @@ function VerifyRequest({
     {
       onReceived: () => {
         setScan({ stage: "scanned" })
+        updateSession(session, { stage: "scanned" })
         send({ type: "request-received" })
       },
       onProving: () => {
         setScan({ stage: "proving", done: 0, total: null })
+        updateSession(session, { stage: "proving" })
         send({ type: "generating" })
       },
       onProof: (proof) => {
@@ -171,4 +174,10 @@ function VerifyRequest({
       ) : null}
     </FlowCard>
   )
+}
+
+function progressSoFar(session: Session): ScanProgress | null {
+  const stage = readSession(session)?.stage
+  if (!stage) return null
+  return stage === "proving" ? { stage, done: 0, total: null } : { stage }
 }

@@ -23,6 +23,8 @@ export type SessionState = {
   createdAt: number
   configuration?: SessionConfiguration
   keyPair?: KeyPair
+  /** How far the phone had got, so a reloaded page reopens on the screen the user left. */
+  stage?: "scanned" | "proving"
   result?: HeldResult
 }
 
