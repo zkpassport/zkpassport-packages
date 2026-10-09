@@ -74,7 +74,7 @@ export function detectMobileOs(): "ios" | "android" | "unknown" {
  *
  * `onOpened(false)` is a hint, never a verdict: iOS Safari asks the user to confirm before
  * switching apps, so the page can still be visible at the deadline. The listeners therefore stay
- * on, and a late hide calls `onOpened(true)` to take the miss back.
+ * on a while longer, and a hide in that time calls `onOpened(true)` to take the miss back.
  */
 function probeAppInstalled(appSchemeUrl: string, onOpened: (opened: boolean) => void): () => void {
   let timer = 0
@@ -93,6 +93,12 @@ function probeAppInstalled(appSchemeUrl: string, onOpened: (opened: boolean) => 
     onOpened(true)
   }
 
+  function reportMissed() {
+    onOpened(false)
+    // From here on, leaving the page means the user tapped a store link, not that the app opened
+    timer = window.setTimeout(stop, APP_OPEN_PROBE_MS)
+  }
+
   function onVisibilityChange() {
     if (document.visibilityState === "hidden") reportOpened()
   }
@@ -103,7 +109,7 @@ function probeAppInstalled(appSchemeUrl: string, onOpened: (opened: boolean) => 
 
   document.addEventListener("visibilitychange", onVisibilityChange)
   window.addEventListener("pagehide", onPageHide)
-  timer = window.setTimeout(() => onOpened(false), APP_OPEN_PROBE_MS)
+  timer = window.setTimeout(reportMissed, APP_OPEN_PROBE_MS)
   window.location.href = appSchemeUrl
 
   return stop
