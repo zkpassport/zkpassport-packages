@@ -17,6 +17,10 @@ export default defineConfig({
       "@zkpassport/ui/hosted": fileURLToPath(
         new URL("../zkpassport-ui/dist/hosted.js", import.meta.url),
       ),
+      // The hosted bundle imports the SDK, which /r must not carry; this build stands alone
+      "@zkpassport/ui/app-link": fileURLToPath(
+        new URL("../zkpassport-ui/dist/app-link.js", import.meta.url),
+      ),
     },
   },
   server: {
@@ -43,5 +47,12 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
+    rollupOptions: {
+      // /r is its own page so it stays free of the SDK, wagmi and the proving backends
+      input: {
+        main: fileURLToPath(new URL("index.html", import.meta.url)),
+        r: fileURLToPath(new URL("r.html", import.meta.url)),
+      },
+    },
   },
 })

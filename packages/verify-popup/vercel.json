@@ -1,5 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/r", "destination": "/r.html" },
+    { "source": "/r/:path*", "destination": "/r.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -7,6 +11,15 @@
         {
           "key": "Document-Isolation-Policy",
           "value": "isolate-and-credentialless"
+        }
+      ]
+    },
+    {
+      "source": "/.well-known/apple-app-site-association",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
         }
       ]
     }

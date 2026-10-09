@@ -12,7 +12,8 @@
     "resolveJsonModule": true,
     "useDefineForClassFields": true,
     "paths": {
-      "@zkpassport/ui/hosted": ["../zkpassport-ui/dist/hosted.d.ts"]
+      "@zkpassport/ui/hosted": ["../zkpassport-ui/dist/hosted.d.ts"],
+      "@zkpassport/ui/app-link": ["../zkpassport-ui/dist/app-link.d.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

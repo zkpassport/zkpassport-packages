@@ -69,7 +69,8 @@
   },
   "files": [
     "dist",
-    "!dist/hosted*"
+    "!dist/hosted*",
+    "!dist/app-link*"
   ],
   "sideEffects": [
     "*.css"
