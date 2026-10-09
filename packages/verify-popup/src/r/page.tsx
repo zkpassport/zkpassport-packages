@@ -1,6 +1,10 @@
+import { useState } from "react"
+import { isInAppBrowser } from "@zkpassport/ui/hosted"
+
 import { Frame } from "../shared/frame"
 import { Primary } from "../shared/controls"
 import { ZKPASSPORT_WORDMARK } from "../shared/icons"
+import { LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
 import { useOpenApp } from "../shared/use-open-app"
 import { parseVerifyRequest } from "./request-link"
@@ -13,7 +17,7 @@ import "../main.css"
 export function RequestPage() {
   const request = parseVerifyRequest(window.location.search)
   const requestUrl = request ? window.location.href : null
-  const siteName = request ? (request.serviceName ?? request.domain) : null
+  const siteName = request?.serviceName || request?.domain || null
 
   return (
     <Frame>
@@ -47,7 +51,9 @@ export function RequestPage() {
 }
 
 function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName: string | null }) {
-  const { openState, openApp } = useOpenApp(requestUrl, { probe: true })
+  const [inAppBrowser] = useState(isInAppBrowser)
+  // A probe inside an in-app browser always misses, even when the app is installed
+  const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
   const opening = openState === "opening"
 
   return (
@@ -55,6 +61,15 @@ function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName:
       <Primary busy={opening} onClick={openApp}>
         {opening ? "Opening…" : "Already installed? Open the app"}
       </Primary>
+      {inAppBrowser ? (
+        <>
+          <p className="r-note">
+            This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in your
+            browser instead.
+          </p>
+          <LinkActions url={requestUrl} />
+        </>
+      ) : null}
       {openState === "nothing-opened" ? (
         <p className="r-note" role="status">
           App not found. Install it above, then tap Open again.
