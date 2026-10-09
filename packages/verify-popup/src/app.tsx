@@ -10,7 +10,13 @@ import { FlowCard } from "./shared/flow-card"
 import { Frame, Notice } from "./shared/frame"
 import { LinkActions } from "./shared/link-actions"
 import { LinkVerification } from "./link"
-import { openSession, readSession, updateSession, type SessionConfiguration } from "./session"
+import {
+  finishSession,
+  openSession,
+  readSession,
+  updateSession,
+  type SessionConfiguration,
+} from "./session"
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -60,7 +66,7 @@ export function App() {
       if (known?.result) post(known.result, configuration.rpOrigin)
     }
     window.addEventListener("message", onMessage)
-    // Announce readiness. The wildcard is safe: only the opener receives it, and it chose the id
+    // Announce readiness; only the opener receives it, so the wildcard target is safe
     ;(window.opener as Window | null)?.postMessage(
       { zkpassport: true, type: "ready", session: session.id },
       "*",
@@ -72,7 +78,7 @@ export function App() {
     if (!config || !session) return null
     return (message: OutgoingEvent) => {
       // Held before it is sent, so a page that was not there to receive it can still be given it
-      if (message.type === "success") updateSession(session, { result: message })
+      if (message.type === "success") finishSession(session, message)
       post(message, config.rpOrigin)
     }
   }, [config, session])

@@ -105,8 +105,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         verifierMode: options.verifierMode ?? "api",
         keyPairOverride: resumeWith,
         replayMissedMessages: !!resumeWith,
-        // Sends the user back to this page, the one holding the bridge. Not for a scanned QR: the
-        // phone that scanned is not the device waiting for the result.
+        // Sends the user back to this page, the one holding the bridge
         returnDeepLink: session && isMobileLike() ? window.location.href : undefined,
       })
       .then((builder) => {

@@ -91,6 +91,12 @@ export function updateSession(session: Session, patch: Partial<SessionState>): v
   write(session.id, next)
 }
 
+/** The bridge has done its job, so only the result is worth keeping until it is handed over. */
+export function finishSession(session: Session, result: HeldResult): void {
+  const { keyPair: _droppedKey, ...rest } = read(session.id) ?? { createdAt: Date.now() }
+  write(session.id, { ...rest, result })
+}
+
 function read(id: string): StoredSession | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_PREFIX + id)
@@ -114,15 +120,20 @@ function write(id: string, state: StoredSession): void {
 // walked away from does not sit here indefinitely
 function sweepExpiredSessions(): void {
   try {
-    const expired: string[] = []
+    const keys: string[] = []
     for (let index = 0; index < window.localStorage.length; index++) {
       const key = window.localStorage.key(index)
-      if (!key?.startsWith(STORAGE_PREFIX)) continue
-      const { createdAt } = JSON.parse(window.localStorage.getItem(key)!) as StoredSession
-      if (Date.now() - createdAt >= SESSION_MAX_AGE_MS) expired.push(key)
+      if (key?.startsWith(STORAGE_PREFIX)) keys.push(key)
     }
-    for (const key of expired) window.localStorage.removeItem(key)
+    for (const key of keys) {
+      if (hasExpired(key.slice(STORAGE_PREFIX.length))) window.localStorage.removeItem(key)
+    }
   } catch {
     // Nothing to sweep if the store cannot be read
   }
+}
+
+function hasExpired(id: string): boolean {
+  const createdAt = read(id)?.createdAt
+  return !createdAt || Date.now() - createdAt >= SESSION_MAX_AGE_MS
 }
