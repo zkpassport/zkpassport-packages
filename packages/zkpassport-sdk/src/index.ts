@@ -138,18 +138,6 @@ function warnOnResultDeprecated() {
   )
 }
 
-// The bridge only asks for missed messages after a reconnect it drove itself, which a freshly
-// loaded page never had. A topic belongs to one request, so everything on it is what was missed.
-function requestMessageReplay(bridge: BridgeInterface) {
-  const socket = bridge.connection.getWebSocket()
-  if (!socket) return
-  try {
-    socket.send(JSON.stringify({ method: "replay", params: { timestamp: 1 } }))
-  } catch (reason) {
-    logger.error("Failed to ask the bridge for missed messages:", reason)
-  }
-}
-
 export class ZKPassport {
   private domain: string
   private domainProvided: boolean
@@ -784,6 +772,8 @@ export class ZKPassport {
       keyPair: keyPairOverride,
       bridgeId: topicOverride,
       bridgeUrl,
+      // A topic belongs to one request, so everything ever sent on it is what this page missed
+      replayFrom: replayMissedMessages ? 1 : undefined,
     })
 
     const topic = bridge.connection.getBridgeId()
@@ -828,7 +818,6 @@ export class ZKPassport {
     bridge.onConnect(async (reconnection: boolean) => {
       logger.debug("Bridge connected")
       logger.debug("Is reconnection:", reconnection)
-      if (replayMissedMessages && !reconnection) requestMessageReplay(bridge)
       await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
     })
     bridge.onDisconnect(async (event) => {
