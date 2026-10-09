@@ -104,8 +104,9 @@ function read(id: string): StoredSession | null {
 function write(id: string, state: StoredSession): void {
   try {
     window.localStorage.setItem(STORAGE_PREFIX + id, JSON.stringify(state))
-  } catch {
+  } catch (reason) {
     // Without storage the flow still runs, it just cannot survive a reload
+    console.warn("[zkpassport] could not save the verification for recovery", reason)
   }
 }
 

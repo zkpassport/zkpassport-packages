@@ -142,7 +142,6 @@ export function createVerification(
     // Reopening with the same session returns to the verification already running, rather than
     // starting a second one the phone knows nothing about
     const resuming = pending
-    pending = null
 
     if (popupHandle) {
       if (!popupHandle.popup.closed) {
@@ -169,7 +168,10 @@ export function createVerification(
       settled = true
       // "blocked" is this browser refusing to open a window, not an outcome for the verification:
       // allowing pop-ups and clicking again should still reach the one already running
-      if (kind !== "blocked") forgetPendingVerification()
+      if (kind !== "blocked") {
+        forgetPendingVerification()
+        pending = null
+      }
       setStatus(
         status ?? "error",
         kind === "closed" ? null : message,
@@ -244,6 +246,7 @@ export function createVerification(
       return
     }
 
+    pending = null
     popupHandle = handle
     // Noted before the user leaves for the app, so a page rebuilt while they are away can return
     rememberPendingVerification(handle.session)

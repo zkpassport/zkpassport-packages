@@ -21,7 +21,7 @@ type FakePopup = {
   postMessage: (data: unknown) => void
 }
 
-function setupFakeWindow(storage: Map<string, string> = new Map()) {
+function setupFakeWindow(storage: Map<string, string> = new Map(), blockPopups = false) {
   const listeners = new Set<Listener>()
   const sentToPopup: unknown[] = []
   const popups: FakePopup[] = []
@@ -35,6 +35,7 @@ function setupFakeWindow(storage: Map<string, string> = new Map()) {
       removeItem: (key: string) => void storage.delete(key),
     },
     open: (url: string) => {
+      if (blockPopups) return null
       openedUrls.push(url)
       const popup: FakePopup = {
         closed: false,
@@ -641,5 +642,45 @@ describe("a popup the browser rebuilt", () => {
     })
 
     expect(delivered).toBeNull()
+  })
+})
+
+describe("a verification that is still running", () => {
+  test("is reopened by a retry after the browser blocked the window", () => {
+    const storage = new Map<string, string>()
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const session = sessionOf(first.openedUrls[0])
+
+    const blocked = setupFakeWindow(storage, true)
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    controller.verify()
+    expect(blocked.openedUrls).toHaveLength(0)
+
+    const allowed = setupFakeWindow(storage)
+    controller.verify()
+
+    expect(sessionOf(allowed.openedUrls[0])).toBe(session)
+  })
+
+  test("hands its result over once, however many times the popup sends it", () => {
+    const { emitFromPopup } = setupFakeWindow()
+    let deliveries = 0
+    createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onSuccess: () => void deliveries++ }),
+      () => {},
+    ).verify()
+
+    const success = { zkpassport: true, type: "success", proofs: [], result: {} }
+    emitFromPopup(success)
+    emitFromPopup(success)
+
+    expect(deliveries).toBe(1)
   })
 })
