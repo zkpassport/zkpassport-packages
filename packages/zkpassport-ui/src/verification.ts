@@ -110,14 +110,13 @@ export function createVerification(
   getOptions: () => VerificationOptions,
   onStateChange: (state: VerificationState) => void,
 ): VerificationController {
-  // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
-  let pending = typeof window === "undefined" ? null : loadPendingVerification()
   let state: VerificationState = {
     status: "idle",
     error: null,
     errorKind: null,
     openInBrowserUrl: null,
-    resumable: !!pending,
+    // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
+    resumable: !!loadPendingVerification(),
   }
   let popupHandle: VerificationPopupHandle | null = null
   // Set once the popup delivered a result; from then on the window belongs to the user
@@ -141,7 +140,7 @@ export function createVerification(
     const options = getOptions()
     // Reopening with the same session returns to the verification already running, rather than
     // starting a second one the phone knows nothing about
-    const resuming = pending
+    const resuming = loadPendingVerification()
 
     if (popupHandle) {
       if (!popupHandle.popup.closed) {
@@ -168,10 +167,7 @@ export function createVerification(
       settled = true
       // "blocked" is this browser refusing to open a window, not an outcome for the verification:
       // allowing pop-ups and clicking again should still reach the one already running
-      if (kind !== "blocked") {
-        forgetPendingVerification()
-        pending = null
-      }
+      if (kind !== "blocked") forgetPendingVerification()
       setStatus(
         status ?? "error",
         kind === "closed" ? null : message,
@@ -246,7 +242,6 @@ export function createVerification(
       return
     }
 
-    pending = null
     popupHandle = handle
     // Noted before the user leaves for the app, so a page rebuilt while they are away can return
     rememberPendingVerification(handle.session)
