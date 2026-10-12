@@ -5,7 +5,9 @@ import { getIdFromChain } from "@zkpassport/utils"
 
 const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
 
-export const SEPOLIA_FILE_HOSTS = getFileHosts(SEPOLIA)
+export const SEPOLIA_FILE_HOSTS = [SEPOLIA.packagedCertificatesUrl, SEPOLIA.circuitUrl].map(
+  (url) => new URL(url).hostname,
+)
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
@@ -35,11 +37,6 @@ export async function startDevnet(): Promise<Devnet> {
   }
 
   return { rpcUrl, registry: { rpcUrl }, stop: () => anvil.kill() }
-}
-
-/** Hosts of the CDNs a network's certificates and circuits are read from */
-function getFileHosts(network: ReturnType<typeof getNetworkConstants>): string[] {
-  return [network.packagedCertificatesUrl, network.circuitUrl].map((url) => new URL(url).hostname)
 }
 
 async function waitForRpc(rpcUrl: string) {
