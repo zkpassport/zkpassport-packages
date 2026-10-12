@@ -111,13 +111,16 @@ export function createVerification(
   getOptions: () => VerificationOptions,
   onStateChange: (state: VerificationState) => void,
 ): VerificationController {
+  // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
+  const resumableNow = (status: VerificationStatus) =>
+    status !== "in-progress" && !!loadPendingVerification(toRequestKey(getOptions()))
+
   let state: VerificationState = {
     status: "idle",
     error: null,
     errorKind: null,
     openInBrowserUrl: null,
-    // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
-    resumable: !!loadPendingVerification(toRequestKey(getOptions())),
+    resumable: resumableNow("idle"),
   }
   let popupHandle: VerificationPopupHandle | null = null
   // Set once the popup delivered a result; from then on the window belongs to the user
@@ -132,8 +135,7 @@ export function createVerification(
     errorKind: ZKPassportErrorKind | null = null,
     openInBrowserUrl: string | null = null,
   ) => {
-    // Any outcome at all settles the verification this page was offering to resume
-    state = { status, error, errorKind, openInBrowserUrl, resumable: false }
+    state = { status, error, errorKind, openInBrowserUrl, resumable: resumableNow(status) }
     onStateChange(state)
   }
 

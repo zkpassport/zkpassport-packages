@@ -626,6 +626,23 @@ describe("a popup window that reports closed", () => {
     ).toBe(true)
   })
 
+  test("offers to continue straight away, without waiting for a reload", async () => {
+    const storage = new Map<string, string>()
+    const { emitFromPopup, popups } = setupFakeWindow(storage)
+    let latest: VerificationState | null = null
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      (next) => void (latest = next),
+    )
+    controller.verify()
+
+    emitFromPopup({ zkpassport: true, type: "request-received" })
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    expect(latest!.resumable).toBe(true)
+  })
+
   test("ends the verification when the phone never got the request", async () => {
     const storage = new Map<string, string>()
     const { popups } = setupFakeWindow(storage)
