@@ -115,6 +115,13 @@ function VerifyRequest({
     setFailure(reason)
   }
 
+  // Nothing reports a phone that has gone quiet, so the wait needs its own way out
+  const startAgain = () => {
+    setScan(null)
+    updateSession(session, { stage: undefined })
+    req.retry()
+  }
+
   // Started before consent, so the QR is ready the moment Continue is pressed
   const req = useRequest(
     { domain, request, query, session },
@@ -179,7 +186,7 @@ function VerifyRequest({
       {screen === "error" && failure ? (
         <ErrorScreen message={failure.message} onRetry={tryAgain} />
       ) : null}
-      {screen === "waiting" && scan ? <Waiting progress={scan} /> : null}
+      {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
       {screen === "scan" ? <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} /> : null}
       {screen === "intro" ? (
         <Intro

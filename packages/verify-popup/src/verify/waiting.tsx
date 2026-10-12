@@ -19,7 +19,13 @@ export function withProof(
   return { ...progress, done: progress.done + 1, total: proof.total ?? progress.total }
 }
 
-export function Waiting({ progress }: { progress: ScanProgress }) {
+export function Waiting({
+  progress,
+  onStartAgain,
+}: {
+  progress: ScanProgress
+  onStartAgain: () => void
+}) {
   const approving = progress.stage === "scanned"
   const slow = useSlowProgress(progress.stage)
   return (
@@ -33,10 +39,11 @@ export function Waiting({ progress }: { progress: ScanProgress }) {
               {caption(progress)}
             </p>
             <p className="flow-keep-open">
-              {slow
-                ? "Taking longer than usual. Check your phone, or close this window and start again."
-                : "Keep this window open"}
+              {slow ? "Taking longer than usual. Check your phone." : "Keep this window open"}
             </p>
+            <button type="button" className="scan-reveal" onClick={onStartAgain}>
+              Start again
+            </button>
           </div>
         </div>
       </Main>
@@ -45,7 +52,7 @@ export function Waiting({ progress }: { progress: ScanProgress }) {
 }
 
 // Nothing tells this page whether the phone is still working or gone, so after a while it stops
-// promising that waiting will help and offers both answers
+// promising that waiting will help
 const SLOW_AFTER_MS = 3 * 60 * 1000
 
 function useSlowProgress(stage: ScanProgress["stage"]): boolean {
