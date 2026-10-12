@@ -56,20 +56,27 @@ function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName:
   const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
   const opening = openState === "opening"
 
+  // Opening the app from here rarely works, so the way out leads and the attempt stays available
+  if (inAppBrowser) {
+    return (
+      <div className="r-actions">
+        <p className="r-note">
+          This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in your
+          browser instead.
+        </p>
+        <LinkActions url={requestUrl} />
+        <button type="button" className="scan-reveal" onClick={openApp}>
+          Already installed? Open the app
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="r-actions">
       <Primary busy={opening} onClick={openApp}>
         {opening ? "Opening…" : "Already installed? Open the app"}
       </Primary>
-      {inAppBrowser ? (
-        <>
-          <p className="r-note">
-            This app&rsquo;s built-in browser can&rsquo;t reach ZKPassport. Open this link in your
-            browser instead.
-          </p>
-          <LinkActions url={requestUrl} />
-        </>
-      ) : null}
       {openState === "nothing-opened" ? (
         <p className="r-note" role="status">
           App not found. Install it above, then tap Open again.
