@@ -66,17 +66,23 @@ function ContinueInApp({
   // would always report a miss
   const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
   const opening = openState === "opening"
+  const handedOff = openState === "opened"
 
   return (
     <div className="flow-body">
       <Main>
-        <Heading title="Continue in the app" />
+        <Heading title={handedOff ? "Check your phone" : "Continue in the app"} />
         <p className="flow-lede">
-          Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to a
-          server.
+          {handedOff
+            ? "Approve the request in the ZKPassport app. This page carries on by itself."
+            : "Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to a server."}
         </p>
         <div className="scan-hero" data-state={openState}>
-          {requestUrl ? (
+          {handedOff ? (
+            <button type="button" className="scan-reveal" onClick={openApp}>
+              Open the app again
+            </button>
+          ) : requestUrl ? (
             <Primary busy={opening} onClick={openApp}>
               {opening ? "Opening…" : "Open ZKPassport App"}
             </Primary>
@@ -85,11 +91,6 @@ function ContinueInApp({
               Preparing…
             </span>
           )}
-          {openState === "opened" ? (
-            <p className="flow-hint" role="status">
-              Waiting for the ZKPassport app. Tap again if it didn&rsquo;t open.
-            </p>
-          ) : null}
           {inAppBrowser && requestUrl ? (
             <div className="scan-escape">
               <p className="scan-fallback-hint">
@@ -99,7 +100,9 @@ function ContinueInApp({
               <LinkActions url={requestUrl} />
             </div>
           ) : null}
-          <InstallOptions requestUrl={requestUrl} appNotFound={openState === "nothing-opened"} />
+          {handedOff ? null : (
+            <InstallOptions requestUrl={requestUrl} appNotFound={openState === "nothing-opened"} />
+          )}
           <button type="button" className="scan-reveal" onClick={onRevealQr}>
             Scan a QR code with another device instead
           </button>

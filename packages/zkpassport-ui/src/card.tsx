@@ -503,6 +503,23 @@ function OpenAppHero({
   // there would always report a miss
   const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
   const opening = openState === "opening"
+  const handedOff = openState === "opened"
+
+  if (handedOff) {
+    return (
+      <div className="zkp-open-app-hero" data-state={openState}>
+        <p className="zkp-inapp-hint" role="status">
+          Check your phone — approve the request in the ZKPassport app.
+        </p>
+        <button type="button" className="zkp-qr-reveal" onClick={openApp}>
+          Open the app again
+        </button>
+        <button type="button" className="zkp-qr-reveal" onClick={onRevealQr}>
+          Scan a QR code with another device instead
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="zkp-open-app-hero" data-state={openState}>
@@ -523,11 +540,6 @@ function OpenAppHero({
           <span className="zkp-skel-row" style={{ width: "100%", height: "48px" }} />
         </div>
       )}
-      {openState === "opened" ? (
-        <p className="zkp-inapp-hint" role="status">
-          Waiting for the ZKPassport app. Tap again if it didn&rsquo;t open.
-        </p>
-      ) : null}
       {inAppBrowser ? (
         <p className="zkp-inapp-hint">
           If nothing opens, open this page in your browser and try again.
