@@ -9,7 +9,6 @@ import {
   type QueryResult,
 } from "@zkpassport/sdk"
 import { hydrateQueryBuilder, type PopupRequestConfig } from "@zkpassport/sdk/popup"
-import { detectMobileOs } from "@zkpassport/ui/app-link"
 
 import { readSession, updateSession, type Session } from "./session"
 
@@ -105,10 +104,6 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         verifierMode: options.verifierMode ?? "api",
         keyPairOverride: resumeWith,
         replayMissedMessages: !!resumeWith,
-        // Android has no other way to bring the browser back. iOS reopens the link as a second
-        // tab instead of returning to this one, so there it is better to send nothing.
-        returnDeepLink:
-          session && detectMobileOs() === "android" ? window.location.href : undefined,
       })
       .then((builder) => {
         const built =
