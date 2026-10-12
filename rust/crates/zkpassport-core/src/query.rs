@@ -138,7 +138,13 @@ pub fn build_disclosures(
 
     // Date comparisons (birthdate / expiry)
     for (field, is_birth, circuit) in [("birthdate", true, "compare_birthdate"), ("expiry_date", false, "compare_expiry")] {
-        let bounds = resolve_date_bounds(query, field);
+        // The passport's own value for this field, for a bare `disclose` (min=max=it).
+        let disclose_date = if is_birth {
+            dob_from_mrz(input.mrz).and_then(|d| parse_mrz_date(d, current_date))
+        } else {
+            parse_mrz_date(input.expiry_date, current_date)
+        };
+        let bounds = resolve_date_bounds(query, field, disclose_date);
         if let Some(bounds) = bounds {
             let inputs = get_date_circuit_inputs(input, &bounds, is_birth, salts, z, ss, sub, current_date, None)?;
             let committed = json!({
@@ -229,7 +235,10 @@ pub fn build_query_result(query: &Value, disclosed: &Value) -> Value {
 
 /// Resolve a date field's min/max bounds (gt/gte/lt/lte/range/eq), applying
 /// the ±1 day for exclusive gt/lt. Returns None if the field is absent.
-fn resolve_date_bounds(query: &Value, field: &str) -> Option<DateBounds> {
+/// `disclose_date` = the passport's own value for this field (unix secs). For a bare
+/// `{ disclose: true }` the TS sets min=max to it (a tight range that reveals the date);
+/// omitting it would leave 0/0 which makes the circuit unsatisfiable.
+fn resolve_date_bounds(query: &Value, field: &str, disclose_date: Option<i64>) -> Option<DateBounds> {
     let f = query.get(field)?;
     if !f.is_object() || f.as_object()?.is_empty() {
         return None;
@@ -247,6 +256,9 @@ fn resolve_date_bounds(query: &Value, field: &str) -> Option<DateBounds> {
     } else if let Some(eq) = date_secs(query, field, "eq") {
         min = Some(eq);
         max = Some(eq);
+    } else if f.get("disclose").and_then(|d| d.as_bool()) == Some(true) {
+        min = disclose_date;
+        max = disclose_date;
     }
     if let Some(lt) = date_secs(query, field, "lt") {
         max = Some(lt - DAY);
@@ -254,4 +266,62 @@ fn resolve_date_bounds(query: &Value, field: &str) -> Option<DateBounds> {
         max = Some(lte);
     }
     Some(DateBounds { min, max })
+}
+
+/// Days since 1970-01-01 for a proleptic-Gregorian UTC civil date (Howard Hinnant).
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = (if y >= 0 { y } else { y - 399 }) / 400;
+    let yoe = y - era * 400;
+    let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
+
+/// Year of a unix timestamp (for parseDate's current-year century rule).
+fn year_of_unix(secs: i64) -> i64 {
+    let mut z = secs.div_euclid(86400) + 719468;
+    let era = (if z >= 0 { z } else { z - 146096 }) / 146097;
+    z -= era * 146097;
+    let yoe = (z - z / 1460 + z / 36524 - z / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = z - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    if mp < 10 { y } else { y + 1 }
+}
+
+/// `parseDate(YYMMDD)` + `getUnixTimestamp`: 2-digit year → current century unless that
+/// lands >10 years in the future (then previous century); UTC midnight → unix secs.
+fn parse_mrz_date(yymmdd: &str, current_date: u64) -> Option<i64> {
+    let s: &str = yymmdd.trim_end_matches('\0');
+    if s.len() < 6 {
+        return None;
+    }
+    let year: i64 = s.get(0..2)?.parse().ok()?;
+    let month: i64 = s.get(2..4)?.parse().ok()?;
+    let day: i64 = s.get(4..6)?.parse().ok()?;
+    let current_year = year_of_unix(current_date as i64);
+    let current_century = (current_year / 100) * 100;
+    let full_year = year
+        + if year + current_century > current_year + 10 { current_century - 100 } else { current_century };
+    Some(days_from_civil(full_year, month, day) * 86400)
+}
+
+/// Date-of-birth YYMMDD from the MRZ (TD1 line 2 start vs TD3 line 2 offset 13).
+fn dob_from_mrz(mrz: &str) -> Option<&str> {
+    let range = if mrz.len() == 90 { 30..36 } else { 57..63 };
+    mrz.get(range)
+}
+
+#[cfg(test)]
+mod date_disclose_tests {
+    use super::*;
+    #[test]
+    fn parse_mrz_date_dob() {
+        // 1990-01-01 UTC = 631152000; "900101" with a 2026-ish now → 1990 (century rule).
+        let now = 1_760_000_000; // ~Oct 2025
+        assert_eq!(parse_mrz_date("900101", now), Some(631_152_000));
+        // "000229" (2000-02-29, a leap day) = 951_782_400.
+        assert_eq!(parse_mrz_date("000229", now), Some(951_782_400));
+    }
 }

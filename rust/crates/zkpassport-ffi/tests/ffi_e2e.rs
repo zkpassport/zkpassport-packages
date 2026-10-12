@@ -164,3 +164,59 @@ fn ffi_multi_disclosure_query() {
     assert_eq!(disclosure(&out, "inclusion_check_nationality")["committedInputs"]["countries"], json!(["ZKR", "FRA"]));
     assert_eq!(disclosure(&out, "exclusion_check_issuing_country")["committedInputs"]["countries"], json!(["AFG"]));
 }
+
+#[test]
+fn ffi_facematch_circuit_inputs_assembles() {
+    // Real passport (john) from vectors.json + the fixture App Attest attestation.
+    // The passport and attestation are unrelated, so this only checks the FFI assembles
+    // the full input set (base disclosure + attestation), not a provable witness.
+    let v = load_vectors();
+    let sod_case = &v["sod"].as_array().unwrap()[0];
+    let name = sod_case["name"].as_str().unwrap();
+    let find = |arr: &str, key: &str| -> Value {
+        v[arr].as_array().unwrap().iter().find(|c| c["name"] == key).unwrap().clone()
+    };
+    let age_case = find("age", &format!("{name}:gte18"));
+    let id_case = find("idData", name);
+    let integ_case = find("integrity", name);
+    let dsc_case = find("dsc", name);
+
+    let fx_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../zkpassport-core/tests/fixtures/facematch-attestation.json"
+    );
+    let fx: Value = serde_json::from_str(&std::fs::read_to_string(fx_path).unwrap()).unwrap();
+
+    let request = json!({
+        "sod": sod_case["sod_base64"],
+        "dg1": b64(&bytes_of(&id_case["dg1"])),
+        "service_scope": "verifier.example.com", "service_subscope": "sub",
+        "current_date_timestamp": age_case["current_date"],
+        "salts": {
+            "dsc": dsc_case["salt"], "id_in": id_case["salt_in"], "id_out": id_case["salt_out"],
+            "integrity_in": integ_case["salt_in"],
+            "dg1": age_case["salts"]["dg1_salt"], "expiry_date": age_case["salts"]["expiry_date_salt"],
+            "dg2_hash": age_case["salts"]["dg2_hash_salt"], "private_nullifier": age_case["salts"]["private_nullifier_salt"],
+        },
+        "attestation": fx["attestation"],
+        "clientData": {
+            // fixture client_data is base64; convert to hex for the FFI
+        },
+    });
+    // clientData must be hex; decode the fixture base64 → hex.
+    let cd = base64::engine::general_purpose::STANDARD.decode(fx["client_data"].as_str().unwrap()).unwrap();
+    let mut request = request;
+    request["clientData"] = json!(cd.iter().map(|b| format!("{b:02x}")).collect::<String>());
+
+    let out = zkpassport_ffi::facematch_circuit_inputs_json(&request.to_string()).unwrap();
+    let obj = out.as_object().unwrap();
+    for k in ["comm_in","current_date","salted_dg1","root_key","intermediate_tbs","credential_tbs","auth_data","client_data","environment","app_id","facematch_mode","service_scope","service_subscope","nullifier_secret"] {
+        assert!(obj.contains_key(k), "missing {k}");
+    }
+    assert!(!obj.contains_key("oprf_proof"), "should not have oprf_proof");
+    assert!(!obj.contains_key("data"), "should not have data");
+    assert_eq!(obj["intermediate_tbs"].as_array().unwrap().len(), 500);
+    assert_eq!(obj["credential_tbs"].as_array().unwrap().len(), 1000);
+    assert_eq!(obj["app_id"].as_array().unwrap().len(), 100);
+    assert_eq!(obj["facematch_mode"].as_u64().unwrap(), 1);
+}

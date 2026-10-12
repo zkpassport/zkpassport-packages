@@ -12,3 +12,17 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/zkpassport/zkpassport-packages"
+
+# Size-optimized profile for the iOS App Clip static lib. The clip has a hard
+# ~15 MB thinned budget, and the default release profile (opt-level=3,
+# codegen-units=16, no LTO/strip, panic=unwind) produces a ~20 MB .a. This trades
+# some speed for size: opt-level "z", fat LTO + single codegen unit for maximum
+# dead-code elimination, panic=abort (no unwind tables; safe here - the FFI never
+# unwinds across the C boundary and uses no catch_unwind), and symbol stripping.
+[profile.release-size]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

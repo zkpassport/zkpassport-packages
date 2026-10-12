@@ -157,7 +157,7 @@ pub struct GenerateParams<'a> {
     pub current_date_timestamp: u64,
 }
 
-fn processed_sod_signature(parsed: &ParsedSod) -> Result<Vec<u8>, String> {
+pub fn processed_sod_signature(parsed: &ParsedSod) -> Result<Vec<u8>, String> {
     match &parsed.public_key {
         SodPublicKey::Ecdsa { curve, .. } => {
             let (bits, n_hex) =

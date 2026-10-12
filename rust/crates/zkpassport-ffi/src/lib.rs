@@ -35,9 +35,15 @@ use base64::Engine;
 use num_bigint::BigUint;
 use serde::Deserialize;
 use std::ffi::{c_char, CStr, CString};
+
+mod facematch;
 use zkpassport_core::commitments::IntegrityToDisclosureSalts;
 use zkpassport_core::dsc::PackagedCertsMeta;
-use zkpassport_core::input_gen::{generate_all_inputs, scope_hash, GenerateParams, InputGenSalts};
+use zkpassport_core::disclosure::{get_facematch_circuit_inputs, get_sanctions_circuit_inputs, DisclosureInput};
+use zkpassport_core::input_gen::{
+    expiry_from_mrz, generate_all_inputs, hash_data_group, mrz_from_dg1, processed_sod_signature,
+    scope_hash, GenerateParams, InputGenSalts,
+};
 use zkpassport_core::registry::{PackagedCertificate, Revocation};
 
 #[derive(Deserialize)]
@@ -476,6 +482,247 @@ pub unsafe extern "C" fn zkpassport_session_free(session: *mut driver::Session) 
     if !session.is_null() {
         drop(unsafe { Box::from_raw(session) });
     }
+}
+
+// ---- facematch (clip) ----
+
+#[derive(Deserialize)]
+struct FmInputsRequest {
+    sod: String,
+    dg1: String,
+    #[serde(default)]
+    dg2_hash: Option<String>,
+    #[serde(default)]
+    dg2: Option<String>,
+    service_scope: String,
+    service_subscope: String,
+    #[serde(default)]
+    nullifier_secret: Option<String>,
+    current_date_timestamp: u64,
+    #[serde(default)]
+    salt: Option<String>,
+    #[serde(default)]
+    salts: Option<SaltsJson>,
+    attestation: String, // base64 or hex
+    #[serde(rename = "clientData")]
+    client_data: String, // hex
+}
+
+/// Assemble the full facematch circuit inputs: passport disclosure base + the
+/// attestation witness. Mirrors `zkpassport_generate_inputs`'s passport request
+/// plus `{attestation, clientData}`.
+pub fn facematch_circuit_inputs_json(request_json: &str) -> Result<serde_json::Value, String> {
+    let req: FmInputsRequest = serde_json::from_str(request_json).map_err(|e| e.to_string())?;
+    let sod_der = b64(&req.sod)?;
+    let dg1 = b64(&req.dg1)?;
+    let parsed = zkpassport_core::sod::parse_sod(&sod_der)?;
+    let dg2_hash = match (&req.dg2_hash, &req.dg2) {
+        (Some(h), _) => b64(h)?,
+        (None, Some(raw)) => hash_data_group(&b64(raw)?, &parsed.dg_hash_alg)?,
+        (None, None) => parsed
+            .dg_hashes
+            .iter()
+            .find(|(n, _)| *n == 2)
+            .map(|(_, h)| h.clone())
+            .ok_or("SOD has no DG2 hash")?,
+    };
+    let salts = match (&req.salt, &req.salts) {
+        (Some(master), _) => InputGenSalts::from_master(dec(master)?),
+        (None, Some(s)) => InputGenSalts {
+            dsc_salt: dec(&s.dsc)?,
+            id_salt_in: dec(&s.id_in)?,
+            id_salt_out: dec(&s.id_out)?,
+            integrity_salt_in: dec(&s.integrity_in)?,
+            disclosure: zkpassport_core::commitments::IntegrityToDisclosureSalts {
+                dg1_salt: dec(&s.dg1)?,
+                expiry_date_salt: dec(&s.expiry_date)?,
+                dg2_hash_salt: dec(&s.dg2_hash)?,
+                private_nullifier_salt: dec(&s.private_nullifier)?,
+            },
+        },
+        (None, None) => return Err("either salt or salts is required".into()),
+    };
+    let sod_sig_processed = processed_sod_signature(&parsed)?;
+    let mrz = mrz_from_dg1(&dg1)?;
+    let expiry = expiry_from_mrz(&mrz)?;
+    let disc_input = DisclosureInput {
+        dg1: &dg1,
+        e_content: &parsed.e_content,
+        sod_signature_processed: &sod_sig_processed,
+        dg2_hash: &dg2_hash,
+        expiry_date: &expiry,
+        mrz: &mrz,
+    };
+    let nullifier_secret = match &req.nullifier_secret {
+        Some(s) => dec(s)?,
+        None => BigUint::from(0u8),
+    };
+    let attestation = hex::decode(req.attestation.trim_start_matches("0x"))
+        .or_else(|_| base64::engine::general_purpose::STANDARD.decode(&req.attestation))
+        .map_err(|e| format!("attestation not hex or base64: {e}"))?;
+    let client_data =
+        hex::decode(req.client_data.trim_start_matches("0x")).map_err(|e| e.to_string())?;
+    get_facematch_circuit_inputs(
+        &disc_input,
+        &salts.disclosure,
+        &nullifier_secret,
+        &scope_hash(&req.service_scope),
+        &scope_hash(&req.service_subscope),
+        req.current_date_timestamp,
+        &attestation,
+        &client_data,
+    )
+}
+
+#[derive(Deserialize)]
+struct SanctionsInputsRequest {
+    sod: String,
+    dg1: String,
+    #[serde(default)]
+    dg2_hash: Option<String>,
+    #[serde(default)]
+    dg2: Option<String>,
+    service_scope: String,
+    service_subscope: String,
+    #[serde(default)]
+    nullifier_secret: Option<String>,
+    current_date_timestamp: u64,
+    #[serde(default)]
+    salt: Option<String>,
+    #[serde(default)]
+    salts: Option<SaltsJson>,
+    /// Local file path to the downloaded sanctions tree JSON (`Vec<Vec<String>>`); read
+    /// from a file to avoid passing ~37MB through the FFI string.
+    tree_path: String,
+    #[serde(default)]
+    is_strict: bool,
+}
+
+/// Assemble the `exclusion_check_sanctions` circuit inputs: disclosure base + the merkle
+/// non-membership proofs. Same passport request as the facematch inputs, plus `{tree_path, is_strict}`.
+pub fn sanctions_circuit_inputs_json(request_json: &str) -> Result<serde_json::Value, String> {
+    let req: SanctionsInputsRequest = serde_json::from_str(request_json).map_err(|e| e.to_string())?;
+    let sod_der = b64(&req.sod)?;
+    let dg1 = b64(&req.dg1)?;
+    let parsed = zkpassport_core::sod::parse_sod(&sod_der)?;
+    let dg2_hash = match (&req.dg2_hash, &req.dg2) {
+        (Some(h), _) => b64(h)?,
+        (None, Some(raw)) => hash_data_group(&b64(raw)?, &parsed.dg_hash_alg)?,
+        (None, None) => parsed
+            .dg_hashes
+            .iter()
+            .find(|(n, _)| *n == 2)
+            .map(|(_, h)| h.clone())
+            .ok_or("SOD has no DG2 hash")?,
+    };
+    let salts = match (&req.salt, &req.salts) {
+        (Some(master), _) => InputGenSalts::from_master(dec(master)?),
+        (None, Some(s)) => InputGenSalts {
+            dsc_salt: dec(&s.dsc)?,
+            id_salt_in: dec(&s.id_in)?,
+            id_salt_out: dec(&s.id_out)?,
+            integrity_salt_in: dec(&s.integrity_in)?,
+            disclosure: zkpassport_core::commitments::IntegrityToDisclosureSalts {
+                dg1_salt: dec(&s.dg1)?,
+                expiry_date_salt: dec(&s.expiry_date)?,
+                dg2_hash_salt: dec(&s.dg2_hash)?,
+                private_nullifier_salt: dec(&s.private_nullifier)?,
+            },
+        },
+        (None, None) => return Err("either salt or salts is required".into()),
+    };
+    let sod_sig_processed = processed_sod_signature(&parsed)?;
+    let mrz = mrz_from_dg1(&dg1)?;
+    let expiry = expiry_from_mrz(&mrz)?;
+    let disc_input = DisclosureInput {
+        dg1: &dg1,
+        e_content: &parsed.e_content,
+        sod_signature_processed: &sod_sig_processed,
+        dg2_hash: &dg2_hash,
+        expiry_date: &expiry,
+        mrz: &mrz,
+    };
+    let nullifier_secret = match &req.nullifier_secret {
+        Some(s) => dec(s)?,
+        None => BigUint::from(0u8),
+    };
+    let tree_raw = std::fs::read_to_string(&req.tree_path).map_err(|e| format!("read tree: {e}"))?;
+    let tree: Vec<Vec<String>> =
+        serde_json::from_str(&tree_raw).map_err(|e| format!("parse tree: {e}"))?;
+    get_sanctions_circuit_inputs(
+        &disc_input,
+        &tree,
+        req.is_strict,
+        &salts.disclosure,
+        &nullifier_secret,
+        &scope_hash(&req.service_scope),
+        &scope_hash(&req.service_subscope),
+        req.current_date_timestamp,
+        None,
+    )
+}
+
+fn ffi_json(request_json: *const c_char, f: impl Fn(&str) -> Result<serde_json::Value, String>) -> *mut c_char {
+    let result = (|| -> Result<serde_json::Value, String> {
+        if request_json.is_null() {
+            return Err("null request".into());
+        }
+        let s = unsafe { CStr::from_ptr(request_json) }
+            .to_str()
+            .map_err(|_| "request is not valid UTF-8".to_string())?;
+        f(s)
+    })();
+    let json = match result {
+        Ok(v) => v.to_string(),
+        Err(e) => serde_json::json!({ "error": e }).to_string(),
+    };
+    CString::new(json)
+        .unwrap_or_else(|_| CString::new("{\"error\":\"interior NUL\"}").unwrap())
+        .into_raw()
+}
+
+/// Build the facematch `client_data` + the poseidon2 hash to pass to App Attest `attestKey`.
+/// Request: `{appVersion,mode,dg2Hash(hex),dg2Faceprint[512],cosine,threshold?}`.
+/// Response: `{clientData(hex),clientDataHashB64,dg2FaceprintHash(hex)}`. Free with `zkpassport_free_string`.
+///
+/// # Safety
+/// `request_json` must be a valid NUL-terminated UTF-8 C string.
+#[no_mangle]
+pub unsafe extern "C" fn zkpassport_facematch_client_data(request_json: *const c_char) -> *mut c_char {
+    ffi_json(request_json, facematch::facematch_client_data_json)
+}
+
+/// Derive the attestation witness fields. Request: `{attestation(base64|hex),clientData(hex)}`.
+/// Response: the witness fields as hex/values. Free with `zkpassport_free_string`.
+///
+/// # Safety
+/// `request_json` must be a valid NUL-terminated UTF-8 C string.
+#[no_mangle]
+pub unsafe extern "C" fn zkpassport_facematch_attestation_inputs(request_json: *const c_char) -> *mut c_char {
+    ffi_json(request_json, facematch::facematch_attestation_inputs_json)
+}
+
+/// Assemble the full facematch circuit inputs (passport base + attestation).
+/// Request = the passport fields of `zkpassport_generate_inputs` + `{attestation,clientData}`.
+/// Response = the circuit input JSON. Free with `zkpassport_free_string`.
+///
+/// # Safety
+/// `request_json` must be a valid NUL-terminated UTF-8 C string.
+#[no_mangle]
+pub unsafe extern "C" fn zkpassport_facematch_circuit_inputs(request_json: *const c_char) -> *mut c_char {
+    ffi_json(request_json, facematch_circuit_inputs_json)
+}
+
+/// Assemble the `exclusion_check_sanctions` circuit inputs (disclosure base + merkle
+/// non-membership proofs). Request = the passport fields + `{tree_path, is_strict}` where
+/// `tree_path` is a local file holding the downloaded sanctions tree JSON.
+/// Response = the circuit input JSON. Free with `zkpassport_free_string`.
+///
+/// # Safety
+/// `request_json` must be a valid NUL-terminated UTF-8 C string.
+#[no_mangle]
+pub unsafe extern "C" fn zkpassport_sanctions_circuit_inputs(request_json: *const c_char) -> *mut c_char {
+    ffi_json(request_json, sanctions_circuit_inputs_json)
 }
 
 /// Free a string returned by `zkpassport_generate_inputs`.

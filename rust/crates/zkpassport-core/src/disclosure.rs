@@ -252,6 +252,33 @@ pub fn get_date_circuit_inputs(
     Ok(obj)
 }
 
+/// Sanctions-exclusion circuit inputs (`getSanctionsExclusionCheckCircuitInputs`): the base
+/// disclosure values + the non-membership merkle `proofs` + `root` + `is_strict`.
+#[allow(clippy::too_many_arguments)]
+pub fn get_sanctions_circuit_inputs(
+    input: &DisclosureInput,
+    tree_serialized: &[Vec<String>],
+    is_strict: bool,
+    salts: &IntegrityToDisclosureSalts,
+    nullifier_secret: &BigUint,
+    service_scope: &BigUint,
+    service_subscope: &BigUint,
+    current_date_timestamp: u64,
+    oprf_proof: Option<Value>,
+) -> Result<Value, String> {
+    let base = DisclosureBase::compute(input, salts)?;
+    let mut obj = base_object(
+        &base, input, salts, nullifier_secret, service_scope, service_subscope,
+        current_date_timestamp, &oprf_proof,
+    );
+    let tree = crate::sanctions::OrderedMt::from_serialized(tree_serialized)?;
+    let proofs = crate::sanctions::build_sanctions_proofs(input.mrz, &tree, is_strict)?;
+    insert(&mut obj, "proofs", proofs);
+    insert(&mut obj, "root", json!(tree.root_hex()));
+    insert(&mut obj, "is_strict", json!(if is_strict { 1 } else { 0 }));
+    Ok(obj)
+}
+
 // ---- Country inclusion / exclusion ----------------------------------------
 
 /// `getCountryWeightedSum`: c0*0x10000 + c1*0x100 + c2 (alpha-3 char codes).
@@ -567,6 +594,56 @@ pub fn get_bind_circuit_inputs(
     );
     let data = right_pad_with_zeros(&format_bound_data(bound)?, 509);
     insert(&mut obj, "data", json!(data));
+    Ok(obj)
+}
+
+// ---- Facematch (App Attest) ----------------------------------------------
+// Circuit ABI: circuits src/noir/bin/facematch/ios/standard/src/main.nr +
+// lib/facematch/src/constants.nr. Same disclosure prologue as the other
+// builders, but NO oprf_proof / data, plus the attestation-derived fields.
+const FM_INTERMEDIATE_TBS_LEN: usize = 500; // hardcoded in main.nr
+const FM_CREDENTIAL_TBS_MAX_LEN: usize = 1000;
+const FM_AUTH_DATA_MAX_LEN: usize = 180;
+const FM_CLIENT_DATA_MAX_LEN: usize = 169;
+const FM_APP_ID_MAX_LEN: usize = 100;
+
+/// Full facematch circuit inputs: disclosure base (comm_in, current_date, the
+/// five salted values, scopes, nullifier_secret) + the attestation witness
+/// (`facematch_attestation_inputs`), zero-padded to the circuit max lengths.
+/// Mirrors `getFacematchCircuitInputs` + `generateCircuitInputsiOS` (TS).
+#[allow(clippy::too_many_arguments)]
+pub fn get_facematch_circuit_inputs(
+    input: &DisclosureInput,
+    salts: &IntegrityToDisclosureSalts,
+    nullifier_secret: &BigUint,
+    service_scope: &BigUint,
+    service_subscope: &BigUint,
+    current_date_timestamp: u64,
+    attestation: &[u8],
+    client_data: &[u8],
+) -> Result<Value, String> {
+    let base = DisclosureBase::compute(input, salts)?;
+    let mut obj = base_object(
+        &base, input, salts, nullifier_secret, service_scope, service_subscope,
+        current_date_timestamp, &None,
+    );
+    // Facematch circuit has no OPRF proof and no bound data.
+    if let Value::Object(m) = &mut obj {
+        m.remove("oprf_proof");
+    }
+    let att = crate::facematch::facematch_attestation_inputs(attestation, client_data)?;
+    let environment: u8 = if att.environment == "production" { 1 } else { 0 };
+    insert(&mut obj, "root_key", json!(att.root_key));
+    insert(&mut obj, "intermediate_key", json!(att.intermediate_key));
+    insert(&mut obj, "intermediate_tbs", json!(right_pad_with_zeros(&att.intermediate_tbs, FM_INTERMEDIATE_TBS_LEN)));
+    insert(&mut obj, "intermediate_sig", json!(att.intermediate_sig));
+    insert(&mut obj, "credential_tbs", json!(right_pad_with_zeros(&att.credential_tbs, FM_CREDENTIAL_TBS_MAX_LEN)));
+    insert(&mut obj, "credential_sig", json!(att.credential_sig));
+    insert(&mut obj, "auth_data", json!(right_pad_with_zeros(&att.auth_data, FM_AUTH_DATA_MAX_LEN)));
+    insert(&mut obj, "client_data", json!(right_pad_with_zeros(&att.client_data, FM_CLIENT_DATA_MAX_LEN)));
+    insert(&mut obj, "environment", json!(environment));
+    insert(&mut obj, "app_id", json!(right_pad_with_zeros(att.app_id.as_bytes(), FM_APP_ID_MAX_LEN)));
+    insert(&mut obj, "facematch_mode", json!(att.facematch_mode));
     Ok(obj)
 }
 
