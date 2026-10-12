@@ -18,13 +18,13 @@ import { ZKPassport } from "@zkpassport/sdk"
 import type { PackagedSanctionsFile, ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import {
   CACHE_DIR,
+  guardNetwork,
   SEPOLIA_FILE_HOSTS,
-  startDevnet,
+  startSepoliaFork,
   takeOverSanctionsOracle,
-  type Devnet,
-} from "../src/devnet"
+  type SepoliaFork,
+} from "../src/sepolia-fork"
 import { findListedPerson, listedPersonPassport } from "../src/listed-person"
-import { guardNetwork } from "../src/network-guard"
 import { buildJohn } from "../src/passport"
 import { getSanctionsBuilder } from "../src/prove"
 import { startRelay, type Relay } from "../src/relay"
@@ -58,7 +58,7 @@ if (!publisherAvailable) {
 }
 
 describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", () => {
-  let devnet: Devnet
+  let fork: SepoliaFork
   let relay: Relay
   let guard: ReturnType<typeof guardNetwork>
   let registry: RegistryClient
@@ -72,25 +72,25 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   const events: string[] = []
 
   beforeAll(async () => {
-    devnet = await startDevnet()
-    registry = createRegistryClient("ethereum_sepolia", devnet.registry)
+    fork = await startSepoliaFork()
+    registry = createRegistryClient("ethereum_sepolia", fork.registry)
     // The publish faces the checks the scheduled testnet job does: Sepolia's current root, its
     // timestamp and a leaf count within 20% of it
     sepoliaRoot = await registry.getLatestSanctionsRoot()
-    await takeOverSanctionsOracle(devnet)
+    await takeOverSanctionsOracle(fork)
 
     // The publisher's own steps, against the fork, before the network guard goes up
     await downloadOpenSanctions(SNAPSHOTS_DIR, process.env.OPENSANCTIONS_DATE)
     rmSync(RUN_DIR, { recursive: true, force: true })
     mkdirSync(RUN_DIR, { recursive: true })
     published = await publishSanctionsRoot({
-      devnet,
+      fork,
       snapshotsDir: SNAPSHOTS_DIR,
       workDir: RUN_DIR,
     })
     writeFileSync(join(RUN_DIR, "publisher.log"), published.log)
     console.log(published.log)
-    devnet.serveSanctionsTree(published.root, published.treeFile)
+    fork.serveSanctionsTree(published.root, published.treeFile)
 
     relay = startRelay()
     guard = guardNetwork(SEPOLIA_FILE_HOSTS)
@@ -124,7 +124,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     const standIn = await runStandIn({
       requestUrl: request.url,
       passport: buildJohn(),
-      registry: devnet.registry,
+      registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
     standInBridge = standIn.bridge
@@ -136,7 +136,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     guard?.restore()
     standInBridge?.cleanup()
     await relay?.stop()
-    devnet?.stop()
+    fork?.stop()
   })
 
   test("the publisher put today's root on the Sanctions Registry after Sepolia's own", async () => {
@@ -179,7 +179,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
-      config: { rpcUrl: devnet.rpcUrl },
+      config: { rpcUrl: fork.rpcUrl },
     })
     expect(verification.queryResultErrors).toBeUndefined()
     expect(verification.verified).toBe(true)
@@ -198,7 +198,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
-      config: { rpcUrl: devnet.rpcUrl },
+      config: { rpcUrl: fork.rpcUrl },
     })
     expect(verification.verified).toBe(false)
   }, 60_000)

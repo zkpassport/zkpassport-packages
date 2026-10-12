@@ -88,23 +88,18 @@ export async function startSepoliaFork(): Promise<SepoliaFork> {
  * Make anvil's second account the oracle of the forked Sanctions Registry, by sending setOracle
  * from the registry's admin, impersonated, so a publisher holding ORACLE_PRIVATE_KEY can publish
  */
-export async function takeOverSanctionsOracle(devnet: Devnet) {
-  const registry = await createRegistryClient(
-    "ethereum_sepolia",
-    devnet.registry,
-  ).getRegistryAddress(SANCTIONS_REGISTRY_ID)
-  const admin = cast(["call", registry, "admin()(address)"], devnet)
+export async function takeOverSanctionsOracle(fork: SepoliaFork) {
+  const registry = await createRegistryClient("ethereum_sepolia", fork.registry).getRegistryAddress(
+    SANCTIONS_REGISTRY_ID,
+  )
+  const admin = cast(["call", registry, "admin()(address)"], fork)
 
-  cast(["rpc", "anvil_impersonateAccount", admin], devnet)
-  cast(["rpc", "anvil_setBalance", admin, "0x56BC75E2D63100000"], devnet)
+  cast(["rpc", "anvil_impersonateAccount", admin], fork)
+  cast(["rpc", "anvil_setBalance", admin, "0x56BC75E2D63100000"], fork)
   cast(
     ["send", registry, "setOracle(address)", ORACLE_ADDRESS, "--unlocked", "--from", admin],
-    devnet,
+    fork,
   )
-}
-
-function cast(args: string[], devnet: Devnet): string {
-  return execFileSync("cast", [...args, "--rpc-url", devnet.rpcUrl], { encoding: "utf8" }).trim()
 }
 
 /**
@@ -130,6 +125,10 @@ export function guardNetwork(allowedHosts: string[] = []): {
     throw new Error(`e2e network guard: blocked ${url}`)
   }) as typeof fetch
   return { blocked, restore: () => (globalThis.fetch = realFetch) }
+}
+
+function cast(args: string[], fork: SepoliaFork): string {
+  return execFileSync("cast", [...args, "--rpc-url", fork.rpcUrl], { encoding: "utf8" }).trim()
 }
 
 async function waitForRpc(rpcUrl: string) {

@@ -7,7 +7,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { stripVTControlCharacters } from "node:util"
-import { ORACLE_PRIVATE_KEY, type Devnet } from "./devnet"
+import { ORACLE_PRIVATE_KEY, type SepoliaFork } from "./sepolia-fork"
 
 const PUBLISHER_DIR = process.env.SANCTIONS_PUBLISHER_DIR
   ? resolve(process.env.SANCTIONS_PUBLISHER_DIR)
@@ -42,18 +42,18 @@ export type PublishedSanctionsRoot = {
  * Build the tree from the newest snapshot of every dataset and publish its root to the forked
  * Sepolia Sanctions Registry from the oracle key, as the scheduled job does on testnet:
  * `oracle process-and-package`, then `oracle publish`. The CDN and IPFS uploads in between are
- * left out; the devnet serves the tree instead.
+ * left out; the fork's file server serves the tree instead.
  */
 export async function publishSanctionsRoot({
-  devnet,
+  fork,
   snapshotsDir,
   workDir,
 }: {
-  devnet: Devnet
+  fork: SepoliaFork
   snapshotsDir: string
   workDir: string
 }): Promise<PublishedSanctionsRoot> {
-  const env = { ETH_RPC_URL: devnet.rpcUrl }
+  const env = { ETH_RPC_URL: fork.rpcUrl }
   const packagedFile = join(workDir, "packaged.json")
   const treesDir = join(workDir, "trees")
 
