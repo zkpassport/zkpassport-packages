@@ -110,9 +110,8 @@ const HOLDERS: Record<MockPassportName, Holder> = {
 }
 
 /**
- * Build the mock passports of the Zero Knowledge Republic (ZKR) that zkpassport-mobile-app offers
- * in dev mode, keyed by name. Their DSCs chain to the ZKR CSCAs, which only the testnet
- * certificate registry holds. They come without photos.
+ * Build the mock passports of the Zero Knowledge Republic (ZKR), keyed by name. Their DSCs chain to
+ * the ZKR CSCAs, which only the testnet certificate registry holds. They come without photos.
  */
 export function getMockPassports(): Record<MockPassportName, PassportViewModel> {
   const entries = Object.entries(HOLDERS).map(([name, holder]) => [name, buildPassport(holder)])

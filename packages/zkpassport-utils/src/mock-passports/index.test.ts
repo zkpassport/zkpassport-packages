@@ -18,7 +18,7 @@ const zkrCscas = (rootCerts.certificates as PackagedCertificate[]).filter(
 describe("getMockPassports", () => {
   const passports = Object.entries(getMockPassports())
 
-  test("builds the seven mock passports of zkpassport-mobile-app", () => {
+  test("builds the seven mock passports", () => {
     expect(passports.map(([name]) => name)).toEqual([
       "john",
       "mary",
