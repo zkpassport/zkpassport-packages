@@ -5,3 +5,4 @@ coverage/
 package-lock.json
 *.tgz
 tests/fixtures/dsc/
+scripts/zkr/

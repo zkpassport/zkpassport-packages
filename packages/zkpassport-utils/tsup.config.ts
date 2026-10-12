@@ -20,6 +20,7 @@ export default defineConfig(
       "merkle-tree/index": "src/merkle-tree/index.ts",
       "mock-passports/index": "src/mock-passports/index.ts",
       "passport/index": "src/passport/index.ts",
+      "passport-generator/index": "src/passport-generator/index.ts",
       "registry/index": "src/registry/index.ts",
       "sanctions/index": "src/sanctions/index.ts",
       "types/index": "src/types/index.ts",

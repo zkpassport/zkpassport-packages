@@ -17,6 +17,7 @@
     "src/**/*.json",
     "tests/**/*.json",
     "tests/**/*.ts",
+    "scripts/**/*.ts",
     "conformance/*.json",
     "tsup.config.ts"
   ]

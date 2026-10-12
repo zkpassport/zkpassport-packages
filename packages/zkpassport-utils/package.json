@@ -62,6 +62,10 @@
       "import": "./dist/esm/passport/index.js",
       "require": "./dist/cjs/passport/index.cjs"
     },
+    "./passport-generator": {
+      "import": "./dist/esm/passport-generator/index.js",
+      "require": "./dist/cjs/passport-generator/index.cjs"
+    },
     "./utils": {
       "import": "./dist/esm/utils.js",
       "require": "./dist/cjs/utils.cjs"
