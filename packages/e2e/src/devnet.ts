@@ -5,7 +5,6 @@ import { getIdFromChain } from "@zkpassport/utils"
 
 const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
 
-/** Hosts of the testnet CDNs the SDK and the stand-in read certificates and circuits from */
 export const SEPOLIA_FILE_HOSTS = getFileHosts(SEPOLIA)
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
