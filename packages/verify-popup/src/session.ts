@@ -2,6 +2,7 @@ import { bytesToHex, hexToBytes, type Hex } from "viem"
 import type { KeyPair } from "@zkpassport/sdk"
 
 import type { PopupConfigureMessage, PopupSuccess } from "@zkpassport/sdk/popup"
+import type { ScanProgress } from "./verify/waiting"
 
 const STORAGE_PREFIX = "zkpassport:session:"
 // Long enough for an App Store install and an ID scan, short enough that the bridge private key is
@@ -24,7 +25,7 @@ export type SessionState = {
   configuration?: SessionConfiguration
   keyPair?: KeyPair
   /** How far the phone had got, so a reloaded page reopens on the screen the user left. */
-  stage?: "scanned" | "proving"
+  stage?: ScanProgress["stage"]
   result?: HeldResult
 }
 
