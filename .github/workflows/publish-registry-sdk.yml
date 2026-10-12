@@ -24,9 +24,6 @@ jobs:
           sparse-checkout: packages/registry-sdk/package.json
           sparse-checkout-cone-mode: false
 
-      # Decide here, before the publish job starts, because the environment (and
-      # so whether a manual approval is required) is fixed when that job begins.
-      # Only X.Y.Z-beta.N versions publish without approval.
       - name: Check if version is published to npm
         id: version_check
         run: |
