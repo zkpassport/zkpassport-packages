@@ -153,9 +153,7 @@ function VerifyRequest({
         send({ type: "error", message: String(message) })
       },
       onConnectionLost: () => {
-        const message = "The connection to your phone was lost."
-        failWith({ message, keepsBridge: true })
-        send({ type: "error", message })
+        failWith({ message: "The connection to your phone was lost.", keepsBridge: true })
       },
     },
   )
