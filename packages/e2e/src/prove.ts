@@ -3,6 +3,7 @@ import { Barretenberg, UltraHonkBackend } from "@aztec/bb.js"
 import { Noir, type CompiledCircuit, type InputMap } from "@noir-lang/noir_js"
 import type { RegistryClient } from "@zkpassport/registry"
 import {
+  AsyncOrderedMT,
   extractTBS,
   getAgeCircuitInputs,
   getBitSize,
@@ -13,10 +14,13 @@ import {
   getIDDataCircuitInputs,
   getIntegrityCheckCircuitInputs,
   getRSAInfo,
+  getSanctionsExclusionCheckCircuitInputs,
   getServiceScopeHash,
   getServiceSubscopeHash,
   getSodSignatureAlgorithmHashAlgorithm,
   getTBSMaxLen,
+  poseidon2,
+  SanctionsBuilder,
   type PackagedCertificate,
   type PassportViewModel,
   type ProofResult,
@@ -33,7 +37,7 @@ type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 /**
  * Make the fast-mode proofs for a request the way the app does: the DSC, ID data and integrity
  * proofs, then one disclosure proof per query field, each shaped as the ProofResult the app sends
- * over the bridge. Handles age.gte and nationality.disclose.
+ * over the bridge. Handles age.gte, nationality.disclose and sanctions.
  */
 export async function proveFastMode({
   passport,
@@ -50,14 +54,16 @@ export async function proveFastMode({
   circuitVersion: string
   registry: RegistryClient
 }): Promise<{ proofs: ProofResult[]; queryResult: QueryResult }> {
-  const unhandled = Object.keys(query).filter((field) => !["age", "nationality"].includes(field))
+  const unhandled = Object.keys(query).filter(
+    (field) => !["age", "nationality", "sanctions"].includes(field),
+  )
   if (
     unhandled.length > 0 ||
     (query.age && !query.age.gte) ||
     (query.nationality && !query.nationality.disclose)
   ) {
     throw new Error(
-      `Only age.gte and nationality.disclose are handled, got ${JSON.stringify(query)}`,
+      `Only age.gte, nationality.disclose and sanctions are handled, got ${JSON.stringify(query)}`,
     )
   }
 
@@ -119,6 +125,23 @@ export async function proveFastMode({
       },
     })
   }
+  if (query.sanctions) {
+    const inputs = required(
+      await getSanctionsExclusionCheckCircuitInputs(
+        passport,
+        query.sanctions.strict ?? false,
+        ...disclosureArgs,
+        undefined,
+        await getSanctionsBuilder(registry),
+      ),
+      "exclusion_check_sanctions",
+    )
+    steps.push({
+      name: "exclusion_check_sanctions",
+      inputs,
+      committedInputs: { rootHash: inputs.root, isStrict: !!inputs.is_strict },
+    })
+  }
 
   const barretenberg = await Barretenberg.new()
   const proofs: ProofResult[] = []
@@ -160,6 +183,12 @@ export async function proveFastMode({
   return { proofs, queryResult: getQueryResult(passport, query) }
 }
 
+/** The sanctions tree published for the latest sanctions root of the registry's chain */
+export async function getSanctionsBuilder(registry: RegistryClient): Promise<SanctionsBuilder> {
+  const { serialised } = await registry.getSanctionsTree()
+  return new SanctionsBuilder(await AsyncOrderedMT.fromSerialized(serialised, poseidon2))
+}
+
 /** Inputs from a @zkpassport/utils builder, which returns null or undefined when it cannot build them */
 function required<T extends object>(inputs: T | null | undefined, circuitName: string): T {
   if (!inputs) {
@@ -176,6 +205,21 @@ function getQueryResult(passport: PassportViewModel, query: Query): QueryResult 
   }
   if (query.nationality) {
     result.nationality = { disclose: { result: passport.nationality } }
+  }
+  if (query.sanctions) {
+    // Proving succeeded, so the passport is not on the lists
+    const passed = { passed: true }
+    result.sanctions = {
+      passed: true,
+      countries: { US: passed, GB: passed, EU: passed, CH: passed },
+      lists: {
+        US_OFAC_SDN: passed,
+        CH_SECO_SANCTIONS: passed,
+        EU_FSF_SANCTIONS: passed,
+        GB_FCDO_SANCTIONS: passed,
+      },
+      isStrict: query.sanctions.strict ?? false,
+    }
   }
   return result as QueryResult
 }
