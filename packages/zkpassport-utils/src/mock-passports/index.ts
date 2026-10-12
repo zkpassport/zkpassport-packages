@@ -24,7 +24,9 @@ type Holder = {
   passportExpiry: string
 }
 
-// DG1 tag and length, then the MRZ tag and the length of a TD3 MRZ (88 characters)
+// The DG1 template ('61') and its MRZ data object ('5F1F'), each with its length: 91 and 88 bytes
+// for a TD3 MRZ. ICAO Doc 9303 Part 10 (8th edition, 2021), section 4.7.1, table 39:
+// https://www.icao.int/sites/default/files/publications/DocSeries/9303_p10_cons_en.pdf
 const DG1_HEADER = "615B5F1F58"
 
 const HOLDERS: Record<MockPassportName, Holder> = {
