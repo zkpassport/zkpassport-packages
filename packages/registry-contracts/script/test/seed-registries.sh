@@ -23,5 +23,7 @@ export CIRCUIT_REGISTRY_ADDRESS=$(cat broadcast/DeployCircuitRegistry.s.sol/$CHA
 export SANCTIONS_REGISTRY_ADDRESS=$(cat broadcast/DeploySanctionsRegistry.s.sol/$CHAIN_ID/run-latest.json | jq -r '.transactions[] | select(.transactionType=="CREATE") | .contractAddress')
 
 # Run the SeedRegistries forge script
-forge script script/test/SeedRegistries.s.sol:SeedRegistriesScript --rpc-url $RPC_URL --private-key $ORACLE_PRIVATE_KEY --broadcast
+# --slow sends each transaction once the previous one is mined. Sent all at once, anvil
+# occasionally leaves them queued and never mines them, and forge waits for the receipts forever.
+forge script script/test/SeedRegistries.s.sol:SeedRegistriesScript --rpc-url $RPC_URL --private-key $ORACLE_PRIVATE_KEY --broadcast --slow
 
