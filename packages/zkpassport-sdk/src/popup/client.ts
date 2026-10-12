@@ -45,6 +45,7 @@ export type VerificationPopupHandle = {
 
 const POPUP_WIDTH = 460
 const POPUP_HEIGHT = 780
+// Browsers throttle timers in a background tab, so noticing a closed window can take seconds
 const CLOSE_POLL_INTERVAL = 500
 // A popup the browser restored can have lost `window.opener`, so it cannot announce itself. These
 // blind retries reach it anyway.
