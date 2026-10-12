@@ -85,6 +85,11 @@ function ContinueInApp({
               Preparing…
             </span>
           )}
+          {openState === "opened" ? (
+            <p className="flow-hint" role="status">
+              Waiting for the ZKPassport app. Tap again if it didn&rsquo;t open.
+            </p>
+          ) : null}
           {inAppBrowser && requestUrl ? (
             <div className="scan-escape">
               <p className="scan-fallback-hint">

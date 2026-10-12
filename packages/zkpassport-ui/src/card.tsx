@@ -523,6 +523,11 @@ function OpenAppHero({
           <span className="zkp-skel-row" style={{ width: "100%", height: "48px" }} />
         </div>
       )}
+      {openState === "opened" ? (
+        <p className="zkp-inapp-hint" role="status">
+          Waiting for the ZKPassport app. Tap again if it didn&rsquo;t open.
+        </p>
+      ) : null}
       {inAppBrowser ? (
         <p className="zkp-inapp-hint">
           If nothing opens, open this page in your browser and try again.

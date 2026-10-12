@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "preact/hooks"
 
 import { openRequestInApp } from "./app-link"
 
-type AppOpenState = "idle" | "opening" | "nothing-opened"
+// "opened" is not "idle": the page should say it is waiting, not offer the button again
+type AppOpenState = "idle" | "opening" | "opened" | "nothing-opened"
 
 /**
- * Opens the request in the app. With `probe`, reports "opening" and then "nothing-opened" when the
- * app does not take the link; switching to the app later takes that back.
+ * Opens the request in the app. With `probe`, reports "opening", then "opened" once the app has
+ * taken over, or "nothing-opened" when nothing did.
  */
 export function useOpenApp(requestUrl: string | null, { probe }: { probe: boolean }) {
   const [openState, setOpenState] = useState<AppOpenState>("idle")
@@ -26,8 +27,8 @@ export function useOpenApp(requestUrl: string | null, { probe }: { probe: boolea
       return
     }
     setOpenState("opening")
-    stopProbe.current = openRequestInApp(requestUrl, (opened) =>
-      setOpenState(opened ? "idle" : "nothing-opened"),
+    stopProbe.current = openRequestInApp(requestUrl, (appTookOver) =>
+      setOpenState(appTookOver ? "opened" : "nothing-opened"),
     )
   }
 
