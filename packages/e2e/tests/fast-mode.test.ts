@@ -18,7 +18,7 @@ import {
   startSepoliaFork,
   type SepoliaFork,
 } from "../src/sepolia-fork"
-import { buildJohn } from "../src/passport"
+import { getMockPassports } from "@zkpassport/utils/mock-passports"
 import { startRelay, type Relay } from "../src/relay"
 import { runStandIn } from "../src/stand-in"
 
@@ -77,7 +77,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
     const standIn = await runStandIn({
       requestUrl: request.url,
-      passport: buildJohn(),
+      passport: getMockPassports().john,
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
