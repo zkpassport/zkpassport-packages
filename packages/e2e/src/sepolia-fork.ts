@@ -11,7 +11,7 @@ export const SEPOLIA_FILE_HOSTS = [SEPOLIA.packagedCertificatesUrl, SEPOLIA.circ
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
-export type Devnet = {
+export type SepoliaFork = {
   rpcUrl: string
   /** Options for a Sepolia registry client to read this fork */
   registry: RegistryOverrides
@@ -21,7 +21,7 @@ export type Devnet = {
 /**
  * Start Anvil with a Sepolia fork at its latest block.
  */
-export async function startDevnet(): Promise<Devnet> {
+export async function startSepoliaFork(): Promise<SepoliaFork> {
   const forkUrl = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
   const port = await freePort()
   const rpcUrl = `http://127.0.0.1:${port}`
@@ -37,6 +37,31 @@ export async function startDevnet(): Promise<Devnet> {
   }
 
   return { rpcUrl, registry: { rpcUrl }, stop: () => anvil.kill() }
+}
+
+/**
+ * Make fetch() reach only this machine and `allowedHosts`, and record every other URL something
+ * tried to fetch.
+ * It covers fetch only: child processes and libraries using their own HTTP stack (e.g. bb.js
+ * downloading its CRS) are not intercepted.
+ */
+export function guardNetwork(allowedHosts: string[] = []): {
+  blocked: string[]
+  restore: () => void
+} {
+  const allowed = ["127.0.0.1", "localhost", ...allowedHosts]
+  const blocked: string[] = []
+  const realFetch = globalThis.fetch
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+    if (allowed.includes(new URL(url).hostname)) {
+      return realFetch(input, init)
+    }
+
+    blocked.push(url)
+    throw new Error(`e2e network guard: blocked ${url}`)
+  }) as typeof fetch
+  return { blocked, restore: () => (globalThis.fetch = realFetch) }
 }
 
 async function waitForRpc(rpcUrl: string) {

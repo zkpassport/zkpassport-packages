@@ -6,14 +6,18 @@
  *
  * In dev mode a request that binds no chain is proved and verified on Sepolia, so the SDK and the
  * stand-in read the fork through `config.rpcUrl` and the stand-in's registry overrides. While the
- * flow runs, fetch() may only reach this machine and the testnet CDNs (see network-guard.ts).
+ * flow runs, fetch() may only reach this machine and the testnet CDNs (see guardNetwork).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import type { BridgeInterface } from "@obsidion/bridge"
 import { ZKPassport } from "@zkpassport/sdk"
 import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
-import { SEPOLIA_FILE_HOSTS, startDevnet, type Devnet } from "../src/devnet"
-import { guardNetwork } from "../src/network-guard"
+import {
+  guardNetwork,
+  SEPOLIA_FILE_HOSTS,
+  startSepoliaFork,
+  type SepoliaFork,
+} from "../src/sepolia-fork"
 import { buildJohn } from "../src/passport"
 import { startRelay, type Relay } from "../src/relay"
 import { runStandIn } from "../src/stand-in"
@@ -30,7 +34,7 @@ const CIRCUITS = [
 ]
 
 describe("fast mode, end to end on a Sepolia fork", () => {
-  let devnet: Devnet
+  let fork: SepoliaFork
   let relay: Relay
   let guard: ReturnType<typeof guardNetwork>
   let standInBridge: BridgeInterface | undefined
@@ -41,7 +45,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   const events: string[] = []
 
   beforeAll(async () => {
-    devnet = await startDevnet()
+    fork = await startSepoliaFork()
     relay = startRelay()
     guard = guardNetwork(SEPOLIA_FILE_HOSTS)
 
@@ -74,7 +78,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     const standIn = await runStandIn({
       requestUrl: request.url,
       passport: buildJohn(),
-      registry: devnet.registry,
+      registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
     standInBridge = standIn.bridge
@@ -86,7 +90,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     guard?.restore()
     standInBridge?.cleanup()
     await relay?.stop()
-    devnet?.stop()
+    fork?.stop()
   })
 
   test("the SDK sees the whole request over the bridge", () => {
@@ -112,7 +116,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
-      config: { rpcUrl: devnet.rpcUrl },
+      config: { rpcUrl: fork.rpcUrl },
     })
     expect(verification.verified).toBe(true)
     // ZKR passports get a mock nullifier, which verify() accepts only in dev mode
@@ -139,7 +143,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
-      config: { rpcUrl: devnet.rpcUrl },
+      config: { rpcUrl: fork.rpcUrl },
     })
     expect(verification.verified).toBe(false)
   }, 60_000)

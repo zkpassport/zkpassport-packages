@@ -6,7 +6,7 @@ import {
   type Query,
   type SupportedChain,
 } from "@zkpassport/utils"
-import type { RegistryOverrides } from "./devnet"
+import type { RegistryOverrides } from "./sepolia-fork"
 import { proveFastMode } from "./prove"
 
 /**
