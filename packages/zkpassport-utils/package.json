@@ -50,6 +50,10 @@
       "import": "./dist/esm/merkle-tree/index.js",
       "require": "./dist/cjs/merkle-tree/index.cjs"
     },
+    "./mock-passports": {
+      "import": "./dist/esm/mock-passports/index.js",
+      "require": "./dist/cjs/mock-passports/index.cjs"
+    },
     "./passport-reader": {
       "import": "./dist/esm/passport/index.js",
       "require": "./dist/cjs/passport/index.cjs"

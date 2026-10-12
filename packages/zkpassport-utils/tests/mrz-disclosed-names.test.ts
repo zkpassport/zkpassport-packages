@@ -1,6 +1,8 @@
 import { getMrzDisclosedNames } from "../src/circuit-matcher"
 import type { PassportViewModel, Query } from "../src/types"
-import { PASSPORTS } from "./fixtures/passports"
+import { getMockPassports } from "../src/mock-passports"
+
+const PASSPORTS = getMockPassports()
 
 // PASSPORTS.john MRZ encodes surname "SMITH" and given names "JOHN MILLER"; its DG11 fields differ.
 describe("getMrzDisclosedNames", () => {

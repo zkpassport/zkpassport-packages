@@ -1,3 +1,5 @@
+// Earlier SODs of John and Mary, which sign an all-zero DG2 hash. circuit-matcher.test.ts pins
+// circuit inputs derived from them; other tests use the current ones in src/mock-passports.
 import { PassportViewModel } from "../../src/types"
 import { Binary } from "../../src/binary"
 

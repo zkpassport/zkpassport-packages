@@ -18,6 +18,7 @@ export default defineConfig(
       "circuits/index": "src/circuits/index.ts",
       "constants/index": "src/constants/index.ts",
       "merkle-tree/index": "src/merkle-tree/index.ts",
+      "mock-passports/index": "src/mock-passports/index.ts",
       "passport/index": "src/passport/index.ts",
       "registry/index": "src/registry/index.ts",
       "sanctions/index": "src/sanctions/index.ts",
