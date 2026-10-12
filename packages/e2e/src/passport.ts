@@ -3,7 +3,11 @@ import johnSODJson from "./fixtures/john-miller-smith-rsa-2048-sha256.json"
 
 /**
  * John Miller Smith, a ZKR mock passport (RSA-2048 DSC, SHA-256), built like zkpassport-mobile-app's
- * assets/mock-data/passport.ts: the SOD is the app's, and dataGroups come from the SOD's own DG hashes.
+ * assets/mock-data/passport.ts, with dataGroups from the SOD's own DG hashes.
+ *
+ * The SOD fixture is a copy of the app's assets/mock-data/john-miller-smith-rsa-2048-sha256.json,
+ * which the circuits repo's src/ts/scripts/generate-zkr-certs.ts generates. Its DSC chains to the
+ * Zero Knowledge Republic CSCA, which only the testnet certificate tree holds.
  *
  * The older SOD in zkpassport-utils/tests/fixtures signs an all-zero DG2 hash, which the 0.21.0
  * integrity circuit rejects ("Value cannot be the default value when creating a salted value").
