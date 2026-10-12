@@ -18,7 +18,9 @@ export default defineConfig(
       "circuits/index": "src/circuits/index.ts",
       "constants/index": "src/constants/index.ts",
       "merkle-tree/index": "src/merkle-tree/index.ts",
+      "mock-passports/index": "src/mock-passports/index.ts",
       "passport/index": "src/passport/index.ts",
+      "passport-generator/index": "src/passport-generator/index.ts",
       "registry/index": "src/registry/index.ts",
       "sanctions/index": "src/sanctions/index.ts",
       "types/index": "src/types/index.ts",
@@ -34,6 +36,8 @@ export default defineConfig(
     outDir: `dist/${format}`,
     outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
     splitting: false,
+    // src/mock-passports imports the package entry by name
+    external: ["@zkpassport/utils"],
     sourcemap: true,
     treeshake: !isDev,
     minify: !isDev,
