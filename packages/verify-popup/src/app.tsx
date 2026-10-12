@@ -11,6 +11,7 @@ import { Frame, Notice } from "./shared/frame"
 import { LinkActions } from "./shared/link-actions"
 import { LinkVerification } from "./link"
 import {
+  clearSession,
   finishSession,
   openSession,
   readSession,
@@ -63,7 +64,10 @@ export function App() {
       if (!known?.configuration) updateSession(session, { configuration })
       setConfig((current) => current ?? configuration)
       // A result produced while the asking page was gone is still waiting to be handed over
-      if (known?.result) post(known.result, configuration.rpOrigin)
+      if (known?.result) {
+        post(known.result, configuration.rpOrigin)
+        clearSession(session)
+      }
     }
     window.addEventListener("message", onMessage)
     // Announce readiness; only the opener receives it, so the wildcard target is safe

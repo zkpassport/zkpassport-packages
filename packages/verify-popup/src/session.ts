@@ -97,6 +97,11 @@ export function finishSession(session: Session, result: HeldResult): void {
   write(session.id, { ...rest, result })
 }
 
+/** The result has been handed over, so none of this verification is worth keeping. */
+export function clearSession(session: Session): void {
+  remove(session.id)
+}
+
 function read(id: string): StoredSession | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_PREFIX + id)
@@ -116,6 +121,14 @@ function write(id: string, state: StoredSession): void {
   }
 }
 
+function remove(id: string): void {
+  try {
+    window.localStorage.removeItem(STORAGE_PREFIX + id)
+  } catch {
+    // Nothing is stored when the store is unreachable, so nothing is left behind
+  }
+}
+
 // Dropped on load rather than on a timer, so the bridge private key of a verification the user
 // walked away from does not sit here indefinitely
 function sweepExpiredSessions(): void {
@@ -126,7 +139,8 @@ function sweepExpiredSessions(): void {
       if (key?.startsWith(STORAGE_PREFIX)) keys.push(key)
     }
     for (const key of keys) {
-      if (hasExpired(key.slice(STORAGE_PREFIX.length))) window.localStorage.removeItem(key)
+      const id = key.slice(STORAGE_PREFIX.length)
+      if (hasExpired(id)) remove(id)
     }
   } catch {
     // Nothing to sweep if the store cannot be read
