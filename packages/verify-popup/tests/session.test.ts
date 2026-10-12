@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import {
+  clearSession,
   finishSession,
   openSession,
   readSession,
@@ -172,6 +173,19 @@ describe("finishSession", () => {
     expect(state?.keyPair).toBeUndefined()
     expect(state?.result?.type).toBe("success")
     expect(state?.configuration).toEqual(CONFIGURATION)
+  })
+})
+
+describe("clearSession", () => {
+  test("leaves nothing behind once the result has been handed over", () => {
+    const stored = setupWindow("?s=abc-123")
+    const session: Session = { id: "abc-123", resumed: false }
+    updateSession(session, { configuration: CONFIGURATION })
+    finishSession(session, { type: "success", proofs: [], result: {} } as never)
+
+    clearSession(session)
+
+    expect(stored.has(PREFIX + "abc-123")).toBe(false)
   })
 })
 
