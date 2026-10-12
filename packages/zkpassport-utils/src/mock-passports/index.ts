@@ -1,5 +1,3 @@
-// From the package entry, which a build keeps external, so the passports share its SOD class and
-// this entry does not carry a second copy of the parsing code
 import { Binary, SOD, type PassportViewModel } from "@zkpassport/utils"
 import jackSOD from "./sods/jack-miller-smith-rsa-4096-sha512.json"
 import janeSOD from "./sods/jane-miller-smith-rsa-3072-sha384.json"
