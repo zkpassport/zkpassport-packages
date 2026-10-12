@@ -35,6 +35,8 @@ export default defineConfig(
     outDir: `dist/${format}`,
     outExtension: () => ({ js: format === "cjs" ? ".cjs" : ".js" }),
     splitting: false,
+    // src/mock-passports imports the package entry by name
+    external: ["@zkpassport/utils"],
     sourcemap: true,
     treeshake: !isDev,
     minify: !isDev,
