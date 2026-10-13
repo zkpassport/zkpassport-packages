@@ -74,9 +74,9 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     ])
     expect(app.request.generatedProofs().map((proof) => proof.name)).toEqual(CIRCUITS)
 
-    const result = app.request.result()
-    expect(result?.proofs).toEqual(app.request.generatedProofs())
-    expect(result?.result).toEqual({
+    const { proofs, result: queryResult } = app.request.result()!
+    expect(proofs).toEqual(app.request.generatedProofs())
+    expect(queryResult).toEqual({
       age: { gte: { expected: 18, result: true } },
       nationality: { disclose: { result: "ZKR" as string } },
     } as QueryResult) // ZKR is a mock country, not in the Alpha3Code list
