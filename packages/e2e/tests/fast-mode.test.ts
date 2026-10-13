@@ -3,10 +3,6 @@
  *
  *   SDK request() → relay → app stand-in (john, ZKR mock passport) → accept → 5 proofs → done
  *   → SDK onSuccess → verify({ devMode: true, verifierMode: "local" }) against Sepolia's registries
- *
- * In dev mode a request that binds no chain is proved and verified on Sepolia, so the SDK and the
- * stand-in read the fork through `config.rpcUrl` and the stand-in's registry overrides. While the
- * flow runs, fetch() may only reach this machine and the testnet CDNs (see guardNetwork).
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import type { BridgeInterface } from "@obsidion/bridge"
@@ -24,7 +20,6 @@ import { runStandIn } from "../src/stand-in"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
-// What john's fast-mode age + nationality request proves
 const CIRCUITS = [
   "sig_check_dsc_tbs_700_rsa_pkcs_2048_sha256",
   "sig_check_id_data_tbs_700_rsa_pkcs_2048_sha256",
