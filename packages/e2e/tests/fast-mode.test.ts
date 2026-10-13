@@ -5,7 +5,6 @@
  *   → SDK onSuccess → verify({ devMode: true, verifierMode: "local" }) against Sepolia's registries
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import type { BridgeInterface } from "@obsidion/bridge"
 import { type QueryBuilderResult, ZKPassport } from "@zkpassport/sdk"
 import type { ProofResult, QueryResult } from "@zkpassport/utils"
 import {
@@ -17,7 +16,7 @@ import {
 } from "../src/sepolia-fork"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import { startBridge, type Bridge } from "../src/bridge"
-import { runHeadlessApp } from "../src/headless-app"
+import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -33,8 +32,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
   let bridge: Bridge
   let fetchProxy: FetchProxy
-  let appBridge: BridgeInterface | undefined
-  let appChain: string | undefined
+  let headlessApp: HeadlessApp
   let zkPassport: ZKPassport
   let received: { proofs: ProofResult[]; result: QueryResult }
   let request: QueryBuilderResult
@@ -70,27 +68,25 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       },
     )
 
-    const headlessApp = await runHeadlessApp({
+    headlessApp = await runHeadlessApp({
       requestUrl: request.url,
       passport: createMockPassport(),
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    appBridge = headlessApp.bridge
-    appChain = headlessApp.chain
     received = await success
   }, 180_000)
 
   afterAll(async () => {
     fetchProxy?.stop()
-    appBridge?.cleanup()
+    headlessApp?.bridge.cleanup()
     await bridge?.stop()
     fork?.stop()
   })
 
   test("the SDK sees the whole request over the bridge", () => {
     // A dev-mode request that binds no chain is proved on Sepolia, as in the app
-    expect(appChain).toBe("ethereum_sepolia")
+    expect(headlessApp.chain).toBe("ethereum_sepolia")
     expect(events).toEqual([
       "requestReceived",
       "generatingProof",

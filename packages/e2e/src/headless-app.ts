@@ -9,6 +9,8 @@ import {
 import type { RegistryOverrides } from "./sepolia-fork"
 import { proveFastMode } from "./prove"
 
+export type HeadlessApp = { bridge: BridgeInterface; chain: SupportedChain }
+
 /**
  * The app's side of a request, without a phone: join the bridge, accept, prove, send every proof,
  * then done. It proves on the registry of the chain getChainFromQuery picks for the request, with
@@ -27,7 +29,7 @@ export async function runHeadlessApp({
   passport: PassportViewModel
   registry?: RegistryOverrides
   circuitVersion: string
-}): Promise<{ bridge: BridgeInterface; chain: SupportedChain }> {
+}): Promise<HeadlessApp> {
   const request = parseRequestUrl(requestUrl)
   if (request.mode !== "fast") {
     throw new Error(`Only fast mode is handled so far, got ${request.mode}`)
