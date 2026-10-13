@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
-import { type QueryBuilderResult, ZKPassport } from "@zkpassport/sdk"
+import { ZKPassport } from "@zkpassport/sdk"
 import type { PackagedSanctionsFile, ProofResult, QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
@@ -35,6 +35,7 @@ import {
   type PublishedSanctionsRoot,
 } from "../src/sanctions-publisher"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
+import { type TrackedRequest, trackRequest } from "../src/tracked-request"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -67,8 +68,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   let headlessApp: HeadlessApp
   let zkPassport: ZKPassport
   let received: { proofs: ProofResult[]; result: QueryResult }
-  let request: QueryBuilderResult
-  const events: string[] = []
+  let request: TrackedRequest
 
   beforeAll(async () => {
     fork = await startSepoliaFork()
@@ -103,29 +103,15 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       devMode: true,
       bridgeUrl: bridge.url,
     })
-    request = queryBuilder.sanctions().done()
-
-    const success = new Promise<{ proofs: ProofResult[]; result: QueryResult }>(
-      (resolve, reject) => {
-        request.onRequestReceived(() => events.push("requestReceived"))
-        request.onGeneratingProof(() => events.push("generatingProof"))
-        request.onProofGenerated((proof) => events.push(`proof:${proof.name}`))
-        request.onSuccess((response) => {
-          events.push("success")
-          resolve(response)
-        })
-        request.onReject(() => reject(new Error("onReject")))
-        request.onError((error) => reject(new Error(`onError: ${error}`)))
-      },
-    )
+    request = trackRequest(queryBuilder.sanctions().done())
 
     headlessApp = await runHeadlessApp({
-      requestUrl: request.url,
+      request,
       passport: createMockPassport(),
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    received = await success
+    received = await request.success
   }, 30 * 60_000)
 
   afterAll(async () => {
@@ -147,7 +133,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   test("the SDK sees the whole request over the bridge", () => {
     // A dev-mode request that binds no chain is proved on Sepolia, as in the app
     expect(headlessApp.chain).toBe("ethereum_sepolia")
-    expect(events).toEqual([
+    expect(request.events).toEqual([
       "requestReceived",
       "generatingProof",
       ...CIRCUITS.map((name) => `proof:${name}`),
