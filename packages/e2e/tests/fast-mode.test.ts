@@ -73,18 +73,21 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       "success",
     ])
     expect(app.request.generatedProofs().map((proof) => proof.name)).toEqual(CIRCUITS)
-    expect(app.request.succeeded().proofs).toEqual(app.request.generatedProofs())
-    expect(app.request.succeeded().result).toEqual({
+
+    const result = app.request.result()
+    expect(result?.proofs).toEqual(app.request.generatedProofs())
+    expect(result?.result).toEqual({
       age: { gte: { expected: 18, result: true } },
       nationality: { disclose: { result: "ZKR" as string } },
     } as QueryResult) // ZKR is a mock country, not in the Alpha3Code list
   })
 
   test("the proofs verify against Sepolia's registries", async () => {
+    const result = app.request.result()!
     const verification = await zkPassport.verify({
-      proofs: app.request.succeeded().proofs.map((proof) => ({ ...proof })),
+      proofs: result.proofs.map((proof) => ({ ...proof })),
       originalQuery: app.request.query,
-      queryResult: app.request.succeeded().result,
+      queryResult: result.result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
@@ -95,7 +98,8 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   }, 60_000)
 
   test("a tampered proof does not verify", async () => {
-    const proofs = app.request.succeeded().proofs.map((proof) => ({ ...proof }))
+    const result = app.request.result()!
+    const proofs = result.proofs.map((proof) => ({ ...proof }))
     const target = proofs.find((proof) => proof.name === "disclose_bytes")!
     const proofHex = target.proof as string
     const offsetInProofBody = proofHex.length - 200
@@ -111,7 +115,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     const verification = await zkPassport.verify({
       proofs,
       originalQuery: app.request.query,
-      queryResult: app.request.succeeded().result,
+      queryResult: result.result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },

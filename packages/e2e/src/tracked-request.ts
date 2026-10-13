@@ -37,13 +37,10 @@ export class TrackedRequest {
     readonly events: RequestEvent[],
   ) {}
 
-  /** The response of the success event the request ended with; throws if it did not end in one */
-  succeeded(): RequestSuccess {
+  /** The response of the success event the request ended with, if it ended in one */
+  result(): RequestSuccess | undefined {
     const lastEvent = this.events.at(-1)
-    if (lastEvent?.type !== "success") {
-      throw new Error("The request did not end in success")
-    }
-    return lastEvent.response
+    return lastEvent?.type === "success" ? lastEvent.response : undefined
   }
 
   /** The proofs of the request's proofGenerated events, in order */
