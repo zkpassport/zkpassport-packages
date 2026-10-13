@@ -6,7 +6,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { ZKPassport } from "@zkpassport/sdk"
-import type { ProofResult, QueryResult } from "@zkpassport/utils"
+import type { QueryResult } from "@zkpassport/utils"
 import {
   type FetchProxy,
   SEPOLIA_FILE_HOSTS,
@@ -35,7 +35,6 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   let fetchProxy: FetchProxy
   let app: HeadlessApp
   let zkPassport: ZKPassport
-  let requestResult: { proofs: ProofResult[]; result: QueryResult }
 
   beforeAll(async () => {
     fork = await startSepoliaFork()
@@ -57,11 +56,6 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    const outcome = app.request.events.at(-1)
-    if (outcome?.type !== "success") {
-      throw new Error("The request did not end in success")
-    }
-    requestResult = outcome.response
   }, 180_000)
 
   afterAll(async () => {
@@ -77,10 +71,10 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       { type: "requestReceived" },
       { type: "generatingProof" },
       ...CIRCUITS.map((name): RequestEvent => ({ type: "proofGenerated", name })),
-      { type: "success", response: requestResult },
+      { type: "success", response: app.request.succeeded() },
     ])
-    expect(requestResult.proofs.map((proof) => proof.name)).toEqual(CIRCUITS)
-    expect(requestResult.result).toEqual({
+    expect(app.request.succeeded().proofs.map((proof) => proof.name)).toEqual(CIRCUITS)
+    expect(app.request.succeeded().result).toEqual({
       age: { gte: { expected: 18, result: true } },
       nationality: { disclose: { result: "ZKR" as string } },
     } as QueryResult) // ZKR is a mock country, not in the Alpha3Code list
@@ -88,9 +82,9 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
   test("the proofs verify against Sepolia's registries", async () => {
     const verification = await zkPassport.verify({
-      proofs: requestResult.proofs.map((proof) => ({ ...proof })),
+      proofs: app.request.succeeded().proofs.map((proof) => ({ ...proof })),
       originalQuery: app.request.query,
-      queryResult: requestResult.result,
+      queryResult: app.request.succeeded().result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
@@ -101,7 +95,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   }, 60_000)
 
   test("a tampered proof does not verify", async () => {
-    const proofs = requestResult.proofs.map((proof) => ({ ...proof }))
+    const proofs = app.request.succeeded().proofs.map((proof) => ({ ...proof }))
     const target = proofs.find((proof) => proof.name === "disclose_bytes")!
     const proofHex = target.proof as string
     const offsetInProofBody = proofHex.length - 200
@@ -117,7 +111,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     const verification = await zkPassport.verify({
       proofs,
       originalQuery: app.request.query,
-      queryResult: requestResult.result,
+      queryResult: app.request.succeeded().result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
