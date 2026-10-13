@@ -16,7 +16,7 @@ import type { BridgeInterface } from "@obsidion/bridge"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import { ZKPassport } from "@zkpassport/sdk"
 import type { PackagedSanctionsFile, ProofResult, Query, QueryResult } from "@zkpassport/utils"
-import { getMockPassports } from "@zkpassport/utils/mock-passports"
+import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
   CACHE_DIR,
   guardNetwork,
@@ -123,7 +123,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
 
     const standIn = await runStandIn({
       requestUrl: request.url,
-      passport: getMockPassports().john,
+      passport: createMockPassport(),
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
@@ -212,7 +212,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     ).rejects.toThrow(/Target exists/)
     // john, with the same tree, is not on it
     await expect(
-      sanctions.getSanctionsMerkleProofs(getMockPassports().john, false),
+      sanctions.getSanctionsMerkleProofs(createMockPassport(), false),
     ).resolves.toBeDefined()
   }, 120_000)
 
