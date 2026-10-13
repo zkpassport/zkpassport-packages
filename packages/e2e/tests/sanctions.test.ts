@@ -133,15 +133,18 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       "success",
     ])
     expect(app.request.generatedProofs().map((proof) => proof.name)).toEqual(CIRCUITS)
-    expect(app.request.succeeded().proofs).toEqual(app.request.generatedProofs())
-    expect(app.request.succeeded().result.sanctions?.passed).toBe(true)
-    expect(app.request.succeeded().result.sanctions?.isStrict).toBe(false)
+
+    const result = app.request.result()
+    expect(result?.proofs).toEqual(app.request.generatedProofs())
+    expect(result?.result.sanctions?.passed).toBe(true)
+    expect(result?.result.sanctions?.isStrict).toBe(false)
   })
 
   test("the sanctions proof commits to the published root", () => {
-    const sanctionsProof = app.request
-      .succeeded()
-      .proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
+    const result = app.request.result()!
+    const sanctionsProof = result.proofs.find(
+      (proof) => proof.name === "exclusion_check_sanctions",
+    )!
     expect(sanctionsProof.committedInputs?.exclusion_check_sanctions).toEqual({
       rootHash: published.root,
       isStrict: false,
@@ -149,10 +152,11 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   })
 
   test("the proofs verify against Sepolia's registries", async () => {
+    const result = app.request.result()!
     const verification = await zkPassport.verify({
-      proofs: app.request.succeeded().proofs.map((proof) => ({ ...proof })),
+      proofs: result.proofs.map((proof) => ({ ...proof })),
       originalQuery: app.request.query,
-      queryResult: app.request.succeeded().result,
+      queryResult: result.result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
@@ -162,7 +166,8 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   }, 60_000)
 
   test("a proof whose committed root was swapped does not verify", async () => {
-    const proofs = app.request.succeeded().proofs.map((proof) => ({ ...proof }))
+    const result = app.request.result()!
+    const proofs = result.proofs.map((proof) => ({ ...proof }))
     const target = proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     target.committedInputs = {
       exclusion_check_sanctions: { rootHash: `0x${"0".repeat(63)}1`, isStrict: false },
@@ -171,7 +176,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     const verification = await zkPassport.verify({
       proofs,
       originalQuery: app.request.query,
-      queryResult: app.request.succeeded().result,
+      queryResult: result.result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
