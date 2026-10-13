@@ -19,8 +19,8 @@ export type HeadlessApp = {
 
 /**
  * The app's side of a request, without a phone: join the bridge, accept, prove, send every proof,
- * then done. It proves on the registry of the chain getChainFromQuery picks for the request, with
- * `registry` overriding that chain's defaults.
+ * then done, and wait for the SDK to report success. It proves on the registry of the chain
+ * getChainFromQuery picks for the request, with `registry` overriding that chain's defaults.
  *
  * Unlike the app it does not check the bridge-reported origin with isOriginTrusted(): the SDK under
  * Node reports "nodejs", which the app rejects.
@@ -36,7 +36,7 @@ export async function runHeadlessApp({
   registry?: RegistryOverrides
   circuitVersion: string
 }): Promise<HeadlessApp> {
-  const trackedRequest = trackRequest(query)
+  const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
   if (request.mode !== "fast") {
     throw new Error(`Only fast mode is handled so far, got ${request.mode}`)
@@ -69,6 +69,7 @@ export async function runHeadlessApp({
     await bridge.sendMessage("proof", proof)
   }
   await bridge.sendMessage("done", queryResult)
+  await outcome
   return { bridge, chain, request: trackedRequest }
 }
 
