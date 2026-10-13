@@ -19,7 +19,7 @@ import type { PackagedSanctionsFile, ProofResult, Query, QueryResult } from "@zk
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
   CACHE_DIR,
-  guardNetwork,
+  restrictFetchTo,
   SEPOLIA_FILE_HOSTS,
   startSepoliaFork,
   takeOverSanctionsOracle,
@@ -60,7 +60,7 @@ if (!publisherAvailable) {
 describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
   let relay: Relay
-  let guard: ReturnType<typeof guardNetwork>
+  let fetchRestriction: ReturnType<typeof restrictFetchTo>
   let registry: RegistryClient
   let sepoliaRoot: string
   let published: PublishedSanctionsRoot
@@ -79,7 +79,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     sepoliaRoot = await registry.getLatestSanctionsRoot()
     await takeOverSanctionsOracle(fork)
 
-    // The publisher's own steps, against the fork, before the network guard goes up
+    // The publisher's own steps, against the fork, before fetch is restricted
     await downloadOpenSanctions(SNAPSHOTS_DIR, process.env.OPENSANCTIONS_DATE)
     rmSync(RUN_DIR, { recursive: true, force: true })
     mkdirSync(RUN_DIR, { recursive: true })
@@ -93,7 +93,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     fork.serveSanctionsTree(published.root, published.treeFile)
 
     relay = startRelay()
-    guard = guardNetwork(SEPOLIA_FILE_HOSTS)
+    fetchRestriction = restrictFetchTo(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
     const queryBuilder = await zkPassport.request({
@@ -133,7 +133,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   }, 30 * 60_000)
 
   afterAll(async () => {
-    guard?.restore()
+    fetchRestriction?.restore()
     standInBridge?.cleanup()
     await relay?.stop()
     fork?.stop()
@@ -219,7 +219,9 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails
     expect(
-      guard.blocked.every((url) => url.startsWith("https://dashboard-api.zkpassport.id/")),
+      fetchRestriction.blocked.every((url) =>
+        url.startsWith("https://dashboard-api.zkpassport.id/"),
+      ),
     ).toBe(true)
   })
 })
