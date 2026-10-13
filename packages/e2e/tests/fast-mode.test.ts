@@ -17,7 +17,7 @@ import {
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
-import { type RequestEvent, type TrackedRequest, trackRequest } from "../src/tracked-request"
+import type { RequestEvent } from "../src/tracked-request"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -36,7 +36,6 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   let headlessApp: HeadlessApp
   let zkPassport: ZKPassport
   let received: { proofs: ProofResult[]; result: QueryResult }
-  let request: TrackedRequest
 
   beforeAll(async () => {
     fork = await startSepoliaFork()
@@ -52,15 +51,13 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       devMode: true,
       bridgeUrl: bridgeRelay.url,
     })
-    request = trackRequest(queryBuilder.gte("age", 18).disclose("nationality").done())
-
     headlessApp = await runHeadlessApp({
-      request,
+      query: queryBuilder.gte("age", 18).disclose("nationality").done(),
       passport: createMockPassport(),
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    received = await request.success
+    received = await headlessApp.request.success
   }, 180_000)
 
   afterAll(async () => {
@@ -73,7 +70,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   test("the SDK sees the whole request over the bridge", () => {
     // A dev-mode request that binds no chain is proved on Sepolia, as in the app
     expect(headlessApp.chain).toBe("ethereum_sepolia")
-    expect(request.events).toEqual([
+    expect(headlessApp.request.events).toEqual([
       { type: "requestReceived" },
       { type: "generatingProof" },
       ...CIRCUITS.map((name): RequestEvent => ({ type: "proofGenerated", name })),
@@ -89,7 +86,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   test("the proofs verify against Sepolia's registries", async () => {
     const verification = await zkPassport.verify({
       proofs: received.proofs.map((proof) => ({ ...proof })),
-      originalQuery: request.query,
+      originalQuery: headlessApp.request.query,
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
@@ -116,7 +113,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
     const verification = await zkPassport.verify({
       proofs,
-      originalQuery: request.query,
+      originalQuery: headlessApp.request.query,
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
