@@ -1,5 +1,6 @@
 import { Bridge, type BridgeInterface } from "@obsidion/bridge"
 import { createRegistryClient } from "@zkpassport/registry"
+import type { QueryBuilderResult } from "@zkpassport/sdk"
 import {
   getChainFromQuery,
   type PassportViewModel,
@@ -7,10 +8,14 @@ import {
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./sepolia-fork"
-import type { TrackedRequest } from "./tracked-request"
+import { type TrackedRequest, trackRequest } from "./tracked-request"
 import { proveFastMode } from "./prove"
 
-export type HeadlessApp = { bridge: BridgeInterface; chain: SupportedChain }
+export type HeadlessApp = {
+  bridge: BridgeInterface
+  chain: SupportedChain
+  request: TrackedRequest
+}
 
 /**
  * The app's side of a request, without a phone: join the bridge, accept, prove, send every proof,
@@ -21,17 +26,18 @@ export type HeadlessApp = { bridge: BridgeInterface; chain: SupportedChain }
  * Node reports "nodejs", which the app rejects.
  */
 export async function runHeadlessApp({
-  request: { url: requestUrl },
+  query,
   passport,
   registry = {},
   circuitVersion,
 }: {
-  request: TrackedRequest
+  query: QueryBuilderResult
   passport: PassportViewModel
   registry?: RegistryOverrides
   circuitVersion: string
 }): Promise<HeadlessApp> {
-  const request = parseRequestUrl(requestUrl)
+  const trackedRequest = trackRequest(query)
+  const request = parseRequestUrl(trackedRequest.url)
   if (request.mode !== "fast") {
     throw new Error(`Only fast mode is handled so far, got ${request.mode}`)
   }
@@ -63,7 +69,7 @@ export async function runHeadlessApp({
     await bridge.sendMessage("proof", proof)
   }
   await bridge.sendMessage("done", queryResult)
-  return { bridge, chain }
+  return { bridge, chain, request: trackedRequest }
 }
 
 type ParsedRequest = {
