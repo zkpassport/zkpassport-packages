@@ -1,14 +1,14 @@
 import { Bridge, type BridgeInterface } from "@obsidion/bridge"
 import { createRegistryClient } from "@zkpassport/registry"
-import type { QueryBuilderResult } from "@zkpassport/sdk"
+import type { QueryBuilderResult, RequestSuccess } from "@zkpassport/sdk"
 import {
   getChainFromQuery,
   type PassportViewModel,
+  type ProofResult,
   type Query,
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./sepolia-fork"
-import { type TrackedRequest, trackRequest } from "./tracked-request"
 import { proveFastMode } from "./prove"
 
 export type HeadlessApp = {
@@ -16,6 +16,12 @@ export type HeadlessApp = {
   chain: SupportedChain
   request: TrackedRequest
 }
+
+export type RequestEvent =
+  | { type: "requestReceived" }
+  | { type: "generatingProof" }
+  | { type: "proofGenerated"; proof: ProofResult }
+  | { type: "success"; response: RequestSuccess }
 
 /**
  * A simplified mock of the mobile app, to enable integration testing.
@@ -66,6 +72,50 @@ export async function runHeadlessApp({
   await bridge.sendMessage("done", queryResult)
   await outcome
   return { bridge, chain, request: trackedRequest }
+}
+
+export class TrackedRequest {
+  constructor(
+    readonly url: string,
+    readonly query: Query,
+    readonly events: RequestEvent[],
+  ) {}
+
+  /** The response of the success event the request ended with, if it ended in one */
+  result(): RequestSuccess | undefined {
+    const lastEvent = this.events.at(-1)
+    return lastEvent?.type === "success" ? lastEvent.response : undefined
+  }
+
+  /** The proofs of the request's proofGenerated events, in order */
+  generatedProofs(): ProofResult[] {
+    return this.events
+      .filter((event) => event.type === "proofGenerated")
+      .map((event) => event.proof)
+  }
+}
+
+/**
+ * Record a request's SDK callbacks as events. The outcome resolves when the SDK reports success and
+ * rejects when it reports a reject or an error.
+ */
+function trackRequest(request: QueryBuilderResult): {
+  trackedRequest: TrackedRequest
+  outcome: Promise<void>
+} {
+  const events: RequestEvent[] = []
+  const outcome = new Promise<void>((resolve, reject) => {
+    request.onRequestReceived(() => events.push({ type: "requestReceived" }))
+    request.onGeneratingProof(() => events.push({ type: "generatingProof" }))
+    request.onProofGenerated((proof) => events.push({ type: "proofGenerated", proof }))
+    request.onSuccess((response) => {
+      events.push({ type: "success", response })
+      resolve()
+    })
+    request.onReject(() => reject(new Error("onReject")))
+    request.onError((error) => reject(new Error(`onError: ${error}`)))
+  })
+  return { trackedRequest: new TrackedRequest(request.url, request.query, events), outcome }
 }
 
 type ParsedRequest = {
