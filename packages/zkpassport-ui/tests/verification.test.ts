@@ -584,6 +584,30 @@ describe("picking a verification back up after the page was rebuilt", () => {
     expect(sessionOf(openedUrls[0])).not.toBe(stale)
   })
 
+  test("does not offer a verification bound to a different account", () => {
+    const storage = new Map<string, string>()
+    const mintFor = (account: string) =>
+      ({
+        mint: true,
+        policyId: "eip155:8453:0x7b",
+        bind: { account, chainId: 8453 },
+      }) as VerificationOptions
+
+    setupFakeWindow(storage)
+    createVerification(
+      () => mintFor("0x1111111111111111111111111111111111111111"),
+      () => {},
+    ).verify()
+
+    setupFakeWindow(storage)
+    const otherAccount = createVerification(
+      () => mintFor("0x2222222222222222222222222222222222222222"),
+      () => {},
+    )
+
+    expect(otherAccount.state.resumable).toBe(false)
+  })
+
   test("does not offer a verification to a button asking for something else", () => {
     const storage = new Map<string, string>()
     const first = setupFakeWindow(storage)
