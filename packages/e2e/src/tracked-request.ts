@@ -1,19 +1,11 @@
 import type { QueryBuilderResult, RequestSuccess } from "@zkpassport/sdk"
-import type { Query } from "@zkpassport/utils"
+import type { ProofResult, Query } from "@zkpassport/utils"
 
 export type RequestEvent =
   | { type: "requestReceived" }
   | { type: "generatingProof" }
-  | { type: "proofGenerated"; name?: string }
+  | { type: "proofGenerated"; proof: ProofResult }
   | { type: "success"; response: RequestSuccess }
-
-export type TrackedRequest = {
-  url: string
-  query: Query
-  events: RequestEvent[]
-  /** The response of the success event the request ended with; throws if it did not end in one */
-  succeeded: () => RequestSuccess
-}
 
 /**
  * Record a request's SDK callbacks as events. The outcome resolves when the SDK reports success and
@@ -27,7 +19,7 @@ export function trackRequest(request: QueryBuilderResult): {
   const outcome = new Promise<void>((resolve, reject) => {
     request.onRequestReceived(() => events.push({ type: "requestReceived" }))
     request.onGeneratingProof(() => events.push({ type: "generatingProof" }))
-    request.onProofGenerated((proof) => events.push({ type: "proofGenerated", name: proof.name }))
+    request.onProofGenerated((proof) => events.push({ type: "proofGenerated", proof }))
     request.onSuccess((response) => {
       events.push({ type: "success", response })
       resolve()
@@ -35,14 +27,29 @@ export function trackRequest(request: QueryBuilderResult): {
     request.onReject(() => reject(new Error("onReject")))
     request.onError((error) => reject(new Error(`onError: ${error}`)))
   })
+  return { trackedRequest: new TrackedRequest(request.url, request.query, events), outcome }
+}
 
-  const succeeded = () => {
-    const lastEvent = events.at(-1)
+export class TrackedRequest {
+  constructor(
+    readonly url: string,
+    readonly query: Query,
+    readonly events: RequestEvent[],
+  ) {}
+
+  /** The response of the success event the request ended with; throws if it did not end in one */
+  succeeded(): RequestSuccess {
+    const lastEvent = this.events.at(-1)
     if (lastEvent?.type !== "success") {
       throw new Error("The request did not end in success")
     }
     return lastEvent.response
   }
 
-  return { trackedRequest: { url: request.url, query: request.query, events, succeeded }, outcome }
+  /** The proofs of the request's proofGenerated events, in order */
+  generatedProofs(): ProofResult[] {
+    return this.events
+      .filter((event) => event.type === "proofGenerated")
+      .map((event) => event.proof)
+  }
 }
