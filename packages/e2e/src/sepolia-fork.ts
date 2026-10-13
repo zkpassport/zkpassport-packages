@@ -18,6 +18,8 @@ export type SepoliaFork = {
   stop: () => void
 }
 
+export type FetchInterceptor = { blocked: string[]; restore: () => void }
+
 /**
  * Start Anvil with a Sepolia fork at its latest block.
  */
@@ -45,10 +47,7 @@ export async function startSepoliaFork(): Promise<SepoliaFork> {
  * It covers fetch only: child processes and libraries using their own HTTP stack (e.g. bb.js
  * downloading its CRS) are not intercepted.
  */
-export function restrictFetchTo(allowedHosts: string[] = []): {
-  blocked: string[]
-  restore: () => void
-} {
+export function interceptFetch(allowedHosts: string[] = []): FetchInterceptor {
   const allowed = ["127.0.0.1", "localhost", ...allowedHosts]
   const blocked: string[] = []
   const realFetch = globalThis.fetch
@@ -59,7 +58,7 @@ export function restrictFetchTo(allowedHosts: string[] = []): {
     }
 
     blocked.push(url)
-    throw new Error(`e2e fetch restriction: blocked ${url}`)
+    throw new Error(`e2e fetch interceptor: blocked ${url}`)
   }) as typeof fetch
   return { blocked, restore: () => (globalThis.fetch = realFetch) }
 }
