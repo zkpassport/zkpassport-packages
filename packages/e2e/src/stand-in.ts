@@ -14,7 +14,7 @@ import { proveFastMode } from "./prove"
  * then done. It proves on the registry of the chain getChainFromQuery picks for the request, with
  * `registry` overriding that chain's defaults.
  *
- * Unlike the app it does not check the relay-reported origin with isOriginTrusted(): the SDK under
+ * Unlike the app it does not check the bridge-reported origin with isOriginTrusted(): the SDK under
  * Node reports "nodejs", which the app rejects.
  */
 export async function runStandIn({

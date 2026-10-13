@@ -3,7 +3,7 @@
 End-to-end tests across the ZKPassport stack, on a fork of Sepolia:
 
 ```
-SDK request() → bridge relay → app stand-in → accept → proofs → done → SDK onSuccess → verify()
+SDK request() → bridge → app stand-in → accept → proofs → done → SDK onSuccess → verify()
 ```
 
 - `tests/fast-mode.test.ts`: age ≥ 18 and nationality disclosure.
@@ -11,7 +11,7 @@ SDK request() → bridge relay → app stand-in → accept → proofs → done �
 ## What runs
 
 - **SDK, utils, registry-sdk**: this repo's own code, built from the workspace.
-- **Relay**: the bridge relay from `packages/bridge`, started in-process.
+- **Bridge**: the bridge from `packages/bridge`, started in-process.
 - **App stand-in**: headless Node code in `src/` that parses the request URL, joins the bridge and
   proves the way zkpassport-mobile-app does, with noir_js + bb.js instead of the app's native
   provers. The mobile app itself is not tested here.

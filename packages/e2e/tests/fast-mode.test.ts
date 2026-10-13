@@ -1,7 +1,7 @@
 /**
  * Fast mode, end to end on a fork of Sepolia:
  *
- *   SDK request() → relay → app stand-in (john, ZKR mock passport) → accept → 5 proofs → done
+ *   SDK request() → bridge → app stand-in (john, ZKR mock passport) → accept → 5 proofs → done
  *   → SDK onSuccess → verify({ devMode: true, verifierMode: "local" }) against Sepolia's registries
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
@@ -15,7 +15,7 @@ import {
   type SepoliaFork,
 } from "../src/sepolia-fork"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
-import { startRelay, type Relay } from "../src/relay"
+import { startBridge, type Bridge } from "../src/bridge"
 import { runStandIn } from "../src/stand-in"
 
 const CIRCUIT_VERSION = "0.21.0"
@@ -30,7 +30,7 @@ const CIRCUITS = [
 
 describe("fast mode, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
-  let relay: Relay
+  let bridge: Bridge
   let fetchRestriction: ReturnType<typeof restrictFetchTo>
   let standInBridge: BridgeInterface | undefined
   let standInChain: string | undefined
@@ -41,7 +41,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
   beforeAll(async () => {
     fork = await startSepoliaFork()
-    relay = startRelay()
+    bridge = startBridge()
     fetchRestriction = restrictFetchTo(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
@@ -51,7 +51,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       purpose: "End-to-end test",
       mode: "fast",
       devMode: true,
-      bridgeUrl: relay.url,
+      bridgeUrl: bridge.url,
     })
     const request = queryBuilder.gte("age", 18).disclose("nationality").done()
     originalQuery = request.query
@@ -84,7 +84,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   afterAll(async () => {
     fetchRestriction?.restore()
     standInBridge?.cleanup()
-    await relay?.stop()
+    await bridge?.stop()
     fork?.stop()
   })
 
