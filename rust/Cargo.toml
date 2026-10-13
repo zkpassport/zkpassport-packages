@@ -24,3 +24,16 @@ inherits = "release"
 panic = "abort"
 strip = true
 
+
+# opt-z on the generic-heavy crypto crates trims ~40KB off the linked FFI
+# (whole-crate opt-z/LTO were worse; see the size memory).
+[profile.release-size.package.ark-ff]
+opt-level = "z"
+[profile.release-size.package.ark-ec]
+opt-level = "z"
+[profile.release-size.package.ark-bn254]
+opt-level = "z"
+[profile.release-size.package.ark-serialize]
+opt-level = "z"
+[profile.release-size.package.num-bigint]
+opt-level = "z"
