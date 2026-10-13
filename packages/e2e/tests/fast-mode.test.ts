@@ -68,7 +68,6 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   })
 
   test("the SDK sees the whole request over the bridge", () => {
-    // A dev-mode request that binds no chain is proved on Sepolia, as in the app
     expect(app.chain).toBe("ethereum_sepolia")
     expect(app.request.events).toEqual([
       { type: "requestReceived" },
