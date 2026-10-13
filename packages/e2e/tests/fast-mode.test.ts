@@ -15,7 +15,7 @@ import {
   type SepoliaFork,
 } from "../src/sepolia-fork"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
-import { startBridge, type Bridge } from "../src/bridge"
+import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
 import { type TrackedRequest, trackRequest } from "../src/tracked-request"
 
@@ -31,7 +31,7 @@ const CIRCUITS = [
 
 describe("fast mode, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
-  let bridge: Bridge
+  let bridgeRelay: BridgeRelay
   let fetchProxy: FetchProxy
   let headlessApp: HeadlessApp
   let zkPassport: ZKPassport
@@ -40,7 +40,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
   beforeAll(async () => {
     fork = await startSepoliaFork()
-    bridge = startBridge()
+    bridgeRelay = startBridgeRelay()
     fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
@@ -50,7 +50,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       purpose: "End-to-end test",
       mode: "fast",
       devMode: true,
-      bridgeUrl: bridge.url,
+      bridgeUrl: bridgeRelay.url,
     })
     request = trackRequest(queryBuilder.gte("age", 18).disclose("nationality").done())
 
@@ -66,7 +66,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   afterAll(async () => {
     fetchProxy?.stop()
     headlessApp?.bridge.cleanup()
-    await bridge?.stop()
+    await bridgeRelay?.stop()
     fork?.stop()
   })
 

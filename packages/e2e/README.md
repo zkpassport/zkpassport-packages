@@ -13,7 +13,7 @@ SDK request() → bridge → headless app → accept → proofs → done → SDK
 ## What runs
 
 - **SDK, utils, registry-sdk**: this repo's own code, built from the workspace.
-- **Bridge**: the bridge from `packages/bridge`, started in-process.
+- **Bridge relay**: the relay from `packages/bridge`, started in-process.
 - **Headless app**: Node code in `src/` that parses the request URL, joins the bridge and proves the
   way zkpassport-mobile-app does, with noir_js + bb.js instead of the app's native provers. It reads
   the registry of the request's chain and proves sanctions against the tree published for that
