@@ -284,7 +284,12 @@ export function createVerification(
 
 /** Identifies what a button asks for, so a pending verification is only offered back to its own. */
 function toRequestKey(options: VerificationOptions): string {
-  return JSON.stringify([options.policyId ?? null, options.query ?? null, options.mint ?? false])
+  return JSON.stringify([
+    options.policyId ?? null,
+    options.query ?? null,
+    options.bind ?? null,
+    options.mint ?? false,
+  ])
 }
 
 function buildRequest(options: VerificationOptions): {
