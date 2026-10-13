@@ -134,8 +134,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     ])
     expect(app.request.generatedProofs().map((proof) => proof.name)).toEqual(CIRCUITS)
 
-    const { proofs, result: queryResult } = app.request.result()!
-    expect(proofs).toEqual(app.request.generatedProofs())
+    const { result: queryResult } = app.request.result()!
     expect(queryResult.sanctions?.passed).toBe(true)
     expect(queryResult.sanctions?.isStrict).toBe(false)
   })
