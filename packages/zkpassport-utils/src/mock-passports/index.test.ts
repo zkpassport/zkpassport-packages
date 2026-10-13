@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import { sha256, sha384, sha512 } from "@noble/hashes/sha2.js"
-import { ECParameters } from "@peculiar/asn1-ecc"
+import { ECParameters, id_ecPublicKey } from "@peculiar/asn1-ecc"
+import { RSAPublicKey } from "@peculiar/asn1-rsa"
 import { AsnConvert, AsnSerializer } from "@peculiar/asn1-schema"
 import { TBSCertificate } from "@peculiar/asn1-x509"
 import rootCerts from "../../tests/fixtures/root-certs.json"
 import { getRSAPSSParams } from "../cms/utils"
 import { verifyDscSignature } from "../signature-verification"
 import type { PackagedCertificate, PassportViewModel } from "../types"
-import { getMockPassports } from "."
+import { createMockPassport, type MockPassportSignature } from "."
 
 const HASHES: Record<string, (data: Uint8Array) => Uint8Array> = {
   SHA256: sha256,
@@ -15,65 +16,119 @@ const HASHES: Record<string, (data: Uint8Array) => Uint8Array> = {
   SHA512: sha512,
 }
 
+const EC_CURVES: Record<string, string> = {
+  "1.2.840.10045.3.1.7": "P-256",
+  "1.3.132.0.34": "P-384",
+  "1.3.132.0.35": "P-521",
+}
+
 const zkrCscas = (rootCerts.certificates as PackagedCertificate[]).filter(
   (certificate) => certificate.country === "ZKR",
 )
 
-describe("getMockPassports", () => {
-  const passports = Object.entries(getMockPassports())
+const SIGNATURES: [MockPassportSignature, string][] = [
+  ["rsa-2048-sha256", "RSA 2048"],
+  ["rsa-3072-sha384", "RSA 3072"],
+  ["rsa-4096-sha512", "RSA 4096"],
+  ["rsa-pss-4096-sha512", "RSA 4096"],
+  ["ecdsa-p256-sha256", "P-256"],
+  ["ecdsa-p384-sha384", "P-384"],
+  ["ecdsa-p521-sha512", "P-521"],
+]
 
-  test("builds the ten mock passports", () => {
-    expect(passports.map(([name]) => name)).toEqual([
-      "john",
-      "mary",
-      "jane",
-      "jack",
-      "paul",
-      "stephanie",
-      "misterSanctioned",
-      "peter",
-      "lucie",
-      "mark",
-    ])
-  })
+describe("createMockPassport", () => {
+  test("builds John Miller Smith's passport by default", () => {
+    const passport = createMockPassport()
 
-  test.each(passports)("%s's DSC is signed by a ZKR CSCA", async (_, passport) => {
-    const verifications = await Promise.all(
-      zkrCscas.map((csca) => verifyDscSignature(passport.sod.certificate, csca)),
+    expect(passport.mrz).toBe(
+      "P<ZKRSMITH<<JOHN<MILLER<<<<<<<<<<<<<<<<<<<<<ZP1111111_ZKR951112_M350101_<<<<<<<<<<<<<<<<",
     )
-
-    expect(verifications).toContain(true)
+    expect(passport).toMatchObject({
+      name: "John Smith",
+      fullName: "John Miller Smith",
+      firstName: "John",
+      lastName: "Smith",
+      gender: "M",
+      nationality: "ZKR",
+      dateOfBirth: "951112",
+      passportNumber: "ZP1111111",
+      passportExpiry: "350101",
+    })
   })
 
-  test.each(passports)("%s's SOD is signed by its DSC", async (_, passport) => {
-    expect(await verifySodSignature(passport)).toBe(true)
+  test("puts the options in the MRZ", () => {
+    const passport = createMockPassport({
+      firstName: "Mister",
+      middleName: "",
+      lastName: "Sanctioned",
+      gender: "F",
+      nationality: "FRA",
+      dateOfBirth: new Date("2012-02-25"),
+      expiryDate: new Date("2024-01-01"),
+      documentNumber: "AB123",
+    })
+
+    expect(passport.mrz).toBe(
+      "P<ZKRSANCTIONED<<MISTER<<<<<<<<<<<<<<<<<<<<<AB123<<<<_FRA120225_F240101_<<<<<<<<<<<<<<<<",
+    )
+    expect(passport).toMatchObject({
+      name: "Mister Sanctioned",
+      fullName: "Mister Sanctioned",
+      nationality: "FRA",
+      dateOfBirth: "120225",
+      passportNumber: "AB123",
+      passportExpiry: "240101",
+    })
   })
 
-  test.each(passports)("%s's DG1 hashes to the value its SOD signs", (_, passport) => {
+  test("rejects names that don't fit the MRZ", () => {
+    expect(() => createMockPassport({ lastName: "Smith".repeat(8) })).toThrow("longer than")
+    expect(() => createMockPassport({ firstName: "Zoë" })).toThrow("characters")
+  })
+
+  test("signs DG1's hash", () => {
+    const passport = createMockPassport()
     const dg1 = passport.dataGroups.find((group) => group.groupNumber === 1)!
     const hash = HASHES[passport.dataGroupsHashAlgorithm](new Uint8Array(dg1.value))
 
     expect(Array.from(hash)).toEqual(dg1.hash)
   })
 
-  test.each(passports)("%s's fields match the MRZ", (_, passport) => {
-    const { mrz } = passport
+  test.each(SIGNATURES)(
+    "with %s, signs with a %s DSC that a ZKR CSCA signed",
+    async (signature, key) => {
+      const passport = createMockPassport({ signature })
+      const verifications = await Promise.all(
+        zkrCscas.map((csca) => verifyDscSignature(passport.sod.certificate, csca)),
+      )
 
-    expect(mrz.slice(5, 44)).toStartWith(
-      `${passport.lastName.toUpperCase()}<<${passport.firstName.toUpperCase()}<`,
-    )
-    expect(mrz.slice(44, 53)).toBe(passport.passportNumber)
-    expect(mrz.slice(54, 57)).toBe(passport.nationality)
-    expect(mrz.slice(57, 63)).toBe(passport.dateOfBirth)
-    expect(mrz.slice(64, 65)).toBe(passport.gender)
-    expect(mrz.slice(65, 71)).toBe(passport.passportExpiry)
+      expect(getDscKey(passport)).toBe(key)
+      expect(await verifySodSignature(passport)).toBe(true)
+      expect(verifications).toContain(true)
+    },
+  )
+
+  test.each(SIGNATURES)("with %s, gives the same SOD for the same options", (signature) => {
+    const options = { firstName: "Jane", signature }
+    const first = createMockPassport(options)
+    const second = createMockPassport(options)
+
+    expect(first.sod.bytes.toHex()).toBe(second.sod.bytes.toHex())
   })
 })
 
-const EC_CURVES: Record<string, string> = {
-  "1.2.840.10045.3.1.7": "P-256",
-  "1.3.132.0.34": "P-384",
-  "1.3.132.0.35": "P-521",
+function getDscKey({ sod }: PassportViewModel) {
+  const { subjectPublicKeyInfo } = AsnConvert.parse(
+    sod.certificate.tbs.bytes.toUInt8Array(),
+    TBSCertificate,
+  )
+  const { algorithm, parameters } = subjectPublicKeyInfo.algorithm
+  if (algorithm === id_ecPublicKey) {
+    return EC_CURVES[AsnConvert.parse(parameters!, ECParameters).namedCurve!]
+  }
+  const { modulus } = AsnConvert.parse(subjectPublicKeyInfo.subjectPublicKey, RSAPublicKey)
+  const modulusBytes = new Uint8Array(modulus)
+  return `RSA ${(modulusBytes[0] === 0 ? modulusBytes.length - 1 : modulusBytes.length) * 8}`
 }
 
 /** Verify the SOD's signature over its signed attributes with the public key of its DSC */
@@ -89,10 +144,8 @@ async function verifySodSignature({ sod }: PassportViewModel) {
   const signedAttrs = new Uint8Array(sod.signerInfo.signedAttrs.bytes.toUInt8Array())
 
   if (signatureAlgorithm.includes("ecdsa")) {
-    const namedCurve =
-      EC_CURVES[
-        AsnConvert.parse(subjectPublicKeyInfo.algorithm.parameters!, ECParameters).namedCurve!
-      ]
+    const { parameters } = subjectPublicKeyInfo.algorithm
+    const namedCurve = EC_CURVES[AsnConvert.parse(parameters!, ECParameters).namedCurve!]
     const key = await crypto.subtle.importKey(
       "spki",
       publicKey,

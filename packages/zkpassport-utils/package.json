@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.40.0-beta.0",
+  "version": "0.40.0-beta.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkpassport/zkpassport-packages",
@@ -99,8 +99,8 @@
     "build": "tsup --config tsup.config.ts",
     "dev:build": "DEV_BUILD=true bun run build",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
-    "test": "bun test src tests scripts",
-    "coverage": "bun test src tests scripts --coverage",
+    "test": "bun test src tests",
+    "coverage": "bun test src tests --coverage",
     "check": "tsc --noEmit && prettier -c src tests && eslint src --ext .ts",
     "format": "prettier -c -w src tests && eslint src --ext .ts --fix",
     "validate-package": "../../scripts/validate-package.sh",
