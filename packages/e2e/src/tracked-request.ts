@@ -7,7 +7,13 @@ export type RequestEvent =
   | { type: "proofGenerated"; name?: string }
   | { type: "success"; response: RequestSuccess }
 
-export type TrackedRequest = { url: string; query: Query; events: RequestEvent[] }
+export type TrackedRequest = {
+  url: string
+  query: Query
+  events: RequestEvent[]
+  /** The response of the success event the request ended with; throws if it did not end in one */
+  succeeded: () => RequestSuccess
+}
 
 /**
  * Record a request's SDK callbacks as events. The outcome resolves when the SDK reports success and
@@ -29,5 +35,14 @@ export function trackRequest(request: QueryBuilderResult): {
     request.onReject(() => reject(new Error("onReject")))
     request.onError((error) => reject(new Error(`onError: ${error}`)))
   })
-  return { trackedRequest: { url: request.url, query: request.query, events }, outcome }
+
+  const succeeded = () => {
+    const lastEvent = events.at(-1)
+    if (lastEvent?.type !== "success") {
+      throw new Error("The request did not end in success")
+    }
+    return lastEvent.response
+  }
+
+  return { trackedRequest: { url: request.url, query: request.query, events, succeeded }, outcome }
 }
