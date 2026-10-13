@@ -20,11 +20,12 @@ import {
   CACHE_DIR,
   type ChainFork,
   type FetchProxy,
+  SEPOLIA_FILE_HOSTS,
+  SEPOLIA_RPC_URL,
   startChainFork,
   startFetchProxy,
   takeOverSanctionsOracle,
 } from "../src/chain-fork"
-import { SEPOLIA_FILE_HOSTS, SEPOLIA_RPC_URL } from "../src/sepolia"
 import { findListedPerson, listedPersonPassport } from "../src/listed-person"
 import { getSanctionsBuilder } from "../src/prove"
 import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"

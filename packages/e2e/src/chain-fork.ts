@@ -3,15 +3,23 @@ import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { resolve } from "node:path"
 import { gzipSync } from "node:zlib"
-import { createRegistryClient } from "@zkpassport/registry"
-import { SANCTIONS_REGISTRY_ID, type SupportedChain } from "@zkpassport/utils"
+import { createRegistryClient, getNetworkConstants } from "@zkpassport/registry"
+import { getIdFromChain, SANCTIONS_REGISTRY_ID, type SupportedChain } from "@zkpassport/utils"
 
 export const CACHE_DIR = resolve(import.meta.dir, "../.cache")
 /** Anvil's second account, made the Sanctions Registry's oracle by takeOverSanctionsOracle */
 export const ORACLE_PRIVATE_KEY =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
 
+const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
 const ORACLE_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+
+/** SEPOLIA_RPC_URL, or the registry-sdk's built-in Sepolia endpoint */
+export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
+
+export const SEPOLIA_FILE_HOSTS = [SEPOLIA.packagedCertificatesUrl, SEPOLIA.circuitUrl].map(
+  (url) => new URL(url).hostname,
+)
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
