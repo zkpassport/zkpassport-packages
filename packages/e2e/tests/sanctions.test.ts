@@ -6,8 +6,8 @@
  *   → SDK request() with .sanctions() in dev mode → bridge → headless app (john) proves against the
  *   tree published for the registry's latest root → SDK verify() checks that root in the registry
  *
- * Needs the bridge (see src/bridge.ts) and the sanctions publisher (see src/sanctions-publisher.ts).
- * Building the tree from every dataset takes a few minutes.
+ * Needs the bridge relay (see src/bridge-relay.ts) and the sanctions publisher (see
+ * src/sanctions-publisher.ts). Building the tree from every dataset takes a few minutes.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
@@ -27,7 +27,7 @@ import {
 } from "../src/sepolia-fork"
 import { findListedPerson, listedPersonPassport } from "../src/listed-person"
 import { getSanctionsBuilder } from "../src/prove"
-import { startBridge, type Bridge } from "../src/bridge"
+import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
 import {
   downloadOpenSanctions,
   isSanctionsPublisherAvailable,
@@ -60,7 +60,7 @@ if (!publisherAvailable) {
 
 describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
-  let bridge: Bridge
+  let bridgeRelay: BridgeRelay
   let fetchProxy: FetchProxy
   let registry: RegistryClient
   let sepoliaRoot: string
@@ -91,7 +91,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     console.log(published.log)
     fork.serveSanctionsTree(published.root, published.treeFile)
 
-    bridge = startBridge()
+    bridgeRelay = startBridgeRelay()
     fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
@@ -101,7 +101,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       purpose: "End-to-end sanctions test",
       mode: "fast",
       devMode: true,
-      bridgeUrl: bridge.url,
+      bridgeUrl: bridgeRelay.url,
     })
     request = trackRequest(queryBuilder.sanctions().done())
 
@@ -117,7 +117,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   afterAll(async () => {
     fetchProxy?.stop()
     headlessApp?.bridge.cleanup()
-    await bridge?.stop()
+    await bridgeRelay?.stop()
     fork?.stop()
   })
 
