@@ -21,8 +21,6 @@ repository = "https://github.com/zkpassport/zkpassport-packages"
 # unwinds across the C boundary and uses no catch_unwind), and symbol stripping.
 [profile.release-size]
 inherits = "release"
-opt-level = "z"
-lto = "fat"
-codegen-units = 1
 panic = "abort"
 strip = true
+
