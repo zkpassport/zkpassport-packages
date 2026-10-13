@@ -248,8 +248,7 @@ export async function generateCertificate(params: CertificateParams): Promise<Ce
 }
 
 /**
- * The RSASSA-PSS signature algorithm for generateSod: the hash, MGF1 over the same hash, and a salt
- * as long as the hash. signSod then signs with RSA-PSS.
+ * RSASSA-PSS signature algorithm for generateSod.
  */
 export function getRsaPssSignatureAlgorithm(hashAlgorithm: HashAlgorithm) {
   const hash = new X509AlgorithmIdentifier({ algorithm: getHashAlgorithmIdentifier(hashAlgorithm) })
