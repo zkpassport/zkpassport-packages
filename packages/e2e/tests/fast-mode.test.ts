@@ -7,8 +7,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { ZKPassport } from "@zkpassport/sdk"
 import type { QueryResult } from "@zkpassport/utils"
-import { type ChainFork, type FetchProxy, startChainFork, startFetchProxy } from "../src/chain-fork"
-import { SEPOLIA_FILE_HOSTS, SEPOLIA_RPC_URL } from "../src/sepolia"
+import {
+  type ChainFork,
+  type FetchProxy,
+  SEPOLIA_FILE_HOSTS,
+  SEPOLIA_RPC_URL,
+  startChainFork,
+  startFetchProxy,
+} from "../src/chain-fork"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
