@@ -28,17 +28,10 @@ import {
   type QueryResult,
 } from "@zkpassport/utils"
 
-// The app derives a 31-byte salt from its keychain master key; any fixed one will do here.
-// Its hex form must have even length, since getPublicSalt hex-decodes salt.toString(16).
 const SALT = BigInt("0x" + "11".repeat(31))
 
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 
-/**
- * Make the fast-mode proofs for a request the way the app does: the DSC, ID data and integrity
- * proofs, then one disclosure proof per query field, each shaped as the ProofResult the app sends
- * over the bridge. Handles age.gte, nationality.disclose and sanctions.
- */
 export async function proveFastMode({
   passport,
   query,
