@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "End-to-end tests: SDK request → bridge relay → headless app stand-in → proofs → SDK verify, on a fork of Sepolia",
+  "description": "End-to-end tests: SDK request → bridge → headless app stand-in → proofs → SDK verify, on a fork of Sepolia",
   "scripts": {
     "test:e2e": "bun test tests",
     "check": "tsc --noEmit && prettier -c src tests && eslint src tests --ext .ts",
