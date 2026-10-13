@@ -4,10 +4,9 @@ import type { ECDSA } from "@noble/curves/abstract/weierstrass.js"
 import { brainpoolP256r1, brainpoolP384r1, brainpoolP512r1 } from "@noble/curves/misc.js"
 import { p256, p384, p521 } from "@noble/curves/nist.js"
 import { sha1 } from "@noble/hashes/legacy.js"
-import { sha224, sha256, sha384, sha512 } from "@noble/hashes/sha2.js"
-import type { CHash } from "@noble/hashes/utils.js"
+import { sha224, sha256 } from "@noble/hashes/sha2.js"
 import { SignedData, SignerInfo, SignerInfos } from "@peculiar/asn1-cms"
-import { id_mgf1, id_RSASSA_PSS, RsaSaPssParams } from "@peculiar/asn1-rsa"
+import { id_RSASSA_PSS, RsaSaPssParams } from "@peculiar/asn1-rsa"
 import { AsnConvert, AsnSerializer, OctetString } from "@peculiar/asn1-schema"
 import {
   AttributeTypeAndValue,
@@ -31,10 +30,9 @@ import {
 } from "@peculiar/asn1-x509"
 import { Extension, PemConverter, X509CertificateGenerator } from "@peculiar/x509"
 import { AttributeSet } from "../cms/asn"
+import { HASH_FUNCTIONS } from "./sod"
 
-import { getHashAlgorithmIdentifier } from "./sod"
-
-export { generateSod, wrapSodInContentInfo } from "./sod"
+export { generateSod, getRsaPssSignatureAlgorithm, wrapSodInContentInfo } from "./sod"
 
 export type EcdsaCurve =
   | "P-192"
@@ -244,25 +242,6 @@ export async function generateCertificate(params: CertificateParams): Promise<Ce
     tbsCertificate,
     signatureAlgorithm: signatureAlgorithm,
     signatureValue: new Uint8Array(signature).buffer,
-  })
-}
-
-/**
- * RSASSA-PSS signature algorithm for generateSod.
- */
-export function getRsaPssSignatureAlgorithm(hashAlgorithm: HashAlgorithm) {
-  const hash = new X509AlgorithmIdentifier({ algorithm: getHashAlgorithmIdentifier(hashAlgorithm) })
-  const parameters = new RsaSaPssParams({
-    hashAlgorithm: hash,
-    maskGenAlgorithm: new X509AlgorithmIdentifier({
-      algorithm: id_mgf1,
-      parameters: AsnSerializer.serialize(hash),
-    }),
-    saltLength: HASH_FUNCTIONS[hashAlgorithm].outputLen,
-  })
-  return new X509AlgorithmIdentifier({
-    algorithm: id_RSASSA_PSS,
-    parameters: AsnSerializer.serialize(parameters),
   })
 }
 
@@ -658,14 +637,6 @@ const NOBLE_CURVES: Record<EcdsaCurve, ECDSA> = {
   brainpoolP256r1,
   brainpoolP384r1,
   brainpoolP512r1,
-}
-
-const HASH_FUNCTIONS: Record<HashAlgorithm, CHash> = {
-  "SHA-1": sha1,
-  "SHA-224": sha224,
-  "SHA-256": sha256,
-  "SHA-384": sha384,
-  "SHA-512": sha512,
 }
 
 const CURVE_OIDS: Record<EcdsaCurve, string> = {
