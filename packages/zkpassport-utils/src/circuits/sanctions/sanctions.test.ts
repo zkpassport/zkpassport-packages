@@ -1,4 +1,4 @@
-import { getMockPassports } from "../../mock-passports"
+import { createMockPassport } from "../../mock-passports"
 import {
   getNameCombinations,
   getSanctionsEvmParameterCommitment,
@@ -9,7 +9,14 @@ import {
 import { AsyncOrderedMT, poseidon2 } from "@/merkle-tree"
 import { stringToAsciiStringArray } from "@/utils"
 
-const PASSPORTS = getMockPassports()
+const PASSPORTS = {
+  john: createMockPassport(),
+  mary: createMockPassport({
+    firstName: "Mary",
+    gender: "F",
+    signature: "ecdsa-p256-sha256",
+  }),
+}
 
 describe("Sanctions", () => {
   test("should get the correct name combinations for passport", () => {

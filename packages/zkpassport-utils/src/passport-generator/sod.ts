@@ -1,4 +1,6 @@
-import { createHash } from "node:crypto"
+import { sha1 } from "@noble/hashes/legacy.js"
+import { sha224, sha256, sha384, sha512 } from "@noble/hashes/sha2.js"
+import type { CHash } from "@noble/hashes/utils.js"
 import {
   Attribute,
   CertificateChoices,
@@ -21,9 +23,18 @@ import {
   AsnSerializer,
   OctetString,
 } from "@peculiar/asn1-schema"
-import { id_sha1, id_sha224, id_sha256, id_sha384, id_sha512 } from "@peculiar/asn1-rsa"
+import {
+  id_mgf1,
+  id_RSASSA_PSS,
+  id_sha1,
+  id_sha224,
+  id_sha256,
+  id_sha384,
+  id_sha512,
+  RsaSaPssParams,
+} from "@peculiar/asn1-rsa"
 import { AlgorithmIdentifier, Certificate, SubjectKeyIdentifier } from "@peculiar/asn1-x509"
-import { Binary } from "../binary"
+import type { Binary } from "../binary"
 import {
   AttributeSet,
   DataGroupHash,
@@ -49,15 +60,11 @@ export function generateSod(
   const digestAlgorithms = new DigestAlgorithmIdentifiers([
     new DigestAlgorithmIdentifier({ algorithm: getHashAlgorithmIdentifier(hashAlgorithm) }),
   ])
-  const nodeHashAlgorithm = hashAlgorithm.toLowerCase().replace("-", "")
+  const hash = HASH_FUNCTIONS[hashAlgorithm]
 
-  const dg1Hash = createHash(nodeHashAlgorithm).update(dg1.toBuffer()).digest()
+  const dg1Hash = hash(dg1.toUInt8Array())
   const encapContentInfo = generateEncapContentInfo(dg1Hash, hashAlgorithm)
-  const eContentHash = Binary.from(
-    createHash(nodeHashAlgorithm)
-      .update(Binary.from(encapContentInfo.eContent!.single!.buffer).toBuffer())
-      .digest(),
-  )
+  const eContentHash = hash(new Uint8Array(encapContentInfo.eContent!.single!.buffer))
 
   const signerInfo = new SignerInfo({
     version: 1,
@@ -82,6 +89,25 @@ export function generateSod(
     ),
   })
   return { contentInfo: wrapSodInContentInfo(sod), sod }
+}
+
+/**
+ * RSASSA-PSS signature algorithm for generateSod.
+ */
+export function getRsaPssSignatureAlgorithm(hashAlgorithm: HashAlgorithm) {
+  const hash = new AlgorithmIdentifier({ algorithm: getHashAlgorithmIdentifier(hashAlgorithm) })
+  const parameters = new RsaSaPssParams({
+    hashAlgorithm: hash,
+    maskGenAlgorithm: new AlgorithmIdentifier({
+      algorithm: id_mgf1,
+      parameters: AsnSerializer.serialize(hash),
+    }),
+    saltLength: HASH_FUNCTIONS[hashAlgorithm].outputLen,
+  })
+  return new AlgorithmIdentifier({
+    algorithm: id_RSASSA_PSS,
+    parameters: AsnSerializer.serialize(parameters),
+  })
 }
 
 /**
@@ -117,7 +143,7 @@ function generateEncapContentInfo(dg1Hash: Uint8Array, hashAlgorithm: HashAlgori
   })
 }
 
-function generateSignedAttrs(eContentHash: Binary) {
+function generateSignedAttrs(eContentHash: Uint8Array) {
   const contentType = new Attribute({
     attrType: "1.2.840.113549.1.9.3", // id_contentType
     attrValues: [AsnSerializer.serialize(new LDSSecurityObjectIdentifier(id_ldsSecurityObject))],
@@ -130,9 +156,7 @@ function generateSignedAttrs(eContentHash: Binary) {
   const messageDigest = new Attribute({
     attrType: "1.2.840.113549.1.9.4", // id_messageDigest
     attrValues: [
-      AsnConvert.serialize(
-        AsnOctetStringConverter.toASN(new Uint8Array(eContentHash.toUInt8Array()).buffer),
-      ),
+      AsnConvert.serialize(AsnOctetStringConverter.toASN(new Uint8Array(eContentHash).buffer)),
     ],
   })
   return new AttributeSet([contentType, signingTime, messageDigest])
@@ -151,4 +175,12 @@ function getHashAlgorithmIdentifier(hashAlgorithm: HashAlgorithm) {
     case "SHA-512":
       return id_sha512
   }
+}
+
+export const HASH_FUNCTIONS: Record<HashAlgorithm, CHash> = {
+  "SHA-1": sha1,
+  "SHA-224": sha224,
+  "SHA-256": sha256,
+  "SHA-384": sha384,
+  "SHA-512": sha512,
 }

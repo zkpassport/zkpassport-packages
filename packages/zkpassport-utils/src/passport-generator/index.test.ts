@@ -6,10 +6,12 @@ import { AsnConvert, AsnSerializer } from "@peculiar/asn1-schema"
 import { SubjectPublicKeyInfo } from "@peculiar/asn1-x509"
 import { Binary } from "../binary"
 import { id_sha256, LDSSecurityObject } from "../cms/asn"
+import { getRSAPSSParams } from "../cms/utils"
 import { SOD } from "../passport/sod"
 import {
   generateSigningCertificates,
   generateSod,
+  getRsaPssSignatureAlgorithm,
   type KeyPair,
   signSod,
   wrapSodInContentInfo,
@@ -62,6 +64,41 @@ describe("signSod", () => {
         sod.signerInfo.signedAttrs.bytes.toUInt8Array(),
         sod.signerInfo.signature.toUInt8Array(),
         "compact",
+      ),
+    ).toBe(true)
+  })
+
+  test("signs with RSA-PSS when the SOD's signature algorithm is RSASSA-PSS", async () => {
+    const { dsc, dscKeys } = await generateSigningCertificates({
+      cscKeyType: "RSA",
+      dscKeyType: "RSA",
+      cscKeySize: 2048,
+      dscKeySize: 2048,
+    })
+    const signatureAlgorithm = getRsaPssSignatureAlgorithm("SHA-384")
+    const { sod: unsignedSod } = generateSod(dg1, [dsc], "SHA-384", signatureAlgorithm)
+    const { sod: signedSod } = await signSod(unsignedSod, dscKeys, "SHA-384")
+
+    const sod = SOD.fromDER(Binary.from(AsnSerializer.serialize(wrapSodInContentInfo(signedSod))))
+    const pssParams = getRSAPSSParams(
+      new Uint8Array(sod.signerInfo.signatureAlgorithm.parameters!.toUInt8Array()),
+    )
+    const publicKey = await crypto.subtle.importKey(
+      "spki",
+      new Uint8Array(dscKeys.publicKey),
+      { name: "RSA-PSS", hash: "SHA-384" },
+      false,
+      ["verify"],
+    )
+
+    expect(sod.signerInfo.signatureAlgorithm.name.toLowerCase()).toContain("pss")
+    expect(pssParams).toMatchObject({ hashAlgorithm: "SHA384", saltLength: 48 })
+    expect(
+      await crypto.subtle.verify(
+        { name: "RSA-PSS", saltLength: 48 },
+        publicKey,
+        new Uint8Array(sod.signerInfo.signature.toUInt8Array()),
+        new Uint8Array(sod.signerInfo.signedAttrs.bytes.toUInt8Array()),
       ),
     ).toBe(true)
   })

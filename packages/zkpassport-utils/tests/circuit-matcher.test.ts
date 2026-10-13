@@ -28,7 +28,7 @@ import {
   rightPadCountryCodeArray,
 } from "../src/utils"
 import rootCerts from "./fixtures/root-certs-v1.json"
-import { getMockPassports } from "../src/mock-passports"
+import { createMockPassport } from "../src/mock-passports"
 import * as fs from "fs"
 import * as path from "path"
 import {
@@ -52,7 +52,17 @@ import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { ECParameters } from "@peculiar/asn1-ecc"
 import { getFirstNameRange, getFullNameRange, getLastNameRange } from "../src/passport/getters"
 
-const PASSPORTS = getMockPassports()
+const PASSPORTS = {
+  john: createMockPassport(),
+  mary: createMockPassport({
+    firstName: "Mary",
+    gender: "F",
+    dateOfBirth: new Date("1975-03-02"),
+    expiryDate: new Date("2030-01-01"),
+    documentNumber: "ZP2222222",
+    signature: "ecdsa-p256-sha256",
+  }),
+}
 
 function getDSCs() {
   const dscDir = path.join(__dirname, "fixtures", "dsc")
@@ -68,8 +78,7 @@ function getDSCs() {
 }
 
 const EXPECTED_NULLIFIER = "0x188714f640c6c451bf74a33c762ce478b7437135925e38ccae86d7dfbc2058fc"
-const EXPECTED_NULLIFIER_ECDSA =
-  "0x14727bf01a7869c8814ebac257ba5efdc016b640b62c8014c7199ec0a688a658"
+const EXPECTED_NULLIFIER_ECDSA = "0xa3b40ef57112618705a04d7192ae8f43fddbcbdb1faf57daf8bb7369e794dcc"
 
 // Global constants
 const SALT = 1n
@@ -876,10 +885,10 @@ describe("Circuit Matcher - ECDSA", () => {
         105, 16, 212, 111, 82, 98, 51, 128, 176, 5, 198, 194,
       ],
       sod_signature: [
-        223, 64, 250, 6, 59, 10, 128, 135, 40, 146, 25, 44, 240, 67, 70, 16, 162, 53, 246, 151, 153,
-        76, 211, 5, 105, 172, 99, 159, 176, 75, 215, 170, 11, 25, 193, 173, 84, 56, 242, 29, 165,
-        11, 207, 171, 66, 118, 34, 162, 44, 70, 249, 1, 220, 33, 199, 32, 211, 62, 48, 118, 214,
-        233, 95, 13,
+        248, 240, 168, 6, 240, 161, 214, 82, 39, 202, 78, 76, 179, 57, 196, 91, 249, 188, 238, 197,
+        180, 136, 54, 197, 236, 176, 222, 134, 210, 69, 27, 29, 118, 224, 104, 176, 39, 6, 138, 89,
+        192, 223, 249, 13, 183, 35, 220, 0, 28, 18, 190, 223, 38, 200, 9, 75, 112, 107, 236, 138,
+        179, 7, 33, 142,
       ],
       e_content: rightPadArrayWithZeros(
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
@@ -913,7 +922,7 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.sod.encapContentInfo.eContent.bytes.toNumberArray(),
         E_CONTENT_INPUT_SIZE,
       ),
-      comm_in: "0x2266810817da3a8c719fdd7f710d5c8a249ea4bea2f086215103d6d46ed336b6",
+      comm_in: "0x0ccf761654b6143e7463b30a2565ffdfe85e69919fdf3c688397f0c9eeaf8393",
       expiry_date_salt: `0x${SALT.toString(16)}`,
       dg2_hash_salt: `0x${SALT.toString(16)}`,
       salted_private_nullifier: SaltedValue.fromValue(
@@ -978,7 +987,7 @@ describe("Circuit Matcher - ECDSA", () => {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       ],
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1023,7 +1032,7 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
       ).formatForInput(),
       current_date: CURRENT_DATE,
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1066,7 +1075,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1110,7 +1119,7 @@ describe("Circuit Matcher - ECDSA", () => {
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1151,7 +1160,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ).formatForInput(),
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1194,7 +1203,7 @@ describe("Circuit Matcher - ECDSA", () => {
       country_list: rightPadCountryCodeArray(["FRA", "GBR", "USA"], 200).map((country) =>
         getCountryWeightedSum(country as Alpha3Code),
       ),
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1235,7 +1244,7 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
       ).formatForInput(),
       current_date: timestamp,
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1278,7 +1287,7 @@ describe("Circuit Matcher - ECDSA", () => {
         PASSPORTS.mary.passportExpiry.split("").map((char) => char.charCodeAt(0)),
       ).formatForInput(),
       current_date: timestamp,
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1323,7 +1332,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ).formatForInput(),
       current_date: CURRENT_DATE,
       is_strict: 1,
-      comm_in: "0x0285d260712fdebb60a20d4e31ee55aa4e08e31f46c4bfa5670c4843ecb19f33",
+      comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
