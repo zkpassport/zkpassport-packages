@@ -83,11 +83,11 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   })
 
   test("the proofs verify against Sepolia's registries", async () => {
-    const result = app.request.result()!
+    const { proofs, result: queryResult } = app.request.result()!
     const verification = await zkPassport.verify({
-      proofs: result.proofs.map((proof) => ({ ...proof })),
+      proofs: proofs.map((proof) => ({ ...proof })),
       originalQuery: app.request.query,
-      queryResult: result.result,
+      queryResult,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
@@ -98,9 +98,9 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   }, 60_000)
 
   test("a tampered proof does not verify", async () => {
-    const result = app.request.result()!
-    const proofs = result.proofs.map((proof) => ({ ...proof }))
-    const target = proofs.find((proof) => proof.name === "disclose_bytes")!
+    const { proofs, result: queryResult } = app.request.result()!
+    const tamperedProofs = proofs.map((proof) => ({ ...proof }))
+    const target = tamperedProofs.find((proof) => proof.name === "disclose_bytes")!
     const proofHex = target.proof as string
     const offsetInProofBody = proofHex.length - 200
     const flippedByte = (
@@ -113,9 +113,9 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       proofHex.slice(0, offsetInProofBody) + flippedByte + proofHex.slice(offsetInProofBody + 2)
 
     const verification = await zkPassport.verify({
-      proofs,
+      proofs: tamperedProofs,
       originalQuery: app.request.query,
-      queryResult: result.result,
+      queryResult,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
