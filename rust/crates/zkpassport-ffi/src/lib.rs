@@ -596,6 +596,10 @@ struct SanctionsInputsRequest {
     tree_path: String,
     #[serde(default)]
     is_strict: bool,
+    /// The registry sanctions root (0x-hex) the fetched tree must match. When set,
+    /// the tree's root is validated against it before proving.
+    #[serde(default)]
+    expected_root: Option<String>,
 }
 
 /// Assemble the `exclusion_check_sanctions` circuit inputs: disclosure base + the merkle
@@ -659,6 +663,7 @@ pub fn sanctions_circuit_inputs_json(request_json: &str) -> Result<serde_json::V
         &scope_hash(&req.service_subscope),
         req.current_date_timestamp,
         None,
+        req.expected_root.as_deref(),
     )
 }
 

@@ -12,7 +12,7 @@ pub const SRS_SIZE_FLOOR: u64 = 500_000;
 
 fn circuit_base(chain_id: u64) -> &'static str {
     match chain_id {
-        1 => "https://circuits2.zkpassport.id/mainnet",
+        1 | 8453 => "https://circuits2.zkpassport.id/mainnet",
         11155111 => "https://circuits2.zkpassport.id/testnet",
         _ => "http://localhost:8000",
     }

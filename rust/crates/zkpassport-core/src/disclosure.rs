@@ -265,6 +265,11 @@ pub fn get_sanctions_circuit_inputs(
     service_subscope: &BigUint,
     current_date_timestamp: u64,
     oprf_proof: Option<Value>,
+    // The registry sanctions root the fetched tree must match (0x-hex). When set,
+    // the tree's root is validated against it before proving - mirrors the JS
+    // client's check (only the root node is compared; rehashing every leaf is too
+    // slow on a phone). Prevents proving against a stale/wrong tree.
+    expected_root: Option<&str>,
 ) -> Result<Value, String> {
     let base = DisclosureBase::compute(input, salts)?;
     let mut obj = base_object(
@@ -272,9 +277,19 @@ pub fn get_sanctions_circuit_inputs(
         current_date_timestamp, &oprf_proof,
     );
     let tree = crate::sanctions::OrderedMt::from_serialized(tree_serialized)?;
+    let root_hex = tree.root_hex();
+    if let Some(expected) = expected_root {
+        if !expected.is_empty() {
+            let norm = |s: &str| BigUint::parse_bytes(s.trim_start_matches("0x").as_bytes(), 16);
+            match (norm(&root_hex), norm(expected)) {
+                (Some(a), Some(b)) if a == b => {}
+                _ => return Err(format!("sanctions tree root mismatch: tree {root_hex} != expected {expected}")),
+            }
+        }
+    }
     let proofs = crate::sanctions::build_sanctions_proofs(input.mrz, &tree, is_strict)?;
     insert(&mut obj, "proofs", proofs);
-    insert(&mut obj, "root", json!(tree.root_hex()));
+    insert(&mut obj, "root", json!(root_hex));
     insert(&mut obj, "is_strict", json!(if is_strict { 1 } else { 0 }));
     Ok(obj)
 }
