@@ -138,7 +138,7 @@ function generateSignedAttrs(eContentHash: Binary) {
   return new AttributeSet([contentType, signingTime, messageDigest])
 }
 
-function getHashAlgorithmIdentifier(hashAlgorithm: HashAlgorithm) {
+export function getHashAlgorithmIdentifier(hashAlgorithm: HashAlgorithm) {
   switch (hashAlgorithm) {
     case "SHA-1":
       return id_sha1

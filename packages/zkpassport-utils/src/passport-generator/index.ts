@@ -7,6 +7,7 @@ import { sha1 } from "@noble/hashes/legacy.js"
 import { sha224, sha256, sha384, sha512 } from "@noble/hashes/sha2.js"
 import type { CHash } from "@noble/hashes/utils.js"
 import { SignedData, SignerInfo, SignerInfos } from "@peculiar/asn1-cms"
+import { id_mgf1, id_RSASSA_PSS, RsaSaPssParams } from "@peculiar/asn1-rsa"
 import { AsnConvert, AsnSerializer, OctetString } from "@peculiar/asn1-schema"
 import {
   AttributeTypeAndValue,
@@ -30,6 +31,8 @@ import {
 } from "@peculiar/asn1-x509"
 import { Extension, PemConverter, X509CertificateGenerator } from "@peculiar/x509"
 import { AttributeSet } from "../cms/asn"
+
+import { getHashAlgorithmIdentifier } from "./sod"
 
 export { generateSod, wrapSodInContentInfo } from "./sod"
 
@@ -245,24 +248,38 @@ export async function generateCertificate(params: CertificateParams): Promise<Ce
 }
 
 /**
- * Sign a SOD's signed attributes with the DSC key pair.
+ * The RSASSA-PSS signature algorithm for generateSod: the hash, MGF1 over the same hash, and a salt
+ * as long as the hash. signSod then signs with RSA-PSS.
+ */
+export function getRsaPssSignatureAlgorithm(hashAlgorithm: HashAlgorithm) {
+  const hash = new X509AlgorithmIdentifier({ algorithm: getHashAlgorithmIdentifier(hashAlgorithm) })
+  const parameters = new RsaSaPssParams({
+    hashAlgorithm: hash,
+    maskGenAlgorithm: new X509AlgorithmIdentifier({
+      algorithm: id_mgf1,
+      parameters: AsnSerializer.serialize(hash),
+    }),
+    saltLength: HASH_FUNCTIONS[hashAlgorithm].outputLen,
+  })
+  return new X509AlgorithmIdentifier({
+    algorithm: id_RSASSA_PSS,
+    parameters: AsnSerializer.serialize(parameters),
+  })
+}
+
+/**
+ * Sign a SOD's signed attributes with the DSC key pair. An RSA key signs with RSA-PSS when the SOD's
+ * signature algorithm is RSASSA-PSS, and with RSASSA-PKCS1-v1_5 otherwise.
  */
 export async function signSod(sod: SignedData, signerKeys: KeyPair, hashAlgorithm: HashAlgorithm) {
-  const signedAttrs = new AttributeSet(
-    sod.signerInfos[0]?.signedAttrs?.map((attribute) => attribute),
-  )
+  const signerInfo = sod.signerInfos[0]
+  const signedAttrs = new AttributeSet(signerInfo?.signedAttrs?.map((attribute) => attribute))
   const signedAttrsBytes = new Uint8Array(AsnConvert.serialize(signedAttrs))
 
   // ECDSA signatures in IEEE P1363 form (r ‖ s), as WebCrypto would return them
   const signature =
     signerKeys.type === "RSA"
-      ? new Uint8Array(
-          await crypto.subtle.sign(
-            { name: "RSASSA-PKCS1-v1_5", hash: hashAlgorithm },
-            signerKeys.cryptoKey.privateKey,
-            signedAttrsBytes,
-          ),
-        )
+      ? await rsaSign(signerKeys, signedAttrsBytes, hashAlgorithm, signerInfo.signatureAlgorithm)
       : ecdsaSign(
           NOBLE_CURVES[signerKeys.curve],
           signerKeys.rawSecretKey,
@@ -271,7 +288,6 @@ export async function signSod(sod: SignedData, signerKeys: KeyPair, hashAlgorith
           "compact",
         )
 
-  const signerInfo = sod.signerInfos[0]
   const signedSod = new SignedData({
     version: sod.version,
     digestAlgorithms: sod.digestAlgorithms,
@@ -423,10 +439,35 @@ function buildName(attributes: { type: string; value: string }[]): Name {
   )
 }
 
+async function rsaSign(
+  keyPair: KeyPair,
+  message: Uint8Array<ArrayBuffer>,
+  hashAlgorithm: HashAlgorithm,
+  signatureAlgorithm: X509AlgorithmIdentifier,
+): Promise<Uint8Array> {
+  if (signatureAlgorithm.algorithm !== id_RSASSA_PSS) {
+    const pkcs1 = { name: "RSASSA-PKCS1-v1_5", hash: hashAlgorithm }
+    return new Uint8Array(await crypto.subtle.sign(pkcs1, keyPair.cryptoKey.privateKey, message))
+  }
+
+  // The key pair's WebCrypto key is for RSASSA-PKCS1-v1_5, so import the key again for RSA-PSS
+  const { saltLength } = AsnConvert.parse(signatureAlgorithm.parameters!, RsaSaPssParams)
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    new Uint8Array(keyPair.privateKey),
+    { name: "RSA-PSS", hash: hashAlgorithm },
+    false,
+    ["sign"],
+  )
+  return new Uint8Array(
+    await crypto.subtle.sign({ name: "RSA-PSS", saltLength }, privateKey, message),
+  )
+}
+
 function ecdsaSign(
   curve: ECDSA,
   rawSecretKey: Uint8Array,
-  message: Uint8Array,
+  message: Uint8Array<ArrayBuffer>,
   hashAlgorithm: HashAlgorithm,
   format: "compact" | "der",
 ): Uint8Array {
