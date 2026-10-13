@@ -44,6 +44,19 @@
         "typescript": "^5.0.0",
       },
     },
+    "packages/e2e": {
+      "name": "@zkpassport/e2e",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aztec/bb.js": "5.0.0",
+        "@noir-lang/noir_js": "1.0.0-beta.22",
+        "@obsidion/bridge": "^0.12.2",
+        "@zkpassport/registry": "workspace:*",
+        "@zkpassport/sdk": "workspace:*",
+        "@zkpassport/utils": "workspace:*",
+        "bridge": "workspace:*",
+      },
+    },
     "packages/onchain-credentials/contracts": {
       "name": "onchain-credentials-contracts",
       "version": "0.1.0",
@@ -932,6 +945,8 @@
     "@walletconnect/window-metadata": ["@walletconnect/window-metadata@1.0.1", "", { "dependencies": { "@walletconnect/window-getters": "^1.0.1", "tslib": "1.14.1" } }, "sha512-9koTqyGrM2cqFRW517BPY/iEtUDx2r1+Pwwu5m7sJ7ka79wi3EyqhqcICk/yDmv6jAS1rjKgTKXlEhanYjijcA=="],
 
     "@zk-kit/utils": ["@zk-kit/utils@1.3.0", "", { "dependencies": { "buffer": "^6.0.3" } }, "sha512-Gqsq5KLDf2WPuZSsNc2KZy25XeK5d5UV9hwLaPEM5wq+GD2qCi1ZBFzNs0OptiJ9GRGtP2J/xptrszWri+pRqQ=="],
+
+    "@zkpassport/e2e": ["@zkpassport/e2e@workspace:packages/e2e"],
 
     "@zkpassport/onchain-credentials": ["@zkpassport/onchain-credentials@workspace:packages/onchain-credentials/javascript"],
 
