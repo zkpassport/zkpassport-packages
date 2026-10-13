@@ -6,8 +6,8 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import type { BridgeInterface } from "@obsidion/bridge"
-import { ZKPassport } from "@zkpassport/sdk"
-import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
+import { type QueryBuilderResult, ZKPassport } from "@zkpassport/sdk"
+import type { ProofResult, QueryResult } from "@zkpassport/utils"
 import {
   type FetchProxy,
   SEPOLIA_FILE_HOSTS,
@@ -37,7 +37,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   let appChain: string | undefined
   let zkPassport: ZKPassport
   let received: { proofs: ProofResult[]; result: QueryResult }
-  let originalQuery: Query
+  let request: QueryBuilderResult
   const events: string[] = []
 
   beforeAll(async () => {
@@ -54,8 +54,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       devMode: true,
       bridgeUrl: bridge.url,
     })
-    const request = queryBuilder.gte("age", 18).disclose("nationality").done()
-    originalQuery = request.query
+    request = queryBuilder.gte("age", 18).disclose("nationality").done()
 
     const success = new Promise<{ proofs: ProofResult[]; result: QueryResult }>(
       (resolve, reject) => {
@@ -108,7 +107,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   test("the proofs verify against Sepolia's registries", async () => {
     const verification = await zkPassport.verify({
       proofs: received.proofs.map((proof) => ({ ...proof })),
-      originalQuery,
+      originalQuery: request.query,
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
@@ -135,7 +134,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
     const verification = await zkPassport.verify({
       proofs,
-      originalQuery,
+      originalQuery: request.query,
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
