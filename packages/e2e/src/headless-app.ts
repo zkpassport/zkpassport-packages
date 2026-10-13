@@ -17,7 +17,7 @@ import { proveFastMode } from "./prove"
  * Unlike the app it does not check the bridge-reported origin with isOriginTrusted(): the SDK under
  * Node reports "nodejs", which the app rejects.
  */
-export async function runStandIn({
+export async function runHeadlessApp({
   requestUrl,
   passport,
   registry = {},

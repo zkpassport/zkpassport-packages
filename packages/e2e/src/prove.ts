@@ -190,7 +190,7 @@ function required<T extends object>(inputs: T | null | undefined, circuitName: s
   return inputs
 }
 
-/** What the app's getPassportFieldsFromQuery() reports for a query this stand-in proves */
+/** What the app's getPassportFieldsFromQuery() reports for a query this headless app proves */
 function getQueryResult(passport: PassportViewModel, query: Query): QueryResult {
   const result: Record<string, unknown> = {}
   if (query.age) {

@@ -3,7 +3,7 @@
 End-to-end tests across the ZKPassport stack, on a fork of Sepolia:
 
 ```
-SDK request() → bridge → app stand-in → accept → proofs → done → SDK onSuccess → verify()
+SDK request() → bridge → headless app → accept → proofs → done → SDK onSuccess → verify()
 ```
 
 - `tests/fast-mode.test.ts`: age ≥ 18 and nationality disclosure.
@@ -14,13 +14,13 @@ SDK request() → bridge → app stand-in → accept → proofs → done → SDK
 
 - **SDK, utils, registry-sdk**: this repo's own code, built from the workspace.
 - **Bridge**: the bridge from `packages/bridge`, started in-process.
-- **App stand-in**: headless Node code in `src/` that parses the request URL, joins the bridge and
-  proves the way zkpassport-mobile-app does, with noir_js + bb.js instead of the app's native
-  provers. It reads the registry of the request's chain and proves sanctions against the tree
-  published for that registry's latest root. The mobile app itself is not tested here.
+- **Headless app**: Node code in `src/` that parses the request URL, joins the bridge and proves the
+  way zkpassport-mobile-app does, with noir_js + bb.js instead of the app's native provers. It reads
+  the registry of the request's chain and proves sanctions against the tree published for that
+  registry's latest root. The mobile app itself is not tested here.
 - **Chain**: anvil forking Sepolia. Requests are in dev mode and bind no chain, so the SDK and the
-  stand-in prove and verify on Sepolia, reading its registries through the fork: `verify()` takes
-  anvil's URL through `config.rpcUrl`. Certificates and circuits come from the testnet CDNs.
+  headless app prove and verify on Sepolia, reading its registries through the fork: `verify()`
+  takes anvil's URL through `config.rpcUrl`. Certificates and circuits come from the testnet CDNs.
 - **Sanctions publisher** (sanctions test only): the publisher's CLI, from a private ZKPassport
   repo, run as a child process. Anvil's second account becomes the Sanctions Registry's oracle on
   the fork, and the publisher publishes after Sepolia's own latest root. A local file server serves
@@ -43,7 +43,7 @@ other than today.
 
 The day's snapshots are cached in `.cache/`, and the last sanctions run's packaged file, tree and
 publisher log stay in `.cache/sanctions-run`. Once a request starts, `fetch` may only reach this
-machine and the testnet CDNs; the tests assert that the SDK's dashboard lookup is the only call
-that tried to reach anything else.
+machine and the testnet CDNs; the tests assert that the SDK's dashboard lookup is the only call that
+tried to reach anything else.
 
 The root `bun run test` does not run these tests.

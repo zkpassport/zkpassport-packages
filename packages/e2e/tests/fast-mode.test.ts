@@ -1,7 +1,7 @@
 /**
  * Fast mode, end to end on a fork of Sepolia:
  *
- *   SDK request() → bridge → app stand-in (john, ZKR mock passport) → accept → 5 proofs → done
+ *   SDK request() → bridge → headless app (john, ZKR mock passport) → accept → 5 proofs → done
  *   → SDK onSuccess → verify({ devMode: true, verifierMode: "local" }) against Sepolia's registries
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
@@ -16,7 +16,7 @@ import {
 } from "../src/sepolia-fork"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import { startBridge, type Bridge } from "../src/bridge"
-import { runStandIn } from "../src/stand-in"
+import { runHeadlessApp } from "../src/headless-app"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -32,8 +32,8 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
   let bridge: Bridge
   let fetchRestriction: ReturnType<typeof restrictFetchTo>
-  let standInBridge: BridgeInterface | undefined
-  let standInChain: string | undefined
+  let appBridge: BridgeInterface | undefined
+  let appChain: string | undefined
   let zkPassport: ZKPassport
   let received: { proofs: ProofResult[]; result: QueryResult }
   let originalQuery: Query
@@ -70,27 +70,27 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       },
     )
 
-    const standIn = await runStandIn({
+    const headlessApp = await runHeadlessApp({
       requestUrl: request.url,
       passport: createMockPassport(),
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    standInBridge = standIn.bridge
-    standInChain = standIn.chain
+    appBridge = headlessApp.bridge
+    appChain = headlessApp.chain
     received = await success
   }, 180_000)
 
   afterAll(async () => {
     fetchRestriction?.restore()
-    standInBridge?.cleanup()
+    appBridge?.cleanup()
     await bridge?.stop()
     fork?.stop()
   })
 
   test("the SDK sees the whole request over the bridge", () => {
     // A dev-mode request that binds no chain is proved on Sepolia, as in the app
-    expect(standInChain).toBe("ethereum_sepolia")
+    expect(appChain).toBe("ethereum_sepolia")
     expect(events).toEqual([
       "requestReceived",
       "generatingProof",
