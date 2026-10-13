@@ -18,12 +18,7 @@ export type HeadlessApp = {
 }
 
 /**
- * The app's side of a request, without a phone: join the bridge, accept, prove, send every proof,
- * then done, and wait for the SDK to report success. It proves on the registry of the chain
- * getChainFromQuery picks for the request, with `registry` overriding that chain's defaults.
- *
- * Unlike the app it does not check the bridge-reported origin with isOriginTrusted(): the SDK under
- * Node reports "nodejs", which the app rejects.
+ * A simplified mock of the mobile app, to enable integration testing.
  */
 export async function runHeadlessApp({
   query,
