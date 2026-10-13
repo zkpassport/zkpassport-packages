@@ -108,7 +108,11 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    requestResult = await app.request.success
+    const outcome = app.request.events.at(-1)
+    if (outcome?.type !== "success") {
+      throw new Error("The request did not end in success")
+    }
+    requestResult = outcome.response
   }, 30 * 60_000)
 
   afterAll(async () => {
@@ -133,7 +137,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       { type: "requestReceived" },
       { type: "generatingProof" },
       ...CIRCUITS.map((name): RequestEvent => ({ type: "proofGenerated", name })),
-      { type: "success" },
+      { type: "success", response: requestResult },
     ])
     expect(requestResult.proofs.map((proof) => proof.name)).toEqual(CIRCUITS)
     expect(requestResult.result.sanctions?.passed).toBe(true)
