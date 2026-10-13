@@ -14,7 +14,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import { ZKPassport } from "@zkpassport/sdk"
-import type { PackagedSanctionsFile, ProofResult, QueryResult } from "@zkpassport/utils"
+import type { PackagedSanctionsFile } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
   CACHE_DIR,
@@ -67,7 +67,6 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   let published: PublishedSanctionsRoot
   let app: HeadlessApp
   let zkPassport: ZKPassport
-  let requestResult: { proofs: ProofResult[]; result: QueryResult }
 
   beforeAll(async () => {
     fork = await startSepoliaFork()
@@ -108,11 +107,6 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    const outcome = app.request.events.at(-1)
-    if (outcome?.type !== "success") {
-      throw new Error("The request did not end in success")
-    }
-    requestResult = outcome.response
   }, 30 * 60_000)
 
   afterAll(async () => {
@@ -137,17 +131,17 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       { type: "requestReceived" },
       { type: "generatingProof" },
       ...CIRCUITS.map((name): RequestEvent => ({ type: "proofGenerated", name })),
-      { type: "success", response: requestResult },
+      { type: "success", response: app.request.succeeded() },
     ])
-    expect(requestResult.proofs.map((proof) => proof.name)).toEqual(CIRCUITS)
-    expect(requestResult.result.sanctions?.passed).toBe(true)
-    expect(requestResult.result.sanctions?.isStrict).toBe(false)
+    expect(app.request.succeeded().proofs.map((proof) => proof.name)).toEqual(CIRCUITS)
+    expect(app.request.succeeded().result.sanctions?.passed).toBe(true)
+    expect(app.request.succeeded().result.sanctions?.isStrict).toBe(false)
   })
 
   test("the sanctions proof commits to the published root", () => {
-    const sanctionsProof = requestResult.proofs.find(
-      (proof) => proof.name === "exclusion_check_sanctions",
-    )!
+    const sanctionsProof = app.request
+      .succeeded()
+      .proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     expect(sanctionsProof.committedInputs?.exclusion_check_sanctions).toEqual({
       rootHash: published.root,
       isStrict: false,
@@ -156,9 +150,9 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
 
   test("the proofs verify against Sepolia's registries", async () => {
     const verification = await zkPassport.verify({
-      proofs: requestResult.proofs.map((proof) => ({ ...proof })),
+      proofs: app.request.succeeded().proofs.map((proof) => ({ ...proof })),
       originalQuery: app.request.query,
-      queryResult: requestResult.result,
+      queryResult: app.request.succeeded().result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
@@ -168,7 +162,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   }, 60_000)
 
   test("a proof whose committed root was swapped does not verify", async () => {
-    const proofs = requestResult.proofs.map((proof) => ({ ...proof }))
+    const proofs = app.request.succeeded().proofs.map((proof) => ({ ...proof }))
     const target = proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     target.committedInputs = {
       exclusion_check_sanctions: { rootHash: `0x${"0".repeat(63)}1`, isStrict: false },
@@ -177,7 +171,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     const verification = await zkPassport.verify({
       proofs,
       originalQuery: app.request.query,
-      queryResult: requestResult.result,
+      queryResult: app.request.succeeded().result,
       devMode: true,
       verifierMode: "local",
       config: { rpcUrl: fork.rpcUrl },
