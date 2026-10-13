@@ -35,7 +35,7 @@ import {
   type PublishedSanctionsRoot,
 } from "../src/sanctions-publisher"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
-import { type TrackedRequest, trackRequest } from "../src/tracked-request"
+import { type RequestEvent, type TrackedRequest, trackRequest } from "../src/tracked-request"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -134,10 +134,10 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     // A dev-mode request that binds no chain is proved on Sepolia, as in the app
     expect(headlessApp.chain).toBe("ethereum_sepolia")
     expect(request.events).toEqual([
-      "requestReceived",
-      "generatingProof",
-      ...CIRCUITS.map((name) => `proof:${name}`),
-      "success",
+      { type: "requestReceived" },
+      { type: "generatingProof" },
+      ...CIRCUITS.map((name): RequestEvent => ({ type: "proofGenerated", name })),
+      { type: "success" },
     ])
     expect(received.proofs.map((proof) => proof.name)).toEqual(CIRCUITS)
     expect(received.result.sanctions?.passed).toBe(true)
