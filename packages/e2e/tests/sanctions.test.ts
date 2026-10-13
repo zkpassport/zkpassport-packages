@@ -3,7 +3,7 @@
  *
  *   sanctions publisher: download today's snapshots → build the tree → publish its root to the
  *   forked Sepolia Sanctions Registry, after Sepolia's own latest root
- *   → SDK request() with .sanctions() in dev mode → bridge → app stand-in (john) proves against the
+ *   → SDK request() with .sanctions() in dev mode → bridge → headless app (john) proves against the
  *   tree published for the registry's latest root → SDK verify() checks that root in the registry
  *
  * Needs the bridge (see src/bridge.ts) and the sanctions publisher (see src/sanctions-publisher.ts).
@@ -34,7 +34,7 @@ import {
   publishSanctionsRoot,
   type PublishedSanctionsRoot,
 } from "../src/sanctions-publisher"
-import { runStandIn } from "../src/stand-in"
+import { runHeadlessApp } from "../src/headless-app"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -64,8 +64,8 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   let registry: RegistryClient
   let sepoliaRoot: string
   let published: PublishedSanctionsRoot
-  let standInBridge: BridgeInterface | undefined
-  let standInChain: string | undefined
+  let appBridge: BridgeInterface | undefined
+  let appChain: string | undefined
   let zkPassport: ZKPassport
   let received: { proofs: ProofResult[]; result: QueryResult }
   let originalQuery: Query
@@ -121,20 +121,20 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       },
     )
 
-    const standIn = await runStandIn({
+    const headlessApp = await runHeadlessApp({
       requestUrl: request.url,
       passport: createMockPassport(),
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-    standInBridge = standIn.bridge
-    standInChain = standIn.chain
+    appBridge = headlessApp.bridge
+    appChain = headlessApp.chain
     received = await success
   }, 30 * 60_000)
 
   afterAll(async () => {
     fetchRestriction?.restore()
-    standInBridge?.cleanup()
+    appBridge?.cleanup()
     await bridge?.stop()
     fork?.stop()
   })
@@ -150,7 +150,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
 
   test("the SDK sees the whole request over the bridge", () => {
     // A dev-mode request that binds no chain is proved on Sepolia, as in the app
-    expect(standInChain).toBe("ethereum_sepolia")
+    expect(appChain).toBe("ethereum_sepolia")
     expect(events).toEqual([
       "requestReceived",
       "generatingProof",
