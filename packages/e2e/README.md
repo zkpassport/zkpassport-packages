@@ -18,8 +18,8 @@ SDK request() → bridge relay → app stand-in → accept → proofs → done �
 - **Chain**: anvil forking Sepolia. Requests are in dev mode and bind no chain, so the SDK and the
   stand-in prove and verify on Sepolia, reading its registries through the fork: `verify()` takes
   anvil's URL through `config.rpcUrl`. Certificates and circuits come from the testnet CDNs.
-- **Passport**: john from `@zkpassport/utils/mock-passports`, a ZKR mock passport, so verification
-  runs with `devMode: true`.
+- **Passport**: John, `createMockPassport()` from `@zkpassport/utils/mock-passports`, a ZKR mock
+  passport, so verification runs with `devMode: true`.
 
 ## Running
 
