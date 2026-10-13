@@ -7,6 +7,7 @@ import {
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./sepolia-fork"
+import type { TrackedRequest } from "./tracked-request"
 import { proveFastMode } from "./prove"
 
 export type HeadlessApp = { bridge: BridgeInterface; chain: SupportedChain }
@@ -20,12 +21,12 @@ export type HeadlessApp = { bridge: BridgeInterface; chain: SupportedChain }
  * Node reports "nodejs", which the app rejects.
  */
 export async function runHeadlessApp({
-  requestUrl,
+  request: { url: requestUrl },
   passport,
   registry = {},
   circuitVersion,
 }: {
-  requestUrl: string
+  request: TrackedRequest
   passport: PassportViewModel
   registry?: RegistryOverrides
   circuitVersion: string
