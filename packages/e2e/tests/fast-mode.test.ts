@@ -83,7 +83,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   }, 180_000)
 
   afterAll(async () => {
-    fetchProxy?.restore()
+    fetchProxy?.stop()
     appBridge?.cleanup()
     await bridge?.stop()
     fork?.stop()
