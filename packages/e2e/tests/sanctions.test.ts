@@ -3,10 +3,10 @@
  *
  *   sanctions publisher: download today's snapshots → build the tree → publish its root to the
  *   forked Sepolia Sanctions Registry, after Sepolia's own latest root
- *   → SDK request() with .sanctions() in dev mode → relay → app stand-in (john) proves against the
+ *   → SDK request() with .sanctions() in dev mode → bridge → app stand-in (john) proves against the
  *   tree published for the registry's latest root → SDK verify() checks that root in the registry
  *
- * Needs the relay (see src/relay.ts) and the sanctions publisher (see src/sanctions-publisher.ts).
+ * Needs the bridge (see src/bridge.ts) and the sanctions publisher (see src/sanctions-publisher.ts).
  * Building the tree from every dataset takes a few minutes.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
@@ -27,7 +27,7 @@ import {
 } from "../src/sepolia-fork"
 import { findListedPerson, listedPersonPassport } from "../src/listed-person"
 import { getSanctionsBuilder } from "../src/prove"
-import { startRelay, type Relay } from "../src/relay"
+import { startBridge, type Bridge } from "../src/bridge"
 import {
   downloadOpenSanctions,
   isSanctionsPublisherAvailable,
@@ -59,7 +59,7 @@ if (!publisherAvailable) {
 
 describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
-  let relay: Relay
+  let bridge: Bridge
   let fetchRestriction: ReturnType<typeof restrictFetchTo>
   let registry: RegistryClient
   let sepoliaRoot: string
@@ -92,7 +92,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     console.log(published.log)
     fork.serveSanctionsTree(published.root, published.treeFile)
 
-    relay = startRelay()
+    bridge = startBridge()
     fetchRestriction = restrictFetchTo(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
@@ -102,7 +102,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       purpose: "End-to-end sanctions test",
       mode: "fast",
       devMode: true,
-      bridgeUrl: relay.url,
+      bridgeUrl: bridge.url,
     })
     const request = queryBuilder.sanctions().done()
     originalQuery = request.query
@@ -135,7 +135,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   afterAll(async () => {
     fetchRestriction?.restore()
     standInBridge?.cleanup()
-    await relay?.stop()
+    await bridge?.stop()
     fork?.stop()
   })
 
