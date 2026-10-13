@@ -29,7 +29,7 @@ export type SepoliaFork = {
   stop: () => void
 }
 
-export type FetchProxy = { blocked: string[]; restore: () => void }
+export type FetchProxy = { blocked: string[]; stop: () => void }
 
 /**
  * Start Anvil with a Sepolia fork at its latest block, and a file server for sanctions trees.
@@ -123,7 +123,7 @@ export function startFetchProxy(allowedHosts: string[] = []): FetchProxy {
     blocked.push(url)
     throw new Error(`e2e fetch proxy: blocked ${url}`)
   }) as typeof fetch
-  return { blocked, restore: () => (globalThis.fetch = realFetch) }
+  return { blocked, stop: () => (globalThis.fetch = realFetch) }
 }
 
 function cast(args: string[], fork: SepoliaFork): string {
