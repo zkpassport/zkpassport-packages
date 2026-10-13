@@ -1,19 +1,12 @@
 import { spawn } from "node:child_process"
 import { createServer } from "node:net"
-import { createRegistryClient, getNetworkConstants } from "@zkpassport/registry"
-import { getIdFromChain } from "@zkpassport/utils"
-
-const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
-
-export const SEPOLIA_FILE_HOSTS = [SEPOLIA.packagedCertificatesUrl, SEPOLIA.circuitUrl].map(
-  (url) => new URL(url).hostname,
-)
+import { createRegistryClient } from "@zkpassport/registry"
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
-export type SepoliaFork = {
+export type ChainFork = {
   rpcUrl: string
-  /** Options for a Sepolia registry client to read this fork */
+  /** Options for a registry client to read this fork */
   registry: RegistryOverrides
   stop: () => void
 }
@@ -21,10 +14,9 @@ export type SepoliaFork = {
 export type FetchProxy = { blocked: string[]; stop: () => void }
 
 /**
- * Start Anvil with a Sepolia fork at its latest block.
+ * Start Anvil with a fork of the chain at `forkUrl`, at its latest block.
  */
-export async function startSepoliaFork(): Promise<SepoliaFork> {
-  const forkUrl = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
+export async function startChainFork(forkUrl: string): Promise<ChainFork> {
   const port = await freePort()
   const rpcUrl = `http://127.0.0.1:${port}`
   const anvil = spawn("anvil", ["--fork-url", forkUrl, "--port", `${port}`, "--silent"], {
