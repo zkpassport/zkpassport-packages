@@ -134,17 +134,15 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     ])
     expect(app.request.generatedProofs().map((proof) => proof.name)).toEqual(CIRCUITS)
 
-    const result = app.request.result()
-    expect(result?.proofs).toEqual(app.request.generatedProofs())
-    expect(result?.result.sanctions?.passed).toBe(true)
-    expect(result?.result.sanctions?.isStrict).toBe(false)
+    const { proofs, result: queryResult } = app.request.result()!
+    expect(proofs).toEqual(app.request.generatedProofs())
+    expect(queryResult.sanctions?.passed).toBe(true)
+    expect(queryResult.sanctions?.isStrict).toBe(false)
   })
 
   test("the sanctions proof commits to the published root", () => {
-    const result = app.request.result()!
-    const sanctionsProof = result.proofs.find(
-      (proof) => proof.name === "exclusion_check_sanctions",
-    )!
+    const { proofs } = app.request.result()!
+    const sanctionsProof = proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     expect(sanctionsProof.committedInputs?.exclusion_check_sanctions).toEqual({
       rootHash: published.root,
       isStrict: false,
