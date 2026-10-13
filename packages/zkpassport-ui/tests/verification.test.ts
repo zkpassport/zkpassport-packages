@@ -507,7 +507,7 @@ describe("picking a verification back up after the page was rebuilt", () => {
 
     const session = sessionOf(openedUrls[0])
     expect(session).toBeTruthy()
-    expect(onlyPending(storage).session).toBe(session)
+    expect(onlyPending(storage).session).toBe(session!)
   })
 
   test("a controller built after a reload offers to continue, and reopens the same one", () => {
