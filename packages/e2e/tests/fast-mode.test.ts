@@ -9,7 +9,7 @@ import type { BridgeInterface } from "@obsidion/bridge"
 import { ZKPassport } from "@zkpassport/sdk"
 import type { ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import {
-  guardNetwork,
+  restrictFetchTo,
   SEPOLIA_FILE_HOSTS,
   startSepoliaFork,
   type SepoliaFork,
@@ -31,7 +31,7 @@ const CIRCUITS = [
 describe("fast mode, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
   let relay: Relay
-  let guard: ReturnType<typeof guardNetwork>
+  let fetchRestriction: ReturnType<typeof restrictFetchTo>
   let standInBridge: BridgeInterface | undefined
   let standInChain: string | undefined
   let zkPassport: ZKPassport
@@ -42,7 +42,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   beforeAll(async () => {
     fork = await startSepoliaFork()
     relay = startRelay()
-    guard = guardNetwork(SEPOLIA_FILE_HOSTS)
+    fetchRestriction = restrictFetchTo(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
     const queryBuilder = await zkPassport.request({
@@ -82,7 +82,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   }, 180_000)
 
   afterAll(async () => {
-    guard?.restore()
+    fetchRestriction?.restore()
     standInBridge?.cleanup()
     await relay?.stop()
     fork?.stop()
@@ -146,7 +146,9 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails
     expect(
-      guard.blocked.every((url) => url.startsWith("https://dashboard-api.zkpassport.id/")),
+      fetchRestriction.blocked.every((url) =>
+        url.startsWith("https://dashboard-api.zkpassport.id/"),
+      ),
     ).toBe(true)
   })
 })

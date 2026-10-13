@@ -45,7 +45,7 @@ export async function startSepoliaFork(): Promise<SepoliaFork> {
  * It covers fetch only: child processes and libraries using their own HTTP stack (e.g. bb.js
  * downloading its CRS) are not intercepted.
  */
-export function guardNetwork(allowedHosts: string[] = []): {
+export function restrictFetchTo(allowedHosts: string[] = []): {
   blocked: string[]
   restore: () => void
 } {
@@ -59,7 +59,7 @@ export function guardNetwork(allowedHosts: string[] = []): {
     }
 
     blocked.push(url)
-    throw new Error(`e2e network guard: blocked ${url}`)
+    throw new Error(`e2e fetch restriction: blocked ${url}`)
   }) as typeof fetch
   return { blocked, restore: () => (globalThis.fetch = realFetch) }
 }
