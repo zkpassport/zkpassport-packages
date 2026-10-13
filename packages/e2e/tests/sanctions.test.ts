@@ -134,7 +134,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   }, 30 * 60_000)
 
   afterAll(async () => {
-    fetchProxy?.restore()
+    fetchProxy?.stop()
     appBridge?.cleanup()
     await bridge?.stop()
     fork?.stop()
