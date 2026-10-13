@@ -73,10 +73,18 @@ function sessionOf(popupUrl: string): string | null {
 
 const PENDING_KEY = "zkpassport:pending-verification"
 
+// The store holds one entry per request; these tests only ever have one in flight
+function onlyPending(storage: Map<string, string>) {
+  const store = JSON.parse(storage.get(PENDING_KEY)!) as Record<string, { session: string }>
+  return Object.values(store)[0]
+}
+
 function expirePending(storage: Map<string, string>) {
-  const pending = JSON.parse(storage.get(PENDING_KEY)!)
-  const pastTheLimit = pending.startedAt - 31 * 60 * 1000
-  storage.set(PENDING_KEY, JSON.stringify({ ...pending, startedAt: pastTheLimit }))
+  const store = JSON.parse(storage.get(PENDING_KEY)!) as Record<string, { startedAt: number }>
+  for (const [key, pending] of Object.entries(store)) {
+    store[key] = { ...pending, startedAt: pending.startedAt - 31 * 60 * 1000 }
+  }
+  storage.set(PENDING_KEY, JSON.stringify(store))
 }
 
 const SIMPLE_OPTIONS: VerificationOptions = { query: { age: { min: 18 } } }
@@ -499,7 +507,7 @@ describe("picking a verification back up after the page was rebuilt", () => {
 
     const session = sessionOf(openedUrls[0])
     expect(session).toBeTruthy()
-    expect(JSON.parse(storage.get(PENDING_KEY)!).session).toBe(session)
+    expect(onlyPending(storage).session).toBe(session)
   })
 
   test("a controller built after a reload offers to continue, and reopens the same one", () => {
@@ -582,6 +590,30 @@ describe("picking a verification back up after the page was rebuilt", () => {
 
     controller.verify()
     expect(sessionOf(openedUrls[0])).not.toBe(stale)
+  })
+
+  test("keeps a running verification when a different one is started", () => {
+    const storage = new Map<string, string>()
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    first.emitFromPopup({ zkpassport: true, type: "ready" })
+    first.emitFromPopup({ zkpassport: true, type: "request-received" })
+
+    setupFakeWindow(storage)
+    createVerification(
+      () => ({ query: { nationality: { eq: "FRA" } } }) as VerificationOptions,
+      () => {},
+    ).verify()
+
+    setupFakeWindow(storage)
+    const ageCheckAgain = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    expect(ageCheckAgain.state.resumable).toBe(true)
   })
 
   test("does not offer a verification bound to a different account", () => {
