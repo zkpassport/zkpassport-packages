@@ -35,7 +35,6 @@ import {
   type PublishedSanctionsRoot,
 } from "../src/sanctions-publisher"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
-import type { RequestEvent } from "../src/tracked-request"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -127,13 +126,14 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
 
   test("the SDK sees the whole request over the bridge", () => {
     expect(app.chain).toBe("ethereum_sepolia")
-    expect(app.request.events).toEqual([
-      { type: "requestReceived" },
-      { type: "generatingProof" },
-      ...CIRCUITS.map((name): RequestEvent => ({ type: "proofGenerated", name })),
-      { type: "success", response: app.request.succeeded() },
+    expect(app.request.events.map((event) => event.type)).toEqual([
+      "requestReceived",
+      "generatingProof",
+      ...CIRCUITS.map(() => "proofGenerated" as const),
+      "success",
     ])
-    expect(app.request.succeeded().proofs.map((proof) => proof.name)).toEqual(CIRCUITS)
+    expect(app.request.generatedProofs().map((proof) => proof.name)).toEqual(CIRCUITS)
+    expect(app.request.succeeded().proofs).toEqual(app.request.generatedProofs())
     expect(app.request.succeeded().result.sanctions?.passed).toBe(true)
     expect(app.request.succeeded().result.sanctions?.isStrict).toBe(false)
   })
