@@ -3,26 +3,21 @@ import { readFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { resolve } from "node:path"
 import { gzipSync } from "node:zlib"
-import { createRegistryClient, getNetworkConstants } from "@zkpassport/registry"
-import { getIdFromChain, SANCTIONS_REGISTRY_ID } from "@zkpassport/utils"
+import { createRegistryClient } from "@zkpassport/registry"
+import { SANCTIONS_REGISTRY_ID, type SupportedChain } from "@zkpassport/utils"
 
 export const CACHE_DIR = resolve(import.meta.dir, "../.cache")
 /** Anvil's second account, made the Sanctions Registry's oracle by takeOverSanctionsOracle */
 export const ORACLE_PRIVATE_KEY =
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
 
-const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
 const ORACLE_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-
-export const SEPOLIA_FILE_HOSTS = [SEPOLIA.packagedCertificatesUrl, SEPOLIA.circuitUrl].map(
-  (url) => new URL(url).hostname,
-)
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
-export type SepoliaFork = {
+export type ChainFork = {
   rpcUrl: string
-  /** Options for a Sepolia registry client to read this fork and the sanctions trees it serves */
+  /** Options for a registry client to read this fork and the sanctions trees it serves */
   registry: RegistryOverrides
   /** Serve a serialised sanctions tree for its root */
   serveSanctionsTree: (root: string, treeFile: string) => void
@@ -32,10 +27,10 @@ export type SepoliaFork = {
 export type FetchProxy = { blocked: string[]; stop: () => void }
 
 /**
- * Start Anvil with a Sepolia fork at its latest block, and a file server for sanctions trees.
+ * Start Anvil with a fork of the chain at `forkUrl`, at its latest block, and a file server for
+ * sanctions trees.
  */
-export async function startSepoliaFork(): Promise<SepoliaFork> {
-  const forkUrl = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
+export async function startChainFork(forkUrl: string): Promise<ChainFork> {
   const port = await freePort()
   const rpcUrl = `http://127.0.0.1:${port}`
   const anvil = spawn("anvil", ["--fork-url", forkUrl, "--port", `${port}`, "--silent"], {
@@ -90,8 +85,8 @@ export async function startSepoliaFork(): Promise<SepoliaFork> {
  * Make anvil's second account the oracle of the forked Sanctions Registry, by sending setOracle
  * from the registry's admin, impersonated, so a publisher holding ORACLE_PRIVATE_KEY can publish
  */
-export async function takeOverSanctionsOracle(fork: SepoliaFork) {
-  const registry = await createRegistryClient("ethereum_sepolia", fork.registry).getRegistryAddress(
+export async function takeOverSanctionsOracle(fork: ChainFork, chain: SupportedChain) {
+  const registry = await createRegistryClient(chain, fork.registry).getRegistryAddress(
     SANCTIONS_REGISTRY_ID,
   )
   const admin = cast(["call", registry, "admin()(address)"], fork)
@@ -126,7 +121,7 @@ export function startFetchProxy(allowedHosts: string[] = []): FetchProxy {
   return { blocked, stop: () => (globalThis.fetch = realFetch) }
 }
 
-function cast(args: string[], fork: SepoliaFork): string {
+function cast(args: string[], fork: ChainFork): string {
   return execFileSync("cast", [...args, "--rpc-url", fork.rpcUrl], { encoding: "utf8" }).trim()
 }
 

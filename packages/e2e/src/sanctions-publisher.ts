@@ -7,7 +7,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { stripVTControlCharacters } from "node:util"
-import { ORACLE_PRIVATE_KEY, type SepoliaFork } from "./sepolia-fork"
+import { type ChainFork, ORACLE_PRIVATE_KEY } from "./chain-fork"
 
 const PUBLISHER_DIR = process.env.SANCTIONS_PUBLISHER_DIR
   ? resolve(process.env.SANCTIONS_PUBLISHER_DIR)
@@ -49,7 +49,7 @@ export async function publishSanctionsRoot({
   snapshotsDir,
   workDir,
 }: {
-  fork: SepoliaFork
+  fork: ChainFork
   snapshotsDir: string
   workDir: string
 }): Promise<PublishedSanctionsRoot> {

@@ -8,7 +8,7 @@ import {
   type Query,
   type SupportedChain,
 } from "@zkpassport/utils"
-import type { RegistryOverrides } from "./sepolia-fork"
+import type { RegistryOverrides } from "./chain-fork"
 import { proveFastMode } from "./prove"
 
 export type HeadlessApp = {

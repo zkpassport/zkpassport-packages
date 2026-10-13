@@ -18,13 +18,13 @@ import type { PackagedSanctionsFile } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
   CACHE_DIR,
+  type ChainFork,
   type FetchProxy,
-  SEPOLIA_FILE_HOSTS,
+  startChainFork,
   startFetchProxy,
-  startSepoliaFork,
   takeOverSanctionsOracle,
-  type SepoliaFork,
-} from "../src/sepolia-fork"
+} from "../src/chain-fork"
+import { SEPOLIA_FILE_HOSTS, SEPOLIA_RPC_URL } from "../src/sepolia"
 import { findListedPerson, listedPersonPassport } from "../src/listed-person"
 import { getSanctionsBuilder } from "../src/prove"
 import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
@@ -58,7 +58,7 @@ if (!publisherAvailable) {
 }
 
 describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", () => {
-  let fork: SepoliaFork
+  let fork: ChainFork
   let bridgeRelay: BridgeRelay
   let fetchProxy: FetchProxy
   let registry: RegistryClient
@@ -68,12 +68,12 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   let zkPassport: ZKPassport
 
   beforeAll(async () => {
-    fork = await startSepoliaFork()
+    fork = await startChainFork(SEPOLIA_RPC_URL)
     registry = createRegistryClient("ethereum_sepolia", fork.registry)
     // The publish faces the checks the scheduled testnet job does: Sepolia's current root, its
     // timestamp and a leaf count within 20% of it
     sepoliaRoot = await registry.getLatestSanctionsRoot()
-    await takeOverSanctionsOracle(fork)
+    await takeOverSanctionsOracle(fork, "ethereum_sepolia")
 
     // The publisher's own steps, against the fork, before the fetch proxy starts
     await downloadOpenSanctions(SNAPSHOTS_DIR, process.env.OPENSANCTIONS_DATE)
