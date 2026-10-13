@@ -9,56 +9,57 @@ const MAX_AGE_MS = 30 * 60 * 1000
  */
 export type PendingVerification = {
   session: string
-  /** What it asks for, so a button asking for something else does not offer to continue it. */
-  requestKey: string
   startedAt: number
   phoneJoined: boolean
 }
 
+// Held per request, so starting one verification cannot drop another that is still running
+type PendingStore = Record<string, PendingVerification>
+
 export function loadPendingVerification(requestKey: string): PendingVerification | null {
-  const pending = read()
-  if (!pending) return null
-  if (Date.now() - pending.startedAt >= MAX_AGE_MS) {
-    forgetPendingVerification()
-    return null
-  }
-  return pending.requestKey === requestKey ? pending : null
+  return read()[requestKey] ?? null
 }
 
 export function rememberPendingVerification(session: string, requestKey: string): void {
+  const store = read()
   // Reopening the same verification must not extend how long it stays offered
-  if (read()?.session === session) return
-  save({ session, requestKey, startedAt: Date.now(), phoneJoined: false })
+  if (store[requestKey]?.session === session) return
+  save({ ...store, [requestKey]: { session, startedAt: Date.now(), phoneJoined: false } })
 }
 
 /** The phone holds the request now, so the verification outlives the window that started it. */
-export function markPhoneJoined(): void {
-  const pending = read()
+export function markPhoneJoined(requestKey: string): void {
+  const store = read()
+  const pending = store[requestKey]
   if (!pending || pending.phoneJoined) return
-  save({ ...pending, phoneJoined: true })
+  save({ ...store, [requestKey]: { ...pending, phoneJoined: true } })
 }
 
-export function forgetPendingVerification(): void {
-  try {
-    window.localStorage.removeItem(STORAGE_KEY)
-  } catch {
-    // Nothing to clean up if the store is unreachable
-  }
+export function forgetPendingVerification(requestKey: string): void {
+  const store = read()
+  if (!(requestKey in store)) return
+  delete store[requestKey]
+  save(store)
 }
 
-function read(): PendingVerification | null {
+// Expired entries are left out here, so the next write drops them for good
+function read(): PendingStore {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as PendingVerification) : null
+    if (!raw) return {}
+    const stored = JSON.parse(raw) as PendingStore
+    const oldest = Date.now() - MAX_AGE_MS
+    return Object.fromEntries(Object.entries(stored).filter(([, p]) => p.startedAt > oldest))
   } catch {
     // Private mode or blocked site data: there is nothing to resume
-    return null
+    return {}
   }
 }
 
-function save(pending: PendingVerification): void {
+function save(store: PendingStore): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(pending))
+    if (Object.keys(store).length === 0) window.localStorage.removeItem(STORAGE_KEY)
+    else window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
   } catch {
     // Without storage the verification still runs, it just cannot be picked back up
   }

@@ -174,7 +174,7 @@ export function createVerification(
       const stillRunning =
         kind === "blocked" ||
         (kind === "closed" && loadPendingVerification(requestKey)?.phoneJoined === true)
-      if (!stillRunning) forgetPendingVerification()
+      if (!stillRunning) forgetPendingVerification(requestKey)
       setStatus(
         status ?? "error",
         kind === "closed" ? null : message,
@@ -212,7 +212,7 @@ export function createVerification(
       // click, and React consumers swap callbacks between renders
       callbacks: {
         onRequestReceived: () => {
-          if (latestAttempt === thisAttempt) markPhoneJoined()
+          if (latestAttempt === thisAttempt) markPhoneJoined(requestKey)
         },
         // Success waits for the app's onSuccess handler, which can veto it by
         // returning false (e.g. when its backend did not verify the proofs)
@@ -220,7 +220,7 @@ export function createVerification(
           if (latestAttempt !== thisAttempt) return
           popupFinished = true
           settled = true
-          forgetPendingVerification()
+          forgetPendingVerification(requestKey)
           const finish = (next: "success" | "error") => {
             if (latestAttempt === thisAttempt) setStatus(next)
           }
@@ -260,7 +260,7 @@ export function createVerification(
 
   const close = () => {
     latestAttempt++
-    forgetPendingVerification()
+    forgetPendingVerification(toRequestKey(getOptions()))
     popupHandle?.close()
     popupHandle = null
   }
