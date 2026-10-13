@@ -14,8 +14,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { BridgeInterface } from "@obsidion/bridge"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
-import { ZKPassport } from "@zkpassport/sdk"
-import type { PackagedSanctionsFile, ProofResult, Query, QueryResult } from "@zkpassport/utils"
+import { type QueryBuilderResult, ZKPassport } from "@zkpassport/sdk"
+import type { PackagedSanctionsFile, ProofResult, QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
   CACHE_DIR,
@@ -69,7 +69,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   let appChain: string | undefined
   let zkPassport: ZKPassport
   let received: { proofs: ProofResult[]; result: QueryResult }
-  let originalQuery: Query
+  let request: QueryBuilderResult
   const events: string[] = []
 
   beforeAll(async () => {
@@ -105,8 +105,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       devMode: true,
       bridgeUrl: bridge.url,
     })
-    const request = queryBuilder.sanctions().done()
-    originalQuery = request.query
+    request = queryBuilder.sanctions().done()
 
     const success = new Promise<{ proofs: ProofResult[]; result: QueryResult }>(
       (resolve, reject) => {
@@ -176,7 +175,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   test("the proofs verify against Sepolia's registries", async () => {
     const verification = await zkPassport.verify({
       proofs: received.proofs.map((proof) => ({ ...proof })),
-      originalQuery,
+      originalQuery: request.query,
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
@@ -195,7 +194,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
 
     const verification = await zkPassport.verify({
       proofs,
-      originalQuery,
+      originalQuery: request.query,
       queryResult: received.result,
       devMode: true,
       verifierMode: "local",
