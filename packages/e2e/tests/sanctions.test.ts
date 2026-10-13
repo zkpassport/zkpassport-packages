@@ -19,9 +19,9 @@ import type { PackagedSanctionsFile, ProofResult, Query, QueryResult } from "@zk
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
   CACHE_DIR,
-  type FetchInterceptor,
-  interceptFetch,
+  type FetchProxy,
   SEPOLIA_FILE_HOSTS,
+  startFetchProxy,
   startSepoliaFork,
   takeOverSanctionsOracle,
   type SepoliaFork,
@@ -61,7 +61,7 @@ if (!publisherAvailable) {
 describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", () => {
   let fork: SepoliaFork
   let bridge: Bridge
-  let fetchInterceptor: FetchInterceptor
+  let fetchProxy: FetchProxy
   let registry: RegistryClient
   let sepoliaRoot: string
   let published: PublishedSanctionsRoot
@@ -80,7 +80,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     sepoliaRoot = await registry.getLatestSanctionsRoot()
     await takeOverSanctionsOracle(fork)
 
-    // The publisher's own steps, against the fork, before fetch is intercepted
+    // The publisher's own steps, against the fork, before the fetch proxy starts
     await downloadOpenSanctions(SNAPSHOTS_DIR, process.env.OPENSANCTIONS_DATE)
     rmSync(RUN_DIR, { recursive: true, force: true })
     mkdirSync(RUN_DIR, { recursive: true })
@@ -94,7 +94,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     fork.serveSanctionsTree(published.root, published.treeFile)
 
     bridge = startBridge()
-    fetchInterceptor = interceptFetch(SEPOLIA_FILE_HOSTS)
+    fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
     const queryBuilder = await zkPassport.request({
@@ -134,7 +134,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   }, 30 * 60_000)
 
   afterAll(async () => {
-    fetchInterceptor?.restore()
+    fetchProxy?.restore()
     appBridge?.cleanup()
     await bridge?.stop()
     fork?.stop()
@@ -220,9 +220,7 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails
     expect(
-      fetchInterceptor.blocked.every((url) =>
-        url.startsWith("https://dashboard-api.zkpassport.id/"),
-      ),
+      fetchProxy.blocked.every((url) => url.startsWith("https://dashboard-api.zkpassport.id/")),
     ).toBe(true)
   })
 })
