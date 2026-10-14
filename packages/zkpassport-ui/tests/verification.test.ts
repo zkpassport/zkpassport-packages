@@ -659,6 +659,102 @@ describe("picking a verification back up after the page was rebuilt", () => {
     otherQuery.verify()
     expect(sessionOf(openedUrls[0])).not.toBe(ageCheck)
   })
+
+  test("close clears the verification it started, not the one the options now describe", () => {
+    setupFakeWindow()
+    const started: VerificationOptions = { query: { age: { min: 18 } } }
+    let options = started
+    const controller = createVerification(
+      () => options,
+      () => {},
+    )
+
+    controller.verify()
+    // The consumer re-renders with a different request while the window is open
+    options = { query: { age: { min: 21 } } }
+    controller.close()
+
+    expect(
+      createVerification(
+        () => started,
+        () => {},
+      ).state.resumable,
+    ).toBe(false)
+  })
+
+  test("a second click on an open window leaves the running verification's note alone", () => {
+    setupFakeWindow()
+    const started: VerificationOptions = { query: { age: { min: 18 } } }
+    let options = started
+    const controller = createVerification(
+      () => options,
+      () => {},
+    )
+
+    controller.verify()
+    options = { query: { age: { min: 21 } } }
+    // The window is still open, so this only brings it back to the front
+    controller.verify()
+    controller.close()
+
+    expect(
+      createVerification(
+        () => started,
+        () => {},
+      ).state.resumable,
+    ).toBe(false)
+  })
+
+  test("the service, purpose, mode and overrides each make it a different request", () => {
+    const base: VerificationOptions = { query: { age: { min: 18 } } }
+    const variants: Array<[string, VerificationOptions]> = [
+      ["service", { ...base, service: { scope: "payout" } }],
+      ["purpose", { ...base, purpose: "Collect a payout" }],
+      ["mode", { ...base, mode: "fast" }],
+      ["overrides", { ...base, overrides: { bridgeUrl: "https://bridge.example" } }],
+    ]
+
+    const offered = variants.map(([field, variant]) => {
+      const storage = new Map<string, string>()
+      setupFakeWindow(storage)
+      createVerification(
+        () => base,
+        () => {},
+      ).verify()
+
+      setupFakeWindow(storage)
+      const other = createVerification(
+        () => variant,
+        () => {},
+      )
+      return [field, other.state.resumable]
+    })
+
+    expect(offered).toEqual([
+      ["service", false],
+      ["purpose", false],
+      ["mode", false],
+      ["overrides", false],
+    ])
+  })
+
+  test("clearing a verification also drops the ones that expired", () => {
+    const storage = new Map<string, string>()
+    setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    expirePending(storage)
+
+    setupFakeWindow(storage)
+    createVerification(
+      () => ({ query: { nationality: { eq: "FRA" } } }) as VerificationOptions,
+      () => {},
+    ).close()
+
+    expect(storage.has(PENDING_KEY)).toBe(false)
+  })
 })
 
 describe("a popup window that reports closed", () => {
