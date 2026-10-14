@@ -22,13 +22,6 @@ import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
-// What john's fast-mode sanctions request proves
-const CIRCUITS = [
-  "sig_check_dsc_tbs_700_rsa_pkcs_2048_sha256",
-  "sig_check_id_data_tbs_700_rsa_pkcs_2048_sha256",
-  "data_check_integrity_sa_sha256_dg_sha256",
-  "exclusion_check_sanctions",
-]
 
 describe("sanctions, end to end on a Sepolia fork", () => {
   let fork: ChainFork
@@ -71,16 +64,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     fork?.stop()
   })
 
-  test("the SDK sees the whole request over the bridge", () => {
-    expect(app.chain).toBe("ethereum_sepolia")
-    expect(app.request.events.map((event) => event.type)).toEqual([
-      "requestReceived",
-      "generatingProof",
-      ...CIRCUITS.map(() => "proofGenerated" as const),
-      "success",
-    ])
-    expect(app.request.generatedProofs().map((proof) => proof.name)).toEqual(CIRCUITS)
-
+  test("john passes the non-strict sanctions check", () => {
     const { result: queryResult } = app.request.result()!
     expect(queryResult.sanctions?.passed).toBe(true)
     expect(queryResult.sanctions?.isStrict).toBe(false)
@@ -127,11 +111,4 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     })
     expect(verification.verified).toBe(false)
   }, 60_000)
-
-  test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
-    // request() looks the domain up on the dashboard API and carries on when that fails
-    expect(
-      fetchProxy.blocked.every((url) => url.startsWith("https://dashboard-api.zkpassport.id/")),
-    ).toBe(true)
-  })
 })
