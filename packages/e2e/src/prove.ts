@@ -126,7 +126,7 @@ export async function proveFastMode({
         ...disclosureArgs,
         undefined,
         await getSanctionsBuilder(registry),
-      ),
+      ).catch(toSanctionsCheckFailed),
       "exclusion_check_sanctions",
     )
     steps.push({
@@ -176,10 +176,21 @@ export async function proveFastMode({
   return { proofs, queryResult: getQueryResult(passport, query) }
 }
 
+/** The passport is on a sanctions list, so no exclusion proof exists for it */
+export class SanctionsCheckFailedError extends Error {}
+
 /** The sanctions tree published for the latest sanctions root of the registry's chain */
 async function getSanctionsBuilder(registry: RegistryClient): Promise<SanctionsBuilder> {
   const { serialised } = await registry.getSanctionsTree()
   return new SanctionsBuilder(await AsyncOrderedMT.fromSerialized(serialised, poseidon2))
+}
+
+/** A failed exclusion proof read the way the app's circuit-matcher.ts reads it */
+function toSanctionsCheckFailed(error: unknown): never {
+  if (error instanceof Error && error.message.includes("Target exists")) {
+    throw new SanctionsCheckFailedError()
+  }
+  throw error
 }
 
 /** Inputs from a @zkpassport/utils builder, which returns null or undefined when it cannot build them */

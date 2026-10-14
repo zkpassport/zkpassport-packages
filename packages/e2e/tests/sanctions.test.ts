@@ -4,11 +4,16 @@
  *   SDK request() with .sanctions() in dev mode → bridge → headless app (john) proves against the
  *   tree published for Sepolia's latest sanctions root → SDK verify() checks that root in the
  *   Sanctions Registry
+ *
+ * For a person on the OFAC list behind that root, the headless app reports "Sanctions check failed"
+ * to the SDK instead of proving, as the app does.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { createRegistryClient } from "@zkpassport/registry"
 import { ZKPassport } from "@zkpassport/sdk"
+import type { PassportViewModel } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
+import type { SanctionsPerson } from "@zkpassport/utils/sanctions"
 import {
   type ChainFork,
   type FetchProxy,
@@ -19,6 +24,7 @@ import {
 } from "../src/chain-fork"
 import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
+import { findListedPerson } from "../src/listed-person"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
@@ -28,6 +34,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
   let bridgeRelay: BridgeRelay
   let fetchProxy: FetchProxy
   let sanctionsRoot: string
+  let listedPerson: SanctionsPerson
   let app: HeadlessApp
   let zkPassport: ZKPassport
 
@@ -37,24 +44,13 @@ describe("sanctions, end to end on a Sepolia fork", () => {
       "ethereum_sepolia",
       fork.registry,
     ).getLatestSanctionsRoot()
+    // Before the fetch proxy starts, which does not let OpenSanctions through
+    listedPerson = await findListedPerson(sanctionsRoot)
     bridgeRelay = startBridgeRelay()
     fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
 
     zkPassport = new ZKPassport(DOMAIN)
-    const queryBuilder = await zkPassport.request({
-      name: "ZKPassport e2e",
-      logo: "https://zkpassport.id/favicon.png",
-      purpose: "End-to-end sanctions test",
-      mode: "fast",
-      devMode: true,
-      bridgeUrl: bridgeRelay.url,
-    })
-    app = await runHeadlessApp({
-      query: queryBuilder.sanctions().done(),
-      passport: createMockPassport(),
-      registry: fork.registry,
-      circuitVersion: CIRCUIT_VERSION,
-    })
+    app = await requestSanctionsCheck(createMockPassport())
   }, 180_000)
 
   afterAll(async () => {
@@ -63,6 +59,24 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     await bridgeRelay?.stop()
     fork?.stop()
   })
+
+  /** A fast-mode, non-strict sanctions request that the headless app answers with `passport` */
+  async function requestSanctionsCheck(passport: PassportViewModel): Promise<HeadlessApp> {
+    const queryBuilder = await zkPassport.request({
+      name: "ZKPassport e2e",
+      logo: "https://zkpassport.id/favicon.png",
+      purpose: "End-to-end sanctions test",
+      mode: "fast",
+      devMode: true,
+      bridgeUrl: bridgeRelay.url,
+    })
+    return runHeadlessApp({
+      query: queryBuilder.sanctions().done(),
+      passport,
+      registry: fork.registry,
+      circuitVersion: CIRCUIT_VERSION,
+    })
+  }
 
   test("john passes the non-strict sanctions check", () => {
     const { result: queryResult } = app.request.result()!
@@ -110,5 +124,23 @@ describe("sanctions, end to end on a Sepolia fork", () => {
       config: { rpcUrl: fork.rpcUrl },
     })
     expect(verification.verified).toBe(false)
+  }, 60_000)
+
+  test("a listed person's passport fails the sanctions check", async () => {
+    const listedApp = await requestSanctionsCheck(
+      createMockPassport({
+        firstName: listedPerson.firstNames[0],
+        middleName: "",
+        lastName: listedPerson.lastNames[0],
+        dateOfBirth: new Date(listedPerson.birthDate!),
+      }),
+    )
+    listedApp.bridge.cleanup()
+
+    expect(listedApp.request.events.at(-1)).toEqual({
+      type: "error",
+      error: "Sanctions check failed",
+    })
+    expect(listedApp.request.generatedProofs()).toEqual([])
   }, 60_000)
 })

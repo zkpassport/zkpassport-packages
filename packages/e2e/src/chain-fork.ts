@@ -8,11 +8,14 @@ const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
 /** SEPOLIA_RPC_URL, or the registry-sdk's built-in Sepolia endpoint */
 export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
 
+/** Where the registry-sdk reads testnet sanctions trees, which it does not export */
+export const SEPOLIA_SANCTIONS_URL = "https://sanctions.zkpassport.id/testnet"
+
 export const SEPOLIA_FILE_HOSTS = [
-  ...[SEPOLIA.packagedCertificatesUrl, SEPOLIA.circuitUrl].map((url) => new URL(url).hostname),
-  // The registry-sdk's testnet sanctions tree host, which it does not export
-  "sanctions.zkpassport.id",
-]
+  SEPOLIA.packagedCertificatesUrl,
+  SEPOLIA.circuitUrl,
+  SEPOLIA_SANCTIONS_URL,
+].map((url) => new URL(url).hostname)
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
