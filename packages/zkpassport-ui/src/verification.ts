@@ -263,8 +263,7 @@ export function createVerification(
 
   const close = () => {
     latestAttempt++
-    // No key of our own yet: clear what this button asks for, which is what a reload would offer
-    forgetPendingVerification(pendingKey ?? toRequestKey(getOptions()))
+    if (pendingKey) forgetPendingVerification(pendingKey)
     popupHandle?.close()
     popupHandle = null
   }
@@ -288,7 +287,7 @@ export function createVerification(
 
 /** Identifies what a button asks for, so a pending verification is only offered back to its own. */
 function toRequestKey(options: VerificationOptions): string {
-  // Everything that reaches the popup: a field missing here lets one button resume another's
+  // Everything that reaches the popup: a field left out lets buttons share a verification
   return JSON.stringify([
     options.policyId ?? null,
     options.query ?? null,

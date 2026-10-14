@@ -670,7 +670,6 @@ describe("picking a verification back up after the page was rebuilt", () => {
     )
 
     controller.verify()
-    // The consumer re-renders with a different request while the window is open
     options = { query: { age: { min: 21 } } }
     controller.close()
 
@@ -736,24 +735,6 @@ describe("picking a verification back up after the page was rebuilt", () => {
       ["mode", false],
       ["overrides", false],
     ])
-  })
-
-  test("clearing a verification also drops the ones that expired", () => {
-    const storage = new Map<string, string>()
-    setupFakeWindow(storage)
-    createVerification(
-      () => SIMPLE_OPTIONS,
-      () => {},
-    ).verify()
-    expirePending(storage)
-
-    setupFakeWindow(storage)
-    createVerification(
-      () => ({ query: { nationality: { eq: "FRA" } } }) as VerificationOptions,
-      () => {},
-    ).close()
-
-    expect(storage.has(PENDING_KEY)).toBe(false)
   })
 })
 
