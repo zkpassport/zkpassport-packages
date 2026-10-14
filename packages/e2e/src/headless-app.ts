@@ -3,6 +3,7 @@ import { createRegistryClient } from "@zkpassport/registry"
 import type { QueryBuilderResult, RequestSuccess } from "@zkpassport/sdk"
 import {
   getChainFromQuery,
+  type PackagedCertificatesFile,
   type PassportViewModel,
   type ProofResult,
   type Query,
@@ -32,11 +33,14 @@ export async function runHeadlessApp({
   passport,
   registry = {},
   circuitVersion,
+  certificates,
 }: {
   query: QueryBuilderResult
   passport: PassportViewModel
   registry?: RegistryOverrides
   circuitVersion: string
+  /** Packaged certificates to prove against instead of those for the registry's latest root */
+  certificates?: PackagedCertificatesFile
 }): Promise<HeadlessApp> {
   const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
@@ -65,6 +69,7 @@ export async function runHeadlessApp({
       scope: request.service.scope,
       circuitVersion,
       registry: createRegistryClient(chain, registry),
+      certificates,
     })
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done

@@ -11,6 +11,7 @@ import {
   getDiscloseCircuitInputs,
   getDSCCircuitInputs,
   getDSCSignatureAlgorithmHashAlgorithm,
+  getECDSAInfo,
   getIDDataCircuitInputs,
   getIntegrityCheckCircuitInputs,
   getRSAInfo,
@@ -18,11 +19,13 @@ import {
   getServiceScopeHash,
   getServiceSubscopeHash,
   getSodSignatureAlgorithmHashAlgorithm,
+  getSodSignatureAlgorithmType,
   getTBSMaxLen,
   poseidon2,
   SanctionsBuilder,
   TargetExistsError,
   type PackagedCertificate,
+  type PackagedCertificatesFile,
   type PassportViewModel,
   type ProofResult,
   type Query,
@@ -40,6 +43,7 @@ export async function proveFastMode({
   scope,
   circuitVersion,
   registry,
+  certificates,
 }: {
   passport: PassportViewModel
   query: Query
@@ -47,6 +51,8 @@ export async function proveFastMode({
   scope?: string
   circuitVersion: string
   registry: RegistryClient
+  /** Packaged certificates to prove against instead of those for the registry's latest root */
+  certificates?: PackagedCertificatesFile
 }): Promise<{ proofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
     (field) => !["age", "nationality", "sanctions"].includes(field),
@@ -61,7 +67,7 @@ export async function proveFastMode({
     )
   }
 
-  const packagedCerts = await registry.getCertificates()
+  const packagedCerts = certificates ?? (await registry.getCertificates())
   const manifest = await registry.getCircuitManifest(undefined, { version: circuitVersion })
   const names = await getBaseCircuitNames(passport, packagedCerts.certificates)
 
@@ -194,6 +200,13 @@ function toSanctionsCheckFailed(error: unknown): never {
   throw error
 }
 
+/** A curve as circuit names spell it, the way the app's circuit-matcher.ts does: nist_p256 */
+function curveId(curve: string): string {
+  const family = curve.includes("brainpool") ? "brainpool" : "nist"
+  const name = curve.replace("brainpoolP", "").replace("nist", "").replace("-", "").toLowerCase()
+  return `${family}_${name}`
+}
+
 /** Inputs from a @zkpassport/utils builder, which returns null or undefined when it cannot build them */
 function required<T extends object>(inputs: T | null | undefined, circuitName: string): T {
   if (!inputs) {
@@ -259,22 +272,24 @@ async function getBaseCircuitNames(
   if (!csca) {
     throw new Error("No CSCA found for the passport's DSC in the certificate registry")
   }
-  if (csca.public_key.type !== "RSA") {
-    throw new Error("Only RSA CSCAs are handled so far")
-  }
-  const cscaBits = getBitSize(BigInt(csca.public_key.modulus))
-  const cscaScheme = csca.signature_algorithm === "RSA-PSS" ? "pss" : "pkcs"
-  const dsc = `sig_check_dsc_tbs_${tbsMaxLen}_rsa_${cscaScheme}_${cscaBits}_${getDSCSignatureAlgorithmHashAlgorithm(passport)}`
+  const cscaKey =
+    csca.public_key.type === "EC"
+      ? `ecdsa_${curveId(csca.public_key.curve)}`
+      : `rsa_${csca.signature_algorithm === "RSA-PSS" ? "pss" : "pkcs"}_${getBitSize(BigInt(csca.public_key.modulus))}`
+  const dsc = `sig_check_dsc_tbs_${tbsMaxLen}_${cscaKey}_${getDSCSignatureAlgorithmHashAlgorithm(passport)}`
 
   const tbs = extractTBS(passport)
   if (!tbs) {
     throw new Error("Could not extract the DSC TBS")
   }
-  const dscBits = getBitSize(getRSAInfo(tbs.subjectPublicKeyInfo).modulus)
   const idScheme = passport.sod.signerInfo.signatureAlgorithm.name.toLowerCase().includes("pss")
     ? "pss"
     : "pkcs"
-  const idData = `sig_check_id_data_tbs_${tbsMaxLen}_rsa_${idScheme}_${dscBits}_${getSodSignatureAlgorithmHashAlgorithm(passport)}`
+  const dscKey =
+    getSodSignatureAlgorithmType(passport) === "ECDSA"
+      ? `ecdsa_${curveId(getECDSAInfo(tbs.subjectPublicKeyInfo).curve)}`
+      : `rsa_${idScheme}_${getBitSize(getRSAInfo(tbs.subjectPublicKeyInfo).modulus)}`
+  const idData = `sig_check_id_data_tbs_${tbsMaxLen}_${dscKey}_${getSodSignatureAlgorithmHashAlgorithm(passport)}`
 
   const saHash = passport.sod.signerInfo.digestAlgorithm.toLowerCase().replace("-", "")
   const dgHash = passport.sod.encapContentInfo.eContent.hashAlgorithm.toLowerCase().replace("-", "")

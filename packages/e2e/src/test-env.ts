@@ -6,6 +6,7 @@ import {
 import { type QueryBuilder, type VerificationResult, ZKPassport } from "@zkpassport/sdk"
 import {
   getIdFromChain,
+  type PackagedCertificatesFile,
   type PassportViewModel,
   type ProofResult,
   type Query,
@@ -35,6 +36,8 @@ export type TestEnv = {
   runHeadlessApp: (options: {
     passport: PassportViewModel
     query: (query: QueryBuilder) => QueryBuilder
+    /** Packaged certificates to prove against instead of those for Sepolia's latest root */
+    certificates?: PackagedCertificatesFile
   }) => Promise<HeadlessApp>
   /** verify() in dev mode with the local verifier, reading the fork's registries */
   verify: (options: {
@@ -64,7 +67,7 @@ export async function startTestEnv(): Promise<TestEnv> {
   return {
     registry: createRegistryClient("ethereum_sepolia", fork.registry),
     blockedFetches: fetchProxy.blocked,
-    runHeadlessApp: async ({ passport, query }) => {
+    runHeadlessApp: async ({ passport, query, certificates }) => {
       const queryBuilder = await zkPassport.request({
         name: "ZKPassport e2e",
         logo: "https://zkpassport.id/favicon.png",
@@ -78,6 +81,7 @@ export async function startTestEnv(): Promise<TestEnv> {
         passport,
         registry: fork.registry,
         circuitVersion: CIRCUIT_VERSION,
+        certificates,
       })
       apps.push(app)
       return app
