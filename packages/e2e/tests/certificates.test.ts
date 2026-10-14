@@ -63,7 +63,7 @@ describe("certificates, end to end on a Sepolia fork", () => {
     const app = await testEnv.runHeadlessApp({
       passport: createMockPassport(),
       query: (query) => query.disclose("nationality"),
-      certificates: unpublished,
+      overrides: { certificates: unpublished },
     })
 
     const { proofs, result: queryResult } = app.request.result()!

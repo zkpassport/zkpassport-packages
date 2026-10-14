@@ -25,6 +25,11 @@ export type RequestEvent =
   | { type: "success"; response: RequestSuccess }
   | { type: "error"; error: string }
 
+export type HeadlessAppOverrides = {
+  /** Packaged certificates to prove against instead of those for the registry's latest root */
+  certificates?: PackagedCertificatesFile
+}
+
 /**
  * A simplified mock of the mobile app, to enable integration testing.
  */
@@ -33,14 +38,13 @@ export async function runHeadlessApp({
   passport,
   registry = {},
   circuitVersion,
-  certificates,
+  overrides = {},
 }: {
   query: QueryBuilderResult
   passport: PassportViewModel
   registry?: RegistryOverrides
   circuitVersion: string
-  /** Packaged certificates to prove against instead of those for the registry's latest root */
-  certificates?: PackagedCertificatesFile
+  overrides?: HeadlessAppOverrides
 }): Promise<HeadlessApp> {
   const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
@@ -69,7 +73,7 @@ export async function runHeadlessApp({
       scope: request.service.scope,
       circuitVersion,
       registry: createRegistryClient(chain, registry),
-      certificates,
+      certificates: overrides.certificates,
     })
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done
