@@ -9,7 +9,7 @@ const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
 export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
 
 /** Where the registry-sdk reads testnet sanctions trees, which it does not export */
-export const SEPOLIA_SANCTIONS_URL = "https://sanctions.zkpassport.id/testnet"
+const SEPOLIA_SANCTIONS_URL = "https://sanctions.zkpassport.id/testnet"
 
 export const SEPOLIA_FILE_HOSTS = [
   SEPOLIA.packagedCertificatesUrl,

@@ -5,15 +5,14 @@
  *   tree published for Sepolia's latest sanctions root → SDK verify() checks that root in the
  *   Sanctions Registry
  *
- * For a person on the OFAC list behind that root, the headless app reports "Sanctions check failed"
- * to the SDK instead of proving, as the app does.
+ * For a sanctioned person, the headless app reports "Sanctions check failed" to the SDK instead of
+ * proving, as the app does.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { createRegistryClient } from "@zkpassport/registry"
 import { ZKPassport } from "@zkpassport/sdk"
 import type { PassportViewModel } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
-import type { SanctionsPerson } from "@zkpassport/utils/sanctions"
 import {
   type ChainFork,
   type FetchProxy,
@@ -24,17 +23,22 @@ import {
 } from "../src/chain-fork"
 import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
-import { findListedPerson } from "../src/listed-person"
 
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
+// A public official on OFAC's list since 2006, so the test names nobody private
+const SANCTIONED_PERSON = {
+  firstName: "Lidziya",
+  middleName: "Mihaulauna",
+  lastName: "Yarmoshina",
+  dateOfBirth: new Date("1953-01-29"),
+}
 
 describe("sanctions, end to end on a Sepolia fork", () => {
   let fork: ChainFork
   let bridgeRelay: BridgeRelay
   let fetchProxy: FetchProxy
   let sanctionsRoot: string
-  let listedPerson: SanctionsPerson
   let app: HeadlessApp
   let zkPassport: ZKPassport
 
@@ -44,8 +48,6 @@ describe("sanctions, end to end on a Sepolia fork", () => {
       "ethereum_sepolia",
       fork.registry,
     ).getLatestSanctionsRoot()
-    // Before the fetch proxy starts, which does not let OpenSanctions through
-    listedPerson = await findListedPerson(sanctionsRoot)
     bridgeRelay = startBridgeRelay()
     fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
 
@@ -126,21 +128,14 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     expect(verification.verified).toBe(false)
   }, 60_000)
 
-  test("a listed person's passport fails the sanctions check", async () => {
-    const listedApp = await requestSanctionsCheck(
-      createMockPassport({
-        firstName: listedPerson.firstNames[0],
-        middleName: "",
-        lastName: listedPerson.lastNames[0],
-        dateOfBirth: new Date(listedPerson.birthDate!),
-      }),
-    )
-    listedApp.bridge.cleanup()
+  test("a sanctioned person's passport fails the sanctions check", async () => {
+    const sanctionedApp = await requestSanctionsCheck(createMockPassport(SANCTIONED_PERSON))
+    sanctionedApp.bridge.cleanup()
 
-    expect(listedApp.request.events.at(-1)).toEqual({
+    expect(sanctionedApp.request.events.at(-1)).toEqual({
       type: "error",
       error: "Sanctions check failed",
     })
-    expect(listedApp.request.generatedProofs()).toEqual([])
+    expect(sanctionedApp.request.generatedProofs()).toEqual([])
   }, 60_000)
 })
