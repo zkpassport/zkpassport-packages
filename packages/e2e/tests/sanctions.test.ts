@@ -9,23 +9,10 @@
  * proving, as the app does.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { createRegistryClient } from "@zkpassport/registry"
-import { ZKPassport } from "@zkpassport/sdk"
-import type { PassportViewModel } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
-import {
-  type ChainFork,
-  type FetchProxy,
-  SEPOLIA_FILE_HOSTS,
-  SEPOLIA_RPC_URL,
-  startChainFork,
-  startFetchProxy,
-} from "../src/chain-fork"
-import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
-import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
+import type { HeadlessApp } from "../src/headless-app"
+import { startTestEnv, type TestEnv } from "../src/test-env"
 
-const CIRCUIT_VERSION = "0.21.0"
-const DOMAIN = "localhost"
 // A public official on OFAC's list since 2006, so the test names nobody private
 const SANCTIONED_PERSON = {
   firstName: "Lidziya",
@@ -35,50 +22,20 @@ const SANCTIONED_PERSON = {
 }
 
 describe("sanctions, end to end on a Sepolia fork", () => {
-  let fork: ChainFork
-  let bridgeRelay: BridgeRelay
-  let fetchProxy: FetchProxy
+  let testEnv: TestEnv
   let sanctionsRoot: string
   let app: HeadlessApp
-  let zkPassport: ZKPassport
 
   beforeAll(async () => {
-    fork = await startChainFork(SEPOLIA_RPC_URL)
-    sanctionsRoot = await createRegistryClient(
-      "ethereum_sepolia",
-      fork.registry,
-    ).getLatestSanctionsRoot()
-    bridgeRelay = startBridgeRelay()
-    fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
-
-    zkPassport = new ZKPassport(DOMAIN)
-    app = await requestSanctionsCheck(createMockPassport())
+    testEnv = await startTestEnv()
+    sanctionsRoot = await testEnv.registry.getLatestSanctionsRoot()
+    app = await testEnv.runHeadlessApp({
+      passport: createMockPassport(),
+      query: (query) => query.sanctions(),
+    })
   }, 180_000)
 
-  afterAll(async () => {
-    fetchProxy?.stop()
-    app?.bridge.cleanup()
-    await bridgeRelay?.stop()
-    fork?.stop()
-  })
-
-  /** A fast-mode, non-strict sanctions request that the headless app answers with `passport` */
-  async function requestSanctionsCheck(passport: PassportViewModel): Promise<HeadlessApp> {
-    const queryBuilder = await zkPassport.request({
-      name: "ZKPassport e2e",
-      logo: "https://zkpassport.id/favicon.png",
-      purpose: "End-to-end sanctions test",
-      mode: "fast",
-      devMode: true,
-      bridgeUrl: bridgeRelay.url,
-    })
-    return runHeadlessApp({
-      query: queryBuilder.sanctions().done(),
-      passport,
-      registry: fork.registry,
-      circuitVersion: CIRCUIT_VERSION,
-    })
-  }
+  afterAll(() => testEnv?.stop())
 
   test("john passes the non-strict sanctions check", () => {
     const { result: queryResult } = app.request.result()!
@@ -97,13 +54,10 @@ describe("sanctions, end to end on a Sepolia fork", () => {
 
   test("the proofs verify against Sepolia's registries", async () => {
     const { proofs, result: queryResult } = app.request.result()!
-    const verification = await zkPassport.verify({
-      proofs: proofs.map((proof) => ({ ...proof })),
-      originalQuery: app.request.query,
+    const verification = await testEnv.verify({
+      proofs,
       queryResult,
-      devMode: true,
-      verifierMode: "local",
-      config: { rpcUrl: fork.rpcUrl },
+      originalQuery: app.request.query,
     })
     expect(verification.queryResultErrors).toBeUndefined()
     expect(verification.verified).toBe(true)
@@ -117,20 +71,19 @@ describe("sanctions, end to end on a Sepolia fork", () => {
       exclusion_check_sanctions: { rootHash: `0x${"0".repeat(63)}1`, isStrict: false },
     }
 
-    const verification = await zkPassport.verify({
+    const verification = await testEnv.verify({
       proofs: tamperedProofs,
-      originalQuery: app.request.query,
       queryResult,
-      devMode: true,
-      verifierMode: "local",
-      config: { rpcUrl: fork.rpcUrl },
+      originalQuery: app.request.query,
     })
     expect(verification.verified).toBe(false)
   }, 60_000)
 
   test("a sanctioned person's passport fails the sanctions check", async () => {
-    const sanctionedApp = await requestSanctionsCheck(createMockPassport(SANCTIONED_PERSON))
-    sanctionedApp.bridge.cleanup()
+    const sanctionedApp = await testEnv.runHeadlessApp({
+      passport: createMockPassport(SANCTIONED_PERSON),
+      query: (query) => query.sanctions(),
+    })
 
     expect(sanctionedApp.request.events.at(-1)).toEqual({
       type: "error",
