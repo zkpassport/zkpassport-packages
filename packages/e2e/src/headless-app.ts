@@ -9,7 +9,7 @@ import {
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./chain-fork"
-import { proveFastMode, SanctionsCheckFailedError } from "./prove"
+import { proveFastMode, type ProvingOverrides, SanctionsCheckFailedError } from "./prove"
 
 export type HeadlessApp = {
   bridge: BridgeInterface
@@ -32,11 +32,13 @@ export async function runHeadlessApp({
   passport,
   registry = {},
   circuitVersion,
+  overrides,
 }: {
   query: QueryBuilderResult
   passport: PassportViewModel
   registry?: RegistryOverrides
   circuitVersion: string
+  overrides?: ProvingOverrides
 }): Promise<HeadlessApp> {
   const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
@@ -65,6 +67,7 @@ export async function runHeadlessApp({
       scope: request.service.scope,
       circuitVersion,
       registry: createRegistryClient(chain, registry),
+      overrides,
     })
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done

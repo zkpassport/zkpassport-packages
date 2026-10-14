@@ -49,7 +49,11 @@ import {
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
-import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
+import {
+  createUltraHonkVerifier,
+  getBBVersionForCircuitVersion,
+  type LoadedVerifier,
+} from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
@@ -961,9 +965,8 @@ export class ZKPassport {
       writingDirectory = "/tmp"
     }
     const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
-    const { verifier, destroy: destroyVerifier } = await createUltraHonkVerifier(bbVersion, {
-      writingDirectory,
-    })
+    // Started only once the public inputs check out, so rejected proofs never spawn bb
+    let loadedVerifier: LoadedVerifier | undefined
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -1009,6 +1012,7 @@ export class ZKPassport {
           // We assume all proofs have the same version
           version: proofs[0].version,
         })
+        loadedVerifier = await createUltraHonkVerifier(bbVersion, { writingDirectory })
         for (const proof of proofs) {
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!
@@ -1046,7 +1050,7 @@ export class ZKPassport {
           } else {
             const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
             try {
-              verified = await verifier.verifyProof({
+              verified = await loadedVerifier.verifier.verifyProof({
                 proof: Buffer.from(proofData.proof.join(""), "hex"),
                 publicInputs: proofData.publicInputs,
                 verificationKey: new Uint8Array(vkeyBytes),
@@ -1065,7 +1069,7 @@ export class ZKPassport {
       }
     } finally {
       // Always release the bb.js instance, or its worker threads keep the process alive
-      await destroyVerifier()
+      await loadedVerifier?.destroy()
     }
 
     // If the proofs are not verified, we don't return the unique identifier
