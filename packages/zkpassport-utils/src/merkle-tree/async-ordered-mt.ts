@@ -21,6 +21,14 @@ export type SortedNonMembershipProof = {
   right?: NeighborMembershipProof
 }
 
+/** Thrown by createNonMembershipProof when the target is in the tree */
+export class TargetExistsError extends Error {
+  constructor() {
+    super("Target exists; use membership proof")
+    this.name = "TargetExistsError"
+  }
+}
+
 const ZERO_NODE: Node = 0n
 export const BN254_MODULUS_MINUS_ONE: Node = BigInt(
   "0x2523648240000001ba344d80000000086121000000000013a700000000000012",
@@ -170,7 +178,7 @@ export default class AsyncOrderedMT {
 
   public createNonMembershipProof(target: Node): SortedNonMembershipProof {
     const { exists, leftIndex, rightIndex } = this.findBoundaries(target)
-    if (exists) throw new Error("Target exists; use membership proof")
+    if (exists) throw new TargetExistsError()
 
     const left =
       leftIndex !== null
