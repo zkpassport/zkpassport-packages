@@ -13,7 +13,8 @@ import {
 } from "@zkpassport/utils"
 import { startBridgeRelay } from "./bridge-relay"
 import { startChainFork, startFetchProxy } from "./chain-fork"
-import { type HeadlessApp, type HeadlessAppOverrides, runHeadlessApp } from "./headless-app"
+import { type HeadlessApp, runHeadlessApp } from "./headless-app"
+import type { ProvingOverrides } from "./prove"
 
 const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
@@ -35,7 +36,7 @@ export type TestEnv = {
   runHeadlessApp: (options: {
     passport: PassportViewModel
     query: (query: QueryBuilder) => QueryBuilder
-    overrides?: HeadlessAppOverrides
+    overrides?: ProvingOverrides
   }) => Promise<HeadlessApp>
   /** verify() in dev mode with the local verifier, reading the fork's registries */
   verify: (options: {

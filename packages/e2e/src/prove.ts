@@ -36,6 +36,11 @@ const SALT = BigInt("0x" + "11".repeat(31))
 
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 
+export type ProvingOverrides = {
+  /** Packaged certificates to prove against instead of those for the registry's latest root */
+  certificates?: PackagedCertificatesFile
+}
+
 export async function proveFastMode({
   passport,
   query,
@@ -43,7 +48,7 @@ export async function proveFastMode({
   scope,
   circuitVersion,
   registry,
-  certificates,
+  overrides = {},
 }: {
   passport: PassportViewModel
   query: Query
@@ -51,8 +56,7 @@ export async function proveFastMode({
   scope?: string
   circuitVersion: string
   registry: RegistryClient
-  /** Packaged certificates to prove against instead of those for the registry's latest root */
-  certificates?: PackagedCertificatesFile
+  overrides?: ProvingOverrides
 }): Promise<{ proofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
     (field) => !["age", "nationality", "sanctions"].includes(field),
@@ -67,7 +71,7 @@ export async function proveFastMode({
     )
   }
 
-  const packagedCerts = certificates ?? (await registry.getCertificates())
+  const packagedCerts = overrides.certificates ?? (await registry.getCertificates())
   const manifest = await registry.getCircuitManifest(undefined, { version: circuitVersion })
   const names = await getBaseCircuitNames(passport, packagedCerts.certificates)
 

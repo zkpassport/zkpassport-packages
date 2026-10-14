@@ -3,14 +3,13 @@ import { createRegistryClient } from "@zkpassport/registry"
 import type { QueryBuilderResult, RequestSuccess } from "@zkpassport/sdk"
 import {
   getChainFromQuery,
-  type PackagedCertificatesFile,
   type PassportViewModel,
   type ProofResult,
   type Query,
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./chain-fork"
-import { proveFastMode, SanctionsCheckFailedError } from "./prove"
+import { proveFastMode, type ProvingOverrides, SanctionsCheckFailedError } from "./prove"
 
 export type HeadlessApp = {
   bridge: BridgeInterface
@@ -25,11 +24,6 @@ export type RequestEvent =
   | { type: "success"; response: RequestSuccess }
   | { type: "error"; error: string }
 
-export type HeadlessAppOverrides = {
-  /** Packaged certificates to prove against instead of those for the registry's latest root */
-  certificates?: PackagedCertificatesFile
-}
-
 /**
  * A simplified mock of the mobile app, to enable integration testing.
  */
@@ -38,13 +32,13 @@ export async function runHeadlessApp({
   passport,
   registry = {},
   circuitVersion,
-  overrides = {},
+  overrides,
 }: {
   query: QueryBuilderResult
   passport: PassportViewModel
   registry?: RegistryOverrides
   circuitVersion: string
-  overrides?: HeadlessAppOverrides
+  overrides?: ProvingOverrides
 }): Promise<HeadlessApp> {
   const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
@@ -73,7 +67,7 @@ export async function runHeadlessApp({
       scope: request.service.scope,
       circuitVersion,
       registry: createRegistryClient(chain, registry),
-      certificates: overrides.certificates,
+      overrides,
     })
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done
