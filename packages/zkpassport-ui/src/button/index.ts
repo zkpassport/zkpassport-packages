@@ -1,6 +1,7 @@
 import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
 import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
+import { createOpenInBrowserPanel } from "../open-in-browser-panel"
 import { createVerification, type VerificationState } from "../verification"
 import {
   BUTTON_CAPTION,
@@ -41,6 +42,7 @@ export function mountVerifyButton(
   injectStylesheet(buttonStyles, "button")
 
   let currentOptions = options
+  let openInBrowserPanel: { url: string; element: HTMLElement } | null = null
 
   const root = document.createElement("div")
   const button = document.createElement("button")
@@ -77,13 +79,21 @@ export function mountVerifyButton(
     root.className = "zkp-verify-wrap"
     root.dataset.variant = style.variant ?? "filled"
 
+    notice.remove()
     // Only the blocked case: no window of ours can appear to carry the message
-    if (state.errorKind === "blocked" && state.error) {
+    const panelUrl = state.error ? state.openInBrowserUrl : null
+    // Reusing the panel keeps the "Link copied" reply the user may be reading
+    if ((openInBrowserPanel?.url ?? null) !== panelUrl) {
+      openInBrowserPanel?.element.remove()
+      openInBrowserPanel = panelUrl
+        ? { url: panelUrl, element: createOpenInBrowserPanel({ url: panelUrl }) }
+        : null
+      if (openInBrowserPanel) root.append(openInBrowserPanel.element)
+    }
+    if (!panelUrl && state.errorKind === "blocked" && state.error) {
       notice.className = "zkp-verify-notice"
       notice.textContent = state.error
       root.append(notice)
-    } else {
-      notice.remove()
     }
     button.className = "zkp-verify-button"
     button.dataset.status = state.status

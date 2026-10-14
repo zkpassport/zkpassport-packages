@@ -13,7 +13,7 @@ export type ZKPassportErrorKind =
   | "bridge-lost"
   /** The app reported a failure, or the request could not be built. */
   | "failed"
-  /** Pop-ups blocked, or an in-app browser that refuses new windows. */
+  /** Pop-ups blocked, or an in-app browser that cannot host the verification window. */
   | "blocked"
 
 export class ZKPassportError extends Error {

@@ -11,6 +11,7 @@ import {
 import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
 import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
+import { createOpenInBrowserPanel } from "../open-in-browser-panel"
 import { createVerification, type VerificationState } from "../verification"
 import {
   BUTTON_CAPTION,
@@ -43,6 +44,7 @@ export function VerifyWithZKPassport({
     status: "idle",
     error: null,
     errorKind: null,
+    openInBrowserUrl: null,
   })
   // Read at click time, so callers don't have to memoise their options or callbacks
   const latestOptions = useRef(options)
@@ -67,7 +69,7 @@ function BrandedButton({
   verification: ZKPassportVerification
 }): ReactElement {
   useStylesheet(() => injectStylesheet(buttonStyles, "button"), [])
-  const { status, error, errorKind } = verification
+  const { status, error, errorKind, openInBrowserUrl } = verification
   const style = options.style ?? {}
 
   return (
@@ -100,13 +102,29 @@ function BrandedButton({
           <span className="zkp-verify-caption">{BUTTON_CAPTION}</span>
         </span>
       </button>
-      {errorKind === "blocked" && (
+      {openInBrowserUrl && error ? (
+        <OpenInBrowserPanel url={openInBrowserUrl} />
+      ) : errorKind === "blocked" ? (
         <p className="zkp-verify-notice" role="alert">
           {error}
         </p>
-      )}
+      ) : null}
     </div>
   )
+}
+
+// Plain DOM, so the React button and the vanilla one show the same panel
+function OpenInBrowserPanel({ url }: { url: string }): ReactElement {
+  const slot = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!slot.current) return
+    const panel = createOpenInBrowserPanel({ url })
+    slot.current.append(panel)
+    return () => panel.remove()
+  }, [url])
+
+  return <div ref={slot} />
 }
 
 export type { VerifyWithZKPassportOptions } from "../verify-button"

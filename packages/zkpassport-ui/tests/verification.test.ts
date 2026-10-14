@@ -1,8 +1,16 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { createVerification, type VerificationOptions } from "../src/verification"
+import {
+  createVerification,
+  type VerificationOptions,
+  type VerificationState,
+} from "../src/verification"
 import type { ZKPassportError } from "../src/errors"
 
 const POPUP_ORIGIN = "https://verify.zkpassport.id"
+const PAGE_URL = "https://merchant.example/checkout"
+const IN_APP_BROWSER_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 [FBAN/FBIOS]"
+const realNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator")
 
 type Listener = (event: MessageEvent) => void
 
@@ -19,6 +27,7 @@ function setupFakeWindow() {
   const popups: FakePopup[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(globalThis as any).window = {
+    location: { href: PAGE_URL, hostname: "merchant.example" },
     open: () => {
       const popup: FakePopup = {
         closed: false,
@@ -45,9 +54,17 @@ function setupFakeWindow() {
   return { sentToPopup, emitFromPopup, popups }
 }
 
+function stubInAppBrowser() {
+  Object.defineProperty(globalThis, "navigator", {
+    value: { userAgent: IN_APP_BROWSER_UA },
+    configurable: true,
+  })
+}
+
 afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete (globalThis as any).window
+  if (realNavigator) Object.defineProperty(globalThis, "navigator", realNavigator)
 })
 
 describe("createVerification", () => {
@@ -305,6 +322,20 @@ describe("createVerification", () => {
     expect(statuses).toEqual(["error"])
     expect(errors.map((e) => e.kind)).toEqual(["failed"])
     expect(popups).toHaveLength(0)
+  })
+
+  test("an in-app browser is turned away before a window opens, and offered this page's URL", () => {
+    const { popups } = setupFakeWindow()
+    stubInAppBrowser()
+    const states: VerificationState[] = []
+    createVerification(
+      () => ({ query: { age: { min: 18 } } }),
+      (state) => states.push(state),
+    ).verify()
+
+    expect(popups).toHaveLength(0)
+    expect(states.map((state) => state.errorKind)).toEqual(["blocked"])
+    expect(states[0].openInBrowserUrl).toBe(PAGE_URL)
   })
 })
 

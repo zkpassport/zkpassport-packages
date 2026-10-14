@@ -82,9 +82,10 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   },
 }))
 
-// Hosted build (internal): for the popup only; the real SDK stays external
+// Internal builds for the popup only; the real SDK stays external. Unsplit, so app-link
+// stays free of the SDK the hosted bundle pulls in.
 const hostedConfig: Options = {
-  entry: { hosted: "src/hosted.ts" },
+  entry: { "hosted": "src/hosted.ts", "app-link": "src/app-link.ts" },
   format: "esm",
   outDir: "dist",
   dts: { compilerOptions: { composite: false } },

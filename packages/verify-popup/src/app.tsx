@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import { isPopupMessage, type PopupConfigureMessage } from "@zkpassport/sdk/popup"
+import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
 import type { PopupEventMessage } from "@zkpassport/sdk/popup"
 import { CredentialFlow } from "./mint"
 import { VerifyFlow } from "./verify"
 import { Frame, Notice } from "./shared/frame"
+import { LinkActions } from "./shared/link-actions"
 import { LinkVerification } from "./link"
 
 type Configuration = {
@@ -71,14 +73,9 @@ export function App() {
   }
 
   if (standalone) {
-    return (
-      <Frame>
-        <Notice>
-          This page verifies your ID for websites that use ZKPassport. Open it from a website's
-          "Verify with ZKPassport" button.
-        </Notice>
-      </Frame>
-    )
+    // In an in-app browser the user did press the button, so point them to a real browser rather
+    // than tell them they opened the page by mistake
+    return <Frame>{isInAppBrowser() ? <InAppBrowserNotice /> : <OpenedDirectlyNotice />}</Frame>
   }
 
   if (!config || !send) {
@@ -109,4 +106,35 @@ export function App() {
       <VerifyFlow request={config.request} query={config.query} rpHost={domain} send={send} />
     </Frame>
   )
+}
+
+function OpenedDirectlyNotice() {
+  return (
+    <Notice>
+      This page verifies your ID for websites that use ZKPassport. Open it from a website's "Verify
+      with ZKPassport" button.
+    </Notice>
+  )
+}
+
+function InAppBrowserNotice() {
+  const site = referringSite()
+  return (
+    <>
+      <Notice>
+        You&rsquo;re in an app&rsquo;s built-in browser, which can&rsquo;t complete verification.
+        Open {site ? site.host : "the site that sent you here"} in your browser and start again.
+      </Notice>
+      {site ? <LinkActions url={site.url} /> : null}
+    </>
+  )
+}
+
+function referringSite(): { url: string; host: string } | null {
+  try {
+    const referrer = new URL(document.referrer)
+    return { url: referrer.href, host: referrer.hostname }
+  } catch {
+    return null
+  }
 }

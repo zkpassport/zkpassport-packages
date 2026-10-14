@@ -20,6 +20,23 @@ ZKPassport dashboard. The page loads the request from the dashboard API and post
 back to it once the phone has answered. For a local API set
 `VITE_DASHBOARD_API_URL=http://localhost:3001`.
 
+## The `/r` page
+
+`https://verify.zkpassport.id/r?<request params>` is where a request link lands
+when the OS did not hand it to the installed app, so it leads with the store
+badges. It is a second Vite entry (`r.html`, `src/r/`) rather than a route in
+the SPA, so people on mobile data never download the SDK or the proving
+backends to read it. `vercel.json` rewrites `/r` and `/r/*` to `/r.html`.
+
+The Play Store link carries the request as an install referrer built from the
+canonical `https://zkpassport.id/r?…` URL, the only form the app accepts, so
+Android resumes the request once the install finishes.
+
+`public/.well-known/` serves the app-link files that make this host a deep-link
+target. Vercel serves an extensionless file as `application/octet-stream`, so
+`vercel.json` sets `Content-Type: application/json` on the Apple file; iOS
+ignores it otherwise.
+
 ## Configuration
 
 - `VITE_RPC_URL_ETHEREUM_SEPOLIA`, `VITE_RPC_URL_ETHEREUM` — RPC endpoints the
