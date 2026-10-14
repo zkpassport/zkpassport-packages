@@ -6,10 +6,6 @@ End-to-end tests across the ZKPassport stack, on a fork of Sepolia:
 SDK request() → bridge → headless app → accept → proofs → done → SDK onSuccess → verify()
 ```
 
-- `tests/fast-mode.test.ts`: age ≥ 18 and nationality disclosure.
-- `tests/sanctions.test.ts`: the sanctions publisher's run on today's OpenSanctions data, then a
-  sanctions request proved against the tree it published.
-
 ## What runs
 
 - **SDK, utils, registry-sdk**: this repo's own code, built from the workspace.
