@@ -102,6 +102,11 @@ export class TrackedRequest {
       .filter((event) => event.type === "proofGenerated")
       .map((event) => event.proof)
   }
+
+  /** The errors the SDK reported, in order */
+  errors(): string[] {
+    return this.events.filter((event) => event.type === "error").map((event) => event.error)
+  }
 }
 
 /**

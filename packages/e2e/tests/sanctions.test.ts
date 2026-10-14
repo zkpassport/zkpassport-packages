@@ -13,7 +13,13 @@ import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
 import { startTestEnv, type TestEnv } from "../src/test-env"
 
-// A public official on OFAC's list since 2006, so the test names nobody private
+// A public official on OFAC's list since 2006. Tests expecting this person to be sanctioned will fail
+// when they are removed from it. We just need to find another example when that happens.
+// Alternatives considered:
+// 1. Introduce mock sanctioned data in Sepolia: it complicates the publishing pipeline but it provides
+// more flexibility. Potentially useful in the future.
+// 2. Pick a person from live OpenSanctions data. Least maintenance involved to keep working, but
+// introduces complexity around downloading and caching. Seems overkill for now.
 const SANCTIONED_PERSON = {
   firstName: "Lidziya",
   middleName: "Mihaulauna",
@@ -85,10 +91,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
       query: (query) => query.sanctions(),
     })
 
-    expect(sanctionedApp.request.events.at(-1)).toEqual({
-      type: "error",
-      error: "Sanctions check failed",
-    })
+    expect(sanctionedApp.request.errors()).toEqual(["Sanctions check failed"])
     expect(sanctionedApp.request.generatedProofs()).toEqual([])
   }, 60_000)
 })
