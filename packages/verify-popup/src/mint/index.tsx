@@ -115,6 +115,7 @@ function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBod
             purpose={request.purpose}
             options={step.cardOptions}
             progress={scan}
+            onStartAgain={startOver}
           />
         )
       case "mint":
@@ -189,12 +190,14 @@ function VerifyStep({
   purpose,
   options,
   progress,
+  onStartAgain,
 }: {
   appName: string
   rpHost: string
   purpose?: string
   options: ZKPassportQRCodeOptions
   progress: ScanProgress | null
+  onStartAgain: () => void
 }) {
   const [consented, setConsented] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -240,7 +243,7 @@ function VerifyStep({
   }
 
   if (failure) return <ErrorScreen message={failure} onRetry={tryAgain} />
-  if (progress) return <Waiting progress={progress} />
+  if (progress) return <Waiting progress={progress} onStartAgain={onStartAgain} />
   if (!consented) {
     return (
       <Intro

@@ -43,36 +43,34 @@ export type PopupCredentialOutcome = {
   txHash?: `0x${string}`
 }
 
-export type PopupConfigureMessage = {
-  zkpassport: true
+/**
+ * Every message names its verification, because a browser that discards the popup's tab rebuilds it
+ * as a different window and the handle no longer recognises it.
+ */
+type Addressed<T> = T & { zkpassport: true; session?: string }
+
+export type PopupConfigureMessage = Addressed<{
   type: "configure"
   request: PopupRequestConfig
   query: Query
   /** Mint mode; a sibling of `query` because each defines what to prove for its mode. */
   credential?: PopupCredentialConfig
-}
+}>
 
-export type PopupReadyMessage = { zkpassport: true; type: "ready" }
+export type PopupReadyMessage = Addressed<{ type: "ready" }>
 
 export type PopupEventMessage =
-  | { zkpassport: true; type: "request-received" }
-  | { zkpassport: true; type: "generating" }
-  | {
-      zkpassport: true
-      type: "proof-generated"
-      index?: number
-      total?: number
-      name?: string
-    }
-  | {
-      zkpassport: true
+  | Addressed<{ type: "request-received" }>
+  | Addressed<{ type: "generating" }>
+  | Addressed<{ type: "proof-generated"; index?: number; total?: number; name?: string }>
+  | Addressed<{
       type: "success"
       proofs: ProofResult[]
       result: QueryResult
       credential?: PopupCredentialOutcome
-    }
-  | { zkpassport: true; type: "rejected" }
-  | { zkpassport: true; type: "error"; message: string }
+    }>
+  | Addressed<{ type: "rejected" }>
+  | Addressed<{ type: "error"; message: string }>
 
 export type PopupMessage = PopupConfigureMessage | PopupReadyMessage | PopupEventMessage
 

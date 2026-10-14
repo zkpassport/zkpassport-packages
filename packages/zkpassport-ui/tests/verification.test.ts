@@ -21,14 +21,21 @@ type FakePopup = {
   postMessage: (data: unknown) => void
 }
 
-function setupFakeWindow() {
+function setupFakeWindow(storage: Map<string, string> = new Map()) {
   const listeners = new Set<Listener>()
   const sentToPopup: unknown[] = []
   const popups: FakePopup[] = []
+  const openedUrls: string[] = []
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(globalThis as any).window = {
     location: { href: PAGE_URL, hostname: "merchant.example" },
-    open: () => {
+    localStorage: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => void storage.set(key, value),
+      removeItem: (key: string) => void storage.delete(key),
+    },
+    open: (url: string) => {
+      openedUrls.push(url)
       const popup: FakePopup = {
         closed: false,
         focus() {},
@@ -51,8 +58,36 @@ function setupFakeWindow() {
       listener({ origin: POPUP_ORIGIN, data, source: popups[popups.length - 1] } as MessageEvent)
     }
   }
-  return { sentToPopup, emitFromPopup, popups }
+  // What a popup the browser discarded and rebuilt looks like: same origin, different window
+  const emitFromRebuiltPopup = (data: unknown) => {
+    for (const listener of [...listeners]) {
+      listener({ origin: POPUP_ORIGIN, data, source: {} } as MessageEvent)
+    }
+  }
+  return { sentToPopup, emitFromPopup, emitFromRebuiltPopup, popups, openedUrls, storage }
 }
+
+function sessionOf(popupUrl: string): string | null {
+  return new URL(popupUrl).searchParams.get("s")
+}
+
+const PENDING_KEY = "zkpassport:pending-verification"
+
+// The store holds one entry per request; these tests only ever have one in flight
+function onlyPending(storage: Map<string, string>) {
+  const store = JSON.parse(storage.get(PENDING_KEY)!) as Record<string, { session: string }>
+  return Object.values(store)[0]
+}
+
+function expirePending(storage: Map<string, string>) {
+  const store = JSON.parse(storage.get(PENDING_KEY)!) as Record<string, { startedAt: number }>
+  for (const [key, pending] of Object.entries(store)) {
+    store[key] = { ...pending, startedAt: pending.startedAt - 31 * 60 * 1000 }
+  }
+  storage.set(PENDING_KEY, JSON.stringify(store))
+}
+
+const SIMPLE_OPTIONS: VerificationOptions = { query: { age: { min: 18 } } }
 
 function stubInAppBrowser() {
   Object.defineProperty(globalThis, "navigator", {
@@ -458,5 +493,409 @@ describe("createVerification with mint", () => {
       contract: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
       txHash: "0xdead",
     })
+  })
+})
+
+describe("picking a verification back up after the page was rebuilt", () => {
+  test("carries the verification in the popup's URL, so a reload can find it again", () => {
+    const { openedUrls, storage } = setupFakeWindow()
+
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+
+    const session = sessionOf(openedUrls[0])
+    expect(session).toBeTruthy()
+    expect(onlyPending(storage).session).toBe(session!)
+  })
+
+  test("a controller built after a reload offers to continue, and reopens the same one", () => {
+    const storage = new Map<string, string>()
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const session = sessionOf(first.openedUrls[0])
+
+    const second = setupFakeWindow(storage)
+    const rebuilt = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+
+    expect(rebuilt.state.resumable).toBe(true)
+    rebuilt.verify()
+    expect(sessionOf(second.openedUrls[0])).toBe(session)
+  })
+
+  test("the reopened popup's result reaches the rebuilt page", () => {
+    const storage = new Map<string, string>()
+    setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+
+    const { emitFromPopup } = setupFakeWindow(storage)
+    let delivered: unknown = null
+    const rebuilt = createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onSuccess: (response) => void (delivered = response) }),
+      () => {},
+    )
+    rebuilt.verify()
+    emitFromPopup({ zkpassport: true, type: "success", proofs: [], result: {} })
+
+    expect(delivered).toEqual({ proofs: [], result: {} })
+    expect(storage.has(PENDING_KEY)).toBe(false)
+  })
+
+  test("a verification that ended leaves nothing to continue", () => {
+    const storage = new Map<string, string>()
+    const { emitFromPopup } = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    expect(storage.has(PENDING_KEY)).toBe(true)
+
+    emitFromPopup({ zkpassport: true, type: "rejected" })
+
+    expect(storage.has(PENDING_KEY)).toBe(false)
+    expect(
+      createVerification(
+        () => SIMPLE_OPTIONS,
+        () => {},
+      ).state.resumable,
+    ).toBe(false)
+  })
+
+  test("does not offer to continue a verification too old to still be running", () => {
+    const storage = new Map<string, string>()
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const stale = sessionOf(first.openedUrls[0])
+    expirePending(storage)
+
+    const { openedUrls } = setupFakeWindow(storage)
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    expect(controller.state.resumable).toBe(false)
+
+    controller.verify()
+    expect(sessionOf(openedUrls[0])).not.toBe(stale)
+  })
+
+  test("keeps a running verification when a different one is started", () => {
+    const storage = new Map<string, string>()
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    first.emitFromPopup({ zkpassport: true, type: "ready" })
+    first.emitFromPopup({ zkpassport: true, type: "request-received" })
+
+    setupFakeWindow(storage)
+    createVerification(
+      () => ({ query: { nationality: { eq: "FRA" } } }) as VerificationOptions,
+      () => {},
+    ).verify()
+
+    setupFakeWindow(storage)
+    const ageCheckAgain = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    expect(ageCheckAgain.state.resumable).toBe(true)
+  })
+
+  test("does not offer a verification bound to a different account", () => {
+    const storage = new Map<string, string>()
+    const mintFor = (account: string) =>
+      ({
+        mint: true,
+        policyId: "eip155:8453:0x7b",
+        bind: { account, chainId: 8453 },
+      }) as VerificationOptions
+
+    setupFakeWindow(storage)
+    createVerification(
+      () => mintFor("0x1111111111111111111111111111111111111111"),
+      () => {},
+    ).verify()
+
+    setupFakeWindow(storage)
+    const otherAccount = createVerification(
+      () => mintFor("0x2222222222222222222222222222222222222222"),
+      () => {},
+    )
+
+    expect(otherAccount.state.resumable).toBe(false)
+  })
+
+  test("does not offer a verification to a button asking for something else", () => {
+    const storage = new Map<string, string>()
+    const first = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const ageCheck = sessionOf(first.openedUrls[0])
+
+    const { openedUrls } = setupFakeWindow(storage)
+    const otherQuery = createVerification(
+      () => ({ query: { nationality: { eq: "FRA" } } }) as VerificationOptions,
+      () => {},
+    )
+    expect(otherQuery.state.resumable).toBe(false)
+
+    otherQuery.verify()
+    expect(sessionOf(openedUrls[0])).not.toBe(ageCheck)
+  })
+
+  test("close clears the verification it started, not the one the options now describe", () => {
+    setupFakeWindow()
+    const started: VerificationOptions = { query: { age: { min: 18 } } }
+    let options = started
+    const controller = createVerification(
+      () => options,
+      () => {},
+    )
+
+    controller.verify()
+    options = { query: { age: { min: 21 } } }
+    controller.close()
+
+    expect(
+      createVerification(
+        () => started,
+        () => {},
+      ).state.resumable,
+    ).toBe(false)
+  })
+
+  test("a second click on an open window leaves the running verification's note alone", () => {
+    setupFakeWindow()
+    const started: VerificationOptions = { query: { age: { min: 18 } } }
+    let options = started
+    const controller = createVerification(
+      () => options,
+      () => {},
+    )
+
+    controller.verify()
+    options = { query: { age: { min: 21 } } }
+    // The window is still open, so this only brings it back to the front
+    controller.verify()
+    controller.close()
+
+    expect(
+      createVerification(
+        () => started,
+        () => {},
+      ).state.resumable,
+    ).toBe(false)
+  })
+
+  test("the service, purpose, mode and overrides each make it a different request", () => {
+    const base: VerificationOptions = { query: { age: { min: 18 } } }
+    const variants: Array<[string, VerificationOptions]> = [
+      ["service", { ...base, service: { scope: "payout" } }],
+      ["purpose", { ...base, purpose: "Collect a payout" }],
+      ["mode", { ...base, mode: "fast" }],
+      ["overrides", { ...base, overrides: { bridgeUrl: "https://bridge.example" } }],
+    ]
+
+    const offered = variants.map(([field, variant]) => {
+      const storage = new Map<string, string>()
+      setupFakeWindow(storage)
+      createVerification(
+        () => base,
+        () => {},
+      ).verify()
+
+      setupFakeWindow(storage)
+      const other = createVerification(
+        () => variant,
+        () => {},
+      )
+      return [field, other.state.resumable]
+    })
+
+    expect(offered).toEqual([
+      ["service", false],
+      ["purpose", false],
+      ["mode", false],
+      ["overrides", false],
+    ])
+  })
+})
+
+describe("a popup window that reports closed", () => {
+  test("leaves the verification to continue once the phone has the request", async () => {
+    const storage = new Map<string, string>()
+    const { emitFromPopup, popups } = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+
+    emitFromPopup({ zkpassport: true, type: "request-received" })
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    expect(
+      createVerification(
+        () => SIMPLE_OPTIONS,
+        () => {},
+      ).state.resumable,
+    ).toBe(true)
+  })
+
+  test("offers to continue straight away, without waiting for a reload", async () => {
+    const storage = new Map<string, string>()
+    const { emitFromPopup, popups } = setupFakeWindow(storage)
+    let latest: VerificationState | null = null
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      (next) => void (latest = next),
+    )
+    controller.verify()
+
+    emitFromPopup({ zkpassport: true, type: "request-received" })
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    expect(latest!.resumable).toBe(true)
+  })
+
+  test("ends the verification when the phone never got the request", async () => {
+    const storage = new Map<string, string>()
+    const { popups } = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    expect(storage.has(PENDING_KEY)).toBe(false)
+  })
+})
+
+describe("a popup the browser rebuilt", () => {
+  test("delivers its result even after the window was reported gone", async () => {
+    const { emitFromRebuiltPopup, openedUrls, popups } = setupFakeWindow()
+    let delivered: unknown = null
+    let closed = false
+    createVerification(
+      () => ({
+        ...SIMPLE_OPTIONS,
+        onSuccess: (response) => void (delivered = response),
+        onError: (error) => void (closed = error.kind === "closed"),
+      }),
+      () => {},
+    ).verify()
+
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(closed).toBe(true)
+
+    emitFromRebuiltPopup({
+      zkpassport: true,
+      type: "success",
+      session: sessionOf(openedUrls[0]),
+      proofs: [],
+      result: {},
+    })
+
+    expect(delivered).toEqual({ proofs: [], result: {} })
+  })
+
+  test("delivers its result, since the window handle no longer identifies it", () => {
+    const { emitFromRebuiltPopup, openedUrls } = setupFakeWindow()
+    let delivered: unknown = null
+    createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onSuccess: (response) => void (delivered = response) }),
+      () => {},
+    ).verify()
+
+    emitFromRebuiltPopup({
+      zkpassport: true,
+      type: "success",
+      session: sessionOf(openedUrls[0]),
+      proofs: [],
+      result: {},
+    })
+
+    expect(delivered).toEqual({ proofs: [], result: {} })
+  })
+
+  test("is ignored when it names a different verification", () => {
+    const { emitFromRebuiltPopup } = setupFakeWindow()
+    let delivered: unknown = null
+    createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onSuccess: (response) => void (delivered = response) }),
+      () => {},
+    ).verify()
+
+    emitFromRebuiltPopup({
+      zkpassport: true,
+      type: "success",
+      session: "someone-else",
+      proofs: [],
+      result: {},
+    })
+
+    expect(delivered).toBeNull()
+  })
+})
+
+describe("a verification that is still running", () => {
+  test("is reopened by a retry after the browser blocked the window", () => {
+    const storage = new Map<string, string>()
+    const running = setupFakeWindow(storage)
+    createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    ).verify()
+    const session = sessionOf(running.openedUrls[0])
+
+    setupFakeWindow(storage)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window.open = () => null
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    controller.verify()
+
+    const allowed = setupFakeWindow(storage)
+    controller.verify()
+
+    expect(sessionOf(allowed.openedUrls[0])).toBe(session)
+  })
+
+  test("hands its result over once, however many times the popup sends it", () => {
+    const { emitFromPopup } = setupFakeWindow()
+    let deliveries = 0
+    createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onSuccess: () => void deliveries++ }),
+      () => {},
+    ).verify()
+
+    const success = { zkpassport: true, type: "success", proofs: [], result: {} }
+    emitFromPopup(success)
+    emitFromPopup(success)
+
+    expect(deliveries).toBe(1)
   })
 })
