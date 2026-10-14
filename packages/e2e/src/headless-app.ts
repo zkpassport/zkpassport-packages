@@ -76,7 +76,6 @@ export async function runHeadlessApp({
     if (!(error instanceof SanctionsCheckFailedError)) {
       throw error
     }
-    // What the app tells the SDK when the passport is on a sanctions list (AccessRequestView.tsx)
     await bridge.sendMessage("error", { error: "Sanctions check failed" })
   }
   await outcome
@@ -103,7 +102,7 @@ export class TrackedRequest {
       .map((event) => event.proof)
   }
 
-  /** The errors the SDK reported, in order */
+  /** The errors the request resulted in, in order */
   errors(): string[] {
     return this.events.filter((event) => event.type === "error").map((event) => event.error)
   }
