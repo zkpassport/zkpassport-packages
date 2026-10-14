@@ -16,14 +16,12 @@ import { startChainFork, startFetchProxy } from "./chain-fork"
 import { type HeadlessApp, runHeadlessApp } from "./headless-app"
 
 const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
-/** SEPOLIA_RPC_URL, or the registry-sdk's built-in Sepolia endpoint */
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
-/** Where the registry-sdk reads testnet sanctions trees, which it does not export */
-const SEPOLIA_SANCTIONS_URL = "https://sanctions.zkpassport.id/testnet"
+const TESTNET_SANCTIONS_URL = "https://sanctions.zkpassport.id/testnet"
 const SEPOLIA_FILE_HOSTS = [
   SEPOLIA.packagedCertificatesUrl,
   SEPOLIA.circuitUrl,
-  SEPOLIA_SANCTIONS_URL,
+  TESTNET_SANCTIONS_URL,
 ].map((url) => new URL(url).hostname)
 const CIRCUIT_VERSION = "0.21.0"
 const DOMAIN = "localhost"
