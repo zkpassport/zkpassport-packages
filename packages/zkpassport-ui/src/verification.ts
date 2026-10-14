@@ -47,6 +47,8 @@ export type VerificationOverrides = {
   cloudProverUrl?: string
   /** @internal Points the flow at another popup origin; for testing. */
   popupUrl?: string
+  /** Opt into the no-install App Clip lane: the popup emits a `/c` request URL instead of `/r`. */
+  appClip?: boolean
 }
 
 type Callbacks = {
@@ -380,6 +382,7 @@ function toPopupRequest(
     devMode: service.devMode,
     bridgeUrl: options.overrides?.bridgeUrl,
     cloudProverUrl: options.overrides?.cloudProverUrl,
+    appClip: options.overrides?.appClip,
     // Left unset when not configured, so the SDK's own default applies
     uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
   }

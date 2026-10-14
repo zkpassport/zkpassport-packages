@@ -33,6 +33,7 @@ export type PopupRequestConfig = {
   domain?: string
   bridgeUrl?: string
   cloudProverUrl?: string
+  appClip?: boolean
 }
 
 export type PopupCredentialOutcome = {

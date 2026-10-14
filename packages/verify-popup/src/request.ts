@@ -104,6 +104,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         verifierMode: options.verifierMode ?? "api",
         keyPairOverride: resumeWith,
         replayMissedMessages: !!resumeWith,
+        overrides: options.appClip ? { appClip: true } : undefined,
       })
       .then((builder) => {
         const built =
