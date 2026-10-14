@@ -6,6 +6,7 @@ import AsyncOrderedMT, {
   Node,
   BN254_MODULUS_MINUS_ONE,
   nodeToHex,
+  TargetExistsError,
 } from "./async-ordered-mt"
 import { poseidon2 } from "./index"
 
@@ -108,7 +109,8 @@ describe("AsyncOrderedMT (ordered set)", () => {
     const leaves = [5n, 10n, 15n]
     await tree.initialize(leaves)
 
-    expect(() => tree.createNonMembershipProof(10n)).toThrow()
+    expect(() => tree.createNonMembershipProof(10n)).toThrow(TargetExistsError)
+    expect(() => tree.createNonMembershipProof(10n)).toThrow("Target exists; use membership proof")
   })
 
   test("non-membership verification fails if neighbor proof tampered", async () => {

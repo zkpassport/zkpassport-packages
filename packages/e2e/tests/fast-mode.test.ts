@@ -5,22 +5,11 @@
  *   → SDK onSuccess → verify({ devMode: true, verifierMode: "local" }) against Sepolia's registries
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { ZKPassport } from "@zkpassport/sdk"
 import type { QueryResult } from "@zkpassport/utils"
-import {
-  type ChainFork,
-  type FetchProxy,
-  SEPOLIA_FILE_HOSTS,
-  SEPOLIA_RPC_URL,
-  startChainFork,
-  startFetchProxy,
-} from "../src/chain-fork"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
-import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
-import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
+import type { HeadlessApp } from "../src/headless-app"
+import { startTestEnv, type TestEnv } from "../src/test-env"
 
-const CIRCUIT_VERSION = "0.21.0"
-const DOMAIN = "localhost"
 const CIRCUITS = [
   "sig_check_dsc_tbs_700_rsa_pkcs_2048_sha256",
   "sig_check_id_data_tbs_700_rsa_pkcs_2048_sha256",
@@ -30,40 +19,18 @@ const CIRCUITS = [
 ]
 
 describe("fast mode, end to end on a Sepolia fork", () => {
-  let fork: ChainFork
-  let bridgeRelay: BridgeRelay
-  let fetchProxy: FetchProxy
+  let testEnv: TestEnv
   let app: HeadlessApp
-  let zkPassport: ZKPassport
 
   beforeAll(async () => {
-    fork = await startChainFork(SEPOLIA_RPC_URL)
-    bridgeRelay = startBridgeRelay()
-    fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
-
-    zkPassport = new ZKPassport(DOMAIN)
-    const queryBuilder = await zkPassport.request({
-      name: "ZKPassport e2e",
-      logo: "https://zkpassport.id/favicon.png",
-      purpose: "End-to-end test",
-      mode: "fast",
-      devMode: true,
-      bridgeUrl: bridgeRelay.url,
-    })
-    app = await runHeadlessApp({
-      query: queryBuilder.gte("age", 18).disclose("nationality").done(),
+    testEnv = await startTestEnv()
+    app = await testEnv.runHeadlessApp({
       passport: createMockPassport(),
-      registry: fork.registry,
-      circuitVersion: CIRCUIT_VERSION,
+      query: (query) => query.gte("age", 18).disclose("nationality"),
     })
   }, 180_000)
 
-  afterAll(async () => {
-    fetchProxy?.stop()
-    app?.bridge.cleanup()
-    await bridgeRelay?.stop()
-    fork?.stop()
-  })
+  afterAll(() => testEnv?.stop())
 
   test("the SDK sees the whole request over the bridge", () => {
     expect(app.chain).toBe("ethereum_sepolia")
@@ -84,13 +51,10 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
   test("the proofs verify against Sepolia's registries", async () => {
     const { proofs, result: queryResult } = app.request.result()!
-    const verification = await zkPassport.verify({
-      proofs: proofs.map((proof) => ({ ...proof })),
-      originalQuery: app.request.query,
+    const verification = await testEnv.verify({
+      proofs,
       queryResult,
-      devMode: true,
-      verifierMode: "local",
-      config: { rpcUrl: fork.rpcUrl },
+      originalQuery: app.request.query,
     })
     expect(verification.verified).toBe(true)
     // ZKR passports get a mock nullifier, which verify() accepts only in dev mode
@@ -112,13 +76,10 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     target.proof =
       proofHex.slice(0, offsetInProofBody) + flippedByte + proofHex.slice(offsetInProofBody + 2)
 
-    const verification = await zkPassport.verify({
+    const verification = await testEnv.verify({
       proofs: tamperedProofs,
-      originalQuery: app.request.query,
       queryResult,
-      devMode: true,
-      verifierMode: "local",
-      config: { rpcUrl: fork.rpcUrl },
+      originalQuery: app.request.query,
     })
     expect(verification.verified).toBe(false)
   }, 60_000)
@@ -126,7 +87,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails
     expect(
-      fetchProxy.blocked.every((url) => url.startsWith("https://dashboard-api.zkpassport.id/")),
+      testEnv.blockedFetches.every((url) => url.startsWith("https://dashboard-api.zkpassport.id/")),
     ).toBe(true)
   })
 })

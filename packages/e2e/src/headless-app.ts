@@ -9,7 +9,7 @@ import {
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./chain-fork"
-import { proveFastMode } from "./prove"
+import { proveFastMode, SanctionsCheckFailedError } from "./prove"
 
 export type HeadlessApp = {
   bridge: BridgeInterface
@@ -22,6 +22,7 @@ export type RequestEvent =
   | { type: "generatingProof" }
   | { type: "proofGenerated"; proof: ProofResult }
   | { type: "success"; response: RequestSuccess }
+  | { type: "error"; error: string }
 
 /**
  * A simplified mock of the mobile app, to enable integration testing.
@@ -56,20 +57,27 @@ export async function runHeadlessApp({
   }
 
   await bridge.sendMessage("accept")
-  const { proofs, queryResult } = await proveFastMode({
-    passport,
-    query: request.query,
-    domain: request.domain,
-    scope: request.service.scope,
-    circuitVersion,
-    registry: createRegistryClient(chain, registry),
-  })
+  try {
+    const { proofs, queryResult } = await proveFastMode({
+      passport,
+      query: request.query,
+      domain: request.domain,
+      scope: request.service.scope,
+      circuitVersion,
+      registry: createRegistryClient(chain, registry),
+    })
 
-  // The app sends all proofs after proving (AccessRequestView.tsx), then done
-  for (const proof of proofs) {
-    await bridge.sendMessage("proof", proof)
+    // The app sends all proofs after proving (AccessRequestView.tsx), then done
+    for (const proof of proofs) {
+      await bridge.sendMessage("proof", proof)
+    }
+    await bridge.sendMessage("done", queryResult)
+  } catch (error) {
+    if (!(error instanceof SanctionsCheckFailedError)) {
+      throw error
+    }
+    await bridge.sendMessage("error", { error: "Sanctions check failed" })
   }
-  await bridge.sendMessage("done", queryResult)
   await outcome
   return { bridge, chain, request: trackedRequest }
 }
@@ -93,11 +101,16 @@ export class TrackedRequest {
       .filter((event) => event.type === "proofGenerated")
       .map((event) => event.proof)
   }
+
+  /** The errors the request resulted in, in order */
+  errors(): string[] {
+    return this.events.filter((event) => event.type === "error").map((event) => event.error)
+  }
 }
 
 /**
- * Record a request's SDK callbacks as events. The outcome resolves when the SDK reports success and
- * rejects when it reports a reject or an error.
+ * Record a request's SDK callbacks as events. The outcome resolves when the SDK reports success or
+ * an error, and rejects when it reports a reject.
  */
 function trackRequest(request: QueryBuilderResult): {
   trackedRequest: TrackedRequest
@@ -112,8 +125,11 @@ function trackRequest(request: QueryBuilderResult): {
       events.push({ type: "success", response })
       resolve()
     })
+    request.onError((error) => {
+      events.push({ type: "error", error })
+      resolve()
+    })
     request.onReject(() => reject(new Error("onReject")))
-    request.onError((error) => reject(new Error(`onError: ${error}`)))
   })
   return { trackedRequest: new TrackedRequest(request.url, request.query, events), outcome }
 }

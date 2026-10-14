@@ -6,8 +6,6 @@ End-to-end tests across the ZKPassport stack, on a fork of Sepolia:
 SDK request() → bridge → headless app → accept → proofs → done → SDK onSuccess → verify()
 ```
 
-- `tests/fast-mode.test.ts`: age ≥ 18 and nationality disclosure.
-
 ## What runs
 
 - **SDK, utils, registry-sdk**: this repo's own code, built from the workspace.
@@ -17,7 +15,8 @@ SDK request() → bridge → headless app → accept → proofs → done → SDK
   mobile app itself is not tested here.
 - **Chain**: anvil forking Sepolia. Requests are in dev mode and bind no chain, so the SDK and the
   headless app prove and verify on Sepolia, reading its registries through the fork: `verify()`
-  takes anvil's URL through `config.rpcUrl`. Certificates and circuits come from the testnet CDNs.
+  takes anvil's URL through `config.rpcUrl`. Certificates, circuits and sanctions trees come from
+  the testnet CDNs.
 - **Passport**: John, `createMockPassport()` from `@zkpassport/utils/mock-passports`, a ZKR mock
   passport, so verification runs with `devMode: true`.
 

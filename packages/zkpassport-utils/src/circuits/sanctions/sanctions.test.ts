@@ -6,7 +6,7 @@ import {
   processName,
   SanctionsBuilder,
 } from "./sanctions"
-import { AsyncOrderedMT, poseidon2 } from "@/merkle-tree"
+import { AsyncOrderedMT, poseidon2, TargetExistsError } from "@/merkle-tree"
 import { stringToAsciiStringArray } from "@/utils"
 
 const PASSPORTS = {
@@ -206,7 +206,7 @@ describe("SanctionsBuilder", () => {
     await treeWithIsoCode.initialize([await leafFor("DEU")])
     await expect(
       new SanctionsBuilder(treeWithIsoCode).getSanctionsMerkleProofs(german, true),
-    ).rejects.toThrow("Target exists")
+    ).rejects.toThrow(TargetExistsError)
 
     const treeWithPrintedCode = await AsyncOrderedMT.create(4, poseidon2)
     await treeWithPrintedCode.initialize([await leafFor("D<<")])
