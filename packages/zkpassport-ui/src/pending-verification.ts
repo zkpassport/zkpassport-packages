@@ -37,7 +37,6 @@ export function markPhoneJoined(requestKey: string): void {
 
 export function forgetPendingVerification(requestKey: string): void {
   const store = read()
-  if (!(requestKey in store)) return
   delete store[requestKey]
   save(store)
 }

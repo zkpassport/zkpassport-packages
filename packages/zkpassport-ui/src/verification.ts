@@ -128,6 +128,8 @@ export function createVerification(
   // Numbers each verify() so a slow onSuccess from an old popup
   // can't overwrite the status of a newer one
   let latestAttempt = 0
+  // Options can change after the click, so close() clears the key verify() used, not a new one
+  let pendingKey: string | null = null
 
   const setStatus = (
     status: VerificationStatus,
@@ -158,6 +160,7 @@ export function createVerification(
 
     const thisAttempt = ++latestAttempt
     popupFinished = false
+    pendingKey = requestKey
 
     // Only one terminal callback ever fires: a failure followed by the user closing the window is
     // one outcome, not two
@@ -260,7 +263,8 @@ export function createVerification(
 
   const close = () => {
     latestAttempt++
-    forgetPendingVerification(toRequestKey(getOptions()))
+    // No key of our own yet: clear what this button asks for, which is what a reload would offer
+    forgetPendingVerification(pendingKey ?? toRequestKey(getOptions()))
     popupHandle?.close()
     popupHandle = null
   }
@@ -284,11 +288,16 @@ export function createVerification(
 
 /** Identifies what a button asks for, so a pending verification is only offered back to its own. */
 function toRequestKey(options: VerificationOptions): string {
+  // Everything that reaches the popup: a field missing here lets one button resume another's
   return JSON.stringify([
     options.policyId ?? null,
     options.query ?? null,
     options.bind ?? null,
     options.mint ?? false,
+    options.mode ?? null,
+    options.purpose ?? null,
+    options.service ?? null,
+    options.overrides ?? null,
   ])
 }
 
