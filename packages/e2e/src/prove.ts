@@ -21,6 +21,7 @@ import {
   getTBSMaxLen,
   poseidon2,
   SanctionsBuilder,
+  TargetExistsError,
   type PackagedCertificate,
   type PassportViewModel,
   type ProofResult,
@@ -187,7 +188,7 @@ async function getSanctionsBuilder(registry: RegistryClient): Promise<SanctionsB
 
 /** A failed exclusion proof read the way the app's circuit-matcher.ts reads it */
 function toSanctionsCheckFailed(error: unknown): never {
-  if (error instanceof Error && error.message.includes("Target exists")) {
+  if (error instanceof TargetExistsError) {
     throw new SanctionsCheckFailedError()
   }
   throw error
