@@ -177,7 +177,7 @@ export async function proveFastMode({
 }
 
 /** The sanctions tree published for the latest sanctions root of the registry's chain */
-export async function getSanctionsBuilder(registry: RegistryClient): Promise<SanctionsBuilder> {
+async function getSanctionsBuilder(registry: RegistryClient): Promise<SanctionsBuilder> {
   const { serialised } = await registry.getSanctionsTree()
   return new SanctionsBuilder(await AsyncOrderedMT.fromSerialized(serialised, poseidon2))
 }

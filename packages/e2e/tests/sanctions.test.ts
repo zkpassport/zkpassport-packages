@@ -1,40 +1,23 @@
 /**
- * Sanctions, end to end on a fork of Sepolia, from today's OpenSanctions data to a verified proof:
+ * Sanctions, end to end on a fork of Sepolia, against the sanctions root on chain:
  *
- *   sanctions publisher: download today's snapshots → build the tree → publish its root to the
- *   forked Sepolia Sanctions Registry, after Sepolia's own latest root
- *   → SDK request() with .sanctions() in dev mode → bridge → headless app (john) proves against the
- *   tree published for the registry's latest root → SDK verify() checks that root in the registry
- *
- * Needs the bridge relay (see src/bridge-relay.ts) and the sanctions publisher (see
- * src/sanctions-publisher.ts). Building the tree from every dataset takes a few minutes.
+ *   SDK request() with .sanctions() in dev mode → bridge → headless app (john) proves against the
+ *   tree published for Sepolia's latest sanctions root → SDK verify() checks that root in the
+ *   Sanctions Registry
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
+import { createRegistryClient } from "@zkpassport/registry"
 import { ZKPassport } from "@zkpassport/sdk"
-import type { PackagedSanctionsFile } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import {
-  CACHE_DIR,
   type ChainFork,
   type FetchProxy,
   SEPOLIA_FILE_HOSTS,
   SEPOLIA_RPC_URL,
   startChainFork,
   startFetchProxy,
-  takeOverSanctionsOracle,
 } from "../src/chain-fork"
-import { findListedPerson, listedPersonPassport } from "../src/listed-person"
-import { getSanctionsBuilder } from "../src/prove"
 import { type BridgeRelay, startBridgeRelay } from "../src/bridge-relay"
-import {
-  downloadOpenSanctions,
-  isSanctionsPublisherAvailable,
-  publishSanctionsRoot,
-  type PublishedSanctionsRoot,
-} from "../src/sanctions-publisher"
 import { type HeadlessApp, runHeadlessApp } from "../src/headless-app"
 
 const CIRCUIT_VERSION = "0.21.0"
@@ -46,49 +29,21 @@ const CIRCUITS = [
   "data_check_integrity_sa_sha256_dg_sha256",
   "exclusion_check_sanctions",
 ]
-const SNAPSHOTS_DIR = join(CACHE_DIR, "opensanctions")
-// The last run's packaged file, tree and publisher log, kept for a look after a failure
-const RUN_DIR = join(CACHE_DIR, "sanctions-run")
-const DATASETS = ["ch_seco_sanctions", "eu_fsf", "gb_fcdo_sanctions", "us_ofac_sdn"]
 
-const publisherAvailable = isSanctionsPublisherAvailable()
-if (!publisherAvailable) {
-  console.warn(
-    "Skipping the sanctions e2e: SANCTIONS_PUBLISHER_DIR does not point at the sanctions publisher",
-  )
-}
-
-describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", () => {
+describe("sanctions, end to end on a Sepolia fork", () => {
   let fork: ChainFork
   let bridgeRelay: BridgeRelay
   let fetchProxy: FetchProxy
-  let registry: RegistryClient
-  let sepoliaRoot: string
-  let published: PublishedSanctionsRoot
+  let sanctionsRoot: string
   let app: HeadlessApp
   let zkPassport: ZKPassport
 
   beforeAll(async () => {
     fork = await startChainFork(SEPOLIA_RPC_URL)
-    registry = createRegistryClient("ethereum_sepolia", fork.registry)
-    // The publish faces the checks the scheduled testnet job does: Sepolia's current root, its
-    // timestamp and a leaf count within 20% of it
-    sepoliaRoot = await registry.getLatestSanctionsRoot()
-    await takeOverSanctionsOracle(fork, "ethereum_sepolia")
-
-    // The publisher's own steps, against the fork, before the fetch proxy starts
-    await downloadOpenSanctions(SNAPSHOTS_DIR, process.env.OPENSANCTIONS_DATE)
-    rmSync(RUN_DIR, { recursive: true, force: true })
-    mkdirSync(RUN_DIR, { recursive: true })
-    published = await publishSanctionsRoot({
-      fork,
-      snapshotsDir: SNAPSHOTS_DIR,
-      workDir: RUN_DIR,
-    })
-    writeFileSync(join(RUN_DIR, "publisher.log"), published.log)
-    console.log(published.log)
-    fork.serveSanctionsTree(published.root, published.treeFile)
-
+    sanctionsRoot = await createRegistryClient(
+      "ethereum_sepolia",
+      fork.registry,
+    ).getLatestSanctionsRoot()
     bridgeRelay = startBridgeRelay()
     fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
 
@@ -107,22 +62,13 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
       registry: fork.registry,
       circuitVersion: CIRCUIT_VERSION,
     })
-  }, 30 * 60_000)
+  }, 180_000)
 
   afterAll(async () => {
     fetchProxy?.stop()
     app?.bridge.cleanup()
     await bridgeRelay?.stop()
     fork?.stop()
-  })
-
-  test("the publisher put today's root on the Sanctions Registry after Sepolia's own", async () => {
-    const file = JSON.parse(readFileSync(published.packagedFile, "utf8")) as PackagedSanctionsFile
-    expect(file.sources.map((source) => source.dataset)).toEqual(DATASETS)
-    expect(file.environment).toBe("test")
-    expect(file.previous_root).toBe(sepoliaRoot)
-    expect(await registry.getLatestSanctionsRoot()).toBe(published.root)
-    expect(await registry.isSanctionsRootValid(published.root)).toBe(true)
   })
 
   test("the SDK sees the whole request over the bridge", () => {
@@ -140,11 +86,11 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     expect(queryResult.sanctions?.isStrict).toBe(false)
   })
 
-  test("the sanctions proof commits to the published root", () => {
+  test("the sanctions proof commits to Sepolia's latest sanctions root", () => {
     const { proofs } = app.request.result()!
     const sanctionsProof = proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     expect(sanctionsProof.committedInputs?.exclusion_check_sanctions).toEqual({
-      rootHash: published.root,
+      rootHash: sanctionsRoot,
       isStrict: false,
     })
   })
@@ -181,19 +127,6 @@ describe.skipIf(!publisherAvailable)("sanctions, end to end on a Sepolia fork", 
     })
     expect(verification.verified).toBe(false)
   }, 60_000)
-
-  test("a person on today's OFAC list cannot build sanctions inputs against the tree", async () => {
-    const person = findListedPerson(SNAPSHOTS_DIR, "us_ofac_sdn")
-    const sanctions = await getSanctionsBuilder(registry)
-
-    await expect(
-      sanctions.getSanctionsMerkleProofs(listedPersonPassport(person), false),
-    ).rejects.toThrow(/Target exists/)
-    // john, with the same tree, is not on it
-    await expect(
-      sanctions.getSanctionsMerkleProofs(createMockPassport(), false),
-    ).resolves.toBeDefined()
-  }, 120_000)
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails

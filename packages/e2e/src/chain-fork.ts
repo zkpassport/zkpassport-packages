@@ -1,42 +1,32 @@
-import { execFileSync, spawn } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { spawn } from "node:child_process"
 import { createServer } from "node:net"
-import { resolve } from "node:path"
-import { gzipSync } from "node:zlib"
 import { createRegistryClient, getNetworkConstants } from "@zkpassport/registry"
-import { getIdFromChain, SANCTIONS_REGISTRY_ID, type SupportedChain } from "@zkpassport/utils"
-
-export const CACHE_DIR = resolve(import.meta.dir, "../.cache")
-/** Anvil's second account, made the Sanctions Registry's oracle by takeOverSanctionsOracle */
-export const ORACLE_PRIVATE_KEY =
-  "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+import { getIdFromChain } from "@zkpassport/utils"
 
 const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
-const ORACLE_ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 
 /** SEPOLIA_RPC_URL, or the registry-sdk's built-in Sepolia endpoint */
 export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || SEPOLIA.rpcUrl
 
-export const SEPOLIA_FILE_HOSTS = [SEPOLIA.packagedCertificatesUrl, SEPOLIA.circuitUrl].map(
-  (url) => new URL(url).hostname,
-)
+export const SEPOLIA_FILE_HOSTS = [
+  ...[SEPOLIA.packagedCertificatesUrl, SEPOLIA.circuitUrl].map((url) => new URL(url).hostname),
+  // The registry-sdk's testnet sanctions tree host, which it does not export
+  "sanctions.zkpassport.id",
+]
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
 export type ChainFork = {
   rpcUrl: string
-  /** Options for a registry client to read this fork and the sanctions trees it serves */
+  /** Options for a registry client to read this fork */
   registry: RegistryOverrides
-  /** Serve a serialised sanctions tree for its root */
-  serveSanctionsTree: (root: string, treeFile: string) => void
   stop: () => void
 }
 
 export type FetchProxy = { blocked: string[]; stop: () => void }
 
 /**
- * Start Anvil with a fork of the chain at `forkUrl`, at its latest block, and a file server for
- * sanctions trees.
+ * Start Anvil with a fork of the chain at `forkUrl`, at its latest block.
  */
 export async function startChainFork(forkUrl: string): Promise<ChainFork> {
   const port = await freePort()
@@ -44,67 +34,15 @@ export async function startChainFork(forkUrl: string): Promise<ChainFork> {
   const anvil = spawn("anvil", ["--fork-url", forkUrl, "--port", `${port}`, "--silent"], {
     stdio: "ignore",
   })
-  const sanctionsTrees = new Map<string, ReturnType<typeof gzipSync>>()
-  let files: ReturnType<typeof Bun.serve> | undefined
+
   try {
     await waitForRpc(rpcUrl)
-
-    files = Bun.serve({
-      port: 0,
-      hostname: "127.0.0.1",
-      fetch(request) {
-        const root = new URL(request.url).pathname.match(
-          /^\/sanctions\/(0x[0-9a-f]{64})\.tree\.json\.gz$/,
-        )?.[1]
-        const tree = root ? sanctionsTrees.get(root) : undefined
-        if (!tree) {
-          return new Response("not found", { status: 404 })
-        }
-        // Served gzip-encoded, like the sanctions CDN
-        return new Response(tree, {
-          headers: { "content-type": "application/json", "content-encoding": "gzip" },
-        })
-      },
-    })
-    const filesUrl = `http://127.0.0.1:${files.port}`
-
-    return {
-      rpcUrl,
-      registry: {
-        rpcUrl,
-        sanctionsTreeUrlGenerator: (_chainId, root) => `${filesUrl}/sanctions/${root}.tree.json.gz`,
-      },
-      serveSanctionsTree: (root, treeFile) => {
-        sanctionsTrees.set(root.toLowerCase(), gzipSync(readFileSync(treeFile)))
-      },
-      stop: () => {
-        files?.stop(true)
-        anvil.kill()
-      },
-    }
   } catch (error) {
-    files?.stop(true)
     anvil.kill()
     throw error
   }
-}
 
-/**
- * Make anvil's second account the oracle of the forked Sanctions Registry, by sending setOracle
- * from the registry's admin, impersonated, so a publisher holding ORACLE_PRIVATE_KEY can publish
- */
-export async function takeOverSanctionsOracle(fork: ChainFork, chain: SupportedChain) {
-  const registry = await createRegistryClient(chain, fork.registry).getRegistryAddress(
-    SANCTIONS_REGISTRY_ID,
-  )
-  const admin = cast(["call", registry, "admin()(address)"], fork)
-
-  cast(["rpc", "anvil_impersonateAccount", admin], fork)
-  cast(["rpc", "anvil_setBalance", admin, "0x56BC75E2D63100000"], fork)
-  cast(
-    ["send", registry, "setOracle(address)", ORACLE_ADDRESS, "--unlocked", "--from", admin],
-    fork,
-  )
+  return { rpcUrl, registry: { rpcUrl }, stop: () => anvil.kill() }
 }
 
 /**
@@ -127,10 +65,6 @@ export function startFetchProxy(allowedHosts: string[] = []): FetchProxy {
     throw new Error(`e2e fetch proxy: blocked ${url}`)
   }) as typeof fetch
   return { blocked, stop: () => (globalThis.fetch = realFetch) }
-}
-
-function cast(args: string[], fork: ChainFork): string {
-  return execFileSync("cast", [...args, "--rpc-url", fork.rpcUrl], { encoding: "utf8" }).trim()
 }
 
 async function waitForRpc(rpcUrl: string) {

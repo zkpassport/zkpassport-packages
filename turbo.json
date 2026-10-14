@@ -20,7 +20,7 @@
     },
     "test:e2e": {
       "dependsOn": ["^build"],
-      "passThroughEnv": ["SANCTIONS_PUBLISHER_DIR", "OPENSANCTIONS_DATE", "SEPOLIA_RPC_URL"],
+      "passThroughEnv": ["SEPOLIA_RPC_URL"],
       "cache": false
     },
     "check": {

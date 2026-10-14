@@ -15,11 +15,8 @@ SDK request() → bridge → headless app → accept → proofs → done → SDK
   mobile app itself is not tested here.
 - **Chain**: anvil forking Sepolia. Requests are in dev mode and bind no chain, so the SDK and the
   headless app prove and verify on Sepolia, reading its registries through the fork: `verify()`
-  takes anvil's URL through `config.rpcUrl`. Certificates and circuits come from the testnet CDNs.
-- **Sanctions publisher** (sanctions test only): the publisher's CLI, from a private ZKPassport
-  repo, run as a child process. Anvil's second account becomes the Sanctions Registry's oracle on
-  the fork, and the publisher publishes after Sepolia's own latest root. A local file server serves
-  the published tree.
+  takes anvil's URL through `config.rpcUrl`. Certificates, circuits and sanctions trees come from
+  the testnet CDNs.
 - **Passport**: John, `createMockPassport()` from `@zkpassport/utils/mock-passports`, a ZKR mock
   passport, so verification runs with `devMode: true`.
 
