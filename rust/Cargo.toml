@@ -23,8 +23,6 @@ repository = "https://github.com/zkpassport/zkpassport-packages"
 inherits = "release"
 panic = "abort"
 strip = true
-codegen-units = 1
-opt-level = "s"
 
 
 # opt-z on the generic-heavy crypto crates trims ~40KB off the linked FFI
