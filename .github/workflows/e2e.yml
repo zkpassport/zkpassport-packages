@@ -49,4 +49,8 @@ jobs:
           restore-keys: bb-crs-
 
       - name: Run the e2e tests
+        # The UI package's type build needs more heap than Node's default on an 8 GB runner, which
+        # is what this workflow gets when a private repository calls it
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: bun run test:e2e
