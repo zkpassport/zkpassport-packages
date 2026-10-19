@@ -4,24 +4,22 @@
  * parsing, node connection checks, deployer-account derivation, SponsoredFPC
  * verification, and deployment-record paths.
  */
-import { type NoirCompiledContract, loadContractArtifact } from "@aztec/aztec.js/abi"
-import { AztecAddress } from "@aztec/aztec.js/addresses"
-import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts"
-import { Fr } from "@aztec/aztec.js/fields"
-import { createAztecNodeClient } from "@aztec/aztec.js/node"
-import { SPONSORED_FPC_SALT } from "@aztec/constants"
-import { deriveMasterMessageSigningSecretKey } from "@aztec/stdlib/keys"
-import { EmbeddedWallet } from "@aztec/wallets/embedded"
+import { type NoirCompiledContract, loadContractArtifact } from "@aztec-labs/aztec.js/abi"
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
+import { getContractInstanceFromInstantiationParams } from "@aztec-labs/aztec.js/contracts"
+import { Fr } from "@aztec-labs/aztec.js/fields"
+import { createAztecNodeClient } from "@aztec-labs/aztec.js/node"
+import { SPONSORED_FPC_SALT } from "@aztec-labs/constants"
+import { deriveMasterMessageSigningSecretKey } from "@aztec-labs/stdlib/keys"
+import { EmbeddedWallet } from "@aztec-labs/wallets/embedded"
 import { mkdirSync, writeFileSync } from "fs"
 import { fileURLToPath } from "node:url"
-import SponsoredFPCJson from "noir-contracts-5.1.0/artifacts/sponsored_fpc_contract-SponsoredFPC" with { type: "json" }
+import SponsoredFPCJson from "@aztec-labs/noir-contracts.js/artifacts/sponsored_fpc_contract-SponsoredFPC" with { type: "json" }
 
 export type Network = "testnet" | "mainnet"
 
 export function defaultNodeUrl(network: Network): string {
-  return network === "testnet"
-    ? "https://v5.testnet.rpc.aztec-labs.com"
-    : "https://aztec-mainnet.drpc.org"
+  return network === "testnet" ? "https://aztec-testnet.drpc.org" : "https://aztec-mainnet.drpc.org"
 }
 
 /** zkpassport_registry_contract::types::MODE_VALID_WITHIN_WINDOW — the deployment default. */
@@ -66,10 +64,8 @@ export type NodeClient = ReturnType<typeof createAztecNodeClient>
 
 /**
  * Connect to the node and refuse early on the failure modes that otherwise surface as
- * anything but their cause: a node version outside the pinned range (networks are
- * version-dependent; v5.1.x is accepted alongside v5.2.x because the two interoperate
- * per the v5.2.0 release notes, and mainnet nodes still report 5.1.0 client binaries),
- * and, on mainnet, a node whose L1 chain is not Ethereum mainnet.
+ * anything but their cause: a node version outside the pinned 6.0.x line (networks are
+ * version-dependent), and, on mainnet, a node whose L1 chain is not Ethereum mainnet.
  */
 export async function connectAndCheckNode(nodeUrl: string, network: Network) {
   const node = createAztecNodeClient(nodeUrl)
@@ -82,9 +78,9 @@ export async function connectAndCheckNode(nodeUrl: string, network: Network) {
     throw new Error(`l1ChainId is ${l1ChainId}, not 1: this node is not Aztec mainnet`)
   }
 
-  if (!nodeVersion.startsWith("5.2.") && !nodeVersion.startsWith("5.1.")) {
+  if (!nodeVersion.startsWith("6.0.")) {
     throw new Error(
-      `node version ${nodeVersion} is not 5.1.x/5.2.x — this repo's toolchain and artifacts are pinned to 5.2.0`,
+      `node version ${nodeVersion} is not 6.0.x — this repo's toolchain and artifacts are pinned to 6.0.0-rc.3`,
     )
   }
 
@@ -112,11 +108,10 @@ export async function deriveSchnorrAccount(wallet: EmbeddedWallet, secretKey: Fr
 }
 
 /**
- * The live testnet's SponsoredFPC was deployed from the 5.1.0 artifact, so derive the
- * instance from the pinned `noir-contracts-5.1.0` alias and verify address and class
- * against the chain: a mismatch means the network swapped its FPC, and fee payment
- * would fail with something far less legible than this error. Registers the FPC with
- * the wallet when one is passed (required before paying through it).
+ * Derive the SponsoredFPC instance from the `@aztec-labs/noir-contracts.js` artifact and
+ * verify address and class against the chain: a mismatch means the network swapped its
+ * FPC, and fee payment would fail with something far less legible than this error.
+ * Registers the FPC with the wallet when one is passed (required before paying through it).
  */
 export async function verifySponsoredFPC(node: NodeClient, wallet?: EmbeddedWallet) {
   const fpcArtifact = loadContractArtifact(SponsoredFPCJson as NoirCompiledContract)
@@ -127,7 +122,7 @@ export async function verifySponsoredFPC(node: NodeClient, wallet?: EmbeddedWall
   const fpcOnChain = await node.getContract(fpc.address)
   if (!fpcOnChain) {
     throw new Error(
-      `SponsoredFPC not found on-chain at derived address ${fpc.address} — the network's FPC no longer matches the pinned 5.1.0 artifact`,
+      `SponsoredFPC not found on-chain at derived address ${fpc.address} — the network's FPC no longer matches the @aztec-labs/noir-contracts.js artifact`,
     )
   }
   if (!fpcOnChain.currentContractClassId.equals(fpc.currentContractClassId)) {

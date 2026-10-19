@@ -1,7 +1,7 @@
 /**
  * Deploy ZKPassportRegistry to the public Aztec testnet.
  *
- * Patterns borrowed from aztec-kit (and the upstream `@aztec/aztec/deploy` framework):
+ * Patterns borrowed from aztec-kit:
  *   - the deployer is an initializerless Schnorr account derived from a secret — its
  *     address is a pure function of (secret, salt) and needs no account-deploy tx;
  *   - fees are paid by the testnet's SponsoredFPC — no Sepolia ETH, no fee-juice
@@ -12,15 +12,11 @@
  *     instead of deploying a duplicate;
  *   - proving is real (`proverEnabled: true`) — testnet rejects simulated proofs.
  *
- * Why not `runDeployment` from `@aztec/aztec/deploy` directly: its sponsored fee policy
- * derives the FPC address from the 5.2.0 artifact (0x2ece60…), but the live testnet's
- * SponsoredFPC was deployed from the 5.1.0 artifact (0x130925…, class 0x184e81…).
- * We pin the 5.1.0 artifact via the `noir-contracts-5.1.0` npm alias, derive the
- * instance ourselves, and verify it against the chain before sending anything.
+ * The SponsoredFPC instance is derived from the `@aztec-labs/noir-contracts.js` artifact
+ * and verified against the chain before anything is sent (verifySponsoredFPC in common.ts).
  *
- * Mainnet: protocol-compatible with this stack (v5.1/v5.2 interoperate per the v5.2.0
- * release notes) but has NO SponsoredFPC — deploying there needs a fee-juice payment
- * mode (bridge the fee asset from Ethereum L1) that this script does not implement yet.
+ * Mainnet has NO SponsoredFPC: deploying there needs a fee-juice payment mode (bridge the
+ * fee asset from Ethereum L1) that this script does not implement yet.
  *
  * Preferred entry point: ../deploy.sh testnet — it compiles the registry first (so the
  * deployed class always matches the source) and supports PREVIEW_DELAY builds. Run
@@ -30,7 +26,7 @@
  *     $AZTEC/bin/aztec codegen target -o ../scripts/artifacts
  *
  * Env:
- *   AZTEC_NODE_URL              node RPC (default: the public v5 testnet endpoint)
+ *   AZTEC_NODE_URL              node RPC (default: the public testnet endpoint)
  *   ZKPASSPORT_DEPLOYER_SECRET  REQUIRED: hex Fr for the deployer account, minted with
  *                               create-schnorr-account.ts. Never generated here; the
  *                               same secret makes re-runs resolve the same deployer
@@ -54,7 +50,7 @@
  * follow-up step — and each seeded value takes INITIAL_DELAY (24h) of real time before
  * private verifiers can read it. There is no time-warp on a real network.
  */
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee"
+import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee"
 import { ZKPassportRegistryContract } from "../artifacts/ZKPassportRegistry.js"
 import {
   MODE_VALID_WITHIN_WINDOW,

@@ -63,14 +63,14 @@
  *   OPRF_PK_HASH                 if set, also set_oprf_pk_hash (salted-nullifier support)
  *   DRY_RUN                      resolve + print everything, send nothing
  *
- * Fees: testnet uses the live SponsoredFPC (same 5.1.0-artifact pin + on-chain
+ * Fees: testnet uses the live SponsoredFPC (same artifact derivation + on-chain
  * verification as deploy-testnet.ts). Mainnet pays with each sender's own Fee Juice —
  * seeding costs a few small public txs (see deploy-mainnet.ts for bridging).
  */
-import { AztecAddress } from "@aztec/aztec.js/addresses"
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee"
-import { Fr } from "@aztec/aztec.js/fields"
-import { deriveStorageSlotInMap } from "@aztec/stdlib/hash"
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
+import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee"
+import { Fr } from "@aztec-labs/aztec.js/fields"
+import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash"
 import { packCircuitManifestVersion } from "../e2e/circuit-version.js"
 import { existsSync, readFileSync } from "fs"
 import { createRequire } from "node:module"
@@ -252,7 +252,7 @@ async function main() {
   const registry = await ZKPassportRegistryContract.at(registryAddress, wallet)
   console.log(`registry: ${registryAddress} (from ${source})`)
 
-  // Fees: sponsored on testnet (same 5.1.0-artifact pin + on-chain check as the deploy
+  // Fees: sponsored on testnet (same artifact derivation + on-chain check as the deploy
   // scripts), the sender's Fee Juice on mainnet.
   let fee: { paymentMethod: SponsoredFeePaymentMethod } | undefined
   if (cfg.sponsored) {

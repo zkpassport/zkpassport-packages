@@ -126,6 +126,17 @@ return { registered: true }
 
 `verify()` checks the proofs locally and defers to the ZKPassport verifier API when the local result is not verified. Set `verifierMode` to `"local"` or `"api"` to force one.
 
+Local verification reads the registry roots on-chain. To use your own Ethereum RPC for those reads instead of the built-in endpoint, pass `config.rpcUrl` to `verify()`, or to `request()` so it is used when verifying the proofs that request receives. The URL must serve the chain the query binds to: Sepolia in dev mode and Ethereum otherwise when unbound.
+
+```typescript
+const { verified } = await zkPassport.verify({
+  proofs,
+  originalQuery: query,
+  queryResult: result,
+  config: { rpcUrl: "https://your-rpc.example" },
+})
+```
+
 ### Using with Next.js
 
 Request the proofs in the browser (with the "How to use" example above, or the drop-in card/button from `@zkpassport/ui`), then send them from `onSuccess` to an API route that verifies them:

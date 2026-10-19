@@ -18,7 +18,7 @@
  *                   a new one
  *   SALT            account salt (default 0, reproducible)
  */
-import { Fr } from "@aztec/aztec.js/fields"
+import { Fr } from "@aztec-labs/aztec.js/fields"
 import {
   type Network,
   connectAndCheckNode,

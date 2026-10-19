@@ -1,14 +1,23 @@
-import { createOfflineQuery } from "@zkpassport/sdk/query"
 import {
   openVerificationPopup,
-  type PopupCallbacks,
+  type PopupCredentialConfig,
   type PopupRequestConfig,
+  type PopupSuccess,
   type VerificationPopupHandle,
 } from "@zkpassport/sdk/popup"
-import type { Query, QueryBuilder, QueryBuilderResult } from "@zkpassport/sdk"
+import { getChainFromId, NullifierType, type ProofMode } from "@zkpassport/sdk"
 
 import { isInAppBrowser } from "./environment"
+import { ZKPassportError, type ZKPassportErrorKind } from "./errors"
 import { logger } from "./logger"
+import {
+  forgetPendingVerification,
+  loadPendingVerification,
+  markPhoneJoined,
+  rememberPendingVerification,
+} from "./pending-verification"
+import { parsePolicyId } from "./policy-id"
+import { toWireQuery, type BoundData, type Query } from "./query-wire"
 
 export type VerificationStatus = "idle" | "in-progress" | "success" | "error"
 
@@ -16,57 +25,130 @@ export type VerificationState = {
   status: VerificationStatus
   // Only set when there is a message worth showing the user
   error: string | null
+  errorKind: ZKPassportErrorKind | null
+  /** This page's own URL, set when the browser can't host the verification window. */
+  openInBrowserUrl: string | null
+  /** A verification started before this page loaded is still open; verify() picks that one up. */
+  resumable: boolean
 }
 
-export type VerificationOptions = PopupRequestConfig &
-  PopupCallbacks & {
-    // URL of the hosted verification page (override for local development)
-    popupUrl?: string
-    policyId?: string
-    query: (queryBuilder: QueryBuilder) => QueryBuilderResult
-  }
+/** What the service accepts, as opposed to what the query asks about the credential. */
+export type ServiceConfig = {
+  domain?: string
+  scope?: string
+  uniqueIdentifierType?: "salted" | "non-salted" | "none"
+  validity?: number
+  devMode?: boolean
+}
+
+/** Points the flow at your own deployment of the services ZKPassport runs. */
+export type VerificationOverrides = {
+  bridgeUrl?: string
+  cloudProverUrl?: string
+  /** @internal Points the flow at another popup origin; for testing. */
+  popupUrl?: string
+  /** Opt into the no-install App Clip lane: the popup emits a `/c` request URL instead of `/r`. */
+  appClip?: boolean
+}
+
+type Callbacks = {
+  onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type" | "session">) => unknown
+  onError?: (error: ZKPassportError) => void
+}
+
+type BaseVerificationOptions = Callbacks & {
+  purpose?: string
+  service?: ServiceConfig
+  bind?: BoundData
+  overrides?: VerificationOverrides
+}
+
+/**
+ * A verification proves a query, proves a dashboard policy, or mints the credential an on-chain
+ * policy defines. An on-chain policy is only evaluated by its contract, so it always mints.
+ */
+export type VerificationOptions =
+  | (BaseVerificationOptions & {
+      query?: Query
+      policyId?: string
+      mode?: ProofMode
+      mint?: never
+    })
+  | (BaseVerificationOptions & {
+      mint: true
+      policyId: string
+      bind: BoundData & { account: `0x${string}`; chainId: number }
+      query?: never
+      mode?: never
+    })
 
 export type VerificationController = {
   readonly state: VerificationState
   verify: () => void
+  /** Close the popup window. */
   close: () => void
+  /**
+   * Call when the button goes away. A popup that already delivered its result
+   * stays open for the user; one still in progress is closed like `close()`.
+   */
+  dispose: () => void
 }
 
-// The only fields sent to the popup; anything else stays on this page.
-const POPUP_REQUEST_FIELDS: Record<keyof PopupRequestConfig, true> = {
-  name: true,
-  logo: true,
-  purpose: true,
-  scope: true,
-  mode: true,
-  devMode: true,
-  validity: true,
-  uniqueIdentifierType: true,
-  oprfKeyId: true,
+const POPUP_BLOCKED_MESSAGE =
+  "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
+// Names the site so the user knows what to reopen
+function inAppBrowserMessage(): string {
+  const site = window.location.hostname.replace(/^www\./, "") || "this page"
+  return `This browser can’t open the verification window. Open ${site} in your browser instead.`
 }
 
-const POPUP_BLOCKED_MESSAGE = "Popup blocked. Allow popups for this site and try again."
-const IN_APP_BROWSER_MESSAGE =
-  "Couldn't open the verification window here. Open this page in Safari or Chrome and try again."
+const IDENTIFIER_TYPES = {
+  "salted": NullifierType.SALTED,
+  "non-salted": NullifierType.NON_SALTED,
+  "none": NullifierType.NONE,
+} as const
 
 // Opens the hosted popup and tracks the outcome. Shared by both buttons and the React hook.
 export function createVerification(
   getOptions: () => VerificationOptions,
   onStateChange: (state: VerificationState) => void,
 ): VerificationController {
-  let state: VerificationState = { status: "idle", error: null }
+  // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
+  const resumableNow = (status: VerificationStatus) =>
+    status !== "in-progress" && !!loadPendingVerification(toRequestKey(getOptions()))
+
+  let state: VerificationState = {
+    status: "idle",
+    error: null,
+    errorKind: null,
+    openInBrowserUrl: null,
+    resumable: resumableNow("idle"),
+  }
   let popupHandle: VerificationPopupHandle | null = null
+  // Set once the popup delivered a result; from then on the window belongs to the user
+  let popupFinished = false
   // Numbers each verify() so a slow onSuccess from an old popup
   // can't overwrite the status of a newer one
   let latestAttempt = 0
+  // Options can change after the click, so close() clears the key verify() used, not a new one
+  let pendingKey: string | null = null
 
-  const setStatus = (status: VerificationStatus, error: string | null = null) => {
-    state = { status, error }
+  const setStatus = (
+    status: VerificationStatus,
+    error: string | null = null,
+    errorKind: ZKPassportErrorKind | null = null,
+    openInBrowserUrl: string | null = null,
+  ) => {
+    state = { status, error, errorKind, openInBrowserUrl, resumable: resumableNow(status) }
     onStateChange(state)
   }
 
   const verify = () => {
     const options = getOptions()
+    // Reopening with the same session returns to the verification already running, rather than
+    // starting a second one the phone knows nothing about
+    const requestKey = toRequestKey(options)
+    const resuming = loadPendingVerification(requestKey)
 
     if (popupHandle) {
       if (!popupHandle.popup.closed) {
@@ -79,29 +161,71 @@ export function createVerification(
     }
 
     const thisAttempt = ++latestAttempt
-    let query: Query
+    popupFinished = false
+    pendingKey = requestKey
+
+    // Only one terminal callback ever fires: a failure followed by the user closing the window is
+    // one outcome, not two
+    let settled = false
+    const fail = (
+      kind: ZKPassportError["kind"],
+      message: string,
+      { status, openInBrowserUrl }: { status?: VerificationStatus; openInBrowserUrl?: string } = {},
+    ) => {
+      if (settled || latestAttempt !== thisAttempt) return
+      settled = true
+      // A discarded tab also reports as closed, so only a phone that never joined ends things here.
+      // "blocked" is this browser refusing to open a window, not an outcome for the verification.
+      const stillRunning =
+        kind === "blocked" ||
+        (kind === "closed" && loadPendingVerification(requestKey)?.phoneJoined === true)
+      if (!stillRunning) forgetPendingVerification(requestKey)
+      setStatus(
+        status ?? "error",
+        kind === "closed" ? null : message,
+        kind,
+        openInBrowserUrl ?? null,
+      )
+      getOptions().onError?.(new ZKPassportError(kind, message))
+    }
+
+    let request: { config: PopupRequestConfig; query: object; credential?: PopupCredentialConfig }
     try {
-      query = buildQuery(options)
+      request = buildRequest(options)
     } catch (reason) {
       logger.error(reason)
-      setStatus("error")
-      options.onError?.("Failed to build the verification query")
+      const message =
+        reason instanceof Error ? reason.message : "Failed to build the verification request"
+      fail("failed", message)
+      return
+    }
+
+    // Checked before opening, not after: an in-app browser can return a null handle and still
+    // perform the navigation, leaving a dead second window on top of the message
+    if (isInAppBrowser()) {
+      fail("blocked", inAppBrowserMessage(), { openInBrowserUrl: window.location.href })
       return
     }
 
     const handle = openVerificationPopup({
-      popupUrl: options.popupUrl,
-      request: toPopupRequest(options),
-      query,
+      popupUrl: options.overrides?.popupUrl,
+      session: resuming?.session,
+      request: request.config,
+      query: request.query as never,
+      credential: request.credential,
       // Callbacks resolve at event time: results arrive minutes after the
       // click, and React consumers swap callbacks between renders
       callbacks: {
-        onRequestReceived: () => getOptions().onRequestReceived?.(),
-        onGeneratingProof: () => getOptions().onGeneratingProof?.(),
-        onProofGenerated: (progress) => getOptions().onProofGenerated?.(progress),
+        onRequestReceived: () => {
+          if (latestAttempt === thisAttempt) markPhoneJoined(requestKey)
+        },
         // Success waits for the app's onSuccess handler, which can veto it by
         // returning false (e.g. when its backend did not verify the proofs)
         onSuccess: (response) => {
+          if (latestAttempt !== thisAttempt) return
+          popupFinished = true
+          settled = true
+          forgetPendingVerification(requestKey)
           const finish = (next: "success" | "error") => {
             if (latestAttempt === thisAttempt) setStatus(next)
           }
@@ -121,31 +245,35 @@ export function createVerification(
             },
           )
         },
-        onReject: () => {
-          setStatus("error")
-          getOptions().onReject?.()
-        },
-        onError: (message) => getOptions().onError?.(message),
-        onClose: () => {
-          setStatus("idle")
-          getOptions().onClose?.()
-        },
+        onReject: () => fail("rejected", "Verification was declined."),
+        onError: (message) => fail("failed", message),
+        // Closing without a result returns the button to idle: nothing failed, the user left
+        onClose: () => fail("closed", "The verification window was closed.", { status: "idle" }),
       },
     })
 
     if (!handle) {
-      setStatus("error", isInAppBrowser() ? IN_APP_BROWSER_MESSAGE : POPUP_BLOCKED_MESSAGE)
-      options.onError?.("Popup blocked")
+      fail("blocked", POPUP_BLOCKED_MESSAGE)
       return
     }
 
     popupHandle = handle
+    // Noted before the user leaves for the app, so a page rebuilt while they are away can return
+    rememberPendingVerification(handle.session, requestKey)
     setStatus("in-progress")
   }
 
   const close = () => {
     latestAttempt++
+    if (pendingKey) forgetPendingVerification(pendingKey)
     popupHandle?.close()
+    popupHandle = null
+  }
+
+  const dispose = () => {
+    latestAttempt++
+    if (popupFinished) popupHandle?.release()
+    else popupHandle?.close()
     popupHandle = null
   }
 
@@ -155,23 +283,111 @@ export function createVerification(
     },
     verify,
     close,
+    dispose,
   }
 }
 
-function buildQuery(options: VerificationOptions): Query {
-  const builder = createOfflineQuery()
-  if (options.policyId) {
-    builder.policy(options.policyId)
-  }
-  const built = options.query(builder as never) as unknown as { query: Query }
-  return built.query
+/** Identifies what a button asks for, so a pending verification is only offered back to its own. */
+function toRequestKey(options: VerificationOptions): string {
+  // Everything that reaches the popup: a field left out lets buttons share a verification
+  return JSON.stringify([
+    options.policyId ?? null,
+    options.query ?? null,
+    options.bind ?? null,
+    options.mint ?? false,
+    options.mode ?? null,
+    options.purpose ?? null,
+    options.service ?? null,
+    options.overrides ?? null,
+  ])
 }
 
-function toPopupRequest(options: VerificationOptions): PopupRequestConfig {
-  const request: Record<string, unknown> = {}
-  for (const field of Object.keys(POPUP_REQUEST_FIELDS)) {
-    const value = options[field as keyof PopupRequestConfig]
-    if (value !== undefined) request[field] = value
+function buildRequest(options: VerificationOptions): {
+  config: PopupRequestConfig
+  query: object
+  credential?: PopupCredentialConfig
+} {
+  const policy = options.policyId ? parsePolicyId(options.policyId) : undefined
+
+  if (options.mint) {
+    if (!policy || policy.kind !== "onchain") {
+      throw new Error(
+        "mint requires an on-chain policyId, for example eip155:8453:0x7b — a dashboard policy has " +
+          "no contract to evaluate it.",
+      )
+    }
+    const { account, chainId } = options.bind
+    if (!/^0x[0-9a-fA-F]{40}$/.test(account)) {
+      throw new Error(
+        "bind.account must be a 0x-prefixed 20-byte address; it receives the credential.",
+      )
+    }
+    // A chainless id resolves to the bound chain: the credential is minted there, so that is the
+    // only chain whose copy of the policy could govern it
+    if (policy.chainId !== undefined && policy.chainId !== chainId) {
+      throw new Error(
+        `bind.chainId (${chainId}) must match the policy's chain (${policy.chainId}).`,
+      )
+    }
+    return {
+      // No scope fallback: the evaluator checks the scope the contract stores, so the popup takes it
+      // from the policy rather than from anything this page sends
+      config: toPopupRequest(options),
+      // A mint request carries no query: the popup derives it from the policy
+      query: {},
+      credential: {
+        chain: getChainFromId(chainId),
+        policyId: policy.policyId,
+        recipient: account,
+      },
+    }
   }
-  return request as PopupRequestConfig
+
+  if (policy?.kind === "onchain") {
+    throw new Error(
+      `Policy "${options.policyId}" lives on-chain and can only be used with mint: true. To ` +
+        "verify without minting, use a dashboard policy or a query.",
+    )
+  }
+  if (!options.query && !policy) {
+    throw new Error("A query or a policyId is required.")
+  }
+  if (options.query && policy) {
+    throw new Error(
+      "A policyId carries its own query; remove the query option or drop the policyId.",
+    )
+  }
+
+  return {
+    config: toPopupRequest(options, policy?.kind === "dashboard" ? policy.id : undefined),
+    query: toWireQuery(options.query ?? {}, options.bind),
+  }
+}
+
+function toPopupRequest(
+  options: VerificationOptions,
+  dashboardPolicy?: string,
+): PopupRequestConfig {
+  const service = options.service ?? {}
+  const identifier = service.uniqueIdentifierType
+  const config: PopupRequestConfig = {
+    purpose: options.purpose,
+    policyId: dashboardPolicy,
+    domain: service.domain,
+    // The identifier is scoped to the flow, so a policy is the natural default: the same person is
+    // recognised across visits to it and not across a service's other flows
+    scope: service.scope ?? dashboardPolicy,
+    mode: options.mint ? "compressed-evm" : options.mode,
+    validity: service.validity,
+    devMode: service.devMode,
+    bridgeUrl: options.overrides?.bridgeUrl,
+    cloudProverUrl: options.overrides?.cloudProverUrl,
+    appClip: options.overrides?.appClip,
+    // Left unset when not configured, so the SDK's own default applies
+    uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
+  }
+  for (const key of Object.keys(config) as Array<keyof PopupRequestConfig>) {
+    if (config[key] === undefined) delete config[key]
+  }
+  return config
 }

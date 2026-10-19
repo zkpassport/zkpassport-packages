@@ -10,13 +10,13 @@
  *   DOUBLE CLAIM REJECTED — the uniqueness nullifier collides
  *   TAMPERED PROOF REJECTED — a one-bit-flipped proof fails client-side proving
  */
-import { AztecAddress } from "@aztec/aztec.js/addresses"
-import { Fr } from "@aztec/aztec.js/fields"
-import { createAztecNodeClient } from "@aztec/aztec.js/node"
-import { Capsule } from "@aztec/aztec.js/tx"
-import { createAztecNodeDebugClient } from "@aztec/stdlib/interfaces/client"
-import { EmbeddedWallet } from "@aztec/wallets/embedded"
-import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/wallets/testing"
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
+import { Fr } from "@aztec-labs/aztec.js/fields"
+import { createAztecNodeClient } from "@aztec-labs/aztec.js/node"
+import { Capsule } from "@aztec-labs/aztec.js/tx"
+import { createAztecNodeDebugClient } from "@aztec-labs/stdlib/interfaces/client"
+import { EmbeddedWallet } from "@aztec-labs/wallets/embedded"
+import { registerInitialLocalNetworkAccountsInWallet } from "@aztec-labs/wallets/testing"
 import { readFileSync } from "fs"
 import { AgeGateContract } from "../artifacts/AgeGate.js"
 import { ZKPassportRegistryContract } from "../artifacts/ZKPassportRegistry.js"
