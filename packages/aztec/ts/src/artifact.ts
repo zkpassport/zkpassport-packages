@@ -5,7 +5,7 @@ import {
   type ContractArtifact,
   loadContractArtifact,
   type NoirCompiledContract,
-} from "@aztec/aztec.js/abi"
+} from "@aztec-labs/aztec.js/abi"
 import ZKPassportRegistryJson from "../../noir/target/zkpassport_registry_contract-ZKPassportRegistry.json" with { type: "json" }
 
 export const ZKPassportRegistryArtifact: ContractArtifact = loadContractArtifact(

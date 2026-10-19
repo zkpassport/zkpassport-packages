@@ -1,7 +1,7 @@
-import type { ContractArtifact } from "@aztec/aztec.js/abi"
-import { AztecAddress } from "@aztec/aztec.js/addresses"
-import { getContractClassFromArtifact } from "@aztec/stdlib/contract"
-import type { ContractInstanceWithAddress } from "@aztec/stdlib/contract"
+import type { ContractArtifact } from "@aztec-labs/aztec.js/abi"
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
+import { getContractClassFromArtifact } from "@aztec-labs/stdlib/contract"
+import type { ContractInstanceWithAddress } from "@aztec-labs/stdlib/contract"
 
 import { ZKPassportRegistryArtifact } from "./artifact.ts"
 

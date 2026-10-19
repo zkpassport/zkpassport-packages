@@ -1,4 +1,4 @@
-import { Fr } from "@aztec/aztec.js/fields"
+import { Fr } from "@aztec-labs/aztec.js/fields"
 
 import { MRZ_LENGTH, outerPublicInputCount, PROOF_FIELDS, VK_FIELDS } from "./constants.ts"
 

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { Fr } from "@aztec/aztec.js/fields"
-import { getContractClassFromArtifact } from "@aztec/stdlib/contract"
-import type { ContractInstanceWithAddress } from "@aztec/stdlib/contract"
+import { Fr } from "@aztec-labs/aztec.js/fields"
+import { getContractClassFromArtifact } from "@aztec-labs/stdlib/contract"
+import type { ContractInstanceWithAddress } from "@aztec-labs/stdlib/contract"
 
 import { ZKPassportRegistryArtifact } from "../src/artifact.ts"
 import { registerZKPassportRegistry, type RegistryWallet } from "../src/register.ts"
