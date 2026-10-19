@@ -2,7 +2,7 @@ import type { Chain, PublicClient, WalletClient } from "viem"
 import { createPublicClient, encodeAbiParameters, getAbiItem, http, keccak256 } from "viem"
 import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType } from "@zkpassport/utils"
-import { getCredentialsRegistry } from "./deployments"
+import { getCredentialsAddress } from "./deployments"
 import { ZKPassportCredentialsAbi } from "./abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./abi/policy-evaluator-v1"
 
@@ -22,6 +22,12 @@ export type CredentialPolicy = {
    * expire. After expiration, credentials can be renewed by calling `issue` with a fresh proof.
    */
   credentialDuration: bigint
+  /**
+   * When true, the policy issues at most one credential per document: each issuance consumes the
+   * proof's nullifier, which must then be of the evaluator's `uniqueIdentifierType`. Immutable
+   * after creation.
+   */
+  enforceUniqueness: boolean
   /** When true, the policy owner may issue credentials directly via ownerIssue(), without a proof. */
   ownerIssuable: boolean
   /**
@@ -57,16 +63,9 @@ export type CredentialPolicy = {
  */
 export type CredentialPolicyRequirements = {
   /**
-   * Any `uniqueIdentifierType` value other than `NONE` requires the proof to carry exactly that
-   * nullifier type.
-   */
-  uniqueIdentifierType: NullifierType
-  /**
-   * `enforceUniqueness` limits issuance to one credential per document.
-   */
-  enforceUniqueness: boolean
-  /**
-   * `minAge` defines an inclusive bound, so setting it to 0 means effectively no age check.
+   * Minimum age the proof must commit to. The on-chain check is an exact match, not a lower
+   * bound: a policy requiring 18 rejects a proof generated for 21. Request the proof with this
+   * exact value. 0 disables the check.
    */
   minAge: number
   /**
@@ -79,8 +78,8 @@ export type CredentialPolicyRequirements = {
   /**
    * FaceMatch check (ID photo vs. live selfie) the proof must carry; undefined when the policy
    * does not require one. "strict" runs an extensive liveness check, "regular" a basic, faster
-   * one. Salted-nullifier policies require "strict", as the app salts nullifiers through a
-   * strict FaceMatch attestation.
+   * one. Uniqueness policies on a salted evaluator require "strict", as the app salts nullifiers
+   * through a strict FaceMatch attestation.
    */
   facematchMode?: FacematchMode
   /**
@@ -124,8 +123,6 @@ export function encodeCredentialPolicyRequirements(
   requirements: CredentialPolicyRequirements,
 ): `0x${string}` {
   const value = {
-    uniqueIdentifierType: requirements.uniqueIdentifierType,
-    enforceUniqueness: requirements.enforceUniqueness,
     minAge: requirements.minAge,
     sanctionsMode:
       requirements.sanctionsMode === undefined
@@ -184,7 +181,21 @@ export type IssueProofVerificationParams = {
 }
 
 /**
- * Typed bindings for the ZKPassportCredentials credential registry.
+ * Encode the `proofData` argument for `issue()`: the proof verification params encoded per
+ * PolicyEvaluatorV1's schema-1 layout. Policies pinned to another evaluator schema need that
+ * schema's encoding instead; `getRequirements` rejects such policies before a proof request
+ * is ever built.
+ *
+ * The params must have been derived for the policy's own scope, from `policyScope(policyId)`,
+ * against the contract's `domain()`. A manually built scope string risks not matching what the
+ * contract expects to verify.
+ */
+export function encodeIssueProofData(params: IssueProofVerificationParams): `0x${string}` {
+  return encodeAbiParameters(PROOF_DATA_ABI, [params] as never)
+}
+
+/**
+ * Typed bindings for the ZKPassportCredentials contract.
  */
 export class CredentialsClient {
   private readonly client: CredentialsReadClient
@@ -236,18 +247,42 @@ export class CredentialsClient {
 
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       CredentialPolicyRequirements,
-      "uniqueIdentifierType" | "sanctionsMode" | "facematchMode"
-    > & { uniqueIdentifierType: number; sanctionsMode: number; faceMatchMode: number }
+      "sanctionsMode" | "facematchMode"
+    > & { sanctionsMode: number; faceMatchMode: number }
 
     return {
-      uniqueIdentifierType: decoded.uniqueIdentifierType as NullifierType,
-      enforceUniqueness: decoded.enforceUniqueness,
       minAge: decoded.minAge,
       sanctionsMode: SANCTIONS_MODES[decoded.sanctionsMode],
       facematchMode: FACEMATCH_MODES[decoded.faceMatchMode],
       includedNationalities: decoded.includedNationalities,
       excludedNationalities: decoded.excludedNationalities,
     }
+  }
+
+  /**
+   * Whether the policy's evaluator accepts mock-document proofs. Submit it as the `devMode` in
+   * issue()'s proof params: an evaluator that is not in dev mode reverts any submission claiming
+   * it. Which registries a proof is rooted in is a separate question, set by the chain.
+   */
+  async getDevMode(policy: CredentialPolicy): Promise<boolean> {
+    return (await this.client.readContract({
+      address: policy.evaluator,
+      abi: PolicyEvaluatorV1Abi,
+      functionName: "devMode",
+    } as never)) as boolean
+  }
+
+  /**
+   * The nullifier type the policy's evaluator requires of proofs for policies that enforce
+   * uniqueness (`policy.enforceUniqueness`); other policies leave the type unconstrained. The
+   * type is matched exactly, mock types included. Under `NONE` no uniqueness policy can issue.
+   */
+  async getUniqueIdentifierType(policy: CredentialPolicy): Promise<NullifierType> {
+    return (await this.client.readContract({
+      address: policy.evaluator,
+      abi: PolicyEvaluatorV1Abi,
+      functionName: "uniqueIdentifierType",
+    } as never)) as NullifierType
   }
 
   async uri(policyId: bigint): Promise<string> {
@@ -294,7 +329,7 @@ export class CredentialsClient {
   }
 
   /**
-   * The registry's domain, which issue() verifies proofs against.
+   * The credentials contract's domain, which issue() verifies proofs against.
    */
   async domain(): Promise<string> {
     return (await this.read("domain", [])) as string
@@ -302,7 +337,7 @@ export class CredentialsClient {
 
   /**
    * Enumerate policies from `PolicyCreated` logs. Policy ids are `keccak256(creator, salt)`,
-   * so the registry has no on-chain list; logs are the only on-chain enumeration. Apps that
+   * so the credentials contract has no on-chain list; logs are the only on-chain enumeration. Apps that
    * need frequent or large listings should index `PolicyCreated` themselves instead.
    *
    * The scan starts at `fromBlock`, or the client's `deployBlock` when omitted; constructing
@@ -319,7 +354,7 @@ export class CredentialsClient {
     const fromBlock = filter.fromBlock ?? this.deployBlock
     if (fromBlock === undefined) {
       throw new Error(
-        "listPolicies needs a starting block: pass fromBlock, or construct CredentialsClient with the registry's deployBlock.",
+        "listPolicies needs a starting block: pass fromBlock, or construct CredentialsClient with the credentials contract's deployBlock.",
       )
     }
 
@@ -348,63 +383,29 @@ export class CredentialsClient {
   }
 
   /**
-   * Call details for ZKPassportCredentials.issue(policyId, proofData).
+   * Assemble the ready-to-send issue() call for a policy from a verified proof, encoding the
+   * proof data via `encodeIssueProofData`.
    *
    * Issuance is permissionless: any sender may submit, and the credential lands on the wallet the
    * proof is bound to. Renewal is achieved through the same call: issuing again extends
    * `heldUntil`.
    *
    * On-chain preconditions the transaction must satisfy or `issue()` reverts:
-   * - The proof must be bound to the recipient wallet and to the chain the registry lives on
-   *   (request the proof with those bindings).
-   * - The proof's bound `customData` must be empty.
+   * - The proof must be bound to the recipient wallet and to the chain the credentials contract
+   *   lives on (request the proof with those bindings).
    * - `devMode` is accepted; mock-document proofs (dev mode) verify only against testnet
    *   registries, which contain the mock certificates. On mainnet deployments they fail the
    *   certificate root check.
    * - The proof must be at most 1 day old at inclusion time.
    * - The recipient wallet must not be banned. A ban blocks issuance until the policy owner
    *   unbans. Only relevant for `ownerBannable` policies.
-   * - The policy must exist, not be retired, and the registry not paused.
-   */
-  getIssueDetails(): {
-    address: `0x${string}`
-    functionName: "issue"
-    abi: typeof ZKPassportCredentialsAbi
-  } {
-    return { address: this.address, functionName: "issue", abi: ZKPassportCredentialsAbi }
-  }
-
-  /**
-   * Build the `proofData` argument for `issue()`: the proof verification params encoded per
-   * PolicyEvaluatorV1's schema-1 layout. Policies pinned to another evaluator schema need that
-   * schema's encoding instead; `getRequirements` rejects such policies before a proof request
-   * is ever built.
-   *
-   * The params must have been derived for this policy's own scope, from `policyScope(policyId)`,
-   * against the registry's `domain()`. A manually built scope string risks not matching what the
-   * contract expects to verify.
-   */
-  static getIssueProofData(params: IssueProofVerificationParams): `0x${string}` {
-    return encodeAbiParameters(PROOF_DATA_ABI, [params] as never)
-  }
-
-  /**
-   * Assemble the ready-to-send issue() call for a policy from a verified
-   * proof: this client's registry details plus the proof data encoded via
-   * getIssueProofData.
+   * - The policy must exist, not be retired, and the contract not paused.
    */
   buildIssueCall(options: {
     policyId: bigint
     params: IssueProofVerificationParams
   }): CredentialIssueCall {
-    const proofData = CredentialsClient.getIssueProofData(options.params)
-    const details = this.getIssueDetails()
-    return {
-      address: details.address,
-      functionName: details.functionName,
-      abi: details.abi,
-      args: [options.policyId, proofData] as const,
-    }
+    return this.call("issue", [options.policyId, encodeIssueProofData(options.params)] as const)
   }
 
   private call<F extends string, A>(functionName: F, args: A): CredentialsCall<F, A> {
@@ -415,7 +416,8 @@ export class CredentialsClient {
    * Assemble the createPolicy() call. The sender becomes the policy owner; the policy id is
    * `keccak256(creator, salt)` (predictable via `computePolicyId`), so a creator reusing a salt
    * reverts. Requirements are encoded per the current evaluator's schema and validated on-chain
-   * at creation. The three owner-privilege flags default to false and are immutable afterwards.
+   * at creation. `enforceUniqueness` and the three owner-privilege flags are immutable
+   * afterwards; the owner flags default to false.
    */
   buildCreatePolicyCall(options: {
     /** Creator-scoped namespace for the policy id. */
@@ -425,6 +427,11 @@ export class CredentialsClient {
     credentialDuration: bigint
     /** Display metadata for the policy's token, served by uri(policyId). */
     metadataURL: string
+    /**
+     * Issue at most one credential per document. No credential can issue if the current
+     * evaluator's `uniqueIdentifierType` is `NONE`.
+     */
+    enforceUniqueness: boolean
     /** Allow proofless issuance via ownerIssue(). */
     ownerIssuable?: boolean
     /** Allow the owner to ban wallets (removing any standing credential) via ban(). */
@@ -433,13 +440,14 @@ export class CredentialsClient {
     ownerEditable?: boolean
   }): CredentialsCall<
     "createPolicy",
-    readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean]
+    readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean, boolean]
   > {
     return this.call("createPolicy", [
       options.salt,
       encodeCredentialPolicyRequirements(options.requirements),
       options.credentialDuration,
       options.metadataURL,
+      options.enforceUniqueness,
       options.ownerIssuable ?? false,
       options.ownerBannable ?? false,
       options.ownerEditable ?? false,
@@ -527,7 +535,7 @@ export class CredentialsClient {
 
 /**
  * Ready-to-send ZKPassportCredentials call assembled by a CredentialsClient. `address` is the
- * registry address; the fields keep viem's naming so the object spreads straight into
+ * credentials contract address; the fields keep viem's naming so the object spreads straight into
  * writeContract/simulateContract, or submits through `submitCredentialsCall`.
  */
 export type CredentialsCall<F extends string = string, A = readonly unknown[]> = {
@@ -538,8 +546,8 @@ export type CredentialsCall<F extends string = string, A = readonly unknown[]> =
 }
 
 /**
- * Ready-to-send ZKPassportCredentials.issue() call. `address` is the registry
- * address; the field keeps viem's naming so the object spreads straight into
+ * Ready-to-send ZKPassportCredentials.issue() call. `address` is the credentials
+ * contract address; the field keeps viem's naming so the object spreads straight into
  * writeContract/simulateContract.
  */
 export type CredentialIssueCall = {
@@ -557,8 +565,8 @@ export type CredentialsContext = {
 }
 
 /**
- * Read context for the canonical registry on a chain: a public client on the
- * chain's default RPC plus a CredentialsClient bound to the registry. The registry
+ * Read context for the canonical credentials contract on a chain: a public client on the
+ * chain's default RPC plus a CredentialsClient bound to it. The address
  * is derived from the viem chain's id, so chains without a recorded
  * deployment are rejected here.
  */
@@ -566,7 +574,7 @@ export function createCredentialsContext(chain: Chain): CredentialsContext {
   const publicClient = createPublicClient({ chain, transport: http() })
   const credentials = new CredentialsClient({
     client: publicClient,
-    address: getCredentialsRegistry(getChainFromId(chain.id)),
+    address: getCredentialsAddress(getChainFromId(chain.id)),
   })
   return { chain, publicClient, credentials }
 }
@@ -628,7 +636,7 @@ export async function submitIssueCall(
 }
 
 /**
- * Submit a CredentialsClient-assembled registry call and wait for inclusion. Unlike issue(), the
+ * Submit a CredentialsClient-assembled contract call and wait for inclusion. Unlike issue(), the
  * owner operations are permissioned: the wallet must be the policy's owner (or, for
  * renounce(), the holder giving up their own credential) or the transaction reverts. The
  * wallet client must already be on
@@ -649,5 +657,5 @@ export async function submitCredentialsCall(
   )
 }
 
-export { ZKPassportCredentialsAbi }
-export { getCredentialsChain, getCredentialsRegistry } from "./deployments"
+export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi }
+export { getCredentialsChain, getCredentialsAddress } from "./deployments"

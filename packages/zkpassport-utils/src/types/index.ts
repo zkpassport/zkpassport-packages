@@ -326,6 +326,7 @@ export type SupportedChain =
   | "scroll"
   | "linea"
   | "world_chain"
+  | "robinhood"
   // Testnets
   | "ethereum_sepolia"
   | "base_sepolia"
@@ -405,6 +406,7 @@ export type Service = {
   logo: string
   purpose: string
   scope?: string
+  policyId?: string
   projectID?: string
   chainId?: number
   cloudProverUrl?: string
@@ -651,6 +653,10 @@ export type {
   PackagedCertificatesFileV0,
   PackagedCertificatesFileV1,
   IntermediateCertificateRevocation,
+  PackagedSanctionsFile,
+  PackagedSanctionsFileV1,
+  PackagedSanctionsBuilder,
+  SanctionsSource,
   CircuitManifest,
   CircuitManifestEntry,
 } from "./registry"
