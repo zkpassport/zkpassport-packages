@@ -147,7 +147,7 @@ export async function proveFastMode({
     })
   }
 
-  const barretenberg = await Barretenberg.new()
+  const barretenberg = await startBarretenberg()
   const proofs: ProofResult[] = []
   try {
     for (const [index, step] of steps.entries()) {
@@ -189,6 +189,26 @@ export async function proveFastMode({
 
 /** The passport is on a sanctions list, so no exclusion proof exists for it */
 export class SanctionsCheckFailedError extends Error {}
+
+/**
+ * A Barretenberg whose native prover accepted its connection. bb.js gives the prover 5 seconds to
+ * start, which a slow CI runner's first start can miss, and reports the miss only at the first call,
+ * so connect here and start again on that timeout.
+ */
+async function startBarretenberg(attempts = 3): Promise<Barretenberg> {
+  for (let attempt = 1; ; attempt++) {
+    const barretenberg = await Barretenberg.new()
+    try {
+      await barretenberg.blake2s({ data: new Uint8Array() })
+      return barretenberg
+    } catch (error) {
+      await barretenberg.destroy().catch(() => {})
+      if (attempt >= attempts || !/Timeout (waiting for bb|connecting to bb)/.test(String(error))) {
+        throw error
+      }
+    }
+  }
+}
 
 /** The sanctions tree published for the latest sanctions root of the registry's chain */
 async function getSanctionsBuilder(registry: RegistryClient): Promise<SanctionsBuilder> {
