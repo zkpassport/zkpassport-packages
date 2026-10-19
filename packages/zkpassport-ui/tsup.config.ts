@@ -5,6 +5,7 @@ import { defineConfig, type Options } from "tsup"
 type EsbuildPlugin = NonNullable<Options["esbuildPlugins"]>[number]
 
 const isDev = process.env.DEV_BUILD === "true"
+const isWatch = process.env.DEV_WATCH === "true"
 
 // esbuild strips module directives; re-prepend "use client" on the React entries
 async function prependUseClient(outDir: string, format: "esm" | "cjs") {
@@ -81,9 +82,10 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
   },
 }))
 
-// Hosted build (internal): for the popup only; the real SDK stays external
+// Internal builds for the popup only; the real SDK stays external. Unsplit, so app-link
+// stays free of the SDK the hosted bundle pulls in.
 const hostedConfig: Options = {
-  entry: { hosted: "src/react/index.tsx" },
+  entry: { "hosted": "src/hosted.ts", "app-link": "src/app-link.ts" },
   format: "esm",
   outDir: "dist",
   dts: { compilerOptions: { composite: false } },
@@ -93,7 +95,7 @@ const hostedConfig: Options = {
   treeshake: !isDev,
   minify: !isDev,
   platform: "browser",
-  external: ["react", "react-dom", "react/jsx-runtime", /^@zkpassport\/sdk/],
+  external: ["react", "react-dom", "react/jsx-runtime", /^@zkpassport\/(sdk|onchain-credentials)/],
   loader: { ".css": "text" },
 }
 
@@ -112,4 +114,8 @@ const cssConfig: Options = {
   },
 }
 
-export default defineConfig([...npmConfigs, hostedConfig, cssConfig])
+export default defineConfig(
+  isWatch
+    ? [{ ...hostedConfig, dts: false, minify: false, treeshake: false }]
+    : [...npmConfigs, hostedConfig, cssConfig],
+)

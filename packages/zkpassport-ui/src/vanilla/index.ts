@@ -38,9 +38,11 @@ export { mountVerifyButton, type VerifyButtonHandle } from "../button/index"
 export {
   createVerification,
   type VerificationController,
+  type ServiceConfig,
+  type VerificationOverrides,
   type VerificationOptions,
   type VerificationState,
   type VerificationStatus,
 } from "../verification"
-export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
+export type { VerifyWithZKPassportOptions } from "../verify-button"
 export * from "../types"

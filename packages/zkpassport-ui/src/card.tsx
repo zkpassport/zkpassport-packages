@@ -17,9 +17,11 @@ import {
   SPINNER_SVG,
   ZKPASSPORT_DOWNLOAD_URL,
 } from "./assets"
+import { detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
 import cardStyles from "./styles.css"
 import { injectStylesheet } from "./inject-styles"
 import { useCard, type CardState, type ProofStreamProgress } from "./use-card"
+import { useOpenApp } from "./use-open-app"
 import { describeQuery, type QueryDescriptionItem } from "./query-description"
 import { isInAppBrowser, isMobileLike } from "./environment"
 import type { ZKPassportQRCodeOptions } from "./types"
@@ -59,6 +61,7 @@ export function Card({ options, controlRef }: CardProps) {
   const displayHeader = options.display?.header ?? true
   const displaySteps = options.display?.steps ?? true
   const displayAppLinks = options.display?.appLinks ?? true
+  const displayFrame = options.display?.frame ?? true
   const headerName = options.name ?? serviceName ?? options.domain ?? ""
   const headerIcon = options.logo ?? serviceLogo ?? ""
   const appJoined =
@@ -82,7 +85,12 @@ export function Card({ options, controlRef }: CardProps) {
   )
 
   return (
-    <div className="zkp-card" data-state={state} data-theme={options.theme ?? "auto"}>
+    <div
+      className="zkp-card"
+      data-state={state}
+      data-theme={options.theme ?? "auto"}
+      data-frame={displayFrame ? undefined : "none"}
+    >
       {canRestart ? (
         <button
           type="button"
@@ -131,39 +139,30 @@ export function Card({ options, controlRef }: CardProps) {
         <IntroSection
           appName={headerName || "This app"}
           items={describeQuery(query)}
+          purpose={options.purpose}
           loading={query === null}
           onContinue={continueWithPhone}
         />
       ) : (
         <div className="zkp-screen">
           {showOpenAppHero ? (
-            <div className="zkp-open-app-hero">
-              {state === "waiting" && url ? (
-                <a className="zkp-open-app zkp-open-app-block" href={url}>
-                  Open ZKPassport App
-                </a>
-              ) : (
-                <div className="zkp-open-app-loading" role="status" aria-label="Preparing request">
-                  <span className="zkp-skel-row" style={{ width: "100%", height: "48px" }} />
-                </div>
-              )}
-              {inAppBrowser ? (
-                <p className="zkp-inapp-hint">
-                  If nothing opens, open this page in Safari or Chrome and try again.
-                </p>
-              ) : null}
-              <button type="button" className="zkp-qr-reveal" onClick={() => setQrRevealed(true)}>
-                Scan a QR code with another device instead
-              </button>
-            </div>
+            <OpenAppHero
+              requestUrl={state === "waiting" ? url : null}
+              inAppBrowser={inAppBrowser}
+              onRevealQr={() => setQrRevealed(true)}
+            />
           ) : (
             <QrSlot state={state} qrSvg={qrSvg} caption={overlayCaption} />
           )}
 
-          {state === "waiting" && url && mobile && qrRevealed ? (
-            <a className="zkp-open-app zkp-open-app-block" href={url}>
-              Open in ZKPassport App
-            </a>
+          {mobile && qrRevealed && preQr ? (
+            <button
+              type="button"
+              className="zkp-qr-reveal zkp-qr-back"
+              onClick={() => setQrRevealed(false)}
+            >
+              Open the ZKPassport app instead
+            </button>
           ) : null}
 
           {displaySteps && steps.length > 0 ? (
@@ -180,7 +179,7 @@ export function Card({ options, controlRef }: CardProps) {
             </>
           ) : null}
 
-          {displayAppLinks ? (
+          {displayAppLinks && !showOpenAppHero ? (
             <div className={`zkp-collapse${appJoined ? " zkp-collapse-out" : ""}`}>
               <div className="zkp-collapse-inner">
                 <div className="zkp-divider zkp-divider-bottom" />
@@ -208,18 +207,43 @@ export function Card({ options, controlRef }: CardProps) {
   )
 }
 
-// The ICAO e-passport symbol printed on the cover of biometric passports:
-// a rounded rectangle with a horizontal line broken by a solid circle
-const ICON_EPASSPORT_CHIP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 36" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><rect x="1.6" y="1.6" width="48.8" height="32.8" rx="5"/><line x1="8.5" y1="18" x2="17" y2="18"/><line x1="35" y1="18" x2="43.5" y2="18"/><circle cx="26" cy="18" r="6.5" fill="currentColor" stroke="none"/></svg>`
+// One placeholder per requested-claims row
+const SKELETON_ROWS = 2
+
+function IntroNote({ item }: { item: QueryDescriptionItem }) {
+  return (
+    <li className="zkp-intro-note">
+      <span className="zkp-intro-note-label">{item.note}</span>
+      {item.rows ? (
+        <dl className="zkp-intro-note-rows">
+          {item.rows.map((row) => (
+            <div key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <span className="zkp-intro-note-text">{item.title}</span>
+      )}
+      {item.detail ? <span className="zkp-intro-item-detail">{item.detail}</span> : null}
+    </li>
+  )
+}
+
+// The ICAO e-passport symbol printed on the cover of biometric passports
+const ICON_EPASSPORT_CHIP = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 32" fill="currentColor" aria-hidden="true"><circle cx="27.5033" cy="15.722" r="7.48372"/><path d="M55.1719 31.4604H0V17.3281H17.0845C17.857 22.3884 22.2278 26.265 27.504 26.265C32.7802 26.265 37.151 22.3884 37.9235 17.3281H55.1719V31.4604Z"/><path d="M55.1719 14.1192H37.9236C37.1511 9.05887 32.7803 5.18223 27.504 5.18223C22.2278 5.18223 17.857 9.05887 17.0845 14.1192H0V0H55.1719V14.1192Z"/></svg>`
 
 function IntroSection({
   appName,
   items,
+  purpose,
   loading,
   onContinue,
 }: {
   appName: string
   items: QueryDescriptionItem[]
+  purpose?: string
   loading: boolean
   onContinue: () => void
 }) {
@@ -228,30 +252,46 @@ function IntroSection({
       <div className="zkp-intro-request">
         <p className="zkp-eyebrow">{appName} wants to verify</p>
         {loading ? (
-          <div className="zkp-skel-rows" role="status" aria-label="Loading request">
-            <span className="zkp-skel-row" style={{ width: "68%" }} />
-            <span className="zkp-skel-row zkp-skel-row-detail" style={{ width: "48%" }} />
-            <span className="zkp-skel-row" style={{ width: "56%" }} />
-            <span className="zkp-skel-row zkp-skel-row-detail" style={{ width: "48%" }} />
-          </div>
-        ) : (
-          <ul className="zkp-intro-list">
-            {items.map((item) => (
-              <li key={item.title}>
-                <span
-                  className="zkp-intro-check"
-                  dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
-                />
+          <ul className="zkp-intro-list" role="status" aria-label="Loading request">
+            {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+              <li key={index}>
+                <span className="zkp-intro-check zkp-skel-check" />
                 <span className="zkp-intro-item">
-                  <span className="zkp-intro-item-title">{item.title}</span>
-                  {item.detail ? (
-                    <span className="zkp-intro-item-detail">{item.detail}</span>
-                  ) : null}
+                  <span className="zkp-intro-item-title zkp-skel-text">
+                    <span className="zkp-skel-bar" style={{ width: "80%" }} />
+                  </span>
                 </span>
               </li>
             ))}
           </ul>
+        ) : (
+          <ul className="zkp-intro-list">
+            {items.map((item, index) =>
+              item.note ? (
+                <IntroNote key={index} item={item} />
+              ) : (
+                <li key={index}>
+                  <span
+                    className="zkp-intro-check"
+                    dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
+                  />
+                  <span className="zkp-intro-item">
+                    <span className="zkp-intro-item-title">{item.title}</span>
+                    {item.detail ? (
+                      <span className="zkp-intro-item-detail">{item.detail}</span>
+                    ) : null}
+                  </span>
+                </li>
+              ),
+            )}
+          </ul>
         )}
+        {purpose && !loading ? (
+          <p className="zkp-intro-purpose">
+            <span className="zkp-intro-purpose-label">Purpose</span>
+            {purpose}
+          </p>
+        ) : null}
       </div>
 
       <div className="zkp-intro-question">
@@ -260,12 +300,9 @@ function IntroSection({
           aria-hidden="true"
           dangerouslySetInnerHTML={{ __html: ICON_EPASSPORT_CHIP }}
         />
-        <p className="zkp-intro-question-text">Do you have a passport or ID card with a chip?</p>
+        <p className="zkp-intro-question-text">Do you have a passport or ID with a chip?</p>
         <p className="zkp-intro-question-hint">
-          You can verify with a chip-enabled passport or ID without sharing your document. Your
-          phone can read it over NFC.
-          <br />
-          Look for this symbol on the cover.
+          Look for this symbol on your passport or ID card. Your phone reads the chip over NFC.
         </p>
         <button type="button" className="zkp-intro-continue" onClick={onContinue}>
           Continue
@@ -274,6 +311,7 @@ function IntroSection({
 
       <div className="zkp-intro-footer">
         <div className="zkp-divider" />
+        <p className="zkp-intro-footer-note">Your ID data never leaves your device.</p>
         <div className="zkp-privacy-strip" aria-label="Private, encrypted, on your device">
           <span>Private</span>
           <span className="zkp-privacy-dot" aria-hidden="true">
@@ -285,10 +323,6 @@ function IntroSection({
           </span>
           <span>On your device</span>
         </div>
-        <p className="zkp-intro-footer-note">
-          Neither {appName} nor ZKPassport ever sees any personal information beyond what you choose
-          to share. Your raw passport data stays on your devices.
-        </p>
       </div>
     </div>
   )
@@ -452,6 +486,99 @@ function ProgressStep({
     <div className="zkp-step" data-status={status} data-mode={mode}>
       <div className="zkp-step-marker" dangerouslySetInnerHTML={{ __html: icon ?? ICON_CHECK }} />
       <div className="zkp-step-text">{children}</div>
+    </div>
+  )
+}
+
+function OpenAppHero({
+  requestUrl,
+  inAppBrowser,
+  onRevealQr,
+}: {
+  requestUrl: string | null
+  inAppBrowser: boolean
+  onRevealQr: () => void
+}) {
+  // An in-app browser swallows the custom scheme even when the app is installed, so a probe
+  // there would always report a miss
+  const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
+  const opening = openState === "opening"
+  const handedOff = openState === "opened"
+
+  if (handedOff) {
+    return (
+      <div className="zkp-open-app-hero" data-state={openState}>
+        <p className="zkp-inapp-hint" role="status">
+          Check your phone — approve the request in the ZKPassport app.
+        </p>
+        <button type="button" className="zkp-qr-reveal" onClick={openApp}>
+          Open the app again
+        </button>
+        <button type="button" className="zkp-qr-reveal" onClick={onRevealQr}>
+          Scan a QR code with another device instead
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="zkp-open-app-hero" data-state={openState}>
+      {requestUrl ? (
+        <button
+          type="button"
+          className="zkp-open-app zkp-open-app-block"
+          disabled={opening}
+          onClick={openApp}
+        >
+          {opening ? (
+            <span className="zkp-spinner" dangerouslySetInnerHTML={{ __html: SPINNER_SVG }} />
+          ) : null}
+          {opening ? "Opening…" : "Open ZKPassport App"}
+        </button>
+      ) : (
+        <div className="zkp-open-app-loading" role="status" aria-label="Preparing request">
+          <span className="zkp-skel-row" style={{ width: "100%", height: "48px" }} />
+        </div>
+      )}
+      {inAppBrowser ? (
+        <p className="zkp-inapp-hint">
+          If nothing opens, open this page in your browser and try again.
+        </p>
+      ) : null}
+      <InstallOptions requestUrl={requestUrl} appNotFound={openState === "nothing-opened"} />
+      <button type="button" className="zkp-qr-reveal" onClick={onRevealQr}>
+        Scan a QR code with another device instead
+      </button>
+    </div>
+  )
+}
+
+// Always on screen, so a probe that wrongly concludes the app is missing costs the user nothing
+function InstallOptions({
+  requestUrl,
+  appNotFound,
+}: {
+  requestUrl: string | null
+  appNotFound: boolean
+}) {
+  const os = detectMobileOs()
+
+  return (
+    <div className="zkp-install">
+      <p className="zkp-install-title" role={appNotFound ? "status" : undefined}>
+        {appNotFound ? "App not found" : "Don’t have the app yet?"}
+      </p>
+      <p className="zkp-install-note">
+        {appNotFound
+          ? "Install the ZKPassport app, then tap Open again. It reads the chip in your passport or ID card, and that data never leaves your phone."
+          : "Verification happens in the ZKPassport app: it reads the chip in your passport or ID card, and that data never leaves your phone. Free on iOS and Android."}
+      </p>
+      <div className="zkp-store-buttons zkp-install-stores">
+        {os !== "android" ? <StoreButton href={APP_STORE_URL} badge={APP_STORE_BADGE} /> : null}
+        {os !== "ios" ? (
+          <StoreButton href={playStoreUrlWithReferrer(requestUrl)} badge={GOOGLE_PLAY_BADGE} />
+        ) : null}
+      </div>
     </div>
   )
 }
