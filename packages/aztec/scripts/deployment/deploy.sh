@@ -23,7 +23,7 @@ set -euo pipefail
 NETWORK="${1:-}"
 [[ "$NETWORK" == "testnet" || "$NETWORK" == "mainnet" ]] || { echo "usage: $0 <testnet|mainnet>" >&2; exit 1; }
 
-AZTEC="${AZTEC:-$HOME/.aztec/versions/5.2.0}"
+AZTEC="${AZTEC:-$HOME/.aztec/versions/6.0.0-rc.3}"
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NR="$SCRIPTS_DIR/../noir"
 TYPES="$NR/registry_contract/src/types.nr"

@@ -43,14 +43,14 @@
  * This deploys ONLY the registry, which comes up empty — see deploy-testnet.ts for the
  * seeding steps and the DelayedPublicMutable delay caveat.
  */
-import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum"
-import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee"
-import { Fr } from "@aztec/aztec.js/fields"
-import { createLogger } from "@aztec/aztec.js/log"
-import { isL1ToL2MessageReady } from "@aztec/aztec.js/messaging"
-import { FeeJuiceContract } from "@aztec/aztec.js/protocol"
-import { createEthereumChain } from "@aztec/ethereum/chain"
-import { createExtendedL1Client } from "@aztec/ethereum/client"
+import { L1FeeJuicePortalManager } from "@aztec-labs/aztec.js/ethereum"
+import { FeeJuicePaymentMethodWithClaim } from "@aztec-labs/aztec.js/fee"
+import { Fr } from "@aztec-labs/aztec.js/fields"
+import { createLogger } from "@aztec-labs/aztec.js/log"
+import { isL1ToL2MessageReady } from "@aztec-labs/aztec.js/messaging"
+import { FeeJuiceContract } from "@aztec-labs/aztec.js/protocol"
+import { createEthereumChain } from "@aztec-labs/ethereum/chain"
+import { createExtendedL1Client } from "@aztec-labs/ethereum/client"
 import { ZKPassportRegistryContract } from "../artifacts/ZKPassportRegistry.js"
 import {
   MODE_VALID_WITHIN_WINDOW,
@@ -148,7 +148,7 @@ async function main() {
       `estimated cost: ${fj(cost)} (${billed.daGas} DA + ${billed.l2Gas} L2 gas at feePerDaGas=${fees.feePerDaGas}, feePerL2Gas=${fees.feePerL2Gas}); budgeting ${fj(needed)}`,
     )
 
-    const feeJuice = FeeJuiceContract.at(wallet)
+    const feeJuice = FeeJuiceContract.withWallet(wallet)
     const { result: balanceRaw } = await feeJuice.methods
       .balance_of_public(deployer.address)
       .simulate({ from: deployer.address })
