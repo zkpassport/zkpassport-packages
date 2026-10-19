@@ -19,12 +19,12 @@ import {
   getProofData,
   getNumberOfPublicInputs,
   formatQueryResultDates,
+  getChainFromQuery,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
-import { RegistryClient } from "@zkpassport/registry"
-// import { MockRegistryClient as RegistryClient } from "@zkpassport/registry/mock"
-import { Bridge, BridgeInterface } from "@obsidion/bridge"
+import { createRegistryClient } from "@zkpassport/registry"
+import { Bridge, BridgeInterface, type KeyPair } from "@obsidion/bridge"
 import {
   QueryBuilder,
   QueryBuilderResult,
@@ -37,6 +37,7 @@ import {
   VerifierMode,
   VerificationResult,
   RequestedNullifierType,
+  VerificationConfig,
 } from "./types"
 import {
   createOfflineQuery,
@@ -48,7 +49,11 @@ import {
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
-import { createUltraHonkVerifier, getBBVersionForCircuitVersion } from "./bb-verifier"
+import {
+  createUltraHonkVerifier,
+  getBBVersionForCircuitVersion,
+  type LoadedVerifier,
+} from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
@@ -94,6 +99,8 @@ function enforceUniqueIdentifierType(
 }
 
 export {
+  getChainFromId,
+  getIdFromChain,
   SANCTIONED_COUNTRIES,
   EU_COUNTRIES,
   EEA_COUNTRIES,
@@ -122,7 +129,9 @@ export {
 } from "@zkpassport/utils"
 
 export * from "./types"
-export { createOfflineQuery } from "./offline-query"
+export { createOfflineQuery, normalizeCountry } from "./offline-query"
+export type { KeyPair } from "@obsidion/bridge"
+export { VERSION } from "./constants"
 
 let onResultDeprecationWarned = false
 function warnOnResultDeprecated() {
@@ -131,6 +140,18 @@ function warnOnResultDeprecated() {
   console.warn(
     "[zkpassport] onResult is deprecated. Use onSuccess and verify the proofs on your backend with verify().",
   )
+}
+
+// The bridge only asks for missed messages after a reconnect it drove itself, which a freshly
+// loaded page never had. A topic belongs to one request, so everything on it is what was missed.
+function requestMessageReplay(bridge: BridgeInterface) {
+  const socket = bridge.connection.getWebSocket()
+  if (!socket) return
+  try {
+    socket.send(JSON.stringify({ method: "replay", params: { timestamp: 1 } }))
+  } catch (reason) {
+    logger.error("Failed to ask the bridge for missed messages:", reason)
+  }
 }
 
 export class ZKPassport {
@@ -147,6 +168,8 @@ export class ZKPassport {
       oprfKeyId: string | null
       returnDeepLink: string | undefined
       verifierMode: VerifierMode | undefined
+      config: VerificationConfig | undefined
+      appClip: boolean
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -165,6 +188,7 @@ export class ZKPassport {
   private onRequestReceivedCallbacks: Record<string, Array<() => void>> = {}
   private onGeneratingProofCallbacks: Record<string, Array<(topic: string) => void>> = {}
   private onBridgeConnectCallbacks: Record<string, Array<() => void>> = {}
+  private onBridgeConnectionLostCallbacks: Record<string, Array<() => void>> = {}
   private onProofGeneratedCallbacks: Record<string, Array<(proof: ProofResult) => void>> = {}
   private onSuccessCallbacks: Record<
     string,
@@ -277,6 +301,7 @@ export class ZKPassport {
         oprfKeyId: this.topicToLocalConfig[topic]?.oprfKeyId ?? undefined,
         uniqueIdentifierType: this.topicToLocalConfig[topic]?.uniqueIdentifierType,
         verifierMode: this.topicToLocalConfig[topic]?.verifierMode,
+        config: this.topicToLocalConfig[topic]?.config,
       })
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
@@ -513,7 +538,8 @@ export class ZKPassport {
         if (!this.dashboardConfig) {
           if (this.dashboardConfigError) throw this.dashboardConfigError
           throw new Error(
-            `Domain '${this.domain}' is not registered with the ZKPassport dashboard. To use policies, register your domain at https://dashboard.zkpassport.id.`,
+            `${this.domain} is not set up for ZKPassport verification. If this is your site, ` +
+              `register the domain at https://dashboard.zkpassport.id.`,
           )
         }
         const policy = this.findPolicy(this.dashboardConfig, id)
@@ -529,6 +555,7 @@ export class ZKPassport {
           if (!svc.scope) {
             svc.scope = policy.id
           }
+          svc.policyId = policy.id
         }
         this.topicToPolicy[topic] = {
           id: policy.id,
@@ -580,6 +607,8 @@ export class ZKPassport {
             this.onGeneratingProofCallbacks[topic].push(callback),
           onBridgeConnect: (callback: () => void) =>
             this.onBridgeConnectCallbacks[topic].push(callback),
+          onBridgeConnectionLost: (callback: () => void) =>
+            this.onBridgeConnectionLostCallbacks[topic].push(callback),
           onProofGenerated: (callback: (proof: ProofResult) => void) =>
             this.onProofGeneratedCallbacks[topic].push(callback),
           onSuccess: (callback: (response: RequestSuccess) => OnSuccessVerdict) =>
@@ -694,6 +723,9 @@ export class ZKPassport {
    * @param mode The proof mode (e.g. "fast" / "compressed").
    * @param devMode Whether to enable dev mode. This will allow you to verify mock proofs (i.e. from ZKR)
    * @param verifierMode How the received proofs are verified: "local", "api" or "auto" (default).
+   * @param keyPairOverride A keypair from {@link getRequestKeyPair}, which keeps the request ID and bridge topic.
+   * @param replayMissedMessages Redelivers what was already sent on this topic, for a request resumed on a new page.
+   * @param config Settings for verifying the received proofs, see {@link VerificationConfig}.
    * @returns The query builder object.
    */
   public async request({
@@ -709,10 +741,13 @@ export class ZKPassport {
     oprfKeyId,
     topicOverride,
     keyPairOverride,
+    replayMissedMessages,
     cloudProverUrl,
     bridgeUrl,
     returnDeepLink,
     verifierMode,
+    config,
+    overrides,
   }: {
     name?: string
     logo?: string
@@ -725,11 +760,14 @@ export class ZKPassport {
     uniqueIdentifierType?: RequestedNullifierType
     oprfKeyId?: string
     topicOverride?: string
-    keyPairOverride?: { privateKey: Uint8Array; publicKey: Uint8Array }
+    keyPairOverride?: KeyPair
+    replayMissedMessages?: boolean
     cloudProverUrl?: string
     bridgeUrl?: string
     returnDeepLink?: string
     verifierMode?: VerifierMode
+    config?: VerificationConfig
+    overrides?: { appClip?: boolean }
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
@@ -741,9 +779,9 @@ export class ZKPassport {
       )
     }
 
-    let config: DashboardConfig | null = null
+    let dashboardConfig: DashboardConfig | null = null
     try {
-      config = await this.getDashboardConfig()
+      dashboardConfig = await this.getDashboardConfig()
       this.dashboardConfigError = null
     } catch (e) {
       this.dashboardConfigError = e as Error
@@ -760,8 +798,8 @@ export class ZKPassport {
     this.topicToConfig[topic] = {}
     this.topicToCallerPurpose[topic] = purpose
     this.topicToService[topic] = {
-      name: name || config?.project?.name || this.domain,
-      logo: logo || config?.project?.logoUrl || "",
+      name: name || dashboardConfig?.project?.name || this.domain,
+      logo: logo || dashboardConfig?.project?.logoUrl || "",
       purpose: purpose || DEFAULT_PURPOSE,
       scope,
       projectID,
@@ -777,11 +815,14 @@ export class ZKPassport {
       oprfKeyId: oprfKeyId ?? null,
       returnDeepLink,
       verifierMode,
+      config,
+      appClip: overrides?.appClip ?? false,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
     this.onGeneratingProofCallbacks[topic] = []
     this.onBridgeConnectCallbacks[topic] = []
+    this.onBridgeConnectionLostCallbacks[topic] = []
     this.onProofGeneratedCallbacks[topic] = []
     this.onSuccessCallbacks[topic] = []
     this.onResultCallbacks[topic] = []
@@ -795,7 +836,13 @@ export class ZKPassport {
     bridge.onConnect(async (reconnection: boolean) => {
       logger.debug("Bridge connected")
       logger.debug("Is reconnection:", reconnection)
+      if (replayMissedMessages && !reconnection) requestMessageReplay(bridge)
       await Promise.all(this.onBridgeConnectCallbacks[topic].map((callback) => callback()))
+    })
+    bridge.onDisconnect(async (event) => {
+      if (event.wasIntentionalClose || event.willReconnect) return
+      logger.debug("Bridge connection lost")
+      await Promise.all(this.onBridgeConnectionLostCallbacks[topic].map((callback) => callback()))
     })
     bridge.onSecureChannelEstablished(async () => {
       logger.debug("Secure channel established")
@@ -804,7 +851,11 @@ export class ZKPassport {
     // eslint-disable-next-line
     bridge.onSecureMessage(async (message: any) => {
       logger.debug("Received message:", message)
-      this.handleEncryptedMessage(topic, message)
+      try {
+        await this.handleEncryptedMessage(topic, message)
+      } catch (reason) {
+        logger.error("Failed to handle a bridge message:", reason)
+      }
     })
     return this.getZkPassportRequest(topic)
   }
@@ -837,6 +888,7 @@ export class ZKPassport {
    * @param verifierMode "local" verifies with the verifier bundled in this SDK, "api" with the
    * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
+   * @param config Verification settings such as the RPC URL, see {@link VerificationConfig}.
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
@@ -851,6 +903,7 @@ export class ZKPassport {
     oprfKeyId,
     uniqueIdentifierType,
     verifierMode = "auto",
+    config,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -862,6 +915,7 @@ export class ZKPassport {
     oprfKeyId?: string
     uniqueIdentifierType?: RequestedNullifierType
     verifierMode?: VerifierMode
+    config?: VerificationConfig
   }): Promise<VerificationResult> {
     if (!originalQuery || !queryResult) {
       throw new Error("verify() requires `originalQuery` and `queryResult`")
@@ -877,7 +931,7 @@ export class ZKPassport {
       return notVerified
     }
     const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
-    const localParams = { ...params, writingDirectory }
+    const localParams = { ...params, writingDirectory, config }
     const apiParams = { ...params, domain: this.domain }
     const requestedType = oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType
 
@@ -909,6 +963,7 @@ export class ZKPassport {
     devMode = false,
     writingDirectory,
     oprfKeyId,
+    config,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -918,6 +973,7 @@ export class ZKPassport {
     devMode?: boolean
     writingDirectory?: string
     oprfKeyId?: string
+    config?: VerificationConfig
   }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
@@ -927,14 +983,14 @@ export class ZKPassport {
       writingDirectory = "/tmp"
     }
     const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
-    const { verifier, destroy: destroyVerifier } = await createUltraHonkVerifier(bbVersion, {
-      writingDirectory,
-    })
+    // Started only once the public inputs check out, so rejected proofs never spawn bb
+    let loadedVerifier: LoadedVerifier | undefined
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
     try {
+      const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode), config)
       const {
         isCorrect,
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
@@ -949,6 +1005,7 @@ export class ZKPassport {
         scope,
         oprfKeyId,
         devMode,
+        registryClient,
       )
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
@@ -969,11 +1026,11 @@ export class ZKPassport {
       }
       // Only proceed with the proof verification if the public inputs are correct
       if (verified) {
-        const registryClient = new RegistryClient({ chainId: devMode ? 11155111 : 1 })
         const circuitManifest = await registryClient.getCircuitManifest(undefined, {
           // We assume all proofs have the same version
           version: proofs[0].version,
         })
+        loadedVerifier = await createUltraHonkVerifier(bbVersion, { writingDirectory })
         for (const proof of proofs) {
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!
@@ -987,16 +1044,8 @@ export class ZKPassport {
           if (isOuterEVM) {
             try {
               const { createPublicClient, http } = await import("viem")
-              const { sepolia } = await import("viem/chains")
-              const { mainnet } = await import("viem/chains")
               const { address, abi, functionName } = this.getSolidityVerifierDetails()
-              const rpcUrl = devMode
-                ? "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-                : "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"
-              const client = createPublicClient({
-                chain: devMode ? sepolia : mainnet,
-                transport: http(rpcUrl),
-              })
+              const client = createPublicClient({ transport: http(registryClient.getRpcUrl()) })
               const params = this.getSolidityVerifierParameters({
                 proof,
                 validityPeriodInSeconds: validity,
@@ -1019,7 +1068,7 @@ export class ZKPassport {
           } else {
             const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
             try {
-              verified = await verifier.verifyProof({
+              verified = await loadedVerifier.verifier.verifyProof({
                 proof: Buffer.from(proofData.proof.join(""), "hex"),
                 publicInputs: proofData.publicInputs,
                 verificationKey: new Uint8Array(vkeyBytes),
@@ -1038,7 +1087,7 @@ export class ZKPassport {
       }
     } finally {
       // Always release the bb.js instance, or its worker threads keep the process alive
-      await destroyVerifier()
+      await loadedVerifier?.destroy()
     }
 
     // If the proofs are not verified, we don't return the unique identifier
@@ -1099,7 +1148,10 @@ export class ZKPassport {
     const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
     const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
-    let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
+    // `/c` is the no-install App Clip lane (opted into via `overrides.appClip`);
+    // `/r` is the default (full app, or web download fallback).
+    const path = this.topicToLocalConfig[requestId].appClip ? "c" : "r"
+    let url = `https://zkpassport.id/${path}?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
     if (nullifierType != null) {
       url += `&nt=${nullifierType}`
     }
@@ -1131,6 +1183,16 @@ export class ZKPassport {
   }
 
   /**
+   * @notice Returns the bridge keypair of a request. A request ID is its public key, so passing the
+   * keypair back as `keyPairOverride` rebuilds the same request on the same bridge topic.
+   * @param requestId The request ID.
+   * @returns The keypair, or undefined once the request has been cancelled.
+   */
+  public getRequestKeyPair(requestId: string): KeyPair | undefined {
+    return this.topicToBridge[requestId]?.getKeyPair()
+  }
+
+  /**
    * @notice Cancels a request by closing the WebSocket connection and deleting the associated data.
    * @param requestId The request ID.
    */
@@ -1149,7 +1211,10 @@ export class ZKPassport {
     this.onRequestReceivedCallbacks[requestId] = []
     this.onGeneratingProofCallbacks[requestId] = []
     this.onBridgeConnectCallbacks[requestId] = []
+    this.onBridgeConnectionLostCallbacks[requestId] = []
     this.onProofGeneratedCallbacks[requestId] = []
+    this.onSuccessCallbacks[requestId] = []
+    this.onResultCallbacks[requestId] = []
     this.onRejectCallbacks[requestId] = []
     this.onErrorCallbacks[requestId] = []
   }

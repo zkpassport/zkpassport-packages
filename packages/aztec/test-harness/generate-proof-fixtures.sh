@@ -7,15 +7,17 @@
 # (pinned to the commit the committed fixtures were built from) and runs with cwd = the
 # submodule: Circuit.from() resolves `target/<name>.json` against cwd.
 #
-# Toolchain: bb 5.0.0-nightly from the 5.0.1 aztec release must be FIRST in PATH -- that is
-# the build ZKPassport's production circuits were compiled/proved with. The 5.2.0 bb is used
-# only later, by test-recursive-verification.sh, to verify the wrapper.
+# Toolchain: the circuits compile with nargo 1.0.0-beta.22 from the 5.0.1 aztec release, the
+# Noir version the circuits repo pins, and are proved with bb 6.0.0-rc.6 from the 6.0.0-rc.3
+# release, which must be FIRST in PATH: the Aztec protocol only accepts proofs from that bb's
+# Honk transcript.
 set -euo pipefail
 
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
 CIRCUITS=$HARNESS_DIR/circuits
+AZTEC=${AZTEC_HOME:-$HOME/.aztec/versions/6.0.0-rc.3}
+BB_BIN=$AZTEC/node_modules/.bin
 AZTEC_501=${AZTEC_501:-$HOME/.aztec/versions/5.0.1}
-BB_501_BIN=$AZTEC_501/node_modules/.bin
 NARGO_501=$AZTEC_501/bin/aztec-nargo
 
 KINDS=("$@")
@@ -50,5 +52,7 @@ for KIND in "${KINDS[@]}"; do
   if [ "$KIND" = age ]; then COUNT=5; fi
   OUT=$HARNESS_DIR/fixtures/outer_count_${COUNT}_$KIND.json
   echo "== generating $KIND fixture -> $OUT"
-  (cd "$CIRCUITS" && PATH=$BB_501_BIN:$PATH FIXTURE_KIND=$KIND FIXTURE_OUT=$OUT npx tsx "$HARNESS_DIR/generate-proof-fixtures.ts")
+  # tsx is run directly, not through npx: npx would put the submodule's node_modules/.bin, and
+  # the bb its @aztec/bb.js ships, ahead of $BB_BIN.
+  (cd "$CIRCUITS" && PATH=$BB_BIN:$PATH FIXTURE_KIND=$KIND FIXTURE_OUT=$OUT node_modules/.bin/tsx "$HARNESS_DIR/generate-proof-fixtures.ts")
 done

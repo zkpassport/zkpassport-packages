@@ -4,11 +4,12 @@ import {
   leftPadArrayWithZeros,
   numberToBytesBE,
   packBeBytesIntoField,
+  strip0x,
   stringToAsciiStringArray,
   withRetry,
 } from "@/utils"
 import { sha256 } from "@noble/hashes/sha2.js"
-import { poseidon2, AsyncOrderedMT } from "@/merkle-tree"
+import { poseidon2, AsyncOrderedMT, nodeToHex } from "@/merkle-tree"
 import { SortedNonMembershipProof } from "@/merkle-tree/async-ordered-mt"
 import {
   getBirthdateRange,
@@ -21,6 +22,12 @@ import {
 } from "@/passport/getters"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { ProofType, ProofTypeLength } from "@/index"
+import {
+  documentNumberAndNationalityLeafPreimage,
+  nameAndDobLeafPreimage,
+  nameAndYobLeafPreimage,
+  nameLeafPreimage,
+} from "./leaves"
 
 export class SanctionsBuilder {
   constructor(private tree: AsyncOrderedMT) {}
@@ -28,7 +35,7 @@ export class SanctionsBuilder {
   static async create(): Promise<SanctionsBuilder> {
     // TODO: Consider a caching strategy for this
     const treeData = await withRetry(() =>
-      fetch("https://cdn.zkpassport.id/sanctions/all_sanctions_tree.json.gz", {
+      fetch("https://sanctions.zkpassport.id/all_sanctions_tree.json.gz", {
         headers: {
           "Accept-Encoding": "gzip",
         },
@@ -40,11 +47,11 @@ export class SanctionsBuilder {
   }
 
   getRootHash(): Buffer {
-    return Buffer.from(this.tree.root.toString(16).padStart(64, "0"), "hex")
+    return Buffer.from(this.getRoot().slice(2), "hex")
   }
 
   getRoot(): string {
-    return `0x${this.tree.root.toString(16).padStart(64, "0")}`
+    return nodeToHex(this.tree.root)
   }
 
   async getSanctionsMerkleProofs(
@@ -114,32 +121,51 @@ export class SanctionsBuilder {
   }
 
   async getSanctionsEvmParameterCommitment(isStrict: boolean): Promise<bigint> {
-    const rootHash = this.getRootHash()
-
-    const rootHashArr: number[] = Array.from(rootHash).map((x) => Number(x))
-    const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
-    const hash = sha256(
-      new Uint8Array([
-        ProofType.SANCTIONS_EXCLUSION,
-        ...numberToBytesBE(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm, 2),
-        ...rootHashNumberArray,
-        isStrict ? 1 : 0,
-      ]),
-    )
-    const hashBigInt = packBeBytesIntoField(hash, 31)
-    return hashBigInt
+    return getSanctionsEvmParameterCommitment(this.getRoot(), isStrict)
   }
 
   async getSanctionsParameterCommitment(isStrict: boolean): Promise<bigint> {
-    const rootHash = this.getRootHash()
-    const hash = await poseidon2HashAsync([
-      BigInt(ProofType.SANCTIONS_EXCLUSION),
-      BigInt(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard),
-      BigInt(`0x${rootHash.toString("hex")}`),
-      isStrict ? 1n : 0n,
-    ])
-    return hash
+    return getSanctionsParameterCommitment(this.getRoot(), isStrict)
   }
+}
+
+/**
+ * Parameter commitment of a sanctions exclusion proof for the EVM circuits
+ * @param root The root of the sanctions tree the proof was generated against, as a hex string
+ * @param isStrict Whether the proof also checks the name-only sanctions entries
+ */
+export async function getSanctionsEvmParameterCommitment(
+  root: string,
+  isStrict: boolean,
+): Promise<bigint> {
+  const rootHashArr: number[] = Array.from(Buffer.from(strip0x(root).padStart(64, "0"), "hex"))
+  const rootHashNumberArray = leftPadArrayWithZeros(rootHashArr, 32)
+  const hash = sha256(
+    new Uint8Array([
+      ProofType.SANCTIONS_EXCLUSION,
+      ...numberToBytesBE(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm, 2),
+      ...rootHashNumberArray,
+      isStrict ? 1 : 0,
+    ]),
+  )
+  return packBeBytesIntoField(hash, 31)
+}
+
+/**
+ * Parameter commitment of a sanctions exclusion proof for the standard circuits
+ * @param root The root of the sanctions tree the proof was generated against, as a hex string
+ * @param isStrict Whether the proof also checks the name-only sanctions entries
+ */
+export async function getSanctionsParameterCommitment(
+  root: string,
+  isStrict: boolean,
+): Promise<bigint> {
+  return poseidon2HashAsync([
+    BigInt(ProofType.SANCTIONS_EXCLUSION),
+    BigInt(ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].standard),
+    BigInt(`0x${strip0x(root)}`),
+    isStrict ? 1n : 0n,
+  ])
 }
 
 function formatSanctionsProof(proof: SortedNonMembershipProof): CircuitSanctionsProof {
@@ -220,9 +246,9 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   const name2Bytes = stringToAsciiStringArray(name2)
   const name3Bytes = stringToAsciiStringArray(name3)
 
-  const name1Hash = await poseidon2(name1Bytes)
-  const name2Hash = await poseidon2(name2Bytes)
-  const name3Hash = await poseidon2(name3Bytes)
+  const name1Hash = await poseidon2(nameLeafPreimage(name1Bytes))
+  const name2Hash = await poseidon2(nameLeafPreimage(name2Bytes))
+  const name3Hash = await poseidon2(nameLeafPreimage(name3Bytes))
 
   const dateOfBirthBytes = stringToAsciiStringArray(
     passport.mrz.slice(...getBirthdateRange(passport)),
@@ -232,13 +258,17 @@ async function getSanctionsHashesFromIdData(passport: PassportViewModel): Promis
   )
   const nationalityBytes = stringToAsciiStringArray(getNationality(passport))
 
-  const name1AndDOBBytes = [...name1Bytes, ...dateOfBirthBytes]
-  const name1AndYobBytes = [...name1Bytes, ...dateOfBirthBytes.slice(0, 2)]
-  const name2AndDOBBytes = [...name2Bytes, ...dateOfBirthBytes]
-  const name2AndYobBytes = [...name2Bytes, ...dateOfBirthBytes.slice(0, 2)]
-  const name3AndDOBBytes = [...name3Bytes, ...dateOfBirthBytes]
-  const name3AndYobBytes = [...name3Bytes, ...dateOfBirthBytes.slice(0, 2)]
-  const documentNumberAndNationalityBytes = [...documentNumberBytes, ...nationalityBytes]
+  const yearOfBirthBytes = dateOfBirthBytes.slice(0, 2)
+  const name1AndDOBBytes = nameAndDobLeafPreimage(name1Bytes, dateOfBirthBytes)
+  const name1AndYobBytes = nameAndYobLeafPreimage(name1Bytes, yearOfBirthBytes)
+  const name2AndDOBBytes = nameAndDobLeafPreimage(name2Bytes, dateOfBirthBytes)
+  const name2AndYobBytes = nameAndYobLeafPreimage(name2Bytes, yearOfBirthBytes)
+  const name3AndDOBBytes = nameAndDobLeafPreimage(name3Bytes, dateOfBirthBytes)
+  const name3AndYobBytes = nameAndYobLeafPreimage(name3Bytes, yearOfBirthBytes)
+  const documentNumberAndNationalityBytes = documentNumberAndNationalityLeafPreimage(
+    documentNumberBytes,
+    nationalityBytes,
+  )
 
   const name1AndDOBHash = await poseidon2(name1AndDOBBytes)
   const name1AndYobHash = await poseidon2(name1AndYobBytes)

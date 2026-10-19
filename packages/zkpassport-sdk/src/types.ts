@@ -22,16 +22,18 @@ export type QueryResultError<T> = {
 }
 
 export type QueryResultErrors = {
-  [key in
-    | IDCredential
-    | "sig_check_dsc"
-    | "sig_check_id_data"
-    | "data_check_integrity"
-    | "outer"
-    | "disclose"
-    | "bind"
-    | "facematch"
-    | "sanctions"]: {
+  [
+    key in
+      | IDCredential
+      | "sig_check_dsc"
+      | "sig_check_id_data"
+      | "data_check_integrity"
+      | "outer"
+      | "disclose"
+      | "bind"
+      | "facematch"
+      | "sanctions"
+  ]: {
     disclose?: QueryResultError<string | number | Date>
     gte?: QueryResultError<number | Date>
     gt?: QueryResultError<number | Date>
@@ -53,11 +55,18 @@ export type QueryResultErrors = {
 // but defers to the API when the local result is not verified.
 export type VerifierMode = "auto" | "local" | "api"
 
+export type VerificationConfig = {
+  /**
+   * Ethereum RPC used for the on-chain reads during local verification: the registry root checks
+   * and the Solidity verifier. It must serve the chain the query binds to, or Sepolia in dev mode
+   * and Ethereum otherwise. Defaults to the built-in endpoint for that chain.
+   */
+  rpcUrl?: string
+}
+
 // The nullifier types a service can ask for. The mock ones only ever come from the app in dev mode.
 export type RequestedNullifierType =
-  | NullifierType.NON_SALTED
-  | NullifierType.SALTED
-  | NullifierType.NONE
+  NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
 
 export type VerificationResult = {
   uniqueIdentifier: string | undefined
@@ -152,6 +161,11 @@ export type QueryBuilderResult = {
    * Called when the SDK successfully connects to the bridge with the mobile app.
    */
   onBridgeConnect: (callback: () => void) => void
+  /**
+   * Called when the connection to the bridge is lost and the SDK has stopped
+   * trying to reconnect on its own. A later `onBridgeConnect` means it came back.
+   */
+  onBridgeConnectionLost: (callback: () => void) => void
   /**
    * Called when the user has generated a proof.
    *

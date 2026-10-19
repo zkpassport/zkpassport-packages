@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.30;
 
-import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
@@ -16,9 +15,10 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         bannablePolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(41)),
-            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
             "https://policy.example/bannable",
+            false,
             true,
             true,
             false
@@ -64,6 +64,38 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__WalletBanned.selector);
         zkPassportCredentials.ownerIssue(wallet, bannablePolicyId);
+    }
+
+    function testBanOnUniquePolicyKeepsTheDocumentBound() public {
+        vm.prank(creator);
+        uint256 uniquePolicyId = zkPassportCredentials.createPolicy(
+            bytes32(uint256(42)),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            30 days,
+            "https://policy.example/bannable-unique",
+            true,
+            false,
+            true,
+            false
+        );
+        zkPassportCredentials.issue(uniquePolicyId, _params());
+        vm.prank(creator);
+        zkPassportCredentials.ban(wallet, uniquePolicyId);
+
+        // The binding outlives the ban, so the banned document cannot return through another wallet.
+        mockHelper.setBoundData(makeAddr("other"), block.chainid, "");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ZKPassportCredentials.ZKPassportCredentials__SybilDetected.selector, mockVerifier.nullifier()
+            )
+        );
+        zkPassportCredentials.issue(uniquePolicyId, _params());
+
+        vm.prank(creator);
+        zkPassportCredentials.unban(wallet, uniquePolicyId);
+        mockHelper.setBoundData(wallet, block.chainid, "");
+        zkPassportCredentials.issue(uniquePolicyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(wallet, uniquePolicyId), 1);
     }
 
     function testBanRequiresOwnerBannablePolicy() public {
