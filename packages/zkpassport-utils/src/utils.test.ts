@@ -1,6 +1,7 @@
 import {
   getChainDisplayName,
   getChainFromId,
+  getChainFromQuery,
   getIdFromChain,
   packBeBitsIntoField,
   packBeBytesIntoFields,
@@ -131,6 +132,7 @@ describe("Utils", () => {
     expect(getChainFromId(534352)).toBe("scroll")
     expect(getChainFromId(59144)).toBe("linea")
     expect(getChainFromId(480)).toBe("world_chain")
+    expect(getChainFromId(4663)).toBe("robinhood")
     expect(getChainFromId(11155111)).toBe("ethereum_sepolia")
     expect(getChainFromId(84532)).toBe("base_sepolia")
     expect(getChainFromId(421614)).toBe("arbitrum_sepolia")
@@ -155,6 +157,7 @@ describe("Utils", () => {
     expect(getIdFromChain("scroll")).toBe(534352)
     expect(getIdFromChain("linea")).toBe(59144)
     expect(getIdFromChain("world_chain")).toBe(480)
+    expect(getIdFromChain("robinhood")).toBe(4663)
     expect(getIdFromChain("ethereum_sepolia")).toBe(11155111)
     expect(getIdFromChain("base_sepolia")).toBe(84532)
     expect(getIdFromChain("arbitrum_sepolia")).toBe(421614)
@@ -178,6 +181,7 @@ describe("Utils", () => {
     expect(getChainDisplayName("scroll")).toBe("Scroll")
     expect(getChainDisplayName("linea")).toBe("Linea")
     expect(getChainDisplayName("world_chain")).toBe("World Chain")
+    expect(getChainDisplayName("robinhood")).toBe("Robinhood")
     expect(getChainDisplayName("ethereum_sepolia")).toBe("Ethereum Sepolia")
     expect(getChainDisplayName("base_sepolia")).toBe("Base Sepolia")
     expect(getChainDisplayName("arbitrum_sepolia")).toBe("Arbitrum Sepolia")
@@ -188,5 +192,24 @@ describe("Utils", () => {
     expect(getChainDisplayName("linea_sepolia")).toBe("Linea Sepolia")
     expect(getChainDisplayName("world_chain_sepolia")).toBe("World Chain Sepolia")
     expect(getChainDisplayName("local")).toBe("Local")
+  })
+
+  test("getChainFromQuery should return the bound chain in any mode", () => {
+    const query = { bind: { chain: "base" as const } }
+
+    expect(getChainFromQuery(query, false)).toBe("base")
+    expect(getChainFromQuery(query, true)).toBe("base")
+  })
+
+  test("getChainFromQuery should fall back to Sepolia in dev mode and Ethereum otherwise", () => {
+    const unboundQuery = {}
+    const queryBoundWithoutChain = {
+      bind: { user_address: "0x04Fb06E8BF44eC60b6A99D2F98551172b2F2dED8" },
+    }
+
+    expect(getChainFromQuery(unboundQuery, true)).toBe("ethereum_sepolia")
+    expect(getChainFromQuery(unboundQuery, false)).toBe("ethereum")
+    expect(getChainFromQuery(queryBoundWithoutChain, true)).toBe("ethereum_sepolia")
+    expect(getChainFromQuery(queryBoundWithoutChain, false)).toBe("ethereum")
   })
 })

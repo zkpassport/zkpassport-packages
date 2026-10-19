@@ -9,7 +9,7 @@
 
 pragma solidity ^0.8.30;
 
-import {BoundData, FaceMatchMode, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
+import {BoundData, FaceMatchMode, NullifierType, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 
 interface IVerifierHelper {
     function getBoundData(bytes calldata committedInputs) external view returns (BoundData memory);
@@ -26,6 +26,7 @@ interface IVerifierHelper {
         view
         returns (bool);
     function getProofTimestamp(bytes32[] calldata publicInputs) external view returns (uint256);
+    function getNullifierType(bytes32[] calldata publicInputs) external view returns (NullifierType);
 }
 
 interface IRootVerifier {

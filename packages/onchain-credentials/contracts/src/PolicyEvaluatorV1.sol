@@ -12,16 +12,9 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         STRICT
     }
 
-    /// @dev minAge 0 disables the age check. uniqueIdentifierType NONE_NULLIFIER leaves the
-    ///      proof's nullifier type unconstrained; any other value requires the proof to carry
-    ///      exactly that type — mock types included, with no dev-mode folding, so testing with
-    ///      mock proofs takes a policy that requires the mock type itself. enforceUniqueness
-    ///      turns on one-per-document dedup (the ledger consumes the nullifier) and needs a
-    ///      constrained nullifier type to dedup on. Country lists are ISO 3166-1 alpha-3,
-    ///      strictly ascending; an empty list disables that check.
+    /// @dev minAge 0 disables the age check. Country lists are ISO 3166-1 alpha-3, strictly
+    ///      ascending; an empty list disables that check.
     struct PolicyRequirements {
-        NullifierType uniqueIdentifierType;
-        bool enforceUniqueness;
         uint8 minAge;
         SanctionsMode sanctionsMode;
         FaceMatchMode faceMatchMode;
@@ -35,13 +28,11 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__StaleProof();
     error PolicyEvaluator__ProofNotBoundToChain();
     error PolicyEvaluator__InvalidCountryList();
-    error PolicyEvaluator__UniquenessRequiresNullifierType();
     error PolicyEvaluator__WrongNullifierType();
     error PolicyEvaluator__AgeRequirementNotMet();
     error PolicyEvaluator__NationalityNotIncluded();
     error PolicyEvaluator__ExcludedNationality();
     error PolicyEvaluator__FaceMatchRequirementNotMet();
-    error PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
     error PolicyEvaluator__ZeroAddress();
 
     IRootVerifier public immutable rootVerifier;
@@ -51,12 +42,18 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     ///         that requests dev-mode verification before it reaches the root verifier.
     bool public immutable devMode;
 
+    /// @notice The nullifier type a proof must carry to issue under a policy that enforces
+    ///         uniqueness; other policies leave the proof's nullifier type unconstrained.
+    ///         Under NONE_NULLIFIER no uniqueness policy can issue: a NONE proof has no nullifier.
+    NullifierType public immutable uniqueIdentifierType;
+
     uint256 public constant PROOF_FRESHNESS = 1 days;
 
-    constructor(IRootVerifier _rootVerifier, bool _devMode) {
+    constructor(IRootVerifier _rootVerifier, bool _devMode, NullifierType _uniqueIdentifierType) {
         if (address(_rootVerifier) == address(0)) revert PolicyEvaluator__ZeroAddress();
         rootVerifier = _rootVerifier;
         devMode = _devMode;
+        uniqueIdentifierType = _uniqueIdentifierType;
     }
 
     /// @inheritdoc IPolicyEvaluator
@@ -84,21 +81,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     /// @inheritdoc IPolicyEvaluator
     function validateRequirements(bytes calldata requirements) external pure {
         PolicyRequirements memory r = decodeRequirements(requirements);
-        if (r.enforceUniqueness && r.uniqueIdentifierType == NullifierType.NONE_NULLIFIER) {
-            revert PolicyEvaluator__UniquenessRequiresNullifierType();
-        }
-
-        // The app salts nullifiers (mock ones included) through a strict FaceMatch attestation,
-        // so a salted-nullifier proof always commits STRICT mode. A policy pairing a salted type
-        // with REGULAR could never issue.
-        if (
-            (r.uniqueIdentifierType == NullifierType.SALTED_NULLIFIER
-                    || r.uniqueIdentifierType == NullifierType.SALTED_MOCK_NULLIFIER)
-                && r.faceMatchMode == FaceMatchMode.REGULAR
-        ) {
-            revert PolicyEvaluator__SaltedNullifierRequiresStrictFaceMatch();
-        }
-
         _validateCountryList(r.includedNationalities);
         _validateCountryList(r.excludedNationalities);
     }
@@ -108,13 +90,16 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         string calldata domain,
         string calldata subscope,
         bytes calldata requirements,
+        bool enforceUniqueness,
         bytes calldata proofData
     ) external view returns (PolicyEvaluationResult memory result) {
         ProofVerificationParams memory params = decodeProofData(proofData);
 
         if (!devMode && params.serviceConfig.devMode) revert PolicyEvaluator__DevModeProofRejected();
 
-        (bool valid, bytes32 nullifier, IVerifierHelper helper) = rootVerifier.verify(params);
+        bool valid;
+        IVerifierHelper helper;
+        (valid, result.nullifier, helper) = rootVerifier.verify(params);
         if (!valid) revert PolicyEvaluator__InvalidProof();
 
         if (!helper.verifyScopes(params.proofVerificationData.publicInputs, domain, subscope)) {
@@ -128,26 +113,23 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         BoundData memory bound = helper.getBoundData(params.committedInputs);
         if (bound.chainId != block.chainid) revert PolicyEvaluator__ProofNotBoundToChain();
 
+        if (
+            enforceUniqueness
+                && helper.getNullifierType(params.proofVerificationData.publicInputs) != uniqueIdentifierType
+        ) {
+            revert PolicyEvaluator__WrongNullifierType();
+        }
+
         result.wallet = bound.senderAddress;
         result.customData = bound.customData;
-        result.nullifier = nullifier;
-        result.unique = _validateRequirements(
-            requirements, helper, params.committedInputs, params.proofVerificationData.publicInputs
-        );
+        _validateRequirements(requirements, helper, params.committedInputs);
     }
 
-    function _validateRequirements(
-        bytes calldata requirements,
-        IVerifierHelper helper,
-        bytes memory committedInputs,
-        bytes32[] memory publicInputs
-    ) internal view returns (bool unique) {
+    function _validateRequirements(bytes calldata requirements, IVerifierHelper helper, bytes memory committedInputs)
+        internal
+        view
+    {
         PolicyRequirements memory r = decodeRequirements(requirements);
-
-        if (r.uniqueIdentifierType != NullifierType.NONE_NULLIFIER) {
-            NullifierType proofType = NullifierType(uint256(publicInputs[publicInputs.length - 3]));
-            if (proofType != r.uniqueIdentifierType) revert PolicyEvaluator__WrongNullifierType();
-        }
 
         if (r.minAge > 0 && !helper.isAgeAboveOrEqual(r.minAge, committedInputs)) {
             revert PolicyEvaluator__AgeRequirementNotMet();
@@ -171,8 +153,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         if (r.sanctionsMode != SanctionsMode.NONE) {
             helper.enforceSanctionsRoot(block.timestamp, r.sanctionsMode == SanctionsMode.STRICT, committedInputs);
         }
-
-        return r.enforceUniqueness;
     }
 
     /// @dev The verifier helper's country checks need the exact list committed

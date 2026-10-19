@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.zkpassport.zkpassport",
+      "sha256_cert_fingerprints": [
+        "8A:85:67:2C:53:DD:57:12:02:FB:27:7A:90:8F:C6:BC:5E:BA:DF:4C:AD:90:26:06:55:0C:3F:5E:78:62:AF:02"
+      ]
+    }
+  }
+]
