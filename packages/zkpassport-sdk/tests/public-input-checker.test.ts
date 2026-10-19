@@ -1,18 +1,21 @@
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { PublicInputChecker } from "../src/public-input-checker"
 import type {
   Query,
   QueryResult,
   ProofResult,
   DiscloseCommittedInputs,
-  SanctionsBuilder,
   FacematchCommittedInputs,
+  SupportedChain,
 } from "@zkpassport/utils"
 import {
   SECONDS_BETWEEN_1900_AND_1970,
+  getIdFromChain,
   getServiceScopeHash,
   getScopeHash,
   getAgeParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
+  getSanctionsParameterCommitment,
 } from "@zkpassport/utils"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -20,6 +23,16 @@ import {
   ZKPASSPORT_IOS_APP_ID_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
 } from "../src/constants"
+import { RegistryClient } from "@zkpassport/registry"
+
+// A sanctions root the mocked registry reports as valid
+const VALID_SANCTIONS_ROOT = "0x" + "ab".repeat(32)
+
+function mockSanctionsRootValidity() {
+  return spyOn(RegistryClient.prototype, "isSanctionsRootValid").mockImplementation(
+    async (root: string) => root === VALID_SANCTIONS_ROOT,
+  )
+}
 
 // Helper to build a minimal disclose proof with committed inputs
 function makeDiscloseProof(disclosedBytes: number[]): ProofResult {
@@ -1618,33 +1631,53 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     const originalQuery: Query = {
       sanctions: { countries: "all", lists: "all", strict: false },
     }
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
 
-    test("passes when root hash and strict match", async () => {
+    beforeEach(() => {
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      isSanctionsRootValid.mockRestore()
+    })
+
+    test("passes when the root is valid in the registry and strict matches", async () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: false },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
         originalQuery,
         queryResult,
-        { rootHash: "abc123", isStrict: false },
-        sanctionsBuilder,
+        { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
       )
       expect(isCorrect).toBe(true)
     })
 
-    test("fails when root hash does not match", async () => {
+    test("fails when the root is not valid in the registry", async () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: false },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect, queryResultErrors } =
-        await PublicInputChecker.checkSanctionsExclusionPublicInputs(
-          originalQuery,
-          queryResult,
-          { rootHash: "wrong_root", isStrict: false },
-          sanctionsBuilder,
-        )
+        await PublicInputChecker.checkSanctionsExclusionPublicInputs(originalQuery, queryResult, {
+          rootHash: "0x" + "cd".repeat(32),
+          isStrict: false,
+        })
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
+    })
+
+    test("fails when the registry lookup throws", async () => {
+      isSanctionsRootValid.mockImplementation(async () => {
+        throw new Error("RPC unavailable")
+      })
+      const queryResult: QueryResult = {
+        sanctions: { passed: true, isStrict: false },
+      }
+      const { isCorrect, queryResultErrors } =
+        await PublicInputChecker.checkSanctionsExclusionPublicInputs(originalQuery, queryResult, {
+          rootHash: VALID_SANCTIONS_ROOT,
+          isStrict: false,
+        })
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
     })
@@ -1656,13 +1689,11 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: true },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect, queryResultErrors } =
         await PublicInputChecker.checkSanctionsExclusionPublicInputs(
           oq,
           queryResult,
-          { rootHash: "abc123", isStrict: false }, // committed says non-strict
-          sanctionsBuilder,
+          { rootHash: VALID_SANCTIONS_ROOT, isStrict: false }, // committed says non-strict
         )
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.sanctions?.eq?.message).toContain("strict mode")
@@ -2764,6 +2795,15 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     const todayTs = BigInt(getTodayTimestamp())
     const commitment = 100n
     const nullifier = 42n
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
+
+    beforeEach(() => {
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      isSanctionsRootValid.mockRestore()
+    })
 
     function makeSanctionsProof(
       commitmentIn: bigint,
@@ -2774,7 +2814,7 @@ describe("PublicInputChecker - checkPublicInputs", () => {
         proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, nullifier]),
         total: 1,
         committedInputs: {
-          exclusion_check_sanctions: { rootHash: "abc", isStrict: false },
+          exclusion_check_sanctions: { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
         },
       }
     }
@@ -3131,5 +3171,306 @@ describe("PublicInputChecker - German documents (D<< country code)", () => {
       )
       expect(queryResultErrors.issuing_country).toBeUndefined()
     })
+  })
+})
+
+describe("PublicInputChecker - registry chain", () => {
+  const certificateRoot = "0x" + "cd".repeat(32)
+  let certificateRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every certificate root valid on the registries of the given chains only
+  function mockCertificateRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    certificateRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isCertificateRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isCertificateRootAccepted(query: Query, devMode: boolean) {
+    const { isCorrect } = await PublicInputChecker.checkCertificateRegistryRoot(
+      certificateRoot,
+      {},
+      false,
+      devMode,
+      undefined,
+      query,
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    certificateRootValidity.mockRestore()
+  })
+
+  test("accepts a root valid on the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      true,
+    )
+  })
+
+  test("rejects a root valid only on another chain than the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      false,
+    )
+  })
+
+  test("rejects a query bound to a chain without a registry", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "arbitrum" } }, false)).toBe(false)
+  })
+
+  test("checks an unbound query on Sepolia in dev mode and on Ethereum otherwise", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({}, true)).toBe(true)
+    expect(await isCertificateRootAccepted({}, false)).toBe(false)
+  })
+})
+
+describe("PublicInputChecker - sanctions registry chain", () => {
+  const sanctionsRoot = "0x" + "ef".repeat(32)
+  let sanctionsRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every sanctions root valid on the registries of the given chains only
+  function mockSanctionsRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    sanctionsRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isSanctionsRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isSanctionsRootAccepted(boundChain: SupportedChain) {
+    const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
+      { sanctions: { countries: "all", lists: "all", strict: false }, bind: { chain: boundChain } },
+      { sanctions: { passed: true, isStrict: false } },
+      { rootHash: sanctionsRoot, isStrict: false },
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    sanctionsRootValidity.mockRestore()
+  })
+
+  test("accepts a sanctions root valid on the query's bound chain", async () => {
+    mockSanctionsRootValidOn("base")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(true)
+  })
+
+  test("rejects a sanctions root valid only on another chain than the query's bound chain", async () => {
+    mockSanctionsRootValidOn("ethereum")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(false)
+  })
+})
+
+describe("PublicInputChecker - registry root checks with a supplied client", () => {
+  let originalFetch: typeof globalThis.fetch
+  let originalWarn: typeof console.warn
+
+  // Records the roots it is asked about and accepts them all
+  class StubRegistryClient extends RegistryClient {
+    checkedRoots: string[] = []
+
+    constructor() {
+      super({ chainId: 1 })
+    }
+
+    override async isCertificateRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+
+    override async isCircuitRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+
+    override async isSanctionsRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+  }
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch
+    originalWarn = console.warn
+    console.warn = () => {}
+    // Any request reaching a default client fails without touching the network
+    globalThis.fetch = (async () =>
+      Response.json({ error: { message: "unreachable in tests" } })) as unknown as typeof fetch
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    console.warn = originalWarn
+  })
+
+  test("checkCertificateRegistryRoot uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCertificateRegistryRoot(
+      "abc",
+      {},
+      false,
+      false,
+      undefined,
+      {},
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(queryResultErrors).toEqual({})
+    expect(client.checkedRoots).toEqual(["abc"])
+  })
+
+  test("checkCircuitRegistryRoot uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCircuitRegistryRoot(
+      "def",
+      {},
+      false,
+      undefined,
+      {},
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(queryResultErrors).toEqual({})
+    expect(client.checkedRoots).toEqual(["def"])
+  })
+
+  test("checkSanctionsExclusionPublicInputs uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
+      { sanctions: { countries: "all", lists: "all", strict: false } },
+      { sanctions: { passed: true, isStrict: false } },
+      { rootHash: "0x" + "ef".repeat(32), isStrict: false },
+      false,
+      undefined,
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(client.checkedRoots).toEqual(["0x" + "ef".repeat(32)])
+  })
+
+  test("falls back to a default client when none is supplied", async () => {
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCertificateRegistryRoot(
+      "abc",
+      {},
+      false,
+      false,
+    )
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.sig_check_dsc.certificate.received).toBe(
+      "Got invalid certificate registry root: abc",
+    )
+  })
+
+  test("checkPublicInputs forwards the client to the root checks", async () => {
+    const domain = "example.com"
+    const todayTs = BigInt(getTodayTimestamp())
+    const paramCommitment = await getAgeParameterCommitment(18, 0)
+    const proofs: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 111n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([111n, 222n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([222n, 333n]), total: 5 },
+      {
+        name: "compare_age",
+        proof: buildProofHex([
+          333n,
+          todayTs,
+          getServiceScopeHash(domain),
+          0n,
+          paramCommitment,
+          0n,
+          999n,
+        ]),
+        total: 5,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      },
+    ]
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    const client = new StubRegistryClient()
+    const withClient = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+      undefined,
+      undefined,
+      false,
+      client,
+    )
+    expect(withClient.isCorrect).toBe(true)
+    expect(client.checkedRoots).toEqual(["1"])
+
+    const withoutClient = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+    )
+    expect(withoutClient.isCorrect).toBe(false)
+    expect(withoutClient.queryResultErrors.sig_check_dsc?.certificate).toBeDefined()
+  })
+
+  test("checkPublicInputs forwards the client to the root check of a standalone sanctions proof", async () => {
+    const domain = "example.com"
+    const todayTs = BigInt(getTodayTimestamp())
+    const sanctionsRoot = "0x" + "0e".repeat(32)
+    const paramCommitment = await getSanctionsParameterCommitment(sanctionsRoot, true)
+    const proofs: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 111n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([111n, 222n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([222n, 333n]), total: 5 },
+      {
+        name: "exclusion_check_sanctions",
+        proof: buildProofHex([
+          333n,
+          todayTs,
+          getServiceScopeHash(domain),
+          0n,
+          paramCommitment,
+          0n,
+          999n,
+        ]),
+        total: 5,
+        committedInputs: {
+          exclusion_check_sanctions: { rootHash: sanctionsRoot, isStrict: true },
+        },
+      },
+    ]
+    const originalQuery: Query = { sanctions: { countries: "all", lists: "all", strict: true } }
+    const queryResult: QueryResult = { sanctions: { passed: true, isStrict: true } }
+
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+      undefined,
+      undefined,
+      false,
+      client,
+    )
+    expect(queryResultErrors).toEqual({})
+    expect(isCorrect).toBe(true)
+    expect(client.checkedRoots).toContain(sanctionsRoot)
   })
 })

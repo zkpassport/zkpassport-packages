@@ -7,14 +7,17 @@
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
     "baseUrl": "./src",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@zkpassport/utils": ["./index.ts"]
     }
   },
   // "include" controls type-checking only; build output is controlled by tsup.config.ts entry points
   "include": [
     "src/**/*.ts",
+    "src/**/*.json",
     "tests/**/*.json",
     "tests/**/*.ts",
+    "scripts/**/*.ts",
     "conformance/*.json",
     "tsup.config.ts"
   ]

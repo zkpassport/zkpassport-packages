@@ -344,6 +344,21 @@ describe("verify() modes and the verifier API", () => {
     expect(seenMode).toBe("api")
   })
 
+  test("handleResult verifies with the config given to request()", async () => {
+    const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1")
+    zk.topicToLocalConfig["topic-1"].config = { rpcUrl: "http://rpc.test" }
+    zk.onResultCallbacks["topic-1"] = [() => {}]
+    let seenConfig: unknown
+    zk.verify = async (args: any) => {
+      seenConfig = args.config
+      return notVerified
+    }
+
+    await zk.handleResult("topic-1")
+
+    expect(seenConfig).toEqual({ rpcUrl: "http://rpc.test" })
+  })
+
   test("handleResult reports a verify() failure through onError", async () => {
     const zk = primeForHandleResult(new ZKPassport("example.com"), "topic-1", "local")
     zk.onResultCallbacks["topic-1"] = [() => {}]

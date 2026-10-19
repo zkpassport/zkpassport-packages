@@ -58,9 +58,10 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__Paused.selector);
         zkPassportCredentials.createPolicy(
             bytes32(uint256(99)),
-            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             1 days,
             "x",
+            false,
             false,
             false,
             false
@@ -77,7 +78,8 @@ contract ZKPassportCredentialsAdminTest is ZKPassportCredentialsTestBase {
     }
 
     function testAdminCanSwapPolicyEvaluator() public {
-        PolicyEvaluatorV1 newEvaluator = new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)), true);
+        PolicyEvaluatorV1 newEvaluator =
+            new PolicyEvaluatorV1(IRootVerifier(address(mockVerifier)), true, NullifierType.SALTED_NULLIFIER);
         vm.prank(admin);
         vm.expectEmit(true, true, false, false);
         emit ZKPassportCredentials.PolicyEvaluatorUpdated(address(evaluator), address(newEvaluator));
