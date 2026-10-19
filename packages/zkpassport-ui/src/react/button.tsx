@@ -4,7 +4,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactElement,
   type ReactNode,
 } from "react"
@@ -12,17 +11,15 @@ import {
 import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
 import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
+import { createOpenInBrowserPanel } from "../open-in-browser-panel"
 import { createVerification, type VerificationState } from "../verification"
 import {
-  BUTTON_FONT_SIZES,
+  BUTTON_CAPTION,
   buttonTooltip,
-  DEFAULT_BUTTON_LABEL,
-  errorMessage,
+  buttonLabel,
   isButtonDisabled,
-  isErrorVisible,
-  joinClasses,
   SUCCESS_BUTTON_LABEL,
-  type VerifyWithZKPassportButtonOptions,
+  type VerifyWithZKPassportOptions,
 } from "../verify-button"
 
 // Styles go in before the first paint in the browser; useLayoutEffect warns when server-rendered
@@ -33,22 +30,30 @@ export type ZKPassportVerification = VerificationState & {
   verify: () => void
 }
 
-export type VerifyWithZKPassportButtonProps = VerifyWithZKPassportButtonOptions & {
+export type VerifyWithZKPassportProps = VerifyWithZKPassportOptions & {
   // Render your own trigger instead of the branded button
   children?: (verification: ZKPassportVerification) => ReactNode
 }
 
 /** Button that opens the hosted verification popup. */
-export function VerifyWithZKPassportButton({
+export function VerifyWithZKPassport({
   children,
   ...options
-}: VerifyWithZKPassportButtonProps): ReactElement {
-  const [state, setState] = useState<VerificationState>({ status: "idle", error: null })
+}: VerifyWithZKPassportProps): ReactElement {
   // Read at click time, so callers don't have to memoise their options or callbacks
   const latestOptions = useRef(options)
   latestOptions.current = options
-  const [controller] = useState(() => createVerification(() => latestOptions.current, setState))
-  useEffect(() => controller.close, [controller])
+  // Built before the state, because it may open with a verification left over from an earlier page
+  const publish = useRef<(next: VerificationState) => void>(() => {})
+  const [controller] = useState(() =>
+    createVerification(
+      () => latestOptions.current,
+      (next) => publish.current(next),
+    ),
+  )
+  const [state, setState] = useState<VerificationState>(controller.state)
+  publish.current = setState
+  useEffect(() => controller.dispose, [controller])
 
   const verification: ZKPassportVerification = {
     ...state,
@@ -63,55 +68,73 @@ function BrandedButton({
   options,
   verification,
 }: {
-  options: VerifyWithZKPassportButtonOptions
+  options: VerifyWithZKPassportOptions
   verification: ZKPassportVerification
 }): ReactElement {
   useStylesheet(() => injectStylesheet(buttonStyles, "button"), [])
-  const { status } = verification
+  const { status, error, errorKind, openInBrowserUrl, resumable } = verification
+  const style = options.style ?? {}
 
   return (
-    <div
-      className={joinClasses("zkp-verify-wrap", options.classes?.root)}
-      data-theme={options.theme ?? "light"}
-      style={
-        options.size
-          ? ({ "--zkp-btn-font-size": BUTTON_FONT_SIZES[options.size] } as CSSProperties)
-          : undefined
-      }
-    >
+    <div className="zkp-verify-wrap" data-variant={style.variant ?? "filled"}>
       <button
         type="button"
-        className={joinClasses("zkp-verify-button", options.classes?.button)}
+        className="zkp-verify-button"
         data-status={status}
         disabled={isButtonDisabled(status)}
-        title={buttonTooltip(status)}
+        title={buttonTooltip(status, resumable)}
         onClick={verification.verify}
       >
-        <span className="zkp-verify-content">
-          <span className="zkp-verify-state zkp-verify-state-default">
-            <span
-              className="zkp-verify-button-mark"
-              dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }}
-            />
-            <span>{options.label ?? DEFAULT_BUTTON_LABEL}</span>
+        <span className="zkp-verify-button-mark">
+          <span data-state="default" dangerouslySetInnerHTML={{ __html: ICON_ZKP_MARK }} />
+          <span data-state="success" dangerouslySetInnerHTML={{ __html: ICON_CHECK }} />
+        </span>
+        <span className="zkp-verify-body">
+          <span className="zkp-verify-content">
+            <span className="zkp-verify-state" data-state="default">
+              <span>{buttonLabel(style.label, resumable)}</span>
+              {/* North-east arrow: the click opens the hosted ZKPassport window */}
+              <span className="zkp-verify-external" aria-hidden="true">
+                {"\u2197"}
+              </span>
+            </span>
+            <span className="zkp-verify-state" data-state="success">
+              <span>{SUCCESS_BUTTON_LABEL}</span>
+            </span>
           </span>
-          <span className="zkp-verify-state zkp-verify-state-success">
-            <span
-              className="zkp-verify-button-mark"
-              dangerouslySetInnerHTML={{ __html: ICON_CHECK }}
-            />
-            <span>{SUCCESS_BUTTON_LABEL}</span>
-          </span>
+          <span className="zkp-verify-caption">{BUTTON_CAPTION}</span>
         </span>
       </button>
-      {isErrorVisible(status, options) && (
-        <p className={joinClasses("zkp-verify-error", options.classes?.error)} role="alert">
-          {errorMessage(verification.error)}
+      {openInBrowserUrl && error ? (
+        <OpenInBrowserPanel url={openInBrowserUrl} />
+      ) : errorKind === "blocked" ? (
+        <p className="zkp-verify-notice" role="alert">
+          {error}
         </p>
-      )}
+      ) : null}
     </div>
   )
 }
 
-export type { VerifyButtonSize, VerifyWithZKPassportButtonOptions } from "../verify-button"
-export type { VerificationOptions, VerificationState, VerificationStatus } from "../verification"
+// Plain DOM, so the React button and the vanilla one show the same panel
+function OpenInBrowserPanel({ url }: { url: string }): ReactElement {
+  const slot = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!slot.current) return
+    const panel = createOpenInBrowserPanel({ url })
+    slot.current.append(panel)
+    return () => panel.remove()
+  }, [url])
+
+  return <div ref={slot} />
+}
+
+export type { VerifyWithZKPassportOptions } from "../verify-button"
+export type {
+  ServiceConfig,
+  VerificationOverrides,
+  VerificationOptions,
+  VerificationState,
+  VerificationStatus,
+} from "../verification"

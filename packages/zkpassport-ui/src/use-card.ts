@@ -7,14 +7,7 @@ import { logger } from "./logger"
 import type { ZKPassportQRCodeOptions } from "./types"
 
 export type CardState =
-  | "intro"
-  | "preparing"
-  | "connecting"
-  | "waiting"
-  | "scanned"
-  | "generating"
-  | "success"
-  | "error"
+  "intro" | "preparing" | "connecting" | "waiting" | "scanned" | "generating" | "success" | "error"
 
 export type ProofStreamProgress = { received: number; total: number | null }
 
@@ -54,6 +47,12 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   // Continue lands on the right screen
   const bridgeStateRef = useRef<CardState>("preparing")
   const introActiveRef = useRef(introEnabled)
+  // Once the intro is behind you it stays behind you, so asking for a fresh
+  // request lands back on the QR rather than replaying the explanation
+  const introSeenRef = useRef(false)
+  // What that intro disclosed, so a request that asks for something else cannot
+  // ride on consent the user never gave
+  const introQueryRef = useRef<string | null>(null)
 
   // Held in a ref so StrictMode / Fast Refresh don't spin up a second SDK
   // and orphan the bridge the phone is already talking to.
@@ -63,9 +62,12 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   }
 
   useEffect(() => {
+    const sdk = sdkRef.current!
     let cancelled = false
     let readyFired = false
-    const intro = optionsRef.current.showIntroScreen === true
+    let activeRequestId: string | null = null
+    const introWanted = optionsRef.current.showIntroScreen === true
+    const intro = introWanted && !introSeenRef.current
     introActiveRef.current = intro
     bridgeStateRef.current = "preparing"
     setState(intro ? "intro" : "preparing")
@@ -105,10 +107,18 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
       safeCall(optionsRef.current.onReady)
     }
 
+    let settled = false
+    const settle = (next: "success" | "error") => {
+      settled = true
+      introActiveRef.current = false
+      introSeenRef.current = true
+      setState(next)
+    }
+
     // onError is the only way to tell the host app that something went wrong
     const fail = (summary: string, reason: unknown) => {
       logger.error(reason)
-      setState("error")
+      settle("error")
       const detail = reason instanceof Error ? reason.message : String(reason)
       safeCall(optionsRef.current.onError, `${summary}: ${detail}`)
     }
@@ -127,19 +137,29 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
     // Update the QR-flow state; while the intro is showing only the ref advances
     const applyBridgeState = (next: CardState, forceShow = false) => {
       bridgeStateRef.current = next
-      if (forceShow) introActiveRef.current = false
+      if (forceShow) {
+        introActiveRef.current = false
+        introSeenRef.current = true
+      }
       if (!introActiveRef.current) setState(next)
     }
 
-    sdkRef
-      .current!.request({ ...sdkRequestArgs, verifierMode: "api" })
+    sdk
+      .request({ ...sdkRequestArgs, verifierMode: sdkRequestArgs.verifierMode ?? "api" })
       .then((queryBuilder) => {
-        if (cancelled) return
         let request: QueryBuilderResult
         try {
           request = buildQuery(queryBuilder)
         } catch (reason) {
-          fail("Failed to build the verification query", reason)
+          if (!cancelled) fail("Failed to build the verification query", reason)
+          return
+        }
+        // The bridge is live by now, so a card that went away while the request
+        // was starting still has to hang up. Only this one: a retry reuses the
+        // SDK instance, so clearAllRequests() would close its bridge too.
+        activeRequestId = request.requestId
+        if (cancelled) {
+          sdk.cancelRequest(request.requestId)
           return
         }
 
@@ -150,6 +170,13 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             }
             fireReady()
             safeCall(optionsRef.current.onBridgeConnect)
+          }),
+        )
+        request.onBridgeConnectionLost(
+          guard(() => {
+            if (settled) return
+            settle("error")
+            safeCall(optionsRef.current.onError, "The connection to your phone was lost.")
           }),
         )
         request.onRequestReceived(
@@ -184,8 +211,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
             // returning false (e.g. when its backend did not verify the proofs)
             const finish = (next: "success" | "error") => {
               if (cancelled) return
-              introActiveRef.current = false
-              setState(next)
+              settle(next)
             }
             let verdict: unknown
             try {
@@ -209,23 +235,20 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         if (onResult) {
           request.onResult(
             guard((response) => {
-              introActiveRef.current = false
-              setState(response.verified ? "success" : "error")
+              settle(response.verified ? "success" : "error")
               safeCall(optionsRef.current.onResult, response)
             }),
           )
         }
         request.onReject(
           guard(() => {
-            introActiveRef.current = false
-            setState("error")
+            settle("error")
             safeCall(optionsRef.current.onReject)
           }),
         )
         request.onError(
           guard((message) => {
-            introActiveRef.current = false
-            setState("error")
+            settle("error")
             safeCall(optionsRef.current.onError, message)
           }),
         )
@@ -233,7 +256,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         setQuery(request.query)
         // Branding resolved by the SDK (options first, then dashboard config)
         try {
-          const service = sdkRef.current!.getServiceDetails(request.requestId)
+          const service = sdk.getServiceDetails(request.requestId)
           if (service) {
             setServiceName(service.name || null)
             setServiceLogo(service.logo || null)
@@ -241,6 +264,15 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
         } catch (reason) {
           logger.error(reason)
         }
+
+        // Consent covers the data that was on screen, so a request asking for
+        // something else replays the intro instead of reusing it
+        const asking = JSON.stringify(request.query)
+        if (introWanted && introSeenRef.current && asking !== introQueryRef.current) {
+          introActiveRef.current = true
+          setState("intro")
+        }
+        introQueryRef.current = asking
 
         // Catch up to any events that fired before we subscribed.
         try {
@@ -267,6 +299,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
 
     return () => {
       cancelled = true
+      if (activeRequestId) sdk.cancelRequest(activeRequestId)
     }
   }, [retryNonce])
 
@@ -278,6 +311,7 @@ export function useCard(options: ZKPassportQRCodeOptions): UseCard {
   // Intro → QR screen (phone flow)
   const continueWithPhone = useCallback(() => {
     introActiveRef.current = false
+    introSeenRef.current = true
     setState(bridgeStateRef.current)
   }, [])
 

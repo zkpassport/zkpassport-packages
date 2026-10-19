@@ -1,13 +1,14 @@
 # ZKPassport Onchain Credentials
 
-Typed [viem](https://viem.sh) bindings for the ZKPassport onchain credential registry
+Typed [viem](https://viem.sh) bindings for the ZKPassport onchain credentials contract
 (`ZKPassportCredentials` and `PolicyEvaluatorV1`), whose Solidity sources live in
 [`packages/onchain-credentials/contracts`](../contracts).
 
 A credential is an ERC-1155 token a wallet holds for a *policy*. The policy declares what a
 holder must prove — a minimum age, allowed or excluded nationalities, sanctions screening,
-FaceMatch mode, nullifier type — and `issue()` mints only against a ZKPassport proof that
-satisfies them.
+FaceMatch mode — and whether each document may back only one credential, and `issue()` mints
+only against a ZKPassport proof that satisfies them. For such uniqueness policies the proof must
+carry the nullifier type the policy's evaluator was deployed with.
 
 ## Installation
 
@@ -27,6 +28,9 @@ const { credentials } = ctx
 
 const policy = await credentials.getPolicy(policyId)
 const requirements = await credentials.getRequirements(policy)
+const devMode = await credentials.getDevMode(policy)
+// Only constrains proofs when policy.enforceUniqueness is true.
+const uniqueIdentifierType = await credentials.getUniqueIdentifierType(policy)
 
 const held = await credentials.hasCredential(wallet, policyId)
 const expiresAt = await credentials.heldUntil(wallet, policyId)
@@ -57,14 +61,15 @@ const txHash = await submitIssueCall(ctx, call, { client: walletClient, account 
 `submitCredentialsCall` sends:
 
 ```typescript
-import { computePolicyId, encodeCredentialPolicyRequirements } from "@zkpassport/onchain-credentials"
+import { computePolicyId } from "@zkpassport/onchain-credentials"
 
 const policyId = computePolicyId(owner, salt)
 const call = credentials.buildCreatePolicyCall({
   salt,
   credentialDuration,
-  requirements: encodeCredentialPolicyRequirements(requirements),
+  requirements,
   metadataURL,
+  enforceUniqueness: true,
 })
 await submitCredentialsCall(ctx, call, { client: walletClient, account: owner })
 ```
