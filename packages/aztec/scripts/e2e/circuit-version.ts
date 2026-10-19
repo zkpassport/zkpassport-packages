@@ -7,7 +7,7 @@
  * "0.20.0" -> 0x0000001400…00. Consumer apps must pin the same value they pass
  * in ServiceConfig.version.
  */
-import { Fr } from "@aztec/aztec.js/fields"
+import { Fr } from "@aztec-labs/aztec.js/fields"
 
 export function packCircuitManifestVersion(semver: string): Fr {
   const parts = semver.split(".").map(Number)
