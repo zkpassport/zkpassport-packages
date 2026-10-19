@@ -29,7 +29,7 @@ contract MockEvaluatorV2 is IPolicyEvaluator {
         if (minAge > 150) revert MockEvaluatorV2__InvalidRequirements();
     }
 
-    function evaluate(string calldata, string calldata, bytes calldata requirements, bytes calldata proofData)
+    function evaluate(string calldata, string calldata, bytes calldata requirements, bool, bytes calldata proofData)
         external
         view
         returns (PolicyEvaluationResult memory result)
@@ -47,6 +47,5 @@ contract MockEvaluatorV2 is IPolicyEvaluator {
         result.wallet = bound.senderAddress;
         result.customData = bound.customData;
         result.nullifier = nullifier;
-        result.unique = false;
     }
 }

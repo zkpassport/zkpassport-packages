@@ -3,7 +3,7 @@
 <git_workflow>
 
 <critical_never_assume_base>
-New branches and PRs target `develop` by default: branch from `origin/develop` and open PRs with `--base develop`. Target `main` only when the user explicitly says so (releases, hotfixes). There is no `master` in this repo.
+New branches and PRs target `main` by default: branch from `origin/main` and open PRs with `--base main`. There is no `master` in this repo.
 
 If a PR is already open, its existing base is authoritative:
 

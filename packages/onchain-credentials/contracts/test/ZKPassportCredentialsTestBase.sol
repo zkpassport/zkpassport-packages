@@ -22,9 +22,18 @@ contract ZKPassportCredentialsTestBase is Test {
 
     /// @dev Tests deploy a dev-mode evaluator so the mock-nullifier and dev-params paths are
     ///      exercisable; the non-dev polarity is covered by the dedicated devMode tests.
+    ///      Uniqueness policies on it require SALTED nullifiers, the type _rawParams carries.
     function _deployZKPassportCredentials(IRootVerifier verifier) internal {
-        evaluator = new PolicyEvaluatorV1(verifier, true);
+        evaluator = new PolicyEvaluatorV1(verifier, true, NullifierType.SALTED_NULLIFIER);
         zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, evaluator);
+    }
+
+    /// @dev Point future policies at a dev-mode evaluator on the same root verifier whose
+    ///      uniqueness policies require `uniqueIdentifierType`.
+    function _swapEvaluator(NullifierType uniqueIdentifierType) internal returns (PolicyEvaluatorV1 swapped) {
+        swapped = new PolicyEvaluatorV1(evaluator.rootVerifier(), true, uniqueIdentifierType);
+        vm.prank(admin);
+        zkPassportCredentials.setPolicyEvaluator(swapped);
     }
 
     function _deployWithMocks() internal {
@@ -35,24 +44,17 @@ contract ZKPassportCredentialsTestBase is Test {
         mockHelper.setProofTimestamp(block.timestamp);
     }
 
-    function _emptyRequirements(NullifierType uniqueIdentifierType)
-        internal
-        view
-        returns (PolicyEvaluatorV1.PolicyRequirements memory r)
-    {
-        r.uniqueIdentifierType = uniqueIdentifierType;
-        r.enforceUniqueness = uniqueIdentifierType != NullifierType.NONE_NULLIFIER;
+    function _emptyRequirements() internal view returns (PolicyEvaluatorV1.PolicyRequirements memory r) {
         r.includedNationalities = noCountries;
         r.excludedNationalities = noCountries;
     }
 
     function _requirements(
-        NullifierType uniqueIdentifierType,
         uint8 minAge,
         PolicyEvaluatorV1.SanctionsMode sanctionsMode,
         string[] memory excludedNationalities
     ) internal view returns (bytes memory) {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements(uniqueIdentifierType);
+        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
         r.minAge = minAge;
         r.sanctionsMode = sanctionsMode;
         r.excludedNationalities = excludedNationalities;
@@ -63,9 +65,10 @@ contract ZKPassportCredentialsTestBase is Test {
         vm.prank(creator);
         return zkPassportCredentials.createPolicy(
             bytes32(uint256(1)),
-            _requirements(NullifierType.NONE_NULLIFIER, 0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
             30 days,
             "https://policy.example/1",
+            false,
             false,
             false,
             false
