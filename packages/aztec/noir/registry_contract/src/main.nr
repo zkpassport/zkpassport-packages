@@ -44,11 +44,6 @@ pub contract ZKPassportRegistry {
         oprf_pk_hash: DelayedPublicMutable<Field, INITIAL_DELAY, Context>,
     }
 
-    // `admin`, `operator`, and `guardian` are contract roles. The operator maintains the registry: roots and their
-    // revocation, validation mode and window, accepted vks, version status and the OPRF public key hash. The guardian
-    // can only pause. The admin can do everything the operator can, and alone can unpause and change roles.
-    // `mode` and `window` specify the root verification behavior of this registry. For a list of valid modes, refer to
-    // types.nr. `window` is a duration in seconds used in the `MODE_VALID_WITHIN_WINDOW` mode.
     #[external("public")]
     #[initializer]
     fn constructor(
