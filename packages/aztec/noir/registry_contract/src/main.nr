@@ -8,7 +8,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract ZKPassportRegistry {
     use crate::guards::{
-        assert_address_not_zero, assert_admin, assert_admin_or_oracle, assert_valid_mode,
+        assert_address_not_zero, assert_admin, assert_admin_or_operator, assert_valid_mode,
         assert_valid_registry_id,
     };
     use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
@@ -26,7 +26,7 @@ pub contract ZKPassportRegistry {
     struct Storage<Context> {
         // Contract roles are set and used in public
         admin: PublicMutable<AztecAddress, Context>,
-        oracle: PublicMutable<AztecAddress, Context>,
+        operator: PublicMutable<AztecAddress, Context>,
         guardian: PublicMutable<AztecAddress, Context>,
 
         // Everything below is read privately by verifiers thus using DelayedPublicMutable and subject to a ~24h delay.
@@ -44,24 +44,26 @@ pub contract ZKPassportRegistry {
         oprf_pk_hash: DelayedPublicMutable<Field, INITIAL_DELAY, Context>,
     }
 
-    // `admin`, `oracle`, and `guardian` are contract roles.
+    // `admin`, `operator`, and `guardian` are contract roles. The operator maintains the registry: roots and their
+    // revocation, validation mode and window, accepted vks, version status and the OPRF public key hash. The guardian
+    // can only pause. The admin can do everything the operator can, and alone can unpause and change roles.
     // `mode` and `window` specify the root verification behavior of this registry. For a list of valid modes, refer to
     // types.nr. `window` is a duration in seconds used in the `MODE_VALID_WITHIN_WINDOW` mode.
     #[external("public")]
     #[initializer]
     fn constructor(
         admin: AztecAddress,
-        oracle: AztecAddress,
+        operator: AztecAddress,
         guardian: AztecAddress,
         mode: u8,
         window: u64,
     ) {
         assert_address_not_zero(admin, "admin cannot be zero address");
-        assert_address_not_zero(oracle, "oracle cannot be zero address");
+        assert_address_not_zero(operator, "operator cannot be zero address");
         assert_address_not_zero(guardian, "guardian cannot be zero address");
         assert_valid_mode(mode);
         self.storage.admin.write(admin);
-        self.storage.oracle.write(oracle);
+        self.storage.operator.write(operator);
         self.storage.guardian.write(guardian);
         // Note: for the first 24h the DPM reads its zeroed default {mode: 0 = LATEST_ONLY, window: 0},
         // which is safe — no roots exist yet, so everything is invalid either way.
@@ -79,10 +81,10 @@ pub contract ZKPassportRegistry {
     }
 
     #[external("public")]
-    fn set_oracle(new_oracle: AztecAddress) {
+    fn set_operator(new_operator: AztecAddress) {
         assert_admin(self.msg_sender(), self.storage.admin.read());
-        assert_address_not_zero(new_oracle, "oracle cannot be zero address");
-        self.storage.oracle.write(new_oracle);
+        assert_address_not_zero(new_operator, "operator cannot be zero address");
+        self.storage.operator.write(new_operator);
     }
 
     #[external("public")]
@@ -97,7 +99,8 @@ pub contract ZKPassportRegistry {
         let sender = self.msg_sender();
         let is_admin = sender == self.storage.admin.read();
         let is_guardian = sender == self.storage.guardian.read();
-        assert(is_admin | is_guardian, "caller is not admin or guardian");
+        let is_operator = sender == self.storage.operator.read();
+        assert(is_admin | is_guardian | is_operator, "caller is not admin, guardian or operator");
         self.storage.paused.schedule_value_change(true);
     }
 
@@ -109,7 +112,7 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn update_root(registry_id: Field, new_root: Field, current_root: Field, timestamp: u64) {
-        assert(self.msg_sender() == self.storage.oracle.read(), "caller is not oracle");
+        assert(self.msg_sender() == self.storage.operator.read(), "caller is not operator");
 
         let (pending_paused, _) = self.storage.paused.get_scheduled_value();
         assert(!pending_paused, "registry is paused");
@@ -124,7 +127,7 @@ pub contract ZKPassportRegistry {
 
         let latest_slot = self.storage.latest.at(registry_id);
         let (cur, _) = latest_slot.get_scheduled_value();
-        assert(cur.latest == current_root, "current root mismatch"); // avoid races in oracle executions
+        assert(cur.latest == current_root, "current root mismatch"); // avoid races between operator executions
 
         if cur.latest != 0 {
             let old_slot = self.storage.roots.at(registry_id).at(cur.latest);
@@ -152,10 +155,10 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn set_revocation_status(registry_id: Field, root: Field, revoked: bool) {
-        assert_admin_or_oracle(
+        assert_admin_or_operator(
             self.msg_sender(),
             self.storage.admin.read(),
-            self.storage.oracle.read(),
+            self.storage.operator.read(),
         );
         assert_valid_registry_id(registry_id);
         let slot = self.storage.roots.at(registry_id).at(root);
@@ -173,10 +176,10 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn set_root_validation_mode(registry_id: Field, mode: u8) {
-        assert_admin_or_oracle(
+        assert_admin_or_operator(
             self.msg_sender(),
             self.storage.admin.read(),
-            self.storage.oracle.read(),
+            self.storage.operator.read(),
         );
         assert_valid_registry_id(registry_id);
         assert_valid_mode(mode);
@@ -187,10 +190,10 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn set_validity_window(registry_id: Field, window: u64) {
-        assert_admin_or_oracle(
+        assert_admin_or_operator(
             self.msg_sender(),
             self.storage.admin.read(),
-            self.storage.oracle.read(),
+            self.storage.operator.read(),
         );
         assert_valid_registry_id(registry_id);
         let slot = self.storage.config.at(registry_id);
@@ -200,7 +203,11 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn add_accepted_vk(version: Field, vk_hash: Field) {
-        assert_admin(self.msg_sender(), self.storage.admin.read());
+        assert_admin_or_operator(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.operator.read(),
+        );
         assert(version != 0, "version cannot be zero");
         assert(vk_hash != 0, "vk hash cannot be zero");
         self.storage.accepted_vks.at(version).at(vk_hash).schedule_value_change(true);
@@ -208,7 +215,11 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     fn remove_accepted_vk(version: Field, vk_hash: Field) {
-        assert_admin(self.msg_sender(), self.storage.admin.read());
+        assert_admin_or_operator(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.operator.read(),
+        );
         self.storage.accepted_vks.at(version).at(vk_hash).schedule_value_change(false);
     }
 
@@ -216,14 +227,22 @@ pub contract ZKPassportRegistry {
     // its version is enabled AND the vk itself is accepted under that version.
     #[external("public")]
     fn set_version_status(version: Field, enabled: bool) {
-        assert_admin(self.msg_sender(), self.storage.admin.read());
+        assert_admin_or_operator(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.operator.read(),
+        );
         assert(version != 0, "version cannot be zero");
         self.storage.version_enabled.at(version).schedule_value_change(enabled);
     }
 
     #[external("public")]
     fn set_oprf_pk_hash(oprf_pk_hash: Field) {
-        assert_admin(self.msg_sender(), self.storage.admin.read());
+        assert_admin_or_operator(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.operator.read(),
+        );
         self.storage.oprf_pk_hash.schedule_value_change(oprf_pk_hash);
     }
 
