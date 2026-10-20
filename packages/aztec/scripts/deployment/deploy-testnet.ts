@@ -32,7 +32,7 @@
  *                               same secret makes re-runs resolve the same deployer
  *                               (and registry).
  *   SALT                        account + contract salt (default 0, reproducible)
- *   REGISTRY_ADMIN / REGISTRY_ORACLE / REGISTRY_GUARDIAN
+ *   REGISTRY_ADMIN / REGISTRY_OPERATOR / REGISTRY_GUARDIAN
  *                               role addresses, all required. There is no deployer
  *                               fallback: putting a role on the deployer must be an
  *                               explicit choice.
@@ -100,17 +100,17 @@ async function main() {
   const paymentMethod = new SponsoredFeePaymentMethod(fpc.address)
 
   const admin = requiredRole("REGISTRY_ADMIN")
-  const oracle = requiredRole("REGISTRY_ORACLE")
+  const operator = requiredRole("REGISTRY_OPERATOR")
   const guardian = requiredRole("REGISTRY_GUARDIAN")
   console.log(
-    `roles: admin=${admin} oracle=${oracle} guardian=${guardian} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
+    `roles: admin=${admin} operator=${operator} guardian=${guardian} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
   )
 
   // Explicit salt + deployer pin the address before send, making re-runs idempotent.
   const deployMethod = ZKPassportRegistryContract.deploy(
     wallet,
     admin,
-    oracle,
+    operator,
     guardian,
     MODE_VALID_WITHIN_WINDOW,
     VALIDITY_WINDOW,
@@ -146,7 +146,11 @@ async function main() {
     nodeVersion,
     registry: instance.address.toString(),
     deployer: deployer.address.toString(),
-    roles: { admin: admin.toString(), oracle: oracle.toString(), guardian: guardian.toString() },
+    roles: {
+      admin: admin.toString(),
+      operator: operator.toString(),
+      guardian: guardian.toString(),
+    },
     mode: MODE_VALID_WITHIN_WINDOW,
     window: VALIDITY_WINDOW.toString(),
     initialDelay: INITIAL_DELAY,

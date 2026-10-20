@@ -105,15 +105,15 @@ async function main() {
     pxe: { proverEnabled },
   })
 
-  const [admin, oracle, user] = await registerInitialLocalNetworkAccountsInWallet(wallet)
-  log(`accounts admin=${admin} oracle=${oracle} user=${user}`)
+  const [admin, operator, user] = await registerInitialLocalNetworkAccountsInWallet(wallet)
+  log(`accounts admin=${admin} operator=${operator} user=${user}`)
 
   // ---- 1. Deploy -----------------------------------------------------------
   const [{ contract: registry }] = await timed("deploy registry", () =>
     ZKPassportRegistryContract.deploy(
       wallet,
       admin,
-      oracle,
+      operator,
       admin,
       MODE_VALID_WITHIN_WINDOW,
       VALIDITY_WINDOW,
@@ -126,7 +126,7 @@ async function main() {
   )
   log(`age gate at ${ageGate.address}`)
 
-  // ---- 2. Seed roots (oracle) and the accepted VK (admin) -------------------
+  // ---- 2. Seed roots (operator) and the accepted VK (admin) -------------------
   // valid_from slightly before the proof's current_date so the root is live for it.
   const validFrom = BigInt(FIXTURE.nowTimestamp) - 100n
   await timed("seed certificate root", () =>
@@ -137,12 +137,12 @@ async function main() {
         0n,
         validFrom,
       )
-      .send({ from: oracle, wait: WAIT }),
+      .send({ from: operator, wait: WAIT }),
   )
   await timed("seed circuit root", () =>
     registry.methods
       .update_root(REGISTRY_CIRCUIT, Fr.fromHexString(FIXTURE.circuitRegistryRoot), 0n, validFrom)
-      .send({ from: oracle, wait: WAIT }),
+      .send({ from: operator, wait: WAIT }),
   )
   await timed("seed accepted vk", () =>
     registry.methods

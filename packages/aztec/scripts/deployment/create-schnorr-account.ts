@@ -1,12 +1,12 @@
 /**
  * Create (or re-derive) an initializerless Schnorr account and print its address.
  *
- * The account is generic: use it to mint the deployer, the registry admin, oracle, or
+ * The account is generic: use it to mint the deployer, the registry admin, operator, or
  * guardian, or any other role. The address is a pure function of (secret, salt): no
  * account-deploy tx, no funding, and nothing written to disk. A freshly minted secret
  * is printed exactly once; store it in a real secret manager, and export it under the
  * variable the consuming script expects (e.g. ZKPASSPORT_DEPLOYER_SECRET for the
- * deploy scripts, REGISTRY_ORACLE_SECRET / REGISTRY_ADMIN_SECRET for seeding). No
+ * deploy scripts, REGISTRY_OPERATOR_SECRET for seeding). No
  * other script ever mints a secret.
  *
  * Usage: npm run account:testnet | npm run account:mainnet
