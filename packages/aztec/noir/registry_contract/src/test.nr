@@ -7,7 +7,7 @@ use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::Te
 pub struct Actors {
     pub registry: AztecAddress,
     pub admin: AztecAddress,
-    pub oracle: AztecAddress,
+    pub operator: AztecAddress,
     pub guardian: AztecAddress,
 }
 
@@ -18,19 +18,19 @@ global CIRCUIT_MANIFEST_VERSION: Field = 1;
 
 pub unconstrained fn deploy_registry(env: &mut TestEnvironment) -> Actors {
     let admin = env.create_light_account();
-    let oracle = env.create_light_account();
+    let operator = env.create_light_account();
     let guardian = env.create_light_account();
     let registry = env.deploy("ZKPassportRegistry").with_public_initializer(
         admin,
         ZKPassportRegistry::interface().constructor(
             admin,
-            oracle,
+            operator,
             guardian,
             MODE_VALID_WITHIN_WINDOW,
             86400,
         ),
     );
-    Actors { registry, admin, oracle, guardian }
+    Actors { registry, admin, operator, guardian }
 }
 
 // ---- Admin & pause ----
@@ -40,8 +40,8 @@ unconstrained fn non_admin_cannot_transfer_admin() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
     let _ = env.call_public(
-        actors.oracle,
-        ZKPassportRegistry::at(actors.registry).transfer_admin(actors.oracle),
+        actors.operator,
+        ZKPassportRegistry::at(actors.registry).transfer_admin(actors.operator),
     );
 }
 
@@ -61,24 +61,68 @@ unconstrained fn guardian_cannot_unpause() {
     let _ = env.call_public(actors.guardian, ZKPassportRegistry::at(actors.registry).unpause());
 }
 
-#[test(should_fail_with = "caller is not admin")]
-unconstrained fn non_admin_cannot_add_vk() {
+#[test(should_fail_with = "caller is not admin or operator")]
+unconstrained fn guardian_cannot_add_vk() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
     let _ = env.call_public(
-        actors.oracle,
+        actors.guardian,
         ZKPassportRegistry::at(actors.registry).add_accepted_vk(CIRCUIT_MANIFEST_VERSION, 123),
     );
 }
 
-#[test(should_fail_with = "caller is not admin")]
-unconstrained fn non_admin_cannot_set_version_status() {
+#[test(should_fail_with = "caller is not admin or operator")]
+unconstrained fn guardian_cannot_set_version_status() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
     let _ = env.call_public(
-        actors.oracle,
+        actors.guardian,
         ZKPassportRegistry::at(actors.registry).set_version_status(CIRCUIT_MANIFEST_VERSION, true),
     );
+}
+
+#[test]
+unconstrained fn operator_can_pause() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(actors.operator, ZKPassportRegistry::at(actors.registry).pause());
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn operator_cannot_unpause() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(actors.operator, ZKPassportRegistry::at(actors.registry).pause());
+    let _ = env.call_public(actors.operator, ZKPassportRegistry::at(actors.registry).unpause());
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn operator_cannot_set_operator() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(
+        actors.operator,
+        ZKPassportRegistry::at(actors.registry).set_operator(actors.guardian),
+    );
+}
+
+#[test]
+unconstrained fn operator_accepts_vk_and_enables_version_after_delay() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let registry = ZKPassportRegistry::at(actors.registry);
+    let _ =
+        env.call_public(actors.operator, registry.add_accepted_vk(CIRCUIT_MANIFEST_VERSION, 123));
+    let _ = env.call_public(
+        actors.operator,
+        registry.set_version_status(CIRCUIT_MANIFEST_VERSION, true),
+    );
+    let _ = env.call_public(actors.operator, registry.set_oprf_pk_hash(456));
+
+    env.advance_next_block_timestamp_by(86401);
+    env.mine_block();
+    assert(env.execute_utility(registry.is_vk_accepted(CIRCUIT_MANIFEST_VERSION, 123)));
+    assert(env.execute_utility(registry.is_version_enabled(CIRCUIT_MANIFEST_VERSION)));
 }
 
 #[test]
@@ -112,7 +156,7 @@ unconstrained fn vk_add_visible_after_delay() {
 global ROOT_A: Field = 0xaaa1;
 global ROOT_B: Field = 0xbbb2;
 
-#[test(should_fail_with = "caller is not oracle")]
+#[test(should_fail_with = "caller is not operator")]
 unconstrained fn admin_cannot_update_root() {
     let mut env = TestEnvironment::new();
     let a = deploy_registry(&mut env);
@@ -127,12 +171,12 @@ unconstrained fn cas_guard_bites() {
     let mut env = TestEnvironment::new();
     let a = deploy_registry(&mut env);
     let _ = env.call_public(
-        a.oracle,
+        a.operator,
         ZKPassportRegistry::at(a.registry).update_root(REGISTRY_CERTIFICATE, ROOT_A, 0, 1000),
     );
     // second update must thread current_root = ROOT_A, not 0
     let _ = env.call_public(
-        a.oracle,
+        a.operator,
         ZKPassportRegistry::at(a.registry).update_root(REGISTRY_CERTIFICATE, ROOT_B, 0, 2000),
     );
 }
@@ -142,16 +186,16 @@ unconstrained fn roots_never_reinsertable() {
     let mut env = TestEnvironment::new();
     let a = deploy_registry(&mut env);
     let _ = env.call_public(
-        a.oracle,
+        a.operator,
         ZKPassportRegistry::at(a.registry).update_root(REGISTRY_CERTIFICATE, ROOT_A, 0, 1000),
     );
     let _ = env.call_public(
-        a.oracle,
+        a.operator,
         ZKPassportRegistry::at(a.registry).update_root(REGISTRY_CERTIFICATE, ROOT_B, ROOT_A, 2000),
     );
     // ROOT_A again — must fail even though it is no longer latest
     let _ = env.call_public(
-        a.oracle,
+        a.operator,
         ZKPassportRegistry::at(a.registry).update_root(REGISTRY_CERTIFICATE, ROOT_A, ROOT_B, 3000),
     );
 }
@@ -171,7 +215,7 @@ unconstrained fn update_becomes_visible_after_delay() {
     let mut env = TestEnvironment::new();
     let a = deploy_registry(&mut env);
     let _ = env.call_public(
-        a.oracle,
+        a.operator,
         ZKPassportRegistry::at(a.registry).update_root(REGISTRY_CERTIFICATE, ROOT_A, 0, 1000),
     );
 
@@ -205,7 +249,7 @@ global T0: u64 = 1786900000;
 unconstrained fn seed(env: &mut TestEnvironment) -> Actors {
     let deployed_registry = deploy_registry(env);
     let _ = env.call_public(
-        deployed_registry.oracle,
+        deployed_registry.operator,
         ZKPassportRegistry::at(deployed_registry.registry).update_root(
             REGISTRY_CERTIFICATE,
             CERT_ROOT,
@@ -214,7 +258,7 @@ unconstrained fn seed(env: &mut TestEnvironment) -> Actors {
         ),
     );
     let _ = env.call_public(
-        deployed_registry.oracle,
+        deployed_registry.operator,
         ZKPassportRegistry::at(deployed_registry.registry).update_root(
             REGISTRY_CIRCUIT,
             CIRC_ROOT,
@@ -321,7 +365,7 @@ unconstrained fn seeded_root_invisible_before_delay() {
     env.advance_next_block_timestamp_by(86401);
     env.mine_block(); // VK acceptance is now visible privately
     let _ = env.call_public(
-        deployed_registry.oracle,
+        deployed_registry.operator,
         ZKPassportRegistry::at(deployed_registry.registry).update_root(
             REGISTRY_CERTIFICATE,
             CERT_ROOT,
@@ -471,13 +515,13 @@ unconstrained fn set_guardian_rejects_zero_address() {
 unconstrained fn constructor_rejects_zero_admin() {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
-    let oracle = env.create_light_account();
+    let operator = env.create_light_account();
     let guardian = env.create_light_account();
     let _ = env.deploy("ZKPassportRegistry").with_public_initializer(
         deployer,
         ZKPassportRegistry::interface().constructor(
             AztecAddress::zero(),
-            oracle,
+            operator,
             guardian,
             MODE_VALID_WITHIN_WINDOW,
             86400,
