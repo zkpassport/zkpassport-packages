@@ -8,6 +8,9 @@ A Noir workspace to streamline ZKPassport verifications from Aztec contracts and
 and mint a one-proof-per-passport uniqueness nullifier tailored to its needs.
 - An example `AgeGate` Aztec contract, that shows how everything fits together e2e.
 
+The verifier accepts outer proofs made with `bb` 6.0.0-rc.6, the version the Aztec 6.0.0-rc.3 protocol runs. The current
+ZKPassport app proves with `bb` 5.0.0, and those proofs do not verify on Aztec 6.
+
 ## Workspace Layout
 
 Directories drop the `zkpassport_` prefix their packages carry, since the enclosing path
@@ -176,7 +179,6 @@ runs from `test-harness/` (a sibling of `noir/` under `packages/aztec/`):
 
 ```bash
 ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
-./test-recursive-verification.sh fixtures/outer_count_5_age.json
 ```
 
 The script resolves the toolchain at `~/.aztec/versions/6.0.0-rc.3`; point `AZTEC_HOME` elsewhere for
@@ -219,8 +221,10 @@ A pair of assertions (`proof dated in the future` / `proof too old`) are enforce
 block timestamp. Note `zkpassport_core::verify::verify_outer_proof_core` does **not** check
 freshness itself, that requires an Aztec `PrivateContext` to provide a notion of `now`.
 
-Regenerate via `test-harness/generate-proof-fixtures.sh [disclose|age]`, then
-`test-harness/fixture-to-noir.ts` to refresh the embedded TXE fixture. Fixture generation compiles
+Regenerate via `test-harness/generate-proof-fixtures.sh [disclose|age]`. The `age` run also rewrites the
+embedded TXE fixture, `core/src/fixtures/proof.nr` (run `aztec-nargo fmt` over `noir/` afterwards), and a
+new disclose fixture needs its public inputs copied into `FIXTURE_PUBLIC_INPUTS` in `core/src/fixtures.nr`,
+which the conformance test checks. Fixture generation compiles
 the circuits with nargo 1.0.0-beta.22 from a **separate 5.0.1 toolchain install** (the Noir version
 the circuits repo pins) and proves them with `bb` 6.0.0-rc.6 from the 6.0.0-rc.3 toolchain, because
 the Aztec protocol only accepts proofs made with that `bb`'s Honk transcript. Everywhere else in this
@@ -235,5 +239,5 @@ workspace the 6.0.0-rc.3 toolchain is used.
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v6.0.0-rc.6`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport_core`'s recursive-verification dependency, at the barretenberg release the 6.0.0-rc.3 toolchain ships. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport_core` and `zkpassport_aztec_verifier`. |
 | ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport_core`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `exclusion_check_sanctions_lib`. The proof fixtures are generated from the `test-harness/circuits` **submodule**, pinned at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the commitment-fixture tests confirm identical commitments). Only fixture regeneration (`test-harness/generate-proof-fixtures.sh`) needs the submodule initialized — building/testing the workspace does not. |
-| `@zkpassport/utils` (TS) | `0.37.4` (this repo's `packages/zkpassport-utils` workspace package) | `test-harness/generate-commitment-fixtures.ts` imports it from the workspace (`bun i && bun run --cwd packages/zkpassport-utils build` first). `test-harness/generate-proof-fixtures.ts` imports it from the `circuits` submodule's own node_modules, which pins the same version. Not a dependency of `scripts/` or any Noir package. |
+| `@zkpassport/utils` (TS) | `0.37.4` (the `circuits` submodule's pin) | `test-harness/generate-proof-fixtures.ts` imports it from the `circuits` submodule's own node_modules. `test-harness/fixture-conformance.test.ts` reads the conformance vectors from this repo's `packages/zkpassport-utils/conformance/vectors.json`. Not a dependency of `scripts/` or any Noir package. |
 | `nargo` (fixture generation only) | 1.0.0-beta.22, from the separate `5.0.1` Aztec toolchain install | The Noir version the `circuits` submodule pins; compiles the circuits `test-harness/generate-proof-fixtures.sh` proves (with the 6.0.0-rc.3 toolchain's `bb`). Never needed by the test/build commands above. |
