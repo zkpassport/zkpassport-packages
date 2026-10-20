@@ -28,7 +28,7 @@
  *                               (and registry). On mainnet it controls real funds and
  *                               the registry admin role: keep it safe.
  *   SALT                        account + contract salt (default 0, reproducible)
- *   REGISTRY_ADMIN / REGISTRY_ORACLE / REGISTRY_GUARDIAN
+ *   REGISTRY_ADMIN / REGISTRY_OPERATOR / REGISTRY_GUARDIAN
  *                               role addresses, all required. The same account can be used to play
  *                               different roles, though that's not recommended.
  *   L1_RPC_URL                  Ethereum mainnet RPC (default: publicnode)
@@ -109,17 +109,17 @@ async function main() {
   console.log(`deployer (initializerless Schnorr, no deploy tx needed): ${deployer.address}`)
 
   const admin = requiredRole("REGISTRY_ADMIN")
-  const oracle = requiredRole("REGISTRY_ORACLE")
+  const operator = requiredRole("REGISTRY_OPERATOR")
   const guardian = requiredRole("REGISTRY_GUARDIAN")
   console.log(
-    `roles: admin=${admin} oracle=${oracle} guardian=${guardian} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
+    `roles: admin=${admin} operator=${operator} guardian=${guardian} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
   )
 
   // Explicit salt + deployer pin the address before send, making re-runs idempotent.
   const deployMethod = ZKPassportRegistryContract.deploy(
     wallet,
     admin,
-    oracle,
+    operator,
     guardian,
     MODE_VALID_WITHIN_WINDOW,
     VALIDITY_WINDOW,
@@ -243,7 +243,11 @@ async function main() {
     nodeVersion,
     registry: instance.address.toString(),
     deployer: deployer.address.toString(),
-    roles: { admin: admin.toString(), oracle: oracle.toString(), guardian: guardian.toString() },
+    roles: {
+      admin: admin.toString(),
+      operator: operator.toString(),
+      guardian: guardian.toString(),
+    },
     mode: MODE_VALID_WITHIN_WINDOW,
     window: VALIDITY_WINDOW.toString(),
     initialDelay: INITIAL_DELAY,
