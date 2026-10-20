@@ -23,13 +23,13 @@ global CIRCUIT_MANIFEST_VERSION: Field =
 pub struct Actors {
     pub registry: AztecAddress,
     pub admin: AztecAddress,
-    pub oracle: AztecAddress,
+    pub operator: AztecAddress,
     pub guardian: AztecAddress,
 }
 
 unconstrained fn deploy_registry(env: &mut TestEnvironment) -> Actors {
     let admin = env.create_light_account();
-    let oracle = env.create_light_account();
+    let operator = env.create_light_account();
     let guardian = env.create_light_account();
     let registry = env
         .deploy("@zkpassport_registry_contract/ZKPassportRegistry")
@@ -37,13 +37,13 @@ unconstrained fn deploy_registry(env: &mut TestEnvironment) -> Actors {
             admin,
             ZKPassportRegistry::interface().constructor(
                 admin,
-                oracle,
+                operator,
                 guardian,
                 MODE_VALID_WITHIN_WINDOW,
                 86400,
             ),
         );
-    Actors { registry, admin, oracle, guardian }
+    Actors { registry, admin, operator, guardian }
 }
 
 unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAddress) {
@@ -51,7 +51,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     let roots_valid_from = AGE_FIXTURE_CURRENT_DATE - 100;
 
     let _ = env.call_public(
-        deployed_registry.oracle,
+        deployed_registry.operator,
         ZKPassportRegistry::at(deployed_registry.registry).update_root(
             REGISTRY_CERTIFICATE,
             AGE_FIXTURE_CERT_ROOT,
@@ -61,7 +61,7 @@ unconstrained fn seed_for_fixture(env: &mut TestEnvironment) -> (Actors, AztecAd
     );
 
     let _ = env.call_public(
-        deployed_registry.oracle,
+        deployed_registry.operator,
         ZKPassportRegistry::at(deployed_registry.registry).update_root(
             REGISTRY_CIRCUIT,
             AGE_FIXTURE_CIRCUIT_ROOT,
