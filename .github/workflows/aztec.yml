@@ -1,12 +1,15 @@
 name: Aztec
 
 on:
+  # Unlike the other test workflows, scope to our paths: the Aztec toolchain
+  # install is too heavy to run on every unrelated push or PR.
   push:
     branches: [main, develop]
+    paths:
+      - "packages/aztec/**"
+      - ".github/workflows/aztec.yml"
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
-    # Unlike the other workflows, scope to our paths: the Aztec toolchain
-    # install is too heavy to run on every unrelated PR.
     paths:
       - "packages/aztec/**"
       - ".github/workflows/aztec.yml"
