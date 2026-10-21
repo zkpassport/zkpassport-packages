@@ -24,6 +24,9 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 // The transport adds the zkpassport marker, so it is omitted here
 export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
+// A beat for a configure message that is still on its way before the tab gives up
+const ENDED_CLOSE_DELAY_MS = 1000
+
 export function App() {
   const linkId = useMemo(() => new URLSearchParams(window.location.search).get("vl"), [])
   // The link flow answers to the dashboard rather than to an opener, so it needs no session
@@ -78,6 +81,16 @@ export function App() {
     return () => window.removeEventListener("message", onMessage)
   }, [session])
 
+  // Nothing to show and no opener to ask: this is a rebuilt tab of a verification whose record is
+  // gone, so it ended, expired or never got as far as being configured
+  const inAppBrowser = useMemo(() => isInAppBrowser(), [])
+  const ended = !config && !window.opener && !!session?.fromUrl && !inAppBrowser
+  useEffect(() => {
+    if (!ended) return
+    const timer = setTimeout(() => window.close(), ENDED_CLOSE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [ended])
+
   const send = useMemo(() => {
     if (!config || !session) return null
     return (message: OutgoingEvent) => {
@@ -98,7 +111,14 @@ export function App() {
   if (!config && !window.opener) {
     // In an in-app browser the user did press the button, so point them to a real browser rather
     // than tell them they opened the page by mistake
-    return <Frame>{isInAppBrowser() ? <InAppBrowserNotice /> : <OpenedDirectlyNotice />}</Frame>
+    if (inAppBrowser)
+      return (
+        <Frame>
+          <InAppBrowserNotice />
+        </Frame>
+      )
+    // Shown for the beat before the tab closes, and for good where the browser will not close it
+    return <Frame>{ended ? <EndedNotice /> : <OpenedDirectlyNotice />}</Frame>
   }
 
   if (!session || !config || !send) {
@@ -146,6 +166,14 @@ export function App() {
         send={send}
       />
     </Frame>
+  )
+}
+
+function EndedNotice() {
+  return (
+    <Notice>
+      This verification is no longer running. Go back to the website and start it again.
+    </Notice>
   )
 }
 

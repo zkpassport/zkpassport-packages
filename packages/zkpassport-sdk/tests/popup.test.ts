@@ -76,7 +76,10 @@ describe("openVerificationPopup", () => {
       close() {
         this.closed = true
       },
-      focus() {},
+      focused: 0,
+      focus() {
+        this.focused++
+      },
     }
     const openCalls: unknown[][] = []
     const fakeWindow = {
@@ -209,6 +212,28 @@ describe("openVerificationPopup", () => {
       openVerificationPopup({ request: {}, query: {}, windowMode: "tab" })
       expect(openCalls.length).toBe(2)
       expect(openCalls[1].length).toBe(2)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
+  test("names the window after the session and brings it forward", () => {
+    const { fakeWindow, popup, openCalls } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      const fresh = openVerificationPopup({ request: {}, query: {} })!
+      expect(openCalls[0][1]).toBe(`zkpassport-verify-${fresh.session}`)
+      expect(popup.focused).toBe(1)
+
+      // Reopening a verification targets the window it had, so a live one is reused
+      openVerificationPopup({ request: {}, query: {}, session: fresh.session })
+      expect(openCalls[1][1]).toBe(openCalls[0][1])
+
+      const other = openVerificationPopup({ request: {}, query: {} })!
+      expect(openCalls[2][1]).not.toBe(openCalls[0][1])
+      expect(other.session).not.toBe(fresh.session)
     } finally {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (globalThis as any).window
