@@ -81,8 +81,8 @@ export function App() {
     return () => window.removeEventListener("message", onMessage)
   }, [session])
 
-  // Nothing to show and no opener to ask: this is a rebuilt tab of a verification whose record is
-  // gone, so it ended, expired or never got as far as being configured
+  // No opener and no record for the session in the URL: the verification ended, expired, or was
+  // never configured, and this rebuilt tab cannot recover it
   const inAppBrowser = useMemo(() => isInAppBrowser(), [])
   const ended = !config && !window.opener && !!session?.fromUrl && !inAppBrowser
   useEffect(() => {
@@ -117,7 +117,6 @@ export function App() {
           <InAppBrowserNotice />
         </Frame>
       )
-    // Shown for the beat before the tab closes, and for good where the browser will not close it
     return <Frame>{ended ? <EndedNotice /> : <OpenedDirectlyNotice />}</Frame>
   }
 
