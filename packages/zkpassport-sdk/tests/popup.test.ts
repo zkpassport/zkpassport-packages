@@ -227,7 +227,6 @@ describe("openVerificationPopup", () => {
       expect(openCalls[0][1]).toBe(`zkpassport-verify-${fresh.session}`)
       expect(popup.focused).toBe(1)
 
-      // Reopening a verification targets the window it had, so a live one is reused
       openVerificationPopup({ request: {}, query: {}, session: fresh.session })
       expect(openCalls[1][1]).toBe(openCalls[0][1])
 

@@ -24,7 +24,6 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 // The transport adds the zkpassport marker, so it is omitted here
 export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
-// A beat for a configure message that is still on its way before the tab gives up
 const ENDED_CLOSE_DELAY_MS = 1000
 
 export function App() {
@@ -81,8 +80,6 @@ export function App() {
     return () => window.removeEventListener("message", onMessage)
   }, [session])
 
-  // No opener and no record for the session in the URL: the verification ended, expired, or was
-  // never configured, and this rebuilt tab cannot recover it
   const inAppBrowser = useMemo(() => isInAppBrowser(), [])
   const ended = !config && !window.opener && !!session?.fromUrl && !inAppBrowser
   useEffect(() => {

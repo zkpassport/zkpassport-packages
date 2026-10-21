@@ -104,13 +104,8 @@ function inAppBrowserMessage(): string {
 
 const HIDDEN_POPUP_MESSAGE =
   "The verification window opened behind this page. Tap the button again to continue."
-// On a phone the verification window takes over the screen as soon as it opens, so a page still
-// showing a moment later means the browser navigated a tab it kept out of sight
 const HIDDEN_POPUP_GRACE_MS = 1000
 
-// Mobile only: on a desktop the opener stays visible beside the popup. The page is watched rather
-// than timed, because a phone pauses this page's timers while the popup is in front and resumes
-// them, with the page visible again, when the user comes back.
 function watchForHiddenPopup(onHidden: () => void): () => void {
   if (typeof document === "undefined" || !isMobileLike()) return () => {}
   let wentAway = false
@@ -292,9 +287,6 @@ export function createVerification(
     rememberPendingVerification(handle.session, requestKey)
     setStatus("in-progress")
 
-    // Only a reopened verification can land in a window that already exists, and a browser that
-    // navigates one in place need not bring it forward. The window is closed so the next tap
-    // creates a fresh one; the verification itself stays pending, as "blocked" leaves it.
     if (resuming) {
       stopHiddenWatch = watchForHiddenPopup(() => {
         stopHiddenWatch = null

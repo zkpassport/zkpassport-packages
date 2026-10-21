@@ -33,7 +33,6 @@ export type Session = {
   id: string
   /** True when this page is picking up a verification that was already running. */
   resumed: boolean
-  /** True when the id came with the page's URL rather than being made here. */
   fromUrl: boolean
 }
 

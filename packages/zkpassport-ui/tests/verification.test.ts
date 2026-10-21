@@ -99,7 +99,6 @@ function stubInAppBrowser() {
 const PHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1"
 
-// A phone browser, with a document the test can hide to stand for the popup taking the screen
 function stubPhone() {
   Object.defineProperty(globalThis, "navigator", {
     value: { userAgent: PHONE_UA },
@@ -125,7 +124,6 @@ function stubPhone() {
   }
 }
 
-// Leaves a verification pending with the phone on it, the way a popup closed mid-flight does
 async function leavePending(storage: Map<string, string>): Promise<string> {
   const { emitFromPopup, popups, openedUrls } = setupFakeWindow(storage)
   createVerification(
@@ -965,7 +963,6 @@ describe("a reopened verification on a phone", () => {
     expect(errors.map((e) => e.kind)).toEqual(["blocked"])
     expect(controller.state.status).toBe("error")
     expect(controller.state.error).toMatch(/behind this page/)
-    // Still pending, so the next tap opens the same verification in a fresh window
     expect(controller.state.resumable).toBe(true)
   })
 
@@ -980,7 +977,6 @@ describe("a reopened verification on a phone", () => {
     )
     controller.verify()
     phone.hide()
-    // The user comes back from the app with the page visible again
     phone.show()
 
     await new Promise((resolve) => setTimeout(resolve, 1200))

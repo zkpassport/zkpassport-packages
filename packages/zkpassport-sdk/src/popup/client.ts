@@ -65,8 +65,6 @@ function withSession(popupUrl: string, session: string): string {
   return url.toString()
 }
 
-// Named per session: reopening a verification lands in its own window if that is still around,
-// and a new verification never lands in a stale one
 function windowName(session: string): string {
   return `zkpassport-verify-${session}`
 }
@@ -105,12 +103,7 @@ export function openVerificationPopup(
   const name = windowName(session)
   const popup = windowMode === "tab" ? window.open(popupUrl, name) : openPopupWindow(popupUrl, name)
   if (!popup) return null
-  // An existing window of this name is navigated in place rather than brought forward
-  try {
-    popup.focus()
-  } catch {
-    // Some browsers refuse to move focus; the window is open either way
-  }
+  popup.focus()
 
   const callbacks = options.callbacks ?? {}
   let finished = false
