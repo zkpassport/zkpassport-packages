@@ -3,6 +3,8 @@ import { format } from "date-fns"
 import { getIDDataProofPublicInputCount, packBeBytesIntoFields, packLeBytesIntoFields } from ".."
 import { Binary } from "../binary"
 import { DisclosureCircuitName, NullifierType, PackagedCircuit, SaltedValue } from "../types"
+import { getAttestedIdProofPublicInputCount } from "./attested-id"
+import { hasCredentialScheme } from "./credential-scheme"
 import { getDSCProofPublicInputCount } from "./dsc"
 import { getIntegrityProofPublicInputCount } from "./integrity"
 
@@ -104,16 +106,19 @@ export async function hashSaltDg1Dg2HashPrivateNullifier(
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
 
+// The disclosure proofs' public inputs are, in order: comm_in, current_date, service_scope,
+// service_subscope, param_commitment, nullifier_type, nullifier, oprf_pk_hash and, from 0.22.0,
+// the credential scheme. The scheme is appended, so the earlier fields keep their positions.
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  return BigInt(proofData.publicInputs[6])
 }
 
 export function getOprfPkHashFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
+  return BigInt(proofData.publicInputs[7])
 }
 
 export function getNullifierTypeFromDisclosureProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
+  const nullifierType = BigInt(proofData.publicInputs[5])
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -185,9 +190,17 @@ export async function getHostedPackagedCircuitByName(
  * @param circuitName - The name of the circuit.
  * @returns The number of public inputs.
  */
-export function getNumberOfPublicInputs(circuitName: string) {
-  if (circuitName.startsWith("data_check_integrity")) {
-    return getIntegrityProofPublicInputCount()
+/**
+ * How many public inputs a proof of the circuit has. Since circuit version 0.22.0 the integrity,
+ * disclosure and outer proofs carry the credential scheme as one more; `circuitVersion` is the
+ * version the proof was made with (none means the current circuits).
+ */
+export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: string) {
+  const scheme = hasCredentialScheme(circuitVersion) ? 1 : 0
+  if (circuitName.startsWith("attested_id")) {
+    return getAttestedIdProofPublicInputCount()
+  } else if (circuitName.startsWith("data_check_integrity")) {
+    return getIntegrityProofPublicInputCount() + scheme
   } else if (circuitName.startsWith("sig_check_id_data")) {
     return getIDDataProofPublicInputCount()
   } else if (circuitName.startsWith("sig_check_dsc")) {
@@ -197,11 +210,11 @@ export function getNumberOfPublicInputs(circuitName: string) {
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
     const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
-    return 8 + disclosureProofCount
+    return 8 + scheme + disclosureProofCount
   }
   // Any other circuits are assumed to be disclosure circuits
-  // which have a universal interface of 8 public inputs
-  return 8
+  // which have a universal interface of 8 public inputs, plus the credential scheme
+  return 8 + scheme
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
@@ -306,6 +319,8 @@ export {
 } from "./disclose"
 
 export * from "./age"
+export * from "./attested-id"
+export * from "./credential-scheme"
 export * from "./country"
 export * from "./date"
 export * from "./dsc"
