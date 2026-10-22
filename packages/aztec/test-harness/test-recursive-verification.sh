@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # bb-level fixture harness: prove & recursively verify a ZKPassport `outer_count_4` proof through
-# the zkpassport_core library, under the Aztec v6.0.0-rc.3 toolchain
-# (nargo 1.0.0-rc.3 + bb 6.0.0-rc.6).
+# the zkpassport_core library, under the Aztec v6.0.0-rc.4 toolchain
+# (nargo 1.0.0-rc.3 + bb 6.0.0-rc.7).
 #
 # Usage: test-recursive-verification.sh <fixture.json> [--tamper-proof|--tamper-public-input]
 #
@@ -20,7 +20,7 @@ set -uo pipefail
 
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
 WRAP=$HARNESS_DIR/recursive_verification
-AZTEC=${AZTEC_HOME:-$HOME/.aztec/versions/6.0.0-rc.3}
+AZTEC=${AZTEC_HOME:-$HOME/.aztec/versions/6.0.0-rc.4}
 BB=$AZTEC/node_modules/.bin/bb
 NARGO=$AZTEC/bin/aztec-nargo
 ARTIFACT=target/recursive_verification.json

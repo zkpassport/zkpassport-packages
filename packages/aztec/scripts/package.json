@@ -13,13 +13,13 @@
     "seed:mainnet": "tsx deployment/seed-registry.ts mainnet"
   },
   "dependencies": {
-    "@aztec-labs/accounts": "6.0.0-rc.3",
-    "@aztec-labs/aztec.js": "6.0.0-rc.3",
-    "@aztec-labs/constants": "6.0.0-rc.3",
-    "@aztec-labs/ethereum": "6.0.0-rc.3",
-    "@aztec-labs/noir-contracts.js": "6.0.0-rc.3",
-    "@aztec-labs/stdlib": "6.0.0-rc.3",
-    "@aztec-labs/wallets": "6.0.0-rc.3",
+    "@aztec-labs/accounts": "6.0.0-rc.4",
+    "@aztec-labs/aztec.js": "6.0.0-rc.4",
+    "@aztec-labs/constants": "6.0.0-rc.4",
+    "@aztec-labs/ethereum": "6.0.0-rc.4",
+    "@aztec-labs/noir-contracts.js": "6.0.0-rc.4",
+    "@aztec-labs/stdlib": "6.0.0-rc.4",
+    "@aztec-labs/wallets": "6.0.0-rc.4",
     "@zkpassport/registry": "0.14.0"
   },
   "devDependencies": {
