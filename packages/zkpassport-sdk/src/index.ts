@@ -18,6 +18,10 @@ import {
   NullifierType,
   formatQueryResultDates,
   getChainFromQuery,
+  CredentialScheme,
+  CredentialTier,
+  serializeAllowedCredentials,
+  type AllowedCredential,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
@@ -60,6 +64,26 @@ if (typeof globalThis.Buffer === "undefined") {
 }
 
 const DEFAULT_PURPOSE = "Verify identity privately"
+
+type RegistryClientOptions = NonNullable<Parameters<typeof createRegistryClient>[1]>
+
+/** The registry client overrides a {@link VerificationConfig} asks for */
+export function getRegistryClientOptions(
+  config: VerificationConfig | undefined,
+): RegistryClientOptions {
+  if (!config) return {}
+  const { circuitsUrl, ...options } = config
+  if (!circuitsUrl) return options
+  const base = circuitsUrl.replace(/\/+$/, "")
+  return {
+    ...options,
+    circuitManifestUrlGenerator: (_chainId, { root, version }) =>
+      root
+        ? `${base}/by-root/${root}/manifest.json`
+        : `${base}/by-version/${version}/manifest.json`,
+    packagedCircuitUrlGenerator: (_chainId, hash) => `${base}/by-hash/${hash}.json`,
+  }
+}
 
 function realNullifierType({
   uniqueIdentifier,
@@ -120,6 +144,13 @@ export {
   type ProofMode,
   type BoundData,
   type Service,
+  CredentialScheme,
+  CredentialTier,
+  DEFAULT_ALLOWED_CREDENTIALS,
+  getTierForCredentialScheme,
+  isCredentialAllowed,
+  expandAllowedCredentials,
+  type AllowedCredential,
 } from "@zkpassport/utils"
 
 export * from "./types"
@@ -152,6 +183,7 @@ export class ZKPassport {
       verifierMode: VerifierMode | undefined
       config: VerificationConfig | undefined
       appClip: boolean
+      allowedCredentials: AllowedCredential[] | undefined
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -183,6 +215,8 @@ export class ZKPassport {
         uniqueIdentifier: string | undefined
         uniqueIdentifierType: NullifierType | undefined
         verified: boolean
+        credentialTier?: CredentialTier
+        credentialScheme?: CredentialScheme
         result: QueryResult
         queryResultErrors?: Partial<QueryResultErrors>
         proofs: ProofResult[]
@@ -284,13 +318,21 @@ export class ZKPassport {
         uniqueIdentifierType: this.topicToLocalConfig[topic]?.uniqueIdentifierType,
         verifierMode: this.topicToLocalConfig[topic]?.verifierMode,
         config: this.topicToLocalConfig[topic]?.config,
+        allowedCredentials: this.topicToLocalConfig[topic]?.allowedCredentials,
       })
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       await Promise.all(this.onErrorCallbacks[topic].map((callback) => callback(message)))
       return
     }
-    const { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors } = verification
+    const {
+      uniqueIdentifier,
+      uniqueIdentifierType,
+      verified,
+      queryResultErrors,
+      credentialTier,
+      credentialScheme,
+    } = verification
     logger.debug("Verification complete, verified:", verified)
     await Promise.all(
       this.onResultCallbacks[topic].map((callback) =>
@@ -300,6 +342,8 @@ export class ZKPassport {
           uniqueIdentifier: hasFailedProofs ? undefined : uniqueIdentifier,
           uniqueIdentifierType: hasFailedProofs ? undefined : uniqueIdentifierType,
           verified: hasFailedProofs ? false : verified,
+          credentialTier,
+          credentialScheme,
           result,
           queryResultErrors,
           proofs,
@@ -602,6 +646,8 @@ export class ZKPassport {
               uniqueIdentifier: string | undefined
               uniqueIdentifierType: NullifierType | undefined
               verified: boolean
+              credentialTier?: CredentialTier
+              credentialScheme?: CredentialScheme
               result: QueryResult
               queryResultErrors?: Partial<QueryResultErrors>
               proofs: ProofResult[]
@@ -710,6 +756,9 @@ export class ZKPassport {
    * @param keyPairOverride A keypair from {@link getRequestKeyPair}, which keeps the request ID and bridge topic.
    * @param replayMissedMessages Redelivers what was already sent on this topic, for a request resumed on a new page.
    * @param config Settings for verifying the received proofs, see {@link VerificationConfig}.
+   * @param allowedCredentials The credentials your service accepts: tiers and/or exact schemes,
+   * see {@link AllowedCredential}. Defaults to signed credentials only (tier 1); an ID verified
+   * another way is refused by the app before proving and by `verify()` after.
    * @returns The query builder object.
    */
   public async request({
@@ -732,6 +781,7 @@ export class ZKPassport {
     verifierMode,
     config,
     overrides,
+    allowedCredentials,
   }: {
     name?: string
     logo?: string
@@ -752,10 +802,13 @@ export class ZKPassport {
     verifierMode?: VerifierMode
     config?: VerificationConfig
     overrides?: { appClip?: boolean }
+    allowedCredentials?: AllowedCredential[]
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
+    // Rejects unknown entries now rather than in the app
+    if (allowedCredentials) serializeAllowedCredentials(allowedCredentials)
 
     if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
       throw new Error(
@@ -802,6 +855,7 @@ export class ZKPassport {
       verifierMode,
       config,
       appClip: overrides?.appClip ?? false,
+      allowedCredentials,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -873,6 +927,8 @@ export class ZKPassport {
    * ZKPassport verifier API, and "auto" (default) verifies locally but defers to the API when
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @param config Verification settings such as the RPC URL, see {@link VerificationConfig}.
+   * @param allowedCredentials The credentials your service accepts, see {@link AllowedCredential}.
+   * Defaults to signed credentials only (tier 1).
    * @returns An object containing the unique identifier associated to the user
    * and a boolean indicating whether the proofs were successfully verified.
    */
@@ -888,6 +944,7 @@ export class ZKPassport {
     uniqueIdentifierType,
     verifierMode = "auto",
     config,
+    allowedCredentials,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -900,6 +957,7 @@ export class ZKPassport {
     uniqueIdentifierType?: RequestedNullifierType
     verifierMode?: VerifierMode
     config?: VerificationConfig
+    allowedCredentials?: AllowedCredential[]
   }): Promise<VerificationResult> {
     if (!originalQuery || !queryResult) {
       throw new Error("verify() requires `originalQuery` and `queryResult`")
@@ -916,13 +974,24 @@ export class ZKPassport {
     if (!proofs || proofs.length === 0) {
       return notVerified
     }
-    const params = { proofs, originalQuery, queryResult, validity, scope, devMode, oprfKeyId }
+    const params = {
+      proofs,
+      originalQuery,
+      queryResult,
+      validity,
+      scope,
+      devMode,
+      oprfKeyId,
+      allowedCredentials,
+    }
     const localParams = { ...params, writingDirectory, config }
     const apiParams = { ...params, domain: this.domain }
     const requestedType = oprfKeyId ? NullifierType.SALTED : uniqueIdentifierType
 
     let result: VerificationResult
-    if (verifierMode === "local") {
+    // The hosted verifier only knows the published circuits, so proofs made with circuits
+    // served from elsewhere can only be verified locally, and its errors would be misleading
+    if (verifierMode === "local" || (verifierMode === "auto" && config?.circuitsUrl)) {
       result = await this.verifyLocally(localParams)
     } else if (verifierMode === "api") {
       result = (await verifyWithVerifierApi(apiParams)) ?? notVerified
@@ -950,6 +1019,7 @@ export class ZKPassport {
     writingDirectory,
     oprfKeyId,
     config,
+    allowedCredentials,
   }: {
     proofs: Array<ProofResult>
     originalQuery: Query
@@ -960,6 +1030,7 @@ export class ZKPassport {
     writingDirectory?: string
     oprfKeyId?: string
     config?: VerificationConfig
+    allowedCredentials?: AllowedCredential[]
   }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
 
@@ -975,13 +1046,20 @@ export class ZKPassport {
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
+    let credentialTier: CredentialTier | undefined
+    let credentialScheme: CredentialScheme | undefined
     try {
-      const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode), config)
+      const registryClient = createRegistryClient(
+        getChainFromQuery(originalQuery, devMode),
+        getRegistryClientOptions(config),
+      )
       const {
         isCorrect,
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
         uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
         queryResultErrors: queryResultErrorsFromPublicInputs,
+        credentialTier: credentialTierFromPublicInputs,
+        credentialScheme: credentialSchemeFromPublicInputs,
       } = await PublicInputChecker.checkPublicInputs(
         this.domain,
         proofs,
@@ -992,7 +1070,10 @@ export class ZKPassport {
         oprfKeyId,
         devMode,
         registryClient,
+        allowedCredentials,
       )
+      credentialTier = credentialTierFromPublicInputs
+      credentialScheme = credentialSchemeFromPublicInputs
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
       verified = isCorrect
@@ -1033,6 +1114,7 @@ export class ZKPassport {
               domain: this.domain,
               scope,
               devMode,
+              allowedCredentials,
             })
           } else {
             verified = await bbVerifier.verify(proof, hostedPackagedCircuit)
@@ -1052,7 +1134,14 @@ export class ZKPassport {
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
     uniqueIdentifierType = verified ? uniqueIdentifierType : undefined
-    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
+    return {
+      uniqueIdentifier,
+      uniqueIdentifierType,
+      verified,
+      queryResultErrors,
+      credentialTier,
+      credentialScheme,
+    }
   }
 
   public getSolidityVerifierDetails(): {
@@ -1074,14 +1163,14 @@ export class ZKPassport {
     domain,
     scope,
     devMode = false,
-    // oprfPubKeyHash,
+    allowedCredentials,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain?: string
     scope?: string
     devMode?: boolean
-    // oprfPubKeyHash?: string
+    allowedCredentials?: AllowedCredential[]
   }) {
     return SolidityVerifier.getParameters({
       proof,
@@ -1089,7 +1178,7 @@ export class ZKPassport {
       domain: domain ?? this.domain,
       scope,
       devMode,
-      // oprfPubKeyHash,
+      allowedCredentials,
     })
   }
 
@@ -1119,6 +1208,10 @@ export class ZKPassport {
     }
     if (returnDeepLink) {
       url += `&r=${encodeURIComponent(returnDeepLink)}`
+    }
+    const allowedCredentials = this.topicToLocalConfig[requestId].allowedCredentials
+    if (allowedCredentials) {
+      url += `&ac=${serializeAllowedCredentials(allowedCredentials)}`
     }
     return url
   }

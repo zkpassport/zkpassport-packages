@@ -1,4 +1,11 @@
-import type { ProofMode, ProofResult, Query, QueryResult, SupportedChain } from "@zkpassport/utils"
+import type {
+  AllowedCredential,
+  ProofMode,
+  ProofResult,
+  Query,
+  QueryResult,
+  SupportedChain,
+} from "@zkpassport/utils"
 import type { RequestedNullifierType } from "../types"
 
 export const DEFAULT_POPUP_URL = "https://verify.zkpassport.id"
@@ -34,6 +41,7 @@ export type PopupRequestConfig = {
   bridgeUrl?: string
   cloudProverUrl?: string
   appClip?: boolean
+  allowedCredentials?: AllowedCredential[]
 }
 
 export type PopupCredentialOutcome = {

@@ -20,6 +20,8 @@ import {
   ProofTypeLength,
   rightPadArrayWithZeros,
   SanctionsCommittedInputs,
+  parseAllowedCredential,
+  type AllowedCredential,
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
 import { DEFAULT_VALIDITY } from "./constants"
@@ -63,6 +65,7 @@ export class SolidityVerifier {
    * @param domain The domain to use for the service config
    * @param scope The scope to use for the service config
    * @param devMode Whether to use the dev mode
+   * @param allowedCredentials The credentials the service accepts; empty means signed credentials only
    * Note that on mainnets, the dev mode will be ignored as verification
    * will always fail for mock passports. It only applies to testnets.
    * @returns The parameters for the Solidity verifier contract
@@ -73,21 +76,21 @@ export class SolidityVerifier {
     domain,
     scope,
     devMode = false,
-    // oprfPubKeyHash,
+    allowedCredentials = [],
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain: string
     scope?: string
     devMode?: boolean
-    // oprfPubKeyHash?: string
+    allowedCredentials?: AllowedCredential[]
   }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
         "This proof cannot be verified on an EVM chain. Please make sure to use the `compressed-evm` mode.",
       )
     }
-    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!, proof.version))
     const committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
     const committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
     for (const key in proof.committedInputs) {
@@ -252,7 +255,7 @@ export class SolidityVerifier {
         domain,
         scope: scope ?? "",
         devMode,
-        // oprfPubKeyHash: oprfPubKeyHash ?? ZERO_BYTES32,
+        allowedCredentials: allowedCredentials.map((entry) => parseAllowedCredential(entry)),
       },
     }
     return params
@@ -266,6 +269,7 @@ export class SolidityVerifier {
     domain,
     scope,
     devMode,
+    allowedCredentials,
   }: {
     proof: ProofResult
     rpcUrl: string
@@ -273,6 +277,7 @@ export class SolidityVerifier {
     domain: string
     scope?: string
     devMode?: boolean
+    allowedCredentials?: AllowedCredential[]
   }): Promise<boolean> {
     try {
       const { createPublicClient, http } = await import("viem")
@@ -284,6 +289,7 @@ export class SolidityVerifier {
         domain,
         scope,
         devMode,
+        allowedCredentials,
       })
       const result = await client.readContract({ address, abi, functionName, args: [params] })
       return Array.isArray(result) ? Boolean(result[0]) : false
