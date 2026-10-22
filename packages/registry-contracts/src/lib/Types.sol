@@ -77,7 +77,8 @@ enum OS {
 // │       ├── [5:5+N] param_commitments      // Field[N] - PublicInputsCast.getParamCommitment(array, index)
 // │       ├── [5+N] nullifier_type           // u8 - PublicInputsCast.getNullifierType(array, paramCount)
 // │       ├── [6+N] scoped_nullifier         // Field - PublicInputsCast.getScopedNullifier(array, paramCount)
-// │       └── [7+N] oprf_pk_hash             // Poseidon2(pk.x, pk.y) for SALTED, 0 for NON_SALTED
+// │       ├── [7+N] oprf_pk_hash             // Poseidon2(pk.x, pk.y) for SALTED, 0 for NON_SALTED
+// │       └── [8+N] credential_scheme        // What verified the ID, see lib/Credentials.sol
 // │
 // ├── bytes committedInputs              // Preimages of param_commitments
 // │
@@ -85,7 +86,8 @@ enum OS {
 //     ├── uint256 validityPeriodInSeconds    // How long the proof is valid
 //     ├── string domain                      // Service domain
 //     ├── string scope                       // Service scope
-//     └── bool devMode                       // Development mode flag
+//     ├── bool devMode                       // Development mode flag
+//     └── uint256[] allowedCredentials       // Tiers and/or schemes accepted; empty means signed only
 struct ProofVerificationParams {
     bytes32 version;
     ProofVerificationData proofVerificationData;
@@ -104,6 +106,7 @@ struct ServiceConfig {
     string domain;
     string scope;
     bool devMode;
+    uint256[] allowedCredentials;
 }
 
 struct DisclosedData {
