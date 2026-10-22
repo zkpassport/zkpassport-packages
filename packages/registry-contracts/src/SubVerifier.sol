@@ -14,6 +14,7 @@ import {RootRegistry} from "./RootRegistry.sol";
 import {IProofVerifier} from "./IProofVerifier.sol";
 import {ProofVerificationParams, NullifierType, ProofVerifier} from "./lib/Types.sol";
 import {PublicInput, RegistryID} from "./lib/Constants.sol";
+import {Credentials} from "./lib/Credentials.sol";
 import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
 
@@ -171,7 +172,10 @@ contract SubVerifier {
             return;
         }
         require(globalOPRFPubKeyHash != bytes32(0), "globalOPRFPubKeyHash hash not set");
-        require(publicInputs[publicInputs.length - 1] == globalOPRFPubKeyHash, "Invalid OPRF public key");
+        require(
+            publicInputs[publicInputs.length - PublicInput.OPRF_PK_HASH_OFFSET_FROM_END] == globalOPRFPubKeyHash,
+            "Invalid OPRF public key"
+        );
     }
 
     function _getProofVerifier(bytes32 vkeyHash) internal view returns (address) {
@@ -249,16 +253,32 @@ contract SubVerifier {
         );
 
         // Verifies the commitments against the committed inputs
-        // Trailing public inputs (in order): [length-3] nullifier_type, [length-2] scoped_nullifier, [length-1] oprf_pk_hash.
+        // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash, credential_scheme
         _verifyCommittedInputs(
             // Extracts the commitments from the public inputs
             params.proofVerificationData
-            .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length - 3],
+            .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length
+                        - PublicInput.NULLIFIER_TYPE_OFFSET_FROM_END
+            ],
             params.committedInputs
         );
 
         NullifierType nullifierType = NullifierType(
-            uint256(params.proofVerificationData.publicInputs[params.proofVerificationData.publicInputs.length - 3])
+            uint256(
+                params.proofVerificationData
+                .publicInputs[params.proofVerificationData.publicInputs.length
+                        - PublicInput.NULLIFIER_TYPE_OFFSET_FROM_END]
+            )
+        );
+
+        // The service decides which credentials it accepts; signed ones only unless it says otherwise
+        uint256 credentialScheme = uint256(
+            params.proofVerificationData
+            .publicInputs[params.proofVerificationData.publicInputs.length
+                    - PublicInput.CREDENTIAL_SCHEME_OFFSET_FROM_END]
+        );
+        require(
+            Credentials.isAllowed(credentialScheme, params.serviceConfig.allowedCredentials), "Credential not allowed"
         );
 
         // Allow mock proofs in dev mode
@@ -284,8 +304,8 @@ contract SubVerifier {
             .verify(params.proofVerificationData.proof, params.proofVerificationData.publicInputs);
 
         // Get the unique identifier from the public inputs
-        // Layout: [length-3] nullifier_type, [length-2] scoped_nullifier, [length-1] oprf_pk_hash
-        uint256 uniqueIdentifierIndex = params.proofVerificationData.publicInputs.length - 2;
+        uint256 uniqueIdentifierIndex =
+            params.proofVerificationData.publicInputs.length - PublicInput.SCOPED_NULLIFIER_OFFSET_FROM_END;
         uniqueIdentifier = params.proofVerificationData.publicInputs[uniqueIdentifierIndex];
 
         // Return the validity of the proof verification and the unique identifier
