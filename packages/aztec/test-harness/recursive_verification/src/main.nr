@@ -1,5 +1,5 @@
 // Run the LIBRARY core (zkpassport_core) against a REAL ZKPassport `outer_count_4`
-// proof under the Aztec v6.0.0-rc.3 toolchain (nargo 1.0.0-rc.3, bb 6.0.0-rc.6).
+// proof under the Aztec v6.0.0-rc.4 toolchain (nargo 1.0.0-rc.3, bb 6.0.0-rc.7).
 // The recursion constraint is a no-op during witness generation, so the
 // pass/fail signal is `bb prove` + `bb verify` on this circuit.
 //
