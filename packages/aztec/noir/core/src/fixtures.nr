@@ -16,7 +16,7 @@ pub global DISCLOSE_COMMITMENT: Field =
 /// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against
 /// dev-mode registries, current_date 2050-01-01), in the K=4 layout parse.nr decodes.
 pub global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
-    0x24fd1f30ccc911bd1c4ada70bba887cc4869674c1e1b224cc165f005286946b6, // cert root
+    0x2ed24747822ec622a87b69a6daa45de807e4b407a680e815d5addac76d7838ca, // cert root
     0x028b892fac1779539640734adfb7ae6ee4e495609e98860fa46f67b272499f5a, // circuit root
     0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
     0x0000000000000000000000000000000000000000000000000000000000000000, // scope
