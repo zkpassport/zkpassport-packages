@@ -80,7 +80,7 @@ export async function connectAndCheckNode(nodeUrl: string, network: Network) {
 
   if (!nodeVersion.startsWith("6.0.")) {
     throw new Error(
-      `node version ${nodeVersion} is not 6.0.x — this repo's toolchain and artifacts are pinned to 6.0.0-rc.3`,
+      `node version ${nodeVersion} is not 6.0.x — this repo's toolchain and artifacts are pinned to 6.0.0-rc.4`,
     )
   }
 
