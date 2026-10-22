@@ -19,6 +19,8 @@ import {
   ProofTypeLength,
   rightPadArrayWithZeros,
   SanctionsCommittedInputs,
+  parseAllowedCredential,
+  type AllowedCredential,
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
 import { DEFAULT_VALIDITY } from "./constants"
@@ -62,6 +64,7 @@ export class SolidityVerifier {
    * @param domain The domain to use for the service config
    * @param scope The scope to use for the service config
    * @param devMode Whether to use the dev mode
+   * @param allowedCredentials The credentials the service accepts; empty means signed credentials only
    * Note that on mainnets, the dev mode will be ignored as verification
    * will always fail for mock passports. It only applies to testnets.
    * @returns The parameters for the Solidity verifier contract
@@ -72,14 +75,14 @@ export class SolidityVerifier {
     domain,
     scope,
     devMode = false,
-    // oprfPubKeyHash,
+    allowedCredentials = [],
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain: string
     scope?: string
     devMode?: boolean
-    // oprfPubKeyHash?: string
+    allowedCredentials?: AllowedCredential[]
   }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
@@ -261,7 +264,7 @@ export class SolidityVerifier {
         domain,
         scope: scope ?? "",
         devMode,
-        // oprfPubKeyHash: oprfPubKeyHash ?? ZERO_BYTES32,
+        allowedCredentials: allowedCredentials.map((entry) => parseAllowedCredential(entry)),
       },
     }
     return params

@@ -222,7 +222,8 @@
                 { "name": "validityPeriodInSeconds", "type": "uint256", "internalType": "uint256" },
                 { "name": "domain", "type": "string", "internalType": "string" },
                 { "name": "scope", "type": "string", "internalType": "string" },
-                { "name": "devMode", "type": "bool", "internalType": "bool" }
+                { "name": "devMode", "type": "bool", "internalType": "bool" },
+                { "name": "allowedCredentials", "type": "uint256[]", "internalType": "uint256[]" }
               ]
             }
           ]

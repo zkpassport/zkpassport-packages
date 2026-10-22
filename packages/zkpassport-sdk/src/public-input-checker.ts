@@ -11,6 +11,19 @@ import {
   getNullifierFromDisclosureProof,
   getCommitmentInFromIntegrityProof,
   getCommitmentOutFromIntegrityProof,
+  getCommitmentOutFromAttestedIdProof,
+  getParameterCommitmentFromAttestedIdProof,
+  getCredentialSchemeFromAttestedIdProof,
+  getCredentialSchemeFromIntegrityProof,
+  getCredentialSchemeFromDisclosureProof,
+  getCredentialSchemeFromOuterProof,
+  getTierForCredentialScheme,
+  hasCredentialScheme,
+  isCredentialAllowed,
+  DEFAULT_ALLOWED_CREDENTIALS,
+  CredentialScheme,
+  CredentialTier,
+  type AllowedCredential,
   getCommitmentInFromDisclosureProof,
   getMerkleRootFromDSCProof,
   getCurrentDateFromDisclosureProof,
@@ -58,6 +71,7 @@ import {
   getSanctionsParameterCommitment,
   SECONDS_BETWEEN_1900_AND_1970,
   FacematchCommittedInputs,
+  AttestedIdCommittedInputs,
   getFacematchEvmParameterCommitment,
   getFacematchParameterCommitment,
   NullifierType,
@@ -2351,6 +2365,7 @@ export class PublicInputChecker {
     oprfKeyId?: string,
     devMode?: boolean,
     registryClient?: RegistryClient,
+    allowedCredentials: readonly AllowedCredential[] = DEFAULT_ALLOWED_CREDENTIALS,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -2371,6 +2386,8 @@ export class PublicInputChecker {
     let queryResultErrors: Partial<QueryResultErrors> = {}
 
     const proofOrder = [
+      // Tier 2 base: the device attested the camera-read ID, in place of the three chip proofs
+      "attested_id",
       "sig_check_dsc",
       "sig_check_id_data",
       "data_check_integrity",
@@ -2397,7 +2414,12 @@ export class PublicInputChecker {
     })
 
     // Registry roots are checked as of the proofs' own date, so older proofs still verify
-    const disclosureProofNames = proofOrder.slice(3)
+    const disclosureProofNames = proofOrder.slice(4)
+    // What verified the ID, read from the base proof (or the outer), and checked on every
+    // disclosure proof
+    let credentialScheme: CredentialScheme | undefined
+    const isDisclosureProof = (proof: ProofResult) =>
+      disclosureProofNames.some((name) => proof.name?.startsWith(name))
     const firstDisclosureProof = sortedProofs.find((p) =>
       disclosureProofNames.some((name) => p.name?.startsWith(name)),
     )
@@ -2405,14 +2427,32 @@ export class PublicInputChecker {
       ? getCurrentDateFromDisclosureProof(
           getProofData(
             firstDisclosureProof.proof as string,
-            getNumberOfPublicInputs(firstDisclosureProof.name!),
+            getNumberOfPublicInputs(firstDisclosureProof.name!, firstDisclosureProof.version),
           ),
         )
       : undefined
     const bundleRootTimestamp = bundleDate ? Math.floor(bundleDate.getTime() / 1000) : undefined
 
     for (const proof of sortedProofs!) {
-      const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+      const proofData = getProofData(
+        proof.proof as string,
+        getNumberOfPublicInputs(proof.name!, proof.version),
+      )
+      if (isDisclosureProof(proof) && hasCredentialScheme(proof.version)) {
+        const schemeOnProof = getCredentialSchemeFromDisclosureProof(proofData)
+        if (schemeOnProof !== credentialScheme) {
+          console.warn("The disclosure proof's credential scheme does not match the base proof")
+          isCorrect = false
+          queryResultErrors.credential_scheme = {
+            ...queryResultErrors.credential_scheme,
+            eq: {
+              expected: `${credentialScheme}`,
+              received: `${schemeOnProof}`,
+              message: "The disclosure proof's credential scheme does not match the base proof",
+            },
+          }
+        }
+      }
       if (proof.name?.startsWith("outer")) {
         const isForEVM = proof.name?.startsWith("outer_evm")
         const currentDate = getCurrentDateFromOuterProof(proofData)
@@ -2484,7 +2524,10 @@ export class PublicInputChecker {
             },
           }
         }
-        const paramCommitments = getParamCommitmentsFromOuterProof(proofData)
+        const paramCommitments = getParamCommitmentsFromOuterProof(proofData, proof.version)
+        credentialScheme = hasCredentialScheme(proof.version)
+          ? getCredentialSchemeFromOuterProof(proofData)
+          : CredentialScheme.ICAO_CHIP
         const committedInputs = proof.committedInputs
         const keysInCommittedInputs = Object.keys(committedInputs || {})
         if (keysInCommittedInputs.length !== paramCommitments.length) {
@@ -2930,9 +2973,50 @@ export class PublicInputChecker {
             ...queryResultErrorsFacematch,
           }
         }
-        uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
-        uniqueIdentifierType = getNullifierTypeFromOuterProof(proofData)
-        oprfPublicKeyHash = getOprfPkHashFromOuterProof(proofData)
+        uniqueIdentifier = getNullifierFromOuterProof(proofData, proof.version).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromOuterProof(proofData, proof.version)
+        oprfPublicKeyHash = getOprfPkHashFromOuterProof(proofData, proof.version)
+      } else if (proof.name?.startsWith("attested_id")) {
+        commitmentOut = getCommitmentOutFromAttestedIdProof(proofData)
+        credentialScheme = getCredentialSchemeFromAttestedIdProof(proofData)
+        const committed = proof.committedInputs?.attested_id_ios as
+          AttestedIdCommittedInputs | undefined
+        if (!committed) {
+          console.warn("The attested ID proof carries no committed attestation parameters")
+          isCorrect = false
+          queryResultErrors.attested_id = {
+            ...queryResultErrors.attested_id,
+            commitment: {
+              expected: "Committed inputs for attested_id_ios",
+              received: "none",
+              message: "The attested ID proof carries no committed attestation parameters",
+            },
+          }
+        } else {
+          const expectedParamCommitment = await getFacematchParameterCommitment(
+            BigInt(committed.rootKeyLeaf),
+            committed.environment === "development" ? 0n : 1n,
+            BigInt(committed.appIdHash),
+            committed.mode === "regular" ? 1n : 2n,
+          )
+          const paramCommitment = getParameterCommitmentFromAttestedIdProof(proofData)
+          if (paramCommitment !== expectedParamCommitment) {
+            console.warn("The attested ID proof does not match its committed parameters")
+            isCorrect = false
+            queryResultErrors.attested_id = {
+              ...queryResultErrors.attested_id,
+              commitment: {
+                expected: `Parameter commitment: ${expectedParamCommitment.toString()}`,
+                received: `Parameter commitment: ${paramCommitment.toString()}`,
+                message: "The attested ID proof does not match its committed parameters",
+              },
+            }
+          }
+          const { isCorrect: isCorrectAttestation, queryResultErrors: attestationErrors } =
+            this.checkAttestedIdParameters(committed)
+          isCorrect = isCorrect && isCorrectAttestation
+          queryResultErrors = { ...queryResultErrors, ...attestationErrors }
+        }
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
@@ -2986,6 +3070,9 @@ export class PublicInputChecker {
           }
         }
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
+        // Integrity proofs made before circuit version 0.22.0 carry no scheme: they are ICAO
+        credentialScheme =
+          getCredentialSchemeFromIntegrityProof(proofData) ?? CredentialScheme.ICAO_CHIP
       } else if (proof.name === "disclose_bytes") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -3793,7 +3880,7 @@ export class PublicInputChecker {
           if (disclosureProof) {
             const dpData = getProofData(
               disclosureProof.proof as string,
-              getNumberOfPublicInputs(disclosureProof.name!),
+              getNumberOfPublicInputs(disclosureProof.name!, disclosureProof.version),
             )
             proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
           }
@@ -3818,6 +3905,74 @@ export class PublicInputChecker {
       uniqueIdentifier = undefined
     }
 
-    return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }
+    // Proofs made before the scheme existed came from a chip
+    const scheme = credentialScheme ?? CredentialScheme.ICAO_CHIP
+    if (!isCredentialAllowed(scheme, allowedCredentials)) {
+      console.warn("The service does not accept the credential scheme the ID was verified with")
+      isCorrect = false
+      queryResultErrors.credential_scheme = {
+        ...queryResultErrors.credential_scheme,
+        eq: {
+          expected: `Allowed credentials: ${allowedCredentials.join(", ")}`,
+          received: `Credential scheme: ${scheme}`,
+          message: "The service does not accept the credential scheme the ID was verified with",
+        },
+      }
+    }
+    const credentialTier: CredentialTier = getTierForCredentialScheme(scheme)
+    return {
+      isCorrect,
+      uniqueIdentifier,
+      uniqueIdentifierType,
+      queryResultErrors,
+      credentialTier,
+      credentialScheme: scheme,
+    }
+  }
+
+  /**
+   * The attestation behind a Tier 2 base proof must come from a genuine ZKPassport build on a
+   * real device, in the production attestation environment, with a strict face match: that
+   * face match is the only thing binding a camera-read ID to its holder.
+   */
+  public static checkAttestedIdParameters(committed: AttestedIdCommittedInputs) {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const fail = (expected: string, received: string, message: string) => {
+      console.warn(message)
+      isCorrect = false
+      queryResultErrors.attested_id = {
+        ...queryResultErrors.attested_id,
+        eq: { expected, received, message },
+      }
+    }
+    if (
+      committed.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
+      committed.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH &&
+      committed.rootKeyLeaf !== GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH
+    ) {
+      fail(
+        `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or a Google root key hash (Android)`,
+        committed.rootKeyLeaf,
+        "Invalid attested ID root key hash",
+      )
+    }
+    if (committed.environment !== "production") {
+      fail("production", committed.environment, "Invalid attested ID environment")
+    }
+    if (
+      committed.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
+      committed.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
+    ) {
+      fail(
+        `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
+        committed.appIdHash,
+        "Invalid attested ID app id hash",
+      )
+    }
+    if (committed.mode !== "strict") {
+      fail("strict", committed.mode, "A Tier 2 ID requires a strict face match")
+    }
+    return { isCorrect, queryResultErrors }
   }
 }

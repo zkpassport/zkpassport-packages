@@ -12,6 +12,9 @@ import {
   ProofResult,
   SupportedChain,
   Query,
+  CredentialScheme,
+  CredentialTier,
+  type AllowedCredential,
 } from "@zkpassport/utils"
 import type { ZKPassport } from "./index"
 
@@ -28,6 +31,8 @@ export type QueryResultErrors = {
       | "sig_check_dsc"
       | "sig_check_id_data"
       | "data_check_integrity"
+      | "attested_id"
+      | "credential_scheme"
       | "outer"
       | "disclose"
       | "bind"
@@ -62,6 +67,14 @@ export type VerificationConfig = {
    * and Ethereum otherwise. Defaults to the built-in endpoint for that chain.
    */
   rpcUrl?: string
+  /**
+   * Where to fetch the circuit manifest and the packaged circuits (the verification keys) from,
+   * instead of ZKPassport's CDN. For verifying proofs made with locally packaged circuits, served
+   * with the circuits repo's `serve-circuits` script: it must be the same server the app proved
+   * with. Expects `<url>/by-version/<version>/manifest.json`, `<url>/by-root/<root>/manifest.json`
+   * and `<url>/by-hash/<vkey hash>.json`.
+   */
+  circuitsUrl?: string
 }
 
 // The nullifier types a service can ask for. The mock ones only ever come from the app in dev mode.
@@ -72,6 +85,15 @@ export type VerificationResult = {
   uniqueIdentifier: string | undefined
   uniqueIdentifierType: NullifierType | undefined
   verified: boolean
+  /**
+   * What the proofs rest on. Tier 1: the ID's chip, signed by its issuing country. Tier 2: the
+   * printed data page read by camera and attested by the device (App Attest or Play Integrity)
+   * together with a strict face match. A Tier 2 unique identifier is derived from the printed
+   * MRZ, not from a signature, so it is not proof against fabricated documents.
+   */
+  credentialTier?: CredentialTier
+  /** The scheme the proofs were made under; the tier is derived from it */
+  credentialScheme?: CredentialScheme
   queryResultErrors?: Partial<QueryResultErrors>
 }
 
@@ -86,7 +108,8 @@ export type SolidityServiceConfig = {
   domain: string
   scope: string
   devMode: boolean
-  // oprfPubKeyHash: string
+  /** The credentials the service accepts; empty means signed credentials only */
+  allowedCredentials: AllowedCredential[]
 }
 
 export type SolidityVerifierParameters = {
@@ -197,6 +220,8 @@ export type QueryBuilderResult = {
       uniqueIdentifier: string | undefined
       uniqueIdentifierType: NullifierType | undefined
       verified: boolean
+      credentialTier?: CredentialTier
+      credentialScheme?: CredentialScheme
       result: QueryResult
       queryResultErrors?: Partial<QueryResultErrors>
       proofs: ProofResult[]
