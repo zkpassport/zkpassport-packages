@@ -18,8 +18,8 @@
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@aztec-labs/aztec.js": "6.0.0-rc.4",
-    "@aztec-labs/stdlib": "6.0.0-rc.4",
+    "@aztec-labs/aztec.js": "6.0.0",
+    "@aztec-labs/stdlib": "6.0.0",
     "@zkpassport/utils": "0.37.3"
   },
   "devDependencies": {
