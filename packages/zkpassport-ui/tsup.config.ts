@@ -99,6 +99,24 @@ const hostedConfig: Options = {
   loader: { ".css": "text" },
 }
 
+// Script-tag build: one self-contained file exposing the button as `window.VerifyWithZKPassport`
+const cdnConfig: Options = {
+  entry: { "verify-with-zkpassport": "src/cdn.ts" },
+  format: "iife",
+  globalName: "VerifyWithZKPassport",
+  outDir: "dist",
+  outExtension: () => ({ js: ".js" }),
+  dts: false,
+  clean: false,
+  splitting: false,
+  sourcemap: true,
+  treeshake: !isDev,
+  minify: !isDev,
+  platform: "browser",
+  esbuildPlugins: [stubUnreachableDeps],
+  loader: { ".css": "text" },
+}
+
 const cssConfig: Options = {
   entry: { styles: "src/styles.css" },
   outDir: "dist",
@@ -117,5 +135,5 @@ const cssConfig: Options = {
 export default defineConfig(
   isWatch
     ? [{ ...hostedConfig, dts: false, minify: false, treeshake: false }]
-    : [...npmConfigs, hostedConfig, cssConfig],
+    : [...npmConfigs, hostedConfig, cdnConfig, cssConfig],
 )
