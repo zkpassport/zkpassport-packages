@@ -81,7 +81,7 @@ const handle = mount(document.getElementById("zk-passport")!, {
 The button takes the same options as the React component, and an element or a selector:
 
 ```ts
-import { VerifyWithZKPassport } from "@zkpassport/ui/button"
+import { VerifyWithZKPassport } from "@zkpassport/ui"
 
 const handle = VerifyWithZKPassport.render("#zkpassport", {
   purpose: "Prove you are an adult from the EU",
@@ -96,6 +96,9 @@ const handle = VerifyWithZKPassport.render("#zkpassport", {
 // handle.update(nextOptions)  — swap options
 // handle.unmount()            — tear it down
 ```
+
+`@zkpassport/ui/button` (and `@zkpassport/ui/react-button`) export the same button without the
+card's code, for a smaller bundle.
 
 
 ## Script tag
