@@ -15,6 +15,10 @@ import { readSession, updateSession, type Session } from "./session"
 // Stops at `waiting`: everything after the phone joins is a screen, not a state
 export type RequestState = "preparing" | "connecting" | "waiting"
 
+// Development: verify in this page against circuits served from a local machine (the circuits
+// repo's `serve-circuits`), which the hosted verification API cannot know about
+const LOCAL_CIRCUITS_URL = (import.meta.env.VITE_CIRCUITS_URL as string | undefined) || undefined
+
 export type QuerySource = Query | ((builder: QueryBuilder) => QueryBuilderResult)
 
 export type RequestOptions = PopupRequestConfig & {
@@ -99,9 +103,11 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         validity: options.validity,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
+        allowedCredentials: options.allowedCredentials,
         bridgeUrl: options.bridgeUrl,
         cloudProverUrl: options.cloudProverUrl,
-        verifierMode: options.verifierMode ?? "api",
+        verifierMode: options.verifierMode ?? (LOCAL_CIRCUITS_URL ? "local" : "api"),
+        config: LOCAL_CIRCUITS_URL ? { circuitsUrl: LOCAL_CIRCUITS_URL } : undefined,
         keyPairOverride: resumeWith,
         replayMissedMessages: !!resumeWith,
         overrides: options.appClip ? { appClip: true } : undefined,

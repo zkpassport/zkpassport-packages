@@ -31,6 +31,32 @@ export type VerifyButtonHandle = {
   unmount(): void
 }
 
+/** An element, or a selector for one. */
+export type RenderTarget = HTMLElement | string
+
+export function resolveTarget(target: RenderTarget): HTMLElement {
+  if (typeof target !== "string") return target
+  const element = document.querySelector(target)
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`@zkpassport/ui: no element matches "${target}".`)
+  }
+  return element
+}
+
+/**
+ * Renders the "Verify with ZKPassport" button into `target`. Takes the same options as the React
+ * `VerifyWithZKPassport` component.
+ */
+export function render(
+  target: RenderTarget,
+  options: VerifyWithZKPassportOptions,
+): VerifyButtonHandle {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    throw new Error("@zkpassport/ui: render() requires a browser environment.")
+  }
+  return mountVerifyButton(resolveTarget(target), options)
+}
+
 // Button-only entry: the hosted-popup button without the QR card (no bridge, no qrcode).
 export function mountVerifyButton(
   element: HTMLElement,
@@ -138,3 +164,9 @@ export {
   type VerificationPopupHandle,
 } from "@zkpassport/sdk/popup"
 export { createOfflineQuery } from "@zkpassport/sdk/query"
+export {
+  CredentialScheme,
+  CredentialTier,
+  DEFAULT_ALLOWED_CREDENTIALS,
+  type AllowedCredential,
+} from "@zkpassport/sdk"

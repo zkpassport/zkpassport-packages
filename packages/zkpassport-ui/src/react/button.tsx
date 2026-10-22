@@ -138,3 +138,10 @@ export type {
   VerificationState,
   VerificationStatus,
 } from "../verification"
+
+export {
+  CredentialScheme,
+  CredentialTier,
+  DEFAULT_ALLOWED_CREDENTIALS,
+  type AllowedCredential,
+} from "@zkpassport/sdk"

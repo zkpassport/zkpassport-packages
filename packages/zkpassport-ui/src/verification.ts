@@ -1,3 +1,4 @@
+import type { AllowedCredential } from "@zkpassport/sdk"
 import {
   openVerificationPopup,
   type PopupCredentialConfig,
@@ -39,6 +40,8 @@ export type ServiceConfig = {
   uniqueIdentifierType?: "salted" | "non-salted" | "none"
   validity?: number
   devMode?: boolean
+  /** The credentials your service accepts; signed credentials only unless set */
+  allowedCredentials?: AllowedCredential[]
 }
 
 /** Points the flow at your own deployment of the services ZKPassport runs. */
@@ -424,6 +427,7 @@ function toPopupRequest(
     appClip: options.overrides?.appClip,
     // Left unset when not configured, so the SDK's own default applies
     uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
+    allowedCredentials: service.allowedCredentials,
   }
   for (const key of Object.keys(config) as Array<keyof PopupRequestConfig>) {
     if (config[key] === undefined) delete config[key]

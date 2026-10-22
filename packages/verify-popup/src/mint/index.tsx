@@ -214,6 +214,7 @@ function VerifyStep({
         devMode: options.devMode,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
+        allowedCredentials: options.allowedCredentials,
         verifierMode: options.verifierMode,
       },
       query: options.query,
