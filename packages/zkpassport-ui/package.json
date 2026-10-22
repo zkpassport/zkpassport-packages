@@ -13,8 +13,8 @@
   "main": "./dist/cjs/index.cjs",
   "module": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
-  "unpkg": "./dist/verify-with-zkpassport.js",
-  "jsdelivr": "./dist/verify-with-zkpassport.js",
+  "unpkg": "./dist/ui.js",
+  "jsdelivr": "./dist/ui.js",
   "exports": {
     ".": {
       "import": {

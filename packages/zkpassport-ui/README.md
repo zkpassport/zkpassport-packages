@@ -109,7 +109,7 @@ first, so the element exists and the global is defined when `render` runs:
 ```html
 <div id="zkpassport"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@zkpassport/ui@0.19.0/dist/verify-with-zkpassport.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zkpassport/ui@0.19.0/dist/ui.js"></script>
 <script>
   VerifyWithZKPassport.render("#zkpassport", {
     purpose: "Prove you are an adult from the EU",

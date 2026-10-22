@@ -99,11 +99,10 @@ const hostedConfig: Options = {
   loader: { ".css": "text" },
 }
 
-// Script-tag build: one self-contained file exposing the button as `window.VerifyWithZKPassport`
+// Script-tag build: one self-contained file that defines the components as globals
 const cdnConfig: Options = {
-  entry: { "verify-with-zkpassport": "src/cdn.ts" },
+  entry: { ui: "src/cdn.ts" },
   format: "iife",
-  globalName: "VerifyWithZKPassport",
   outDir: "dist",
   outExtension: () => ({ js: ".js" }),
   dts: false,
