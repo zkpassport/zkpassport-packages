@@ -460,6 +460,7 @@ describe("Circuit Matcher - RSA", () => {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       ],
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -533,6 +534,7 @@ describe("Circuit Matcher - RSA", () => {
       ).formatForInput(),
       current_date: timestamp,
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -573,6 +575,7 @@ describe("Circuit Matcher - RSA", () => {
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -614,6 +617,7 @@ describe("Circuit Matcher - RSA", () => {
         getCountryWeightedSum(country as Alpha3Code),
       ),
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -652,6 +656,7 @@ describe("Circuit Matcher - RSA", () => {
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -692,6 +697,7 @@ describe("Circuit Matcher - RSA", () => {
         getCountryWeightedSum(country as Alpha3Code),
       ),
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -730,6 +736,7 @@ describe("Circuit Matcher - RSA", () => {
       ).formatForInput(),
       current_date: timestamp,
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -770,6 +777,7 @@ describe("Circuit Matcher - RSA", () => {
       ).formatForInput(),
       current_date: timestamp,
       comm_in: "0x0da83b7dfb7943772e3ca354e8c6e9ad93cb42a5e40c0df9c93b1d99e6007e95",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(SALT, EXPECTED_NULLIFIER).formatForInput(),
       salted_dg2_hash: SaltedValue.fromValue(
         SALT,
@@ -988,6 +996,7 @@ describe("Circuit Matcher - ECDSA", () => {
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       ],
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1033,6 +1042,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ).formatForInput(),
       current_date: CURRENT_DATE,
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1076,6 +1086,7 @@ describe("Circuit Matcher - ECDSA", () => {
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1120,6 +1131,7 @@ describe("Circuit Matcher - ECDSA", () => {
         getCountryWeightedSum(country as Alpha3Code),
       ),
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1161,6 +1173,7 @@ describe("Circuit Matcher - ECDSA", () => {
       current_date: CURRENT_DATE,
       country_list: rightPadCountryCodeArray(["ZKR", "FRA", "GBR", "USA"], 200),
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1204,6 +1217,7 @@ describe("Circuit Matcher - ECDSA", () => {
         getCountryWeightedSum(country as Alpha3Code),
       ),
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1245,6 +1259,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ).formatForInput(),
       current_date: timestamp,
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1288,6 +1303,7 @@ describe("Circuit Matcher - ECDSA", () => {
       ).formatForInput(),
       current_date: timestamp,
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
@@ -1333,6 +1349,7 @@ describe("Circuit Matcher - ECDSA", () => {
       current_date: CURRENT_DATE,
       is_strict: 1,
       comm_in: "0x2bb6932057d2de11506e771c89c37b91cacceba7396d4fbdae597a8ed5c9cd7b",
+      credential_scheme: "0x64",
       salted_private_nullifier: SaltedValue.fromValue(
         SALT,
         EXPECTED_NULLIFIER_ECDSA,
