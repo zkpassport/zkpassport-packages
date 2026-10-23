@@ -114,7 +114,9 @@ jobs:
           }
           upload "$VERSION" "public, max-age=31536000, immutable"
           if [[ ! "$VERSION" =~ - ]]; then
-            MAJOR="v${VERSION%%.*}"
+            MAJOR="${VERSION%%.*}"
+            [[ "$MAJOR" == 0 ]] && MAJOR=1
+            MAJOR="v$MAJOR"
             upload "$MAJOR" "public, max-age=600"
             aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/ui/$MAJOR/*"
           fi
