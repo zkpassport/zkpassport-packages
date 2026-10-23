@@ -99,7 +99,6 @@ const hostedConfig: Options = {
   loader: { ".css": "text" },
 }
 
-// Script-tag build: one self-contained file that defines the components as globals
 const cdnConfig: Options = {
   entry: { ui: "src/cdn.ts" },
   format: "iife",
