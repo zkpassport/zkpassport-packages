@@ -109,7 +109,7 @@ first, so the element exists and the global is defined when `render` runs:
 ```html
 <div id="zkpassport"></div>
 
-<script src="https://cdn.zkpassport.id/ui/v1/ui.js"></script>
+<script src="https://cdn.zkpassport.id/ui/v1.js"></script>
 <script>
   VerifyWithZKPassport.render("#zkpassport", {
     purpose: "Prove you are an adult from the EU",
@@ -127,7 +127,7 @@ first, so the element exists and the global is defined when `render` runs:
 ```
 
 `v1` follows the latest release of the current API, 0.x included; a breaking change moves to `v2`. To pin a release instead, use
-`https://cdn.zkpassport.id/ui/<version>/ui.js`. `render` returns a handle with `update(nextOptions)`
+`https://cdn.zkpassport.id/ui/<version>.js`. `render` returns a handle with `update(nextOptions)`
 and `unmount()`.
 
 ## License
