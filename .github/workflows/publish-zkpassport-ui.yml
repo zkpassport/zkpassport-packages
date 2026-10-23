@@ -92,9 +92,6 @@ jobs:
           fi
         working-directory: packages/zkpassport-ui
 
-      # The script-tag bundle goes to cdn.zkpassport.id twice: an immutable copy at its exact
-      # version, and a channel copy at its major version that every stable release overwrites.
-      # Skipped until the AWS_CDN_* variables are configured.
       - name: Configure AWS credentials
         if: steps.version_check.outputs.publish == 'true' && vars.AWS_CDN_BUCKET != ''
         uses: aws-actions/configure-aws-credentials@v4
