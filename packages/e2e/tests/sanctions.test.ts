@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
+import { loadPackagedCircuits } from "../src/packaged-circuits"
 import { startTestEnv, type TestEnv } from "../src/test-env"
 
 // A public official on OFAC's list since 2006. Tests expecting this person to be sanctioned will fail
@@ -33,7 +34,10 @@ describe("sanctions, end to end on a Sepolia fork", () => {
   let app: HeadlessApp
 
   beforeAll(async () => {
-    testEnv = await startTestEnv()
+    const circuitsDir = process.env.LOCAL_CIRCUITS_DIR
+    testEnv = await startTestEnv({
+      circuits: circuitsDir ? loadPackagedCircuits(circuitsDir) : undefined,
+    })
     sanctionsRoot = await testEnv.registry.getLatestSanctionsRoot()
     app = await testEnv.runHeadlessApp({
       passport: createMockPassport(),

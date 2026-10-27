@@ -14,6 +14,7 @@ import {
   type ProofResult,
 } from "@zkpassport/utils"
 import { createMockPassport, type MockPassportSignature } from "@zkpassport/utils/mock-passports"
+import { loadPackagedCircuits } from "../src/packaged-circuits"
 import { startTestEnv, type TestEnv } from "../src/test-env"
 
 const ZKR_CSCAS: { csca: string; signature: MockPassportSignature }[] = [
@@ -26,7 +27,10 @@ describe("certificates, end to end on a Sepolia fork", () => {
   let certificateRoot: string
 
   beforeAll(async () => {
-    testEnv = await startTestEnv()
+    const circuitsDir = process.env.LOCAL_CIRCUITS_DIR
+    testEnv = await startTestEnv({
+      circuits: circuitsDir ? loadPackagedCircuits(circuitsDir) : undefined,
+    })
     certificateRoot = await testEnv.registry.getLatestCertificateRoot()
   }, 60_000)
 
