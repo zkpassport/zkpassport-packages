@@ -8,7 +8,6 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
-import { loadPackagedCircuits } from "../src/packaged-circuits"
 import { startTestEnv, type TestEnv } from "../src/test-env"
 
 const CIRCUITS = [
@@ -24,10 +23,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
   let app: HeadlessApp
 
   beforeAll(async () => {
-    const circuitsDir = process.env.LOCAL_CIRCUITS_DIR
-    testEnv = await startTestEnv({
-      circuits: circuitsDir ? loadPackagedCircuits(circuitsDir) : undefined,
-    })
+    testEnv = await startTestEnv()
     app = await testEnv.runHeadlessApp({
       passport: createMockPassport(),
       query: (query) => query.gte("age", 18).disclose("nationality"),
