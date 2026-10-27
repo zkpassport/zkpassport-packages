@@ -24,7 +24,7 @@ async function prependUseClient(outDir: string, format: "esm" | "cjs") {
 }
 
 // Heavy backends sit behind dynamic imports the card never reaches; stub them
-const STUBBED_DEPS = /^(@aztec\/bb\.js|@noir-lang\/noir_js|viem(\/.*)?|ws)$/
+const STUBBED_DEPS = /^(@aztec(-foundation)?\/bb\.js|@noir-lang\/noir_js|viem(\/.*)?|ws)$/
 
 const stubUnreachableDeps: EsbuildPlugin = {
   name: "stub-unreachable-deps",
