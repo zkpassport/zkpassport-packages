@@ -3,7 +3,6 @@ import { getBBVersionForCircuitVersion } from "./bb-verifier"
 
 describe("getBBVersionForCircuitVersion", () => {
   test("picks the bb version each circuit release was built with", () => {
-    expect(getBBVersionForCircuitVersion("0.19.0")).toBe("v4")
     expect(getBBVersionForCircuitVersion("0.20.0")).toBe("v5")
     expect(getBBVersionForCircuitVersion("0.21.1")).toBe("v5")
     expect(getBBVersionForCircuitVersion("0.22.0")).toBe("v6")
