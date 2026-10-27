@@ -35,6 +35,14 @@ const SALT = BigInt("0x" + "11".repeat(31))
 
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 
+type Prover = {
+  prove: (
+    bytecode: string,
+    witness: Uint8Array,
+  ) => Promise<{ proof: Uint8Array; publicInputs: string[] }>
+  destroy: () => Promise<void>
+}
+
 export type ProvingOverrides = {
   /** Packaged certificates to prove against instead of those for the registry's latest root */
   certificates?: PackagedCertificatesFile
@@ -146,14 +154,12 @@ export async function proveFastMode({
     })
   }
 
-  const circuits = await Promise.all(
-    steps.map((step) => registry.getPackagedCircuit(step.name, manifest)),
-  )
-  const prover = await startProver(circuits[0].bb_version)
+  let prover: Prover | undefined
   const proofs: ProofResult[] = []
   try {
     for (const [index, step] of steps.entries()) {
-      const circuit = circuits[index]
+      const circuit = await registry.getPackagedCircuit(step.name, manifest)
+      prover ??= await startProver(circuit.bb_version)
       // Packaged circuits carry no debug symbols
       const noir = new Noir({
         bytecode: circuit.bytecode,
@@ -180,7 +186,7 @@ export async function proveFastMode({
       } as ProofResult)
     }
   } finally {
-    await prover.destroy()
+    await prover?.destroy()
   }
 
   return { proofs, queryResult: getQueryResult(passport, query) }
@@ -188,14 +194,6 @@ export async function proveFastMode({
 
 /** The passport is on a sanctions list, so no exclusion proof exists for it */
 export class SanctionsCheckFailedError extends Error {}
-
-type Prover = {
-  prove: (
-    bytecode: string,
-    witness: Uint8Array,
-  ) => Promise<{ proof: Uint8Array; publicInputs: string[] }>
-  destroy: () => Promise<void>
-}
 
 /** Start a prover on the bb.js release for `bbVersion` */
 async function startProver(bbVersion: string): Promise<Prover> {
