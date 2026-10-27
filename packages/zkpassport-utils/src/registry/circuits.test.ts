@@ -1,25 +1,11 @@
 import { bytes32ToCircuitVersion, circuitVersionToBytes32 } from "./circuits"
 
-// Every version registered on the Ethereum RootVerifier, with the key it is registered under
-const REGISTERED_VERSION_KEYS = {
-  "0.14.1": "0x0000000e00010000000000000000000000000000000000000000000000000000",
-  "0.15.0": "0x0000000f00000000000000000000000000000000000000000000000000000000",
-  "0.15.1": "0x0000000f00010000000000000000000000000000000000000000000000000000",
-  "0.16.0": "0x0000001000000000000000000000000000000000000000000000000000000000",
-  "0.17.1": "0x0000001100010000000000000000000000000000000000000000000000000000",
-  "0.18.0": "0x0000001200000000000000000000000000000000000000000000000000000000",
-  "0.19.0": "0x0000001300000000000000000000000000000000000000000000000000000000",
-  "0.20.0": "0x0000001400000000000000000000000000000000000000000000000000000000",
-  "0.21.0": "0x0000001500000000000000000000000000000000000000000000000000000000",
-  "0.21.1": "0x0000001500010000000000000000000000000000000000000000000000000000",
-}
+const VERSION_1_258_4660_KEY = `0x000101021234${"0".repeat(52)}`
 const LARGEST_VERSION_KEY = "0xffffffffffff0000000000000000000000000000000000000000000000000000"
 
 describe("circuitVersionToBytes32", () => {
-  test("encodes every registered version to its registered key", () => {
-    for (const [version, key] of Object.entries(REGISTERED_VERSION_KEYS)) {
-      expect(circuitVersionToBytes32(version)).toBe(key)
-    }
+  test("encodes major, minor and patch as 2-byte big-endian integers followed by zero bytes", () => {
+    expect(circuitVersionToBytes32("1.258.4660")).toBe(VERSION_1_258_4660_KEY)
   })
 
   test("encodes parts up to 65535", () => {
@@ -51,10 +37,8 @@ describe("circuitVersionToBytes32", () => {
 })
 
 describe("bytes32ToCircuitVersion", () => {
-  test("decodes every registered key to its version", () => {
-    for (const [version, key] of Object.entries(REGISTERED_VERSION_KEYS)) {
-      expect(bytes32ToCircuitVersion(key)).toBe(version)
-    }
+  test("decodes major, minor and patch from the key's first three 2-byte big-endian integers", () => {
+    expect(bytes32ToCircuitVersion(VERSION_1_258_4660_KEY)).toBe("1.258.4660")
   })
 
   test("decodes parts up to 65535, in either case", () => {
