@@ -17,7 +17,7 @@ describe("SolidityVerifier.getParameters", () => {
       proof,
       validityPeriodInSeconds: 3600,
       domain: "example.com",
-      scope: "adult",
+      scope: "test-scope",
       devMode: true,
     })
 
@@ -32,7 +32,7 @@ describe("SolidityVerifier.getParameters", () => {
       serviceConfig: {
         validityPeriodInSeconds: 3600,
         domain: "example.com",
-        scope: "adult",
+        scope: "test-scope",
         devMode: true,
       },
     })
