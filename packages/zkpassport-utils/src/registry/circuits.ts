@@ -1,8 +1,9 @@
 /**
- * Circuit Registry utilities
+ * Circuit Registry and RootVerifier utilities
  *
  * The Circuit Registry stores the root of a merkle tree whose leaves are the vkey hashes of every
- * circuit in a release, sorted in ascending order.
+ * circuit in a release, sorted in ascending order. The RootVerifier keys each release's verifiers
+ * by its circuits version, packed into a bytes32.
  */
 import { MERKLE_TREE_ZERO_VALUE } from "."
 import { computeMerkleProof } from "../merkle-tree"
@@ -13,6 +14,10 @@ import { AsyncMerkleTree } from "./merkle"
  * Canonical merkle tree height for the circuit registry
  */
 export const CIRCUIT_REGISTRY_HEIGHT = 12 // Max leaves: 2^12 = 4096
+
+const CIRCUIT_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
+const CIRCUIT_VERSION_KEY_PATTERN = /^0x([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})0{52}$/i
+const MAX_CIRCUIT_VERSION_PART = 0xffff
 
 /**
  * Calculate the canonical circuit root from packaged circuits or vkey hashes
@@ -66,4 +71,39 @@ export async function getCircuitMerkleProof(
   const leaves = getLeavesFromCircuitManifest(circuitManifest)
   const index = leaves.findIndex((leaf) => leaf === BigInt(circuitKeyHash))
   return computeMerkleProofFn(leaves, index, CIRCUIT_REGISTRY_HEIGHT)
+}
+
+/**
+ * Encode a circuits version as its RootVerifier key: major, minor and patch as 2-byte big-endian
+ * integers, followed by zero bytes
+ */
+export function circuitVersionToBytes32(version: string): string {
+  const parts = CIRCUIT_VERSION_PATTERN.exec(version)?.slice(1).map(Number)
+  if (!parts || parts.some((part) => part > MAX_CIRCUIT_VERSION_PART)) {
+    throw new Error(
+      `Invalid circuits version "${version}": expected MAJOR.MINOR.PATCH, each part from 0 to 65535`,
+    )
+  }
+  if (parts.every((part) => part === 0)) {
+    throw new Error('Invalid circuits version "0.0.0": its RootVerifier key would be zero')
+  }
+
+  const key = parts.map((part) => part.toString(16).padStart(4, "0")).join("")
+  return `0x${key.padEnd(64, "0")}`
+}
+
+/**
+ * Decode a RootVerifier key into its circuits version
+ */
+export function bytes32ToCircuitVersion(key: string): string {
+  const parts = CIRCUIT_VERSION_KEY_PATTERN.exec(key)
+    ?.slice(1)
+    .map((part) => parseInt(part, 16))
+  if (!parts || parts.every((part) => part === 0)) {
+    throw new Error(
+      `Invalid circuits version key "${key}": expected three 2-byte parts, not all zero, followed by 26 zero bytes`,
+    )
+  }
+
+  return parts.join(".")
 }
