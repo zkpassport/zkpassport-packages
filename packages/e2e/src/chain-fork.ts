@@ -34,17 +34,25 @@ export async function startChainFork(forkUrl: string): Promise<ChainFork> {
 }
 
 /**
- * Make fetch() reach only this machine and `allowedHosts`, and record every other URL something
- * tried to fetch.
+ * Make fetch() answer the URLs `serve` has a response for, reach only this machine and
+ * `allowedHosts` otherwise, and record every other URL something tried to fetch.
  * It covers fetch only: child processes and libraries using their own HTTP stack (e.g. bb.js
  * downloading its CRS) bypass it.
  */
-export function startFetchProxy(allowedHosts: string[] = []): FetchProxy {
+export function startFetchProxy(
+  allowedHosts: string[] = [],
+  serve: (url: string) => Response | undefined = () => undefined,
+): FetchProxy {
   const allowed = ["127.0.0.1", "localhost", ...allowedHosts]
   const blocked: string[] = []
   const realFetch = globalThis.fetch
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+    const localResponse = serve(url)
+    if (localResponse) {
+      return localResponse
+    }
+
     if (allowed.includes(new URL(url).hostname)) {
       return realFetch(input, init)
     }

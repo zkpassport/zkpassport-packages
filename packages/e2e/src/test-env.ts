@@ -14,6 +14,7 @@ import {
 import { startBridgeRelay } from "./bridge-relay"
 import { startChainFork, startFetchProxy } from "./chain-fork"
 import { type HeadlessApp, runHeadlessApp } from "./headless-app"
+import { loadLocalCircuits } from "./local-circuits"
 import type { ProvingOverrides } from "./prove"
 
 const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
@@ -50,6 +51,11 @@ export type TestEnv = {
 
 /** Fork Sepolia, start the bridge relay, then restrict fetch to this machine and Sepolia's CDNs */
 export async function startTestEnv(): Promise<TestEnv> {
+  const localCircuits = process.env.LOCAL_CIRCUITS_DIR
+    ? loadLocalCircuits(process.env.LOCAL_CIRCUITS_DIR, SEPOLIA.circuitUrl)
+    : undefined
+  const circuitVersion = localCircuits?.version ?? CIRCUIT_VERSION
+
   const fork = await startChainFork(SEPOLIA_RPC_URL)
   let bridgeRelay
   try {
@@ -58,7 +64,7 @@ export async function startTestEnv(): Promise<TestEnv> {
     fork.stop()
     throw error
   }
-  const fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS)
+  const fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS, localCircuits?.serve)
 
   const zkPassport = new ZKPassport(DOMAIN)
   const apps: HeadlessApp[] = []
@@ -79,7 +85,7 @@ export async function startTestEnv(): Promise<TestEnv> {
         query: query(queryBuilder).done(),
         passport,
         registry: fork.registry,
-        circuitVersion: CIRCUIT_VERSION,
+        circuitVersion,
         overrides,
       })
       apps.push(app)
