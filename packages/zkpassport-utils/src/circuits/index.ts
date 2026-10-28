@@ -204,6 +204,20 @@ export function getNumberOfPublicInputs(circuitName: string) {
   return 8
 }
 
+/**
+ * Get the name of a disclosure circuit, or of its EVM variant, which commits to its parameters
+ * with a hash over bytes so that EVM chains can check them
+ * @param circuitName - The name of the standard disclosure circuit, e.g. compare_age
+ * @param options.evm - Whether to get the EVM variant, e.g. compare_age_evm
+ * @returns The disclosure circuit's name
+ */
+export function getDisclosureCircuitName(
+  circuitName: Exclude<DisclosureCircuitName, `${string}_evm`>,
+  { evm = false }: { evm?: boolean } = {},
+): DisclosureCircuitName {
+  return evm ? `${circuitName}_evm` : circuitName
+}
+
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
   // The hash for the parameter commitment is over single bytes for EVM circuits,
   // so the size needs to be encoded over 2 bytes to give enough room (i.e. 2^16)
