@@ -2,12 +2,13 @@ import { spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import type { CircuitManifest } from "@zkpassport/utils"
+import RegistryInstance from "registry-contracts/out/RegistryInstance.sol/RegistryInstance.json"
 import {
+  type Abi,
   type Address,
   createTestClient,
   type Hex,
   http,
-  parseAbi,
   parseEther,
   publicActions,
   walletActions,
@@ -28,12 +29,10 @@ export type ChainFork = {
   stop: () => void
 }
 
-const CIRCUIT_REGISTRY_ABI = parseAbi([
-  "function oracle() view returns (address)",
-  "function updateRoot(bytes32 newRoot, bytes32 currentRoot, uint256 timestamp, uint256 leaves, bytes32 cid)",
-])
-
 export type FetchProxy = { blocked: string[]; stop: () => void }
+
+// A JSON import types the ABI's fields as plain strings, not the literals viem's Abi expects
+const REGISTRY_INSTANCE_ABI = RegistryInstance.abi as Abi
 
 /**
  * Start Anvil with a fork of the chain at `forkUrl`, at its latest block.
@@ -99,11 +98,11 @@ async function registerCircuitRoot(
     .extend(publicActions)
     .extend(walletActions)
   const address = (await registry.getCircuitRegistryAddress()) as Address
-  const oracle = await client.readContract({
+  const oracle = (await client.readContract({
     address,
-    abi: CIRCUIT_REGISTRY_ABI,
+    abi: REGISTRY_INSTANCE_ABI,
     functionName: "oracle",
-  })
+  })) as Address
   const { timestamp } = await client.getBlock()
 
   await client.impersonateAccount({ address: oracle })
@@ -113,7 +112,7 @@ async function registerCircuitRoot(
       account: oracle,
       chain: null,
       address,
-      abi: CIRCUIT_REGISTRY_ABI,
+      abi: REGISTRY_INSTANCE_ABI,
       functionName: "updateRoot",
       args: [
         manifest.root as Hex,
