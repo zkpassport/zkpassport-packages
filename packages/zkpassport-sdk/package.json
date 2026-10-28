@@ -66,6 +66,7 @@
     "sdk"
   ],
   "dependencies": {
+    "@aztec-foundation/bb.js": "6.0.0",
     "@aztec/bb.js": "5.0.0",
     "@noble/ciphers": "^1.2.1",
     "@noble/hashes": "^2.0.1",
