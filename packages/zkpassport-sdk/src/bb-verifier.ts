@@ -1,3 +1,15 @@
+export type BBVersion = "v5" | "v6"
+
+const V6_MIN_CIRCUIT_VERSION = [0, 22, 0] as const
+
+export function getBBVersionForCircuitVersion(circuitVersion?: string): BBVersion {
+  if (!circuitVersion) return "v6"
+  const parts = circuitVersion.split(".").map((x) => Number(x))
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return "v6"
+
+  return isAtLeast(parts, V6_MIN_CIRCUIT_VERSION) ? "v6" : "v5"
+}
+
 export interface UltraHonkVerifier {
   verifyProof(proofData: {
     proof: Uint8Array
@@ -11,13 +23,20 @@ export interface LoadedVerifier {
   destroy: () => Promise<void>
 }
 
-export async function createUltraHonkVerifier({
-  writingDirectory,
-}: { writingDirectory?: string } = {}): Promise<LoadedVerifier> {
+export async function createUltraHonkVerifier(
+  bbVersion: BBVersion,
+  { writingDirectory }: { writingDirectory?: string } = {},
+): Promise<LoadedVerifier> {
   await clearStaleCrsCacheOnVersionChange()
   const crsPath = writingDirectory ? writingDirectory + "/.bb-crs" : undefined
 
-  const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js")
+  if (bbVersion === "v5") {
+    const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js")
+    const barretenberg = await Barretenberg.new({ crsPath })
+    const verifier = new UltraHonkVerifierBackend(barretenberg)
+    return { verifier, destroy: () => barretenberg.destroy() }
+  }
+  const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec-foundation/bb.js")
   const barretenberg = await Barretenberg.new({ crsPath })
   const verifier = new UltraHonkVerifierBackend(barretenberg)
   return { verifier, destroy: () => barretenberg.destroy() }
@@ -27,7 +46,7 @@ const BB_VERSION_KEY = "__zkpassport_bb_version"
 const BB_CRS_DB_NAME = "keyval-store"
 const BB_CRS_CACHE_VERSION = "v5"
 
-// Clear bb cache on v4 -> v5 due to default CRS size change
+// Clear bb cache on v4 -> v5 due to default CRS size change. bb.js 6 reads the bb.js 5 cache.
 async function clearStaleCrsCacheOnVersionChange(): Promise<void> {
   if (typeof indexedDB === "undefined") return
   try {
@@ -52,4 +71,13 @@ async function clearStaleCrsCacheOnVersionChange(): Promise<void> {
   } catch {
     // Best-effort cache reset; if it fails, bb.js will surface its own error.
   }
+}
+
+function isAtLeast(version: number[], minimum: readonly number[]): boolean {
+  for (const [index, minimumPart] of minimum.entries()) {
+    if (version[index] !== minimumPart) {
+      return version[index] > minimumPart
+    }
+  }
+  return true
 }

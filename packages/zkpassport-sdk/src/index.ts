@@ -49,7 +49,11 @@ import {
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
-import { createUltraHonkVerifier, type LoadedVerifier } from "./bb-verifier"
+import {
+  createUltraHonkVerifier,
+  getBBVersionForCircuitVersion,
+  type LoadedVerifier,
+} from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
@@ -978,6 +982,7 @@ export class ZKPassport {
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
+    const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
     // Started only once the public inputs check out, so rejected proofs never spawn bb
     let loadedVerifier: LoadedVerifier | undefined
     let verified = true
@@ -1025,7 +1030,7 @@ export class ZKPassport {
           // We assume all proofs have the same version
           version: proofs[0].version,
         })
-        loadedVerifier = await createUltraHonkVerifier({ writingDirectory })
+        loadedVerifier = await createUltraHonkVerifier(bbVersion, { writingDirectory })
         for (const proof of proofs) {
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!

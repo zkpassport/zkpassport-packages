@@ -36,7 +36,13 @@ export default defineConfig({
   optimizeDeps: {
     // These packages load WASM and spawn workers via import.meta.url, which
     // breaks Vite's dependency pre-bundling — serve them as native ESM instead
-    exclude: ["@aztec/bb.js", "@noir-lang/noir_js", "@noir-lang/noirc_abi", "@noir-lang/acvm_js"],
+    exclude: [
+      "@aztec/bb.js",
+      "@aztec-foundation/bb.js",
+      "@noir-lang/noir_js",
+      "@noir-lang/noirc_abi",
+      "@noir-lang/acvm_js",
+    ],
     esbuildOptions: {
       target: "esnext",
     },
