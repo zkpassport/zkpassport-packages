@@ -1,9 +1,18 @@
-import { NullifierType, ProofData } from "."
+import {
+  calculateCircuitRoot,
+  CircuitManifest,
+  NullifierType,
+  poseidon2,
+  ProofData,
+  ProofResult,
+} from "."
 import {
   getNullifierTypeFromOuterProof,
   getNullifierFromOuterProof,
   getOprfPkHashFromOuterProof,
   getOuterCircuitInputs,
+  getOuterCircuitName,
+  getOuterCircuitProof,
   getParamCommitmentsFromOuterProof,
   OuterCircuitProof,
 } from "./recursion"
@@ -164,5 +173,104 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
     )
     expect(inputs.nullifier_type).toEqual(MOCK)
     expect(inputs.scoped_nullifier).toEqual("0x0")
+  })
+})
+
+describe("getOuterCircuitName", () => {
+  test("counts the three base subproofs with the disclosure proofs", () => {
+    expect(getOuterCircuitName(1)).toEqual("outer_count_4")
+    expect(getOuterCircuitName(2)).toEqual("outer_count_5")
+    expect(getOuterCircuitName(10)).toEqual("outer_count_13")
+  })
+
+  test("names the EVM outer circuit", () => {
+    expect(getOuterCircuitName(2, { evm: true })).toEqual("outer_evm_count_5")
+  })
+
+  test("throws for disclosure proof counts no outer circuit takes", () => {
+    for (const count of [0, 11, 1.5]) {
+      expect(() => getOuterCircuitName(count)).toThrow(
+        `No outer circuit for ${count} disclosure proofs: expected 1 to 10`,
+      )
+    }
+  })
+})
+
+describe("getOuterCircuitProof", () => {
+  const field = (value: number) => value.toString(16).padStart(64, "0")
+  // compare_age, like every disclosure circuit, has 8 public inputs
+  const PUBLIC_INPUTS = [1, 2, 3, 4, 5, 6, 7, 8].map(field)
+  const PROOF_BODY = [0x21, 0x22, 0x23].map(field)
+  const VKEY_FIELDS = [0x41, 0x42].map(field)
+  const VKEY_HASHES = ["0x0c", "0x0a", "0x0b"]
+
+  const subproof: ProofResult = {
+    name: "compare_age",
+    proof: [...PUBLIC_INPUTS, ...PROOF_BODY].join(""),
+    vkeyHash: "0x0b",
+  }
+  const circuit = {
+    name: "compare_age",
+    vkey: Buffer.from(VKEY_FIELDS.join(""), "hex").toString("base64"),
+    vkey_hash: "0x0b",
+  }
+
+  async function getCircuitManifest(): Promise<CircuitManifest> {
+    return {
+      version: "0.22.0",
+      root: await calculateCircuitRoot({ hashes: VKEY_HASHES }),
+      circuits: Object.fromEntries(
+        VKEY_HASHES.map((hash, index) => [`circuit_${index}`, { hash, size: 1 }]),
+      ),
+    }
+  }
+
+  test("splits the subproof into public inputs and proof, and the vkey into fields", async () => {
+    const outerCircuitProof = await getOuterCircuitProof(
+      subproof,
+      circuit,
+      await getCircuitManifest(),
+    )
+    expect(outerCircuitProof.publicInputs).toEqual(PUBLIC_INPUTS.map((value) => `0x${value}`))
+    expect(outerCircuitProof.proof).toEqual(PROOF_BODY.map((value) => `0x${value}`))
+    expect(outerCircuitProof.vkey).toEqual(VKEY_FIELDS.map((value) => `0x${value}`))
+    expect(outerCircuitProof.keyHash).toEqual("0x0b")
+  })
+
+  test("gives the path from the vkey hash to the manifest's root", async () => {
+    const circuitManifest = await getCircuitManifest()
+    const { treeIndex, treeHashPath } = await getOuterCircuitProof(
+      subproof,
+      circuit,
+      circuitManifest,
+    )
+    // The leaves are sorted, so 0x0b is the second one
+    expect(treeIndex).toEqual("0x1")
+
+    let node = BigInt(circuit.vkey_hash)
+    let index = Number(treeIndex)
+    for (const sibling of treeHashPath) {
+      node = index % 2 === 0 ? await poseidon2([node, sibling]) : await poseidon2([sibling, node])
+      index = Math.floor(index / 2)
+    }
+    expect(node).toEqual(BigInt(circuitManifest.root))
+  })
+
+  test("takes the path from the given function", async () => {
+    const outerCircuitProof = await getOuterCircuitProof(
+      subproof,
+      circuit,
+      await getCircuitManifest(),
+      async () => ({ root: "0x01", index: 7, path: ["0x02", "0x03"] }),
+    )
+    expect(outerCircuitProof.treeIndex).toEqual("0x7")
+    expect(outerCircuitProof.treeHashPath).toEqual(["0x02", "0x03"])
+  })
+
+  test("throws when the manifest does not include the circuit", async () => {
+    const otherCircuit = { ...circuit, vkey_hash: "0x0d" }
+    await expect(
+      getOuterCircuitProof(subproof, otherCircuit, await getCircuitManifest()),
+    ).rejects.toThrow("Invalid index")
   })
 })

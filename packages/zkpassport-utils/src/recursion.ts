@@ -1,4 +1,17 @@
-import { NullifierType, ProofData } from "."
+import {
+  CircuitManifest,
+  getCircuitMerkleProof,
+  getNumberOfPublicInputs,
+  getProofData,
+  NullifierType,
+  PackagedCircuit,
+  ProofData,
+  ProofResult,
+  ultraVkToFields,
+} from "."
+
+const BASE_SUBPROOF_COUNT = 3
+const MAX_OUTER_DISCLOSURE_PROOFS = 10
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -13,6 +26,62 @@ export type OuterCircuitProof = {
   treeHashPath: string[]
   // The tree index as a field element
   treeIndex: string
+}
+
+/**
+ * Get the name of the outer circuit that aggregates the three base subproofs and
+ * `disclosureProofCount` disclosure proofs
+ * @param disclosureProofCount - The number of disclosure proofs, from 1 to 10
+ * @param options.evm - Whether to get the outer circuit whose proofs are verified on EVM chains
+ * @returns The outer circuit's name, e.g. outer_count_5 or outer_evm_count_5
+ */
+export function getOuterCircuitName(
+  disclosureProofCount: number,
+  { evm = false }: { evm?: boolean } = {},
+): string {
+  if (
+    !Number.isInteger(disclosureProofCount) ||
+    disclosureProofCount < 1 ||
+    disclosureProofCount > MAX_OUTER_DISCLOSURE_PROOFS
+  ) {
+    throw new Error(
+      `No outer circuit for ${disclosureProofCount} disclosure proofs: expected 1 to ${MAX_OUTER_DISCLOSURE_PROOFS}`,
+    )
+  }
+
+  return `outer_${evm ? "evm_" : ""}count_${BASE_SUBPROOF_COUNT + disclosureProofCount}`
+}
+
+/**
+ * Get a subproof in the form the outer circuit takes it: its proof and verification key as fields,
+ * and the path of its vkey hash in the circuit registry tree of `circuitManifest`
+ * @param subproof - The subproof, its public inputs followed by its proof, as hex
+ * @param circuit - The packaged circuit the subproof was generated with
+ * @param circuitManifest - The manifest of the circuits version that includes `circuit`
+ * @param computeMerkleProofFn - The function computing the path, defaulting to computeMerkleProof
+ * @returns The subproof as the outer circuit takes it
+ */
+export async function getOuterCircuitProof(
+  subproof: ProofResult,
+  circuit: Pick<PackagedCircuit, "name" | "vkey" | "vkey_hash">,
+  circuitManifest: CircuitManifest,
+  computeMerkleProofFn?: Parameters<typeof getCircuitMerkleProof>[2],
+): Promise<OuterCircuitProof> {
+  const proofData = getProofData(subproof.proof as string, getNumberOfPublicInputs(circuit.name))
+  const { index, path } = await getCircuitMerkleProof(
+    circuit.vkey_hash,
+    circuitManifest,
+    computeMerkleProofFn,
+  )
+
+  return {
+    proof: proofData.proof.map((field) => `0x${field}`),
+    publicInputs: proofData.publicInputs,
+    vkey: ultraVkToFields(Buffer.from(circuit.vkey, "base64")),
+    keyHash: circuit.vkey_hash,
+    treeHashPath: path,
+    treeIndex: `0x${index.toString(16)}`,
+  }
 }
 
 function getDisclosureProofWithNonZeroNullifier(
