@@ -14,11 +14,13 @@ SDK request() → bridge → headless app → accept → proofs → done → SDK
   way zkpassport-mobile-app does, with noir_js + bb.js instead of the app's native provers. The
   mobile app itself is not tested here.
 - **Proof modes**: in fast mode the headless app sends every subproof. In compressed mode it sends
-  one outer proof of the subproofs, proved in-process where the app uses its cloud prover.
-- **Chain**: anvil forking Sepolia. Requests are in dev mode and bind no chain, so the SDK and the
-  headless app prove and verify on Sepolia, reading its registries through the fork: `verify()`
-  takes anvil's URL through `config.rpcUrl`. Certificates, circuits and sanctions trees come from
-  the testnet CDNs.
+  one outer proof of the subproofs, proved in-process where the app uses its cloud prover. In
+  compressed-evm mode it proves the disclosure circuits' EVM variants and an outer EVM proof, which
+  `verify()` checks on chain through the RootVerifier.
+- **Chain**: anvil forking Sepolia, mining a block every second. Requests are in dev mode and bind
+  no chain, so the SDK and the headless app prove and verify on Sepolia, reading its registries
+  through the fork: `verify()` takes anvil's URL through `config.rpcUrl`. Certificates, circuits and
+  sanctions trees come from the testnet CDNs.
 - **Passport**: John, `createMockPassport()` from `@zkpassport/utils/mock-passports`, a ZKR mock
   passport, so verification runs with `devMode: true`.
 
@@ -40,8 +42,15 @@ The root `bun run test` does not run these tests.
 ## Unpublished circuits
 
 `LOCAL_CIRCUITS_DIR` runs the tests on circuits packaged in a circuits checkout instead of the
-version on the testnet CDN. The fork's circuit registry then takes that manifest's root as its latest
-root, registered as the registry's oracle:
+version on the testnet CDN. On the fork:
+
+- the circuit registry takes that manifest's root as its latest root, registered as the registry's
+  oracle;
+- the RootVerifier gets a SubVerifier for that version, with the checkout's Solidity verifier for
+  each packaged outer EVM circuit (`src/solidity/src/ultra-honk-verifiers/OuterCount<N>.sol`,
+  compiled with `forge build` outside the checkout), registered as the RootVerifier's admin.
+
+Packaging the circuits the tests prove, then running them:
 
 ```sh
 # In a circuits checkout, after npm ci, with the nargo and bb versions it pins on PATH
@@ -54,6 +63,8 @@ circuits=(
   compare_age
   disclose_bytes
   exclusion_check_sanctions
+  compare_age_evm
+  disclose_bytes_evm
   outer_count_5
 )
 npx tsx src/ts/scripts/circuit-builder.ts generate

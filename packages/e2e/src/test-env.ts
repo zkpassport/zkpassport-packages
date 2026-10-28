@@ -7,14 +7,15 @@ import { type QueryBuilder, type VerificationResult, ZKPassport } from "@zkpassp
 import {
   getIdFromChain,
   type PassportViewModel,
+  type ProofMode,
   type ProofResult,
   type Query,
   type QueryResult,
 } from "@zkpassport/utils"
 import { startBridgeRelay } from "./bridge-relay"
 import { startChainFork, startFetchProxy } from "./chain-fork"
-import { type HeadlessApp, type HeadlessAppMode, runHeadlessApp } from "./headless-app"
-import { loadPackagedCircuits, serveCircuits } from "./packaged-circuits"
+import { type HeadlessApp, runHeadlessApp } from "./headless-app"
+import { compileOuterEvmVerifiers, loadPackagedCircuits, serveCircuits } from "./packaged-circuits"
 import type { ProvingOverrides } from "./prove"
 
 const SEPOLIA = getNetworkConstants(getIdFromChain("ethereum_sepolia"))
@@ -41,7 +42,7 @@ export type TestEnv = {
   runHeadlessApp: (options: {
     passport: PassportViewModel
     query: (query: QueryBuilder) => QueryBuilder
-    mode?: HeadlessAppMode
+    mode?: ProofMode
     overrides?: ProvingOverrides
   }) => Promise<HeadlessApp>
   /** verify() in dev mode with the local verifier, reading the fork's registries */
@@ -57,7 +58,10 @@ export type TestEnv = {
 /** Fork Sepolia, start the bridge relay, then restrict fetch to this machine and Sepolia's CDNs */
 export async function startTestEnv(): Promise<TestEnv> {
   const circuits = LOCAL_CIRCUITS_DIR ? loadPackagedCircuits(LOCAL_CIRCUITS_DIR) : undefined
+  const outerEvmVerifiers =
+    LOCAL_CIRCUITS_DIR && circuits ? compileOuterEvmVerifiers(LOCAL_CIRCUITS_DIR, circuits) : []
   const circuitVersion = circuits?.manifest.version ?? CIRCUIT_VERSION
+  const zkPassport = new ZKPassport(DOMAIN)
 
   const fork = await startChainFork(SEPOLIA_RPC_URL)
   const registry = createRegistryClient("ethereum_sepolia", fork.registry)
@@ -66,6 +70,15 @@ export async function startTestEnv(): Promise<TestEnv> {
     if (circuits) {
       // An outer proof commits to its circuits' root, which verify() checks on chain
       await fork.registerCircuitRoot(circuits.manifest, registry)
+    }
+    if (circuits && outerEvmVerifiers.length > 0) {
+      // verify() has the RootVerifier check outer EVM proofs, with the SubVerifier of their version
+      await fork.registerSubVerifier({
+        rootVerifier: zkPassport.getSolidityVerifierDetails().address,
+        version: circuits.manifest.version,
+        verifiers: outerEvmVerifiers,
+        settingsFrom: CIRCUIT_VERSION,
+      })
     }
     bridgeRelay = startBridgeRelay()
   } catch (error) {
@@ -77,7 +90,6 @@ export async function startTestEnv(): Promise<TestEnv> {
     circuits && serveCircuits(circuits, SEPOLIA.circuitUrl),
   )
 
-  const zkPassport = new ZKPassport(DOMAIN)
   const apps: HeadlessApp[] = []
 
   return {
