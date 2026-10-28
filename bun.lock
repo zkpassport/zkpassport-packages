@@ -48,6 +48,7 @@
       "name": "@zkpassport/e2e",
       "version": "0.0.0",
       "dependencies": {
+        "@aztec-foundation/bb.js": "6.0.0",
         "@aztec/bb.js": "5.0.0",
         "@noir-lang/noir_js": "1.0.0-beta.22",
         "@obsidion/bridge": "^0.12.2",

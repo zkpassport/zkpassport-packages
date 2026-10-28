@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto"
-import { Barretenberg, UltraHonkBackend } from "@aztec/bb.js"
 import { Noir, type CompiledCircuit, type InputMap } from "@noir-lang/noir_js"
 import type { RegistryClient } from "@zkpassport/registry"
 import {
@@ -35,6 +34,14 @@ import {
 const SALT = BigInt("0x" + "11".repeat(31))
 
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
+
+type Prover = {
+  prove: (
+    bytecode: string,
+    witness: Uint8Array,
+  ) => Promise<{ proof: Uint8Array; publicInputs: string[] }>
+  destroy: () => Promise<void>
+}
 
 export type ProvingOverrides = {
   /** Packaged certificates to prove against instead of those for the registry's latest root */
@@ -147,11 +154,12 @@ export async function proveFastMode({
     })
   }
 
-  const barretenberg = await startBarretenberg()
+  let prover: Prover | undefined
   const proofs: ProofResult[] = []
   try {
     for (const [index, step] of steps.entries()) {
       const circuit = await registry.getPackagedCircuit(step.name, manifest)
+      prover ??= await startProver(circuit.bb_version)
       // Packaged circuits carry no debug symbols
       const noir = new Noir({
         bytecode: circuit.bytecode,
@@ -160,10 +168,7 @@ export async function proveFastMode({
         file_map: {},
       })
       const { witness } = await noir.execute(step.inputs as InputMap)
-      const { proof, publicInputs } = await new UltraHonkBackend(
-        circuit.bytecode,
-        barretenberg,
-      ).generateProof(witness)
+      const { proof, publicInputs } = await prover.prove(circuit.bytecode, witness)
 
       proofs.push({
         // Same layout as the app's generateProof(): [public inputs][proof body], hex, no 0x
@@ -181,7 +186,7 @@ export async function proveFastMode({
       } as ProofResult)
     }
   } finally {
-    await barretenberg.destroy()
+    await prover?.destroy()
   }
 
   return { proofs, queryResult: getQueryResult(passport, query) }
@@ -190,14 +195,44 @@ export async function proveFastMode({
 /** The passport is on a sanctions list, so no exclusion proof exists for it */
 export class SanctionsCheckFailedError extends Error {}
 
+/** Start a prover on the bb.js release for `bbVersion` */
+async function startProver(bbVersion: string): Promise<Prover> {
+  if (bbVersion === "5.0.0") {
+    const { Barretenberg, UltraHonkBackend } = await import("@aztec/bb.js")
+    const barretenberg = await startBarretenberg(() => Barretenberg.new())
+    return {
+      prove: (bytecode, witness) =>
+        new UltraHonkBackend(bytecode, barretenberg).generateProof(witness),
+      destroy: () => barretenberg.destroy(),
+    }
+  }
+
+  if (bbVersion === "6.0.0") {
+    const { Barretenberg, UltraHonkBackend } = await import("@aztec-foundation/bb.js")
+    const barretenberg = await startBarretenberg(() => Barretenberg.new())
+    return {
+      prove: (bytecode, witness) =>
+        new UltraHonkBackend(bytecode, barretenberg).generateProof(witness),
+      destroy: () => barretenberg.destroy(),
+    }
+  }
+
+  throw new Error(`No bb.js for circuits packaged with bb ${bbVersion}`)
+}
+
 /**
  * A Barretenberg whose native prover accepted its connection. bb.js gives the prover 5 seconds to
  * start, which a slow CI runner's first start can miss, and reports the miss only at the first call,
  * so connect here and start again on that timeout.
  */
-async function startBarretenberg(attempts = 3): Promise<Barretenberg> {
+async function startBarretenberg<
+  T extends {
+    blake2s: (input: { data: Uint8Array }) => Promise<unknown>
+    destroy: () => Promise<void>
+  },
+>(create: () => Promise<T>, attempts = 3): Promise<T> {
   for (let attempt = 1; ; attempt++) {
-    const barretenberg = await Barretenberg.new()
+    const barretenberg = await create()
     try {
       await barretenberg.blake2s({ data: new Uint8Array() })
       return barretenberg
