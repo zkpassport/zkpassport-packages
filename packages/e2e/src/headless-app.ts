@@ -4,12 +4,21 @@ import type { QueryBuilderResult, RequestSuccess } from "@zkpassport/sdk"
 import {
   getChainFromQuery,
   type PassportViewModel,
+  type ProofMode,
   type ProofResult,
   type Query,
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./chain-fork"
-import { proveFastMode, type ProvingOverrides, SanctionsCheckFailedError } from "./prove"
+import {
+  proveFastMode,
+  proveOuterProof,
+  type ProvingOverrides,
+  SanctionsCheckFailedError,
+} from "./prove"
+
+/** The proof modes the headless app answers requests in */
+export type HeadlessAppMode = Extract<ProofMode, "fast" | "compressed">
 
 export type HeadlessApp = {
   bridge: BridgeInterface
@@ -42,10 +51,11 @@ export async function runHeadlessApp({
 }): Promise<HeadlessApp> {
   const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
-  if (request.mode !== "fast") {
-    throw new Error(`Only fast mode is handled so far, got ${request.mode}`)
+  if (request.mode !== "fast" && request.mode !== "compressed") {
+    throw new Error(`Only fast and compressed modes are handled so far, got ${request.mode}`)
   }
   const chain = getChainFromQuery(request.query, request.devMode)
+  const registryClient = createRegistryClient(chain, registry)
 
   const origin =
     (/localhost|192\.168\.|127\.0/.test(request.domain) ? "http://" : "https://") + request.domain
@@ -66,12 +76,17 @@ export async function runHeadlessApp({
       domain: request.domain,
       scope: request.service.scope,
       circuitVersion,
-      registry: createRegistryClient(chain, registry),
+      registry: registryClient,
       overrides,
     })
+    // In compressed mode the app sends only the outer proof
+    const proofsToSend =
+      request.mode === "compressed"
+        ? [await proveOuterProof({ subproofs: proofs, circuitVersion, registry: registryClient })]
+        : proofs
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done
-    for (const proof of proofs) {
+    for (const proof of proofsToSend) {
       await bridge.sendMessage("proof", proof)
     }
     await bridge.sendMessage("done", queryResult)

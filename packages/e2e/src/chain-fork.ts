@@ -1,6 +1,18 @@
 import { spawn } from "node:child_process"
 import { createServer } from "node:net"
-import { createRegistryClient } from "@zkpassport/registry"
+import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
+import type { CircuitManifest } from "@zkpassport/utils"
+import {
+  type Address,
+  createTestClient,
+  type Hex,
+  http,
+  parseAbi,
+  parseEther,
+  publicActions,
+  walletActions,
+  zeroHash,
+} from "viem"
 
 export type RegistryOverrides = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
@@ -8,8 +20,18 @@ export type ChainFork = {
   rpcUrl: string
   /** Options for a registry client to read this fork */
   registry: RegistryOverrides
+  /**
+   * Make `manifest`'s root the latest root of the circuit registry that `registry` reads on this
+   * fork, sending the update as the registry's oracle
+   */
+  registerCircuitRoot: (manifest: CircuitManifest, registry: RegistryClient) => Promise<void>
   stop: () => void
 }
+
+const CIRCUIT_REGISTRY_ABI = parseAbi([
+  "function oracle() view returns (address)",
+  "function updateRoot(bytes32 newRoot, bytes32 currentRoot, uint256 timestamp, uint256 leaves, bytes32 cid)",
+])
 
 export type FetchProxy = { blocked: string[]; stop: () => void }
 
@@ -30,7 +52,12 @@ export async function startChainFork(forkUrl: string): Promise<ChainFork> {
     throw error
   }
 
-  return { rpcUrl, registry: { rpcUrl }, stop: () => anvil.kill() }
+  return {
+    rpcUrl,
+    registry: { rpcUrl },
+    registerCircuitRoot: (manifest, registry) => registerCircuitRoot(rpcUrl, manifest, registry),
+    stop: () => anvil.kill(),
+  }
 }
 
 /**
@@ -61,6 +88,48 @@ export function startFetchProxy(
     throw new Error(`e2e fetch proxy: blocked ${url}`)
   }) as typeof fetch
   return { blocked, stop: () => (globalThis.fetch = realFetch) }
+}
+
+async function registerCircuitRoot(
+  rpcUrl: string,
+  manifest: CircuitManifest,
+  registry: RegistryClient,
+) {
+  const client = createTestClient({ mode: "anvil", transport: http(rpcUrl) })
+    .extend(publicActions)
+    .extend(walletActions)
+  const address = (await registry.getCircuitRegistryAddress()) as Address
+  const oracle = await client.readContract({
+    address,
+    abi: CIRCUIT_REGISTRY_ABI,
+    functionName: "oracle",
+  })
+  const { timestamp } = await client.getBlock()
+
+  await client.impersonateAccount({ address: oracle })
+  await client.setBalance({ address: oracle, value: parseEther("1") })
+  try {
+    const hash = await client.writeContract({
+      account: oracle,
+      chain: null,
+      address,
+      abi: CIRCUIT_REGISTRY_ABI,
+      functionName: "updateRoot",
+      args: [
+        manifest.root as Hex,
+        (await registry.getLatestCircuitRoot()) as Hex,
+        timestamp,
+        BigInt(Object.keys(manifest.circuits).length),
+        zeroHash,
+      ],
+    })
+    const { status } = await client.waitForTransactionReceipt({ hash })
+    if (status !== "success") {
+      throw new Error(`Registering circuit root ${manifest.root} on the fork reverted`)
+    }
+  } finally {
+    await client.stopImpersonatingAccount({ address: oracle })
+  }
 }
 
 async function waitForRpc(rpcUrl: string) {

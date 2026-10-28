@@ -13,7 +13,7 @@ import {
 } from "@zkpassport/utils"
 import { startBridgeRelay } from "./bridge-relay"
 import { startChainFork, startFetchProxy } from "./chain-fork"
-import { type HeadlessApp, runHeadlessApp } from "./headless-app"
+import { type HeadlessApp, type HeadlessAppMode, runHeadlessApp } from "./headless-app"
 import { loadPackagedCircuits, serveCircuits } from "./packaged-circuits"
 import type { ProvingOverrides } from "./prove"
 
@@ -34,10 +34,14 @@ export type TestEnv = {
   registry: RegistryClient
   /** URLs the fetch proxy blocked */
   blockedFetches: string[]
-  /** A fast-mode dev-mode request with `query`, answered by the headless app with `passport` */
+  /**
+   * A dev-mode request in `mode`, fast by default, with `query`, answered by the headless app with
+   * `passport`
+   */
   runHeadlessApp: (options: {
     passport: PassportViewModel
     query: (query: QueryBuilder) => QueryBuilder
+    mode?: HeadlessAppMode
     overrides?: ProvingOverrides
   }) => Promise<HeadlessApp>
   /** verify() in dev mode with the local verifier, reading the fork's registries */
@@ -56,8 +60,13 @@ export async function startTestEnv(): Promise<TestEnv> {
   const circuitVersion = circuits?.manifest.version ?? CIRCUIT_VERSION
 
   const fork = await startChainFork(SEPOLIA_RPC_URL)
+  const registry = createRegistryClient("ethereum_sepolia", fork.registry)
   let bridgeRelay
   try {
+    if (circuits) {
+      // An outer proof commits to its circuits' root, which verify() checks on chain
+      await fork.registerCircuitRoot(circuits.manifest, registry)
+    }
     bridgeRelay = startBridgeRelay()
   } catch (error) {
     fork.stop()
@@ -72,14 +81,14 @@ export async function startTestEnv(): Promise<TestEnv> {
   const apps: HeadlessApp[] = []
 
   return {
-    registry: createRegistryClient("ethereum_sepolia", fork.registry),
+    registry,
     blockedFetches: fetchProxy.blocked,
-    runHeadlessApp: async ({ passport, query, overrides }) => {
+    runHeadlessApp: async ({ passport, query, mode = "fast", overrides }) => {
       const queryBuilder = await zkPassport.request({
         name: "ZKPassport e2e",
         logo: "https://zkpassport.id/favicon.png",
         purpose: "End-to-end test",
-        mode: "fast",
+        mode,
         devMode: true,
         bridgeUrl: bridgeRelay.url,
       })

@@ -17,6 +17,7 @@
     "@zkpassport/registry": "workspace:*",
     "@zkpassport/sdk": "workspace:*",
     "@zkpassport/utils": "workspace:*",
-    "bridge": "workspace:*"
+    "bridge": "workspace:*",
+    "viem": "^2.27.2"
   }
 }

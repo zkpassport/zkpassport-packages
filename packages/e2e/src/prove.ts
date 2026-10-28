@@ -13,6 +13,9 @@ import {
   getECDSAInfo,
   getIDDataCircuitInputs,
   getIntegrityCheckCircuitInputs,
+  getOuterCircuitInputs,
+  getOuterCircuitName,
+  getOuterCircuitProof,
   getRSAInfo,
   getSanctionsExclusionCheckCircuitInputs,
   getServiceScopeHash,
@@ -23,8 +26,10 @@ import {
   poseidon2,
   SanctionsBuilder,
   TargetExistsError,
+  type OuterCircuitProof,
   type PackagedCertificate,
   type PackagedCertificatesFile,
+  type PackagedCircuit,
   type PassportViewModel,
   type ProofResult,
   type Query,
@@ -160,21 +165,9 @@ export async function proveFastMode({
     for (const [index, step] of steps.entries()) {
       const circuit = await registry.getPackagedCircuit(step.name, manifest)
       prover ??= await startProver(circuit.bb_version)
-      // Packaged circuits carry no debug symbols
-      const noir = new Noir({
-        bytecode: circuit.bytecode,
-        abi: circuit.abi as CompiledCircuit["abi"],
-        debug_symbols: "",
-        file_map: {},
-      })
-      const { witness } = await noir.execute(step.inputs as InputMap)
-      const { proof, publicInputs } = await prover.prove(circuit.bytecode, witness)
 
       proofs.push({
-        // Same layout as the app's generateProof(): [public inputs][proof body], hex, no 0x
-        proof:
-          publicInputs.map((input) => input.replace(/^0x/, "").padStart(64, "0")).join("") +
-          Buffer.from(proof).toString("hex"),
+        proof: await proveCircuit(prover, circuit, step.inputs),
         vkeyHash: circuit.vkey_hash,
         version: manifest.version as ProofResult["version"],
         name: circuit.name,
@@ -192,8 +185,79 @@ export async function proveFastMode({
   return { proofs, queryResult: getQueryResult(passport, query) }
 }
 
+/**
+ * Compress the proofs of proveFastMode into one outer proof, as the app's compressed mode does with
+ * its cloud prover
+ */
+export async function proveOuterProof({
+  subproofs,
+  circuitVersion,
+  registry,
+}: {
+  /** The DSC, ID data and integrity proofs, then the disclosure proofs */
+  subproofs: ProofResult[]
+  circuitVersion: string
+  registry: RegistryClient
+}): Promise<ProofResult> {
+  const manifest = await registry.getCircuitManifest(undefined, { version: circuitVersion })
+  const outerCircuitProofs: OuterCircuitProof[] = []
+  for (const subproof of subproofs) {
+    const circuit = await registry.getPackagedCircuit(subproof.name as string, manifest)
+    outerCircuitProofs.push(await getOuterCircuitProof(subproof, circuit, manifest))
+  }
+  const [dsc, idData, integrity, ...disclosures] = outerCircuitProofs
+  const inputs = getOuterCircuitInputs(dsc, idData, integrity, disclosures, manifest.root)
+
+  const circuit = await registry.getPackagedCircuit(
+    getOuterCircuitName(disclosures.length),
+    manifest,
+  )
+  const prover = await startProver(circuit.bb_version)
+  try {
+    return {
+      proof: await proveCircuit(prover, circuit, inputs),
+      vkeyHash: circuit.vkey_hash,
+      version: manifest.version as ProofResult["version"],
+      name: circuit.name,
+      index: 0,
+      total: 1,
+      committedInputs: subproofs.reduce<ProofResult["committedInputs"]>(
+        (committedInputs, subproof) => ({ ...committedInputs, ...subproof.committedInputs }),
+        {},
+      ),
+    }
+  } finally {
+    await prover.destroy()
+  }
+}
+
 /** The passport is on a sanctions list, so no exclusion proof exists for it */
 export class SanctionsCheckFailedError extends Error {}
+
+/**
+ * Prove `circuit` on `inputs`, in the layout of the app's generateProof(): the public inputs, then
+ * the proof, in hex without 0x
+ */
+async function proveCircuit(
+  prover: Prover,
+  circuit: PackagedCircuit,
+  inputs: object,
+): Promise<string> {
+  // Packaged circuits carry no debug symbols
+  const noir = new Noir({
+    bytecode: circuit.bytecode,
+    abi: circuit.abi as CompiledCircuit["abi"],
+    debug_symbols: "",
+    file_map: {},
+  })
+  const { witness } = await noir.execute(inputs as InputMap)
+  const { proof, publicInputs } = await prover.prove(circuit.bytecode, witness)
+
+  return (
+    publicInputs.map((input) => input.replace(/^0x/, "").padStart(64, "0")).join("") +
+    Buffer.from(proof).toString("hex")
+  )
+}
 
 /** Start a prover on the bb.js release for `bbVersion` */
 async function startProver(bbVersion: string): Promise<Prover> {

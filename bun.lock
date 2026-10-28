@@ -56,6 +56,7 @@
         "@zkpassport/sdk": "workspace:*",
         "@zkpassport/utils": "workspace:*",
         "bridge": "workspace:*",
+        "viem": "^2.27.2",
       },
     },
     "packages/onchain-credentials/contracts": {
