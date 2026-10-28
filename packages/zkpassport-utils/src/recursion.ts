@@ -56,7 +56,8 @@ export function getOuterCircuitName(
  * Get a subproof in the form the outer circuit takes it: its proof and verification key as fields,
  * and the path of its vkey hash in the circuit registry tree of `circuitManifest`
  * @param subproof - The subproof, its public inputs followed by its proof, as hex
- * @param circuit - The packaged circuit the subproof was generated with
+ * @param circuit - The packaged circuit the subproof was generated with, which must have the
+ * subproof's vkey hash
  * @param circuitManifest - The manifest of the circuits version that includes `circuit`
  * @param computeMerkleProofFn - The function computing the path, defaulting to computeMerkleProof
  * @returns The subproof as the outer circuit takes it
@@ -67,6 +68,12 @@ export async function getOuterCircuitProof(
   circuitManifest: CircuitManifest,
   computeMerkleProofFn?: Parameters<typeof getCircuitMerkleProof>[2],
 ): Promise<OuterCircuitProof> {
+  if (subproof.vkeyHash !== undefined && BigInt(subproof.vkeyHash) !== BigInt(circuit.vkey_hash)) {
+    throw new Error(
+      `The ${circuit.name} subproof was generated with vkey hash ${subproof.vkeyHash}, not ${circuit.vkey_hash}`,
+    )
+  }
+
   const proofData = getProofData(subproof.proof as string, getNumberOfPublicInputs(circuit.name))
   const { index, path } = await getCircuitMerkleProof(
     circuit.vkey_hash,

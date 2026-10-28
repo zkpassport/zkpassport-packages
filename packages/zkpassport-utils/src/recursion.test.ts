@@ -270,7 +270,26 @@ describe("getOuterCircuitProof", () => {
   test("throws when the manifest does not include the circuit", async () => {
     const otherCircuit = { ...circuit, vkey_hash: "0x0d" }
     await expect(
-      getOuterCircuitProof(subproof, otherCircuit, await getCircuitManifest()),
+      getOuterCircuitProof(
+        { ...subproof, vkeyHash: "0x0d" },
+        otherCircuit,
+        await getCircuitManifest(),
+      ),
     ).rejects.toThrow("Invalid index")
+  })
+
+  test("throws when the subproof was generated with another vkey", async () => {
+    await expect(
+      getOuterCircuitProof({ ...subproof, vkeyHash: "0x0a" }, circuit, await getCircuitManifest()),
+    ).rejects.toThrow("The compare_age subproof was generated with vkey hash 0x0a, not 0x0b")
+  })
+
+  test("takes a vkey hash written with leading zeros as the same", async () => {
+    const outerCircuitProof = await getOuterCircuitProof(
+      { ...subproof, vkeyHash: `0x${"0b".padStart(64, "0")}` },
+      circuit,
+      await getCircuitManifest(),
+    )
+    expect(outerCircuitProof.keyHash).toEqual("0x0b")
   })
 })
