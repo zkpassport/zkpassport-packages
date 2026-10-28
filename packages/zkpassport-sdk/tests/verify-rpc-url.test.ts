@@ -121,4 +121,20 @@ describe("verify() config.rpcUrl", () => {
     expect(fetchedUrls[fetchedUrls.length - 1]).toBe(new URL(defaults.getRpcUrl()).href)
     expect(registryClientGivenToPublicInputChecks()?.getRpcUrl()).toBe(defaults.getRpcUrl())
   })
+
+  test("starts no bb verifier, since the outer EVM proof is verified on chain", async () => {
+    const zkPassport = new ZKPassport("example.com")
+
+    const { verified } = await zkPassport.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      verifierMode: "local",
+      config: { rpcUrl },
+    })
+
+    expect(verified).toBe(true)
+    // A started bb.js 5 instance destroyed before its first call rejects 5 s later, unhandled
+    expect(bbVerifierSpy).not.toHaveBeenCalled()
+  })
 })
