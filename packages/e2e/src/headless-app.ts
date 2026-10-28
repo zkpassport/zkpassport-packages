@@ -11,8 +11,8 @@ import {
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./chain-fork"
 import {
-  proveFastMode,
   proveOuterProof,
+  proveSubproofs,
   type ProvingOverrides,
   SanctionsCheckFailedError,
 } from "./prove"
@@ -70,7 +70,7 @@ export async function runHeadlessApp({
 
   await bridge.sendMessage("accept")
   try {
-    const { proofs, queryResult } = await proveFastMode({
+    const { subproofs, queryResult } = await proveSubproofs({
       passport,
       query: request.query,
       domain: request.domain,
@@ -79,14 +79,14 @@ export async function runHeadlessApp({
       registry: registryClient,
       overrides,
     })
-    // In compressed mode the app sends only the outer proof
-    const proofsToSend =
+    // Fast mode sends the subproofs as they are, compressed mode one outer proof of them
+    const proofs =
       request.mode === "compressed"
-        ? [await proveOuterProof({ subproofs: proofs, circuitVersion, registry: registryClient })]
-        : proofs
+        ? [await proveOuterProof({ subproofs, circuitVersion, registry: registryClient })]
+        : subproofs
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done
-    for (const proof of proofsToSend) {
+    for (const proof of proofs) {
       await bridge.sendMessage("proof", proof)
     }
     await bridge.sendMessage("done", queryResult)

@@ -53,7 +53,11 @@ export type ProvingOverrides = {
   certificates?: PackagedCertificatesFile
 }
 
-export async function proveFastMode({
+/**
+ * Prove the DSC, ID data and integrity subproofs, then the disclosure proofs of `query`, which every
+ * proof mode starts from
+ */
+export async function proveSubproofs({
   passport,
   query,
   domain,
@@ -69,7 +73,7 @@ export async function proveFastMode({
   circuitVersion: string
   registry: RegistryClient
   overrides?: ProvingOverrides
-}): Promise<{ proofs: ProofResult[]; queryResult: QueryResult }> {
+}): Promise<{ subproofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
     (field) => !["age", "nationality", "sanctions"].includes(field),
   )
@@ -160,13 +164,13 @@ export async function proveFastMode({
   }
 
   let prover: Prover | undefined
-  const proofs: ProofResult[] = []
+  const subproofs: ProofResult[] = []
   try {
     for (const [index, step] of steps.entries()) {
       const circuit = await registry.getPackagedCircuit(step.name, manifest)
       prover ??= await startProver(circuit.bb_version)
 
-      proofs.push({
+      subproofs.push({
         proof: await proveCircuit(prover, circuit, step.inputs),
         vkeyHash: circuit.vkey_hash,
         version: manifest.version as ProofResult["version"],
@@ -182,12 +186,12 @@ export async function proveFastMode({
     await prover?.destroy()
   }
 
-  return { proofs, queryResult: getQueryResult(passport, query) }
+  return { subproofs, queryResult: getQueryResult(passport, query) }
 }
 
 /**
- * Compress the proofs of proveFastMode into one outer proof, as the app's compressed mode does with
- * its cloud prover
+ * Compress the subproofs into one outer proof, as the app does in compressed mode with its cloud
+ * prover
  */
 export async function proveOuterProof({
   subproofs,
