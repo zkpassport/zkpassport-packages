@@ -9,6 +9,7 @@ import {
   getCscaForPassportAsync,
   getDiscloseCircuitInputs,
   getDSCCircuitInputs,
+  getDisclosureCircuitName,
   getDSCSignatureAlgorithmHashAlgorithm,
   getECDSAInfo,
   getIDDataCircuitInputs,
@@ -41,9 +42,11 @@ const SALT = BigInt("0x" + "11".repeat(31))
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 
 type Prover = {
+  /** With `evm`, a proof for EVM chains: keccak transcript and no zero knowledge */
   prove: (
     bytecode: string,
     witness: Uint8Array,
+    options?: { evm?: boolean },
   ) => Promise<{ proof: Uint8Array; publicInputs: string[] }>
   destroy: () => Promise<void>
 }
@@ -64,6 +67,7 @@ export async function proveSubproofs({
   scope,
   circuitVersion,
   registry,
+  evm = false,
   overrides = {},
 }: {
   passport: PassportViewModel
@@ -72,6 +76,8 @@ export async function proveSubproofs({
   scope?: string
   circuitVersion: string
   registry: RegistryClient
+  /** Prove the disclosure circuits' EVM variants, as the app does in compressed-evm mode */
+  evm?: boolean
   overrides?: ProvingOverrides
 }): Promise<{ subproofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
@@ -125,7 +131,7 @@ export async function proveSubproofs({
       "compare_age",
     )
     steps.push({
-      name: "compare_age",
+      name: getDisclosureCircuitName("compare_age", { evm }),
       inputs,
       committedInputs: { minAge: inputs.min_age_required, maxAge: inputs.max_age_required },
     })
@@ -137,7 +143,7 @@ export async function proveSubproofs({
     )
     const dg1 = inputs.salted_dg1.value as number[]
     steps.push({
-      name: "disclose_bytes",
+      name: getDisclosureCircuitName("disclose_bytes", { evm }),
       inputs,
       committedInputs: {
         disclosedBytes: dg1.slice(5).map((byte, index) => byte * inputs.disclose_mask[index]),
@@ -157,7 +163,7 @@ export async function proveSubproofs({
       "exclusion_check_sanctions",
     )
     steps.push({
-      name: "exclusion_check_sanctions",
+      name: getDisclosureCircuitName("exclusion_check_sanctions", { evm }),
       inputs,
       committedInputs: { rootHash: inputs.root, isStrict: !!inputs.is_strict },
     })
@@ -190,18 +196,21 @@ export async function proveSubproofs({
 }
 
 /**
- * Compress the subproofs into one outer proof, as the app does in compressed mode with its cloud
+ * Compress the subproofs into one outer proof, as the app does in compressed modes with its cloud
  * prover
  */
 export async function proveOuterProof({
   subproofs,
   circuitVersion,
   registry,
+  evm = false,
 }: {
   /** The DSC, ID data and integrity proofs, then the disclosure proofs */
   subproofs: ProofResult[]
   circuitVersion: string
   registry: RegistryClient
+  /** Prove the EVM outer circuit, for compressed-evm mode */
+  evm?: boolean
 }): Promise<ProofResult> {
   const manifest = await registry.getCircuitManifest(undefined, { version: circuitVersion })
   const outerCircuitProofs: OuterCircuitProof[] = []
@@ -213,13 +222,16 @@ export async function proveOuterProof({
   const inputs = getOuterCircuitInputs(dsc, idData, integrity, disclosures, manifest.root)
 
   const circuit = await registry.getPackagedCircuit(
-    getOuterCircuitName(disclosures.length),
+    getOuterCircuitName(disclosures.length, { evm }),
     manifest,
+    // The JS vkey hash of the EVM outer circuits doesn't match their packaged one, so the SDK and
+    // the app load them unvalidated too
+    { validate: !evm },
   )
   const prover = await startProver(circuit.bb_version)
   try {
     return {
-      proof: await proveCircuit(prover, circuit, inputs),
+      proof: await proveCircuit(prover, circuit, inputs, { evm }),
       vkeyHash: circuit.vkey_hash,
       version: manifest.version as ProofResult["version"],
       name: circuit.name,
@@ -246,6 +258,7 @@ async function proveCircuit(
   prover: Prover,
   circuit: PackagedCircuit,
   inputs: object,
+  options?: { evm?: boolean },
 ): Promise<string> {
   // Packaged circuits carry no debug symbols
   const noir = new Noir({
@@ -255,7 +268,7 @@ async function proveCircuit(
     file_map: {},
   })
   const { witness } = await noir.execute(inputs as InputMap)
-  const { proof, publicInputs } = await prover.prove(circuit.bytecode, witness)
+  const { proof, publicInputs } = await prover.prove(circuit.bytecode, witness, options)
 
   return (
     publicInputs.map((input) => input.replace(/^0x/, "").padStart(64, "0")).join("") +
@@ -269,8 +282,11 @@ async function startProver(bbVersion: string): Promise<Prover> {
     const { Barretenberg, UltraHonkBackend } = await import("@aztec/bb.js")
     const barretenberg = await startBarretenberg(() => Barretenberg.new())
     return {
-      prove: (bytecode, witness) =>
-        new UltraHonkBackend(bytecode, barretenberg).generateProof(witness),
+      prove: (bytecode, witness, options) =>
+        new UltraHonkBackend(bytecode, barretenberg).generateProof(
+          witness,
+          getProofOptions(options),
+        ),
       destroy: () => barretenberg.destroy(),
     }
   }
@@ -279,13 +295,24 @@ async function startProver(bbVersion: string): Promise<Prover> {
     const { Barretenberg, UltraHonkBackend } = await import("@aztec-foundation/bb.js")
     const barretenberg = await startBarretenberg(() => Barretenberg.new())
     return {
-      prove: (bytecode, witness) =>
-        new UltraHonkBackend(bytecode, barretenberg).generateProof(witness),
+      prove: (bytecode, witness, options) =>
+        new UltraHonkBackend(bytecode, barretenberg).generateProof(
+          witness,
+          getProofOptions(options),
+        ),
       destroy: () => barretenberg.destroy(),
     }
   }
 
   throw new Error(`No bb.js for circuits packaged with bb ${bbVersion}`)
+}
+
+/**
+ * The bb.js proof options, the same in bb.js 5 and 6. An EVM proof is what the cloud prover makes
+ * with `--oracle_hash keccak --disable_zk`
+ */
+function getProofOptions(options?: { evm?: boolean }) {
+  return options?.evm ? { verifierTarget: "evm-no-zk" as const } : undefined
 }
 
 /**
