@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { CredentialScheme, CredentialTier } from "../types/credential"
 import {
   decideVerificationPaths,
+  issueYearRanges,
   listCountries,
   listDocumentTypes,
   seriesInCirculation,
@@ -41,7 +42,9 @@ const methods = (decision: ReturnType<typeof decideVerificationPaths>) =>
   decision.paths.map((p) => `${p.method}:${p.scheme}`)
 
 describe("decideVerificationPaths", () => {
-  const chipped = table({ TST: country([passport({ name: "ePassport (2015)", from: 2015, chip: true })]) })
+  const chipped = table({
+    TST: country([passport({ name: "ePassport (2015)", from: 2015, chip: true })]),
+  })
   const chipless = table({ TST: country([passport({ name: "Passport (2015)", from: 2015 })]) })
   const mixed = table({
     TST: country([
@@ -101,7 +104,11 @@ describe("decideVerificationPaths", () => {
 
   test("a chip we have no certificate for is read by camera instead", () => {
     const noCerts = table({
-      TST: country([passport({ from: 2015, chip: true })], { supported: false, from: null, to: null }),
+      TST: country([passport({ from: 2015, chip: true })], {
+        supported: false,
+        from: null,
+        to: null,
+      }),
     })
     const decision = decideVerificationPaths(noCerts, {
       country: "TST",
@@ -123,8 +130,20 @@ describe("decideVerificationPaths", () => {
     })
     expect(decision.chipVerifiable).toBe(true)
     const early = decideVerificationPaths(
-      table({ TST: country([passport({ from: 2005, chip: true })], { supported: true, from: 2010, to: 2040 }) }),
-      { country: "TST", documentType: "passport", issueYear: 2008, allowedCredentials: ANY, supportedSchemes: IOS },
+      table({
+        TST: country([passport({ from: 2005, chip: true })], {
+          supported: true,
+          from: 2010,
+          to: 2040,
+        }),
+      }),
+      {
+        country: "TST",
+        documentType: "passport",
+        issueYear: 2008,
+        allowedCredentials: ANY,
+        supportedSchemes: IOS,
+      },
     )
     expect(early.chipVerifiable).toBe(false)
     expect(methods(early)).toEqual(["camera:200"])
@@ -177,27 +196,46 @@ describe("decideVerificationPaths", () => {
   })
 
   test("a passport with neither chip nor MRZ is unsupported", () => {
-    const decision = decideVerificationPaths(
-      table({ TST: country([passport({ mrz: false })]) }),
-      { country: "TST", documentType: "passport", allowedCredentials: ANY, supportedSchemes: IOS },
-    )
+    const decision = decideVerificationPaths(table({ TST: country([passport({ mrz: false })]) }), {
+      country: "TST",
+      documentType: "passport",
+      allowedCredentials: ANY,
+      supportedSchemes: IOS,
+    })
     expect(decision.outcome).toBe("unsupported")
   })
 
   test("a document listed ahead of our support is unsupported", () => {
     const decision = decideVerificationPaths(
-      table({ IND: country([{ type: "aadhaar", name: "Aadhaar", chip: false, mrz: false, available: false }]) }),
-      { country: "IND", documentType: "aadhaar", allowedCredentials: ANY, supportedSchemes: [CredentialScheme.UIDAI_AADHAAR] },
+      table({
+        IND: country([
+          { type: "aadhaar", name: "Aadhaar", chip: false, mrz: false, available: false },
+        ]),
+      }),
+      {
+        country: "IND",
+        documentType: "aadhaar",
+        allowedCredentials: ANY,
+        supportedSchemes: [CredentialScheme.UIDAI_AADHAAR],
+      },
     )
     expect(decision.outcome).toBe("unsupported")
   })
 
   test("an unknown country or document type is unknown", () => {
     expect(
-      decideVerificationPaths(chipped, { country: "XXX", documentType: "passport", supportedSchemes: IOS }).outcome,
+      decideVerificationPaths(chipped, {
+        country: "XXX",
+        documentType: "passport",
+        supportedSchemes: IOS,
+      }).outcome,
     ).toBe("unknown")
     expect(
-      decideVerificationPaths(chipped, { country: "TST", documentType: "aadhaar", supportedSchemes: IOS }).outcome,
+      decideVerificationPaths(chipped, {
+        country: "TST",
+        documentType: "aadhaar",
+        supportedSchemes: IOS,
+      }).outcome,
     ).toBe("unsupported")
   })
 
@@ -240,7 +278,22 @@ describe("seriesInCirculation", () => {
 
   test("without a year, the maintained series count", () => {
     expect(seriesInCirculation(series).map((d) => d.name)).toEqual(["A", "B", "D"])
-    expect(seriesInCirculation([passport({ name: "C", deprecated: true })]).map((d) => d.name)).toEqual(["C"])
+    expect(
+      seriesInCirculation([passport({ name: "C", deprecated: true })]).map((d) => d.name),
+    ).toEqual(["C"])
+  })
+})
+
+describe("issueYearRanges", () => {
+  test("groups the issue years by whether the series has a chip", () => {
+    expect(issueYearRanges(BUNDLED_COVERAGE, "IND", "passport")).toEqual([
+      { from: 2000, to: 2023, chip: false },
+      { from: 2024, chip: true },
+    ])
+    expect(issueYearRanges(BUNDLED_COVERAGE, "AUS", "passport")).toEqual([
+      { from: 2014, chip: true },
+    ])
+    expect(issueYearRanges(BUNDLED_COVERAGE, "XXX", "passport")).toEqual([])
   })
 })
 
@@ -248,7 +301,11 @@ describe("listDocumentTypes and listCountries", () => {
   test("lists a country's document types with their shape and chip mix", () => {
     const options = listDocumentTypes(BUNDLED_COVERAGE, "IND")
     expect(options.map((o) => o.type)).toEqual(["passport", "aadhaar"])
-    expect(options[0]).toMatchObject({ shape: { aspectRatio: 1.42 }, available: true, mixedChip: true })
+    expect(options[0]).toMatchObject({
+      shape: { aspectRatio: 1.42 },
+      available: true,
+      mixedChip: true,
+    })
     expect(options[1]).toMatchObject({ available: false })
     expect(listDocumentTypes(BUNDLED_COVERAGE, "XXX")).toEqual([])
   })
