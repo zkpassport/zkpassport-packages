@@ -33,6 +33,7 @@ export type Session = {
   id: string
   /** True when this page is picking up a verification that was already running. */
   resumed: boolean
+  fromUrl: boolean
 }
 
 type StoredSession = Omit<SessionState, "keyPair"> & {
@@ -46,7 +47,7 @@ type StoredSession = Omit<SessionState, "keyPair"> & {
 export function openSession(): Session {
   sweepExpiredSessions()
   const fromUrl = new URLSearchParams(window.location.search).get("s")
-  if (fromUrl) return { id: fromUrl, resumed: read(fromUrl) !== null }
+  if (fromUrl) return { id: fromUrl, resumed: read(fromUrl) !== null, fromUrl: true }
 
   // Older callers open the popup without one, so it names itself
   const id = randomId()
@@ -57,7 +58,7 @@ export function openSession(): Session {
   } catch {
     // Without the id in the URL this page just cannot be recovered
   }
-  return { id, resumed: false }
+  return { id, resumed: false, fromUrl: false }
 }
 
 function randomId(): string {

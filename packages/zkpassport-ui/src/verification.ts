@@ -7,7 +7,7 @@ import {
 } from "@zkpassport/sdk/popup"
 import { getChainFromId, NullifierType, type ProofMode } from "@zkpassport/sdk"
 
-import { isInAppBrowser } from "./environment"
+import { isInAppBrowser, isMobileLike } from "./environment"
 import { ZKPassportError, type ZKPassportErrorKind } from "./errors"
 import { logger } from "./logger"
 import {
@@ -102,6 +102,28 @@ function inAppBrowserMessage(): string {
   return `This browser can’t open the verification window. Open ${site} in your browser instead.`
 }
 
+const HIDDEN_POPUP_MESSAGE =
+  "The verification window opened behind this page. Tap the button again to continue."
+const HIDDEN_POPUP_GRACE_MS = 1000
+
+function watchForHiddenPopup(onHidden: () => void): () => void {
+  if (typeof document === "undefined" || !isMobileLike()) return () => {}
+  let wentAway = false
+  const note = () => {
+    if (document.visibilityState === "hidden") wentAway = true
+  }
+  document.addEventListener("visibilitychange", note)
+  const stop = () => {
+    clearTimeout(timer)
+    document.removeEventListener("visibilitychange", note)
+  }
+  const timer = setTimeout(() => {
+    stop()
+    if (!wentAway && document.visibilityState === "visible") onHidden()
+  }, HIDDEN_POPUP_GRACE_MS)
+  return stop
+}
+
 const IDENTIFIER_TYPES = {
   "salted": NullifierType.SALTED,
   "non-salted": NullifierType.NON_SALTED,
@@ -132,6 +154,7 @@ export function createVerification(
   let latestAttempt = 0
   // Options can change after the click, so close() clears the key verify() used, not a new one
   let pendingKey: string | null = null
+  let stopHiddenWatch: (() => void) | null = null
 
   const setStatus = (
     status: VerificationStatus,
@@ -163,6 +186,8 @@ export function createVerification(
     const thisAttempt = ++latestAttempt
     popupFinished = false
     pendingKey = requestKey
+    stopHiddenWatch?.()
+    stopHiddenWatch = null
 
     // Only one terminal callback ever fires: a failure followed by the user closing the window is
     // one outcome, not two
@@ -261,10 +286,22 @@ export function createVerification(
     // Noted before the user leaves for the app, so a page rebuilt while they are away can return
     rememberPendingVerification(handle.session, requestKey)
     setStatus("in-progress")
+
+    if (resuming) {
+      stopHiddenWatch = watchForHiddenPopup(() => {
+        stopHiddenWatch = null
+        if (settled || latestAttempt !== thisAttempt) return
+        handle.close()
+        popupHandle = null
+        fail("blocked", HIDDEN_POPUP_MESSAGE)
+      })
+    }
   }
 
   const close = () => {
     latestAttempt++
+    stopHiddenWatch?.()
+    stopHiddenWatch = null
     if (pendingKey) forgetPendingVerification(pendingKey)
     popupHandle?.close()
     popupHandle = null
@@ -272,6 +309,8 @@ export function createVerification(
 
   const dispose = () => {
     latestAttempt++
+    stopHiddenWatch?.()
+    stopHiddenWatch = null
     if (popupFinished) popupHandle?.release()
     else popupHandle?.close()
     popupHandle = null
