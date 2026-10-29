@@ -32,8 +32,8 @@
  *                               same secret makes re-runs resolve the same deployer
  *                               (and registry).
  *   SALT                        account + contract salt (default 0, reproducible)
- *   REGISTRY_ADMIN / REGISTRY_OPERATOR / REGISTRY_GUARDIAN
- *                               role addresses, all required. There is no deployer
+ *   REGISTRY_ADMIN / REGISTRY_OPERATOR
+ *                               role addresses, both required. There is no deployer
  *                               fallback: putting a role on the deployer must be an
  *                               explicit choice.
  *   DRY_RUN                     if set, run every pre-flight check (node version, FPC
@@ -101,9 +101,8 @@ async function main() {
 
   const admin = requiredRole("REGISTRY_ADMIN")
   const operator = requiredRole("REGISTRY_OPERATOR")
-  const guardian = requiredRole("REGISTRY_GUARDIAN")
   console.log(
-    `roles: admin=${admin} operator=${operator} guardian=${guardian} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
+    `roles: admin=${admin} operator=${operator} mode=${MODE_VALID_WITHIN_WINDOW} window=${VALIDITY_WINDOW}`,
   )
 
   // Explicit salt + deployer pin the address before send, making re-runs idempotent.
@@ -111,7 +110,6 @@ async function main() {
     wallet,
     admin,
     operator,
-    guardian,
     MODE_VALID_WITHIN_WINDOW,
     VALIDITY_WINDOW,
     { salt, deployer: deployer.address },
@@ -149,7 +147,6 @@ async function main() {
     roles: {
       admin: admin.toString(),
       operator: operator.toString(),
-      guardian: guardian.toString(),
     },
     mode: MODE_VALID_WITHIN_WINDOW,
     window: VALIDITY_WINDOW.toString(),
