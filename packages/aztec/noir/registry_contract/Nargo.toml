@@ -1,0 +1,6 @@
+[package]
+name = "zkpassport_registry_contract"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr", tag = "v6.0.0", directory = "aztec" }
