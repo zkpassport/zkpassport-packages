@@ -24,7 +24,7 @@ import { packCircuitManifestVersion } from "./circuit-version.js"
 
 const NODE_URL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080"
 
-// Must match zkpassport_core::constants::PROOF_CAPSULE_SLOT.
+// Must match zkpassport::constants::PROOF_CAPSULE_SLOT.
 const PROOF_CAPSULE_SLOT = new Fr(1n)
 
 // Must match zkpassport_registry_contract::types::INITIAL_DELAY.
