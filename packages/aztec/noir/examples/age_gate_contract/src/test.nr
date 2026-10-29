@@ -6,7 +6,7 @@ use aztec::{
     protocol::{address::AztecAddress, traits::FromField},
     test::helpers::test_environment::TestEnvironment,
 };
-use zkpassport_core::fixtures::proof::{
+use zkpassport::fixtures::proof::{
     AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT,
     AGE_FIXTURE_CURRENT_DATE, AGE_FIXTURE_VK_HASH,
 };

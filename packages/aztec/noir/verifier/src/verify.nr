@@ -4,10 +4,10 @@ use aztec::{
     protocol::{address::AztecAddress, hash::sha256_to_field},
 };
 use poseidon::poseidon2::Poseidon2;
-use zkpassport_core::constants::{
+use zkpassport::constants::{
     CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
 };
-use zkpassport_core::verify::verify_outer_proof_core;
+use zkpassport::verify::verify_outer_proof_core;
 use zkpassport_registry_contract::ZKPassportRegistry;
 
 pub struct ServiceConfig {
@@ -151,13 +151,13 @@ pub fn check_sanctions(
     current_date: u64,
 ) -> Field {
     ZKPassportRegistry::at(registry).assert_sanctions_root_valid(root, current_date).view(context);
-    zkpassport_core::commitments::sanctions_commitment(root, is_strict)
+    zkpassport::commitments::sanctions_commitment(root, is_strict)
 }
 
 /// One-proof-per-passport-per-service: pushes a domain-separated nullifier derived from the
 /// scoped nullifier. Siloed per app contract by the kernel → per-app uniqueness.
 pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier: Field) {
-    // zkpassport_core::verify's "zero scoped nullifier" assert exempts NULLIFIER_TYPE_NONE (no uniqueness
+    // zkpassport::verify's "zero scoped nullifier" assert exempts NULLIFIER_TYPE_NONE (no uniqueness
     // requested), so a zero nullifier CAN reach here. This is where it actually matters: pushing
     // it would burn one single global nullifier slot and permanently block every future caller
     // of this function, in every app, for the rest of time.
