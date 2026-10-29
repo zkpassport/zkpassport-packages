@@ -4,7 +4,7 @@ on:
   # Unlike the other test workflows, scope to our paths: the Aztec toolchain
   # install is too heavy to run on every unrelated push or PR.
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "packages/aztec/**"
       - ".github/workflows/aztec.yml"
