@@ -157,10 +157,11 @@ pub fn check_sanctions(
 /// One-proof-per-passport-per-service: pushes a domain-separated nullifier derived from the
 /// scoped nullifier. Siloed per app contract by the kernel → per-app uniqueness.
 pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier: Field) {
-    // zkpassport::verify's "zero scoped nullifier" assert exempts NULLIFIER_TYPE_NONE (no uniqueness
-    // requested), so a zero nullifier CAN reach here. This is where it actually matters: pushing
-    // it would burn one single global nullifier slot and permanently block every future caller
-    // of this function, in every app, for the rest of time.
+    // zkpassport::verify's "zero scoped nullifier" assert exempts a hidden nullifier
+    // (NULLIFIER_TYPE_NONE, or a mock type in dev mode), so a zero nullifier CAN reach here.
+    // This is where it actually matters: pushing it would burn one single global nullifier slot
+    // and permanently block every future caller of this function, in every app, for the rest of
+    // time.
     assert(scoped_nullifier != 0, "no nullifier in this proof");
     context.push_nullifier_unsafe(Poseidon2::hash(
         [UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier],
