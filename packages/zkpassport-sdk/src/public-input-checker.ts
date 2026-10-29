@@ -17,12 +17,10 @@ import {
   getCredentialSchemeFromIntegrityProof,
   getCredentialSchemeFromDisclosureProof,
   getCredentialSchemeFromOuterProof,
-  getTierForCredentialScheme,
   hasCredentialScheme,
   isCredentialAllowed,
   DEFAULT_ALLOWED_CREDENTIALS,
   CredentialScheme,
-  CredentialTier,
   type AllowedCredential,
   getCommitmentInFromDisclosureProof,
   getMerkleRootFromDSCProof,
@@ -3977,13 +3975,11 @@ export class PublicInputChecker {
         },
       }
     }
-    const credentialTier: CredentialTier = getTierForCredentialScheme(scheme)
     return {
       isCorrect,
       uniqueIdentifier,
       uniqueIdentifierType,
       queryResultErrors,
-      credentialTier,
       credentialScheme: scheme,
     }
   }

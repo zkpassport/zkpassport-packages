@@ -215,7 +215,6 @@ export class ZKPassport {
         uniqueIdentifier: string | undefined
         uniqueIdentifierType: NullifierType | undefined
         verified: boolean
-        credentialTier?: CredentialTier
         credentialScheme?: CredentialScheme
         result: QueryResult
         queryResultErrors?: Partial<QueryResultErrors>
@@ -330,7 +329,6 @@ export class ZKPassport {
       uniqueIdentifierType,
       verified,
       queryResultErrors,
-      credentialTier,
       credentialScheme,
     } = verification
     logger.debug("Verification complete, verified:", verified)
@@ -342,7 +340,6 @@ export class ZKPassport {
           uniqueIdentifier: hasFailedProofs ? undefined : uniqueIdentifier,
           uniqueIdentifierType: hasFailedProofs ? undefined : uniqueIdentifierType,
           verified: hasFailedProofs ? false : verified,
-          credentialTier,
           credentialScheme,
           result,
           queryResultErrors,
@@ -646,7 +643,6 @@ export class ZKPassport {
               uniqueIdentifier: string | undefined
               uniqueIdentifierType: NullifierType | undefined
               verified: boolean
-              credentialTier?: CredentialTier
               credentialScheme?: CredentialScheme
               result: QueryResult
               queryResultErrors?: Partial<QueryResultErrors>
@@ -1047,7 +1043,6 @@ export class ZKPassport {
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
-    let credentialTier: CredentialTier | undefined
     let credentialScheme: CredentialScheme | undefined
     try {
       const registryClient = createRegistryClient(
@@ -1059,7 +1054,6 @@ export class ZKPassport {
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
         uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
         queryResultErrors: queryResultErrorsFromPublicInputs,
-        credentialTier: credentialTierFromPublicInputs,
         credentialScheme: credentialSchemeFromPublicInputs,
       } = await PublicInputChecker.checkPublicInputs(
         this.domain,
@@ -1073,7 +1067,6 @@ export class ZKPassport {
         registryClient,
         allowedCredentials,
       )
-      credentialTier = credentialTierFromPublicInputs
       credentialScheme = credentialSchemeFromPublicInputs
       uniqueIdentifier = uniqueIdentifierFromPublicInputs
       uniqueIdentifierType = uniqueIdentifierTypeFromPublicInputs
@@ -1140,7 +1133,6 @@ export class ZKPassport {
       uniqueIdentifierType,
       verified,
       queryResultErrors,
-      credentialTier,
       credentialScheme,
     }
   }
