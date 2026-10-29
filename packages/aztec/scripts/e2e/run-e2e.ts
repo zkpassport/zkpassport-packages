@@ -114,7 +114,6 @@ async function main() {
       wallet,
       admin,
       operator,
-      admin,
       MODE_VALID_WITHIN_WINDOW,
       VALIDITY_WINDOW,
     ).send({ from: admin, wait: WAIT }),
