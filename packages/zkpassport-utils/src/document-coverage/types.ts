@@ -23,6 +23,8 @@ export interface CoverageReadMethod {
 }
 
 export interface CoverageDocumentTypeRule {
+  /** What to call the document in a picker, e.g. "National ID" or "Aadhaar" */
+  name: string
   shape: CoverageShapeKey
   read: Partial<Record<ReadMethod, CoverageReadMethod>>
 }

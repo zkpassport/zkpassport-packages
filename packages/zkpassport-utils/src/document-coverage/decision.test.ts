@@ -156,7 +156,7 @@ describe("decideVerificationPaths", () => {
       allowedCredentials: ANY,
       supportedSchemes: IOS,
     })
-    expect(decision.outcome).toBe("ask_issue_year")
+    expect(decision.outcome).toBe("ask_chip")
     expect(decision.chip).toBe("mixed")
     expect(methods(decision)).toEqual(["nfc:100", "camera:200"])
   })
@@ -318,7 +318,7 @@ describe("listDocumentTypes and listCountries", () => {
 
   test("lists the countries by name", () => {
     const countries = listCountries(BUNDLED_COVERAGE)
-    expect(countries.length).toBeGreaterThan(200)
+    expect(countries.length).toBeGreaterThan(180)
     expect(countries.find((c) => c.code === "IND")).toEqual({ code: "IND", name: "India" })
     expect([...countries].sort((a, b) => a.name.localeCompare(b.name))).toEqual(countries)
   })
@@ -397,5 +397,57 @@ describe("decideVerificationPaths for cards", () => {
       `nfc:${CredentialScheme.ICAO_CHIP}`,
       `camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`,
     ])
+  })
+})
+
+describe("the chip question", () => {
+  const mixed = table({
+    TST: country([
+      passport({ name: "Passport (2000)", from: 2000 }),
+      passport({ name: "ePassport (2020)", from: 2020, chip: true }),
+    ]),
+  })
+  const query = { country: "TST", documentType: "passport" as const, allowedCredentials: ANY }
+
+  test("a country with both kinds asks, and the answer decides", () => {
+    expect(decideVerificationPaths(mixed, { ...query, supportedSchemes: IOS }).outcome).toBe(
+      "ask_chip",
+    )
+    const withChip = decideVerificationPaths(mixed, {
+      ...query,
+      supportedSchemes: IOS,
+      hasChip: true,
+    })
+    expect(withChip.outcome).toBe("proceed")
+    expect(withChip.chip).toBe("all")
+    expect(methods(withChip)).toEqual([
+      `nfc:${CredentialScheme.ICAO_CHIP}`,
+      `camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`,
+    ])
+    const without = decideVerificationPaths(mixed, {
+      ...query,
+      supportedSchemes: IOS,
+      hasChip: false,
+    })
+    expect(without.chip).toBe("none")
+    expect(methods(without)).toEqual([`camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`])
+    const signedOnly = decideVerificationPaths(mixed, {
+      ...query,
+      supportedSchemes: IOS,
+      hasChip: false,
+      allowedCredentials: SIGNED_ONLY,
+    })
+    expect(signedOnly.outcome).toBe("rejected_by_policy")
+  })
+
+  test("the picker lists UN states only, unless asked for everything", () => {
+    const codes = listCountries(BUNDLED_COVERAGE).map((c) => c.code)
+    expect(codes).toContain("IND")
+    expect(codes).not.toContain("XCT")
+    expect(codes).not.toContain("UNO")
+    expect(listCountries(BUNDLED_COVERAGE, { unStatesOnly: false }).map((c) => c.code)).toContain(
+      "XCT",
+    )
+    expect(listDocumentTypes(BUNDLED_COVERAGE, "IND")[0]).toMatchObject({ name: "Passport" })
   })
 })
