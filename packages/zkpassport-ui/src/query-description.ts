@@ -226,7 +226,7 @@ function describeBinding(bound: BoundData): QueryDescriptionItem {
     // Opaque to us, so it is shown exactly as the site supplied it
     const value = typeof custom === "string" ? custom : JSON.stringify(custom)
     if (rows.length === 0) return { note, title: value }
-    rows.push({ label: "Extra data", value })
+    rows.push({ label: "Data", value })
   }
 
   if (rows.length === 0) return { note, title: "This site" }
