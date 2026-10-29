@@ -5,7 +5,8 @@
  */
 
 export type CoverageShapeKey = "booklet" | "card"
-export type CoverageDocumentType = "passport" | "my_number_card" | "aadhaar"
+export type CoverageDocumentType =
+  "passport" | "id_card" | "residence_permit" | "my_number_card" | "aadhaar"
 export type ReadMethod = "nfc" | "camera" | "qr"
 
 export interface CoverageShape {

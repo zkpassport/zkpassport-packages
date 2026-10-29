@@ -112,15 +112,17 @@ export function decideVerificationPaths(
       candidates.push({
         method,
         scheme: scheme as CredentialScheme,
-        verifiable: method === "nfc" && query.documentType === "passport" ? chipVerifiable : true,
+        // An ICAO chip is only as good as the certificate chain we hold for its country
+        verifiable: scheme === CredentialScheme.ICAO_CHIP ? chipVerifiable : true,
       })
     }
   }
 
   const doable = candidates.filter((p) => query.supportedSchemes.includes(p.scheme))
   const allowed = query.allowedCredentials ?? DEFAULT_ALLOWED_CREDENTIALS
-  const permitted = doable.filter((p) => isCredentialAllowed(p.scheme, allowed))
-  const refusedByPolicy = doable.filter((p) => !isCredentialAllowed(p.scheme, allowed))
+  const subject = { issuingCountry: query.country, documentType: query.documentType }
+  const permitted = doable.filter((p) => isCredentialAllowed(p.scheme, allowed, subject))
+  const refusedByPolicy = doable.filter((p) => !isCredentialAllowed(p.scheme, allowed, subject))
   const paths = order(permitted)
 
   const base = { refusedByPolicy, chip, chipVerifiable, documents } as const

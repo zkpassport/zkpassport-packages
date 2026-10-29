@@ -108,7 +108,7 @@ function TriageForm({
           </button>
         ))}
       </div>
-      {triage.documentType === "passport" ? (
+      {triage.documentType ? (
         <label className="triage-field">
           <span>Issuing country</span>
           <select
@@ -151,12 +151,25 @@ function TriageForm({
           </select>
         </label>
       ) : null}
-      <VerdictLine appName={appName} verdict={verdict} />
+      <VerdictLine
+        appName={appName}
+        verdict={verdict}
+        noun={triage.documentType === "passport" ? "passport" : "card"}
+      />
     </div>
   )
 }
 
-function VerdictLine({ appName, verdict }: { appName: string; verdict: Verdict }) {
+function VerdictLine({
+  appName,
+  verdict,
+  noun,
+}: {
+  appName: string
+  verdict: Verdict
+  noun: "passport" | "card"
+}) {
+  const page = noun === "passport" ? "the photo page" : "the printed sides"
   const chip = (
     <span
       className="intro-chip-mark"
@@ -169,39 +182,34 @@ function VerdictLine({ appName, verdict }: { appName: string; verdict: Verdict }
       return (
         <p className="triage-verdict" data-tone="ok" role="status">
           {chip}
-          This passport has a chip. The app reads it over NFC; hold your phone on the back cover.
-        </p>
-      )
-    case "card":
-      return (
-        <p className="triage-verdict" data-tone="ok" role="status">
-          {chip}
-          The app reads the chip in your card over NFC. Look for this symbol on it.
+          This {noun} has a chip. The app reads it over NFC; hold your phone{" "}
+          {noun === "passport" ? "on the back cover" : "on the card"}.
         </p>
       )
     case "camera":
       return (
         <p className="triage-verdict" data-tone="ok" role="status">
-          This passport has no chip the app can verify, so it reads the photo page with the camera
-          and checks your face against it.
+          This {noun} has no chip the app can verify, so it reads {page} with the camera and checks
+          your face against it.
         </p>
       )
     case "ask_year":
       return (
         <p className="triage-verdict" role="status">
-          Passports from this country changed over the years. The issue date is on the photo page.
+          {noun === "passport" ? "Passports" : "Cards"} from this country changed over the years.
+          The issue date is printed on {noun === "passport" ? "the photo page" : "the card"}.
         </p>
       )
     case "blocked":
       return (
         <p className="triage-verdict" data-tone="alert" role="alert">
           {verdict.reason === "chipless"
-            ? `${appName} only accepts IDs read from their chip, and this passport doesn't have one. Choose another ID if you have one.`
+            ? `${appName} only accepts IDs read from their chip, and this ${noun} doesn't have one. Choose another ID if you have one.`
             : verdict.reason === "chipUnverifiable"
-              ? `${appName} only accepts IDs read from their chip, and the chip of this passport can't be verified yet. Choose another ID if you have one.`
+              ? `${appName} only accepts IDs read from their chip, and the chip of this ${noun} can't be verified yet. Choose another ID if you have one.`
               : verdict.reason === "unsupported"
-                ? "This passport can't be used with ZKPassport yet. Choose another ID if you have one."
-                : `${appName} doesn't accept the way this ID would be verified. Choose another ID if you have one.`}
+                ? `This ${noun} can't be used with ZKPassport yet. Choose another ID if you have one.`
+                : `${appName} doesn't accept the way this ${noun} would be verified, or where it was issued. Choose another ID if you have one.`}
         </p>
       )
     case "unknown":
