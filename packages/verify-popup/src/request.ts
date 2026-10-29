@@ -185,7 +185,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
 }
 
 // ECC "Q" leaves room for the mark overlaid at the centre
-function renderQrSvg(url: string): string {
+export function renderQrSvg(url: string): string {
   const qr = QRCode.create(url, { errorCorrectionLevel: "Q" })
   const size = qr.modules.size
   const data = qr.modules.data

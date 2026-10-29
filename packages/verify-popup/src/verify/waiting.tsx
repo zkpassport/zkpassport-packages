@@ -8,8 +8,7 @@ import { Heading, Main } from "../shared/controls"
  * says there will be.
  */
 export type ScanProgress =
-  | { stage: "scanned" }
-  | { stage: "proving"; done: number; total: number | null }
+  { stage: "scanned" } | { stage: "proving"; done: number; total: number | null }
 
 export function withProof(
   progress: ScanProgress | null,

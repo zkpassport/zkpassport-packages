@@ -50,7 +50,10 @@ export type VerificationOverrides = {
   cloudProverUrl?: string
   /** @internal Points the flow at another popup origin; for testing. */
   popupUrl?: string
-  /** Opt into the no-install App Clip lane: the popup emits a `/c` request URL instead of `/r`. */
+  /**
+   * Allow the no-install App Clip lane: the popup sends a passport it will read by chip to a `/c`
+   * request URL; anything read by camera stays on `/r`, the full app.
+   */
   appClip?: boolean
 }
 
