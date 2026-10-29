@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # bb-level fixture harness: prove & recursively verify a ZKPassport `outer_count_4` proof through
-# the zkpassport_core library, under the Aztec v6.0.0 toolchain
+# the zkpassport library, under the Aztec v6.0.0 toolchain
 # (nargo 1.0.0-rc.3 + bb 6.0.0).
 #
 # Usage: test-recursive-verification.sh <fixture.json> [--tamper-proof|--tamper-public-input]
