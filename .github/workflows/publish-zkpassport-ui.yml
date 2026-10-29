@@ -91,3 +91,34 @@ jobs:
             npm publish "$PKG" --ignore-scripts --provenance --access public
           fi
         working-directory: packages/zkpassport-ui
+
+      - name: Configure AWS credentials
+        if: steps.version_check.outputs.publish == 'true' && vars.AWS_CDN_BUCKET != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CDN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_CDN_REGION }}
+
+      - name: Upload script-tag bundle to the CDN
+        if: steps.version_check.outputs.publish == 'true' && vars.AWS_CDN_BUCKET != ''
+        env:
+          VERSION: ${{ steps.version_check.outputs.version }}
+          BUCKET: ${{ vars.AWS_CDN_BUCKET }}
+          DISTRIBUTION_ID: ${{ vars.AWS_CDN_DISTRIBUTION_ID }}
+        run: |
+          upload() {
+            sed "s|sourceMappingURL=ui.js.map|sourceMappingURL=$1.js.map|" dist/ui.js > "dist/$1.js"
+            aws s3 cp "dist/$1.js" "s3://$BUCKET/ui/$1.js" \
+              --content-type application/javascript --cache-control "$2"
+            aws s3 cp dist/ui.js.map "s3://$BUCKET/ui/$1.js.map" \
+              --content-type application/json --cache-control "$2"
+          }
+          upload "$VERSION" "public, max-age=31536000, immutable"
+          if [[ ! "$VERSION" =~ - ]]; then
+            MAJOR="${VERSION%%.*}"
+            [[ "$MAJOR" == 0 ]] && MAJOR=1
+            MAJOR="v$MAJOR"
+            upload "$MAJOR" "public, max-age=600"
+            aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/ui/$MAJOR.js" "/ui/$MAJOR.js.map"
+          fi
+        working-directory: packages/zkpassport-ui

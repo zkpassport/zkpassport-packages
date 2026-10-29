@@ -9,6 +9,7 @@ import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
 import { startTestEnv, type TestEnv } from "../src/test-env"
+import { withFlippedProofByte } from "./tampered-proof"
 
 const CIRCUITS = [
   "sig_check_dsc_tbs_700_rsa_pkcs_2048_sha256",
@@ -63,18 +64,9 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
   test("a tampered proof does not verify", async () => {
     const { proofs, result: queryResult } = app.request.result()!
-    const tamperedProofs = proofs.map((proof) => ({ ...proof }))
-    const target = tamperedProofs.find((proof) => proof.name === "disclose_bytes")!
-    const proofHex = target.proof as string
-    const offsetInProofBody = proofHex.length - 200
-    const flippedByte = (
-      (parseInt(proofHex.slice(offsetInProofBody, offsetInProofBody + 2), 16) ^ 0xff) &
-      0xff
+    const tamperedProofs = proofs.map((proof) =>
+      proof.name === "disclose_bytes" ? withFlippedProofByte(proof) : proof,
     )
-      .toString(16)
-      .padStart(2, "0")
-    target.proof =
-      proofHex.slice(0, offsetInProofBody) + flippedByte + proofHex.slice(offsetInProofBody + 2)
 
     const verification = await testEnv.verify({
       proofs: tamperedProofs,
