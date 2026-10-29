@@ -28,13 +28,30 @@ test("every constant in fixtures.nr is checked here", () => {
     "AGE_18_COMMITMENT",
     "BIND_ACCOUNT",
     "BIND_COMMITMENT",
+    "BIRTHDATE_COMMITMENT",
     "DISCLOSE_COMMITMENT",
+    "EXPIRY_DATE_COMMITMENT",
     "FIXTURE_PUBLIC_INPUTS",
+    "ISSUING_COUNTRY_EXCLUSION_COMMITMENT",
+    "ISSUING_COUNTRY_INCLUSION_COMMITMENT",
+    "NATIONALITY_EXCLUSION_COMMITMENT",
+    "NATIONALITY_INCLUSION_COMMITMENT",
   ])
 })
 
 test("AGE_18_COMMITMENT matches the published age vector", () => {
   expect(hex("AGE_18_COMMITMENT")).toBe(vector("age").commitment)
+})
+
+test.each([
+  ["BIRTHDATE_COMMITMENT", "birthdate"],
+  ["EXPIRY_DATE_COMMITMENT", "expiry_date"],
+  ["NATIONALITY_INCLUSION_COMMITMENT", "nationality_inclusion"],
+  ["NATIONALITY_EXCLUSION_COMMITMENT", "nationality_exclusion"],
+  ["ISSUING_COUNTRY_INCLUSION_COMMITMENT", "issuing_country_inclusion"],
+  ["ISSUING_COUNTRY_EXCLUSION_COMMITMENT", "issuing_country_exclusion"],
+])("%s matches the published %s vector", (anchor, proofType) => {
+  expect(hex(anchor)).toBe(vector(proofType).commitment)
 })
 
 test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
