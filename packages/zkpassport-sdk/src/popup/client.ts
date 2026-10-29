@@ -65,18 +65,22 @@ function withSession(popupUrl: string, session: string): string {
   return url.toString()
 }
 
-function openPopupWindow(popupUrl: string): Window | null {
+function windowName(session: string): string {
+  return `zkpassport-verify-${session}`
+}
+
+function openPopupWindow(popupUrl: string, name: string): Window | null {
   // Centered on the current window
   const left = Math.max(0, (window.screenX ?? 0) + (window.outerWidth - POPUP_WIDTH) / 2)
   const top = Math.max(0, (window.screenY ?? 0) + (window.outerHeight - POPUP_HEIGHT) / 2)
   return (
     window.open(
       popupUrl,
-      "zkpassport-verify",
+      name,
       `popup,width=${POPUP_WIDTH},height=${POPUP_HEIGHT},left=${Math.round(left)},top=${Math.round(top)}`,
     ) ??
     // Popup blocked: retry as a regular new tab
-    window.open(popupUrl, "zkpassport-verify")
+    window.open(popupUrl, name)
   )
 }
 
@@ -96,9 +100,10 @@ export function openVerificationPopup(
   const popupOrigin = new URL(baseUrl).origin
 
   const windowMode = options.credential ? "tab" : options.windowMode
-  const popup =
-    windowMode === "tab" ? window.open(popupUrl, "zkpassport-verify") : openPopupWindow(popupUrl)
+  const name = windowName(session)
+  const popup = windowMode === "tab" ? window.open(popupUrl, name) : openPopupWindow(popupUrl, name)
   if (!popup) return null
+  popup.focus()
 
   const callbacks = options.callbacks ?? {}
   let finished = false

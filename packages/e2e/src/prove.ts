@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto"
-import { Barretenberg, UltraHonkBackend } from "@aztec/bb.js"
 import { Noir, type CompiledCircuit, type InputMap } from "@noir-lang/noir_js"
 import type { RegistryClient } from "@zkpassport/registry"
 import {
@@ -14,6 +13,9 @@ import {
   getECDSAInfo,
   getIDDataCircuitInputs,
   getIntegrityCheckCircuitInputs,
+  getOuterCircuitInputs,
+  getOuterCircuitName,
+  getOuterCircuitProof,
   getRSAInfo,
   getSanctionsExclusionCheckCircuitInputs,
   getServiceScopeHash,
@@ -24,8 +26,10 @@ import {
   poseidon2,
   SanctionsBuilder,
   TargetExistsError,
+  type OuterCircuitProof,
   type PackagedCertificate,
   type PackagedCertificatesFile,
+  type PackagedCircuit,
   type PassportViewModel,
   type ProofResult,
   type Query,
@@ -36,12 +40,24 @@ const SALT = BigInt("0x" + "11".repeat(31))
 
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 
+type Prover = {
+  prove: (
+    bytecode: string,
+    witness: Uint8Array,
+  ) => Promise<{ proof: Uint8Array; publicInputs: string[] }>
+  destroy: () => Promise<void>
+}
+
 export type ProvingOverrides = {
   /** Packaged certificates to prove against instead of those for the registry's latest root */
   certificates?: PackagedCertificatesFile
 }
 
-export async function proveFastMode({
+/**
+ * Prove the DSC, ID data and integrity subproofs, then the disclosure proofs of `query`, which every
+ * proof mode starts from
+ */
+export async function proveSubproofs({
   passport,
   query,
   domain,
@@ -57,7 +73,7 @@ export async function proveFastMode({
   circuitVersion: string
   registry: RegistryClient
   overrides?: ProvingOverrides
-}): Promise<{ proofs: ProofResult[]; queryResult: QueryResult }> {
+}): Promise<{ subproofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
     (field) => !["age", "nationality", "sanctions"].includes(field),
   )
@@ -147,29 +163,15 @@ export async function proveFastMode({
     })
   }
 
-  const barretenberg = await Barretenberg.new()
-  const proofs: ProofResult[] = []
+  let prover: Prover | undefined
+  const subproofs: ProofResult[] = []
   try {
     for (const [index, step] of steps.entries()) {
       const circuit = await registry.getPackagedCircuit(step.name, manifest)
-      // Packaged circuits carry no debug symbols
-      const noir = new Noir({
-        bytecode: circuit.bytecode,
-        abi: circuit.abi as CompiledCircuit["abi"],
-        debug_symbols: "",
-        file_map: {},
-      })
-      const { witness } = await noir.execute(step.inputs as InputMap)
-      const { proof, publicInputs } = await new UltraHonkBackend(
-        circuit.bytecode,
-        barretenberg,
-      ).generateProof(witness)
+      prover ??= await startProver(circuit.bb_version)
 
-      proofs.push({
-        // Same layout as the app's generateProof(): [public inputs][proof body], hex, no 0x
-        proof:
-          publicInputs.map((input) => input.replace(/^0x/, "").padStart(64, "0")).join("") +
-          Buffer.from(proof).toString("hex"),
+      subproofs.push({
+        proof: await proveCircuit(prover, circuit, step.inputs),
         vkeyHash: circuit.vkey_hash,
         version: manifest.version as ProofResult["version"],
         name: circuit.name,
@@ -181,14 +183,135 @@ export async function proveFastMode({
       } as ProofResult)
     }
   } finally {
-    await barretenberg.destroy()
+    await prover?.destroy()
   }
 
-  return { proofs, queryResult: getQueryResult(passport, query) }
+  return { subproofs, queryResult: getQueryResult(passport, query) }
+}
+
+/**
+ * Compress the subproofs into one outer proof, as the app does in compressed mode with its cloud
+ * prover
+ */
+export async function proveOuterProof({
+  subproofs,
+  circuitVersion,
+  registry,
+}: {
+  /** The DSC, ID data and integrity proofs, then the disclosure proofs */
+  subproofs: ProofResult[]
+  circuitVersion: string
+  registry: RegistryClient
+}): Promise<ProofResult> {
+  const manifest = await registry.getCircuitManifest(undefined, { version: circuitVersion })
+  const outerCircuitProofs: OuterCircuitProof[] = []
+  for (const subproof of subproofs) {
+    const circuit = await registry.getPackagedCircuit(subproof.name as string, manifest)
+    outerCircuitProofs.push(await getOuterCircuitProof(subproof, circuit, manifest))
+  }
+  const [dsc, idData, integrity, ...disclosures] = outerCircuitProofs
+  const inputs = getOuterCircuitInputs(dsc, idData, integrity, disclosures, manifest.root)
+
+  const circuit = await registry.getPackagedCircuit(
+    getOuterCircuitName(disclosures.length),
+    manifest,
+  )
+  const prover = await startProver(circuit.bb_version)
+  try {
+    return {
+      proof: await proveCircuit(prover, circuit, inputs),
+      vkeyHash: circuit.vkey_hash,
+      version: manifest.version as ProofResult["version"],
+      name: circuit.name,
+      index: 0,
+      total: 1,
+      committedInputs: subproofs.reduce<ProofResult["committedInputs"]>(
+        (committedInputs, subproof) => ({ ...committedInputs, ...subproof.committedInputs }),
+        {},
+      ),
+    }
+  } finally {
+    await prover.destroy()
+  }
 }
 
 /** The passport is on a sanctions list, so no exclusion proof exists for it */
 export class SanctionsCheckFailedError extends Error {}
+
+/**
+ * Prove `circuit` on `inputs`, in the layout of the app's generateProof(): the public inputs, then
+ * the proof, in hex without 0x
+ */
+async function proveCircuit(
+  prover: Prover,
+  circuit: PackagedCircuit,
+  inputs: object,
+): Promise<string> {
+  // Packaged circuits carry no debug symbols
+  const noir = new Noir({
+    bytecode: circuit.bytecode,
+    abi: circuit.abi as CompiledCircuit["abi"],
+    debug_symbols: "",
+    file_map: {},
+  })
+  const { witness } = await noir.execute(inputs as InputMap)
+  const { proof, publicInputs } = await prover.prove(circuit.bytecode, witness)
+
+  return (
+    publicInputs.map((input) => input.replace(/^0x/, "").padStart(64, "0")).join("") +
+    Buffer.from(proof).toString("hex")
+  )
+}
+
+/** Start a prover on the bb.js release for `bbVersion` */
+async function startProver(bbVersion: string): Promise<Prover> {
+  if (bbVersion === "5.0.0") {
+    const { Barretenberg, UltraHonkBackend } = await import("@aztec/bb.js")
+    const barretenberg = await startBarretenberg(() => Barretenberg.new())
+    return {
+      prove: (bytecode, witness) =>
+        new UltraHonkBackend(bytecode, barretenberg).generateProof(witness),
+      destroy: () => barretenberg.destroy(),
+    }
+  }
+
+  if (bbVersion === "6.0.0") {
+    const { Barretenberg, UltraHonkBackend } = await import("@aztec-foundation/bb.js")
+    const barretenberg = await startBarretenberg(() => Barretenberg.new())
+    return {
+      prove: (bytecode, witness) =>
+        new UltraHonkBackend(bytecode, barretenberg).generateProof(witness),
+      destroy: () => barretenberg.destroy(),
+    }
+  }
+
+  throw new Error(`No bb.js for circuits packaged with bb ${bbVersion}`)
+}
+
+/**
+ * A Barretenberg whose native prover accepted its connection. bb.js gives the prover 5 seconds to
+ * start, which a slow CI runner's first start can miss, and reports the miss only at the first call,
+ * so connect here and start again on that timeout.
+ */
+async function startBarretenberg<
+  T extends {
+    blake2s: (input: { data: Uint8Array }) => Promise<unknown>
+    destroy: () => Promise<void>
+  },
+>(create: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    const barretenberg = await create()
+    try {
+      await barretenberg.blake2s({ data: new Uint8Array() })
+      return barretenberg
+    } catch (error) {
+      await barretenberg.destroy().catch(() => {})
+      if (attempt >= attempts || !/Timeout (waiting for bb|connecting to bb)/.test(String(error))) {
+        throw error
+      }
+    }
+  }
+}
 
 /** The sanctions tree published for the latest sanctions root of the registry's chain */
 async function getSanctionsBuilder(registry: RegistryClient): Promise<SanctionsBuilder> {

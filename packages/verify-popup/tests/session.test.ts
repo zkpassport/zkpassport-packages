@@ -80,14 +80,14 @@ describe("openSession", () => {
   test("takes the verification from the page's own URL", () => {
     setupWindow("?s=abc-123")
 
-    expect(openSession()).toEqual({ id: "abc-123", resumed: false })
+    expect(openSession()).toEqual({ id: "abc-123", resumed: false, fromUrl: true })
   })
 
   test("reports a resumed session when the id already has a record", () => {
     setupWindow("?s=abc-123")
     store("abc-123", { createdAt: Date.now(), configuration: CONFIGURATION })
 
-    expect(openSession()).toEqual({ id: "abc-123", resumed: true })
+    expect(openSession()).toEqual({ id: "abc-123", resumed: true, fromUrl: true })
   })
 
   test("names itself and puts the name in the URL when the opener sent none", () => {
@@ -96,6 +96,7 @@ describe("openSession", () => {
     const session = openSession()
 
     expect(session.resumed).toBe(false)
+    expect(session.fromUrl).toBe(false)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(new URL((globalThis as any).window.location.href).searchParams.get("s")).toBe(session.id)
   })
@@ -107,7 +108,7 @@ describe("openSession", () => {
     store("abandoned", { createdAt: expired, configuration: CONFIGURATION })
     store("live", { createdAt: Date.now(), configuration: CONFIGURATION })
 
-    expect(openSession()).toEqual({ id: "abc-123", resumed: false })
+    expect(openSession()).toEqual({ id: "abc-123", resumed: false, fromUrl: true })
     expect(stored.has(PREFIX + "abc-123")).toBe(false)
     expect(stored.has(PREFIX + "abandoned")).toBe(false)
     expect(stored.has(PREFIX + "live")).toBe(true)
@@ -128,7 +129,7 @@ describe("openSession", () => {
 })
 
 describe("readSession and updateSession", () => {
-  const session: Session = { id: "abc-123", resumed: false }
+  const session: Session = { id: "abc-123", resumed: false, fromUrl: true }
 
   test("gives the keypair back as the bytes the SDK takes", () => {
     setupWindow("?s=abc-123")
@@ -161,7 +162,7 @@ describe("readSession and updateSession", () => {
 describe("finishSession", () => {
   test("keeps the result to hand over and drops the bridge key", () => {
     setupWindow("?s=abc-123")
-    const session: Session = { id: "abc-123", resumed: false }
+    const session: Session = { id: "abc-123", resumed: false, fromUrl: true }
     updateSession(session, {
       configuration: CONFIGURATION,
       keyPair: { privateKey: Uint8Array.from([1]), publicKey: Uint8Array.from([2]) },
@@ -179,7 +180,7 @@ describe("finishSession", () => {
 describe("clearSession", () => {
   test("leaves nothing behind once the result has been handed over", () => {
     const stored = setupWindow("?s=abc-123")
-    const session: Session = { id: "abc-123", resumed: false }
+    const session: Session = { id: "abc-123", resumed: false, fromUrl: true }
     updateSession(session, { configuration: CONFIGURATION })
     finishSession(session, { type: "success", proofs: [], result: {} } as never)
 
@@ -194,8 +195,8 @@ describe("storage the browser refuses", () => {
     setupWindow("?s=abc-123")
     brokenStorage()
 
-    expect(openSession()).toEqual({ id: "abc-123", resumed: false })
-    expect(() => updateSession({ id: "abc-123", resumed: false }, {})).not.toThrow()
-    expect(readSession({ id: "abc-123", resumed: false })).toBeNull()
+    expect(openSession()).toEqual({ id: "abc-123", resumed: false, fromUrl: true })
+    expect(() => updateSession({ id: "abc-123", resumed: false, fromUrl: true }, {})).not.toThrow()
+    expect(readSession({ id: "abc-123", resumed: false, fromUrl: true })).toBeNull()
   })
 })
