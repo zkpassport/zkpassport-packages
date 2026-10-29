@@ -157,7 +157,7 @@
     },
     "packages/zkpassport-sdk": {
       "name": "@zkpassport/sdk",
-      "version": "0.19.2",
+      "version": "0.19.3",
       "dependencies": {
         "@aztec-foundation/bb.js": "6.0.0",
         "@aztec/bb.js": "5.0.0",
@@ -182,7 +182,7 @@
     },
     "packages/zkpassport-ui": {
       "name": "@zkpassport/ui",
-      "version": "0.19.2",
+      "version": "0.19.3",
       "devDependencies": {
         "@types/qrcode": "^1.5.5",
         "@types/react": "^18.3.0",
