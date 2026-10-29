@@ -102,7 +102,7 @@ function TriageForm({
             aria-checked={triage.documentType === option.type}
             className="triage-type"
             data-selected={triage.documentType === option.type ? "" : undefined}
-            onClick={() => onTriage({ ...triage, documentType: option.type, issueYear: null })}
+            onClick={() => onTriage({ ...triage, documentType: option.type, hasChip: null })}
           >
             {option.label}
           </button>
@@ -114,7 +114,7 @@ function TriageForm({
           <select
             value={triage.country ?? ""}
             onChange={(event) =>
-              onTriage({ ...triage, country: event.target.value || null, issueYear: null })
+              onTriage({ ...triage, country: event.target.value || null, hasChip: null })
             }
           >
             <option value="">Choose a country</option>
@@ -126,30 +126,35 @@ function TriageForm({
           </select>
         </label>
       ) : null}
-      {verdict.kind === "ask_year" ? (
-        <label className="triage-field">
-          <span>Issued</span>
-          <select
-            value={triage.issueYear ?? ""}
-            onChange={(event) =>
-              onTriage({
-                ...triage,
-                issueYear: event.target.value ? Number(event.target.value) : null,
-              })
-            }
-          >
-            <option value="">Choose when</option>
-            {verdict.ranges.map((range, index) => (
-              <option key={range.from} value={range.from}>
-                {index === 0 && range.to !== undefined
-                  ? `Before ${range.to + 1}`
-                  : range.to === undefined
-                    ? `${range.from} or later`
-                    : `${range.from} to ${range.to}`}
-              </option>
+      {verdict.kind === "ask_chip" || triage.hasChip !== null ? (
+        <div className="triage-field">
+          <span>
+            Does it have this symbol?{" "}
+            <span
+              className="intro-chip-mark"
+              aria-hidden="true"
+              dangerouslySetInnerHTML={{ __html: ICON_EPASSPORT_CHIP }}
+            />
+          </span>
+          <div className="triage-types" role="radiogroup" aria-label="Chip symbol">
+            {[
+              { value: true, label: "Yes" },
+              { value: false, label: "No" },
+            ].map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                role="radio"
+                aria-checked={triage.hasChip === option.value}
+                className="triage-type"
+                data-selected={triage.hasChip === option.value ? "" : undefined}
+                onClick={() => onTriage({ ...triage, hasChip: option.value })}
+              >
+                {option.label}
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
       ) : null}
       <VerdictLine
         appName={appName}
@@ -193,11 +198,11 @@ function VerdictLine({
           your face against it.
         </p>
       )
-    case "ask_year":
+    case "ask_chip":
       return (
         <p className="triage-verdict" role="status">
-          {noun === "passport" ? "Passports" : "Cards"} from this country changed over the years.
-          The issue date is printed on {noun === "passport" ? "the photo page" : "the card"}.
+          {noun === "passport" ? "Passports" : "Cards"} from this country come with and without a
+          chip. Look for the symbol on {noun === "passport" ? "the cover" : "the card"}.
         </p>
       )
     case "blocked":

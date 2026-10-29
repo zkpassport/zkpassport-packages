@@ -1,13 +1,11 @@
 import {
   CredentialScheme,
   decideVerificationPaths,
-  issueYearRanges,
   listCountries,
   type AllowedCredential,
   type Coverage,
   type CoverageCountryOption,
   type CoverageDecision,
-  type IssueYearRange,
 } from "@zkpassport/utils"
 
 export type TriageDocumentType = "passport" | "id_card" | "residence_permit"
@@ -16,10 +14,11 @@ export type TriageDocumentType = "passport" | "id_card" | "residence_permit"
 export type Triage = {
   country: string | null
   documentType: TriageDocumentType | null
-  issueYear: number | null
+  /** Whether the document carries the chip symbol, when the country has both kinds */
+  hasChip: boolean | null
 }
 
-export const EMPTY_TRIAGE: Triage = { country: null, documentType: null, issueYear: null }
+export const EMPTY_TRIAGE: Triage = { country: null, documentType: null, hasChip: null }
 
 /** Where the ID will be read; the popup learns it from the browser or assumes a phone that can do everything */
 export type PhoneOs = "ios" | "android" | "unknown"
@@ -29,8 +28,8 @@ export type Verdict =
   | { kind: "chip"; decision: CoverageDecision }
   /** The document's printed page is read with the camera */
   | { kind: "camera"; decision: CoverageDecision }
-  /** The country has series with and without a chip */
-  | { kind: "ask_year"; ranges: IssueYearRange[] }
+  /** The country has series with and without a chip: ask whether this one has the symbol */
+  | { kind: "ask_chip" }
   /** The document can't serve this request */
   | {
       kind: "blocked"
@@ -62,17 +61,15 @@ export function triageVerdict(
   const decision = decideVerificationPaths(coverage, {
     country: triage.country,
     documentType: triage.documentType,
-    issueYear: triage.issueYear ?? undefined,
+    hasChip: triage.hasChip ?? undefined,
     allowedCredentials,
     supportedSchemes: schemesFor(os),
   })
   switch (decision.outcome) {
     case "unknown":
       return { kind: "unknown" }
-    case "ask_issue_year": {
-      const ranges = issueYearRanges(coverage, triage.country, triage.documentType)
-      return ranges.length > 1 ? { kind: "ask_year", ranges } : { kind: "unknown" }
-    }
+    case "ask_chip":
+      return { kind: "ask_chip" }
     case "proceed":
       return decision.paths[0].method === "nfc"
         ? { kind: "chip", decision }
@@ -95,7 +92,7 @@ export function triageVerdict(
 
 /** Whether the request can go ahead with what the user said */
 export function canContinue(verdict: Verdict): boolean {
-  return verdict.kind !== "blocked" && verdict.kind !== "ask_year"
+  return verdict.kind !== "blocked" && verdict.kind !== "ask_chip"
 }
 
 export type Lane = "r" | "c"
@@ -120,7 +117,7 @@ export function withTriage(requestUrl: string, triage: Triage): string {
   const url = new URL(requestUrl)
   if (triage.country) url.searchParams.set("dc", triage.country)
   if (triage.documentType) url.searchParams.set("dd", triage.documentType)
-  if (triage.issueYear) url.searchParams.set("dy", String(triage.issueYear))
+  if (triage.hasChip !== null) url.searchParams.set("dh", triage.hasChip ? "1" : "0")
   return url.toString()
 }
 

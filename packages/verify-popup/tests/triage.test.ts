@@ -21,7 +21,7 @@ describe("triageVerdict", () => {
     expect(
       triageVerdict(
         BUNDLED_COVERAGE,
-        { country: null, documentType: "passport", issueYear: null },
+        { country: null, documentType: "passport", hasChip: null },
         ANY,
         "ios",
       ).kind,
@@ -29,7 +29,7 @@ describe("triageVerdict", () => {
     expect(
       triageVerdict(
         BUNDLED_COVERAGE,
-        { country: "IND", documentType: "id_card", issueYear: null },
+        { country: "IND", documentType: "id_card", hasChip: null },
         ANY,
         "ios",
       ).kind,
@@ -40,51 +40,51 @@ describe("triageVerdict", () => {
     // A UAE ID card has no chip the app reads and an MRZ on its back
     const uae = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "ARE", documentType: "id_card", issueYear: null },
+      { country: "ARE", documentType: "id_card", hasChip: null },
       ANY,
       "ios",
     )
     expect(uae.kind).toBe("camera")
     const signedOnly = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "ARE", documentType: "id_card", issueYear: null },
+      { country: "ARE", documentType: "id_card", hasChip: null },
       SIGNED,
       "ios",
     )
     expect(signedOnly).toMatchObject({ kind: "blocked", reason: "chipless" })
   })
 
-  test("asks the issue year of an Indian passport, then sends it to the chip or the camera", () => {
+  test("asks whether an Indian passport has a chip, then sends it to the chip or the camera", () => {
     const asked = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "IND", documentType: "passport", issueYear: null },
+      { country: "IND", documentType: "passport", hasChip: null },
       ANY,
       "ios",
     )
-    expect(asked.kind).toBe("ask_year")
+    expect(asked.kind).toBe("ask_chip")
     expect(canContinue(asked)).toBe(false)
 
-    const recent = triageVerdict(
+    const withChip = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "IND", documentType: "passport", issueYear: 2025 },
+      { country: "IND", documentType: "passport", hasChip: true },
       ANY,
       "ios",
     )
-    expect(recent.kind).toBe("chip")
+    expect(withChip.kind).toBe("chip")
 
-    const older = triageVerdict(
+    const without = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "IND", documentType: "passport", issueYear: 2019 },
+      { country: "IND", documentType: "passport", hasChip: false },
       ANY,
       "ios",
     )
-    expect(older.kind).toBe("camera")
+    expect(without.kind).toBe("camera")
   })
 
   test("blocks a chipless passport for a request that wants a chip, with the reason", () => {
     const verdict = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "IND", documentType: "passport", issueYear: 2019 },
+      { country: "IND", documentType: "passport", hasChip: false },
       SIGNED,
       "ios",
     )
@@ -95,7 +95,7 @@ describe("triageVerdict", () => {
   test("an Android phone has no camera read", () => {
     const verdict = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "IND", documentType: "passport", issueYear: 2019 },
+      { country: "IND", documentType: "passport", hasChip: false },
       ANY,
       "android",
     )
@@ -105,7 +105,7 @@ describe("triageVerdict", () => {
   test("a chip passport goes to its chip without a question", () => {
     const verdict = triageVerdict(
       BUNDLED_COVERAGE,
-      { country: "JPN", documentType: "passport", issueYear: null },
+      { country: "JPN", documentType: "passport", hasChip: null },
       SIGNED,
       "unknown",
     )
@@ -116,18 +116,18 @@ describe("triageVerdict", () => {
 describe("request URL", () => {
   const chip = triageVerdict(
     BUNDLED_COVERAGE,
-    { country: "JPN", documentType: "passport", issueYear: null },
+    { country: "JPN", documentType: "passport", hasChip: null },
     SIGNED,
     "ios",
   )
 
   test("carries what the user said", () => {
     const carried = new URL(
-      withTriage(url, { country: "IND", documentType: "passport", issueYear: 2019 }),
+      withTriage(url, { country: "IND", documentType: "passport", hasChip: false }),
     )
     expect(carried.searchParams.get("dc")).toBe("IND")
     expect(carried.searchParams.get("dd")).toBe("passport")
-    expect(carried.searchParams.get("dy")).toBe("2019")
+    expect(carried.searchParams.get("dh")).toBe("0")
     expect(carried.searchParams.get("t")).toBe("topic")
     expect(withTriage(url, EMPTY_TRIAGE)).toBe(url)
   })
@@ -151,7 +151,7 @@ describe("request URL", () => {
 
   test("builds the final URL", () => {
     const final = new URL(
-      requestUrlFor(url, { country: "JPN", documentType: "passport", issueYear: null }, chip, {
+      requestUrlFor(url, { country: "JPN", documentType: "passport", hasChip: null }, chip, {
         appClipAllowed: true,
         os: "ios",
       }),

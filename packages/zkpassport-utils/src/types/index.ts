@@ -444,6 +444,7 @@ export type QRCodeData = {
   issuingCountry?: string | null
   documentType?: string | null
   issueYear?: number | null
+  hasChip?: boolean | null
 }
 
 export interface JsonRpcRequest {
