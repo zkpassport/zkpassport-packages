@@ -1,0 +1,204 @@
+import {
+  AllowedCredential,
+  CredentialScheme,
+  DEFAULT_ALLOWED_CREDENTIALS,
+  isCredentialAllowed,
+} from "../types/credential"
+import type {
+  Coverage,
+  CoverageCountry,
+  CoverageDocument,
+  CoverageDocumentType,
+  CoverageShape,
+  ReadMethod,
+} from "./types"
+
+export interface CoverageQuery {
+  /** ISO 3166-1 alpha-3 code of the issuing country */
+  country: string
+  documentType: CoverageDocumentType
+  /** Narrows the series to those in circulation that year */
+  issueYear?: number
+  /** The relying party's policy; none means the default one */
+  allowedCredentials?: readonly AllowedCredential[] | null
+  /** The schemes this client can prove, e.g. the iOS app proves the chip and the camera read */
+  supportedSchemes: readonly CredentialScheme[]
+}
+
+export interface VerificationPath {
+  method: ReadMethod
+  scheme: CredentialScheme
+  /** Whether a read by this method yields a proof we can verify */
+  verifiable: boolean
+}
+
+export type CoverageOutcome =
+  /** Follow `paths` in order */
+  | "proceed"
+  /** The country has series with and without a chip; the issue year tells them apart */
+  | "ask_issue_year"
+  /** We could read the document, but the relying party's policy accepts none of those reads */
+  | "rejected_by_policy"
+  /** No method this client supports reads the document */
+  | "unsupported"
+  /** The country or the document type is not in the table; scan and see */
+  | "unknown"
+
+export interface CoverageDecision {
+  outcome: CoverageOutcome
+  /** The reads to try, first to last; empty unless the outcome is proceed or ask_issue_year */
+  paths: VerificationPath[]
+  /** Reads this client could do that the policy refuses, for the message shown */
+  refusedByPolicy: VerificationPath[]
+  /** Whether the series considered carry a chip */
+  chip: "all" | "none" | "mixed" | "unknown"
+  chipVerifiable: boolean
+  /** The series considered */
+  documents: CoverageDocument[]
+}
+
+const SCHEMES_PER_TIER = 100
+
+/**
+ * Which reads to attempt for a document, given the policy and what the client can prove. A chip
+ * we can verify comes first with the camera as the fallback; a chip we can't verify, or no chip,
+ * means the camera; a read the policy refuses is reported so the user can be told why.
+ */
+export function decideVerificationPaths(
+  coverage: Coverage,
+  query: CoverageQuery,
+): CoverageDecision {
+  const country = coverage.countries[query.country]
+  const rule = coverage.documentTypes[query.documentType]
+  const none = (outcome: CoverageOutcome): CoverageDecision => ({
+    outcome,
+    paths: [],
+    refusedByPolicy: [],
+    chip: "unknown",
+    chipVerifiable: false,
+    documents: [],
+  })
+  if (!country || !rule) return none("unknown")
+
+  const documents = seriesInCirculation(
+    country.documents.filter((d) => d.type === query.documentType),
+    query.issueYear,
+  )
+  if (documents.length === 0) return none("unsupported")
+
+  const chipCount = documents.filter((d) => d.chip).length
+  const chip = chipCount === 0 ? "none" : chipCount === documents.length ? "all" : "mixed"
+  const chipVerifiable = chipCount > 0 && certificatesCover(country, query.issueYear)
+  const available = documents.filter((d) => d.available !== false)
+
+  const candidates: VerificationPath[] = []
+  if (available.length === 0) {
+    return { outcome: "unsupported", paths: [], refusedByPolicy: [], chip, chipVerifiable, documents }
+  }
+  for (const [method, read] of Object.entries(rule.read) as [ReadMethod, (typeof rule.read)[ReadMethod]][]) {
+    if (!read) continue
+    if (read.requires && !available.some((d) => d[read.requires!])) continue
+    for (const scheme of read.schemes) {
+      candidates.push({
+        method,
+        scheme: scheme as CredentialScheme,
+        verifiable: method === "nfc" && query.documentType === "passport" ? chipVerifiable : true,
+      })
+    }
+  }
+
+  const doable = candidates.filter((p) => query.supportedSchemes.includes(p.scheme))
+  const allowed = query.allowedCredentials ?? DEFAULT_ALLOWED_CREDENTIALS
+  const permitted = doable.filter((p) => isCredentialAllowed(p.scheme, allowed))
+  const refusedByPolicy = doable.filter((p) => !isCredentialAllowed(p.scheme, allowed))
+  const paths = order(permitted)
+
+  const base = { refusedByPolicy, chip, chipVerifiable, documents } as const
+  if (paths.length === 0) {
+    if (doable.length > 0) return { outcome: "rejected_by_policy", paths, ...base }
+    return { outcome: "unsupported", paths, ...base }
+  }
+  const outcome =
+    chip === "mixed" && query.issueYear === undefined ? "ask_issue_year" : "proceed"
+  return { outcome, paths, ...base }
+}
+
+/** Verifiable chip reads first, then the attested reads; an unverifiable chip read is dropped */
+function order(paths: VerificationPath[]): VerificationPath[] {
+  const usable = paths.filter((p) => p.verifiable)
+  const tier = (p: VerificationPath) => Math.floor(p.scheme / SCHEMES_PER_TIER)
+  return [...usable].sort((a, b) => tier(a) - tier(b) || a.scheme - b.scheme)
+}
+
+/**
+ * The series a document issued in a year can belong to. A series runs from its first year to
+ * its last, or to the next series' first year when it has none. Without a year, every series
+ * still maintained counts; undated series count only when no dated one does.
+ */
+export function seriesInCirculation(
+  documents: CoverageDocument[],
+  issueYear?: number,
+): CoverageDocument[] {
+  if (issueYear === undefined) {
+    const current = documents.filter((d) => !d.deprecated)
+    return current.length > 0 ? current : documents
+  }
+  const dated = documents
+    .filter((d): d is CoverageDocument & { from: number } => d.from !== undefined)
+    .sort((a, b) => a.from - b.from)
+  const matches = dated.filter((d, i) => {
+    const next = dated.slice(i + 1).find((later) => later.from > d.from)
+    const last = d.to ?? (next ? next.from : Infinity)
+    return d.from <= issueYear && issueYear <= last
+  })
+  if (matches.length > 0) return matches
+  return documents.filter((d) => d.from === undefined)
+}
+
+/** Whether our verifiable certificates can have signed a document issued in the year */
+function certificatesCover(country: CoverageCountry, issueYear?: number): boolean {
+  const { supported, from } = country.chipCertificates
+  if (!supported) return false
+  return issueYear === undefined || from === null || issueYear >= from
+}
+
+export interface CoverageDocumentOption {
+  type: CoverageDocumentType
+  shape: CoverageShape
+  /** Whether any series of this type is listed as available */
+  available: boolean
+  /** Whether the type has series with and without a chip, so the issue year matters */
+  mixedChip: boolean
+}
+
+/** The document types a country issues, for a picker */
+export function listDocumentTypes(coverage: Coverage, country: string): CoverageDocumentOption[] {
+  const entry = coverage.countries[country]
+  if (!entry) return []
+  return (Object.keys(coverage.documentTypes) as CoverageDocumentType[]).flatMap((type) => {
+    const documents = entry.documents.filter((d) => d.type === type)
+    if (documents.length === 0) return []
+    const current = seriesInCirculation(documents)
+    const chips = current.filter((d) => d.chip).length
+    return [
+      {
+        type,
+        shape: coverage.shapes[coverage.documentTypes[type].shape],
+        available: documents.some((d) => d.available !== false),
+        mixedChip: chips > 0 && chips < current.length,
+      },
+    ]
+  })
+}
+
+export interface CoverageCountryOption {
+  code: string
+  name: string
+}
+
+/** Every country in the table, by name */
+export function listCountries(coverage: Coverage): CoverageCountryOption[] {
+  return Object.entries(coverage.countries)
+    .map(([code, { name }]) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
