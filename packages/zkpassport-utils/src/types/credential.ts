@@ -25,6 +25,13 @@ export enum CredentialScheme {
   ATTESTED_CAPTURE_IOS = 200,
   /** The data page read by camera on Android, attested by Play Integrity with a strict face match */
   ATTESTED_CAPTURE_ANDROID = 201,
+  /**
+   * The chip read on iOS but its signature not verifiable (no certificate for it in the registry),
+   * attested by App Attest with a strict face match. Reserved; no circuit proves it yet.
+   */
+  ATTESTED_CHIP_READ_IOS = 202,
+  /** The same read on Android, attested by Play Integrity. Reserved; no circuit proves it yet. */
+  ATTESTED_CHIP_READ_ANDROID = 203,
 }
 
 const SCHEMES_PER_TIER = 100

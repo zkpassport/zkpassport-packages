@@ -51,6 +51,8 @@ describe("credential scheme", () => {
     expect(expandAllowedCredentials([CredentialTier.DEVICE_ATTESTED])).toEqual([
       CredentialScheme.ATTESTED_CAPTURE_IOS,
       CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+      CredentialScheme.ATTESTED_CHIP_READ_IOS,
+      CredentialScheme.ATTESTED_CHIP_READ_ANDROID,
     ])
     expect(expandAllowedCredentials([2, 201])).toEqual(expandAllowedCredentials([2]))
   })

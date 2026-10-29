@@ -29,6 +29,9 @@ library CredentialScheme {
     uint256 constant ATTESTED_CAPTURE_IOS = 200;
     // The data page read by camera on Android, attested by Play Integrity
     uint256 constant ATTESTED_CAPTURE_ANDROID = 201;
+    // The chip read but its signature not verifiable, attested by the device; reserved, no circuit yet
+    uint256 constant ATTESTED_CHIP_READ_IOS = 202;
+    uint256 constant ATTESTED_CHIP_READ_ANDROID = 203;
 }
 
 library Credentials {
