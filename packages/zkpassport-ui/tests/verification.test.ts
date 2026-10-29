@@ -96,9 +96,51 @@ function stubInAppBrowser() {
   })
 }
 
+const PHONE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1"
+
+function stubPhone() {
+  Object.defineProperty(globalThis, "navigator", {
+    value: { userAgent: PHONE_UA },
+    configurable: true,
+  })
+  const listeners = new Set<() => void>()
+  const document = {
+    visibilityState: "visible" as "visible" | "hidden",
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(globalThis as any).document = document
+  return {
+    hide() {
+      document.visibilityState = "hidden"
+      for (const listener of [...listeners]) listener()
+    },
+    show() {
+      document.visibilityState = "visible"
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
+
+async function leavePending(storage: Map<string, string>): Promise<string> {
+  const { emitFromPopup, popups, openedUrls } = setupFakeWindow(storage)
+  createVerification(
+    () => SIMPLE_OPTIONS,
+    () => {},
+  ).verify()
+  emitFromPopup({ zkpassport: true, type: "request-received" })
+  popups[0].closed = true
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  return sessionOf(openedUrls[0])!
+}
+
 afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete (globalThis as any).window
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  delete (globalThis as any).document
   if (realNavigator) Object.defineProperty(globalThis, "navigator", realNavigator)
 })
 
@@ -897,5 +939,64 @@ describe("a verification that is still running", () => {
     emitFromPopup(success)
 
     expect(deliveries).toBe(1)
+  })
+})
+
+describe("a reopened verification on a phone", () => {
+  test("closes a window the browser kept out of sight and asks for another tap", async () => {
+    const storage = new Map<string, string>()
+    const session = await leavePending(storage)
+    const { popups, openedUrls } = setupFakeWindow(storage)
+    stubPhone()
+    const statuses: VerificationState[] = []
+    const errors: ZKPassportError[] = []
+    const controller = createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onError: (error) => void errors.push(error) }),
+      (next) => void statuses.push(next),
+    )
+    controller.verify()
+    expect(sessionOf(openedUrls[0])).toBe(session)
+
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+
+    expect(popups[0].closed).toBe(true)
+    expect(errors.map((e) => e.kind)).toEqual(["blocked"])
+    expect(controller.state.status).toBe("error")
+    expect(controller.state.error).toMatch(/behind this page/)
+    expect(controller.state.resumable).toBe(true)
+  })
+
+  test("leaves the window alone once the page went behind it", async () => {
+    const storage = new Map<string, string>()
+    await leavePending(storage)
+    const { popups } = setupFakeWindow(storage)
+    const phone = stubPhone()
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    controller.verify()
+    phone.hide()
+    phone.show()
+
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+
+    expect(popups[0].closed).toBe(false)
+    expect(controller.state.status).toBe("in-progress")
+  })
+
+  test("trusts a fresh verification's window, which cannot already exist", async () => {
+    const { popups } = setupFakeWindow()
+    stubPhone()
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    controller.verify()
+
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+
+    expect(popups[0].closed).toBe(false)
+    expect(controller.state.status).toBe("in-progress")
   })
 })
