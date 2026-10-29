@@ -62,7 +62,6 @@ export async function verifyWithVerifierApi({
       uniqueIdentifier: body.uniqueIdentifier,
       uniqueIdentifierType: body.uniqueIdentifierType,
       verified: true,
-      credentialTier: body.credentialTier,
       credentialScheme: body.credentialScheme,
     }
   } catch (e) {
