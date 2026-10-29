@@ -1,35 +1,21 @@
-import { CredentialScheme, PassportViewModel, ProofResult } from "../types"
+import { CredentialScheme, PassportViewModel } from "../types"
 import { parseCredentialScheme } from "../types/credential"
-import { getProofData } from "../proof-parser"
 import { isChiplessPassport } from "./attested-id"
-import { getNumberOfPublicInputs, ProofData } from "./index"
+import { ProofData } from "./index"
 
 export {
   CredentialScheme,
   CredentialTier,
   DEFAULT_ALLOWED_CREDENTIALS,
-  allowedCredentialScheme,
-  applyCredentialPolicyToQuery,
-  credentialRuleFor,
   getTierForCredentialScheme,
-  isAllowedCredentialRule,
   isCredentialAllowed,
   expandAllowedCredentials,
-  parseAllowedCredentialRule,
-  parseCredentialRules,
   parseCredentialScheme,
   parseAllowedCredential,
   parseAllowedCredentials,
   serializeAllowedCredentials,
-  serializeCredentialRules,
-  validateAllowedCredentials,
 } from "../types/credential"
-export type {
-  AllowedCredential,
-  AllowedCredentialRule,
-  CredentialDocumentType,
-  CredentialSubject,
-} from "../types/credential"
+export type { AllowedCredential } from "../types/credential"
 
 /** The first circuit version whose proofs carry the credential scheme */
 export const CREDENTIAL_SCHEME_CIRCUIT_VERSION = "0.22.0"
@@ -94,36 +80,4 @@ export function getCredentialSchemeFromAttestedIdProof(proofData: ProofData): Cr
 
 export function getCredentialSchemeFromOuterProof(proofData: ProofData): CredentialScheme {
   return parseCredentialScheme(proofData.publicInputs[proofData.publicInputs.length - 1])
-}
-
-/**
- * The scheme a set of proofs was made under, read from the first proof that states it: the
- * outer proof, the attested ID or integrity base proof, else a disclosure proof. Proofs from
- * before the field existed came from a chip. The public input checker then holds every proof
- * to the scheme it finds itself, so a wrong answer here only makes the check fail.
- */
-export function getCredentialSchemeFromProofs(proofs: ProofResult[]): CredentialScheme {
-  for (const proof of proofs) {
-    const name = proof.name ?? ""
-    if (!proof.proof || name.startsWith("sig_check")) continue
-    try {
-      const proofData = getProofData(proof.proof, getNumberOfPublicInputs(name, proof.version))
-      if (name.startsWith("outer")) {
-        return hasCredentialScheme(proof.version)
-          ? getCredentialSchemeFromOuterProof(proofData)
-          : CredentialScheme.ICAO_CHIP
-      }
-      if (name.startsWith("attested_id")) return getCredentialSchemeFromAttestedIdProof(proofData)
-      if (name.startsWith("data_check_integrity")) {
-        return getCredentialSchemeFromIntegrityProof(proofData) ?? CredentialScheme.ICAO_CHIP
-      }
-      if (hasCredentialScheme(proof.version)) {
-        const scheme = getCredentialSchemeFromDisclosureProof(proofData)
-        if (scheme) return scheme
-      }
-    } catch {
-      continue
-    }
-  }
-  return CredentialScheme.ICAO_CHIP
 }

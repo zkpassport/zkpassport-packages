@@ -20,7 +20,6 @@ import {
   ProofTypeLength,
   rightPadArrayWithZeros,
   SanctionsCommittedInputs,
-  allowedCredentialScheme,
   parseAllowedCredential,
   type AllowedCredential,
 } from "@zkpassport/utils"
@@ -256,10 +255,7 @@ export class SolidityVerifier {
         domain,
         scope: scope ?? "",
         devMode,
-        // The contract knows tiers and schemes; a rule's limits are checked by the relying party
-        allowedCredentials: allowedCredentials.map((entry) =>
-          parseAllowedCredential(allowedCredentialScheme(entry)),
-        ),
+        allowedCredentials: allowedCredentials.map((entry) => parseAllowedCredential(entry)),
       },
     }
     return params
