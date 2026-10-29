@@ -93,9 +93,19 @@ export function decideVerificationPaths(
 
   const candidates: VerificationPath[] = []
   if (available.length === 0) {
-    return { outcome: "unsupported", paths: [], refusedByPolicy: [], chip, chipVerifiable, documents }
+    return {
+      outcome: "unsupported",
+      paths: [],
+      refusedByPolicy: [],
+      chip,
+      chipVerifiable,
+      documents,
+    }
   }
-  for (const [method, read] of Object.entries(rule.read) as [ReadMethod, (typeof rule.read)[ReadMethod]][]) {
+  for (const [method, read] of Object.entries(rule.read) as [
+    ReadMethod,
+    (typeof rule.read)[ReadMethod],
+  ][]) {
     if (!read) continue
     if (read.requires && !available.some((d) => d[read.requires!])) continue
     for (const scheme of read.schemes) {
@@ -118,8 +128,7 @@ export function decideVerificationPaths(
     if (doable.length > 0) return { outcome: "rejected_by_policy", paths, ...base }
     return { outcome: "unsupported", paths, ...base }
   }
-  const outcome =
-    chip === "mixed" && query.issueYear === undefined ? "ask_issue_year" : "proceed"
+  const outcome = chip === "mixed" && query.issueYear === undefined ? "ask_issue_year" : "proceed"
   return { outcome, paths, ...base }
 }
 
@@ -201,4 +210,40 @@ export function listCountries(coverage: Coverage): CoverageCountryOption[] {
   return Object.entries(coverage.countries)
     .map(([code, { name }]) => ({ code, name }))
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export interface IssueYearRange {
+  /** The first year of the range; the issue year to decide with */
+  from: number
+  /** The last year, absent for the newest range */
+  to?: number
+  chip: boolean
+}
+
+/**
+ * Ranges of issue years to choose from when a country has series with and without a chip:
+ * consecutive series with the same chip answer make one range.
+ */
+export function issueYearRanges(
+  coverage: Coverage,
+  country: string,
+  documentType: CoverageDocumentType,
+): IssueYearRange[] {
+  const documents = coverage.countries[country]?.documents ?? []
+  const series = seriesInCirculation(documents.filter((d) => d.type === documentType))
+  const byYear = new Map<number, boolean>()
+  for (const document of series) {
+    if (document.from === undefined) continue
+    byYear.set(document.from, (byYear.get(document.from) ?? false) || document.chip)
+  }
+  const years = [...byYear.keys()].sort((a, b) => a - b)
+  const ranges: IssueYearRange[] = []
+  for (const year of years) {
+    const chip = byYear.get(year)!
+    const last = ranges[ranges.length - 1]
+    if (last && last.chip === chip) continue
+    if (last) last.to = year - 1
+    ranges.push({ from: year, chip })
+  }
+  return ranges
 }
