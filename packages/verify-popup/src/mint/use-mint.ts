@@ -43,7 +43,8 @@ export function walletHasTransaction(phase: MintPhase): boolean {
 }
 
 export type DoneStep =
-  { kind: "done"; outcome: "minted"; hash: Hex } | { kind: "done"; outcome: "already-verified" }
+  | { kind: "done"; outcome: "minted"; hash: Hex }
+  | { kind: "done"; outcome: "already-verified" }
 
 export type FlowStepKind = FlowStep["kind"]
 
