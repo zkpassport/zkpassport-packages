@@ -779,7 +779,6 @@ export class ZKPassport {
       keyPair: keyPairOverride,
       bridgeId: topicOverride,
       bridgeUrl,
-      // A topic belongs to one request, so everything ever sent on it is what this page missed
       replayFrom: replayMissedMessages ? 1 : undefined,
     })
 
