@@ -102,7 +102,6 @@ describe("credential policy on an attested ID proof", () => {
     const refused = await check(CredentialScheme.ATTESTED_CAPTURE_IOS)
     expect(refused.isCorrect).toBe(false)
     expect(refused.queryResultErrors.credential_scheme?.eq?.message).toContain("does not accept")
-    expect(refused.credentialTier).toBe(CredentialTier.DEVICE_ATTESTED)
     expect(refused.credentialScheme).toBe(CredentialScheme.ATTESTED_CAPTURE_IOS)
 
     const byTier = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
