@@ -8,7 +8,6 @@ pub struct Actors {
     pub registry: AztecAddress,
     pub admin: AztecAddress,
     pub operator: AztecAddress,
-    pub guardian: AztecAddress,
 }
 
 // Version id used across the tests. The contract treats it as an opaque nonzero Field; the
@@ -19,18 +18,16 @@ global CIRCUIT_MANIFEST_VERSION: Field = 1;
 pub unconstrained fn deploy_registry(env: &mut TestEnvironment) -> Actors {
     let admin = env.create_light_account();
     let operator = env.create_light_account();
-    let guardian = env.create_light_account();
     let registry = env.deploy("ZKPassportRegistry").with_public_initializer(
         admin,
         ZKPassportRegistry::interface().constructor(
             admin,
             operator,
-            guardian,
             MODE_VALID_WITHIN_WINDOW,
             86400,
         ),
     );
-    Actors { registry, admin, operator, guardian }
+    Actors { registry, admin, operator }
 }
 
 // ---- Admin & pause ----
@@ -46,46 +43,41 @@ unconstrained fn non_admin_cannot_transfer_admin() {
 }
 
 #[test]
-unconstrained fn guardian_can_pause_admin_can_unpause() {
+unconstrained fn operator_can_pause_admin_can_unpause() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
-    let _ = env.call_public(actors.guardian, ZKPassportRegistry::at(actors.registry).pause());
+    let _ = env.call_public(actors.operator, ZKPassportRegistry::at(actors.registry).pause());
     let _ = env.call_public(actors.admin, ZKPassportRegistry::at(actors.registry).unpause());
 }
 
-#[test(should_fail_with = "caller is not admin")]
-unconstrained fn guardian_cannot_unpause() {
-    let mut env = TestEnvironment::new();
-    let actors = deploy_registry(&mut env);
-    let _ = env.call_public(actors.guardian, ZKPassportRegistry::at(actors.registry).pause());
-    let _ = env.call_public(actors.guardian, ZKPassportRegistry::at(actors.registry).unpause());
-}
-
 #[test(should_fail_with = "caller is not admin or operator")]
-unconstrained fn guardian_cannot_add_vk() {
+unconstrained fn user_cannot_add_vk() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
+    let user = env.create_light_account();
     let _ = env.call_public(
-        actors.guardian,
+        user,
         ZKPassportRegistry::at(actors.registry).add_accepted_vk(CIRCUIT_MANIFEST_VERSION, 123),
     );
 }
 
 #[test(should_fail_with = "caller is not admin or operator")]
-unconstrained fn guardian_cannot_set_version_status() {
+unconstrained fn user_cannot_set_version_status() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
+    let user = env.create_light_account();
     let _ = env.call_public(
-        actors.guardian,
+        user,
         ZKPassportRegistry::at(actors.registry).set_version_status(CIRCUIT_MANIFEST_VERSION, true),
     );
 }
 
-#[test]
-unconstrained fn operator_can_pause() {
+#[test(should_fail_with = "caller is not admin or operator")]
+unconstrained fn user_cannot_pause() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
-    let _ = env.call_public(actors.operator, ZKPassportRegistry::at(actors.registry).pause());
+    let user = env.create_light_account();
+    let _ = env.call_public(user, ZKPassportRegistry::at(actors.registry).pause());
 }
 
 #[test(should_fail_with = "caller is not admin")]
@@ -100,9 +92,10 @@ unconstrained fn operator_cannot_unpause() {
 unconstrained fn operator_cannot_set_operator() {
     let mut env = TestEnvironment::new();
     let actors = deploy_registry(&mut env);
+    let new_operator = env.create_light_account();
     let _ = env.call_public(
         actors.operator,
-        ZKPassportRegistry::at(actors.registry).set_operator(actors.guardian),
+        ZKPassportRegistry::at(actors.registry).set_operator(new_operator),
     );
 }
 
@@ -501,28 +494,16 @@ unconstrained fn vk_under_wrong_version_rejected() {
     );
 }
 
-#[test(should_fail_with = "guardian cannot be zero address")]
-unconstrained fn set_guardian_rejects_zero_address() {
-    let mut env = TestEnvironment::new();
-    let actors = deploy_registry(&mut env);
-    let _ = env.call_public(
-        actors.admin,
-        ZKPassportRegistry::at(actors.registry).set_guardian(AztecAddress::zero()),
-    );
-}
-
 #[test(should_fail_with = "admin cannot be zero address")]
 unconstrained fn constructor_rejects_zero_admin() {
     let mut env = TestEnvironment::new();
     let deployer = env.create_light_account();
     let operator = env.create_light_account();
-    let guardian = env.create_light_account();
     let _ = env.deploy("ZKPassportRegistry").with_public_initializer(
         deployer,
         ZKPassportRegistry::interface().constructor(
             AztecAddress::zero(),
             operator,
-            guardian,
             MODE_VALID_WITHIN_WINDOW,
             86400,
         ),
