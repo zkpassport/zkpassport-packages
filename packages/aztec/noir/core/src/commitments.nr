@@ -116,8 +116,16 @@ fn country_weighted_sum(country: Alpha3CountryCode) -> u32 {
 }
 
 mod test {
-    use crate::commitments::{age_commitment, disclose_commitment};
-    use crate::fixtures::{AGE_18_COMMITMENT, DISCLOSE_COMMITMENT};
+    use crate::commitments::{
+        age_commitment, birthdate_commitment, disclose_commitment, expiry_date_commitment,
+        issuing_country_exclusion_commitment, issuing_country_inclusion_commitment,
+        nationality_exclusion_commitment, nationality_inclusion_commitment,
+    };
+    use crate::fixtures::{
+        AGE_18_COMMITMENT, BIRTHDATE_COMMITMENT, DISCLOSE_COMMITMENT, EXPIRY_DATE_COMMITMENT,
+        ISSUING_COUNTRY_EXCLUSION_COMMITMENT, ISSUING_COUNTRY_INCLUSION_COMMITMENT,
+        NATIONALITY_EXCLUSION_COMMITMENT, NATIONALITY_INCLUSION_COMMITMENT,
+    };
 
     #[test]
     fn age_matches_conformance_anchor() {
@@ -135,5 +143,73 @@ mod test {
         bytes[55] = 85;
         bytes[56] = 83;
         assert(disclose_commitment(mask, bytes) == DISCLOSE_COMMITMENT);
+    }
+
+    #[test]
+    fn birthdate_matches_conformance_anchor() {
+        assert(birthdate_commitment(-631152000, 978220800) == BIRTHDATE_COMMITMENT);
+    }
+
+    #[test(should_fail_with = "birthdate bound before 1900")]
+    fn birthdate_before_1900_rejected() {
+        let _ = birthdate_commitment(-2209075200, 0); // 1899-12-31
+    }
+
+    #[test]
+    fn expiry_date_matches_conformance_anchor() {
+        assert(expiry_date_commitment(1798761600, 0) == EXPIRY_DATE_COMMITMENT);
+    }
+
+    #[test]
+    fn nationality_inclusion_matches_conformance_anchor() {
+        assert(
+            nationality_inclusion_commitment(["FRA", "DEU", "ITA"])
+                == NATIONALITY_INCLUSION_COMMITMENT,
+        );
+    }
+
+    #[test]
+    fn inclusion_order_changes_the_commitment() {
+        assert(
+            nationality_inclusion_commitment(["DEU", "FRA", "ITA"])
+                != NATIONALITY_INCLUSION_COMMITMENT,
+        );
+    }
+
+    #[test]
+    fn nationality_exclusion_matches_conformance_anchor() {
+        assert(
+            nationality_exclusion_commitment(["PRK", "IRN", "SYR"])
+                == NATIONALITY_EXCLUSION_COMMITMENT,
+        );
+    }
+
+    #[test]
+    fn exclusion_order_does_not_change_the_commitment() {
+        assert(
+            nationality_exclusion_commitment(["IRN", "PRK", "SYR"])
+                == NATIONALITY_EXCLUSION_COMMITMENT,
+        );
+    }
+
+    #[test(should_fail_with = "repeated country in exclusion list")]
+    fn repeated_excluded_country_rejected() {
+        let _ = nationality_exclusion_commitment(["PRK", "IRN", "PRK"]);
+    }
+
+    #[test]
+    fn issuing_country_inclusion_matches_conformance_anchor() {
+        assert(
+            issuing_country_inclusion_commitment(["NLD", "BEL", "LUX"])
+                == ISSUING_COUNTRY_INCLUSION_COMMITMENT,
+        );
+    }
+
+    #[test]
+    fn issuing_country_exclusion_matches_conformance_anchor() {
+        assert(
+            issuing_country_exclusion_commitment(["RUS", "BLR"])
+                == ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
+        );
     }
 }
