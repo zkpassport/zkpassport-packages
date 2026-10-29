@@ -16,7 +16,7 @@ const SIGNED = [CredentialTier.GOVERNMENT_SIGNED]
 const url = "https://zkpassport.id/r?d=demo.zkpassport.id&t=topic&p=key"
 
 describe("triageVerdict", () => {
-  test("says nothing until a document is chosen, and a card reads its chip", () => {
+  test("says nothing until a document and its country are chosen", () => {
     expect(triageVerdict(BUNDLED_COVERAGE, EMPTY_TRIAGE, ANY, "ios").kind).toBe("unknown")
     expect(
       triageVerdict(
@@ -33,7 +33,36 @@ describe("triageVerdict", () => {
         ANY,
         "ios",
       ).kind,
-    ).toBe("card")
+    ).not.toBe("unknown")
+  })
+
+  test("a card goes through the table like a passport", () => {
+    // A UAE ID card has no chip the app reads and an MRZ on its back
+    const uae = triageVerdict(
+      BUNDLED_COVERAGE,
+      { country: "ARE", documentType: "id_card", issueYear: null },
+      ANY,
+      "ios",
+    )
+    expect(uae.kind).toBe("camera")
+    const signedOnly = triageVerdict(
+      BUNDLED_COVERAGE,
+      { country: "ARE", documentType: "id_card", issueYear: null },
+      SIGNED,
+      "ios",
+    )
+    expect(signedOnly).toMatchObject({ kind: "blocked", reason: "chipless" })
+    // A policy rule can keep a tier from a country
+    const notFromUae = triageVerdict(
+      BUNDLED_COVERAGE,
+      { country: "ARE", documentType: "id_card", issueYear: null },
+      [
+        CredentialTier.GOVERNMENT_SIGNED,
+        { scheme: CredentialTier.DEVICE_ATTESTED, excludeCountries: ["ARE"] },
+      ],
+      "ios",
+    )
+    expect(notFromUae).toMatchObject({ kind: "blocked", reason: "chipless" })
   })
 
   test("asks the issue year of an Indian passport, then sends it to the chip or the camera", () => {
