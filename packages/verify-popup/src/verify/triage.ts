@@ -25,20 +25,18 @@ export const EMPTY_TRIAGE: Triage = { country: null, documentType: null, issueYe
 export type PhoneOs = "ios" | "android" | "unknown"
 
 export type Verdict =
-  /** The passport's chip is read over NFC, verifiably */
+  /** The document's chip is read over NFC, verifiably */
   | { kind: "chip"; decision: CoverageDecision }
-  /** The passport is read from its photo page */
+  /** The document's printed page is read with the camera */
   | { kind: "camera"; decision: CoverageDecision }
   /** The country has series with and without a chip */
   | { kind: "ask_year"; ranges: IssueYearRange[] }
-  /** The passport can't serve this request */
+  /** The document can't serve this request */
   | {
       kind: "blocked"
       reason: "chipless" | "chipUnverifiable" | "policy" | "unsupported"
       decision: CoverageDecision
     }
-  /** A card: its chip is read over NFC */
-  | { kind: "card" }
   /** Nothing is known yet, or the table doesn't know the country */
   | { kind: "unknown" }
 
@@ -59,13 +57,11 @@ export function triageVerdict(
   allowedCredentials: readonly AllowedCredential[] | undefined,
   os: PhoneOs,
 ): Verdict {
-  if (!triage.documentType) return { kind: "unknown" }
-  if (triage.documentType !== "passport") return { kind: "card" }
-  if (!triage.country) return { kind: "unknown" }
+  if (!triage.documentType || !triage.country) return { kind: "unknown" }
 
   const decision = decideVerificationPaths(coverage, {
     country: triage.country,
-    documentType: "passport",
+    documentType: triage.documentType,
     issueYear: triage.issueYear ?? undefined,
     allowedCredentials,
     supportedSchemes: schemesFor(os),
@@ -74,7 +70,7 @@ export function triageVerdict(
     case "unknown":
       return { kind: "unknown" }
     case "ask_issue_year": {
-      const ranges = issueYearRanges(coverage, triage.country, "passport")
+      const ranges = issueYearRanges(coverage, triage.country, triage.documentType)
       return ranges.length > 1 ? { kind: "ask_year", ranges } : { kind: "unknown" }
     }
     case "proceed":
@@ -105,8 +101,8 @@ export function canContinue(verdict: Verdict): boolean {
 export type Lane = "r" | "c"
 
 /**
- * The App Clip lane reads a chip and nothing else, so only a passport the table sends to its chip
- * goes there, and only when the relying party allows the lane and the phone is not Android.
+ * The App Clip lane reads a chip and nothing else, so only a document the table sends to its
+ * chip goes there, and only when the relying party allows the lane and the phone is not Android.
  */
 export function laneFor(verdict: Verdict, appClipAllowed: boolean, os: PhoneOs): Lane {
   return appClipAllowed && os !== "android" && verdict.kind === "chip" ? "c" : "r"
