@@ -26,3 +26,8 @@ pub global SANCTIONS_CAPSULE_SLOT: Field = 3;
 
 // Freshness: device clock may run ahead of the (past) anchor-block timestamp
 pub global CURRENT_DATE_MAX_SKEW: u64 = 3600;
+
+// Parameter commitments: the circuits' fixed country-list length, and the offset from their
+// 1900 birthdate epoch to Unix time
+pub global COUNTRY_LIST_LENGTH: u32 = 200;
+pub global SECONDS_BETWEEN_1900_AND_1970: i64 = 2208988800;
