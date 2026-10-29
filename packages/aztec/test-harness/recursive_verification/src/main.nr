@@ -1,4 +1,4 @@
-// Run the LIBRARY core (zkpassport_core) against a REAL ZKPassport `outer_count_4`
+// Run the `zkpassport` library against a REAL ZKPassport `outer_count_4`
 // proof under the Aztec v6.0.0 toolchain (nargo 1.0.0-rc.3, bb 6.0.0).
 // The recursion constraint is a no-op during witness generation, so the
 // pass/fail signal is `bb prove` + `bb verify` on this circuit.
@@ -7,8 +7,8 @@
 // - `disclose_commitment` recomputed in-circuit from (mask, disclosed bytes) matches the
 //   param commitment the real disclose_bytes proof published;
 // - the in-circuit poseidon2(vk) matches bb's own vk_hash for the same vk.
-use zkpassport_core::commitments::disclose_commitment;
-use zkpassport_core::verify::verify_outer_proof_core;
+use zkpassport::commitments::disclose_commitment;
+use zkpassport::verify::verify_outer_proof_core;
 
 global K: u32 = 4;
 

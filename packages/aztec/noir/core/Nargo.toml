@@ -1,5 +1,5 @@
 [package]
-name = "zkpassport_core"
+name = "zkpassport"
 type = "lib"
 
 [dependencies]
