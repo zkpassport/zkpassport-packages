@@ -2,6 +2,7 @@ import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
 import buttonStyles from "../button.css"
 import { injectStylesheet } from "../inject-styles"
 import { createOpenInBrowserPanel } from "../open-in-browser-panel"
+import { resolveTarget, type RenderTarget } from "../render-target"
 import { createVerification, type VerificationState } from "../verification"
 import {
   BUTTON_CAPTION,
@@ -30,14 +31,16 @@ export type VerifyButtonHandle = {
   update(next: VerifyWithZKPassportOptions): void
   unmount(): void
 }
-// Button-only entry: the hosted-popup button without the QR card (no bridge, no qrcode).
-export function mountVerifyButton(
-  element: HTMLElement,
-  options: VerifyWithZKPassportOptions,
-): VerifyButtonHandle {
+
+/**
+ * Renders the "Verify with ZKPassport" button into `target`, an element or a selector. Takes the
+ * same options as the React `VerifyWithZKPassport` component.
+ */
+function render(target: RenderTarget, options: VerifyWithZKPassportOptions): VerifyButtonHandle {
   if (typeof document === "undefined" || typeof window === "undefined") {
-    throw new Error("@zkpassport/ui: mountVerifyButton() requires a browser environment.")
+    throw new Error("@zkpassport/ui: VerifyWithZKPassport.render() requires a browser environment.")
   }
+  const element = resolveTarget(target)
   injectStylesheet(buttonStyles, "button")
 
   let currentOptions = options
@@ -118,25 +121,17 @@ export function mountVerifyButton(
   }
 }
 
-export {
-  createVerification,
-  type VerificationController,
-  type ServiceConfig,
-  type VerificationOverrides,
-  type VerificationOptions,
-  type VerificationState,
-  type VerificationStatus,
+export const VerifyWithZKPassport = { render }
+
+export type { RenderTarget } from "../render-target"
+export type {
+  ServiceConfig,
+  VerificationOverrides,
+  VerificationOptions,
+  VerificationState,
+  VerificationStatus,
 } from "../verification"
 export type { VerifyWithZKPassportOptions } from "../verify-button"
-
-// Headless integration: wire any element to the hosted popup yourself
-export {
-  openVerificationPopup,
-  type PopupRequestConfig,
-  type PopupSuccess,
-  type VerificationPopupHandle,
-} from "@zkpassport/sdk/popup"
-export { createOfflineQuery } from "@zkpassport/sdk/query"
 export {
   CredentialScheme,
   CredentialTier,

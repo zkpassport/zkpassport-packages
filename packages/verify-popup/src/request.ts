@@ -94,7 +94,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
 
     sdk
       .request({
-        name: options.name || domain,
+        name: options.name,
         logo: options.logo,
         purpose: options.purpose,
         scope: options.scope,

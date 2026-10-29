@@ -1,16 +1,8 @@
 /** @jsxImportSource react */
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from "react"
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react"
 
 import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
 import buttonStyles from "../button.css"
-import { injectStylesheet } from "../inject-styles"
 import { createOpenInBrowserPanel } from "../open-in-browser-panel"
 import { createVerification, type VerificationState } from "../verification"
 import {
@@ -22,8 +14,11 @@ import {
   type VerifyWithZKPassportOptions,
 } from "../verify-button"
 
-// Styles go in before the first paint in the browser; useLayoutEffect warns when server-rendered
-const useStylesheet = typeof window === "undefined" ? useEffect : useLayoutEffect
+// The stylesheet is part of the markup, so server-rendered HTML paints styled instead of
+// flashing a bare button (and a 300x150 mark) until hydration. React 19 hoists a <style> with
+// these props into <head> and renders it once per href; React 18 leaves it in place, which
+// works just as well. Raw HTML, because React 18 would entity-escape the selectors' ">".
+const STYLE_TAG = { href: "zkpassport-ui-button", precedence: "zkpassport" }
 
 export type ZKPassportVerification = VerificationState & {
   isLoading: boolean
@@ -71,12 +66,12 @@ function BrandedButton({
   options: VerifyWithZKPassportOptions
   verification: ZKPassportVerification
 }): ReactElement {
-  useStylesheet(() => injectStylesheet(buttonStyles, "button"), [])
   const { status, error, errorKind, openInBrowserUrl, resumable } = verification
   const style = options.style ?? {}
 
   return (
     <div className="zkp-verify-wrap" data-variant={style.variant ?? "filled"}>
+      <style {...STYLE_TAG} dangerouslySetInnerHTML={{ __html: buttonStyles }} />
       <button
         type="button"
         className="zkp-verify-button"
