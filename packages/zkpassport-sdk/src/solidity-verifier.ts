@@ -3,6 +3,7 @@
 import {
   AgeCommittedInputs,
   BindCommittedInputs,
+  circuitVersionToBytes32,
   CountryCommittedInputs,
   DateCommittedInputs,
   DiscloseCommittedInputs,
@@ -237,18 +238,8 @@ export class SolidityVerifier {
         throw new Error(`Invalid commitment: ${commitment}`)
       }
     }
-    const versionParts = proof.version?.split(".").map((x) => Number(x))
-    if (!versionParts || versionParts.length !== 3) {
-      throw new Error("Invalid version format")
-    }
-    const versionBytes = new Uint8Array([
-      ...numberToBytesBE(versionParts[0], 2),
-      ...numberToBytesBE(versionParts[1], 2),
-      ...numberToBytesBE(versionParts[2], 2),
-    ])
-    const versionBytes32 = `0x${bytesToHex(versionBytes).padEnd(64, "0")}`
     const params: SolidityVerifierParameters = {
-      version: versionBytes32,
+      version: circuitVersionToBytes32(proof.version!),
       proofVerificationData: {
         // Make sure the vkeyHash is 32 bytes
         vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
