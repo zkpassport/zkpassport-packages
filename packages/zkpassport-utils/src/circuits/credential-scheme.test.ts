@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import type { PassportViewModel } from "../types"
+import type { AllowedCredential, PassportViewModel } from "../types"
 import {
   CredentialScheme,
   CredentialTier,
+  applyCredentialPolicyToQuery,
   credentialSchemeToHex,
+  parseCredentialRules,
+  serializeCredentialRules,
+  validateAllowedCredentials,
   expandAllowedCredentials,
   getCredentialSchemeForPassport,
   isCredentialAllowed,
@@ -126,5 +130,95 @@ describe("credential scheme", () => {
         proof: [],
       }),
     ).toBe(CredentialScheme.ICAO_CHIP)
+  })
+})
+
+describe("credential policy rules", () => {
+  const rule = { scheme: CredentialTier.DEVICE_ATTESTED, excludeCountries: ["IND", "ARE"] }
+
+  test("a rule stands for its tier or scheme, within its limits", () => {
+    const policy = [CredentialTier.GOVERNMENT_SIGNED, rule]
+    expect(isCredentialAllowed(CredentialScheme.ATTESTED_CAPTURE_IOS, policy)).toBe(true)
+    expect(
+      isCredentialAllowed(CredentialScheme.ATTESTED_CAPTURE_IOS, policy, { issuingCountry: "FRA" }),
+    ).toBe(true)
+    expect(
+      isCredentialAllowed(CredentialScheme.ATTESTED_CAPTURE_IOS, policy, { issuingCountry: "ARE" }),
+    ).toBe(false)
+    expect(isCredentialAllowed(CredentialScheme.ICAO_CHIP, policy, { issuingCountry: "ARE" })).toBe(
+      true,
+    )
+    const byType: AllowedCredential[] = [
+      { scheme: CredentialScheme.ATTESTED_CAPTURE_IOS, documentTypes: ["passport"] },
+    ]
+    expect(
+      isCredentialAllowed(CredentialScheme.ATTESTED_CAPTURE_IOS, byType, {
+        documentType: "id_card",
+      }),
+    ).toBe(false)
+    expect(expandAllowedCredentials([rule])).toEqual([
+      CredentialScheme.ATTESTED_CAPTURE_IOS,
+      CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+      CredentialScheme.ATTESTED_CHIP_READ_IOS,
+      CredentialScheme.ATTESTED_CHIP_READ_ANDROID,
+    ])
+  })
+
+  test("rules travel beside the numbers and come back in their place", () => {
+    const policy = [CredentialTier.GOVERNMENT_SIGNED, rule]
+    expect(serializeAllowedCredentials(policy)).toBe("1,2")
+    const rules = serializeCredentialRules(policy)!
+    expect(parseCredentialRules(rules)).toEqual([{ scheme: 2, excludeCountries: ["ARE", "IND"] }])
+    expect(parseAllowedCredentials("1,2", rules)).toEqual([
+      1,
+      { scheme: 2, excludeCountries: ["ARE", "IND"] },
+    ])
+    expect(serializeCredentialRules([1, 200])).toBeUndefined()
+    expect(() => parseCredentialRules('[{"scheme":2,"excludeCountries":["India"]}]')).toThrow(
+      "alpha-3",
+    )
+    expect(() => parseCredentialRules('[{"scheme":2}]')).toThrow("at least one limit")
+    expect(() => parseCredentialRules('[{"scheme":2,"documentTypes":["visa"]}]')).toThrow(
+      "documentTypes",
+    )
+  })
+
+  test("a rule may not overlap another entry", () => {
+    expect(() => validateAllowedCredentials([1, rule])).not.toThrow()
+    expect(() => validateAllowedCredentials([2, rule])).toThrow("overlaps")
+    expect(() => validateAllowedCredentials([CredentialScheme.ATTESTED_CAPTURE_IOS, rule])).toThrow(
+      "overlaps",
+    )
+    expect(() =>
+      validateAllowedCredentials([
+        rule,
+        { scheme: CredentialScheme.ATTESTED_CAPTURE_IOS, documentTypes: ["passport"] },
+      ]),
+    ).toThrow("overlaps")
+  })
+
+  test("the rule for the ID's scheme is added to the query it proves", () => {
+    const query = { age: { gte: 18 }, issuing_country: { out: ["RUS"] } }
+    const withRule = applyCredentialPolicyToQuery(query, CredentialScheme.ATTESTED_CAPTURE_IOS, [
+      1,
+      rule,
+    ])
+    expect(withRule).toEqual({
+      age: { gte: 18 },
+      issuing_country: { out: ["ARE", "IND", "RUS"] },
+    })
+    expect(applyCredentialPolicyToQuery(query, CredentialScheme.ICAO_CHIP, [1, rule])).toBe(query)
+    expect(
+      applyCredentialPolicyToQuery(
+        { issuing_country: { in: ["FRA", "IND"] } },
+        CredentialScheme.ATTESTED_CAPTURE_IOS,
+        [{ scheme: 2, includeCountries: ["IND", "DEU"] }],
+      ),
+    ).toEqual({ issuing_country: { in: ["IND"] } })
+    expect(
+      applyCredentialPolicyToQuery({}, CredentialScheme.ATTESTED_CAPTURE_IOS, [
+        { scheme: 2, documentTypes: ["passport"] },
+      ]),
+    ).toEqual({ document_type: { disclose: true } })
   })
 })

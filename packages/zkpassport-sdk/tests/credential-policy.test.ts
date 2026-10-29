@@ -142,3 +142,32 @@ describe("credential policy on an attested ID proof", () => {
     expect(checked.queryResultErrors.credential_scheme?.eq?.message).toContain("does not match")
   })
 })
+
+describe("credential policy rules", () => {
+  test("a rule's limits must be covered by the proofs", async () => {
+    const byType = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
+      { scheme: CredentialTier.DEVICE_ATTESTED, documentTypes: ["passport"] },
+    ])
+    expect(byType.isCorrect).toBe(true)
+
+    const otherType = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
+      { scheme: CredentialTier.DEVICE_ATTESTED, documentTypes: ["id_card"] },
+    ])
+    expect(otherType.isCorrect).toBe(false)
+    expect(otherType.queryResultErrors.credential_scheme?.eq?.message).toContain("limits")
+
+    // The exclusion was added to the query, but no proof of it came back
+    const byCountry = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
+      { scheme: CredentialTier.DEVICE_ATTESTED, excludeCountries: ["ARE"] },
+    ])
+    expect(byCountry.isCorrect).toBe(false)
+    expect(byCountry.queryResultErrors.credential_scheme?.eq?.message).toContain("limits")
+
+    // A rule on another scheme does not apply
+    const elsewhere = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
+      CredentialTier.DEVICE_ATTESTED,
+      { scheme: CredentialScheme.ICAO_CHIP, excludeCountries: ["ARE"] },
+    ])
+    expect(elsewhere.isCorrect).toBe(true)
+  })
+})
