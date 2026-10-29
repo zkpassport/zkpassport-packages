@@ -15,9 +15,9 @@ import {
 } from "../verify-button"
 
 // The stylesheet is part of the markup, so server-rendered HTML paints styled instead of
-// flashing a bare button (and a 300x150 mark) until hydration. React 19 hoists a <style> with
-// these props into <head> and renders it once per href; React 18 leaves it in place, which
-// works just as well. Raw HTML, because React 18 would entity-escape the selectors' ">".
+// flashing a bare button, its marks stretched to the page width, until hydration. React 19
+// hoists a <style> with these props into <head> and renders it once per href; React 18 leaves
+// it in place, which works just as well. Raw HTML: React 18 would entity-escape the selectors' ">".
 const STYLE_TAG = { href: "zkpassport-ui-button", precedence: "zkpassport" }
 
 export type ZKPassportVerification = VerificationState & {
