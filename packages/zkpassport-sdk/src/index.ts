@@ -23,10 +23,6 @@ import {
   CredentialScheme,
   CredentialTier,
   serializeAllowedCredentials,
-  serializeCredentialRules,
-  validateAllowedCredentials,
-  applyCredentialPolicyToQuery,
-  getCredentialSchemeFromProofs,
   type AllowedCredential,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
@@ -160,10 +156,7 @@ export {
   getTierForCredentialScheme,
   isCredentialAllowed,
   expandAllowedCredentials,
-  validateAllowedCredentials,
-  applyCredentialPolicyToQuery,
   type AllowedCredential,
-  type AllowedCredentialRule,
 } from "@zkpassport/utils"
 
 export * from "./types"
@@ -780,8 +773,7 @@ export class ZKPassport {
    * @param replayMissedMessages Redelivers what was already sent on this topic, for a request resumed on a new page.
    * @param config Settings for verifying the received proofs, see {@link VerificationConfig}.
    * @param allowedCredentials The credentials your service accepts: tiers and/or exact schemes,
-   * see {@link AllowedCredential}, each optionally limited to countries or document types, see
-   * {@link AllowedCredentialRule}. Defaults to signed credentials only (tier 1); an ID verified
+   * see {@link AllowedCredential}. Defaults to signed credentials only (tier 1); an ID verified
    * another way is refused by the app before proving and by `verify()` after.
    * @returns The query builder object.
    */
@@ -832,8 +824,8 @@ export class ZKPassport {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
     }
-    // Rejects unknown entries and overlapping rules now rather than in the app
-    if (allowedCredentials) validateAllowedCredentials(allowedCredentials)
+    // Rejects unknown entries now rather than in the app
+    if (allowedCredentials) serializeAllowedCredentials(allowedCredentials)
 
     if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
       throw new Error(
@@ -1056,13 +1048,6 @@ export class ZKPassport {
     allowedCredentials?: AllowedCredential[]
   }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
-    // The policy's rule for the ID's scheme added to the query the app proved; the proofs are
-    // checked against that same query
-    const effectiveQuery = applyCredentialPolicyToQuery(
-      originalQuery,
-      getCredentialSchemeFromProofs(proofs),
-      allowedCredentials,
-    )
 
     // Automatically set the writing directory to `/tmp` if it is not provided
     // and the code is not running in the browser
@@ -1093,7 +1078,7 @@ export class ZKPassport {
       } = await PublicInputChecker.checkPublicInputs(
         this.domain,
         proofs,
-        effectiveQuery,
+        originalQuery,
         formattedResult,
         validity,
         scope,
@@ -1271,8 +1256,6 @@ export class ZKPassport {
     const allowedCredentials = this.topicToLocalConfig[requestId].allowedCredentials
     if (allowedCredentials) {
       url += `&ac=${serializeAllowedCredentials(allowedCredentials)}`
-      const rules = serializeCredentialRules(allowedCredentials)
-      if (rules) url += `&acl=${encodeURIComponent(rules)}`
     }
     return url
   }

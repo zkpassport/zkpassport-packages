@@ -20,12 +20,10 @@ import {
   getTierForCredentialScheme,
   hasCredentialScheme,
   isCredentialAllowed,
-  credentialRuleFor,
   DEFAULT_ALLOWED_CREDENTIALS,
   CredentialScheme,
   CredentialTier,
   type AllowedCredential,
-  type CredentialDocumentType,
   getCommitmentInFromDisclosureProof,
   getMerkleRootFromDSCProof,
   getCurrentDateFromDisclosureProof,
@@ -2420,9 +2418,6 @@ export class PublicInputChecker {
     // What verified the ID, read from the base proof (or the outer), and checked on every
     // disclosure proof
     let credentialScheme: CredentialScheme | undefined
-    // The checks the proofs cover, by circuit name, so a policy rule can require its own
-    const provenChecks = new Set<string>()
-    const withoutEvmSuffix = (name: string) => name.replace(/_evm$/, "")
     const isDisclosureProof = (proof: ProofResult) =>
       disclosureProofNames.some((name) => proof.name?.startsWith(name))
     const firstDisclosureProof = sortedProofs.find((p) =>
@@ -2443,7 +2438,6 @@ export class PublicInputChecker {
         proof.proof as string,
         getNumberOfPublicInputs(proof.name!, proof.version),
       )
-      provenChecks.add(withoutEvmSuffix(proof.name ?? ""))
       if (isDisclosureProof(proof) && hasCredentialScheme(proof.version)) {
         const schemeOnProof = getCredentialSchemeFromDisclosureProof(proofData)
         if (schemeOnProof !== credentialScheme) {
@@ -2536,7 +2530,6 @@ export class PublicInputChecker {
           : CredentialScheme.ICAO_CHIP
         const committedInputs = proof.committedInputs
         const keysInCommittedInputs = Object.keys(committedInputs || {})
-        for (const key of keysInCommittedInputs) provenChecks.add(withoutEvmSuffix(key))
         if (keysInCommittedInputs.length !== paramCommitments.length) {
           console.warn("The proof does not verify all the requested conditions and information")
           isCorrect = false
@@ -3914,29 +3907,15 @@ export class PublicInputChecker {
 
     // Proofs made before the scheme existed came from a chip
     const scheme = credentialScheme ?? CredentialScheme.ICAO_CHIP
-    // A rule's limits were added to the query, so they hold when their checks were proven: the
-    // country lists by the issuing country checks, the document types by its disclosure
-    const rule = credentialRuleFor(scheme, allowedCredentials)
-    const documentType = queryResult.document_type?.disclose?.result
-    const ruleProven =
-      !rule ||
-      ((!rule.excludeCountries || provenChecks.has("exclusion_check_issuing_country")) &&
-        (!rule.includeCountries || provenChecks.has("inclusion_check_issuing_country")) &&
-        (!rule.documentTypes ||
-          (provenChecks.has("disclose_bytes") &&
-            rule.documentTypes.includes(documentType as CredentialDocumentType))))
-    if (!isCredentialAllowed(scheme, allowedCredentials) || !ruleProven) {
-      const message = ruleProven
-        ? "The service does not accept the credential scheme the ID was verified with"
-        : "The proofs do not cover the limits the service puts on this credential scheme"
-      console.warn(message)
+    if (!isCredentialAllowed(scheme, allowedCredentials)) {
+      console.warn("The service does not accept the credential scheme the ID was verified with")
       isCorrect = false
       queryResultErrors.credential_scheme = {
         ...queryResultErrors.credential_scheme,
         eq: {
-          expected: `Allowed credentials: ${JSON.stringify(allowedCredentials)}`,
+          expected: `Allowed credentials: ${allowedCredentials.join(", ")}`,
           received: `Credential scheme: ${scheme}`,
-          message,
+          message: "The service does not accept the credential scheme the ID was verified with",
         },
       }
     }
