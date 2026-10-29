@@ -5,4 +5,4 @@ authors = [""]
 compiler_version = ">=1.0.0"
 
 [dependencies]
-zkpassport_core = { path = "../../noir/core" }
+zkpassport = { path = "../../noir/core" }
