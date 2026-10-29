@@ -4,12 +4,21 @@ import type { QueryBuilderResult, RequestSuccess } from "@zkpassport/sdk"
 import {
   getChainFromQuery,
   type PassportViewModel,
+  type ProofMode,
   type ProofResult,
   type Query,
   type SupportedChain,
 } from "@zkpassport/utils"
 import type { RegistryOverrides } from "./chain-fork"
-import { proveFastMode, type ProvingOverrides, SanctionsCheckFailedError } from "./prove"
+import {
+  proveOuterProof,
+  proveSubproofs,
+  type ProvingOverrides,
+  SanctionsCheckFailedError,
+} from "./prove"
+
+/** The proof modes the headless app answers requests in */
+export type HeadlessAppMode = Extract<ProofMode, "fast" | "compressed">
 
 export type HeadlessApp = {
   bridge: BridgeInterface
@@ -42,10 +51,11 @@ export async function runHeadlessApp({
 }): Promise<HeadlessApp> {
   const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
-  if (request.mode !== "fast") {
-    throw new Error(`Only fast mode is handled so far, got ${request.mode}`)
+  if (request.mode !== "fast" && request.mode !== "compressed") {
+    throw new Error(`Only fast and compressed modes are handled so far, got ${request.mode}`)
   }
   const chain = getChainFromQuery(request.query, request.devMode)
+  const registryClient = createRegistryClient(chain, registry)
 
   const origin =
     (/localhost|192\.168\.|127\.0/.test(request.domain) ? "http://" : "https://") + request.domain
@@ -60,15 +70,20 @@ export async function runHeadlessApp({
 
   await bridge.sendMessage("accept")
   try {
-    const { proofs, queryResult } = await proveFastMode({
+    const { subproofs, queryResult } = await proveSubproofs({
       passport,
       query: request.query,
       domain: request.domain,
       scope: request.service.scope,
       circuitVersion,
-      registry: createRegistryClient(chain, registry),
+      registry: registryClient,
       overrides,
     })
+    // Fast mode sends the subproofs as they are, compressed mode one outer proof of them
+    const proofs =
+      request.mode === "compressed"
+        ? [await proveOuterProof({ subproofs, circuitVersion, registry: registryClient })]
+        : subproofs
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done
     for (const proof of proofs) {
