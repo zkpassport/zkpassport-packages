@@ -20,7 +20,7 @@
     },
     "test:e2e": {
       "dependsOn": ["^build"],
-      "passThroughEnv": ["SEPOLIA_RPC_URL"],
+      "passThroughEnv": ["SEPOLIA_RPC_URL", "LOCAL_CIRCUITS_DIR"],
       "cache": false
     },
     "check": {

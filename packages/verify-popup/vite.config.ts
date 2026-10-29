@@ -38,7 +38,7 @@ export default defineConfig({
     // breaks Vite's dependency pre-bundling — serve them as native ESM instead
     exclude: [
       "@aztec/bb.js",
-      "@aztec/bb.js-v4",
+      "@aztec-foundation/bb.js",
       "@noir-lang/noir_js",
       "@noir-lang/noirc_abi",
       "@noir-lang/acvm_js",

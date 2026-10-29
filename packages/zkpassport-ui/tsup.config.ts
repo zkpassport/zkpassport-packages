@@ -24,7 +24,7 @@ async function prependUseClient(outDir: string, format: "esm" | "cjs") {
 }
 
 // Heavy backends sit behind dynamic imports the card never reaches; stub them
-const STUBBED_DEPS = /^(@aztec\/bb\.js(-v4)?|@noir-lang\/noir_js|viem(\/.*)?|ws)$/
+const STUBBED_DEPS = /^(@aztec(-foundation)?\/bb\.js|@noir-lang\/noir_js|viem(\/.*)?|ws)$/
 
 const stubUnreachableDeps: EsbuildPlugin = {
   name: "stub-unreachable-deps",
@@ -99,6 +99,22 @@ const hostedConfig: Options = {
   loader: { ".css": "text" },
 }
 
+const cdnConfig: Options = {
+  entry: { ui: "src/cdn.ts" },
+  format: "iife",
+  outDir: "dist",
+  outExtension: () => ({ js: ".js" }),
+  dts: false,
+  clean: false,
+  splitting: false,
+  sourcemap: true,
+  treeshake: !isDev,
+  minify: !isDev,
+  platform: "browser",
+  esbuildPlugins: [stubUnreachableDeps],
+  loader: { ".css": "text" },
+}
+
 const cssConfig: Options = {
   entry: { styles: "src/styles.css" },
   outDir: "dist",
@@ -117,5 +133,5 @@ const cssConfig: Options = {
 export default defineConfig(
   isWatch
     ? [{ ...hostedConfig, dts: false, minify: false, treeshake: false }]
-    : [...npmConfigs, hostedConfig, cssConfig],
+    : [...npmConfigs, hostedConfig, cdnConfig, cssConfig],
 )
