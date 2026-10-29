@@ -1,7 +1,18 @@
+use crate::constants::{COUNTRY_LIST_LENGTH, SECONDS_BETWEEN_1900_AND_1970};
 use compare_age_lib::calculate_param_commitment as age_param_commitment;
+use compare_date_lib::calculate_param_commitment as date_param_commitment;
 use disclose_lib::calculate_param_commitment as disclose_param_commitment;
+use exclusion_check_country_lib::{
+    calculate_param_commitment as country_exclusion_param_commitment, check_country_list_sorted,
+};
 use exclusion_check_sanctions_lib::param_commit::calculate_param_commitment as sanctions_param_commitment;
-use utils::types::{DiscloseMask, MRZData};
+use inclusion_check_country_lib::calculate_param_commitment as country_inclusion_param_commitment;
+use utils::constants::{
+    EMPTY_ALPHA3_COUNTRY_CODE, PROOF_TYPE_BIRTHDATE, PROOF_TYPE_EXPIRY_DATE,
+    PROOF_TYPE_ISSUING_COUNTRY_EXCLUSION, PROOF_TYPE_ISSUING_COUNTRY_INCLUSION,
+    PROOF_TYPE_NATIONALITY_EXCLUSION, PROOF_TYPE_NATIONALITY_INCLUSION,
+};
+use utils::types::{Alpha3CountryCode, DiscloseMask, MRZData};
 
 /// age: Poseidon2([PROOF_TYPE_AGE, 2, min_age, max_age])
 pub fn age_commitment(min_age: u8, max_age: u8) -> Field {
@@ -13,9 +24,95 @@ pub fn disclose_commitment(mask: DiscloseMask, disclosed: MRZData) -> Field {
     disclose_param_commitment(mask, disclosed)
 }
 
+/// birthdate between two bounds in Unix seconds (negative before 1970), 0 for no bound
+pub fn birthdate_commitment(min_date: i64, max_date: i64) -> Field {
+    date_param_commitment(
+        PROOF_TYPE_BIRTHDATE,
+        seconds_since_1900(min_date),
+        seconds_since_1900(max_date),
+    )
+}
+
+/// expiry date between two bounds in Unix seconds, 0 for no bound
+pub fn expiry_date_commitment(min_date: u64, max_date: u64) -> Field {
+    date_param_commitment(PROOF_TYPE_EXPIRY_DATE, min_date, max_date)
+}
+
+/// nationality in a list, given in the order the proof request lists it
+pub fn nationality_inclusion_commitment<let N: u32>(countries: [Alpha3CountryCode; N]) -> Field {
+    country_inclusion_commitment(PROOF_TYPE_NATIONALITY_INCLUSION, countries)
+}
+
+/// nationality not in a list, given in any order
+pub fn nationality_exclusion_commitment<let N: u32>(countries: [Alpha3CountryCode; N]) -> Field {
+    country_exclusion_commitment(PROOF_TYPE_NATIONALITY_EXCLUSION, countries)
+}
+
+/// issuing country in a list, given in the order the proof request lists it
+pub fn issuing_country_inclusion_commitment<let N: u32>(
+    countries: [Alpha3CountryCode; N],
+) -> Field {
+    country_inclusion_commitment(PROOF_TYPE_ISSUING_COUNTRY_INCLUSION, countries)
+}
+
+/// issuing country not in a list, given in any order
+pub fn issuing_country_exclusion_commitment<let N: u32>(
+    countries: [Alpha3CountryCode; N],
+) -> Field {
+    country_exclusion_commitment(PROOF_TYPE_ISSUING_COUNTRY_EXCLUSION, countries)
+}
+
 /// sanctions record: Poseidon2([PROOF_TYPE_SANCTIONS_EXCLUSION, 2, root, is_strict])
 pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
+}
+
+// The circuits count birthdates from 1900 so that they can reach before 1970.
+fn seconds_since_1900(unix_seconds: i64) -> u64 {
+    if unix_seconds == 0 {
+        0
+    } else {
+        let seconds = unix_seconds + SECONDS_BETWEEN_1900_AND_1970;
+        assert(seconds > 0, "birthdate bound before 1900");
+        seconds as u64
+    }
+}
+
+// An inclusion list is committed in its given order, padded with empty codes.
+fn country_inclusion_commitment<let N: u32>(
+    proof_type: u8,
+    countries: [Alpha3CountryCode; N],
+) -> Field {
+    std::static_assert(N <= COUNTRY_LIST_LENGTH, "too many countries");
+    let mut list = [EMPTY_ALPHA3_COUNTRY_CODE; COUNTRY_LIST_LENGTH];
+    for i in 0..N {
+        list[i] = countries[i];
+    }
+
+    country_inclusion_param_commitment(proof_type, list)
+}
+
+// An exclusion list is committed as the codes' weighted byte sums, in ascending order and padded
+// with zeros, which is how the ZKPassport SDK sorts it for the prover.
+fn country_exclusion_commitment<let N: u32>(
+    proof_type: u8,
+    countries: [Alpha3CountryCode; N],
+) -> Field {
+    std::static_assert(N <= COUNTRY_LIST_LENGTH, "too many countries");
+    let sorted = countries.map(|country| country_weighted_sum(country)).sort();
+    let mut list = [0 as u32; COUNTRY_LIST_LENGTH];
+    for i in 0..N {
+        list[i] = sorted[i];
+    }
+
+    // The circuits reject a repeated country, so no proof could match this list
+    assert(check_country_list_sorted(list), "repeated country in exclusion list");
+    country_exclusion_param_commitment(proof_type, list)
+}
+
+fn country_weighted_sum(country: Alpha3CountryCode) -> u32 {
+    let bytes = country.as_bytes();
+    (bytes[0] as u32) * 0x10000 + (bytes[1] as u32) * 0x100 + (bytes[2] as u32)
 }
 
 mod test {
