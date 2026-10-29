@@ -209,7 +209,7 @@ function VerdictLine({
               ? `${appName} only accepts IDs read from their chip, and the chip of this ${noun} can't be verified yet. Choose another ID if you have one.`
               : verdict.reason === "unsupported"
                 ? `This ${noun} can't be used with ZKPassport yet. Choose another ID if you have one.`
-                : `${appName} doesn't accept the way this ${noun} would be verified, or where it was issued. Choose another ID if you have one.`}
+                : `${appName} doesn't accept the way this ${noun} would be verified. Choose another ID if you have one.`}
         </p>
       )
     case "unknown":
