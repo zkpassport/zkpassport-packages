@@ -51,8 +51,8 @@ export type VerificationOverrides = {
   /** @internal Points the flow at another popup origin; for testing. */
   popupUrl?: string
   /**
-   * Allow the no-install App Clip lane: the popup sends a passport it will read by chip to a `/c`
-   * request URL; anything read by camera stays on `/r`, the full app.
+   * Allow the no-install App Clip lane: the popup sends a request whose policy accepts chip reads
+   * only to a `/c` request URL; one that accepts camera reads stays on `/r`, the full app.
    */
   appClip?: boolean
 }

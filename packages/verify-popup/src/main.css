@@ -1070,79 +1070,7 @@ a.flow-address[data-chip]:hover {
   color: var(--zkp-muted);
 }
 
-/* The chip question and its button sit at the foot, so the checks stay put
-   however many of them there are */
-.intro-triage {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--zkp-surface);
-}
-.intro-triage-head {
-  margin: 0;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--zkp-fg);
-}
-.triage-types {
-  display: flex;
-  gap: 6px;
-}
-.triage-type {
-  flex: 1;
-  padding: 8px 6px;
-  border: 1px solid var(--zkp-border);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--zkp-muted);
-  font: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-.triage-type[data-selected] {
-  border-color: var(--zkp-brand);
-  background: var(--zkp-raised);
-  color: var(--zkp-fg);
-  font-weight: 600;
-}
-.triage-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--zkp-dim);
-}
-.triage-field select {
-  width: 100%;
-  padding: 9px 10px;
-  border: 1px solid var(--zkp-border);
-  border-radius: 10px;
-  background: var(--zkp-raised);
-  color: var(--zkp-fg);
-  font: inherit;
-  font-size: 13px;
-}
-.triage-verdict {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--zkp-muted);
-}
-.triage-verdict[data-tone="ok"] {
-  color: var(--zkp-fg);
-}
-.triage-verdict[data-tone="alert"] {
-  color: var(--zkp-error);
-}
-.triage-verdict .intro-chip-mark {
-  flex: none;
-}
+/* The button sits at the foot, so the checks stay put however many of them there are */
 .intro-chip {
   display: flex;
   flex-direction: column;
@@ -1151,30 +1079,6 @@ a.flow-address[data-chip]:hover {
   gap: 8px;
   margin-top: auto;
   padding-top: 16px;
-}
-.intro-chip-mark {
-  width: 38px;
-  margin-bottom: 3px;
-  color: var(--zkp-fg);
-}
-.intro-chip-mark svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.intro-chip-question {
-  margin: 0;
-  font-size: 14.5px;
-  font-weight: 600;
-  color: var(--zkp-fg);
-}
-.intro-chip-hint {
-  margin: 0;
-  margin-bottom: 10px;
-  margin-inline: auto;
-  padding: 0 12px;
-  font-size: 12.5px;
-  color: var(--zkp-dim);
 }
 .intro-privacy {
   margin: 0;

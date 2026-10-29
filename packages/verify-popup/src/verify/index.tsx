@@ -11,7 +11,7 @@ import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
 import { Scan } from "./scan"
-import { useTriage } from "./use-triage"
+import { useRequestUrl } from "./use-request-url"
 import { Waiting, withProof, type ScanProgress } from "./waiting"
 
 type VerifyFlowProps = {
@@ -66,7 +66,7 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
   if (!resolution) {
     return (
       <FlowCard name={appName} logo={request.logo} screenKey="intro">
-        <IntroLoading appName={appName} request={request} />
+        <Intro appName={appName} query={null} purpose={request.purpose} onContinue={() => {}} />
       </FlowCard>
     )
   }
@@ -163,7 +163,7 @@ function VerifyRequest({
   // phone has joined it also throws away work in progress
   useConfirmClose(!verified && !failure)
 
-  const triage = useTriage(req.url, {
+  const link = useRequestUrl(req.url, {
     allowedCredentials: request.allowedCredentials,
     appClip: request.appClip,
   })
@@ -191,46 +191,16 @@ function VerifyRequest({
         <ErrorScreen message={failure.message} onRetry={tryAgain} />
       ) : null}
       {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
-      {screen === "scan" ? <Scan state={req.state} url={triage.url} qrSvg={triage.qrSvg} /> : null}
+      {screen === "scan" ? <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} /> : null}
       {screen === "intro" ? (
         <Intro
           appName={appName}
           query={req.query ?? (hasQuery ? query : null)}
           purpose={request.purpose}
-          countries={triage.countries}
-          triage={triage.triage}
-          verdict={triage.verdict}
-          onTriage={triage.setTriage}
           onContinue={() => setConsented(true)}
         />
       ) : null}
     </FlowCard>
-  )
-}
-
-// The intro while the domain resolves: the question can be answered already
-function IntroLoading({
-  appName,
-  request,
-}: {
-  appName: string
-  request: PopupConfigureMessage["request"]
-}) {
-  const triage = useTriage(null, {
-    allowedCredentials: request.allowedCredentials,
-    appClip: request.appClip,
-  })
-  return (
-    <Intro
-      appName={appName}
-      query={null}
-      purpose={request.purpose}
-      countries={triage.countries}
-      triage={triage.triage}
-      verdict={triage.verdict}
-      onTriage={triage.setTriage}
-      onContinue={() => {}}
-    />
   )
 }
 

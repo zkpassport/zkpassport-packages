@@ -17,7 +17,7 @@ import { Resolving } from "./resolving"
 import type { ZKPassportQRCodeOptions } from "@zkpassport/ui/hosted"
 import type { ScanProgress } from "../verify/waiting"
 import { Intro } from "../verify/intro"
-import { useTriage } from "../verify/use-triage"
+import { useRequestUrl } from "../verify/use-request-url"
 import { Scan } from "../verify/scan"
 import { Waiting } from "../verify/waiting"
 import { useRequest } from "../request"
@@ -239,7 +239,7 @@ function VerifyStep({
     },
   )
 
-  const triage = useTriage(req.url, { allowedCredentials: options.allowedCredentials })
+  const link = useRequestUrl(req.url, { allowedCredentials: options.allowedCredentials })
 
   const tryAgain = () => {
     setFailure(null)
@@ -254,13 +254,9 @@ function VerifyStep({
         appName={appName}
         query={req.query}
         purpose={purpose}
-        countries={triage.countries}
-        triage={triage.triage}
-        verdict={triage.verdict}
-        onTriage={triage.setTriage}
         onContinue={() => setConsented(true)}
       />
     )
   }
-  return <Scan state={req.state} url={triage.url} qrSvg={triage.qrSvg} />
+  return <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} />
 }

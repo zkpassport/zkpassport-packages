@@ -817,7 +817,7 @@ export class ZKPassport {
     returnDeepLink?: string
     verifierMode?: VerifierMode
     config?: VerificationConfig
-    /** `appClip` allows the popup to send a chip-read passport to the no-install App Clip lane */
+    /** `appClip` allows the popup to send a chip-only request to the no-install App Clip lane */
     overrides?: { appClip?: boolean }
     allowedCredentials?: AllowedCredential[]
   }): Promise<QueryBuilder> {
@@ -1241,8 +1241,8 @@ export class ZKPassport {
     const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
     const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
-    // The popup moves a request to the App Clip lane (`/c`) when the document the user describes
-    // is read by chip and `overrides.appClip` allows it; the SDK's own URL stays on `/r`
+    // The popup moves a request to the App Clip lane (`/c`) when its policy accepts chip reads
+    // only and `overrides.appClip` allows it; the SDK's own URL stays on `/r`
     let url = `https://zkpassport.id/r?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
     if (nullifierType != null) {
       url += `&nt=${nullifierType}`

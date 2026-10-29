@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { openRequestInApp } from "@zkpassport/ui/app-link"
 
-import { isAppClipLane } from "../verify/triage"
+import { isAppClipLane } from "../verify/lane"
 
 // "opened" is not "idle": the page should say it is waiting, not offer the button again
 type AppOpenState = "idle" | "opening" | "opened" | "nothing-opened"
