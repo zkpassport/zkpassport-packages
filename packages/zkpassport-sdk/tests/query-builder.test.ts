@@ -905,4 +905,24 @@ describe("NONE nullifier type requests", () => {
       "An OPRF key cannot be used with the NONE unique identifier type",
     )
   })
+
+  test("carries the credential policy, with its rules beside the tiers and schemes", async () => {
+    const builder = await zkPassport.request({
+      name: "Test App",
+      allowedCredentials: [1, { scheme: 2, excludeCountries: ["ARE"] }],
+    })
+    const params = new URL(builder.done().url).searchParams
+    expect(params.get("ac")).toBe("1,2")
+    expect(JSON.parse(params.get("acl")!)).toEqual([{ scheme: 2, excludeCountries: ["ARE"] }])
+
+    const plain = await zkPassport.request({ name: "Test App", allowedCredentials: [1, 200] })
+    expect(new URL(plain.done().url).searchParams.get("acl")).toBeNull()
+
+    await expect(
+      zkPassport.request({
+        name: "Test App",
+        allowedCredentials: [2, { scheme: 200, documentTypes: ["passport"] }],
+      }),
+    ).rejects.toThrow("overlaps")
+  })
 })
