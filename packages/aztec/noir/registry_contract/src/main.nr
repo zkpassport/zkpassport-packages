@@ -27,7 +27,6 @@ pub contract ZKPassportRegistry {
         // Contract roles are set and used in public
         admin: PublicMutable<AztecAddress, Context>,
         operator: PublicMutable<AztecAddress, Context>,
-        guardian: PublicMutable<AztecAddress, Context>,
 
         // Everything below is read privately by verifiers thus using DelayedPublicMutable and subject to a ~24h delay.
         paused: DelayedPublicMutable<bool, INITIAL_DELAY, Context>,
@@ -46,20 +45,12 @@ pub contract ZKPassportRegistry {
 
     #[external("public")]
     #[initializer]
-    fn constructor(
-        admin: AztecAddress,
-        operator: AztecAddress,
-        guardian: AztecAddress,
-        mode: u8,
-        window: u64,
-    ) {
+    fn constructor(admin: AztecAddress, operator: AztecAddress, mode: u8, window: u64) {
         assert_address_not_zero(admin, "admin cannot be zero address");
         assert_address_not_zero(operator, "operator cannot be zero address");
-        assert_address_not_zero(guardian, "guardian cannot be zero address");
         assert_valid_mode(mode);
         self.storage.admin.write(admin);
         self.storage.operator.write(operator);
-        self.storage.guardian.write(guardian);
         // Note: for the first 24h the DPM reads its zeroed default {mode: 0 = LATEST_ONLY, window: 0},
         // which is safe — no roots exist yet, so everything is invalid either way.
         let config = RegistryConfig { mode, window };
@@ -83,19 +74,12 @@ pub contract ZKPassportRegistry {
     }
 
     #[external("public")]
-    fn set_guardian(new_guardian: AztecAddress) {
-        assert_admin(self.msg_sender(), self.storage.admin.read());
-        assert_address_not_zero(new_guardian, "guardian cannot be zero address");
-        self.storage.guardian.write(new_guardian);
-    }
-
-    #[external("public")]
     fn pause() {
-        let sender = self.msg_sender();
-        let is_admin = sender == self.storage.admin.read();
-        let is_guardian = sender == self.storage.guardian.read();
-        let is_operator = sender == self.storage.operator.read();
-        assert(is_admin | is_guardian | is_operator, "caller is not admin, guardian or operator");
+        assert_admin_or_operator(
+            self.msg_sender(),
+            self.storage.admin.read(),
+            self.storage.operator.read(),
+        );
         self.storage.paused.schedule_value_change(true);
     }
 

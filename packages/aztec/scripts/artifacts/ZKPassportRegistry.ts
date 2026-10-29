@@ -47,13 +47,13 @@ export class ZKPassportRegistryContract extends ContractBase {
    * @param instantiation - Optional address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
    *                       Salt defaults to a random value; the deployer is locked lazily from the first send-time `from`.
    */
-  public static deploy(wallet: Wallet, admin: AztecAddressLike, operator: AztecAddressLike, guardian: AztecAddressLike, mode: (bigint | number), window: (bigint | number), instantiation?: DeployInstantiationOptions) {
+  public static deploy(wallet: Wallet, admin: AztecAddressLike, operator: AztecAddressLike, mode: (bigint | number), window: (bigint | number), instantiation?: DeployInstantiationOptions) {
     return DeployMethod.create<ZKPassportRegistryContract>(
       wallet,
       {
         artifact: ZKPassportRegistryContractArtifact,
         postDeployCtor: (instance, wallet) => ZKPassportRegistryContract.at(instance.address, wallet),
-        args: [admin, operator, guardian, mode, window],
+        args: [admin, operator, mode, window],
       },
       instantiation,
     );
@@ -95,7 +95,7 @@ export class ZKPassportRegistryContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'admin' | 'operator' | 'guardian' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'> {
+  public static get storage(): ContractStorageLayout<'admin' | 'operator' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'> {
       return {
         admin: {
       slot: new Fr(1n),
@@ -103,31 +103,28 @@ export class ZKPassportRegistryContract extends ContractBase {
 operator: {
       slot: new Fr(2n),
     },
-guardian: {
+paused: {
       slot: new Fr(3n),
     },
-paused: {
-      slot: new Fr(4n),
-    },
 config: {
-      slot: new Fr(8n),
+      slot: new Fr(7n),
     },
 latest: {
-      slot: new Fr(9n),
+      slot: new Fr(8n),
     },
 roots: {
-      slot: new Fr(10n),
+      slot: new Fr(9n),
     },
 accepted_vks: {
-      slot: new Fr(11n),
+      slot: new Fr(10n),
     },
 version_enabled: {
-      slot: new Fr(12n),
+      slot: new Fr(11n),
     },
 oprf_pk_hash: {
-      slot: new Fr(13n),
+      slot: new Fr(12n),
     }
-      } as ContractStorageLayout<'admin' | 'operator' | 'guardian' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'>;
+      } as ContractStorageLayout<'admin' | 'operator' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'>;
     }
     
 
@@ -146,8 +143,8 @@ oprf_pk_hash: {
     /** assert_sanctions_root_valid(root: field, current_date: integer) */
     assert_sanctions_root_valid: ((root: FieldLike, current_date: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(admin: struct, operator: struct, guardian: struct, mode: integer, window: integer) */
-    constructor: ((admin: AztecAddressLike, operator: AztecAddressLike, guardian: AztecAddressLike, mode: (bigint | number), window: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(admin: struct, operator: struct, mode: integer, window: integer) */
+    constructor: ((admin: AztecAddressLike, operator: AztecAddressLike, mode: (bigint | number), window: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_latest_pair(registry_id: field) */
     get_latest_pair: ((registry_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -169,9 +166,6 @@ oprf_pk_hash: {
 
     /** remove_accepted_vk(version: field, vk_hash: field) */
     remove_accepted_vk: ((version: FieldLike, vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** set_guardian(new_guardian: struct) */
-    set_guardian: ((new_guardian: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** set_operator(new_operator: struct) */
     set_operator: ((new_operator: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
