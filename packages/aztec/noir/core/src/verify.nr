@@ -1,5 +1,6 @@
 use crate::constants::{
-    NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_SALTED, PROOF_FIELDS, VK_FIELDS,
+    NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
+    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_FIELDS, VK_FIELDS,
 };
 use crate::parse::{parse_public_inputs, PublicInputs};
 use bb_proof_verification::verify_honk_proof;
@@ -34,14 +35,18 @@ pub fn verify_outer_proof_core<let K: u32>(
     let is_standard = (nt == NULLIFIER_TYPE_NON_SALTED)
         | (nt == NULLIFIER_TYPE_SALTED)
         | (nt == NULLIFIER_TYPE_NONE);
+    let is_mock = (nt == NULLIFIER_TYPE_NON_SALTED_MOCK) | (nt == NULLIFIER_TYPE_SALTED_MOCK);
 
     assert(is_standard | dev_mode, "nullifier type requires dev mode");
 
-    // NULLIFIER_TYPE_NONE (=4) means the private nullifier was deliberately hidden by the
-    // prover -- the canonical circuit forces scoped_nullifier == 0 in that case (see
-    // calculate_scoped_nullifier in the circuits repo's commitment libs), so a zero nullifier
-    // is only legitimate for NONE and must still be rejected for every other type.
-    assert((nt == NULLIFIER_TYPE_NONE) | (parsed.scoped_nullifier != 0), "zero scoped nullifier");
+    // When the prover hides the private nullifier, the canonical circuit sets scoped_nullifier
+    // to 0 (see calculate_scoped_nullifier in the circuits repo's commitment libs) and the
+    // type to NULLIFIER_TYPE_NONE, except for a ZKR (mock) document, which keeps its mock type.
+    // Salted and non-salted proofs must carry a nullifier.
+    assert(
+        (nt == NULLIFIER_TYPE_NONE) | is_mock | (parsed.scoped_nullifier != 0),
+        "zero scoped nullifier",
+    );
 
     // Every expected commitment must match a distinct param-commitment slot, in any order. The
     // order is not contractual — the prover decides the subproof (and thus slot) order and the
@@ -92,6 +97,40 @@ mod test {
         let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
     }
 
+    // A ZKR (mock) document keeps its mock nullifier type when the prover hides the private
+    // nullifier, so its scoped nullifier is 0.
+    #[test]
+    fn mock_nullifier_type_with_zero_nullifier_passes_in_dev_mode() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
+        pis[7] = 0; // scoped_nullifier
+        pis[6] = 2; // NON_SALTED_MOCK
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, true, [pis[5]]);
+        pis[6] = 3; // SALTED_MOCK
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, true, [pis[5]]);
+    }
+
+    #[test(should_fail_with = "nullifier type requires dev mode")]
+    fn mock_nullifier_type_with_zero_nullifier_needs_dev_mode() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
+        pis[6] = 2; // NON_SALTED_MOCK
+        pis[7] = 0; // scoped_nullifier
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, false, [pis[5]]);
+    }
+
+    #[test(should_fail_with = "zero scoped nullifier")]
+    fn standard_nullifier_type_with_zero_nullifier_rejected() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let mut pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
+        pis[6] = 0; // NON_SALTED
+        pis[7] = 0; // scoped_nullifier
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0, true, [pis[5]]);
+    }
+
     // [a, b] must accept a proof carrying [b, a] — the SDK does not fix the subproof (and
     // thus param-commitment) order. Uses K=5 (two commitment slots) like voice's queries.
     #[test]
@@ -133,8 +172,8 @@ mod test {
 
     // IMP-1: NULLIFIER_TYPE_NONE (=4) is a privacy-maximising, no-uniqueness mode -- the
     // canonical circuit forces scoped_nullifier == 0 whenever it's used, so it must be exempt
-    // from the "zero scoped nullifier" assert (which exists to catch every OTHER type sending a
-    // zero nullifier). This must still pass verify_outer_proof_core.
+    // from the "zero scoped nullifier" assert (which exists to catch a salted or non-salted proof
+    // sending a zero nullifier). This must still pass verify_outer_proof_core.
     #[test]
     fn none_nullifier_type_with_zero_nullifier_passes() {
         let vk = [0; 115];
