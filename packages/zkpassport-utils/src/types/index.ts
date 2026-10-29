@@ -440,6 +440,10 @@ export type QRCodeData = {
   returnDeepLink: string | null
   // The credentials the service accepts; null means the default policy
   allowedCredentials: AllowedCredential[] | null
+  // What the user said on the hosted page about the document they will add, if asked
+  issuingCountry?: string | null
+  documentType?: string | null
+  issueYear?: number | null
 }
 
 export interface JsonRpcRequest {
