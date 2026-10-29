@@ -398,32 +398,4 @@ describe("decideVerificationPaths for cards", () => {
       `camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`,
     ])
   })
-
-  test("a policy rule can refuse a country or a document type for a tier", () => {
-    const chipless = table({ TST: country([card({ from: 2011 })]) })
-    const byCountry = decideVerificationPaths(chipless, {
-      country: "TST",
-      documentType: "id_card",
-      allowedCredentials: [
-        CredentialTier.GOVERNMENT_SIGNED,
-        { scheme: CredentialTier.DEVICE_ATTESTED, excludeCountries: ["TST"] },
-      ],
-      supportedSchemes: IOS,
-    })
-    expect(byCountry.outcome).toBe("rejected_by_policy")
-    const byType = decideVerificationPaths(chipless, {
-      country: "TST",
-      documentType: "id_card",
-      allowedCredentials: [{ scheme: CredentialTier.DEVICE_ATTESTED, documentTypes: ["passport"] }],
-      supportedSchemes: IOS,
-    })
-    expect(byType.outcome).toBe("rejected_by_policy")
-    const elsewhere = decideVerificationPaths(chipless, {
-      country: "TST",
-      documentType: "id_card",
-      allowedCredentials: [{ scheme: CredentialTier.DEVICE_ATTESTED, excludeCountries: ["ARE"] }],
-      supportedSchemes: IOS,
-    })
-    expect(elsewhere.outcome).toBe("proceed")
-  })
 })

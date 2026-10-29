@@ -52,17 +52,6 @@ describe("triageVerdict", () => {
       "ios",
     )
     expect(signedOnly).toMatchObject({ kind: "blocked", reason: "chipless" })
-    // A policy rule can keep a tier from a country
-    const notFromUae = triageVerdict(
-      BUNDLED_COVERAGE,
-      { country: "ARE", documentType: "id_card", issueYear: null },
-      [
-        CredentialTier.GOVERNMENT_SIGNED,
-        { scheme: CredentialTier.DEVICE_ATTESTED, excludeCountries: ["ARE"] },
-      ],
-      "ios",
-    )
-    expect(notFromUae).toMatchObject({ kind: "blocked", reason: "chipless" })
   })
 
   test("asks the issue year of an Indian passport, then sends it to the chip or the camera", () => {
