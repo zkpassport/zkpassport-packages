@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-29T12:56:18.449Z",
+  "generatedAt": "2026-10-29T13:49:14.207Z",
   "sources": {
     "regula": {
       "database": "FullAuthLight",
       "build": 323483,
-      "documents": 2680
+      "documents": 2679
     },
     "certificates": {
       "chainId": 1,
@@ -25,6 +25,7 @@
   },
   "documentTypes": {
     "passport": {
+      "name": "Passport",
       "shape": "booklet",
       "read": {
         "nfc": {
@@ -41,6 +42,7 @@
       }
     },
     "id_card": {
+      "name": "National ID",
       "shape": "card",
       "read": {
         "nfc": {
@@ -57,6 +59,7 @@
       }
     },
     "residence_permit": {
+      "name": "Residence permit",
       "shape": "card",
       "read": {
         "nfc": {
@@ -73,6 +76,7 @@
       }
     },
     "my_number_card": {
+      "name": "My Number Card",
       "shape": "card",
       "read": {
         "nfc": {
@@ -81,6 +85,7 @@
       }
     },
     "aadhaar": {
+      "name": "Aadhaar",
       "shape": "card",
       "read": {
         "qr": {
@@ -10003,13 +10008,6 @@
           "regulaId": -2145821520
         },
         {
-          "type": "id_card",
-          "name": "Id Card (2018)",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1980722975
-        },
-        {
           "type": "residence_permit",
           "name": "Residence permit",
           "chip": false,
@@ -17450,6 +17448,7 @@
         {
           "type": "id_card",
           "name": "Id Card (7337)",
+          "from": 7337,
           "chip": false,
           "mrz": true,
           "regulaId": -796271501

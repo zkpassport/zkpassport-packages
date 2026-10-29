@@ -12,6 +12,7 @@ import type {
   CoverageShape,
   ReadMethod,
 } from "./types"
+import { isUnState } from "./un-members"
 
 export interface CoverageQuery {
   /** ISO 3166-1 alpha-3 code of the issuing country */
@@ -19,6 +20,8 @@ export interface CoverageQuery {
   documentType: CoverageDocumentType
   /** Narrows the series to those in circulation that year */
   issueYear?: number
+  /** What the user says about the document: whether it carries the chip symbol */
+  hasChip?: boolean
   /** The relying party's policy; none means the default one */
   allowedCredentials?: readonly AllowedCredential[] | null
   /** The schemes this client can prove, e.g. the iOS app proves the chip and the camera read */
@@ -35,8 +38,8 @@ export interface VerificationPath {
 export type CoverageOutcome =
   /** Follow `paths` in order */
   | "proceed"
-  /** The country has series with and without a chip; the issue year tells them apart */
-  | "ask_issue_year"
+  /** The country has series with and without a chip; ask the user whether theirs has one */
+  | "ask_chip"
   /** We could read the document, but the relying party's policy accepts none of those reads */
   | "rejected_by_policy"
   /** No method this client supports reads the document */
@@ -46,7 +49,7 @@ export type CoverageOutcome =
 
 export interface CoverageDecision {
   outcome: CoverageOutcome
-  /** The reads to try, first to last; empty unless the outcome is proceed or ask_issue_year */
+  /** The reads to try, first to last; empty unless the outcome is proceed or ask_chip */
   paths: VerificationPath[]
   /** Reads this client could do that the policy refuses, for the message shown */
   refusedByPolicy: VerificationPath[]
@@ -87,9 +90,15 @@ export function decideVerificationPaths(
   if (documents.length === 0) return none("unsupported")
 
   const chipCount = documents.filter((d) => d.chip).length
-  const chip = chipCount === 0 ? "none" : chipCount === documents.length ? "all" : "mixed"
-  const chipVerifiable = chipCount > 0 && certificatesCover(country, query.issueYear)
+  const chipInSeries = chipCount === 0 ? "none" : chipCount === documents.length ? "all" : "mixed"
+  // What the user says about their own document outweighs what the series suggest
+  const chip = query.hasChip === undefined ? chipInSeries : query.hasChip ? "all" : "none"
+  const chipVerifiable = chip !== "none" && certificatesCover(country, query.issueYear)
   const available = documents.filter((d) => d.available !== false)
+  const has = (field: "chip" | "mrz") =>
+    field === "chip" && query.hasChip !== undefined
+      ? query.hasChip
+      : available.some((d) => d[field])
 
   const candidates: VerificationPath[] = []
   if (available.length === 0) {
@@ -107,7 +116,7 @@ export function decideVerificationPaths(
     (typeof rule.read)[ReadMethod],
   ][]) {
     if (!read) continue
-    if (read.requires && !available.some((d) => d[read.requires!])) continue
+    if (read.requires && !has(read.requires)) continue
     for (const scheme of read.schemes) {
       candidates.push({
         method,
@@ -129,7 +138,7 @@ export function decideVerificationPaths(
     if (doable.length > 0) return { outcome: "rejected_by_policy", paths, ...base }
     return { outcome: "unsupported", paths, ...base }
   }
-  const outcome = chip === "mixed" && query.issueYear === undefined ? "ask_issue_year" : "proceed"
+  const outcome = chip === "mixed" ? "ask_chip" : "proceed"
   return { outcome, paths, ...base }
 }
 
@@ -174,6 +183,7 @@ function certificatesCover(country: CoverageCountry, issueYear?: number): boolea
 
 export interface CoverageDocumentOption {
   type: CoverageDocumentType
+  name: string
   shape: CoverageShape
   /** Whether any series of this type is listed as available */
   available: boolean
@@ -193,6 +203,7 @@ export function listDocumentTypes(coverage: Coverage, country: string): Coverage
     return [
       {
         type,
+        name: coverage.documentTypes[type].name,
         shape: coverage.shapes[coverage.documentTypes[type].shape],
         available: documents.some((d) => d.available !== false),
         mixedChip: chips > 0 && chips < current.length,
@@ -206,9 +217,16 @@ export interface CoverageCountryOption {
   name: string
 }
 
-/** Every country in the table, by name */
-export function listCountries(coverage: Coverage): CoverageCountryOption[] {
+/**
+ * The countries in the table, by name. Only UN member and observer states unless asked
+ * otherwise: the rest of the table are territories and bodies a user would not look for.
+ */
+export function listCountries(
+  coverage: Coverage,
+  { unStatesOnly = true }: { unStatesOnly?: boolean } = {},
+): CoverageCountryOption[] {
   return Object.entries(coverage.countries)
+    .filter(([code]) => !unStatesOnly || isUnState(code))
     .map(([code, { name }]) => ({ code, name }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
