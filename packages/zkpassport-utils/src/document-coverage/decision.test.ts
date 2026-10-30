@@ -385,6 +385,26 @@ describe("decideVerificationPaths for cards", () => {
     expect(methods(decision)).toEqual([`camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`])
   })
 
+  test("an ID card whose chip we can't verify is unsupported for a client without a camera read", () => {
+    const decision = decideVerificationPaths(
+      table({
+        TST: country([card({ from: 2015, chip: true })], {
+          supported: false,
+          from: null,
+          to: null,
+        }),
+      }),
+      {
+        country: "TST",
+        documentType: "id_card",
+        allowedCredentials: ANY,
+        supportedSchemes: [CredentialScheme.ICAO_CHIP],
+      },
+    )
+    expect(decision.outcome).toBe("unsupported")
+    expect(decision.refusedByPolicy).toEqual([])
+  })
+
   test("a residence permit with a verifiable chip is read over NFC first", () => {
     const permit = { ...card({ from: 2015, chip: true }), type: "residence_permit" as const }
     const decision = decideVerificationPaths(table({ TST: country([permit]) }), {
