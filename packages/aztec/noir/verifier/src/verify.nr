@@ -90,7 +90,13 @@ pub fn verify_zkpassport_proof<let K: u32>(
     // The disclose payload is loaded once, here: a second load is a separate oracle call the
     // sender's PXE can answer differently, so only this copy is bound to the proof.
     let disclosure = if config.disclose {
-        Option::some(load_disclosure(context.this_address(), capsule_scope))
+        // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
+        // every element, and expected_with_disclosure's commitment binds the result to the proof.
+        let payload: Option<[Field; 180]> =
+            unsafe { capsules::load(context.this_address(), DISCLOSE_CAPSULE_SLOT, capsule_scope) };
+
+        assert(payload.is_some(), "missing disclose capsule");
+        Option::some(parse_disclose_payload(payload.unwrap()))
     } else {
         Option::none()
     };
@@ -160,16 +166,6 @@ pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier:
         [UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier],
         2,
     ));
-}
-
-fn load_disclosure(app: AztecAddress, capsule_scope: AztecAddress) -> Disclosure {
-    // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
-    // every element, and the caller's commitment check binds the result to the proof.
-    let payload: Option<[Field; 180]> =
-        unsafe { capsules::load(app, DISCLOSE_CAPSULE_SLOT, capsule_scope) };
-
-    assert(payload.is_some(), "missing disclose capsule");
-    parse_disclose_payload(payload.unwrap())
 }
 
 // The capsule holds mask ‖ bytes, one value per Field. Field-to-integer casts truncate silently,
