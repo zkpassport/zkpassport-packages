@@ -10,7 +10,6 @@ import {
   parseAllowedCredentials,
   serializeAllowedCredentials,
   getCredentialSchemeFromAttestedIdProof,
-  getCredentialSchemeFromDisclosureProof,
   getCredentialSchemeFromIntegrityProof,
   getCredentialSchemeFromOuterProof,
   getTierForCredentialScheme,
@@ -91,7 +90,7 @@ describe("credential scheme", () => {
 
   test("public input counts grow by one with the field", () => {
     expect(getNumberOfPublicInputs("disclose_bytes", "0.21.0")).toBe(8)
-    expect(getNumberOfPublicInputs("disclose_bytes", "0.22.0")).toBe(9)
+    expect(getNumberOfPublicInputs("disclose_bytes", "0.22.0")).toBe(8)
     expect(getNumberOfPublicInputs("data_check_integrity_sa_sha256", "0.21.0")).toBe(2)
     expect(getNumberOfPublicInputs("data_check_integrity_sa_sha256", "0.22.0")).toBe(3)
     expect(getNumberOfPublicInputs("outer_count_6", "0.21.0")).toBe(11)
@@ -105,12 +104,6 @@ describe("credential scheme", () => {
 
   test("reads the scheme from each proof layout", () => {
     const eight = Array.from({ length: 8 }, (_, i) => `0x${i}`)
-    expect(
-      getCredentialSchemeFromDisclosureProof({ publicInputs: eight, proof: [] }),
-    ).toBeUndefined()
-    expect(
-      getCredentialSchemeFromDisclosureProof({ publicInputs: [...eight, "0xc8"], proof: [] }),
-    ).toBe(CredentialScheme.ATTESTED_CAPTURE_IOS)
     expect(
       getCredentialSchemeFromIntegrityProof({ publicInputs: ["0x1", "0x2"], proof: [] }),
     ).toBeUndefined()

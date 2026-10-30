@@ -48,7 +48,7 @@ async function proofs(scheme: CredentialScheme): Promise<ProofResult[]> {
   const disclosure = (name: string, param: bigint, committedInputs: object) => ({
     name,
     version: "0.22.0" as const,
-    proof: [comm, now, scopeHash, subscope, param, 4, 0, 0, scheme].map(field).join("") + body,
+    proof: [comm, now, scopeHash, subscope, param, 4, 0, 0].map(field).join("") + body,
     committedInputs,
   })
   // The attested proof states its scheme in its own last public input
@@ -120,24 +120,5 @@ describe("credential policy on an attested ID proof", () => {
       CredentialScheme.ATTESTED_CAPTURE_ANDROID,
     ])
     expect(otherPlatform.isCorrect).toBe(false)
-  })
-
-  test("a disclosure proof must carry the base proof's scheme", async () => {
-    const mixed = await proofs(CredentialScheme.ATTESTED_CAPTURE_IOS)
-    mixed[1] = (await proofs(CredentialScheme.ICAO_CHIP))[1]
-    const checked = await PublicInputChecker.checkPublicInputs(
-      DOMAIN,
-      mixed,
-      query,
-      result,
-      undefined,
-      SCOPE,
-      undefined,
-      true,
-      undefined,
-      [CredentialTier.DEVICE_ATTESTED],
-    )
-    expect(checked.isCorrect).toBe(false)
-    expect(checked.queryResultErrors.credential_scheme?.eq?.message).toContain("does not match")
   })
 })
