@@ -2048,16 +2048,16 @@ export class PublicInputChecker {
         },
       }
     }
+    const { isCorrect: isCorrectRoot } = await this.checkSanctionsRegistryRoot(
+      sanctionsCommittedInputs.rootHash,
+      queryResultErrors,
+      devMode,
+      timestamp,
+      originalQuery,
+      registryClient,
+    )
+    isCorrect = isCorrect && isCorrectRoot
     if (queryResult.sanctions && queryResult.sanctions.passed) {
-      const { isCorrect: isCorrectRoot } = await this.checkSanctionsRegistryRoot(
-        sanctionsCommittedInputs.rootHash,
-        queryResultErrors,
-        devMode,
-        timestamp,
-        originalQuery,
-        registryClient,
-      )
-      isCorrect = isCorrect && isCorrectRoot
       if (queryResult.sanctions.isStrict !== sanctionsCommittedInputs.isStrict) {
         console.warn("Invalid sanctions strict mode")
         isCorrect = false
@@ -2369,6 +2369,24 @@ export class PublicInputChecker {
       0,
     )
     let queryResultErrors: Partial<QueryResultErrors> = {}
+
+    // An outer proof has no commitment other proofs could link to, so it must come alone
+    if (proofs.length > 1 && proofs.some((p) => p.name?.startsWith("outer"))) {
+      console.warn("An outer proof must be the only proof provided")
+      queryResultErrors.outer = {
+        commitment: {
+          expected: "Number of proofs: 1",
+          received: `Number of proofs: ${proofs.length}`,
+          message: "An outer proof must be the only proof provided",
+        },
+      }
+      return {
+        isCorrect: false,
+        uniqueIdentifier: undefined,
+        uniqueIdentifierType: undefined,
+        queryResultErrors,
+      }
+    }
 
     const proofOrder = [
       "sig_check_dsc",
@@ -3755,7 +3773,32 @@ export class PublicInputChecker {
         // but will always come with at least one other disclosure proof with a non-zero nullifier
         // uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         // uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
+      } else {
+        // No check covered this proof, e.g. a standalone `_evm` disclosure proof
+        console.warn(`Unexpected proof: ${proof.name}`)
+        isCorrect = false
       }
+    }
+
+    // As in the outer circuit, each disclosure proof carries no nullifier or the bundle's one
+    const nullifierProofs = sortedProofs
+      .filter((p) => p.name !== "facematch" && disclosureProofNames.includes(p.name!))
+      .map((p) => getProofData(p.proof as string, getNumberOfPublicInputs(p.name!)))
+    if (nullifierProofs.length > 0) {
+      const distinct = <T>(values: T[], none: T) => [...new Set(values.filter((v) => v !== none))]
+      const nullifiers = distinct(nullifierProofs.map(getNullifierFromDisclosureProof), 0n)
+      const nullifierTypes = distinct(
+        nullifierProofs.map(getNullifierTypeFromDisclosureProof),
+        NullifierType.NONE,
+      )
+      const oprfPkHashes = distinct(nullifierProofs.map(getOprfPkHashFromDisclosureProof), 0n)
+      if (nullifiers.length > 1 || nullifierTypes.length > 1 || oprfPkHashes.length > 1) {
+        console.warn("The disclosure proofs do not share the same nullifier")
+        isCorrect = false
+      }
+      uniqueIdentifier = nullifiers[0]?.toString(10)
+      uniqueIdentifierType = nullifierTypes[0] ?? NullifierType.NONE
+      oprfPublicKeyHash = oprfPkHashes[0]
     }
 
     const committedInputKeys = new Set<string>()
@@ -3778,26 +3821,7 @@ export class PublicInputChecker {
         const oprfPk = await getOprfPublicKey(oprfKeyId ?? OPRF_DEFAULT_KEY_ID)
         const expectedPkHash = await hashOprfPublicKey(oprfPk)
 
-        let proofPkHash: bigint | undefined = oprfPublicKeyHash
-        // Find a disclosure proof to extract oprfPkHash from
-
-        if (proofPkHash === undefined) {
-          const disclosureProof = sortedProofs.find(
-            (p) =>
-              p.name &&
-              !p.name.startsWith("sig_check_") &&
-              !p.name.startsWith("data_check_") &&
-              !p.name.startsWith("outer") &&
-              !p.name.startsWith("facematch"),
-          )
-          if (disclosureProof) {
-            const dpData = getProofData(
-              disclosureProof.proof as string,
-              getNumberOfPublicInputs(disclosureProof.name!),
-            )
-            proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
-          }
-        }
+        const proofPkHash = oprfPublicKeyHash
         if (proofPkHash === undefined || proofPkHash !== expectedPkHash) {
           console.warn("OPRF public key hash mismatch: proof uses an unknown OPRF key")
           isCorrect = false
