@@ -135,7 +135,7 @@ export function decideVerificationPaths(
 
   const base = { refusedByPolicy, chip, chipVerifiable, documents } as const
   if (paths.length === 0) {
-    if (doable.length > 0) return { outcome: "rejected_by_policy", paths, ...base }
+    if (refusedByPolicy.length > 0) return { outcome: "rejected_by_policy", paths, ...base }
     return { outcome: "unsupported", paths, ...base }
   }
   const outcome = chip === "mixed" ? "ask_chip" : "proceed"
