@@ -30,8 +30,8 @@ pub struct Disclosure {
 }
 
 pub struct VerifiedProof<let K: u32> {
-    pub scoped_nullifier: Field,
-    pub nullifier_type: u8,
+    pub unique_identifier: Field,
+    pub unique_identifier_type: u8,
     pub current_date: u64,
     pub param_commitments: [Field; K - 3],
     pub disclosure: Option<Disclosure>, // some exactly when ServiceConfig.disclose is set
@@ -132,8 +132,8 @@ pub fn verify_zkpassport_proof<let K: u32>(
         .view(context);
 
     VerifiedProof {
-        scoped_nullifier: parsed.scoped_nullifier,
-        nullifier_type: parsed.nullifier_type,
+        unique_identifier: parsed.scoped_nullifier,
+        unique_identifier_type: parsed.nullifier_type,
         current_date: parsed.current_date,
         param_commitments: parsed.param_commitments,
         disclosure,
@@ -154,16 +154,16 @@ pub fn check_sanctions(
 }
 
 /// One-proof-per-passport-per-service: pushes a domain-separated nullifier derived from the
-/// scoped nullifier. Siloed per app contract by the kernel → per-app uniqueness.
-pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier: Field) {
+/// unique identifier. Siloed per app contract by the kernel → per-app uniqueness.
+pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, unique_identifier: Field) {
     // zkpassport::verify's "zero scoped nullifier" assert exempts a hidden nullifier
-    // (NULLIFIER_TYPE_NONE, or a mock type in dev mode), so a zero nullifier CAN reach here.
+    // (NULLIFIER_TYPE_NONE, or a mock type in dev mode), so a zero identifier CAN reach here.
     // This is where it actually matters: pushing it would burn one single global nullifier slot
     // and permanently block every future caller of this function, in every app, for the rest of
     // time.
-    assert(scoped_nullifier != 0, "no nullifier in this proof");
+    assert(unique_identifier != 0, "no unique identifier in this proof");
     context.push_nullifier_unsafe(Poseidon2::hash(
-        [UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier],
+        [UNIQUENESS_NULLIFIER_DOMAIN, unique_identifier],
         2,
     ));
 }
