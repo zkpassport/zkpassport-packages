@@ -55,7 +55,7 @@ global CIRCUIT_MANIFEST_VERSION: Field =
     0x0000000000010000000000000000000000000000000000000000000000000000;
 
 /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
-/// commitments = {age(18, 0), bind(user)}), burns the scoped nullifier — one claim per
+/// commitments = {age(18, 0), bind(user)}), burns the unique identifier — one claim per
 /// passport — and grants `user` a public soulbound badge. The bind commitment ties the
 /// proof itself to `user`, so anyone — a relayer included — may submit the transaction.
 #[external("private")]
@@ -77,7 +77,7 @@ fn claim(user: AztecAddress) {
     let verified = verify_zkpassport_proof::<5>(
         self.context, registry, self.msg_sender(), config, expected,
     );
-    emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
+    emit_uniqueness_nullifier(self.context, verified.unique_identifier);
     // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
     // passport proof behind it is private.
     self.enqueue_self._grant_badge(user);

@@ -38,7 +38,7 @@ pub contract AgeGate {
     }
 
     /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
-    /// commitments = {age(18, 0), bind(user)}), burns the scoped nullifier — one claim
+    /// commitments = {age(18, 0), bind(user)}), burns the unique identifier — one claim
     /// per passport — and grants `user` the public badge.
     ///
     /// The bind commitment ties the proof itself to `user` (the passport holder asked
@@ -72,7 +72,7 @@ pub contract AgeGate {
         );
 
         // Make sure this can only be done once per passport
-        emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
+        emit_uniqueness_nullifier(self.context, verified.unique_identifier);
 
         // Deliberately public: the enqueued call reveals `user` in the transaction's public
         // phase. The badge is meant to be readable by anyone (other contracts included);
