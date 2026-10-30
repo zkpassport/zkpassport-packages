@@ -20,8 +20,8 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
 | `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
-| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>` (which also loads and checks a disclose payload), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
-| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`, granting a public soulbound badge (`has_badge`). | `aztec`, `zkpassport_aztec_verifier`, `zkpassport_registry_contract` (path) |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`, and adds `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof::<K>` (which also loads and checks a disclose payload) and `check_sanctions`, each with a `_with_registry` variant, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof_with_registry::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`, granting a public soulbound badge (`has_badge`). | `aztec`, `zkpassport_aztec_verifier`, `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crates (upstream noir-contracts style):
 `registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
@@ -35,16 +35,21 @@ The app-side (TS) half lives in the [`../ts`](../ts) companion package
 (`@zkpassport/aztec`). Use it to register the registry artifact with the PXE, assemble
 proof capsules, parsing disclosed data, etc. Pair it with the contract-side integration below.
 
-A consumer contract verifies a proof and mints its uniqueness nullifier in one call. From
-`examples/age_gate_contract/src/main.nr`:
+A consumer contract verifies a proof and mints its uniqueness nullifier in one call. Adapted from
+`examples/age_gate_contract/src/main.nr`, which passes its own registry so its tests can deploy
+one:
 
 ```noir
 use zkpassport_aztec_verifier::verify::{
-    emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
+    emit_uniqueness_nullifier, scope_hash, ServiceConfig, verify_zkpassport_proof,
 };
 use zkpassport_aztec_verifier::commitments::{age_commitment, bind_user_address_commitment};
+use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
 
 global MIN_AGE: u8 = 18;
+
+// The domain this app's ZKPassport requests come from.
+global DOMAIN: Field = scope_hash("example.com");
 
 // The CircuitManifest semver packed as 2-byte BE major/minor/patch, left-aligned bytes32.
 // This is packed("0.0.1") — the local/dev release the fixtures are built from.
@@ -57,11 +62,11 @@ global CIRCUIT_MANIFEST_VERSION: Field =
 /// proof itself to `user`, so anyone — a relayer included — may submit the transaction.
 #[external("private")]
 fn claim(user: AztecAddress) {
-    let registry = self.storage.registry.read();
     let config = ServiceConfig {
         version: CIRCUIT_MANIFEST_VERSION,
-        scope: 0, // fixture/demo: no domain binding; a real app pins sha256(domain) >> 8
-        subscope: 0,
+        domain: DOMAIN,
+        scope: 0,
+        unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
         validity_period: 7 * 86400,
         dev_mode: false,
         disclose: false,
@@ -71,15 +76,19 @@ fn claim(user: AztecAddress) {
         bind_user_address_commitment(user.to_field()),
     ]);
     // The capsule rides in the sender's PXE, so it is scoped to the sender.
-    let verified = verify_zkpassport_proof::<5>(
-        self.context, registry, self.msg_sender(), config, expected,
-    );
+    let verified = verify_zkpassport_proof::<5>(self.context, self.msg_sender(), config, expected);
     emit_uniqueness_nullifier(self.context, verified.unique_identifier);
     // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
     // passport proof behind it is private.
     self.enqueue_self._grant_badge(user);
 }
 ```
+
+`ServiceConfig.domain` is required: the library rejects a config whose domain is 0.
+`ServiceConfig.scope` is optional, 0 for the whole domain. `verify_zkpassport_proof` and
+`check_sanctions` use ZKPassport's registry on the network, found by its chain id. On a network
+without one, such as a local network, use `verify_zkpassport_proof_with_registry` and
+`check_sanctions_with_registry`.
 
 `verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
 a function argument.
