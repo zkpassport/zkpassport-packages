@@ -32,6 +32,10 @@ bun run test:e2e            # builds the workspace packages it depends on, then 
 Needs `anvil` on `PATH`, and network access to a Sepolia RPC and the testnet CDNs. `SEPOLIA_RPC_URL`
 replaces the registry-sdk's built-in Sepolia endpoint.
 
+`CIRCUIT_VERSION` sets the circuit version the tests prove with, instead of the one
+`src/test-env.ts` names; `LOCAL_CIRCUITS_DIR` overrides both. `e2e.yml` takes it as its
+`circuit-version` input.
+
 Once a request starts, `fetch` may only reach this machine and the testnet CDNs; the tests assert
 that the SDK's dashboard lookup is the only call that tried to reach anything else.
 

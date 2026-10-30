@@ -26,7 +26,7 @@ const SEPOLIA_FILE_HOSTS = [
   SEPOLIA.circuitUrl,
   TESTNET_SANCTIONS_URL,
 ].map((url) => new URL(url).hostname)
-const CIRCUIT_VERSION = "0.21.1"
+const CIRCUIT_VERSION = process.env.CIRCUIT_VERSION || "0.21.1"
 const DOMAIN = "localhost"
 
 export type TestEnv = {

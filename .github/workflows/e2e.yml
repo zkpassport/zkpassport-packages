@@ -6,6 +6,17 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
   workflow_call:
+    inputs:
+      circuit-version:
+        description: Circuit version to prove with; empty uses the one test-env.ts names
+        type: string
+        required: false
+  workflow_dispatch:
+    inputs:
+      circuit-version:
+        description: Circuit version to prove with; empty uses the one test-env.ts names
+        type: string
+        required: false
 
 jobs:
   e2e:
@@ -57,4 +68,5 @@ jobs:
         # is what this workflow gets when a private repository calls it
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          CIRCUIT_VERSION: ${{ inputs.circuit-version }}
         run: bun run test:e2e
