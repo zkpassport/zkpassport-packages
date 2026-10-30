@@ -31,6 +31,7 @@ import {
   getMerkleRootFromDSCProof,
   getOuterCircuitInputs,
   getParameterCommitmentFromDisclosureProof,
+  getServiceScopeHash,
 } from "./circuits/node_modules/@zkpassport/utils"
 import { AlgorithmIdentifier } from "./circuits/node_modules/@peculiar/asn1-x509"
 import { id_sha256WithRSAEncryption } from "./circuits/node_modules/@peculiar/asn1-rsa"
@@ -62,6 +63,11 @@ const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
 // of the claiming address, and fixture-conformance.test.ts ties the fixture's bind slot to
 // the BIND_COMMITMENT anchor through this value.
 const BIND_ADDRESS = "0x1122334455667788990011223344556677889900112233445566778899001122"
+
+// The domain the age proof is made for: the example apps verify the age fixture through
+// verify_zkpassport_proof, which requires one. The disclose fixture has none (0), the scope the
+// core tests and the bb harness verify it with.
+const SERVICE_DOMAIN = "example.com"
 
 const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
 const DSC_KEYPAIR_PATH = path.join(FIXTURES_PATH, "dsc-keypair-rsa.json")
@@ -203,7 +209,7 @@ async function proveAgeStage(
     ageQuery,
     INTEGRITY_TO_DISCLOSURE_SALTS,
     0n,
-    0n,
+    getServiceScopeHash(SERVICE_DOMAIN),
     0n,
     nowTimestamp,
   )
@@ -256,7 +262,7 @@ async function proveBindStage(
     bindQuery,
     INTEGRITY_TO_DISCLOSURE_SALTS,
     0n,
-    0n,
+    getServiceScopeHash(SERVICE_DOMAIN),
     0n,
     nowTimestamp,
   )
