@@ -14,6 +14,7 @@ import {
   getServiceScopeHash,
   getScopeHash,
   getAgeParameterCommitment,
+  getDiscloseParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
   getSanctionsParameterCommitment,
 } from "@zkpassport/utils"
@@ -2483,6 +2484,133 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.outer?.scope?.message).toContain("none was passed")
+    })
+  })
+
+  describe("outer proof path - bundle composition", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const nullifierA = 111n
+    const nullifierB = 222n
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    // Outer proof public inputs: [certRegistryRoot, circuitRegistryRoot, currentDate,
+    // serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+    async function makeAgeOuterProof(nullifier: bigint): Promise<ProofResult> {
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n,
+          2n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          0n,
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function makeEmptyDiscloseOuterProof(nullifier: bigint): Promise<ProofResult> {
+      const empty = new Array(90).fill(0)
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n,
+          2n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getDiscloseParameterCommitment(empty, empty),
+          0n,
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: {
+          disclose_bytes: { discloseMask: empty, disclosedBytes: empty } as DiscloseCommittedInputs,
+        },
+      }
+    }
+
+    // Another document's subproof chain, ending in an empty disclosure
+    async function makeSubproofChain(nullifier: bigint): Promise<ProofResult[]> {
+      const empty = new Array(90).fill(0)
+      return [
+        { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 4 },
+        { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 4 },
+        { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 4 },
+        {
+          name: "disclose_bytes",
+          // [commitmentIn, currentDate, serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+          proof: buildProofHex([
+            30n,
+            todayTs,
+            domainScopeHash,
+            0n,
+            await getDiscloseParameterCommitment(empty, empty),
+            0n,
+            nullifier,
+          ]),
+          total: 4,
+          committedInputs: {
+            disclose_bytes: {
+              discloseMask: empty,
+              disclosedBytes: empty,
+            } as DiscloseCommittedInputs,
+          },
+        },
+      ]
+    }
+
+    test("a lone outer proof passes with its own nullifier", async () => {
+      const { isCorrect, uniqueIdentifier } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        [await makeAgeOuterProof(nullifierA)],
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(true)
+      expect(uniqueIdentifier).toBe(nullifierA.toString(10))
+    })
+
+    test("fails when an outer proof is bundled with another document's subproof chain", async () => {
+      const proofs = [await makeAgeOuterProof(nullifierA), ...(await makeSubproofChain(nullifierB))]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.commitment?.message).toContain("only proof")
+    })
+
+    test("fails when two outer proofs are bundled together", async () => {
+      const proofs = [
+        await makeAgeOuterProof(nullifierA),
+        await makeEmptyDiscloseOuterProof(nullifierB),
+      ]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.commitment?.message).toContain("only proof")
     })
   })
 

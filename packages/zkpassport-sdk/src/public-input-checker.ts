@@ -2370,6 +2370,24 @@ export class PublicInputChecker {
     )
     let queryResultErrors: Partial<QueryResultErrors> = {}
 
+    // An outer proof has no commitment other proofs could link to, so it must come alone
+    if (proofs.length > 1 && proofs.some((p) => p.name?.startsWith("outer"))) {
+      console.warn("An outer proof must be the only proof provided")
+      queryResultErrors.outer = {
+        commitment: {
+          expected: "Number of proofs: 1",
+          received: `Number of proofs: ${proofs.length}`,
+          message: "An outer proof must be the only proof provided",
+        },
+      }
+      return {
+        isCorrect: false,
+        uniqueIdentifier: undefined,
+        uniqueIdentifierType: undefined,
+        queryResultErrors,
+      }
+    }
+
     const proofOrder = [
       "sig_check_dsc",
       "sig_check_id_data",
