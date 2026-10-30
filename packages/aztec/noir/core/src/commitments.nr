@@ -1,4 +1,5 @@
 use crate::constants::{COUNTRY_LIST_LENGTH, SECONDS_BETWEEN_1900_AND_1970};
+use bind_lib::calculate_param_commitment as bind_param_commitment;
 use compare_age_lib::calculate_param_commitment as age_param_commitment;
 use compare_date_lib::calculate_param_commitment as date_param_commitment;
 use disclose_lib::calculate_param_commitment as disclose_param_commitment;
@@ -67,6 +68,20 @@ pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
 }
 
+/// bind(user_address): 509-byte bound-data layout
+/// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address][zero padding]
+pub fn bind_user_address_commitment(account: Field) -> Field {
+    let mut data = [0 as u8; 509];
+    data[0] = 1;
+    data[1] = 0;
+    data[2] = 32;
+    let bytes: [u8; 32] = account.to_be_bytes();
+    for i in 0..32 {
+        data[3 + i] = bytes[i];
+    }
+    bind_param_commitment(data)
+}
+
 // The circuits count birthdates from 1900 so that they can reach before 1970.
 fn seconds_since_1900(unix_seconds: i64) -> u64 {
     if unix_seconds == 0 {
@@ -117,19 +132,26 @@ fn country_weighted_sum(country: Alpha3CountryCode) -> u32 {
 
 mod test {
     use crate::commitments::{
-        age_commitment, birthdate_commitment, disclose_commitment, expiry_date_commitment,
-        issuing_country_exclusion_commitment, issuing_country_inclusion_commitment,
-        nationality_exclusion_commitment, nationality_inclusion_commitment,
+        age_commitment, bind_user_address_commitment, birthdate_commitment, disclose_commitment,
+        expiry_date_commitment, issuing_country_exclusion_commitment,
+        issuing_country_inclusion_commitment, nationality_exclusion_commitment,
+        nationality_inclusion_commitment,
     };
     use crate::fixtures::{
-        AGE_18_COMMITMENT, BIRTHDATE_COMMITMENT, DISCLOSE_COMMITMENT, EXPIRY_DATE_COMMITMENT,
-        ISSUING_COUNTRY_EXCLUSION_COMMITMENT, ISSUING_COUNTRY_INCLUSION_COMMITMENT,
-        NATIONALITY_EXCLUSION_COMMITMENT, NATIONALITY_INCLUSION_COMMITMENT,
+        AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_COMMITMENT, BIRTHDATE_COMMITMENT, DISCLOSE_COMMITMENT,
+        EXPIRY_DATE_COMMITMENT, ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
+        ISSUING_COUNTRY_INCLUSION_COMMITMENT, NATIONALITY_EXCLUSION_COMMITMENT,
+        NATIONALITY_INCLUSION_COMMITMENT,
     };
 
     #[test]
     fn age_matches_conformance_anchor() {
         assert(age_commitment(18, 0) == AGE_18_COMMITMENT);
+    }
+
+    #[test]
+    fn bind_matches_conformance_anchor() {
+        assert(bind_user_address_commitment(BIND_ACCOUNT) == BIND_COMMITMENT);
     }
 
     #[test]
