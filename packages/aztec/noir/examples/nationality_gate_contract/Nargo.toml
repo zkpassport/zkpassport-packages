@@ -1,0 +1,9 @@
+[package]
+name = "nationality_gate_contract"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr", tag = "v6.0.0", directory = "aztec" }
+zkpassport_aztec_verifier = { path = "../../verifier" }
+zkpassport = { path = "../../core" }
+zkpassport_registry_contract = { path = "../../registry_contract" }

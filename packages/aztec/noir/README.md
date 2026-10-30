@@ -7,6 +7,7 @@ A Noir workspace to streamline ZKPassport verifications from Aztec contracts and
 - The `zkpassport_aztec_verifier` verification library, that lets any Aztec app privately verify a ZKPassport passport proof
 and mint a one-proof-per-passport uniqueness nullifier tailored to its needs.
 - An example `AgeGate` Aztec contract, that shows how everything fits together e2e.
+- An example `NationalityGate` Aztec contract, that reads disclosed passport data.
 
 The verifier accepts outer proofs made with `bb` 6.0.0, the version the Aztec 6.0.0 protocol runs. The current
 ZKPassport app proves with `bb` 5.0.0, and those proofs do not verify on Aztec 6.
@@ -22,12 +23,14 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 | `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
 | `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`, and adds `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof::<K>` (which also loads and checks a disclose payload) and `check_sanctions`, each with a `_with_registry` variant, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof_with_registry::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`, granting a public soulbound badge (`has_badge`). | `aztec`, `zkpassport_aztec_verifier`, `zkpassport_registry_contract` (path) |
+| `examples/nationality_gate_contract` | `contract` | Disclose example: a `claim()` using `verify_zkpassport_proof_with_registry::<5>` with `disclose: true` (disclose + bind commitments), reading the nationality with `disclosed_nationality` and granting a public badge to French passport holders. | `aztec`, `zkpassport_aztec_verifier`, `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crates (upstream noir-contracts style):
 `registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
 delayed visibility, and the private views; `examples/age_gate_contract/src/test.nr` runs one full
-age-gate flow against an embedded real fixture. They compile/run only under `aztec test` (not
-bare `aztec-nargo test`).
+age-gate flow against an embedded real fixture; `examples/nationality_gate_contract/src/test.nr`
+runs the disclose flow against that fixture with its age commitment swapped for a disclose one.
+They compile/run only under `aztec test` (not bare `aztec-nargo test`).
 
 ## Consumer quick-start
 
@@ -133,7 +136,8 @@ commitment. The client then also stashes the disclose payload (`mask ‖ bytes`,
 field) into the app's capsule slot `zkpassport::constants::DISCLOSE_CAPSULE_SLOT` (`= 2`).
 `verify_zkpassport_proof` loads it once, adds its commitment to the expected ones, and returns
 it in `VerifiedProof.disclosure`, the only copy the proof covers. `disclosed_data::disclosed_nationality`
-reads the nationality out of it.
+reads the nationality out of it, as the `NationalityGate` example at
+`examples/nationality_gate_contract/src/main.nr` does.
 
 ## Trust considerations
 
@@ -265,7 +269,7 @@ workspace the 6.0.0 toolchain is used.
 | Component | Pin | Notes |
 |---|---|---|
 | Aztec toolchain | `v6.0.0` (`aztec-nargo` 1.0.0-rc.3, `aztec test`, `bb` 6.0.0) | Everything under `noir/` and `scripts/` compiles/tests/runs against this. Installed via `aztec-up install 6.0.0` (lands in `~/.aztec/versions/6.0.0`). |
-| `aztec-nr` (the `aztec` crate) | git `https://github.com/aztec-labs-eng/aztec-nr`, tag `v6.0.0`, dir `aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport_aztec_verifier`, `age_gate_contract`. All members share one `aztec` source. |
+| `aztec-nr` (the `aztec` crate) | git `https://github.com/aztec-labs-eng/aztec-nr`, tag `v6.0.0`, dir `aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport_aztec_verifier`, `age_gate_contract`, `nationality_gate_contract`. All members share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v6.0.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport`'s recursive-verification dependency, at the barretenberg release the 6.0.0 toolchain ships. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport` and `zkpassport_aztec_verifier`. |
 | ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0-beta.22` (= `d3a75acb`) | `zkpassport`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `compare_date_lib`, `inclusion_check_country_lib`, `exclusion_check_country_lib`, `exclusion_check_sanctions_lib`. The proof fixtures are generated from the `test-harness/circuits` **submodule**, pinned at `1a1836eb`; the tag's only delta vs that commit is one additive, unused global in `utils` (the commitment-fixture tests confirm identical commitments). Only fixture regeneration (`test-harness/generate-proof-fixtures.sh`) needs the submodule initialized — building/testing the workspace does not. |
