@@ -10,11 +10,15 @@ pub contract AgeGate {
         state_vars::{Map, PublicImmutable, PublicMutable},
     };
     use zkpassport_aztec_verifier::commitments::{age_commitment, bind_user_address_commitment};
+    use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
     use zkpassport_aztec_verifier::verify::{
-        emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
+        emit_uniqueness_nullifier, scope_hash, ServiceConfig, verify_zkpassport_proof_with_registry,
     };
 
     global MIN_AGE: u8 = 18;
+
+    // The domain this app's ZKPassport requests come from. The fixture proof was made for it.
+    global DOMAIN: Field = scope_hash("example.com");
 
     // Circuit-manifest version this app accepts; must match the registry seeding (see test.nr).
     // Convention: the CircuitManifest semver packed as 2-byte BE major/minor/patch, left-aligned
@@ -49,8 +53,9 @@ pub contract AgeGate {
 
         let config = ServiceConfig {
             version: CIRCUIT_MANIFEST_VERSION,
-            scope: 0, // fixture/demo: no domain binding; a real app pins sha256(domain) >> 8
-            subscope: 0,
+            domain: DOMAIN,
+            scope: 0,
+            unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
             validity_period: 7 * 86400,
             dev_mode: false,
             disclose: false,
@@ -62,8 +67,9 @@ pub contract AgeGate {
         ]);
 
         // The capsule rides in the sender's PXE, so it is scoped to the sender — who may be a
-        // relayer, not `user`.
-        let verified = verify_zkpassport_proof::<5>(
+        // relayer, not `user`. The registry is a constructor argument so the tests can deploy
+        // their own: on a network with a ZKPassport registry, verify_zkpassport_proof finds it.
+        let verified = verify_zkpassport_proof_with_registry::<5>(
             self.context,
             registry,
             self.msg_sender(),

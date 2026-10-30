@@ -16,8 +16,9 @@ pub struct ServiceConfig {
     // CircuitManifest.version packed as 2-byte BE major/minor/patch, left-aligned bytes32 —
     // the same encoding the ZKPassport SDK sends as L1's params.version.
     pub version: Field,
-    pub scope: Field, // sha256(domain) >> 8, app-computed constant (0 if unused)
-    pub subscope: Field, // sha256(scope) >> 8 (0 if unused)
+    pub domain: Field, // scope_hash of the domain the app's requests come from, never 0
+    pub scope: Field, // scope_hash of a scope within the domain, 0 for the whole domain
+    pub unique_identifier_type: u8, // the NULLIFIER_TYPE_* the proof must carry
     pub validity_period: u64, // max proof age in seconds
     pub dev_mode: bool,
     pub disclose: bool, // the proof has a disclose subproof, its payload in the disclose capsule
@@ -31,7 +32,6 @@ pub struct Disclosure {
 
 pub struct VerifiedProof<let K: u32> {
     pub unique_identifier: Field,
-    pub unique_identifier_type: u8,
     pub current_date: u64,
     pub param_commitments: [Field; K - 3],
     pub disclosure: Option<Disclosure>, // some exactly when ServiceConfig.disclose is set
@@ -41,7 +41,24 @@ pub struct VerifiedProof<let K: u32> {
 pub global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
 
-/// Verify a zkPassport outer proof end-to-end.
+// ZKPassport's registry deployments, as (chain id, registry address). The chain id is the one
+// PrivateContext::chain_id returns, that of the L1 the network settles on.
+global REGISTRY_DEPLOYMENTS: [(Field, AztecAddress); 0] = [];
+
+/// Hashes a domain or scope string the way the ZKPassport SDK does, for `ServiceConfig`.
+///
+/// The empty string hashes to 0. Call it in a global so the hash is computed at compile time:
+/// `global DOMAIN: Field = scope_hash("example.com");`
+pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
+    if N == 0 {
+        0
+    } else {
+        // sha256 truncated to its first 31 bytes, as getScopeHash in @zkpassport/utils
+        sha256_to_field(value.as_bytes())
+    }
+}
+
+/// Verify a zkPassport outer proof end-to-end, against ZKPassport's registry on this network.
 ///
 /// `capsule_scope` is the PXE account scope the proof capsule was delivered under. Consider the
 /// transaction sender (`msg_sender`) is not necessarily the subject of the proof. It only
@@ -55,7 +72,30 @@ pub global UNIQUENESS_NULLIFIER_DOMAIN: Field =
 ///
 /// With `config.disclose`, the library loads the disclose payload from the disclose
 /// capsule and adds its commitment itself.
+///
+/// Use `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry, such
+/// as a local network.
 pub fn verify_zkpassport_proof<let K: u32>(
+    context: &mut PrivateContext,
+    capsule_scope: AztecAddress,
+    config: ServiceConfig,
+    expected_commitments: BoundedVec<Field, K - 3>,
+) -> VerifiedProof<K> {
+    let registry = default_registry(context.chain_id());
+    verify_zkpassport_proof_with_registry(
+        context,
+        registry,
+        capsule_scope,
+        config,
+        expected_commitments,
+    )
+}
+
+/// `verify_zkpassport_proof` against the registry at `registry`.
+///
+/// For a network without a ZKPassport registry, such as a local network or TXE tests, or an app
+/// that trusts a registry of its own.
+pub fn verify_zkpassport_proof_with_registry<let K: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
     capsule_scope: AztecAddress,
@@ -101,17 +141,20 @@ pub fn verify_zkpassport_proof<let K: u32>(
         Option::none()
     };
 
-    // Stateless core: recursion, scope, nullifier policy, multiset commitment coverage.
+    // Stateless core: recursion, scope, nullifier policy, multiset commitment coverage. The core
+    // keeps the circuits' names for the domain and scope: scope and subscope.
     let out = verify_outer_proof_core::<K>(
         vk,
         proof,
         public_inputs,
+        config.domain,
         config.scope,
-        config.subscope,
         config.dev_mode,
         expected_with_disclosure::<K>(expected_commitments, disclosure),
     );
     let parsed = out.parsed;
+
+    assert_service_policy(config, parsed.nullifier_type);
 
     // Freshness vs the anchor-block timestamp
     let anchor_ts = context.get_anchor_block_header().timestamp();
@@ -133,16 +176,30 @@ pub fn verify_zkpassport_proof<let K: u32>(
 
     VerifiedProof {
         unique_identifier: parsed.scoped_nullifier,
-        unique_identifier_type: parsed.nullifier_type,
         current_date: parsed.current_date,
         param_commitments: parsed.param_commitments,
         disclosure,
     }
 }
 
-/// Sanctions check: asserts the sanctions root is valid in the registry, and returns the param commitment the
-/// caller must add to its expected_commitments, binding the checked root to the proof.
+/// Sanctions check: asserts the sanctions root is valid in ZKPassport's registry on this
+/// network, and returns the param commitment the caller must add to its expected_commitments,
+/// binding the checked root to the proof.
+///
+/// Use `check_sanctions_with_registry` on a network without a ZKPassport registry, such as a local
+/// network.
 pub fn check_sanctions(
+    context: &mut PrivateContext,
+    root: Field,
+    is_strict: bool,
+    current_date: u64,
+) -> Field {
+    let registry = default_registry(context.chain_id());
+    check_sanctions_with_registry(context, registry, root, is_strict, current_date)
+}
+
+/// `check_sanctions` against the registry at `registry`.
+pub fn check_sanctions_with_registry(
     context: &mut PrivateContext,
     registry: AztecAddress,
     root: Field,
@@ -166,6 +223,25 @@ pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, unique_identifier
         [UNIQUENESS_NULLIFIER_DOMAIN, unique_identifier],
         2,
     ));
+}
+
+fn default_registry(chain_id: Field) -> AztecAddress {
+    let mut registry = Option::none();
+    for deployment in REGISTRY_DEPLOYMENTS {
+        if deployment.0 == chain_id {
+            registry = Option::some(deployment.1);
+        }
+    }
+
+    assert(registry.is_some(), "no default ZKPassport registry on this network");
+    registry.unwrap()
+}
+
+// The checks this library adds to the core's. A proof made for no domain (0) would pass in every
+// app that also left it at 0, with the same unique identifier in each.
+fn assert_service_policy(config: ServiceConfig, unique_identifier_type: u8) {
+    assert(config.domain != 0, "service domain required");
+    assert(unique_identifier_type == config.unique_identifier_type, "wrong unique identifier type");
 }
 
 // The capsule holds mask ‖ bytes, one value per Field. Field-to-integer casts truncate silently,
@@ -201,8 +277,67 @@ fn expected_with_disclosure<let K: u32>(
 }
 
 mod test {
-    use crate::verify::{Disclosure, expected_with_disclosure, parse_disclose_payload};
+    use crate::verify::{
+        assert_service_policy, default_registry, Disclosure, expected_with_disclosure,
+        parse_disclose_payload, scope_hash, ServiceConfig,
+    };
+    use zkpassport::constants::{NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_SALTED};
     use zkpassport::fixtures::DISCLOSE_COMMITMENT;
+
+    fn service_config(domain: Field, unique_identifier_type: u8) -> ServiceConfig {
+        ServiceConfig {
+            version: 0,
+            domain,
+            scope: 0,
+            unique_identifier_type,
+            validity_period: 86400,
+            dev_mode: false,
+            disclose: false,
+        }
+    }
+
+    #[test]
+    fn scope_hash_matches_the_sdk() {
+        // getServiceScopeHash("example.com") in @zkpassport/utils
+        assert(
+            scope_hash("example.com")
+                == 0x00a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce19,
+        );
+    }
+
+    #[test]
+    fn scope_hash_of_empty_string_is_zero() {
+        assert(scope_hash("") == 0);
+    }
+
+    #[test]
+    fn service_policy_passes_for_a_domain_and_matching_type() {
+        assert_service_policy(
+            service_config(scope_hash("example.com"), NULLIFIER_TYPE_NON_SALTED),
+            NULLIFIER_TYPE_NON_SALTED,
+        );
+    }
+
+    #[test(should_fail_with = "service domain required")]
+    fn service_without_domain_rejected() {
+        assert_service_policy(
+            service_config(0, NULLIFIER_TYPE_NON_SALTED),
+            NULLIFIER_TYPE_NON_SALTED,
+        );
+    }
+
+    #[test(should_fail_with = "wrong unique identifier type")]
+    fn wrong_unique_identifier_type_rejected() {
+        assert_service_policy(
+            service_config(scope_hash("example.com"), NULLIFIER_TYPE_SALTED),
+            NULLIFIER_TYPE_NON_SALTED,
+        );
+    }
+
+    #[test(should_fail_with = "no default ZKPassport registry on this network")]
+    fn network_without_deployment_has_no_default_registry() {
+        let _ = default_registry(31337);
+    }
 
     // The conformance disclose payload: a TD3 mask disclosing only the nationality, "AUS"
     fn nationality_payload() -> [Field; 180] {
