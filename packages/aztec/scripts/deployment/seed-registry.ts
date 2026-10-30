@@ -7,8 +7,7 @@
  *   - update_root(REGISTRY_CIRCUIT, <latest circuit root>)
  *   - add_accepted_vk(<version>, <outer circuit vk hash>) (one per circuit in VK_CIRCUITS)
  *   - set_version_status(<version>, true)               (enables the circuit release)
- *   - set_oprf_pk_hash(...)                             (only if OPRF_PK_HASH is set —
- *                                                        needed for salted/vOPRF nullifiers only)
+ *   - set_oprf_pk_hash(<OPRF public key hash>)          (checked against salted proofs)
  *
  * Values come from ZKPassport's own Ethereum RootRegistry via @zkpassport/registry's
  * RegistryClient — the exact chain the prover uses: mock/dev-mode passports prove
@@ -55,7 +54,8 @@
  *                                current circuit manifest (default "outer_count_5" — what
  *                                an age/nationality query with a bind resolves to)
  *   VK_HASH                      accept this exact vk hash instead of resolving VK_CIRCUITS
- *   OPRF_PK_HASH                 if set, also set_oprf_pk_hash (salted-nullifier support)
+ *   OPRF_PK_HASH                 OPRF public key hash to seed (default: DEFAULT_OPRF_PUB_KEY_HASH
+ *                                from @zkpassport/utils, the hash of the default OPRF key)
  *   DRY_RUN                      resolve + print everything, send nothing
  *
  * Fees: testnet uses the live SponsoredFPC (same artifact derivation + on-chain
@@ -66,6 +66,7 @@ import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
 import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee"
 import { Fr } from "@aztec-labs/aztec.js/fields"
 import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash"
+import { DEFAULT_OPRF_PUB_KEY_HASH } from "@zkpassport/utils/oprf"
 import { packCircuitManifestVersion } from "../e2e/circuit-version.js"
 import { existsSync, readFileSync } from "fs"
 import { createRequire } from "node:module"
@@ -346,23 +347,29 @@ async function main() {
       }
     }
   }
+  const oprf = process.env.OPRF_PK_HASH
+    ? Fr.fromHexString(process.env.OPRF_PK_HASH)
+    : new Fr(DEFAULT_OPRF_PUB_KEY_HASH)
   let oprfNeeded = false
-  if (process.env.OPRF_PK_HASH) {
-    const oprf = Fr.fromHexString(process.env.OPRF_PK_HASH)
-    const sched = await readScheduledChange(node, registryAddress, layout.oprf_pk_hash.slot, [], 1)
-    if (sched.post[0].equals(oprf)) {
-      if (sched.maturesAt > nowSecs) {
-        console.log(
-          `oprf_pk_hash is already scheduled — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
-        )
-        pendingMaturity++
-      } else {
-        console.log("oprf_pk_hash is already live — skipping")
-      }
+  const oprfSched = await readScheduledChange(
+    node,
+    registryAddress,
+    layout.oprf_pk_hash.slot,
+    [],
+    1,
+  )
+  if (oprfSched.post[0].equals(oprf)) {
+    if (oprfSched.maturesAt > nowSecs) {
+      console.log(
+        `oprf_pk_hash is already scheduled — ${liveAt(oprfSched.maturesAt, nowSecs)} — skipping`,
+      )
+      pendingMaturity++
     } else {
-      oprfNeeded = true
-      actions.push(`set_oprf_pk_hash: ${process.env.OPRF_PK_HASH}`)
+      console.log("oprf_pk_hash is already live — skipping")
     }
+  } else {
+    oprfNeeded = true
+    actions.push(`set_oprf_pk_hash: ${oprf}`)
   }
 
   if (actions.length === 0) {
@@ -473,8 +480,7 @@ async function main() {
     }
   }
 
-  if (process.env.OPRF_PK_HASH && oprfNeeded) {
-    const oprf = Fr.fromHexString(process.env.OPRF_PK_HASH)
+  if (oprfNeeded) {
     console.log(`set_oprf_pk_hash(${oprf}) — proving + sending...`)
     await registry.methods.set_oprf_pk_hash(oprf).send(sendOptsFor(operatorSender.address))
     console.log(`  done`)
