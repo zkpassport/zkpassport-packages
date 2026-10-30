@@ -8,14 +8,15 @@
 # submodule: Circuit.from() resolves `target/<name>.json` against cwd.
 #
 # Toolchain: the circuits compile with nargo 1.0.0-beta.22 from the 5.0.1 aztec release, the
-# Noir version the circuits repo pins, and are proved with bb 6.0.0 from the 6.0.0
-# release, which must be FIRST in PATH: the Aztec protocol only accepts proofs from that bb's
-# Honk transcript.
+# Noir version the circuits repo pins, and are proved with bb from the Aztec release that
+# packages/aztec/.aztecrc pins, which must be FIRST in PATH: the Aztec protocol only accepts
+# proofs from that bb's Honk transcript.
 set -euo pipefail
 
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
 CIRCUITS=$HARNESS_DIR/circuits
-AZTEC=${AZTEC_HOME:-$HOME/.aztec/versions/6.0.0}
+AZTEC_VERSION=$(grep -v -e '^#' -e '^$' "$HARNESS_DIR/../.aztecrc" | head -n 1 | tr -d '[:space:]')
+AZTEC=${AZTEC:-${AZTEC_HOME:-$HOME/.aztec}/versions/$AZTEC_VERSION}
 BB_BIN=$AZTEC/node_modules/.bin
 AZTEC_501=${AZTEC_501:-$HOME/.aztec/versions/5.0.1}
 NARGO_501=$AZTEC_501/bin/aztec-nargo
