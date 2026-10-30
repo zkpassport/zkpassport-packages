@@ -15,7 +15,6 @@ import {
   getParameterCommitmentFromAttestedIdProof,
   getCredentialSchemeFromAttestedIdProof,
   getCredentialSchemeFromIntegrityProof,
-  getCredentialSchemeFromDisclosureProof,
   getCredentialSchemeFromOuterProof,
   hasCredentialScheme,
   isCredentialAllowed,
@@ -2413,8 +2412,7 @@ export class PublicInputChecker {
 
     // Registry roots are checked as of the proofs' own date, so older proofs still verify
     const disclosureProofNames = proofOrder.slice(4)
-    // What verified the ID, read from the base proof (or the outer), and checked on every
-    // disclosure proof
+    // What verified the ID, read from the base proof (or the outer)
     let credentialScheme: CredentialScheme | undefined
     const isDisclosureProof = (proof: ProofResult) =>
       disclosureProofNames.some((name) => proof.name?.startsWith(name))
@@ -2436,21 +2434,6 @@ export class PublicInputChecker {
         proof.proof as string,
         getNumberOfPublicInputs(proof.name!, proof.version),
       )
-      if (isDisclosureProof(proof) && hasCredentialScheme(proof.version)) {
-        const schemeOnProof = getCredentialSchemeFromDisclosureProof(proofData)
-        if (schemeOnProof !== credentialScheme) {
-          console.warn("The disclosure proof's credential scheme does not match the base proof")
-          isCorrect = false
-          queryResultErrors.credential_scheme = {
-            ...queryResultErrors.credential_scheme,
-            eq: {
-              expected: `${credentialScheme}`,
-              received: `${schemeOnProof}`,
-              message: "The disclosure proof's credential scheme does not match the base proof",
-            },
-          }
-        }
-      }
       if (proof.name?.startsWith("outer")) {
         const isForEVM = proof.name?.startsWith("outer_evm")
         const currentDate = getCurrentDateFromOuterProof(proofData)

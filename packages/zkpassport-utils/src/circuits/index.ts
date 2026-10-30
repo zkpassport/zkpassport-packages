@@ -191,9 +191,9 @@ export async function getHostedPackagedCircuitByName(
  * @returns The number of public inputs.
  */
 /**
- * How many public inputs a proof of the circuit has. Since circuit version 0.22.0 the integrity,
- * disclosure and outer proofs carry the credential scheme as one more; `circuitVersion` is the
- * version the proof was made with (none means the current circuits).
+ * How many public inputs a proof of the circuit has. Since circuit version 0.22.0 the integrity
+ * and outer proofs carry the credential scheme as one more; `circuitVersion` is the version the
+ * proof was made with (none means the current circuits).
  */
 export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: string) {
   const scheme = hasCredentialScheme(circuitVersion) ? 1 : 0
@@ -213,8 +213,8 @@ export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: st
     return 8 + scheme + disclosureProofCount
   }
   // Any other circuits are assumed to be disclosure circuits
-  // which have a universal interface of 8 public inputs, plus the credential scheme
-  return 8 + scheme
+  // which have a universal interface of 8 public inputs
+  return 8
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {

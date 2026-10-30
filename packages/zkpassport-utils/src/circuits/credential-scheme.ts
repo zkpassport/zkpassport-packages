@@ -55,16 +55,9 @@ export function credentialSchemeToHex(scheme: CredentialScheme): string {
   return `0x${scheme.toString(16)}`
 }
 
-// Layouts: a disclosure proof's 9th public input, the integrity proof's 3rd output, the
-// attested ID proof's 3rd output, the outer proof's last public input.
-
-export function getCredentialSchemeFromDisclosureProof(
-  proofData: ProofData,
-): CredentialScheme | undefined {
-  return proofData.publicInputs.length > 8
-    ? parseCredentialScheme(proofData.publicInputs[8])
-    : undefined
-}
+// Layouts: the integrity proof's 3rd output, the attested ID proof's 3rd output, the outer
+// proof's last public input. Disclosure proofs carry no scheme: the commitment ties them to the
+// base proof that states it.
 
 export function getCredentialSchemeFromIntegrityProof(
   proofData: ProofData,
