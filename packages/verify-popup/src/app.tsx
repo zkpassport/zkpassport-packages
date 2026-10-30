@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react"
 import { isPopupMessage } from "@zkpassport/sdk/popup"
 import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
 import type { PopupEventMessage } from "@zkpassport/sdk/popup"
-import { CredentialFlow } from "./mint"
 import { VerifyFlow } from "./verify"
 import { Done } from "./shared/done"
 import { FlowCard } from "./shared/flow-card"
@@ -25,6 +24,12 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 export type OutgoingEvent = DistributiveOmit<PopupEventMessage, "zkpassport">
 
 const ENDED_CLOSE_DELAY_MS = 1000
+
+// The wallet stack behind the credential flow is a third of the page, and a plain verification
+// never needs it
+const CredentialFlow = lazy(() =>
+  import("./mint").then((module) => ({ default: module.CredentialFlow })),
+)
 
 export function App() {
   const linkId = useMemo(() => new URLSearchParams(window.location.search).get("vl"), [])
@@ -142,12 +147,14 @@ export function App() {
   if (config.credential) {
     return (
       <Frame>
-        <CredentialFlow
-          request={config.request}
-          credential={config.credential}
-          rpHost={domain}
-          send={send}
-        />
+        <Suspense fallback={<Notice>Connecting…</Notice>}>
+          <CredentialFlow
+            request={config.request}
+            credential={config.credential}
+            rpHost={domain}
+            send={send}
+          />
+        </Suspense>
       </Frame>
     )
   }
