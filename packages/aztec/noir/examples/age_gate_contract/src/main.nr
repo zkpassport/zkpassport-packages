@@ -53,9 +53,13 @@ pub contract AgeGate {
             subscope: 0,
             validity_period: 7 * 86400,
             dev_mode: false,
+            disclose: false,
         };
 
-        let expected = [age_commitment(MIN_AGE, 0), bind_user_address_commitment(user.to_field())];
+        let expected = BoundedVec::from_array([
+            age_commitment(MIN_AGE, 0),
+            bind_user_address_commitment(user.to_field()),
+        ]);
 
         // The capsule rides in the sender's PXE, so it is scoped to the sender — who may be a
         // relayer, not `user`.
