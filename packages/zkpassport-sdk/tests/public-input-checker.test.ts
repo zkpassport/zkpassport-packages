@@ -2657,6 +2657,85 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     })
   })
 
+  describe("non-outer proof path - unhandled proof names", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    const chain: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 5 },
+    ]
+
+    async function makeAgeProof(name: string): Promise<ProofResult> {
+      return {
+        name,
+        proof: buildProofHex([
+          30n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          0n,
+          42n,
+        ]),
+        total: 5,
+        committedInputs: { [name]: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function check(proofs: ProofResult[]) {
+      return PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+    }
+
+    test("passes a chain with a standard age proof", async () => {
+      const { isCorrect } = await check([...chain, await makeAgeProof("compare_age")])
+
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when a lone EVM disclosure proof covers the query", async () => {
+      const { isCorrect } = await check([await makeAgeProof("compare_age_evm")])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an EVM disclosure proof is bundled with a chain", async () => {
+      const { isCorrect } = await check([...chain, await makeAgeProof("compare_age_evm")])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when a proof has an unknown name", async () => {
+      const { isCorrect } = await check([
+        ...chain,
+        await makeAgeProof("compare_age"),
+        { name: "unknown_circuit", proof: buildProofHex([30n]), total: 5 },
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an oprf_auth proof is bundled", async () => {
+      const { isCorrect } = await check([
+        ...chain,
+        await makeAgeProof("compare_age"),
+        { name: "oprf_auth", proof: buildProofHex([30n, 1n, 2n]), total: 5 },
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+  })
+
   describe("non-outer proof path - parameter commitment validation", () => {
     const domain = "example.com"
     const domainScopeHash = getServiceScopeHash(domain)

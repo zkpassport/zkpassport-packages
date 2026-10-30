@@ -3773,6 +3773,10 @@ export class PublicInputChecker {
         // but will always come with at least one other disclosure proof with a non-zero nullifier
         // uniqueIdentifier = getNullifierFromDisclosureProof(proofData).toString(10)
         // uniqueIdentifierType = getNullifierTypeFromDisclosureProof(proofData)
+      } else {
+        // No check covered this proof, e.g. a standalone `_evm` disclosure proof
+        console.warn(`Unexpected proof: ${proof.name}`)
+        isCorrect = false
       }
     }
 
