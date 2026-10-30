@@ -16,7 +16,7 @@ set -euo pipefail
 HARNESS_DIR=$(cd "$(dirname "$0")" && pwd)
 CIRCUITS=$HARNESS_DIR/circuits
 AZTEC_VERSION=$(grep -v -e '^#' -e '^$' "$HARNESS_DIR/../.aztecrc" | head -n 1 | tr -d '[:space:]')
-AZTEC=${AZTEC_HOME:-$HOME/.aztec/versions/$AZTEC_VERSION}
+AZTEC=${AZTEC:-${AZTEC_HOME:-$HOME/.aztec}/versions/$AZTEC_VERSION}
 BB_BIN=$AZTEC/node_modules/.bin
 AZTEC_501=${AZTEC_501:-$HOME/.aztec/versions/5.0.1}
 NARGO_501=$AZTEC_501/bin/aztec-nargo

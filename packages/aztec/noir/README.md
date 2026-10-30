@@ -210,8 +210,9 @@ runs from `test-harness/` (a sibling of `noir/` under `packages/aztec/`):
 ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
 ```
 
-The script resolves the toolchain at `~/.aztec/versions/<version in .aztecrc>`; point `AZTEC_HOME`
-at a version directory elsewhere for a non-default install location.
+The script resolves the toolchain at `$AZTEC_HOME/versions/<version in .aztecrc>`, where
+`AZTEC_HOME` is the Aztec root as `aztec-up` uses it (default `~/.aztec`); set `AZTEC` to a version
+directory to use another one.
 
 Finally, the end to end test at `scripts/`. It runs a full deploy + real client-IVC `claim()` against
 a local Aztec network (`AztecNode` at `localhost:8080` by default). It needs a running sandbox and

@@ -86,8 +86,6 @@ jobs:
       # Recursion-opcode coverage: nargo test no-ops std::verify_proof, so replay the
       # checked-in disclose proof fixture through bb.
       - name: Run bb recursion harness
-        env:
-          AZTEC_HOME: /home/runner/.aztec/versions/${{ steps.aztec-version.outputs.version }}
         run: |
           ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
           ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof

@@ -25,7 +25,7 @@ NETWORK="${1:-}"
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AZTEC_VERSION="$(grep -v -e '^#' -e '^$' "$SCRIPTS_DIR/../.aztecrc" | head -n 1 | tr -d '[:space:]')"
-AZTEC="${AZTEC:-$HOME/.aztec/versions/$AZTEC_VERSION}"
+AZTEC="${AZTEC:-${AZTEC_HOME:-$HOME/.aztec}/versions/$AZTEC_VERSION}"
 NR="$SCRIPTS_DIR/../noir"
 TYPES="$NR/registry_contract/src/types.nr"
 
