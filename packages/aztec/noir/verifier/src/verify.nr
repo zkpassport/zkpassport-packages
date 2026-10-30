@@ -41,22 +41,20 @@ pub struct VerifiedProof<let K: u32> {
 pub global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
 
-/// Verify a zkPassport outer proof end-to-end: capsule load, recursion, scope pin, nullifier
-/// policy, commitment coverage, freshness, and the one registry view (roots + vk + OPRF).
+/// Verify a zkPassport outer proof end-to-end.
 ///
-/// `capsule_scope` is the PXE account scope the proof capsule was delivered under — the
-/// transaction sender (`msg_sender`), not necessarily the subject of the proof. It only
-/// selects where the capsule is read from; nothing about the proof's validity depends on it.
+/// `capsule_scope` is the PXE account scope the proof capsule was delivered under. Consider the
+/// transaction sender (`msg_sender`) is not necessarily the subject of the proof. It only
+/// selects where the capsule is read from, nothing about the proof's validity depends on it.
+///
 /// To tie the proof to an address, put `bind_user_address_commitment(address)` in
 /// `expected_commitments`.
 ///
 /// `expected_commitments` are the param commitments of the subproofs the app asks for (age,
-/// bind, ...). With `config.disclose`, the library loads the disclose payload from the disclose
-/// capsule and adds its commitment itself, so the app passes one fewer and reads the disclosed
-/// bytes from `VerifiedProof.disclosure`, the only copy the proof covers. The full list must
-/// match the proof's K - 3 param commitments as a multiset (any order): the prover does not fix
-/// the subproof order and the ZKPassport SDK itself matches param commitments by membership, so
-/// e.g. a {constraint, bind} pair may arrive in either order.
+/// bind, ...).
+///
+/// With `config.disclose`, the library loads the disclose payload from the disclose
+/// capsule and adds its commitment itself.
 pub fn verify_zkpassport_proof<let K: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -92,7 +90,13 @@ pub fn verify_zkpassport_proof<let K: u32>(
     // The disclose payload is loaded once, here: a second load is a separate oracle call the
     // sender's PXE can answer differently, so only this copy is bound to the proof.
     let disclosure = if config.disclose {
-        Option::some(load_disclosure(context.this_address(), capsule_scope))
+        // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
+        // every element, and expected_with_disclosure's commitment binds the result to the proof.
+        let payload: Option<[Field; 180]> =
+            unsafe { capsules::load(context.this_address(), DISCLOSE_CAPSULE_SLOT, capsule_scope) };
+
+        assert(payload.is_some(), "missing disclose capsule");
+        Option::some(parse_disclose_payload(payload.unwrap()))
     } else {
         Option::none()
     };
@@ -162,16 +166,6 @@ pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, scoped_nullifier:
         [UNIQUENESS_NULLIFIER_DOMAIN, scoped_nullifier],
         2,
     ));
-}
-
-fn load_disclosure(app: AztecAddress, capsule_scope: AztecAddress) -> Disclosure {
-    // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
-    // every element, and the caller's commitment check binds the result to the proof.
-    let payload: Option<[Field; 180]> =
-        unsafe { capsules::load(app, DISCLOSE_CAPSULE_SLOT, capsule_scope) };
-
-    assert(payload.is_some(), "missing disclose capsule");
-    parse_disclose_payload(payload.unwrap())
 }
 
 // The capsule holds mask ‖ bytes, one value per Field. Field-to-integer casts truncate silently,
