@@ -11,8 +11,10 @@ Features:
 - **`fetchOuterVk(vkeyHash)`**: the outer vk from the live `circuits2.zkpassport.id` host.
 - **`constants.ts`** — TS mirror of `core/src/constants.nr`.
 
-Requires the Noir workspace compiled first (the artifact is imported from
-`noir/target/`, which is gitignored):
+Requires the Noir workspace compiled first with the Aztec 6.0.0 toolchain active, which
+`aztec-up install 6.0.0` sets up (see [the Noir README](../noir/README.md#running-the-tests)).
+With another version active, `aztec compile` fails on aztec-nr itself, with errors such as
+`Could not resolve 'StructField'`. The artifact is imported from `noir/target/`, which is gitignored:
 
 ```sh
 cd ../noir && aztec compile
