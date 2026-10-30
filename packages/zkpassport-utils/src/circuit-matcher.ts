@@ -7,10 +7,7 @@ import {
   getPortraitHash,
   isChiplessPassport,
 } from "./circuits/attested-id"
-import {
-  credentialSchemeToHex,
-  getCredentialSchemeForPassport,
-} from "./circuits/credential-scheme"
+import {} from "./circuits/credential-scheme"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { Alpha3Code } from "i18n-iso-countries"
@@ -871,7 +868,6 @@ export async function getDiscloseCircuitInputs(
     )),
     disclose_mask: discloseMask,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
@@ -1048,7 +1044,6 @@ export async function getAgeCircuitInputs(
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     min_age_required: minAge,
@@ -1105,7 +1100,6 @@ export async function getNationalityInclusionCircuitInputs(
     country_list: padCountryList(query.nationality?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
@@ -1152,7 +1146,6 @@ export async function getIssuingCountryInclusionCircuitInputs(
     country_list: padCountryList(query.issuing_country?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
@@ -1209,7 +1202,6 @@ export async function getNationalityExclusionCircuitInputs(
       200,
     ),
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
@@ -1262,7 +1254,6 @@ export async function getIssuingCountryExclusionCircuitInputs(
       200,
     ),
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     nullifier_secret: `0x${nullifierSecret.toString(16)}`,
@@ -1313,7 +1304,6 @@ export async function getSanctionsExclusionCheckCircuitInputs(
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     proofs,
     is_strict: isStrict ? 1 : 0,
     root,
@@ -1391,7 +1381,6 @@ export async function getBirthdateCircuitInputs(
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     // Add the seconds between 1900 and 1970 to the date to get the correct date
@@ -1471,7 +1460,6 @@ export async function getExpiryDateCircuitInputs(
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     min_date: minDate ? getUnixTimestamp(minDate) : 0,
@@ -1518,7 +1506,6 @@ export async function getBindCircuitInputs(
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     data: rightPadArrayWithZeros(data, 509),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
@@ -1562,7 +1549,6 @@ export async function getFacematchCircuitInputs(
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
     service_scope: `0x${service_scope.toString(16)}`,
     service_subscope: `0x${service_subscope.toString(16)}`,
     // FACEMATCH_MODE_REGULAR (1) or FACEMATCH_MODE_STRICT (2)
@@ -1598,7 +1584,6 @@ export async function getOprfAuthCircuitInputs(
     inputs: {
       ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
       comm_in: commIn.toHex(),
-    credential_scheme: credentialSchemeToHex(getCredentialSchemeForPassport(passport)),
       beta: `0x${beta.toString(16)}`,
     },
     privateNullifier: privateNullifier.toBigInt(),
