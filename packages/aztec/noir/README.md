@@ -158,6 +158,12 @@ reads the nationality out of it.
    authorizes nothing for anyone else, and any relayer may submit the transaction on the bound
    user's behalf. The example function `claim` in the `AgeGate` contract at
    `examples/age_gate_contract/src/main.nr` is the pattern to copy.
+6. **A bind ties a proof to an address, not to a network.** `bind_user_address_commitment` covers
+   only the user-address entry of ZKPassport's bound data, with no chain id. A proof bound to an
+   address therefore verifies against any deployment of an app, on any Aztec network, whose
+   registry accepts its roots and VK, while the proof is within its validity period. Nullifiers
+   are siloed per contract, so the same passport can claim once per deployment. A proof whose bound
+   data also carries a chain id does not verify, because the bind commitment covers every entry.
 
 ## Running the tests
 
