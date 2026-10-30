@@ -971,7 +971,8 @@ export class ZKPassport {
       writingDirectory = "/tmp"
     }
     const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
-    // Started only once the public inputs check out, so rejected proofs never spawn bb
+    // Started only once the public inputs check out and a proof needs it, so rejected proofs and
+    // outer EVM proofs, which are verified on chain, never spawn bb
     let loadedVerifier: LoadedVerifier | undefined
     let verified = true
     let uniqueIdentifier: string | undefined
@@ -1018,7 +1019,6 @@ export class ZKPassport {
           // We assume all proofs have the same version
           version: proofs[0].version,
         })
-        loadedVerifier = await createUltraHonkVerifier(bbVersion, { writingDirectory })
         for (const proof of proofs) {
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!
@@ -1054,6 +1054,7 @@ export class ZKPassport {
               verified = false
             }
           } else {
+            loadedVerifier ??= await createUltraHonkVerifier(bbVersion, { writingDirectory })
             const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
             try {
               verified = await loadedVerifier.verifier.verifyProof({
