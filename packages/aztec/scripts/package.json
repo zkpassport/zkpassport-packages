@@ -20,7 +20,8 @@
     "@aztec-labs/noir-contracts.js": "6.0.0",
     "@aztec-labs/stdlib": "6.0.0",
     "@aztec-labs/wallets": "6.0.0",
-    "@zkpassport/registry": "0.14.0"
+    "@zkpassport/registry": "0.14.0",
+    "@zkpassport/utils": "0.39.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
