@@ -3780,6 +3780,27 @@ export class PublicInputChecker {
       }
     }
 
+    // As in the outer circuit, each disclosure proof carries no nullifier or the bundle's one
+    const nullifierProofs = sortedProofs
+      .filter((p) => p.name !== "facematch" && disclosureProofNames.includes(p.name!))
+      .map((p) => getProofData(p.proof as string, getNumberOfPublicInputs(p.name!)))
+    if (nullifierProofs.length > 0) {
+      const distinct = <T>(values: T[], none: T) => [...new Set(values.filter((v) => v !== none))]
+      const nullifiers = distinct(nullifierProofs.map(getNullifierFromDisclosureProof), 0n)
+      const nullifierTypes = distinct(
+        nullifierProofs.map(getNullifierTypeFromDisclosureProof),
+        NullifierType.NONE,
+      )
+      const oprfPkHashes = distinct(nullifierProofs.map(getOprfPkHashFromDisclosureProof), 0n)
+      if (nullifiers.length > 1 || nullifierTypes.length > 1 || oprfPkHashes.length > 1) {
+        console.warn("The disclosure proofs do not share the same nullifier")
+        isCorrect = false
+      }
+      uniqueIdentifier = nullifiers[0]?.toString(10)
+      uniqueIdentifierType = nullifierTypes[0] ?? NullifierType.NONE
+      oprfPublicKeyHash = oprfPkHashes[0]
+    }
+
     const committedInputKeys = new Set<string>()
     for (const p of sortedProofs!) {
       for (const key of Object.keys(p.committedInputs ?? {})) committedInputKeys.add(key)
@@ -3800,26 +3821,7 @@ export class PublicInputChecker {
         const oprfPk = await getOprfPublicKey(oprfKeyId ?? OPRF_DEFAULT_KEY_ID)
         const expectedPkHash = await hashOprfPublicKey(oprfPk)
 
-        let proofPkHash: bigint | undefined = oprfPublicKeyHash
-        // Find a disclosure proof to extract oprfPkHash from
-
-        if (proofPkHash === undefined) {
-          const disclosureProof = sortedProofs.find(
-            (p) =>
-              p.name &&
-              !p.name.startsWith("sig_check_") &&
-              !p.name.startsWith("data_check_") &&
-              !p.name.startsWith("outer") &&
-              !p.name.startsWith("facematch"),
-          )
-          if (disclosureProof) {
-            const dpData = getProofData(
-              disclosureProof.proof as string,
-              getNumberOfPublicInputs(disclosureProof.name!),
-            )
-            proofPkHash = getOprfPkHashFromDisclosureProof(dpData)
-          }
-        }
+        const proofPkHash = oprfPublicKeyHash
         if (proofPkHash === undefined || proofPkHash !== expectedPkHash) {
           console.warn("OPRF public key hash mismatch: proof uses an unknown OPRF key")
           isCorrect = false
