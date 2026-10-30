@@ -1,3 +1,4 @@
+import { CredentialScheme, getCredentialSchemeFromOuterProof } from "./circuits/credential-scheme"
 import {
   calculateCircuitRoot,
   CircuitManifest,
@@ -173,6 +174,34 @@ describe("getOuterCircuitInputs top-level input derivation", () => {
     )
     expect(inputs.nullifier_type).toEqual(MOCK)
     expect(inputs.scoped_nullifier).toEqual("0x0")
+  })
+})
+
+describe("outer proof public inputs since circuit version 0.22.0", () => {
+  // [..., nullifier_type, scoped_nullifier, oprf_pk_hash, credential_scheme]
+  const proof = {
+    proof: [],
+    publicInputs: [
+      "0x1",
+      "0x2",
+      "0x3",
+      "0x4",
+      "0x5",
+      "0xaa",
+      "0xbb",
+      "0x1",
+      "0x77",
+      "0x88",
+      "0xc8",
+    ],
+  }
+
+  test("the trailing fields shift by one for the credential scheme", () => {
+    expect(getNullifierTypeFromOuterProof(proof, "0.22.0")).toEqual(NullifierType.SALTED)
+    expect(getNullifierFromOuterProof(proof, "0.22.0")).toEqual(0x77n)
+    expect(getOprfPkHashFromOuterProof(proof, "0.22.0")).toEqual(0x88n)
+    expect(getParamCommitmentsFromOuterProof(proof, "0.22.0")).toEqual([0xaan, 0xbbn])
+    expect(getCredentialSchemeFromOuterProof(proof)).toEqual(CredentialScheme.ATTESTED_CAPTURE_IOS)
   })
 })
 

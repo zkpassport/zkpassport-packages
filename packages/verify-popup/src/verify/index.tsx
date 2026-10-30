@@ -11,6 +11,7 @@ import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
 import { Scan } from "./scan"
+import { useRequestUrl } from "./use-request-url"
 import { Waiting, withProof, type ScanProgress } from "./waiting"
 
 type VerifyFlowProps = {
@@ -162,6 +163,11 @@ function VerifyRequest({
   // phone has joined it also throws away work in progress
   useConfirmClose(!verified && !failure)
 
+  const link = useRequestUrl(req.url, {
+    allowedCredentials: request.allowedCredentials,
+    appClip: request.appClip,
+  })
+
   const screen = (() => {
     if (verified) return "done"
     if (failure) return "error"
@@ -185,7 +191,7 @@ function VerifyRequest({
         <ErrorScreen message={failure.message} onRetry={tryAgain} />
       ) : null}
       {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
-      {screen === "scan" ? <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} /> : null}
+      {screen === "scan" ? <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} /> : null}
       {screen === "intro" ? (
         <Intro
           appName={appName}

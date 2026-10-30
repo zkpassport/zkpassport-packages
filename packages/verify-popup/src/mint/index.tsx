@@ -17,6 +17,7 @@ import { Resolving } from "./resolving"
 import type { ZKPassportQRCodeOptions } from "@zkpassport/ui/hosted"
 import type { ScanProgress } from "../verify/waiting"
 import { Intro } from "../verify/intro"
+import { useRequestUrl } from "../verify/use-request-url"
 import { Scan } from "../verify/scan"
 import { Waiting } from "../verify/waiting"
 import { useRequest } from "../request"
@@ -214,6 +215,7 @@ function VerifyStep({
         devMode: options.devMode,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
+        allowedCredentials: options.allowedCredentials,
         verifierMode: options.verifierMode,
       },
       query: options.query,
@@ -237,6 +239,8 @@ function VerifyStep({
     },
   )
 
+  const link = useRequestUrl(req.url, { allowedCredentials: options.allowedCredentials })
+
   const tryAgain = () => {
     setFailure(null)
     req.retry()
@@ -254,5 +258,5 @@ function VerifyStep({
       />
     )
   }
-  return <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} />
+  return <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} />
 }

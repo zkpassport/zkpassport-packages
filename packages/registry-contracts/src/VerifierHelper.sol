@@ -14,6 +14,7 @@ import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
 import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {SECONDS_BETWEEN_1900_AND_1970, PublicInput, AppAttest, RegistryID} from "./lib/Constants.sol";
+import {Credentials} from "./lib/Credentials.sol";
 import {ProofType, DisclosedData, BoundData, FaceMatchMode, Environment, OS, NullifierType} from "./lib/Types.sol";
 
 contract VerifierHelper {
@@ -471,7 +472,7 @@ contract VerifierHelper {
      * @return The nullifier type of the proof
      */
     function getNullifierType(bytes32[] calldata publicInputs) public pure returns (NullifierType) {
-        return NullifierType(uint256(publicInputs[publicInputs.length - 3]));
+        return NullifierType(uint256(publicInputs[publicInputs.length - PublicInput.NULLIFIER_TYPE_OFFSET_FROM_END]));
     }
 
     /**
@@ -491,10 +492,55 @@ contract VerifierHelper {
         }
         if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
             // Mock IDs keep their mock type even when the nullifier is hidden
-            bool hasNullifier = publicInputs[publicInputs.length - 2] != bytes32(0);
+            bool hasNullifier =
+                publicInputs[publicInputs.length - PublicInput.SCOPED_NULLIFIER_OFFSET_FROM_END] != bytes32(0);
             return hasNullifier ? NullifierType.NON_SALTED_NULLIFIER : NullifierType.NONE_NULLIFIER;
         }
         return nullifierType;
+    }
+
+    /**
+     * @notice Gets the credential scheme the ID was verified with, see lib/Credentials.sol
+     * @param publicInputs The public inputs of the proof
+     * @return The credential scheme
+     */
+    function getCredentialScheme(bytes32[] calldata publicInputs) public pure returns (uint256) {
+        return uint256(publicInputs[publicInputs.length - PublicInput.CREDENTIAL_SCHEME_OFFSET_FROM_END]);
+    }
+
+    /**
+     * @notice Gets the assurance tier of the credential the ID was verified with
+     * @param publicInputs The public inputs of the proof
+     * @return The credential tier: 1 when the issuer signed the data, 2 when a device attested it
+     */
+    function getCredentialTier(bytes32[] calldata publicInputs) external pure returns (uint256) {
+        return Credentials.tierOf(getCredentialScheme(publicInputs));
+    }
+
+    /**
+     * @notice Whether the proof's credential is accepted by a policy
+     * @param allowedCredentials Tiers (whole tier) and/or exact schemes; empty means signed credentials only
+     * @param publicInputs The public inputs of the proof
+     * @return True if accepted, false otherwise
+     */
+    function isCredentialAllowed(uint256[] memory allowedCredentials, bytes32[] calldata publicInputs)
+        public
+        pure
+        returns (bool)
+    {
+        return Credentials.isAllowed(getCredentialScheme(publicInputs), allowedCredentials);
+    }
+
+    /**
+     * @notice Enforces that the proof's credential is accepted by a policy
+     * @param allowedCredentials Tiers (whole tier) and/or exact schemes; empty means signed credentials only
+     * @param publicInputs The public inputs of the proof
+     */
+    function enforceCredentialAllowed(uint256[] memory allowedCredentials, bytes32[] calldata publicInputs)
+        external
+        pure
+    {
+        require(isCredentialAllowed(allowedCredentials, publicInputs), "Credential not allowed");
     }
 
     /**

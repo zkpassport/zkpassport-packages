@@ -93,6 +93,10 @@
     "./oprf": {
       "import": "./dist/esm/oprf/index.js",
       "require": "./dist/cjs/oprf/index.cjs"
+    },
+    "./document-coverage": {
+      "import": "./dist/esm/document-coverage/index.js",
+      "require": "./dist/cjs/document-coverage/index.cjs"
     }
   },
   "scripts": {

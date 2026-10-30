@@ -25,6 +25,7 @@ export default defineConfig(
       "sanctions/index": "src/sanctions/index.ts",
       "types/index": "src/types/index.ts",
       "oprf/index": "src/oprf/index.ts",
+      "document-coverage/index": "src/document-coverage/index.ts",
     },
     dts: {
       compilerOptions: {

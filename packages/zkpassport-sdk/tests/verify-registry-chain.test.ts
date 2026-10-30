@@ -73,6 +73,7 @@ describe("verify() registry chain", () => {
       uniqueIdentifier: "1",
       uniqueIdentifierType: NullifierType.NON_SALTED,
       queryResultErrors: {},
+      credentialScheme: 100,
     })
     bbVerifierSpy = spyOn(bbVerifier, "createUltraHonkVerifier").mockResolvedValue({
       verifier: { verifyProof: async () => true },

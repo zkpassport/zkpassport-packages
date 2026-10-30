@@ -9,9 +9,14 @@ import {
   ProofResult,
   ultraVkToFields,
 } from "."
+import { hasCredentialScheme } from "./circuits/credential-scheme"
 
 const BASE_SUBPROOF_COUNT = 3
 const MAX_OUTER_DISCLOSURE_PROOFS = 10
+
+// Trailing outer public inputs: nullifier_type, scoped_nullifier, oprf_pk_hash, and since
+// circuit version 0.22.0 the credential scheme
+const trailingCount = (circuitVersion?: string) => (hasCredentialScheme(circuitVersion) ? 4 : 3)
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -127,6 +132,8 @@ export function getOuterCircuitInputs(
   const nullifier = (nullifierProof ?? sourceProof).publicInputs[6]
   const oprfPkHash = (nullifierProof ?? sourceProof).publicInputs[7]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
+  // Output by the base proof and carried by every disclosure proof; the outer checks both
+  const credentialScheme = integrityCheckProof.publicInputs[2]
 
   return {
     certificate_registry_root: certificateRegistryRoot,
@@ -138,6 +145,7 @@ export function getOuterCircuitInputs(
     scoped_nullifier: nullifier,
     nullifier_type: nullifierType,
     oprf_pk_hash: oprfPkHash,
+    credential_scheme: credentialScheme,
     csc_to_dsc_proof: {
       vkey: cscToDscProof.vkey,
       proof: cscToDscProof.proof,
@@ -169,7 +177,8 @@ export function getOuterCircuitInputs(
       // Keep the commitment in, scoped nullifier, nullifier type and oprf pk hash from the
       // disclosure proof's public inputs (in the order the outer circuit's DisclosureProof
       // struct expects them). The remaining values are passed directly to the outer circuit.
-      // Disclosure circuit layout: [0] comm_in, [5] nullifier_type, [6] scoped_nullifier, [7] oprf_pk_hash.
+      // Disclosure circuit layout: [0] comm_in, [5] nullifier_type, [6] scoped_nullifier,
+      // [7] oprf_pk_hash.
       public_inputs: [
         proof.publicInputs[0], // comm_in
         proof.publicInputs[6], // scoped_nullifier
@@ -213,8 +222,13 @@ export function getSubscopeFromOuterProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[4])
 }
 
-export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
+export function getNullifierTypeFromOuterProof(
+  proofData: ProofData,
+  circuitVersion?: string,
+): NullifierType {
+  const nullifierType = BigInt(
+    proofData.publicInputs[proofData.publicInputs.length - trailingCount(circuitVersion)],
+  )
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -234,12 +248,16 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
  * @param proofData - The proof data.
  * @returns The scoped nullifier.
  */
-export function getNullifierFromOuterProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+export function getNullifierFromOuterProof(proofData: ProofData, circuitVersion?: string): bigint {
+  return BigInt(
+    proofData.publicInputs[proofData.publicInputs.length - trailingCount(circuitVersion) + 1],
+  )
 }
 
-export function getOprfPkHashFromOuterProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
+export function getOprfPkHashFromOuterProof(proofData: ProofData, circuitVersion?: string): bigint {
+  return BigInt(
+    proofData.publicInputs[proofData.publicInputs.length - trailingCount(circuitVersion) + 2],
+  )
 }
 
 /**
@@ -247,7 +265,13 @@ export function getOprfPkHashFromOuterProof(proofData: ProofData): bigint {
  * @param proofData - The proof data.
  * @returns The param commitments.
  */
-export function getParamCommitmentsFromOuterProof(proofData: ProofData): bigint[] {
-  // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash.
-  return proofData.publicInputs.slice(5, proofData.publicInputs.length - 3).map(BigInt)
+export function getParamCommitmentsFromOuterProof(
+  proofData: ProofData,
+  circuitVersion?: string,
+): bigint[] {
+  // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash, and
+  // since circuit version 0.22.0 the credential scheme.
+  return proofData.publicInputs
+    .slice(5, proofData.publicInputs.length - trailingCount(circuitVersion))
+    .map(BigInt)
 }

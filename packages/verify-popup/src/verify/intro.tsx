@@ -1,7 +1,7 @@
 import { describeQuery, type QueryDescriptionItem } from "@zkpassport/ui/hosted"
 import type { Query } from "@zkpassport/sdk"
 
-import { ICON_CHECK, ICON_EPASSPORT_CHIP } from "../shared/icons"
+import { ICON_CHECK } from "../shared/icons"
 import { Main } from "../shared/controls"
 
 const SKELETON_ROWS = 2
@@ -34,15 +34,6 @@ export function Intro({
         </div>
 
         <div className="intro-chip">
-          <span
-            className="intro-chip-mark"
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: ICON_EPASSPORT_CHIP }}
-          />
-          <p className="intro-chip-question">Do you have a passport or ID with a chip?</p>
-          <p className="intro-chip-hint">
-            Look for this symbol on your passport or ID card. Your phone reads the chip over NFC.
-          </p>
           <button type="button" className="flow-primary" disabled={!items} onClick={onContinue}>
             Continue
           </button>

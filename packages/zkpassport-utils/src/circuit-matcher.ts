@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { sha256 } from "@noble/hashes/sha2.js"
+import {
+  calculateAttestedDigest,
+  calculateTier2PrivateNullifier,
+  getPortraitHash,
+  isChiplessPassport,
+} from "./circuits/attested-id"
+import {} from "./circuits/credential-scheme"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { Alpha3Code } from "i18n-iso-countries"
@@ -147,6 +154,8 @@ export function isDSCSupported(dsc: DSC): boolean {
 }
 
 export function isIDSupported(passport: PassportViewModel): boolean {
+  // Read by camera: no chip signatures to support, the attested_id circuit is its base instead
+  if (isChiplessPassport(passport)) return false
   const sodSignatureAlgorithm = getSodSignatureAlgorithmType(passport)
   return (
     isSignatureAlgorithmSupported(passport, sodSignatureAlgorithm) &&
@@ -363,19 +372,45 @@ function getDSCDataInputs(
 async function getIDDataInputs(passport: PassportViewModel): Promise<IDDataInputs> {
   const dg1 = passport?.dataGroups.find((dg) => dg.groupNumber === 1)
   const dg2 = passport?.dataGroups.find((dg) => dg.groupNumber === 2)
-  const eContent = passport?.sod.encapContentInfo.eContent.bytes.toNumberArray()
-  const signedAttributes = passport.sod.signerInfo.signedAttrs.bytes.toNumberArray()
+  // A passport read by camera has no SOD, and the attested digest stands in for its DG2 hash
+  const eContent = passport?.sod?.encapContentInfo.eContent.bytes.toNumberArray() ?? []
+  const signedAttributes = passport?.sod?.signerInfo.signedAttrs.bytes.toNumberArray() ?? []
+  const dg2Hash = isChiplessPassport(passport)
+    ? Array.from(
+        calculateAttestedDigest(new Uint8Array(dg1?.value ?? []), getPortraitHash(passport)),
+      )
+    : (dg2?.hash ?? [])
   const id_data = {
     // Padded with 0s to make it 700 bytes
-    e_content: rightPadArrayWithZeros(eContent ?? [], E_CONTENT_INPUT_SIZE),
+    e_content: rightPadArrayWithZeros(eContent, E_CONTENT_INPUT_SIZE),
     // Padded to 200 bytes with 0s
-    signed_attributes: rightPadArrayWithZeros(signedAttributes ?? [], SIGNED_ATTR_INPUT_SIZE),
+    signed_attributes: rightPadArrayWithZeros(signedAttributes, SIGNED_ATTR_INPUT_SIZE),
     // Padded to 95 bytes with 0s
     dg1: rightPadArrayWithZeros(dg1?.value ?? [], DG1_INPUT_SIZE),
-    dg2_hash_normalized: await normalizeDg2Hash(dg2?.hash ?? []),
-    dg2_hash_type: getHashAlgorithmIdentifierFromLength(dg2?.hash.length ?? 0),
+    dg2_hash_normalized: await normalizeDg2Hash(dg2Hash),
+    dg2_hash_type: getHashAlgorithmIdentifierFromLength(dg2Hash.length),
   }
   return id_data
+}
+
+/**
+ * The private nullifier the base proofs commit to: from the chip's signature for an ePassport,
+ * from the check-digit MRZ fields for a passport read by camera (see the attested_id circuit).
+ */
+async function getPrivateNullifier(
+  passport: PassportViewModel,
+  idData: IDDataInputs,
+): Promise<Binary> {
+  if (isChiplessPassport(passport)) {
+    return Binary.from(await calculateTier2PrivateNullifier(new Uint8Array(idData.dg1)))
+  }
+  return calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
 }
 
 function ensureLowSValue(
@@ -727,13 +762,7 @@ export async function getIntegrityCheckCircuitInputs(
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
 
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const signedAttributes = passport?.sod.signerInfo.signedAttrs.bytes.toNumberArray()
   const comm_in = await hashSaltCountrySignedAttrDg1EContentPrivateNullifier(
     saltIn,
@@ -816,13 +845,7 @@ export async function getDiscloseCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -971,13 +994,7 @@ export async function getAgeCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1061,13 +1078,7 @@ export async function getNationalityInclusionCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1113,13 +1124,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1165,13 +1170,7 @@ export async function getNationalityExclusionCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1223,13 +1222,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1286,13 +1279,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1344,13 +1331,7 @@ export async function getBirthdateCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1429,13 +1410,7 @@ export async function getExpiryDateCircuitInputs(
 
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1508,13 +1483,7 @@ export async function getBindCircuitInputs(
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1557,13 +1526,7 @@ export async function getFacematchCircuitInputs(
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) throw new Error("Error getting ID data inputs")
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
@@ -1607,13 +1570,7 @@ export async function getOprfAuthCircuitInputs(
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) throw new Error("Error getting ID data inputs")
-  const privateNullifier = await calculatePrivateNullifier(
-    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
-    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
-    Binary.from(
-      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
-    ),
-  )
+  const privateNullifier = await getPrivateNullifier(passport, idData)
   const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
