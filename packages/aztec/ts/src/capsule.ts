@@ -42,7 +42,7 @@ export function assembleProofCapsule(parts: OuterProofParts, k = 5): Fr[] {
 /**
  * Assemble the disclose preimage for `DISCLOSE_CAPSULE_SLOT`:
  * `mask(90) ‖ disclosedBytes(90)`, one field per element — what the library's
- * `load_disclose_payload` consumes (nationality claims only).
+ * `verify_zkpassport_proof` loads when `ServiceConfig.disclose` is set (nationality claims only).
  */
 export function assembleDiscloseCapsule(discloseMask: number[], disclosedBytes: number[]): Fr[] {
   if (discloseMask.length !== MRZ_LENGTH || disclosedBytes.length !== MRZ_LENGTH) {
