@@ -37,7 +37,7 @@ pub contract NationalityGate {
 
     /// Claim the badge for `user`: verifies a ZKPassport proof (outer_count_5, param
     /// commitments = {disclose, bind(user)}) whose disclosed nationality is NATIONALITY, burns
-    /// the scoped nullifier (one claim per passport) and grants `user` the public badge.
+    /// the unique identifier (one claim per passport) and grants `user` the public badge.
     ///
     /// The disclose payload rides in its own capsule, which verify_zkpassport_proof loads and
     /// checks against the proof. The proof must disclose the document type as well as the
@@ -71,7 +71,7 @@ pub contract NationalityGate {
         let nationality = disclosed_nationality(disclosure.mask, disclosure.bytes);
         assert(nationality.nationality == NATIONALITY.as_bytes(), "nationality not accepted");
 
-        emit_uniqueness_nullifier(self.context, verified.scoped_nullifier);
+        emit_uniqueness_nullifier(self.context, verified.unique_identifier);
 
         self.enqueue_self._grant_badge(user);
     }
