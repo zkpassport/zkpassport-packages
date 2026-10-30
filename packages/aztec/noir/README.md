@@ -20,7 +20,7 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
 | `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0-beta.22`) — see Pins below |
-| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>`, capsule loaders (`load_disclose_payload`), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`, and adds `verify.nr` — `ServiceConfig`, `verify_zkpassport_proof::<K>` (which also loads and checks a disclose payload), `check_sanctions`, `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `examples/age_gate_contract` | `contract` | Minimal consumer example: an 18+ age-gate `claim()` using `verify_zkpassport_proof::<5>` (age + bind commitments) + `emit_uniqueness_nullifier`, granting a public soulbound badge (`has_badge`). | `aztec`, `zkpassport_aztec_verifier`, `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crates (upstream noir-contracts style):
@@ -60,8 +60,12 @@ fn claim(user: AztecAddress) {
         subscope: 0,
         validity_period: 7 * 86400,
         dev_mode: false,
+        disclose: false,
     };
-    let expected = [age_commitment(MIN_AGE, 0), bind_user_address_commitment(user.to_field())];
+    let expected = BoundedVec::from_array([
+        age_commitment(MIN_AGE, 0),
+        bind_user_address_commitment(user.to_field()),
+    ]);
     // The capsule rides in the sender's PXE, so it is scoped to the sender.
     let verified = verify_zkpassport_proof::<5>(
         self.context, registry, self.msg_sender(), config, expected,
@@ -110,6 +114,13 @@ const [{ receipt }, claimSecs] = await timed("claim (private tx, client-IVC prov
 
 The capsule is consumed by `verify_zkpassport_proof`, which constrains every field (recursive verification, scope/nullifier
 checks, registry validity) derived from it, so a malformed or malicious capsule fails the proof rather than being trusted.
+
+An app that reads disclosed MRZ data sets `ServiceConfig.disclose` and passes one fewer expected
+commitment. The client then also stashes the disclose payload (`mask ‖ bytes`, one value per
+field) into the app's capsule slot `zkpassport::constants::DISCLOSE_CAPSULE_SLOT` (`= 2`).
+`verify_zkpassport_proof` loads it once, adds its commitment to the expected ones, and returns
+it in `VerifiedProof.disclosure`, the only copy the proof covers. `disclosed_data::disclosed_nationality`
+reads the nationality out of it.
 
 ## Trust considerations
 
