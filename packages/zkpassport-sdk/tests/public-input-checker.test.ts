@@ -2800,7 +2800,10 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       }
     }
 
-    async function makeUnrequestedSanctionsProof(fields: NullifierFields): Promise<ProofResult> {
+    async function makeUnrequestedSanctionsProof(
+      fields: NullifierFields,
+      rootHash = VALID_SANCTIONS_ROOT,
+    ): Promise<ProofResult> {
       return {
         name: "exclusion_check_sanctions",
         proof: buildProofHex([
@@ -2808,12 +2811,12 @@ describe("PublicInputChecker - checkPublicInputs", () => {
           todayTs,
           domainScopeHash,
           0n,
-          await getSanctionsParameterCommitment(VALID_SANCTIONS_ROOT, false),
+          await getSanctionsParameterCommitment(rootHash, false),
           ...(await nullifierInputs(fields)),
         ]),
         total: 5,
         committedInputs: {
-          exclusion_check_sanctions: { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
+          exclusion_check_sanctions: { rootHash, isStrict: false },
         },
       }
     }
@@ -2891,6 +2894,15 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(isCorrect).toBe(true)
       expect(uniqueIdentifier).toBe(legitNullifier.toString(10))
       expect(uniqueIdentifierType).toBe(NullifierType.SALTED)
+    })
+
+    test("fails when an unrequested sanctions proof uses an unknown root", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof(legit, "0x" + "cd".repeat(32)),
+      ])
+
+      expect(isCorrect).toBe(false)
     })
   })
 

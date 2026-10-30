@@ -2048,16 +2048,16 @@ export class PublicInputChecker {
         },
       }
     }
+    const { isCorrect: isCorrectRoot } = await this.checkSanctionsRegistryRoot(
+      sanctionsCommittedInputs.rootHash,
+      queryResultErrors,
+      devMode,
+      timestamp,
+      originalQuery,
+      registryClient,
+    )
+    isCorrect = isCorrect && isCorrectRoot
     if (queryResult.sanctions && queryResult.sanctions.passed) {
-      const { isCorrect: isCorrectRoot } = await this.checkSanctionsRegistryRoot(
-        sanctionsCommittedInputs.rootHash,
-        queryResultErrors,
-        devMode,
-        timestamp,
-        originalQuery,
-        registryClient,
-      )
-      isCorrect = isCorrect && isCorrectRoot
       if (queryResult.sanctions.isStrict !== sanctionsCommittedInputs.isStrict) {
         console.warn("Invalid sanctions strict mode")
         isCorrect = false
