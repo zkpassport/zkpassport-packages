@@ -175,13 +175,17 @@ reads the nationality out of it, as the `NationalityGate` example at
 
 ## Running the tests
 
-All tests use the Aztec `v6.0.0` toolchain, installed the same way CI does (check out
-`.github/workflows/aztec.yml` for more details):
+All tests use the Aztec toolchain version in `packages/aztec/.aztecrc`, installed the same way CI
+does (check out `.github/workflows/aztec.yml` for more details). From `packages/aztec/`:
 
 ```bash
-aztec-up install 6.0.0
+aztec-up install "$(cat .aztecrc)"
 # or, without an existing aztec-up:
-curl -fsSL https://install.aztec-labs.com/6.0.0/install | bash
+curl -fsSL "https://install.aztec-labs.com/$(cat .aztecrc)/install" | bash
+
+# In a new shell, put that version on PATH. (`aztec-up use` also works, but switches the
+# default version for every other project too.)
+eval "$(aztec-up env)"
 ```
 
 First, the `noir/` tests:
@@ -206,8 +210,8 @@ runs from `test-harness/` (a sibling of `noir/` under `packages/aztec/`):
 ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
 ```
 
-The script resolves the toolchain at `~/.aztec/versions/6.0.0`; point `AZTEC_HOME` elsewhere for
-a non-default install location.
+The script resolves the toolchain at `~/.aztec/versions/<version in .aztecrc>`; point `AZTEC_HOME`
+at a version directory elsewhere for a non-default install location.
 
 Finally, the end to end test at `scripts/`. It runs a full deploy + real client-IVC `claim()` against
 a local Aztec network (`AztecNode` at `localhost:8080` by default). It needs a running sandbox and
@@ -259,7 +263,7 @@ workspace the 6.0.0 toolchain is used.
 
 | Component | Pin | Notes |
 |---|---|---|
-| Aztec toolchain | `v6.0.0` (`aztec-nargo` 1.0.0-rc.3, `aztec test`, `bb` 6.0.0) | Everything under `noir/` and `scripts/` compiles/tests/runs against this. Installed via `aztec-up install 6.0.0` (lands in `~/.aztec/versions/6.0.0`). |
+| Aztec toolchain | `v6.0.0` (`aztec-nargo` 1.0.0-rc.3, `aztec test`, `bb` 6.0.0) | Everything under `noir/` and `scripts/` compiles/tests/runs against this. Pinned in `packages/aztec/.aztecrc`, which CI reads, failing if an `aztec-nr` or `bb_proof_verification` tag below names another release. Installed via `aztec-up install "$(cat .aztecrc)"` (lands in `~/.aztec/versions/<version>`). |
 | `aztec-nr` (the `aztec` crate) | git `https://github.com/aztec-labs-eng/aztec-nr`, tag `v6.0.0`, dir `aztec` | Depended on by `zkpassport_registry_contract`, `zkpassport_aztec_verifier`, `age_gate_contract`, `nationality_gate_contract`. All members share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v6.0.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport`'s recursive-verification dependency, at the barretenberg release the 6.0.0 toolchain ships. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport` and `zkpassport_aztec_verifier`. |
