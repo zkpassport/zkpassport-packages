@@ -203,7 +203,7 @@ unconstrained fn second_claim_same_passport_fails() {
 
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
 
-    // Same fixture again → same scoped nullifier → tx must be rejected (nullifier collision).
+    // Same fixture again → same unique identifier → tx must be rejected (nullifier collision).
     deliver_capsule(&mut env, age_gate, relayer);
     let _ = env.call_private(relayer, AgeGate::at(age_gate).claim(user));
 }
