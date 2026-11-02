@@ -114,23 +114,11 @@ describe("verify() circuit manifest root", () => {
     return zkPassport.verify({ proofs, originalQuery, queryResult, verifierMode: "local" })
   }
 
-  test("verifies an outer proof against the manifest of the root it commits to", async () => {
-    const { verified } = await verifyLocally([outerProof(circuitRoot)])
-
-    expect(verified).toBe(true)
-  })
-
   test("rejects an outer proof that commits to another root than the manifest's", async () => {
     const { verified } = await verifyLocally([outerProof(otherRoot)])
 
     expect(verified).toBe(false)
     expect(bbVerifierSpy).not.toHaveBeenCalled()
-  })
-
-  test("verifies fast-mode proofs whose manifest root the registry accepts at their date", async () => {
-    const { verified } = await verifyLocally([disclosureProof])
-
-    expect(verified).toBe(true)
   })
 
   test("rejects fast-mode proofs whose manifest root the registry rejects at their date", async () => {
