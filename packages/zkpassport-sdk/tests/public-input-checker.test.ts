@@ -14,8 +14,11 @@ import {
   getServiceScopeHash,
   getScopeHash,
   getAgeParameterCommitment,
+  getDiscloseParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
   getSanctionsParameterCommitment,
+  hashOprfPublicKey,
+  NullifierType,
 } from "@zkpassport/utils"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -2486,6 +2489,133 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     })
   })
 
+  describe("outer proof path - bundle composition", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const nullifierA = 111n
+    const nullifierB = 222n
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    // Outer proof public inputs: [certRegistryRoot, circuitRegistryRoot, currentDate,
+    // serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+    async function makeAgeOuterProof(nullifier: bigint): Promise<ProofResult> {
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n,
+          2n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          0n,
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function makeEmptyDiscloseOuterProof(nullifier: bigint): Promise<ProofResult> {
+      const empty = new Array(90).fill(0)
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n,
+          2n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getDiscloseParameterCommitment(empty, empty),
+          0n,
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: {
+          disclose_bytes: { discloseMask: empty, disclosedBytes: empty } as DiscloseCommittedInputs,
+        },
+      }
+    }
+
+    // Another document's subproof chain, ending in an empty disclosure
+    async function makeSubproofChain(nullifier: bigint): Promise<ProofResult[]> {
+      const empty = new Array(90).fill(0)
+      return [
+        { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 4 },
+        { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 4 },
+        { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 4 },
+        {
+          name: "disclose_bytes",
+          // [commitmentIn, currentDate, serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+          proof: buildProofHex([
+            30n,
+            todayTs,
+            domainScopeHash,
+            0n,
+            await getDiscloseParameterCommitment(empty, empty),
+            0n,
+            nullifier,
+          ]),
+          total: 4,
+          committedInputs: {
+            disclose_bytes: {
+              discloseMask: empty,
+              disclosedBytes: empty,
+            } as DiscloseCommittedInputs,
+          },
+        },
+      ]
+    }
+
+    test("a lone outer proof passes with its own nullifier", async () => {
+      const { isCorrect, uniqueIdentifier } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        [await makeAgeOuterProof(nullifierA)],
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(true)
+      expect(uniqueIdentifier).toBe(nullifierA.toString(10))
+    })
+
+    test("fails when an outer proof is bundled with another document's subproof chain", async () => {
+      const proofs = [await makeAgeOuterProof(nullifierA), ...(await makeSubproofChain(nullifierB))]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.commitment?.message).toContain("only proof")
+    })
+
+    test("fails when two outer proofs are bundled together", async () => {
+      const proofs = [
+        await makeAgeOuterProof(nullifierA),
+        await makeEmptyDiscloseOuterProof(nullifierB),
+      ]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.commitment?.message).toContain("only proof")
+    })
+  })
+
   describe("non-outer proof path - nullifier extraction", () => {
     const domain = "example.com"
     const domainScopeHash = getServiceScopeHash(domain)
@@ -2526,6 +2656,253 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       )
 
       expect(uniqueIdentifier).toBe(expectedNullifier.toString(10))
+    })
+  })
+
+  describe("non-outer proof path - unhandled proof names", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    const chain: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 5 },
+    ]
+
+    async function makeAgeProof(name: string): Promise<ProofResult> {
+      return {
+        name,
+        proof: buildProofHex([
+          30n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          0n,
+          42n,
+        ]),
+        total: 5,
+        committedInputs: { [name]: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function check(proofs: ProofResult[]) {
+      return PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+    }
+
+    test("passes a chain with a standard age proof", async () => {
+      const { isCorrect } = await check([...chain, await makeAgeProof("compare_age")])
+
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when a lone EVM disclosure proof covers the query", async () => {
+      const { isCorrect } = await check([await makeAgeProof("compare_age_evm")])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an EVM disclosure proof is bundled with a chain", async () => {
+      const { isCorrect } = await check([...chain, await makeAgeProof("compare_age_evm")])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when a proof has an unknown name", async () => {
+      const { isCorrect } = await check([
+        ...chain,
+        await makeAgeProof("compare_age"),
+        { name: "unknown_circuit", proof: buildProofHex([30n]), total: 5 },
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an oprf_auth proof is bundled", async () => {
+      const { isCorrect } = await check([
+        ...chain,
+        await makeAgeProof("compare_age"),
+        { name: "oprf_auth", proof: buildProofHex([30n, 1n, 2n]), total: 5 },
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+  })
+
+  describe("non-outer proof path - nullifier consistency across disclosure proofs", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const legitOprfKey = { x: 1n, y: 2n }
+    const attackerOprfKey = { x: 3n, y: 4n }
+    const legitNullifier = 111n
+    const attackerNullifier = 222n
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+    let fetchSpy: ReturnType<typeof spyOn>
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
+
+    beforeEach(() => {
+      fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+        (async () =>
+          new Response(
+            JSON.stringify({
+              key: [legitOprfKey.x.toString(), legitOprfKey.y.toString()],
+              epoch: 0,
+            }),
+          )) as unknown as typeof fetch,
+      )
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      fetchSpy.mockRestore()
+      isSanctionsRootValid.mockRestore()
+    })
+
+    const chain: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 5 },
+    ]
+
+    type NullifierFields = { nullifier: bigint; type: NullifierType; oprfKey?: typeof legitOprfKey }
+
+    // Disclosure proof public inputs: [commitmentIn, currentDate, serviceScope, subscope,
+    // paramCommitment, nullifierType, nullifier, oprfPkHash]
+    async function nullifierInputs({ nullifier, type, oprfKey }: NullifierFields) {
+      const oprfPkHash = oprfKey ? await hashOprfPublicKey(oprfKey) : 0n
+      return [BigInt(type), nullifier, oprfPkHash]
+    }
+
+    async function makeAgeProof(fields: NullifierFields): Promise<ProofResult> {
+      return {
+        name: "compare_age",
+        proof: buildProofHex([
+          30n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          ...(await nullifierInputs(fields)),
+        ]),
+        total: 5,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function makeUnrequestedSanctionsProof(
+      fields: NullifierFields,
+      rootHash = VALID_SANCTIONS_ROOT,
+    ): Promise<ProofResult> {
+      return {
+        name: "exclusion_check_sanctions",
+        proof: buildProofHex([
+          30n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getSanctionsParameterCommitment(rootHash, false),
+          ...(await nullifierInputs(fields)),
+        ]),
+        total: 5,
+        committedInputs: {
+          exclusion_check_sanctions: { rootHash, isStrict: false },
+        },
+      }
+    }
+
+    const legit = { nullifier: legitNullifier, type: NullifierType.SALTED, oprfKey: legitOprfKey }
+    const attacker = {
+      nullifier: attackerNullifier,
+      type: NullifierType.SALTED,
+      oprfKey: attackerOprfKey,
+    }
+
+    async function check(disclosureProofs: ProofResult[]) {
+      return PublicInputChecker.checkPublicInputs(
+        domain,
+        [...chain, ...disclosureProofs],
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+    }
+
+    test("passes when every disclosure proof carries the same salted nullifier", async () => {
+      const { isCorrect, uniqueIdentifier, uniqueIdentifierType } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof(legit),
+      ])
+
+      expect(isCorrect).toBe(true)
+      expect(uniqueIdentifier).toBe(legitNullifier.toString(10))
+      expect(uniqueIdentifierType).toBe(NullifierType.SALTED)
+    })
+
+    test("fails when a second proof of the same type uses another OPRF key", async () => {
+      const { isCorrect } = await check([await makeAgeProof(legit), await makeAgeProof(attacker)])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an unrequested proof uses another OPRF key", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof(attacker),
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when every proof uses another OPRF key", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(attacker),
+        await makeUnrequestedSanctionsProof(attacker),
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when salted and non-salted nullifiers are mixed", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof({
+          nullifier: attackerNullifier,
+          type: NullifierType.NON_SALTED,
+        }),
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("returns the shared nullifier when another proof carries none", async () => {
+      const { isCorrect, uniqueIdentifier, uniqueIdentifierType } = await check([
+        await makeAgeProof(legit),
+        await makeAgeProof({ nullifier: 0n, type: NullifierType.NONE }),
+      ])
+
+      expect(isCorrect).toBe(true)
+      expect(uniqueIdentifier).toBe(legitNullifier.toString(10))
+      expect(uniqueIdentifierType).toBe(NullifierType.SALTED)
+    })
+
+    test("fails when an unrequested sanctions proof uses an unknown root", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof(legit, "0x" + "cd".repeat(32)),
+      ])
+
+      expect(isCorrect).toBe(false)
     })
   })
 
