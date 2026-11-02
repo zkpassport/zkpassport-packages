@@ -5,6 +5,7 @@ import {
 } from "@zkpassport/registry"
 import { type QueryBuilder, type VerificationResult, ZKPassport } from "@zkpassport/sdk"
 import {
+  type CircuitManifest,
   getIdFromChain,
   type PassportViewModel,
   type ProofMode,
@@ -55,6 +56,8 @@ export type TestEnv = {
     proofs: ProofResult[]
     queryResult: QueryResult
     originalQuery: Query
+    /** The circuit manifest the circuits CDN serves verify() for the proofs' version */
+    circuitManifest?: CircuitManifest
   }) => Promise<VerificationResult>
   /** Stop everything, including the bridges of every headless app it ran */
   stop: () => Promise<void>
@@ -76,10 +79,12 @@ export async function startTestEnv(): Promise<TestEnv> {
     throw error
   }
   const { circuits, circuitVersion } = loadedCircuits
-  const fetchProxy = startFetchProxy(
-    SEPOLIA_FILE_HOSTS,
-    circuits && serveCircuits(circuits, SEPOLIA.circuitUrl),
-  )
+  const serveLocalCircuits = circuits && serveCircuits(circuits, SEPOLIA.circuitUrl)
+  const manifestOverrides = new Map<string, CircuitManifest>()
+  const fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS, (url) => {
+    const manifest = manifestOverrides.get(url)
+    return manifest ? Response.json(manifest) : serveLocalCircuits?.(url)
+  })
 
   const apps: HeadlessApp[] = []
 
@@ -105,15 +110,25 @@ export async function startTestEnv(): Promise<TestEnv> {
       apps.push(app)
       return app
     },
-    verify: ({ proofs, queryResult, originalQuery }) =>
-      zkPassport.verify({
-        proofs: proofs.map((proof) => ({ ...proof })),
-        originalQuery,
-        queryResult,
-        devMode: true,
-        verifierMode: "local",
-        config: { rpcUrl: fork.rpcUrl },
-      }),
+    verify: async ({ proofs, queryResult, originalQuery, circuitManifest }) => {
+      if (circuitManifest) {
+        const url = registry.getUrlForCircuitManifestByVersion(circuitManifest.version)
+        manifestOverrides.set(url, circuitManifest)
+      }
+
+      try {
+        return await zkPassport.verify({
+          proofs: proofs.map((proof) => ({ ...proof })),
+          originalQuery,
+          queryResult,
+          devMode: true,
+          verifierMode: "local",
+          config: { rpcUrl: fork.rpcUrl },
+        })
+      } finally {
+        manifestOverrides.clear()
+      }
+    },
     stop: async () => {
       fetchProxy.stop()
       for (const app of apps) {
