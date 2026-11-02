@@ -42,7 +42,6 @@ const SALT = BigInt("0x" + "11".repeat(31))
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 
 type Prover = {
-  /** With `evm`, a proof for EVM chains: keccak transcript and no zero knowledge */
   prove: (
     bytecode: string,
     witness: Uint8Array,
