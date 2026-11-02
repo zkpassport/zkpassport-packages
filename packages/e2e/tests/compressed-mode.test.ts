@@ -10,7 +10,7 @@ import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
 import { startTestEnv, type TestEnv } from "../src/test-env"
-import { verifyAgainstUnacceptedManifest, withFlippedProofByte } from "../src/utils"
+import { withDummyCircuit, withFlippedProofByte } from "../src/utils"
 
 describe("compressed mode, end to end on a Sepolia fork", () => {
   let testEnv: TestEnv
@@ -67,7 +67,18 @@ describe("compressed mode, end to end on a Sepolia fork", () => {
   }, 60_000)
 
   test("the outer proof does not verify against a circuit manifest of another root than it commits to", async () => {
-    expect((await verifyAgainstUnacceptedManifest(testEnv, app)).verified).toBe(false)
+    const { proofs, result: queryResult } = app.request.result()!
+    const manifest = await testEnv.registry.getCircuitManifest(undefined, {
+      version: proofs[0].version,
+    })
+
+    const verification = await testEnv.verify({
+      proofs,
+      queryResult,
+      originalQuery: app.request.query,
+      circuitManifest: await withDummyCircuit(manifest),
+    })
+    expect(verification.verified).toBe(false)
   }, 60_000)
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
