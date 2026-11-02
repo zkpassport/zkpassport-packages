@@ -87,7 +87,7 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
   )
 }
 
-export type VerifyRequestProps = {
+type VerifyRequestProps = {
   domain: string
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
