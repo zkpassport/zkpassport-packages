@@ -6,6 +6,7 @@ import {
 import { type QueryBuilder, type VerificationResult, ZKPassport } from "@zkpassport/sdk"
 import {
   getIdFromChain,
+  type PackagedCircuit,
   type PassportViewModel,
   type ProofMode,
   type ProofResult,
@@ -55,6 +56,8 @@ export type TestEnv = {
     proofs: ProofResult[]
     queryResult: QueryResult
     originalQuery: Query
+    /** The bb_version verify() sees in the proofs' packaged circuits */
+    packagedBBVersion?: string
   }) => Promise<VerificationResult>
   /** Stop everything, including the bridges of every headless app it ran */
   stop: () => Promise<void>
@@ -76,10 +79,12 @@ export async function startTestEnv(): Promise<TestEnv> {
     throw error
   }
   const { circuits, circuitVersion } = loadedCircuits
-  const fetchProxy = startFetchProxy(
-    SEPOLIA_FILE_HOSTS,
-    circuits && serveCircuits(circuits, SEPOLIA.circuitUrl),
-  )
+  const serveLocalCircuits = circuits && serveCircuits(circuits, SEPOLIA.circuitUrl)
+  const packagedCircuitOverrides = new Map<string, PackagedCircuit>()
+  const fetchProxy = startFetchProxy(SEPOLIA_FILE_HOSTS, (url) => {
+    const override = packagedCircuitOverrides.get(url)
+    return override ? Response.json(override) : serveLocalCircuits?.(url)
+  })
 
   const apps: HeadlessApp[] = []
 
@@ -105,15 +110,29 @@ export async function startTestEnv(): Promise<TestEnv> {
       apps.push(app)
       return app
     },
-    verify: ({ proofs, queryResult, originalQuery }) =>
-      zkPassport.verify({
-        proofs: proofs.map((proof) => ({ ...proof })),
-        originalQuery,
-        queryResult,
-        devMode: true,
-        verifierMode: "local",
-        config: { rpcUrl: fork.rpcUrl },
-      }),
+    verify: async ({ proofs, queryResult, originalQuery, packagedBBVersion }) => {
+      if (packagedBBVersion) {
+        // Only while verifying: the headless app proves through the same proxy, with the bb.js
+        // its circuits' bb_version names
+        const overrides = await packagedCircuitsWithBBVersion(registry, proofs, packagedBBVersion)
+        for (const [url, circuit] of overrides) {
+          packagedCircuitOverrides.set(url, circuit)
+        }
+      }
+
+      try {
+        return await zkPassport.verify({
+          proofs: proofs.map((proof) => ({ ...proof })),
+          originalQuery,
+          queryResult,
+          devMode: true,
+          verifierMode: "local",
+          config: { rpcUrl: fork.rpcUrl },
+        })
+      } finally {
+        packagedCircuitOverrides.clear()
+      }
+    },
     stop: async () => {
       fetchProxy.stop()
       for (const app of apps) {
@@ -149,4 +168,22 @@ async function loadCircuits(
   }
 
   return { circuits, circuitVersion: circuits.manifest.version }
+}
+
+async function packagedCircuitsWithBBVersion(
+  registry: RegistryClient,
+  proofs: ProofResult[],
+  bbVersion: string,
+): Promise<Map<string, PackagedCircuit>> {
+  const manifest = await registry.getCircuitManifest(undefined, { version: proofs[0].version })
+  const circuits = new Map<string, PackagedCircuit>()
+  for (const proof of proofs) {
+    const name = proof.name!
+    const circuit = await registry.getPackagedCircuit(name, manifest, { validate: false })
+    circuits.set(registry.getUrlForPackagedCircuits(manifest.circuits[name].hash), {
+      ...circuit,
+      bb_version: bbVersion,
+    })
+  }
+  return circuits
 }
