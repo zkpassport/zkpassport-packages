@@ -75,7 +75,7 @@ function ContinueInApp({
         <p className="flow-lede">
           {handedOff
             ? "Approve the request in the ZKPassport app. This page carries on by itself."
-            : "Open the ZKPassport app to scan your ID. Its details never leave your phone."}
+            : "Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to a server."}
         </p>
         <div className="scan-hero" data-state={openState}>
           {handedOff ? (
