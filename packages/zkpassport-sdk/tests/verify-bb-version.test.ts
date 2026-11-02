@@ -24,6 +24,8 @@ describe("verify() bb version", () => {
 
   let packagedBBVersion: string
   let originalFetch: typeof globalThis.fetch
+  let originalWarn: typeof console.warn
+  let warnings: string[]
   let fetchedUrls: string[]
   let publicInputCheckerSpy: ReturnType<typeof spyOn>
   let validatePackagedCircuitSpy: ReturnType<typeof spyOn>
@@ -32,6 +34,11 @@ describe("verify() bb version", () => {
   beforeEach(async () => {
     const circuitRoot = await calculateCircuitRoot({ hashes: [outerCircuitHash] })
 
+    originalWarn = console.warn
+    warnings = []
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "))
+    }
     originalFetch = globalThis.fetch
     fetchedUrls = []
     globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -76,6 +83,7 @@ describe("verify() bb version", () => {
   })
 
   afterEach(() => {
+    console.warn = originalWarn
     globalThis.fetch = originalFetch
     publicInputCheckerSpy.mockRestore()
     validatePackagedCircuitSpy.mockRestore()
@@ -96,14 +104,14 @@ describe("verify() bb version", () => {
       })
 
       expect(result.verified).toBe(true)
-      expect(result.unsupportedBBVersion).toBeUndefined()
       expect(bbVerifierSpy.mock.calls.map((call: unknown[]) => call[0])).toEqual([bbVersion])
     }
   })
 
-  test("reports a bb version it has no verifier for, and runs no verifier", async () => {
+  test("rejects and logs a proof from a bb version it has no verifier for, and runs no verifier", async () => {
     for (const bbVersion of ["4.2.0-aztecnr-rc.2", "6.0.1", "7.0.0"]) {
       packagedBBVersion = bbVersion
+      warnings = []
       const zkPassport = new ZKPassport("example.com")
 
       const result = await zkPassport.verify({
@@ -114,7 +122,7 @@ describe("verify() bb version", () => {
       })
 
       expect(result.verified).toBe(false)
-      expect(result.unsupportedBBVersion).toBe(bbVersion)
+      expect(warnings.some((warning) => warning.includes(bbVersion))).toBe(true)
       expect(bbVerifierSpy).not.toHaveBeenCalled()
     }
   })

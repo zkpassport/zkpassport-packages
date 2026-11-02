@@ -974,7 +974,6 @@ export class ZKPassport {
     // Started only once the public inputs check out and a proof needs it, so rejected proofs and
     // outer EVM proofs, which are verified on chain, never spawn bb
     const loadedVerifiers = new Map<BundledBBVersion, LoadedVerifier>()
-    let unsupportedBBVersion: string | undefined
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -1055,7 +1054,9 @@ export class ZKPassport {
               verified = false
             }
           } else if (!isBundledBBVersion(hostedPackagedCircuit.bb_version)) {
-            unsupportedBBVersion = hostedPackagedCircuit.bb_version
+            console.warn(
+              `Error verifying proof ${proofName}: no verifier for bb ${hostedPackagedCircuit.bb_version}`,
+            )
             verified = false
           } else {
             const bbVersion = hostedPackagedCircuit.bb_version
@@ -1091,13 +1092,7 @@ export class ZKPassport {
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
     uniqueIdentifierType = verified ? uniqueIdentifierType : undefined
-    return {
-      uniqueIdentifier,
-      uniqueIdentifierType,
-      verified,
-      queryResultErrors,
-      unsupportedBBVersion,
-    }
+    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
   }
 
   public getSolidityVerifierDetails(): {
