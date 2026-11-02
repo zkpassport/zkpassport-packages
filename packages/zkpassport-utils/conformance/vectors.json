@@ -1,5 +1,5 @@
 {
-  "description": "Conformance vectors for the ZKPassport parameter-commitment scheme (Poseidon2 variant). Every implementation of the scheme must reproduce each commitment from its params: this package's TS functions (tests/conformance.test.ts), the circuits repo's Noir libs, and downstream verifiers such as zkpassport.nr's commitment wrappers.",
+  "description": "Conformance vectors for the ZKPassport parameter-commitment scheme (Poseidon2 variant). Every implementation of the scheme must reproduce each commitment from its params: this package's TS functions (tests/conformance.test.ts), the circuits repo's Noir libs, and downstream verifiers such as zkpassport.nr's commitment wrappers. Country lists are padded to 200 entries: inclusion lists keep their order, exclusion lists are sorted ascending first. Dates are Unix seconds, 0 meaning no bound; birthdate bounds are shifted to the circuits' 1900 epoch before hashing.",
   "vectors": [
     {
       "name": "age_18_plus",
@@ -25,6 +25,42 @@
         "maxLength": 509
       },
       "commitment": "0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970"
+    },
+    {
+      "name": "nationality_in_fra_deu_ita",
+      "proofType": "nationality_inclusion",
+      "params": { "countries": ["FRA", "DEU", "ITA"] },
+      "commitment": "0x2dc5e592e38eeb5eee6d4a8b977465cfda38f3f278567b46a50a8d1a6fc0a5b4"
+    },
+    {
+      "name": "nationality_out_prk_irn_syr",
+      "proofType": "nationality_exclusion",
+      "params": { "countries": ["PRK", "IRN", "SYR"] },
+      "commitment": "0x2837d9da8e0b7bf3895bdd5acaeb4aef29a4114c2621e9d046f2db11c599ccec"
+    },
+    {
+      "name": "issuing_country_in_nld_bel_lux",
+      "proofType": "issuing_country_inclusion",
+      "params": { "countries": ["NLD", "BEL", "LUX"] },
+      "commitment": "0x0900b574ac5a979c7c62f154bff35fd50c4794bf1af41c6f2d7935f1d9a0a9a0"
+    },
+    {
+      "name": "issuing_country_out_rus_blr",
+      "proofType": "issuing_country_exclusion",
+      "params": { "countries": ["RUS", "BLR"] },
+      "commitment": "0x21bf8243ed1f5a53489a829b7320a494600c87dd72c0a3f88ed580eded7d0fd1"
+    },
+    {
+      "name": "birthdate_1950_to_2000",
+      "proofType": "birthdate",
+      "params": { "minDate": -631152000, "maxDate": 978220800 },
+      "commitment": "0x1ff20dad03ccac18daf099e88f97b883334bac398b81100f99244158eb242627"
+    },
+    {
+      "name": "expiry_date_from_2027",
+      "proofType": "expiry_date",
+      "params": { "minDate": 1798761600, "maxDate": 0 },
+      "commitment": "0x2f13cf0dbd16ac2637f3b19ca631933220ed96d4922e9fafcbc5b27a2df59de9"
     }
   ]
 }

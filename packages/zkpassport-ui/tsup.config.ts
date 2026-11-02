@@ -83,9 +83,14 @@ const npmConfigs: Options[] = (["esm", "cjs"] as const).map((format) => ({
 }))
 
 // Internal builds for the popup only; the real SDK stays external. Unsplit, so app-link
-// stays free of the SDK the hosted bundle pulls in.
+// stays free of the SDK the hosted bundle pulls in, and hosted stays free of the viem that
+// hosted-credential pulls in.
 const hostedConfig: Options = {
-  entry: { "hosted": "src/hosted.ts", "app-link": "src/app-link.ts" },
+  entry: {
+    "hosted": "src/hosted.ts",
+    "hosted-credential": "src/hosted-credential.ts",
+    "app-link": "src/app-link.ts",
+  },
   format: "esm",
   outDir: "dist",
   dts: { compilerOptions: { composite: false } },
