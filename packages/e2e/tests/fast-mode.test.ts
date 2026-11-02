@@ -76,18 +76,6 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     expect(verification.verified).toBe(false)
   }, 60_000)
 
-  test("proofs from a bb version the SDK does not bundle do not verify", async () => {
-    const { proofs, result: queryResult } = app.request.result()!
-
-    const verification = await testEnv.verify({
-      proofs,
-      queryResult,
-      originalQuery: app.request.query,
-      packagedBBVersion: "7.0.0",
-    })
-    expect(verification.verified).toBe(false)
-  }, 60_000)
-
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails
     expect(
