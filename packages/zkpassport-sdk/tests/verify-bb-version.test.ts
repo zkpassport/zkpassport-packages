@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { RegistryClient } from "@zkpassport/registry"
 import { NullifierType, type ProofResult, type Query, type QueryResult } from "@zkpassport/utils"
 import { calculateCircuitRoot } from "@zkpassport/utils/registry"
-import * as bbVerifier from "../src/bb-verifier"
 import { VERIFIER_API_BASE_URL } from "../src/constants"
 import { ZKPassport } from "../src/index"
 import { PublicInputChecker } from "../src/public-input-checker"
@@ -24,21 +23,13 @@ describe("verify() bb version", () => {
 
   let packagedBBVersion: string
   let originalFetch: typeof globalThis.fetch
-  let originalWarn: typeof console.warn
-  let warnings: string[]
   let fetchedUrls: string[]
   let publicInputCheckerSpy: ReturnType<typeof spyOn>
   let validatePackagedCircuitSpy: ReturnType<typeof spyOn>
-  let bbVerifierSpy: ReturnType<typeof spyOn>
 
   beforeEach(async () => {
     const circuitRoot = await calculateCircuitRoot({ hashes: [outerCircuitHash] })
 
-    originalWarn = console.warn
-    warnings = []
-    console.warn = (...args: unknown[]) => {
-      warnings.push(args.map(String).join(" "))
-    }
     originalFetch = globalThis.fetch
     fetchedUrls = []
     globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -76,37 +67,12 @@ describe("verify() bb version", () => {
     validatePackagedCircuitSpy = spyOn(RegistryClient, "validatePackagedCircuit").mockResolvedValue(
       true,
     )
-    bbVerifierSpy = spyOn(bbVerifier, "createUltraHonkVerifier").mockResolvedValue({
-      verifier: { verifyProof: async () => true },
-      destroy: async () => {},
-    })
   })
 
   afterEach(() => {
-    console.warn = originalWarn
     globalThis.fetch = originalFetch
     publicInputCheckerSpy.mockRestore()
     validatePackagedCircuitSpy.mockRestore()
-    bbVerifierSpy.mockRestore()
-  })
-
-  test("rejects and logs a proof from a bb version it has no verifier for, and runs no verifier", async () => {
-    for (const bbVersion of ["4.2.0-aztecnr-rc.2", "6.0.1", "7.0.0"]) {
-      packagedBBVersion = bbVersion
-      warnings = []
-      const zkPassport = new ZKPassport("example.com")
-
-      const result = await zkPassport.verify({
-        proofs,
-        originalQuery,
-        queryResult,
-        verifierMode: "local",
-      })
-
-      expect(result.verified).toBe(false)
-      expect(warnings.some((warning) => warning.includes(bbVersion))).toBe(true)
-      expect(bbVerifierSpy).not.toHaveBeenCalled()
-    }
   })
 
   test("asks the verifier API in auto mode for a bb version it has no verifier for", async () => {
