@@ -9,7 +9,7 @@ import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
 import { startTestEnv, type TestEnv } from "../src/test-env"
-import { withDummyCircuit, withFlippedProofByte } from "../src/utils"
+import { verifyAgainstUnacceptedManifest, withFlippedProofByte } from "../src/utils"
 
 const CIRCUITS = [
   "sig_check_dsc_tbs_700_rsa_pkcs_2048_sha256",
@@ -76,19 +76,8 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     expect(verification.verified).toBe(false)
   }, 60_000)
 
-  test("the proofs do not verify against a circuit manifest the registry never accepted", async () => {
-    const { proofs, result: queryResult } = app.request.result()!
-    const manifest = await testEnv.registry.getCircuitManifest(undefined, {
-      version: proofs[0].version,
-    })
-
-    const verification = await testEnv.verify({
-      proofs,
-      queryResult,
-      originalQuery: app.request.query,
-      circuitManifest: await withDummyCircuit(manifest),
-    })
-    expect(verification.verified).toBe(false)
+  test("the proofs do not verify against a circuit manifest whose root the registry never accepted", async () => {
+    expect((await verifyAgainstUnacceptedManifest(testEnv, app)).verified).toBe(false)
   }, 60_000)
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
