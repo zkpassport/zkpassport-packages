@@ -35,8 +35,9 @@ export function RequestPage() {
                   </h1>
                 </div>
                 <p className="flow-lede">
-                  {siteName ? "To continue, download" : "Download"} the free ZKPassport app. Your
-                  passport or ID card is read on your phone, and its details never leave it.
+                  {siteName ? "To continue, download" : "Download"} the free ZKPassport app. It
+                  reads your passport or ID on your phone, and nothing leaves your phone except the
+                  details you choose to share.
                 </p>
                 <StoreBadges requestUrl={requestUrl} />
                 {requestUrl ? <OpenAppPrompt requestUrl={requestUrl} siteName={siteName} /> : null}
