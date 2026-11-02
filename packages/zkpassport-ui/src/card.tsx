@@ -127,7 +127,7 @@ export function Card({ options, controlRef }: CardProps) {
               <strong>{headerName || "This app"}</strong>
               {" uses "}
               <strong>ZKPassport</strong>
-              {" to verify identity without compromising your privacy."}
+              {" to verify your identity privately."}
             </p>
           </div>
 
@@ -302,7 +302,8 @@ function IntroSection({
         />
         <p className="zkp-intro-question-text">Do you have a passport or ID with a chip?</p>
         <p className="zkp-intro-question-hint">
-          Look for this symbol on your passport or ID card. Your phone reads the chip over NFC.
+          Look for this symbol on your passport or ID card. Your phone reads the chip when you hold
+          it against the ID.
         </p>
         <button type="button" className="zkp-intro-continue" onClick={onContinue}>
           Continue
@@ -336,7 +337,7 @@ function getOverlayCaption(state: CardState): string {
     case "scanned":
       return "Approve the request on your phone"
     case "generating":
-      return "Generating proof…"
+      return "Checking your ID…"
     case "success":
       // Kept neutral: the card may not have verified anything. Final wording TBD.
       return "Request complete"
@@ -407,8 +408,8 @@ function buildPhoneSteps(
       key: "generate",
       label:
         generating && total !== null
-          ? `Generate proof on your device (${Math.min(received, total)}/${total}).`
-          : "Generate proof on your device.",
+          ? `Checking your ID on your phone (${Math.min(received, total)}/${total}).`
+          : "Checking your ID on your phone.",
       status:
         generating && !allReceived && (!hasFacematch || received > 0)
           ? "current"
@@ -419,7 +420,7 @@ function buildPhoneSteps(
     },
     {
       key: "verify",
-      label: "Verify the proof.",
+      label: "Confirming the result.",
       status: generating && allReceived ? "current" : finished ? "done" : "pending",
       icon: null,
     },
@@ -509,7 +510,7 @@ function OpenAppHero({
     return (
       <div className="zkp-open-app-hero" data-state={openState}>
         <p className="zkp-inapp-hint" role="status">
-          Check your phone — approve the request in the ZKPassport app.
+          Check your phone and approve the request in the ZKPassport app.
         </p>
         <button type="button" className="zkp-qr-reveal" onClick={openApp}>
           Open the app again

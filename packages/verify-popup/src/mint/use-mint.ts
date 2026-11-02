@@ -159,7 +159,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
             return
           }
           if (!result.issueCall) {
-            const message = "The proof cannot be verified on-chain."
+            const message = "The verification could not be confirmed on-chain."
             setStep({ kind: "error", message })
             emit({ type: "error", message })
             return

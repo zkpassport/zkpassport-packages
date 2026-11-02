@@ -30,8 +30,8 @@ export function Scan({
         <Heading title={mobile ? "Scan from another device" : "Continue on your phone"} />
         <p className="flow-lede">
           {mobile
-            ? "Open the camera on another phone and scan this code. Your ID is read on that phone and never sent to a server."
-            : "Scan this code with your phone’s camera to continue. Your ID is read on your phone and never sent to a server."}
+            ? "Open the camera on another phone and scan this code. Your ID is read on that phone, not this one."
+            : "Scan this code with your phone’s camera to continue."}
         </p>
         <div className="scan-slot" data-state={state}>
           <div className="scan-skeleton" />
@@ -75,7 +75,7 @@ function ContinueInApp({
         <p className="flow-lede">
           {handedOff
             ? "Approve the request in the ZKPassport app. This page carries on by itself."
-            : "Open the ZKPassport app to scan your ID. Your ID is read on your phone and never sent to a server."}
+            : "Open the ZKPassport app to scan your ID. Its details never leave your phone."}
         </p>
         <div className="scan-hero" data-state={openState}>
           {handedOff ? (
