@@ -73,8 +73,6 @@ export type VerificationResult = {
   uniqueIdentifierType: NullifierType | undefined
   verified: boolean
   queryResultErrors?: Partial<QueryResultErrors>
-  /** The bb version of a proof this SDK has no verifier for, so could not verify locally */
-  unsupportedBBVersion?: string
 }
 
 export type SolidityProofVerificationData = {
