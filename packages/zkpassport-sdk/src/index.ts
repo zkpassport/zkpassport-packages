@@ -1030,29 +1030,14 @@ export class ZKPassport {
             { validate: !isOuterEVM },
           )
           if (isOuterEVM) {
-            try {
-              const { createPublicClient, http } = await import("viem")
-              const { address, abi, functionName } = this.getSolidityVerifierDetails()
-              const client = createPublicClient({ transport: http(registryClient.getRpcUrl()) })
-              const params = this.getSolidityVerifierParameters({
-                proof,
-                validityPeriodInSeconds: validity,
-                domain: this.domain,
-                scope,
-                devMode,
-              })
-              const result = await client.readContract({
-                address,
-                abi,
-                functionName,
-                args: [params],
-              })
-              const isVerified = Array.isArray(result) ? Boolean(result[0]) : false
-              verified = isVerified
-            } catch (error) {
-              console.warn("Error verifying proof", error)
-              verified = false
-            }
+            verified = await SolidityVerifier.verify({
+              proof,
+              rpcUrl: registryClient.getRpcUrl(),
+              validityPeriodInSeconds: validity,
+              domain: this.domain,
+              scope,
+              devMode,
+            })
           } else if (!isBundledBBVersion(hostedPackagedCircuit.bb_version)) {
             console.warn(
               `Error verifying proof ${proofName}: no verifier for bb ${hostedPackagedCircuit.bb_version}`,
