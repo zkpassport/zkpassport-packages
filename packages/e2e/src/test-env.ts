@@ -136,7 +136,6 @@ async function loadCircuits(
   }
 
   const circuits = loadPackagedCircuits(circuitsDir)
-  // An outer proof commits to its circuits' root, which verify() checks on chain
   await fork.registerCircuitRoot(circuits.manifest, registry)
 
   const verifiers = compileOuterEvmVerifiers(circuitsDir, circuits)
