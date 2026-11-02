@@ -30,7 +30,6 @@ export type RequestConfig = {
 }
 
 export type RequestCallbacks = {
-  /** The request is live. `resumed` marks one picked up again from an earlier page load. */
   onCreated?: (request: QueryBuilderResult, info: { resumed: boolean }) => void
   onReceived?: () => void
   onProving?: () => void

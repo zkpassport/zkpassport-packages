@@ -15,10 +15,6 @@ export type VerificationLink = {
 
 const UNAVAILABLE_MESSAGE = "The verification service is unavailable. Try again later."
 
-/**
- * A verification created in the dashboard rather than opened by a website: the request comes
- * from the dashboard API, and the proofs go back to it instead of to an opener.
- */
 export function LinkVerification({ linkId, session }: { linkId: string; session: Session }) {
   const [link, setLink] = useState<VerificationLink | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

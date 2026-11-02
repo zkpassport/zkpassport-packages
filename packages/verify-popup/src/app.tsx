@@ -34,8 +34,6 @@ const CredentialFlow = lazy(() =>
 export function App() {
   const linkId = useMemo(() => new URLSearchParams(window.location.search).get("vl"), [])
   const session = useMemo(() => openSession(), [])
-  // The link flow answers to the dashboard rather than to an opener, so nothing is configured
-  // or held for it here
   const restored = useMemo(() => (linkId ? null : readSession(session)), [linkId, session])
   const [config, setConfig] = useState<SessionConfiguration | null>(
     () => restored?.configuration ?? null,

@@ -14,10 +14,7 @@ import { Intro } from "./intro"
 import { Scan } from "./scan"
 import { Waiting, withProof, type ScanProgress } from "./waiting"
 
-/**
- * Hands an event to whoever asked for the verification. A rejected promise on `success` keeps
- * the result from being shown as verified.
- */
+/** A rejected promise on `success` keeps the result from being shown as verified. */
 export type SendEvent = (message: OutgoingEvent) => void | Promise<void>
 
 type VerifyFlowProps = {
@@ -91,7 +88,6 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
 }
 
 export type VerifyRequestProps = {
-  // Already settled as trusted: the attested origin, or one the dashboard vouches for
   domain: string
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
@@ -99,14 +95,12 @@ export type VerifyRequestProps = {
   logo?: string
   session: Session
   send: SendEvent
-  /** A rejected promise stops the flow with its message. */
   onRequestCreated?: (
     request: QueryBuilderResult,
     info: { resumed: boolean },
   ) => void | Promise<void>
 }
 
-/** The screens of a verification whose domain is already trusted. */
 export function VerifyRequest({
   domain,
   request,
