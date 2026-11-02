@@ -46,7 +46,13 @@ body.flow-page {
   border-radius: 26px;
   background: var(--zkp-bg);
   color: var(--zkp-fg);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  /* The stack the Verify with ZKPassport button uses, so the two read as one
+     product across the website and this page */
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 14px;
   line-height: 1.4;
   text-align: left;
@@ -77,6 +83,25 @@ body.flow-page {
   padding: 0 8px;
   border-radius: 20px;
   background: var(--zkp-stage);
+}
+
+/* A full browser tab is wider than the 460px popup window, and has no fixed
+   height to fill: the card takes the height its screen needs and the page
+   scrolls when that is more than the window, so nothing scrolls inside */
+@media (min-width: 600px) {
+  body.flow-page {
+    overflow: auto;
+  }
+  .flow-card {
+    flex: none;
+    max-height: none;
+    /* The popup window's inner height, so short screens keep the card's
+       proportions, capped so the card alone never overflows a short window */
+    min-height: min(742px, calc(100dvh - 38px));
+  }
+  .flow-stage {
+    overflow: visible;
+  }
 }
 
 /* Who is asking on the left, who is checking on the right. Nothing countable
@@ -899,25 +924,6 @@ a.flow-address[data-chip]:hover {
   }
 }
 
-/* The published sheet marks these !important inside a cascade layer, so joining
-   the layer and out-specifying it is the only way to restyle them. */
-@layer zkpassport {
-  .flow-page .zkp-card .zkp-intro-continue {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 16px 18px !important;
-    border-radius: 16px !important;
-    background: var(--zkp-brand) !important;
-    color: #0a1746 !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0 !important;
-    text-transform: none !important;
-  }
-}
-
 /* ─── Consent ────────────────────────────────────────────────────────────── */
 
 /* The ask and its checks read as one panel, the way the app shows them */
@@ -1126,10 +1132,11 @@ a.flow-address[data-chip]:hover {
   margin-top: 4px;
   padding: 16px 18px;
   border: none;
-  border-radius: 16px;
   background: var(--zkp-brand);
   color: #0a1746;
-  font-family: inherit;
+  /* The Verify with ZKPassport button's corner and type, so the two read as one
+     control */
+  border-radius: 8px;
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.04em;
