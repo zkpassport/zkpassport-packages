@@ -15,15 +15,17 @@ import {
   type ProofMode,
   type BoundData,
   type Service,
+  type CircuitManifest,
   NullifierType,
   getProofData,
   getNumberOfPublicInputs,
+  getCircuitRegistryRootFromOuterProof,
   formatQueryResultDates,
   getChainFromQuery,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
-import { createRegistryClient } from "@zkpassport/registry"
+import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface, type KeyPair } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -97,6 +99,25 @@ function enforceUniqueIdentifierType(
     uniqueIdentifierType: undefined,
     verified: false,
   }
+}
+
+async function isCircuitManifestRootAccepted(
+  manifest: CircuitManifest,
+  proofs: ProofResult[],
+  rootTimestamp: number | undefined,
+  registryClient: RegistryClient,
+): Promise<boolean> {
+  const outerProof = proofs.find((proof) => proof.name?.startsWith("outer"))
+  if (outerProof) {
+    // The public input checks accepted the root an outer proof commits to on chain
+    const proofData = getProofData(
+      outerProof.proof as string,
+      getNumberOfPublicInputs(outerProof.name!),
+    )
+    return getCircuitRegistryRootFromOuterProof(proofData) === BigInt(manifest.root)
+  }
+
+  return registryClient.isCircuitRootValid(manifest.root, rootTimestamp)
 }
 
 export {
@@ -986,6 +1007,7 @@ export class ZKPassport {
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
         uniqueIdentifierType: uniqueIdentifierTypeFromPublicInputs,
         queryResultErrors: queryResultErrorsFromPublicInputs,
+        rootTimestamp,
       } = await PublicInputChecker.checkPublicInputs(
         this.domain,
         proofs,
@@ -1020,7 +1042,18 @@ export class ZKPassport {
           // We assume all proofs have the same version
           version: proofs[0].version,
         })
+        verified = await isCircuitManifestRootAccepted(
+          circuitManifest,
+          proofs,
+          rootTimestamp,
+          registryClient,
+        )
         for (const proof of proofs) {
+          if (!verified) {
+            // Break the loop if the proof is not valid
+            // and don't bother checking the other proofs
+            break
+          }
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!
           const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
@@ -1075,11 +1108,6 @@ export class ZKPassport {
               console.warn(`Error verifying proof ${proofName}`, e)
               verified = false
             }
-          }
-          if (!verified) {
-            // Break the loop if the proof is not valid
-            // and don't bother checking the other proofs
-            break
           }
         }
       }

@@ -6,19 +6,13 @@ import * as bbVerifier from "../src/bb-verifier"
 import { VERIFIER_API_BASE_URL } from "../src/constants"
 import { ZKPassport } from "../src/index"
 import { PublicInputChecker } from "../src/public-input-checker"
+import { outerProofCommittingTo } from "./helpers"
 
 describe("verify() bb version", () => {
   const circuitVersion = "0.21.1"
   const outerProofName = "outer_count_3"
   const outerCircuitHash = "0x0000000000000000000000000000000000000000000000000000000000000001"
-  const proofs: ProofResult[] = [
-    {
-      name: outerProofName,
-      version: circuitVersion,
-      vkeyHash: outerCircuitHash,
-      proof: "00".repeat(32 * 20),
-    },
-  ]
+  let proofs: ProofResult[]
   const originalQuery: Query = { age: { gte: 18 } }
   const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
 
@@ -31,6 +25,14 @@ describe("verify() bb version", () => {
 
   beforeEach(async () => {
     const circuitRoot = await calculateCircuitRoot({ hashes: [outerCircuitHash] })
+    proofs = [
+      {
+        name: outerProofName,
+        version: circuitVersion,
+        vkeyHash: outerCircuitHash,
+        proof: outerProofCommittingTo(circuitRoot),
+      },
+    ]
 
     originalFetch = globalThis.fetch
     fetchedUrls = []
@@ -65,6 +67,7 @@ describe("verify() bb version", () => {
       uniqueIdentifier: "1",
       uniqueIdentifierType: NullifierType.NON_SALTED,
       queryResultErrors: {},
+      rootTimestamp: undefined,
     })
     validatePackagedCircuitSpy = spyOn(RegistryClient, "validatePackagedCircuit").mockResolvedValue(
       true,
