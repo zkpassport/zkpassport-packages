@@ -257,4 +257,39 @@ export class SolidityVerifier {
     }
     return params
   }
+
+  /** Verify an outer EVM proof with the RootVerifier of the chain behind `rpcUrl` */
+  public static async verify({
+    proof,
+    rpcUrl,
+    validityPeriodInSeconds,
+    domain,
+    scope,
+    devMode,
+  }: {
+    proof: ProofResult
+    rpcUrl: string
+    validityPeriodInSeconds?: number
+    domain: string
+    scope?: string
+    devMode?: boolean
+  }): Promise<boolean> {
+    try {
+      const { createPublicClient, http } = await import("viem")
+      const { address, abi, functionName } = SolidityVerifier.getDetails()
+      const client = createPublicClient({ transport: http(rpcUrl) })
+      const params = SolidityVerifier.getParameters({
+        proof,
+        validityPeriodInSeconds,
+        domain,
+        scope,
+        devMode,
+      })
+      const result = await client.readContract({ address, abi, functionName, args: [params] })
+      return Array.isArray(result) ? Boolean(result[0]) : false
+    } catch (error) {
+      console.warn("Error verifying proof", error)
+      return false
+    }
+  }
 }
