@@ -36,13 +36,7 @@ The root `bun run test` does not run these tests.
 ## Unpublished circuits
 
 `LOCAL_CIRCUITS_DIR` runs the tests on circuits packaged in a circuits checkout instead of the
-version on the testnet CDN. On the fork:
-
-- the circuit registry takes that manifest's root as its latest root, registered as the registry's
-  oracle;
-- the RootVerifier gets a SubVerifier for that version, with the checkout's Solidity verifier for
-  each packaged outer EVM circuit (`src/solidity/src/ultra-honk-verifiers/OuterCount<N>.sol`,
-  compiled with `forge build` outside the checkout), registered as the RootVerifier's admin.
+version on the testnet CDN.
 
 Packaging the circuits the tests prove, then running them:
 
