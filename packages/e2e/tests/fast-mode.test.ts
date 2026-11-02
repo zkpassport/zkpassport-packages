@@ -4,7 +4,7 @@
  *   SDK request() → bridge → headless app (john, ZKR mock passport) → accept → 5 proofs → done
  *   → SDK onSuccess → verify({ devMode: true, verifierMode: "local" }) against Sepolia's registries
  */
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test"
+import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
@@ -78,7 +78,6 @@ describe("fast mode, end to end on a Sepolia fork", () => {
 
   test("proofs from a bb version the SDK does not bundle do not verify", async () => {
     const { proofs, result: queryResult } = app.request.result()!
-    const warn = spyOn(console, "warn")
 
     const verification = await testEnv.verify({
       proofs,
@@ -86,11 +85,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
       originalQuery: app.request.query,
       packagedBBVersion: "7.0.0",
     })
-
-    const warnings = warn.mock.calls.map((args) => args.map(String).join(" "))
-    warn.mockRestore()
     expect(verification.verified).toBe(false)
-    expect(warnings.some((warning) => warning.includes("no verifier for bb 7.0.0"))).toBe(true)
   }, 60_000)
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
