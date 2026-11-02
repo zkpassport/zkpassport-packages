@@ -159,7 +159,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
             return
           }
           if (!result.issueCall) {
-            const message = "The verification could not be confirmed on-chain."
+            const message = "Your ID was verified, but this result can't be minted on-chain."
             setStep({ kind: "error", message })
             emit({ type: "error", message })
             return
