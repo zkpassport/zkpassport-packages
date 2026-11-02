@@ -125,12 +125,6 @@ export async function startTestEnv(): Promise<TestEnv> {
   }
 }
 
-/**
- * The circuits the tests prove: the published `CIRCUIT_VERSION`, or the circuits packaged in
- * `circuitsDir`. The fork takes packaged circuits' root as the circuit registry's latest, and gives
- * the RootVerifier a SubVerifier for their version, with the checkout's verifier for each packaged
- * outer EVM circuit.
- */
 async function loadCircuits(
   fork: ChainFork,
   registry: RegistryClient,
