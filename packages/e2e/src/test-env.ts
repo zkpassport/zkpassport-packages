@@ -140,7 +140,6 @@ async function loadCircuits(
 
   const verifiers = compileOuterEvmVerifiers(circuitsDir, circuits)
   if (verifiers.length > 0) {
-    // verify() has the RootVerifier check outer EVM proofs, with the SubVerifier of their version
     await fork.registerSubVerifier({
       rootVerifier: zkPassport.getSolidityVerifierDetails().address,
       version: circuits.manifest.version,
