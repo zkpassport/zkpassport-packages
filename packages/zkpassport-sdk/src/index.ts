@@ -16,8 +16,6 @@ import {
   type BoundData,
   type Service,
   NullifierType,
-  getProofData,
-  getNumberOfPublicInputs,
   formatQueryResultDates,
   getChainFromQuery,
 } from "@zkpassport/utils"
@@ -49,11 +47,7 @@ import {
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
-import {
-  createUltraHonkVerifier,
-  getBBVersionForCircuitVersion,
-  type LoadedVerifier,
-} from "./bb-verifier"
+import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
@@ -970,10 +964,9 @@ export class ZKPassport {
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
-    // Started only once the public inputs check out and a proof needs it, so rejected proofs and
+    // Starts bb only once the public inputs check out and a proof needs it, so rejected proofs and
     // outer EVM proofs, which are verified on chain, never spawn bb
-    let loadedVerifier: LoadedVerifier | undefined
+    const bbVerifier = new BBVerifier({ writingDirectory })
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -1022,7 +1015,6 @@ export class ZKPassport {
         for (const proof of proofs) {
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!
-          const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
           const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
             proofName,
             circuitManifest,
@@ -1030,42 +1022,16 @@ export class ZKPassport {
             { validate: !isOuterEVM },
           )
           if (isOuterEVM) {
-            try {
-              const { createPublicClient, http } = await import("viem")
-              const { address, abi, functionName } = this.getSolidityVerifierDetails()
-              const client = createPublicClient({ transport: http(registryClient.getRpcUrl()) })
-              const params = this.getSolidityVerifierParameters({
-                proof,
-                validityPeriodInSeconds: validity,
-                domain: this.domain,
-                scope,
-                devMode,
-              })
-              const result = await client.readContract({
-                address,
-                abi,
-                functionName,
-                args: [params],
-              })
-              const isVerified = Array.isArray(result) ? Boolean(result[0]) : false
-              verified = isVerified
-            } catch (error) {
-              console.warn("Error verifying proof", error)
-              verified = false
-            }
+            verified = await SolidityVerifier.verify({
+              proof,
+              rpcUrl: registryClient.getRpcUrl(),
+              validityPeriodInSeconds: validity,
+              domain: this.domain,
+              scope,
+              devMode,
+            })
           } else {
-            loadedVerifier ??= await createUltraHonkVerifier(bbVersion, { writingDirectory })
-            const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
-            try {
-              verified = await loadedVerifier.verifier.verifyProof({
-                proof: Buffer.from(proofData.proof.join(""), "hex"),
-                publicInputs: proofData.publicInputs,
-                verificationKey: new Uint8Array(vkeyBytes),
-              })
-            } catch (e) {
-              console.warn(`Error verifying proof ${proofName}`, e)
-              verified = false
-            }
+            verified = await bbVerifier.verify(proof, hostedPackagedCircuit)
           }
           if (!verified) {
             // Break the loop if the proof is not valid
@@ -1076,7 +1042,7 @@ export class ZKPassport {
       }
     } finally {
       // Always release the bb.js instance, or its worker threads keep the process alive
-      await loadedVerifier?.destroy()
+      await bbVerifier.destroy()
     }
 
     // If the proofs are not verified, we don't return the unique identifier
