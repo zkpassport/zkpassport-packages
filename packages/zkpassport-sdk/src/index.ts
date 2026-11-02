@@ -50,8 +50,9 @@ import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import {
+  type BundledBBVersion,
   createUltraHonkVerifier,
-  getBBVersionForCircuitVersion,
+  isBundledBBVersion,
   type LoadedVerifier,
 } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
@@ -970,10 +971,10 @@ export class ZKPassport {
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    const bbVersion = getBBVersionForCircuitVersion(proofs[0]?.version)
     // Started only once the public inputs check out and a proof needs it, so rejected proofs and
     // outer EVM proofs, which are verified on chain, never spawn bb
-    let loadedVerifier: LoadedVerifier | undefined
+    const loadedVerifiers = new Map<BundledBBVersion, LoadedVerifier>()
+    let unsupportedBBVersion: string | undefined
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -1053,8 +1054,16 @@ export class ZKPassport {
               console.warn("Error verifying proof", error)
               verified = false
             }
+          } else if (!isBundledBBVersion(hostedPackagedCircuit.bb_version)) {
+            unsupportedBBVersion = hostedPackagedCircuit.bb_version
+            verified = false
           } else {
-            loadedVerifier ??= await createUltraHonkVerifier(bbVersion, { writingDirectory })
+            const bbVersion = hostedPackagedCircuit.bb_version
+            let loadedVerifier = loadedVerifiers.get(bbVersion)
+            if (!loadedVerifier) {
+              loadedVerifier = await createUltraHonkVerifier(bbVersion, { writingDirectory })
+              loadedVerifiers.set(bbVersion, loadedVerifier)
+            }
             const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
             try {
               verified = await loadedVerifier.verifier.verifyProof({
@@ -1075,14 +1084,20 @@ export class ZKPassport {
         }
       }
     } finally {
-      // Always release the bb.js instance, or its worker threads keep the process alive
-      await loadedVerifier?.destroy()
+      // Always release the bb.js instances, or their worker threads keep the process alive
+      await Promise.all([...loadedVerifiers.values()].map((verifier) => verifier.destroy()))
     }
 
     // If the proofs are not verified, we don't return the unique identifier
     uniqueIdentifier = verified ? uniqueIdentifier : undefined
     uniqueIdentifierType = verified ? uniqueIdentifierType : undefined
-    return { uniqueIdentifier, uniqueIdentifierType, verified, queryResultErrors }
+    return {
+      uniqueIdentifier,
+      uniqueIdentifierType,
+      verified,
+      queryResultErrors,
+      unsupportedBBVersion,
+    }
   }
 
   public getSolidityVerifierDetails(): {

@@ -1,13 +1,9 @@
-export type BBVersion = "v5" | "v6"
+const BUNDLED_BB_VERSIONS = ["5.0.0", "6.0.0"] as const
 
-const V6_MIN_CIRCUIT_VERSION = [0, 22, 0] as const
+export type BundledBBVersion = (typeof BUNDLED_BB_VERSIONS)[number]
 
-export function getBBVersionForCircuitVersion(circuitVersion?: string): BBVersion {
-  if (!circuitVersion) return "v6"
-  const parts = circuitVersion.split(".").map((x) => Number(x))
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return "v6"
-
-  return isAtLeast(parts, V6_MIN_CIRCUIT_VERSION) ? "v6" : "v5"
+export function isBundledBBVersion(bbVersion: string): bbVersion is BundledBBVersion {
+  return (BUNDLED_BB_VERSIONS as readonly string[]).includes(bbVersion)
 }
 
 export interface UltraHonkVerifier {
@@ -24,13 +20,13 @@ export interface LoadedVerifier {
 }
 
 export async function createUltraHonkVerifier(
-  bbVersion: BBVersion,
+  bbVersion: BundledBBVersion,
   { writingDirectory }: { writingDirectory?: string } = {},
 ): Promise<LoadedVerifier> {
   await clearStaleCrsCacheOnVersionChange()
   const crsPath = writingDirectory ? writingDirectory + "/.bb-crs" : undefined
 
-  if (bbVersion === "v5") {
+  if (bbVersion === "5.0.0") {
     const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js")
     const barretenberg = await Barretenberg.new({ crsPath })
     const verifier = new UltraHonkVerifierBackend(barretenberg)
@@ -71,13 +67,4 @@ async function clearStaleCrsCacheOnVersionChange(): Promise<void> {
   } catch {
     // Best-effort cache reset; if it fails, bb.js will surface its own error.
   }
-}
-
-function isAtLeast(version: number[], minimum: readonly number[]): boolean {
-  for (const [index, minimumPart] of minimum.entries()) {
-    if (version[index] !== minimumPart) {
-      return version[index] > minimumPart
-    }
-  }
-  return true
 }
