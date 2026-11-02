@@ -36,8 +36,8 @@ export function RequestPage() {
                 </div>
                 <p className="flow-lede">
                   {siteName ? "To continue, download" : "Download"} the free ZKPassport app. It
-                  reads your passport or ID on your phone, and nothing leaves your phone except the
-                  details you choose to share.
+                  reads your passport or ID securely and verifies your identity. Your ID data never
+                  leaves your phone, except the details you choose to share.
                 </p>
                 <StoreBadges requestUrl={requestUrl} />
                 {requestUrl ? <OpenAppPrompt requestUrl={requestUrl} siteName={siteName} /> : null}
