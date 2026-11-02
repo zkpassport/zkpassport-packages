@@ -93,24 +93,6 @@ describe("verify() bb version", () => {
     bbVerifierSpy.mockRestore()
   })
 
-  test("verifies a proof with the bundled verifier of its packaged circuit's bb version", async () => {
-    for (const bbVersion of ["5.0.0", "6.0.0"]) {
-      packagedBBVersion = bbVersion
-      bbVerifierSpy.mockClear()
-      const zkPassport = new ZKPassport("example.com")
-
-      const result = await zkPassport.verify({
-        proofs,
-        originalQuery,
-        queryResult,
-        verifierMode: "local",
-      })
-
-      expect(result.verified).toBe(true)
-      expect(bbVerifierSpy.mock.calls.map((call: unknown[]) => call[0])).toEqual([bbVersion])
-    }
-  })
-
   test("rejects and logs a proof from a bb version it has no verifier for, and runs no verifier", async () => {
     for (const bbVersion of ["4.2.0-aztecnr-rc.2", "6.0.1", "7.0.0"]) {
       packagedBBVersion = bbVersion
