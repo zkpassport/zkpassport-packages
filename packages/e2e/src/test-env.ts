@@ -74,9 +74,7 @@ export async function startTestEnv(): Promise<TestEnv> {
       // An outer proof commits to its circuits' root, which verify() checks on chain
       await fork.registerCircuitRoot(circuits.manifest, registry)
     }
-    if (LOCAL_CIRCUITS_DIR && circuits) {
-      await registerEvmVerifiers(fork, zkPassport, LOCAL_CIRCUITS_DIR, circuits)
-    }
+    await registerEvmVerifiers(fork, zkPassport, LOCAL_CIRCUITS_DIR, circuits)
     bridgeRelay = startBridgeRelay()
   } catch (error) {
     fork.stop()
@@ -132,16 +130,20 @@ export async function startTestEnv(): Promise<TestEnv> {
 }
 
 /**
- * Give the fork's RootVerifier a SubVerifier for the version of `circuits`, with the checkout's
- * verifier for each packaged outer EVM circuit. verify() has the RootVerifier check outer EVM
- * proofs, with the SubVerifier of their version.
+ * With local circuits, give the fork's RootVerifier a SubVerifier for their version, with the
+ * checkout's verifier for each packaged outer EVM circuit. verify() has the RootVerifier check outer
+ * EVM proofs, with the SubVerifier of their version.
  */
 async function registerEvmVerifiers(
   fork: ChainFork,
   zkPassport: ZKPassport,
-  circuitsDir: string,
-  circuits: PackagedCircuits,
+  circuitsDir: string | undefined,
+  circuits: PackagedCircuits | undefined,
 ): Promise<void> {
+  if (!circuitsDir || !circuits) {
+    return
+  }
+
   const verifiers = compileOuterEvmVerifiers(circuitsDir, circuits)
   if (verifiers.length === 0) {
     return
