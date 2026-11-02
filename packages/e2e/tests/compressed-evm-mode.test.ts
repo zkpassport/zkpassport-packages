@@ -10,7 +10,7 @@ import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
 import { startTestEnv, type TestEnv } from "../src/test-env"
-import { withFlippedProofByte } from "../src/utils/utils"
+import { withFlippedProofByte } from "../src/utils"
 
 describe("compressed-evm mode, end to end on a Sepolia fork", () => {
   let testEnv: TestEnv
