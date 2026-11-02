@@ -3818,12 +3818,6 @@ export class PublicInputChecker {
       uniqueIdentifier = undefined
     }
 
-    return {
-      isCorrect,
-      uniqueIdentifier,
-      uniqueIdentifierType,
-      queryResultErrors,
-      rootTimestamp: bundleRootTimestamp,
-    }
+    return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }
   }
 }

@@ -14,13 +14,20 @@ import ZKPassportVerifierAbi from "../src/assets/abi/ZKPassportVerifier.json"
 import * as bbVerifier from "../src/bb-verifier"
 import { ZKPassport } from "../src/index"
 import { PublicInputChecker } from "../src/public-input-checker"
-import { outerProofCommittingTo } from "./helpers"
 
 describe("verify() registry chain", () => {
   const circuitVersion = "0.21.0"
   const outerEvmProofName = "outer_evm_3"
   const outerEvmCircuitHash = "0x0000000000000000000000000000000000000000000000000000000000000001"
-  let proofs: ProofResult[]
+  const outerEvmProofFieldCount = 20
+  const proofs: ProofResult[] = [
+    {
+      name: outerEvmProofName,
+      version: circuitVersion,
+      vkeyHash: outerEvmCircuitHash,
+      proof: "00".repeat(32 * outerEvmProofFieldCount),
+    },
+  ]
   const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
 
   let originalFetch: typeof globalThis.fetch
@@ -30,14 +37,6 @@ describe("verify() registry chain", () => {
 
   beforeEach(async () => {
     const circuitRoot = await calculateCircuitRoot({ hashes: [outerEvmCircuitHash] })
-    proofs = [
-      {
-        name: outerEvmProofName,
-        version: circuitVersion,
-        vkeyHash: outerEvmCircuitHash,
-        proof: outerProofCommittingTo(circuitRoot),
-      },
-    ]
 
     originalFetch = globalThis.fetch
     fetchedUrls = []
@@ -74,7 +73,6 @@ describe("verify() registry chain", () => {
       uniqueIdentifier: "1",
       uniqueIdentifierType: NullifierType.NON_SALTED,
       queryResultErrors: {},
-      rootTimestamp: undefined,
     })
     bbVerifierSpy = spyOn(bbVerifier, "createUltraHonkVerifier").mockResolvedValue({
       verifier: { verifyProof: async () => true },
