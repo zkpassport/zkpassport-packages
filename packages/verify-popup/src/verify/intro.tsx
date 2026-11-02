@@ -41,7 +41,8 @@ export function Intro({
           />
           <p className="intro-chip-question">Do you have a passport or ID with a chip?</p>
           <p className="intro-chip-hint">
-            Look for this symbol on your passport or ID card. Your phone reads the chip over NFC.
+            Look for this symbol on your passport or ID card. Your phone reads the chip when you
+            hold it against the ID.
           </p>
           <button type="button" className="flow-primary" disabled={!items} onClick={onContinue}>
             Continue
