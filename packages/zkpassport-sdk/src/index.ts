@@ -51,12 +51,7 @@ import {
 import { PublicInputChecker } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
-import {
-  type BundledBBVersion,
-  createUltraHonkVerifier,
-  isBundledBBVersion,
-  type LoadedVerifier,
-} from "./bb-verifier"
+import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
@@ -992,9 +987,9 @@ export class ZKPassport {
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
-    // Started only once the public inputs check out and a proof needs it, so rejected proofs and
+    // Starts bb only once the public inputs check out and a proof needs it, so rejected proofs and
     // outer EVM proofs, which are verified on chain, never spawn bb
-    const loadedVerifiers = new Map<BundledBBVersion, LoadedVerifier>()
+    const bbVerifier = new BBVerifier({ writingDirectory })
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
@@ -1055,7 +1050,6 @@ export class ZKPassport {
           }
           const isOuterEVM = proof.name?.startsWith("outer_evm_")
           const proofName = proof.name!
-          const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proofName))
           const hostedPackagedCircuit = await registryClient.getPackagedCircuit(
             proofName,
             circuitManifest,
@@ -1071,35 +1065,14 @@ export class ZKPassport {
               scope,
               devMode,
             })
-          } else if (!isBundledBBVersion(hostedPackagedCircuit.bb_version)) {
-            console.warn(
-              `Error verifying proof ${proofName}: no verifier for bb ${hostedPackagedCircuit.bb_version}`,
-            )
-            verified = false
           } else {
-            const bbVersion = hostedPackagedCircuit.bb_version
-            let loadedVerifier = loadedVerifiers.get(bbVersion)
-            if (!loadedVerifier) {
-              loadedVerifier = await createUltraHonkVerifier(bbVersion, { writingDirectory })
-              loadedVerifiers.set(bbVersion, loadedVerifier)
-            }
-            const vkeyBytes = Buffer.from(hostedPackagedCircuit.vkey, "base64")
-            try {
-              verified = await loadedVerifier.verifier.verifyProof({
-                proof: Buffer.from(proofData.proof.join(""), "hex"),
-                publicInputs: proofData.publicInputs,
-                verificationKey: new Uint8Array(vkeyBytes),
-              })
-            } catch (e) {
-              console.warn(`Error verifying proof ${proofName}`, e)
-              verified = false
-            }
+            verified = await bbVerifier.verify(proof, hostedPackagedCircuit)
           }
         }
       }
     } finally {
-      // Always release the bb.js instances, or their worker threads keep the process alive
-      await Promise.all([...loadedVerifiers.values()].map((verifier) => verifier.destroy()))
+      // Always release the bb.js instance, or its worker threads keep the process alive
+      await bbVerifier.destroy()
     }
 
     // If the proofs are not verified, we don't return the unique identifier

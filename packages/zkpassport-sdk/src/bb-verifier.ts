@@ -1,8 +1,16 @@
+import {
+  getNumberOfPublicInputs,
+  getProofData,
+  type PackagedCircuit,
+  type ProofResult,
+} from "@zkpassport/utils"
+import { Buffer } from "buffer/"
+
 const BUNDLED_BB_VERSIONS = ["5.0.0", "6.0.0"] as const
 
 export type BundledBBVersion = (typeof BUNDLED_BB_VERSIONS)[number]
 
-export function isBundledBBVersion(bbVersion: string): bbVersion is BundledBBVersion {
+function isBundledBBVersion(bbVersion: string): bbVersion is BundledBBVersion {
   return (BUNDLED_BB_VERSIONS as readonly string[]).includes(bbVersion)
 }
 
@@ -36,6 +44,49 @@ export async function createUltraHonkVerifier(
   const barretenberg = await Barretenberg.new({ crsPath })
   const verifier = new UltraHonkVerifierBackend(barretenberg)
   return { verifier, destroy: () => barretenberg.destroy() }
+}
+
+export class BBVerifier {
+  private readonly writingDirectory: string | undefined
+  private readonly loadedVerifiers = new Map<BundledBBVersion, LoadedVerifier>()
+
+  constructor({ writingDirectory }: { writingDirectory?: string } = {}) {
+    this.writingDirectory = writingDirectory
+  }
+
+  /** Verify a proof with the bb.js of its packaged circuit's bb version, starting it on first use */
+  async verify(proof: ProofResult, circuit: PackagedCircuit): Promise<boolean> {
+    const bbVersion = circuit.bb_version
+    if (!isBundledBBVersion(bbVersion)) {
+      console.warn(`Error verifying proof ${proof.name}: no verifier for bb ${bbVersion}`)
+      return false
+    }
+
+    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+    let loadedVerifier = this.loadedVerifiers.get(bbVersion)
+    if (!loadedVerifier) {
+      loadedVerifier = await createUltraHonkVerifier(bbVersion, {
+        writingDirectory: this.writingDirectory,
+      })
+      this.loadedVerifiers.set(bbVersion, loadedVerifier)
+    }
+
+    try {
+      return await loadedVerifier.verifier.verifyProof({
+        proof: Buffer.from(proofData.proof.join(""), "hex"),
+        publicInputs: proofData.publicInputs,
+        verificationKey: new Uint8Array(Buffer.from(circuit.vkey, "base64")),
+      })
+    } catch (error) {
+      console.warn(`Error verifying proof ${proof.name}`, error)
+      return false
+    }
+  }
+
+  /** Release the bb.js instances it started */
+  async destroy(): Promise<void> {
+    await Promise.all([...this.loadedVerifiers.values()].map((verifier) => verifier.destroy()))
+  }
 }
 
 const BB_VERSION_KEY = "__zkpassport_bb_version"
