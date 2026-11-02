@@ -17,6 +17,9 @@ export default defineConfig({
       "@zkpassport/ui/hosted": fileURLToPath(
         new URL("../zkpassport-ui/dist/hosted.js", import.meta.url),
       ),
+      "@zkpassport/ui/hosted-credential": fileURLToPath(
+        new URL("../zkpassport-ui/dist/hosted-credential.js", import.meta.url),
+      ),
       // The hosted bundle imports the SDK, which /r must not carry; this build stands alone
       "@zkpassport/ui/app-link": fileURLToPath(
         new URL("../zkpassport-ui/dist/app-link.js", import.meta.url),

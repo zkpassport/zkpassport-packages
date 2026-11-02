@@ -219,8 +219,8 @@ function describeBinding(bound: BoundData): QueryDescriptionItem {
   const { user_address: wallet, chain, custom_data: custom } = bound
   const note = "Bound to"
   const rows: Array<{ label: string; value: string }> = []
-  if (chain) rows.push({ label: "Chain", value: chainLabel(chain) })
   if (wallet) rows.push({ label: "Wallet", value: wallet })
+  if (chain) rows.push({ label: "Network", value: chainLabel(chain) })
 
   if (custom !== undefined && custom !== null) {
     // Opaque to us, so it is shown exactly as the site supplied it

@@ -13,7 +13,7 @@
     "@aztec-foundation/bb.js": "6.0.0",
     "@aztec/bb.js": "5.0.0",
     "@noir-lang/noir_js": "1.0.0-beta.22",
-    "@obsidion/bridge": "^0.12.2",
+    "@obsidion/bridge": "^0.12.3",
     "@zkpassport/registry": "workspace:*",
     "@zkpassport/sdk": "workspace:*",
     "@zkpassport/utils": "workspace:*",
