@@ -18,6 +18,8 @@ const CIRCUITS = [
   "compare_age",
   "disclose_bytes",
 ]
+// A circuits release whose root Sepolia's circuit registry no longer accepts
+const RETIRED_CIRCUIT_VERSION = "0.20.0"
 
 describe("fast mode, end to end on a Sepolia fork", () => {
   let testEnv: TestEnv
@@ -75,6 +77,22 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     })
     expect(verification.verified).toBe(false)
   }, 60_000)
+
+  test("proofs from a circuits release the registry no longer accepts do not verify", async () => {
+    const retiredApp = await testEnv.runHeadlessApp({
+      passport: createMockPassport(),
+      query: (query) => query.gte("age", 18).disclose("nationality"),
+      overrides: { circuitVersion: RETIRED_CIRCUIT_VERSION },
+    })
+    const { proofs, result: queryResult } = retiredApp.request.result()!
+
+    const verification = await testEnv.verify({
+      proofs,
+      queryResult,
+      originalQuery: retiredApp.request.query,
+    })
+    expect(verification.verified).toBe(false)
+  }, 180_000)
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails
