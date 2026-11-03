@@ -10,7 +10,7 @@ import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
 import type { HeadlessApp } from "../src/headless-app"
 import { startTestEnv, type TestEnv } from "../src/test-env"
-import { withDummyCircuit, withFlippedProofByte } from "../src/utils"
+import { withFakeCircuit, withFlippedProofByte } from "../src/utils"
 
 describe("compressed mode, end to end on a Sepolia fork", () => {
   let testEnv: TestEnv
@@ -76,7 +76,7 @@ describe("compressed mode, end to end on a Sepolia fork", () => {
       proofs,
       queryResult,
       originalQuery: app.request.query,
-      circuitManifest: await withDummyCircuit(manifest),
+      circuitManifest: await withFakeCircuit(manifest),
     })
     expect(verification.verified).toBe(false)
   }, 60_000)
