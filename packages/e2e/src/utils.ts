@@ -21,13 +21,8 @@ export function withFlippedProofByte(proof: ProofResult): ProofResult {
 
 /**
  * A copy of `manifest` with one more circuit, named "fake", and a root recomputed over all its
- * circuit hashes. No circuit registry holds that root and no proof commits to it, so verifying
- * proofs against the copy shows whether the SDK rejects a manifest whose root is not accepted.
- *
- * Replacing only `root` would not reach that check: when the SDK fetches a manifest, it recomputes
- * the root from the manifest's circuit hashes and throws if `root` differs. The copy keeps every
- * real circuit, so the proofs still find their circuits in it and the root is the only reason for
- * them to fail.
+ * circuit hashes. No circuit registry holds that root and no proof commits to it, so this can be used
+ * to check whether the SDK rejects a manifest whose root is not accepted.
  */
 export async function withFakeCircuit(manifest: CircuitManifest): Promise<CircuitManifest> {
   const circuits = { ...manifest.circuits, fake: { hash: `0x${"00".repeat(31)}01`, size: 1 } }
