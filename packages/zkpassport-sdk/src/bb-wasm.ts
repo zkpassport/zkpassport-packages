@@ -48,7 +48,7 @@ async function loadInNode(
   writingDirectory: string | undefined,
 ): Promise<string | undefined> {
   // Not imported, so browser bundlers never see Node's modules
-  const { mkdir, readFile, writeFile } = process.getBuiltinModule("node:fs/promises")
+  const { mkdir, readFile, rename, rm, writeFile } = process.getBuiltinModule("node:fs/promises")
   const { join } = process.getBuiltinModule("node:path")
   const { tmpdir } = process.getBuiltinModule("node:os")
   const directory = join(writingDirectory ?? tmpdir(), ".bb-wasm", bbVersion)
@@ -69,7 +69,14 @@ async function loadInNode(
   }
 
   await mkdir(directory, { recursive: true })
-  await writeFile(path, wasm)
+  // A unique name in the same directory, so rename() replaces the cached file in one step
+  const temporaryPath = `${path}.${crypto.randomUUID()}.tmp`
+  try {
+    await writeFile(temporaryPath, wasm)
+    await rename(temporaryPath, path)
+  } finally {
+    await rm(temporaryPath, { force: true })
+  }
   return path
 }
 
