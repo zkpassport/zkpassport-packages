@@ -501,8 +501,8 @@ describe("Registry", () => {
       expect(wasmHash).toBe(BB_6_THREADED_WASM_SHA256)
     })
 
-    it("should get no sha256 for a wasm file with none registered", async () => {
-      const wasmHash = await registry.getBBWasmHash("6.0.0", "barretenberg.wasm")
+    it("should get no sha256 for a bb version with none registered", async () => {
+      const wasmHash = await registry.getBBWasmHash("7.0.0", "barretenberg-threads.wasm")
       expect(wasmHash).toBeUndefined()
     })
   })
