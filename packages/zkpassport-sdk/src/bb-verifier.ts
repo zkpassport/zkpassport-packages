@@ -48,13 +48,13 @@ export async function createUltraHonkVerifier(
 
 export class BBVerifier {
   private readonly writingDirectory: string | undefined
-  private readonly loadedVerifiers = new Map<BundledBBVersion, LoadedVerifier>()
+  private loadedVerifier: LoadedVerifier | undefined
 
   constructor({ writingDirectory }: { writingDirectory?: string } = {}) {
     this.writingDirectory = writingDirectory
   }
 
-  /** Verify a proof with the bb.js of its packaged circuit's bb version, starting it on first use */
+  /** Verify a proof with bb.js, starting the bb it needs on first use */
   async verify(proof: ProofResult, circuit: PackagedCircuit): Promise<boolean> {
     const bbVersion = circuit.bb_version
     if (!isBundledBBVersion(bbVersion)) {
@@ -63,16 +63,12 @@ export class BBVerifier {
     }
 
     const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
-    let loadedVerifier = this.loadedVerifiers.get(bbVersion)
-    if (!loadedVerifier) {
-      loadedVerifier = await createUltraHonkVerifier(bbVersion, {
-        writingDirectory: this.writingDirectory,
-      })
-      this.loadedVerifiers.set(bbVersion, loadedVerifier)
-    }
+    this.loadedVerifier ??= await createUltraHonkVerifier(bbVersion, {
+      writingDirectory: this.writingDirectory,
+    })
 
     try {
-      return await loadedVerifier.verifier.verifyProof({
+      return await this.loadedVerifier.verifier.verifyProof({
         proof: Buffer.from(proofData.proof.join(""), "hex"),
         publicInputs: proofData.publicInputs,
         verificationKey: new Uint8Array(Buffer.from(circuit.vkey, "base64")),
@@ -83,9 +79,9 @@ export class BBVerifier {
     }
   }
 
-  /** Release the bb.js instances it started */
+  /** Release the bb.js instance it started */
   async destroy(): Promise<void> {
-    await Promise.all([...this.loadedVerifiers.values()].map((verifier) => verifier.destroy()))
+    await this.loadedVerifier?.destroy()
   }
 }
 
