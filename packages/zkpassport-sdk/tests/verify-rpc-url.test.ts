@@ -7,7 +7,7 @@ import ZKPassportVerifierAbi from "../src/assets/abi/ZKPassportVerifier.json"
 import * as bbVerifier from "../src/bb-verifier"
 import { ZKPassport } from "../src/index"
 import { PublicInputChecker } from "../src/public-input-checker"
-import { outerProofCommittingTo } from "./helpers"
+import { fakeOuterProofCommittingTo } from "./helpers"
 
 describe("verify() config.rpcUrl", () => {
   const circuitVersion = "0.21.0"
@@ -30,7 +30,7 @@ describe("verify() config.rpcUrl", () => {
         name: outerEvmProofName,
         version: circuitVersion,
         vkeyHash: outerEvmCircuitHash,
-        proof: outerProofCommittingTo(circuitRoot),
+        proof: fakeOuterProofCommittingTo(circuitRoot),
       },
     ]
 
