@@ -73,6 +73,7 @@ import {
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
+import { VerificationUnavailableError } from "./verification-unavailable"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -1861,14 +1862,27 @@ export class PublicInputChecker {
     },
     registryClient?: RegistryClient,
   ) {
-    let isCorrect: boolean
+    let registry: RegistryClient | undefined
     try {
-      isCorrect = await check(
-        registryClient ?? createRegistryClient(getChainFromQuery(originalQuery, Boolean(devMode))),
-      )
+      registry =
+        registryClient ?? createRegistryClient(getChainFromQuery(originalQuery, Boolean(devMode)))
     } catch (error) {
+      // A query bound to a chain ZKPassport keeps no registry on is a rejection, not an outage
       console.warn(error)
-      isCorrect = false
+    }
+    let isCorrect = false
+    if (registry) {
+      try {
+        isCorrect = await check(registry)
+      } catch (error) {
+        // The registry read failed, so the root was never checked. Reporting it as an invalid
+        // root would accuse the ID of being unregistered over an RPC outage.
+        throw new VerificationUnavailableError(
+          "registry_unavailable",
+          "The registry did not answer the root check",
+          error,
+        )
+      }
     }
     if (!isCorrect) {
       console.warn(invalid.message)

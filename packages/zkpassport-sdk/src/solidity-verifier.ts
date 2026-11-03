@@ -23,6 +23,7 @@ import {
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
 import { DEFAULT_VALIDITY } from "./constants"
+import { VerificationUnavailableError } from "./verification-unavailable"
 import { sha256 } from "@noble/hashes/sha2.js"
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
@@ -258,7 +259,13 @@ export class SolidityVerifier {
     return params
   }
 
-  /** Verify an outer EVM proof with the RootVerifier of the chain behind `rpcUrl` */
+  /**
+   * Verify an outer EVM proof with the RootVerifier of the chain behind `rpcUrl`
+   *
+   * Returns the verifier contract's verdict, false included when the proof's committed inputs do
+   * not match its commitments or the contract rejects it. An RPC that never answers throws
+   * {@link VerificationUnavailableError} instead: the contract never judged the proof.
+   */
   public static async verify({
     proof,
     rpcUrl,
@@ -274,22 +281,41 @@ export class SolidityVerifier {
     scope?: string
     devMode?: boolean
   }): Promise<boolean> {
+    const { createPublicClient, http, BaseError, HttpRequestError, TimeoutError } =
+      await import("viem")
+    const { address, abi, functionName } = SolidityVerifier.getDetails()
+    let params: SolidityVerifierParameters
     try {
-      const { createPublicClient, http } = await import("viem")
-      const { address, abi, functionName } = SolidityVerifier.getDetails()
-      const client = createPublicClient({ transport: http(rpcUrl) })
-      const params = SolidityVerifier.getParameters({
+      params = SolidityVerifier.getParameters({
         proof,
         validityPeriodInSeconds,
         domain,
         scope,
         devMode,
       })
-      const result = await client.readContract({ address, abi, functionName, args: [params] })
-      return Array.isArray(result) ? Boolean(result[0]) : false
     } catch (error) {
       console.warn("Error verifying proof", error)
       return false
+    }
+    try {
+      const client = createPublicClient({ transport: http(rpcUrl) })
+      const result = await client.readContract({ address, abi, functionName, args: [params] })
+      return Array.isArray(result) ? Boolean(result[0]) : false
+    } catch (error) {
+      // Only an unanswered request means no verdict. A revert, or anything else the node did
+      // answer, is the contract rejecting the proof.
+      const noAnswer =
+        error instanceof BaseError &&
+        error.walk((e) => e instanceof HttpRequestError || e instanceof TimeoutError) !== null
+      if (!noAnswer) {
+        console.warn("Error verifying proof", error)
+        return false
+      }
+      throw new VerificationUnavailableError(
+        "registry_unavailable",
+        `The RPC at ${rpcUrl} did not answer the proof verification call`,
+        error,
+      )
     }
   }
 }

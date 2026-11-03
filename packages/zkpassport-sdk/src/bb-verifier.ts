@@ -5,6 +5,7 @@ import {
   type ProofResult,
 } from "@zkpassport/utils"
 import { Buffer } from "buffer/"
+import { VerificationUnavailableError } from "./verification-unavailable"
 
 export type BBVersion = "v5" | "v6"
 
@@ -58,23 +59,32 @@ export class BBVerifier {
     this.writingDirectory = writingDirectory
   }
 
-  /** Verify a proof with bb.js, starting the bb it needs on first use */
+  /**
+   * Verify a proof with bb.js, starting the bb it needs on first use
+   *
+   * Returns bb's verdict. A proof bb cannot run the check on — because bb failed to start, or
+   * because it cannot read a proof from a circuit newer than the bb bundled here — throws
+   * {@link VerificationUnavailableError} instead of returning false: bb never judged the proof.
+   */
   async verify(proof: ProofResult, circuit: PackagedCircuit): Promise<boolean> {
     const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
-    this.loadedVerifier ??= await createUltraHonkVerifier(
-      getBBVersionForCircuitVersion(proof.version),
-      { writingDirectory: this.writingDirectory },
-    )
 
     try {
+      this.loadedVerifier ??= await createUltraHonkVerifier(
+        getBBVersionForCircuitVersion(proof.version),
+        { writingDirectory: this.writingDirectory },
+      )
       return await this.loadedVerifier.verifier.verifyProof({
         proof: Buffer.from(proofData.proof.join(""), "hex"),
         publicInputs: proofData.publicInputs,
         verificationKey: new Uint8Array(Buffer.from(circuit.vkey, "base64")),
       })
     } catch (error) {
-      console.warn(`Error verifying proof ${proof.name}`, error)
-      return false
+      throw new VerificationUnavailableError(
+        "engine_error",
+        `bb.js could not verify proof ${proof.name}`,
+        error,
+      )
     }
   }
 

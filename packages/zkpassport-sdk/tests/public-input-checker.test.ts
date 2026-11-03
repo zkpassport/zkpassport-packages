@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { PublicInputChecker } from "../src/public-input-checker"
+import { VerificationUnavailableError } from "../src/verification-unavailable"
 import type {
   Query,
   QueryResult,
@@ -1669,20 +1670,19 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
     })
 
-    test("fails when the registry lookup throws", async () => {
+    test("reaches no verdict when the registry lookup throws", async () => {
       isSanctionsRootValid.mockImplementation(async () => {
         throw new Error("RPC unavailable")
       })
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: false },
       }
-      const { isCorrect, queryResultErrors } =
-        await PublicInputChecker.checkSanctionsExclusionPublicInputs(originalQuery, queryResult, {
-          rootHash: VALID_SANCTIONS_ROOT,
-          isStrict: false,
-        })
-      expect(isCorrect).toBe(false)
-      expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
+      const check = PublicInputChecker.checkSanctionsExclusionPublicInputs(
+        originalQuery,
+        queryResult,
+        { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
+      )
+      await expect(check).rejects.toThrow(VerificationUnavailableError)
     })
 
     test("fails when strict mode in committed inputs does not match queryResult", async () => {
@@ -3741,16 +3741,10 @@ describe("PublicInputChecker - registry root checks with a supplied client", () 
   })
 
   test("falls back to a default client when none is supplied", async () => {
-    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCertificateRegistryRoot(
-      "abc",
-      {},
-      false,
-      false,
-    )
-    expect(isCorrect).toBe(false)
-    expect(queryResultErrors.sig_check_dsc.certificate.received).toBe(
-      "Got invalid certificate registry root: abc",
-    )
+    // The default client reaches only the stubbed network, which answers every read with an error
+    const check = PublicInputChecker.checkCertificateRegistryRoot("abc", {}, false, false)
+
+    await expect(check).rejects.toThrow(VerificationUnavailableError)
   })
 
   test("checkPublicInputs forwards the client to the root checks", async () => {
@@ -3794,15 +3788,14 @@ describe("PublicInputChecker - registry root checks with a supplied client", () 
     expect(withClient.isCorrect).toBe(true)
     expect(client.checkedRoots).toEqual(["1"])
 
-    const withoutClient = await PublicInputChecker.checkPublicInputs(
+    const withoutClient = PublicInputChecker.checkPublicInputs(
       domain,
       proofs,
       originalQuery,
       queryResult,
       86400 * 365,
     )
-    expect(withoutClient.isCorrect).toBe(false)
-    expect(withoutClient.queryResultErrors.sig_check_dsc?.certificate).toBeDefined()
+    await expect(withoutClient).rejects.toThrow(VerificationUnavailableError)
   })
 
   test("checkPublicInputs forwards the client to the root check of a standalone sanctions proof", async () => {

@@ -49,6 +49,7 @@ import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
+import { VerificationUnavailableError } from "./verification-unavailable"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -123,6 +124,7 @@ export {
 } from "@zkpassport/utils"
 
 export * from "./types"
+export { VerificationUnavailableError } from "./verification-unavailable"
 export { createOfflineQuery, normalizeCountry } from "./offline-query"
 export type { KeyPair } from "@obsidion/bridge"
 export { VERSION } from "./constants"
@@ -872,7 +874,10 @@ export class ZKPassport {
    * the local result is not verified — e.g. proofs from a newer bb version than this SDK supports.
    * @param config Verification settings such as the RPC URL, see {@link VerificationConfig}.
    * @returns An object containing the unique identifier associated to the user
-   * and a boolean indicating whether the proofs were successfully verified.
+   * and a boolean indicating whether the proofs were successfully verified. When no verifier
+   * could reach a verdict — the registry was unreachable, or the verification engine failed —
+   * `verified` is false and `couldNotVerify` names what stopped the check, so callers can tell
+   * an invalid proof from one that was never judged.
    */
   public async verify({
     proofs,
@@ -907,6 +912,12 @@ export class ZKPassport {
       uniqueIdentifierType: undefined,
       verified: false,
     }
+    // What the modes below report when no verifier reached a verdict, rather than claiming the
+    // proofs failed a check that never ran
+    const noVerdict: VerificationResult = {
+      ...notVerified,
+      couldNotVerify: "verifier_api_unavailable",
+    }
     // If no proofs were generated, the results can't be trusted.
     // We still return it but verified will be false
     if (!proofs || proofs.length === 0) {
@@ -921,7 +932,7 @@ export class ZKPassport {
     if (verifierMode === "local") {
       result = await this.verifyLocally(localParams)
     } else if (verifierMode === "api") {
-      result = (await verifyWithVerifierApi(apiParams)) ?? notVerified
+      result = (await verifyWithVerifierApi(apiParams)) ?? noVerdict
     } else {
       let localResult: VerificationResult | undefined
       try {
@@ -929,9 +940,10 @@ export class ZKPassport {
       } catch (e) {
         console.warn("Local proof verification failed:", e)
       }
+      // A local result that reached no verdict is kept over `noVerdict`, so its reason survives
       result = localResult?.verified
         ? localResult
-        : ((await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified)
+        : ((await verifyWithVerifierApi(apiParams)) ?? localResult ?? noVerdict)
     }
     return enforceUniqueIdentifierType(result, requestedType)
   }
@@ -1039,6 +1051,16 @@ export class ZKPassport {
             break
           }
         }
+      }
+    } catch (error) {
+      if (!(error instanceof VerificationUnavailableError)) throw error
+      // No verdict was reached, so the proofs are reported as unverified without being accused
+      console.warn("Could not verify the proofs:", error)
+      return {
+        uniqueIdentifier: undefined,
+        uniqueIdentifierType: undefined,
+        verified: false,
+        couldNotVerify: error.reason,
       }
     } finally {
       // Always release the bb.js instance, or its worker threads keep the process alive

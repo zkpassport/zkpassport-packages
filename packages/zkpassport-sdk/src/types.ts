@@ -68,11 +68,29 @@ export type VerificationConfig = {
 export type RequestedNullifierType =
   NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
 
+/**
+ * What stopped a check from running, when verification reached no verdict.
+ *
+ * - `registry_unavailable`: a registry or on-chain read the check needs did not answer.
+ * - `engine_error`: the proof verification engine failed to run the check.
+ * - `verifier_api_unavailable`: the ZKPassport verifier API gave no verdict.
+ */
+export type VerificationUnavailableReason =
+  "registry_unavailable" | "engine_error" | "verifier_api_unavailable"
+
 export type VerificationResult = {
   uniqueIdentifier: string | undefined
   uniqueIdentifierType: NullifierType | undefined
   verified: boolean
   queryResultErrors?: Partial<QueryResultErrors>
+  /**
+   * Set when the proofs were never judged: `verified` is false because the check could not run,
+   * not because the proofs failed it. Its value names what stopped the check, and when several
+   * checks failed, the last one tried. Absent whenever `verified` is a verdict about the proofs.
+   *
+   * Treat a result carrying it as "unknown, try again later" rather than as an invalid proof.
+   */
+  couldNotVerify?: VerificationUnavailableReason
 }
 
 export type SolidityProofVerificationData = {

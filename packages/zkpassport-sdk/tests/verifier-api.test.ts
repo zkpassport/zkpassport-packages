@@ -125,7 +125,7 @@ describe("verify() modes and the verifier API", () => {
     expect(fetchedUrls).toEqual(["https://verifier.zkpassport.id/verify"])
   })
 
-  test("api reports not verified when the API is unreachable", async () => {
+  test("api reports no verdict when the API is unreachable", async () => {
     globalThis.fetch = (async () => {
       throw new Error("network down")
     }) as unknown as typeof globalThis.fetch
@@ -133,7 +133,7 @@ describe("verify() modes and the verifier API", () => {
 
     const result = await zk.verify({ proofs, originalQuery, queryResult, verifierMode: "api" })
 
-    expect(result).toEqual(notVerified)
+    expect(result).toEqual({ ...notVerified, couldNotVerify: "verifier_api_unavailable" })
     expect(localSpy).not.toHaveBeenCalled()
   })
 
