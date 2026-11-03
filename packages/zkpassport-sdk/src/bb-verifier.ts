@@ -59,6 +59,8 @@ export async function createUltraHonkVerifier(
       wasmPath,
       srsSize: WASM_SRS_SIZE,
       crsPath,
+      // With more threads, destroy() never returns on bun 1.3.8
+      threads: 1,
     })
     const verifier = new UltraHonkVerifierBackend(barretenberg)
     return { verifier, destroy: () => barretenberg.destroy() }
