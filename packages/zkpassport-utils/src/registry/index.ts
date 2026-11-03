@@ -14,6 +14,7 @@ import { AsyncMerkleTree } from "./merkle"
 import { AsyncIMT, poseidon2 } from "../merkle-tree"
 import type { IMTMerkleProof } from "../merkle-tree/async-imt"
 export { cidv0ToHex, hexToCidv0 } from "./cid"
+export * from "./bb-wasm"
 export * from "./circuits"
 export * from "./sanctions"
 

@@ -5,10 +5,12 @@ import {
   PackagedCircuit,
   type PackagedCertificatesFileV1,
 } from "@zkpassport/utils/types"
+import { getBBWasmHashConfigKey } from "@zkpassport/utils/registry"
 import path from "path"
 import { RegistryClient } from "../src/client"
 import { DocumentSupport } from "../src/types"
 import {
+  BB_6_THREADED_WASM_SHA256,
   CERTIFICATE_FIXTURES_CID,
   CERTIFICATE_FIXTURES_ROOT,
   CERTIFICATE_GENESIS_ROOT,
@@ -27,11 +29,14 @@ import {
   AnvilInstance,
   CHAIN_ID,
   RPC_URL,
+  ROOT_REGISTRY_ADMIN_ADDRESS,
+  getEthereumFunctionSelector,
   isAnvilRunning,
   loadCircuitManifestFile,
   loadPackagedCertificatesFile,
   loadPackagedCircuitFile,
   loadSanctionsTreeFile,
+  sendTransaction,
   startAnvil,
   stopAnvil,
 } from "./utils/helpers"
@@ -480,6 +485,25 @@ describe("Registry", () => {
     it("should check if a circuit root is invalid", async () => {
       const valid = await registry.isCircuitRootValid(INVALID_HASH)
       expect(valid).toBe(false)
+    })
+
+    it("should get the registered sha256 of a bb version's wasm file", async () => {
+      const configKey = getBBWasmHashConfigKey("6.0.0", "barretenberg-threads.wasm")
+      await sendTransaction(
+        anvil.rootRegistry,
+        getEthereumFunctionSelector("updateConfig(bytes32,bytes32)") +
+          strip0x(configKey) +
+          strip0x(BB_6_THREADED_WASM_SHA256),
+        ROOT_REGISTRY_ADMIN_ADDRESS,
+      )
+
+      const wasmHash = await registry.getBBWasmHash("6.0.0", "barretenberg-threads.wasm")
+      expect(wasmHash).toBe(BB_6_THREADED_WASM_SHA256)
+    })
+
+    it("should get no sha256 for a wasm file with none registered", async () => {
+      const wasmHash = await registry.getBBWasmHash("6.0.0", "barretenberg.wasm")
+      expect(wasmHash).toBeUndefined()
     })
   })
 

@@ -3,10 +3,12 @@ import { Binary, getIdFromChain } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
+  type BBWasmFile,
   calculateCircuitRoot,
   calculatePackagedCertificatesRoot,
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
+  getBBWasmHashConfigKey,
   hexToCidv0,
   SANCTIONS_REGISTRY_ID,
 } from "@zkpassport/utils/registry"
@@ -19,6 +21,7 @@ import type {
 import debug from "debug"
 import {
   CIRCUIT_MANIFEST_URL_TEMPLATE,
+  CONFIG_SIGNATURE,
   DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   DEFAULT_RETRY_COUNT,
   GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE,
@@ -578,6 +581,32 @@ export class RegistryClient {
    */
   async getSanctionsRootDetails(root?: string): Promise<RootDetails> {
     return this.getRootDetails(SANCTIONS_REGISTRY_ID, "sanctions", root)
+  }
+
+  /**
+   * Get the sha256 of a bb version's uncompressed wasm file, as registered in the Root Registry's
+   * config
+   *
+   * @param bbVersion The bb version, e.g. "6.0.0"
+   * @param file The wasm file
+   * @returns The sha256, or undefined if the Root Registry holds none for this file
+   */
+  async getBBWasmHash(bbVersion: string, file: BBWasmFile): Promise<string | undefined> {
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      CONFIG_SIGNATURE + strip0x(getBBWasmHashConfigKey(bbVersion, file)),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get the sha256 of bb ${bbVersion}'s ${file}: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) {
+      throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    }
+
+    return BigInt(rpcData.result) === 0n ? undefined : rpcData.result
   }
 
   /**
