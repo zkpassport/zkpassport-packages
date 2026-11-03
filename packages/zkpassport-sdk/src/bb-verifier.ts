@@ -9,7 +9,7 @@ import { Buffer } from "buffer/"
 import { loadBBWasm } from "./bb-wasm"
 
 const BUNDLED_BB_VERSION = "6.0.0"
-// The smallest CRS bb.js's wasm backend accepts, enough for every circuit's proofs
+// The smallest CRS bb's wasm accepts
 const WASM_SRS_SIZE = 131072
 
 export interface UltraHonkVerifier {
