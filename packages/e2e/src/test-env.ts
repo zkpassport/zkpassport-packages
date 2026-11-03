@@ -1,3 +1,8 @@
+import { createHash } from "node:crypto"
+import { readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+import { gunzipSync } from "node:zlib"
 import {
   createRegistryClient,
   getNetworkConstants,
@@ -32,6 +37,8 @@ const SEPOLIA_FILE_HOSTS = [
   SEPOLIA.circuitUrl,
   TESTNET_SANCTIONS_URL,
 ].map((url) => new URL(url).hostname)
+// bb.js on its wasm backend, which the SDK runs a bb it does not bundle on, downloads its CRS
+const BB_CRS_HOSTS = ["crs.aztec-cdn.foundation", "crs.aztec-labs.com"]
 const CIRCUIT_VERSION = process.env.CIRCUIT_VERSION || "0.21.1"
 const DOMAIN = "localhost"
 
@@ -66,19 +73,25 @@ export async function startTestEnv(): Promise<TestEnv> {
 
   const fork = await startChainFork(SEPOLIA_RPC_URL)
   const registry = createRegistryClient("ethereum_sepolia", fork.registry)
+  const bb5Wasm = readBB5ThreadedWasm()
   let loadedCircuits
   let bridgeRelay
   try {
     loadedCircuits = await loadCircuits(fork, registry, zkPassport, LOCAL_CIRCUITS_DIR)
+    await fork.registerBBWasmHash(
+      { bbVersion: "5.0.0", file: "barretenberg-threads.wasm", sha256: getSha256(bb5Wasm) },
+      registry,
+    )
     bridgeRelay = startBridgeRelay()
   } catch (error) {
     fork.stop()
     throw error
   }
   const { circuits, circuitVersion } = loadedCircuits
-  const fetchProxy = startFetchProxy(
-    SEPOLIA_FILE_HOSTS,
-    circuits && serveCircuits(circuits, SEPOLIA.circuitUrl),
+  const bb5WasmUrl = registry.getUrlForBBWasm("5.0.0", "barretenberg-threads.wasm")
+  const serveLocalCircuits = circuits && serveCircuits(circuits, SEPOLIA.circuitUrl)
+  const fetchProxy = startFetchProxy([...SEPOLIA_FILE_HOSTS, ...BB_CRS_HOSTS], (url) =>
+    url === bb5WasmUrl ? new Response(bb5Wasm) : serveLocalCircuits?.(url),
   )
 
   const apps: HeadlessApp[] = []
@@ -123,6 +136,19 @@ export async function startTestEnv(): Promise<TestEnv> {
       fork.stop()
     },
   }
+}
+
+/** bb 5's barretenberg-threads.wasm, uncompressed, from the bb.js 5 package the prover uses */
+function readBB5ThreadedWasm(): Uint8Array<ArrayBuffer> {
+  const bbJsEntry = fileURLToPath(import.meta.resolve("@aztec/bb.js"))
+  const compressedWasm = readFileSync(
+    join(dirname(bbJsEntry), "barretenberg_wasm", "barretenberg-threads.wasm.gz"),
+  )
+  return new Uint8Array(gunzipSync(compressedWasm))
+}
+
+function getSha256(bytes: Uint8Array): `0x${string}` {
+  return `0x${createHash("sha256").update(bytes).digest("hex")}`
 }
 
 async function loadCircuits(

@@ -1,3 +1,4 @@
+import type { BBWasmFile } from "@zkpassport/utils/registry"
 import { getNetworkConstants } from "./networks"
 import { normaliseHash } from "./utils"
 
@@ -84,6 +85,16 @@ export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid
   }
   hash = normaliseHash(hash)
   return `${getNetworkConstants(chainId).circuitUrl}/by-hash/${hash}.json`
+}
+
+/**
+ * bb wasm URL generator
+ * @param chainId - The chain ID
+ * @param bbVersion - The bb version, e.g. "6.0.0"
+ * @param file - The wasm file
+ */
+export const BB_WASM_URL_TEMPLATE = (chainId: number, bbVersion: string, file: BBWasmFile) => {
+  return `${getNetworkConstants(chainId).circuitUrl}/bb/${bbVersion}/${file}`
 }
 
 /**

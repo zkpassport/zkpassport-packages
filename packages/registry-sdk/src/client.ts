@@ -20,6 +20,7 @@ import type {
 } from "@zkpassport/utils/types"
 import debug from "debug"
 import {
+  BB_WASM_URL_TEMPLATE,
   CIRCUIT_MANIFEST_URL_TEMPLATE,
   CONFIG_SIGNATURE,
   DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
@@ -755,6 +756,10 @@ export class RegistryClient {
 
   getUrlForPackagedCircuits(hash: string, cid?: string): string {
     return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
+  }
+
+  getUrlForBBWasm(bbVersion: string, file: BBWasmFile): string {
+    return BB_WASM_URL_TEMPLATE(this.chainId, bbVersion, file)
   }
 
   private async getLatestRoot(registryId: number, registryName: string): Promise<string> {

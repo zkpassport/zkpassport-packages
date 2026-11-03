@@ -1,3 +1,4 @@
+import type { RegistryClient } from "@zkpassport/registry"
 import {
   getNumberOfPublicInputs,
   getProofData,
@@ -5,14 +6,11 @@ import {
   type ProofResult,
 } from "@zkpassport/utils"
 import { Buffer } from "buffer/"
+import { loadBBWasm } from "./bb-wasm"
 
-const BUNDLED_BB_VERSIONS = ["5.0.0", "6.0.0"] as const
-
-export type BundledBBVersion = (typeof BUNDLED_BB_VERSIONS)[number]
-
-function isBundledBBVersion(bbVersion: string): bbVersion is BundledBBVersion {
-  return (BUNDLED_BB_VERSIONS as readonly string[]).includes(bbVersion)
-}
+const BUNDLED_BB_VERSION = "6.0.0"
+// The smallest CRS bb.js's wasm backend accepts, enough for every circuit's proofs
+const WASM_SRS_SIZE = 131072
 
 export interface UltraHonkVerifier {
   verifyProof(proofData: {
@@ -27,45 +25,76 @@ export interface LoadedVerifier {
   destroy: () => Promise<void>
 }
 
+/**
+ * Start bb.js for a bb version: the bundled bb, or for any other version bb.js's wasm backend with
+ * that version's wasm, downloaded and checked against the Root Registry. Undefined, after logging
+ * why, when that wasm cannot be used.
+ */
 export async function createUltraHonkVerifier(
-  bbVersion: BundledBBVersion,
-  { writingDirectory }: { writingDirectory?: string } = {},
-): Promise<LoadedVerifier> {
+  bbVersion: string,
+  {
+    registryClient,
+    writingDirectory,
+  }: { registryClient: RegistryClient; writingDirectory?: string },
+): Promise<LoadedVerifier | undefined> {
   await clearStaleCrsCacheOnVersionChange()
   const crsPath = writingDirectory ? writingDirectory + "/.bb-crs" : undefined
+  const { BackendType, Barretenberg, UltraHonkVerifierBackend } =
+    await import("@aztec-foundation/bb.js")
 
-  if (bbVersion === "5.0.0") {
-    const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec/bb.js")
+  if (bbVersion === BUNDLED_BB_VERSION) {
     const barretenberg = await Barretenberg.new({ crsPath })
     const verifier = new UltraHonkVerifierBackend(barretenberg)
     return { verifier, destroy: () => barretenberg.destroy() }
   }
-  const { UltraHonkVerifierBackend, Barretenberg } = await import("@aztec-foundation/bb.js")
-  const barretenberg = await Barretenberg.new({ crsPath })
-  const verifier = new UltraHonkVerifierBackend(barretenberg)
-  return { verifier, destroy: () => barretenberg.destroy() }
+
+  try {
+    const wasmPath = await loadBBWasm(bbVersion, registryClient, writingDirectory)
+    if (!wasmPath) {
+      return undefined
+    }
+
+    const barretenberg = await Barretenberg.new({
+      backend: typeof window === "undefined" ? BackendType.Wasm : BackendType.WasmWorker,
+      wasmPath,
+      srsSize: WASM_SRS_SIZE,
+      crsPath,
+    })
+    const verifier = new UltraHonkVerifierBackend(barretenberg)
+    return { verifier, destroy: () => barretenberg.destroy() }
+  } catch (error) {
+    console.warn(`Error starting bb ${bbVersion} from its wasm`, error)
+    return undefined
+  }
 }
 
 export class BBVerifier {
+  private readonly registryClient: RegistryClient
   private readonly writingDirectory: string | undefined
   private loadedVerifier: LoadedVerifier | undefined
 
-  constructor({ writingDirectory }: { writingDirectory?: string } = {}) {
+  constructor({
+    registryClient,
+    writingDirectory,
+  }: {
+    registryClient: RegistryClient
+    writingDirectory?: string
+  }) {
+    this.registryClient = registryClient
     this.writingDirectory = writingDirectory
   }
 
   /** Verify a proof with bb.js, starting the bb it needs on first use */
   async verify(proof: ProofResult, circuit: PackagedCircuit): Promise<boolean> {
-    const bbVersion = circuit.bb_version
-    if (!isBundledBBVersion(bbVersion)) {
-      console.warn(`Error verifying proof ${proof.name}: no verifier for bb ${bbVersion}`)
-      return false
-    }
-
     const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
-    this.loadedVerifier ??= await createUltraHonkVerifier(bbVersion, {
+    this.loadedVerifier ??= await createUltraHonkVerifier(circuit.bb_version, {
+      registryClient: this.registryClient,
       writingDirectory: this.writingDirectory,
     })
+    if (!this.loadedVerifier) {
+      console.warn(`Error verifying proof ${proof.name}: no verifier for bb ${circuit.bb_version}`)
+      return false
+    }
 
     try {
       return await this.loadedVerifier.verifier.verifyProof({

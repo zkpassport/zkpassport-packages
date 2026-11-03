@@ -2,7 +2,9 @@ import { spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import { circuitVersionToBytes32, type CircuitManifest } from "@zkpassport/utils"
+import { type BBWasmFile, getBBWasmHashConfigKey } from "@zkpassport/utils/registry"
 import RegistryInstance from "registry-contracts/out/RegistryInstance.sol/RegistryInstance.json"
+import RootRegistry from "registry-contracts/out/RootRegistry.sol/RootRegistry.json"
 import RootVerifier from "registry-contracts/out/RootVerifier.sol/RootVerifier.json"
 import SubVerifier from "registry-contracts/out/SubVerifier.sol/SubVerifier.json"
 import {
@@ -42,6 +44,14 @@ export type ChainFork = {
     verifiers: OuterEvmVerifier[]
     settingsFrom: string
   }) => Promise<void>
+  /**
+   * Make `sha256` the hash the Root Registry that `registry` reads on this fork holds for bb
+   * `bbVersion`'s `file`, sending it as the Root Registry's admin
+   */
+  registerBBWasmHash: (
+    options: { bbVersion: string; file: BBWasmFile; sha256: Hex },
+    registry: RegistryClient,
+  ) => Promise<void>
   stop: () => void
 }
 
@@ -51,6 +61,7 @@ type AnvilClient = ReturnType<typeof createAnvilClient>
 
 // A JSON import types the ABIs' fields as plain strings, not the literals viem's Abi expects
 const REGISTRY_INSTANCE_ABI = RegistryInstance.abi as Abi
+const ROOT_REGISTRY_ABI = RootRegistry.abi as Abi
 const ROOT_VERIFIER_ABI = RootVerifier.abi as Abi
 const SUB_VERIFIER_ABI = SubVerifier.abi as Abi
 
@@ -79,6 +90,7 @@ export async function startChainFork(forkUrl: string): Promise<ChainFork> {
     registry: { rpcUrl },
     registerCircuitRoot: (manifest, registry) => registerCircuitRoot(rpcUrl, manifest, registry),
     registerSubVerifier: (options) => registerSubVerifier(rpcUrl, options),
+    registerBBWasmHash: (options, registry) => registerBBWasmHash(rpcUrl, options, registry),
     stop: () => anvil.kill(),
   }
 }
@@ -144,6 +156,32 @@ async function registerCircuitRoot(
       ],
     })
     await waitForSuccess(client, hash, `Registering circuit root ${manifest.root}`)
+  })
+}
+
+async function registerBBWasmHash(
+  rpcUrl: string,
+  { bbVersion, file, sha256 }: { bbVersion: string; file: BBWasmFile; sha256: Hex },
+  registry: RegistryClient,
+) {
+  const client = createAnvilClient(rpcUrl)
+  const rootRegistry = registry.getRootRegistryAddress() as Address
+  const admin = (await client.readContract({
+    address: rootRegistry,
+    abi: ROOT_REGISTRY_ABI,
+    functionName: "admin",
+  })) as Address
+
+  await sendAs(client, admin, async () => {
+    const hash = await client.writeContract({
+      account: admin,
+      chain: null,
+      address: rootRegistry,
+      abi: ROOT_REGISTRY_ABI,
+      functionName: "updateConfig",
+      args: [getBBWasmHashConfigKey(bbVersion, file) as Hex, sha256],
+    })
+    await waitForSuccess(client, hash, `Registering the sha256 of bb ${bbVersion}'s ${file}`)
   })
 }
 
