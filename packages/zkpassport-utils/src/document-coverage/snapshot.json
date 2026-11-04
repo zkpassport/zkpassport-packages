@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-29T13:49:14.207Z",
+  "generatedAt": "2026-11-04T08:41:15.649Z",
   "sources": {
     "regula": {
       "database": "FullAuthLight",
@@ -9,7 +9,7 @@
     },
     "certificates": {
       "chainId": 1,
-      "root": "0x0b1bb2f5f5b70afa0679719df0a0be08a535f574b45b997d4a73b777e9a48e19",
+      "root": "0x08509d95c5de600192b0ea3d5b53fe4dccce4be5a84bbdc512b10f6361992311",
       "count": 614
     }
   },
@@ -619,7 +619,10 @@
           "mrz": false,
           "regulaId": 972452184
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Emirates ID"
+      }
     },
     "ARG": {
       "name": "Argentina",
@@ -771,7 +774,10 @@
           "mrz": true,
           "regulaId": -1356949677
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "DNI"
+      }
     },
     "ARM": {
       "name": "Armenia",
@@ -1800,7 +1806,10 @@
           "mrz": true,
           "regulaId": 1098511822
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "eID"
+      }
     },
     "BEN": {
       "name": "Benin",
@@ -3059,7 +3068,10 @@
           "mrz": false,
           "regulaId": 1307550376
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "RG / CIN"
+      }
     },
     "BRB": {
       "name": "Barbados",
@@ -3944,7 +3956,10 @@
           "mrz": true,
           "regulaId": 2004279817
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Cédula de identidad"
+      }
     },
     "CHN": {
       "name": "China",
@@ -4201,7 +4216,10 @@
           "mrz": false,
           "regulaId": 555173682
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Resident Identity Card"
+      }
     },
     "CIV": {
       "name": "Cote d'Ivoire",
@@ -4641,7 +4659,10 @@
           "mrz": false,
           "regulaId": 1308651836
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Cédula de ciudadanía"
+      }
     },
     "COM": {
       "name": "Comoros",
@@ -5488,7 +5509,10 @@
           "mrz": true,
           "regulaId": 454858311
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Personalausweis"
+      }
     },
     "DJI": {
       "name": "Djibouti",
@@ -6047,7 +6071,10 @@
           "mrz": false,
           "regulaId": -2115364516
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Cédula de identidad"
+      }
     },
     "EGY": {
       "name": "Egypt",
@@ -6469,7 +6496,10 @@
           "mrz": false,
           "regulaId": 1144367750
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "DNI"
+      }
     },
     "EST": {
       "name": "Estonia",
@@ -7395,7 +7425,10 @@
           "mrz": false,
           "regulaId": -1496947711
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Carte d'identité"
+      }
     },
     "FSM": {
       "name": "Micronesia, Federated States of",
@@ -8180,7 +8213,10 @@
           "mrz": true,
           "regulaId": 349539976
         }
-      ]
+      ],
+      "documentNames": {
+        "residence_permit": "Biometric Residence Permit"
+      }
     },
     "GEO": {
       "name": "Georgia",
@@ -9179,7 +9215,10 @@
           "mrz": false,
           "regulaId": -449584255
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "HKID"
+      }
     },
     "HND": {
       "name": "Honduras",
@@ -9868,7 +9907,10 @@
           "mrz": false,
           "regulaId": 1176430305
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "e-KTP"
+      }
     },
     "IMN": {
       "name": "Isle of Man",
@@ -10814,7 +10856,10 @@
           "mrz": false,
           "regulaId": 893100850
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Carta d'identità"
+      }
     },
     "JAM": {
       "name": "Jamaica",
@@ -11757,7 +11802,10 @@
           "mrz": false,
           "regulaId": -1406222406
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Resident Registration Card"
+      }
     },
     "KWT": {
       "name": "Kuwait",
@@ -11859,7 +11907,10 @@
           "mrz": true,
           "regulaId": -1207344496
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Civil ID"
+      }
     },
     "LAO": {
       "name": "Lao People's Democratic Republic",
@@ -14706,7 +14757,10 @@
           "mrz": true,
           "regulaId": -1407891693
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "MyKad"
+      }
     },
     "NAM": {
       "name": "Namibia",
@@ -15241,7 +15295,10 @@
           "mrz": false,
           "regulaId": 721007116
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Identiteitskaart"
+      }
     },
     "NOR": {
       "name": "Norway",
@@ -15828,7 +15885,10 @@
           "mrz": false,
           "regulaId": -2024889030
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "CNIC"
+      }
     },
     "PAN": {
       "name": "Panama",
@@ -16157,7 +16217,10 @@
           "mrz": false,
           "regulaId": 419440832
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "DNI"
+      }
     },
     "PHL": {
       "name": "Philippines",
@@ -16683,7 +16746,10 @@
           "mrz": true,
           "regulaId": 1268863934
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Dowód osobisty"
+      }
     },
     "PRI": {
       "name": "Puerto Rico",
@@ -16941,7 +17007,10 @@
           "mrz": true,
           "regulaId": 1876278270
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Cartão de Cidadão"
+      }
     },
     "PRY": {
       "name": "Paraguay",
@@ -17235,7 +17304,10 @@
           "mrz": false,
           "regulaId": -969707304
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Qatar ID"
+      }
     },
     "RKS": {
       "name": "Kosovo",
@@ -17477,7 +17549,10 @@
           "mrz": true,
           "regulaId": 1101974284
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Carte de identitate"
+      }
     },
     "RSL": {
       "name": "Somaliland",
@@ -17827,7 +17902,10 @@
           "mrz": false,
           "regulaId": -330397799
         }
-      ]
+      ],
+      "documentNames": {
+        "residence_permit": "Iqama"
+      }
     },
     "SDN": {
       "name": "Sudan",
@@ -18146,7 +18224,10 @@
           "mrz": false,
           "regulaId": 1162581478
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "NRIC"
+      }
     },
     "SHN": {
       "name": "Saint Helena, Ascension and Tristan da Cunha",
@@ -20270,7 +20351,10 @@
           "mrz": false,
           "regulaId": -55553042
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Kimlik Kartı"
+      }
     },
     "TUV": {
       "name": "Tuvalu",
@@ -24465,7 +24549,10 @@
           "mrz": false,
           "regulaId": -1405992339
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Citizen Identity Card"
+      }
     },
     "VUT": {
       "name": "Vanuatu",
@@ -24853,7 +24940,10 @@
           "mrz": false,
           "regulaId": 870464869
         }
-      ]
+      ],
+      "documentNames": {
+        "id_card": "Smart ID Card"
+      }
     },
     "ZIM": {
       "name": "Zimbabwe",

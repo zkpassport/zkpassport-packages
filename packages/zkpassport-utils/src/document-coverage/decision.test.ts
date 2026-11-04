@@ -316,6 +316,19 @@ describe("listDocumentTypes and listCountries", () => {
     expect(listDocumentTypes(BUNDLED_COVERAGE, "XXX")).toEqual([])
   })
 
+  test("names a document type as the country's people do, where the table knows it", () => {
+    const coverage = table({
+      ARE: {
+        ...country([passport({}), passport({ type: "id_card", name: "Id Card (2021)" })]),
+        documentNames: { id_card: "Emirates ID" },
+      },
+    })
+    expect(listDocumentTypes(coverage, "ARE").map((o) => o.name)).toEqual([
+      "Passport",
+      "Emirates ID",
+    ])
+  })
+
   test("lists the countries by name", () => {
     const countries = listCountries(BUNDLED_COVERAGE)
     expect(countries.length).toBeGreaterThan(180)
