@@ -1,2 +1,2 @@
 pub mod verify;
-pub use zkpassport::{commitments, constants, disclosed_data, parse};
+pub use zkpassport::{commitments, constants, disclosed_data};
