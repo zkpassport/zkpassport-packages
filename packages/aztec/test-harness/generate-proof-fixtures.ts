@@ -59,14 +59,13 @@ const AGE_MIN = 18
 const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
 
 // The address the age proof is bound to (the bind subproof's user_address). Must equal the
-// BIND_ACCOUNT anchor in fixtures.nr: the example app requires bind_user_address_commitment
-// of the claiming address, and fixture-conformance.test.ts ties the fixture's bind slot to
-// the BIND_COMMITMENT anchor through this value.
+// BIND_ACCOUNT anchor in fixtures.nr: an app that requires bind_user_address_commitment of the
+// claiming address accepts the fixture from that account, and fixture-conformance.test.ts ties
+// the fixture's bind slot to the BIND_COMMITMENT anchor through this value.
 const BIND_ADDRESS = "0x1122334455667788990011223344556677889900112233445566778899001122"
 
-// The domain the age proof is made for: the example apps verify the age fixture through
-// verify_zkpassport_proof, which requires one. The disclose fixture has none (0), the scope the
-// core tests and the bb harness verify it with.
+// The domain the age proof is made for, since verify_zkpassport_proof requires one. The disclose
+// fixture has none (0), the scope the core tests and the bb harness verify it with.
 const SERVICE_DOMAIN = "example.com"
 
 const FIXTURES_PATH = path.join(__dirname, "circuits/src/ts/tests/fixtures")
@@ -248,7 +247,7 @@ async function proveAgeStage(
   }
 }
 
-// 5th subproof: binds the proof to BIND_ADDRESS, so the age-gate example can require
+// 5th subproof: binds the proof to BIND_ADDRESS, so an app can require
 // bind_user_address_commitment(user) instead of trusting the capsule bearer.
 async function proveBindStage(
   helper: TestHelper,
