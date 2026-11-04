@@ -60,6 +60,5 @@ pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
     0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
 ];
 
-// Bulky generated data (the real proof-fixture globals) lives in its own file so the
-// generator can own it wholesale.
+// A real age proof for tests, written by test-harness/generate-proof-fixtures.sh.
 pub mod proof;
