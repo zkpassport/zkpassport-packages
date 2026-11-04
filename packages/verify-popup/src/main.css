@@ -212,17 +212,6 @@ body.flow-page {
   display: none;
 }
 
-/* The card sets its own width, so its wrapper must not shrink to fit */
-.flow-card-slot {
-  width: 100%;
-}
-
-.flow-page .zkp-chip-symbol {
-  width: 38px;
-  margin-bottom: 3px;
-  color: var(--zkp-fg);
-}
-
 .flow-privacy {
   display: none;
   justify-content: center;
@@ -877,20 +866,6 @@ a.flow-address[data-chip]:hover {
     opacity: 1;
     transform: scale(1.05);
   }
-}
-
-/* The card marks its own failure over the dimmed QR; give that mark the same
-   tinted disc the flow's seals use */
-.flow-page .zkp-error-icon {
-  width: 62px;
-  height: 62px;
-  background: color-mix(in srgb, var(--zkp-error) 21%, transparent);
-  color: var(--zkp-error);
-}
-
-.flow-page .zkp-error-icon svg {
-  width: 46%;
-  height: 46%;
 }
 
 /* A revert reason or RPC failure can run long; cap it and let it scroll */
