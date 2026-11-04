@@ -32,13 +32,13 @@ pub struct Disclosure {
 
 pub struct VerifiedProof<let K: u32> {
     pub unique_identifier: Field,
-    pub current_date: u64,
-    pub param_commitments: [Field; K - 3],
+    current_date: u64,
+    param_commitments: [Field; K - 3],
     pub disclosure: Option<Disclosure>, // some exactly when ServiceConfig.disclose is set
 }
 
 // Domain separator for the uniqueness nullifier.
-pub global UNIQUENESS_NULLIFIER_DOMAIN: Field =
+global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
 
 // ZKPassport's registry deployments, as (chain id, registry address). The chain id is the one
