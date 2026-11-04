@@ -76,8 +76,7 @@ test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () =>
 })
 
 // The age fixture is an outer_count_5 proof (age + bind subproofs): slots 5 and 6 are its two
-// param commitments, in prover-chosen order, and they must be exactly the age and bind anchors
-// the age gate example app requires.
+// param commitments, in prover-chosen order, and they must be exactly the age and bind anchors.
 test("the age fixture's param commitments are the age and bind anchors", () => {
   expect(ageFixture.publicInputs).toHaveLength(10)
   const params = ageFixture.publicInputs.slice(5, 7).map((pi: string) => BigInt(pi))
