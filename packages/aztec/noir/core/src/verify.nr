@@ -16,8 +16,8 @@ pub fn verify_outer_proof_core<let K: u32>(
     vk: [Field; VK_FIELDS],
     proof: [Field; PROOF_FIELDS],
     public_inputs: [Field; K + 5],
+    domain: Field,
     scope: Field,
-    subscope: Field,
     dev_mode: bool,
     expected_commitments: [Field; K - 3],
 ) -> VerifiedOuterProof<K> {
@@ -28,8 +28,8 @@ pub fn verify_outer_proof_core<let K: u32>(
 
     let parsed = parse_public_inputs::<K>(public_inputs);
 
-    assert(parsed.service_scope == scope, "wrong service scope");
-    assert(parsed.service_subscope == subscope, "wrong service subscope");
+    assert(parsed.domain == domain, "wrong service domain");
+    assert(parsed.scope == scope, "wrong service scope");
 
     let nt = parsed.nullifier_type;
     let is_standard = (nt == NULLIFIER_TYPE_NON_SALTED)
@@ -72,12 +72,20 @@ mod test {
     // NOTE: nargo test no-ops the recursion opcode — these tests cover parsing/policy/commitment
     // logic only. Real recursion coverage lives in test-harness/test-recursive-verification.sh (bb verify).
 
+    #[test(should_fail_with = "wrong service domain")]
+    fn wrong_domain_rejected() {
+        let vk = [0; 115];
+        let proof = [0; 458];
+        let pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0xbad, 0, false, [pis[5]]);
+    }
+
     #[test(should_fail_with = "wrong service scope")]
     fn wrong_scope_rejected() {
         let vk = [0; 115];
         let proof = [0; 458];
         let pis = crate::fixtures::FIXTURE_PUBLIC_INPUTS;
-        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0xbad, 0, false, [pis[5]]);
+        let _ = verify_outer_proof_core::<4>(vk, proof, pis, 0, 0xbad, false, [pis[5]]);
     }
 
     #[test(should_fail_with = "param commitment mismatch")]
