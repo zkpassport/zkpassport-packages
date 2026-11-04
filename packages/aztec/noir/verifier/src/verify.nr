@@ -141,8 +141,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
         Option::none()
     };
 
-    // Stateless core: recursion, scope, nullifier policy, multiset commitment coverage. The core
-    // keeps the circuits' names for the domain and scope: scope and subscope.
+    // Stateless core: recursion, domain and scope, nullifier policy, multiset commitment coverage.
     let out = verify_outer_proof_core::<K>(
         vk,
         proof,

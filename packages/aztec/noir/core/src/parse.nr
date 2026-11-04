@@ -6,8 +6,8 @@ pub struct PublicInputs<let K: u32> {
     pub certificate_registry_root: Field,
     pub circuit_registry_root: Field,
     pub current_date: u64,
-    pub service_scope: Field,
-    pub service_subscope: Field,
+    pub domain: Field,
+    pub scope: Field,
     pub param_commitments: [Field; K - 3],
     pub nullifier_type: u8,
     pub scoped_nullifier: Field,
@@ -32,8 +32,8 @@ pub fn parse_public_inputs<let K: u32>(public_inputs: [Field; K + 5]) -> PublicI
         certificate_registry_root: public_inputs[PI_CERT_ROOT],
         circuit_registry_root: public_inputs[PI_CIRCUIT_ROOT],
         current_date,
-        service_scope: public_inputs[PI_SCOPE],
-        service_subscope: public_inputs[PI_SUBSCOPE],
+        domain: public_inputs[PI_SCOPE],
+        scope: public_inputs[PI_SUBSCOPE],
         param_commitments,
         nullifier_type,
         scoped_nullifier: public_inputs[K + 5 - 2],
@@ -51,8 +51,8 @@ mod test {
         assert(p.certificate_registry_root == FIXTURE_PUBLIC_INPUTS[0]);
         assert(p.circuit_registry_root == FIXTURE_PUBLIC_INPUTS[1]);
         assert(p.current_date == 2524608000);
-        assert(p.service_scope == 0);
-        assert(p.service_subscope == 0);
+        assert(p.domain == 0);
+        assert(p.scope == 0);
         assert(p.param_commitments[0] == FIXTURE_PUBLIC_INPUTS[5]);
         assert(p.nullifier_type == 0);
         assert(p.scoped_nullifier == FIXTURE_PUBLIC_INPUTS[7]);
