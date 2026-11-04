@@ -25,7 +25,7 @@ export function defaultNodeUrl(network: Network): string {
 /** zkpassport_registry_contract::types::MODE_VALID_WITHIN_WINDOW — the deployment default. */
 export const MODE_VALID_WITHIN_WINDOW = 3
 
-/** Production validity window in seconds, matching L1's registry deployments (run-e2e.ts). */
+/** Production validity window in seconds, matching L1's registry deployments. */
 export const VALIDITY_WINDOW = 86400n
 
 /** Client-side proving is minutes-scale; never let the tx wait time out first. */

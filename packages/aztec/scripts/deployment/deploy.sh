@@ -46,5 +46,5 @@ echo "compiling zkpassport_registry_contract with $AZTEC/bin/aztec compile..."
 
 if [[ -n "${PREVIEW_DELAY:-}" ]]; then
   echo "NOTE: $NR/target now holds the PREVIEW build (INITIAL_DELAY = $PREVIEW_DELAY)." >&2
-  echo "      Recompile before running anything else against target/ (e.g. run-e2e.ts)." >&2
+  echo "      Recompile before running anything else against target/." >&2
 fi
