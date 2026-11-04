@@ -37,9 +37,8 @@ pub(crate) global ISSUING_COUNTRY_EXCLUSION_COMMITMENT: Field =
 pub global DISCLOSE_COMMITMENT: Field =
     0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
 
-/// Stand-in for user.to_field() in the bind anchor. Every byte is distinct, so an endianness
-/// flip, offset bug, or wrong padding changes the commitment; it also stays below the BN254
-/// modulus, so it round-trips as a Field without reduction.
+/// An account address to bind a proof to. @zkpassport/utils' bind conformance vector uses the
+/// same one.
 pub(crate) global BIND_ACCOUNT: Field =
     0x1122334455667788990011223344556677889900112233445566778899001122;
 
