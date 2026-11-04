@@ -191,7 +191,7 @@ export interface CoverageDocumentOption {
   mixedChip: boolean
 }
 
-/** The document types a country issues, for a picker */
+/** The document types a country issues, for a picker, by the country's own names where known */
 export function listDocumentTypes(coverage: Coverage, country: string): CoverageDocumentOption[] {
   const entry = coverage.countries[country]
   if (!entry) return []
@@ -203,7 +203,7 @@ export function listDocumentTypes(coverage: Coverage, country: string): Coverage
     return [
       {
         type,
-        name: coverage.documentTypes[type].name,
+        name: entry.documentNames?.[type] ?? coverage.documentTypes[type].name,
         shape: coverage.shapes[coverage.documentTypes[type].shape],
         available: documents.some((d) => d.available !== false),
         mixedChip: chips > 0 && chips < current.length,

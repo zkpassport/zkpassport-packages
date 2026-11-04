@@ -50,6 +50,8 @@ export interface CoverageCountry {
   chipCertificates: { supported: boolean; from: number | null; to: number | null }
   /** Our document support rules, 0 (none) to 1 (full) */
   signedSupport: { passport: number; id_card: number; residence_permit: number }
+  /** What people in the country call a document type, e.g. "Emirates ID"; else the type's name */
+  documentNames?: Partial<Record<CoverageDocumentType, string>>
   documents: CoverageDocument[]
 }
 
