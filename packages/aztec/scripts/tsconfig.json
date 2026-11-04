@@ -13,5 +13,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["e2e/**/*.ts", "deployment/**/*.ts", "artifacts/**/*.ts"]
+  "include": ["deployment/**/*.ts", "artifacts/**/*.ts"]
 }
