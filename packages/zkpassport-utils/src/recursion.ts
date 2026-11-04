@@ -1,4 +1,17 @@
-import { NullifierType, ProofData } from "."
+import {
+  CircuitManifest,
+  getCircuitMerkleProof,
+  getNumberOfPublicInputs,
+  getProofData,
+  NullifierType,
+  PackagedCircuit,
+  ProofData,
+  ProofResult,
+  ultraVkToFields,
+} from "."
+
+const BASE_SUBPROOF_COUNT = 3
+const MAX_OUTER_DISCLOSURE_PROOFS = 10
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -15,6 +28,69 @@ export type OuterCircuitProof = {
   treeIndex: string
 }
 
+/**
+ * Get the name of the outer circuit that aggregates the three base subproofs and
+ * `disclosureProofCount` disclosure proofs
+ * @param disclosureProofCount - The number of disclosure proofs, from 1 to 10
+ * @param options.evm - Whether to get the outer circuit whose proofs are verified on EVM chains
+ * @returns The outer circuit's name, e.g. outer_count_5 or outer_evm_count_5
+ */
+export function getOuterCircuitName(
+  disclosureProofCount: number,
+  { evm = false }: { evm?: boolean } = {},
+): string {
+  if (
+    !Number.isInteger(disclosureProofCount) ||
+    disclosureProofCount < 1 ||
+    disclosureProofCount > MAX_OUTER_DISCLOSURE_PROOFS
+  ) {
+    throw new Error(
+      `No outer circuit for ${disclosureProofCount} disclosure proofs: expected 1 to ${MAX_OUTER_DISCLOSURE_PROOFS}`,
+    )
+  }
+
+  return `outer_${evm ? "evm_" : ""}count_${BASE_SUBPROOF_COUNT + disclosureProofCount}`
+}
+
+/**
+ * Get a subproof in the form the outer circuit takes it: its proof and verification key as fields,
+ * and the path of its vkey hash in the circuit registry tree of `circuitManifest`
+ * @param subproof - The subproof, its public inputs followed by its proof, as hex
+ * @param circuit - The packaged circuit the subproof was generated with, which must have the
+ * subproof's vkey hash
+ * @param circuitManifest - The manifest of the circuits version that includes `circuit`
+ * @param computeMerkleProofFn - The function computing the path, defaulting to computeMerkleProof
+ * @returns The subproof as the outer circuit takes it
+ */
+export async function getOuterCircuitProof(
+  subproof: ProofResult,
+  circuit: Pick<PackagedCircuit, "name" | "vkey" | "vkey_hash">,
+  circuitManifest: CircuitManifest,
+  computeMerkleProofFn?: Parameters<typeof getCircuitMerkleProof>[2],
+): Promise<OuterCircuitProof> {
+  if (subproof.vkeyHash !== undefined && BigInt(subproof.vkeyHash) !== BigInt(circuit.vkey_hash)) {
+    throw new Error(
+      `The ${circuit.name} subproof was generated with vkey hash ${subproof.vkeyHash}, not ${circuit.vkey_hash}`,
+    )
+  }
+
+  const proofData = getProofData(subproof.proof as string, getNumberOfPublicInputs(circuit.name))
+  const { index, path } = await getCircuitMerkleProof(
+    circuit.vkey_hash,
+    circuitManifest,
+    computeMerkleProofFn,
+  )
+
+  return {
+    proof: proofData.proof.map((field) => `0x${field}`),
+    publicInputs: proofData.publicInputs,
+    vkey: ultraVkToFields(Buffer.from(circuit.vkey, "base64")),
+    keyHash: circuit.vkey_hash,
+    treeHashPath: path,
+    treeIndex: `0x${index.toString(16)}`,
+  }
+}
+
 function getDisclosureProofWithNonZeroNullifier(
   disclosureProofs: OuterCircuitProof[],
 ): OuterCircuitProof | undefined {
@@ -28,18 +104,28 @@ export function getOuterCircuitInputs(
   disclosureProofs: OuterCircuitProof[],
   circuitRegistryRoot: string,
 ) {
-  const disclosureProofWithNonZeroNullifier =
-    getDisclosureProofWithNonZeroNullifier(disclosureProofs)
-  if (!disclosureProofWithNonZeroNullifier) {
-    throw new Error("No disclosure proof with non-zero nullifier found")
+  if (disclosureProofs.length === 0) {
+    throw new Error("At least one disclosure proof is required")
   }
+  // All subproofs carry the same date, scope and subscope (the outer circuit
+  // enforces this), so the first proof can provide them
+  const sourceProof = disclosureProofs[0]
+  // The nullifier may sit on a different subproof (e.g. facematch proofs carry none)
+  const nullifierProof = getDisclosureProofWithNonZeroNullifier(disclosureProofs)
+  // A mock type must win at the top level so mock proofs stay detectable
+  const nullifierTypeProof =
+    nullifierProof ??
+    disclosureProofs.find(
+      (proof) => BigInt(proof.publicInputs[5]) !== BigInt(NullifierType.NONE),
+    ) ??
+    sourceProof
   const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const currentDateTimestamp = Number(BigInt(disclosureProofWithNonZeroNullifier.publicInputs[1]))
-  const scope = disclosureProofWithNonZeroNullifier.publicInputs[2]
-  const subscope = disclosureProofWithNonZeroNullifier.publicInputs[3]
-  const nullifierType = disclosureProofWithNonZeroNullifier.publicInputs[5]
-  const nullifier = disclosureProofWithNonZeroNullifier.publicInputs[6]
-  const oprfPkHash = disclosureProofWithNonZeroNullifier.publicInputs[7]
+  const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
+  const scope = sourceProof.publicInputs[2]
+  const subscope = sourceProof.publicInputs[3]
+  const nullifierType = nullifierTypeProof.publicInputs[5]
+  const nullifier = (nullifierProof ?? sourceProof).publicInputs[6]
+  const oprfPkHash = (nullifierProof ?? sourceProof).publicInputs[7]
   const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
 
   return {
@@ -137,6 +223,8 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
     return NullifierType.NON_SALTED_MOCK
   } else if (nullifierType === 3n) {
     return NullifierType.SALTED_MOCK
+  } else if (nullifierType === 4n) {
+    return NullifierType.NONE
   }
   throw new Error("Invalid nullifier type")
 }

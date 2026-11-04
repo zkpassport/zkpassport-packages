@@ -3,6 +3,7 @@
 import {
   AgeCommittedInputs,
   BindCommittedInputs,
+  circuitVersionToBytes32,
   CountryCommittedInputs,
   DateCommittedInputs,
   DiscloseCommittedInputs,
@@ -21,7 +22,7 @@ import {
   SanctionsCommittedInputs,
 } from "@zkpassport/utils"
 import { SolidityVerifierParameters } from "./types"
-import { DEFAULT_VALIDITY, ZERO_BYTES32 } from "./constants"
+import { DEFAULT_VALIDITY } from "./constants"
 import { sha256 } from "@noble/hashes/sha2.js"
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js"
 import ZKPassportVerifierAbi from "./assets/abi/ZKPassportVerifier.json"
@@ -237,18 +238,8 @@ export class SolidityVerifier {
         throw new Error(`Invalid commitment: ${commitment}`)
       }
     }
-    const versionParts = proof.version?.split(".").map((x) => Number(x))
-    if (!versionParts || versionParts.length !== 3) {
-      throw new Error("Invalid version format")
-    }
-    const versionBytes = new Uint8Array([
-      ...numberToBytesBE(versionParts[0], 2),
-      ...numberToBytesBE(versionParts[1], 2),
-      ...numberToBytesBE(versionParts[2], 2),
-    ])
-    const versionBytes32 = `0x${bytesToHex(versionBytes).padEnd(64, "0")}`
     const params: SolidityVerifierParameters = {
-      version: versionBytes32,
+      version: circuitVersionToBytes32(proof.version!),
       proofVerificationData: {
         // Make sure the vkeyHash is 32 bytes
         vkeyHash: `0x${proof.vkeyHash!.replace("0x", "").padStart(64, "0")}`,
@@ -265,5 +256,40 @@ export class SolidityVerifier {
       },
     }
     return params
+  }
+
+  /** Verify an outer EVM proof with the RootVerifier of the chain behind `rpcUrl` */
+  public static async verify({
+    proof,
+    rpcUrl,
+    validityPeriodInSeconds,
+    domain,
+    scope,
+    devMode,
+  }: {
+    proof: ProofResult
+    rpcUrl: string
+    validityPeriodInSeconds?: number
+    domain: string
+    scope?: string
+    devMode?: boolean
+  }): Promise<boolean> {
+    try {
+      const { createPublicClient, http } = await import("viem")
+      const { address, abi, functionName } = SolidityVerifier.getDetails()
+      const client = createPublicClient({ transport: http(rpcUrl) })
+      const params = SolidityVerifier.getParameters({
+        proof,
+        validityPeriodInSeconds,
+        domain,
+        scope,
+        devMode,
+      })
+      const result = await client.readContract({ address, abi, functionName, args: [params] })
+      return Array.isArray(result) ? Boolean(result[0]) : false
+    } catch (error) {
+      console.warn("Error verifying proof", error)
+      return false
+    }
   }
 }

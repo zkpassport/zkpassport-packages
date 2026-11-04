@@ -122,6 +122,8 @@ export function getNullifierTypeFromDisclosureProof(proofData: ProofData): Nulli
     return NullifierType.NON_SALTED_MOCK
   } else if (nullifierType === 3n) {
     return NullifierType.SALTED_MOCK
+  } else if (nullifierType === 4n) {
+    return NullifierType.NONE
   }
   throw new Error("Invalid nullifier type")
 }
@@ -200,6 +202,20 @@ export function getNumberOfPublicInputs(circuitName: string) {
   // Any other circuits are assumed to be disclosure circuits
   // which have a universal interface of 8 public inputs
   return 8
+}
+
+/**
+ * Get the name of a disclosure circuit, or of its EVM variant, which commits to its parameters
+ * with a hash over bytes so that EVM chains can check them
+ * @param circuitName - The name of the standard disclosure circuit, e.g. compare_age
+ * @param options.evm - Whether to get the EVM variant, e.g. compare_age_evm
+ * @returns The disclosure circuit's name
+ */
+export function getDisclosureCircuitName(
+  circuitName: Exclude<DisclosureCircuitName, `${string}_evm`>,
+  { evm = false }: { evm?: boolean } = {},
+): DisclosureCircuitName {
+  return evm ? `${circuitName}_evm` : circuitName
 }
 
 export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
@@ -312,3 +328,4 @@ export * from "./integrity"
 export * from "./vkey"
 export * from "./bind"
 export * from "./facematch"
+export * from "./sanctions/leaves"

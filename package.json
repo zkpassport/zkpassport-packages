@@ -7,13 +7,15 @@
     "dev:build": "turbo run dev:build",
     "validate-packages": "turbo run validate-package",
     "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
     "check": "turbo run check",
     "format": "turbo run format",
     "clean": "turbo run clean && rimraf .turbo node_modules/.cache",
     "clean:deep": "turbo run clean && rimraf .turbo **/node_modules && bun i"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/onchain-credentials/*"
   ],
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",

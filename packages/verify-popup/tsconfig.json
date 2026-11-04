@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "useDefineForClassFields": true,
+    "paths": {
+      "@zkpassport/ui/hosted": ["../zkpassport-ui/dist/hosted.d.ts"],
+      "@zkpassport/ui/hosted-credential": ["../zkpassport-ui/dist/hosted-credential.d.ts"],
+      "@zkpassport/ui/app-link": ["../zkpassport-ui/dist/app-link.d.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

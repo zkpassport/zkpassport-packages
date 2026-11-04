@@ -22,16 +22,18 @@ export type QueryResultError<T> = {
 }
 
 export type QueryResultErrors = {
-  [key in
-    | IDCredential
-    | "sig_check_dsc"
-    | "sig_check_id_data"
-    | "data_check_integrity"
-    | "outer"
-    | "disclose"
-    | "bind"
-    | "facematch"
-    | "sanctions"]: {
+  [
+    key in
+      | IDCredential
+      | "sig_check_dsc"
+      | "sig_check_id_data"
+      | "data_check_integrity"
+      | "outer"
+      | "disclose"
+      | "bind"
+      | "facematch"
+      | "sanctions"
+  ]: {
     disclose?: QueryResultError<string | number | Date>
     gte?: QueryResultError<number | Date>
     gt?: QueryResultError<number | Date>
@@ -46,6 +48,31 @@ export type QueryResultErrors = {
     certificate?: QueryResultError<string>
     scope?: QueryResultError<string>
   }
+}
+
+// How verify() checks proofs: "local" uses the verifier bundled with this SDK,
+// "api" uses the hosted ZKPassport verifier API, and "auto" verifies locally
+// but defers to the API when the local result is not verified.
+export type VerifierMode = "auto" | "local" | "api"
+
+export type VerificationConfig = {
+  /**
+   * Ethereum RPC used for the on-chain reads during local verification: the registry root checks
+   * and the Solidity verifier. It must serve the chain the query binds to, or Sepolia in dev mode
+   * and Ethereum otherwise. Defaults to the built-in endpoint for that chain.
+   */
+  rpcUrl?: string
+}
+
+// The nullifier types a service can ask for. The mock ones only ever come from the app in dev mode.
+export type RequestedNullifierType =
+  NullifierType.NON_SALTED | NullifierType.SALTED | NullifierType.NONE
+
+export type VerificationResult = {
+  uniqueIdentifier: string | undefined
+  uniqueIdentifierType: NullifierType | undefined
+  verified: boolean
+  queryResultErrors?: Partial<QueryResultErrors>
 }
 
 export type SolidityProofVerificationData = {
@@ -71,11 +98,11 @@ export type SolidityVerifierParameters = {
 
 export type Policy = {
   id: string
-  version: number
   name: string
   purpose: string
   projectId: string | null
   query: Query
+  proofStorageEnabled?: boolean
 }
 
 export type DashboardConfig = {
@@ -87,6 +114,16 @@ export type DashboardConfig = {
   }
   policies: Policy[]
 }
+
+// The completed request's raw proofs and query result, before any verification
+export type RequestSuccess = {
+  proofs: ProofResult[]
+  result: QueryResult
+}
+
+// What an onSuccess handler may return: false (or a promise resolving to false)
+// makes the UI components show their error state instead of success
+export type OnSuccessVerdict = void | boolean | Promise<void | boolean>
 
 export type QueryBuilderResult = {
   /**
@@ -125,6 +162,11 @@ export type QueryBuilderResult = {
    */
   onBridgeConnect: (callback: () => void) => void
   /**
+   * Called when the connection to the bridge is lost and the SDK has stopped
+   * trying to reconnect on its own. A later `onBridgeConnect` means it came back.
+   */
+  onBridgeConnectionLost: (callback: () => void) => void
+  /**
    * Called when the user has generated a proof.
    *
    * There is a minimum of 4 proofs, but there can be more depending
@@ -132,11 +174,23 @@ export type QueryBuilderResult = {
    */
   onProofGenerated: (callback: (proof: ProofResult) => void) => void
   /**
+   * Called when the user has completed the request and all proofs were received.
+   *
+   * The proofs are not verified at this point: send them along with the result
+   * to your backend and verify them there with `verify()`. The UI components wait
+   * for this callback before showing their success state; return `false` (or throw)
+   * to show the error state instead, e.g. when your backend rejects the proofs.
+   */
+  onSuccess: (callback: (response: RequestSuccess) => OnSuccessVerdict) => void
+  /**
    * Called when the user has sent the query result.
    *
    * The response contains the unique identifier associated to the user,
    * your domain name and chosen scope, along with the query result and whether
    * the proofs were successfully verified.
+   *
+   * @deprecated The verified flag can be tampered with in the browser. Use `onSuccess`
+   * and verify the proofs on your backend with `verify()`.
    */
   onResult: (
     callback: (response: {
@@ -272,17 +326,20 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
   ) => QueryBuilder
   /**
    * Requires that the ID holder's face matches the photo on the ID.
-   * @param mode The mode to use for the face match. Defaults to "regular".
+   * @param mode The mode to use for the face match. Defaults to "strict".
    * @param mode "strict" - The user will have to go through an extensive liveness check to prevent spoofing making it more secure.
    * Best for high security requirements such as KYC.
    * @param mode "regular" - The user will only have to go through a basic liveness check to prevent spoofing, making it faster for the user.
    * Best for lower security requirements that requires fast verification such as age verification.
    */
   facematch: (mode?: FacematchMode) => QueryBuilder
+  // @internal Seed from an already-built (serialized) Query, replacing anything
+  // set so far. Used by the hosted popup.
+  raw: (query: Query) => QueryBuilder<T>
   /**
-   * Applies an immutable policy fetched from the dashboard. The policy's query,
-   * purpose and scope are locked; combining with builder methods or calling
-   * twice throws.
+   * Applies a policy fetched from the dashboard. The policy's query is locked, and its
+   * purpose and scope are used unless the request sets its own. Combining with builder
+   * methods (except `.bind()`, which may follow it) or calling twice throws.
    * @param id The policy id (e.g. `'pol_xyz'`).
    */
   policy: (id: string) => QueryBuilder<T>

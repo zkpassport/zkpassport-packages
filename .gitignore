@@ -1,4 +1,5 @@
 # Ignored folders
+.worktrees
 .build
 .cache
 target
@@ -34,3 +35,6 @@ broadcast/
 *.tsbuildinfo
 next-env.d.ts
 .github/test-ci-locally.sh
+
+# Superpowers working documents (specs/plans live outside the repo)
+docs/superpowers/

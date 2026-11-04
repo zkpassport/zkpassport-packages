@@ -1,0 +1,321 @@
+import { describe, expect, test } from "bun:test"
+import type { Query } from "@zkpassport/utils"
+import { ZKPassport } from "../src/index"
+import { hydrateQueryBuilder } from "../src/popup/hydrate"
+import { openVerificationPopup, isPopupMessage } from "../src/popup"
+import type { QueryBuilder } from "../src/types"
+
+function buildOffline(build: (qb: QueryBuilder<"offline">) => unknown): Query {
+  const sdk = new ZKPassport("example.com")
+  const builder = sdk.createQuery()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = build(builder) as any
+  return result.query
+}
+
+describe("hydrateQueryBuilder", () => {
+  const cases: Array<[string, (qb: QueryBuilder<"offline">) => unknown]> = [
+    ["disclose + age", (qb) => qb.disclose("firstname").gte("age", 18).done()],
+    ["numeric bounds", (qb) => qb.gt("age", 17).lt("age", 100).lte("age", 99).done()],
+    ["range", (qb) => qb.range("age", 18, 65).done()],
+    [
+      "dates",
+      (qb) =>
+        qb
+          .gte("expiry_date", new Date("2026-01-01"))
+          .lte("birthdate", new Date("2008-01-01"))
+          .done(),
+    ],
+    [
+      "country lists + eq",
+      (qb) =>
+        qb
+          .in("nationality", ["FRA", "DEU"])
+          .out("issuing_country", ["PRK"])
+          .eq("document_type", "passport")
+          .done(),
+    ],
+    [
+      "bind + sanctions + facematch",
+      (qb) =>
+        qb
+          .bind("user_address", "0x5e4B11F7B7995F5Cee0134692a422b045091112F")
+          .bind("custom_data", "customer:123")
+          .sanctions("all", "all", { strict: true })
+          .facematch("regular")
+          .done(),
+    ],
+    ["empty query (proof of valid ID)", (qb) => qb.done()],
+    [
+      "policy reference + bind",
+      (qb) => qb.policy("pol_123").bind("custom_data", "customer:123").done(),
+    ],
+  ]
+
+  for (const [name, build] of cases) {
+    test(`round-trip: ${name}`, () => {
+      const original = buildOffline(build)
+      // Simulate the structured clone that postMessage performs
+      const cloned = structuredClone(original)
+      const hydrated = buildOffline((qb) => hydrateQueryBuilder(qb as never, cloned))
+      expect(hydrated).toEqual(original)
+    })
+  }
+})
+
+describe("openVerificationPopup", () => {
+  function setupFakeWindow() {
+    type Listener = (event: MessageEvent) => void
+    const listeners = new Set<Listener>()
+    const openedMessages: Array<{ data: unknown; targetOrigin: string }> = []
+    const popup = {
+      closed: false,
+      postMessage: (data: unknown, targetOrigin: string) => {
+        openedMessages.push({ data, targetOrigin })
+      },
+      close() {
+        this.closed = true
+      },
+      focused: 0,
+      focus() {
+        this.focused++
+      },
+    }
+    const openCalls: unknown[][] = []
+    const fakeWindow = {
+      screenX: 0,
+      screenY: 0,
+      outerWidth: 1200,
+      outerHeight: 900,
+      open: (...args: unknown[]) => {
+        openCalls.push(args)
+        return popup
+      },
+      addEventListener: (_type: string, listener: Listener) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: Listener) => listeners.delete(listener),
+    }
+    const emit = (origin: string, data: unknown, source: unknown = popup) => {
+      for (const listener of [...listeners]) {
+        listener({ origin, data, source } as MessageEvent)
+      }
+    }
+    return { fakeWindow, popup, openedMessages, openCalls, emit, listeners }
+  }
+
+  test("handshake: configure sent on ready; events relayed; origin checked", () => {
+    const { fakeWindow, popup, openedMessages, emit } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      const events: string[] = []
+      let successPayload: unknown = null
+      const handle = openVerificationPopup({
+        popupUrl: "https://verify.zkpassport.id",
+        request: { name: "Test", mode: "fast", devMode: true },
+        query: { age: { gte: 18 } },
+        callbacks: {
+          onRequestReceived: () => events.push("request-received"),
+          onSuccess: (response) => {
+            events.push("success")
+            successPayload = response
+          },
+          onError: (message) => events.push(`error:${message}`),
+        },
+      })
+      expect(handle).not.toBeNull()
+
+      // Wrong origin: ignored
+      emit("https://evil.example", { zkpassport: true, type: "ready" })
+      expect(openedMessages.length).toBe(0)
+
+      // Correct origin: configure is sent to the popup origin
+      emit("https://verify.zkpassport.id", { zkpassport: true, type: "ready" })
+      expect(openedMessages.length).toBe(1)
+      expect(openedMessages[0].targetOrigin).toBe("https://verify.zkpassport.id")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const configure = openedMessages[0].data as any
+      expect(configure.type).toBe("configure")
+      expect(configure.query).toEqual({ age: { gte: 18 } })
+      expect(configure.request.name).toBe("Test")
+
+      // Events relayed only from the popup origin and source
+      emit("https://verify.zkpassport.id", { zkpassport: true, type: "request-received" })
+      emit(
+        "https://verify.zkpassport.id",
+        { zkpassport: true, type: "request-received" },
+        { not: "the popup" },
+      )
+      emit("https://verify.zkpassport.id", {
+        zkpassport: true,
+        type: "success",
+        proofs: [{ proof: "0x1" }],
+        result: {},
+      })
+      expect(events).toEqual(["request-received", "success"])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((successPayload as any).proofs).toEqual([{ proof: "0x1" }])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((successPayload as any).zkpassport).toBeUndefined()
+
+      handle!.close()
+      expect(popup.closed).toBe(true)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
+  test("keeps listening after an error, so a retry still reaches the page", () => {
+    const { fakeWindow, emit } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      const events: string[] = []
+      openVerificationPopup({
+        popupUrl: "https://verify.zkpassport.id",
+        request: {},
+        query: {},
+        callbacks: {
+          onError: (message) => events.push(`error:${message}`),
+          onSuccess: () => events.push("success"),
+        },
+      })
+
+      emit("https://verify.zkpassport.id", {
+        zkpassport: true,
+        type: "error",
+        message: "proof failed",
+      })
+      emit("https://verify.zkpassport.id", {
+        zkpassport: true,
+        type: "success",
+        proofs: [],
+        result: {},
+      })
+
+      expect(events).toEqual(["error:proof failed", "success"])
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
+  test("windowMode picks the window features: chromeless popup by default, plain tab on 'tab'", () => {
+    const { fakeWindow, openCalls } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      openVerificationPopup({ request: {}, query: {} })
+      expect(openCalls.length).toBe(1)
+      expect(String(openCalls[0][2])).toMatch(/^popup,/)
+
+      openVerificationPopup({ request: {}, query: {}, windowMode: "tab" })
+      expect(openCalls.length).toBe(2)
+      expect(openCalls[1].length).toBe(2)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
+  test("names the window after the session and brings it forward", () => {
+    const { fakeWindow, popup, openCalls } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      const fresh = openVerificationPopup({ request: {}, query: {} })!
+      expect(openCalls[0][1]).toBe(`zkpassport-verify-${fresh.session}`)
+      expect(popup.focused).toBe(1)
+
+      openVerificationPopup({ request: {}, query: {}, session: fresh.session })
+      expect(openCalls[1][1]).toBe(openCalls[0][1])
+
+      const other = openVerificationPopup({ request: {}, query: {} })!
+      expect(openCalls[2][1]).not.toBe(openCalls[0][1])
+      expect(other.session).not.toBe(fresh.session)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
+  test("returns null when the popup is blocked", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = {
+      open: () => null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      outerWidth: 100,
+      outerHeight: 100,
+    }
+    try {
+      const handle = openVerificationPopup({
+        request: {},
+        query: {},
+      })
+      expect(handle).toBeNull()
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
+  test("release stops relaying events but leaves the popup open", () => {
+    const { fakeWindow, popup, emit, listeners } = setupFakeWindow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = fakeWindow
+    try {
+      const events: string[] = []
+      const handle = openVerificationPopup({
+        popupUrl: "https://verify.zkpassport.id",
+        request: {},
+        query: {},
+        callbacks: { onSuccess: () => events.push("success") },
+      })
+
+      handle!.release()
+      emit("https://verify.zkpassport.id", {
+        zkpassport: true,
+        type: "success",
+        proofs: [],
+        result: {},
+      })
+
+      expect(events).toEqual([])
+      expect(listeners.size).toBe(0)
+      expect(popup.closed).toBe(false)
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (globalThis as any).window
+    }
+  })
+
+  test("isPopupMessage filters garbage", () => {
+    expect(isPopupMessage({ zkpassport: true, type: "ready" })).toBe(true)
+    expect(isPopupMessage({ type: "ready" })).toBe(false)
+    expect(isPopupMessage(null)).toBe(false)
+    expect(isPopupMessage("ready")).toBe(false)
+  })
+})
+
+describe("credentials protocol extension", () => {
+  const credential = {
+    policyId: "0x784721ee894919ed4260b68bea43b93de08a94dc20c8e51d90e4ba4a52b0df56",
+    account: "0x89D94DA1c6a8564f66e414A8C1C323F96c685006",
+    chainId: 11155111,
+    contract: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
+    txHash: "0xdead",
+  }
+
+  test("a minted credential survives postMessage cloning", () => {
+    const message = { zkpassport: true, type: "success", proofs: [], result: {}, credential }
+    expect(structuredClone(message)).toEqual(message)
+  })
+
+  test("an already-held credential carries no txHash", () => {
+    const { txHash, ...alreadyHeld } = credential
+    expect(txHash).toBeDefined()
+    expect(structuredClone(alreadyHeld)).toEqual(alreadyHeld)
+    expect("txHash" in alreadyHeld).toBe(false)
+  })
+})

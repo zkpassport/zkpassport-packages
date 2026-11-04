@@ -442,7 +442,7 @@ function verifyRSAManual(
 /**
  * Modular exponentiation using square-and-multiply
  */
-function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
+export function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
   if (modulus === BigInt(1)) return BigInt(0)
   let result = BigInt(1)
   base = base % modulus

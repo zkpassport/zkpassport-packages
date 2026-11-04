@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022", "esnext.disposable", "dom"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["bun", "node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["server", "acceptance/src", "tests", "examples"]
+}

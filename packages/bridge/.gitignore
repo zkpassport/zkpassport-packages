@@ -1,0 +1,3 @@
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

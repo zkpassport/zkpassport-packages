@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    // Type-checking only: this package is never built or published
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "types": ["bun"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.json", "tests/**/*.ts"]
+}

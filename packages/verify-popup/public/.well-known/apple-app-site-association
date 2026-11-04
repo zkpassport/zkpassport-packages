@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "YL5MS3Z639.app.zkpassport.zkpassport",
+        "paths": [
+          "/r",
+          "/r/*"
+        ]
+      },
+      {
+        "appID": "YL5MS3Z639.app.zkpassport.wallet",
+        "paths": [
+          "/r",
+          "/r/*"
+        ]
+      }
+    ]
+  }
+}

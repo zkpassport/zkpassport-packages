@@ -1,0 +1,38 @@
+{
+  "name": "verify-popup",
+  "description": "ZKPassport hosted verification popup",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --port 5173",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "test": "bun test",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.102.8",
+    "@walletconnect/ethereum-provider": "^2.22.2",
+    "@zkpassport/onchain-credentials": "workspace:*",
+    "@zkpassport/registry": "workspace:*",
+    "@zkpassport/sdk": "workspace:*",
+    "@zkpassport/ui": "workspace:*",
+    "@zkpassport/utils": "workspace:*",
+    "qrcode": "1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.27.2",
+    "wagmi": "^3.7.7"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
+  }
+}

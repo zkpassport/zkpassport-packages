@@ -14,7 +14,7 @@ import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
 import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {SECONDS_BETWEEN_1900_AND_1970, PublicInput, AppAttest, RegistryID} from "./lib/Constants.sol";
-import {ProofType, DisclosedData, BoundData, FaceMatchMode, Environment, OS} from "./lib/Types.sol";
+import {ProofType, DisclosedData, BoundData, FaceMatchMode, Environment, OS, NullifierType} from "./lib/Types.sol";
 
 contract VerifierHelper {
     RootRegistry public immutable rootRegistry;
@@ -463,6 +463,38 @@ contract VerifierHelper {
      */
     function getProofTimestamp(bytes32[] calldata publicInputs) external pure returns (uint256) {
         return uint256(publicInputs[PublicInput.CURRENT_DATE_INDEX]);
+    }
+
+    /**
+     * @notice Gets the nullifier type the proof was generated with
+     * @param publicInputs The public inputs of the proof
+     * @return The nullifier type of the proof
+     */
+    function getNullifierType(bytes32[] calldata publicInputs) public pure returns (NullifierType) {
+        return NullifierType(uint256(publicInputs[publicInputs.length - 3]));
+    }
+
+    /**
+     * @notice Enforces that the proof was generated with the expected nullifier type
+     * @dev A mock type matches its real counterpart, as mock proofs are only accepted in dev mode
+     * @param expectedNullifierType The expected nullifier type
+     * @param publicInputs The public inputs of the proof
+     */
+    function enforceNullifierType(NullifierType expectedNullifierType, bytes32[] calldata publicInputs) external pure {
+        require(_realNullifierType(publicInputs) == expectedNullifierType, "Invalid nullifier type");
+    }
+
+    function _realNullifierType(bytes32[] calldata publicInputs) private pure returns (NullifierType) {
+        NullifierType nullifierType = getNullifierType(publicInputs);
+        if (nullifierType == NullifierType.SALTED_MOCK_NULLIFIER) {
+            return NullifierType.SALTED_NULLIFIER;
+        }
+        if (nullifierType == NullifierType.NON_SALTED_MOCK_NULLIFIER) {
+            // Mock IDs keep their mock type even when the nullifier is hidden
+            bool hasNullifier = publicInputs[publicInputs.length - 2] != bytes32(0);
+            return hasNullifier ? NullifierType.NON_SALTED_NULLIFIER : NullifierType.NONE_NULLIFIER;
+        }
+        return nullifierType;
     }
 
     /**

@@ -10,7 +10,7 @@ optimizer_runs = 200
 # Ensure deterministic init code hash
 bytecode_hash = "none"
 # Remappings
-remappings = ["forge-std/=lib/forge-std/src/"]
+remappings = ["forge-std/=lib/forge-std/src/", "@registry/=src/"]
 # File system permissions
 fs_permissions = [{ access = "read-write", path = "./deployments"}]
 

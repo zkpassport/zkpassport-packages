@@ -19,12 +19,15 @@ export type ZKPassportQRCodeDisplayOptions = {
   steps?: boolean
   // The "ZKPassport App" footer with the App Store / Google Play download links.
   appLinks?: boolean
+  // The card's own box (border, padding, min height); false embeds the card in your own frame.
+  frame?: boolean
 }
 
 export type ZKPassportQRCodeOptions = SdkRequestProps & {
   domain?: string
   theme?: "light" | "dark" | "auto"
   display?: ZKPassportQRCodeDisplayOptions
+  showIntroScreen?: boolean
   query: (queryBuilder: QueryBuilder) => QueryBuilderResult
   onReady?: () => void
   onRetryClicked?: () => void
@@ -32,6 +35,12 @@ export type ZKPassportQRCodeOptions = SdkRequestProps & {
   onRequestReceived?: SdkCallback<"onRequestReceived">
   onGeneratingProof?: SdkCallback<"onGeneratingProof">
   onProofGenerated?: SdkCallback<"onProofGenerated">
+  /**
+   * All proofs arrived (not verified yet — verify them on your backend).
+   * The component waits for this callback: return `false` (or throw) to show the error state.
+   */
+  onSuccess?: SdkCallback<"onSuccess">
+  /** @deprecated Use `onSuccess` and verify the proofs on your backend. */
   onResult?: SdkCallback<"onResult">
   onReject?: SdkCallback<"onReject">
   onError?: SdkCallback<"onError">
@@ -46,7 +55,9 @@ export type QRCardHandle = {
 // Re-export essential types
 export {
   ZKPassport,
+  VERSION as SDK_VERSION,
   NullifierType,
+  NullifierType as UniqueIdentifierType,
   ProofType,
   ProofTypeLength,
   SANCTIONED_COUNTRIES,

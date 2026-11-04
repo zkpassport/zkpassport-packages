@@ -276,6 +276,7 @@ export type Query = {
   bind?: BoundData
   sanctions?: SanctionsConfig
   facematch?: FacematchConfig
+  policy?: string
 }
 
 export type QueryResult = {
@@ -325,6 +326,7 @@ export type SupportedChain =
   | "scroll"
   | "linea"
   | "world_chain"
+  | "robinhood"
   // Testnets
   | "ethereum_sepolia"
   | "base_sepolia"
@@ -404,6 +406,7 @@ export type Service = {
   logo: string
   purpose: string
   scope?: string
+  policyId?: string
   projectID?: string
   chainId?: number
   cloudProverUrl?: string
@@ -572,6 +575,7 @@ export enum NullifierType {
   SALTED = 1,
   NON_SALTED_MOCK = 2,
   SALTED_MOCK = 3,
+  NONE = 4,
 }
 
 export class SaltedValue<T extends number | string | bigint | Array<number>> {
@@ -649,6 +653,10 @@ export type {
   PackagedCertificatesFileV0,
   PackagedCertificatesFileV1,
   IntermediateCertificateRevocation,
+  PackagedSanctionsFile,
+  PackagedSanctionsFileV1,
+  PackagedSanctionsBuilder,
+  SanctionsSource,
   CircuitManifest,
   CircuitManifestEntry,
 } from "./registry"

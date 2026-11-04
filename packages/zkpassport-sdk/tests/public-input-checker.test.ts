@@ -1,18 +1,24 @@
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { PublicInputChecker } from "../src/public-input-checker"
 import type {
   Query,
   QueryResult,
   ProofResult,
   DiscloseCommittedInputs,
-  SanctionsBuilder,
   FacematchCommittedInputs,
+  SupportedChain,
 } from "@zkpassport/utils"
 import {
   SECONDS_BETWEEN_1900_AND_1970,
+  getIdFromChain,
   getServiceScopeHash,
   getScopeHash,
   getAgeParameterCommitment,
+  getDiscloseParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
+  getSanctionsParameterCommitment,
+  hashOprfPublicKey,
+  NullifierType,
 } from "@zkpassport/utils"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -20,6 +26,16 @@ import {
   ZKPASSPORT_IOS_APP_ID_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
 } from "../src/constants"
+import { RegistryClient } from "@zkpassport/registry"
+
+// A sanctions root the mocked registry reports as valid
+const VALID_SANCTIONS_ROOT = "0x" + "ab".repeat(32)
+
+function mockSanctionsRootValidity() {
+  return spyOn(RegistryClient.prototype, "isSanctionsRootValid").mockImplementation(
+    async (root: string) => root === VALID_SANCTIONS_ROOT,
+  )
+}
 
 // Helper to build a minimal disclose proof with committed inputs
 function makeDiscloseProof(disclosedBytes: number[]): ProofResult {
@@ -1618,33 +1634,53 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
     const originalQuery: Query = {
       sanctions: { countries: "all", lists: "all", strict: false },
     }
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
 
-    test("passes when root hash and strict match", async () => {
+    beforeEach(() => {
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      isSanctionsRootValid.mockRestore()
+    })
+
+    test("passes when the root is valid in the registry and strict matches", async () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: false },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
         originalQuery,
         queryResult,
-        { rootHash: "abc123", isStrict: false },
-        sanctionsBuilder,
+        { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
       )
       expect(isCorrect).toBe(true)
     })
 
-    test("fails when root hash does not match", async () => {
+    test("fails when the root is not valid in the registry", async () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: false },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect, queryResultErrors } =
-        await PublicInputChecker.checkSanctionsExclusionPublicInputs(
-          originalQuery,
-          queryResult,
-          { rootHash: "wrong_root", isStrict: false },
-          sanctionsBuilder,
-        )
+        await PublicInputChecker.checkSanctionsExclusionPublicInputs(originalQuery, queryResult, {
+          rootHash: "0x" + "cd".repeat(32),
+          isStrict: false,
+        })
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
+    })
+
+    test("fails when the registry lookup throws", async () => {
+      isSanctionsRootValid.mockImplementation(async () => {
+        throw new Error("RPC unavailable")
+      })
+      const queryResult: QueryResult = {
+        sanctions: { passed: true, isStrict: false },
+      }
+      const { isCorrect, queryResultErrors } =
+        await PublicInputChecker.checkSanctionsExclusionPublicInputs(originalQuery, queryResult, {
+          rootHash: VALID_SANCTIONS_ROOT,
+          isStrict: false,
+        })
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.sanctions?.eq?.message).toContain("sanctions registry root")
     })
@@ -1656,13 +1692,11 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       const queryResult: QueryResult = {
         sanctions: { passed: true, isStrict: true },
       }
-      const sanctionsBuilder = { getRoot: async () => "abc123" } as unknown as SanctionsBuilder
       const { isCorrect, queryResultErrors } =
         await PublicInputChecker.checkSanctionsExclusionPublicInputs(
           oq,
           queryResult,
-          { rootHash: "abc123", isStrict: false }, // committed says non-strict
-          sanctionsBuilder,
+          { rootHash: VALID_SANCTIONS_ROOT, isStrict: false }, // committed says non-strict
         )
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.sanctions?.eq?.message).toContain("strict mode")
@@ -2093,6 +2127,27 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
       expect(queryResultErrors.age?.scope).toBeUndefined()
     })
+
+    test("fails when the proof has a scope but none is passed", async () => {
+      const proofSubscope = getScopeHash("my-scope")
+      const proofs = [makeDisclosureAge(domainScopeHash, proofSubscope)]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.age?.scope?.message).toContain("none was passed")
+      expect(queryResultErrors.age?.scope?.received).toContain(proofSubscope.toString())
+    })
   })
 
   describe("non-outer proof path - current date validation", () => {
@@ -2393,6 +2448,174 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     })
   })
 
+  describe("outer proof path - scope validation", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const nullifier = 42n
+
+    // Outer proof public inputs: [certRegistryRoot, circuitRegistryRoot, currentDate,
+    // serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+    function makeScopedOuterProof(subscope: bigint): ProofResult {
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n, // certRegistryRoot (mocked)
+          2n, // circuitRegistryRoot (mocked)
+          BigInt(getTodayTimestamp()),
+          domainScopeHash,
+          subscope,
+          0n, // paramCommitment
+          0n, // nullifierType
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: {},
+      }
+    }
+
+    test("fails when the outer proof has a scope but none is passed", async () => {
+      const proofs = [makeScopedOuterProof(getScopeHash("my-scope"))]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        {},
+        {},
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.scope?.message).toContain("none was passed")
+    })
+  })
+
+  describe("outer proof path - bundle composition", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const nullifierA = 111n
+    const nullifierB = 222n
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    // Outer proof public inputs: [certRegistryRoot, circuitRegistryRoot, currentDate,
+    // serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+    async function makeAgeOuterProof(nullifier: bigint): Promise<ProofResult> {
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n,
+          2n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          0n,
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function makeEmptyDiscloseOuterProof(nullifier: bigint): Promise<ProofResult> {
+      const empty = new Array(90).fill(0)
+      return {
+        name: "outer_4",
+        proof: buildProofHex([
+          1n,
+          2n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getDiscloseParameterCommitment(empty, empty),
+          0n,
+          nullifier,
+        ]),
+        total: 1,
+        committedInputs: {
+          disclose_bytes: { discloseMask: empty, disclosedBytes: empty } as DiscloseCommittedInputs,
+        },
+      }
+    }
+
+    // Another document's subproof chain, ending in an empty disclosure
+    async function makeSubproofChain(nullifier: bigint): Promise<ProofResult[]> {
+      const empty = new Array(90).fill(0)
+      return [
+        { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 4 },
+        { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 4 },
+        { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 4 },
+        {
+          name: "disclose_bytes",
+          // [commitmentIn, currentDate, serviceScope, subscope, paramCommitment, nullifierType, nullifier]
+          proof: buildProofHex([
+            30n,
+            todayTs,
+            domainScopeHash,
+            0n,
+            await getDiscloseParameterCommitment(empty, empty),
+            0n,
+            nullifier,
+          ]),
+          total: 4,
+          committedInputs: {
+            disclose_bytes: {
+              discloseMask: empty,
+              disclosedBytes: empty,
+            } as DiscloseCommittedInputs,
+          },
+        },
+      ]
+    }
+
+    test("a lone outer proof passes with its own nullifier", async () => {
+      const { isCorrect, uniqueIdentifier } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        [await makeAgeOuterProof(nullifierA)],
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(true)
+      expect(uniqueIdentifier).toBe(nullifierA.toString(10))
+    })
+
+    test("fails when an outer proof is bundled with another document's subproof chain", async () => {
+      const proofs = [await makeAgeOuterProof(nullifierA), ...(await makeSubproofChain(nullifierB))]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.commitment?.message).toContain("only proof")
+    })
+
+    test("fails when two outer proofs are bundled together", async () => {
+      const proofs = [
+        await makeAgeOuterProof(nullifierA),
+        await makeEmptyDiscloseOuterProof(nullifierB),
+      ]
+
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.commitment?.message).toContain("only proof")
+    })
+  })
+
   describe("non-outer proof path - nullifier extraction", () => {
     const domain = "example.com"
     const domainScopeHash = getServiceScopeHash(domain)
@@ -2433,6 +2656,253 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       )
 
       expect(uniqueIdentifier).toBe(expectedNullifier.toString(10))
+    })
+  })
+
+  describe("non-outer proof path - unhandled proof names", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    const chain: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 5 },
+    ]
+
+    async function makeAgeProof(name: string): Promise<ProofResult> {
+      return {
+        name,
+        proof: buildProofHex([
+          30n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          0n,
+          42n,
+        ]),
+        total: 5,
+        committedInputs: { [name]: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function check(proofs: ProofResult[]) {
+      return PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+    }
+
+    test("passes a chain with a standard age proof", async () => {
+      const { isCorrect } = await check([...chain, await makeAgeProof("compare_age")])
+
+      expect(isCorrect).toBe(true)
+    })
+
+    test("fails when a lone EVM disclosure proof covers the query", async () => {
+      const { isCorrect } = await check([await makeAgeProof("compare_age_evm")])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an EVM disclosure proof is bundled with a chain", async () => {
+      const { isCorrect } = await check([...chain, await makeAgeProof("compare_age_evm")])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when a proof has an unknown name", async () => {
+      const { isCorrect } = await check([
+        ...chain,
+        await makeAgeProof("compare_age"),
+        { name: "unknown_circuit", proof: buildProofHex([30n]), total: 5 },
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an oprf_auth proof is bundled", async () => {
+      const { isCorrect } = await check([
+        ...chain,
+        await makeAgeProof("compare_age"),
+        { name: "oprf_auth", proof: buildProofHex([30n, 1n, 2n]), total: 5 },
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+  })
+
+  describe("non-outer proof path - nullifier consistency across disclosure proofs", () => {
+    const domain = "example.com"
+    const domainScopeHash = getServiceScopeHash(domain)
+    const todayTs = BigInt(getTodayTimestamp())
+    const legitOprfKey = { x: 1n, y: 2n }
+    const attackerOprfKey = { x: 3n, y: 4n }
+    const legitNullifier = 111n
+    const attackerNullifier = 222n
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+    let fetchSpy: ReturnType<typeof spyOn>
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
+
+    beforeEach(() => {
+      fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+        (async () =>
+          new Response(
+            JSON.stringify({
+              key: [legitOprfKey.x.toString(), legitOprfKey.y.toString()],
+              epoch: 0,
+            }),
+          )) as unknown as typeof fetch,
+      )
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      fetchSpy.mockRestore()
+      isSanctionsRootValid.mockRestore()
+    })
+
+    const chain: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 10n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([10n, 20n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([20n, 30n]), total: 5 },
+    ]
+
+    type NullifierFields = { nullifier: bigint; type: NullifierType; oprfKey?: typeof legitOprfKey }
+
+    // Disclosure proof public inputs: [commitmentIn, currentDate, serviceScope, subscope,
+    // paramCommitment, nullifierType, nullifier, oprfPkHash]
+    async function nullifierInputs({ nullifier, type, oprfKey }: NullifierFields) {
+      const oprfPkHash = oprfKey ? await hashOprfPublicKey(oprfKey) : 0n
+      return [BigInt(type), nullifier, oprfPkHash]
+    }
+
+    async function makeAgeProof(fields: NullifierFields): Promise<ProofResult> {
+      return {
+        name: "compare_age",
+        proof: buildProofHex([
+          30n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getAgeParameterCommitment(18, 0),
+          ...(await nullifierInputs(fields)),
+        ]),
+        total: 5,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      }
+    }
+
+    async function makeUnrequestedSanctionsProof(
+      fields: NullifierFields,
+      rootHash = VALID_SANCTIONS_ROOT,
+    ): Promise<ProofResult> {
+      return {
+        name: "exclusion_check_sanctions",
+        proof: buildProofHex([
+          30n,
+          todayTs,
+          domainScopeHash,
+          0n,
+          await getSanctionsParameterCommitment(rootHash, false),
+          ...(await nullifierInputs(fields)),
+        ]),
+        total: 5,
+        committedInputs: {
+          exclusion_check_sanctions: { rootHash, isStrict: false },
+        },
+      }
+    }
+
+    const legit = { nullifier: legitNullifier, type: NullifierType.SALTED, oprfKey: legitOprfKey }
+    const attacker = {
+      nullifier: attackerNullifier,
+      type: NullifierType.SALTED,
+      oprfKey: attackerOprfKey,
+    }
+
+    async function check(disclosureProofs: ProofResult[]) {
+      return PublicInputChecker.checkPublicInputs(
+        domain,
+        [...chain, ...disclosureProofs],
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+    }
+
+    test("passes when every disclosure proof carries the same salted nullifier", async () => {
+      const { isCorrect, uniqueIdentifier, uniqueIdentifierType } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof(legit),
+      ])
+
+      expect(isCorrect).toBe(true)
+      expect(uniqueIdentifier).toBe(legitNullifier.toString(10))
+      expect(uniqueIdentifierType).toBe(NullifierType.SALTED)
+    })
+
+    test("fails when a second proof of the same type uses another OPRF key", async () => {
+      const { isCorrect } = await check([await makeAgeProof(legit), await makeAgeProof(attacker)])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when an unrequested proof uses another OPRF key", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof(attacker),
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when every proof uses another OPRF key", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(attacker),
+        await makeUnrequestedSanctionsProof(attacker),
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("fails when salted and non-salted nullifiers are mixed", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof({
+          nullifier: attackerNullifier,
+          type: NullifierType.NON_SALTED,
+        }),
+      ])
+
+      expect(isCorrect).toBe(false)
+    })
+
+    test("returns the shared nullifier when another proof carries none", async () => {
+      const { isCorrect, uniqueIdentifier, uniqueIdentifierType } = await check([
+        await makeAgeProof(legit),
+        await makeAgeProof({ nullifier: 0n, type: NullifierType.NONE }),
+      ])
+
+      expect(isCorrect).toBe(true)
+      expect(uniqueIdentifier).toBe(legitNullifier.toString(10))
+      expect(uniqueIdentifierType).toBe(NullifierType.SALTED)
+    })
+
+    test("fails when an unrequested sanctions proof uses an unknown root", async () => {
+      const { isCorrect } = await check([
+        await makeAgeProof(legit),
+        await makeUnrequestedSanctionsProof(legit, "0x" + "cd".repeat(32)),
+      ])
+
+      expect(isCorrect).toBe(false)
     })
   })
 
@@ -2489,8 +2959,14 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     const commitment = 100n
     const nullifier = 42n
 
-    test("calls checkCertificateRegistryRoot for DSC proof", async () => {
+    test("calls checkCertificateRegistryRoot for DSC proof with the proof's date", async () => {
       const merkleRoot = 12345n
+      let checkArgs: unknown[] | undefined
+      ;(PublicInputChecker as unknown as Record<string, unknown>).checkCertificateRegistryRoot =
+        async (...args: unknown[]) => {
+          checkArgs = args
+          return { isCorrect: true, queryResultErrors: {} }
+        }
       const proofs: ProofResult[] = [
         {
           name: "sig_check_dsc_1234",
@@ -2519,8 +2995,58 @@ describe("PublicInputChecker - checkPublicInputs", () => {
         86400 * 365,
       )
 
-      // Verified by the test passing without RPC errors - the mock was called
-      expect(true).toBe(true)
+      expect(checkArgs).toBeDefined()
+      expect(checkArgs![0]).toBe(merkleRoot.toString(16))
+      // Root validity must be checked as of the proof's own date so proofs made
+      // against superseded roots remain verifiable
+      expect(checkArgs![4]).toBe(Number(todayTs))
+    })
+
+    test("does not mistake an oprf_auth proof for the bundle's date source", async () => {
+      const merkleRoot = 12345n
+      let checkArgs: unknown[] | undefined
+      ;(PublicInputChecker as unknown as Record<string, unknown>).checkCertificateRegistryRoot =
+        async (...args: unknown[]) => {
+          checkArgs = args
+          return { isCorrect: true, queryResultErrors: {} }
+        }
+      const proofs: ProofResult[] = [
+        {
+          name: "sig_check_dsc_1234",
+          proof: buildProofHex([merkleRoot, commitment]),
+          total: 3,
+        },
+        // oprf_auth has no date - its public inputs are comm_in and a curve point,
+        // not a timestamp - it must not be picked as the bundle's date source
+        {
+          name: "oprf_auth",
+          proof: buildProofHex([commitment, 1n, 2n]),
+          total: 3,
+        },
+        {
+          name: "compare_age",
+          proof: buildProofHex([commitment, todayTs, domainScopeHash, 0n, 0n, 0n, nullifier]),
+          total: 3,
+          committedInputs: {
+            compare_age: { minAge: 18, maxAge: 0 },
+          },
+        },
+      ]
+      const originalQuery: Query = { age: { gte: 18 } }
+      const queryResult: QueryResult = {
+        age: { gte: { expected: 18, result: true } },
+      }
+
+      await PublicInputChecker.checkPublicInputs(
+        domain,
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(checkArgs).toBeDefined()
+      expect(checkArgs![4]).toBe(Number(todayTs))
     })
 
     test("fails when certificate registry root is invalid", async () => {
@@ -2646,6 +3172,15 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     const todayTs = BigInt(getTodayTimestamp())
     const commitment = 100n
     const nullifier = 42n
+    let isSanctionsRootValid: ReturnType<typeof mockSanctionsRootValidity>
+
+    beforeEach(() => {
+      isSanctionsRootValid = mockSanctionsRootValidity()
+    })
+
+    afterEach(() => {
+      isSanctionsRootValid.mockRestore()
+    })
 
     function makeSanctionsProof(
       commitmentIn: bigint,
@@ -2656,7 +3191,7 @@ describe("PublicInputChecker - checkPublicInputs", () => {
         proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, nullifier]),
         total: 1,
         committedInputs: {
-          exclusion_check_sanctions: { rootHash: "abc", isStrict: false },
+          exclusion_check_sanctions: { rootHash: VALID_SANCTIONS_ROOT, isStrict: false },
         },
       }
     }
@@ -2715,10 +3250,11 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     function makeFacematchProof(
       commitmentIn: bigint,
       scope: bigint = domainScopeHash,
+      subscope: bigint = 0n,
     ): ProofResult {
       return {
         name: "facematch_1234",
-        proof: buildProofHex([commitmentIn, todayTs, scope, 0n, 0n, 0n, 0n]),
+        proof: buildProofHex([commitmentIn, todayTs, scope, subscope, 0n, 0n, 0n]),
         total: 1,
         committedInputs: {
           facematch: {
@@ -2770,6 +3306,30 @@ describe("PublicInputChecker - checkPublicInputs", () => {
       expect(isCorrect).toBe(false)
       expect(queryResultErrors.facematch?.scope).toBeDefined()
       expect(queryResultErrors.facematch!.scope!.message).toContain("different domain")
+    })
+
+    test("skips the domain and scope check when the domain is *", async () => {
+      const proofs = [
+        makeFacematchProof(
+          commitment,
+          getServiceScopeHash("customer.example"),
+          getScopeHash("age-check"),
+        ),
+      ]
+      const originalQuery: Query = { facematch: { mode: "regular" } }
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+
+      const { queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        "*",
+        proofs,
+        originalQuery,
+        queryResult,
+        86400 * 365,
+      )
+
+      expect(queryResultErrors.facematch?.scope).toBeUndefined()
     })
   })
 })
@@ -2888,5 +3448,406 @@ describe("PublicInputChecker - query completeness", () => {
 
     expect(isCorrect).toBe(false)
     expect(queryResultErrors.sanctions?.commitment?.message).toContain("sanctions exclusion")
+  })
+})
+
+// The app reports "DEU" for the MRZ code "D<<", so the checker must parse it the same way
+describe("PublicInputChecker - German documents (D<< country code)", () => {
+  const germanPassportMRZ =
+    "P<D<<MUSTERMANN<<ERIKA<<<<<<<<<<<<<<<<<<<<<<C01X00T478D<<6408125F2702283<<<<<<<<<<<<<<<4"
+  const germanIDCardMRZ =
+    "IDD<<L01X00T471<<<<<<<<<<<<<<<6408125F2702283D<<<<<<<<<<<<<4MUSTERMANN<<ERIKA<<<<<<<<<<<<<"
+
+  const makeDiscloseProofFromMrz = (mrz: string, ...ranges: [number, number][]) => {
+    const mask = new Array(90).fill(0)
+    for (const [start, end] of ranges) mask.fill(1, start, end)
+    return makeDiscloseProof(getDisclosedBytesFromMrzAndMask(mrz, mask))
+  }
+
+  describe("passports (TD3)", () => {
+    test("nationality disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
+        { nationality: { disclose: true } },
+        { nationality: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.nationality).toBeUndefined()
+    })
+
+    test("issuing_country disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [2, 5]),
+        { issuing_country: { disclose: true } },
+        { issuing_country: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.issuing_country).toBeUndefined()
+    })
+
+    test("nationality eq accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
+        { nationality: { eq: "DEU" } },
+        { nationality: { eq: { expected: "DEU", result: true } } },
+      )
+      expect(queryResultErrors.nationality).toBeUndefined()
+    })
+
+    test("issuing_country eq accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [2, 5]),
+        { issuing_country: { eq: "DEU" } },
+        { issuing_country: { eq: { expected: "DEU", result: true } } },
+      )
+      expect(queryResultErrors.issuing_country).toBeUndefined()
+    })
+
+    test("still rejects a nationality the passport does not hold", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [54, 57]),
+        { nationality: { disclose: true } },
+        { nationality: { disclose: { result: "FRA" } } },
+      )
+      expect(queryResultErrors.nationality?.disclose).toBeDefined()
+    })
+
+    test("the reported query passes end to end", () => {
+      const { isCorrect } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanPassportMRZ, [5, 44], [54, 57], [57, 63]),
+        {
+          firstname: { disclose: true },
+          lastname: { disclose: true },
+          birthdate: { disclose: true },
+          nationality: { disclose: true },
+        },
+        {
+          firstname: { disclose: { result: "ERIKA" } },
+          lastname: { disclose: { result: "MUSTERMANN" } },
+          birthdate: { disclose: { result: new Date(Date.UTC(1964, 7, 12)) } },
+          nationality: { disclose: { result: "DEU" } },
+        },
+      )
+      expect(isCorrect).toBe(true)
+    })
+  })
+
+  describe("id cards (TD1)", () => {
+    test("nationality disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanIDCardMRZ, [45, 48]),
+        { nationality: { disclose: true } },
+        { nationality: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.nationality).toBeUndefined()
+    })
+
+    test("issuing_country disclose accepts DEU", () => {
+      const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
+        makeDiscloseProofFromMrz(germanIDCardMRZ, [2, 5]),
+        { issuing_country: { disclose: true } },
+        { issuing_country: { disclose: { result: "DEU" } } },
+      )
+      expect(queryResultErrors.issuing_country).toBeUndefined()
+    })
+  })
+})
+
+describe("PublicInputChecker - registry chain", () => {
+  const certificateRoot = "0x" + "cd".repeat(32)
+  let certificateRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every certificate root valid on the registries of the given chains only
+  function mockCertificateRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    certificateRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isCertificateRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isCertificateRootAccepted(query: Query, devMode: boolean) {
+    const { isCorrect } = await PublicInputChecker.checkCertificateRegistryRoot(
+      certificateRoot,
+      {},
+      false,
+      devMode,
+      undefined,
+      query,
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    certificateRootValidity.mockRestore()
+  })
+
+  test("accepts a root valid on the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      true,
+    )
+  })
+
+  test("rejects a root valid only on another chain than the query's bound chain", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "ethereum_sepolia" } }, false)).toBe(
+      false,
+    )
+  })
+
+  test("rejects a query bound to a chain without a registry", async () => {
+    mockCertificateRootValidOn("ethereum")
+
+    expect(await isCertificateRootAccepted({ bind: { chain: "arbitrum" } }, false)).toBe(false)
+  })
+
+  test("checks an unbound query on Sepolia in dev mode and on Ethereum otherwise", async () => {
+    mockCertificateRootValidOn("ethereum_sepolia")
+
+    expect(await isCertificateRootAccepted({}, true)).toBe(true)
+    expect(await isCertificateRootAccepted({}, false)).toBe(false)
+  })
+})
+
+describe("PublicInputChecker - sanctions registry chain", () => {
+  const sanctionsRoot = "0x" + "ef".repeat(32)
+  let sanctionsRootValidity: ReturnType<typeof spyOn>
+
+  // Makes every sanctions root valid on the registries of the given chains only
+  function mockSanctionsRootValidOn(...chains: SupportedChain[]) {
+    const chainIds = chains.map(getIdFromChain)
+    sanctionsRootValidity = spyOn(
+      RegistryClient.prototype,
+      "isSanctionsRootValid",
+    ).mockImplementation(async function (this: RegistryClient) {
+      return chainIds.includes((this as unknown as { chainId: number }).chainId)
+    })
+  }
+
+  async function isSanctionsRootAccepted(boundChain: SupportedChain) {
+    const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
+      { sanctions: { countries: "all", lists: "all", strict: false }, bind: { chain: boundChain } },
+      { sanctions: { passed: true, isStrict: false } },
+      { rootHash: sanctionsRoot, isStrict: false },
+    )
+    return isCorrect
+  }
+
+  afterEach(() => {
+    sanctionsRootValidity.mockRestore()
+  })
+
+  test("accepts a sanctions root valid on the query's bound chain", async () => {
+    mockSanctionsRootValidOn("base")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(true)
+  })
+
+  test("rejects a sanctions root valid only on another chain than the query's bound chain", async () => {
+    mockSanctionsRootValidOn("ethereum")
+
+    expect(await isSanctionsRootAccepted("base")).toBe(false)
+  })
+})
+
+describe("PublicInputChecker - registry root checks with a supplied client", () => {
+  let originalFetch: typeof globalThis.fetch
+  let originalWarn: typeof console.warn
+
+  // Records the roots it is asked about and accepts them all
+  class StubRegistryClient extends RegistryClient {
+    checkedRoots: string[] = []
+
+    constructor() {
+      super({ chainId: 1 })
+    }
+
+    override async isCertificateRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+
+    override async isCircuitRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+
+    override async isSanctionsRootValid(root: string): Promise<boolean> {
+      this.checkedRoots.push(root)
+      return true
+    }
+  }
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch
+    originalWarn = console.warn
+    console.warn = () => {}
+    // Any request reaching a default client fails without touching the network
+    globalThis.fetch = (async () =>
+      Response.json({ error: { message: "unreachable in tests" } })) as unknown as typeof fetch
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    console.warn = originalWarn
+  })
+
+  test("checkCertificateRegistryRoot uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCertificateRegistryRoot(
+      "abc",
+      {},
+      false,
+      false,
+      undefined,
+      {},
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(queryResultErrors).toEqual({})
+    expect(client.checkedRoots).toEqual(["abc"])
+  })
+
+  test("checkCircuitRegistryRoot uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCircuitRegistryRoot(
+      "def",
+      {},
+      false,
+      undefined,
+      {},
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(queryResultErrors).toEqual({})
+    expect(client.checkedRoots).toEqual(["def"])
+  })
+
+  test("checkSanctionsExclusionPublicInputs uses the supplied client", async () => {
+    const client = new StubRegistryClient()
+    const { isCorrect } = await PublicInputChecker.checkSanctionsExclusionPublicInputs(
+      { sanctions: { countries: "all", lists: "all", strict: false } },
+      { sanctions: { passed: true, isStrict: false } },
+      { rootHash: "0x" + "ef".repeat(32), isStrict: false },
+      false,
+      undefined,
+      client,
+    )
+    expect(isCorrect).toBe(true)
+    expect(client.checkedRoots).toEqual(["0x" + "ef".repeat(32)])
+  })
+
+  test("falls back to a default client when none is supplied", async () => {
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkCertificateRegistryRoot(
+      "abc",
+      {},
+      false,
+      false,
+    )
+    expect(isCorrect).toBe(false)
+    expect(queryResultErrors.sig_check_dsc.certificate.received).toBe(
+      "Got invalid certificate registry root: abc",
+    )
+  })
+
+  test("checkPublicInputs forwards the client to the root checks", async () => {
+    const domain = "example.com"
+    const todayTs = BigInt(getTodayTimestamp())
+    const paramCommitment = await getAgeParameterCommitment(18, 0)
+    const proofs: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 111n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([111n, 222n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([222n, 333n]), total: 5 },
+      {
+        name: "compare_age",
+        proof: buildProofHex([
+          333n,
+          todayTs,
+          getServiceScopeHash(domain),
+          0n,
+          paramCommitment,
+          0n,
+          999n,
+        ]),
+        total: 5,
+        committedInputs: { compare_age: { minAge: 18, maxAge: 0 } },
+      },
+    ]
+    const originalQuery: Query = { age: { gte: 18 } }
+    const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
+
+    const client = new StubRegistryClient()
+    const withClient = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+      undefined,
+      undefined,
+      false,
+      client,
+    )
+    expect(withClient.isCorrect).toBe(true)
+    expect(client.checkedRoots).toEqual(["1"])
+
+    const withoutClient = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+    )
+    expect(withoutClient.isCorrect).toBe(false)
+    expect(withoutClient.queryResultErrors.sig_check_dsc?.certificate).toBeDefined()
+  })
+
+  test("checkPublicInputs forwards the client to the root check of a standalone sanctions proof", async () => {
+    const domain = "example.com"
+    const todayTs = BigInt(getTodayTimestamp())
+    const sanctionsRoot = "0x" + "0e".repeat(32)
+    const paramCommitment = await getSanctionsParameterCommitment(sanctionsRoot, true)
+    const proofs: ProofResult[] = [
+      { name: "sig_check_dsc_1234", proof: buildProofHex([1n, 111n]), total: 5 },
+      { name: "sig_check_id_data_1234", proof: buildProofHex([111n, 222n]), total: 5 },
+      { name: "data_check_integrity_1234", proof: buildProofHex([222n, 333n]), total: 5 },
+      {
+        name: "exclusion_check_sanctions",
+        proof: buildProofHex([
+          333n,
+          todayTs,
+          getServiceScopeHash(domain),
+          0n,
+          paramCommitment,
+          0n,
+          999n,
+        ]),
+        total: 5,
+        committedInputs: {
+          exclusion_check_sanctions: { rootHash: sanctionsRoot, isStrict: true },
+        },
+      },
+    ]
+    const originalQuery: Query = { sanctions: { countries: "all", lists: "all", strict: true } }
+    const queryResult: QueryResult = { sanctions: { passed: true, isStrict: true } }
+
+    const client = new StubRegistryClient()
+    const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+      domain,
+      proofs,
+      originalQuery,
+      queryResult,
+      86400 * 365,
+      undefined,
+      undefined,
+      false,
+      client,
+    )
+    expect(queryResultErrors).toEqual({})
+    expect(isCorrect).toBe(true)
+    expect(client.checkedRoots).toContain(sanctionsRoot)
   })
 })

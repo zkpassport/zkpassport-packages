@@ -1,5 +1,5 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { Binary } from "@zkpassport/utils"
+import { Binary, getIdFromChain } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
@@ -8,11 +8,13 @@ import {
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
   hexToCidv0,
+  SANCTIONS_REGISTRY_ID,
 } from "@zkpassport/utils/registry"
 import type {
   CircuitManifest,
   CircuitManifestEntry,
   PackagedCircuit,
+  SupportedChain,
 } from "@zkpassport/utils/types"
 import debug from "debug"
 import {
@@ -28,7 +30,9 @@ import {
   PACKAGED_CERTIFICATES_URL_TEMPLATE,
   PACKAGED_CIRCUIT_URL_TEMPLATE,
   REGISTRIES_MAPPING_SIGNATURE,
+  SANCTIONS_TREE_URL_TEMPLATE,
 } from "./constants"
+import { findNetworkConstants } from "./networks"
 import {
   DocumentSupport,
   DocumentSupportRule,
@@ -41,58 +45,25 @@ import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
 
-interface ChainConfig {
-  rpcUrl: string
-  rootRegistry: string
-  registryHelper: string
-  packagedCertsUrlGenerator: (chainId: number, root: string, cid?: string) => string
-  circuitManifestUrlGenerator: (
-    chainId: number,
-    { root, version, cid }: { root?: string; version?: string; cid?: string },
-  ) => string
-  packagedCircuitUrlGenerator: (chainId: number, hash: string, cid?: string) => string
-}
+/** A registry ID as the bytes32 word the Root Registry's functions take */
+const registryIdWord = (registryId: number) => registryId.toString(16).padStart(64, "0")
 
-const CHAIN_CONFIG: Record<number, ChainConfig> = {
-  // Ethereum Mainnet
-  1: {
-    rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0x8C93bB3a7ED88dA0647Ea53f8cd3f57832a513Cd",
-    // registryHelper: "0x0467c57Cadfc256E6a93abd5401BAF26Bdd382ef", // New RegistryHelper for canonical root registry
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-  },
-  // Base Mainnet
-  8453: {
-    rpcUrl: "https://base-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7",
-    // registryHelper: "0xC404C605130F3345E1A2BFdf3BAFABED7234cCa7", // New RegistryHelper for canonical root registry
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-  },
-  // Sepolia Testnet
-  11155111: {
-    rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
-    rootRegistry: "0x1D0000020038d6E40E1d98e09fA1bb3A7DAA8B70",
-    registryHelper: "0x6Ee299B1E8049fadc3494f1110A3479f5BE8EC0e",
-    // registryHelper: "0xbcc295c3f2a5398d459c81355540270d66563a61", // New RegistryHelper for canonical root registry
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-  },
-  // Local Development (Anvil)
-  31337: {
-    rpcUrl: "http://localhost:8545",
-    rootRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    registryHelper: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    packagedCertsUrlGenerator: PACKAGED_CERTIFICATES_URL_TEMPLATE,
-    circuitManifestUrlGenerator: CIRCUIT_MANIFEST_URL_TEMPLATE,
-    packagedCircuitUrlGenerator: PACKAGED_CIRCUIT_URL_TEMPLATE,
-  },
+/**
+ * Create a registry client for a chain RegistryClient supports
+ * @param chain - The chain's name or ID
+ * @param overrides - Options that take precedence over the chain's network constants
+ * @throws If RegistryClient does not support the chain
+ */
+export function createRegistryClient(
+  chain: SupportedChain | number,
+  overrides: Omit<Partial<RegistryClientOptions>, "chainId"> = {},
+): RegistryClient {
+  const chainId = typeof chain === "number" ? chain : getIdFromChain(chain)
+  if (!findNetworkConstants(chainId)) {
+    throw new Error(`Unsupported chain: ${chain}`)
+  }
+
+  return new RegistryClient({ ...overrides, chainId })
 }
 
 /**
@@ -117,6 +88,7 @@ export class RegistryClient {
     hash: string,
     cid?: string,
   ) => string
+  private readonly sanctionsTreeUrlGenerator: (chainId: number, root: string) => string
   private readonly retryCount: number
 
   constructor({
@@ -127,22 +99,27 @@ export class RegistryClient {
     packagedCertsUrlGenerator,
     circuitManifestUrlGenerator,
     packagedCircuitUrlGenerator,
+    sanctionsTreeUrlGenerator,
     retryCount,
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
     this.chainId = chainId
-    // Get chain config based on chainId
-    const chainConfig = CHAIN_CONFIG[chainId]
-    // Set config values using provided values or from chain config
-    this.rpcUrl = rpcUrl || chainConfig?.rpcUrl
-    this.rootRegistry = rootRegistry || chainConfig?.rootRegistry
-    this.registryHelper = registryHelper || chainConfig?.registryHelper
-    this.packagedCertsUrlGenerator =
-      packagedCertsUrlGenerator || chainConfig?.packagedCertsUrlGenerator
-    this.circuitManifestUrlGenerator =
-      circuitManifestUrlGenerator || chainConfig?.circuitManifestUrlGenerator
-    this.packagedCircuitUrlGenerator =
-      packagedCircuitUrlGenerator || chainConfig?.packagedCircuitUrlGenerator
+
+    const network = findNetworkConstants(chainId)
+    const resolvedRpcUrl = rpcUrl || network?.rpcUrl
+    const resolvedRootRegistry = rootRegistry || network?.rootRegistry
+    const resolvedRegistryHelper = registryHelper || network?.registryHelper
+    if (!resolvedRpcUrl || !resolvedRootRegistry || !resolvedRegistryHelper) {
+      throw new Error(`Unsupported chain ID: ${chainId}`)
+    }
+
+    this.rpcUrl = resolvedRpcUrl
+    this.rootRegistry = resolvedRootRegistry
+    this.registryHelper = resolvedRegistryHelper
+    this.packagedCertsUrlGenerator = packagedCertsUrlGenerator || PACKAGED_CERTIFICATES_URL_TEMPLATE
+    this.circuitManifestUrlGenerator = circuitManifestUrlGenerator || CIRCUIT_MANIFEST_URL_TEMPLATE
+    this.packagedCircuitUrlGenerator = packagedCircuitUrlGenerator || PACKAGED_CIRCUIT_URL_TEMPLATE
+    this.sanctionsTreeUrlGenerator = sanctionsTreeUrlGenerator || SANCTIONS_TREE_URL_TEMPLATE
     this.retryCount = retryCount || DEFAULT_RETRY_COUNT
   }
 
@@ -150,20 +127,7 @@ export class RegistryClient {
    * Get latest Certificate Registry root
    */
   async getLatestCertificateRoot(): Promise<string> {
-    log("Getting latest certificate root", { registry: this.rootRegistry })
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      LATEST_ROOT_WITH_PARAM_SIGNATURE + CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest certificate root: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    log(`Got latest certificates root: ${rpcData.result}`)
-    return rpcData.result
+    return this.getLatestRoot(CERTIFICATE_REGISTRY_ID, "certificate")
   }
 
   /**
@@ -174,23 +138,7 @@ export class RegistryClient {
    * @returns True if the root is valid, false otherwise
    */
   async isCertificateRootValid(root: string, timestamp?: number): Promise<boolean> {
-    root = normaliseHash(root)
-    const ts = timestamp ?? Math.floor(Date.now() / 1000)
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      IS_ROOT_VALID_SIGNATURE +
-        CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0") +
-        strip0x(root) +
-        ts.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Error checking if certificate root is valid: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    return parseInt(strip0x(rpcData.result)) === 1
+    return this.isRootValid(CERTIFICATE_REGISTRY_ID, "certificate", root, timestamp)
   }
 
   /**
@@ -209,15 +157,10 @@ export class RegistryClient {
     // TODO: Add support for IPFS flag by looking up the CID for this root
     if (ipfs) throw new Error("IPFS flag not implemented")
 
-    const url = this.packagedCertsUrlGenerator(this.chainId, root)
-    log("Getting certificates from:", url)
-    const response = await withRetry(() => fetch(url), this.retryCount)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get certificates for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
-      )
-    }
-    const data = (await response.json()) as PackagedCertificatesFile
+    const data = await this.fetchJson<PackagedCertificatesFile>(
+      this.packagedCertsUrlGenerator(this.chainId, root),
+      `certificates for root ${root}`,
+    )
     if (!data.version) data.version = 0
     log(
       `Got ${data.certificates?.length || 0} packaged certificates (schema version ${data.version})`,
@@ -278,7 +221,6 @@ export class RegistryClient {
     from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
     const requestData =
       typeof fromRoot === "number"
@@ -327,8 +269,6 @@ export class RegistryClient {
       isLastPage: boolean,
     ) => void,
   ): Promise<RootDetails[]> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address is not configured")
-
     let pageNumber = 0
     let isLastPage = false
     let currentIndex = 1
@@ -358,52 +298,14 @@ export class RegistryClient {
    * @param root Optional root to get details for (defaults to latest)
    */
   async getCertificateRootDetails(root?: string): Promise<RootDetails> {
-    if (root) {
-      log("Getting certificate root details")
-      const response = await this.rpcRequest(
-        this.registryHelper,
-        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
-          CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0") +
-          strip0x(root).padStart(64, "0"),
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Failed to get certificate root details: ${response.status} ${response.statusText}`,
-        )
-      }
-      return this._handleRootDetailsResponse(response)
-    }
-    log("Getting latest certificate root details")
-    const response = await this.rpcRequest(
-      this.registryHelper,
-      GET_LATEST_ROOT_DETAILS_SIGNATURE + CERTIFICATE_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest certificate root details: ${response.status} ${response.statusText}`,
-      )
-    }
-    return this._handleRootDetailsResponse(response)
+    return this.getRootDetails(CERTIFICATE_REGISTRY_ID, "certificate", root)
   }
 
   /**
    * Get latest Circuit Registry root
    */
   async getLatestCircuitRoot(): Promise<string> {
-    log("Getting latest circuit root", { registry: this.rootRegistry })
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      LATEST_ROOT_WITH_PARAM_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest circuit root: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    log(`Got latest circuit root: ${rpcData.result}`)
-    return rpcData.result
+    return this.getLatestRoot(CIRCUIT_REGISTRY_ID, "circuit")
   }
 
   /**
@@ -414,23 +316,7 @@ export class RegistryClient {
    * @returns True if the root is valid, false otherwise
    */
   async isCircuitRootValid(root: string, timestamp?: number): Promise<boolean> {
-    root = normaliseHash(root)
-    const ts = timestamp ?? Math.floor(Date.now() / 1000)
-    const response = await this.rpcRequest(
-      this.rootRegistry,
-      IS_ROOT_VALID_SIGNATURE +
-        CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") +
-        strip0x(root) +
-        ts.toString(16).padStart(64, "0"),
-    )
-    if (!response.ok) {
-      throw new Error(
-        `Error checking if circuit root is valid: ${response.status} ${response.statusText}`,
-      )
-    }
-    const rpcData = await response.json()
-    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
-    return parseInt(strip0x(rpcData.result)) === 1
+    return this.isRootValid(CIRCUIT_REGISTRY_ID, "circuit", root, timestamp)
   }
 
   /**
@@ -454,15 +340,10 @@ export class RegistryClient {
     // TODO: Add support for IPFS flag
     if (ipfs) throw new Error("IPFS flag not implemented")
 
-    const url = this.circuitManifestUrlGenerator(this.chainId, { root, version })
-    log("Getting circuit manifest from:", url)
-    const response = await withRetry(() => fetch(url), this.retryCount)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get circuit manifest for root ${root}: ${response.status} ${response.statusText}, URL: ${url}`,
-      )
-    }
-    const data = (await response.json()) as CircuitManifest
+    const data = await this.fetchJson<CircuitManifest>(
+      this.circuitManifestUrlGenerator(this.chainId, { root, version }),
+      `circuit manifest for root ${root}`,
+    )
     if (!data.version || !data.root || !data.circuits)
       throw new Error("Invalid circuit manifest returned")
     log(`Got circuit manifest for root ${root}`)
@@ -533,15 +414,10 @@ export class RegistryClient {
     const circuitHash = manifest.circuits[circuit]?.hash || null
     if (!circuitHash) throw new Error(`Circuit ${circuit} not found in manifest`)
 
-    const url = this.packagedCircuitUrlGenerator(this.chainId, circuitHash)
-    log("Getting packaged circuit from:", url)
-    const response = await withRetry(() => fetch(url), this.retryCount)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get packaged circuit for ${circuit}: ${response.status} ${response.statusText}`,
-      )
-    }
-    const data = (await response.json()) as PackagedCircuit
+    const data = await this.fetchJson<PackagedCircuit>(
+      this.packagedCircuitUrlGenerator(this.chainId, circuitHash),
+      `packaged circuit for ${circuit}`,
+    )
     if (!data.name || !data.hash || !data.noir_version || !data.bb_version)
       throw new Error(`Invalid packaged circuit returned for ${circuit}`)
     log(`Got packaged circuit for ${circuit}`)
@@ -564,7 +440,6 @@ export class RegistryClient {
     from: number | string,
     limit: number = DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   ): Promise<{ roots: RootDetails[]; isLastPage: boolean }> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address not configured")
     const fromRoot = typeof from === "string" ? strip0x(from) : (from ?? 1)
     const requestData =
       typeof fromRoot === "number"
@@ -613,8 +488,6 @@ export class RegistryClient {
       isLastPage: boolean,
     ) => void,
   ): Promise<RootDetails[]> {
-    if (!this.registryHelper) throw new Error("Historical roots helper address is not configured")
-
     let pageNumber = 0
     let isLastPage = false
     let currentIndex = 1
@@ -644,32 +517,67 @@ export class RegistryClient {
    * @param root Optional root to get details for (defaults to latest)
    */
   async getCircuitRootDetails(root?: string): Promise<RootDetails> {
-    if (root) {
-      log("Getting circuit root details")
-      const response = await this.rpcRequest(
-        this.registryHelper,
-        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
-          CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0") +
-          strip0x(root).padStart(64, "0"),
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Failed to get circuit root details: ${response.status} ${response.statusText}`,
-        )
-      }
-      return this._handleRootDetailsResponse(response)
-    }
-    log("Getting latest circuit root details")
-    const response = await this.rpcRequest(
-      this.registryHelper,
-      GET_LATEST_ROOT_DETAILS_SIGNATURE + CIRCUIT_REGISTRY_ID.toString(16).padStart(64, "0"),
+    return this.getRootDetails(CIRCUIT_REGISTRY_ID, "circuit", root)
+  }
+
+  /**
+   * Get latest Sanctions Registry root
+   */
+  async getLatestSanctionsRoot(): Promise<string> {
+    return this.getLatestRoot(SANCTIONS_REGISTRY_ID, "sanctions")
+  }
+
+  /**
+   * Check if a sanctions root is valid
+   *
+   * @param root The root hash to check
+   * @param timestamp Optional timestamp to check validity for (defaults to current time)
+   * @returns True if the root is valid, false otherwise
+   */
+  async isSanctionsRootValid(root: string, timestamp?: number): Promise<boolean> {
+    return this.isRootValid(SANCTIONS_REGISTRY_ID, "sanctions", root, timestamp)
+  }
+
+  /**
+   * Get the serialised sanctions tree published for a root
+   *
+   * The file holds the layers of the ordered Merkle tree, as `AsyncOrderedMT.serialize()` returns
+   * them, so `AsyncOrderedMT.fromSerialized()` loads it without rebuilding the tree.
+   *
+   * @param root The root hash to get the tree for (defaults to latest root)
+   * @param validate Whether to check that the tree's root node matches the root hash (defaults to true)
+   */
+  async getSanctionsTree(
+    root?: string,
+    { validate = true }: { validate?: boolean } = {},
+  ): Promise<{ root: string; serialised: string[][] }> {
+    if (!root) root = await this.getLatestSanctionsRoot()
+    else root = normaliseHash(root)
+
+    const serialised = await this.fetchJson<string[][]>(
+      this.sanctionsTreeUrlGenerator(this.chainId, root),
+      `sanctions tree for root ${root}`,
+      { headers: { "Accept-Encoding": "gzip" } },
     )
-    if (!response.ok) {
-      throw new Error(
-        `Failed to get latest circuit root details: ${response.status} ${response.statusText}`,
-      )
+    if (!Array.isArray(serialised) || !serialised.every((layer) => Array.isArray(layer)))
+      throw new Error("Invalid serialised sanctions tree returned")
+    log(`Got sanctions tree with ${serialised.length} layers for root ${root}`)
+
+    // Only the root node is checked: rehashing 2^18 leaves is too slow on a phone
+    if (validate) {
+      const treeRoot = serialised[serialised.length - 1]?.[0]
+      const valid = treeRoot !== undefined && normaliseHash(treeRoot) === root.toLowerCase()
+      if (!valid) throw new Error(`Validation failed for sanctions tree: ${root}`)
     }
-    return this._handleRootDetailsResponse(response)
+    return { root, serialised }
+  }
+
+  /**
+   * Get sanctions root details
+   * @param root Optional root to get details for (defaults to latest)
+   */
+  async getSanctionsRootDetails(root?: string): Promise<RootDetails> {
+    return this.getRootDetails(SANCTIONS_REGISTRY_ID, "sanctions", root)
   }
 
   /**
@@ -761,6 +669,14 @@ export class RegistryClient {
   }
 
   /**
+   * Get the URL of the RPC endpoint the client calls
+   * @returns The RPC URL
+   */
+  getRpcUrl(): string {
+    return this.rpcUrl
+  }
+
+  /**
    * Get the address of the Root Registry
    * @returns The address of the Root Registry
    */
@@ -810,6 +726,92 @@ export class RegistryClient {
 
   getUrlForPackagedCircuits(hash: string, cid?: string): string {
     return this.packagedCircuitUrlGenerator(this.chainId, hash, cid)
+  }
+
+  private async getLatestRoot(registryId: number, registryName: string): Promise<string> {
+    log(`Getting latest ${registryName} root`, { registry: this.rootRegistry })
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      LATEST_ROOT_WITH_PARAM_SIGNATURE + registryIdWord(registryId),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get latest ${registryName} root: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    log(`Got latest ${registryName} root: ${rpcData.result}`)
+    return rpcData.result
+  }
+
+  private async isRootValid(
+    registryId: number,
+    registryName: string,
+    root: string,
+    timestamp?: number,
+  ): Promise<boolean> {
+    root = normaliseHash(root)
+    const ts = timestamp ?? Math.floor(Date.now() / 1000)
+    const response = await this.rpcRequest(
+      this.rootRegistry,
+      IS_ROOT_VALID_SIGNATURE +
+        registryIdWord(registryId) +
+        strip0x(root) +
+        ts.toString(16).padStart(64, "0"),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Error checking if ${registryName} root is valid: ${response.status} ${response.statusText}`,
+      )
+    }
+    const rpcData = await response.json()
+    if (rpcData.error) throw new Error(`Error from blockchain: ${rpcData.error.message}`)
+    return parseInt(strip0x(rpcData.result)) === 1
+  }
+
+  private async getRootDetails(
+    registryId: number,
+    registryName: string,
+    root?: string,
+  ): Promise<RootDetails> {
+    if (root) {
+      log(`Getting ${registryName} root details`)
+      const response = await this.rpcRequest(
+        this.registryHelper,
+        GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
+          registryIdWord(registryId) +
+          strip0x(root).padStart(64, "0"),
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Failed to get ${registryName} root details: ${response.status} ${response.statusText}`,
+        )
+      }
+      return this._handleRootDetailsResponse(response)
+    }
+    log(`Getting latest ${registryName} root details`)
+    const response = await this.rpcRequest(
+      this.registryHelper,
+      GET_LATEST_ROOT_DETAILS_SIGNATURE + registryIdWord(registryId),
+    )
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get latest ${registryName} root details: ${response.status} ${response.statusText}`,
+      )
+    }
+    return this._handleRootDetailsResponse(response)
+  }
+
+  private async fetchJson<T>(url: string, what: string, init?: RequestInit): Promise<T> {
+    log(`Getting ${what} from:`, url)
+    const response = await withRetry(() => fetch(url, init), this.retryCount)
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get ${what}: ${response.status} ${response.statusText}, URL: ${url}`,
+      )
+    }
+    return (await response.json()) as T
   }
 
   private async rpcRequest(to: string, data: string): Promise<Response> {

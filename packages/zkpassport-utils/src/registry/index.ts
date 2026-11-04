@@ -1,22 +1,21 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { Binary } from "../binary"
 import {
-  CircuitManifest,
   ECPublicKey,
   PackagedCertificate,
   PackagedCertificatesFile,
   PackagedCertificatesFileV1,
-  PackagedCircuit,
   IntermediateCertificateRevocation,
   RSAPublicKey,
   TwoLetterCode,
 } from "../types"
-import { assert, packBeBytesIntoFields } from "../utils"
+import { assert, normaliseHex, packBeBytesIntoFields } from "../utils"
 import { AsyncMerkleTree } from "./merkle"
 import { AsyncIMT, poseidon2 } from "../merkle-tree"
 import type { IMTMerkleProof } from "../merkle-tree/async-imt"
-import { computeMerkleProof } from ".."
 export { cidv0ToHex, hexToCidv0 } from "./cid"
+export * from "./circuits"
+export * from "./sanctions"
 
 /**
  * Canonical height of the certificate merkle tree (in the Certificate Registry)
@@ -32,11 +31,6 @@ export const REVOCATION_MERKLE_TREE_HEIGHT = 14 // Max leaves: 2^14 = 16384
  * Canonical height of the masterlist merkle tree (in the Certificate Registry)
  */
 export const MASTERLIST_MERKLE_TREE_HEIGHT = 8 // Max leaves: 2^8 = 256
-
-/**
- * Canonical merkle tree height for the circuit registry
- */
-export const CIRCUIT_REGISTRY_HEIGHT = 12 // Max leaves: 2^12 = 4096
 
 /**
  * Canonical zero leaf used to pad empty slots in every ordered Merkle tree maintained
@@ -85,6 +79,12 @@ export const CERTIFICATE_REGISTRY_ID = 1
  * Used to identify the circuit registry in the root registry
  */
 export const CIRCUIT_REGISTRY_ID = 2
+
+/**
+ * Sanctions Registry ID
+ * Used to identify the sanctions registry in the root registry
+ */
+export const SANCTIONS_REGISTRY_ID = 3
 
 /**
  * @deprecated Use tagsArrayToBitsFlag instead
@@ -716,6 +716,48 @@ export async function calculatePackagedCertificatesStateRoot(
 }
 
 /**
+ * Get a certificate's Merkle proof from the tree stored in a packaged certificates file,
+ * which is much faster than rebuilding the tree. The proof is only returned if it leads
+ * to the file's root, the same check the certificate circuit makes.
+ * @param revocationRoot Revocation tree root of the same file
+ * @param masterlistRoot Masterlist tree root of the same file
+ * @returns The Merkle proof, or null if the stored tree cannot be used
+ */
+export async function getCertificateMerkleProofFromFile(
+  packagedCerts: PackagedCertificatesFileV1,
+  leaf: bigint,
+  revocationRoot: string,
+  masterlistRoot: string,
+): Promise<{ root: string; index: number; path: string[] } | null> {
+  const layers = packagedCerts.certificates_serialised
+  if (layers?.length !== CERTIFICATE_MERKLE_TREE_HEIGHT + 1) return null
+  try {
+    const tree = await AsyncIMT.fromSerialized(poseidon2, layers)
+    const index = tree.indexOf(leaf)
+    if (index === -1) return null
+    const proof = tree.createProof(index)
+    if (!(await AsyncIMT.verifyProof(proof, poseidon2))) return null
+    const certificateTreeRoot = normaliseHex(BigInt(proof.root))
+    const { certificateRoot: registryRoot } = await calculateCertificateRootV1({
+      schemaVersion: packagedCerts.version,
+      timestamp: packagedCerts.timestamp,
+      certificateRoot: certificateTreeRoot,
+      revocationRoot,
+      masterlistRoot,
+    })
+    if (BigInt(registryRoot) !== BigInt(packagedCerts.root)) return null
+    return {
+      root: certificateTreeRoot,
+      index,
+      path: proof.siblings.flat().map((node) => normaliseHex(BigInt(node))),
+    }
+  } catch {
+    // A stored tree that cannot be parsed is treated like a missing one
+    return null
+  }
+}
+
+/**
  * Input for {@link createPackagedCertificatesFile}.
  */
 export type CreatePackagedCertificatesFileInput = {
@@ -781,58 +823,4 @@ export async function createPackagedCertificatesFile(
     masterlists: input.masterlists,
   }
   return file
-}
-
-/**
- * Calculate the canonical circuit root from packaged circuits or vkey hashes
- * @param param An object containing either:
- *              - circuits: Array of PackagedCircuit objects to use for calculating the root
- *              - hashes: Array of vkey hashes to use for calculating the root
- * @returns Circuit root used in the Circuit Registry
- */
-export async function calculateCircuitRoot(
-  param: Partial<{ circuits: PackagedCircuit[]; hashes: string[] }>,
-) {
-  let leaves: bigint[]
-  if (param.circuits !== undefined) {
-    leaves = param.circuits.map((circuit) => BigInt(circuit.vkey_hash))
-  } else if (param.hashes !== undefined) {
-    leaves = param.hashes.map((hash) => BigInt(hash))
-  } else throw new Error("Either circuits or hashes must be provided")
-  // Sort leaves to ensure consistent roots
-  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
-  // Build the merkle tree and return the root
-  const tree = new AsyncMerkleTree(CIRCUIT_REGISTRY_HEIGHT, 2)
-  await tree.initialize(MERKLE_TREE_ZERO_VALUE, leaves)
-  return tree.root
-}
-
-export function getLeavesFromCircuitManifest(circuitManifest: CircuitManifest) {
-  let leaves: bigint[]
-  if (circuitManifest.circuits !== undefined) {
-    leaves = Object.values(circuitManifest.circuits).map((circuit) => BigInt(circuit.hash))
-  } else {
-    throw new Error("Circuits must be provided")
-  }
-  // Sort leaves to ensure consistent roots
-  leaves.sort((a, b) => (a > b ? 1 : a < b ? -1 : 0))
-  return leaves
-}
-
-export async function getCircuitMerkleProof(
-  circuitKeyHash: string,
-  circuitManifest: CircuitManifest,
-  computeMerkleProofFn: (
-    leaves: bigint[],
-    index: number,
-    height: number,
-  ) => Promise<{
-    root: string
-    index: number
-    path: string[]
-  }> = computeMerkleProof,
-) {
-  const leaves = getLeavesFromCircuitManifest(circuitManifest)
-  const index = leaves.findIndex((leaf) => leaf === BigInt(circuitKeyHash))
-  return computeMerkleProofFn(leaves, index, CIRCUIT_REGISTRY_HEIGHT)
 }

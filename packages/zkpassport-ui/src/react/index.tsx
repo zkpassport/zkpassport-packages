@@ -27,4 +27,17 @@ export function ZKPassportQRCode(props: ZKPassportQRCodeProps): ReactElement {
   return <div ref={containerRef} />
 }
 
+export {
+  VerifyWithZKPassport,
+  type VerifyWithZKPassportProps,
+  type ZKPassportVerification,
+} from "./button"
+export type { VerifyWithZKPassportOptions } from "../verify-button"
+export type {
+  ServiceConfig,
+  VerificationOverrides,
+  VerificationOptions,
+  VerificationState,
+  VerificationStatus,
+} from "../verification"
 export * from "../types"

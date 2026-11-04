@@ -1,0 +1,134 @@
+import { ICON_CHECK, ICON_ZKP_MARK } from "../assets"
+import buttonStyles from "../button.css"
+import { injectStylesheet } from "../inject-styles"
+import { createOpenInBrowserPanel } from "../open-in-browser-panel"
+import { resolveTarget, type RenderTarget } from "../render-target"
+import { createVerification, type VerificationState } from "../verification"
+import {
+  BUTTON_CAPTION,
+  buttonTooltip,
+  buttonLabel,
+  isButtonDisabled,
+  SUCCESS_BUTTON_LABEL,
+  type VerifyWithZKPassportOptions,
+} from "../verify-button"
+
+// One layer of the mark, and the label line that goes with it; the button shows
+// the pair whose state matches its status
+function createButtonState(state: "default" | "success", icon: string) {
+  const mark = document.createElement("span")
+  mark.dataset.state = state
+  mark.innerHTML = icon
+  const element = document.createElement("span")
+  element.className = "zkp-verify-state"
+  element.dataset.state = state
+  const label = document.createElement("span")
+  element.append(label)
+  return { mark, element, label }
+}
+
+export type VerifyButtonHandle = {
+  update(next: VerifyWithZKPassportOptions): void
+  unmount(): void
+}
+
+/**
+ * Renders the "Verify with ZKPassport" button into `target`, an element or a selector. Takes the
+ * same options as the React `VerifyWithZKPassport` component.
+ */
+function render(target: RenderTarget, options: VerifyWithZKPassportOptions): VerifyButtonHandle {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    throw new Error("@zkpassport/ui: VerifyWithZKPassport.render() requires a browser environment.")
+  }
+  const element = resolveTarget(target)
+  injectStylesheet(buttonStyles, "button")
+
+  let currentOptions = options
+  let openInBrowserPanel: { url: string; element: HTMLElement } | null = null
+
+  const root = document.createElement("div")
+  const button = document.createElement("button")
+  const mark = document.createElement("span")
+  const body = document.createElement("span")
+  const content = document.createElement("span")
+  const defaultState = createButtonState("default", ICON_ZKP_MARK)
+  const successState = createButtonState("success", ICON_CHECK)
+  const external = document.createElement("span")
+  const caption = document.createElement("span")
+  const notice = document.createElement("p")
+
+  button.type = "button"
+  mark.className = "zkp-verify-button-mark"
+  body.className = "zkp-verify-body"
+  content.className = "zkp-verify-content"
+  successState.label.textContent = SUCCESS_BUTTON_LABEL
+  external.className = "zkp-verify-external"
+  external.setAttribute("aria-hidden", "true")
+  // North-east arrow: the click opens the hosted ZKPassport window
+  external.textContent = "\u2197"
+  notice.setAttribute("role", "alert")
+  caption.className = "zkp-verify-caption"
+  caption.textContent = BUTTON_CAPTION
+  defaultState.element.append(external)
+  mark.append(defaultState.mark, successState.mark)
+  content.append(defaultState.element, successState.element)
+  body.append(content, caption)
+  button.append(mark, body)
+  root.append(button)
+
+  function renderState(state: VerificationState) {
+    const style = currentOptions.style ?? {}
+    root.className = "zkp-verify-wrap"
+    root.dataset.variant = style.variant ?? "filled"
+
+    notice.remove()
+    // Only the blocked case: no window of ours can appear to carry the message
+    const panelUrl = state.error ? state.openInBrowserUrl : null
+    // Reusing the panel keeps the "Link copied" reply the user may be reading
+    if ((openInBrowserPanel?.url ?? null) !== panelUrl) {
+      openInBrowserPanel?.element.remove()
+      openInBrowserPanel = panelUrl
+        ? { url: panelUrl, element: createOpenInBrowserPanel({ url: panelUrl }) }
+        : null
+      if (openInBrowserPanel) root.append(openInBrowserPanel.element)
+    }
+    if (!panelUrl && state.errorKind === "blocked" && state.error) {
+      notice.className = "zkp-verify-notice"
+      notice.textContent = state.error
+      root.append(notice)
+    }
+    button.className = "zkp-verify-button"
+    button.dataset.status = state.status
+    button.disabled = isButtonDisabled(state.status)
+    button.title = buttonTooltip(state.status, state.resumable)
+    defaultState.label.textContent = buttonLabel(style.label, state.resumable)
+  }
+
+  const verification = createVerification(() => currentOptions, renderState)
+  button.addEventListener("click", verification.verify)
+  renderState(verification.state)
+  element.appendChild(root)
+
+  return {
+    update(next) {
+      currentOptions = next
+      renderState(verification.state)
+    },
+    unmount() {
+      verification.dispose()
+      root.remove()
+    },
+  }
+}
+
+export const VerifyWithZKPassport = { render }
+
+export type { RenderTarget } from "../render-target"
+export type {
+  ServiceConfig,
+  VerificationOverrides,
+  VerificationOptions,
+  VerificationState,
+  VerificationStatus,
+} from "../verification"
+export type { VerifyWithZKPassportOptions } from "../verify-button"

@@ -26,7 +26,7 @@ import {
   getRSAPSSParams,
 } from "./cms/utils"
 import { DG1_INPUT_SIZE, E_CONTENT_INPUT_SIZE, SIGNED_ATTR_INPUT_SIZE } from "./constants"
-import { countryCodeAlpha2ToAlpha3 } from "./country/country"
+import { countryCodeAlpha2ToAlpha3, normalizeCountryCode } from "./country/country"
 import { computeMerkleProof } from "./merkle-tree"
 import {
   extractTBS,
@@ -40,6 +40,7 @@ import {
   CERTIFICATE_MERKLE_TREE_HEIGHT,
   getCertificateLeafHash,
   getCertificateLeafHashes,
+  getCertificateMerkleProofFromFile,
   tagsArrayToBitsFlag,
 } from "./registry"
 import type {
@@ -80,8 +81,12 @@ import {
   getNationalityRange,
 } from "./passport/getters"
 import { type OPRFProof, OPRF_ZERO_PROOF } from "./oprf"
-import { SanctionsBuilder } from "./circuits/sanctions"
-export { SanctionsBuilder }
+import {
+  SanctionsBuilder,
+  getSanctionsEvmParameterCommitment,
+  getSanctionsParameterCommitment,
+} from "./circuits/sanctions"
+export { SanctionsBuilder, getSanctionsEvmParameterCommitment, getSanctionsParameterCommitment }
 
 // @deprecated This list will be removed in a future version
 const SUPPORTED_HASH_ALGORITHMS: DigestAlgorithm[] = ["SHA1", "SHA256", "SHA384", "SHA512"]
@@ -200,7 +205,7 @@ function getCscaCandidates(
     }
   }
   const country = getDSCCountry(dsc)
-  const formattedCountry = country === "D<<" ? "DEU" : country
+  const formattedCountry = normalizeCountryCode(country)
 
   const checkAgainstAuthorityKeyIdentifier = (cert: PackagedCertificate) => {
     return (
@@ -517,18 +522,28 @@ export async function getDSCCircuitInputs(
   // Get the CSCA for this passport's DSC using the async version with signature verification fallback
   const csca = await getCscaForPassportAsync(passport.sod.certificate, packagedCerts.certificates)
   if (!csca) throw new Error("Could not find CSCA for DSC")
-  // Generate the certificate tree merkle proof
-  const cscaLeaf = await getCertificateLeafHash(csca, { version: schemaVersion })
-  const leaves =
-    overrideCertLeaves ??
-    (await getCertificateLeafHashes(packagedCerts.certificates, schemaVersion))
-  const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
-  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
-  const merkleProof =
-    overrideMerkleProof ?? (await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT))
-
   const revocationTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
   const masterlistTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
+  // Generate the certificate tree merkle proof
+  const cscaLeaf = await getCertificateLeafHash(csca, { version: schemaVersion })
+  const tags = tagsArrayToBitsFlag(csca.tags ?? [])
+  let merkleProof =
+    overrideMerkleProof ??
+    (await getCertificateMerkleProofFromFile(
+      packagedCerts,
+      cscaLeaf,
+      revocationTree.root,
+      masterlistTree.root,
+    ))
+  // Rebuilding the tree hashes every certificate, which takes seconds on a phone,
+  // so it is only done when the file's stored tree cannot be used
+  if (!merkleProof) {
+    const leaves =
+      overrideCertLeaves ??
+      (await getCertificateLeafHashes(packagedCerts.certificates, schemaVersion))
+    const index = leaves.findIndex((leaf) => leaf === cscaLeaf)
+    merkleProof = await computeMerkleProof(leaves, index, CERTIFICATE_MERKLE_TREE_HEIGHT)
+  }
 
   const inputs = {
     certificate_registry_root: packagedCerts.root,
@@ -754,6 +769,7 @@ export async function getSaltedValuesForDisclosureCircuit(
   privateNullifier: Binary,
   salts: IntegrityToDisclosureSalts,
   hideSensitiveInputs: boolean = false,
+  hideNullifier: boolean = false,
 ) {
   const saltedDg1 = SaltedValue.fromValue(salts.dg1Salt, idData.dg1)
   const saltedPrivateNullifier = SaltedValue.fromValue(
@@ -773,9 +789,10 @@ export async function getSaltedValuesForDisclosureCircuit(
           Array.from({ length: 95 }, () => 0),
         ).formatForInput()
       : saltedDg1.formatForInput(),
-    salted_private_nullifier: hideSensitiveInputs
-      ? SaltedValue.fromHash(await saltedPrivateNullifier.getHash(), 0n).formatForInput()
-      : saltedPrivateNullifier.formatForInput(),
+    salted_private_nullifier:
+      hideSensitiveInputs || hideNullifier
+        ? SaltedValue.fromHash(await saltedPrivateNullifier.getHash(), 0n).formatForInput()
+        : saltedPrivateNullifier.formatForInput(),
     salted_expiry_date: saltedExpiryDate.formatForInput(),
     salted_dg2_hash: saltedDg2Hash.formatForInput(),
     salted_dg2_hash_type: saltedDg2HashType.formatForInput(),
@@ -791,6 +808,7 @@ export async function getDiscloseCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ) {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -817,7 +835,14 @@ export async function getDiscloseCircuitInputs(
   const discloseMask = getDiscloseMask(passport, query)
   return {
     current_date: currentDateTimestamp,
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     disclose_mask: discloseMask,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -938,6 +963,7 @@ export async function getAgeCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -991,7 +1017,14 @@ export async function getAgeCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1020,6 +1053,7 @@ export async function getNationalityInclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1044,7 +1078,14 @@ export async function getNationalityInclusionCircuitInputs(
   )
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     country_list: padCountryList(query.nationality?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1064,6 +1105,7 @@ export async function getIssuingCountryInclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1088,7 +1130,14 @@ export async function getIssuingCountryInclusionCircuitInputs(
   )
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     country_list: padCountryList(query.issuing_country?.in ?? []),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
@@ -1108,6 +1157,7 @@ export async function getNationalityExclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1138,7 +1188,14 @@ export async function getNationalityExclusionCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1162,6 +1219,7 @@ export async function getIssuingCountryExclusionCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1188,7 +1246,14 @@ export async function getIssuingCountryExclusionCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     // Sort the country list in ascending order
     country_list: rightPadArrayWithZeros(
@@ -1213,6 +1278,7 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   sanctions?: SanctionsBuilder, // Optional sanctions builder so it can be reused if already instantiated
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1241,7 +1307,14 @@ export async function getSanctionsExclusionCheckCircuitInputs(
   const { proofs, root } = await sanctions.getSanctionsMerkleProofs(passport, isStrict)
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     proofs,
@@ -1263,6 +1336,7 @@ export async function getBirthdateCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1316,7 +1390,14 @@ export async function getBirthdateCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1340,6 +1421,7 @@ export async function getExpiryDateCircuitInputs(
   service_subscope: bigint = 0n,
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   if (nullifierSecret !== 0n && !oprfProof) {
     throw new Error("OPRF proof is required when nullifier secret is not 0")
@@ -1393,7 +1475,14 @@ export async function getExpiryDateCircuitInputs(
   }
 
   return {
-    ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+    ...(await getSaltedValuesForDisclosureCircuit(
+      passport,
+      idData,
+      privateNullifier,
+      salts,
+      false,
+      hideNullifier,
+    )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),
     service_scope: `0x${service_scope.toString(16)}`,
@@ -1415,6 +1504,7 @@ export async function getBindCircuitInputs(
   currentDateTimestamp: number,
   oprfProof: OPRFProof = OPRF_ZERO_PROOF,
   hideSensitiveInputs: boolean = false,
+  hideNullifier: boolean = false,
 ): Promise<any> {
   const idData = await getIDDataInputs(passport)
   if (!idData) return null
@@ -1443,6 +1533,7 @@ export async function getBindCircuitInputs(
       privateNullifier,
       salts,
       hideSensitiveInputs,
+      hideNullifier,
     )),
     current_date: currentDateTimestamp,
     comm_in: commIn.toHex(),

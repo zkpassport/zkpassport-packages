@@ -1,0 +1,63 @@
+import { fileURLToPath } from "node:url"
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
+
+// Grants crossOriginIsolated (SharedArrayBuffer → multithreaded WASM proving)
+// WITHOUT COOP, so the window.opener postMessage channel to the RP page survives.
+// Supported in Chromium; other browsers ignore it and prove single-threaded.
+const DOCUMENT_ISOLATION_HEADERS = {
+  "Document-Isolation-Policy": "isolate-and-credentialless",
+}
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      // internal build of @zkpassport/ui, not part of its public exports
+      "@zkpassport/ui/hosted": fileURLToPath(
+        new URL("../zkpassport-ui/dist/hosted.js", import.meta.url),
+      ),
+      "@zkpassport/ui/hosted-credential": fileURLToPath(
+        new URL("../zkpassport-ui/dist/hosted-credential.js", import.meta.url),
+      ),
+      // The hosted bundle imports the SDK, which /r must not carry; this build stands alone
+      "@zkpassport/ui/app-link": fileURLToPath(
+        new URL("../zkpassport-ui/dist/app-link.js", import.meta.url),
+      ),
+    },
+  },
+  server: {
+    port: 5173,
+    headers: DOCUMENT_ISOLATION_HEADERS,
+  },
+  preview: {
+    port: 5173,
+    headers: DOCUMENT_ISOLATION_HEADERS,
+    // Phone testing goes through a Cloudflare quick tunnel, and preview rejects unknown hosts
+    allowedHosts: [".trycloudflare.com"],
+  },
+  optimizeDeps: {
+    // These packages load WASM and spawn workers via import.meta.url, which
+    // breaks Vite's dependency pre-bundling — serve them as native ESM instead
+    exclude: [
+      "@aztec/bb.js",
+      "@aztec-foundation/bb.js",
+      "@noir-lang/noir_js",
+      "@noir-lang/noirc_abi",
+      "@noir-lang/acvm_js",
+    ],
+    esbuildOptions: {
+      target: "esnext",
+    },
+  },
+  build: {
+    target: "esnext",
+    rollupOptions: {
+      // /r is its own page so it stays free of the SDK, wagmi and the proving backends
+      input: {
+        main: fileURLToPath(new URL("index.html", import.meta.url)),
+        r: fileURLToPath(new URL("r.html", import.meta.url)),
+      },
+    },
+  },
+})

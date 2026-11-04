@@ -10,6 +10,7 @@ echo "Ensuring workspace dependencies are synced"
 (cd packages/zkpassport-sdk && bun update @zkpassport/utils @zkpassport/registry)
 (cd packages/registry-sdk && bun update @zkpassport/utils)
 (cd packages/zkpassport-ui && bun update @zkpassport/sdk)
+(cd packages/onchain-credentials/javascript && bun update @zkpassport/utils)
 
 bun install
 

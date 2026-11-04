@@ -6,6 +6,7 @@ import {
   rightPadArrayWithZeros,
 } from "../utils"
 import { ProofData, ProofType, ProofTypeLength } from "."
+import { normalizeCountryCode } from "../country/country"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { sha256 } from "@noble/hashes/sha2.js"
 
@@ -157,8 +158,8 @@ export class DisclosedData {
     const fullName = givenNames + " " + lastName
 
     return new DisclosedData({
-      issuingCountry: decode(raw.issuingCountry),
-      nationality: decode(raw.nationality),
+      issuingCountry: normalizeCountryCode(decode(raw.issuingCountry)),
+      nationality: normalizeCountryCode(decode(raw.nationality)),
       documentType: parseDocumentType(decode(raw.documentType)),
       documentNumber: stripChevrons(decode(raw.documentNumber)),
       dateOfExpiry: parseDate(raw.dateOfExpiry),
@@ -200,8 +201,8 @@ export class DisclosedData {
     const fullName = givenNames + " " + lastName
 
     return new DisclosedData({
-      issuingCountry: decode(raw.issuingCountry),
-      nationality: decode(raw.nationality),
+      issuingCountry: normalizeCountryCode(decode(raw.issuingCountry)),
+      nationality: normalizeCountryCode(decode(raw.nationality)),
       documentType: parseDocumentType(decode(raw.documentType)),
       documentNumber: stripChevrons(decode(raw.documentNumber)),
       dateOfExpiry: parseDate(raw.dateOfExpiry),
@@ -259,8 +260,8 @@ export class DisclosedData {
     const fullName = givenNames + " " + lastName
 
     return new DisclosedData({
-      issuingCountry: decode(raw.issuingCountry),
-      nationality: decode(raw.nationality),
+      issuingCountry: normalizeCountryCode(decode(raw.issuingCountry)),
+      nationality: normalizeCountryCode(decode(raw.nationality)),
       documentType: parseDocumentType(decode(raw.documentType)),
       documentNumber: stripChevrons(decode(raw.documentNumber)),
       dateOfExpiry: parseDate(raw.dateOfExpiry),

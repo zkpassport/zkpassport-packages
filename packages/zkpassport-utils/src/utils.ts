@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { bigIntToBuffer } from "@zk-kit/utils"
-import { HashAlgorithm, QueryResult, SupportedChain } from "./types"
+import { HashAlgorithm, Query, QueryResult, SupportedChain } from "./types"
 import { hexToBytes } from "@noble/hashes/utils.js"
 import {
   HASH_ALGORITHM_SHA1,
@@ -260,6 +260,7 @@ const CHAIN_IDS = {
   scroll: 534352,
   linea: 59144,
   world_chain: 480,
+  robinhood: 4663,
   // Testnets
   ethereum_sepolia: 11155111,
   base_sepolia: 84532,
@@ -287,6 +288,16 @@ export function getChainFromId(chainId: number): SupportedChain {
     }
   }
   throw new Error(`Unsupported chain ID: ${chainId}`)
+}
+
+/**
+ * Get the chain for a query
+ * @param query - The query
+ * @param devMode - Whether the query's request is in dev mode
+ * @returns The bound chain, else Ethereum Sepolia in dev mode and Ethereum otherwise
+ */
+export function getChainFromQuery(query: Query, devMode: boolean): SupportedChain {
+  return query.bind?.chain ?? (devMode ? "ethereum_sepolia" : "ethereum")
 }
 
 export function getChainDisplayName(chain: SupportedChain): string {

@@ -10,6 +10,6 @@
     "lib": ["es2020", "dom", "dom.iterable"]
   },
   // "include" controls type-checking only; build output is controlled by tsup.config.ts entry points
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tsup.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tsup.config.ts"],
   "references": []
 }
