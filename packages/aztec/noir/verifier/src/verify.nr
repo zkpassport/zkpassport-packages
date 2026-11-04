@@ -6,7 +6,9 @@ use aztec::{
 use poseidon::poseidon2::Poseidon2;
 use zkpassport::commitments::disclose_commitment;
 use zkpassport::constants::{
-    CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
+    CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, NULLIFIER_TYPE_NON_SALTED,
+    NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_SALTED,
+    NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
 };
 use zkpassport::verify::verify_outer_proof_core;
 use zkpassport_registry_contract::ZKPassportRegistry;
@@ -18,7 +20,7 @@ pub struct ServiceConfig {
     pub version: Field,
     pub domain: Field, // scope_hash of the domain the app's requests come from, never 0
     pub scope: Field, // scope_hash of a scope within the domain, 0 for the whole domain
-    pub unique_identifier_type: u8, // the NULLIFIER_TYPE_* the proof must carry
+    pub unique_identifier_type: u8, // the real NULLIFIER_TYPE_* the proof must carry
     pub validity_period: u64, // max proof age in seconds
     pub dev_mode: bool,
     pub disclose: bool, // the proof has a disclose subproof, its payload in the disclose capsule
@@ -153,7 +155,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
     );
     let parsed = out.parsed;
 
-    assert_service_policy(config, parsed.nullifier_type);
+    assert_service_policy(config, parsed.nullifier_type, parsed.scoped_nullifier);
 
     // Freshness vs the anchor-block timestamp
     let anchor_ts = context.get_anchor_block_header().timestamp();
@@ -238,9 +240,33 @@ fn default_registry(chain_id: Field) -> AztecAddress {
 
 // The checks this library adds to the core's. A proof made for no domain (0) would pass in every
 // app that also left it at 0, with the same unique identifier in each.
-fn assert_service_policy(config: ServiceConfig, unique_identifier_type: u8) {
+fn assert_service_policy(
+    config: ServiceConfig,
+    unique_identifier_type: u8,
+    unique_identifier: Field,
+) {
     assert(config.domain != 0, "service domain required");
-    assert(unique_identifier_type == config.unique_identifier_type, "wrong unique identifier type");
+    assert(
+        real_unique_identifier_type(unique_identifier_type, unique_identifier)
+            == config.unique_identifier_type,
+        "wrong unique identifier type",
+    );
+}
+
+// A mock document's proof counts as the real type it mocks. A non-salted mock keeps its type even
+// when the identifier is hidden, so a hidden one counts as NULLIFIER_TYPE_NONE.
+fn real_unique_identifier_type(unique_identifier_type: u8, unique_identifier: Field) -> u8 {
+    if unique_identifier_type == NULLIFIER_TYPE_SALTED_MOCK {
+        NULLIFIER_TYPE_SALTED
+    } else if unique_identifier_type == NULLIFIER_TYPE_NON_SALTED_MOCK {
+        if unique_identifier != 0 {
+            NULLIFIER_TYPE_NON_SALTED
+        } else {
+            NULLIFIER_TYPE_NONE
+        }
+    } else {
+        unique_identifier_type
+    }
 }
 
 // The capsule holds mask ‖ bytes, one value per Field. Field-to-integer casts truncate silently,
@@ -280,7 +306,10 @@ mod test {
         assert_service_policy, default_registry, Disclosure, expected_with_disclosure,
         parse_disclose_payload, scope_hash, ServiceConfig,
     };
-    use zkpassport::constants::{NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_SALTED};
+    use zkpassport::constants::{
+        NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
+        NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK,
+    };
     use zkpassport::fixtures::DISCLOSE_COMMITMENT;
 
     fn service_config(domain: Field, unique_identifier_type: u8) -> ServiceConfig {
@@ -314,6 +343,7 @@ mod test {
         assert_service_policy(
             service_config(scope_hash("example.com"), NULLIFIER_TYPE_NON_SALTED),
             NULLIFIER_TYPE_NON_SALTED,
+            1,
         );
     }
 
@@ -322,6 +352,7 @@ mod test {
         assert_service_policy(
             service_config(0, NULLIFIER_TYPE_NON_SALTED),
             NULLIFIER_TYPE_NON_SALTED,
+            1,
         );
     }
 
@@ -330,6 +361,52 @@ mod test {
         assert_service_policy(
             service_config(scope_hash("example.com"), NULLIFIER_TYPE_SALTED),
             NULLIFIER_TYPE_NON_SALTED,
+            1,
+        );
+    }
+
+    #[test]
+    fn non_salted_mock_counts_as_non_salted() {
+        assert_service_policy(
+            service_config(scope_hash("example.com"), NULLIFIER_TYPE_NON_SALTED),
+            NULLIFIER_TYPE_NON_SALTED_MOCK,
+            1,
+        );
+    }
+
+    #[test]
+    fn salted_mock_counts_as_salted() {
+        assert_service_policy(
+            service_config(scope_hash("example.com"), NULLIFIER_TYPE_SALTED),
+            NULLIFIER_TYPE_SALTED_MOCK,
+            1,
+        );
+    }
+
+    #[test]
+    fn non_salted_mock_with_hidden_identifier_counts_as_none() {
+        assert_service_policy(
+            service_config(scope_hash("example.com"), NULLIFIER_TYPE_NONE),
+            NULLIFIER_TYPE_NON_SALTED_MOCK,
+            0,
+        );
+    }
+
+    #[test(should_fail_with = "wrong unique identifier type")]
+    fn non_salted_mock_with_hidden_identifier_is_not_non_salted() {
+        assert_service_policy(
+            service_config(scope_hash("example.com"), NULLIFIER_TYPE_NON_SALTED),
+            NULLIFIER_TYPE_NON_SALTED_MOCK,
+            0,
+        );
+    }
+
+    #[test(should_fail_with = "wrong unique identifier type")]
+    fn mock_type_in_config_matches_no_proof() {
+        assert_service_policy(
+            service_config(scope_hash("example.com"), NULLIFIER_TYPE_NON_SALTED_MOCK),
+            NULLIFIER_TYPE_NON_SALTED_MOCK,
+            1,
         );
     }
 
