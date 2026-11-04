@@ -21,7 +21,7 @@
  * Preferred entry point: ../deploy.sh testnet — it compiles the registry first (so the
  * deployed class always matches the source) and supports PREVIEW_DELAY builds. Run
  * `npm run deploy:testnet` directly only when target/ is already a fresh production
- * build (same requirement as run-e2e.ts):
+ * build:
  *   cd ../noir && $AZTEC/bin/aztec-nargo compile && \
  *     $AZTEC/bin/aztec codegen target -o ../scripts/artifacts
  *

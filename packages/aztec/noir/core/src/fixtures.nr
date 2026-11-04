@@ -5,7 +5,7 @@
 //! (test-harness/fixture-conformance.test.ts, which parses this file at test time).
 //! An anchor only changes when the scheme itself changes; a stale one fails both suites.
 
-/// age_commitment(18, 0): the age-gate example's policy (18+, no maximum).
+/// age_commitment(18, 0): an 18+ policy with no maximum.
 pub global AGE_18_COMMITMENT: Field =
     0x2ccd6b1a6a0758a11ad3531939e69db3e11adbe90131cb38b69df90d55887d83;
 

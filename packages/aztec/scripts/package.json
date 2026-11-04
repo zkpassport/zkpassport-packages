@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "e2e": "tsx e2e/run-e2e.ts",
-    "format": "prettier -c -w e2e deployment",
+    "format": "prettier -c -w deployment",
     "account:testnet": "tsx deployment/create-schnorr-account.ts testnet",
     "account:mainnet": "tsx deployment/create-schnorr-account.ts mainnet",
     "deploy:testnet": "tsx deployment/deploy-testnet.ts",
