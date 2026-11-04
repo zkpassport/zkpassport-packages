@@ -4,7 +4,7 @@ use utils::types::{DiscloseMask, MRZData};
 // the canonical 90-byte disclose payload); ID cards are TD1 (3 x 30 = 90 exactly).
 // Offsets mirror @zkpassport/utils (passport/getters.ts, getNationalityRange).
 pub global MRZ_DOC_TYPE_INDEX: u32 = 0; // document code bytes [0..2), both layouts
-pub global TD1_NATIONALITY_INDEX: u32 = 45; // ID cards
+global TD1_NATIONALITY_INDEX: u32 = 45; // ID cards
 pub global TD3_NATIONALITY_INDEX: u32 = 54; // passports
 
 /// ICAO document codes: passports start with 'P'; TD1 ID cards with 'I'/'A'/'C'.
@@ -16,8 +16,8 @@ pub struct DisclosedNationality {
     /// keep any app-side claim-value packing raw so both sides stay in lockstep.
     pub nationality: [u8; 3],
     /// Big-endian pack of the 3 bytes (matches @zkpassport/utils' getCountryWeightedSum).
-    pub packed: Field,
-    pub is_id_card: bool,
+    packed: Field,
+    is_id_card: bool,
 }
 
 /// Read the nationality out of a disclose payload, layout-aware (TD3 passports
