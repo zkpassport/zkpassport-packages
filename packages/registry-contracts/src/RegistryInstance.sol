@@ -49,6 +49,7 @@ contract RegistryInstance is IRegistryInstance {
     bytes32 public latestRoot;
     RootValidationMode public rootValidationMode;
     uint256 public validityWindowSecs;
+    uint256 public revokedBefore;
 
     mapping(bytes32 => HistoricalRoot) public historicalRoots;
     mapping(uint256 => bytes32) public rootByIndex;
@@ -73,6 +74,7 @@ contract RegistryInstance is IRegistryInstance {
     event RootRevocationStatusChanged(bytes32 indexed root, bool revoked);
     event RootValidationModeChanged(RootValidationMode indexed oldMode, RootValidationMode indexed newMode);
     event ValidityWindowChanged(uint256 oldWindowSecs, uint256 newWindowSecs);
+    event RevokedBeforeChanged(uint256 oldRevokedBefore, uint256 newRevokedBefore);
     event PausedStatusChanged(bool paused);
 
     /**
@@ -319,6 +321,11 @@ contract RegistryInstance is IRegistryInstance {
             uint256 windowStart = timestamp - validityWindowSecs;
             return rootData.validFrom <= timestamp && (rootData.validTo == 0 || rootData.validTo >= windowStart);
         }
+        // VALID_UNTIL_REVOKED mode: check if root was published by timestamp, after the revocation cutoff
+        else if (rootValidationMode == RootValidationMode.VALID_UNTIL_REVOKED) {
+            HistoricalRoot memory rootData = historicalRoots[root];
+            return !rootData.revoked && rootData.validFrom <= timestamp && rootData.validFrom >= revokedBefore;
+        }
         // Unknown mode: return false
         return false;
     }
@@ -392,6 +399,18 @@ contract RegistryInstance is IRegistryInstance {
         uint256 oldWindowSecs = validityWindowSecs;
         validityWindowSecs = newWindowSecs;
         emit ValidityWindowChanged(oldWindowSecs, newWindowSecs);
+    }
+
+    /**
+     * @dev Set the revocation cutoff for VALID_UNTIL_REVOKED validation mode: every root published
+     * before it is no longer valid. Publish the root that drops the revoked entries first, then set
+     * the cutoff to its validFrom.
+     * @param newRevokedBefore The new cutoff timestamp
+     */
+    function setRevokedBefore(uint256 newRevokedBefore) external onlyAdminOrOracle {
+        uint256 oldRevokedBefore = revokedBefore;
+        revokedBefore = newRevokedBefore;
+        emit RevokedBeforeChanged(oldRevokedBefore, newRevokedBefore);
     }
 
     /**
