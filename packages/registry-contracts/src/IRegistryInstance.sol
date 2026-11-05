@@ -45,5 +45,8 @@ enum RootValidationMode {
     // Is root valid at timestamp T? i.e. validFrom <= T <= validTo
     VALID_AT_TIMESTAMP,
     // Is root valid within the last W seconds from timestamp T? i.e. validFrom <= T AND T-W <= validTo
-    VALID_WITHIN_WINDOW
+    VALID_WITHIN_WINDOW,
+    // Is root unrevoked and published by timestamp T, and not before the revokedBefore cutoff?
+    // i.e. !revoked AND revokedBefore <= validFrom <= T
+    VALID_UNTIL_REVOKED
 }
