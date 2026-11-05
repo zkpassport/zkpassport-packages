@@ -1165,4 +1165,72 @@ contract RegistryInstanceTest is Test {
         registry.updateRoot(testRoot2, testRoot1, block.timestamp, 200, testIpfsCid2);
         assertEq(registry.latestRoot(), testRoot2);
     }
+
+    function _publishThreeRoots() internal returns (uint256 t1, uint256 t2, uint256 t3) {
+        vm.prank(admin);
+        registry.setRootValidationMode(RootValidationMode.VALID_UNTIL_REVOKED);
+        t1 = block.timestamp;
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, bytes32(0), t1, 100, testIpfsCid1);
+        t2 = t1 + 30 days;
+        vm.warp(t2);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot2, testRoot1, t2, 200, testIpfsCid2);
+        t3 = t2 + 30 days;
+        vm.warp(t3);
+        vm.prank(oracle);
+        registry.updateRoot(testRoot3, testRoot2, t3, 300, testIpfsCid3);
+    }
+
+    function testValidUntilRevokedModeKeepsSupersededRootsValid() public {
+        (uint256 t1, uint256 t2, uint256 t3) = _publishThreeRoots();
+        uint256 later = t3 + 365 days;
+        assertTrue(registry.isRootValid(testRoot1, later));
+        assertTrue(registry.isRootValid(testRoot2, later));
+        assertTrue(registry.isRootValid(testRoot3, later));
+        assertTrue(registry.isRootValid(testRoot1, t1));
+        assertTrue(registry.isRootValid(testRoot2, t2));
+    }
+
+    function testValidUntilRevokedModeRejectsRootUsedBeforePublication() public {
+        (uint256 t1, uint256 t2,) = _publishThreeRoots();
+        assertFalse(registry.isRootValid(testRoot2, t2 - 1));
+        assertFalse(registry.isRootValid(testRoot1, t1 - 1));
+    }
+
+    function testValidUntilRevokedModeRejectsUnknownAndRevokedRoots() public {
+        (,, uint256 t3) = _publishThreeRoots();
+        assertFalse(registry.isRootValid(keccak256("unknown"), t3));
+        vm.prank(admin);
+        registry.setRevocationStatus(testRoot2, true);
+        assertFalse(registry.isRootValid(testRoot2, t3));
+        assertTrue(registry.isRootValid(testRoot1, t3));
+    }
+
+    function testRevokedBeforeRetiresAllEarlierRoots() public {
+        (,, uint256 t3) = _publishThreeRoots();
+        vm.prank(oracle);
+        registry.setRevokedBefore(t3);
+        assertEq(registry.revokedBefore(), t3);
+        assertFalse(registry.isRootValid(testRoot1, t3));
+        assertFalse(registry.isRootValid(testRoot2, t3));
+        assertTrue(registry.isRootValid(testRoot3, t3));
+    }
+
+    function testRevokedBeforeOnlyAppliesInValidUntilRevokedMode() public {
+        vm.prank(oracle);
+        registry.updateRoot(testRoot1, bytes32(0), block.timestamp, 100, testIpfsCid1);
+        vm.prank(admin);
+        registry.setRevokedBefore(block.timestamp + 1);
+        assertTrue(registry.isRootValid(testRoot1, block.timestamp));
+    }
+
+    function testOnlyAdminOrOracleCanSetRevokedBefore() public {
+        vm.prank(user);
+        vm.expectRevert("Not authorized: admin or oracle only");
+        registry.setRevokedBefore(1);
+        vm.prank(admin);
+        registry.setRevokedBefore(1);
+        assertEq(registry.revokedBefore(), 1);
+    }
 }
