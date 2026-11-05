@@ -19,6 +19,8 @@ library RegistryID {
     bytes32 constant CERTIFICATE = bytes32(0x0000000000000000000000000000000000000000000000000000000000000001);
     bytes32 constant CIRCUIT = bytes32(0x0000000000000000000000000000000000000000000000000000000000000002);
     bytes32 constant SANCTIONS = bytes32(0x0000000000000000000000000000000000000000000000000000000000000003);
+    bytes32 constant ATTESTATION_REVOCATION =
+        bytes32(0x0000000000000000000000000000000000000000000000000000000000000004);
 }
 
 // The lengths of the preimages of the `param_commitments` of the various disclosure circuits.
@@ -34,7 +36,7 @@ library CommittedInputLen {
     uint256 constant EXCL_NATIONALITY = 600;
     uint256 constant BIND = 509;
     uint256 constant SANCTIONS = 33;
-    uint256 constant FACEMATCH = 98;
+    uint256 constant FACEMATCH = 130;
 }
 
 // Gather all the public input indices in one place

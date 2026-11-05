@@ -87,6 +87,12 @@ export const CIRCUIT_REGISTRY_ID = 2
 export const SANCTIONS_REGISTRY_ID = 3
 
 /**
+ * Android Attestation Revocation Registry ID
+ * Used to identify the registry of revoked Android attestation certificate serials in the root registry
+ */
+export const ATTESTATION_REVOCATION_REGISTRY_ID = 4
+
+/**
  * @deprecated Use tagsArrayToBitsFlag instead
  * Convert an array of certificate tags to a bigint byte flag
  * Each tag position in PACKAGED_CERTIFICATE_TAGS represents a byte flag
