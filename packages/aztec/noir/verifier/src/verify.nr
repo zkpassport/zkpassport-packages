@@ -34,8 +34,8 @@ pub struct Disclosure {
 
 pub struct VerifiedProof<let K: u32> {
     pub unique_identifier: Field,
-    current_date: u64,
-    param_commitments: [Field; K - 3],
+    pub current_date: u64,
+    pub param_commitments: [Field; K - 3],
     pub disclosure: Option<Disclosure>, // some exactly when ServiceConfig.disclose is set
 }
 
