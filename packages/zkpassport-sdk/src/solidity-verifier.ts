@@ -310,6 +310,7 @@ function facematchStyleInputs(
     (value.environment === "development" ? "00" : "01") +
     toHex(numberToBytesBE(BigInt(value.appIdHash), 32)) +
     toHex(numberToBytesBE(BigInt(value.integrityPubkeyHash), 32)) +
-    (value.mode === "regular" ? "01" : "02")
+    (value.mode === "regular" ? "01" : "02") +
+    toHex(numberToBytesBE(BigInt(value.revocationRoot ?? 0), 32))
   )
 }

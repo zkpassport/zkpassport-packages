@@ -329,8 +329,8 @@ export const ProofTypeLength = {
   [ProofType.ISSUING_COUNTRY_EXCLUSION]: { evm: 600, standard: 200 },
   [ProofType.BIND]: { evm: 509, standard: 17 },
   [ProofType.SANCTIONS_EXCLUSION]: { evm: 33, standard: 2 },
-  [ProofType.FACEMATCH]: { evm: 98, standard: 5 },
-  [ProofType.ATTESTED_ID]: { evm: 98, standard: 5 },
+  [ProofType.FACEMATCH]: { evm: 130, standard: 6 },
+  [ProofType.ATTESTED_ID]: { evm: 130, standard: 6 },
 }
 
 export {

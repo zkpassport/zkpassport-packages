@@ -3031,12 +3031,16 @@ export class PublicInputChecker {
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                undefined,
+                BigInt(facematchCommittedInputs.revocationRoot ?? 0),
               )
             : await getFacematchParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                undefined,
+                BigInt(facematchCommittedInputs.revocationRoot ?? 0),
               )
           if (!paramCommitments.includes(facematchParameterCommitment)) {
             console.warn("This proof does not verify FaceMatch")
@@ -3095,6 +3099,8 @@ export class PublicInputChecker {
             committed.environment === "development" ? 0n : 1n,
             BigInt(committed.appIdHash),
             committed.mode === "regular" ? 1n : 2n,
+            BigInt(committed.integrityPubkeyHash),
+            BigInt(committed.revocationRoot ?? 0),
           )
           const paramCommitment = getParameterCommitmentFromAttestedIdProof(proofData)
           if (paramCommitment !== expectedParamCommitment) {
@@ -3910,6 +3916,8 @@ export class PublicInputChecker {
           facematchCommittedInputs.environment === "development" ? 0n : 1n,
           BigInt(facematchCommittedInputs.appIdHash),
           facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+          undefined,
+          BigInt(facematchCommittedInputs.revocationRoot ?? 0),
         )
         if (paramCommittment !== calculatedParamCommitment) {
           console.warn("The FaceMatch verification does not match the ones from the proof")
@@ -4205,6 +4213,9 @@ export class PublicInputChecker {
         committed.integrityPubkeyHash,
         "Invalid attested ID integrity key",
       )
+    }
+    if (!android && BigInt(committed.revocationRoot ?? 0) !== 0n) {
+      fail("0", committed.revocationRoot!, "An iOS attested ID has no revocation root")
     }
     if (committed.environment !== "production") {
       fail("production", committed.environment, "Invalid attested ID environment")

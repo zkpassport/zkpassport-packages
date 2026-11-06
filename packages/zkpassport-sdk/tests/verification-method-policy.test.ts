@@ -18,10 +18,10 @@ import {
 import { PublicInputChecker } from "../src/public-input-checker"
 
 // The public inputs of an attested ID proof made on a real device, with its parameter commitment
-// recomputed under the attested ID proof type, followed by the disclosure proofs' public inputs
+// recomputed under the attested ID proof type in the six-field form, followed by the disclosure proofs' public inputs
 // the app would make on top of it (8 inputs each)
 const ATTESTED_PUBLIC_INPUTS =
-  "0a7d0237ba949f4239d663f66399a6cb7cace709f54385d3fb008ed5d22148c322ad0facfad6d79b410849cb811339faeed481012319bea453cbc5664e397f470000000000000000000000000000000000000000000000000000000000000002"
+  "0a7d0237ba949f4239d663f66399a6cb7cace709f54385d3fb008ed5d22148c3278a2c9e6cce77d0b89a9e961c6b4f2d154155c78585dc951bd11c61abe674f30000000000000000000000000000000000000000000000000000000000000002"
 const ATTESTED_COMMITTED = {
   rootKeyLeaf: "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
   environment: "production",

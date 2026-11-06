@@ -4,7 +4,9 @@ import {
   calculateAttestedDigest,
   calculateAttestedIdCommitment,
   calculateTier2PrivateNullifier,
+  getAttestationRevocationProofs,
   getAttestedIdAndroidCircuitName,
+  getCertificateSerialNumber,
   getCommitmentOutFromAttestedIdProof,
   getCurrentDateFromAttestedIdProof,
   getExpiryDateFromDg1,
@@ -30,6 +32,7 @@ const NOIR_GERMAN_PRIVATE_NULLIFIER =
   0x1f180760db638ff2c74cb7f862f10f4b19a76b742e307d714ac975acd736a6can
 const NOIR_LONG_NUMBER_PRIVATE_NULLIFIER =
   0x065ac3643fddb079f4ba4dc9581aeb6985adeef1e48c2bba91dc5e69da45b8fbn
+const NOIR_REVOCATION_ROOT = "0x0f4a414b270c178520e4b5c640f3be1bb6cd4c13046d097349d9b699bf7334cb"
 const NOIR_COMM_OUT = 0x2835c00a0035ee2e89cceb33c9f4d08020df39f910b3bb36a1d27bcebc258410n
 
 // The ICAO 9303 sample TD1 ID card "I<UTOD231458907...", born 1974-08-12, expiring 2012-04-15
@@ -130,5 +133,17 @@ describe("android attested id", () => {
     const ios = { publicInputs: ["0x69000780", "0xa", "0xb", "0xc8"], proof: [] }
     expect(getCurrentDateFromAttestedIdProof(ios)?.toISOString()).toBe("2025-10-28T00:00:00.000Z")
     expect(getCommitmentOutFromAttestedIdProof(ios)).toBe(10n)
+  })
+
+  test("proves serials are not revoked, as the circuit's ordered tree takes it", async () => {
+    const { root, proofs } = await getAttestationRevocationProofs([5n, 100n], [42n, 7n])
+    // Printed by a nargo test computing ordered_mt_compute_root on this proof at depth 20
+    expect(root).toBe(NOIR_REVOCATION_ROOT)
+    expect(BigInt(proofs[0].left.leaf)).toBe(5n)
+    expect(BigInt(proofs[0].right.leaf)).toBe(100n)
+    expect(BigInt(proofs[0].right.leaf_index) - BigInt(proofs[0].left.leaf_index)).toBe(1n)
+    expect(proofs[0].left.sibling_path).toHaveLength(20)
+    await expect(getAttestationRevocationProofs([5n], [5n])).rejects.toThrow("revoked")
+    expect(getCertificateSerialNumber(new Uint8Array([0x01, 0x00]))).toBe(256n)
   })
 })
