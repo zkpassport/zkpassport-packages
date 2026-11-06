@@ -1,3 +1,11 @@
+import {
+  getNumberOfPublicInputs,
+  getProofData,
+  type PackagedCircuit,
+  type ProofResult,
+} from "@zkpassport/utils"
+import { Buffer } from "buffer/"
+
 export type BBVersion = "v5" | "v6"
 
 const V6_MIN_CIRCUIT_VERSION = [0, 22, 0] as const
@@ -40,6 +48,40 @@ export async function createUltraHonkVerifier(
   const barretenberg = await Barretenberg.new({ crsPath })
   const verifier = new UltraHonkVerifierBackend(barretenberg)
   return { verifier, destroy: () => barretenberg.destroy() }
+}
+
+export class BBVerifier {
+  private readonly writingDirectory: string | undefined
+  private loadedVerifier: LoadedVerifier | undefined
+
+  constructor({ writingDirectory }: { writingDirectory?: string } = {}) {
+    this.writingDirectory = writingDirectory
+  }
+
+  /** Verify a proof with bb.js, starting the bb it needs on first use */
+  async verify(proof: ProofResult, circuit: PackagedCircuit): Promise<boolean> {
+    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+    this.loadedVerifier ??= await createUltraHonkVerifier(
+      getBBVersionForCircuitVersion(proof.version),
+      { writingDirectory: this.writingDirectory },
+    )
+
+    try {
+      return await this.loadedVerifier.verifier.verifyProof({
+        proof: Buffer.from(proofData.proof.join(""), "hex"),
+        publicInputs: proofData.publicInputs,
+        verificationKey: new Uint8Array(Buffer.from(circuit.vkey, "base64")),
+      })
+    } catch (error) {
+      console.warn(`Error verifying proof ${proof.name}`, error)
+      return false
+    }
+  }
+
+  /** Release the bb.js instance it started */
+  async destroy(): Promise<void> {
+    await this.loadedVerifier?.destroy()
+  }
 }
 
 const BB_VERSION_KEY = "__zkpassport_bb_version"
