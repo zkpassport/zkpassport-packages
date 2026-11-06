@@ -3,3 +3,7 @@ node_modules/
 codegenCache.json
 # Un-ignore the codegen bindings: the root .gitignore ignores artifacts/ for Foundry.
 !artifacts/
+# Deployment records written by deployment/deploy-*.ts and deployment/seed-registry.ts.
+# Operational logs, not source: canonical addresses belong in package constants
+# (see registry-sdk/src/client.ts for the L1 precedent).
+deployments/
