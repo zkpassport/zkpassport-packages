@@ -473,6 +473,29 @@ describe("the chip question", () => {
     expect(signedOnly.outcome).toBe("rejected_by_policy")
   })
 
+  test("is skipped when the answer changes nothing", () => {
+    // No certificate for the country's chips: either way the camera reads it
+    const unverifiable = table({
+      TST: country(mixed.countries.TST.documents, { supported: false, from: null, to: null }),
+    })
+    const camera = decideVerificationPaths(unverifiable, { ...query, supportedSchemes: IOS })
+    expect(camera.outcome).toBe("proceed")
+    expect(camera.chip).toBe("mixed")
+    expect(methods(camera)).toEqual([`camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`])
+    // A request for chip reads only: either way the ID can't be used, as the chip can't be checked
+    const refused = decideVerificationPaths(unverifiable, {
+      ...query,
+      supportedSchemes: IOS,
+      allowedCredentials: SIGNED_ONLY,
+    })
+    expect(refused.outcome).toBe("rejected_by_policy")
+    expect(refused.chipVerifiable).toBe(false)
+    // A client with no camera read and no certificate: nothing to try either way
+    expect(
+      decideVerificationPaths(unverifiable, { ...query, supportedSchemes: ANDROID }).outcome,
+    ).toBe("unsupported")
+  })
+
   test("the picker lists UN states only, unless asked for everything", () => {
     const codes = listCountries(BUNDLED_COVERAGE).map((c) => c.code)
     expect(codes).toContain("IND")

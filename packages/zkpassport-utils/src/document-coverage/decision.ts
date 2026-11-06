@@ -138,8 +138,17 @@ export function decideVerificationPaths(
     if (refusedByPolicy.length > 0) return { outcome: "rejected_by_policy", paths, ...base }
     return { outcome: "unsupported", paths, ...base }
   }
-  const outcome = chip === "mixed" ? "ask_chip" : "proceed"
-  return { outcome, paths, ...base }
+  if (chip === "mixed") {
+    // Ask only when the answer changes the paths: with no certificate for the chips, or a client
+    // that can only read a chip, both answers lead to the same place
+    const withChip = decideVerificationPaths(coverage, { ...query, hasChip: true })
+    const without = decideVerificationPaths(coverage, { ...query, hasChip: false })
+    const key = (decision: CoverageDecision) =>
+      `${decision.outcome}:${decision.paths.map((p) => `${p.method}${p.scheme}`).join()}`
+    if (key(withChip) === key(without)) return { ...withChip, chip, documents }
+    return { outcome: "ask_chip", paths, ...base }
+  }
+  return { outcome: "proceed", paths, ...base }
 }
 
 /** Verifiable chip reads first, then the attested reads; an unverifiable chip read is dropped */
