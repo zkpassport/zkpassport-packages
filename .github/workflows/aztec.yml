@@ -23,13 +23,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # The aztec dep tag in Nargo.toml is the single source of truth for the
-      # toolchain version.
-      - name: Extract Aztec version
+      # packages/aztec/.aztecrc is the single source of truth for the toolchain version, the
+      # file `aztec-up use` and `aztec-up env` read locally. The aztec-nr and
+      # bb_proof_verification tags in the Nargo manifests must name the same release.
+      - name: Read Aztec version
         id: aztec-version
         run: |
-          VERSION=$(sed -n 's/.*tag = "v\([0-9][0-9A-Za-z.-]*\)".*/\1/p' packages/aztec/noir/registry_contract/Nargo.toml | head -1)
+          VERSION=$(grep -v -e '^#' -e '^$' packages/aztec/.aztecrc | head -n 1 | tr -d '[:space:]')
           test -n "$VERSION"
+          stale=$(git ls-files 'packages/aztec/**/Nargo.toml' | xargs grep -n -E 'aztec-nr|aztec-packages' | grep -v -F "tag = \"v$VERSION\"" || true)
+          if [ -n "$stale" ]; then
+            echo "::error::Nargo tags that do not match packages/aztec/.aztecrc ($VERSION):"
+            echo "$stale"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache Aztec toolchain
@@ -79,8 +86,6 @@ jobs:
       # Recursion-opcode coverage: nargo test no-ops std::verify_proof, so replay the
       # checked-in disclose proof fixture through bb.
       - name: Run bb recursion harness
-        env:
-          AZTEC_HOME: /home/runner/.aztec/versions/${{ steps.aztec-version.outputs.version }}
         run: |
           ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
           ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof
