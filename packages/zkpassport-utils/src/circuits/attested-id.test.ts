@@ -4,8 +4,13 @@ import {
   calculateAttestedDigest,
   calculateAttestedIdCommitment,
   calculateTier2PrivateNullifier,
+  getAttestedIdAndroidCircuitName,
+  getCommitmentOutFromAttestedIdProof,
+  getCurrentDateFromAttestedIdProof,
   getExpiryDateFromTd3Dg1,
+  getParameterCommitmentFromAttestedIdProof,
 } from "./attested-id"
+import { getNumberOfPublicInputs } from "./index"
 
 // The sample DG1 of the Noir tests in lib/commitment/attested-to-disclosure: a TD3 passport
 // "P<FRADOE<<JANE<<..." for X12345678, born 1990-02-01, expiring 2030-04-03
@@ -54,5 +59,34 @@ describe("attested id", () => {
     )
     expect(privateNullifier).toBe(NOIR_PRIVATE_NULLIFIER)
     expect(commitment).toBe(NOIR_COMM_OUT)
+  })
+})
+
+describe("android attested id", () => {
+  test("names the circuit after the chain as the circuits repo generates it", () => {
+    expect(
+      getAttestedIdAndroidCircuitName({
+        rootType: "rsa",
+        intermediates: [
+          { type: "ecdsa", bitSize: 256, hashAlgorithm: "sha256" },
+          { type: "ecdsa", bitSize: 384, hashAlgorithm: "sha384" },
+        ],
+      }),
+    ).toBe("attested_id_android_rk_rsa_ik_count_2_ik_ecdsa_p256_sha256_ik_ecdsa_p384_sha384")
+  })
+
+  test("reads the outputs after the Android proof's current date", () => {
+    const name = "attested_id_android_rk_ecdsa_ik_count_1_ik_ecdsa_p256_sha256"
+    expect(getNumberOfPublicInputs(name)).toBe(4)
+    expect(getNumberOfPublicInputs("attested_id_ios")).toBe(3)
+    const android = { publicInputs: ["0x6900f580", "0xa", "0xb", "0xc9"], proof: [] }
+    expect(getCurrentDateFromAttestedIdProof(android)?.toISOString()).toBe(
+      "2025-10-28T16:55:28.000Z",
+    )
+    expect(getCommitmentOutFromAttestedIdProof(android)).toBe(10n)
+    expect(getParameterCommitmentFromAttestedIdProof(android)).toBe(11n)
+    const ios = { publicInputs: ["0xa", "0xb", "0xc8"], proof: [] }
+    expect(getCurrentDateFromAttestedIdProof(ios)).toBeUndefined()
+    expect(getCommitmentOutFromAttestedIdProof(ios)).toBe(10n)
   })
 })

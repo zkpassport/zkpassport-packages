@@ -3,6 +3,7 @@ import {
   CredentialScheme,
   CredentialTier,
   getAgeParameterCommitment,
+  GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
   getDiscloseParameterCommitment,
   getServiceScopeHash,
   getServiceSubscopeHash,
@@ -120,5 +121,46 @@ describe("credential policy on an attested ID proof", () => {
       CredentialScheme.ATTESTED_CAPTURE_ANDROID,
     ])
     expect(otherPlatform.isCorrect).toBe(false)
+  })
+})
+
+describe("android attested ID parameters", () => {
+  const android = {
+    rootKeyLeaf: "0x0e1889bec6c1d686abcf08360ff404f803ab345881ea8cba6aad33b7f7f7ffe0",
+    environment: "production" as const,
+    appIdHash: "0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d",
+    integrityPubkeyHash: `0x${GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH.toString(16)}`,
+    mode: "strict" as const,
+  }
+
+  test("accepts Google's root, the Android app and the Play Integrity key", () => {
+    expect(PublicInputChecker.checkAttestedIdParameters(android, true).isCorrect).toBe(true)
+  })
+
+  test("refuses iOS and Android values mixed", () => {
+    expect(PublicInputChecker.checkAttestedIdParameters(android, false).isCorrect).toBe(false)
+    expect(
+      PublicInputChecker.checkAttestedIdParameters(
+        { ...android, appIdHash: ATTESTED_COMMITTED.appIdHash },
+        true,
+      ).isCorrect,
+    ).toBe(false)
+    expect(
+      PublicInputChecker.checkAttestedIdParameters({ ...android, integrityPubkeyHash: "0x1" }, true)
+        .isCorrect,
+    ).toBe(false)
+  })
+
+  test("needs a recent proof date", () => {
+    const day = 24 * 60 * 60 * 1000
+    expect(PublicInputChecker.checkAttestedIdDate(new Date(Date.now() - 7 * day)).isCorrect).toBe(
+      true,
+    )
+    expect(PublicInputChecker.checkAttestedIdDate(new Date(Date.now() - 31 * day)).isCorrect).toBe(
+      false,
+    )
+    expect(PublicInputChecker.checkAttestedIdDate(new Date(Date.now() + 2 * day)).isCorrect).toBe(
+      false,
+    )
   })
 })

@@ -35,17 +35,60 @@ export const TIER2_NULLIFIER_DOMAIN = 0x5449455232n
 /** The DG2 hash type the attested digest is recorded as: SHA-256 */
 export const ATTESTED_DIGEST_HASH_TYPE = 3
 
-/** The attested_id proof returns (comm_out, param_commitment, credential_scheme), no public inputs */
-export function getAttestedIdProofPublicInputCount(): number {
-  return 3
+/** Every Android attested_id circuit name starts with it; the rest names the attestation chain */
+export const ATTESTED_ID_ANDROID_CIRCUIT_PREFIX = "attested_id_android"
+
+export const isAndroidAttestedIdCircuit = (circuitName: string) =>
+  circuitName.startsWith(ATTESTED_ID_ANDROID_CIRCUIT_PREFIX)
+
+/**
+ * The attested_id proof returns (comm_out, param_commitment, credential_scheme). The Android one
+ * also takes current_date as its one public input, before them, so the verifier can check the
+ * proof is recent.
+ */
+export function getAttestedIdProofPublicInputCount(circuitName?: string): number {
+  return circuitName && isAndroidAttestedIdCircuit(circuitName) ? 4 : 3
 }
 
+// The outputs are the last three public inputs on either platform
 export function getCommitmentOutFromAttestedIdProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[0])
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
 }
 
 export function getParameterCommitmentFromAttestedIdProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[1])
+  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+}
+
+/** The date an Android attested_id proof was made for; iOS ones carry none */
+export function getCurrentDateFromAttestedIdProof(proofData: ProofData): Date | undefined {
+  if (proofData.publicInputs.length < 4) return undefined
+  return new Date(Number(BigInt(proofData.publicInputs[0])) * 1000)
+}
+
+export type AndroidAttestationCertificate = {
+  type: "rsa" | "ecdsa"
+  bitSize: number
+  /** The hash its issuer signed it with */
+  hashAlgorithm: "sha1" | "sha224" | "sha256" | "sha384" | "sha512"
+}
+
+/**
+ * The Android attested_id circuit for an attestation chain, named as the circuits repo generates
+ * it. `intermediates` go from the root down; each one's `hashAlgorithm` is the one the
+ * certificate below it was signed with.
+ */
+export function getAttestedIdAndroidCircuitName({
+  rootType,
+  intermediates,
+}: {
+  rootType: "rsa" | "ecdsa"
+  intermediates: AndroidAttestationCertificate[]
+}): string {
+  const chain = intermediates.map(
+    ({ type, bitSize, hashAlgorithm }) =>
+      `ik_${type === "rsa" ? "rsa_" : "ecdsa_p"}${bitSize}_${hashAlgorithm}`,
+  )
+  return `${ATTESTED_ID_ANDROID_CIRCUIT_PREFIX}_rk_${rootType}_ik_count_${intermediates.length}_${chain.join("_")}`
 }
 
 export function padDg1(dg1: Uint8Array): Uint8Array {
