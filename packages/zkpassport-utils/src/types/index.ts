@@ -316,6 +316,8 @@ export type FacematchCommittedInputs = {
   appIdHash: string
   integrityPubkeyHash: string
   mode: FacematchMode
+  /** Android only: the attestation revocation tree root the chain was checked against */
+  revocationRoot?: string
 }
 
 export type SupportedChain =

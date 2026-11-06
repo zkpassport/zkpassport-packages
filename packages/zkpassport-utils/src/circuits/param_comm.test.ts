@@ -13,9 +13,7 @@ describe("Parameter Commitments", () => {
       app_id_hash,
       facematch_mode,
     )
-    expect(result).toEqual(
-      17383518782000629355431899258197281410942500696842135446165121988567400919786n,
-    )
+    expect(result).toEqual(0x015bcd8d0e46c95526dcbc480883ff76b1b20615745c7a73b6857f824b6f5d86n)
   })
 
   test("Facematch EVM", async () => {
@@ -29,9 +27,25 @@ describe("Parameter Commitments", () => {
       app_id_hash,
       facematch_mode,
     )
-    expect(result).toEqual(
-      63633384777712081687217140413633142258647169827991817671047913477052352468n,
-    )
+    expect(result).toEqual(0xb2cd74f039fa19de2360cfe9c8cdadce0ed2a466d337f1989d4017369f8ec9n)
+  })
+
+  test("Facematch with an integrity anchor and revocation root, as on Android", async () => {
+    const root_key_leaf = 0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340bn
+    const app_id_hash = 0x067041deed02d9d2df216a420b50404bdf5bcb0026db2602a4142e380a9d6e2an
+    expect(
+      await getFacematchParameterCommitment(root_key_leaf, 1n, app_id_hash, 2n, 0x1234n, 0x5678n),
+    ).toEqual(0x27f5e34206f161fea4e5d43e053fa539a504d23175f26e414dad76954fc6c0e7n)
+    expect(
+      await getFacematchEvmParameterCommitment(
+        root_key_leaf,
+        1n,
+        app_id_hash,
+        2n,
+        0x1234n,
+        0x5678n,
+      ),
+    ).toEqual(0x3593305e46dda857802d6e806b5154a2d789525d697578e1c99e52f6a65d59n)
   })
 
   test("Disclose", async () => {

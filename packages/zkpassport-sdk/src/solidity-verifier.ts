@@ -202,6 +202,11 @@ export class SolidityVerifier {
           .map((x) => x.toString(16).padStart(2, "0"))
           .join("")
         compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
+        compressedCommittedInputs += Array.from(
+          numberToBytesBE(BigInt(value.revocationRoot ?? 0), 32),
+        )
+          .map((x) => x.toString(16).padStart(2, "0"))
+          .join("")
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
       }

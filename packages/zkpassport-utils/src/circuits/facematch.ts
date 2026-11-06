@@ -10,12 +10,22 @@ export const GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH =
 
 const ANDROID_APP_ID_HASH = 0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615dn
 
+/** The integrity anchor a face match or attested ID proof commits to when none is given */
+function defaultIntegrityAnchor(appIdHash: bigint): bigint {
+  // The Play Integrity key for the Android app, nothing for iOS
+  return appIdHash === ANDROID_APP_ID_HASH ? GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH : 0n
+}
+
 /**
- * Get the parameter commitment for the facematch proof
+ * Get the parameter commitment for the facematch proof (and the attested ID proof, which
+ * commits to the same parameters)
  * @param rootKeyLeaf - Root key leaf
  * @param environment - Environment
  * @param appIdHash - Hash of the app id
  * @param facematchMode - Facematch mode
+ * @param integrityAnchor - Android only: the Play Integrity key hash, or the hardware attestation
+ * anchor over the boot key allowlist and the APK signing digest. 0 on iOS
+ * @param revocationRoot - Android only: the attestation revocation tree root. 0 on iOS
  * @returns Parameter commitment
  */
 export async function getFacematchParameterCommitment(
@@ -23,18 +33,19 @@ export async function getFacematchParameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint = defaultIntegrityAnchor(appIdHash),
+  revocationRoot: bigint = 0n,
 ): Promise<bigint> {
-  const parameterCommitment = await poseidon2HashAsync([
+  return poseidon2HashAsync([
     BigInt(ProofType.FACEMATCH),
     BigInt(ProofTypeLength[ProofType.FACEMATCH].standard),
     rootKeyLeaf,
     environment,
     appIdHash,
-    // This is only set for Android, otherwise it is 0
-    appIdHash === ANDROID_APP_ID_HASH ? GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH : 0n,
+    integrityAnchor,
     facematchMode,
+    revocationRoot,
   ])
-  return parameterCommitment
 }
 
 /**
@@ -43,6 +54,8 @@ export async function getFacematchParameterCommitment(
  * @param environment - Environment
  * @param appIdHash - Hash of the app id
  * @param facematchMode - Facematch mode
+ * @param integrityAnchor - As for getFacematchParameterCommitment
+ * @param revocationRoot - As for getFacematchParameterCommitment
  * @returns Parameter commitment
  */
 export async function getFacematchEvmParameterCommitment(
@@ -50,6 +63,8 @@ export async function getFacematchEvmParameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint = defaultIntegrityAnchor(appIdHash),
+  revocationRoot: bigint = 0n,
 ): Promise<bigint> {
   const hash = sha256(
     new Uint8Array([
@@ -58,14 +73,10 @@ export async function getFacematchEvmParameterCommitment(
       ...numberToBytesBE(rootKeyLeaf, 32),
       ...numberToBytesBE(environment, 1),
       ...numberToBytesBE(appIdHash, 32),
-      ...numberToBytesBE(
-        // This is only set for Android, otherwise it is 0
-        appIdHash === ANDROID_APP_ID_HASH ? GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH : 0n,
-        32,
-      ),
+      ...numberToBytesBE(integrityAnchor, 32),
       ...numberToBytesBE(facematchMode, 1),
+      ...numberToBytesBE(revocationRoot, 32),
     ]),
   )
-  const hashBigInt = packBeBytesIntoField(hash, 31)
-  return hashBigInt
+  return packBeBytesIntoField(hash, 31)
 }
