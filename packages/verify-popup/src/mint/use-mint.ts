@@ -12,11 +12,11 @@ import {
   ZKPassportCredentialsAbi,
   type CredentialIssueCall,
 } from "@zkpassport/onchain-credentials"
+import type { ZKPassportQRCodeOptions } from "@zkpassport/ui/hosted"
 import {
   buildCredentialCardOptions,
   type CredentialVerifyResult,
-  type ZKPassportQRCodeOptions,
-} from "@zkpassport/ui/hosted"
+} from "@zkpassport/ui/hosted-credential"
 
 import type { OutgoingEvent } from "../app"
 import { withProof, type ScanProgress } from "../verify/waiting"
@@ -159,7 +159,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
             return
           }
           if (!result.issueCall) {
-            const message = "The proof cannot be verified on-chain."
+            const message = "Your ID was verified, but this result can't be minted on-chain."
             setStep({ kind: "error", message })
             emit({ type: "error", message })
             return

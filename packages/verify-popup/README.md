@@ -15,9 +15,9 @@ Point the button at it with `popupUrl="http://localhost:5173"`.
 
 ## Verification links
 
-`https://verify.zkpassport.id?vl=<link id>` runs the same card for a link created in the
-ZKPassport dashboard. The page loads the request from the dashboard API and posts the proofs
-back to it once the phone has answered. For a local API set
+`https://verify.zkpassport.id?vl=<link id>` runs the same verification screens for a link created
+in the ZKPassport dashboard. The page loads the request from the dashboard API and posts the
+proofs back to it once the phone has answered. For a local API set
 `VITE_DASHBOARD_API_URL=http://localhost:3001`.
 
 ## The `/r` page
