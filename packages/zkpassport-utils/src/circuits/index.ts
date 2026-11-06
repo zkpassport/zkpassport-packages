@@ -198,7 +198,7 @@ export async function getHostedPackagedCircuitByName(
 export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: string) {
   const scheme = hasCredentialScheme(circuitVersion) ? 1 : 0
   if (circuitName.startsWith("attested_id")) {
-    return getAttestedIdProofPublicInputCount()
+    return getAttestedIdProofPublicInputCount(circuitName)
   } else if (circuitName.startsWith("data_check_integrity")) {
     return getIntegrityProofPublicInputCount() + scheme
   } else if (circuitName.startsWith("sig_check_id_data")) {
@@ -305,7 +305,7 @@ export const ProofTypeLength = {
   [ProofType.ISSUING_COUNTRY_EXCLUSION]: { evm: 600, standard: 200 },
   [ProofType.BIND]: { evm: 509, standard: 17 },
   [ProofType.SANCTIONS_EXCLUSION]: { evm: 33, standard: 2 },
-  [ProofType.FACEMATCH]: { evm: 98, standard: 5 },
+  [ProofType.FACEMATCH]: { evm: 130, standard: 6 },
 }
 
 export {

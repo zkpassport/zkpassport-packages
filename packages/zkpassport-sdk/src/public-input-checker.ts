@@ -14,6 +14,9 @@ import {
   getCommitmentOutFromAttestedIdProof,
   getParameterCommitmentFromAttestedIdProof,
   getCredentialSchemeFromAttestedIdProof,
+  getCurrentDateFromAttestedIdProof,
+  isAndroidAttestedIdCircuit,
+  GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
   getCredentialSchemeFromIntegrityProof,
   getCredentialSchemeFromOuterProof,
   hasCredentialScheme,
@@ -93,10 +96,13 @@ import {
   GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
+  ZKPASSPORT_ANDROID_HARDWARE_INTEGRITY_ANCHORS,
 } from "./constants"
 
 // Allowance for clock/timezone skew between the proving device and the verifier
 const CURRENT_DATE_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000
+// The app makes a new Android attested ID proof once its date is a week old
+const ATTESTED_ID_PROOF_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 export class PublicInputChecker {
   public static checkDiscloseBytesPublicInputs(
@@ -2923,12 +2929,16 @@ export class PublicInputChecker {
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                undefined,
+                BigInt(facematchCommittedInputs.revocationRoot ?? 0),
               )
             : await getFacematchParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                undefined,
+                BigInt(facematchCommittedInputs.revocationRoot ?? 0),
               )
           if (!paramCommitments.includes(facematchParameterCommitment)) {
             console.warn("This proof does not verify FaceMatch")
@@ -2960,15 +2970,25 @@ export class PublicInputChecker {
       } else if (proof.name?.startsWith("attested_id")) {
         commitmentOut = getCommitmentOutFromAttestedIdProof(proofData)
         credentialScheme = getCredentialSchemeFromAttestedIdProof(proofData)
-        const committed = proof.committedInputs?.attested_id_ios as
+        const committedKey = isAndroidAttestedIdCircuit(proof.name)
+          ? "attested_id_android"
+          : "attested_id_ios"
+        const committed = proof.committedInputs?.[committedKey] as
           AttestedIdCommittedInputs | undefined
+        const attestedAt = getCurrentDateFromAttestedIdProof(proofData)
+        if (attestedAt) {
+          const { isCorrect: isCorrectDate, queryResultErrors: dateErrors } =
+            this.checkAttestedIdDate(attestedAt)
+          isCorrect = isCorrect && isCorrectDate
+          queryResultErrors = { ...queryResultErrors, ...dateErrors }
+        }
         if (!committed) {
           console.warn("The attested ID proof carries no committed attestation parameters")
           isCorrect = false
           queryResultErrors.attested_id = {
             ...queryResultErrors.attested_id,
             commitment: {
-              expected: "Committed inputs for attested_id_ios",
+              expected: `Committed inputs for ${committedKey}`,
               received: "none",
               message: "The attested ID proof carries no committed attestation parameters",
             },
@@ -2979,6 +2999,8 @@ export class PublicInputChecker {
             committed.environment === "development" ? 0n : 1n,
             BigInt(committed.appIdHash),
             committed.mode === "regular" ? 1n : 2n,
+            BigInt(committed.integrityPubkeyHash),
+            BigInt(committed.revocationRoot ?? 0),
           )
           const paramCommitment = getParameterCommitmentFromAttestedIdProof(proofData)
           if (paramCommitment !== expectedParamCommitment) {
@@ -2994,7 +3016,7 @@ export class PublicInputChecker {
             }
           }
           const { isCorrect: isCorrectAttestation, queryResultErrors: attestationErrors } =
-            this.checkAttestedIdParameters(committed)
+            this.checkAttestedIdParameters(committed, committedKey === "attested_id_android")
           isCorrect = isCorrect && isCorrectAttestation
           queryResultErrors = { ...queryResultErrors, ...attestationErrors }
         }
@@ -3774,6 +3796,8 @@ export class PublicInputChecker {
           facematchCommittedInputs.environment === "development" ? 0n : 1n,
           BigInt(facematchCommittedInputs.appIdHash),
           facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+          undefined,
+          BigInt(facematchCommittedInputs.revocationRoot ?? 0),
         )
         if (paramCommittment !== calculatedParamCommitment) {
           console.warn("The FaceMatch verification does not match the ones from the proof")
@@ -3910,11 +3934,36 @@ export class PublicInputChecker {
   }
 
   /**
+   * An Android attested ID proof checks the integrity verdict age and the security patch level
+   * against its date, so the date must be recent. The app reuses the proof, so it may be older
+   * than a disclosure proof's.
+   */
+  public static checkAttestedIdDate(attestedAt: Date) {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const age = Date.now() - attestedAt.getTime()
+    if (age > ATTESTED_ID_PROOF_MAX_AGE_MS || -age > CURRENT_DATE_FUTURE_TOLERANCE_MS) {
+      const message = "The attested ID proof's date is not recent"
+      console.warn(message)
+      isCorrect = false
+      queryResultErrors.attested_id = {
+        ...queryResultErrors.attested_id,
+        date: {
+          expected: `Within ${ATTESTED_ID_PROOF_MAX_AGE_MS / 1000} seconds of now`,
+          received: attestedAt.toISOString(),
+          message,
+        },
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
+  /**
    * The attestation behind a Tier 2 base proof must come from a genuine ZKPassport build on a
    * real device, in the production attestation environment, with a strict face match: that
    * face match is the only thing binding a camera-read ID to its holder.
    */
-  public static checkAttestedIdParameters(committed: AttestedIdCommittedInputs) {
+  public static checkAttestedIdParameters(committed: AttestedIdCommittedInputs, android = false) {
     let isCorrect = true
     const queryResultErrors: Partial<QueryResultErrors> = {}
     const fail = (expected: string, received: string, message: string) => {
@@ -3925,16 +3974,29 @@ export class PublicInputChecker {
         eq: { expected, received, message },
       }
     }
-    if (
-      committed.rootKeyLeaf !== APPLE_APP_ATTEST_ROOT_KEY_HASH &&
-      committed.rootKeyLeaf !== GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH &&
-      committed.rootKeyLeaf !== GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH
-    ) {
+    // Each value must come from the platform the circuit is for, so iOS and Android ones can't mix
+    const rootKeys = android
+      ? [GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH, GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH]
+      : [APPLE_APP_ATTEST_ROOT_KEY_HASH]
+    if (!rootKeys.includes(committed.rootKeyLeaf)) {
+      fail(rootKeys.join(" or "), committed.rootKeyLeaf, "Invalid attested ID root key hash")
+    }
+    const appIdHash = android ? ZKPASSPORT_ANDROID_APP_ID_HASH : ZKPASSPORT_IOS_APP_ID_HASH
+    if (committed.appIdHash !== appIdHash) {
+      fail(appIdHash, committed.appIdHash, "Invalid attested ID app id hash")
+    }
+    const integrityAnchors = android
+      ? [GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH, ...ZKPASSPORT_ANDROID_HARDWARE_INTEGRITY_ANCHORS]
+      : [0n]
+    if (!integrityAnchors.includes(BigInt(committed.integrityPubkeyHash))) {
       fail(
-        `${APPLE_APP_ATTEST_ROOT_KEY_HASH} (iOS) or a Google root key hash (Android)`,
-        committed.rootKeyLeaf,
-        "Invalid attested ID root key hash",
+        integrityAnchors.join(" or "),
+        committed.integrityPubkeyHash,
+        "Invalid attested ID integrity key",
       )
+    }
+    if (!android && BigInt(committed.revocationRoot ?? 0) !== 0n) {
+      fail("0", committed.revocationRoot!, "An iOS attested ID has no revocation root")
     }
     if (committed.environment !== "production") {
       fail("production", committed.environment, "Invalid attested ID environment")

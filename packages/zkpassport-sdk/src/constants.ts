@@ -23,6 +23,11 @@ export const ZKPASSPORT_IOS_APP_ID_HASH =
 export const ZKPASSPORT_ANDROID_APP_ID_HASH =
   "0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d"
 
+// The hardware attestation anchors (boot key allowlist root with the APK signing digest) the
+// Android app may prove with in place of Play Integrity. None is accepted until the allowlist
+// and the release signing digest are published.
+export const ZKPASSPORT_ANDROID_HARDWARE_INTEGRITY_ANCHORS: bigint[] = []
+
 // This is the hash of the root key of Apple's App Attest
 // c.f. https://www.apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem
 export const APPLE_APP_ATTEST_ROOT_KEY_HASH =

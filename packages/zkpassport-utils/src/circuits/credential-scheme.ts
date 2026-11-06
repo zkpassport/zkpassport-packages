@@ -68,7 +68,7 @@ export function getCredentialSchemeFromIntegrityProof(
 }
 
 export function getCredentialSchemeFromAttestedIdProof(proofData: ProofData): CredentialScheme {
-  return parseCredentialScheme(proofData.publicInputs[2])
+  return parseCredentialScheme(proofData.publicInputs[proofData.publicInputs.length - 1])
 }
 
 export function getCredentialSchemeFromOuterProof(proofData: ProofData): CredentialScheme {
