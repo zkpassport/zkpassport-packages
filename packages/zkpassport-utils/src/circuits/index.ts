@@ -198,7 +198,7 @@ export async function getHostedPackagedCircuitByName(
 export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: string) {
   const scheme = hasCredentialScheme(circuitVersion) ? 1 : 0
   if (circuitName.startsWith("attested_id")) {
-    return getAttestedIdProofPublicInputCount()
+    return getAttestedIdProofPublicInputCount(circuitName)
   } else if (circuitName.startsWith("data_check_integrity")) {
     return getIntegrityProofPublicInputCount() + scheme
   } else if (circuitName.startsWith("sig_check_id_data")) {

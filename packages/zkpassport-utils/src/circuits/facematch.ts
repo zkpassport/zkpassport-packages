@@ -5,7 +5,7 @@ import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 
 // The little-endian packed and poseidon2 hashed Google Play Integrity pubkey
 // Hardcoded here since it is not expected to change
-const GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH =
+export const GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH =
   8544227306600425492560068004835614964118871262589609739238120993689090208159n
 
 const ANDROID_APP_ID_HASH = 0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615dn

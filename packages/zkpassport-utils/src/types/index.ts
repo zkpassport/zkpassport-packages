@@ -368,7 +368,10 @@ export type CommittedInputs =
   | FacematchCommittedInputs
 
 /** The base circuit of a Tier 2 verification, an ID read by camera attested by the device */
-export type AttestedIdCircuitName = "attested_id_ios"
+export type AttestedIdCircuitName = "attested_id_ios" | `attested_id_android_${string}`
+
+/** Where a proof result keeps the committed inputs of its attested_id proof */
+export type AttestedIdCommittedInputsKey = "attested_id_ios" | "attested_id_android"
 
 /** What the attested_id proof commits to; the same attestation parameters as facematch */
 export type AttestedIdCommittedInputs = FacematchCommittedInputs
@@ -403,7 +406,7 @@ export type ProofResult = {
   version?: `${number}.${number}.${number}`
   name?: string
   committedInputs?: {
-    [circuitName in DisclosureCircuitName | AttestedIdCircuitName]?: CommittedInputs
+    [circuitName in DisclosureCircuitName | AttestedIdCommittedInputsKey]?: CommittedInputs
   }
   // Index of the proof in the proof set
   index?: number
