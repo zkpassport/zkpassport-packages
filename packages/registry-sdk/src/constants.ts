@@ -1,3 +1,4 @@
+import type { BBWasmFile } from "@zkpassport/utils/registry"
 import { getNetworkConstants } from "./networks"
 import { normaliseHash } from "./utils"
 
@@ -87,6 +88,16 @@ export const PACKAGED_CIRCUIT_URL_TEMPLATE = (chainId: number, hash: string, cid
 }
 
 /**
+ * bb wasm URL generator
+ * @param chainId - The chain ID
+ * @param bbVersion - The bb version, e.g. "6.0.0"
+ * @param file - The wasm file
+ */
+export const BB_WASM_URL_TEMPLATE = (chainId: number, bbVersion: string, file: BBWasmFile) => {
+  return `${getNetworkConstants(chainId).circuitUrl}/bb/${bbVersion}/${file}`
+}
+
+/**
  * Default page size for historical roots results
  */
 export const DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE = 100
@@ -130,3 +141,8 @@ export const GET_ROOT_DETAILS_BY_ROOT_SIGNATURE = "0xbb3dd539"
  * Function signature for isRootValid(bytes32,bytes32,uint256)
  */
 export const IS_ROOT_VALID_SIGNATURE = "0x2aae4296"
+
+/**
+ * Function signature for config(bytes32)
+ */
+export const CONFIG_SIGNATURE = "0xcc718f76"
