@@ -53,6 +53,8 @@ type Prover = {
 export type ProvingOverrides = {
   /** Packaged certificates to prove against instead of those for the registry's latest root */
   certificates?: PackagedCertificatesFile
+  /** The circuits release to prove with instead of the test env's */
+  circuitVersion?: string
 }
 
 /**

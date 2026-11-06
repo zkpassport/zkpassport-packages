@@ -37,7 +37,7 @@ export async function runHeadlessApp({
   query,
   passport,
   registry = {},
-  circuitVersion,
+  circuitVersion: testEnvCircuitVersion,
   overrides,
 }: {
   query: QueryBuilderResult
@@ -51,6 +51,7 @@ export async function runHeadlessApp({
   const evm = request.mode === "compressed-evm"
   const chain = getChainFromQuery(request.query, request.devMode)
   const registryClient = createRegistryClient(chain, registry)
+  const circuitVersion = overrides?.circuitVersion ?? testEnvCircuitVersion
 
   const origin =
     (/localhost|192\.168\.|127\.0/.test(request.domain) ? "http://" : "https://") + request.domain
