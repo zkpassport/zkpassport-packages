@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import type { QueryBuilderResult } from "@zkpassport/sdk"
 import type { PopupConfigureMessage } from "@zkpassport/sdk/popup"
 
 import type { OutgoingEvent } from "../app"
@@ -13,13 +14,16 @@ import { Intro } from "./intro"
 import { Scan } from "./scan"
 import { Waiting, withProof, type ScanProgress } from "./waiting"
 
+/** A rejected promise on `success` keeps the result from being shown as verified. */
+export type SendEvent = (message: OutgoingEvent) => void | Promise<void>
+
 type VerifyFlowProps = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
   // Hostname of the relying party page; the header falls back to it when no name is sent
   rpHost: string
   session: Session
-  send: (message: OutgoingEvent) => void
+  send: SendEvent
 }
 
 type DomainResolution = { domain: string } | { error: string } | null
@@ -83,7 +87,21 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
   )
 }
 
-function VerifyRequest({
+type VerifyRequestProps = {
+  domain: string
+  request: PopupConfigureMessage["request"]
+  query: PopupConfigureMessage["query"]
+  appName: string
+  logo?: string
+  session: Session
+  send: SendEvent
+  onRequestCreated?: (
+    request: QueryBuilderResult,
+    info: { resumed: boolean },
+  ) => void | Promise<void>
+}
+
+export function VerifyRequest({
   domain,
   request,
   query,
@@ -91,15 +109,8 @@ function VerifyRequest({
   logo,
   session,
   send,
-}: {
-  domain: string
-  request: PopupConfigureMessage["request"]
-  query: PopupConfigureMessage["query"]
-  appName: string
-  logo?: string
-  session: Session
-  send: (message: OutgoingEvent) => void
-}) {
+  onRequestCreated,
+}: VerifyRequestProps) {
   // Coming back to this page should not ask for anything the user has already done
   const [consented, setConsented] = useState(session.resumed)
   // A dashboard policy arrives as {}: the real checks come back from the SDK
@@ -115,6 +126,9 @@ function VerifyRequest({
     setFailure(reason)
   }
 
+  const failFrom = (reason: unknown) =>
+    failWith({ message: reason instanceof Error ? reason.message : String(reason) })
+
   // Nothing reports a phone that has gone quiet, so the wait needs its own way out
   const startAgain = () => {
     setScan(null)
@@ -126,6 +140,11 @@ function VerifyRequest({
   const req = useRequest(
     { domain, request, query, session },
     {
+      onCreated: (created, info) => {
+        Promise.resolve()
+          .then(() => onRequestCreated?.(created, info))
+          .catch(failFrom)
+      },
       onReceived: () => {
         setScan({ stage: "scanned" })
         updateSession(session, { stage: "scanned" })
@@ -141,8 +160,9 @@ function VerifyRequest({
         send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
       },
       onSuccess: ({ proofs, result }) => {
-        setVerified(true)
-        send({ type: "success", proofs, result })
+        Promise.resolve()
+          .then(() => send({ type: "success", proofs, result }))
+          .then(() => setVerified(true), failFrom)
       },
       onReject: () => {
         failWith({ message: "The request was declined on your phone." })

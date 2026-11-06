@@ -31,13 +31,13 @@ export function RequestPage() {
                   <h1 className="flow-title">
                     {siteName
                       ? `${siteName} uses ZKPassport to verify your identity`
-                      : "Prove your data privately with ZKPassport"}
+                      : "Verify your identity privately with ZKPassport"}
                   </h1>
                 </div>
                 <p className="flow-lede">
-                  {siteName ? "To continue, download" : "Download"} the ZKPassport app — free on iOS
-                  and Android. Your passport or ID card is read on your phone, and its data never
-                  leaves your device.
+                  {siteName ? "To continue, download" : "Download"} the free ZKPassport app. It
+                  reads your passport or ID securely and verifies your identity. Your ID data never
+                  leaves your phone, except the details you choose to share.
                 </p>
                 <StoreBadges requestUrl={requestUrl} />
                 {requestUrl ? <OpenAppPrompt requestUrl={requestUrl} siteName={siteName} /> : null}

@@ -1,49 +1,64 @@
 import { useEffect, useRef, useState } from "react"
-import type { ProofResult, QueryBuilderResult, QueryResult } from "@zkpassport/sdk"
+import type { ProofResult, Query, QueryBuilderResult, QueryResult } from "@zkpassport/sdk"
+import type { PopupRequestConfig } from "@zkpassport/sdk/popup"
 
 import { Notice } from "../shared/frame"
 import { DASHBOARD_API_URL } from "../shared/trusted-domain"
-import { VerificationCard, type VerificationConfig } from "./card"
+import type { Session } from "../session"
+import { VerifyRequest } from "../verify"
+
+export type VerificationLink = {
+  domain: string
+  request: PopupRequestConfig
+  query: Query
+}
 
 const UNAVAILABLE_MESSAGE = "The verification service is unavailable. Try again later."
 
-export function LinkVerification({ linkId }: { linkId: string }) {
-  const [config, setConfig] = useState<VerificationConfig | null>(null)
+export function LinkVerification({ linkId, session }: { linkId: string; session: Session }) {
+  const [link, setLink] = useState<VerificationLink | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const activeSdkRequest = useRef<QueryBuilderResult | null>(null)
+  const activeRequest = useRef<QueryBuilderResult | null>(null)
 
   useEffect(() => {
-    fetchLink(linkId).then(setConfig, (error: Error) => setErrorMessage(error.message))
+    fetchLink(linkId).then(setLink, (error: Error) => setErrorMessage(error.message))
   }, [linkId])
 
   if (errorMessage) return <Notice>{errorMessage}</Notice>
-  if (!config) return <Notice>Loading…</Notice>
+  if (!link) return <Notice>Loading…</Notice>
 
+  const appName = link.request.name || link.domain
   return (
-    <VerificationCard
-      config={config}
-      onRequestCreated={(sdkRequest) => {
-        activeSdkRequest.current = sdkRequest
-        registerAttempt(linkId, sdkRequest.requestId).catch((error: Error) =>
-          setErrorMessage(error.message),
-        )
+    <VerifyRequest
+      domain={link.domain}
+      request={link.request}
+      query={link.query}
+      appName={appName}
+      logo={link.request.logo}
+      session={session}
+      onRequestCreated={(created, { resumed }) => {
+        activeRequest.current = created
+        // A resumed request keeps its id, so the dashboard already has its attempt
+        if (resumed) return
+        return registerAttempt(linkId, created.requestId)
       }}
-      onSuccess={({ proofs, result }) => {
-        const sdkRequest = activeSdkRequest.current!
+      send={(message) => {
+        if (message.type !== "success") return
+        const created = activeRequest.current!
         return submitResult(linkId, {
-          requestId: sdkRequest.requestId,
-          sdkVersion: new URL(sdkRequest.url).searchParams.get("v") ?? "",
-          proofs,
-          queryResult: result,
+          requestId: created.requestId,
+          sdkVersion: new URL(created.url).searchParams.get("v") ?? "",
+          proofs: message.proofs,
+          queryResult: message.result,
         })
       }}
     />
   )
 }
 
-async function fetchLink(linkId: string): Promise<VerificationConfig> {
+async function fetchLink(linkId: string): Promise<VerificationLink> {
   const response = await dashboardFetch(linkPath(linkId))
-  const body = (await response.json()) as { link: VerificationConfig }
+  const body = (await response.json()) as { link: VerificationLink }
   return body.link
 }
 
