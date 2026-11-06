@@ -10,5 +10,11 @@
     "module": "esnext",
     "types": ["bun"]
   },
-  "include": ["src/**/*.ts", "src/**/*.json", "tests/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.json",
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "fixtures/**/*.json"
+  ]
 }
