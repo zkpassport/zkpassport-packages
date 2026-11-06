@@ -1,5 +1,5 @@
-import { bytesToHex, hexToBytes, type Hex } from "viem"
 import type { KeyPair } from "@zkpassport/sdk"
+import { hexToUint8Array, uint8ArrayToHex } from "@zkpassport/utils"
 
 import type { PopupConfigureMessage, PopupSuccess } from "@zkpassport/sdk/popup"
 import type { ScanProgress } from "./verify/waiting"
@@ -36,8 +36,18 @@ export type Session = {
   fromUrl: boolean
 }
 
+type Hex = `0x${string}`
+
 type StoredSession = Omit<SessionState, "keyPair"> & {
   keyPair?: { privateKey: Hex; publicKey: Hex }
+}
+
+function bytesToHex(bytes: Uint8Array): Hex {
+  return `0x${uint8ArrayToHex(bytes)}`
+}
+
+function hexToBytes(hex: Hex): Uint8Array {
+  return hexToUint8Array(hex.slice(2))
 }
 
 /**

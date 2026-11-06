@@ -15,10 +15,6 @@ SDK request() → bridge → headless app → accept → proofs → done → SDK
   mobile app itself is not tested here.
 - **Proof modes**: in fast mode the headless app sends every subproof. In compressed mode it sends
   one outer proof of the subproofs, proved in-process where the app uses its cloud prover.
-- **Chain**: anvil forking Sepolia. Requests are in dev mode and bind no chain, so the SDK and the
-  headless app prove and verify on Sepolia, reading its registries through the fork: `verify()`
-  takes anvil's URL through `config.rpcUrl`. Certificates, circuits and sanctions trees come from
-  the testnet CDNs.
 - **Passport**: John, `createMockPassport()` from `@zkpassport/utils/mock-passports`, a ZKR mock
   passport, so verification runs with `devMode: true`.
 
@@ -32,6 +28,10 @@ bun run test:e2e            # builds the workspace packages it depends on, then 
 Needs `anvil` on `PATH`, and network access to a Sepolia RPC and the testnet CDNs. `SEPOLIA_RPC_URL`
 replaces the registry-sdk's built-in Sepolia endpoint.
 
+`CIRCUIT_VERSION` sets the circuit version the tests prove with, instead of the one
+`src/test-env.ts` names; `LOCAL_CIRCUITS_DIR` overrides both. `e2e.yml` takes it as its
+`circuit-version` input.
+
 Once a request starts, `fetch` may only reach this machine and the testnet CDNs; the tests assert
 that the SDK's dashboard lookup is the only call that tried to reach anything else.
 
@@ -40,8 +40,9 @@ The root `bun run test` does not run these tests.
 ## Unpublished circuits
 
 `LOCAL_CIRCUITS_DIR` runs the tests on circuits packaged in a circuits checkout instead of the
-version on the testnet CDN. The fork's circuit registry then takes that manifest's root as its latest
-root, registered as the registry's oracle:
+version on the testnet CDN.
+
+Packaging the circuits the tests prove, then running them:
 
 ```sh
 # In a circuits checkout, after npm ci, with the nargo and bb versions it pins on PATH
@@ -54,6 +55,8 @@ circuits=(
   compare_age
   disclose_bytes
   exclusion_check_sanctions
+  compare_age_evm
+  disclose_bytes_evm
   outer_count_5
 )
 npx tsx src/ts/scripts/circuit-builder.ts generate

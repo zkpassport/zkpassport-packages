@@ -17,9 +17,6 @@ import {
   SanctionsCheckFailedError,
 } from "./prove"
 
-/** The proof modes the headless app answers requests in */
-export type HeadlessAppMode = Extract<ProofMode, "fast" | "compressed">
-
 export type HeadlessApp = {
   bridge: BridgeInterface
   chain: SupportedChain
@@ -51,9 +48,7 @@ export async function runHeadlessApp({
 }): Promise<HeadlessApp> {
   const { trackedRequest, outcome } = trackRequest(query)
   const request = parseRequestUrl(trackedRequest.url)
-  if (request.mode !== "fast" && request.mode !== "compressed") {
-    throw new Error(`Only fast and compressed modes are handled so far, got ${request.mode}`)
-  }
+  const evm = request.mode === "compressed-evm"
   const chain = getChainFromQuery(request.query, request.devMode)
   const registryClient = createRegistryClient(chain, registry)
 
@@ -77,13 +72,14 @@ export async function runHeadlessApp({
       scope: request.service.scope,
       circuitVersion,
       registry: registryClient,
+      evm,
       overrides,
     })
-    // Fast mode sends the subproofs as they are, compressed mode one outer proof of them
+    // Fast mode sends the subproofs as they are, compressed modes one outer proof of them
     const proofs =
-      request.mode === "compressed"
-        ? [await proveOuterProof({ subproofs, circuitVersion, registry: registryClient })]
-        : subproofs
+      request.mode === "fast"
+        ? subproofs
+        : [await proveOuterProof({ subproofs, circuitVersion, registry: registryClient, evm })]
 
     // The app sends all proofs after proving (AccessRequestView.tsx), then done
     for (const proof of proofs) {
@@ -157,7 +153,7 @@ type ParsedRequest = {
   pubkey: string
   query: Query
   service: { bridgeUrl?: string; scope?: string; [key: string]: unknown }
-  mode: string
+  mode: ProofMode
   devMode: boolean
 }
 
@@ -169,7 +165,7 @@ function parseRequestUrl(requestUrl: string): ParsedRequest {
     pubkey: params.get("p")!,
     query: decodeBase64Json(params.get("c")!),
     service: decodeBase64Json(params.get("s")!),
-    mode: params.get("m") ?? "fast",
+    mode: (params.get("m") ?? "fast") as ProofMode,
     devMode: params.get("dev") === "1",
   }
 }
