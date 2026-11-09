@@ -1,3 +1,4 @@
+pub mod local_network_registry;
 pub mod types;
 mod root_validation;
 mod guards;
