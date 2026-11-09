@@ -193,7 +193,7 @@ export async function getHostedPackagedCircuitByName(
 /**
  * How many public inputs a proof of the circuit has. Since circuit version 0.22.0 the integrity
  * and outer proofs carry the credential scheme as one more; `circuitVersion` is the version the
- * proof was made with (none means the current circuits).
+ * proof was made with (none means a version before the credential scheme).
  */
 export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: string) {
   const scheme = hasCredentialScheme(circuitVersion) ? 1 : 0

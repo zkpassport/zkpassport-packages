@@ -238,6 +238,19 @@ describe("getOuterCircuitProof", () => {
     expect(outerCircuitProof.keyHash).toEqual("0x0b")
   })
 
+  test("splits an integrity proof by the public inputs of its circuit version", async () => {
+    // Since 0.22.0 the integrity check outputs the credential scheme after comm_out
+    const integrity = { ...circuit, name: "data_check_integrity_sa_sha256_dg_sha256" }
+    const proof = { ...subproof, name: integrity.name, version: "0.22.0" as const }
+    const split = await getOuterCircuitProof(
+      { ...proof, proof: [1, 2, 0x64, 0x21].map(field).join("") },
+      integrity,
+      await getCircuitManifest(),
+    )
+    expect(split.publicInputs).toEqual([1, 2, 0x64].map((value) => `0x${field(value)}`))
+    expect(split.proof).toEqual([`0x${field(0x21)}`])
+  })
+
   test("gives the path from the vkey hash to the manifest's root", async () => {
     const circuitManifest = await getCircuitManifest()
     const { treeIndex, treeHashPath } = await getOuterCircuitProof(
