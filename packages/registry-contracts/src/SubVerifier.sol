@@ -193,7 +193,7 @@ contract SubVerifier {
      * @param credentialScheme The credential scheme from the proof's public inputs
      * @param committedInputs The committed inputs, already checked against the param commitments
      */
-    function _verifyDeviceAttestation(uint256 credentialScheme, bytes calldata committedInputs) internal pure {
+    function _verifyDeviceAttestation(uint256 credentialScheme, bytes calldata committedInputs) internal pure virtual {
         if (Credentials.tierOf(credentialScheme) == CredentialTier.DEVICE_ATTESTED) {
             (
                 bytes32 rootKeyHash,
