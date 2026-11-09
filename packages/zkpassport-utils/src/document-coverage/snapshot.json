@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-04T08:41:15.649Z",
+  "generatedAt": "2026-11-09T10:42:49.884Z",
   "sources": {
     "regula": {
       "database": "FullAuthLight",
       "build": 323483,
-      "documents": 2679
+      "documents": 2620
     },
     "certificates": {
       "chainId": 1,
-      "root": "0x08509d95c5de600192b0ea3d5b53fe4dccce4be5a84bbdc512b10f6361992311",
+      "root": "0x1398607f65ee117db9e7de8a9a91e0c7bbe157d431c4cb2dcf764be3b1a101c2",
       "count": 614
     }
   },
@@ -34,10 +34,7 @@
         },
         "camera": {
           "requires": "mrz",
-          "schemes": [
-            200,
-            201
-          ]
+          "schemes": [200, 201]
         }
       }
     },
@@ -51,10 +48,7 @@
         },
         "camera": {
           "requires": "mrz",
-          "schemes": [
-            200,
-            201
-          ]
+          "schemes": [200, 201]
         }
       }
     },
@@ -68,10 +62,7 @@
         },
         "camera": {
           "requires": "mrz",
-          "schemes": [
-            200,
-            201
-          ]
+          "schemes": [200, 201]
         }
       }
     },
@@ -339,15 +330,8 @@
           "type": "residence_permit",
           "name": "Residence Permit",
           "chip": false,
-          "mrz": false,
-          "regulaId": -811802731
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence permit",
-          "chip": false,
           "mrz": true,
-          "regulaId": -811614054
+          "regulaId": -811802731
         }
       ]
     },
@@ -934,6 +918,29 @@
         }
       ]
     },
+    "AUC": {
+      "name": "African Union",
+      "chipCertificates": {
+        "supported": false,
+        "from": null,
+        "to": null
+      },
+      "signedSupport": {
+        "passport": 0,
+        "id_card": 0,
+        "residence_permit": 0
+      },
+      "documents": [
+        {
+          "type": "passport",
+          "name": "Passport (2015)",
+          "from": 2015,
+          "chip": false,
+          "mrz": true,
+          "regulaId": -325124092
+        }
+      ]
+    },
     "AUS": {
       "name": "Australia",
       "chipCertificates": {
@@ -1381,15 +1388,6 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence Permit (2006-2010)",
-          "from": 2006,
-          "to": 2010,
-          "chip": false,
-          "mrz": false,
-          "regulaId": -1207541364
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence Permit (2006-2010) (EU Citizen)",
           "from": 2006,
           "to": 2010,
@@ -1433,18 +1431,10 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence permit (2020)",
-          "from": 2020,
-          "chip": true,
-          "mrz": true,
-          "regulaId": 615706187
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence Permit (2020)",
           "from": 2020,
           "chip": true,
-          "mrz": false,
+          "mrz": true,
           "regulaId": 615703607
         },
         {
@@ -3344,15 +3334,6 @@
         },
         {
           "type": "passport",
-          "name": "Passport (1993) (not MRZ)",
-          "from": 1993,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 978452447
-        },
-        {
-          "type": "passport",
           "name": "Passport (2002-2007)",
           "from": 2002,
           "to": 2007,
@@ -3847,14 +3828,6 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence Permit (2019)",
-          "from": 2019,
-          "chip": false,
-          "mrz": true,
-          "regulaId": 1707650806
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence permit (2020)",
           "from": 2020,
           "chip": true,
@@ -3980,15 +3953,6 @@
           "from": 1996,
           "chip": false,
           "mrz": true,
-          "deprecated": true,
-          "regulaId": 2086069307
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1996) (NOT MRZ)",
-          "from": 1996,
-          "chip": false,
-          "mrz": false,
           "deprecated": true,
           "regulaId": 1751700453
         },
@@ -5415,86 +5379,6 @@
         },
         {
           "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #1 Page 2",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1877823093
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #1 Page 4",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1877845637
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #2 Page 2",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1835526389
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #2 Page 3",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1835623796
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #2 Page 4",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1954878795
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #2 Page 6",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1835633554
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #2 Page B",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1954883351
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #3 Page 2",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1689601706
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #3 Page 3",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1689611270
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit (2005) #3 Page 4",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1689615317
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence permit (2011)",
           "from": 2011,
           "chip": true,
@@ -5740,18 +5624,10 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence permit (2020)",
-          "from": 2020,
-          "chip": true,
-          "mrz": true,
-          "regulaId": 855908430
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence Permit (2020)",
           "from": 2020,
           "chip": true,
-          "mrz": false,
+          "mrz": true,
           "regulaId": 855892504
         },
         {
@@ -6813,20 +6689,6 @@
         }
       ]
     },
-    "EUR": {
-      "name": "EUR",
-      "chipCertificates": {
-        "supported": true,
-        "from": 2015,
-        "to": 2036
-      },
-      "signedSupport": {
-        "passport": 0,
-        "id_card": 0,
-        "residence_permit": 0
-      },
-      "documents": []
-    },
     "FIN": {
       "name": "Finland",
       "chipCertificates": {
@@ -7445,7 +7307,7 @@
       "documents": [
         {
           "type": "passport",
-          "name": "Passport (2001) (not MRZ)",
+          "name": "Passport (2001)",
           "from": 2001,
           "chip": false,
           "mrz": false,
@@ -7590,15 +7452,6 @@
           "mrz": true,
           "deprecated": true,
           "regulaId": 462750157
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1988) (not MRZ)",
-          "from": 1988,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 985488346
         },
         {
           "type": "passport",
@@ -8354,14 +8207,6 @@
           "from": 1997,
           "chip": false,
           "mrz": true,
-          "regulaId": 2095146550
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1997) (NOT MRZ)",
-          "from": 1997,
-          "chip": false,
-          "mrz": false,
           "regulaId": 1751710172
         },
         {
@@ -9678,14 +9523,6 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence Permit (2013)",
-          "from": 2013,
-          "chip": false,
-          "mrz": true,
-          "regulaId": 965474490
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence Permit (2013) (EU Citizen)",
           "from": 2013,
           "chip": false,
@@ -9753,15 +9590,6 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": 2095906911
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1995) (not MRZ)",
-          "from": 1995,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
           "regulaId": 728725965
         },
         {
@@ -9783,27 +9611,11 @@
         },
         {
           "type": "passport",
-          "name": "Passport (2005) (not MRZ)",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1308460290
-        },
-        {
-          "type": "passport",
           "name": "Passport (2008)",
           "from": 2008,
           "chip": false,
           "mrz": true,
           "regulaId": -1474384489
-        },
-        {
-          "type": "passport",
-          "name": "Passport (2008) (not MRZ)",
-          "from": 2008,
-          "chip": false,
-          "mrz": false,
-          "regulaId": -1474351276
         },
         {
           "type": "passport",
@@ -9953,14 +9765,6 @@
           "from": 2000,
           "chip": false,
           "mrz": true,
-          "regulaId": 461898198
-        },
-        {
-          "type": "passport",
-          "name": "Passport (2000) (not MRZ)",
-          "from": 2000,
-          "chip": false,
-          "mrz": false,
           "regulaId": 461898089
         },
         {
@@ -10363,13 +10167,6 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence Permit",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1691215472
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence permit",
           "chip": false,
           "mrz": false,
@@ -10599,14 +10396,6 @@
         },
         {
           "type": "passport",
-          "name": "Passport (1992) (not MRZ)",
-          "from": 1992,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 881918396
-        },
-        {
-          "type": "passport",
           "name": "ePassport (2013)",
           "from": 2013,
           "chip": true,
@@ -10700,15 +10489,6 @@
           "mrz": true,
           "deprecated": true,
           "regulaId": 583071925
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1998) #1 (not MRZ)",
-          "from": 1998,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 1308478710
         },
         {
           "type": "passport",
@@ -10954,27 +10734,11 @@
         },
         {
           "type": "passport",
-          "name": "Passport (2008) (not MRZ)",
-          "from": 2008,
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1308485288
-        },
-        {
-          "type": "passport",
           "name": "Passport (2011)",
           "from": 2011,
           "chip": false,
           "mrz": true,
           "regulaId": -1248909875
-        },
-        {
-          "type": "passport",
-          "name": "Passport (2011) (not MRZ)",
-          "from": 2011,
-          "chip": false,
-          "mrz": false,
-          "regulaId": -879946087
         },
         {
           "type": "passport",
@@ -10992,21 +10756,6 @@
           "regulaId": 464593099
         },
         {
-          "type": "passport",
-          "name": "Passport #2 (not MRZ)",
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 2102830631
-        },
-        {
-          "type": "passport",
-          "name": "Passport #4 (not MRZ)",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 2104627745
-        },
-        {
           "type": "id_card",
           "name": "Id Card (2016)",
           "from": 2016,
@@ -11020,13 +10769,6 @@
           "chip": false,
           "mrz": true,
           "regulaId": -1830317296
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence Permit",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1013820865
         },
         {
           "type": "residence_permit",
@@ -11058,15 +10800,6 @@
           "mrz": true,
           "deprecated": true,
           "regulaId": 464593045
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1995) (not MRZ)",
-          "from": 1995,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 933614114
         },
         {
           "type": "passport",
@@ -11681,15 +11414,6 @@
           "mrz": true,
           "deprecated": true,
           "regulaId": 468780868
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1998) (NOT MRZ)",
-          "from": 1998,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 1711209905
         },
         {
           "type": "passport",
@@ -12598,18 +12322,10 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence permit (2020)",
-          "from": 2020,
-          "chip": true,
-          "mrz": true,
-          "regulaId": 727851769
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence Permit (2020)",
           "from": 2020,
           "chip": true,
-          "mrz": false,
+          "mrz": true,
           "regulaId": 727813696
         },
         {
@@ -13870,15 +13586,6 @@
           "chip": false,
           "mrz": true,
           "deprecated": true,
-          "regulaId": 467930794
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1990) (not MRZ)",
-          "from": 1990,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
           "regulaId": -2112961067
         },
         {
@@ -14399,20 +14106,6 @@
           "regulaId": 1157305202
         },
         {
-          "type": "passport",
-          "name": "Passport #1 Page 1",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 2147027380
-        },
-        {
-          "type": "passport",
-          "name": "Passport #1 Page 2",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 2147026377
-        },
-        {
           "type": "id_card",
           "name": "Id Card (2012)",
           "from": 2012,
@@ -14568,13 +14261,6 @@
           "chip": false,
           "mrz": true,
           "regulaId": 348577672
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence Permit",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1007070967
         },
         {
           "type": "residence_permit",
@@ -14983,13 +14669,6 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence Permit",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1598992807
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence permit",
           "chip": false,
           "mrz": false,
@@ -15281,18 +14960,10 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence permit (2020)",
-          "from": 2020,
-          "chip": true,
-          "mrz": true,
-          "regulaId": 721069790
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence Permit (2020)",
           "from": 2020,
           "chip": true,
-          "mrz": false,
+          "mrz": true,
           "regulaId": 721007116
         }
       ],
@@ -15537,14 +15208,6 @@
           "regulaId": -1128933575
         },
         {
-          "type": "passport",
-          "name": "Passport #1 Page 1",
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 790940601
-        },
-        {
           "type": "id_card",
           "name": "Id Card (2017)",
           "from": 2017,
@@ -15617,7 +15280,7 @@
         },
         {
           "type": "passport",
-          "name": "Passport (1994) (not MRZ)",
+          "name": "Passport (1994)",
           "from": 1994,
           "chip": false,
           "mrz": false,
@@ -16522,15 +16185,6 @@
         },
         {
           "type": "passport",
-          "name": "Passport (1992) (not MRZ)",
-          "from": 1992,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 1710389723
-        },
-        {
-          "type": "passport",
           "name": "Passport (2001-2002)",
           "from": 2001,
           "to": 2002,
@@ -16716,18 +16370,10 @@
         },
         {
           "type": "residence_permit",
-          "name": "Residence permit (2020)",
-          "from": 2020,
-          "chip": true,
-          "mrz": true,
-          "regulaId": 909457559
-        },
-        {
-          "type": "residence_permit",
           "name": "Residence Permit (2020)",
           "from": 2020,
           "chip": true,
-          "mrz": false,
+          "mrz": true,
           "regulaId": 727895398
         },
         {
@@ -17312,9 +16958,9 @@
     "RKS": {
       "name": "Kosovo",
       "chipCertificates": {
-        "supported": false,
-        "from": null,
-        "to": null
+        "supported": true,
+        "from": 2011,
+        "to": 2036
       },
       "signedSupport": {
         "passport": 0.5,
@@ -17520,7 +17166,6 @@
         {
           "type": "id_card",
           "name": "Id Card (7337)",
-          "from": 7337,
           "chip": false,
           "mrz": true,
           "regulaId": -796271501
@@ -17615,7 +17260,7 @@
       "documents": [
         {
           "type": "passport",
-          "name": "Passport (1991) (not MRZ)",
+          "name": "Passport (1991)",
           "from": 1991,
           "chip": false,
           "mrz": false,
@@ -17629,15 +17274,6 @@
           "to": 2005,
           "chip": false,
           "mrz": true,
-          "regulaId": 470542417
-        },
-        {
-          "type": "passport",
-          "name": "Passport (1998-2005) (not MRZ)",
-          "from": 1998,
-          "to": 2005,
-          "chip": false,
-          "mrz": false,
           "regulaId": -735654763
         },
         {
@@ -17673,7 +17309,7 @@
         },
         {
           "type": "residence_permit",
-          "name": "Temporary Residence Permit (2001) (not MRZ)",
+          "name": "Temporary Residence Permit (2001)",
           "from": 2001,
           "chip": false,
           "mrz": false,
@@ -17685,23 +17321,7 @@
           "from": 2005,
           "chip": false,
           "mrz": true,
-          "regulaId": 790943544
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence Permit (2005) (not MRZ)",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
           "regulaId": -1317035017
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence Permit (2005) Page B",
-          "from": 2005,
-          "chip": false,
-          "mrz": false,
-          "regulaId": -771942632
         },
         {
           "type": "residence_permit",
@@ -17709,20 +17329,6 @@
           "chip": false,
           "mrz": true,
           "regulaId": -1024376843
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit #2 (not MRZ)",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1036453415
-        },
-        {
-          "type": "residence_permit",
-          "name": "Temporary Residence Permit #3 (not MRZ)",
-          "chip": false,
-          "mrz": false,
-          "regulaId": -325410476
         }
       ]
     },
@@ -17894,13 +17500,6 @@
           "chip": false,
           "mrz": false,
           "regulaId": -1691257182
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence permit",
-          "chip": false,
-          "mrz": false,
-          "regulaId": -330397799
         }
       ],
       "documentNames": {
@@ -18052,14 +17651,6 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": 1157309552
-        },
-        {
-          "type": "passport",
-          "name": "Passport #1 Page 2",
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
           "regulaId": 844769344
         },
         {
@@ -18206,13 +17797,6 @@
         {
           "type": "id_card",
           "name": "Id Card #2 Side B (Visit Pass)",
-          "chip": false,
-          "mrz": false,
-          "regulaId": 1913251480
-        },
-        {
-          "type": "id_card",
-          "name": "Id Card #2 Side B (Visit Pass)(2)",
           "chip": false,
           "mrz": false,
           "regulaId": 790118999
@@ -19437,14 +19021,6 @@
           "mrz": false,
           "deprecated": true,
           "regulaId": -993244365
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence permit",
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": -993233809
         }
       ]
     },
@@ -20806,15 +20382,6 @@
           "from": 2009,
           "chip": false,
           "mrz": true,
-          "regulaId": -990483799
-        },
-        {
-          "type": "passport",
-          "name": "Passport (2009) (not MRZ)",
-          "from": 2009,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
           "regulaId": -1663622003
         },
         {
@@ -24208,13 +23775,6 @@
           "name": "Residence Permit",
           "chip": false,
           "mrz": true,
-          "regulaId": 1273966030
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence Permit #1 (not MRZ)",
-          "chip": false,
-          "mrz": false,
           "regulaId": 959410380
         }
       ]
@@ -24461,15 +24021,6 @@
         },
         {
           "type": "passport",
-          "name": "Passport (1995) (not MRZ)",
-          "from": 1995,
-          "chip": false,
-          "mrz": false,
-          "deprecated": true,
-          "regulaId": 1642067960
-        },
-        {
-          "type": "passport",
           "name": "Passport (2005-2017)",
           "from": 2005,
           "to": 2017,
@@ -24693,20 +24244,6 @@
           "regulaId": -130754157
         }
       ]
-    },
-    "XKX": {
-      "name": "XKX",
-      "chipCertificates": {
-        "supported": true,
-        "from": 2011,
-        "to": 2036
-      },
-      "signedSupport": {
-        "passport": 0,
-        "id_card": 0,
-        "residence_permit": 0
-      },
-      "documents": []
     },
     "XOM": {
       "name": "Sovereign Military Order Of Malta",
@@ -24945,8 +24482,8 @@
         "id_card": "Smart ID Card"
       }
     },
-    "ZIM": {
-      "name": "Zimbabwe",
+    "ZMB": {
+      "name": "Zambia",
       "chipCertificates": {
         "supported": false,
         "from": null,
@@ -24954,6 +24491,54 @@
       },
       "signedSupport": {
         "passport": 0,
+        "id_card": 0,
+        "residence_permit": 0
+      },
+      "documents": [
+        {
+          "type": "passport",
+          "name": "Passport (1998)",
+          "from": 1998,
+          "chip": false,
+          "mrz": true,
+          "deprecated": true,
+          "regulaId": 790923292
+        },
+        {
+          "type": "passport",
+          "name": "Passport (2008)",
+          "from": 2008,
+          "chip": false,
+          "mrz": true,
+          "regulaId": -2112724875
+        },
+        {
+          "type": "passport",
+          "name": "Passport (2010)",
+          "from": 2010,
+          "chip": false,
+          "mrz": true,
+          "regulaId": -1071619733
+        },
+        {
+          "type": "residence_permit",
+          "name": "Residence Permit (2019)",
+          "from": 2019,
+          "chip": false,
+          "mrz": true,
+          "regulaId": -1977162874
+        }
+      ]
+    },
+    "ZWE": {
+      "name": "Zimbabwe",
+      "chipCertificates": {
+        "supported": true,
+        "from": 2021,
+        "to": 2038
+      },
+      "signedSupport": {
+        "passport": 0.25,
         "id_card": 0,
         "residence_permit": 0
       },
@@ -25005,68 +24590,6 @@
           "regulaId": -256123718
         }
       ]
-    },
-    "ZMB": {
-      "name": "Zambia",
-      "chipCertificates": {
-        "supported": false,
-        "from": null,
-        "to": null
-      },
-      "signedSupport": {
-        "passport": 0,
-        "id_card": 0,
-        "residence_permit": 0
-      },
-      "documents": [
-        {
-          "type": "passport",
-          "name": "Passport (1998)",
-          "from": 1998,
-          "chip": false,
-          "mrz": true,
-          "deprecated": true,
-          "regulaId": 790923292
-        },
-        {
-          "type": "passport",
-          "name": "Passport (2008)",
-          "from": 2008,
-          "chip": false,
-          "mrz": true,
-          "regulaId": -2112724875
-        },
-        {
-          "type": "passport",
-          "name": "Passport (2010)",
-          "from": 2010,
-          "chip": false,
-          "mrz": true,
-          "regulaId": -1071619733
-        },
-        {
-          "type": "residence_permit",
-          "name": "Residence Permit (2019)",
-          "from": 2019,
-          "chip": false,
-          "mrz": true,
-          "regulaId": -1977162874
-        }
-      ]
-    },
-    "ZWE": {
-      "name": "ZWE",
-      "chipCertificates": {
-        "supported": true,
-        "from": 2021,
-        "to": 2038
-      },
-      "signedSupport": {
-        "passport": 0.25,
-        "id_card": 0,
-        "residence_permit": 0
-      },
-      "documents": []
     }
   }
 }
