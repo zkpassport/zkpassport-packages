@@ -79,7 +79,10 @@ export async function getOuterCircuitProof(
     )
   }
 
-  const proofData = getProofData(subproof.proof as string, getNumberOfPublicInputs(circuit.name))
+  const proofData = getProofData(
+    subproof.proof as string,
+    getNumberOfPublicInputs(circuit.name, subproof.version),
+  )
   const { index, path } = await getCircuitMerkleProof(
     circuit.vkey_hash,
     circuitManifest,
