@@ -99,9 +99,11 @@ TXE and a local network. Its admin and operator are the local network's test acc
   `zkpassport_registry_contract::local_network_registry`, with the path `TestEnvironment::deploy`
   takes to the compiled registry, then `seed_local_network_registry` with the roots and vk hash of
   the test's proof. Advance time past the registry's delay before verifying.
-- Local network: `deployLocalNetworkRegistry(wallet)` and `seedLocalNetworkRegistry(wallet, seed)`
-  from `@zkpassport/aztec`, with the test accounts in the wallet
-  (`registerInitialLocalNetworkAccountsInWallet`).
+- Local network: deploy `ZKPassportRegistry` universally (deployer zero) with default public keys,
+  salt `LOCAL_NETWORK_REGISTRY_SALT` and constructor arguments `LOCAL_NETWORK_REGISTRY_ADMIN`,
+  `LOCAL_NETWORK_REGISTRY_OPERATOR`, `MODE_VALID_WITHIN_WINDOW` and
+  `LOCAL_NETWORK_REGISTRY_VALIDITY_WINDOW`, from test account 0, then seed it with the operator
+  (roots) and the admin (vk and version).
 
 Any change to the registry's bytecode or the Aztec toolchain moves the address.
 `ts/test/local-network-registry.test.ts` then fails with the new values for
