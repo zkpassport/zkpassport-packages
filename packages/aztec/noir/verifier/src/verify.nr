@@ -1,7 +1,7 @@
 use aztec::{
     context::PrivateContext,
     oracle::capsules,
-    protocol::{address::AztecAddress, hash::sha256_to_field},
+    protocol::{address::AztecAddress, hash::sha256_to_field, traits::FromField},
 };
 use poseidon::poseidon2::Poseidon2;
 use zkpassport::commitments::disclose_commitment;
@@ -52,13 +52,21 @@ global TXE_VERSION: Field = 1;
 // Anvil's default chain id, the L1 of an Aztec local network.
 global ANVIL_CHAIN_ID: Field = 31337;
 
+// The L1 chain id and the rollup version of the Aztec testnet, and ZKPassport's registry on it.
+global TESTNET_CHAIN_ID: Field = 11155111;
+global TESTNET_VERSION: Field = 679261766;
+global TESTNET_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+    0x019de2b2c83e178733dce20707949a17ec3465caba6ccd24b3d861f151bf0f30,
+);
+
 // ZKPassport's registry deployments, as (chain id, version, registry address) tuples.
 // Chain id refers to the L1 the network settles on and version to the network's rollup.
 // A version of none matches every version on that chain.
-global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 2] = [
+global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 3] = [
     (TXE_CHAIN_ID, Option::some(TXE_VERSION), LOCAL_NETWORK_REGISTRY_ADDRESS),
     // A local network, at any rollup version: Anvil's chain id is never a live network's
     (ANVIL_CHAIN_ID, Option::none(), LOCAL_NETWORK_REGISTRY_ADDRESS),
+    (TESTNET_CHAIN_ID, Option::some(TESTNET_VERSION), TESTNET_REGISTRY_ADDRESS),
 ];
 
 /// Hashes a domain or scope string the way the ZKPassport SDK does, for `ServiceConfig`.
@@ -323,8 +331,8 @@ fn expected_with_disclosure<let K: u32>(
 mod test {
     use crate::verify::{
         ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure,
-        expected_with_disclosure, parse_disclose_payload, scope_hash, ServiceConfig, TXE_CHAIN_ID,
-        TXE_VERSION,
+        expected_with_disclosure, parse_disclose_payload, scope_hash, ServiceConfig,
+        TESTNET_CHAIN_ID, TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID, TXE_VERSION,
     };
     use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
@@ -434,9 +442,14 @@ mod test {
         );
     }
 
+    #[test]
+    fn the_testnet_uses_the_testnet_registry() {
+        assert_eq(default_registry(TESTNET_CHAIN_ID, TESTNET_VERSION), TESTNET_REGISTRY_ADDRESS);
+    }
+
     #[test(should_fail_with = "no default ZKPassport registry on this network")]
-    fn network_without_deployment_has_no_default_registry() {
-        let _ = default_registry(11155111, 1);
+    fn another_rollup_on_the_testnets_l1_does_not_get_the_testnet_registry() {
+        let _ = default_registry(TESTNET_CHAIN_ID, TESTNET_VERSION + 1);
     }
 
     #[test]
