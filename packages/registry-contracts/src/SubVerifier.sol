@@ -12,9 +12,18 @@ pragma solidity ^0.8.30;
 import {RootVerifier} from "./RootVerifier.sol";
 import {RootRegistry} from "./RootRegistry.sol";
 import {IProofVerifier} from "./IProofVerifier.sol";
-import {ProofVerificationParams, NullifierType, ProofVerifier} from "./lib/Types.sol";
+import {
+    ProofVerificationParams,
+    NullifierType,
+    ProofVerifier,
+    ProofType,
+    Environment,
+    FaceMatchMode
+} from "./lib/Types.sol";
 import {PublicInput, RegistryID} from "./lib/Constants.sol";
-import {Credentials} from "./lib/Credentials.sol";
+import {Credentials, CredentialTier} from "./lib/Credentials.sol";
+import {AttestedId} from "./lib/AttestedId.sol";
+import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
 
@@ -178,6 +187,33 @@ contract SubVerifier {
         );
     }
 
+    /**
+     * @notice A device attested credential must open with an attested ID entry pinned to the
+     *         expected attestation roots and app; any other credential must not carry one
+     * @param credentialScheme The credential scheme from the proof's public inputs
+     * @param committedInputs The committed inputs, already checked against the param commitments
+     */
+    function _verifyDeviceAttestation(uint256 credentialScheme, bytes calldata committedInputs) internal pure {
+        if (Credentials.tierOf(credentialScheme) == CredentialTier.DEVICE_ATTESTED) {
+            (
+                bytes32 rootKeyHash,
+                Environment environment,
+                bytes32 appIdHash,
+                bytes32 integrityPublicKeyHash,
+                FaceMatchMode mode
+            ) = InputsExtractor.getAttestedIdProofInputs(committedInputs);
+            require(
+                AttestedId.isValid(credentialScheme, rootKeyHash, environment, appIdHash, integrityPublicKeyHash, mode),
+                "Invalid device attestation"
+            );
+        } else {
+            require(
+                !InputsExtractor.containsProofType(committedInputs, ProofType.ATTESTED_ID),
+                "Unexpected device attestation"
+            );
+        }
+    }
+
     function _getProofVerifier(bytes32 vkeyHash) internal view returns (address) {
         address verifier = proofVerifiers[vkeyHash];
         require(verifier != address(0), "Verifier not found");
@@ -280,6 +316,7 @@ contract SubVerifier {
         require(
             Credentials.isAllowed(credentialScheme, params.serviceConfig.allowedCredentials), "Credential not allowed"
         );
+        _verifyDeviceAttestation(credentialScheme, params.committedInputs);
 
         // Allow mock proofs in dev mode
         // Note: On mainnets, this stage won't be reached as the ZKR certificates will not be part

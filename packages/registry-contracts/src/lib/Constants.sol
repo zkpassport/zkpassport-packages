@@ -35,6 +35,7 @@ library CommittedInputLen {
     uint256 constant BIND = 509;
     uint256 constant SANCTIONS = 33;
     uint256 constant FACEMATCH = 98;
+    uint256 constant ATTESTED_ID = 98;
 }
 
 // Gather all the public input indices in one place

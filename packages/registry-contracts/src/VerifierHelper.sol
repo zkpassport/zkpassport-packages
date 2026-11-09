@@ -424,6 +424,7 @@ contract VerifierHelper {
 
     /**
      * @notice Checks if the proof is tied to a FaceMatch verification
+     * @dev Without a FaceMatch entry, a device attested ID entry (strict mode) is the face match evidence
      * @param faceMatchMode The FaceMatch mode expected to be used in the verification
      * @param os The operating system on which the proof should have been generated (Any (0), iOS (1), Android (2))
      * @param committedInputs The committed inputs
@@ -440,7 +441,10 @@ contract VerifierHelper {
             bytes32 appIdHash,
             bytes32 integrityPublicKeyHash,
             FaceMatchMode retrievedFaceMatchMode
-        ) = InputsExtractor.getFacematchProofInputs(committedInputs);
+        ) = !InputsExtractor.containsProofType(committedInputs, ProofType.FACEMATCH)
+            && InputsExtractor.containsProofType(committedInputs, ProofType.ATTESTED_ID)
+            ? InputsExtractor.getAttestedIdProofInputs(committedInputs)
+            : InputsExtractor.getFacematchProofInputs(committedInputs);
         bool isProduction = environment == Environment.PRODUCTION;
         bool isCorrectMode = retrievedFaceMatchMode == faceMatchMode;
         bool isCorrectRootKeyHash = (rootKeyHash == AppAttest.APPLE_ROOT_KEY_HASH && (os == OS.IOS || os == OS.ANY))
