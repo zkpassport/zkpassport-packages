@@ -25,7 +25,8 @@ enum ProofType {
     ISSUING_COUNTRY_EXCLUSION,
     BIND,
     SANCTIONS,
-    FACEMATCH
+    FACEMATCH,
+    ATTESTED_ID
 }
 
 enum BoundDataIdentifier {
