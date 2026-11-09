@@ -17,7 +17,7 @@ use aztec::{
 
 /// The local network registry's address in TXE and on a local network.
 pub global LOCAL_NETWORK_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x18c3f5e2a35d875986926944ccb64a776097c3bf487e8f4a4a5812b5ad3f3eb9,
+    0x150417513440e16bf6caa69b608dc2ec4e17cb038cd00f7714b521fe5240866d,
 );
 
 /// The local network registry's admin: the local network's test account 0.

@@ -2,7 +2,11 @@ use crate::{
     types::{MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT},
     ZKPassportRegistry,
 };
-use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use aztec::{
+    oracle::get_contract_instance::get_contract_instance,
+    protocol::{address::AztecAddress, contract_class_id::ContractClassId, traits::FromField},
+    test::helpers::test_environment::TestEnvironment,
+};
 
 pub struct Actors {
     pub registry: AztecAddress,
@@ -507,5 +511,65 @@ unconstrained fn constructor_rejects_zero_admin() {
             MODE_VALID_WITHIN_WINDOW,
             86400,
         ),
+    );
+}
+
+// ---- Contract updates ----
+
+unconstrained fn registry_class_id(
+    env: TestEnvironment,
+    registry: AztecAddress,
+) -> ContractClassId {
+    env.utility_context(|_| get_contract_instance(registry).original_contract_class_id)
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn operator_cannot_update_the_contract() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let class_id = registry_class_id(env, actors.registry);
+    let _ = env.call_public(
+        actors.operator,
+        ZKPassportRegistry::at(actors.registry).update_to(class_id),
+    );
+}
+
+#[test(should_fail_with = "New contract class is not registered")]
+unconstrained fn update_to_an_unregistered_class_fails() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(
+        actors.admin,
+        ZKPassportRegistry::at(actors.registry).update_to(ContractClassId::from_field(0xdead)),
+    );
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn operator_cannot_set_the_update_delay() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(
+        actors.operator,
+        ZKPassportRegistry::at(actors.registry).set_update_delay(7200),
+    );
+}
+
+#[test]
+unconstrained fn admin_can_set_the_update_delay() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(
+        actors.admin,
+        ZKPassportRegistry::at(actors.registry).set_update_delay(7200),
+    );
+}
+
+#[test(should_fail_with = "New update delay is too low")]
+unconstrained fn update_delay_below_the_protocol_minimum_fails() {
+    let mut env = TestEnvironment::new();
+    let actors = deploy_registry(&mut env);
+    let _ = env.call_public(
+        actors.admin,
+        ZKPassportRegistry::at(actors.registry).set_update_delay(599),
     );
 }

@@ -197,6 +197,10 @@ reads the nationality out of it.
    registry accepts its roots and VK, while the proof is within its validity period. Nullifiers
    are siloed per contract, so the same passport can claim once per deployment. A proof whose bound
    data also carries a chain id does not verify, because the bind commitment covers every entry.
+7. **The admin can update the registry's code in place.** `update_to(new_class_id)` switches the
+   registry to another published contract class at the same address, keeping its storage and roles,
+   once the contract instance registry's update delay has passed (`set_update_delay`; one day by
+   default). Apps keep the registry address across updates; their PXEs need the new artifact.
 
 ## Running the tests
 
