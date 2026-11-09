@@ -105,13 +105,8 @@ function getDisclosureProofWithNonZeroNullifier(
   return disclosureProofs.find((proof) => BigInt(proof.publicInputs[6]) !== 0n)
 }
 
-export function getOuterCircuitInputs(
-  cscToDscProof: OuterCircuitProof,
-  dscToIdDataProof: OuterCircuitProof,
-  integrityCheckProof: OuterCircuitProof,
-  disclosureProofs: OuterCircuitProof[],
-  circuitRegistryRoot: string,
-) {
+/** What every outer circuit takes from the disclosure proofs, whatever its base proofs */
+function getDisclosureOuterInputs(disclosureProofs: OuterCircuitProof[]) {
   if (disclosureProofs.length === 0) {
     throw new Error("At least one disclosure proof is required")
   }
@@ -127,53 +122,14 @@ export function getOuterCircuitInputs(
       (proof) => BigInt(proof.publicInputs[5]) !== BigInt(NullifierType.NONE),
     ) ??
     sourceProof
-  const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
-  const scope = sourceProof.publicInputs[2]
-  const subscope = sourceProof.publicInputs[3]
-  const nullifierType = nullifierTypeProof.publicInputs[5]
-  const nullifier = (nullifierProof ?? sourceProof).publicInputs[6]
-  const oprfPkHash = (nullifierProof ?? sourceProof).publicInputs[7]
-  const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
-  // Output by the base proof and carried by every disclosure proof; the outer checks both
-  const credentialScheme = integrityCheckProof.publicInputs[2]
-
   return {
-    certificate_registry_root: certificateRegistryRoot,
-    circuit_registry_root: circuitRegistryRoot,
-    current_date: currentDateTimestamp,
-    service_scope: scope,
-    service_subscope: subscope,
-    param_commitments: paramCommitments,
-    scoped_nullifier: nullifier,
-    nullifier_type: nullifierType,
-    oprf_pk_hash: oprfPkHash,
-    credential_scheme: credentialScheme,
-    csc_to_dsc_proof: {
-      vkey: cscToDscProof.vkey,
-      proof: cscToDscProof.proof,
-      // Remove the certificate registry root from the public inputs
-      public_inputs: cscToDscProof.publicInputs.slice(1),
-      key_hash: cscToDscProof.keyHash,
-      tree_hash_path: cscToDscProof.treeHashPath,
-      tree_index: cscToDscProof.treeIndex,
-    },
-    dsc_to_id_data_proof: {
-      vkey: dscToIdDataProof.vkey,
-      proof: dscToIdDataProof.proof,
-      public_inputs: dscToIdDataProof.publicInputs,
-      key_hash: dscToIdDataProof.keyHash,
-      tree_hash_path: dscToIdDataProof.treeHashPath,
-      tree_index: dscToIdDataProof.treeIndex,
-    },
-    integrity_check_proof: {
-      vkey: integrityCheckProof.vkey,
-      proof: integrityCheckProof.proof,
-      public_inputs: integrityCheckProof.publicInputs,
-      key_hash: integrityCheckProof.keyHash,
-      tree_hash_path: integrityCheckProof.treeHashPath,
-      tree_index: integrityCheckProof.treeIndex,
-    },
+    current_date: Number(BigInt(sourceProof.publicInputs[1])),
+    service_scope: sourceProof.publicInputs[2],
+    service_subscope: sourceProof.publicInputs[3],
+    param_commitments: disclosureProofs.map((proof) => proof.publicInputs[4]),
+    scoped_nullifier: (nullifierProof ?? sourceProof).publicInputs[6],
+    nullifier_type: nullifierTypeProof.publicInputs[5],
+    oprf_pk_hash: (nullifierProof ?? sourceProof).publicInputs[7],
     disclosure_proofs: disclosureProofs.map((proof) => ({
       vkey: proof.vkey,
       proof: proof.proof,
@@ -192,6 +148,90 @@ export function getOuterCircuitInputs(
       tree_hash_path: proof.treeHashPath,
       tree_index: proof.treeIndex,
     })),
+  }
+}
+
+const asOuterSubproof = (proof: OuterCircuitProof, publicInputs = proof.publicInputs) => ({
+  vkey: proof.vkey,
+  proof: proof.proof,
+  public_inputs: publicInputs,
+  key_hash: proof.keyHash,
+  tree_hash_path: proof.treeHashPath,
+  tree_index: proof.treeIndex,
+})
+
+export function getOuterCircuitInputs(
+  cscToDscProof: OuterCircuitProof,
+  dscToIdDataProof: OuterCircuitProof,
+  integrityCheckProof: OuterCircuitProof,
+  disclosureProofs: OuterCircuitProof[],
+  circuitRegistryRoot: string,
+) {
+  const disclosure = getDisclosureOuterInputs(disclosureProofs)
+  return {
+    certificate_registry_root: cscToDscProof.publicInputs[0],
+    circuit_registry_root: circuitRegistryRoot,
+    ...disclosure,
+    // Output by the base proof; the outer checks it
+    credential_scheme: integrityCheckProof.publicInputs[2],
+    // Remove the certificate registry root from the public inputs
+    csc_to_dsc_proof: asOuterSubproof(cscToDscProof, cscToDscProof.publicInputs.slice(1)),
+    dsc_to_id_data_proof: asOuterSubproof(dscToIdDataProof),
+    integrity_check_proof: asOuterSubproof(integrityCheckProof),
+  }
+}
+
+/**
+ * Get the name of the Tier 2 outer circuit, which aggregates an attested ID base proof and
+ * `disclosureProofCount` disclosure proofs
+ * @param platform - The platform whose attested ID circuit made the base proof
+ * @param disclosureProofCount - The number of disclosure proofs, from 1 to 10
+ * @param options.evm - Whether to get the outer circuit whose proofs are verified on EVM chains
+ * @returns The outer circuit's name, e.g. outer_attested_ios_count_2
+ */
+export function getAttestedOuterCircuitName(
+  platform: "ios" | "android",
+  disclosureProofCount: number,
+  { evm = false }: { evm?: boolean } = {},
+): string {
+  if (
+    !Number.isInteger(disclosureProofCount) ||
+    disclosureProofCount < 1 ||
+    disclosureProofCount > MAX_OUTER_DISCLOSURE_PROOFS
+  ) {
+    throw new Error(
+      `No outer circuit for ${disclosureProofCount} disclosure proofs: expected 1 to ${MAX_OUTER_DISCLOSURE_PROOFS}`,
+    )
+  }
+  return `outer_${evm ? "evm_" : ""}attested_${platform}_count_${disclosureProofCount + 1}`
+}
+
+/**
+ * The inputs of a Tier 2 outer circuit. The attested ID proof's parameter commitment comes
+ * first, then the disclosure proofs'; a verifier must check that first one is a genuine device
+ * attestation, which the circuit cannot.
+ * @param attestedIdProof - The attested ID base proof
+ * @param disclosureProofs - The disclosure proofs built on its commitment
+ * @param circuitRegistryRoot - The root of the circuit registry the subproofs' vkeys are in
+ * @param certificateRegistryRoot - A valid certificate registry root: a camera-read ID uses no
+ * certificate, but the verifier checks this public input as for a chip ID
+ */
+export function getAttestedOuterCircuitInputs(
+  attestedIdProof: OuterCircuitProof,
+  disclosureProofs: OuterCircuitProof[],
+  circuitRegistryRoot: string,
+  certificateRegistryRoot: string,
+) {
+  const disclosure = getDisclosureOuterInputs(disclosureProofs)
+  const attested = attestedIdProof.publicInputs
+  return {
+    certificate_registry_root: certificateRegistryRoot,
+    circuit_registry_root: circuitRegistryRoot,
+    ...disclosure,
+    // The attested ID proof's outputs end with param_commitment and credential_scheme
+    param_commitments: [attested[attested.length - 2], ...disclosure.param_commitments],
+    credential_scheme: attested[attested.length - 1],
+    attested_id_proof: asOuterSubproof(attestedIdProof),
   }
 }
 

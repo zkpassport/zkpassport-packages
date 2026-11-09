@@ -209,8 +209,11 @@ export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: st
     return 3
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
-    const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
-    return 8 + scheme + disclosureProofCount
+    const subproofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1))
+    // A Tier 2 outer proof commits to its attested ID proof's parameters and the disclosure
+    // proofs', and always carries the credential scheme
+    if (circuitName.includes("_attested_")) return 9 + subproofCount
+    return 8 + scheme + subproofCount - 3
   }
   // Any other circuits are assumed to be disclosure circuits
   // which have a universal interface of 8 public inputs
@@ -306,6 +309,8 @@ export enum ProofType {
   BIND = 8,
   SANCTIONS_EXCLUSION = 9,
   FACEMATCH = 10,
+  // The device attestation of a Tier 2 base proof, with the face match parameters
+  ATTESTED_ID = 11,
 }
 
 export const ProofTypeLength = {
@@ -320,6 +325,7 @@ export const ProofTypeLength = {
   [ProofType.BIND]: { evm: 509, standard: 17 },
   [ProofType.SANCTIONS_EXCLUSION]: { evm: 33, standard: 2 },
   [ProofType.FACEMATCH]: { evm: 98, standard: 5 },
+  [ProofType.ATTESTED_ID]: { evm: 98, standard: 5 },
 }
 
 export {

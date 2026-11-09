@@ -4,6 +4,9 @@ import {
   CredentialTier,
   getAgeParameterCommitment,
   GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
+  getAttestedIdEvmParameterCommitment,
+  type AttestedIdCommittedInputs,
+  getAttestedIdParameterCommitment,
   getDiscloseParameterCommitment,
   getServiceScopeHash,
   getServiceSubscopeHash,
@@ -14,10 +17,11 @@ import {
 } from "@zkpassport/utils"
 import { PublicInputChecker } from "../src/public-input-checker"
 
-// The public inputs of an attested ID proof made on a real device, followed by the disclosure
-// proofs' public inputs the app would make on top of it (0.22.0 layout, 9 inputs each)
+// The public inputs of an attested ID proof made on a real device, with its parameter commitment
+// recomputed under the attested ID proof type, followed by the disclosure proofs' public inputs
+// the app would make on top of it (0.22.0 layout, 9 inputs each)
 const ATTESTED_PUBLIC_INPUTS =
-  "0a7d0237ba949f4239d663f66399a6cb7cace709f54385d3fb008ed5d22148c3107233271e1213147f5e686a1dbf441c4412941c5dfec4a88fe3b335d1ee17720000000000000000000000000000000000000000000000000000000000000002"
+  "0a7d0237ba949f4239d663f66399a6cb7cace709f54385d3fb008ed5d22148c322ad0facfad6d79b410849cb811339faeed481012319bea453cbc5664e397f470000000000000000000000000000000000000000000000000000000000000002"
 const ATTESTED_COMMITTED = {
   rootKeyLeaf: "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
   environment: "production",
@@ -162,5 +166,59 @@ describe("android attested ID parameters", () => {
     expect(PublicInputChecker.checkAttestedIdDate(new Date(Date.now() + 2 * day)).isCorrect).toBe(
       false,
     )
+  })
+})
+
+describe("a Tier 2 outer proof's device attestation", () => {
+  const ios = ATTESTED_COMMITTED as AttestedIdCommittedInputs
+  const commitment = (committed: AttestedIdCommittedInputs, evm = false) =>
+    (evm ? getAttestedIdEvmParameterCommitment : getAttestedIdParameterCommitment)(
+      BigInt(committed.rootKeyLeaf),
+      1n,
+      BigInt(committed.appIdHash),
+      2n,
+    )
+
+  test("accepts a genuine attestation matching the first commitment, standard or EVM", async () => {
+    for (const evm of [false, true]) {
+      const { isCorrect } = await PublicInputChecker.checkOuterDeviceAttestation(
+        CredentialScheme.ATTESTED_CAPTURE_IOS,
+        { attested_id_ios: ios },
+        await commitment(ios, evm),
+        evm,
+      )
+      expect(isCorrect).toBe(true)
+    }
+  })
+
+  test("refuses a missing, mismatched, self-signed or other platform's attestation", async () => {
+    const check = (
+      scheme: CredentialScheme,
+      committed: Record<string, AttestedIdCommittedInputs>,
+      first: bigint,
+    ) => PublicInputChecker.checkOuterDeviceAttestation(scheme, committed, first, false)
+    const first = await commitment(ios)
+    expect((await check(CredentialScheme.ATTESTED_CAPTURE_IOS, {}, first)).isCorrect).toBe(false)
+    expect(
+      (await check(CredentialScheme.ATTESTED_CAPTURE_IOS, { attested_id_ios: ios }, 1n)).isCorrect,
+    ).toBe(false)
+    const selfSigned = { ...ios, rootKeyLeaf: "0x1" }
+    expect(
+      (
+        await check(
+          CredentialScheme.ATTESTED_CAPTURE_IOS,
+          { attested_id_ios: selfSigned },
+          await commitment(selfSigned),
+        )
+      ).isCorrect,
+    ).toBe(false)
+    expect(
+      (await check(CredentialScheme.ATTESTED_CAPTURE_ANDROID, { attested_id_android: ios }, first))
+        .isCorrect,
+    ).toBe(false)
+    expect(
+      (await check(CredentialScheme.ATTESTED_CHIP_READ_IOS, { attested_id_ios: ios }, first))
+        .isCorrect,
+    ).toBe(false)
   })
 })
