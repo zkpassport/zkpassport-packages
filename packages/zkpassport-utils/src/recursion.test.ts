@@ -5,12 +5,15 @@ import {
   poseidon2,
   ProofData,
   ProofResult,
+  getNumberOfPublicInputs,
 } from "."
 import { CredentialScheme, getCredentialSchemeFromOuterProof } from "./circuits/credential-scheme"
 import {
   getNullifierTypeFromOuterProof,
   getNullifierFromOuterProof,
   getOprfPkHashFromOuterProof,
+  getAttestedOuterCircuitInputs,
+  getAttestedOuterCircuitName,
   getOuterCircuitInputs,
   getOuterCircuitName,
   getOuterCircuitProof,
@@ -333,5 +336,58 @@ describe("outer proof public inputs since circuit version 0.22.0", () => {
     expect(getOprfPkHashFromOuterProof(proof, "0.22.0")).toEqual(0x88n)
     expect(getParamCommitmentsFromOuterProof(proof, "0.22.0")).toEqual([0xaan, 0xbbn])
     expect(getCredentialSchemeFromOuterProof(proof)).toEqual(CredentialScheme.ATTESTED_CAPTURE_IOS)
+  })
+})
+
+describe("Tier 2 outer circuit", () => {
+  const subproof = (publicInputs: string[]) => ({
+    proof: ["0xp"],
+    publicInputs,
+    vkey: ["0xv"],
+    keyHash: "0xk",
+    treeHashPath: ["0xh"],
+    treeIndex: "0x1",
+  })
+  // [comm_in, current_date, scope, subscope, param_commitment, nullifier_type, nullifier, oprf]
+  const disclosure = subproof(["0xc0", "0x64", "0xa", "0xb", "0xd1", "0x0", "0xee", "0x0"])
+
+  test("counts the public inputs: 9 fixed and one commitment per subproof", () => {
+    expect(getNumberOfPublicInputs("outer_attested_ios_count_2")).toEqual(11)
+    expect(getNumberOfPublicInputs("outer_evm_attested_android_count_11", "0.22.0")).toEqual(20)
+  })
+
+  test("names the outer circuit after the platform and its subproofs", () => {
+    expect(getAttestedOuterCircuitName("ios", 1)).toEqual("outer_attested_ios_count_2")
+    expect(getAttestedOuterCircuitName("android", 10, { evm: true })).toEqual(
+      "outer_evm_attested_android_count_11",
+    )
+    expect(() => getAttestedOuterCircuitName("ios", 11)).toThrow("expected 1 to 10")
+  })
+
+  test("puts the attested ID proof's commitment first and takes its scheme", () => {
+    // iOS: comm_out, param_commitment, credential_scheme
+    const ios = getAttestedOuterCircuitInputs(
+      subproof(["0xc0", "0xa1", "0xc8"]),
+      [disclosure],
+      "0xr",
+      "0xcert",
+    )
+    expect(ios.param_commitments).toEqual(["0xa1", "0xd1"])
+    expect(ios.credential_scheme).toEqual("0xc8")
+    expect(ios.certificate_registry_root).toEqual("0xcert")
+    expect(ios.current_date).toEqual(100)
+    expect(ios.scoped_nullifier).toEqual("0xee")
+    expect(ios.attested_id_proof.public_inputs).toEqual(["0xc0", "0xa1", "0xc8"])
+    expect(ios.disclosure_proofs[0].public_inputs).toEqual(["0xc0", "0xee", "0x0", "0x0"])
+
+    // Android: current_date first
+    const android = getAttestedOuterCircuitInputs(
+      subproof(["0x5f", "0xc0", "0xa2", "0xc9"]),
+      [disclosure],
+      "0xr",
+      "0xcert",
+    )
+    expect(android.param_commitments).toEqual(["0xa2", "0xd1"])
+    expect(android.credential_scheme).toEqual("0xc9")
   })
 })

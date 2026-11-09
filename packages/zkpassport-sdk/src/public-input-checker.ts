@@ -74,6 +74,10 @@ import {
   AttestedIdCommittedInputs,
   getFacematchEvmParameterCommitment,
   getFacematchParameterCommitment,
+  getAttestedIdEvmParameterCommitment,
+  getAttestedIdParameterCommitment,
+  getTierForCredentialScheme,
+  CredentialTier,
   NullifierType,
   getNullifierTypeFromOuterProof,
   getNullifierTypeFromDisclosureProof,
@@ -2580,6 +2584,17 @@ export class PublicInputChecker {
             },
           }
         }
+        if (getTierForCredentialScheme(credentialScheme) === CredentialTier.DEVICE_ATTESTED) {
+          const { isCorrect: isCorrectAttestation, queryResultErrors: attestationErrors } =
+            await this.checkOuterDeviceAttestation(
+              credentialScheme,
+              committedInputs,
+              paramCommitments[0],
+              isForEVM,
+            )
+          isCorrect = isCorrect && isCorrectAttestation
+          queryResultErrors = { ...queryResultErrors, ...attestationErrors }
+        }
         if (getServiceScopeHash(domain) !== getScopeFromOuterProof(proofData)) {
           console.warn("The proof comes from a different domain than the one expected")
           isCorrect = false
@@ -3041,7 +3056,7 @@ export class PublicInputChecker {
             },
           }
         } else {
-          const expectedParamCommitment = await getFacematchParameterCommitment(
+          const expectedParamCommitment = await getAttestedIdParameterCommitment(
             BigInt(committed.rootKeyLeaf),
             committed.environment === "development" ? 0n : 1n,
             BigInt(committed.appIdHash),
@@ -4004,6 +4019,63 @@ export class PublicInputChecker {
       }
     }
     return { isCorrect, queryResultErrors }
+  }
+
+  /**
+   * A Tier 2 outer proof's first parameter commitment is its base proof's device attestation, which
+   * the circuit cannot judge: it must match the committed attestation, and that attestation must
+   * be a genuine one for the scheme's platform.
+   */
+  public static async checkOuterDeviceAttestation(
+    credentialScheme: CredentialScheme,
+    committedInputs: ProofResult["committedInputs"],
+    attestationParamCommitment: bigint | undefined,
+    isForEVM: boolean,
+  ) {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const fail = (expected: string, received: string, message: string) => {
+      console.warn(message)
+      isCorrect = false
+      queryResultErrors.attested_id = {
+        ...queryResultErrors.attested_id,
+        commitment: { expected, received, message },
+      }
+    }
+    const android = credentialScheme === CredentialScheme.ATTESTED_CAPTURE_ANDROID
+    if (!android && credentialScheme !== CredentialScheme.ATTESTED_CAPTURE_IOS) {
+      fail(
+        "A camera read scheme",
+        String(credentialScheme),
+        "No circuit proves this credential scheme",
+      )
+      return { isCorrect, queryResultErrors }
+    }
+    const key = android ? "attested_id_android" : "attested_id_ios"
+    const committed = committedInputs?.[key] as AttestedIdCommittedInputs | undefined
+    if (!committed) {
+      fail(`Committed inputs for ${key}`, "none", "The proof carries no device attestation")
+      return { isCorrect, queryResultErrors }
+    }
+    const commit = isForEVM ? getAttestedIdEvmParameterCommitment : getAttestedIdParameterCommitment
+    const expected = await commit(
+      BigInt(committed.rootKeyLeaf),
+      committed.environment === "development" ? 0n : 1n,
+      BigInt(committed.appIdHash),
+      committed.mode === "regular" ? 1n : 2n,
+    )
+    if (attestationParamCommitment !== expected) {
+      fail(
+        `First parameter commitment: ${expected.toString()}`,
+        `First parameter commitment: ${attestationParamCommitment?.toString()}`,
+        "The proof's device attestation does not match its committed parameters",
+      )
+    }
+    const parameters = this.checkAttestedIdParameters(committed, android)
+    return {
+      isCorrect: isCorrect && parameters.isCorrect,
+      queryResultErrors: { ...queryResultErrors, ...parameters.queryResultErrors },
+    }
   }
 
   /**
