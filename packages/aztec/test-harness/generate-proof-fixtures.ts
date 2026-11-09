@@ -36,8 +36,13 @@ import {
 import { AlgorithmIdentifier } from "./circuits/node_modules/@peculiar/asn1-x509"
 import { id_sha256WithRSAEncryption } from "./circuits/node_modules/@peculiar/asn1-rsa"
 import { Circuit } from "./circuits/src/ts/circuits"
-import { generateSigningCertificates, loadKeypairFromFile, signSod } from "./circuits/src/ts/passport-generator"
-import { generateSod, wrapSodInContentInfo } from "./circuits/src/ts/sod-generator"
+import {
+  generateSigningCertificates,
+  generateSod,
+  loadKeypairFromFile,
+  signSod,
+  wrapSodInContentInfo,
+} from "./circuits/node_modules/@zkpassport/utils/dist/esm/passport-generator"
 import { TestHelper, convertPemToPackagedCertificateV1 } from "./circuits/src/ts/test-helper"
 import { serializeAsn } from "./circuits/src/ts/utils"
 
