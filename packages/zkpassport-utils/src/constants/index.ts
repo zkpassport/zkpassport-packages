@@ -1,18 +1,14 @@
 import { CountryName } from "../types/countries"
 
 /**
- * List of countries that are sanctioned by the US government.
+ * Countries under a country-wide U.S. (OFAC) embargo, for use as a nationality exclusion list.
+ *
+ * This is a nationality proxy only, not sanctions compliance. OFAC embargoes apply by location
+ * or ordinary residence, not nationality, and the region-based embargoes (Crimea and the
+ * so-called DNR and LNR regions of Ukraine) cannot be expressed through passport nationality.
+ * Use the sanctions list check to screen against designated persons.
  */
-const SANCTIONED_COUNTRIES: CountryName[] = [
-  "North Korea",
-  "Iran",
-  "Iraq",
-  "Libya",
-  "Somalia",
-  "Sudan",
-  "Syrian Arab Republic",
-  "Yemen",
-]
+const SANCTIONED_COUNTRIES: CountryName[] = ["Cuba", "Iran", "North Korea"]
 
 /**
  * List of countries that are part of the European Union.
