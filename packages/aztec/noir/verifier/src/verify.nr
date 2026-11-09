@@ -45,9 +45,9 @@ pub struct VerifiedProof<let K: u32> {
 global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
 
-// ZKPassport's registry deployments, as (chain id, version, registry address): the chain id of the
-// L1 the network settles on and the network's rollup version, as PrivateContext::chain_id and
-// PrivateContext::version return them. A version of none matches every version on that chain.
+// ZKPassport's registry deployments, as (chain id, version, registry address) tuples.
+// Chain id refers to the L1 the network settles on and version to the network's rollup. 
+// A version of none matches every version on that chain.
 global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 2] = [
     // TXE
     (1, Option::some(1), LOCAL_NETWORK_REGISTRY_ADDRESS),
