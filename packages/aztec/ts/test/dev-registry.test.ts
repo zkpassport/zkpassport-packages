@@ -5,20 +5,17 @@ import { test } from "node:test"
 
 import { SchnorrInitializerlessAccountContract } from "@aztec-labs/accounts/schnorr"
 import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing"
-import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
 import {
   computePartialAddress,
   getContractInstanceFromInstantiationParams,
 } from "@aztec-labs/stdlib/contract"
 import { deriveKeys } from "@aztec-labs/stdlib/keys"
 
-import { ZKPassportRegistryArtifact } from "../src/artifact.ts"
 import {
-  DEV_REGISTRY_ADDRESS,
   DEV_REGISTRY_ADMIN,
-  DEV_REGISTRY_CONSTRUCTOR_ARGS,
   DEV_REGISTRY_OPERATOR,
   DEV_REGISTRY_SALT,
+  getDevRegistryAddress,
 } from "../src/dev-registry.ts"
 
 const DEV_REGISTRY_NR = readFileSync(
@@ -68,12 +65,6 @@ test("the dev registry's salt is sha256_to_field of its name", () => {
 })
 
 test("the compiled registry deploys at DEV_REGISTRY_ADDRESS", async () => {
-  const instance = await getContractInstanceFromInstantiationParams(ZKPassportRegistryArtifact, {
-    constructorArtifact: "constructor",
-    constructorArgs: [...DEV_REGISTRY_CONSTRUCTOR_ARGS],
-    salt: DEV_REGISTRY_SALT,
-    deployer: AztecAddress.ZERO,
-  })
-  assert.equal(instance.address.toString(), DEV_REGISTRY_ADDRESS.toString())
-  assert.equal(noirGlobal("DEV_REGISTRY_ADDRESS"), instance.address.toBigInt())
+  const noirAddress = `0x${noirGlobal("DEV_REGISTRY_ADDRESS").toString(16).padStart(64, "0")}`
+  assert.equal((await getDevRegistryAddress()).toString(), noirAddress)
 })

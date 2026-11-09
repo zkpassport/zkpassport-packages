@@ -1,6 +1,6 @@
 /**
  * The dev registry: a ZKPassport registry for tests, at the same address in TXE and on an Aztec
- * local network, where `verify_zkpassport_proof` finds it.
+ * local network.
  *
  * Note: this is a TS mirror of `noir/verifier/src/dev_registry.nr`. That is the source of truth.
  */
@@ -8,13 +8,9 @@ import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
 import { Contract } from "@aztec-labs/aztec.js/contracts"
 import { Fr } from "@aztec-labs/aztec.js/fields"
 import type { Wallet } from "@aztec-labs/aztec.js/wallet"
+import { getContractInstanceFromInstantiationParams } from "@aztec-labs/stdlib/contract"
 
 import { ZKPassportRegistryArtifact } from "./artifact.ts"
-
-/** The dev registry's address in TXE and on a local network. */
-export const DEV_REGISTRY_ADDRESS = AztecAddress.fromStringUnsafe(
-  "0x0a8d7ec68d16d4bdc05ff6dfd0ac0964392ac70c41c8c76bbc9ee605da0167cf",
-)
 
 /** The salt the dev registry is deployed with: `sha256_to_field("ZKPASSPORT::AZTEC::DEV_REGISTRY")`. */
 export const DEV_REGISTRY_SALT = Fr.fromHexString(
@@ -47,6 +43,17 @@ export const DEV_REGISTRY_CONSTRUCTOR_ARGS = [
   DEV_REGISTRY_VALIDITY_WINDOW,
 ] as const
 
+/** The dev registry's address in TXE and on a local network, computed from the registry artifact. */
+export async function getDevRegistryAddress(): Promise<AztecAddress> {
+  const instance = await getContractInstanceFromInstantiationParams(ZKPassportRegistryArtifact, {
+    constructorArtifact: "constructor",
+    constructorArgs: [...DEV_REGISTRY_CONSTRUCTOR_ARGS],
+    salt: DEV_REGISTRY_SALT,
+    deployer: AztecAddress.ZERO,
+  })
+  return instance.address
+}
+
 /** What `seedDevRegistry` registers. */
 export interface DevRegistrySeed {
   /** The circuit-manifest version to accept `vkHash` for. */
@@ -73,11 +80,6 @@ export async function deployDevRegistry(wallet: Wallet): Promise<Contract> {
     "constructor",
     { salt: DEV_REGISTRY_SALT, universalDeploy: true },
   ).send({ from: DEV_REGISTRY_ADMIN })
-  if (!contract.address.equals(DEV_REGISTRY_ADDRESS)) {
-    throw new Error(
-      `the registry artifact deployed at ${contract.address.toString()}, not at DEV_REGISTRY_ADDRESS`,
-    )
-  }
   return contract
 }
 
@@ -90,7 +92,7 @@ export async function deployDevRegistry(wallet: Wallet): Promise<Contract> {
  * verified, before verifying.
  */
 export async function seedDevRegistry(wallet: Wallet, seed: DevRegistrySeed): Promise<void> {
-  const registry = Contract.at(DEV_REGISTRY_ADDRESS, ZKPassportRegistryArtifact, wallet)
+  const registry = Contract.at(await getDevRegistryAddress(), ZKPassportRegistryArtifact, wallet)
   await registry.methods
     .update_root(REGISTRY_CERTIFICATE, seed.certificateRoot, 0n, seed.validFrom)
     .send({ from: DEV_REGISTRY_OPERATOR })
