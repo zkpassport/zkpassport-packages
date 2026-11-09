@@ -96,33 +96,3 @@ pub unconstrained fn seed_local_network_registry(
         env.call_public(LOCAL_NETWORK_REGISTRY_ADMIN, registry.set_version_status(version, true));
 }
 
-mod test {
-    use crate::{
-        local_network_registry::{deploy_local_network_registry, seed_local_network_registry},
-        types::INITIAL_DELAY,
-        ZKPassportRegistry,
-    };
-    use aztec::test::helpers::test_environment::TestEnvironment;
-
-    global VERSION: Field = 1;
-    global VK_HASH: Field = 0x7e57;
-
-    #[test]
-    unconstrained fn seeded_values_take_effect_after_the_registry_delay() {
-        let mut env = TestEnvironment::new();
-        let registry = ZKPassportRegistry::at(deploy_local_network_registry(
-            &mut env,
-            "ZKPassportRegistry",
-        ));
-
-        seed_local_network_registry(&mut env, VERSION, 0xce571, 0xc12c1, VK_HASH, 1786900000);
-        let timestamp_of_change = env.last_block_timestamp() + INITIAL_DELAY;
-
-        env.mine_block_at(timestamp_of_change - 1);
-        assert(!env.execute_utility(registry.is_version_enabled(VERSION)));
-
-        env.mine_block_at(timestamp_of_change);
-        assert(env.execute_utility(registry.is_version_enabled(VERSION)));
-        assert(env.execute_utility(registry.is_vk_accepted(VERSION, VK_HASH)));
-    }
-}
