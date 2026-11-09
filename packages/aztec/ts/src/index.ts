@@ -11,6 +11,17 @@ export {
   VK_FIELDS,
 } from "./constants.ts"
 export {
+  DEV_REGISTRY_ADDRESS,
+  DEV_REGISTRY_ADMIN,
+  DEV_REGISTRY_CONSTRUCTOR_ARGS,
+  DEV_REGISTRY_OPERATOR,
+  DEV_REGISTRY_SALT,
+  DEV_REGISTRY_VALIDITY_WINDOW,
+  deployDevRegistry,
+  type DevRegistrySeed,
+  seedDevRegistry,
+} from "./dev-registry.ts"
+export {
   isIdCard,
   nationalityBytes,
   packNationality,

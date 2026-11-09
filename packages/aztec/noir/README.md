@@ -86,9 +86,24 @@ fn claim(user: AztecAddress) {
 
 `ServiceConfig.domain` is required: the library rejects a config whose domain is 0.
 `ServiceConfig.scope` is optional, 0 for the whole domain. `verify_zkpassport_proof` and
-`check_sanctions` use ZKPassport's registry on the network, found by its chain id. On a network
-without one, such as a local network, use `verify_zkpassport_proof_with_registry` and
-`check_sanctions_with_registry`.
+`check_sanctions` use ZKPassport's registry on the network, found by its L1 chain id and rollup
+version. In TXE and on a local network that is the dev registry, below. On a network without one,
+use `verify_zkpassport_proof_with_registry` and `check_sanctions_with_registry`.
+
+### Testing against the dev registry
+
+The dev registry is a `ZKPassportRegistry` at `DEV_REGISTRY_ADDRESS` in both TXE and a local
+network. Its admin and operator are the local network's test accounts 0 and 1.
+
+- TXE: `zkpassport_aztec_verifier::dev_registry::deploy_dev_registry(&mut env, artifact_path)`, with
+  the path `TestEnvironment::deploy` takes to the compiled registry, then `seed_dev_registry` with the
+  roots and vk hash of the test's proof. Advance time past the registry's delay before verifying.
+- Local network: `deployDevRegistry(wallet)` and `seedDevRegistry(wallet, seed)` from
+  `@zkpassport/aztec`, with the test accounts in the wallet (`registerInitialLocalNetworkAccountsInWallet`).
+
+Any change to the registry's bytecode or the Aztec toolchain moves the address.
+`ts/test/dev-registry.test.ts` then fails with the new values for `verifier/src/dev_registry.nr` and
+`ts/src/dev-registry.ts`.
 
 `verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
 a function argument.
