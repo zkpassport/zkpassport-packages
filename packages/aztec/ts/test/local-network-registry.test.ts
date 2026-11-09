@@ -19,7 +19,7 @@ const LOCAL_NETWORK_REGISTRY_NR = readFileSync(
 // gives
 function noirAddress(name: string): string {
   const match = LOCAL_NETWORK_REGISTRY_NR.match(
-    new RegExp(`global ${name}: AztecAddress =\\s*AztecAddress \\{\\s*inner:\\s*(0x[0-9a-f]{64})`),
+    new RegExp(`global ${name}: AztecAddress =\\s*AztecAddress::from_field\\(\\s*(0x[0-9a-f]{64})`),
   )
   assert.ok(match, `${name} not found in local_network_registry.nr`)
   return match[1]

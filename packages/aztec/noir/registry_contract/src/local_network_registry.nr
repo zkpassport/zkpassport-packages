@@ -11,21 +11,24 @@ use crate::{
     ZKPassportRegistry,
 };
 use aztec::{
-    protocol::{address::AztecAddress, hash::sha256_to_field},
+    protocol::{address::AztecAddress, hash::sha256_to_field, traits::FromField},
     test::helpers::test_environment::{DeployOptions, TestEnvironment},
 };
 
 /// The local network registry's address in TXE and on a local network.
-pub global LOCAL_NETWORK_REGISTRY_ADDRESS: AztecAddress =
-    AztecAddress { inner: 0x18c3f5e2a35d875986926944ccb64a776097c3bf487e8f4a4a5812b5ad3f3eb9 };
+pub global LOCAL_NETWORK_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+    0x18c3f5e2a35d875986926944ccb64a776097c3bf487e8f4a4a5812b5ad3f3eb9,
+);
 
 /// The local network registry's admin: the local network's test account 0.
-pub global LOCAL_NETWORK_REGISTRY_ADMIN: AztecAddress =
-    AztecAddress { inner: 0x0e900d357d0a7b9de3c0293c6b1a58dccfc1862f31c745ba5d3a5a5aaf4ac1fd };
+pub global LOCAL_NETWORK_REGISTRY_ADMIN: AztecAddress = AztecAddress::from_field(
+    0x0e900d357d0a7b9de3c0293c6b1a58dccfc1862f31c745ba5d3a5a5aaf4ac1fd,
+);
 
 /// The local network registry's operator: the local network's test account 1.
-pub global LOCAL_NETWORK_REGISTRY_OPERATOR: AztecAddress =
-    AztecAddress { inner: 0x3029dfcca99e1f1fc1b9c88aa32de4eec686e79a0103a780ded503402aca3d08 };
+pub global LOCAL_NETWORK_REGISTRY_OPERATOR: AztecAddress = AztecAddress::from_field(
+    0x3029dfcca99e1f1fc1b9c88aa32de4eec686e79a0103a780ded503402aca3d08,
+);
 
 /// The salt the local network registry is deployed with.
 pub global LOCAL_NETWORK_REGISTRY_SALT: Field =
@@ -96,6 +99,7 @@ pub unconstrained fn seed_local_network_registry(
 mod test {
     use crate::{
         local_network_registry::{deploy_local_network_registry, seed_local_network_registry},
+        types::INITIAL_DELAY,
         ZKPassportRegistry,
     };
     use aztec::test::helpers::test_environment::TestEnvironment;
@@ -104,15 +108,21 @@ mod test {
     global VK_HASH: Field = 0x7e57;
 
     #[test]
-    unconstrained fn seeded_local_network_registry_accepts_the_vk_after_its_delay() {
+    unconstrained fn seeded_values_take_effect_after_the_registry_delay() {
         let mut env = TestEnvironment::new();
-        let registry = deploy_local_network_registry(&mut env, "ZKPassportRegistry");
+        let registry = ZKPassportRegistry::at(deploy_local_network_registry(
+            &mut env,
+            "ZKPassportRegistry",
+        ));
+
         seed_local_network_registry(&mut env, VERSION, 0xce571, 0xc12c1, VK_HASH, 1786900000);
-        assert(
-            !env.execute_utility(ZKPassportRegistry::at(registry).is_vk_accepted(VERSION, VK_HASH)),
-        );
-        env.advance_next_block_timestamp_by(86401);
-        env.mine_block();
-        assert(env.execute_utility(ZKPassportRegistry::at(registry).is_vk_accepted(VERSION, VK_HASH)));
+        let timestamp_of_change = env.last_block_timestamp() + INITIAL_DELAY;
+
+        env.mine_block_at(timestamp_of_change - 1);
+        assert(!env.execute_utility(registry.is_version_enabled(VERSION)));
+
+        env.mine_block_at(timestamp_of_change);
+        assert(env.execute_utility(registry.is_version_enabled(VERSION)));
+        assert(env.execute_utility(registry.is_vk_accepted(VERSION, VK_HASH)));
     }
 }
