@@ -1,5 +1,4 @@
-//! A ZKPassport registry for tests, at the same address in TXE and on an Aztec local network, so
-//! `verify_zkpassport_proof` and `check_sanctions` find it there.
+//! A ZKPassport registry for tests, at the same address in TXE and on an Aztec local network.
 //!
 //! It is deployed universally (deployer zero) with default public keys, `DEV_REGISTRY_SALT` and
 //! fixed constructor arguments. Its admin and operator are the local network's first two test
