@@ -12,7 +12,7 @@ bytecode_hash = "none"
 # Remappings
 remappings = ["forge-std/=lib/forge-std/src/", "@registry/=src/"]
 # File system permissions
-fs_permissions = [{ access = "read-write", path = "./deployments"}]
+fs_permissions = [{ access = "read-write", path = "./deployments"}, { access = "read", path = "./test/fixtures"}]
 
 [lint]
 lint_on_build = false
@@ -22,6 +22,7 @@ exclude_lints = ["mixed-case-function", "screaming-snake-case-immutable", "unwra
 # tab_width = 4
 ignore = [
   "src/mocks",
+  "test/fixtures",
   "src/lib/Constants.sol"
 ]
 
