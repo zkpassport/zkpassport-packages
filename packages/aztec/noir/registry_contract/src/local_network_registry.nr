@@ -95,4 +95,3 @@ pub unconstrained fn seed_local_network_registry(
     let _ =
         env.call_public(LOCAL_NETWORK_REGISTRY_ADMIN, registry.set_version_status(version, true));
 }
-

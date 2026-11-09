@@ -45,14 +45,20 @@ pub struct VerifiedProof<let K: u32> {
 global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
 
+// The L1 chain id and the rollup version TXE reports.
+global TXE_CHAIN_ID: Field = 1;
+global TXE_VERSION: Field = 1;
+
+// Anvil's default chain id, the L1 of an Aztec local network.
+global ANVIL_CHAIN_ID: Field = 31337;
+
 // ZKPassport's registry deployments, as (chain id, version, registry address) tuples.
-// Chain id refers to the L1 the network settles on and version to the network's rollup. 
+// Chain id refers to the L1 the network settles on and version to the network's rollup.
 // A version of none matches every version on that chain.
 global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 2] = [
-    // TXE
-    (1, Option::some(1), LOCAL_NETWORK_REGISTRY_ADDRESS),
-    // A local network, at any rollup version: 31337 is Anvil's chain id, never a live network's
-    (31337, Option::none(), LOCAL_NETWORK_REGISTRY_ADDRESS),
+    (TXE_CHAIN_ID, Option::some(TXE_VERSION), LOCAL_NETWORK_REGISTRY_ADDRESS),
+    // A local network, at any rollup version: Anvil's chain id is never a live network's
+    (ANVIL_CHAIN_ID, Option::none(), LOCAL_NETWORK_REGISTRY_ADDRESS),
 ];
 
 /// Hashes a domain or scope string the way the ZKPassport SDK does, for `ServiceConfig`.
@@ -316,8 +322,9 @@ fn expected_with_disclosure<let K: u32>(
 
 mod test {
     use crate::verify::{
-        assert_service_policy, default_registry, Disclosure, expected_with_disclosure,
-        parse_disclose_payload, scope_hash, ServiceConfig,
+        ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure,
+        expected_with_disclosure, parse_disclose_payload, scope_hash, ServiceConfig, TXE_CHAIN_ID,
+        TXE_VERSION,
     };
     use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
@@ -434,12 +441,12 @@ mod test {
 
     #[test]
     fn txe_uses_the_local_network_registry() {
-        assert_eq(default_registry(1, 1), LOCAL_NETWORK_REGISTRY_ADDRESS);
+        assert_eq(default_registry(TXE_CHAIN_ID, TXE_VERSION), LOCAL_NETWORK_REGISTRY_ADDRESS);
     }
 
     #[test(should_fail_with = "no default ZKPassport registry on this network")]
     fn another_rollup_on_chain_1_does_not_get_the_local_network_registry() {
-        let _ = default_registry(1, 2);
+        let _ = default_registry(TXE_CHAIN_ID, TXE_VERSION + 1);
     }
 
     #[test]
@@ -459,8 +466,8 @@ mod test {
 
     #[test]
     fn a_local_network_of_any_version_uses_the_local_network_registry() {
-        assert_eq(default_registry(31337, 1), LOCAL_NETWORK_REGISTRY_ADDRESS);
-        assert_eq(default_registry(31337, 2), LOCAL_NETWORK_REGISTRY_ADDRESS);
+        assert_eq(default_registry(ANVIL_CHAIN_ID, 1), LOCAL_NETWORK_REGISTRY_ADDRESS);
+        assert_eq(default_registry(ANVIL_CHAIN_ID, 2), LOCAL_NETWORK_REGISTRY_ADDRESS);
     }
 
     // The conformance disclose payload: a TD3 mask disclosing only the nationality, "AUS"
