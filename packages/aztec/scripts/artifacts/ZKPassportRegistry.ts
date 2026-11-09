@@ -179,6 +179,9 @@ oprf_pk_hash: {
     /** set_root_validation_mode(registry_id: field, mode: integer) */
     set_root_validation_mode: ((registry_id: FieldLike, mode: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** set_update_delay(new_delay: integer) */
+    set_update_delay: ((new_delay: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** set_validity_window(registry_id: field, window: integer) */
     set_validity_window: ((registry_id: FieldLike, window: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -196,6 +199,9 @@ oprf_pk_hash: {
 
     /** update_root(registry_id: field, new_root: field, current_root: field, timestamp: integer) */
     update_root: ((registry_id: FieldLike, new_root: FieldLike, current_root: FieldLike, timestamp: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** update_to(new_class_id: struct) */
+    update_to: ((new_class_id: WrappedFieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   

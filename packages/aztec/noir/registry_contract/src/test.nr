@@ -2,7 +2,11 @@ use crate::{
     types::{INITIAL_DELAY, MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT},
     ZKPassportRegistry,
 };
-use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use aztec::{
+    oracle::get_contract_instance::get_contract_instance,
+    protocol::{address::AztecAddress, contract_class_id::ContractClassId, traits::FromField},
+    test::helpers::test_environment::TestEnvironment,
+};
 
 // Version id used across the tests. The contract treats it as an opaque nonzero Field; the
 // production convention packs the ZKPassport circuit-manifest semver (2-byte BE major/minor/
@@ -385,4 +389,53 @@ unconstrained fn constructor_rejects_zero_admin() {
             86400,
         ),
     );
+}
+
+// ---- Contract updates ----
+
+unconstrained fn registry_class_id(
+    env: TestEnvironment,
+    registry: AztecAddress,
+) -> ContractClassId {
+    env.utility_context(|_| get_contract_instance(registry).original_contract_class_id)
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn operator_cannot_update_the_contract() {
+    let (env, registry_address, _, operator, _) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(operator, registry.update_to(registry_class_id(env, registry_address)));
+}
+
+#[test(should_fail_with = "New contract class is not registered")]
+unconstrained fn update_to_an_unregistered_class_fails() {
+    let (env, registry_address, admin, _, _) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.update_to(ContractClassId::from_field(0xdead)));
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn operator_cannot_set_the_update_delay() {
+    let (env, registry_address, _, operator, _) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(operator, registry.set_update_delay(7200));
+}
+
+#[test]
+unconstrained fn admin_can_set_the_update_delay() {
+    let (env, registry_address, admin, _, _) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.set_update_delay(7200));
+}
+
+#[test(should_fail_with = "New update delay is too low")]
+unconstrained fn update_delay_below_the_protocol_minimum_fails() {
+    let (env, registry_address, admin, _, _) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.set_update_delay(599));
 }

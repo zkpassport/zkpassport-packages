@@ -1,3 +1,4 @@
+pub mod local_network_registry;
 pub mod types;
 mod root_validation;
 mod guards;
@@ -18,9 +19,13 @@ pub contract ZKPassportRegistry {
     };
     use aztec::{
         macros::{functions::{external, initializer, view}, storage::storage},
-        protocol::address::AztecAddress,
+        protocol::{
+            address::AztecAddress, constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+            contract_class_id::ContractClassId,
+        },
         state_vars::{DelayedPublicMutable, Map, PublicMutable},
     };
+    use contract_instance_registry::ContractInstanceRegistry;
 
     #[storage]
     struct Storage<Context> {
@@ -71,6 +76,23 @@ pub contract ZKPassportRegistry {
         assert_admin(self.msg_sender(), self.storage.admin.read());
         assert_address_not_zero(new_operator, "operator cannot be zero address");
         self.storage.operator.write(new_operator);
+    }
+
+    // Replaces this contract's code with `new_class_id`'s, keeping its address and storage, once the
+    // contract instance registry's update delay has passed.
+    #[external("public")]
+    fn update_to(new_class_id: ContractClassId) {
+        assert_admin(self.msg_sender(), self.storage.admin.read());
+        self.call(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(
+            new_class_id,
+        ));
+    }
+
+    #[external("public")]
+    fn set_update_delay(new_delay: u64) {
+        assert_admin(self.msg_sender(), self.storage.admin.read());
+        self.call(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .set_update_delay(new_delay));
     }
 
     #[external("public")]
@@ -299,7 +321,7 @@ pub contract ZKPassportRegistry {
         assert(is_root_valid_at_timestamp(status, timestamp), "root not valid at timestamp");
     }
 
-    // ---- test-only views. Observe the DPM's *current* (delay-applied) values ----
+    // ---- The current (delay-applied) values, as private verification reads them ----
     #[external("utility")]
     unconstrained fn get_latest_pair(registry_id: Field) -> pub LatestRootPair {
         self.storage.latest.at(registry_id).get_current_value()

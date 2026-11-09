@@ -11,7 +11,9 @@ use zkpassport::constants::{
     NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
 };
 use zkpassport::verify::verify_outer_proof_core;
-use zkpassport_registry_contract::ZKPassportRegistry;
+use zkpassport_registry_contract::{
+    local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS, ZKPassportRegistry,
+};
 
 pub struct ServiceConfig {
     // Circuit-manifest version this app accepts (the registry keys vks by it). Convention:
@@ -43,9 +45,21 @@ pub struct VerifiedProof<let K: u32> {
 global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
 
-// ZKPassport's registry deployments, as (chain id, registry address). The chain id is the one
-// PrivateContext::chain_id returns, that of the L1 the network settles on.
-global REGISTRY_DEPLOYMENTS: [(Field, AztecAddress); 0] = [];
+// The L1 chain id and the rollup version TXE reports.
+global TXE_CHAIN_ID: Field = 1;
+global TXE_VERSION: Field = 1;
+
+// Anvil's default chain id, the L1 of an Aztec local network.
+global ANVIL_CHAIN_ID: Field = 31337;
+
+// ZKPassport's registry deployments, as (chain id, version, registry address) tuples.
+// Chain id refers to the L1 the network settles on and version to the network's rollup.
+// A version of none matches every version on that chain.
+global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 2] = [
+    (TXE_CHAIN_ID, Option::some(TXE_VERSION), LOCAL_NETWORK_REGISTRY_ADDRESS),
+    // A local network, at any rollup version: Anvil's chain id is never a live network's
+    (ANVIL_CHAIN_ID, Option::none(), LOCAL_NETWORK_REGISTRY_ADDRESS),
+];
 
 /// Hashes a domain or scope string the way the ZKPassport SDK does, for `ServiceConfig`.
 ///
@@ -75,15 +89,16 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// With `config.disclose`, the library loads the disclose payload from the disclose
 /// capsule and adds its commitment itself.
 ///
-/// Use `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry, such
-/// as a local network.
+/// In TXE and on a local network this is the local network registry, see
+/// `zkpassport_registry_contract::local_network_registry`. Use
+/// `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
 pub fn verify_zkpassport_proof<let K: u32>(
     context: &mut PrivateContext,
     capsule_scope: AztecAddress,
     config: ServiceConfig,
     expected_commitments: BoundedVec<Field, K - 3>,
 ) -> VerifiedProof<K> {
-    let registry = default_registry(context.chain_id());
+    let registry = default_registry(context.chain_id(), context.version());
     verify_zkpassport_proof_with_registry(
         context,
         registry,
@@ -187,15 +202,16 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
 /// network, and returns the param commitment the caller must add to its expected_commitments,
 /// binding the checked root to the proof.
 ///
-/// Use `check_sanctions_with_registry` on a network without a ZKPassport registry, such as a local
-/// network.
+/// In TXE and on a local network this is the local network registry, see
+/// `zkpassport_registry_contract::local_network_registry`. Use `check_sanctions_with_registry` on a
+/// network without a ZKPassport registry.
 pub fn check_sanctions(
     context: &mut PrivateContext,
     root: Field,
     is_strict: bool,
     current_date: u64,
 ) -> Field {
-    let registry = default_registry(context.chain_id());
+    let registry = default_registry(context.chain_id(), context.version());
     check_sanctions_with_registry(context, registry, root, is_strict, current_date)
 }
 
@@ -226,11 +242,14 @@ pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, unique_identifier
     ));
 }
 
-fn default_registry(chain_id: Field) -> AztecAddress {
+pub(crate) fn default_registry(chain_id: Field, version: Field) -> AztecAddress {
     let mut registry = Option::none();
     for deployment in REGISTRY_DEPLOYMENTS {
-        if deployment.0 == chain_id {
-            registry = Option::some(deployment.1);
+        let (deployment_chain_id, deployment_version, address) = deployment;
+        let version_matches =
+            deployment_version.is_none() | (deployment_version.unwrap_unchecked() == version);
+        if (deployment_chain_id == chain_id) & version_matches {
+            registry = Option::some(address);
         }
     }
 
@@ -303,14 +322,19 @@ fn expected_with_disclosure<let K: u32>(
 
 mod test {
     use crate::verify::{
-        assert_service_policy, default_registry, Disclosure, expected_with_disclosure,
-        parse_disclose_payload, scope_hash, ServiceConfig,
+        ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure,
+        expected_with_disclosure, parse_disclose_payload, scope_hash, ServiceConfig, TXE_CHAIN_ID,
+        TXE_VERSION,
     };
+    use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
         NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
         NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK,
     };
     use zkpassport::fixtures::DISCLOSE_COMMITMENT;
+    use zkpassport_registry_contract::local_network_registry::{
+        deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS,
+    };
 
     fn service_config(domain: Field, unique_identifier_type: u8) -> ServiceConfig {
         ServiceConfig {
@@ -412,7 +436,38 @@ mod test {
 
     #[test(should_fail_with = "no default ZKPassport registry on this network")]
     fn network_without_deployment_has_no_default_registry() {
-        let _ = default_registry(31337);
+        let _ = default_registry(11155111, 1);
+    }
+
+    #[test]
+    fn txe_uses_the_local_network_registry() {
+        assert_eq(default_registry(TXE_CHAIN_ID, TXE_VERSION), LOCAL_NETWORK_REGISTRY_ADDRESS);
+    }
+
+    #[test(should_fail_with = "no default ZKPassport registry on this network")]
+    fn another_rollup_on_chain_1_does_not_get_the_local_network_registry() {
+        let _ = default_registry(TXE_CHAIN_ID, TXE_VERSION + 1);
+    }
+
+    #[test]
+    unconstrained fn verify_finds_the_local_network_registry_in_txe() {
+        let mut env = TestEnvironment::new();
+        let _ = deploy_local_network_registry(
+            &mut env,
+            "@zkpassport_registry_contract/ZKPassportRegistry",
+        );
+        env.private_context(|context| {
+            assert_eq(
+                default_registry(context.chain_id(), context.version()),
+                LOCAL_NETWORK_REGISTRY_ADDRESS,
+            );
+        });
+    }
+
+    #[test]
+    fn a_local_network_of_any_version_uses_the_local_network_registry() {
+        assert_eq(default_registry(ANVIL_CHAIN_ID, 1), LOCAL_NETWORK_REGISTRY_ADDRESS);
+        assert_eq(default_registry(ANVIL_CHAIN_ID, 2), LOCAL_NETWORK_REGISTRY_ADDRESS);
     }
 
     // The conformance disclose payload: a TD3 mask disclosing only the nationality, "AUS"
