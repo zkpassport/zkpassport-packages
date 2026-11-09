@@ -6,13 +6,13 @@
 //! local network's first two test accounts. Any change to the registry's bytecode or to the Aztec
 //! toolchain moves `LOCAL_NETWORK_REGISTRY_ADDRESS`.
 
+use crate::{
+    types::{MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT},
+    ZKPassportRegistry,
+};
 use aztec::{
     protocol::{address::AztecAddress, hash::sha256_to_field},
     test::helpers::test_environment::{DeployOptions, TestEnvironment},
-};
-use zkpassport_registry_contract::{
-    types::{MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT},
-    ZKPassportRegistry,
 };
 
 /// The local network registry's address in TXE and on a local network.
@@ -94,48 +94,25 @@ pub unconstrained fn seed_local_network_registry(
 }
 
 mod test {
-    use crate::local_network_registry::{
-        deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS, seed_local_network_registry,
+    use crate::{
+        local_network_registry::{deploy_local_network_registry, seed_local_network_registry},
+        ZKPassportRegistry,
     };
-    use crate::verify::default_registry;
     use aztec::test::helpers::test_environment::TestEnvironment;
-    use zkpassport::fixtures::proof::{
-        AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT, AGE_FIXTURE_CURRENT_DATE,
-        AGE_FIXTURE_VK_HASH,
-    };
-    use zkpassport_registry_contract::ZKPassportRegistry;
 
-    global REGISTRY_ARTIFACT: str<48> = "@zkpassport_registry_contract/ZKPassportRegistry";
-
-    #[test]
-    unconstrained fn verify_finds_the_local_network_registry_in_txe() {
-        let mut env = TestEnvironment::new();
-        let _ = deploy_local_network_registry(&mut env, REGISTRY_ARTIFACT);
-        env.private_context(|context| {
-            assert_eq(
-                default_registry(context.chain_id(), context.version()),
-                LOCAL_NETWORK_REGISTRY_ADDRESS,
-            );
-        });
-    }
+    global VERSION: Field = 1;
+    global VK_HASH: Field = 0x7e57;
 
     #[test]
     unconstrained fn seeded_local_network_registry_accepts_the_vk_after_its_delay() {
         let mut env = TestEnvironment::new();
-        let registry = deploy_local_network_registry(&mut env, REGISTRY_ARTIFACT);
-        seed_local_network_registry(
-            &mut env,
-            1,
-            AGE_FIXTURE_CERT_ROOT,
-            AGE_FIXTURE_CIRCUIT_ROOT,
-            AGE_FIXTURE_VK_HASH,
-            AGE_FIXTURE_CURRENT_DATE - 100,
+        let registry = deploy_local_network_registry(&mut env, "ZKPassportRegistry");
+        seed_local_network_registry(&mut env, VERSION, 0xce571, 0xc12c1, VK_HASH, 1786900000);
+        assert(
+            !env.execute_utility(ZKPassportRegistry::at(registry).is_vk_accepted(VERSION, VK_HASH)),
         );
-        env.set_next_block_timestamp(AGE_FIXTURE_CURRENT_DATE + 86401);
+        env.advance_next_block_timestamp_by(86401);
         env.mine_block();
-        assert(env.execute_utility(ZKPassportRegistry::at(registry).is_vk_accepted(
-            1,
-            AGE_FIXTURE_VK_HASH,
-        )));
+        assert(env.execute_utility(ZKPassportRegistry::at(registry).is_vk_accepted(VERSION, VK_HASH)));
     }
 }

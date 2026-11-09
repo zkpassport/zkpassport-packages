@@ -96,16 +96,16 @@ The local network registry is a `ZKPassportRegistry` at `LOCAL_NETWORK_REGISTRY_
 TXE and a local network. Its admin and operator are the local network's test accounts 0 and 1.
 
 - TXE: `deploy_local_network_registry(&mut env, artifact_path)` from
-  `zkpassport_aztec_verifier::local_network_registry`, with the path `TestEnvironment::deploy` takes
-  to the compiled registry, then `seed_local_network_registry` with the roots and vk hash of the
-  test's proof. Advance time past the registry's delay before verifying.
+  `zkpassport_registry_contract::local_network_registry`, with the path `TestEnvironment::deploy`
+  takes to the compiled registry, then `seed_local_network_registry` with the roots and vk hash of
+  the test's proof. Advance time past the registry's delay before verifying.
 - Local network: `deployLocalNetworkRegistry(wallet)` and `seedLocalNetworkRegistry(wallet, seed)`
   from `@zkpassport/aztec`, with the test accounts in the wallet
   (`registerInitialLocalNetworkAccountsInWallet`).
 
 Any change to the registry's bytecode or the Aztec toolchain moves the address.
 `ts/test/local-network-registry.test.ts` then fails with the new values for
-`verifier/src/local_network_registry.nr`.
+`registry_contract/src/local_network_registry.nr`.
 
 `verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
 a function argument.

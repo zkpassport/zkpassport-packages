@@ -2,8 +2,8 @@
  * The local network registry: a ZKPassport registry for tests, at the same address in TXE and on an
  * Aztec local network.
  *
- * Note: `noir/verifier/src/local_network_registry.nr` is the source of truth. This module mirrors
- * its salt and validity window, and derives the rest from the registry artifact and
+ * Note: `noir/registry_contract/src/local_network_registry.nr` is the source of truth. This module
+ * mirrors its salt and validity window, and derives the rest from the registry artifact and
  * @aztec-labs/accounts.
  */
 import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing"

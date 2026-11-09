@@ -1,4 +1,3 @@
-use crate::local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS;
 use aztec::{
     context::PrivateContext,
     oracle::capsules,
@@ -12,7 +11,9 @@ use zkpassport::constants::{
     NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
 };
 use zkpassport::verify::verify_outer_proof_core;
-use zkpassport_registry_contract::ZKPassportRegistry;
+use zkpassport_registry_contract::{
+    local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS, ZKPassportRegistry,
+};
 
 pub struct ServiceConfig {
     // Circuit-manifest version this app accepts (the registry keys vks by it). Convention:
@@ -82,8 +83,9 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// With `config.disclose`, the library loads the disclose payload from the disclose
 /// capsule and adds its commitment itself.
 ///
-/// In TXE and on a local network this is the local network registry, see `local_network_registry`.
-/// Use `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
+/// In TXE and on a local network this is the local network registry, see
+/// `zkpassport_registry_contract::local_network_registry`. Use
+/// `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
 pub fn verify_zkpassport_proof<let K: u32>(
     context: &mut PrivateContext,
     capsule_scope: AztecAddress,
@@ -194,8 +196,9 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
 /// network, and returns the param commitment the caller must add to its expected_commitments,
 /// binding the checked root to the proof.
 ///
-/// In TXE and on a local network this is the local network registry, see `local_network_registry`.
-/// Use `check_sanctions_with_registry` on a network without a ZKPassport registry.
+/// In TXE and on a local network this is the local network registry, see
+/// `zkpassport_registry_contract::local_network_registry`. Use `check_sanctions_with_registry` on a
+/// network without a ZKPassport registry.
 pub fn check_sanctions(
     context: &mut PrivateContext,
     root: Field,
@@ -312,16 +315,19 @@ fn expected_with_disclosure<let K: u32>(
 }
 
 mod test {
-    use crate::local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS;
     use crate::verify::{
         assert_service_policy, default_registry, Disclosure, expected_with_disclosure,
         parse_disclose_payload, scope_hash, ServiceConfig,
     };
+    use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
         NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
         NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK,
     };
     use zkpassport::fixtures::DISCLOSE_COMMITMENT;
+    use zkpassport_registry_contract::local_network_registry::{
+        deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS,
+    };
 
     fn service_config(domain: Field, unique_identifier_type: u8) -> ServiceConfig {
         ServiceConfig {
@@ -434,6 +440,21 @@ mod test {
     #[test(should_fail_with = "no default ZKPassport registry on this network")]
     fn another_rollup_on_chain_1_does_not_get_the_local_network_registry() {
         let _ = default_registry(1, 2);
+    }
+
+    #[test]
+    unconstrained fn verify_finds_the_local_network_registry_in_txe() {
+        let mut env = TestEnvironment::new();
+        let _ = deploy_local_network_registry(
+            &mut env,
+            "@zkpassport_registry_contract/ZKPassportRegistry",
+        );
+        env.private_context(|context| {
+            assert_eq(
+                default_registry(context.chain_id(), context.version()),
+                LOCAL_NETWORK_REGISTRY_ADDRESS,
+            );
+        });
     }
 
     #[test]

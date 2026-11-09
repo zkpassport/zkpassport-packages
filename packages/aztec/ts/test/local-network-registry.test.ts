@@ -11,7 +11,7 @@ import {
 } from "../src/local-network-registry.ts"
 
 const LOCAL_NETWORK_REGISTRY_NR = readFileSync(
-  new URL("../../noir/verifier/src/local_network_registry.nr", import.meta.url),
+  new URL("../../noir/registry_contract/src/local_network_registry.nr", import.meta.url),
   "utf8",
 )
 
