@@ -7,7 +7,7 @@ import {
   getAttestedIdAndroidCircuitName,
   getCommitmentOutFromAttestedIdProof,
   getCurrentDateFromAttestedIdProof,
-  getExpiryDateFromTd3Dg1,
+  getExpiryDateFromDg1,
   getParameterCommitmentFromAttestedIdProof,
 } from "./attested-id"
 import { getNumberOfPublicInputs } from "./index"
@@ -23,8 +23,24 @@ const DG1 = new Uint8Array([
 const PORTRAIT_HASH = sha256(new TextEncoder().encode("portrait"))
 
 // Printed by `nargo test --package attested_to_disclosure_commitment --show-output test_vectors`
-const NOIR_PRIVATE_NULLIFIER = 0x2d9b35d7a77a5fc497f5023e755c3aef5ff19bce55ec446597cc3f019b9bcf0fn
-const NOIR_COMM_OUT = 0x1c724f47ebb528d4842dfa05e05d6502f1f28f7f994b3d7ef079099210621919n
+const NOIR_PRIVATE_NULLIFIER = 0x2317606928ff9d9e96f64be3120c40a9834aedfeec32adbb7ea94fde44853f46n
+const NOIR_ID_CARD_PRIVATE_NULLIFIER =
+  0x2aeee20f16d7f0cbe27a36460df9e3d5847ab46f6ff1f8160219414d8319c07en
+const NOIR_GERMAN_PRIVATE_NULLIFIER =
+  0x27cc01b8cea311c7fb1ff66fdcdd718e19f6459cc83c05d5362e814d5f581667n
+const NOIR_COMM_OUT = 0x01641ccc9a49a3ff99e03df6e5a09dccdd789399ec2b9c4662b9a43a3eca07c3n
+
+// The ICAO 9303 sample TD1 ID card "I<UTOD231458907...", born 1974-08-12, expiring 2012-04-15
+const ID_CARD_DG1 = new Uint8Array([
+  97,
+  91,
+  95,
+  31,
+  90,
+  ...new TextEncoder().encode(
+    "I<UTOD231458907<<<<<<<<<<<<<<<7408122F1204159UTO<<<<<<<<<<<6ERIKSSON<<ANNA<MARIA<<<<<<<<<<",
+  ),
+])
 
 describe("attested id", () => {
   test("attested digest matches the circuit's sha256(dg1 || portrait hash)", () => {
@@ -38,17 +54,28 @@ describe("attested id", () => {
     expect(await calculateTier2PrivateNullifier(DG1)).toBe(NOIR_PRIVATE_NULLIFIER)
   })
 
-  test("private nullifier ignores the name but not the document number", async () => {
+  test("private nullifier reads an ID card and Germany's issuer code as the circuit does", async () => {
+    expect(await calculateTier2PrivateNullifier(ID_CARD_DG1)).toBe(NOIR_ID_CARD_PRIVATE_NULLIFIER)
+    const german = Uint8Array.from(DG1)
+    german.set(new TextEncoder().encode("D<<"), 7)
+    expect(await calculateTier2PrivateNullifier(german)).toBe(NOIR_GERMAN_PRIVATE_NULLIFIER)
+  })
+
+  test("private nullifier ignores the name but not the document number or expiry", async () => {
     const renamed = Uint8Array.from(DG1)
     renamed[13] = 70 // DOE -> DOF
     const otherNumber = Uint8Array.from(DG1)
     otherNumber[49] = 89 // X -> Y
     expect(await calculateTier2PrivateNullifier(renamed)).toBe(NOIR_PRIVATE_NULLIFIER)
     expect(await calculateTier2PrivateNullifier(otherNumber)).not.toBe(NOIR_PRIVATE_NULLIFIER)
+    const otherExpiry = Uint8Array.from(DG1)
+    otherExpiry[71] = 49 // 2030 -> 2031
+    expect(await calculateTier2PrivateNullifier(otherExpiry)).not.toBe(NOIR_PRIVATE_NULLIFIER)
   })
 
   test("expiry date comes from the MRZ", () => {
-    expect(getExpiryDateFromTd3Dg1(DG1)).toBe("300403")
+    expect(getExpiryDateFromDg1(DG1)).toBe("300403")
+    expect(getExpiryDateFromDg1(ID_CARD_DG1)).toBe("120415")
   })
 
   test("commitment matches the circuit's comm_out", async () => {

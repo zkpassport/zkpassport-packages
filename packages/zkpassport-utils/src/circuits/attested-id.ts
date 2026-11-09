@@ -114,30 +114,50 @@ export function calculateAttestedDigest(dg1: Uint8Array, portraitHash: Uint8Arra
   return sha256(input)
 }
 
-/** The MRZ fields of a TD3 passport DG1 that carry a check digit: the nullifier is made of these */
+/** An ID card (TD1) fills the last two bytes the DG1 input takes; a passport (TD3) leaves them 0 */
+const isIdCardDg1 = (dg1: Uint8Array) => dg1[93] !== 0 && dg1[94] !== 0
+
+/** Where each MRZ field starts, as the circuits' utils read them */
+const mrzLayout = (dg1: Uint8Array) =>
+  isIdCardDg1(dg1)
+    ? { documentNumber: 5, dateOfBirth: 30, expiryDate: 38 }
+    : { documentNumber: 44, dateOfBirth: 57, expiryDate: 65 }
+
+/** The issuing country as the circuits read it: Germany writes "D<<", which they read as DEU */
+function getIssuingCountry(mrz: Uint8Array): Uint8Array {
+  const country = mrz.subarray(2, 5)
+  return String.fromCharCode(...country) === "D<<" ? new TextEncoder().encode("DEU") : country
+}
+
+/** The MRZ fields the nullifier is made of, from a passport or ID card DG1 */
 function getTier2NullifierFields(dg1: Uint8Array): Uint8Array {
-  const mrz = padDg1(dg1).subarray(5)
-  const fields = new Uint8Array(3 + 9 + 6)
-  fields.set(mrz.subarray(2, 5)) // issuing country
-  fields.set(mrz.subarray(44, 53), 3) // document number
-  fields.set(mrz.subarray(57, 63), 12) // date of birth
+  const padded = padDg1(dg1)
+  const mrz = padded.subarray(5)
+  const layout = mrzLayout(padded)
+  const fields = new Uint8Array(3 + 9 + 6 + 6)
+  fields.set(getIssuingCountry(mrz))
+  fields.set(mrz.subarray(layout.documentNumber, layout.documentNumber + 9), 3)
+  fields.set(mrz.subarray(layout.dateOfBirth, layout.dateOfBirth + 6), 12)
+  fields.set(mrz.subarray(layout.expiryDate, layout.expiryDate + 6), 18)
   return fields
 }
 
 /**
  * A camera-read ID has no signature to derive a nullifier from, so it comes from the MRZ fields
- * that carry a check digit: issuing country, document number and date of birth. Names have no
- * check digit and OCR may read them differently each time, so they are left out.
+ * OCR reads reliably: issuing country, and the document number, date of birth and expiry date,
+ * which carry a check digit. Names have no check digit and OCR may read them differently each
+ * time, so they are left out.
  */
 export async function calculateTier2PrivateNullifier(dg1: Uint8Array): Promise<bigint> {
   const [packed] = packBeBytesIntoFields(getTier2NullifierFields(dg1), 31)
   return poseidon2HashAsync([TIER2_NULLIFIER_DOMAIN, BigInt(packed)])
 }
 
-/** The expiry date as the MRZ writes it, YYMMDD, from a TD3 passport DG1 */
-export function getExpiryDateFromTd3Dg1(dg1: Uint8Array): string {
-  const mrz = padDg1(dg1).subarray(5)
-  return String.fromCharCode(...mrz.subarray(65, 71))
+/** The expiry date as the MRZ writes it, YYMMDD, from a passport or ID card DG1 */
+export function getExpiryDateFromDg1(dg1: Uint8Array): string {
+  const padded = padDg1(dg1)
+  const start = mrzLayout(padded).expiryDate
+  return String.fromCharCode(...padded.subarray(5 + start, 5 + start + 6))
 }
 
 /**
@@ -159,7 +179,7 @@ export async function calculateAttestedIdCommitment(
   const commitment = await hashSaltDg1Dg2HashPrivateNullifier(
     salts,
     Binary.from(padDg1(dg1)),
-    getExpiryDateFromTd3Dg1(dg1),
+    getExpiryDateFromDg1(dg1),
     await normalizeDg2Hash(Array.from(digest)),
     ATTESTED_DIGEST_HASH_TYPE,
     privateNullifier,
