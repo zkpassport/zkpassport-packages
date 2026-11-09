@@ -1,10 +1,10 @@
 //! A ZKPassport registry for tests, at the same address in TXE and on an Aztec local network.
 //!
+//! Its purpose is to provide a stable registry address to write local network tests against.
 //! It is deployed universally (deployer zero) with default public keys, `DEV_REGISTRY_SALT` and
 //! fixed constructor arguments. Its admin and operator are the local network's first two test
 //! accounts. Any change to the registry's bytecode or to the Aztec toolchain moves
-//! `DEV_REGISTRY_ADDRESS`; `ts/test/dev-registry.test.ts` checks it and the accounts against the
-//! compiled artifact and @aztec-labs/accounts.
+//! `DEV_REGISTRY_ADDRESS`.
 
 use aztec::{
     protocol::{address::AztecAddress, hash::sha256_to_field},
