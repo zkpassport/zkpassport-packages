@@ -102,8 +102,7 @@ network. Its admin and operator are the local network's test accounts 0 and 1.
   `@zkpassport/aztec`, with the test accounts in the wallet (`registerInitialLocalNetworkAccountsInWallet`).
 
 Any change to the registry's bytecode or the Aztec toolchain moves the address.
-`ts/test/dev-registry.test.ts` then fails with the new values for `verifier/src/dev_registry.nr` and
-`ts/src/dev-registry.ts`.
+`ts/test/dev-registry.test.ts` then fails with the new values for `verifier/src/dev_registry.nr`.
 
 `verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
 a function argument.

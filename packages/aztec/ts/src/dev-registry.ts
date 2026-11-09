@@ -2,8 +2,10 @@
  * The dev registry: a ZKPassport registry for tests, at the same address in TXE and on an Aztec
  * local network.
  *
- * Note: this is a TS mirror of `noir/verifier/src/dev_registry.nr`. That is the source of truth.
+ * Note: `noir/verifier/src/dev_registry.nr` is the source of truth. This module mirrors its salt and
+ * validity window, and derives the rest from the registry artifact and @aztec-labs/accounts.
  */
+import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing"
 import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
 import { Contract } from "@aztec-labs/aztec.js/contracts"
 import { Fr } from "@aztec-labs/aztec.js/fields"
@@ -20,39 +22,10 @@ export const DEV_REGISTRY_SALT = Fr.fromHexString(
 /** The dev registry's root validity window, in seconds. */
 export const DEV_REGISTRY_VALIDITY_WINDOW = 86400
 
-/** The dev registry's admin: the local network's test account 0. */
-export const DEV_REGISTRY_ADMIN = AztecAddress.fromStringUnsafe(
-  "0x0e900d357d0a7b9de3c0293c6b1a58dccfc1862f31c745ba5d3a5a5aaf4ac1fd",
-)
-
-/** The dev registry's operator: the local network's test account 1. */
-export const DEV_REGISTRY_OPERATOR = AztecAddress.fromStringUnsafe(
-  "0x3029dfcca99e1f1fc1b9c88aa32de4eec686e79a0103a780ded503402aca3d08",
-)
-
 // Mirrors of the registry's MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE and REGISTRY_CIRCUIT
 const MODE_VALID_WITHIN_WINDOW = 3
 const REGISTRY_CERTIFICATE = 1n
 const REGISTRY_CIRCUIT = 2n
-
-/** The constructor arguments the dev registry is deployed with. */
-export const DEV_REGISTRY_CONSTRUCTOR_ARGS = [
-  DEV_REGISTRY_ADMIN,
-  DEV_REGISTRY_OPERATOR,
-  MODE_VALID_WITHIN_WINDOW,
-  DEV_REGISTRY_VALIDITY_WINDOW,
-] as const
-
-/** The dev registry's address in TXE and on a local network, computed from the registry artifact. */
-export async function getDevRegistryAddress(): Promise<AztecAddress> {
-  const instance = await getContractInstanceFromInstantiationParams(ZKPassportRegistryArtifact, {
-    constructorArtifact: "constructor",
-    constructorArgs: [...DEV_REGISTRY_CONSTRUCTOR_ARGS],
-    salt: DEV_REGISTRY_SALT,
-    deployer: AztecAddress.ZERO,
-  })
-  return instance.address
-}
 
 /** What `seedDevRegistry` registers. */
 export interface DevRegistrySeed {
@@ -66,6 +39,17 @@ export interface DevRegistrySeed {
   validFrom: bigint
 }
 
+/** The dev registry's address in TXE and on a local network, computed from the registry artifact. */
+export async function getDevRegistryAddress(): Promise<AztecAddress> {
+  const instance = await getContractInstanceFromInstantiationParams(ZKPassportRegistryArtifact, {
+    constructorArtifact: "constructor",
+    constructorArgs: await constructorArgs(),
+    salt: DEV_REGISTRY_SALT,
+    deployer: AztecAddress.ZERO,
+  })
+  return instance.address
+}
+
 /**
  * Deploys the dev registry on a local network.
  *
@@ -73,13 +57,14 @@ export interface DevRegistrySeed {
  * `registerInitialLocalNetworkAccountsInWallet`.
  */
 export async function deployDevRegistry(wallet: Wallet): Promise<Contract> {
+  const { admin } = await devRegistryAccounts()
   const { contract } = await Contract.deploy(
     wallet,
     ZKPassportRegistryArtifact,
-    [...DEV_REGISTRY_CONSTRUCTOR_ARGS],
+    await constructorArgs(),
     "constructor",
     { salt: DEV_REGISTRY_SALT, universalDeploy: true },
-  ).send({ from: DEV_REGISTRY_ADMIN })
+  ).send({ from: admin })
   return contract
 }
 
@@ -92,15 +77,25 @@ export async function deployDevRegistry(wallet: Wallet): Promise<Contract> {
  * verified, before verifying.
  */
 export async function seedDevRegistry(wallet: Wallet, seed: DevRegistrySeed): Promise<void> {
+  const { admin, operator } = await devRegistryAccounts()
   const registry = Contract.at(await getDevRegistryAddress(), ZKPassportRegistryArtifact, wallet)
   await registry.methods
     .update_root(REGISTRY_CERTIFICATE, seed.certificateRoot, 0n, seed.validFrom)
-    .send({ from: DEV_REGISTRY_OPERATOR })
+    .send({ from: operator })
   await registry.methods
     .update_root(REGISTRY_CIRCUIT, seed.circuitRoot, 0n, seed.validFrom)
-    .send({ from: DEV_REGISTRY_OPERATOR })
-  await registry.methods
-    .add_accepted_vk(seed.version, seed.vkHash)
-    .send({ from: DEV_REGISTRY_ADMIN })
-  await registry.methods.set_version_status(seed.version, true).send({ from: DEV_REGISTRY_ADMIN })
+    .send({ from: operator })
+  await registry.methods.add_accepted_vk(seed.version, seed.vkHash).send({ from: admin })
+  await registry.methods.set_version_status(seed.version, true).send({ from: admin })
+}
+
+// The dev registry's admin and operator: the local network's test accounts 0 and 1
+async function devRegistryAccounts(): Promise<{ admin: AztecAddress; operator: AztecAddress }> {
+  const [admin, operator] = await getInitialTestAccountsData()
+  return { admin: admin.address, operator: operator.address }
+}
+
+async function constructorArgs(): Promise<[AztecAddress, AztecAddress, number, number]> {
+  const { admin, operator } = await devRegistryAccounts()
+  return [admin, operator, MODE_VALID_WITHIN_WINDOW, DEV_REGISTRY_VALIDITY_WINDOW]
 }

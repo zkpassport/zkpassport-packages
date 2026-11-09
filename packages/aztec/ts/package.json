@@ -19,12 +19,12 @@
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
+    "@aztec-labs/accounts": "6.0.0",
     "@aztec-labs/aztec.js": "6.0.0",
     "@aztec-labs/stdlib": "6.0.0",
     "@zkpassport/utils": "0.37.3"
   },
   "devDependencies": {
-    "@aztec-labs/accounts": "6.0.0",
     "@types/node": "^26.2.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
