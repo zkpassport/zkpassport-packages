@@ -11,19 +11,19 @@ export {
   VK_FIELDS,
 } from "./constants.ts"
 export {
-  DEV_REGISTRY_SALT,
-  DEV_REGISTRY_VALIDITY_WINDOW,
-  deployDevRegistry,
-  type DevRegistrySeed,
-  getDevRegistryAddress,
-  seedDevRegistry,
-} from "./dev-registry.ts"
-export {
   isIdCard,
   nationalityBytes,
   packNationality,
   TD1_NATIONALITY_INDEX,
   TD3_NATIONALITY_INDEX,
 } from "./disclosed-data.ts"
+export {
+  deployLocalNetworkRegistry,
+  getLocalNetworkRegistryAddress,
+  LOCAL_NETWORK_REGISTRY_SALT,
+  LOCAL_NETWORK_REGISTRY_VALIDITY_WINDOW,
+  type LocalNetworkRegistrySeed,
+  seedLocalNetworkRegistry,
+} from "./local-network-registry.ts"
 export { registerZKPassportRegistry, type RegistryNode, type RegistryWallet } from "./register.ts"
 export { fetchOuterVk } from "./vk.ts"

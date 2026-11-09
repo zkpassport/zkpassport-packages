@@ -87,22 +87,25 @@ fn claim(user: AztecAddress) {
 `ServiceConfig.domain` is required: the library rejects a config whose domain is 0.
 `ServiceConfig.scope` is optional, 0 for the whole domain. `verify_zkpassport_proof` and
 `check_sanctions` use ZKPassport's registry on the network, found by its L1 chain id and rollup
-version. In TXE and on a local network that is the dev registry, below. On a network without one,
-use `verify_zkpassport_proof_with_registry` and `check_sanctions_with_registry`.
+version. In TXE and on a local network that is the local network registry, below. On a network
+without one, use `verify_zkpassport_proof_with_registry` and `check_sanctions_with_registry`.
 
-### Testing against the dev registry
+### Testing against the local network registry
 
-The dev registry is a `ZKPassportRegistry` at `DEV_REGISTRY_ADDRESS` in both TXE and a local
-network. Its admin and operator are the local network's test accounts 0 and 1.
+The local network registry is a `ZKPassportRegistry` at `LOCAL_NETWORK_REGISTRY_ADDRESS` in both
+TXE and a local network. Its admin and operator are the local network's test accounts 0 and 1.
 
-- TXE: `zkpassport_aztec_verifier::dev_registry::deploy_dev_registry(&mut env, artifact_path)`, with
-  the path `TestEnvironment::deploy` takes to the compiled registry, then `seed_dev_registry` with the
-  roots and vk hash of the test's proof. Advance time past the registry's delay before verifying.
-- Local network: `deployDevRegistry(wallet)` and `seedDevRegistry(wallet, seed)` from
-  `@zkpassport/aztec`, with the test accounts in the wallet (`registerInitialLocalNetworkAccountsInWallet`).
+- TXE: `deploy_local_network_registry(&mut env, artifact_path)` from
+  `zkpassport_aztec_verifier::local_network_registry`, with the path `TestEnvironment::deploy` takes
+  to the compiled registry, then `seed_local_network_registry` with the roots and vk hash of the
+  test's proof. Advance time past the registry's delay before verifying.
+- Local network: `deployLocalNetworkRegistry(wallet)` and `seedLocalNetworkRegistry(wallet, seed)`
+  from `@zkpassport/aztec`, with the test accounts in the wallet
+  (`registerInitialLocalNetworkAccountsInWallet`).
 
 Any change to the registry's bytecode or the Aztec toolchain moves the address.
-`ts/test/dev-registry.test.ts` then fails with the new values for `verifier/src/dev_registry.nr`.
+`ts/test/local-network-registry.test.ts` then fails with the new values for
+`verifier/src/local_network_registry.nr`.
 
 `verify_zkpassport_proof` reads its proof material from a private oracle **capsule**, not from
 a function argument.

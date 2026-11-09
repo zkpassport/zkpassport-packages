@@ -9,7 +9,7 @@
     "./artifact": "./src/artifact.ts",
     "./capsule": "./src/capsule.ts",
     "./constants": "./src/constants.ts",
-    "./dev-registry": "./src/dev-registry.ts",
+    "./local-network-registry": "./src/local-network-registry.ts",
     "./disclosed-data": "./src/disclosed-data.ts",
     "./register": "./src/register.ts",
     "./vk": "./src/vk.ts"

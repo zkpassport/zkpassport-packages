@@ -1,4 +1,4 @@
-use crate::dev_registry::DEV_REGISTRY_ADDRESS;
+use crate::local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS;
 use aztec::{
     context::PrivateContext,
     oracle::capsules,
@@ -49,9 +49,9 @@ global UNIQUENESS_NULLIFIER_DOMAIN: Field =
 // PrivateContext::version return them. A version of none matches every version on that chain.
 global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 2] = [
     // TXE
-    (1, Option::some(1), DEV_REGISTRY_ADDRESS),
+    (1, Option::some(1), LOCAL_NETWORK_REGISTRY_ADDRESS),
     // A local network, at any rollup version: 31337 is Anvil's chain id, never a live network's
-    (31337, Option::none(), DEV_REGISTRY_ADDRESS),
+    (31337, Option::none(), LOCAL_NETWORK_REGISTRY_ADDRESS),
 ];
 
 /// Hashes a domain or scope string the way the ZKPassport SDK does, for `ServiceConfig`.
@@ -82,8 +82,8 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// With `config.disclose`, the library loads the disclose payload from the disclose
 /// capsule and adds its commitment itself.
 ///
-/// In TXE and on a local network this is the dev registry, see `dev_registry`. Use
-/// `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
+/// In TXE and on a local network this is the local network registry, see `local_network_registry`.
+/// Use `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
 pub fn verify_zkpassport_proof<let K: u32>(
     context: &mut PrivateContext,
     capsule_scope: AztecAddress,
@@ -194,8 +194,8 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
 /// network, and returns the param commitment the caller must add to its expected_commitments,
 /// binding the checked root to the proof.
 ///
-/// In TXE and on a local network this is the dev registry, see `dev_registry`. Use
-/// `check_sanctions_with_registry` on a network without a ZKPassport registry.
+/// In TXE and on a local network this is the local network registry, see `local_network_registry`.
+/// Use `check_sanctions_with_registry` on a network without a ZKPassport registry.
 pub fn check_sanctions(
     context: &mut PrivateContext,
     root: Field,
@@ -312,7 +312,7 @@ fn expected_with_disclosure<let K: u32>(
 }
 
 mod test {
-    use crate::dev_registry::DEV_REGISTRY_ADDRESS;
+    use crate::local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS;
     use crate::verify::{
         assert_service_policy, default_registry, Disclosure, expected_with_disclosure,
         parse_disclose_payload, scope_hash, ServiceConfig,
@@ -427,19 +427,19 @@ mod test {
     }
 
     #[test]
-    fn txe_uses_the_dev_registry() {
-        assert_eq(default_registry(1, 1), DEV_REGISTRY_ADDRESS);
+    fn txe_uses_the_local_network_registry() {
+        assert_eq(default_registry(1, 1), LOCAL_NETWORK_REGISTRY_ADDRESS);
     }
 
     #[test(should_fail_with = "no default ZKPassport registry on this network")]
-    fn another_rollup_on_chain_1_does_not_get_the_dev_registry() {
+    fn another_rollup_on_chain_1_does_not_get_the_local_network_registry() {
         let _ = default_registry(1, 2);
     }
 
     #[test]
-    fn a_local_network_of_any_version_uses_the_dev_registry() {
-        assert_eq(default_registry(31337, 1), DEV_REGISTRY_ADDRESS);
-        assert_eq(default_registry(31337, 2), DEV_REGISTRY_ADDRESS);
+    fn a_local_network_of_any_version_uses_the_local_network_registry() {
+        assert_eq(default_registry(31337, 1), LOCAL_NETWORK_REGISTRY_ADDRESS);
+        assert_eq(default_registry(31337, 2), LOCAL_NETWORK_REGISTRY_ADDRESS);
     }
 
     // The conformance disclose payload: a TD3 mask disclosing only the nationality, "AUS"

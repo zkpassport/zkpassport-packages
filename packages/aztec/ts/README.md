@@ -8,7 +8,7 @@ Features:
 - **`ZKPassportRegistryArtifact` + `registerZKPassportRegistry(wallet, node, address)`**: utility to register the shared registry's artifact with the user's PXE (the verifier transitively `.view()`s it during local simulation/proving).
 - **`assembleProofCapsule` / `assembleDiscloseCapsule`**: the proof and disclose preimage must be passed via capsules to contracts that need to verify. These functions are conveniences to do so.
 - **`nationalityBytes` / `packNationality` / `isIdCard`** — TS twins of the Noir `disclosed_data` module.
-- **`deployDevRegistry(wallet)` / `seedDevRegistry(wallet, seed)` / `getDevRegistryAddress()`**: the dev registry on a local network, the one `verify_zkpassport_proof` uses there (see [the Noir README](../noir/README.md#testing-against-the-dev-registry)).
+- **`deployLocalNetworkRegistry(wallet)` / `seedLocalNetworkRegistry(wallet, seed)` / `getLocalNetworkRegistryAddress()`**: the registry `verify_zkpassport_proof` uses on a local network (see [the Noir README](../noir/README.md#testing-against-the-local-network-registry)).
 - **`fetchOuterVk(vkeyHash)`**: the outer vk from the live `circuits2.zkpassport.id` host.
 - **`constants.ts`** — TS mirror of `core/src/constants.nr`.
 
