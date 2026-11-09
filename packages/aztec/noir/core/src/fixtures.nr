@@ -49,8 +49,8 @@ pub(crate) global BIND_COMMITMENT: Field =
 /// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against
 /// dev-mode registries, current_date 2050-01-01), in the K=4 layout parse.nr decodes.
 pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
-    0x14ed64f7a9c0dd706f7ad0b14d70628a15afb58b474ef2b120a392c3b00b3a29, // cert root
-    0x028b892fac1779539640734adfb7ae6ee4e495609e98860fa46f67b272499f5a, // circuit root
+    0x070d2f8b8b8f1d2d0234d81987b9abb0968e7767feb42c5728e83002e757de27, // cert root
+    0x24b08b409233539aa81c76dd73c48fc41895e66ece1b32fa60aa63fdbd036ce6, // circuit root
     0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
     0x0000000000000000000000000000000000000000000000000000000000000000, // domain
     0x0000000000000000000000000000000000000000000000000000000000000000, // scope

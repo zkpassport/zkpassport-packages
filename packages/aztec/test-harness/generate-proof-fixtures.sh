@@ -7,8 +7,8 @@
 # (pinned to the commit the committed fixtures were built from) and runs with cwd = the
 # submodule: Circuit.from() resolves `target/<name>.json` against cwd.
 #
-# Toolchain: the circuits compile with nargo 1.0.0-beta.22 from the 5.0.1 aztec release, the
-# Noir version the circuits repo pins, and are proved with bb from the Aztec release that
+# Toolchain: the circuits compile with nargo 1.0.0, the Noir version the circuits repo pins
+# (NARGO, default the noirup install), and are proved with bb from the Aztec release that
 # packages/aztec/.aztecrc pins, which must be FIRST in PATH: the Aztec protocol only accepts
 # proofs from that bb's Honk transcript.
 set -euo pipefail
@@ -18,8 +18,8 @@ CIRCUITS=$HARNESS_DIR/circuits
 AZTEC_VERSION=$(grep -v -e '^#' -e '^$' "$HARNESS_DIR/../.aztecrc" | head -n 1 | tr -d '[:space:]')
 AZTEC=${AZTEC:-${AZTEC_HOME:-$HOME/.aztec}/versions/$AZTEC_VERSION}
 BB_BIN=$AZTEC/node_modules/.bin
-AZTEC_501=${AZTEC_501:-$HOME/.aztec/versions/5.0.1}
-NARGO_501=$AZTEC_501/bin/aztec-nargo
+NOIR_VERSION=1.0.0
+NARGO=${NARGO:-$HOME/.nargo/bin/nargo}
 
 KINDS=("$@")
 if [ ${#KINDS[@]} -eq 0 ]; then KINDS=(disclose age); fi
@@ -32,6 +32,10 @@ if [ ! -d "$CIRCUITS/node_modules" ]; then
   echo "== npm install in the circuits submodule"
   (cd "$CIRCUITS" && npm install)
 fi
+if [ "$("$NARGO" --version | head -n 1)" != "nargo version = $NOIR_VERSION" ]; then
+  echo "$NARGO is not nargo $NOIR_VERSION -- run: noirup -v $NOIR_VERSION, or set NARGO" >&2
+  exit 2
+fi
 
 # Compile any circuit the generator proves that isn't built yet (target/ is gitignored
 # upstream, so a fresh submodule starts empty).
@@ -40,8 +44,8 @@ for PKG in sig_check_dsc_tbs_700_rsa_pkcs_4096_sha512 \
   data_check_integrity_sa_sha256_dg_sha256 \
   disclose_bytes compare_age bind outer_count_4 outer_count_5; do
   if [ ! -f "$CIRCUITS/target/$PKG.json" ]; then
-    echo "== compiling $PKG with $($NARGO_501 --version | head -1)"
-    (cd "$CIRCUITS" && $NARGO_501 compile --package "$PKG")
+    echo "== compiling $PKG with nargo $NOIR_VERSION"
+    (cd "$CIRCUITS" && "$NARGO" compile --package "$PKG")
   fi
 done
 
