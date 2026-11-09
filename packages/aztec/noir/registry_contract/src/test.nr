@@ -44,6 +44,24 @@ unconstrained fn non_admin_cannot_transfer_admin() {
 }
 
 #[test]
+unconstrained fn new_admin_acts_as_admin_after_a_transfer() {
+    let (env, registry_address, admin, operator, user) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.transfer_admin(user));
+    let _ = env.call_public(user, registry.set_operator(operator));
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn previous_admin_cannot_act_after_a_transfer() {
+    let (env, registry_address, admin, operator, user) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.transfer_admin(user));
+    let _ = env.call_public(admin, registry.set_operator(operator));
+}
+
+#[test]
 unconstrained fn operator_can_pause_admin_can_unpause() {
     let (env, registry_address, admin, operator, _) = setup();
     let registry = ZKPassportRegistry::at(registry_address);
