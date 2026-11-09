@@ -42,8 +42,6 @@ pub unconstrained fn deploy_dev_registry<let N: u32>(
     env: &mut TestEnvironment,
     artifact_path: str<N>,
 ) -> AztecAddress {
-    // Secret 0 gives the default public keys, as aztec.js deploys with; TXE derives keys from a
-    // fresh secret otherwise.
     let address = env
         .deploy_opts(DeployOptions::new().with_salt(DEV_REGISTRY_SALT).with_secret(0), artifact_path
             )
