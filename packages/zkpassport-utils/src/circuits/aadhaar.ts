@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { decompressSync } from "fflate"
+import { decompressSync, zlibSync } from "fflate"
 import { redcLimbsFromBytes } from "../barrett-reduction"
 import { leftPadArrayWithZeros } from "../utils"
 import { Binary } from "../binary"
@@ -40,6 +40,8 @@ export const AADHAAR_ISSUING_COUNTRY = "IND"
 export const AADHAAR_PHOTO_HASH_TYPE = 3
 
 const DELIMITER = 255
+const BN254_SCALAR_FIELD =
+  21888242871839275222246405745257275088548364400416034343698204186575808495617n
 const DG1_HEADER = [0x61, 0x5b, 0x5f, 0x1f, 0x58]
 const DG1_INPUT_LENGTH = 95
 const MRZ_NAME_LENGTH = 39
@@ -147,11 +149,7 @@ export function decodeAadhaarQr(qrText: string): AadhaarQrData {
 }
 
 /** The inverse of decodeAadhaarQr, compressed with zlib as UIDAI does; for tests */
-export async function encodeAadhaarQr(
-  signedData: Uint8Array,
-  signature: Uint8Array,
-): Promise<string> {
-  const { zlibSync } = await import("fflate")
+export function encodeAadhaarQr(signedData: Uint8Array, signature: Uint8Array): string {
   const data = new Uint8Array(signedData.length + signature.length)
   data.set(signedData)
   data.set(signature, signedData.length)
@@ -500,7 +498,8 @@ export function getAadhaarCircuitInputs(
   const pubkey = Array.from(modulusBytes(passport.aadhaar!.publicKey))
   const qrData = new Array(AADHAAR_MAX_DATA_LENGTH).fill(0)
   qrData.splice(0, qr.signedData.length, ...qr.signedData)
-  const hex = (value: bigint) => `0x${value.toString(16)}`
+  // Salts are SHA-256 outputs and may exceed the field, so they go in reduced as the prover would
+  const hex = (value: bigint) => `0x${(value % BN254_SCALAR_FIELD).toString(16)}`
   return {
     qr_data: qrData,
     qr_data_length: qr.signedData.length,
