@@ -3,6 +3,12 @@
 import {
   type ProofResult,
   type QueryResult,
+  type AadhaarCommittedInputs,
+  AADHAAR_CIRCUIT_NAME,
+  UIDAI_PUBLIC_KEYS,
+  getAadhaarParameterCommitment,
+  getCommitmentOutFromAadhaarProof,
+  getParameterCommitmentFromAadhaarProof,
   getChainFromQuery,
   getProofData,
   getCommitmentFromDSCProof,
@@ -2200,9 +2206,12 @@ export class PublicInputChecker {
         },
       }
     }
+    // A face match the service did not request (an Aadhaar always comes with one) may be in
+    // either mode; a requested one must be in the mode requested
+    const requestedMode = originalQuery.facematch?.mode
     if (
       (queryResult.facematch && facematchCommittedInputs.mode !== queryResult.facematch.mode) ||
-      facematchCommittedInputs.mode !== originalQuery.facematch?.mode
+      (requestedMode !== undefined && facematchCommittedInputs.mode !== requestedMode)
     ) {
       console.warn("Invalid facematch mode")
       isCorrect = false
@@ -2446,6 +2455,8 @@ export class PublicInputChecker {
     const proofOrder = [
       // Tier 2 base: the device attested the camera-read ID, in place of the three chip proofs
       "attested_id",
+      // Aadhaar base: UIDAI signed the QR code, in place of the three chip proofs
+      AADHAAR_CIRCUIT_NAME,
       "sig_check_dsc",
       "sig_check_id_data",
       "data_check_integrity",
@@ -2472,7 +2483,7 @@ export class PublicInputChecker {
     })
 
     // Registry roots are checked as of the proofs' own date, so older proofs still verify
-    const disclosureProofNames = proofOrder.slice(4)
+    const disclosureProofNames = proofOrder.slice(5)
     // What verified the ID, read from the base proof (or the outer)
     let credentialScheme: CredentialScheme | undefined
     const firstDisclosureProof = sortedProofs.find((p) =>
@@ -3095,6 +3106,17 @@ export class PublicInputChecker {
           isCorrect = isCorrect && isCorrectAttestation
           queryResultErrors = { ...queryResultErrors, ...attestationErrors }
         }
+      } else if (proof.name === AADHAAR_CIRCUIT_NAME) {
+        commitmentOut = getCommitmentOutFromAadhaarProof(proofData)
+        credentialScheme = getCredentialSchemeFromAttestedIdProof(proofData)
+        const { isCorrect: isCorrectAadhaar, queryResultErrors: aadhaarErrors } =
+          await this.checkAadhaarPublicKey(
+            getParameterCommitmentFromAadhaarProof(proofData),
+            proof.committedInputs?.aadhaar_id as AadhaarCommittedInputs | undefined,
+            Boolean(devMode),
+          )
+        isCorrect = isCorrect && isCorrectAadhaar
+        queryResultErrors = { ...queryResultErrors, ...aadhaarErrors }
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
@@ -3989,6 +4011,23 @@ export class PublicInputChecker {
       uniqueIdentifier = undefined
     }
 
+    // Anyone holding a copy of an Aadhaar QR code could prove with it, so only a face match
+    // against its photo ties it to the person proving
+    if (
+      credentialScheme === CredentialScheme.UIDAI_AADHAAR &&
+      !sortedProofs.some((p) => p.name?.startsWith("facematch"))
+    ) {
+      console.warn("An Aadhaar proof must come with a face match against its photo")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: "A FaceMatch proof",
+          received: "none",
+          message: "An Aadhaar proof must come with a face match against its photo",
+        },
+      }
+    }
     // Proofs made before the scheme existed came from a chip
     const scheme = credentialScheme ?? CredentialScheme.ICAO_CHIP
     if (!isCredentialAllowed(scheme, allowedCredentials)) {
@@ -4010,6 +4049,50 @@ export class PublicInputChecker {
       queryResultErrors,
       credentialScheme: scheme,
     }
+  }
+
+  /**
+   * An Aadhaar base proof commits to the RSA key it checked UIDAI's signature with. The key
+   * must be the one its committed inputs name, and one of UIDAI's: in dev mode an unknown key
+   * is only warned about, so QR codes signed by a key not yet listed can be tried out.
+   */
+  public static async checkAadhaarPublicKey(
+    paramCommitment: bigint,
+    committed: AadhaarCommittedInputs | undefined,
+    devMode: boolean,
+  ) {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const fail = (expected: string, received: string, message: string) => {
+      console.warn(message)
+      isCorrect = false
+      queryResultErrors.aadhaar_id = {
+        ...queryResultErrors.aadhaar_id,
+        commitment: { expected, received, message },
+      }
+    }
+    if (!committed?.publicKey) {
+      fail("Committed inputs for aadhaar_id", "none", "The Aadhaar proof names no UIDAI key")
+      return { isCorrect, queryResultErrors }
+    }
+    const publicKey = committed.publicKey.toLowerCase().replace(/^0x/, "")
+    const expected = await getAadhaarParameterCommitment(publicKey)
+    if (expected !== paramCommitment) {
+      fail(
+        `Parameter commitment: ${expected.toString()}`,
+        `Parameter commitment: ${paramCommitment.toString()}`,
+        "The Aadhaar proof was not made with the key its committed inputs name",
+      )
+    }
+    if (!UIDAI_PUBLIC_KEYS.some((key) => key.modulus === publicKey)) {
+      const message = "The Aadhaar QR code was not signed by a known UIDAI key"
+      if (devMode) {
+        console.warn(`${message}; accepted in dev mode. Key: ${publicKey}`)
+      } else {
+        fail("A UIDAI public key", publicKey, message)
+      }
+    }
+    return { isCorrect, queryResultErrors }
   }
 
   /**
