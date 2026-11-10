@@ -7,6 +7,12 @@ import {
   getPortraitHash,
   isChiplessPassport,
 } from "./circuits/attested-id"
+import {
+  calculateAadhaarPrivateNullifier,
+  getAadhaarDataFromPassport,
+  getAadhaarPhotoHash,
+  isAadhaarPassport,
+} from "./circuits/aadhaar"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { Alpha3Code } from "i18n-iso-countries"
@@ -154,7 +160,7 @@ export function isDSCSupported(dsc: DSC): boolean {
 
 export function isIDSupported(passport: PassportViewModel): boolean {
   // Read by camera: no chip signatures to support, the attested_id circuit is its base instead
-  if (isChiplessPassport(passport)) return false
+  if (isChiplessPassport(passport) || isAadhaarPassport(passport)) return false
   const sodSignatureAlgorithm = getSodSignatureAlgorithmType(passport)
   return (
     isSignatureAlgorithmSupported(passport, sodSignatureAlgorithm) &&
@@ -374,11 +380,13 @@ async function getIDDataInputs(passport: PassportViewModel): Promise<IDDataInput
   // A passport read by camera has no SOD, and the attested digest stands in for its DG2 hash
   const eContent = passport?.sod?.encapContentInfo.eContent.bytes.toNumberArray() ?? []
   const signedAttributes = passport?.sod?.signerInfo.signedAttrs.bytes.toNumberArray() ?? []
-  const dg2Hash = isChiplessPassport(passport)
-    ? Array.from(
-        calculateAttestedDigest(new Uint8Array(dg1?.value ?? []), getPortraitHash(passport)),
-      )
-    : (dg2?.hash ?? [])
+  const dg2Hash = isAadhaarPassport(passport)
+    ? Array.from(getAadhaarPhotoHash(getAadhaarDataFromPassport(passport)))
+    : isChiplessPassport(passport)
+      ? Array.from(
+          calculateAttestedDigest(new Uint8Array(dg1?.value ?? []), getPortraitHash(passport)),
+        )
+      : (dg2?.hash ?? [])
   const id_data = {
     // Padded with 0s to make it 700 bytes
     e_content: rightPadArrayWithZeros(eContent, E_CONTENT_INPUT_SIZE),
@@ -400,6 +408,13 @@ async function getPrivateNullifier(
   passport: PassportViewModel,
   idData: IDDataInputs,
 ): Promise<Binary> {
+  if (isAadhaarPassport(passport)) {
+    return Binary.from(
+      await calculateAadhaarPrivateNullifier(
+        getAadhaarPhotoHash(getAadhaarDataFromPassport(passport)),
+      ),
+    )
+  }
   if (isChiplessPassport(passport)) {
     return Binary.from(await calculateTier2PrivateNullifier(new Uint8Array(idData.dg1)))
   }
