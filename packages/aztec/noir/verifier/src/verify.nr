@@ -59,14 +59,22 @@ global TESTNET_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
     0x019de2b2c83e178733dce20707949a17ec3465caba6ccd24b3d861f151bf0f30,
 );
 
+// The L1 chain id and the rollup version of Aztec mainnet, and ZKPassport's registry on it.
+global MAINNET_CHAIN_ID: Field = 1;
+global MAINNET_VERSION: Field = 2070860440;
+global MAINNET_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+    0x1478d06759c62f151751aa08e2ce8950dd49e9891c40b9a93774a4686000e8fc,
+);
+
 // ZKPassport's registry deployments, as (chain id, version, registry address) tuples.
 // Chain id refers to the L1 the network settles on and version to the network's rollup.
 // A version of none matches every version on that chain.
-global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 3] = [
+global REGISTRY_DEPLOYMENTS: [(Field, Option<Field>, AztecAddress); 4] = [
     (TXE_CHAIN_ID, Option::some(TXE_VERSION), LOCAL_NETWORK_REGISTRY_ADDRESS),
     // A local network, at any rollup version: Anvil's chain id is never a live network's
     (ANVIL_CHAIN_ID, Option::none(), LOCAL_NETWORK_REGISTRY_ADDRESS),
     (TESTNET_CHAIN_ID, Option::some(TESTNET_VERSION), TESTNET_REGISTRY_ADDRESS),
+    (MAINNET_CHAIN_ID, Option::some(MAINNET_VERSION), MAINNET_REGISTRY_ADDRESS),
 ];
 
 /// Hashes a domain or scope string the way the ZKPassport SDK does, for `ServiceConfig`.
@@ -331,8 +339,9 @@ fn expected_with_disclosure<let K: u32>(
 mod test {
     use crate::verify::{
         ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure,
-        expected_with_disclosure, parse_disclose_payload, scope_hash, ServiceConfig,
-        TESTNET_CHAIN_ID, TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID, TXE_VERSION,
+        expected_with_disclosure, MAINNET_CHAIN_ID, MAINNET_REGISTRY_ADDRESS, MAINNET_VERSION,
+        parse_disclose_payload, scope_hash, ServiceConfig, TESTNET_CHAIN_ID,
+        TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID, TXE_VERSION,
     };
     use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
@@ -450,6 +459,16 @@ mod test {
     #[test(should_fail_with = "no default ZKPassport registry on this network")]
     fn another_rollup_on_the_testnets_l1_does_not_get_the_testnet_registry() {
         let _ = default_registry(TESTNET_CHAIN_ID, TESTNET_VERSION + 1);
+    }
+
+    #[test]
+    fn the_mainnet_uses_the_mainnet_registry() {
+        assert_eq(default_registry(MAINNET_CHAIN_ID, MAINNET_VERSION), MAINNET_REGISTRY_ADDRESS);
+    }
+
+    #[test(should_fail_with = "no default ZKPassport registry on this network")]
+    fn another_rollup_on_the_mainnets_l1_does_not_get_the_mainnet_registry() {
+        let _ = default_registry(MAINNET_CHAIN_ID, MAINNET_VERSION + 1);
     }
 
     #[test]
