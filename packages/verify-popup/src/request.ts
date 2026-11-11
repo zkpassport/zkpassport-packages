@@ -30,6 +30,7 @@ export type RequestConfig = {
 }
 
 export type RequestCallbacks = {
+  onCreated?: (request: QueryBuilderResult, info: { resumed: boolean }) => void
   onReceived?: () => void
   onProving?: () => void
   onProof?: (proof: ProofResult) => void
@@ -130,6 +131,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
           const keyPair = sdk.getRequestKeyPair(built.requestId)
           if (keyPair) updateSession(session, { keyPair })
         }
+        callbacksRef.current.onCreated?.(built, { resumed: !!resumeWith })
 
         built.onBridgeConnect(() => setState((s) => (s === "waiting" ? s : "waiting")))
         built.onBridgeConnectionLost(() =>

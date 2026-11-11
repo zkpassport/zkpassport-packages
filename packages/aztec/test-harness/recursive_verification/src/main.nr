@@ -25,8 +25,8 @@ fn main(
         verification_key,
         proof,
         public_inputs,
-        0, // scope    -- fixture used no domain
-        0, // subscope
+        0, // domain: the disclose fixture has none
+        0, // scope
         false, // dev_mode -- fixture nullifier_type is NON_SALTED (0)
         expected,
     );
