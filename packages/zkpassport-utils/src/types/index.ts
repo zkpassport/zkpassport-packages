@@ -159,7 +159,7 @@ export type IDCredentialValue<T extends IDCredential> = T extends "nationality" 
   : T extends "gender"
     ? "male" | "female"
     : T extends "document_type"
-      ? "passport" | "id_card" | "residence_permit" | "other"
+      ? "passport" | "id_card" | "residence_permit" | "driving_license" | "other"
       : T extends "age"
         ? number
         : T extends "birthdate" | "expiry_date"

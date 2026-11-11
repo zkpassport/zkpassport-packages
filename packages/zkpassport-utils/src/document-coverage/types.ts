@@ -6,7 +6,7 @@
 
 export type CoverageShapeKey = "booklet" | "card"
 export type CoverageDocumentType =
-  "passport" | "id_card" | "residence_permit" | "my_number_card" | "aadhaar"
+  "passport" | "id_card" | "residence_permit" | "driving_license" | "my_number_card" | "aadhaar"
 export type ReadMethod = "nfc" | "camera" | "qr"
 
 export interface CoverageShape {
@@ -17,7 +17,7 @@ export interface CoverageShape {
 
 export interface CoverageReadMethod {
   /** The document field that must be true for the method to apply; absent means always */
-  requires?: "chip" | "mrz"
+  requires?: "chip" | "mrz" | "barcode"
   /** The credential schemes a read by this method can produce */
   schemes: number[]
 }
@@ -37,6 +37,8 @@ export interface CoverageDocument {
   to?: number
   chip: boolean
   mrz: boolean
+  /** Carries an AAMVA PDF417 barcode, which a North American licence is read from */
+  barcode?: boolean
   /** Regula no longer maintains the template; the document is still in circulation */
   deprecated?: true
   /** Listed ahead of our support for it */

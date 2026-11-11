@@ -66,6 +66,33 @@ describe("decideVerificationPaths", () => {
     expect(decision.chipVerifiable).toBe(true)
   })
 
+  test("a US driving licence is read by camera from its barcode, never by chip", () => {
+    const licence = (barcode: boolean): CoverageDocument => ({
+      type: "driving_license",
+      name: "California Driving License (2018)",
+      from: 2018,
+      chip: false,
+      mrz: false,
+      ...(barcode ? { barcode: true } : {}),
+    })
+    const query = {
+      country: "TST",
+      documentType: "driving_license" as const,
+      allowedCredentials: ANY,
+      supportedSchemes: IOS,
+    }
+    const readable = decideVerificationPaths(table({ TST: country([licence(true)]) }), query)
+    expect(readable.outcome).toBe("proceed")
+    expect(methods(readable)).toEqual(["camera:200"])
+    const unreadable = decideVerificationPaths(table({ TST: country([licence(false)]) }), query)
+    expect(methods(unreadable)).toEqual([])
+    const signedOnly = decideVerificationPaths(table({ TST: country([licence(true)]) }), {
+      ...query,
+      allowedCredentials: SIGNED_ONLY,
+    })
+    expect(signedOnly.outcome).toBe("rejected_by_policy")
+  })
+
   test("a signed-only policy leaves the chip read alone and reports the refused camera read", () => {
     const decision = decideVerificationPaths(chipped, {
       country: "TST",
