@@ -35,7 +35,15 @@ export const DEFAULT_OPRF_PUB_KEY_HASH =
 
 export const OPRF_DEFAULT_THRESHOLD = 2
 export const OPRF_DEFAULT_MODULE = "face-match"
-export const OPRF_DEFAULT_DOMAIN_SEPARATOR = 1330664006n // matching oprf-nr library
+// v2 modules: step 1 (identify, evaluated under k_reg) and step 3 (query, evaluated under k_c)
+export const OPRF_REGISTER_MODULE = "register"
+export const OPRF_NULLIFIER_MODULE = "nullifier"
+export const OPRF_DEFAULT_DOMAIN_SEPARATOR = 1330664006n
+
+// Domain separator of the auth commitment x' = Poseidon2_t3([DS, pn, x])[1],
+// b"zkPassport OPRF auth commitment", matching DS_COMMIT in the oprf_registration circuit
+export const OPRF_AUTH_COMMITMENT_DOMAIN_SEPARATOR =
+  216295995820588902101791877209007728011808683886180117732362510332974165620n
 
 // OPRF wire-protocol version announced to the nodes during the WebSocket handshake.
 // @taceo/oprf-client defaults this to "0.8.0", but the deployed nodes require

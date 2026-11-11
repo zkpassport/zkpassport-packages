@@ -80,7 +80,13 @@ import {
   getLastNameRange,
   getNationalityRange,
 } from "./passport/getters"
-import { type OPRFProof, OPRF_ZERO_PROOF } from "./oprf"
+import {
+  type BabyJubJubPoint,
+  type OPRFProof,
+  OPRF_ZERO_PROOF,
+  computeAuthCommitment,
+  getRegistrationId,
+} from "./oprf"
 import {
   SanctionsBuilder,
   getSanctionsEvmParameterCommitment,
@@ -1630,5 +1636,64 @@ export async function getOprfAuthCircuitInputs(
       beta: `0x${beta.toString(16)}`,
     },
     privateNullifier: privateNullifier.toBigInt(),
+  }
+}
+
+/**
+ * Generate circuit inputs for the oprf_registration circuit.
+ *
+ * `registrationOprfProof` is the result of the step 1 OPRF session on the `register` module
+ * (evaluated under k_reg) for this passport's private nullifier; its unblinded response is the
+ * registration id I. `authSecret` is the secret x (or y on rotation) behind the commitment.
+ *
+ * The same proof serves step 2 (registration), step 3 (query, cached) and step 4 (rotation).
+ */
+export async function getOprfRegistrationCircuitInputs(
+  passport: PassportViewModel,
+  salts: IntegrityToDisclosureSalts,
+  registrationOprfProof: OPRFProof,
+  authSecret: bigint,
+): Promise<{
+  inputs: any
+  privateNullifier: bigint
+  registrationId: BabyJubJubPoint
+  authCommitment: bigint
+}> {
+  const idData = await getIDDataInputs(passport)
+  if (!idData) throw new Error("Error getting ID data inputs")
+  const privateNullifier = await calculatePrivateNullifier(
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    Binary.from(idData.e_content).padEnd(E_CONTENT_INPUT_SIZE),
+    Binary.from(
+      processSodSignature(passport?.sod.signerInfo.signature.toNumberArray() ?? [], passport),
+    ),
+  )
+  const commIn = await hashSaltDg1Dg2HashPrivateNullifier(
+    salts,
+    Binary.from(idData.dg1).padEnd(DG1_INPUT_SIZE),
+    passport.passportExpiry,
+    idData.dg2_hash_normalized,
+    idData.dg2_hash_type,
+    privateNullifier.toBigInt(),
+  )
+  const registrationId = getRegistrationId(registrationOprfProof)
+  const authCommitment = computeAuthCommitment(privateNullifier.toBigInt(), authSecret)
+
+  return {
+    inputs: {
+      comm_in: commIn.toHex(),
+      registration_id: registrationOprfProof.response,
+      // BabyJubJubPointInSubgroup in oprf-nr v2, a wrapper around the point
+      oprf_pk: { point: registrationOprfProof.pk },
+      auth_commitment: `0x${authCommitment.toString(16)}`,
+      ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),
+      beta: registrationOprfProof.beta,
+      dlog_e: registrationOprfProof.dlog_e,
+      dlog_s: registrationOprfProof.dlog_s,
+      auth_secret: `0x${authSecret.toString(16)}`,
+    },
+    privateNullifier: privateNullifier.toBigInt(),
+    registrationId,
+    authCommitment,
   }
 }
