@@ -29,9 +29,6 @@ export function getPortraitHash(passport: PassportViewModel): Uint8Array {
 /** The circuits' DG1 input size; a TD3 DG1 is 93 bytes and gets zero-padded to it */
 export const DG1_INPUT_LENGTH = 95
 
-/** Domain separator of the Tier 2 private nullifier ("TIER2"), so it never collides with a chip one */
-export const TIER2_NULLIFIER_DOMAIN = 0x5449455232n
-
 /** The DG2 hash type the attested digest is recorded as: SHA-256 */
 export const ATTESTED_DIGEST_HASH_TYPE = 3
 
@@ -129,28 +126,55 @@ function getIssuingCountry(mrz: Uint8Array): Uint8Array {
   return String.fromCharCode(...country) === "D<<" ? new TextEncoder().encode("DEU") : country
 }
 
+/** The document number as the nullifier takes it: up to 24 characters */
+const NULLIFIER_DOCUMENT_NUMBER_LENGTH = 24
+const FILLER = 60 // "<"
+
+/**
+ * The whole document number. A TD1 number longer than 9 characters leaves its check digit
+ * position empty and continues in the optional data (ICAO 9303-5), which is then taken as well;
+ * otherwise the rest is filler. Sub-national documents (US driving licences) put their
+ * subdivision code first, since their numbers are unique only within it.
+ */
+function getFullDocumentNumber(dg1: Uint8Array): Uint8Array {
+  const mrz = dg1.subarray(5)
+  const start = mrzLayout(dg1).documentNumber
+  const number = new Uint8Array(NULLIFIER_DOCUMENT_NUMBER_LENGTH).fill(FILLER)
+  number.set(mrz.subarray(start, start + 9))
+  if (isIdCardDg1(dg1) && mrz[14] === FILLER) {
+    number.set(mrz.subarray(15, 15 + NULLIFIER_DOCUMENT_NUMBER_LENGTH - 9), 9)
+  }
+  return number
+}
+
 /** The MRZ fields the nullifier is made of, from a passport or ID card DG1 */
 function getTier2NullifierFields(dg1: Uint8Array): Uint8Array {
   const padded = padDg1(dg1)
   const mrz = padded.subarray(5)
   const layout = mrzLayout(padded)
-  const fields = new Uint8Array(3 + 9 + 6 + 6)
+  const fields = new Uint8Array(3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH + 6 + 6)
   fields.set(getIssuingCountry(mrz))
-  fields.set(mrz.subarray(layout.documentNumber, layout.documentNumber + 9), 3)
-  fields.set(mrz.subarray(layout.dateOfBirth, layout.dateOfBirth + 6), 12)
-  fields.set(mrz.subarray(layout.expiryDate, layout.expiryDate + 6), 18)
+  fields.set(getFullDocumentNumber(padded), 3)
+  fields.set(
+    mrz.subarray(layout.dateOfBirth, layout.dateOfBirth + 6),
+    3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
+  )
+  fields.set(
+    mrz.subarray(layout.expiryDate, layout.expiryDate + 6),
+    9 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
+  )
   return fields
 }
 
 /**
  * A camera-read ID has no signature to derive a nullifier from, so it comes from the MRZ fields
- * OCR reads reliably: issuing country, and the document number, date of birth and expiry date,
- * which carry a check digit. Names have no check digit and OCR may read them differently each
- * time, so they are left out.
+ * every document has and OCR reads reliably: issuing country, and the whole document number,
+ * date of birth and expiry date, which carry check digits. The same document always gives the
+ * same nullifier; names are left out, as OCR may read them differently each time.
  */
 export async function calculateTier2PrivateNullifier(dg1: Uint8Array): Promise<bigint> {
-  const [packed] = packBeBytesIntoFields(getTier2NullifierFields(dg1), 31)
-  return poseidon2HashAsync([TIER2_NULLIFIER_DOMAIN, BigInt(packed)])
+  const packed = packBeBytesIntoFields(getTier2NullifierFields(dg1), 31)
+  return poseidon2HashAsync(packed.map((x) => BigInt(x)))
 }
 
 /** The expiry date as the MRZ writes it, YYMMDD, from a passport or ID card DG1 */
