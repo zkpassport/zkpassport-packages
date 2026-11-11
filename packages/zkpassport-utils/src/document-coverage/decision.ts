@@ -95,10 +95,10 @@ export function decideVerificationPaths(
   const chip = query.hasChip === undefined ? chipInSeries : query.hasChip ? "all" : "none"
   const chipVerifiable = chip !== "none" && certificatesCover(country, query.issueYear)
   const available = documents.filter((d) => d.available !== false)
-  const has = (field: "chip" | "mrz") =>
+  const has = (field: "chip" | "mrz" | "barcode") =>
     field === "chip" && query.hasChip !== undefined
       ? query.hasChip
-      : available.some((d) => d[field])
+      : available.some((d) => d[field] === true)
 
   const candidates: VerificationPath[] = []
   if (available.length === 0) {
