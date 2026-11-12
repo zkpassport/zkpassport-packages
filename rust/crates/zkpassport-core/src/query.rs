@@ -216,6 +216,10 @@ pub fn build_query_result(query: &Value, disclosed: &Value) -> Value {
             continue;
         }
         let Some(cfg) = cfg.as_object() else { continue };
+        if field == "sanctions" {
+            result.insert("sanctions".into(), sanctions_result(cfg));
+            continue;
+        }
         let comparison_field = field == "age" || field == "birthdate" || field == "expiry_date";
         let mut field_result = serde_json::Map::new();
         for (op, value) in cfg {
@@ -231,6 +235,15 @@ pub fn build_query_result(query: &Value, disclosed: &Value) -> Value {
         }
     }
     Value::Object(result)
+}
+
+/// The sanctions entry in the form the SDK reads. A result is only sent
+/// after the sanctions proof was made, so the check passed.
+fn sanctions_result(config: &serde_json::Map<String, Value>) -> Value {
+    json!({
+        "passed": true,
+        "isStrict": config.get("strict").and_then(Value::as_bool).unwrap_or(false),
+    })
 }
 
 /// Resolve a date field's min/max bounds (gt/gte/lt/lte/range/eq), applying
@@ -323,5 +336,18 @@ mod date_disclose_tests {
         assert_eq!(parse_mrz_date("900101", now), Some(631_152_000));
         // "000229" (2000-02-29, a leap day) = 951_782_400.
         assert_eq!(parse_mrz_date("000229", now), Some(951_782_400));
+    }
+}
+
+#[cfg(test)]
+mod query_result_tests {
+    use super::*;
+
+    #[test]
+    fn sanctions_result_has_the_form_the_sdk_reads() {
+        let result = build_query_result(&json!({ "sanctions": { "strict": true } }), &json!({}));
+
+        assert_eq!(result["sanctions"]["passed"], true);
+        assert_eq!(result["sanctions"]["isStrict"], true);
     }
 }
