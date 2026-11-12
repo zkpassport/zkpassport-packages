@@ -23,6 +23,7 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
 | `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
 | `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants` and `disclosed_data`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose and sanctions payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crate (upstream noir-contracts style):
 `registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
@@ -89,7 +90,8 @@ local network that is the local network registry, below. On a network without on
 `Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
 `age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
 `nationality_in`, `nationality_out`, `issuing_country_in` and `issuing_country_out`;
-`bind_user_address`; `sanctions` and `strict_sanctions`; and a `disclose_*` method per MRZ field.
+`bind_user_address`; `sanctions` and `strict_sanctions`; a `disclose_*` method per MRZ field; and
+`disclose_full_name`, which requires the whole name where `disclose_name` accepts part of it.
 The proof must carry exactly the subproofs the query asks for, so the ZKPassport request that
 made it asks for the same checks.
 
@@ -158,7 +160,8 @@ and returns it in `VerifiedProof.disclosure`, the only copy the proof covers. `V
 readers take one field out of it as the MRZ's bytes: `document_type()`, `issuing_country()`,
 `document_number()`, `nationality()`, `birthdate()`, `expiry_date()`, `gender()` and `name()`.
 Each fails unless the proof discloses the whole field, except `name()`, which needs only part of
-the name disclosed and returns 0 for each byte the proof hides. All but the document type and
+the name disclosed, unless the query asks for `disclose_full_name()`, and returns 0 for each byte
+the proof hides. All but the document type and
 issuing country also need the document type disclosed, which tells passports from ID cards, so the
 ZKPassport request asks for it too.
 
@@ -212,6 +215,14 @@ proof's date, and returns it in `VerifiedProof.sanctions_root`.
    registry to another published contract class at the same address, keeping its storage and roles,
    once the contract instance registry's update delay has passed (`set_update_delay`; one day by
    default). Apps keep the registry address across updates; their PXEs need the new artifact.
+8. **Roots are checked at the date the proof carries, which the prover picks.**
+   `verify_zkpassport_proof` accepts a `current_date` from `validity_period` before the anchor
+   block's timestamp to `CURRENT_DATE_MAX_SKEW` (one hour) after it, and the sender's PXE picks an
+   anchor block up to `MAX_TX_LIFETIME` (one day) older than the block that includes the
+   transaction. Certificate, circuit and sanctions roots are checked at that date. A transaction can
+   therefore land up to `validity_period` plus a day after the date its proof was screened at, and
+   the sanctions root it was screened against may have been replaced up to the registry's validity
+   window before that date. Apps that need recent screening set a short `validity_period`.
 
 ## Running the tests
 
