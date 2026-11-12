@@ -23,8 +23,8 @@ npm install @zkpassport/aztec @aztec-labs/aztec.js@6.0 @aztec-labs/stdlib@6.0
 
 ## Development
 
-The package ships a copy of the compiled ZKPassportRegistry artifact without its Noir sources,
-`registry/ZKPassportRegistry.json`. After a change to the registry, compile the Noir workspace with
+The package ships a copy of the compiled ZKPassportRegistry artifact without its Noir sources and
+debug symbols, `registry/ZKPassportRegistry.json`. After a change to the registry, compile the Noir workspace with
 the Aztec toolchain in `../.aztecrc` (see [the Noir README](../noir/README.md#running-the-tests))
 and refresh the copy. CI fails while the copy's contract class differs from the compiled registry's.
 

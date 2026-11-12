@@ -1,6 +1,6 @@
 /**
- * Copy the compiled ZKPassportRegistry artifact into the package without its Noir sources, or
- * check that the copy has the compiled artifact's contract class.
+ * Copy the compiled ZKPassportRegistry artifact into the package without its Noir sources and debug
+ * symbols, or check that the copy has the compiled artifact's contract class.
  *
  *   bun scripts/registry-artifact.ts copy|check
  */
@@ -18,8 +18,14 @@ const mode = process.argv[2]
 const compiled = JSON.parse(await readFile(compiledPath, "utf8")) as NoirCompiledContract
 
 if (mode === "copy") {
-  // The Noir sources make the artifact too large for the repository, and PXEs don't need them
-  await writeFile(copyPath, JSON.stringify({ ...compiled, file_map: {} }))
+  // PXEs need neither the Noir sources nor the debug symbols, which make the artifact too large for
+  // the repository. aztec.js requires each function's debug_symbols to be a string, so it's empty.
+  const copy = {
+    ...compiled,
+    file_map: {},
+    functions: compiled.functions.map((fn) => ({ ...fn, debug_symbols: "" })),
+  }
+  await writeFile(copyPath, JSON.stringify(copy))
   console.log(`Wrote ${copyPath.pathname}`)
 } else if (mode === "check") {
   const copy = JSON.parse(await readFile(copyPath, "utf8")) as NoirCompiledContract
