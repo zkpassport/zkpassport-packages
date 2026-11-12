@@ -3,7 +3,8 @@ pragma solidity ^0.8.30;
 import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
 import "../src/VerifierHelper.sol";
-import {NullifierType} from "../src/lib/Types.sol";
+import {NullifierType, ProofType, Environment, FaceMatchMode, OS} from "../src/lib/Types.sol";
+import {AppAttest, CommittedInputLen} from "../src/lib/Constants.sol";
 
 contract VerifierHelperTest is Test {
     VerifierHelper public helper;
@@ -71,5 +72,20 @@ contract VerifierHelperTest is Test {
 
         vm.expectRevert("Invalid nullifier type");
         helper.enforceNullifierType(NullifierType.NONE_NULLIFIER, publicInputs);
+    }
+
+    function testFaceMatchAcceptsTheIosAppClip() public view {
+        bytes memory committedInputs = abi.encodePacked(
+            uint8(ProofType.FACEMATCH),
+            uint16(CommittedInputLen.FACEMATCH),
+            AppAttest.APPLE_ROOT_KEY_HASH,
+            uint8(Environment.PRODUCTION),
+            AppAttest.IOS_APP_CLIP_APP_ID_HASH,
+            bytes32(0),
+            uint8(FaceMatchMode.STRICT)
+        );
+
+        assertTrue(helper.isFaceMatchVerified(FaceMatchMode.STRICT, OS.IOS, committedInputs));
+        assertFalse(helper.isFaceMatchVerified(FaceMatchMode.STRICT, OS.ANDROID, committedInputs));
     }
 }

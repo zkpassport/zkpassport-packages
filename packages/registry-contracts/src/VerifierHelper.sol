@@ -445,7 +445,8 @@ contract VerifierHelper {
             || ((rootKeyHash == AppAttest.GOOGLE_RSA_ROOT_KEY_HASH
                     || rootKeyHash == AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH)
                 && (os == OS.ANDROID || os == OS.ANY));
-        bool isCorrectAppIdHash = (appIdHash == AppAttest.IOS_APP_ID_HASH && (os == OS.IOS || os == OS.ANY))
+        bool isIosAppIdHash = appIdHash == AppAttest.IOS_APP_ID_HASH || appIdHash == AppAttest.IOS_APP_CLIP_APP_ID_HASH;
+        bool isCorrectAppIdHash = (isIosAppIdHash && (os == OS.IOS || os == OS.ANY))
             || (appIdHash == AppAttest.ANDROID_APP_ID_HASH && (os == OS.ANDROID || os == OS.ANY));
         // The integrity public key hash is 0 for iOS as it's logic specific to Android
         bool isCorrectIntegrityPublicKeyHash = (integrityPublicKeyHash == bytes32(0) && (os == OS.IOS || os == OS.ANY))
