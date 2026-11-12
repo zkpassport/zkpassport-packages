@@ -67,21 +67,6 @@ function bounds(value: { min?: unknown; max?: unknown }): Record<string, unknown
   return out
 }
 
-/**
- * Whether the query reveals anything. `document_type` is excluded: it is injected *because*
- * something else is disclosed, so counting it would make the injection self-sustaining.
- */
-function disclosesAnything(query: Query): boolean {
-  return Object.entries(query).some(
-    ([key, value]) =>
-      key !== "document_type" &&
-      typeof value === "object" &&
-      value !== null &&
-      "disclose" in value &&
-      value.disclose === true,
-  )
-}
-
 function toWireBind(bind: BoundData): WireBoundData {
   const wire: WireBoundData = {}
   if (bind.account !== undefined) wire.user_address = bind.account
@@ -127,11 +112,6 @@ export function toWireQuery(query: Query, bind?: BoundData): WireQuery {
   for (const key of DISCLOSE_ONLY) {
     if (query[key]?.disclose) wire[key] = { disclose: true }
   }
-
-  // TD1 and TD3 put fields at different offsets, and the disclosed bytes carry no marker for which
-  // layout they came from. The document-type character sits at index 0 in both, so disclosing it
-  // whenever anything else is disclosed is what lets the values be decoded unambiguously.
-  if (disclosesAnything(query)) wire.document_type = { disclose: true }
 
   if (query.sanctions) wire.sanctions = { strict: true }
 
