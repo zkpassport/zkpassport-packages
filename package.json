@@ -15,7 +15,8 @@
   },
   "workspaces": [
     "packages/*",
-    "packages/onchain-credentials/*"
+    "packages/onchain-credentials/*",
+    "packages/aztec/ts"
   ],
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
