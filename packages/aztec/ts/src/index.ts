@@ -1,5 +1,10 @@
 export { ZKPassportRegistryArtifact } from "./artifact.ts"
-export { assembleDiscloseCapsule, assembleProofCapsule, type OuterProofParts } from "./capsule.ts"
+export {
+  assembleDiscloseCapsule,
+  assembleProofCapsule,
+  assembleSanctionsCapsule,
+  type OuterProofParts,
+} from "./capsule.ts"
 export {
   DISCLOSE_CAPSULE_SLOT,
   MRZ_LENGTH,

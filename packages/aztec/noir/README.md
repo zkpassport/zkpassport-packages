@@ -22,7 +22,7 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
 | `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
-| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants` and `disclosed_data`, and adds `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof::<K>` (which also loads and checks a disclose payload) and `check_sanctions`, each with a `_with_registry` variant, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants` and `disclosed_data`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose and sanctions payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crate (upstream noir-contracts style):
 `registry_contract/src/test.nr` covers admin/roles/pause, root updates/revoke/mode +
@@ -40,11 +40,11 @@ the `AgeGate` example in [zkpassport/aztec-examples](https://github.com/zkpasspo
 which passes its own registry so its tests can deploy one:
 
 ```noir
+use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
+use zkpassport_aztec_verifier::query::Query;
 use zkpassport_aztec_verifier::verify::{
     emit_uniqueness_nullifier, scope_hash, ServiceConfig, verify_zkpassport_proof,
 };
-use zkpassport_aztec_verifier::commitments::{age_commitment, bind_user_address_commitment};
-use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
 
 global MIN_AGE: u8 = 18;
 
@@ -69,14 +69,10 @@ fn claim(user: AztecAddress) {
         unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
         validity_period: 7 * 86400,
         dev_mode: false,
-        disclose: false,
     };
-    let expected = BoundedVec::from_array([
-        age_commitment(MIN_AGE, 0),
-        bind_user_address_commitment(user.to_field()),
-    ]);
+    let query = Query::new().age_min(MIN_AGE).bind_user_address(user);
     // The capsule rides in the sender's PXE, so it is scoped to the sender.
-    let verified = verify_zkpassport_proof::<5>(self.context, self.msg_sender(), config, expected);
+    let verified = verify_zkpassport_proof(self.context, self.msg_sender(), config, query);
     emit_uniqueness_nullifier(self.context, verified.unique_identifier);
     // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
     // passport proof behind it is private.
@@ -85,10 +81,17 @@ fn claim(user: AztecAddress) {
 ```
 
 `ServiceConfig.domain` is required: the library rejects a config whose domain is 0.
-`ServiceConfig.scope` is optional, 0 for the whole domain. `verify_zkpassport_proof` and
-`check_sanctions` use ZKPassport's registry on the network, found by its L1 chain id and rollup
-version. In TXE and on a local network that is the local network registry, below. On a network
-without one, use `verify_zkpassport_proof_with_registry` and `check_sanctions_with_registry`.
+`ServiceConfig.scope` is optional, 0 for the whole domain. `verify_zkpassport_proof` uses
+ZKPassport's registry on the network, found by its L1 chain id and rollup version. In TXE and on a
+local network that is the local network registry, below. On a network without one, use
+`verify_zkpassport_proof_with_registry`.
+
+`Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
+`age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
+`nationality_in`, `nationality_out`, `issuing_country_in` and `issuing_country_out`;
+`bind_user_address`; `sanctions` and `strict_sanctions`; and a `disclose_*` method per MRZ field.
+The proof must carry exactly the subproofs the query asks for, so the ZKPassport request that
+made it asks for the same checks.
 
 ### Testing against the local network registry
 
@@ -147,17 +150,21 @@ const [{ receipt }, claimSecs] = await timed("claim (private tx, client-IVC prov
 The capsule is consumed by `verify_zkpassport_proof`, which constrains every field (recursive verification, scope/nullifier
 checks, registry validity) derived from it, so a malformed or malicious capsule fails the proof rather than being trusted.
 
-An app that reads disclosed MRZ data sets `ServiceConfig.disclose` and passes one fewer expected
-commitment. The client then also stashes the disclose payload (`mask ‖ bytes`, one value per
-field) into the app's capsule slot `zkpassport::constants::DISCLOSE_CAPSULE_SLOT` (`= 2`).
-`verify_zkpassport_proof` loads it once, adds its commitment to the expected ones, and returns
-it in `VerifiedProof.disclosure`, the only copy the proof covers. The readers in `disclosed_data`
-take one field out of it: `disclosed_document_type`, `disclosed_issuing_country`,
-`disclosed_document_number`, `disclosed_nationality`, `disclosed_birthdate`,
-`disclosed_expiry_date`, `disclosed_gender` and `disclosed_name`. Each fails unless the proof
-discloses the whole field, except `disclosed_name`, which returns 0 for each byte the proof hides.
-All but the document type and issuing country readers also need the document type disclosed,
-which tells passports from ID cards.
+A query that discloses a field needs the disclose payload too. The client stashes it
+(`mask ‖ bytes`, one value per field, from `assembleDiscloseCapsule`) into the app's capsule slot
+`zkpassport::constants::DISCLOSE_CAPSULE_SLOT` (`= 2`). `verify_zkpassport_proof` loads it once,
+checks that it discloses every field the query asks for, adds its commitment to the expected ones,
+and returns it in `VerifiedProof.disclosure`, the only copy the proof covers. `VerifiedProof`'s
+readers take one field out of it as the MRZ's bytes: `document_type()`, `issuing_country()`,
+`document_number()`, `nationality()`, `birthdate()`, `expiry_date()`, `gender()` and `name()`.
+Each fails unless the proof discloses the whole field, except `name()`, which returns 0 for each
+byte the proof hides. All but the document type and issuing country also need the document type
+disclosed, which tells passports from ID cards, so the ZKPassport request asks for it too.
+
+A query that asks for sanctions screening needs the sanctions root the proof was made against, from
+`assembleSanctionsCapsule`, in `zkpassport::constants::SANCTIONS_CAPSULE_SLOT` (`= 3`).
+`verify_zkpassport_proof` loads it once, adds its commitment, checks it in the registry at the
+proof's date, and returns it in `VerifiedProof.sanctions_root`.
 
 ## Trust considerations
 
@@ -177,13 +184,11 @@ which tells passports from ID cards.
    are the only checks that exercise real proof verification**: the
    harness via native `bb prove`/`bb verify` on the wrapped core library, the e2e via a real
    client-IVC proof produced by the local PXE.
-4. **Sanctions checking is opt-in, per service.** The registry's mandatory verify path
+4. **Sanctions screening is opt-in, per query.** The registry's mandatory verify path
    (`assert_proof_valid`, called from `verify_zkpassport_proof`) only checks the certificate and
-   circuit registries. A service that wants sanctions screening calls `check_sanctions`
-   separately (which calls the registry's `assert_sanctions_root_valid` view) and folds
-   `sanctions_commitment(root, is_strict)` into its own `expected_commitments`, mirroring L1's
-   `VerifierHelper` split between the mandatory `SubVerifier` checks and app-side sanctions
-   verification.
+   circuit registries. A query with `sanctions()` or `strict_sanctions()` also has
+   `verify_zkpassport_proof` check the sanctions root with the registry's
+   `assert_sanctions_root_valid` view, at the proof's date.
 5. **The library verifies the *proof*, binding it to a claimant is the app's job.**
    `verify_zkpassport_proof` takes `capsule_scope: AztecAddress` purely as the PXE capsule
    scope (the sender's account). No constraint ties the verified proof to that scope, to
@@ -191,8 +196,8 @@ which tells passports from ID cards.
    (`vk ‖ proof ‖ public_inputs`) is otherwise **bearer authorization**: whoever holds the blob
    (leaked for support, restored from a backup, handed to a third-party service) can load it
    into their own PXE under their own account and successfully verify it. Alternatively, apps can
-   fold `bind_user_address_commitment(user.to_field())` into `expected_commitments` and have the
-   ZKPassport request that produced the proof bind that same address. Then a leaked capsule
+   add `bind_user_address(user)` to the query and have the ZKPassport request that produced the
+   proof bind that same address. Then a leaked capsule
    authorizes nothing for anyone else, and any relayer may submit the transaction on the bound
    user's behalf. The `claim` function of the `AgeGate` example in
    [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples) is the pattern to copy.

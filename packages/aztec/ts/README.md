@@ -6,7 +6,7 @@ library.
 Features:
 
 - **`ZKPassportRegistryArtifact` + `registerZKPassportRegistry(wallet, node, address)`**: utility to register the shared registry's artifact with the user's PXE (the verifier transitively `.view()`s it during local simulation/proving).
-- **`assembleProofCapsule` / `assembleDiscloseCapsule`**: the proof and disclose preimage must be passed via capsules to contracts that need to verify. These functions are conveniences to do so.
+- **`assembleProofCapsule` / `assembleDiscloseCapsule` / `assembleSanctionsCapsule`**: the proof, the disclose preimage and the sanctions root must be passed via capsules to contracts that need to verify. These functions are conveniences to do so.
 - **`nationalityBytes` / `packNationality` / `isIdCard`** — TS twins of the Noir `disclosed_data` module's nationality reader. `@zkpassport/utils`' `DisclosedData.fromDisclosedBytes(bytes, isIdCard(bytes) ? "id_card" : "passport")` reads every field.
 - **`fetchOuterVk(vkeyHash)`**: the outer vk from the live `circuits2.zkpassport.id` host.
 - **`constants.ts`** — TS mirror of `core/src/constants.nr`.
