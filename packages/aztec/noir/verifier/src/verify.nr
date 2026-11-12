@@ -1,14 +1,18 @@
+use crate::query::Query;
 use aztec::{
     context::PrivateContext,
     oracle::capsules,
     protocol::{address::AztecAddress, hash::sha256_to_field, traits::FromField},
 };
 use poseidon::poseidon2::Poseidon2;
-use zkpassport::commitments::disclose_commitment;
 use zkpassport::constants::{
     CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, NULLIFIER_TYPE_NON_SALTED,
     NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_SALTED,
-    NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS, VK_FIELDS,
+    NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+};
+use zkpassport::disclosed_data::{
+    disclosed_birthdate, disclosed_document_number, disclosed_document_type, disclosed_expiry_date,
+    disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
 };
 use zkpassport::verify::verify_outer_proof_core;
 use zkpassport_registry_contract::{
@@ -25,7 +29,6 @@ pub struct ServiceConfig {
     pub unique_identifier_type: u8, // the real NULLIFIER_TYPE_* the proof must carry
     pub validity_period: u64, // max proof age in seconds
     pub dev_mode: bool,
-    pub disclose: bool, // the proof has a disclose subproof, its payload in the disclose capsule
 }
 
 /// The payload of a disclose subproof: which of the 90 MRZ bytes are disclosed, and the bytes.
@@ -34,11 +37,67 @@ pub struct Disclosure {
     pub bytes: [u8; 90],
 }
 
-pub struct VerifiedProof<let K: u32> {
+pub struct VerifiedProof {
     pub unique_identifier: Field,
     pub current_date: u64,
-    pub param_commitments: [Field; K - 3],
-    pub disclosure: Option<Disclosure>, // some exactly when ServiceConfig.disclose is set
+    pub disclosure: Option<Disclosure>, // some exactly when the query discloses a field
+    pub sanctions_root: Option<Field>, // some exactly when the query asks for sanctions
+}
+
+impl VerifiedProof {
+    /// Read the document code, such as "P<" for a passport or "I<" for an ID card.
+    pub fn document_type(self) -> [u8; 2] {
+        let disclosure = self.disclosed();
+        disclosed_document_type(disclosure.mask, disclosure.bytes)
+    }
+
+    /// Read the issuing country's three-letter code as the MRZ carries it ("D<<" for Germany).
+    pub fn issuing_country(self) -> [u8; 3] {
+        let disclosure = self.disclosed();
+        disclosed_issuing_country(disclosure.mask, disclosure.bytes)
+    }
+
+    /// Read the document number's nine MRZ characters, padded with '<'.
+    pub fn document_number(self) -> [u8; 9] {
+        let disclosure = self.disclosed();
+        disclosed_document_number(disclosure.mask, disclosure.bytes)
+    }
+
+    /// Read the nationality's three-letter code as the MRZ carries it ("D<<" for Germany).
+    pub fn nationality(self) -> [u8; 3] {
+        let disclosure = self.disclosed();
+        disclosed_nationality(disclosure.mask, disclosure.bytes).nationality
+    }
+
+    /// Read the date of birth as YYMMDD ASCII digits.
+    pub fn birthdate(self) -> [u8; 6] {
+        let disclosure = self.disclosed();
+        disclosed_birthdate(disclosure.mask, disclosure.bytes)
+    }
+
+    /// Read the expiry date as YYMMDD ASCII digits.
+    pub fn expiry_date(self) -> [u8; 6] {
+        let disclosure = self.disclosed();
+        disclosed_expiry_date(disclosure.mask, disclosure.bytes)
+    }
+
+    /// Read the gender: 'M', 'F' or '<'.
+    pub fn gender(self) -> u8 {
+        let disclosure = self.disclosed();
+        disclosed_gender(disclosure.mask, disclosure.bytes)
+    }
+
+    /// Read the MRZ name field, such as "ERIKSSON<<ANNA<MARIA<<<", with 0 for each byte the proof
+    /// does not disclose. A proof that discloses none of the name fails.
+    pub fn name(self) -> BoundedVec<u8, 39> {
+        let disclosure = self.disclosed();
+        disclosed_name(disclosure.mask, disclosure.bytes)
+    }
+
+    fn disclosed(self) -> Disclosure {
+        assert(self.disclosure.is_some(), "the proof discloses nothing");
+        self.disclosure.unwrap()
+    }
 }
 
 // Domain separator for the uniqueness nullifier.
@@ -96,45 +155,33 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// transaction sender (`msg_sender`) is not necessarily the subject of the proof. It only
 /// selects where the capsule is read from, nothing about the proof's validity depends on it.
 ///
-/// To tie the proof to an address, put `bind_user_address_commitment(address)` in
-/// `expected_commitments`.
-///
-/// `expected_commitments` are the param commitments of the subproofs the app asks for (age,
-/// bind, ...).
-///
-/// With `config.disclose`, the library loads the disclose payload from the disclose
-/// capsule and adds its commitment itself.
+/// `query` says what the proof must show. A query that discloses a field also reads the disclose
+/// capsule, and one that asks for sanctions reads the sanctions capsule.
 ///
 /// In TXE and on a local network this is the local network registry, see
 /// `zkpassport_registry_contract::local_network_registry`. Use
 /// `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
-pub fn verify_zkpassport_proof<let K: u32>(
+pub fn verify_zkpassport_proof<let K: u32, let D: u32>(
     context: &mut PrivateContext,
     capsule_scope: AztecAddress,
     config: ServiceConfig,
-    expected_commitments: BoundedVec<Field, K - 3>,
-) -> VerifiedProof<K> {
+    query: Query<K, D>,
+) -> VerifiedProof {
     let registry = default_registry(context.chain_id(), context.version());
-    verify_zkpassport_proof_with_registry(
-        context,
-        registry,
-        capsule_scope,
-        config,
-        expected_commitments,
-    )
+    verify_zkpassport_proof_with_registry(context, registry, capsule_scope, config, query)
 }
 
 /// `verify_zkpassport_proof` against the registry at `registry`.
 ///
 /// For a network without a ZKPassport registry, such as a local network or TXE tests, or an app
 /// that trusts a registry of its own.
-pub fn verify_zkpassport_proof_with_registry<let K: u32>(
+pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
     capsule_scope: AztecAddress,
     config: ServiceConfig,
-    expected_commitments: BoundedVec<Field, K - 3>,
-) -> VerifiedProof<K> {
+    query: Query<K, D>,
+) -> VerifiedProof {
     // Capsule load is unconstrained oracle data, everything downstream constrains it (as it must).
     // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/
     // registry checks below constrain every field derived from it.
@@ -160,16 +207,36 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
         public_inputs[i] = blob[VK_FIELDS + PROOF_FIELDS + i];
     }
 
-    // The disclose payload is loaded once, here: a second load is a separate oracle call the
-    // sender's PXE can answer differently, so only this copy is bound to the proof.
-    let disclosure = if config.disclose {
+    // The disclose payload and the sanctions root are loaded once, here: a second load is a
+    // separate oracle call the sender's PXE can answer differently, so only these copies are
+    // bound to the proof.
+    let disclosure = if D == 1 {
         // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
-        // every element, and expected_with_disclosure's commitment binds the result to the proof.
+        // every element, and the query's disclose commitment binds the result to the proof.
         let payload: Option<[Field; 180]> =
             unsafe { capsules::load(context.this_address(), DISCLOSE_CAPSULE_SLOT, capsule_scope) };
 
         assert(payload.is_some(), "missing disclose capsule");
-        Option::some(parse_disclose_payload(payload.unwrap()))
+        let disclosure = parse_disclose_payload(payload.unwrap());
+        query.assert_disclosed(disclosure);
+        Option::some(disclosure)
+    } else {
+        Option::none()
+    };
+
+    let sanctions_root = if query.sanctions_requested() {
+        // Safety: the loaded root is untrusted input; the query's sanctions commitment binds it
+        // to the proof, and the registry checks it below.
+        let root: Option<Field> = unsafe {
+            capsules::load(
+                context.this_address(),
+                SANCTIONS_CAPSULE_SLOT,
+                capsule_scope,
+            )
+        };
+
+        assert(root.is_some(), "missing sanctions capsule");
+        root
     } else {
         Option::none()
     };
@@ -182,7 +249,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
         config.domain,
         config.scope,
         config.dev_mode,
-        expected_with_disclosure::<K>(expected_commitments, disclosure),
+        query.expected_commitments(disclosure, sanctions_root),
     );
     let parsed = out.parsed;
 
@@ -193,8 +260,9 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
     assert(parsed.current_date <= anchor_ts + CURRENT_DATE_MAX_SKEW, "proof dated in the future");
     assert(parsed.current_date + config.validity_period > anchor_ts, "proof too old");
 
-    // Registry view call to verify roots + vk acceptance + OPRF
-    ZKPassportRegistry::at(registry)
+    // Registry view calls to verify roots + vk acceptance + OPRF, at the proof's date
+    let registry = ZKPassportRegistry::at(registry);
+    registry
         .assert_proof_valid(
             config.version,
             out.vk_hash,
@@ -205,42 +273,18 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32>(
             parsed.oprf_pk_hash,
         )
         .view(context);
+    if sanctions_root.is_some() {
+        registry.assert_sanctions_root_valid(sanctions_root.unwrap(), parsed.current_date).view(
+            context,
+        );
+    }
 
     VerifiedProof {
         unique_identifier: parsed.scoped_nullifier,
         current_date: parsed.current_date,
-        param_commitments: parsed.param_commitments,
         disclosure,
+        sanctions_root,
     }
-}
-
-/// Sanctions check: asserts the sanctions root is valid in ZKPassport's registry on this
-/// network, and returns the param commitment the caller must add to its expected_commitments,
-/// binding the checked root to the proof.
-///
-/// In TXE and on a local network this is the local network registry, see
-/// `zkpassport_registry_contract::local_network_registry`. Use `check_sanctions_with_registry` on a
-/// network without a ZKPassport registry.
-pub fn check_sanctions(
-    context: &mut PrivateContext,
-    root: Field,
-    is_strict: bool,
-    current_date: u64,
-) -> Field {
-    let registry = default_registry(context.chain_id(), context.version());
-    check_sanctions_with_registry(context, registry, root, is_strict, current_date)
-}
-
-/// `check_sanctions` against the registry at `registry`.
-pub fn check_sanctions_with_registry(
-    context: &mut PrivateContext,
-    registry: AztecAddress,
-    root: Field,
-    is_strict: bool,
-    current_date: u64,
-) -> Field {
-    ZKPassportRegistry::at(registry).assert_sanctions_root_valid(root, current_date).view(context);
-    zkpassport::commitments::sanctions_commitment(root, is_strict)
 }
 
 /// One-proof-per-passport-per-service: pushes a domain-separated nullifier derived from the
@@ -320,35 +364,18 @@ fn parse_disclose_payload(payload: [Field; 180]) -> Disclosure {
     Disclosure { mask, bytes }
 }
 
-fn expected_with_disclosure<let K: u32>(
-    expected_commitments: BoundedVec<Field, K - 3>,
-    disclosure: Option<Disclosure>,
-) -> [Field; K - 3] {
-    let added = if disclosure.is_some() { 1 } else { 0 };
-    assert(expected_commitments.len() + added == K - 3, "wrong number of expected commitments");
-
-    let mut expected = expected_commitments;
-    if disclosure.is_some() {
-        let disclosure = disclosure.unwrap();
-        expected.push(disclose_commitment(disclosure.mask, disclosure.bytes));
-    }
-
-    expected.storage()
-}
-
 mod test {
     use crate::verify::{
-        ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure,
-        expected_with_disclosure, MAINNET_CHAIN_ID, MAINNET_REGISTRY_ADDRESS, MAINNET_VERSION,
-        parse_disclose_payload, scope_hash, ServiceConfig, TESTNET_CHAIN_ID,
-        TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID, TXE_VERSION,
+        ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure, MAINNET_CHAIN_ID,
+        MAINNET_REGISTRY_ADDRESS, MAINNET_VERSION, parse_disclose_payload, scope_hash,
+        ServiceConfig, TESTNET_CHAIN_ID, TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID,
+        TXE_VERSION, VerifiedProof,
     };
     use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
         NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
         NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK,
     };
-    use zkpassport::fixtures::DISCLOSE_COMMITMENT;
     use zkpassport_registry_contract::local_network_registry::{
         deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS,
     };
@@ -361,7 +388,15 @@ mod test {
             unique_identifier_type,
             validity_period: 86400,
             dev_mode: false,
-            disclose: false,
+        }
+    }
+
+    fn verified_proof(disclosure: Option<Disclosure>) -> VerifiedProof {
+        VerifiedProof {
+            unique_identifier: 1,
+            current_date: 0,
+            disclosure,
+            sanctions_root: Option::none(),
         }
     }
 
@@ -538,48 +573,100 @@ mod test {
         let _ = parse_disclose_payload(payload);
     }
 
-    #[test]
-    fn disclose_commitment_completes_the_expected_list() {
-        let disclosure = parse_disclose_payload(nationality_payload());
-        let expected = expected_with_disclosure::<5>(
-            BoundedVec::from_array([0x1234]),
-            Option::some(disclosure),
-        );
-        assert(expected == [0x1234, DISCLOSE_COMMITMENT]);
+    // A passport's whole MRZ, disclosed
+    fn passport_disclosure() -> Disclosure {
+        let mrz = "P<SWEERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<L898902C36NOR7408122F3204159ZE184226B<<<<<10"
+            .as_bytes();
+        let mut mask = [false; 90];
+        let mut bytes = [0 as u8; 90];
+        for i in 0..88 {
+            mask[i] = true;
+            bytes[i] = mrz[i];
+        }
+        Disclosure { mask, bytes }
     }
 
     #[test]
-    fn full_expected_list_passes_without_disclosure() {
-        let expected = expected_with_disclosure::<5>(
-            BoundedVec::from_array([0x1234, 0x5678]),
-            Option::<Disclosure>::none(),
-        );
-        assert(expected == [0x1234, 0x5678]);
-    }
+    fn reads_every_disclosed_field_of_a_verified_proof() {
+        let verified = verified_proof(Option::some(passport_disclosure()));
 
-    #[test(should_fail_with = "wrong number of expected commitments")]
-    fn short_expected_list_rejected() {
-        let _ = expected_with_disclosure::<5>(
-            BoundedVec::from_array([0x1234]),
-            Option::<Disclosure>::none(),
-        );
-    }
-
-    #[test(should_fail_with = "wrong number of expected commitments")]
-    fn short_expected_list_with_disclosure_rejected() {
-        let disclosure = parse_disclose_payload(nationality_payload());
-        let _ = expected_with_disclosure::<6>(
-            BoundedVec::from_array([0x1234]),
-            Option::some(disclosure),
+        assert_eq(verified.document_type(), "P<".as_bytes());
+        assert_eq(verified.issuing_country(), "SWE".as_bytes());
+        assert_eq(verified.document_number(), "L898902C3".as_bytes());
+        assert_eq(verified.nationality(), "NOR".as_bytes());
+        assert_eq(verified.birthdate(), "740812".as_bytes());
+        assert_eq(verified.expiry_date(), "320415".as_bytes());
+        assert_eq(verified.gender(), "F".as_bytes()[0]);
+        assert_eq(
+            verified.name(),
+            BoundedVec::from_array("ERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<".as_bytes()),
         );
     }
 
-    #[test(should_fail_with = "wrong number of expected commitments")]
-    fn full_expected_list_with_disclosure_rejected() {
-        let disclosure = parse_disclose_payload(nationality_payload());
-        let _ = expected_with_disclosure::<5>(
-            BoundedVec::from_array([0x1234, 0x5678]),
-            Option::some(disclosure),
-        );
+    #[test(should_fail_with = "the proof discloses nothing")]
+    fn a_proof_without_a_disclosure_has_no_field_to_read() {
+        let _ = verified_proof(Option::none()).nationality();
+    }
+
+    // A passport's whole MRZ, disclosed except for `length` bytes from `start`
+    fn passport_disclosure_hiding(start: u32, length: u32) -> Disclosure {
+        let mut disclosure = passport_disclosure();
+        for i in 0..length {
+            disclosure.mask[start + i] = false;
+            disclosure.bytes[start + i] = 0;
+        }
+        disclosure
+    }
+
+    #[test(should_fail_with = "document type not disclosed")]
+    fn reading_a_hidden_document_type_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(0, 2))).document_type();
+    }
+
+    #[test(should_fail_with = "issuing country not disclosed")]
+    fn reading_a_hidden_issuing_country_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(2, 3))).issuing_country();
+    }
+
+    #[test(should_fail_with = "document number not disclosed")]
+    fn reading_a_hidden_document_number_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(44, 9))).document_number();
+    }
+
+    #[test(should_fail_with = "nationality not disclosed")]
+    fn reading_a_hidden_nationality_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(54, 3))).nationality();
+    }
+
+    #[test(should_fail_with = "birthdate not disclosed")]
+    fn reading_a_hidden_birthdate_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(57, 6))).birthdate();
+    }
+
+    #[test(should_fail_with = "gender not disclosed")]
+    fn reading_a_hidden_gender_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(64, 1))).gender();
+    }
+
+    #[test(should_fail_with = "expiry date not disclosed")]
+    fn reading_a_hidden_expiry_date_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(65, 6))).expiry_date();
+    }
+
+    #[test(should_fail_with = "name not disclosed")]
+    fn reading_a_wholly_hidden_name_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(5, 39))).name();
+    }
+
+    #[test]
+    fn reads_a_partly_hidden_name_with_zeros() {
+        let last_name = "ERIKSSON<<".as_bytes();
+        let verified = verified_proof(Option::some(passport_disclosure_hiding(15, 29)));
+
+        let mut expected_name = [0; 39];
+        for i in 0..10 {
+            expected_name[i] = last_name[i];
+        }
+        assert_eq(verified.name(), BoundedVec::from_array(expected_name));
     }
 }
