@@ -11,12 +11,11 @@ use zkpassport::disclosed_data::{
     disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
 };
 
-/// What a contract asks a ZKPassport proof to show, in the terms of the ZKPassport SDK's query.
+/// What a contract asks a ZKPassport proof to show.
 ///
 /// Start with [`Query::new`], call one method per check, and pass the query to
 /// [`verify_zkpassport_proof`](crate::verify::verify_zkpassport_proof). `K` counts the outer
-/// proof's subproofs and `D` is 1 once a field is disclosed. Both follow from the methods called,
-/// so only a `global` query spells them out.
+/// proof's subproofs and `D` is 1 once a field is disclosed.
 ///
 /// Disclosing any field but the document type or the issuing country needs the document type
 /// disclosed too, so the SDK request must ask for it.
