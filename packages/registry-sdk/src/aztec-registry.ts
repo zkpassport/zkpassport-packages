@@ -138,7 +138,7 @@ const REGISTRY_CONFIG_LENGTH = 2
 const LATEST_ROOT_PAIR_LENGTH = 2
 const ROOT_STATUS_LENGTH = 4
 
-/** The domain separator Aztec hashes a map's slot and a key with, to find the key's slot */
+/** Aztec's PUBLIC_STORAGE_MAP_SLOT domain separator, from @aztec-labs/constants */
 const PUBLIC_STORAGE_MAP_SLOT_SEPARATOR = 4015149901n
 
 /** ZKPassportRegistry's root validation modes */
@@ -147,6 +147,7 @@ const MODE_LATEST_AND_PREVIOUS = 1n
 const MODE_VALID_AT_TIMESTAMP = 2n
 const MODE_VALID_WITHIN_WINDOW = 3n
 
+/** The storage slot of `map[key]` for the map at `slot`: Poseidon2 of the separator, `slot` and `key` */
 function mapSlot(slot: bigint, key: bigint): Promise<bigint> {
   return poseidon2HashAsync([PUBLIC_STORAGE_MAP_SLOT_SEPARATOR, slot, key])
 }
