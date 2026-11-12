@@ -157,8 +157,7 @@ take one field out of it: `disclosed_document_type`, `disclosed_issuing_country`
 `disclosed_expiry_date`, `disclosed_gender` and `disclosed_name`. Each fails unless the proof
 discloses the whole field, except `disclosed_name`, which needs only part of the name disclosed
 and returns 0 for each byte the proof hides. All but the document type and issuing country readers
-also need the document type disclosed,
-which tells passports from ID cards.
+also need the document type disclosed, which tells passports from ID cards.
 
 ## Trust considerations
 
