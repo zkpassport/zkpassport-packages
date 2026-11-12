@@ -157,9 +157,10 @@ checks that it discloses every field the query asks for, adds its commitment to 
 and returns it in `VerifiedProof.disclosure`, the only copy the proof covers. `VerifiedProof`'s
 readers take one field out of it as the MRZ's bytes: `document_type()`, `issuing_country()`,
 `document_number()`, `nationality()`, `birthdate()`, `expiry_date()`, `gender()` and `name()`.
-Each fails unless the proof discloses the whole field, except `name()`, which returns 0 for each
-byte the proof hides. All but the document type and issuing country also need the document type
-disclosed, which tells passports from ID cards, so the ZKPassport request asks for it too.
+Each fails unless the proof discloses the whole field, except `name()`, which needs only part of
+the name disclosed and returns 0 for each byte the proof hides. All but the document type and
+issuing country also need the document type disclosed, which tells passports from ID cards, so the
+ZKPassport request asks for it too.
 
 A query that asks for sanctions screening needs the sanctions root the proof was made against, from
 `assembleSanctionsCapsule`, in `zkpassport::constants::SANCTIONS_CAPSULE_SLOT` (`= 3`).
