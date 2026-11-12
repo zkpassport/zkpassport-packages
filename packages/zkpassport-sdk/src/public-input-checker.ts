@@ -114,6 +114,7 @@ export class PublicInputChecker {
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
+    // Expose document_type if any fields are disclosed
     originalQuery = withDocumentType(originalQuery)
     // We can't be certain that the disclosed data is for a passport or an ID card
     // so we need to check both (unless the document type is revealed)
