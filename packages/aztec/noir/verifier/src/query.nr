@@ -20,7 +20,9 @@ use zkpassport::face_match::{FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, Fa
 /// proof's subproofs and `D` is 1 once a field is disclosed.
 ///
 /// Disclosing any field but the document type or the issuing country needs the document type
-/// disclosed too, so the SDK request must ask for it.
+/// disclosed too: the readers take the MRZ layout from it, a passport's when it starts with 'P' and
+/// an ID card's otherwise. The ZKPassport SDK adds it to such requests from 0.20.1; a request from
+/// an older SDK must ask for it.
 ///
 /// ## Examples
 ///
