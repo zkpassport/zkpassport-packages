@@ -161,9 +161,10 @@ readers take one field out of it as the MRZ's bytes: `document_type()`, `issuing
 `document_number()`, `nationality()`, `birthdate()`, `expiry_date()`, `gender()` and `name()`.
 Each fails unless the proof discloses the whole field, except `name()`, which needs only part of
 the name disclosed, unless the query asks for `disclose_full_name()`, and returns 0 for each byte
-the proof hides. All but the document type and
-issuing country also need the document type disclosed, which tells passports from ID cards, so the
-ZKPassport request asks for it too.
+the proof hides. All but the document type and issuing country also need the document type
+disclosed: the readers take the MRZ layout from it, a passport's when it starts with `P` and an ID
+card's otherwise. The ZKPassport SDK adds the document type to such requests from 0.20.1; a request
+from an older SDK must ask for it.
 
 A query that asks for sanctions screening needs the sanctions root the proof was made against, from
 `assembleSanctionsCapsule`, in `zkpassport::constants::SANCTIONS_CAPSULE_SLOT` (`= 3`).

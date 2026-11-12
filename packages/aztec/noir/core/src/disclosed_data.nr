@@ -40,8 +40,9 @@ pub struct DisclosedNationality {
 /// commitment), so the layout must never be inferred from which ranges happen
 /// to be unmasked — a passport holder could alias document-number bytes into
 /// the TD1 nationality slot. The branch therefore reads the document code,
-/// which is part of the signed MRZ — and so requires it disclosed: apps must
-/// query `.disclose("document_type")` alongside `.disclose("nationality")`.
+/// which is part of the signed MRZ — and so requires it disclosed. The ZKPassport
+/// SDK discloses it alongside the nationality from 0.20.1; a request from an older
+/// SDK must ask for `.disclose("document_type")`.
 pub fn disclosed_nationality(mask: DiscloseMask, disclosed: MRZData) -> DisclosedNationality {
     let is_id_card = uses_id_card_layout(mask, disclosed);
     let start = if is_id_card {
