@@ -327,6 +327,7 @@ export type SupportedChain =
   | "linea"
   | "world_chain"
   | "robinhood"
+  | "aztec"
   // Testnets
   | "ethereum_sepolia"
   | "base_sepolia"
@@ -337,6 +338,7 @@ export type SupportedChain =
   | "scroll_sepolia"
   | "linea_sepolia"
   | "world_chain_sepolia"
+  | "aztec_testnet"
   | "local"
 
 export type BoundData = {
