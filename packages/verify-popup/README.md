@@ -28,6 +28,9 @@ badges. It is a second Vite entry (`r.html`, `src/r/`) rather than a route in
 the SPA, so people on mobile data never download the SDK or the proving
 backends to read it. `vercel.json` rewrites `/r` and `/r/*` to `/r.html`.
 
+`/c` request links, which can also open the iOS App Clip, land on the same page:
+`vercel.json` rewrites `/c` and `/c/*` to `/r.html` too.
+
 The Play Store link carries the request as an install referrer built from the
 canonical `https://zkpassport.id/r?…` URL, the only form the app accepts, so
 Android resumes the request once the install finishes.

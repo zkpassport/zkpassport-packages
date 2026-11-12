@@ -36,6 +36,7 @@ contract VerifierHelper {
         returns (DisclosedData memory disclosedData)
     {
         (, bytes memory discloseBytes) = InputsExtractor.getDiscloseProofInputs(committedInputs);
+        require(discloseBytes[0] == 0 || isIDCard == (discloseBytes[0] != "P"), "Document type does not match isIDCard");
         disclosedData = InputsExtractor.getDisclosedData(discloseBytes, isIDCard);
     }
 
