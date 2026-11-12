@@ -73,6 +73,7 @@ import {
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
+import { getDisclosedLayout, withDocumentType } from "./document-layout"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -95,13 +96,26 @@ export class PublicInputChecker {
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
+    // Requests disclose the document type alongside other fields, so a query rebuilt without it
+    // must still match
+    originalQuery = withDocumentType(originalQuery)
     // We can't be certain that the disclosed data is for a passport or an ID card
     // so we need to check both (unless the document type is revealed)
     const disclosedBytes =
       (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs)?.disclosedBytes ??
       (proof.committedInputs?.disclose_bytes_evm as DiscloseCommittedInputs)?.disclosedBytes
-    const disclosedDataPassport = DisclosedData.fromDisclosedBytes(disclosedBytes, "passport")
-    const disclosedDataIDCard = DisclosedData.fromDisclosedBytes(disclosedBytes, "id_card")
+    // When the document type is disclosed it fixes the layout, and both decodings below are the
+    // same one. Otherwise a claimed value may match either layout, so a value read from the
+    // wrong offsets could pass; that is why requests disclose the document type
+    const layout = getDisclosedLayout(disclosedBytes)
+    const disclosedDataPassport = DisclosedData.fromDisclosedBytes(
+      disclosedBytes,
+      layout ?? "passport",
+    )
+    const disclosedDataIDCard = DisclosedData.fromDisclosedBytes(
+      disclosedBytes,
+      layout ?? "id_card",
+    )
     if (queryResult.document_type) {
       // Document type is always at the same index in the disclosed data
       if (

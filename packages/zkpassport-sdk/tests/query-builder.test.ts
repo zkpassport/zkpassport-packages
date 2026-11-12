@@ -46,6 +46,23 @@ describe("Query Builder", () => {
     expect(Object.keys(config).length).toBe(2)
   })
 
+  test("disclosing a field also discloses the document type, which fixes the layout", async () => {
+    const result = queryBuilder.disclose("firstname").gte("age", 18).done()
+    const configPart = new URL(result.url).searchParams.get("c")!
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+    expect(config).toEqual({
+      firstname: { disclose: true },
+      age: { gte: 18 },
+      document_type: { disclose: true },
+    })
+    expect(result.query.document_type).toEqual({ disclose: true })
+  })
+
+  test("a query that discloses nothing layout-dependent leaves the document type alone", async () => {
+    const result = queryBuilder.disclose("issuing_country").gte("age", 18).done()
+    expect(result.query.document_type).toBeUndefined()
+  })
+
   test("should build age comparison query with boundary validation", async () => {
     const result = queryBuilder.gte("age", 18).lt("age", 65).done()
 
@@ -108,6 +125,7 @@ describe("Query Builder", () => {
     expect(config).toEqual({
       fullname: { disclose: true },
       birthdate: { disclose: true },
+      document_type: { disclose: true },
     })
   })
 
@@ -541,7 +559,10 @@ describe("Policy-driven requests", () => {
 
     expect(lastFetchUrl).toBe("https://dashboard-api.zkpassport.id/public/project?domain=localhost")
     expect(result.policy).toBe("pol_xyz")
-    expect(result.query).toEqual(sampleConfig.policies[0].query)
+    expect(result.query).toEqual({
+      ...sampleConfig.policies[0].query,
+      document_type: { disclose: true },
+    })
 
     const servicePart = new URL(result.url).searchParams.get("s")!
     const service = JSON.parse(Buffer.from(servicePart, "base64").toString())
@@ -669,6 +690,7 @@ describe("Policy-driven requests", () => {
     expect(result.policy).toBe("pol_xyz")
     expect(result.query).toEqual({
       ...sampleConfig.policies[0].query,
+      document_type: { disclose: true },
       bind: { user_address: "0x1234abcd", chain: "ethereum" },
     })
   })

@@ -166,7 +166,6 @@ describe("createVerification", () => {
     expect(configure.query).toEqual({
       age: { gte: 18 },
       nationality: { in: ["FRA"], disclose: true },
-      document_type: { disclose: true },
     })
   })
 
