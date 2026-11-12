@@ -27,6 +27,18 @@
       "commitment": "0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970"
     },
     {
+      "name": "bind_user_address_aztec_network",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "aztec_testnet",
+        "l1ChainId": 11155111,
+        "rollupVersion": 679261766,
+        "maxLength": 509
+      },
+      "commitment": "0x1dc2c4316a74305242c9be364e154f3e5ef7e1c95a0ec0d7f5ef81f8dd2e4d8f"
+    },
+    {
       "name": "nationality_in_fra_deu_ita",
       "proofType": "nationality_inclusion",
       "params": { "countries": ["FRA", "DEU", "ITA"] },

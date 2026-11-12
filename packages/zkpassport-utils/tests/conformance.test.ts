@@ -6,18 +6,21 @@ import vectors from "../conformance/vectors.json"
 import { ProofType } from "../src/circuits"
 import { getAgeParameterCommitment } from "../src/circuits/age"
 import { formatBoundData, getBindParameterCommitment } from "../src/circuits/bind"
+import { getAztecNetwork } from "../src/utils"
 import { getCountryParameterCommitment } from "../src/circuits/country"
 import { getDateParameterCommitment } from "../src/circuits/date"
 import { getDiscloseParameterCommitment } from "../src/circuits/disclose"
 
 type Vector = { name: string; proofType: string; params: Record<string, any>; commitment: string }
 const byType = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.proofType, v]))
+const byName = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.name, v]))
 const hex = (b: bigint) => "0x" + b.toString(16).padStart(64, "0")
 
 describe("Conformance vectors", () => {
   test("every vector is checked here", () => {
     expect(vectors.vectors.map((v) => v.proofType).sort()).toEqual([
       "age",
+      "bind",
       "bind",
       "birthdate",
       "disclose",
@@ -48,8 +51,20 @@ describe("Conformance vectors", () => {
   })
 
   test("bind", async () => {
-    const { params, commitment } = byType.bind
+    const { params, commitment } = byName.bind_user_address
     const data = formatBoundData({ user_address: params.userAddress })
+    const result = await getBindParameterCommitment(data, params.maxLength)
+    expect(hex(result)).toEqual(commitment)
+  })
+
+  test("bind to an Aztec network", async () => {
+    const { params, commitment } = byName.bind_user_address_aztec_network
+    expect(getAztecNetwork(params.chain)).toEqual({
+      l1ChainId: params.l1ChainId,
+      rollupVersion: params.rollupVersion,
+    })
+
+    const data = formatBoundData({ user_address: params.userAddress, chain: params.chain })
     const result = await getBindParameterCommitment(data, params.maxLength)
     expect(hex(result)).toEqual(commitment)
   })
