@@ -91,18 +91,17 @@ contract VerifierHelperTest is Test {
         return abi.encodePacked(uint8(ProofType.DISCLOSE), uint16(180), mask, disclosed);
     }
 
-    function testGetDisclosedDataReadsPassportLayoutFromDocumentType() public view {
-        DisclosedData memory data = helper.getDisclosedData(discloseInputs("DEU", 54, "P<"));
-        assertEq(data.nationality, "DEU");
+    function testGetDisclosedDataAcceptsIsIDCardMatchingDocumentType() public view {
+        assertEq(helper.getDisclosedData(discloseInputs("DEU", 54, "P<"), false).nationality, "DEU");
+        assertEq(helper.getDisclosedData(discloseInputs("FRA", 45, "ID"), true).nationality, "FRA");
     }
 
-    function testGetDisclosedDataReadsIDCardLayoutFromDocumentType() public view {
-        DisclosedData memory data = helper.getDisclosedData(discloseInputs("FRA", 45, "ID"));
-        assertEq(data.nationality, "FRA");
+    function testGetDisclosedDataRejectsIsIDCardContradictingDocumentType() public {
+        vm.expectRevert("Document type does not match isIDCard");
+        helper.getDisclosedData(discloseInputs("DEU", 54, "P<"), true);
     }
 
-    function testGetDisclosedDataRevertsWithoutDocumentType() public {
-        vm.expectRevert("Document type not disclosed");
-        helper.getDisclosedData(discloseInputs("DEU", 54, ""));
+    function testGetDisclosedDataTrustsIsIDCardWithoutDocumentType() public view {
+        assertEq(helper.getDisclosedData(discloseInputs("FRA", 45, ""), true).nationality, "FRA");
     }
 }
