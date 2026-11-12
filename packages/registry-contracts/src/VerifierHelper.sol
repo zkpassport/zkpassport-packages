@@ -41,23 +41,6 @@ contract VerifierHelper {
     }
 
     /**
-     * @notice Gets the data disclosed by the proof
-     * @dev Reverts if the proof discloses a document type that does not match isIDCard
-     * @param committedInputs The committed inputs
-     * @param isIDCard Whether the proof is an ID card
-     * @return disclosedData The data disclosed by the proof
-     */
-    function getDisclosedData(bytes calldata committedInputs, bool isIDCard)
-        external
-        pure
-        returns (DisclosedData memory disclosedData)
-    {
-        (, bytes memory discloseBytes) = InputsExtractor.getDiscloseProofInputs(committedInputs);
-        require(discloseBytes[0] == 0 || isIDCard == (discloseBytes[0] != "P"), "Document type does not match isIDCard");
-        disclosedData = InputsExtractor.getDisclosedData(discloseBytes, isIDCard);
-    }
-
-    /**
      * @notice Checks if the age is above or equal to the given age
      * @param minAge The age must be above or equal to this age
      * @param committedInputs The committed inputs

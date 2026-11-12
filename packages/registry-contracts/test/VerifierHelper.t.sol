@@ -105,14 +105,4 @@ contract VerifierHelperTest is Test {
         vm.expectRevert("Document type not disclosed");
         helper.getDisclosedData(discloseInputs("DEU", 54, ""));
     }
-
-    function testGetDisclosedDataRejectsIsIDCardThatContradictsDocumentType() public {
-        vm.expectRevert("Document type does not match isIDCard");
-        helper.getDisclosedData(discloseInputs("DEU", 54, "P<"), true);
-    }
-
-    function testGetDisclosedDataAcceptsIsIDCardWithoutDocumentType() public view {
-        DisclosedData memory data = helper.getDisclosedData(discloseInputs("FRA", 45, ""), true);
-        assertEq(data.nationality, "FRA");
-    }
 }
