@@ -81,6 +81,7 @@ import {
   GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
   GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
+  ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
 } from "./constants"
 
@@ -2130,6 +2131,7 @@ export class PublicInputChecker {
     }
     if (
       facematchCommittedInputs.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
+      facematchCommittedInputs.appIdHash !== ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH &&
       facematchCommittedInputs.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
     ) {
       console.warn(
@@ -2139,7 +2141,7 @@ export class PublicInputChecker {
       queryResultErrors.facematch = {
         ...queryResultErrors.facematch,
         eq: {
-          expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
+          expected: `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH} (iOS App Clip) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
           received: facematchCommittedInputs.appIdHash,
           message:
             "Invalid facematch app id hash, the attestation should be coming from the ZKPassport app",
