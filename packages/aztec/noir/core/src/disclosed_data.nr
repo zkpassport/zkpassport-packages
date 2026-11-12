@@ -120,18 +120,24 @@ pub fn disclosed_gender(mask: DiscloseMask, disclosed: MRZData) -> u8 {
 }
 
 /// Read the MRZ name field, such as "ERIKSSON<<ANNA<MARIA<<<", with 0 for each byte the proof
-/// does not disclose. A request for the first or last name alone discloses only that part.
+/// does not disclose. A request for the first or last name alone discloses only that part; a
+/// proof that discloses none of the name fails.
 pub fn disclosed_name(mask: DiscloseMask, disclosed: MRZData) -> BoundedVec<u8, TD3_NAME_LENGTH> {
     let mut name = BoundedVec::new();
+    let mut any_byte_disclosed = false;
     if uses_id_card_layout(mask, disclosed) {
         for i in 0..TD1_NAME_LENGTH {
             name.push(disclosed[TD1_NAME_INDEX + i]);
+            any_byte_disclosed |= mask[TD1_NAME_INDEX + i];
         }
     } else {
         for i in 0..TD3_NAME_LENGTH {
             name.push(disclosed[TD3_NAME_INDEX + i]);
+            any_byte_disclosed |= mask[TD3_NAME_INDEX + i];
         }
     }
+
+    assert(any_byte_disclosed, "name not disclosed");
     name
 }
 
@@ -302,6 +308,20 @@ mod test {
     fn rejects_name_without_document_type() {
         let (mut mask, bytes) = payload("P<".as_bytes(), 13, "<<ANNA".as_bytes());
         mask[0] = false;
+
+        let _ = disclosed_name(mask, bytes);
+    }
+
+    #[test(should_fail_with = "name not disclosed")]
+    fn rejects_a_passport_name_with_no_byte_disclosed() {
+        let (mask, bytes) = payload("P<".as_bytes(), 54, "USA".as_bytes());
+
+        let _ = disclosed_name(mask, bytes);
+    }
+
+    #[test(should_fail_with = "name not disclosed")]
+    fn rejects_an_id_card_name_with_no_byte_disclosed() {
+        let (mask, bytes) = payload("I<".as_bytes(), 45, "DEU".as_bytes());
 
         let _ = disclosed_name(mask, bytes);
     }
