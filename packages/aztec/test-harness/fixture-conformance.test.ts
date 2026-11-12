@@ -22,6 +22,7 @@ const anchors = evaluateExpressions(
 )
 const hex = (name: string): string => "0x" + BigInt(anchors[name] as string).toString(16).padStart(64, "0")
 const vector = (proofType: string) => vectors.vectors.find((v) => v.proofType === proofType)!
+const namedVector = (name: string) => vectors.vectors.find((v) => v.name === name)!
 
 test("every constant in fixtures.nr is checked here", () => {
   expect(Object.keys(anchors).sort()).toEqual([
@@ -58,12 +59,12 @@ test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
 })
 
-test("BIND_ACCOUNT matches the published bind vector's user address", () => {
-  expect(hex("BIND_ACCOUNT")).toBe(vector("bind").params.userAddress)
+test("BIND_ACCOUNT matches the published Aztec network bind vector's user address", () => {
+  expect(hex("BIND_ACCOUNT")).toBe(namedVector("bind_user_address_aztec_network").params.userAddress)
 })
 
-test("BIND_COMMITMENT matches the published bind vector", () => {
-  expect(hex("BIND_COMMITMENT")).toBe(vector("bind").commitment)
+test("BIND_COMMITMENT matches the published Aztec network bind vector", () => {
+  expect(hex("BIND_COMMITMENT")).toBe(namedVector("bind_user_address_aztec_network").commitment)
 })
 
 test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () => {
@@ -76,15 +77,17 @@ test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () =>
 })
 
 // The age fixture is an outer_count_5 proof (age + bind subproofs): slots 5 and 6 are its two
-// param commitments, in prover-chosen order, and they must be exactly the age and bind anchors.
-test("the age fixture's param commitments are the age and bind anchors", () => {
+// param commitments, in prover-chosen order: the age anchor and the bind subproof's commitment,
+// over the address and the network the fixture is bound to. core's txe.nr test recomputes the
+// latter from proof.nr's bound address and network.
+test("the age fixture's param commitments are the age anchor and its bind commitment", () => {
   expect(ageFixture.publicInputs).toHaveLength(10)
   const params = ageFixture.publicInputs.slice(5, 7).map((pi: string) => BigInt(pi))
-  const anchorsExpected = [
+  const expected = [
     BigInt(anchors.AGE_18_COMMITMENT as string),
-    BigInt(anchors.BIND_COMMITMENT as string),
+    BigInt(ageFixture.bindParamCommitment),
   ]
-  expect(params.toSorted()).toEqual(anchorsExpected.toSorted())
+  expect(params.toSorted()).toEqual(expected.toSorted())
 })
 
 test("the age fixture is bound to the BIND_ACCOUNT anchor", () => {
@@ -146,4 +149,8 @@ test("the proof-fixture globals match the age proof fixture", () => {
   expect(BigInt(gen.AGE_FIXTURE_VK_HASH as string)).toBe(BigInt(ageFixture.vkeyHashBB))
   expect(BigInt(gen.AGE_FIXTURE_CURRENT_DATE as string)).toBe(BigInt(ageFixture.nowTimestamp))
   expect(BigInt(gen.AGE_FIXTURE_BIND_ADDRESS as string)).toBe(BigInt(ageFixture.bindAddress))
+  expect(BigInt(gen.AGE_FIXTURE_BIND_L1_CHAIN_ID as string)).toBe(BigInt(ageFixture.bindL1ChainId))
+  expect(BigInt(gen.AGE_FIXTURE_BIND_ROLLUP_VERSION as string)).toBe(
+    BigInt(ageFixture.bindRollupVersion),
+  )
 })

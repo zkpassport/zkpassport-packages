@@ -68,17 +68,30 @@ pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
 }
 
-/// bind(user_address): 509-byte bound-data layout
-/// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address][zero padding]
-pub fn bind_user_address_commitment(account: Field) -> Field {
+/// bind(user_address, Aztec network): the 509-byte bound data @zkpassport/utils' formatBoundData
+/// writes for an address and an Aztec chain, then zero padding:
+/// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address]
+/// [identifier = 4 (AZTEC_NETWORK)][len_hi = 0][len_lo = 64][32-byte BE L1 chain id][32-byte BE rollup version]
+pub fn bind_commitment(account: Field, chain_id: Field, version: Field) -> Field {
     let mut data = [0 as u8; 509];
     data[0] = 1;
     data[1] = 0;
     data[2] = 32;
-    let bytes: [u8; 32] = account.to_be_bytes();
+    let account_bytes: [u8; 32] = account.to_be_bytes();
     for i in 0..32 {
-        data[3 + i] = bytes[i];
+        data[3 + i] = account_bytes[i];
     }
+
+    data[35] = 4;
+    data[36] = 0;
+    data[37] = 64;
+    let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
+    let version_bytes: [u8; 32] = version.to_be_bytes();
+    for i in 0..32 {
+        data[38 + i] = chain_id_bytes[i];
+        data[70 + i] = version_bytes[i];
+    }
+
     bind_param_commitment(data)
 }
 
@@ -132,7 +145,7 @@ fn country_weighted_sum(country: Alpha3CountryCode) -> u32 {
 
 mod test {
     use crate::commitments::{
-        age_commitment, bind_user_address_commitment, birthdate_commitment, disclose_commitment,
+        age_commitment, bind_commitment, birthdate_commitment, disclose_commitment,
         expiry_date_commitment, issuing_country_exclusion_commitment,
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
         nationality_inclusion_commitment,
@@ -151,7 +164,7 @@ mod test {
 
     #[test]
     fn bind_matches_conformance_anchor() {
-        assert(bind_user_address_commitment(BIND_ACCOUNT) == BIND_COMMITMENT);
+        assert(bind_commitment(BIND_ACCOUNT, 11155111, 679261766) == BIND_COMMITMENT);
     }
 
     #[test]

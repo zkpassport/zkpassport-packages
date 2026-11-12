@@ -1,7 +1,7 @@
 use crate::verify::Disclosure;
 use aztec::protocol::{address::AztecAddress, traits::ToField};
 use zkpassport::commitments::{
-    age_commitment, bind_user_address_commitment, birthdate_commitment, disclose_commitment,
+    age_commitment, bind_commitment, birthdate_commitment, disclose_commitment,
     expiry_date_commitment, issuing_country_exclusion_commitment,
     issuing_country_inclusion_commitment, nationality_exclusion_commitment,
     nationality_inclusion_commitment, sanctions_commitment,
@@ -32,6 +32,7 @@ pub struct Query<let K: u32, let D: u32> {
     checks: u16,
     disclosed_fields: u16,
     sanctions: Option<bool>, // strict
+    bound_address: Option<AztecAddress>,
 }
 
 // The checks a query asks for at most once
@@ -64,6 +65,7 @@ impl Query<3, 0> {
             checks: 0,
             disclosed_fields: 0,
             sanctions: Option::none(),
+            bound_address: Option::none(),
         }
     }
 }
@@ -159,13 +161,13 @@ impl<let K: u32, let D: u32> Query<K, D> {
         )
     }
 
-    /// Ask for the proof to be bound to `address`.
+    /// Ask for the proof to be bound to `address` and to the network the contract runs on, its
+    /// L1 chain id and rollup version. The SDK request binds the user's address and the chain
+    /// `aztec` or `aztec_testnet`.
     pub fn bind_user_address(self, address: AztecAddress) -> Query<K + 1, D> {
-        self.with_commitment(
-            CHECK_BIND,
-            "bind requested twice",
-            bind_user_address_commitment(address.to_field()),
-        )
+        let mut query = self.with_check(CHECK_BIND, "bind requested twice");
+        query.bound_address = Option::some(address);
+        query
     }
 
     /// Ask for the holder not to be on the sanctions lists. The client stashes the sanctions root
@@ -187,12 +189,18 @@ impl<let K: u32, let D: u32> Query<K, D> {
         self,
         disclosure: Option<Disclosure>,
         sanctions_root: Option<Field>,
+        chain_id: Field,
+        version: Field,
     ) -> [Field; K - 3] {
         let mut expected: BoundedVec<Field, K - 3> = BoundedVec::new();
         for i in 0..K - 3 {
             if i < self.commitments.len() {
                 expected.push(self.commitments.get_unchecked(i));
             }
+        }
+
+        if self.bound_address.is_some() {
+            expected.push(bind_commitment(self.bound_address.unwrap().to_field(), chain_id, version));
         }
 
         if disclosure.is_some() {
@@ -298,6 +306,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
             checks: self.checks,
             disclosed_fields: self.disclosed_fields,
             sanctions: self.sanctions,
+            bound_address: self.bound_address,
         }
     }
 }
@@ -416,7 +425,7 @@ mod test {
     use crate::verify::Disclosure;
     use aztec::protocol::{address::AztecAddress, traits::{FromField, ToField}};
     use zkpassport::commitments::{
-        age_commitment, bind_user_address_commitment, birthdate_commitment, disclose_commitment,
+        age_commitment, bind_commitment, birthdate_commitment, disclose_commitment,
         expiry_date_commitment, issuing_country_exclusion_commitment,
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
         nationality_inclusion_commitment, sanctions_commitment,
@@ -426,8 +435,12 @@ mod test {
         K
     }
 
+    // An L1 chain id and rollup version for the network a test's contract runs on
+    global CHAIN_ID: Field = 11155111;
+    global VERSION: Field = 679261766;
+
     fn commitments_without_payloads<let K: u32, let D: u32>(query: Query<K, D>) -> [Field; K - 3] {
-        query.expected_commitments(Option::none(), Option::none())
+        query.expected_commitments(Option::none(), Option::none(), CHAIN_ID, VERSION)
     }
 
     // A passport's disclosure of its document type and `field` at `index`, nothing else
@@ -474,7 +487,7 @@ mod test {
                 nationality_exclusion_commitment(["ITA"]),
                 issuing_country_inclusion_commitment(["ESP"]),
                 issuing_country_exclusion_commitment(["USA"]),
-                bind_user_address_commitment(user.to_field()),
+                bind_commitment(user.to_field(), CHAIN_ID, VERSION),
             ],
         );
     }
@@ -523,7 +536,12 @@ mod test {
         let query = Query::new().age_min(18).disclose_nationality().strict_sanctions();
 
         assert_eq(
-            query.expected_commitments(Option::some(disclosure), Option::some(0xabc)),
+            query.expected_commitments(
+                Option::some(disclosure),
+                Option::some(0xabc),
+                CHAIN_ID,
+                VERSION,
+            ),
             [
                 age_commitment(18, 0),
                 disclose_commitment(disclosure.mask, disclosure.bytes),
@@ -537,7 +555,7 @@ mod test {
         let query = Query::new().sanctions();
 
         assert_eq(
-            query.expected_commitments(Option::none(), Option::some(0xabc)),
+            query.expected_commitments(Option::none(), Option::some(0xabc), CHAIN_ID, VERSION),
             [sanctions_commitment(0xabc, false)],
         );
     }
