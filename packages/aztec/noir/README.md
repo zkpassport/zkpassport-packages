@@ -151,8 +151,13 @@ An app that reads disclosed MRZ data sets `ServiceConfig.disclose` and passes on
 commitment. The client then also stashes the disclose payload (`mask ‖ bytes`, one value per
 field) into the app's capsule slot `zkpassport::constants::DISCLOSE_CAPSULE_SLOT` (`= 2`).
 `verify_zkpassport_proof` loads it once, adds its commitment to the expected ones, and returns
-it in `VerifiedProof.disclosure`, the only copy the proof covers. `disclosed_data::disclosed_nationality`
-reads the nationality out of it.
+it in `VerifiedProof.disclosure`, the only copy the proof covers. The readers in `disclosed_data`
+take one field out of it: `disclosed_document_type`, `disclosed_issuing_country`,
+`disclosed_document_number`, `disclosed_nationality`, `disclosed_birthdate`,
+`disclosed_expiry_date`, `disclosed_gender` and `disclosed_name`. Each fails unless the proof
+discloses the whole field, except `disclosed_name`, which returns 0 for each byte the proof hides.
+All but the document type and issuing country readers also need the document type disclosed,
+which tells passports from ID cards.
 
 ## Trust considerations
 
