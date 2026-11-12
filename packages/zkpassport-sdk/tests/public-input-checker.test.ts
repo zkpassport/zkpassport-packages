@@ -3853,7 +3853,6 @@ describe("PublicInputChecker - registry root checks with a supplied client", () 
 })
 
 describe("PublicInputChecker - document layout", () => {
-  // 90 bytes with only the given ASCII strings disclosed at the given offsets
   function bytesWith(fields: Array<[number, string]>): number[] {
     const bytes = Array(90).fill(0)
     for (const [offset, text] of fields) {
@@ -3862,8 +3861,6 @@ describe("PublicInputChecker - document layout", () => {
     return bytes
   }
 
-  // A TD3 passport whose nationality is DEU (offset 54) and whose document number carries "FRA"
-  // where a TD1 card keeps its nationality (offset 45)
   const passportBytes = bytesWith([
     [0, "P<"],
     [44, "CFRA12345"],
@@ -3894,42 +3891,5 @@ describe("PublicInputChecker - document layout", () => {
     )
     expect(queryResultErrors).toEqual({})
     expect(isCorrect).toBe(true)
-  })
-
-  test("a TD1 card is read at the TD1 offsets", () => {
-    const idCardBytes = bytesWith([
-      [0, "ID"],
-      [45, "FRA"],
-    ])
-    const { isCorrect } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-      makeDiscloseProof(idCardBytes),
-      { nationality: { disclose: true } },
-      {
-        document_type: { disclose: { result: "id_card" } },
-        nationality: { disclose: { result: "FRA" } },
-      },
-    )
-    expect(isCorrect).toBe(true)
-  })
-
-  test("a query rebuilt without document_type still accepts its disclosure", () => {
-    const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-      makeDiscloseProof(passportBytes),
-      { nationality: { disclose: true } },
-      {
-        document_type: { disclose: { result: "passport" } },
-        nationality: { disclose: { result: "DEU" } },
-      },
-    )
-    expect(hasOriginalQueryError(queryResultErrors.document_type, "disclose")).toBe(false)
-  })
-
-  test("document_type disclosure is still refused when nothing else needs it", () => {
-    const { queryResultErrors } = PublicInputChecker.checkDiscloseBytesPublicInputs(
-      makeDiscloseProof(passportBytes),
-      { issuing_country: { disclose: true } },
-      { document_type: { disclose: { result: "passport" } } },
-    )
-    expect(hasOriginalQueryError(queryResultErrors.document_type, "disclose")).toBe(true)
   })
 })

@@ -44,12 +44,11 @@ import {
   numericalCompare,
   rangeCompare,
 } from "./offline-query"
-import { PublicInputChecker } from "./public-input-checker"
+import { PublicInputChecker, withDocumentType } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
-import { withDocumentType } from "./document-layout"
 import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
@@ -548,7 +547,6 @@ export class ZKPassport {
       },
       done: (() => {
         this.topicToFailedProofCount[topic] = 0
-        // Disclosed fields can only be decoded once the document type is known
         this.topicToConfig[topic] = withDocumentType(this.topicToConfig[topic])
         if (topic === "offline-query") {
           const query = this.topicToConfig[topic]
@@ -905,8 +903,6 @@ export class ZKPassport {
     if (!originalQuery || !queryResult) {
       throw new Error("verify() requires `originalQuery` and `queryResult`")
     }
-    // The request carried `document_type` whenever it disclosed a field; a query rebuilt by hand
-    // or with an older SDK may not, and must still match
     originalQuery = withDocumentType(originalQuery)
     const notVerified: VerificationResult = {
       uniqueIdentifier: undefined,

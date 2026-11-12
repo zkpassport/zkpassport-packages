@@ -73,7 +73,6 @@ import {
   Query,
 } from "@zkpassport/utils"
 import { QueryResultErrors } from "./types"
-import { getDisclosedLayout, withDocumentType } from "./document-layout"
 import { createRegistryClient, type RegistryClient } from "@zkpassport/registry"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -88,6 +87,25 @@ import {
 // Allowance for clock/timezone skew between the proving device and the verifier
 const CURRENT_DATE_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000
 
+export function withDocumentType(query: Query): Query {
+  const needed = (
+    [
+      "firstname",
+      "lastname",
+      "fullname",
+      "birthdate",
+      "expiry_date",
+      "nationality",
+      "gender",
+      "document_number",
+    ] as const
+  ).some((key) => query[key]?.disclose || query[key]?.eq !== undefined)
+  if (!needed || query.document_type?.disclose || query.document_type?.eq !== undefined) {
+    return query
+  }
+  return { ...query, document_type: { ...query.document_type, disclose: true } }
+}
+
 export class PublicInputChecker {
   public static checkDiscloseBytesPublicInputs(
     proof: ProofResult,
@@ -96,18 +114,17 @@ export class PublicInputChecker {
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
-    // Requests disclose the document type alongside other fields, so a query rebuilt without it
-    // must still match
     originalQuery = withDocumentType(originalQuery)
     // We can't be certain that the disclosed data is for a passport or an ID card
     // so we need to check both (unless the document type is revealed)
     const disclosedBytes =
       (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs)?.disclosedBytes ??
       (proof.committedInputs?.disclose_bytes_evm as DiscloseCommittedInputs)?.disclosedBytes
-    // When the document type is disclosed it fixes the layout, and both decodings below are the
-    // same one. Otherwise a claimed value may match either layout, so a value read from the
-    // wrong offsets could pass; that is why requests disclose the document type
-    const layout = getDisclosedLayout(disclosedBytes)
+    const layout = disclosedBytes?.[0]
+      ? String.fromCharCode(disclosedBytes[0]) === "P"
+        ? "passport"
+        : "id_card"
+      : undefined
     const disclosedDataPassport = DisclosedData.fromDisclosedBytes(
       disclosedBytes,
       layout ?? "passport",

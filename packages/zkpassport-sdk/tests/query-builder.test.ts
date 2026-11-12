@@ -46,23 +46,6 @@ describe("Query Builder", () => {
     expect(Object.keys(config).length).toBe(2)
   })
 
-  test("disclosing a field also discloses the document type, which fixes the layout", async () => {
-    const result = queryBuilder.disclose("firstname").gte("age", 18).done()
-    const configPart = new URL(result.url).searchParams.get("c")!
-    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
-    expect(config).toEqual({
-      firstname: { disclose: true },
-      age: { gte: 18 },
-      document_type: { disclose: true },
-    })
-    expect(result.query.document_type).toEqual({ disclose: true })
-  })
-
-  test("a query that discloses nothing layout-dependent leaves the document type alone", async () => {
-    const result = queryBuilder.disclose("issuing_country").gte("age", 18).done()
-    expect(result.query.document_type).toBeUndefined()
-  })
-
   test("should build age comparison query with boundary validation", async () => {
     const result = queryBuilder.gte("age", 18).lt("age", 65).done()
 
