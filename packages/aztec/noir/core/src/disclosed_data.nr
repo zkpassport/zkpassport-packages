@@ -141,6 +141,28 @@ pub fn disclosed_name(mask: DiscloseMask, disclosed: MRZData) -> BoundedVec<u8, 
     name
 }
 
+/// Read the MRZ name field, such as "ERIKSSON<<ANNA<MARIA<<<", which the proof must disclose whole.
+pub fn disclosed_full_name(
+    mask: DiscloseMask,
+    disclosed: MRZData,
+) -> BoundedVec<u8, TD3_NAME_LENGTH> {
+    let mut name = BoundedVec::new();
+    if uses_id_card_layout(mask, disclosed) {
+        let field: [u8; TD1_NAME_LENGTH] =
+            disclosed_bytes(mask, disclosed, TD1_NAME_INDEX, "full name not disclosed");
+        for i in 0..TD1_NAME_LENGTH {
+            name.push(field[i]);
+        }
+    } else {
+        let field: [u8; TD3_NAME_LENGTH] =
+            disclosed_bytes(mask, disclosed, TD3_NAME_INDEX, "full name not disclosed");
+        for i in 0..TD3_NAME_LENGTH {
+            name.push(field[i]);
+        }
+    }
+    name
+}
+
 fn uses_id_card_layout(mask: DiscloseMask, disclosed: MRZData) -> bool {
     assert(mask[MRZ_DOC_TYPE_INDEX], "document type not disclosed");
     disclosed[MRZ_DOC_TYPE_INDEX] != ASCII_UPPER_P
@@ -163,8 +185,8 @@ fn disclosed_bytes<let N: u32, let M: u32>(
 mod test {
     use crate::disclosed_data::{
         disclosed_birthdate, disclosed_document_number, disclosed_document_type,
-        disclosed_expiry_date, disclosed_gender, disclosed_issuing_country, disclosed_name,
-        disclosed_nationality,
+        disclosed_expiry_date, disclosed_full_name, disclosed_gender, disclosed_issuing_country,
+        disclosed_name, disclosed_nationality,
     };
 
     fn payload<let N: u32>(doc: [u8; 2], index: u32, field: [u8; N]) -> ([bool; 90], [u8; 90]) {
@@ -324,6 +346,24 @@ mod test {
         let (mask, bytes) = payload("I<".as_bytes(), 45, "DEU".as_bytes());
 
         let _ = disclosed_name(mask, bytes);
+    }
+
+    #[test]
+    fn reads_a_full_name_from_passports_and_id_cards() {
+        let passport_name = "ERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<".as_bytes();
+        let (mask, bytes) = payload("P<".as_bytes(), 5, passport_name);
+        assert(disclosed_full_name(mask, bytes) == BoundedVec::from_array(passport_name));
+
+        let id_card_name = "ERIKSSON<<ANNA<MARIA<<<<<<<<<<".as_bytes();
+        let (mask, bytes) = payload("I<".as_bytes(), 60, id_card_name);
+        assert(disclosed_full_name(mask, bytes) == BoundedVec::from_array(id_card_name));
+    }
+
+    #[test(should_fail_with = "full name not disclosed")]
+    fn rejects_a_first_name_alone_as_a_full_name() {
+        let (mask, bytes) = payload("P<".as_bytes(), 13, "<<ANNA".as_bytes());
+
+        let _ = disclosed_full_name(mask, bytes);
     }
 
     #[test]

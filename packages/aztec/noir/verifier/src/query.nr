@@ -8,7 +8,8 @@ use zkpassport::commitments::{
 };
 use zkpassport::disclosed_data::{
     disclosed_birthdate, disclosed_document_number, disclosed_document_type, disclosed_expiry_date,
-    disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
+    disclosed_full_name, disclosed_gender, disclosed_issuing_country, disclosed_name,
+    disclosed_nationality,
 };
 
 /// What a contract asks a ZKPassport proof to show.
@@ -29,7 +30,7 @@ use zkpassport::disclosed_data::{
 pub struct Query<let K: u32, let D: u32> {
     commitments: BoundedVec<Field, K>,
     checks: u16,
-    disclosed_fields: u8,
+    disclosed_fields: u16,
     sanctions: Option<bool>, // strict
 }
 
@@ -45,14 +46,15 @@ global CHECK_BIND: u16 = 128;
 global CHECK_SANCTIONS: u16 = 256;
 
 // The MRZ fields a query can ask to be disclosed
-global FIELD_DOCUMENT_TYPE: u8 = 1;
-global FIELD_ISSUING_COUNTRY: u8 = 2;
-global FIELD_DOCUMENT_NUMBER: u8 = 4;
-global FIELD_NATIONALITY: u8 = 8;
-global FIELD_BIRTHDATE: u8 = 16;
-global FIELD_EXPIRY_DATE: u8 = 32;
-global FIELD_GENDER: u8 = 64;
-global FIELD_NAME: u8 = 128;
+global FIELD_DOCUMENT_TYPE: u16 = 1;
+global FIELD_ISSUING_COUNTRY: u16 = 2;
+global FIELD_DOCUMENT_NUMBER: u16 = 4;
+global FIELD_NATIONALITY: u16 = 8;
+global FIELD_BIRTHDATE: u16 = 16;
+global FIELD_EXPIRY_DATE: u16 = 32;
+global FIELD_GENDER: u16 = 64;
+global FIELD_NAME: u16 = 128;
+global FIELD_FULL_NAME: u16 = 256;
 
 impl Query<3, 0> {
     /// Start a query that asks for nothing beyond what every proof shows.
@@ -232,6 +234,9 @@ impl<let K: u32, let D: u32> Query<K, D> {
         if self.disclosed_fields & FIELD_NAME != 0 {
             let _ = disclosed_name(mask, bytes);
         }
+        if self.disclosed_fields & FIELD_FULL_NAME != 0 {
+            let _ = disclosed_full_name(mask, bytes);
+        }
     }
 
     // The age, birthdate and expiry date subproofs commit to both bounds, 0 for an unchecked one
@@ -334,12 +339,17 @@ impl<let K: u32> Query<K, 0> {
     }
 
     /// Ask for the name to be disclosed. A request for the first or last name alone discloses
-    /// only that part of the name field.
+    /// only that part of the name field; use `disclose_full_name` to require all of it.
     pub fn disclose_name(self) -> Query<K + 1, 1> {
         self.first_disclosure(FIELD_NAME)
     }
 
-    fn first_disclosure(self, field: u8) -> Query<K + 1, 1> {
+    /// Ask for the whole name field to be disclosed, as the SDK's full name request does.
+    pub fn disclose_full_name(self) -> Query<K + 1, 1> {
+        self.first_disclosure(FIELD_FULL_NAME)
+    }
+
+    fn first_disclosure(self, field: u16) -> Query<K + 1, 1> {
         let mut query = self.resized();
         query.disclosed_fields = field;
         query
@@ -384,12 +394,17 @@ impl<let K: u32> Query<K, 1> {
     }
 
     /// Ask for the name to be disclosed. A request for the first or last name alone discloses
-    /// only that part of the name field.
+    /// only that part of the name field; use `disclose_full_name` to require all of it.
     pub fn disclose_name(self) -> Self {
         self.another_disclosure(FIELD_NAME)
     }
 
-    fn another_disclosure(self, field: u8) -> Self {
+    /// Ask for the whole name field to be disclosed, as the SDK's full name request does.
+    pub fn disclose_full_name(self) -> Self {
+        self.another_disclosure(FIELD_FULL_NAME)
+    }
+
+    fn another_disclosure(self, field: u16) -> Self {
         let mut query = self;
         query.disclosed_fields |= field;
         query
@@ -496,7 +511,8 @@ mod test {
             .disclose_birthdate()
             .disclose_expiry_date()
             .disclose_gender()
-            .disclose_name();
+            .disclose_name()
+            .disclose_full_name();
 
         assert_eq(subproofs(query), 4);
     }
@@ -625,5 +641,20 @@ mod test {
         let disclosure = passport_disclosure(13, "<<ANNA".as_bytes());
 
         Query::new().disclose_name().assert_disclosed(disclosure);
+    }
+
+    #[test]
+    fn accepts_a_full_name() {
+        let disclosure =
+            passport_disclosure(5, "ERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<".as_bytes());
+
+        Query::new().disclose_full_name().assert_disclosed(disclosure);
+    }
+
+    #[test(should_fail_with = "full name not disclosed")]
+    fn rejects_a_partial_name_asked_for_in_full() {
+        let disclosure = passport_disclosure(13, "<<ANNA".as_bytes());
+
+        Query::new().disclose_full_name().assert_disclosed(disclosure);
     }
 }
