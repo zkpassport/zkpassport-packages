@@ -1,31 +1,55 @@
 {
   "name": "@zkpassport/aztec",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.0-beta.0",
+  "description": "TS companion for the ZKPassport Aztec verifier library: the registry artifact and its PXE registration, proof, disclose and sanctions capsule assembly, and disclosed-data parsing",
+  "author": "ZKPassport",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zkpassport/zkpassport-packages",
+    "directory": "packages/aztec/ts"
+  },
   "type": "module",
-  "description": "TS companion for the ZKPassport Noir Aztec library: registry artifact + PXE registration, outer-proof capsule assembly, disclosed-data parsing",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts",
-    "./artifact": "./src/artifact.ts",
-    "./capsule": "./src/capsule.ts",
-    "./constants": "./src/constants.ts",
-    "./disclosed-data": "./src/disclosed-data.ts",
-    "./register": "./src/register.ts",
-    "./vk": "./src/vk.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/*.test.ts"
+    "build": "tsup --config tsup.config.ts",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "tsx --test test/*.test.ts",
+    "check": "prettier -c src test scripts && eslint src test scripts --ext .ts",
+    "format": "prettier -c -w src test scripts",
+    "validate-package": "../../../scripts/validate-package.sh --ignore-rules cjs-resolves-to-esm",
+    "prepublishOnly": "../../../scripts/prepublish.sh"
   },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "zkpassport",
+    "aztec",
+    "noir",
+    "zero-knowledge"
+  ],
   "dependencies": {
-    "@aztec-labs/aztec.js": "6.0.0",
-    "@aztec-labs/stdlib": "6.0.0",
-    "@zkpassport/utils": "0.37.3"
+    "@zkpassport/utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "@aztec-labs/aztec.js": "6.0.x",
+    "@aztec-labs/stdlib": "6.0.x"
   },
   "devDependencies": {
     "@aztec-labs/accounts": "6.0.0",
-    "@types/node": "^26.2.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
-  }
+    "@aztec-labs/aztec.js": "6.0.0",
+    "@aztec-labs/stdlib": "6.0.0",
+    "tsx": "^4.19.2"
+  },
+  "packageManager": "bun@1.3.1"
 }
