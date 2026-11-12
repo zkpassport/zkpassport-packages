@@ -44,7 +44,7 @@ import {
   numericalCompare,
   rangeCompare,
 } from "./offline-query"
-import { PublicInputChecker } from "./public-input-checker"
+import { PublicInputChecker, withDocumentType } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { BBVerifier } from "./bb-verifier"
@@ -547,6 +547,8 @@ export class ZKPassport {
       },
       done: (() => {
         this.topicToFailedProofCount[topic] = 0
+        // Expose document_type if any fields are disclosed
+        this.topicToConfig[topic] = withDocumentType(this.topicToConfig[topic])
         if (topic === "offline-query") {
           const query = this.topicToConfig[topic]
           delete this.topicToConfig[topic]
@@ -902,6 +904,8 @@ export class ZKPassport {
     if (!originalQuery || !queryResult) {
       throw new Error("verify() requires `originalQuery` and `queryResult`")
     }
+    // Expose document_type if any fields are disclosed
+    originalQuery = withDocumentType(originalQuery)
     const notVerified: VerificationResult = {
       uniqueIdentifier: undefined,
       uniqueIdentifierType: undefined,
