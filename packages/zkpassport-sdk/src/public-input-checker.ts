@@ -87,6 +87,25 @@ import {
 // Allowance for clock/timezone skew between the proving device and the verifier
 const CURRENT_DATE_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000
 
+export function withDocumentType(query: Query): Query {
+  const needed = (
+    [
+      "firstname",
+      "lastname",
+      "fullname",
+      "birthdate",
+      "expiry_date",
+      "nationality",
+      "gender",
+      "document_number",
+    ] as const
+  ).some((key) => query[key]?.disclose || query[key]?.eq !== undefined)
+  if (!needed || query.document_type?.disclose || query.document_type?.eq !== undefined) {
+    return query
+  }
+  return { ...query, document_type: { ...query.document_type, disclose: true } }
+}
+
 export class PublicInputChecker {
   public static checkDiscloseBytesPublicInputs(
     proof: ProofResult,
@@ -95,13 +114,26 @@ export class PublicInputChecker {
   ) {
     const queryResultErrors: Partial<QueryResultErrors> = {}
     let isCorrect = true
+    // Expose document_type if any fields are disclosed
+    originalQuery = withDocumentType(originalQuery)
     // We can't be certain that the disclosed data is for a passport or an ID card
     // so we need to check both (unless the document type is revealed)
     const disclosedBytes =
       (proof.committedInputs?.disclose_bytes as DiscloseCommittedInputs)?.disclosedBytes ??
       (proof.committedInputs?.disclose_bytes_evm as DiscloseCommittedInputs)?.disclosedBytes
-    const disclosedDataPassport = DisclosedData.fromDisclosedBytes(disclosedBytes, "passport")
-    const disclosedDataIDCard = DisclosedData.fromDisclosedBytes(disclosedBytes, "id_card")
+    const layout = disclosedBytes?.[0]
+      ? String.fromCharCode(disclosedBytes[0]) === "P"
+        ? "passport"
+        : "id_card"
+      : undefined
+    const disclosedDataPassport = DisclosedData.fromDisclosedBytes(
+      disclosedBytes,
+      layout ?? "passport",
+    )
+    const disclosedDataIDCard = DisclosedData.fromDisclosedBytes(
+      disclosedBytes,
+      layout ?? "id_card",
+    )
     if (queryResult.document_type) {
       // Document type is always at the same index in the disclosed data
       if (

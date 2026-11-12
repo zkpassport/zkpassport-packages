@@ -47,6 +47,7 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     expect(queryResult).toEqual({
       age: { gte: { expected: 18, result: true } },
       nationality: { disclose: { result: "ZKR" as string } },
+      document_type: { disclose: { result: "passport" } },
     } as QueryResult) // ZKR is a mock country, not in the Alpha3Code list
   })
 

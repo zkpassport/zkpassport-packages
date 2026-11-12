@@ -1,4 +1,4 @@
-import { getNetworkConstants } from "./networks"
+import { findNetworkConstants, getNetworkConstants } from "./networks"
 import { normaliseHash } from "./utils"
 
 /**
@@ -40,9 +40,10 @@ export const SANCTIONS_TREE_URL_DEV = "http://localhost:8000/sanctions"
  */
 export const SANCTIONS_TREE_URL_TEMPLATE = (chainId: number, root: string) => {
   root = normaliseHash(root)
-  if (chainId === 1 || chainId === 8453) {
+  const networkType = findNetworkConstants(chainId)?.type
+  if (networkType === "mainnet") {
     return `${SANCTIONS_TREE_URL_MAINNET}/${root}.tree.json.gz`
-  } else if (chainId === 11155111) {
+  } else if (networkType === "testnet") {
     return `${SANCTIONS_TREE_URL_TESTNET}/${root}.tree.json.gz`
   } else {
     return `${SANCTIONS_TREE_URL_DEV}/${root}.tree.json.gz`

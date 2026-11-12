@@ -1,4 +1,5 @@
 import {
+  getAztecNetwork,
   getChainDisplayName,
   getChainFromId,
   getChainFromQuery,
@@ -133,6 +134,7 @@ describe("Utils", () => {
     expect(getChainFromId(59144)).toBe("linea")
     expect(getChainFromId(480)).toBe("world_chain")
     expect(getChainFromId(4663)).toBe("robinhood")
+    expect(getChainFromId(2070860440)).toBe("aztec")
     expect(getChainFromId(11155111)).toBe("ethereum_sepolia")
     expect(getChainFromId(84532)).toBe("base_sepolia")
     expect(getChainFromId(421614)).toBe("arbitrum_sepolia")
@@ -142,6 +144,7 @@ describe("Utils", () => {
     expect(getChainFromId(534351)).toBe("scroll_sepolia")
     expect(getChainFromId(59141)).toBe("linea_sepolia")
     expect(getChainFromId(4801)).toBe("world_chain_sepolia")
+    expect(getChainFromId(679261766)).toBe("aztec_testnet")
     expect(getChainFromId(31337)).toBe("local")
     expect(() => getChainFromId(10000)).toThrow("Unsupported chain ID: 10000")
   })
@@ -158,6 +161,7 @@ describe("Utils", () => {
     expect(getIdFromChain("linea")).toBe(59144)
     expect(getIdFromChain("world_chain")).toBe(480)
     expect(getIdFromChain("robinhood")).toBe(4663)
+    expect(getIdFromChain("aztec")).toBe(2070860440)
     expect(getIdFromChain("ethereum_sepolia")).toBe(11155111)
     expect(getIdFromChain("base_sepolia")).toBe(84532)
     expect(getIdFromChain("arbitrum_sepolia")).toBe(421614)
@@ -167,6 +171,7 @@ describe("Utils", () => {
     expect(getIdFromChain("scroll_sepolia")).toBe(534351)
     expect(getIdFromChain("linea_sepolia")).toBe(59141)
     expect(getIdFromChain("world_chain_sepolia")).toBe(4801)
+    expect(getIdFromChain("aztec_testnet")).toBe(679261766)
     expect(getIdFromChain("local")).toBe(31337)
   })
 
@@ -182,6 +187,7 @@ describe("Utils", () => {
     expect(getChainDisplayName("linea")).toBe("Linea")
     expect(getChainDisplayName("world_chain")).toBe("World Chain")
     expect(getChainDisplayName("robinhood")).toBe("Robinhood")
+    expect(getChainDisplayName("aztec")).toBe("Aztec")
     expect(getChainDisplayName("ethereum_sepolia")).toBe("Ethereum Sepolia")
     expect(getChainDisplayName("base_sepolia")).toBe("Base Sepolia")
     expect(getChainDisplayName("arbitrum_sepolia")).toBe("Arbitrum Sepolia")
@@ -191,6 +197,7 @@ describe("Utils", () => {
     expect(getChainDisplayName("scroll_sepolia")).toBe("Scroll Sepolia")
     expect(getChainDisplayName("linea_sepolia")).toBe("Linea Sepolia")
     expect(getChainDisplayName("world_chain_sepolia")).toBe("World Chain Sepolia")
+    expect(getChainDisplayName("aztec_testnet")).toBe("Aztec Testnet")
     expect(getChainDisplayName("local")).toBe("Local")
   })
 
@@ -211,5 +218,14 @@ describe("Utils", () => {
     expect(getChainFromQuery(unboundQuery, false)).toBe("ethereum")
     expect(getChainFromQuery(queryBoundWithoutChain, true)).toBe("ethereum_sepolia")
     expect(getChainFromQuery(queryBoundWithoutChain, false)).toBe("ethereum")
+  })
+
+  test("getAztecNetwork should return an Aztec network's L1 chain id and rollup version", () => {
+    expect(getAztecNetwork("aztec")).toEqual({ l1ChainId: 1, rollupVersion: 2070860440 })
+    expect(getAztecNetwork("aztec_testnet")).toEqual({
+      l1ChainId: 11155111,
+      rollupVersion: 679261766,
+    })
+    expect(getAztecNetwork("ethereum")).toBeUndefined()
   })
 })
