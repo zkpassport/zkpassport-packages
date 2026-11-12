@@ -25,7 +25,24 @@ contract VerifierHelper {
     }
 
     /**
+     * @notice Gets the data disclosed by the proof, decoded with the layout of its disclosed document type
+     * @dev Reverts if the proof does not disclose the document type
+     * @param committedInputs The committed inputs
+     * @return disclosedData The data disclosed by the proof
+     */
+    function getDisclosedData(bytes calldata committedInputs)
+        external
+        pure
+        returns (DisclosedData memory disclosedData)
+    {
+        (, bytes memory discloseBytes) = InputsExtractor.getDiscloseProofInputs(committedInputs);
+        require(discloseBytes[0] != 0, "Document type not disclosed");
+        disclosedData = InputsExtractor.getDisclosedData(discloseBytes, discloseBytes[0] != "P");
+    }
+
+    /**
      * @notice Gets the data disclosed by the proof
+     * @dev Reverts if the proof discloses a document type that does not match isIDCard
      * @param committedInputs The committed inputs
      * @param isIDCard Whether the proof is an ID card
      * @return disclosedData The data disclosed by the proof
@@ -36,6 +53,7 @@ contract VerifierHelper {
         returns (DisclosedData memory disclosedData)
     {
         (, bytes memory discloseBytes) = InputsExtractor.getDiscloseProofInputs(committedInputs);
+        require(discloseBytes[0] == 0 || isIDCard == (discloseBytes[0] != "P"), "Document type does not match isIDCard");
         disclosedData = InputsExtractor.getDisclosedData(discloseBytes, isIDCard);
     }
 

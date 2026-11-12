@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 import "forge-std/Test.sol";
 import "../src/RootRegistry.sol";
 import "../src/VerifierHelper.sol";
-import {NullifierType} from "../src/lib/Types.sol";
+import {NullifierType, ProofType, DisclosedData} from "../src/lib/Types.sol";
 
 contract VerifierHelperTest is Test {
     VerifierHelper public helper;
@@ -71,5 +71,48 @@ contract VerifierHelperTest is Test {
 
         vm.expectRevert("Invalid nullifier type");
         helper.enforceNullifierType(NullifierType.NONE_NULLIFIER, publicInputs);
+    }
+
+    function discloseInputs(bytes memory text, uint256 offset, bytes memory documentType)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes memory mask = new bytes(90);
+        bytes memory disclosed = new bytes(90);
+        for (uint256 i = 0; i < documentType.length; i++) {
+            mask[i] = 0x01;
+            disclosed[i] = documentType[i];
+        }
+        for (uint256 i = 0; i < text.length; i++) {
+            mask[offset + i] = 0x01;
+            disclosed[offset + i] = text[i];
+        }
+        return abi.encodePacked(uint8(ProofType.DISCLOSE), uint16(180), mask, disclosed);
+    }
+
+    function testGetDisclosedDataReadsPassportLayoutFromDocumentType() public view {
+        DisclosedData memory data = helper.getDisclosedData(discloseInputs("DEU", 54, "P<"));
+        assertEq(data.nationality, "DEU");
+    }
+
+    function testGetDisclosedDataReadsIDCardLayoutFromDocumentType() public view {
+        DisclosedData memory data = helper.getDisclosedData(discloseInputs("FRA", 45, "ID"));
+        assertEq(data.nationality, "FRA");
+    }
+
+    function testGetDisclosedDataRevertsWithoutDocumentType() public {
+        vm.expectRevert("Document type not disclosed");
+        helper.getDisclosedData(discloseInputs("DEU", 54, ""));
+    }
+
+    function testGetDisclosedDataRejectsIsIDCardThatContradictsDocumentType() public {
+        vm.expectRevert("Document type does not match isIDCard");
+        helper.getDisclosedData(discloseInputs("DEU", 54, "P<"), true);
+    }
+
+    function testGetDisclosedDataAcceptsIsIDCardWithoutDocumentType() public view {
+        DisclosedData memory data = helper.getDisclosedData(discloseInputs("FRA", 45, ""), true);
+        assertEq(data.nationality, "FRA");
     }
 }
