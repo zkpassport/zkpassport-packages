@@ -10,6 +10,7 @@ import { getAztecNetwork } from "../src/utils"
 import { getCountryParameterCommitment } from "../src/circuits/country"
 import { getDateParameterCommitment } from "../src/circuits/date"
 import { getDiscloseParameterCommitment } from "../src/circuits/disclose"
+import { getFacematchParameterCommitment } from "../src/circuits/facematch"
 
 type Vector = { name: string; proofType: string; params: Record<string, any>; commitment: string }
 const byType = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.proofType, v]))
@@ -25,6 +26,7 @@ describe("Conformance vectors", () => {
       "birthdate",
       "disclose",
       "expiry_date",
+      "facematch",
       "issuing_country_exclusion",
       "issuing_country_inclusion",
       "nationality_exclusion",
@@ -66,6 +68,20 @@ describe("Conformance vectors", () => {
 
     const data = formatBoundData({ user_address: params.userAddress, chain: params.chain })
     const result = await getBindParameterCommitment(data, params.maxLength)
+    expect(hex(result)).toEqual(commitment)
+  })
+
+  // getFacematchParameterCommitment derives the integrity key from the app id, 0 for iOS
+  test("facematch", async () => {
+    const { params, commitment } = byName.facematch_ios_strict
+    expect(BigInt(params.integrityPublicKeyHash)).toBe(0n)
+
+    const result = await getFacematchParameterCommitment(
+      BigInt(params.rootKeyLeaf),
+      BigInt(params.environment),
+      BigInt(params.appIdHash),
+      BigInt(params.mode),
+    )
     expect(hex(result)).toEqual(commitment)
   })
 

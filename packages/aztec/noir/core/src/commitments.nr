@@ -7,6 +7,7 @@ use exclusion_check_country_lib::{
     calculate_param_commitment as country_exclusion_param_commitment, check_country_list_sorted,
 };
 use exclusion_check_sanctions_lib::param_commit::calculate_param_commitment as sanctions_param_commitment;
+use facematch_lib::param_commit::calculate_param_commitment as face_match_param_commitment;
 use inclusion_check_country_lib::calculate_param_commitment as country_inclusion_param_commitment;
 use utils::constants::{
     EMPTY_ALPHA3_COUNTRY_CODE, PROOF_TYPE_BIRTHDATE, PROOF_TYPE_EXPIRY_DATE,
@@ -61,6 +62,24 @@ pub fn issuing_country_exclusion_commitment<let N: u32>(
     countries: [Alpha3CountryCode; N],
 ) -> Field {
     country_exclusion_commitment(PROOF_TYPE_ISSUING_COUNTRY_EXCLUSION, countries)
+}
+
+/// face match: Poseidon2([PROOF_TYPE_FACEMATCH, 5, root_key_leaf, environment, app_id_hash,
+/// integrity_public_key_hash, mode])
+pub fn face_match_commitment(
+    root_key_leaf: Field,
+    environment: u8,
+    app_id_hash: Field,
+    integrity_public_key_hash: Field,
+    mode: u8,
+) -> Field {
+    face_match_param_commitment(
+        root_key_leaf,
+        environment,
+        app_id_hash,
+        integrity_public_key_hash,
+        mode,
+    )
 }
 
 /// sanctions record: Poseidon2([PROOF_TYPE_SANCTIONS_EXCLUSION, 2, root, is_strict])
@@ -146,13 +165,13 @@ fn country_weighted_sum(country: Alpha3CountryCode) -> u32 {
 mod test {
     use crate::commitments::{
         age_commitment, bind_commitment, birthdate_commitment, disclose_commitment,
-        expiry_date_commitment, issuing_country_exclusion_commitment,
+        expiry_date_commitment, face_match_commitment, issuing_country_exclusion_commitment,
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
         nationality_inclusion_commitment,
     };
     use crate::fixtures::{
         AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_COMMITMENT, BIRTHDATE_COMMITMENT, DISCLOSE_COMMITMENT,
-        EXPIRY_DATE_COMMITMENT, ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
+        EXPIRY_DATE_COMMITMENT, FACE_MATCH_COMMITMENT, ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
         ISSUING_COUNTRY_INCLUSION_COMMITMENT, NATIONALITY_EXCLUSION_COMMITMENT,
         NATIONALITY_INCLUSION_COMMITMENT,
     };
@@ -165,6 +184,18 @@ mod test {
     #[test]
     fn bind_matches_conformance_anchor() {
         assert(bind_commitment(BIND_ACCOUNT, 11155111, 679261766) == BIND_COMMITMENT);
+    }
+
+    #[test]
+    fn face_match_matches_conformance_anchor() {
+        let commitment = face_match_commitment(
+            0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b,
+            1,
+            0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b,
+            0,
+            2,
+        );
+        assert(commitment == FACE_MATCH_COMMITMENT);
     }
 
     #[test]

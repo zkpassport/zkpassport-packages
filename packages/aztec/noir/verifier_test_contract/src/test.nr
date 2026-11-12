@@ -8,8 +8,12 @@ use aztec::{
 };
 use zkpassport::commitments::{age_commitment, disclose_commitment, sanctions_commitment};
 use zkpassport::constants::{
-    DISCLOSE_CAPSULE_SLOT, PI_PARAMS_START, PROOF_CAPSULE_SLOT, PROOF_FIELDS,
-    SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+    DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT, PI_PARAMS_START, PROOF_CAPSULE_SLOT,
+    PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+};
+use zkpassport::face_match::{
+    APPLE_ROOT_KEY_LEAF, FACE_MATCH_ENVIRONMENT_PRODUCTION, FACE_MATCH_MODE_REGULAR,
+    FACE_MATCH_MODE_STRICT, FaceMatch, GOOGLE_ECDSA_ROOT_KEY_LEAF, GOOGLE_PLAY_INTEGRITY_KEY_HASH,
 };
 use zkpassport::fixtures::{
     proof::{
@@ -23,7 +27,7 @@ use zkpassport_registry_contract::{
         deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS,
         LOCAL_NETWORK_REGISTRY_OPERATOR, seed_local_network_registry,
     },
-    types::REGISTRY_SANCTIONS,
+    types::{ANDROID_APP_ID_HASH, IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH, REGISTRY_SANCTIONS},
     ZKPassportRegistry,
 };
 
@@ -485,4 +489,226 @@ unconstrained fn accepts_a_non_strict_sanctions_proof_for_a_non_strict_query() {
         env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user)),
         SANCTIONS_ROOT,
     );
+}
+
+// A face match from one of ZKPassport's iOS apps, as its facematch subproof commits to it
+fn ios_face_match(app_id_hash: Field, mode: u8) -> FaceMatch {
+    FaceMatch {
+        root_key_leaf: APPLE_ROOT_KEY_LEAF,
+        environment: FACE_MATCH_ENVIRONMENT_PRODUCTION,
+        app_id_hash,
+        integrity_public_key_hash: 0,
+        mode,
+    }
+}
+
+// The face match capsule's layout
+fn face_match_payload(face_match: FaceMatch) -> [Field; 5] {
+    [
+        face_match.root_key_leaf,
+        face_match.environment as Field,
+        face_match.app_id_hash,
+        face_match.integrity_public_key_hash,
+        face_match.mode as Field,
+    ]
+}
+
+// Delivers the fixture with `proved`'s commitment in place of its age commitment, and `payload` in the
+// face match capsule
+unconstrained fn deliver_face_match(
+    env: &mut TestEnvironment,
+    verifier: AztecAddress,
+    sender: AztecAddress,
+    proved: FaceMatch,
+    payload: Option<[Field; 5]>,
+) {
+    deliver(
+        env,
+        verifier,
+        sender,
+        Option::some(fixture_with(proved.commitment())),
+        Option::none(),
+        Option::none(),
+    );
+    if payload.is_some() {
+        env.utility_context_at(verifier, |_| {
+            capsules::store(verifier, FACE_MATCH_CAPSULE_SLOT, payload.unwrap(), sender);
+        });
+    }
+}
+
+#[test]
+unconstrained fn verifies_a_strict_face_match_from_the_ios_app() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(IOS_APP_ID_HASH, FACE_MATCH_MODE_STRICT);
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        face_match,
+        Option::some(face_match_payload(face_match)),
+    );
+
+    let app_id_hash =
+        env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+    assert_eq(app_id_hash, IOS_APP_ID_HASH);
+}
+
+#[test]
+unconstrained fn verifies_a_strict_face_match_from_the_app_clip() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(IOS_APP_CLIP_APP_ID_HASH, FACE_MATCH_MODE_STRICT);
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        face_match,
+        Option::some(face_match_payload(face_match)),
+    );
+
+    let app_id_hash =
+        env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+    assert_eq(app_id_hash, IOS_APP_CLIP_APP_ID_HASH);
+}
+
+#[test]
+unconstrained fn verifies_a_strict_face_match_from_the_android_app() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = FaceMatch {
+        root_key_leaf: GOOGLE_ECDSA_ROOT_KEY_LEAF,
+        environment: FACE_MATCH_ENVIRONMENT_PRODUCTION,
+        app_id_hash: ANDROID_APP_ID_HASH,
+        integrity_public_key_hash: GOOGLE_PLAY_INTEGRITY_KEY_HASH,
+        mode: FACE_MATCH_MODE_STRICT,
+    };
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        face_match,
+        Option::some(face_match_payload(face_match)),
+    );
+
+    let app_id_hash =
+        env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+    assert_eq(app_id_hash, ANDROID_APP_ID_HASH);
+}
+
+#[test]
+unconstrained fn verifies_a_regular_face_match() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(IOS_APP_ID_HASH, FACE_MATCH_MODE_REGULAR);
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        face_match,
+        Option::some(face_match_payload(face_match)),
+    );
+
+    let app_id_hash = env.call_private(sender, VerifierTest::at(verifier).verify_face_match(user));
+    assert_eq(app_id_hash, IOS_APP_ID_HASH);
+}
+
+#[test(should_fail_with = "app id not accepted")]
+unconstrained fn rejects_a_face_match_from_an_app_the_registry_does_not_accept() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(0x1234, FACE_MATCH_MODE_STRICT);
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        face_match,
+        Option::some(face_match_payload(face_match)),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+}
+
+#[test(should_fail_with = "face match not attested in production")]
+unconstrained fn rejects_a_face_match_attested_in_development() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let mut face_match = ios_face_match(IOS_APP_ID_HASH, FACE_MATCH_MODE_STRICT);
+    face_match.environment = 0;
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        face_match,
+        Option::some(face_match_payload(face_match)),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+}
+
+#[test(should_fail_with = "face match in another mode")]
+unconstrained fn rejects_a_regular_face_match_for_a_strict_query() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let face_match = ios_face_match(IOS_APP_ID_HASH, FACE_MATCH_MODE_REGULAR);
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        face_match,
+        Option::some(face_match_payload(face_match)),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_a_face_match_capsule_other_than_the_proofs() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    let proved = ios_face_match(0x1234, FACE_MATCH_MODE_STRICT);
+    let claimed = ios_face_match(IOS_APP_ID_HASH, FACE_MATCH_MODE_STRICT);
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        proved,
+        Option::some(face_match_payload(claimed)),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
+}
+
+#[test(should_fail_with = "missing face match capsule")]
+unconstrained fn rejects_a_missing_face_match_capsule() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    deliver_face_match(
+        &mut env,
+        verifier,
+        sender,
+        ios_face_match(IOS_APP_ID_HASH, FACE_MATCH_MODE_STRICT),
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_face_match(user));
 }

@@ -46,6 +46,10 @@ pub contract ZKPassportRegistry {
         version_enabled: Map<Field, DelayedPublicMutable<bool, INITIAL_DELAY, Context>, Context>,
 
         oprf_pk_hash: DelayedPublicMutable<Field, INITIAL_DELAY, Context>,
+
+        // app_ids: hash of an app id => whether face matches that app attests are accepted. Last, so that adding it
+        // moved no other variable's slot.
+        app_ids: Map<Field, DelayedPublicMutable<bool, INITIAL_DELAY, Context>, Context>,
     }
 
     #[external("public")]
@@ -297,6 +301,22 @@ pub contract ZKPassportRegistry {
         }
     }
 
+    // Accept or stop accepting face matches attested by the app whose app id hashes to `app_id_hash`, as the
+    // facematch circuits hash an App Attest or Play Integrity app id.
+    #[external("public")]
+    fn set_app_id_status(app_id_hash: Field, accepted: bool) {
+        assert_admin(self.msg_sender(), self.storage.admin.read());
+        assert(app_id_hash != 0, "app id hash cannot be zero");
+        self.storage.app_ids.at(app_id_hash).schedule_value_change(accepted);
+    }
+
+    #[external("private")]
+    #[view]
+    fn assert_app_id_accepted(app_id_hash: Field) {
+        assert(!self.storage.paused.get_current_value(), "registry is paused");
+        assert(self.storage.app_ids.at(app_id_hash).get_current_value(), "app id not accepted");
+    }
+
     #[external("private")]
     #[view]
     fn assert_sanctions_root_valid(root: Field, current_date: u64) {
@@ -335,5 +355,10 @@ pub contract ZKPassportRegistry {
     #[external("utility")]
     unconstrained fn is_version_enabled(version: Field) -> pub bool {
         self.storage.version_enabled.at(version).get_current_value()
+    }
+
+    #[external("utility")]
+    unconstrained fn is_app_id_accepted(app_id_hash: Field) -> pub bool {
+        self.storage.app_ids.at(app_id_hash).get_current_value()
     }
 }

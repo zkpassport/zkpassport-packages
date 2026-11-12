@@ -3,6 +3,7 @@ import { test } from "node:test"
 
 import {
   assembleDiscloseCapsule,
+  assembleFacematchCapsule,
   assembleProofCapsule,
   assembleSanctionsCapsule,
 } from "../src/capsule.ts"
@@ -39,6 +40,27 @@ test("assembles and shape-checks the disclose preimage", () => {
   const bytes = Array(90).fill(0)
   assert.equal(assembleDiscloseCapsule(mask, bytes).length, 180)
   assert.throws(() => assembleDiscloseCapsule(mask.slice(1), bytes), /mask 89\/90/)
+})
+
+test("assembles the face match capsule in the circuits' encoding", () => {
+  const capsule = assembleFacematchCapsule({
+    rootKeyLeaf: "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
+    environment: "production",
+    appIdHash: "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b",
+    integrityPubkeyHash: "0x00",
+    mode: "strict",
+  })
+
+  assert.deepEqual(
+    capsule.map((field) => field.toBigInt()),
+    [
+      0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340bn,
+      1n,
+      0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179bn,
+      0n,
+      2n,
+    ],
+  )
 })
 
 test("assembles the sanctions capsule from the SDK's sanctions root", () => {
