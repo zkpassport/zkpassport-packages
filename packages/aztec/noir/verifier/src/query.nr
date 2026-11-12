@@ -79,7 +79,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
         self.with_age_bounds(0, max)
     }
 
-    /// Ask for an age between `min` and `max`, both included.
+    /// Ask for an age between `min` and `max`, both included and below 100.
     pub fn age_between(self, min: u8, max: u8) -> Query<K + 1, D> {
         assert((min != 0) & (max != 0) & (min <= max), "invalid age range");
         self.with_age_bounds(min, max)
@@ -236,6 +236,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
 
     // The age, birthdate and expiry date subproofs commit to both bounds, 0 for an unchecked one
     fn with_age_bounds(self, min: u8, max: u8) -> Query<K + 1, D> {
+        assert((min < 100) & (max < 100), "age bound must be below 100");
         self.with_commitment(CHECK_AGE, "age requested twice", age_commitment(min, max))
     }
 
@@ -543,6 +544,21 @@ mod test {
     #[test(should_fail_with = "invalid age range")]
     fn rejects_an_inverted_age_range() {
         let _ = Query::new().age_between(65, 18);
+    }
+
+    #[test(should_fail_with = "age bound must be below 100")]
+    fn rejects_a_minimum_age_of_100() {
+        let _ = Query::new().age_min(100);
+    }
+
+    #[test(should_fail_with = "age bound must be below 100")]
+    fn rejects_a_maximum_age_of_100() {
+        let _ = Query::new().age_max(100);
+    }
+
+    #[test(should_fail_with = "age bound must be below 100")]
+    fn rejects_an_age_range_up_to_100() {
+        let _ = Query::new().age_between(18, 100);
     }
 
     #[test(should_fail_with = "birthdate bound is zero")]
