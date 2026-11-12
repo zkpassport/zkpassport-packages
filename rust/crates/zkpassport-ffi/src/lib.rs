@@ -274,6 +274,35 @@ pub extern "C" fn zkpassport_certificates_url(chain_id: u64, root: *const c_char
         .into_raw()
 }
 
+/// The request for a chain's latest certificate and sanctions roots:
+/// `{url, body}` to POST as JSON, or `{error}`. Pass the reply to
+/// `zkpassport_parse_latest_roots`. Free with `zkpassport_free_string`.
+#[no_mangle]
+pub extern "C" fn zkpassport_latest_roots_request(chain_id: u64) -> *mut c_char {
+    let json = match zkpassport_core::latest_roots::latest_roots_request(chain_id) {
+        Ok(request) => serde_json::json!({ "url": request.url, "body": request.body }),
+        Err(e) => serde_json::json!({ "error": e }),
+    };
+    CString::new(json.to_string()).unwrap().into_raw()
+}
+
+/// Check the registry's reply to `zkpassport_latest_roots_request`.
+/// Response: `{certificates_root, sanctions_root}` or `{error}`.
+/// Free with `zkpassport_free_string`.
+///
+/// # Safety
+/// `reply_json` must be a valid NUL-terminated UTF-8 C string.
+#[no_mangle]
+pub unsafe extern "C" fn zkpassport_parse_latest_roots(reply_json: *const c_char) -> *mut c_char {
+    ffi_json(reply_json, |reply| {
+        let roots = zkpassport_core::latest_roots::parse_latest_roots(reply)?;
+        Ok(serde_json::json!({
+            "certificates_root": roots.certificates,
+            "sanctions_root": roots.sanctions,
+        }))
+    })
+}
+
 /// Safe Rust entry point (same JSON contract as the C ABI).
 pub fn generate_inputs_json(request_json: &str) -> String {
     match run(request_json) {
@@ -752,6 +781,29 @@ mod tests {
         let s = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_string();
         unsafe { zkpassport_free_string(out) };
         assert!(s.contains("error"), "{s}");
+    }
+
+    #[test]
+    fn latest_roots_request_and_reply() {
+        let read_json = |out: *mut c_char| -> serde_json::Value {
+            let json = unsafe { CStr::from_ptr(out) }.to_str().unwrap().to_string();
+            unsafe { zkpassport_free_string(out) };
+            serde_json::from_str(&json).unwrap()
+        };
+        let certificates_root = format!("0x{}", "1".repeat(64));
+        let sanctions_root = format!("0x{}", "3".repeat(64));
+
+        let request = read_json(zkpassport_latest_roots_request(1));
+        assert!(request["url"].is_string() && request["body"].is_string(), "{request}");
+
+        let reply = serde_json::json!([
+            { "id": 1, "result": certificates_root },
+            { "id": 3, "result": sanctions_root },
+        ]);
+        let reply = CString::new(reply.to_string()).unwrap();
+        let roots = read_json(unsafe { zkpassport_parse_latest_roots(reply.as_ptr()) });
+        assert_eq!(roots["certificates_root"], certificates_root);
+        assert_eq!(roots["sanctions_root"], sanctions_root);
     }
 }
 

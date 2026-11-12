@@ -24,6 +24,7 @@ pub mod dsc;
 pub mod id_data;
 pub mod input_gen;
 pub mod integrity;
+pub mod latest_roots;
 pub mod merkle;
 mod oids_gen;
 pub mod outer;
