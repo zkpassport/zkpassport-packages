@@ -607,4 +607,61 @@ mod test {
     fn a_proof_without_a_disclosure_has_no_field_to_read() {
         let _ = verified_proof(Option::none()).nationality();
     }
+
+    // A passport's whole MRZ, disclosed except for `length` bytes from `start`
+    fn passport_disclosure_hiding(start: u32, length: u32) -> Disclosure {
+        let mut disclosure = passport_disclosure();
+        for i in 0..length {
+            disclosure.mask[start + i] = false;
+            disclosure.bytes[start + i] = 0;
+        }
+        disclosure
+    }
+
+    #[test(should_fail_with = "document type not disclosed")]
+    fn reading_a_hidden_document_type_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(0, 2))).document_type();
+    }
+
+    #[test(should_fail_with = "issuing country not disclosed")]
+    fn reading_a_hidden_issuing_country_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(2, 3))).issuing_country();
+    }
+
+    #[test(should_fail_with = "document number not disclosed")]
+    fn reading_a_hidden_document_number_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(44, 9))).document_number();
+    }
+
+    #[test(should_fail_with = "nationality not disclosed")]
+    fn reading_a_hidden_nationality_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(54, 3))).nationality();
+    }
+
+    #[test(should_fail_with = "birthdate not disclosed")]
+    fn reading_a_hidden_birthdate_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(57, 6))).birthdate();
+    }
+
+    #[test(should_fail_with = "gender not disclosed")]
+    fn reading_a_hidden_gender_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(64, 1))).gender();
+    }
+
+    #[test(should_fail_with = "expiry date not disclosed")]
+    fn reading_a_hidden_expiry_date_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(65, 6))).expiry_date();
+    }
+
+    #[test]
+    fn reads_a_partly_hidden_name_with_zeros() {
+        let last_name = "ERIKSSON<<".as_bytes();
+        let verified = verified_proof(Option::some(passport_disclosure_hiding(15, 29)));
+
+        let mut expected_name = [0; 39];
+        for i in 0..10 {
+            expected_name[i] = last_name[i];
+        }
+        assert_eq(verified.name(), BoundedVec::from_array(expected_name));
+    }
 }
