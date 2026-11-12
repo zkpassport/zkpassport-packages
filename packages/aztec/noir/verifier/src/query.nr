@@ -70,55 +70,56 @@ impl Query<3, 0> {
 impl<let K: u32, let D: u32> Query<K, D> {
     /// Ask for an age of at least `min`, below 100.
     pub fn age_min(self, min: u8) -> Query<K + 1, D> {
-        self.age_between(min, 0)
+        assert(min != 0, "age bound is zero");
+        self.with_age_bounds(min, 0)
     }
 
     /// Ask for an age of at most `max`, below 100.
     pub fn age_max(self, max: u8) -> Query<K + 1, D> {
-        self.age_between(0, max)
+        assert(max != 0, "age bound is zero");
+        self.with_age_bounds(0, max)
     }
 
     /// Ask for an age between `min` and `max`, both included.
     pub fn age_between(self, min: u8, max: u8) -> Query<K + 1, D> {
-        self.with_commitment(CHECK_AGE, "age requested twice", age_commitment(min, max))
+        assert((min != 0) & (max != 0) & (min <= max), "invalid age range");
+        self.with_age_bounds(min, max)
     }
 
     /// Ask for a date of birth on or after `min`, in Unix seconds.
     pub fn birthdate_min(self, min: i64) -> Query<K + 1, D> {
-        self.birthdate_between(min, 0)
+        assert(min != 0, "birthdate bound is zero");
+        self.with_birthdate_bounds(min, 0)
     }
 
     /// Ask for a date of birth on or before `max`, in Unix seconds.
     pub fn birthdate_max(self, max: i64) -> Query<K + 1, D> {
-        self.birthdate_between(0, max)
+        assert(max != 0, "birthdate bound is zero");
+        self.with_birthdate_bounds(0, max)
     }
 
     /// Ask for a date of birth between `min` and `max`, both included, in Unix seconds.
     pub fn birthdate_between(self, min: i64, max: i64) -> Query<K + 1, D> {
-        self.with_commitment(
-            CHECK_BIRTHDATE,
-            "birthdate requested twice",
-            birthdate_commitment(min, max),
-        )
+        assert((min != 0) & (max != 0) & (min <= max), "invalid birthdate range");
+        self.with_birthdate_bounds(min, max)
     }
 
     /// Ask for an expiry date on or after `min`, in Unix seconds.
     pub fn expiry_date_min(self, min: u64) -> Query<K + 1, D> {
-        self.expiry_date_between(min, 0)
+        assert(min != 0, "expiry date bound is zero");
+        self.with_expiry_date_bounds(min, 0)
     }
 
     /// Ask for an expiry date on or before `max`, in Unix seconds.
     pub fn expiry_date_max(self, max: u64) -> Query<K + 1, D> {
-        self.expiry_date_between(0, max)
+        assert(max != 0, "expiry date bound is zero");
+        self.with_expiry_date_bounds(0, max)
     }
 
     /// Ask for an expiry date between `min` and `max`, both included, in Unix seconds.
     pub fn expiry_date_between(self, min: u64, max: u64) -> Query<K + 1, D> {
-        self.with_commitment(
-            CHECK_EXPIRY_DATE,
-            "expiry date requested twice",
-            expiry_date_commitment(min, max),
-        )
+        assert((min != 0) & (max != 0) & (min <= max), "invalid expiry date range");
+        self.with_expiry_date_bounds(min, max)
     }
 
     /// Ask for a nationality in `countries`, listed in the order the SDK request lists them.
@@ -232,6 +233,27 @@ impl<let K: u32, let D: u32> Query<K, D> {
         if self.disclosed_fields & FIELD_NAME != 0 {
             let _ = disclosed_name(mask, bytes);
         }
+    }
+
+    // The age, birthdate and expiry date subproofs commit to both bounds, 0 for an unchecked one
+    fn with_age_bounds(self, min: u8, max: u8) -> Query<K + 1, D> {
+        self.with_commitment(CHECK_AGE, "age requested twice", age_commitment(min, max))
+    }
+
+    fn with_birthdate_bounds(self, min: i64, max: i64) -> Query<K + 1, D> {
+        self.with_commitment(
+            CHECK_BIRTHDATE,
+            "birthdate requested twice",
+            birthdate_commitment(min, max),
+        )
+    }
+
+    fn with_expiry_date_bounds(self, min: u64, max: u64) -> Query<K + 1, D> {
+        self.with_commitment(
+            CHECK_EXPIRY_DATE,
+            "expiry date requested twice",
+            expiry_date_commitment(min, max),
+        )
     }
 
     fn with_commitment<let M: u32>(
@@ -507,6 +529,46 @@ mod test {
     #[test(should_fail_with = "age requested twice")]
     fn rejects_age_asked_for_twice() {
         let _ = Query::new().age_min(18).age_max(65);
+    }
+
+    #[test(should_fail_with = "age bound is zero")]
+    fn rejects_a_zero_age_bound() {
+        let _ = Query::new().age_min(0);
+    }
+
+    #[test(should_fail_with = "invalid age range")]
+    fn rejects_an_age_range_with_an_open_bound() {
+        let _ = Query::new().age_between(18, 0);
+    }
+
+    #[test(should_fail_with = "invalid age range")]
+    fn rejects_an_inverted_age_range() {
+        let _ = Query::new().age_between(65, 18);
+    }
+
+    #[test(should_fail_with = "birthdate bound is zero")]
+    fn rejects_a_zero_birthdate_bound() {
+        let _ = Query::new().birthdate_max(0);
+    }
+
+    #[test(should_fail_with = "invalid birthdate range")]
+    fn rejects_a_birthdate_range_with_an_open_bound() {
+        let _ = Query::new().birthdate_between(-86400, 0);
+    }
+
+    #[test(should_fail_with = "invalid birthdate range")]
+    fn rejects_an_inverted_birthdate_range() {
+        let _ = Query::new().birthdate_between(86400, -86400);
+    }
+
+    #[test(should_fail_with = "expiry date bound is zero")]
+    fn rejects_a_zero_expiry_date_bound() {
+        let _ = Query::new().expiry_date_min(0);
+    }
+
+    #[test(should_fail_with = "invalid expiry date range")]
+    fn rejects_an_inverted_expiry_date_range() {
+        let _ = Query::new().expiry_date_between(4102444800, 1);
     }
 
     #[test(should_fail_with = "sanctions requested twice")]
