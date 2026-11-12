@@ -88,7 +88,7 @@ impl VerifiedProof {
     }
 
     /// Read the MRZ name field, such as "ERIKSSON<<ANNA<MARIA<<<", with 0 for each byte the proof
-    /// does not disclose.
+    /// does not disclose. A proof that discloses none of the name fails.
     pub fn name(self) -> BoundedVec<u8, 39> {
         let disclosure = self.disclosed();
         disclosed_name(disclosure.mask, disclosure.bytes)
@@ -651,6 +651,11 @@ mod test {
     #[test(should_fail_with = "expiry date not disclosed")]
     fn reading_a_hidden_expiry_date_fails() {
         let _ = verified_proof(Option::some(passport_disclosure_hiding(65, 6))).expiry_date();
+    }
+
+    #[test(should_fail_with = "name not disclosed")]
+    fn reading_a_wholly_hidden_name_fails() {
+        let _ = verified_proof(Option::some(passport_disclosure_hiding(5, 39))).name();
     }
 
     #[test]

@@ -613,6 +613,13 @@ mod test {
         Query::new().disclose_nationality().assert_disclosed(disclosure);
     }
 
+    #[test(should_fail_with = "name not disclosed")]
+    fn rejects_a_name_asked_for_but_wholly_hidden() {
+        let disclosure = passport_disclosure(54, "FRA".as_bytes());
+
+        Query::new().disclose_name().assert_disclosed(disclosure);
+    }
+
     #[test]
     fn accepts_a_partial_name() {
         let disclosure = passport_disclosure(13, "<<ANNA".as_bytes());
