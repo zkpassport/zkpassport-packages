@@ -11,8 +11,8 @@ const LATEST_ROOT_SELECTOR: &str = "0xc3bc16e8";
 const CERTIFICATE_REGISTRY_ID: u64 = 1;
 const SANCTIONS_REGISTRY_ID: u64 = 3;
 
-/// The endpoints `@zkpassport/registry` reads from (`networks.ts`), so the
-/// prover and the verifier see the same roots.
+/// The endpoints `@zkpassport/registry` uses (`networks.ts`) for the chains
+/// the core supports, so the prover and the verifier see the same roots.
 fn rpc_url(chain_id: u64) -> Option<&'static str> {
     match chain_id {
         1 => Some("https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G"),
