@@ -23,7 +23,7 @@
     "build": "tsup --config tsup.config.ts",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit -p .",
-    "test": "bun test test",
+    "test": "tsx --test test/*.test.ts",
     "check": "prettier -c src test scripts && eslint src test scripts --ext .ts",
     "format": "prettier -c -w src test scripts",
     "validate-package": "../../../scripts/validate-package.sh --ignore-rules cjs-resolves-to-esm",
@@ -48,7 +48,8 @@
   "devDependencies": {
     "@aztec-labs/accounts": "6.0.0",
     "@aztec-labs/aztec.js": "6.0.0",
-    "@aztec-labs/stdlib": "6.0.0"
+    "@aztec-labs/stdlib": "6.0.0",
+    "tsx": "^4.19.2"
   },
   "packageManager": "bun@1.3.1"
 }
