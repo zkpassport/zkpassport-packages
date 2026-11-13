@@ -52,6 +52,18 @@ pub(crate) global BIND_ACCOUNT: Field =
 pub(crate) global BIND_COMMITMENT: Field =
     0x260abafd2a3531d54ac6b4595a8a231bee885906858d3fa97d9dc09e8121c69e;
 
+/// bind_commitment(BIND_ACCOUNT, 1): the account bound to Ethereum, a chain id of 1 byte.
+pub(crate) global BIND_ETHEREUM_COMMITMENT: Field =
+    0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784;
+
+/// bind_commitment(BIND_ACCOUNT, 8453): the account bound to Base, a chain id of 2 bytes.
+pub(crate) global BIND_BASE_COMMITMENT: Field =
+    0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3;
+
+/// bind_commitment(BIND_ACCOUNT, 11155111): the account bound to Sepolia, a chain id of 3 bytes.
+pub(crate) global BIND_ETHEREUM_SEPOLIA_COMMITMENT: Field =
+    0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76;
+
 /// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against a
 /// synthetic certificate registry and a circuits release's circuit registry, current_date
 /// 2050-01-01), in the K=4 layout parse.nr decodes.
