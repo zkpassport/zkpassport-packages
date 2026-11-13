@@ -3,14 +3,10 @@ import type { ProofResult } from "@/types"
 import { OPRF_AUTH_COMMITMENT_DOMAIN_SEPARATOR, OPRF_DEFAULT_SERVICES } from "./constants"
 import type { BabyJubJubPoint, OPRFProof } from "./types"
 
-// BN254 scalar field modulus (= BabyJubJub base field), the field of pn, x and x'
 const BN254_FR_MODULUS =
   21888242871839275222246405745257275088548364400416034343698204186575808495617n
 
-/**
- * Commitment to the auth secret, bound to the private nullifier:
- * x' = commit(pn, x) = Poseidon2_t3([DS, pn, x])[1].
- */
+/** x' = Poseidon2_t3([DS, pn, x])[1], as in the oprf_registration circuit */
 export function computeAuthCommitment(privateNullifier: bigint, authSecret: bigint): bigint {
   if (privateNullifier <= 0n || privateNullifier >= BN254_FR_MODULUS) {
     throw new Error("Private nullifier must be a nonzero field element")
@@ -25,12 +21,8 @@ export function computeAuthCommitment(privateNullifier: bigint, authSecret: bigi
   ])[1]
 }
 
-/**
- * Sample a fresh auth secret x: a uniformly random nonzero BN254 field element.
- * It must never leave the device.
- */
 export function randomAuthSecret(): bigint {
-  // 64 random bytes reduced mod p, so the modulo bias is negligible
+  // 64 bytes mod p: negligible modulo bias
   const bytes = new Uint8Array(64)
   globalThis.crypto.getRandomValues(bytes)
   let value = 0n
@@ -39,12 +31,11 @@ export function randomAuthSecret(): bigint {
   return secret === 0n ? 1n : secret
 }
 
-/** The registration id I is the unblinded response of the step 1 (`register` module) evaluation */
+/** I is the unblinded response of the `register` module evaluation */
 export function getRegistrationId(oprfProof: OPRFProof): BabyJubJubPoint {
   return { x: BigInt(oprfProof.response.x), y: BigInt(oprfProof.response.y) }
 }
 
-/** Encode a point the way the nodes expect it: decimal strings [x, y] */
 export function registrationIdToWire(registrationId: BabyJubJubPoint): [string, string] {
   return [registrationId.x.toString(10), registrationId.y.toString(10)]
 }
@@ -56,13 +47,7 @@ export type OPRFNodeCallResult = {
   message?: string
 }
 
-export type OPRFNodeCallErrorCode =
-  /** Every node rejected with 409: I already registered, or (rotation) commitment used before */
-  | "CONFLICT"
-  /** Every node rejected with 404: I is not registered */
-  | "NOT_FOUND"
-  /** The nodes did not all agree, or some failed for another reason. See `results` */
-  | "FAILED"
+export type OPRFNodeCallErrorCode = "CONFLICT" | "NOT_FOUND" | "FAILED"
 
 export class OPRFNodeCallError extends Error {
   constructor(
@@ -109,14 +94,7 @@ async function postToAllNodes(
   throw new OPRFNodeCallError("FAILED", results)
 }
 
-/**
- * Step 2: register the commitment x' for the registration id I at every OPRF node.
- *
- * `proofs` are the 3 base proofs plus the oprf_registration proof for `commitment`.
- * Registration is a write to all nodes, not a threshold: it only succeeds if every node accepts.
- * Throws `OPRFNodeCallError` with code `CONFLICT` if I is already registered (new phone, lost
- * secret, or front-run): the app should then offer a rotation with a face match.
- */
+/** Step 2: every node must accept; CONFLICT if I is already registered (then rotate with a face match) */
 export async function registerAuthCommitment(
   registrationId: BabyJubJubPoint,
   commitment: bigint,
@@ -130,13 +108,7 @@ export async function registerAuthCommitment(
   )
 }
 
-/**
- * Step 4: rotate the commitment stored for I to `newCommitment` at every OPRF node.
- *
- * `proofs` are the 3 base proofs, the face-match proof and the oprf_registration proof for
- * `newCommitment`. Throws `OPRFNodeCallError` with code `NOT_FOUND` if I is not registered, and
- * `CONFLICT` if `newCommitment` was used for I before (use a fresh secret).
- */
+/** Step 4: needs the face-match proof too; NOT_FOUND if I is unknown, CONFLICT if the commitment was used before */
 export async function rotateAuthCommitment(
   registrationId: BabyJubJubPoint,
   newCommitment: bigint,

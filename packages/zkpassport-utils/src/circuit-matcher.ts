@@ -1639,15 +1639,7 @@ export async function getOprfAuthCircuitInputs(
   }
 }
 
-/**
- * Generate circuit inputs for the oprf_registration circuit.
- *
- * `registrationOprfProof` is the result of the step 1 OPRF session on the `register` module
- * (evaluated under k_reg) for this passport's private nullifier; its unblinded response is the
- * registration id I. `authSecret` is the secret x (or y on rotation) behind the commitment.
- *
- * The same proof serves step 2 (registration), step 3 (query, cached) and step 4 (rotation).
- */
+/** Inputs for the oprf_registration circuit, from the `register` module OPRF proof and the auth secret */
 export async function getOprfRegistrationCircuitInputs(
   passport: PassportViewModel,
   salts: IntegrityToDisclosureSalts,
@@ -1683,7 +1675,7 @@ export async function getOprfRegistrationCircuitInputs(
     inputs: {
       comm_in: commIn.toHex(),
       registration_id: registrationOprfProof.response,
-      // BabyJubJubPointInSubgroup in oprf-nr v2, a wrapper around the point
+      // BabyJubJubPointInSubgroup in oprf-nr v2
       oprf_pk: { point: registrationOprfProof.pk },
       auth_commitment: `0x${authCommitment.toString(16)}`,
       ...(await getSaltedValuesForDisclosureCircuit(passport, idData, privateNullifier, salts)),

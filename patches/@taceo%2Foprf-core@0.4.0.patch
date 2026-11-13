@@ -1,32 +1,36 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index db614c058c7ab75c09d3c8fb3db4639833db874d..8914726a53c281a9c88ee35e15643a92c342a7d2 100644
+index db614c0..ece26c0 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
-@@ -158,7 +158,10 @@ var import_modular2 = require("@noble/curves/abstract/modular.js");
+@@ -158,10 +158,9 @@ var import_modular2 = require("@noble/curves/abstract/modular.js");
  var import_utils = require("@noble/hashes/utils.js");
  var CURVE_N = import_misc2.babyjubjub.Point.CURVE().n;
  var COFACTOR = 8n;
 -var SUBGROUP_SCALAR_ORDER = CURVE_N / COFACTOR;
-+// @noble/curves 2.2.0 made CURVE().n the subgroup order (it was the curve order before), so dividing
-+// by the cofactor gives a wrong scalar field and no blinding factor can be inverted. Pin the
-+// subgroup order until @taceo/oprf-core ships the fix (oprf-client-js 7fee7d7, #54).
+-var Fr = (0, import_modular2.Field)(SUBGROUP_SCALAR_ORDER, {
+-  BITS: 249
+-});
++// @noble/curves >=2.2.0 already returns the subgroup order (oprf-client-js #54)
 +var SUBGROUP_SCALAR_ORDER = CURVE_N % COFACTOR === 0n ? CURVE_N / COFACTOR : CURVE_N;
- var Fr = (0, import_modular2.Field)(SUBGROUP_SCALAR_ORDER, {
-   BITS: 249
- });
++var Fr = (0, import_modular2.Field)(SUBGROUP_SCALAR_ORDER);
+ var Fq = import_misc2.babyjubjub.Point.Fp;
+ var BABYJUBJUB_SUBGROUP_GENERATOR_AFFINE = {
+   x: 5299619240641551281634865583518297030282874472190772894086521144482721001553n,
 diff --git a/dist/index.js b/dist/index.js
-index 36ad7b517a1a8c976cf0009b8bfdece899909fa1..65ce96d48db9bad53914f22b401dbcf765409432 100644
+index 36ad7b5..4c68ba6 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -106,7 +106,10 @@ import { Field } from "@noble/curves/abstract/modular.js";
+@@ -106,10 +106,9 @@ import { Field } from "@noble/curves/abstract/modular.js";
  import { randomBytes } from "@noble/hashes/utils.js";
  var CURVE_N = babyjubjub2.Point.CURVE().n;
  var COFACTOR = 8n;
 -var SUBGROUP_SCALAR_ORDER = CURVE_N / COFACTOR;
-+// @noble/curves 2.2.0 made CURVE().n the subgroup order (it was the curve order before), so dividing
-+// by the cofactor gives a wrong scalar field and no blinding factor can be inverted. Pin the
-+// subgroup order until @taceo/oprf-core ships the fix (oprf-client-js 7fee7d7, #54).
+-var Fr = Field(SUBGROUP_SCALAR_ORDER, {
+-  BITS: 249
+-});
++// @noble/curves >=2.2.0 already returns the subgroup order (oprf-client-js #54)
 +var SUBGROUP_SCALAR_ORDER = CURVE_N % COFACTOR === 0n ? CURVE_N / COFACTOR : CURVE_N;
- var Fr = Field(SUBGROUP_SCALAR_ORDER, {
-   BITS: 249
- });
++var Fr = Field(SUBGROUP_SCALAR_ORDER);
+ var Fq = babyjubjub2.Point.Fp;
+ var BABYJUBJUB_SUBGROUP_GENERATOR_AFFINE = {
+   x: 5299619240641551281634865583518297030282874472190772894086521144482721001553n,

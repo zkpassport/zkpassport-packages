@@ -1,33 +1,26 @@
 import { ProofResult } from "@/types"
 
-/** Auth payload of the v1 `face-match` module */
+/** v1 `face-match` module */
 export type OPRFFaceMatchAuth = {
   oprf_key_id: string
   proofs: ProofResult[]
 }
 
-/**
- * Auth payload of the v2 `register` module (step 1, identify).
- * No key id: the nodes always evaluate under the registration key k_reg.
- */
+/** v2 `register` module: always evaluated under the registration key, so no key id */
 export type OPRFRegisterAuth = {
   proofs: ProofResult[]
 }
 
-/**
- * Auth payload of the v2 `nullifier` module (step 3, query).
- * Must not name the registration key.
- */
+/** v2 `nullifier` module */
 export type OPRFNullifierAuth = {
   oprf_key_id: string
-  /** The registration id I, as decimal strings [x, y] (see `registrationIdToWire`) */
+  /** registration id, decimal strings [x, y] */
   I: [string, string]
   proofs: ProofResult[]
 }
 
 export type OPRFEvaluatorAuth = OPRFFaceMatchAuth | OPRFRegisterAuth | OPRFNullifierAuth
 
-/** A BabyJubJub point, e.g. the registration id I = OPRF(pn, k_reg) */
 export type BabyJubJubPoint = {
   x: bigint
   y: bigint
