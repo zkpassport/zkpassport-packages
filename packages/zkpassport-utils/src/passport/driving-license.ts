@@ -13,10 +13,11 @@
  * two states issuing the same number never share a nullifier, and the disclosed nine characters
  * stay the licence's own.
  */
-import { MRZ_FILLER } from "./mrz"
+import { fieldsToTd1Mrz } from "./td1"
+
+export { mrzCheckDigit } from "./td1"
 
 export const DRIVING_LICENSE_DOCUMENT_CODE = "DL"
-const TD1_LINE_LENGTH = 30
 /** Room after the number's first 9 characters: the rest, its check digit, a filler, 2-3 letters */
 const MAX_LICENSE_NUMBER_LENGTH = 20
 
@@ -157,67 +158,24 @@ export function parseAamvaBarcode(text: string): DrivingLicenseFields {
   return fields
 }
 
-const CHECK_DIGIT_WEIGHTS = [7, 3, 1]
-
-/** ICAO 9303 Part 3 check digit: digits as themselves, A-Z as 10-35, the filler as 0 */
-export function mrzCheckDigit(value: string): string {
-  let sum = 0
-  for (let i = 0; i < value.length; i++) {
-    const char = value[i]
-    const code =
-      char >= "0" && char <= "9"
-        ? Number(char)
-        : char >= "A" && char <= "Z"
-          ? char.charCodeAt(0) - 55
-          : 0
-    sum += code * CHECK_DIGIT_WEIGHTS[i % 3]
-  }
-  return String(sum % 10)
-}
-
-/** Latin letters only, accents dropped; anything else separates name parts */
-function nameToMrz(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z]+/g, MRZ_FILLER)
-    .replace(/^<+|<+$/g, "")
-}
-
-const fit = (value: string, length: number) => value.slice(0, length).padEnd(length, MRZ_FILLER)
-
-const mrzDate = (isoDate: string) =>
-  isoDate.slice(2, 4) + isoDate.slice(5, 7) + isoDate.slice(8, 10)
-
 /** The TD1 MRZ (3 x 30, no separators) a licence is proven as */
 export function drivingLicenseToMrz(license: DrivingLicenseFields): string {
-  const number = license.number
-  const principal = fit(number.slice(0, 9), 9)
-  const optional = fit(
-    `${number.slice(9)}${mrzCheckDigit(number)}${MRZ_FILLER}${license.subdivision}`,
-    15,
-  )
-  const line1 = `${DRIVING_LICENSE_DOCUMENT_CODE}${license.country}${principal}${MRZ_FILLER}${optional}`
-
-  const birth = mrzDate(license.dateOfBirth)
-  const expiry = mrzDate(license.dateOfExpiry)
-  const sex = license.sex === "M" || license.sex === "F" ? license.sex : MRZ_FILLER
-  const line2Start = `${birth}${mrzCheckDigit(birth)}${sex}${expiry}${mrzCheckDigit(expiry)}`
-  const line2Body = `${line2Start}${fit("", 3)}${fit("", 11)}`
-  // Composite: line 1 from the number on, and line 2's dates with their check digits
-  const composite = mrzCheckDigit(
-    line1.slice(5) + line2Body.slice(0, 7) + line2Body.slice(8, 15) + line2Body.slice(18, 29),
-  )
-  const line2 = `${line2Body}${composite}`
-
-  const surname = nameToMrz(license.surname)
-  const given = nameToMrz(license.givenNames)
-  const line3 = fit(given ? `${surname}<<${given}` : surname, TD1_LINE_LENGTH)
-
-  const mrz = `${line1}${line2}${line3}`
-  if (mrz.length !== 3 * TD1_LINE_LENGTH) {
-    throw new DrivingLicenseError("The licence does not fit a TD1 MRZ")
+  try {
+    return fieldsToTd1Mrz({
+      documentCode: DRIVING_LICENSE_DOCUMENT_CODE,
+      issuingCountry: license.country,
+      // A licence proves no nationality
+      nationality: "",
+      number: license.number,
+      // The state after the number, so two states never share a nullifier
+      numberSuffix: license.subdivision,
+      surname: license.surname,
+      givenNames: license.givenNames,
+      dateOfBirth: license.dateOfBirth,
+      dateOfExpiry: license.dateOfExpiry,
+      sex: license.sex,
+    })
+  } catch (error) {
+    throw new DrivingLicenseError((error as Error).message)
   }
-  return mrz
 }
