@@ -8,7 +8,7 @@ import {
   seriesInCirculation,
 } from "./decision"
 import { BUNDLED_COVERAGE, isCoverage, loadCoverage } from "./loader"
-import type { Coverage, CoverageCountry, CoverageDocument } from "./types"
+import type { Coverage, CoverageCountry, CoverageDocument, CoverageReadMethod } from "./types"
 
 const IOS = [CredentialScheme.ICAO_CHIP, CredentialScheme.ATTESTED_CAPTURE_IOS]
 const ANDROID = [CredentialScheme.ICAO_CHIP]
@@ -91,6 +91,53 @@ describe("decideVerificationPaths", () => {
       allowedCredentials: SIGNED_ONLY,
     })
     expect(signedOnly.outcome).toBe("rejected_by_policy")
+  })
+
+  test("a national ID without an MRZ is read by camera from its printed text", () => {
+    const camera = { schemes: [CredentialScheme.ATTESTED_CAPTURE_IOS] }
+    const card = (fields: Partial<CoverageDocument>): CoverageDocument => ({
+      type: "id_card",
+      name: "Resident Identity Card (2004)",
+      from: 2004,
+      chip: false,
+      mrz: false,
+      ...fields,
+    })
+    const withRule = (
+      countries: Record<string, CoverageCountry>,
+      read: CoverageReadMethod,
+    ): Coverage => ({
+      ...table(countries),
+      documentTypes: {
+        ...BUNDLED_COVERAGE.documentTypes,
+        id_card: { name: "National ID", shape: "card", read: { camera: read } },
+      },
+    })
+    const query = {
+      country: "TST",
+      documentType: "id_card" as const,
+      allowedCredentials: ANY,
+      supportedSchemes: IOS,
+    }
+    const text = { TST: country([card({ text: true })]) }
+    // New apps read requiresAny
+    const decision = decideVerificationPaths(
+      withRule(text, { ...camera, requires: "mrz", requiresAny: ["mrz", "text"] }),
+      query,
+    )
+    expect(methods(decision)).toEqual(["camera:200"])
+    // A card neither text-read nor with an MRZ stays unreadable
+    const neither = decideVerificationPaths(
+      withRule(
+        { TST: country([card({})]) },
+        { ...camera, requires: "mrz", requiresAny: ["mrz", "text"] },
+      ),
+      query,
+    )
+    expect(neither.outcome).toBe("unsupported")
+    // A rule without requiresAny, as older tables have, keeps to the MRZ
+    const mrzOnly = decideVerificationPaths(withRule(text, { ...camera, requires: "mrz" }), query)
+    expect(mrzOnly.outcome).toBe("unsupported")
   })
 
   test("a signed-only policy leaves the chip read alone and reports the refused camera read", () => {
