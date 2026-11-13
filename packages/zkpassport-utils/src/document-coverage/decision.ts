@@ -8,6 +8,7 @@ import type {
   Coverage,
   CoverageCountry,
   CoverageDocument,
+  CoverageDocumentField,
   CoverageDocumentType,
   CoverageShape,
   ReadMethod,
@@ -95,7 +96,7 @@ export function decideVerificationPaths(
   const chip = query.hasChip === undefined ? chipInSeries : query.hasChip ? "all" : "none"
   const chipVerifiable = chip !== "none" && certificatesCover(country, query.issueYear)
   const available = documents.filter((d) => d.available !== false)
-  const has = (field: "chip" | "mrz" | "barcode") =>
+  const has = (field: CoverageDocumentField) =>
     field === "chip" && query.hasChip !== undefined
       ? query.hasChip
       : available.some((d) => d[field] === true)
@@ -116,7 +117,8 @@ export function decideVerificationPaths(
     (typeof rule.read)[ReadMethod],
   ][]) {
     if (!read) continue
-    if (read.requires && !has(read.requires)) continue
+    const requires = read.requiresAny ?? (read.requires ? [read.requires] : [])
+    if (requires.length > 0 && !requires.some(has)) continue
     for (const scheme of read.schemes) {
       candidates.push({
         method,

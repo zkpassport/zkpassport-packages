@@ -15,9 +15,17 @@ export interface CoverageShape {
   orientation: "landscape" | "portrait"
 }
 
+export type CoverageDocumentField = "chip" | "mrz" | "barcode" | "text"
+
 export interface CoverageReadMethod {
   /** The document field that must be true for the method to apply; absent means always */
   requires?: "chip" | "mrz" | "barcode"
+  /**
+   * Fields any one of which lets the method apply; read instead of `requires` when present. A
+   * national ID's camera read takes ["mrz", "text"]: its MRZ, or its printed text. Apps from
+   * before it existed read `requires` and keep to the MRZ.
+   */
+  requiresAny?: CoverageDocumentField[]
   /** The credential schemes a read by this method can produce */
   schemes: number[]
 }
@@ -39,6 +47,14 @@ export interface CoverageDocument {
   mrz: boolean
   /** Carries an AAMVA PDF417 barcode, which a North American licence is read from */
   barcode?: boolean
+  /** A national ID without an MRZ that the camera reads from its printed text */
+  text?: boolean
+  /**
+   * Where a text-read ID's nationality comes from (absent means "issuer"): "issuer" for cards
+   * issued to citizens only, "printed" for cards also issued to residents (the nationality the card
+   * prints, or none when it isn't read), "none" for cards that prove none (e.g. a territory's)
+   */
+  nationality?: "issuer" | "printed" | "none"
   /** Regula no longer maintains the template; the document is still in circulation */
   deprecated?: true
   /** Listed ahead of our support for it */
