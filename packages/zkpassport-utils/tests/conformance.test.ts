@@ -6,7 +6,7 @@ import vectors from "../conformance/vectors.json"
 import { ProofType } from "../src/circuits"
 import { getAgeParameterCommitment } from "../src/circuits/age"
 import { formatBoundData, getBindParameterCommitment } from "../src/circuits/bind"
-import { getAztecNetwork } from "../src/utils"
+import { getIdFromChain } from "../src/utils"
 import { getCountryParameterCommitment } from "../src/circuits/country"
 import { getDateParameterCommitment } from "../src/circuits/date"
 import { getDiscloseParameterCommitment } from "../src/circuits/disclose"
@@ -58,11 +58,8 @@ describe("Conformance vectors", () => {
   })
 
   test("bind to an Aztec network", async () => {
-    const { params, commitment } = byName.bind_user_address_aztec_network
-    expect(getAztecNetwork(params.chain)).toEqual({
-      l1ChainId: params.l1ChainId,
-      rollupVersion: params.rollupVersion,
-    })
+    const { params, commitment } = byName.bind_user_address_aztec_testnet
+    expect(getIdFromChain(params.chain)).toEqual(params.rollupVersion)
 
     const data = formatBoundData({ user_address: params.userAddress, chain: params.chain })
     const result = await getBindParameterCommitment(data, params.maxLength)

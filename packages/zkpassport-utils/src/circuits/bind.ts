@@ -1,5 +1,4 @@
 import {
-  getAztecNetwork,
   getIdFromChain,
   leftPadArrayWithZeros,
   numberToBytesBE,
@@ -21,7 +20,6 @@ export enum BoundDataIdentifier {
   USER_ADDRESS = 1,
   CHAIN_ID = 2,
   CUSTOM_DATA = 3,
-  AZTEC_NETWORK = 4,
 }
 
 export function formatBoundData(boundData: BoundData): number[] {
@@ -38,17 +36,7 @@ export function formatBoundData(boundData: BoundData): number[] {
       ...userAddress,
     ]
   }
-  const aztecNetwork = boundData.chain ? getAztecNetwork(boundData.chain) : undefined
-  if (aztecNetwork) {
-    // Two 32-byte fields, so an Aztec contract can compare them with its context's chain_id() and version()
-    data = [
-      ...data,
-      BoundDataIdentifier.AZTEC_NETWORK,
-      ...[0, 64],
-      ...numberToBytesBE(aztecNetwork.l1ChainId, 32),
-      ...numberToBytesBE(aztecNetwork.rollupVersion, 32),
-    ]
-  } else if (boundData.chain) {
+  if (boundData.chain) {
     const chainId = getIdFromChain(boundData.chain)
     const chainIdBytes = Binary.fromHex(chainId.toString(16)).toNumberArray()
     data = [...data, BoundDataIdentifier.CHAIN_ID, ...[0, chainIdBytes.length], ...chainIdBytes]
