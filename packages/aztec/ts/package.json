@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/aztec",
-  "version": "0.1.0-beta.0",
+  "version": "0.1.0-beta.1",
   "description": "TS companion for the ZKPassport Aztec verifier library: the registry artifact and its PXE registration, proof, disclose and sanctions capsule assembly, and disclosed-data parsing",
   "author": "ZKPassport",
   "license": "Apache-2.0",

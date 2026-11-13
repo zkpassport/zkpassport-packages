@@ -26,7 +26,7 @@
     },
     "packages/aztec/ts": {
       "name": "@zkpassport/aztec",
-      "version": "0.1.0-beta.0",
+      "version": "0.1.0-beta.1",
       "dependencies": {
         "@zkpassport/utils": "workspace:*",
       },
