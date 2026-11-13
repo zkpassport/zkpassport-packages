@@ -111,7 +111,7 @@ contract Tier2VerificationTest is Test {
     function test_AnotherScopeCannotPassTheFixture() public {
         // A proof made for one service's scope does not pass for another's
         ProofVerificationParams memory params = _params(proof);
-        params.serviceConfig.scope = "tier2";
+        params.serviceConfig.scope = "another-service";
         vm.expectRevert("Invalid domain or scope");
         testRootVerifier.verify(params);
     }
