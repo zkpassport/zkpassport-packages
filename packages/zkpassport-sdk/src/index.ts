@@ -4,6 +4,7 @@ import {
   type IDCredentialValue,
   type NumericalIDCredential,
   type ProofResult,
+  type AztecVerifierParameters,
   type QueryResult,
   type CountryName,
   type JsonRpcRequest,
@@ -52,6 +53,7 @@ import {
 } from "./offline-query"
 import { PublicInputChecker, withDocumentType } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
+import { AztecVerifier, type AztecNetwork } from "./aztec-verifier"
 import { submitProof } from "./dashboard-api"
 import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
@@ -152,6 +154,8 @@ export {
   ProofTypeLength,
   NullifierType,
   type ProofResult,
+  type AztecCapsule,
+  type AztecVerifierParameters,
   type DisclosableIDCredential,
   type IDCredential,
   type IDCredentialValue,
@@ -178,6 +182,7 @@ export {
 
 export * from "./types"
 export { createOfflineQuery, normalizeCountry } from "./offline-query"
+export type { AztecNetwork } from "./aztec-verifier"
 export type { KeyPair } from "@obsidion/bridge"
 export { VERSION } from "./constants"
 
@@ -1198,6 +1203,29 @@ export class ZKPassport {
       domain: domain ?? this.domain,
       scope,
       devMode,
+    })
+  }
+
+  /**
+   * Get the capsules an Aztec contract's `verify_zkpassport_proof` reads for a proof, as plain
+   * data: `{ capsules: [{ slot, fields }] }`, fields as 0x-prefixed hex. `@zkpassport/aztec`'s
+   * `toAztecCapsules` turns them into aztec.js capsules for a contract and a sender.
+   * @param proof The `outer_count_N` proof of a circuits 0.23.x request made in `compressed` mode.
+   * @param network The Aztec network the proof will be verified on, `aztec` or `aztec_testnet`.
+   * Required for a proof bound to no Aztec network; for a bound one it must be the bound network.
+   * @returns The proof capsule, then a disclose or sanctions capsule for each of those the proof
+   * carries.
+   */
+  public async getAztecVerifierParameters({
+    proof,
+    network,
+  }: {
+    proof: ProofResult
+    network?: AztecNetwork
+  }): Promise<AztecVerifierParameters> {
+    return AztecVerifier.getParameters({
+      proof,
+      registryClient: createRegistryClient(AztecVerifier.getChain(proof, network)),
     })
   }
 

@@ -1,13 +1,12 @@
+import type { AztecAddress } from "@aztec-labs/aztec.js/addresses"
 import { Fr } from "@aztec-labs/aztec.js/fields"
-import { circuitVersionToBytes32 } from "@zkpassport/utils"
-
+import { Capsule } from "@aztec-labs/aztec.js/tx"
 import {
-  MRZ_LENGTH,
-  outerPublicInputCount,
-  PROOF_FIELDS,
-  SUPPORTED_CIRCUIT_VERSION,
-  VK_FIELDS,
-} from "./constants.ts"
+  type AztecVerifierParameters,
+  getAztecDiscloseCapsule,
+  getAztecProofCapsule,
+  getAztecSanctionsCapsule,
+} from "@zkpassport/utils"
 
 /**
  * The three field groups of an outer proof, as hex strings from the SDK/utils, and the circuits
@@ -21,6 +20,22 @@ export interface OuterProofParts {
 }
 
 /**
+ * The capsules of the SDK's `getAztecVerifierParameters` for `contract`, scoped to `sender`, the
+ * account whose PXE sends the transaction: pass them as the `capsules` of the call that verifies
+ * the proof.
+ */
+export function toAztecCapsules(
+  params: AztecVerifierParameters,
+  contract: AztecAddress,
+  sender: AztecAddress,
+): Capsule[] {
+  return params.capsules.map(
+    ({ slot, fields }) =>
+      new Capsule(contract, new Fr(BigInt(slot)), fields.map(Fr.fromHexString), sender),
+  )
+}
+
+/**
  * Assemble the proof-capsule blob the library's `verify_zkpassport_proof` consumes:
  * `vk(115) ‖ proof(458) ‖ public_inputs(K + 6) ‖ circuit_version`, which can then be delivered on
  * `PROOF_CAPSULE_SLOT` of the verifier contract. The version is packed as the registry keys vks
@@ -31,36 +46,11 @@ export interface OuterProofParts {
  * (`outer_count_5` → 5, the shape current SDK queries produce). A release other than 0.23.x is
  * rejected, since the library would reject its proof.
  *
- * Parsing note: the SDK/utils emit field elements as BARE hex (no `0x`).
- * `Fr.fromString` would reject those — and silently misread an all-digit hex
- * string as decimal — so every element is parsed explicitly as hex.
+ * The SDK/utils emit field elements as bare hex (no `0x`), which are read as hex, never as
+ * decimal.
  */
 export function assembleProofCapsule(parts: OuterProofParts, k = 5): Fr[] {
-  if (!SUPPORTED_CIRCUIT_VERSION.test(parts.version)) {
-    throw new Error(
-      `zkPassport circuits ${parts.version} proofs do not verify on Aztec: the library verifies ` +
-        `circuits 0.23.x`,
-    )
-  }
-  const wantPIs = outerPublicInputCount(k)
-  if (
-    parts.vk.length !== VK_FIELDS ||
-    parts.proof.length !== PROOF_FIELDS ||
-    parts.publicInputs.length !== wantPIs
-  ) {
-    throw new Error(
-      `zkPassport outer-proof shape mismatch: vk ${parts.vk.length}/${VK_FIELDS}, ` +
-        `proof ${parts.proof.length}/${PROOF_FIELDS}, public inputs ` +
-        `${parts.publicInputs.length}/${wantPIs} — expected an outer_count_${k} proof of circuits ` +
-        `0.23.x`,
-    )
-  }
-  return [
-    ...parts.vk,
-    ...parts.proof,
-    ...parts.publicInputs,
-    circuitVersionToBytes32(parts.version),
-  ].map((h) => Fr.fromHexString(h))
+  return getAztecProofCapsule(parts, k).map(Fr.fromHexString)
 }
 
 /**
@@ -69,13 +59,7 @@ export function assembleProofCapsule(parts: OuterProofParts, k = 5): Fr[] {
  * `verify_zkpassport_proof` loads when the contract's query discloses a field.
  */
 export function assembleDiscloseCapsule(discloseMask: number[], disclosedBytes: number[]): Fr[] {
-  if (discloseMask.length !== MRZ_LENGTH || disclosedBytes.length !== MRZ_LENGTH) {
-    throw new Error(
-      `disclose payload shape mismatch: mask ${discloseMask.length}/${MRZ_LENGTH}, ` +
-        `bytes ${disclosedBytes.length}/${MRZ_LENGTH}`,
-    )
-  }
-  return [...discloseMask, ...disclosedBytes].map((b) => new Fr(BigInt(b)))
+  return getAztecDiscloseCapsule(discloseMask, disclosedBytes).map(Fr.fromHexString)
 }
 
 /**
@@ -83,5 +67,5 @@ export function assembleDiscloseCapsule(discloseMask: number[], disclosedBytes: 
  * against, the SDK's `SanctionsCommittedInputs.rootHash`.
  */
 export function assembleSanctionsCapsule(rootHash: string): Fr[] {
-  return [Fr.fromHexString(rootHash)]
+  return getAztecSanctionsCapsule(rootHash).map(Fr.fromHexString)
 }

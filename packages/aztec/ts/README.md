@@ -16,10 +16,19 @@ npm install @zkpassport/aztec @aztec-labs/aztec.js@6.0 @aztec-labs/stdlib@6.0
 ## Features
 
 - **`ZKPassportRegistryArtifact` + `registerZKPassportRegistry(wallet, node, address)`**: utility to register the shared registry's artifact with the user's PXE (the verifier transitively `.view()`s it during local simulation/proving).
-- **`assembleProofCapsule` / `assembleDiscloseCapsule` / `assembleSanctionsCapsule`**: the proof, the disclose preimage and the sanctions root must be passed via capsules to contracts that need to verify. These functions are conveniences to do so.
+- **`toAztecCapsules(params, contract, sender)`**: a contract that verifies a proof reads it, and the data its query asks for, from capsules. The ZKPassport SDK's `getAztecVerifierParameters({ proof })` returns them as plain data for an `outer_count_N` proof, and this turns them into the aztec.js `Capsule`s to send with the call:
+
+  ```ts
+  // `network` is needed for a proof bound to no Aztec network
+  const params = await zkPassport.getAztecVerifierParameters({ proof, network: "aztec" })
+  const capsules = toAztecCapsules(params, gate.address, sender)
+  await gate.methods.claim(user).send({ from: sender, capsules })
+  ```
+
+- **`assembleProofCapsule` / `assembleDiscloseCapsule` / `assembleSanctionsCapsule`**: the same capsules' fields from the parts of a proof, for a client that builds them itself. The proof capsule ends with the circuits release that made the proof; only 0.23.x proofs verify.
 - **`nationalityBytes` / `packNationality` / `isIdCard`** — TS twins of the Noir `disclosed_data` module's nationality reader. `@zkpassport/utils`' `DisclosedData.fromDisclosedBytes(bytes, isIdCard(bytes) ? "id_card" : "passport")` reads every field.
 - **`fetchOuterVk(vkeyHash)`**: the outer vk from the live `circuits2.zkpassport.id` host.
-- **`constants.ts`** — TS mirror of `core/src/constants.nr`.
+- **`constants.ts`**: the field counts and capsule slots, from `@zkpassport/utils`' mirror of `core/src/constants.nr`.
 
 ## Development
 
