@@ -274,7 +274,7 @@ pub extern "C" fn zkpassport_certificates_url(chain_id: u64, root: *const c_char
         .into_raw()
 }
 
-/// The request for a chain's latest certificate and sanctions roots:
+/// The request for a chain's latest certificate, circuit and sanctions roots:
 /// `{url, body}` to POST as JSON, or `{error}`. Pass the reply to
 /// `zkpassport_parse_latest_roots`. Free with `zkpassport_free_string`.
 #[no_mangle]
@@ -287,7 +287,7 @@ pub extern "C" fn zkpassport_latest_roots_request(chain_id: u64) -> *mut c_char 
 }
 
 /// Check the registry's reply to `zkpassport_latest_roots_request`.
-/// Response: `{certificates_root, sanctions_root}` or `{error}`.
+/// Response: `{certificates_root, circuits_root, sanctions_root}` or `{error}`.
 /// Free with `zkpassport_free_string`.
 ///
 /// # Safety
@@ -298,6 +298,7 @@ pub unsafe extern "C" fn zkpassport_parse_latest_roots(reply_json: *const c_char
         let roots = zkpassport_core::latest_roots::parse_latest_roots(reply)?;
         Ok(serde_json::json!({
             "certificates_root": roots.certificates,
+            "circuits_root": roots.circuits,
             "sanctions_root": roots.sanctions,
         }))
     })
@@ -791,6 +792,7 @@ mod tests {
             serde_json::from_str(&json).unwrap()
         };
         let certificates_root = format!("0x{}", "1".repeat(64));
+        let circuits_root = format!("0x{}", "2".repeat(64));
         let sanctions_root = format!("0x{}", "3".repeat(64));
 
         let request = read_json(zkpassport_latest_roots_request(1));
@@ -798,11 +800,13 @@ mod tests {
 
         let reply = serde_json::json!([
             { "id": 1, "result": certificates_root },
+            { "id": 2, "result": circuits_root },
             { "id": 3, "result": sanctions_root },
         ]);
         let reply = CString::new(reply.to_string()).unwrap();
         let roots = read_json(unsafe { zkpassport_parse_latest_roots(reply.as_ptr()) });
         assert_eq!(roots["certificates_root"], certificates_root);
+        assert_eq!(roots["circuits_root"], circuits_root);
         assert_eq!(roots["sanctions_root"], sanctions_root);
     }
 }
