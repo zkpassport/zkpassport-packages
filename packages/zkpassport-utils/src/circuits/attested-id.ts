@@ -152,7 +152,7 @@ function getFullDocumentNumber(dg1: Uint8Array): Uint8Array {
  * Prefixed to the Tier 2 nullifier's fields, so no table built for another system hashing the same
  * document fields applies to it, and its nullifiers never coincide with another scheme's
  */
-const TIER2_NULLIFIER_DOMAIN = new TextEncoder().encode("ZKPTIER2")
+const TIER2_NULLIFIER_DOMAIN = new TextEncoder().encode("ATTESTED_ID")
 
 function getTier2NullifierFields(dg1: Uint8Array): Uint8Array {
   const padded = padDg1(dg1)
