@@ -34,7 +34,6 @@ describe("SolidityVerifier.getParameters", () => {
         domain: "example.com",
         scope: "test-scope",
         devMode: true,
-        allowedCredentials: [],
       },
     })
   })

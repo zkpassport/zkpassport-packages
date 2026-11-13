@@ -307,15 +307,15 @@ contract SubVerifier {
             )
         );
 
-        // The service decides which credentials it accepts; signed ones only unless it says otherwise
+        // Signed credentials are always accepted; device-attested ones only when the service's scope
+        // opts in (see Credentials.ATTESTED_SCOPE_PREFIX). Services narrow this further with
+        // `helper.enforceCredentialAllowed(allowedCredentials, publicInputs)`
         uint256 credentialScheme = uint256(
             params.proofVerificationData
             .publicInputs[params.proofVerificationData.publicInputs.length
                     - PublicInput.CREDENTIAL_SCHEME_OFFSET_FROM_END]
         );
-        require(
-            Credentials.isAllowed(credentialScheme, params.serviceConfig.allowedCredentials), "Credential not allowed"
-        );
+        require(Credentials.isAcceptedForScope(credentialScheme, params.serviceConfig.scope), "Credential not allowed");
         _verifyDeviceAttestation(credentialScheme, params.committedInputs);
 
         // Allow mock proofs in dev mode

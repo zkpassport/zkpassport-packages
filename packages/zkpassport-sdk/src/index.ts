@@ -21,6 +21,7 @@ import {
   CredentialScheme,
   CredentialTier,
   serializeAllowedCredentials,
+  isCredentialAllowed,
   type AllowedCredential,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
@@ -53,7 +54,12 @@ import { SolidityVerifier } from "./solidity-verifier"
 import { submitProof } from "./dashboard-api"
 import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
-import { DASHBOARD_API_BASE_URL, DEFAULT_VALIDITY, VERSION } from "./constants"
+import {
+  DASHBOARD_API_BASE_URL,
+  DEFAULT_VALIDITY,
+  ONCHAIN_ATTESTED_SCOPE_PREFIX,
+  VERSION,
+} from "./constants"
 
 // If Buffer is not defined, then we use the Buffer from the buffer package
 if (typeof globalThis.Buffer === "undefined") {
@@ -156,7 +162,7 @@ export {
 export * from "./types"
 export { createOfflineQuery, normalizeCountry } from "./offline-query"
 export type { KeyPair } from "@obsidion/bridge"
-export { VERSION } from "./constants"
+export { VERSION, ONCHAIN_ATTESTED_SCOPE_PREFIX } from "./constants"
 
 let onResultDeprecationWarned = false
 function warnOnResultDeprecated() {
@@ -806,6 +812,7 @@ export class ZKPassport {
     }
     // Rejects unknown entries now rather than in the app
     if (allowedCredentials) serializeAllowedCredentials(allowedCredentials)
+    assertOnchainAttestedScope(mode, scope, allowedCredentials)
 
     if (oprfKeyId && uniqueIdentifierType === NullifierType.NONE) {
       throw new Error(
@@ -1108,7 +1115,6 @@ export class ZKPassport {
               domain: this.domain,
               scope,
               devMode,
-              allowedCredentials,
             })
           } else {
             verified = await bbVerifier.verify(proof, hostedPackagedCircuit)
@@ -1156,14 +1162,12 @@ export class ZKPassport {
     domain,
     scope,
     devMode = false,
-    allowedCredentials,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain?: string
     scope?: string
     devMode?: boolean
-    allowedCredentials?: AllowedCredential[]
   }) {
     return SolidityVerifier.getParameters({
       proof,
@@ -1171,7 +1175,6 @@ export class ZKPassport {
       domain: domain ?? this.domain,
       scope,
       devMode,
-      allowedCredentials,
     })
   }
 
@@ -1270,5 +1273,27 @@ export class ZKPassport {
     for (const requestId in this.topicToBridge) {
       this.cancelRequest(requestId)
     }
+  }
+}
+
+/**
+ * On chain, a device-attested (tier 2) proof is only accepted for a scope that opts in with
+ * {@link ONCHAIN_ATTESTED_SCOPE_PREFIX}, so a request for one says so before the user proves
+ */
+function assertOnchainAttestedScope(
+  mode: ProofMode | undefined,
+  scope: string | undefined,
+  allowedCredentials: AllowedCredential[] | undefined,
+) {
+  if (mode !== "compressed-evm" || !allowedCredentials) return
+  const attested = [
+    CredentialScheme.ATTESTED_CAPTURE_IOS,
+    CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+  ]
+  if (!attested.some((scheme) => isCredentialAllowed(scheme, allowedCredentials))) return
+  if (!scope?.startsWith(ONCHAIN_ATTESTED_SCOPE_PREFIX)) {
+    throw new Error(
+      `Tier 2 credentials are only accepted on chain for a scope starting with "${ONCHAIN_ATTESTED_SCOPE_PREFIX}". Set scope to e.g. "${ONCHAIN_ATTESTED_SCOPE_PREFIX}${scope ?? "my-scope"}" and use the same scope in your contract.`,
+    )
   }
 }
