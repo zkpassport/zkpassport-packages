@@ -1,0 +1,36 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index db614c0..ece26c0 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -158,10 +158,9 @@ var import_modular2 = require("@noble/curves/abstract/modular.js");
+ var import_utils = require("@noble/hashes/utils.js");
+ var CURVE_N = import_misc2.babyjubjub.Point.CURVE().n;
+ var COFACTOR = 8n;
+-var SUBGROUP_SCALAR_ORDER = CURVE_N / COFACTOR;
+-var Fr = (0, import_modular2.Field)(SUBGROUP_SCALAR_ORDER, {
+-  BITS: 249
+-});
++// @noble/curves >=2.2.0 already returns the subgroup order (oprf-client-js #54)
++var SUBGROUP_SCALAR_ORDER = CURVE_N % COFACTOR === 0n ? CURVE_N / COFACTOR : CURVE_N;
++var Fr = (0, import_modular2.Field)(SUBGROUP_SCALAR_ORDER);
+ var Fq = import_misc2.babyjubjub.Point.Fp;
+ var BABYJUBJUB_SUBGROUP_GENERATOR_AFFINE = {
+   x: 5299619240641551281634865583518297030282874472190772894086521144482721001553n,
+diff --git a/dist/index.js b/dist/index.js
+index 36ad7b5..4c68ba6 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -106,10 +106,9 @@ import { Field } from "@noble/curves/abstract/modular.js";
+ import { randomBytes } from "@noble/hashes/utils.js";
+ var CURVE_N = babyjubjub2.Point.CURVE().n;
+ var COFACTOR = 8n;
+-var SUBGROUP_SCALAR_ORDER = CURVE_N / COFACTOR;
+-var Fr = Field(SUBGROUP_SCALAR_ORDER, {
+-  BITS: 249
+-});
++// @noble/curves >=2.2.0 already returns the subgroup order (oprf-client-js #54)
++var SUBGROUP_SCALAR_ORDER = CURVE_N % COFACTOR === 0n ? CURVE_N / COFACTOR : CURVE_N;
++var Fr = Field(SUBGROUP_SCALAR_ORDER);
+ var Fq = babyjubjub2.Point.Fp;
+ var BABYJUBJUB_SUBGROUP_GENERATOR_AFFINE = {
+   x: 5299619240641551281634865583518297030282874472190772894086521144482721001553n,

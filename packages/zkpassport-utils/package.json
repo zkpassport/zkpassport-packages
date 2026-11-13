@@ -129,6 +129,7 @@
     "@peculiar/x509": "^1.12.3",
     "@taceo/oprf-client": "^0.9.0",
     "@taceo/oprf-core": "^0.4.0",
+    "@taceo/poseidon2": "^0.2.0",
     "@zk-kit/utils": "1.3.0",
     "@zkpassport/poseidon2": "^0.6.2",
     "date-fns": "^4.1.0",

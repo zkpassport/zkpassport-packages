@@ -1,8 +1,29 @@
 import { ProofResult } from "@/types"
 
-export type OPRFEvaluatorAuth = {
+/** v1 `face-match` module */
+export type OPRFFaceMatchAuth = {
   oprf_key_id: string
   proofs: ProofResult[]
+}
+
+/** v2 `register` module: always evaluated under the registration key, so no key id */
+export type OPRFRegisterAuth = {
+  proofs: ProofResult[]
+}
+
+/** v2 `nullifier` module */
+export type OPRFNullifierAuth = {
+  oprf_key_id: string
+  /** registration id, decimal strings [x, y] */
+  I: [string, string]
+  proofs: ProofResult[]
+}
+
+export type OPRFEvaluatorAuth = OPRFFaceMatchAuth | OPRFRegisterAuth | OPRFNullifierAuth
+
+export type BabyJubJubPoint = {
+  x: bigint
+  y: bigint
 }
 
 export type OPRFEvaluatorOptions = {
