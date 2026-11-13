@@ -23,14 +23,14 @@ const DG1 = new Uint8Array([
 const PORTRAIT_HASH = sha256(new TextEncoder().encode("portrait"))
 
 // Printed by `nargo test --package attested_to_disclosure_commitment --show-output test_vectors`
-const NOIR_PRIVATE_NULLIFIER = 0x268d201714d4c95b9cbea4ec4910962f6b6239a6011bce1e05ac93d8b3c1130en
+const NOIR_PRIVATE_NULLIFIER = 0x24d5137a221f45ac12c51061979bfa8fb9515543179bb3f87c1b8463b29a7272n
 const NOIR_ID_CARD_PRIVATE_NULLIFIER =
-  0x26494576986dd8b931a4ffefbbc69db50ba5ea8ea8365a477ff2ae4929d9a514n
+  0x0be1773aeb4e37132e8ad0cfe011e7c72b36e065bdb9bbd8e1b7bce39bbe1eeen
 const NOIR_GERMAN_PRIVATE_NULLIFIER =
-  0x2f0450e266d1d32119b119d4123df94b8a657aba866ea56a29a00c43dde26ce6n
+  0x1236bb0ef54f9776d44bb9cbaad5f0edb8ecd5595bf00f13b8f3fdcb7074faf2n
 const NOIR_LONG_NUMBER_PRIVATE_NULLIFIER =
-  0x1802e9c59e5d01ff241800a1f43b8d729bce77c51de38e44a3bfdb0cb669039dn
-const NOIR_COMM_OUT = 0x19793a0d17b7a1540fdfda1f64d6e48d4264250003e2a37f6d52a86f6de5e392n
+  0x2f3a12fcf4775d3f4f22a7286bee11ab775537943110ff89e6899c1b4f1a8539n
+const NOIR_COMM_OUT = 0x2968a9819a3599a98e0834a6b5abd0ccfac8c778cfda06c7fbce9400171aa0b7n
 
 // The ICAO 9303 sample TD1 ID card "I<UTOD231458907...", born 1974-08-12, expiring 2012-04-15
 const ID_CARD_DG1 = new Uint8Array([
