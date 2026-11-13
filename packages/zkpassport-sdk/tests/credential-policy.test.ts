@@ -19,7 +19,7 @@ import { PublicInputChecker } from "../src/public-input-checker"
 
 // The public inputs of an attested ID proof made on a real device, with its parameter commitment
 // recomputed under the attested ID proof type, followed by the disclosure proofs' public inputs
-// the app would make on top of it (0.22.0 layout, 9 inputs each)
+// the app would make on top of it (0.23.0 layout, 9 inputs each)
 const ATTESTED_PUBLIC_INPUTS =
   "0a7d0237ba949f4239d663f66399a6cb7cace709f54385d3fb008ed5d22148c322ad0facfad6d79b410849cb811339faeed481012319bea453cbc5664e397f470000000000000000000000000000000000000000000000000000000000000002"
 const ATTESTED_COMMITTED = {
@@ -52,7 +52,7 @@ async function proofs(scheme: CredentialScheme): Promise<ProofResult[]> {
   const subscope = getServiceSubscopeHash(SCOPE)
   const disclosure = (name: string, param: bigint, committedInputs: object) => ({
     name,
-    version: "0.22.0" as const,
+    version: "0.23.0" as const,
     proof: [comm, now, scopeHash, subscope, param, 4, 0, 0].map(field).join("") + body,
     committedInputs,
   })
@@ -61,7 +61,7 @@ async function proofs(scheme: CredentialScheme): Promise<ProofResult[]> {
   return [
     {
       name: "attested_id_ios",
-      version: "0.22.0",
+      version: "0.23.0",
       proof: attestedPublicInputs + body,
       committedInputs: { attested_id_ios: ATTESTED_COMMITTED },
     },
