@@ -13,8 +13,14 @@ const TD1_LINE_LENGTH = 30
 const PRINCIPAL_NUMBER_LENGTH = 9
 const OPTIONAL_DATA_LENGTH = 15
 
-/** The expiry date a document valid for life is given: fixed, so its nullifier never changes */
-export const LIFETIME_EXPIRY_DATE = "2099-12-31"
+/**
+ * The expiry date a document valid for life is given: fixed, so its nullifier never changes. The
+ * MRZ keeps two digits of the year, and the circuits and apps read a year above (this year + 30)
+ * as 19YY, so it must stay inside that window: "55" reads as 2055 from 2025 on, while "99" would
+ * read as 1999 and the card as expired. Lifetime cards stop proving after 2055, long before which
+ * the circuits should mark a lifetime expiry explicitly.
+ */
+export const LIFETIME_EXPIRY_DATE = "2055-12-31"
 
 export class Td1MrzError extends Error {}
 

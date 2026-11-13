@@ -31,7 +31,7 @@ describe("national IDs read from their printed text", () => {
       `IDCHN110105194<91231002X${mrzCheckDigit("11010519491231002X")}`.padEnd(30, "<"),
     )
     expect(line2.slice(0, 15)).toBe(
-      `491231${mrzCheckDigit("491231")}M991231${mrzCheckDigit("991231")}`,
+      `491231${mrzCheckDigit("491231")}M551231${mrzCheckDigit("551231")}`,
     )
     expect(line2.slice(15, 18)).toBe("CHN")
     expect(line3).toBe("WANG<<XIAOMING".padEnd(30, "<"))
