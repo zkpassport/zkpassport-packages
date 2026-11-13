@@ -64,12 +64,12 @@ test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
 })
 
-test("BIND_ACCOUNT matches the published Aztec network bind vector's user address", () => {
-  expect(hex("BIND_ACCOUNT")).toBe(namedVector("bind_user_address_aztec_network").params.userAddress)
+test("BIND_ACCOUNT matches the published Aztec testnet bind vector's user address", () => {
+  expect(hex("BIND_ACCOUNT")).toBe(namedVector("bind_user_address_aztec_testnet").params.userAddress)
 })
 
-test("BIND_COMMITMENT matches the published Aztec network bind vector", () => {
-  expect(hex("BIND_COMMITMENT")).toBe(namedVector("bind_user_address_aztec_network").commitment)
+test("BIND_COMMITMENT matches the published Aztec testnet bind vector", () => {
+  expect(hex("BIND_COMMITMENT")).toBe(namedVector("bind_user_address_aztec_testnet").commitment)
 })
 
 test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () => {
@@ -83,8 +83,8 @@ test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () =>
 
 // The age fixture is an outer_count_5 proof (age + bind subproofs): slots 5 and 6 are its two
 // param commitments, in prover-chosen order: the age anchor and the bind subproof's commitment,
-// over the address and the network the fixture is bound to. core's txe.nr test recomputes the
-// latter from proof.nr's bound address and network.
+// over the address and the chain the fixture is bound to. core's txe.nr test recomputes the
+// latter from proof.nr's bound address and chain id.
 test("the age fixture's param commitments are the age anchor and its bind commitment", () => {
   expect(ageFixture.publicInputs).toHaveLength(10)
   const params = ageFixture.publicInputs.slice(5, 7).map((pi: string) => BigInt(pi))
@@ -154,8 +154,5 @@ test("the proof-fixture globals match the age proof fixture", () => {
   expect(BigInt(gen.AGE_FIXTURE_VK_HASH as string)).toBe(BigInt(ageFixture.vkeyHashBB))
   expect(BigInt(gen.AGE_FIXTURE_CURRENT_DATE as string)).toBe(BigInt(ageFixture.nowTimestamp))
   expect(BigInt(gen.AGE_FIXTURE_BIND_ADDRESS as string)).toBe(BigInt(ageFixture.bindAddress))
-  expect(BigInt(gen.AGE_FIXTURE_BIND_L1_CHAIN_ID as string)).toBe(BigInt(ageFixture.bindL1ChainId))
-  expect(BigInt(gen.AGE_FIXTURE_BIND_ROLLUP_VERSION as string)).toBe(
-    BigInt(ageFixture.bindRollupVersion),
-  )
+  expect(BigInt(gen.AGE_FIXTURE_BIND_CHAIN_ID as string)).toBe(BigInt(ageFixture.bindChainId))
 })

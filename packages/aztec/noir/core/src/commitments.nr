@@ -87,11 +87,13 @@ pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
 }
 
-/// bind(user_address, Aztec network): the 509-byte bound data @zkpassport/utils' formatBoundData
-/// writes for an address and an Aztec chain, then zero padding:
+/// bind(user_address, chain): the 509-byte bound data @zkpassport/utils' formatBoundData writes for
+/// an address and a chain, then zero padding:
 /// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address]
-/// [identifier = 4 (AZTEC_NETWORK)][len_hi = 0][len_lo = 64][32-byte BE L1 chain id][32-byte BE rollup version]
-pub fn bind_commitment(account: Field, chain_id: Field, version: Field) -> Field {
+/// [identifier = 2 (CHAIN_ID)][len_hi = 0][len_lo = n][chain id as n BE bytes, n as small as fits]
+/// An Aztec network's chain id is its rollup version, a 4-byte number, so `chain_id` must fit in
+/// 4 bytes.
+pub fn bind_commitment(account: Field, chain_id: Field) -> Field {
     let mut data = [0 as u8; 509];
     data[0] = 1;
     data[1] = 0;
@@ -101,14 +103,25 @@ pub fn bind_commitment(account: Field, chain_id: Field, version: Field) -> Field
         data[3 + i] = account_bytes[i];
     }
 
-    data[35] = 4;
+    let chain_id_bytes: [u8; 4] = chain_id.to_be_bytes();
+    let leading_zero_bytes = if chain_id_bytes[0] != 0 {
+        0
+    } else if chain_id_bytes[1] != 0 {
+        1
+    } else if chain_id_bytes[2] != 0 {
+        2
+    } else {
+        3
+    };
+    let chain_id_length = 4 - leading_zero_bytes;
+
+    data[35] = 2;
     data[36] = 0;
-    data[37] = 64;
-    let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
-    let version_bytes: [u8; 32] = version.to_be_bytes();
-    for i in 0..32 {
-        data[38 + i] = chain_id_bytes[i];
-        data[70 + i] = version_bytes[i];
+    data[37] = chain_id_length as u8;
+    for i in 0..4 {
+        if i < chain_id_length {
+            data[38 + i] = chain_id_bytes[leading_zero_bytes + i];
+        }
     }
 
     bind_param_commitment(data)
@@ -183,7 +196,30 @@ mod test {
 
     #[test]
     fn bind_matches_conformance_anchor() {
-        assert(bind_commitment(BIND_ACCOUNT, 11155111, 679261766) == BIND_COMMITMENT);
+        assert(bind_commitment(BIND_ACCOUNT, 679261766) == BIND_COMMITMENT);
+    }
+
+    #[test]
+    fn bind_writes_a_chain_id_in_as_few_bytes_as_utils() {
+        // formatBoundData then getBindParameterCommitment in @zkpassport/utils, for BIND_ACCOUNT
+        // and the chains ethereum (1), base (8453) and ethereum_sepolia (11155111)
+        assert(
+            bind_commitment(BIND_ACCOUNT, 1)
+                == 0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784,
+        );
+        assert(
+            bind_commitment(BIND_ACCOUNT, 8453)
+                == 0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3,
+        );
+        assert(
+            bind_commitment(BIND_ACCOUNT, 11155111)
+                == 0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76,
+        );
+    }
+
+    #[test(should_fail)]
+    fn bind_rejects_a_chain_id_longer_than_4_bytes() {
+        let _ = bind_commitment(BIND_ACCOUNT, 0x100000000);
     }
 
     #[test]

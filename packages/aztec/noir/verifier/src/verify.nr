@@ -272,13 +272,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
         config.domain,
         config.scope,
         config.dev_mode,
-        query.expected_commitments(
-            disclosure,
-            sanctions_root,
-            face_match,
-            context.chain_id(),
-            context.version(),
-        ),
+        query.expected_commitments(disclosure, sanctions_root, face_match, context.version()),
     );
     let parsed = out.parsed;
 

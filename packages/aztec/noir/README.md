@@ -216,8 +216,10 @@ for `strict_face_match()`, since the ZKPassport SDK builds salted requests only 
    user's behalf. The `claim` function of the `AgeGate` example in
    [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples) is the pattern to copy.
 6. **A bind ties a proof to an address and a network, not to a deployment.** `bind_user_address`
-   covers the user's address and the network the contract runs on, the L1 chain id and rollup
+   covers the user's address and the network the contract runs on, as a chain id: the rollup
    version it reads from its context, so a proof bound for Aztec testnet doesn't verify on mainnet.
+   A rollup version is the first 4 bytes of a hash of the rollup's configuration and genesis state,
+   so a network deployed with the same configuration and genesis state, on any L1, shares it.
    It verifies against any deployment of an app on that network whose registry accepts its roots
    and VK, while the proof is within its validity period. Nullifiers are siloed per contract, so
    the same passport can claim once per deployment. A proof whose bound data carries anything else,

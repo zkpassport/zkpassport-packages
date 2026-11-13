@@ -47,10 +47,10 @@ pub(crate) global FACE_MATCH_COMMITMENT: Field =
 pub(crate) global BIND_ACCOUNT: Field =
     0x1122334455667788990011223344556677889900112233445566778899001122;
 
-/// bind_commitment(BIND_ACCOUNT, 11155111, 679261766): the account bound to Aztec testnet, whose
-/// L1 chain id and rollup version these are.
+/// bind_commitment(BIND_ACCOUNT, 679261766): the account bound to Aztec testnet, whose rollup
+/// version is its chain id.
 pub(crate) global BIND_COMMITMENT: Field =
-    0x1dc2c4316a74305242c9be364e154f3e5ef7e1c95a0ec0d7f5ef81f8dd2e4d8f;
+    0x260abafd2a3531d54ac6b4595a8a231bee885906858d3fa97d9dc09e8121c69e;
 
 /// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against a
 /// synthetic certificate registry and a circuits release's circuit registry, current_date
