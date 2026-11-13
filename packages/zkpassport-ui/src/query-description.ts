@@ -73,6 +73,7 @@ const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   passport: "passport",
   id_card: "ID card",
   residence_permit: "residence permit",
+  driving_license: "driving license",
 }
 
 // "Your ID is a passport" needs the article the raw value doesn't carry
@@ -80,6 +81,7 @@ const DOCUMENT_TYPE_PHRASES: Record<string, string> = {
   passport: "a passport",
   id_card: "an ID card",
   residence_permit: "a residence permit",
+  driving_license: "a driving license",
   other: "another accepted document",
 }
 
