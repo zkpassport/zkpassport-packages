@@ -1,5 +1,4 @@
 import {
-  getAztecNetwork,
   getChainDisplayName,
   getChainFromId,
   getChainFromQuery,
@@ -218,14 +217,5 @@ describe("Utils", () => {
     expect(getChainFromQuery(unboundQuery, false)).toBe("ethereum")
     expect(getChainFromQuery(queryBoundWithoutChain, true)).toBe("ethereum_sepolia")
     expect(getChainFromQuery(queryBoundWithoutChain, false)).toBe("ethereum")
-  })
-
-  test("getAztecNetwork should return an Aztec network's L1 chain id and rollup version", () => {
-    expect(getAztecNetwork("aztec")).toEqual({ l1ChainId: 1, rollupVersion: 2070860440 })
-    expect(getAztecNetwork("aztec_testnet")).toEqual({
-      l1ChainId: 11155111,
-      rollupVersion: 679261766,
-    })
-    expect(getAztecNetwork("ethereum")).toBeUndefined()
   })
 })
