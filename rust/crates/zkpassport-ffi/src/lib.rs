@@ -359,7 +359,10 @@ fn build_outer_request(request_json: &str) -> Result<serde_json::Value, String> 
             .ok_or_else(|| format!("circuit {} not in manifest", s.name))?
             .hash
             .clone();
-        let pd = outer::get_proof_data(&s.proof, outer::num_public_inputs(&s.name))?;
+        let pd = outer::get_proof_data(
+            &s.proof,
+            outer::num_public_inputs(&s.name, Some(&req.manifest.version)),
+        )?;
         let vkey_bytes = base64::engine::general_purpose::STANDARD
             .decode(&s.vkey)
             .map_err(|e| e.to_string())?;
