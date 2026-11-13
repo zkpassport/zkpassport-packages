@@ -22,6 +22,9 @@ describe("Conformance vectors", () => {
       "age",
       "bind",
       "bind",
+      "bind",
+      "bind",
+      "bind",
       "birthdate",
       "disclose",
       "expiry_date",
@@ -57,9 +60,15 @@ describe("Conformance vectors", () => {
     expect(hex(result)).toEqual(commitment)
   })
 
-  test("bind to an Aztec network", async () => {
-    const { params, commitment } = byName.bind_user_address_aztec_testnet
-    expect(getIdFromChain(params.chain)).toEqual(params.rollupVersion)
+  // Chain ids written in 1, 2, 3 and 4 bytes. An Aztec network's chain id is its rollup version.
+  test.each([
+    "bind_user_address_ethereum",
+    "bind_user_address_base",
+    "bind_user_address_ethereum_sepolia",
+    "bind_user_address_aztec_testnet",
+  ])("%s", async (name) => {
+    const { params, commitment } = byName[name]
+    expect(getIdFromChain(params.chain)).toEqual(params.chainId)
 
     const data = formatBoundData({ user_address: params.userAddress, chain: params.chain })
     const result = await getBindParameterCommitment(data, params.maxLength)
