@@ -56,8 +56,9 @@ async function proofs(scheme: CredentialScheme): Promise<ProofResult[]> {
     proof: [comm, now, scopeHash, subscope, param, 4, 0, 0].map(field).join("") + body,
     committedInputs,
   })
-  // The attested proof states its scheme in its own last public input
-  const attestedPublicInputs = ATTESTED_PUBLIC_INPUTS.slice(0, 2 * 64) + field(scheme)
+  // The attested proof starts with its attestation's date and states its scheme in its own last
+  // public input
+  const attestedPublicInputs = field(now) + ATTESTED_PUBLIC_INPUTS.slice(0, 2 * 64) + field(scheme)
   return [
     {
       name: "attested_id_ios",

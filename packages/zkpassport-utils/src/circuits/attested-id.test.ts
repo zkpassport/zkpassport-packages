@@ -116,18 +116,19 @@ describe("android attested id", () => {
     ).toBe("attested_id_android_rk_rsa_ik_count_2_ik_ecdsa_p256_sha256_ik_ecdsa_p384_sha384")
   })
 
-  test("reads the outputs after the Android proof's current date", () => {
+  test("reads the attestation's date, then the outputs, on either platform", () => {
     const name = "attested_id_android_rk_ecdsa_ik_count_1_ik_ecdsa_p256_sha256"
     expect(getNumberOfPublicInputs(name)).toBe(4)
-    expect(getNumberOfPublicInputs("attested_id_ios")).toBe(3)
+    expect(getNumberOfPublicInputs("attested_id_ios")).toBe(4)
     const android = { publicInputs: ["0x6900f580", "0xa", "0xb", "0xc9"], proof: [] }
     expect(getCurrentDateFromAttestedIdProof(android)?.toISOString()).toBe(
       "2025-10-28T16:55:28.000Z",
     )
     expect(getCommitmentOutFromAttestedIdProof(android)).toBe(10n)
     expect(getParameterCommitmentFromAttestedIdProof(android)).toBe(11n)
-    const ios = { publicInputs: ["0xa", "0xb", "0xc8"], proof: [] }
-    expect(getCurrentDateFromAttestedIdProof(ios)).toBeUndefined()
+    // The iOS date is the credential certificate's notBefore day
+    const ios = { publicInputs: ["0x69000780", "0xa", "0xb", "0xc8"], proof: [] }
+    expect(getCurrentDateFromAttestedIdProof(ios)?.toISOString()).toBe("2025-10-28T00:00:00.000Z")
     expect(getCommitmentOutFromAttestedIdProof(ios)).toBe(10n)
   })
 })

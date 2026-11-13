@@ -97,7 +97,7 @@ describe("credential scheme", () => {
     expect(getNumberOfPublicInputs("data_check_integrity_sa_sha256", "0.23.0")).toBe(3)
     expect(getNumberOfPublicInputs("outer_count_6", "0.21.0")).toBe(11)
     expect(getNumberOfPublicInputs("outer_count_6", "0.23.0")).toBe(12)
-    expect(getNumberOfPublicInputs("attested_id_ios", "0.23.0")).toBe(3)
+    expect(getNumberOfPublicInputs("attested_id_ios", "0.23.0")).toBe(4)
     // Signature checks are untouched by the field
     expect(getNumberOfPublicInputs("sig_check_dsc_x", "0.23.0")).toBe(
       getNumberOfPublicInputs("sig_check_dsc_x", "0.21.0"),

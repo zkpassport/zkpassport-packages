@@ -39,12 +39,12 @@ export const isAndroidAttestedIdCircuit = (circuitName: string) =>
   circuitName.startsWith(ATTESTED_ID_ANDROID_CIRCUIT_PREFIX)
 
 /**
- * The attested_id proof returns (comm_out, param_commitment, credential_scheme). The Android one
- * also takes current_date as its one public input, before them, so the verifier can check the
- * proof is recent.
+ * The attested_id proof's public inputs on either platform: the attestation's date (the Android
+ * integrity token's, the iOS credential certificate's notBefore day), so the verifier can check
+ * the face match is recent, then comm_out, param_commitment and credential_scheme.
  */
-export function getAttestedIdProofPublicInputCount(circuitName?: string): number {
-  return circuitName && isAndroidAttestedIdCircuit(circuitName) ? 4 : 3
+export function getAttestedIdProofPublicInputCount(_circuitName?: string): number {
+  return 4
 }
 
 // The outputs are the last three public inputs on either platform
@@ -56,7 +56,7 @@ export function getParameterCommitmentFromAttestedIdProof(proofData: ProofData):
   return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
 }
 
-/** The date an Android attested_id proof was made for; iOS ones carry none */
+/** The date of the attestation an attested_id proof was made from: when the face was matched */
 export function getCurrentDateFromAttestedIdProof(proofData: ProofData): Date | undefined {
   if (proofData.publicInputs.length < 4) return undefined
   return new Date(Number(BigInt(proofData.publicInputs[0])) * 1000)
