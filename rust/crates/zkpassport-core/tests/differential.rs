@@ -844,7 +844,7 @@ fn outer_assembly_matches_ts() {
     let v = load();
 
     for c in v.num_pub.iter() {
-        assert_eq!(outer::num_public_inputs(&c.name), c.count, "numPub {}", c.name);
+        assert_eq!(outer::num_public_inputs(&c.name, None), c.count, "numPub {}", c.name);
     }
 
     // ultraVkToFields

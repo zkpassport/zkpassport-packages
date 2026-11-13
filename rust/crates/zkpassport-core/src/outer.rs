@@ -13,12 +13,38 @@ use serde_json::{json, Value};
 
 pub const CIRCUIT_REGISTRY_HEIGHT: usize = 12;
 
-/// `getNumberOfPublicInputs`
-pub fn num_public_inputs(name: &str) -> usize {
-    if name.starts_with("data_check_integrity")
-        || name.starts_with("sig_check_id_data")
-        || name.starts_with("sig_check_dsc")
-    {
+/// The first circuit version whose proofs carry the credential scheme
+/// (`CREDENTIAL_SCHEME_CIRCUIT_VERSION`)
+pub const CREDENTIAL_SCHEME_CIRCUIT_VERSION: &str = "0.23.0";
+
+/// `hasCredentialScheme`: whether proofs of a circuit version carry the credential scheme; a proof
+/// without a version is from before it existed
+pub fn has_credential_scheme(version: Option<&str>) -> bool {
+    let parse = |v: &str| -> Vec<u64> {
+        v.split('.')
+            .map(|p| p.split('-').next().unwrap_or("0").parse().unwrap_or(0))
+            .collect()
+    };
+    let Some(version) = version else {
+        return false;
+    };
+    let (a, b) = (parse(version), parse(CREDENTIAL_SCHEME_CIRCUIT_VERSION));
+    for i in 0..3 {
+        let (x, y) = (*a.get(i).unwrap_or(&0), *b.get(i).unwrap_or(&0));
+        if x != y {
+            return x > y;
+        }
+    }
+    true
+}
+
+/// `getNumberOfPublicInputs(name, version)`: since 0.23.0 the integrity proof also outputs the
+/// credential scheme, and the outer proof re-exports it
+pub fn num_public_inputs(name: &str, version: Option<&str>) -> usize {
+    let scheme = usize::from(has_credential_scheme(version));
+    if name.starts_with("data_check_integrity") {
+        2 + scheme
+    } else if name.starts_with("sig_check_id_data") || name.starts_with("sig_check_dsc") {
         2
     } else if name.starts_with("oprf_auth") {
         3
@@ -28,7 +54,7 @@ pub fn num_public_inputs(name: &str) -> usize {
             .next()
             .and_then(|s| s.parse().ok())
             .unwrap_or(3);
-        (8 + (n - 3)).max(0) as usize
+        (8 + (n - 3)).max(0) as usize + scheme
     } else {
         8
     }
@@ -186,7 +212,7 @@ pub fn get_outer_circuit_inputs(
         .map(|p| p.public_inputs[4].clone())
         .collect();
 
-    Ok(json!({
+    let mut inputs = json!({
         "certificate_registry_root": certificate_registry_root,
         "circuit_registry_root": circuit_registry_root,
         "current_date": current_date,
@@ -209,7 +235,12 @@ pub fn get_outer_circuit_inputs(
             ];
             p.to_json(&reordered)
         }).collect::<Vec<_>>(),
-    }))
+    });
+    // Since 0.23.0 the integrity proof outputs the credential scheme, which the outer checks
+    if let Some(scheme) = integrity.public_inputs.get(2) {
+        inputs["credential_scheme"] = json!(scheme);
+    }
+    Ok(inputs)
 }
 
 /// `getOuterCircuit` naming: N = disclosure_count + 3, range 4..=13.
@@ -219,4 +250,49 @@ pub fn outer_circuit_name(disclosure_count: usize, evm: bool) -> Result<String, 
         return Err(format!("Unsupported number of subproofs: {n} (expected 4-13)"));
     }
     Ok(format!("outer_{}count_{n}", if evm { "evm_" } else { "" }))
+}
+
+#[cfg(test)]
+mod credential_scheme_tests {
+    use super::*;
+
+    #[test]
+    fn the_scheme_is_carried_from_0_23_0() {
+        assert!(!has_credential_scheme(None));
+        assert!(!has_credential_scheme(Some("0.22.0")));
+        assert!(has_credential_scheme(Some("0.23.0")));
+        assert!(has_credential_scheme(Some("0.23.1")));
+        assert!(has_credential_scheme(Some("1.0.0")));
+        assert_eq!(num_public_inputs("data_check_integrity_sa_sha256", Some("0.22.0")), 2);
+        assert_eq!(num_public_inputs("data_check_integrity_sa_sha256", Some("0.23.0")), 3);
+        assert_eq!(num_public_inputs("outer_evm_count_6", Some("0.22.0")), 11);
+        assert_eq!(num_public_inputs("outer_evm_count_6", Some("0.23.0")), 12);
+        assert_eq!(num_public_inputs("sig_check_dsc_x", Some("0.23.0")), 2);
+        assert_eq!(num_public_inputs("compare_age", Some("0.23.0")), 8);
+    }
+
+    fn subproof(public_inputs: &[&str]) -> OuterSubproof {
+        OuterSubproof {
+            vkey: vec![],
+            proof: vec![],
+            public_inputs: public_inputs.iter().map(|s| s.to_string()).collect(),
+            key_hash: "0x1".into(),
+            tree_hash_path: vec![],
+            tree_index: "0".into(),
+        }
+    }
+
+    #[test]
+    fn the_outer_inputs_take_the_scheme_from_the_integrity_proof() {
+        let dsc = subproof(&["0xroot", "0xa"]);
+        let id = subproof(&["0xa", "0xb"]);
+        let disclosure = subproof(&["0xc", "0x5", "0x0", "0x0", "0xp", "0x1", "0x9", "0x0"]);
+        let integrity = subproof(&["0xb", "0xc", "0x64"]);
+        let disclosures = std::slice::from_ref(&disclosure);
+        let with = get_outer_circuit_inputs(&dsc, &id, &integrity, disclosures, "0xr").unwrap();
+        assert_eq!(with["credential_scheme"], "0x64");
+        let legacy = subproof(&["0xb", "0xc"]);
+        let without = get_outer_circuit_inputs(&dsc, &id, &legacy, disclosures, "0xr").unwrap();
+        assert!(without.get("credential_scheme").is_none());
+    }
 }
