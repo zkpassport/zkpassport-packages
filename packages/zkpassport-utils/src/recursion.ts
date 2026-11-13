@@ -15,7 +15,7 @@ const BASE_SUBPROOF_COUNT = 3
 const MAX_OUTER_DISCLOSURE_PROOFS = 10
 
 // Trailing outer public inputs: nullifier_type, scoped_nullifier, oprf_pk_hash, and since
-// circuit version 0.22.0 the credential scheme
+// circuit version 0.23.0 the credential scheme
 const trailingCount = (circuitVersion?: string) => (hasCredentialScheme(circuitVersion) ? 4 : 3)
 
 export type OuterCircuitProof = {
@@ -313,7 +313,7 @@ export function getParamCommitmentsFromOuterProof(
   circuitVersion?: string,
 ): bigint[] {
   // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash, and
-  // since circuit version 0.22.0 the credential scheme.
+  // since circuit version 0.23.0 the credential scheme.
   return proofData.publicInputs
     .slice(5, proofData.publicInputs.length - trailingCount(circuitVersion))
     .map(BigInt)

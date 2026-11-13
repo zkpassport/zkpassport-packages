@@ -221,7 +221,7 @@ describe("getOuterCircuitProof", () => {
 
   async function getCircuitManifest(): Promise<CircuitManifest> {
     return {
-      version: "0.22.0",
+      version: "0.23.0",
       root: await calculateCircuitRoot({ hashes: VKEY_HASHES }),
       circuits: Object.fromEntries(
         VKEY_HASHES.map((hash, index) => [`circuit_${index}`, { hash, size: 1 }]),
@@ -242,9 +242,9 @@ describe("getOuterCircuitProof", () => {
   })
 
   test("splits an integrity proof by the public inputs of its circuit version", async () => {
-    // Since 0.22.0 the integrity check outputs the credential scheme after comm_out
+    // Since 0.23.0 the integrity check outputs the credential scheme after comm_out
     const integrity = { ...circuit, name: "data_check_integrity_sa_sha256_dg_sha256" }
-    const proof = { ...subproof, name: integrity.name, version: "0.22.0" as const }
+    const proof = { ...subproof, name: integrity.name, version: "0.23.0" as const }
     const split = await getOuterCircuitProof(
       { ...proof, proof: [1, 2, 0x64, 0x21].map(field).join("") },
       integrity,
@@ -311,7 +311,7 @@ describe("getOuterCircuitProof", () => {
   })
 })
 
-describe("outer proof public inputs since circuit version 0.22.0", () => {
+describe("outer proof public inputs since circuit version 0.23.0", () => {
   // [..., nullifier_type, scoped_nullifier, oprf_pk_hash, credential_scheme]
   const proof = {
     proof: [],
@@ -331,10 +331,10 @@ describe("outer proof public inputs since circuit version 0.22.0", () => {
   }
 
   test("the trailing fields shift by one for the credential scheme", () => {
-    expect(getNullifierTypeFromOuterProof(proof, "0.22.0")).toEqual(NullifierType.SALTED)
-    expect(getNullifierFromOuterProof(proof, "0.22.0")).toEqual(0x77n)
-    expect(getOprfPkHashFromOuterProof(proof, "0.22.0")).toEqual(0x88n)
-    expect(getParamCommitmentsFromOuterProof(proof, "0.22.0")).toEqual([0xaan, 0xbbn])
+    expect(getNullifierTypeFromOuterProof(proof, "0.23.0")).toEqual(NullifierType.SALTED)
+    expect(getNullifierFromOuterProof(proof, "0.23.0")).toEqual(0x77n)
+    expect(getOprfPkHashFromOuterProof(proof, "0.23.0")).toEqual(0x88n)
+    expect(getParamCommitmentsFromOuterProof(proof, "0.23.0")).toEqual([0xaan, 0xbbn])
     expect(getCredentialSchemeFromOuterProof(proof)).toEqual(CredentialScheme.ATTESTED_CAPTURE_IOS)
   })
 })
@@ -353,7 +353,7 @@ describe("Tier 2 outer circuit", () => {
 
   test("counts the public inputs: 9 fixed and one commitment per subproof", () => {
     expect(getNumberOfPublicInputs("outer_attested_ios_count_2")).toEqual(11)
-    expect(getNumberOfPublicInputs("outer_evm_attested_android_count_11", "0.22.0")).toEqual(20)
+    expect(getNumberOfPublicInputs("outer_evm_attested_android_count_11", "0.23.0")).toEqual(20)
   })
 
   test("names the outer circuit after the platform and its subproofs", () => {

@@ -81,23 +81,25 @@ describe("credential scheme", () => {
     expect(getCredentialSchemeForPassport(android)).toBe(CredentialScheme.ATTESTED_CAPTURE_ANDROID)
   })
 
-  test("the field exists from circuit version 0.22.0, and never on a proof without a version", () => {
+  test("the field exists from circuit version 0.23.0, and never on a proof without a version", () => {
     expect(hasCredentialScheme("0.21.0")).toBe(false)
-    expect(hasCredentialScheme("0.22.0")).toBe(true)
+    // 0.22.0 is live without it
+    expect(hasCredentialScheme("0.22.0")).toBe(false)
+    expect(hasCredentialScheme("0.23.0")).toBe(true)
     expect(hasCredentialScheme("1.0.0")).toBe(true)
     expect(hasCredentialScheme(undefined)).toBe(false)
   })
 
   test("public input counts grow by one with the field", () => {
     expect(getNumberOfPublicInputs("disclose_bytes", "0.21.0")).toBe(8)
-    expect(getNumberOfPublicInputs("disclose_bytes", "0.22.0")).toBe(8)
+    expect(getNumberOfPublicInputs("disclose_bytes", "0.23.0")).toBe(8)
     expect(getNumberOfPublicInputs("data_check_integrity_sa_sha256", "0.21.0")).toBe(2)
-    expect(getNumberOfPublicInputs("data_check_integrity_sa_sha256", "0.22.0")).toBe(3)
+    expect(getNumberOfPublicInputs("data_check_integrity_sa_sha256", "0.23.0")).toBe(3)
     expect(getNumberOfPublicInputs("outer_count_6", "0.21.0")).toBe(11)
-    expect(getNumberOfPublicInputs("outer_count_6", "0.22.0")).toBe(12)
-    expect(getNumberOfPublicInputs("attested_id_ios", "0.22.0")).toBe(3)
+    expect(getNumberOfPublicInputs("outer_count_6", "0.23.0")).toBe(12)
+    expect(getNumberOfPublicInputs("attested_id_ios", "0.23.0")).toBe(3)
     // Signature checks are untouched by the field
-    expect(getNumberOfPublicInputs("sig_check_dsc_x", "0.22.0")).toBe(
+    expect(getNumberOfPublicInputs("sig_check_dsc_x", "0.23.0")).toBe(
       getNumberOfPublicInputs("sig_check_dsc_x", "0.21.0"),
     )
   })

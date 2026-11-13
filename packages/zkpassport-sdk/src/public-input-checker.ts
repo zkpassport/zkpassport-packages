@@ -3133,7 +3133,7 @@ export class PublicInputChecker {
           }
         }
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
-        // Integrity proofs made before circuit version 0.22.0 carry no scheme: they are ICAO
+        // Integrity proofs made before circuit version 0.23.0 carry no scheme: they are ICAO
         credentialScheme =
           getCredentialSchemeFromIntegrityProof(proofData) ?? CredentialScheme.ICAO_CHIP
       } else if (proof.name === "disclose_bytes") {

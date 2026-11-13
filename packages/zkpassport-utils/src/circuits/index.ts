@@ -107,7 +107,7 @@ export async function hashSaltDg1Dg2HashPrivateNullifier(
 }
 
 // The disclosure proofs' public inputs are, in order: comm_in, current_date, service_scope,
-// service_subscope, param_commitment, nullifier_type, nullifier, oprf_pk_hash and, from 0.22.0,
+// service_subscope, param_commitment, nullifier_type, nullifier, oprf_pk_hash and, from 0.23.0,
 // the credential scheme. The scheme is appended, so the earlier fields keep their positions.
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[6])
@@ -191,7 +191,7 @@ export async function getHostedPackagedCircuitByName(
  * @returns The number of public inputs.
  */
 /**
- * How many public inputs a proof of the circuit has. Since circuit version 0.22.0 the integrity
+ * How many public inputs a proof of the circuit has. Since circuit version 0.23.0 the integrity
  * and outer proofs carry the credential scheme as one more; `circuitVersion` is the version the
  * proof was made with (none means a version before the credential scheme).
  */

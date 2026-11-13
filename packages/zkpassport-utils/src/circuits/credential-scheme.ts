@@ -18,7 +18,7 @@ export {
 export type { AllowedCredential } from "../types/credential"
 
 /** The first circuit version whose proofs carry the credential scheme */
-export const CREDENTIAL_SCHEME_CIRCUIT_VERSION = "0.22.0"
+export const CREDENTIAL_SCHEME_CIRCUIT_VERSION = "0.23.0"
 
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((x) => Number(x))
