@@ -3998,8 +3998,8 @@ export class PublicInputChecker {
   }
 
   /**
-   * An Android attested ID proof carries its date, which must be recent. The app reuses the
-   * proof, so it may be older than a disclosure proof's.
+   * An attested ID proof carries its attestation's date, which must be recent: the face match
+   * is at most 30 days old. The app reuses the proof, so it may be older than a disclosure proof's.
    */
   public static checkAttestedIdDate(attestedAt: Date) {
     let isCorrect = true
