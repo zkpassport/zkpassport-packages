@@ -5,6 +5,7 @@ export {
   assembleProofCapsule,
   assembleSanctionsCapsule,
   type OuterProofParts,
+  toAztecCapsules,
 } from "./capsule.ts"
 export {
   DISCLOSE_CAPSULE_SLOT,
