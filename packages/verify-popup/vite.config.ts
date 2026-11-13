@@ -24,11 +24,13 @@ function appClipRequestPage(): Plugin {
     enforce: "post",
     generateBundle(_, bundle) {
       const requestPage = bundle["r.html"]
-      if (requestPage?.type !== "asset") return
+      const html = requestPage?.type === "asset" ? String(requestPage.source) : ""
+      // /c is the default request link, so a build without its page or its tag must not pass
+      if (!html.includes("<head>")) this.error("c.html: r.html was not built or has no <head>")
       this.emitFile({
         type: "asset",
         fileName: "c.html",
-        source: String(requestPage.source).replace("<head>", `<head>\n    ${APP_CLIP_TAG}`),
+        source: html.replace("<head>", `<head>\n    ${APP_CLIP_TAG}`),
       })
     },
   }
