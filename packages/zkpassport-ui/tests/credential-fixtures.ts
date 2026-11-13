@@ -27,6 +27,7 @@ export type RawRequirements = {
   faceMatchMode: number
   includedNationalities: string[]
   excludedNationalities: string[]
+  allowedCredentialSchemes?: bigint[]
 }
 
 export const RAW_REQUIREMENTS: RawRequirements = {
@@ -50,6 +51,8 @@ export function stubChain(
      * 1 salted, 2-3 mock twins, 4 none); defaults to non-salted.
      */
     uniqueIdentifierType?: number
+    /** The evaluator's requirement schema; defaults to 1 */
+    schemaVersion?: bigint
   } = {},
 ) {
   const policy = stub.policy ?? SAMPLE_POLICY
@@ -67,7 +70,7 @@ export function stubChain(
         case "domain":
           return DOMAIN
         case "schemaVersion":
-          return 1n
+          return stub.schemaVersion ?? 1n
         case "decodeRequirements":
           return requirements
         case "devMode":

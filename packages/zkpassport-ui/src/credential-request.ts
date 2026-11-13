@@ -1,5 +1,10 @@
 import { NullifierType } from "@zkpassport/sdk"
-import type { QueryBuilder, QueryBuilderResult, SupportedChain } from "@zkpassport/sdk"
+import type {
+  AllowedCredential,
+  QueryBuilder,
+  QueryBuilderResult,
+  SupportedChain,
+} from "@zkpassport/sdk"
 import { getCredentialsChain, type CredentialsClient } from "@zkpassport/onchain-credentials"
 
 /**
@@ -27,6 +32,11 @@ export type CredentialProofRequest = {
    * for any other policy.
    */
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
+  /**
+   * The credential schemes the policy accepts (schema 2 evaluators), passed on to the app so it
+   * offers the IDs issue() will take; undefined leaves the default, tier 1 only
+   */
+  allowedCredentials?: AllowedCredential[]
   query: (qb: QueryBuilder) => QueryBuilderResult
 }
 
@@ -79,6 +89,9 @@ export async function buildCredentialProofRequest(
     // check for non-unique policies, and a NONE nullifier cannot be requested.
     uniqueIdentifierType:
       uniqueIdentifierType === NullifierType.NONE ? undefined : uniqueIdentifierType,
+    allowedCredentials: requirements.allowedCredentialSchemes?.length
+      ? (requirements.allowedCredentialSchemes as AllowedCredential[])
+      : undefined,
     query: (qb) => {
       let q = qb
       if (requirements.minAge > 0) q = q.gte("age", requirements.minAge)
