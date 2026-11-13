@@ -90,11 +90,22 @@ local network that is the local network registry, below. On a network without on
 `Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
 `age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
 `nationality_in`, `nationality_out`, `issuing_country_in` and `issuing_country_out`;
-`bind_user_address`; `sanctions` and `strict_sanctions`; `face_match` and `strict_face_match`; a
-`disclose_*` method per MRZ field; and
+`bind_user_address` and `bind_custom_data`; `sanctions` and `strict_sanctions`; `face_match` and
+`strict_face_match`; a `disclose_*` method per MRZ field; and
 `disclose_full_name`, which requires the whole name where `disclose_name` accepts part of it.
 The proof must carry exactly the subproofs the query asks for, so the ZKPassport request that
 made it asks for the same checks.
+
+`bind_user_address(user)` and `bind_custom_data(data)` share one bind subproof, alone or together
+in either order, and either one also binds the network the contract runs on. `data` is a string of
+1 to 464 bytes, compared as its UTF-8 bytes, so it must match the request's byte for byte. To bind
+a value the user picks, take it as an argument of the contract function. The ZKPassport request
+binds the same entries: `user_address` for an address, `custom_data` with the same string, and the
+chain `aztec` or `aztec_testnet`.
+
+```noir
+let query = Query::new().age_min(18).bind_user_address(user).bind_custom_data("order-42");
+```
 
 ### Testing against the local network registry
 
@@ -222,8 +233,8 @@ for `strict_face_match()`, since the ZKPassport SDK builds salted requests only 
    so a network deployed with the same configuration and genesis state, on any L1, shares it.
    It verifies against any deployment of an app on that network whose registry accepts its roots
    and VK, while the proof is within its validity period. Nullifiers are siloed per contract, so
-   the same passport can claim once per deployment. A proof whose bound data carries anything else,
-   such as custom data, does not verify, because the bind commitment covers every entry.
+   the same passport can claim once per deployment. The bind commitment covers every entry, so a
+   proof whose bound data carries custom data the query doesn't bind does not verify.
 7. **The admin can update the registry's code in place.** `update_to(new_class_id)` switches the
    registry to another published contract class at the same address, keeping its storage and roles,
    once the contract instance registry's update delay has passed (`set_update_delay`; one day by

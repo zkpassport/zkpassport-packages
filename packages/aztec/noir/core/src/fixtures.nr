@@ -47,22 +47,46 @@ pub(crate) global FACE_MATCH_COMMITMENT: Field =
 pub(crate) global BIND_ACCOUNT: Field =
     0x1122334455667788990011223344556677889900112233445566778899001122;
 
-/// bind_commitment(BIND_ACCOUNT, 679261766): the account bound to Aztec testnet, whose rollup
-/// version is its chain id.
+/// The account bound to Aztec testnet, whose chain id is its rollup version, 679261766.
 pub(crate) global BIND_COMMITMENT: Field =
     0x260abafd2a3531d54ac6b4595a8a231bee885906858d3fa97d9dc09e8121c69e;
 
-/// bind_commitment(BIND_ACCOUNT, 1): the account bound to Ethereum, a chain id of 1 byte.
+/// The account bound to Ethereum, a chain id of 1 byte.
 pub(crate) global BIND_ETHEREUM_COMMITMENT: Field =
     0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784;
 
-/// bind_commitment(BIND_ACCOUNT, 8453): the account bound to Base, a chain id of 2 bytes.
+/// The account bound to Base, a chain id of 2 bytes.
 pub(crate) global BIND_BASE_COMMITMENT: Field =
     0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3;
 
-/// bind_commitment(BIND_ACCOUNT, 11155111): the account bound to Sepolia, a chain id of 3 bytes.
+/// The account bound to Sepolia, a chain id of 3 bytes.
 pub(crate) global BIND_ETHEREUM_SEPOLIA_COMMITMENT: Field =
     0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76;
+
+/// The account and the custom data "order-42" bound to Aztec testnet.
+pub(crate) global BIND_CUSTOM_DATA_COMMITMENT: Field =
+    0x0b4cce7b81e1963b13087036d0fc5ff3060d0edf45c27d6c6f747fa1e7b84977;
+
+/// The custom data "café", 5 bytes in UTF-8, bound to Aztec testnet without an account.
+pub(crate) global BIND_CUSTOM_DATA_WITHOUT_ACCOUNT_COMMITMENT: Field =
+    0x2cdf0e30c99518e409928a17887182aacccb916383502d62fbe7800adba694be;
+
+/// The account and "order-42" bound to Ethereum, after a chain id of 1 byte.
+pub(crate) global BIND_CUSTOM_DATA_ETHEREUM_COMMITMENT: Field =
+    0x1ff84abadecca8ab2811fea5e979734569706e228c21582c527e1dfa45fb544d;
+
+/// The account and "order-42" bound to Base, after a chain id of 2 bytes.
+pub(crate) global BIND_CUSTOM_DATA_BASE_COMMITMENT: Field =
+    0x22dab7bbdf2eb10510bd1382dab54f9a566bc6aa2ae63edc3462d1b742368b96;
+
+/// The account and "order-42" bound to Sepolia, after a chain id of 3 bytes.
+pub(crate) global BIND_CUSTOM_DATA_ETHEREUM_SEPOLIA_COMMITMENT: Field =
+    0x1884cc45d47980a6cde8b675f53880939e37bf4cae2940f3aa3567b267337e7f;
+
+/// The account and the longest custom data, "0123456789abcdef" 29 times (464 bytes), bound to
+/// Aztec testnet. The bound data fills all 509 bytes.
+pub(crate) global BIND_LONGEST_CUSTOM_DATA_COMMITMENT: Field =
+    0x2cd32cda22a96a1553abdf79c0719ed6466eb38d9d69c882779fa8f921a27b07;
 
 /// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against a
 /// synthetic certificate registry and a circuits release's circuit registry, current_date

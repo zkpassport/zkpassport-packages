@@ -31,6 +31,18 @@ pub contract VerifierTest {
     }
 
     #[external("private")]
+    fn verify_age_with_custom_data(user: AztecAddress, custom_data: str<8>) -> Field {
+        let query = Query::new().age_min(18).bind_user_address(user).bind_custom_data(custom_data);
+        verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).unique_identifier
+    }
+
+    #[external("private")]
+    fn verify_age_with_custom_data_alone(custom_data: str<8>) -> Field {
+        let query = Query::new().age_min(18).bind_custom_data(custom_data);
+        verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).unique_identifier
+    }
+
+    #[external("private")]
     fn verify_nationality(user: AztecAddress) -> [u8; 3] {
         let query = Query::new().disclose_nationality().bind_user_address(user);
         verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).nationality()

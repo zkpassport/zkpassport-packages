@@ -32,3 +32,9 @@ pub global CURRENT_DATE_MAX_SKEW: u64 = 3600;
 // 1900 birthdate epoch to Unix time
 pub(crate) global COUNTRY_LIST_LENGTH: u32 = 200;
 pub(crate) global SECONDS_BETWEEN_1900_AND_1970: i64 = 2208988800;
+
+// Bound data: the most custom data the 509 bytes hold after a 35-byte address entry, a chain id
+// entry with a 4-byte chain id (7) and the custom data entry's 3-byte header
+pub global CUSTOM_DATA_MAX_LENGTH: u32 = 464;
+// The chain id entry and the custom data entry, at their longest
+pub(crate) global BIND_ENTRIES_LENGTH: u32 = 7 + 3 + CUSTOM_DATA_MAX_LENGTH;
