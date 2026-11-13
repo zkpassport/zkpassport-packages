@@ -63,9 +63,9 @@ export class SolidityVerifier {
    * @param domain The domain to use for the service config
    * @param scope The scope to use for the service config
    * @param devMode Whether to use the dev mode
-   * A device-attested (tier 2) proof is only accepted on chain for a scope that starts with
-   * {@link ONCHAIN_ATTESTED_SCOPE_PREFIX}; check the scheme with the helper's
-   * `enforceCredentialAllowed` in your contract.
+   * Both issuer-signed and device-attested proofs verify on chain; to accept only some credential
+   * schemes, call the helper's `enforceCredentialScheme(allowedCredentialSchemes, publicInputs)`
+   * in your contract.
    * Note that on mainnets, the dev mode will be ignored as verification
    * will always fail for mock passports. It only applies to testnets.
    * @returns The parameters for the Solidity verifier contract

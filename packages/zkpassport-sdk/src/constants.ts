@@ -4,10 +4,6 @@ export const VERSION = version
 export const DEFAULT_VALIDITY = 7 * 24 * 60 * 60 // 7 days
 export const DEFAULT_DATE_VALUE = new Date(0)
 
-// A service opts into device-attested (tier 2) proofs on chain by starting its scope with this
-// prefix; the SubVerifier refuses them for any other scope (Credentials.ATTESTED_SCOPE_PREFIX)
-export const ONCHAIN_ATTESTED_SCOPE_PREFIX = "zkpassport-tier2:"
-
 // Base URL for the ZKPassport dashboard API (per-domain config, proof submission).
 export const DASHBOARD_API_BASE_URL = "https://dashboard-api.zkpassport.id"
 

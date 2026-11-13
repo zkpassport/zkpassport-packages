@@ -9,8 +9,6 @@
 
 pragma solidity ^0.8.30;
 
-import {StringUtils} from "./StringUtils.sol";
-
 // The assurance tier of a credential: the hundreds digit of its scheme
 library CredentialTier {
     // The issuer signed the data
@@ -37,44 +35,36 @@ library CredentialScheme {
 }
 
 library Credentials {
-    /**
-     * A service opts into device-attested (tier 2) credentials on chain by starting its scope with
-     * this prefix. The scope is bound into the proof and checked by the service against its own
-     * constant, so a service that never opted in refuses a tier 2 proof at its scope check, and
-     * `verify()` keeps the ABI the deployed RootVerifier calls.
-     */
-    string constant ATTESTED_SCOPE_PREFIX = "zkpassport-tier2:";
-
     function tierOf(uint256 scheme) internal pure returns (uint256) {
         return scheme / CredentialScheme.SCHEMES_PER_TIER;
     }
 
     /**
-     * @notice Whether a policy accepts a scheme. An entry below SCHEMES_PER_TIER is a tier and
-     *         stands for every scheme of that tier; any other entry is one exact scheme.
-     *         An empty policy accepts signed credentials only.
+     * @notice Whether `verify()` can accept a scheme at all: an issuer-signed one, or a device-attested
+     *         one whose attestation it then checks. Which of those a service accepts is the service's
+     *         choice, made with the helper's enforceCredentialScheme.
      */
-    function isAllowed(uint256 scheme, uint256[] memory allowedCredentials) internal pure returns (bool) {
+    function isVerifiable(uint256 scheme) internal pure returns (bool) {
         uint256 tier = tierOf(scheme);
-        if (allowedCredentials.length == 0) {
+        return tier == CredentialTier.GOVERNMENT_SIGNED || tier == CredentialTier.DEVICE_ATTESTED;
+    }
+
+    /**
+     * @notice Whether a list of accepted credential schemes includes a scheme. An entry below
+     *         SCHEMES_PER_TIER is a whole tier (1 = every issuer-signed scheme); any other entry is
+     *         one exact scheme. An empty list accepts tier 1 only.
+     */
+    function isAllowed(uint256 scheme, uint256[] memory allowedCredentialSchemes) internal pure returns (bool) {
+        uint256 tier = tierOf(scheme);
+        if (allowedCredentialSchemes.length == 0) {
             return tier == CredentialTier.GOVERNMENT_SIGNED;
         }
-        for (uint256 i = 0; i < allowedCredentials.length; i++) {
-            uint256 entry = allowedCredentials[i];
+        for (uint256 i = 0; i < allowedCredentialSchemes.length; i++) {
+            uint256 entry = allowedCredentialSchemes[i];
             if (entry == scheme || (entry < CredentialScheme.SCHEMES_PER_TIER && entry == tier)) {
                 return true;
             }
         }
         return false;
-    }
-
-    /**
-     * @notice Whether `verify()` accepts a scheme for a scope: signed credentials always, device
-     *         attested ones only when the scope opts in with ATTESTED_SCOPE_PREFIX
-     */
-    function isAcceptedForScope(uint256 scheme, string memory scope) internal pure returns (bool) {
-        uint256 tier = tierOf(scheme);
-        if (tier == CredentialTier.GOVERNMENT_SIGNED) return true;
-        return tier == CredentialTier.DEVICE_ATTESTED && StringUtils.startsWith(scope, ATTESTED_SCOPE_PREFIX);
     }
 }
