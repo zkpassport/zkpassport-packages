@@ -28,8 +28,9 @@ badges. It is a second Vite entry (`r.html`, `src/r/`) rather than a route in
 the SPA, so people on mobile data never download the SDK or the proving
 backends to read it. `vercel.json` rewrites `/r` and `/r/*` to `/r.html`.
 
-`/c` request links, which can also open the iOS App Clip, land on `c.html`: the
-same page plus Apple's App Clip tag. `vercel.json` rewrites `/c` and `/c/*` to it.
+`/c` request links, which can also open the iOS App Clip, land on `c.html`. The
+build makes it from the `/r` page by adding Apple's App Clip tag
+(`vite.config.ts`). `vercel.json` rewrites `/c` and `/c/*` to it.
 iPhone Safari offers the clip only on the domain the clip is tied to, so
 `zkpassport.id/c` shows this page under its own address.
 
