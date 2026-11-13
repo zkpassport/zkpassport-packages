@@ -1117,6 +1117,7 @@ a.flow-address[data-chip]:hover {
   letter-spacing: 0.04em;
   line-height: 1.2;
   text-align: center;
+  text-decoration: none;
   text-wrap: balance;
   cursor: pointer;
   transition: filter 150ms ease;

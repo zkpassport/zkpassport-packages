@@ -505,6 +505,9 @@ function OpenAppHero({
   const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
   const opening = openState === "opening"
   const handedOff = openState === "opened"
+  // iOS takes the request link to the app, or to the page that offers the App Clip. It opens
+  // in a new tab, because this page holds the request's connection to the phone.
+  const opensRequestLink = detectMobileOs() === "ios" && !inAppBrowser
 
   if (handedOff) {
     return (
@@ -524,7 +527,16 @@ function OpenAppHero({
 
   return (
     <div className="zkp-open-app-hero" data-state={openState}>
-      {requestUrl ? (
+      {requestUrl && opensRequestLink ? (
+        <a
+          className="zkp-open-app zkp-open-app-block"
+          href={requestUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open ZKPassport App
+        </a>
+      ) : requestUrl ? (
         <button
           type="button"
           className="zkp-open-app zkp-open-app-block"
