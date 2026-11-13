@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { createRegistryClient } from "./client"
 import { normaliseHash } from "./utils"
 
@@ -6,8 +7,13 @@ const ROOT_A = `0x${"11".repeat(32)}`
 const ROOT_B = `0x${"22".repeat(32)}`
 const ROOT_C = `0x${"0c".repeat(32)}`
 
-// The registry's slots, as @aztec-labs/stdlib's deriveStorageSlotInMap derives them
+// The slots of the registry's storage variables
 const PAUSED = 3n
+const CONFIG = 7n
+const LATEST = 8n
+const ROOTS = 9n
+
+// Slots in its maps, from @aztec-labs/stdlib's deriveStorageSlotInMap over CONFIG, LATEST and ROOTS
 const LATEST_CERTIFICATE = 0x0cf8ce2bc3b2b2ae03caaab0d8e620df5c780e2b09a43f0b9bd0458847308ca4n
 const LATEST_SANCTIONS = 0x1ff113a83ed3e36ef00580b705cf6d26496d42ad7de586d222f15796dc43983cn
 const CONFIG_CERTIFICATE = 0x29dc8c7d0cd7c1466ed7fe05e006a2b50049d209be60512c9b2cb7af5a10a022n
@@ -183,3 +189,37 @@ describe("RegistryClient on an Aztec network", () => {
     )
   })
 })
+
+describe("ZKPassportRegistry's storage layout", () => {
+  test("keeps the slots the reader reads", () => {
+    expect(compiledRegistrySlots()).toMatchObject({
+      paused: PAUSED,
+      config: CONFIG,
+      latest: LATEST,
+      roots: ROOTS,
+    })
+  })
+})
+
+type StructField = { name: string; value: { fields?: StructField[]; value?: string } }
+
+/**
+ * The slot of each storage variable in the ZKPassportRegistry artifact that @zkpassport/aztec ships,
+ * which its CI keeps equal to the compiled registry
+ */
+function compiledRegistrySlots(): Record<string, bigint> {
+  const artifactUrl = new URL("../../aztec/ts/registry/ZKPassportRegistry.json", import.meta.url)
+  const artifact = JSON.parse(readFileSync(artifactUrl, "utf8")) as {
+    outputs: { globals: { storage: { value: StructField["value"] }[] } }
+  }
+  const variables =
+    artifact.outputs.globals.storage[0].value.fields?.find((field) => field.name === "fields")
+      ?.value.fields ?? []
+
+  return Object.fromEntries(
+    variables.map(({ name, value }) => {
+      const slot = value.fields?.find((field) => field.name === "slot")?.value.value
+      return [name, BigInt(`0x${slot}`)]
+    }),
+  )
+}
