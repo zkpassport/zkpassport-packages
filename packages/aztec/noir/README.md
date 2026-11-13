@@ -43,17 +43,14 @@ the `AgeGate` example in [zkpassport/aztec-examples](https://github.com/zkpasspo
 which passes its own registry so its tests can deploy one:
 
 ```noir
-use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
 use zkpassport_aztec_verifier::query::Query;
-use zkpassport_aztec_verifier::verify::{
-    emit_uniqueness_nullifier, scope_hash, ServiceConfig, verify_zkpassport_proof,
-};
-use zkpassport_aztec_verifier::version::MIN_SUPPORTED_CIRCUIT_VERSION;
+use zkpassport_aztec_verifier::verify::{emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof};
 
 global MIN_AGE: u8 = 18;
 
-// The domain this app's ZKPassport requests come from.
-global DOMAIN: Field = scope_hash("example.com");
+// The domain this app's ZKPassport requests come from. The config accepts proofs from every
+// circuits release the library verifies.
+global SERVICE: ServiceConfig = ServiceConfig::new("example.com");
 
 /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
 /// commitments = {age(18, 0), bind(user)}), burns the unique identifier — one claim per
@@ -61,17 +58,9 @@ global DOMAIN: Field = scope_hash("example.com");
 /// proof itself to `user`, so anyone — a relayer included — may submit the transaction.
 #[external("private")]
 fn claim(user: AztecAddress) {
-    let config = ServiceConfig {
-        min_version: MIN_SUPPORTED_CIRCUIT_VERSION,
-        domain: DOMAIN,
-        scope: 0,
-        unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
-        validity_period: 7 * 86400,
-        dev_mode: false,
-    };
     let query = Query::new().age_min(MIN_AGE).bind_user_address(user);
     // The capsule rides in the sender's PXE, so it is scoped to the sender.
-    let verified = verify_zkpassport_proof(self.context, self.msg_sender(), config, query);
+    let verified = verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query);
     emit_uniqueness_nullifier(self.context, verified.unique_identifier);
     // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
     // passport proof behind it is private.
@@ -79,19 +68,23 @@ fn claim(user: AztecAddress) {
 }
 ```
 
-`ServiceConfig.min_version` is the oldest circuits release the app accepts, packed by
-`zkpassport_aztec_verifier::version::circuit_version(major, minor, patch)`.
-`MIN_SUPPORTED_CIRCUIT_VERSION` (0.23.0) accepts every release the library can verify, so the app
+`ServiceConfig::new` takes the domain. The rest defaults to proofs from every circuits release the
+library verifies, the whole domain, a non-salted unique identifier, proofs up to 7 days old (the
+ZKPassport SDK's default validity), and no mock documents. `.min_version(circuit_version(…))`,
+`.scope("…")`, `.unique_identifier_type(…)`, `.validity_period(seconds)` and `.dev_mode()` change
+them. In a global it is built at compile time, so an empty domain fails to compile.
+
+The minimum version is the oldest circuits release the app accepts, packed by
+`zkpassport_aztec_verifier::version::circuit_version(major, minor, patch)`. The default,
+`MIN_SUPPORTED_CIRCUIT_VERSION` (0.23.0), accepts every release the library can verify, so the app
 keeps working as ZKPassport ships patch releases. The proof capsule carries the release the proof was
 made with, and the registry only accepts the proof's vk under that release. The library also rejects
 any release outside 0.23.x, whose public inputs it may not parse; supporting a later minor release
 takes a library update.
 
-`ServiceConfig.domain` is required: the library rejects a config whose domain is 0.
-`ServiceConfig.scope` is optional, 0 for the whole domain. `verify_zkpassport_proof` uses
-ZKPassport's registry on the network, found by its L1 chain id and rollup version. In TXE and on a
-local network that is the local network registry, below. On a network without one, use
-`verify_zkpassport_proof_with_registry`.
+`verify_zkpassport_proof` uses ZKPassport's registry on the network, found by its L1 chain id and
+rollup version. In TXE and on a local network that is the local network registry, below. On a
+network without one, use `verify_zkpassport_proof_with_registry`.
 
 `Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
 `age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
