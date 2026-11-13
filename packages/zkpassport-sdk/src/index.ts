@@ -4,6 +4,7 @@ import {
   type IDCredentialValue,
   type NumericalIDCredential,
   type ProofResult,
+  type AztecVerifierParameters,
   type QueryResult,
   type CountryName,
   type JsonRpcRequest,
@@ -46,6 +47,7 @@ import {
 } from "./offline-query"
 import { PublicInputChecker, withDocumentType } from "./public-input-checker"
 import { SolidityVerifier } from "./solidity-verifier"
+import { AztecVerifier } from "./aztec-verifier"
 import { submitProof } from "./dashboard-api"
 import { BBVerifier } from "./bb-verifier"
 import { verifyWithVerifierApi } from "./verifier-api"
@@ -105,6 +107,8 @@ export {
   ProofTypeLength,
   NullifierType,
   type ProofResult,
+  type AztecCapsule,
+  type AztecVerifierParameters,
   type DisclosableIDCredential,
   type IDCredential,
   type IDCredentialValue,
@@ -1090,6 +1094,25 @@ export class ZKPassport {
       scope,
       devMode,
       // oprfPubKeyHash,
+    })
+  }
+
+  /**
+   * Get the capsules an Aztec contract's `verify_zkpassport_proof` reads for a proof, as plain
+   * data: `{ capsules: [{ slot, fields }] }`, fields as 0x-prefixed hex. `@zkpassport/aztec`'s
+   * `toAztecCapsules` turns them into aztec.js capsules for a contract and a sender.
+   * @param proof The `outer_count_N` proof of a request made in `compressed` mode.
+   * @returns The proof capsule, then a disclose, sanctions or face match capsule for each of those
+   * the proof carries.
+   */
+  public async getAztecVerifierParameters({
+    proof,
+  }: {
+    proof: ProofResult
+  }): Promise<AztecVerifierParameters> {
+    return AztecVerifier.getParameters({
+      proof,
+      registryClient: createRegistryClient(AztecVerifier.getChain(proof)),
     })
   }
 

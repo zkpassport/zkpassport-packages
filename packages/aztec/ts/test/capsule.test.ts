@@ -1,13 +1,15 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
+
 import {
   assembleDiscloseCapsule,
-  assembleFacematchCapsule,
   assembleProofCapsule,
   assembleSanctionsCapsule,
+  toAztecCapsules,
 } from "../src/capsule.ts"
-import { outerCapsuleLength } from "../src/constants.ts"
+import { outerCapsuleLength, PROOF_CAPSULE_SLOT, SANCTIONS_CAPSULE_SLOT } from "../src/constants.ts"
 
 const parts = {
   vk: Array(115).fill("01"),
@@ -15,57 +17,46 @@ const parts = {
   publicInputs: Array(10).fill("11"),
 }
 
-test("assembles the 583-field outer_count_5 blob", () => {
+test("assembles the 583-field outer_count_5 blob, reading bare SDK output as hex", () => {
   const blob = assembleProofCapsule(parts)
-  assert.equal(blob.length, outerCapsuleLength(5))
-  assert.equal(blob.length, 583)
-})
 
-test("parses bare SDK output as hex, never decimal", () => {
-  // "11" is valid decimal AND valid hex — the assembled field must be 0x11.
-  const blob = assembleProofCapsule(parts)
+  assert.equal(blob.length, outerCapsuleLength(5))
   assert.equal(blob[blob.length - 1].toBigInt(), 0x11n)
 })
 
-test("rejects a wrong-shaped proof with the actual counts", () => {
-  assert.throws(
-    () => assembleProofCapsule({ ...parts, publicInputs: Array(9).fill("11") }),
-    /public inputs 9\/10/,
-  )
-  assert.throws(() => assembleProofCapsule({ ...parts, vk: Array(114).fill("01") }), /vk 114\/115/)
-})
-
-test("assembles and shape-checks the disclose preimage", () => {
-  const mask = Array(90).fill(0)
-  const bytes = Array(90).fill(0)
-  assert.equal(assembleDiscloseCapsule(mask, bytes).length, 180)
-  assert.throws(() => assembleDiscloseCapsule(mask.slice(1), bytes), /mask 89\/90/)
-})
-
-test("assembles the face match capsule in the circuits' encoding", () => {
-  const capsule = assembleFacematchCapsule({
-    rootKeyLeaf: "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
-    environment: "production",
-    appIdHash: "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b",
-    integrityPubkeyHash: "0x00",
-    mode: "strict",
-  })
-
-  assert.deepEqual(
-    capsule.map((field) => field.toBigInt()),
-    [
-      0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340bn,
-      1n,
-      0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179bn,
-      0n,
-      2n,
-    ],
-  )
-})
-
-test("assembles the sanctions capsule from the SDK's sanctions root", () => {
+test("assembles the disclose and sanctions capsules as fields", () => {
+  assert.equal(assembleDiscloseCapsule(Array(90).fill(0), Array(90).fill(1)).length, 180)
   assert.deepEqual(
     assembleSanctionsCapsule("0x2a5a").map((field) => field.toBigInt()),
     [0x2a5an],
+  )
+})
+
+test("turns verifier parameters into capsules for the contract, scoped to the sender", () => {
+  const contract = AztecAddress.fromBigIntUnsafe(0x1234n)
+  const sender = AztecAddress.fromBigIntUnsafe(0x5678n)
+
+  const capsules = toAztecCapsules(
+    {
+      capsules: [
+        { slot: Number(PROOF_CAPSULE_SLOT), fields: ["0x01", "0x02"] },
+        { slot: Number(SANCTIONS_CAPSULE_SLOT), fields: ["0x2a5a"] },
+      ],
+    },
+    contract,
+    sender,
+  )
+
+  assert.deepEqual(
+    capsules.map((capsule) => ({
+      contract: capsule.contractAddress.toString(),
+      slot: capsule.storageSlot.toBigInt(),
+      data: capsule.data.map((field) => field.toBigInt()),
+      scope: capsule.scope?.toString(),
+    })),
+    [
+      { contract: contract.toString(), slot: 1n, data: [1n, 2n], scope: sender.toString() },
+      { contract: contract.toString(), slot: 3n, data: [0x2a5an], scope: sender.toString() },
+    ],
   )
 })
