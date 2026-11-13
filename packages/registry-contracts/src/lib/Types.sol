@@ -87,8 +87,7 @@ enum OS {
 //     ├── uint256 validityPeriodInSeconds    // How long the proof is valid
 //     ├── string domain                      // Service domain
 //     ├── string scope                       // Service scope
-//     ├── bool devMode                       // Development mode flag
-//     └── uint256[] allowedCredentials       // Tiers and/or schemes accepted; empty means signed only
+//     └── bool devMode                       // Development mode flag
 struct ProofVerificationParams {
     bytes32 version;
     ProofVerificationData proofVerificationData;
@@ -107,7 +106,6 @@ struct ServiceConfig {
     string domain;
     string scope;
     bool devMode;
-    uint256[] allowedCredentials;
 }
 
 struct DisclosedData {

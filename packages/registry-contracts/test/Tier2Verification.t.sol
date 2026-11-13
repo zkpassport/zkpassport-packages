@@ -7,6 +7,8 @@ import {RootRegistry} from "../src/RootRegistry.sol";
 import {SubVerifier} from "../src/SubVerifier.sol";
 import {VerifierHelper} from "../src/VerifierHelper.sol";
 import {InputsExtractor} from "../src/lib/InputsExtractor.sol";
+import {Credentials} from "../src/lib/Credentials.sol";
+import {StringUtils} from "../src/lib/StringUtils.sol";
 import {
     Environment,
     FaceMatchMode,
@@ -73,11 +75,7 @@ contract Tier2VerificationTest is Test {
         root.addSubVerifier(VERSION, sub);
     }
 
-    function _params(bytes memory proofBytes, uint256[] memory allowedCredentials)
-        internal
-        view
-        returns (ProofVerificationParams memory)
-    {
+    function _params(bytes memory proofBytes) internal view returns (ProofVerificationParams memory) {
         return ProofVerificationParams({
             version: VERSION,
             proofVerificationData: ProofVerificationData({
@@ -85,42 +83,49 @@ contract Tier2VerificationTest is Test {
             }),
             committedInputs: committedInputs,
             serviceConfig: ServiceConfig({
-                validityPeriodInSeconds: 1 days,
-                domain: domain,
-                scope: scope,
-                devMode: false,
-                allowedCredentials: allowedCredentials
+                validityPeriodInSeconds: 1 days, domain: domain, scope: scope, devMode: false
             })
         });
     }
 
-    function _tier2() internal pure returns (uint256[] memory allowed) {
-        allowed = new uint256[](1);
-        allowed[0] = 2;
-    }
-
     function test_Tier2OuterProofVerifiesOnChain() public view {
         assertEq(uint256(publicInputs[publicInputs.length - 1]), ATTESTED_CAPTURE_IOS);
-        (bool valid, bytes32 uniqueIdentifier,) = testRootVerifier.verify(_params(proof, _tier2()));
+        assertTrue(StringUtils.startsWith(scope, Credentials.ATTESTED_SCOPE_PREFIX), "The fixture's scope opts in");
+        (bool valid, bytes32 uniqueIdentifier, VerifierHelper helper) = testRootVerifier.verify(_params(proof));
         assertTrue(valid, "The Tier 2 outer proof should verify");
         assertEq(uniqueIdentifier, publicInputs[publicInputs.length - 3], "The scoped nullifier");
+        assertEq(address(helper), address(0), "No helper is registered in this test");
     }
 
     function test_ProductionVerifierRefusesASelfSignedAttestation() public {
         vm.expectRevert("Invalid device attestation");
-        rootVerifier.verify(_params(proof, _tier2()));
+        rootVerifier.verify(_params(proof));
     }
 
-    function test_RefusedByAPolicyOfSignedCredentialsOnly() public {
-        vm.expectRevert("Credential not allowed");
-        testRootVerifier.verify(_params(proof, new uint256[](0)));
+    function test_ScopesWithoutTheOptInRefuseTier2() public pure {
+        assertTrue(Credentials.isAcceptedForScope(100, "airdrop"), "Tier 1 is accepted for any scope");
+        assertTrue(Credentials.isAcceptedForScope(100, ""), "Tier 1 is accepted for the empty scope");
+        assertFalse(Credentials.isAcceptedForScope(200, "airdrop"), "Tier 2 needs the opt-in");
+        assertFalse(Credentials.isAcceptedForScope(201, ""), "Tier 2 needs the opt-in");
+        assertFalse(Credentials.isAcceptedForScope(200, "zkpassport-tier2"), "The whole prefix is needed");
+        assertTrue(Credentials.isAcceptedForScope(200, "zkpassport-tier2:airdrop"));
+        assertTrue(Credentials.isAcceptedForScope(201, "zkpassport-tier2:"));
+        assertFalse(Credentials.isAcceptedForScope(300, "zkpassport-tier2:airdrop"), "Unknown tiers are refused");
+    }
+
+    function test_AnotherScopeCannotPassTheFixtureAsTier2() public {
+        // A service that never opted in checks its own scope, which the proof was not made for
+        ProofVerificationParams memory params = _params(proof);
+        params.serviceConfig.scope = "tier2";
+        vm.expectRevert("Invalid domain or scope");
+        testRootVerifier.verify(params);
     }
 
     function test_ATamperedProofDoesNotVerify() public view {
         bytes memory tampered = proof;
         tampered[100] = bytes1(uint8(tampered[100]) ^ 1);
         // The UltraHonk verifier either reverts or returns false on a bad proof
-        try testRootVerifier.verify(_params(tampered, _tier2())) returns (bool valid, bytes32, VerifierHelper) {
+        try testRootVerifier.verify(_params(tampered)) returns (bool valid, bytes32, VerifierHelper) {
             assertFalse(valid);
         } catch {}
     }

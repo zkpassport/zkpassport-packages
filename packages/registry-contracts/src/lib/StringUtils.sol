@@ -17,4 +17,14 @@ library StringUtils {
     function isEmpty(string memory a) internal pure returns (bool) {
         return bytes(a).length == 0;
     }
+
+    function startsWith(string memory a, string memory prefix) internal pure returns (bool) {
+        bytes memory value = bytes(a);
+        bytes memory start = bytes(prefix);
+        if (value.length < start.length) return false;
+        for (uint256 i = 0; i < start.length; i++) {
+            if (value[i] != start[i]) return false;
+        }
+        return true;
+    }
 }

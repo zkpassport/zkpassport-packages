@@ -9,6 +9,8 @@
 
 pragma solidity ^0.8.30;
 
+import {StringUtils} from "./StringUtils.sol";
+
 // The assurance tier of a credential: the hundreds digit of its scheme
 library CredentialTier {
     // The issuer signed the data
@@ -35,6 +37,14 @@ library CredentialScheme {
 }
 
 library Credentials {
+    /**
+     * A service opts into device-attested (tier 2) credentials on chain by starting its scope with
+     * this prefix. The scope is bound into the proof and checked by the service against its own
+     * constant, so a service that never opted in refuses a tier 2 proof at its scope check, and
+     * `verify()` keeps the ABI the deployed RootVerifier calls.
+     */
+    string constant ATTESTED_SCOPE_PREFIX = "zkpassport-tier2:";
+
     function tierOf(uint256 scheme) internal pure returns (uint256) {
         return scheme / CredentialScheme.SCHEMES_PER_TIER;
     }
@@ -56,5 +66,15 @@ library Credentials {
             }
         }
         return false;
+    }
+
+    /**
+     * @notice Whether `verify()` accepts a scheme for a scope: signed credentials always, device
+     *         attested ones only when the scope opts in with ATTESTED_SCOPE_PREFIX
+     */
+    function isAcceptedForScope(uint256 scheme, string memory scope) internal pure returns (bool) {
+        uint256 tier = tierOf(scheme);
+        if (tier == CredentialTier.GOVERNMENT_SIGNED) return true;
+        return tier == CredentialTier.DEVICE_ATTESTED && StringUtils.startsWith(scope, ATTESTED_SCOPE_PREFIX);
     }
 }
