@@ -41,9 +41,8 @@ export const OPRF_NULLIFIER_MODULE = "nullifier"
 export const OPRF_DEFAULT_DOMAIN_SEPARATOR = 1330664006n
 
 // Domain separator of the auth commitment x' = Poseidon2_t3([DS, pn, x])[1],
-// b"zkPassport OPRF auth commitment", matching DS_COMMIT in the oprf_registration circuit
-export const OPRF_AUTH_COMMITMENT_DOMAIN_SEPARATOR =
-  216295995820588902101791877209007728011808683886180117732362510332974165620n
+// b"zkPassport-OPRF-v2-commit", matching DS_COMMIT in the oprf_registration circuit
+export const OPRF_AUTH_COMMITMENT_DOMAIN_SEPARATOR = 768437743021582172182320022843274690170766867557081613691252n
 
 // OPRF wire-protocol version announced to the nodes during the WebSocket handshake.
 // @taceo/oprf-client defaults this to "0.8.0", but the deployed nodes require

@@ -33,7 +33,7 @@ describe("auth commitment", () => {
   test("matches the oprf_registration circuit", () => {
     // Same vector as test_commit_matches_typescript in circuits/src/noir/bin/oprf-registration
     expect(computeAuthCommitment(42n, 1234567890n)).toBe(
-      20005179103566317753960723931621279620144361627393651888641707426066443603859n,
+      13002763519127274454334235405378602711278687927439602127399400890018476844734n,
     )
   })
 
@@ -99,11 +99,12 @@ describe("registration id", () => {
     ).toEqual({ x: 42n, y: 16n })
   })
 
-  // TODO: unskip once @taceo/oprf-core releases the fix on oprf-client-js main (7fee7d7, #54).
   // oprf-core 0.4.0 derives the scalar field from @noble/curves' babyjubjub order, which noble
-  // 2.4.0 changed to the subgroup order, so no blinding factor can be inverted. This test is the
-  // regression check for that fix
-  test.skip("is deterministic per passport and key, whatever the blinding", async () => {
+  // 2.2.0 changed to the subgroup order, so no blinding factor can be inverted. The root
+  // package.json overrides @noble/curves to 2.0.1 until @taceo/oprf-core releases the fix on
+  // oprf-client-js main (7fee7d7, #54); consumers need the same override. This test is the
+  // regression check for it
+  test("is deterministic per passport and key, whatever the blinding", async () => {
     const sk = 123456789n
     const r1 = await evaluateMock(42n, sk)
     const r2 = await evaluateMock(42n, sk)
