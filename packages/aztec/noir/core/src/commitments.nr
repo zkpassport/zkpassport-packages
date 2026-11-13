@@ -164,8 +164,9 @@ mod test {
         nationality_inclusion_commitment,
     };
     use crate::fixtures::{
-        AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_COMMITMENT, BIRTHDATE_COMMITMENT, DISCLOSE_COMMITMENT,
-        EXPIRY_DATE_COMMITMENT, ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
+        AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_BASE_COMMITMENT, BIND_COMMITMENT,
+        BIND_ETHEREUM_COMMITMENT, BIND_ETHEREUM_SEPOLIA_COMMITMENT, BIRTHDATE_COMMITMENT,
+        DISCLOSE_COMMITMENT, EXPIRY_DATE_COMMITMENT, ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
         ISSUING_COUNTRY_INCLUSION_COMMITMENT, NATIONALITY_EXCLUSION_COMMITMENT,
         NATIONALITY_INCLUSION_COMMITMENT,
     };
@@ -182,20 +183,9 @@ mod test {
 
     #[test]
     fn bind_writes_a_chain_id_in_as_few_bytes_as_utils() {
-        // formatBoundData then getBindParameterCommitment in @zkpassport/utils, for BIND_ACCOUNT
-        // and the chains ethereum (1), base (8453) and ethereum_sepolia (11155111)
-        assert(
-            bind_commitment(BIND_ACCOUNT, 1)
-                == 0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784,
-        );
-        assert(
-            bind_commitment(BIND_ACCOUNT, 8453)
-                == 0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3,
-        );
-        assert(
-            bind_commitment(BIND_ACCOUNT, 11155111)
-                == 0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76,
-        );
+        assert(bind_commitment(BIND_ACCOUNT, 1) == BIND_ETHEREUM_COMMITMENT);
+        assert(bind_commitment(BIND_ACCOUNT, 8453) == BIND_BASE_COMMITMENT);
+        assert(bind_commitment(BIND_ACCOUNT, 11155111) == BIND_ETHEREUM_SEPOLIA_COMMITMENT);
     }
 
     #[test(should_fail)]
