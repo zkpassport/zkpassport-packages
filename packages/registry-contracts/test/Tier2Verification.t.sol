@@ -31,7 +31,7 @@ bytes32 constant FIXTURE_APP_ID_HASH = 0x2b3bf722973f020cdf75a88acbf1ceef14e489f
  * key and app checks for the fixture's; the production one must refuse it.
  */
 contract Tier2VerificationTest is Test {
-    bytes32 constant VERSION = bytes32("0.22.0");
+    bytes32 constant VERSION = bytes32("0.23.0");
     bytes32 constant VKEY_HASH = bytes32(uint256(0x7a2));
     uint256 constant ATTESTED_CAPTURE_IOS = 200;
 
