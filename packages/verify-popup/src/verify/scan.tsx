@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { detectMobileOs } from "@zkpassport/ui/app-link"
+import { CLOSE_ON_RETURN_HASH, detectMobileOs } from "@zkpassport/ui/app-link"
 import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
 import { ICON_ZKP_MARK } from "../shared/icons"
@@ -87,7 +87,12 @@ function ContinueInApp({
               Open the app again
             </button>
           ) : requestUrl && opensRequestLink ? (
-            <a className="flow-primary" href={requestUrl} target="_blank" rel="noopener noreferrer">
+            <a
+              className="flow-primary"
+              href={requestUrl + CLOSE_ON_RETURN_HASH}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Open ZKPassport App
             </a>
           ) : requestUrl ? (

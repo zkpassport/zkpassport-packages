@@ -17,7 +17,7 @@ import {
   SPINNER_SVG,
   ZKPASSPORT_DOWNLOAD_URL,
 } from "./assets"
-import { detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
+import { CLOSE_ON_RETURN_HASH, detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
 import cardStyles from "./styles.css"
 import { injectStylesheet } from "./inject-styles"
 import { useCard, type CardState, type ProofStreamProgress } from "./use-card"
@@ -530,7 +530,7 @@ function OpenAppHero({
       {requestUrl && opensRequestLink ? (
         <a
           className="zkp-open-app zkp-open-app-block"
-          href={requestUrl}
+          href={requestUrl + CLOSE_ON_RETURN_HASH}
           target="_blank"
           rel="noopener noreferrer"
         >
