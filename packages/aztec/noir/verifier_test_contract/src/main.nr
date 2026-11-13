@@ -7,22 +7,15 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract VerifierTest {
     use aztec::{macros::functions::external, protocol::address::AztecAddress};
-    use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
     use zkpassport_aztec_verifier::query::Query;
-    use zkpassport_aztec_verifier::verify::{scope_hash, ServiceConfig, verify_zkpassport_proof};
-
-    // packed("0.22.0"), the circuits release the age fixture was proved with
-    pub global CIRCUIT_VERSION: Field =
-        0x0000001600000000000000000000000000000000000000000000000000000000;
-
-    global SERVICE: ServiceConfig = ServiceConfig {
-        version: CIRCUIT_VERSION,
-        domain: scope_hash("example.com"),
-        scope: 0,
-        unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
-        validity_period: 7 * 86400,
-        dev_mode: false,
+    use zkpassport_aztec_verifier::verify::{
+        circuit_version, ServiceConfig, verify_zkpassport_proof,
     };
+
+    // The circuits release the age fixture was proved with
+    pub global CIRCUIT_VERSION: Field = circuit_version(0, 22, 0);
+
+    global SERVICE: ServiceConfig = ServiceConfig::new("example.com", CIRCUIT_VERSION);
 
     #[external("private")]
     fn verify_age(user: AztecAddress) -> Field {

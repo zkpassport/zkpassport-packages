@@ -20,15 +20,61 @@ use zkpassport_registry_contract::{
 };
 
 pub struct ServiceConfig {
-    // Circuit-manifest version this app accepts (the registry keys vks by it). Convention:
-    // CircuitManifest.version packed as 2-byte BE major/minor/patch, left-aligned bytes32 —
-    // the same encoding the ZKPassport SDK sends as L1's params.version.
+    // Circuit-manifest version this app accepts (the registry keys vks by it), as
+    // `circuit_version` packs it
     pub version: Field,
     pub domain: Field, // scope_hash of the domain the app's requests come from, never 0
     pub scope: Field, // scope_hash of a scope within the domain, 0 for the whole domain
     pub unique_identifier_type: u8, // the real NULLIFIER_TYPE_* the proof must carry
     pub validity_period: u64, // max proof age in seconds
     pub dev_mode: bool,
+}
+
+impl ServiceConfig {
+    /// A config for proofs requested from `domain` and made with the circuits release `version`,
+    /// packed with `circuit_version`. It covers the whole domain, requires a non-salted unique
+    /// identifier, accepts proofs up to 7 days old, as the ZKPassport SDK does by default, and
+    /// rejects mock documents. The methods below change each of these.
+    ///
+    /// Build it in a global, so the domain is hashed at compile time and a mistake such as an
+    /// empty domain fails to compile:
+    /// `global SERVICE: ServiceConfig = ServiceConfig::new("example.com", circuit_version(0, 22, 0));`
+    pub fn new<let N: u32>(domain: str<N>, version: Field) -> Self {
+        assert(N != 0, "service domain required");
+
+        ServiceConfig {
+            version,
+            domain: scope_hash(domain),
+            scope: 0,
+            unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
+            validity_period: DEFAULT_VALIDITY_PERIOD,
+            dev_mode: false,
+        }
+    }
+
+    /// Accept only proofs for `scope`, a scope within the domain.
+    pub fn scope<let N: u32>(mut self, scope: str<N>) -> Self {
+        self.scope = scope_hash(scope);
+        self
+    }
+
+    /// Require a unique identifier of this type, one of the `NULLIFIER_TYPE_*` constants.
+    pub fn unique_identifier_type(mut self, unique_identifier_type: u8) -> Self {
+        self.unique_identifier_type = unique_identifier_type;
+        self
+    }
+
+    /// Accept proofs up to `seconds` old.
+    pub fn validity_period(mut self, seconds: u64) -> Self {
+        self.validity_period = seconds;
+        self
+    }
+
+    /// Accept proofs of mock documents too, such as the ones ZKPassport's apps make in dev mode.
+    pub fn dev_mode(mut self) -> Self {
+        self.dev_mode = true;
+        self
+    }
 }
 
 /// The payload of a disclose subproof: which of the 90 MRZ bytes are disclosed, and the bytes.
@@ -100,6 +146,14 @@ impl VerifiedProof {
     }
 }
 
+// The ZKPassport SDK's default for how old a proof may be: 7 days, in seconds.
+global DEFAULT_VALIDITY_PERIOD: u64 = 7 * 86400;
+
+// The weights of a circuit version's major, minor and patch, two bytes apart from the top byte.
+global TWO_POW_240: Field = 0x1000000000000000000000000000000000000000000000000000000000000;
+global TWO_POW_224: Field = 0x100000000000000000000000000000000000000000000000000000000;
+global TWO_POW_208: Field = 0x10000000000000000000000000000000000000000000000000000;
+
 // Domain separator for the uniqueness nullifier.
 global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
@@ -147,6 +201,20 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
         // sha256 truncated to its first 31 bytes, as getScopeHash in @zkpassport/utils
         sha256_to_field(value.as_bytes())
     }
+}
+
+/// Packs a circuits release version for `ServiceConfig`: major, minor and patch as 2-byte
+/// big-endian numbers at the start of 32 bytes, as `circuitVersionToBytes32` in @zkpassport/utils.
+///
+/// Call it in a global so it is computed at compile time:
+/// `global VERSION: Field = circuit_version(0, 22, 0);`
+pub fn circuit_version(major: u16, minor: u16, patch: u16) -> Field {
+    assert((major != 0) | (minor != 0) | (patch != 0), "circuit version 0.0.0 encodes to 0");
+    // A Field is below the BN254 scalar field modulus, 0x30644e72e131a029…, so a version from
+    // major 0x3064 up can wrap around
+    assert(major < 0x3064, "circuit version major must be below 12388");
+
+    (major as Field) * TWO_POW_240 + (minor as Field) * TWO_POW_224 + (patch as Field) * TWO_POW_208
 }
 
 /// Verify a zkPassport outer proof end-to-end, against ZKPassport's registry on this network.
@@ -366,10 +434,10 @@ fn parse_disclose_payload(payload: [Field; 180]) -> Disclosure {
 
 mod test {
     use crate::verify::{
-        ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure, MAINNET_CHAIN_ID,
-        MAINNET_REGISTRY_ADDRESS, MAINNET_VERSION, parse_disclose_payload, scope_hash,
-        ServiceConfig, TESTNET_CHAIN_ID, TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID,
-        TXE_VERSION, VerifiedProof,
+        ANVIL_CHAIN_ID, assert_service_policy, circuit_version, default_registry, Disclosure,
+        MAINNET_CHAIN_ID, MAINNET_REGISTRY_ADDRESS, MAINNET_VERSION, parse_disclose_payload,
+        scope_hash, ServiceConfig, TESTNET_CHAIN_ID, TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION,
+        TXE_CHAIN_ID, TXE_VERSION, VerifiedProof,
     };
     use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
@@ -412,6 +480,66 @@ mod test {
     #[test]
     fn scope_hash_of_empty_string_is_zero() {
         assert(scope_hash("") == 0);
+    }
+
+    #[test]
+    fn circuit_version_packs_like_utils() {
+        // circuitVersionToBytes32 in @zkpassport/utils
+        assert(
+            circuit_version(0, 22, 0)
+                == 0x0000001600000000000000000000000000000000000000000000000000000000,
+        );
+        assert(
+            circuit_version(1, 2, 3)
+                == 0x0001000200030000000000000000000000000000000000000000000000000000,
+        );
+        assert(
+            circuit_version(12387, 65535, 65535)
+                == 0x3063ffffffff0000000000000000000000000000000000000000000000000000,
+        );
+    }
+
+    #[test(should_fail_with = "circuit version 0.0.0 encodes to 0")]
+    fn circuit_version_rejects_0_0_0() {
+        let _ = circuit_version(0, 0, 0);
+    }
+
+    #[test(should_fail_with = "circuit version major must be below 12388")]
+    fn circuit_version_rejects_a_major_from_12388() {
+        let _ = circuit_version(12388, 0, 0);
+    }
+
+    #[test]
+    fn new_service_config_has_the_sdk_defaults() {
+        let config = ServiceConfig::new("example.com", circuit_version(0, 22, 0));
+
+        assert(config.version == circuit_version(0, 22, 0));
+        assert(config.domain == scope_hash("example.com"));
+        assert(config.scope == 0);
+        assert(config.unique_identifier_type == NULLIFIER_TYPE_NON_SALTED);
+        assert(config.validity_period == 7 * 86400);
+        assert(!config.dev_mode);
+    }
+
+    #[test(should_fail_with = "service domain required")]
+    fn new_service_config_rejects_an_empty_domain() {
+        let _ = ServiceConfig::new("", circuit_version(0, 22, 0));
+    }
+
+    #[test]
+    fn service_config_methods_set_their_own_fields() {
+        let config = ServiceConfig::new("example.com", circuit_version(0, 22, 0))
+            .scope("age-check")
+            .unique_identifier_type(NULLIFIER_TYPE_SALTED)
+            .validity_period(86400)
+            .dev_mode();
+
+        assert(config.version == circuit_version(0, 22, 0));
+        assert(config.domain == scope_hash("example.com"));
+        assert(config.scope == scope_hash("age-check"));
+        assert(config.unique_identifier_type == NULLIFIER_TYPE_SALTED);
+        assert(config.validity_period == 86400);
+        assert(config.dev_mode);
     }
 
     #[test]
