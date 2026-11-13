@@ -136,7 +136,7 @@ describe("Query Builder", () => {
 
     // Verify URL format
     expect(result.url).toMatch(
-      /^https:\/\/zkpassport\.id\/r\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9%]+&s=[A-Za-z0-9%]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+&dev=[^&]+$/,
+      /^https:\/\/zkpassport\.id\/c\?d=[^&]+&t=[^&]+&c=[A-Za-z0-9%]+&s=[A-Za-z0-9%]+&p=[^&]+&m=[^&]+&v=[^&]+&dt=[^&]+&dev=[^&]+$/,
     )
 
     // Verify service info is included
@@ -796,6 +796,11 @@ describe("Salted nullifier facematch validation", () => {
     expect(() => qb.facematch("strict").done()).not.toThrow()
   })
 
+  test("salted keeps the /r link, because the App Clip cannot make a salted identifier", async () => {
+    const qb = await saltedBuilder(false)
+    expect(new URL(qb.facematch("strict").done().url).pathname).toBe("/r")
+  })
+
   test("salted + non-dev + regular facematch: rejected (must be strict)", async () => {
     const qb = await saltedBuilder(false)
     expect(() => qb.facematch("regular").done()).toThrow(SALTED_ERROR)
@@ -891,6 +896,11 @@ describe("NONE nullifier type requests", () => {
     const qb = await noneRequest()
     const result = qb.disclose("firstname").done()
     expect(result.url).toContain(`&nt=${NullifierType.NONE}`)
+  })
+
+  test("keeps the /r link, because the App Clip always makes an identifier", async () => {
+    const qb = await noneRequest()
+    expect(new URL(qb.disclose("firstname").done().url).pathname).toBe("/r")
   })
 
   test("NONE with a plain disclosure is allowed", async () => {
