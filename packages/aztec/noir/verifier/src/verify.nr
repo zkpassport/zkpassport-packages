@@ -164,11 +164,11 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// In TXE and on a local network this is the local network registry, see
 /// `zkpassport_registry_contract::local_network_registry`. Use
 /// `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
-pub fn verify_zkpassport_proof<let K: u32, let D: u32>(
+pub fn verify_zkpassport_proof<let K: u32, let D: u32, let B: u32>(
     context: &mut PrivateContext,
     capsule_scope: AztecAddress,
     config: ServiceConfig,
-    query: Query<K, D>,
+    query: Query<K, D, B>,
 ) -> VerifiedProof {
     let registry = default_registry(context.chain_id(), context.version());
     verify_zkpassport_proof_with_registry(context, registry, capsule_scope, config, query)
@@ -178,12 +178,12 @@ pub fn verify_zkpassport_proof<let K: u32, let D: u32>(
 ///
 /// For a network without a ZKPassport registry, such as a local network or TXE tests, or an app
 /// that trusts a registry of its own.
-pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
+pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32, let B: u32>(
     context: &mut PrivateContext,
     registry: AztecAddress,
     capsule_scope: AztecAddress,
     config: ServiceConfig,
-    query: Query<K, D>,
+    query: Query<K, D, B>,
 ) -> VerifiedProof {
     // Capsule load is unconstrained oracle data, everything downstream constrains it (as it must).
     // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/

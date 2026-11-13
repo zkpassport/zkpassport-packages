@@ -6,6 +6,7 @@ use zkpassport::commitments::{
     issuing_country_inclusion_commitment, nationality_exclusion_commitment,
     nationality_inclusion_commitment, sanctions_commitment,
 };
+use zkpassport::constants::CUSTOM_DATA_MAX_LENGTH;
 use zkpassport::disclosed_data::{
     disclosed_birthdate, disclosed_document_number, disclosed_document_type, disclosed_expiry_date,
     disclosed_full_name, disclosed_gender, disclosed_issuing_country, disclosed_name,
@@ -17,7 +18,7 @@ use zkpassport::face_match::{FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, Fa
 ///
 /// Start with [`Query::new`], call one method per check, and pass the query to
 /// [`verify_zkpassport_proof`](crate::verify::verify_zkpassport_proof). `K` counts the outer
-/// proof's subproofs and `D` is 1 once a field is disclosed.
+/// proof's subproofs, `D` is 1 once a field is disclosed and `B` is 1 once anything is bound.
 ///
 /// Disclosing any field but the document type or the issuing country needs the document type
 /// disclosed too: the readers take the MRZ layout from it, a passport's when it starts with 'P' and
@@ -30,16 +31,17 @@ use zkpassport::face_match::{FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, Fa
 /// let query = Query::new().age_min(18).disclose_nationality().bind_user_address(user);
 /// let verified = verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query);
 /// ```
-pub struct Query<let K: u32, let D: u32> {
+pub struct Query<let K: u32, let D: u32, let B: u32> {
     commitments: BoundedVec<Field, K>,
     checks: u16,
     disclosed_fields: u16,
     sanctions: Option<bool>, // strict
     bound_address: Option<AztecAddress>,
+    bound_custom_data: Option<BoundedVec<u8, CUSTOM_DATA_MAX_LENGTH>>,
     face_match: Option<u8>, // mode
 }
 
-// The checks a query asks for at most once
+// The checks a query asks for at most once. `B` tracks the bind.
 global CHECK_AGE: u16 = 1;
 global CHECK_BIRTHDATE: u16 = 2;
 global CHECK_EXPIRY_DATE: u16 = 4;
@@ -47,9 +49,8 @@ global CHECK_NATIONALITY_INCLUSION: u16 = 8;
 global CHECK_NATIONALITY_EXCLUSION: u16 = 16;
 global CHECK_ISSUING_COUNTRY_INCLUSION: u16 = 32;
 global CHECK_ISSUING_COUNTRY_EXCLUSION: u16 = 64;
-global CHECK_BIND: u16 = 128;
-global CHECK_SANCTIONS: u16 = 256;
-global CHECK_FACE_MATCH: u16 = 512;
+global CHECK_SANCTIONS: u16 = 128;
+global CHECK_FACE_MATCH: u16 = 256;
 
 // The MRZ fields a query can ask to be disclosed
 global FIELD_DOCUMENT_TYPE: u16 = 1;
@@ -62,7 +63,7 @@ global FIELD_GENDER: u16 = 64;
 global FIELD_NAME: u16 = 128;
 global FIELD_FULL_NAME: u16 = 256;
 
-impl Query<3, 0> {
+impl Query<3, 0, 0> {
     /// Start a query that asks for nothing beyond what every proof shows.
     pub fn new() -> Self {
         Query {
@@ -71,68 +72,69 @@ impl Query<3, 0> {
             disclosed_fields: 0,
             sanctions: Option::none(),
             bound_address: Option::none(),
+            bound_custom_data: Option::none(),
             face_match: Option::none(),
         }
     }
 }
 
-impl<let K: u32, let D: u32> Query<K, D> {
+impl<let K: u32, let D: u32, let B: u32> Query<K, D, B> {
     /// Ask for an age of at least `min`, below 100.
-    pub fn age_min(self, min: u8) -> Query<K + 1, D> {
+    pub fn age_min(self, min: u8) -> Query<K + 1, D, B> {
         assert(min != 0, "age bound is zero");
         self.with_age_bounds(min, 0)
     }
 
     /// Ask for an age of at most `max`, below 100.
-    pub fn age_max(self, max: u8) -> Query<K + 1, D> {
+    pub fn age_max(self, max: u8) -> Query<K + 1, D, B> {
         assert(max != 0, "age bound is zero");
         self.with_age_bounds(0, max)
     }
 
     /// Ask for an age between `min` and `max`, both included and below 100.
-    pub fn age_between(self, min: u8, max: u8) -> Query<K + 1, D> {
+    pub fn age_between(self, min: u8, max: u8) -> Query<K + 1, D, B> {
         assert((min != 0) & (max != 0) & (min <= max), "invalid age range");
         self.with_age_bounds(min, max)
     }
 
     /// Ask for a date of birth on or after `min`, in Unix seconds.
-    pub fn birthdate_min(self, min: i64) -> Query<K + 1, D> {
+    pub fn birthdate_min(self, min: i64) -> Query<K + 1, D, B> {
         assert(min != 0, "birthdate bound is zero");
         self.with_birthdate_bounds(min, 0)
     }
 
     /// Ask for a date of birth on or before `max`, in Unix seconds.
-    pub fn birthdate_max(self, max: i64) -> Query<K + 1, D> {
+    pub fn birthdate_max(self, max: i64) -> Query<K + 1, D, B> {
         assert(max != 0, "birthdate bound is zero");
         self.with_birthdate_bounds(0, max)
     }
 
     /// Ask for a date of birth between `min` and `max`, both included, in Unix seconds.
-    pub fn birthdate_between(self, min: i64, max: i64) -> Query<K + 1, D> {
+    pub fn birthdate_between(self, min: i64, max: i64) -> Query<K + 1, D, B> {
         assert((min != 0) & (max != 0) & (min <= max), "invalid birthdate range");
         self.with_birthdate_bounds(min, max)
     }
 
     /// Ask for an expiry date on or after `min`, in Unix seconds.
-    pub fn expiry_date_min(self, min: u64) -> Query<K + 1, D> {
+    pub fn expiry_date_min(self, min: u64) -> Query<K + 1, D, B> {
         assert(min != 0, "expiry date bound is zero");
         self.with_expiry_date_bounds(min, 0)
     }
 
     /// Ask for an expiry date on or before `max`, in Unix seconds.
-    pub fn expiry_date_max(self, max: u64) -> Query<K + 1, D> {
+    pub fn expiry_date_max(self, max: u64) -> Query<K + 1, D, B> {
         assert(max != 0, "expiry date bound is zero");
         self.with_expiry_date_bounds(0, max)
     }
 
     /// Ask for an expiry date between `min` and `max`, both included, in Unix seconds.
-    pub fn expiry_date_between(self, min: u64, max: u64) -> Query<K + 1, D> {
+    pub fn expiry_date_between(self, min: u64, max: u64) -> Query<K + 1, D, B> {
         assert((min != 0) & (max != 0) & (min <= max), "invalid expiry date range");
         self.with_expiry_date_bounds(min, max)
     }
 
     /// Ask for a nationality in `countries`, listed in the order the SDK request lists them.
-    pub fn nationality_in<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D> {
+    pub fn nationality_in<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D, B> {
         self.with_commitment(
             CHECK_NATIONALITY_INCLUSION,
             "nationality inclusion requested twice",
@@ -141,7 +143,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
     }
 
     /// Ask for a nationality not in `countries`.
-    pub fn nationality_out<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D> {
+    pub fn nationality_out<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D, B> {
         self.with_commitment(
             CHECK_NATIONALITY_EXCLUSION,
             "nationality exclusion requested twice",
@@ -150,7 +152,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
     }
 
     /// Ask for an issuing country in `countries`, listed in the order the SDK request lists them.
-    pub fn issuing_country_in<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D> {
+    pub fn issuing_country_in<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D, B> {
         self.with_commitment(
             CHECK_ISSUING_COUNTRY_INCLUSION,
             "issuing country inclusion requested twice",
@@ -159,7 +161,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
     }
 
     /// Ask for an issuing country not in `countries`.
-    pub fn issuing_country_out<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D> {
+    pub fn issuing_country_out<let N: u32>(self, countries: [str<3>; N]) -> Query<K + 1, D, B> {
         self.with_commitment(
             CHECK_ISSUING_COUNTRY_EXCLUSION,
             "issuing country exclusion requested twice",
@@ -167,23 +169,14 @@ impl<let K: u32, let D: u32> Query<K, D> {
         )
     }
 
-    /// Ask for the proof to be bound to `address` and to the network the contract runs on, whose
-    /// chain id is its rollup version. The SDK request binds the user's address and the chain
-    /// `aztec` or `aztec_testnet`.
-    pub fn bind_user_address(self, address: AztecAddress) -> Query<K + 1, D> {
-        let mut query = self.with_check(CHECK_BIND, "bind requested twice");
-        query.bound_address = Option::some(address);
-        query
-    }
-
     /// Ask for the holder not to be on the sanctions lists. The client stashes the sanctions root
     /// the proof was made against in the sanctions capsule.
-    pub fn sanctions(self) -> Query<K + 1, D> {
+    pub fn sanctions(self) -> Query<K + 1, D, B> {
         self.with_sanctions(false)
     }
 
     /// Ask for the holder not to be on the sanctions lists, screened in strict mode.
-    pub fn strict_sanctions(self) -> Query<K + 1, D> {
+    pub fn strict_sanctions(self) -> Query<K + 1, D, B> {
         self.with_sanctions(true)
     }
 
@@ -194,12 +187,12 @@ impl<let K: u32, let D: u32> Query<K, D> {
     /// Ask for a face match in the SDK's regular mode: the holder's face against the document's
     /// photo, attested by one of ZKPassport's apps. The client stashes the facematch subproof's
     /// committed values in the face match capsule.
-    pub fn face_match(self) -> Query<K + 1, D> {
+    pub fn face_match(self) -> Query<K + 1, D, B> {
         self.with_face_match(FACE_MATCH_MODE_REGULAR)
     }
 
     /// Ask for a face match in the SDK's strict mode, which salted unique identifiers come with.
-    pub fn strict_face_match(self) -> Query<K + 1, D> {
+    pub fn strict_face_match(self) -> Query<K + 1, D, B> {
         self.with_face_match(FACE_MATCH_MODE_STRICT)
     }
 
@@ -221,8 +214,12 @@ impl<let K: u32, let D: u32> Query<K, D> {
             }
         }
 
-        if self.bound_address.is_some() {
-            expected.push(bind_commitment(self.bound_address.unwrap().to_field(), chain_id));
+        if B == 1 {
+            expected.push(bind_commitment(
+                self.bound_address.map(|address: AztecAddress| address.to_field()),
+                chain_id,
+                self.bound_custom_data,
+            ));
         }
 
         if disclosure.is_some() {
@@ -274,12 +271,12 @@ impl<let K: u32, let D: u32> Query<K, D> {
     }
 
     // The age, birthdate and expiry date subproofs commit to both bounds, 0 for an unchecked one
-    fn with_age_bounds(self, min: u8, max: u8) -> Query<K + 1, D> {
+    fn with_age_bounds(self, min: u8, max: u8) -> Query<K + 1, D, B> {
         assert((min < 100) & (max < 100), "age bound must be below 100");
         self.with_commitment(CHECK_AGE, "age requested twice", age_commitment(min, max))
     }
 
-    fn with_birthdate_bounds(self, min: i64, max: i64) -> Query<K + 1, D> {
+    fn with_birthdate_bounds(self, min: i64, max: i64) -> Query<K + 1, D, B> {
         self.with_commitment(
             CHECK_BIRTHDATE,
             "birthdate requested twice",
@@ -287,7 +284,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
         )
     }
 
-    fn with_expiry_date_bounds(self, min: u64, max: u64) -> Query<K + 1, D> {
+    fn with_expiry_date_bounds(self, min: u64, max: u64) -> Query<K + 1, D, B> {
         self.with_commitment(
             CHECK_EXPIRY_DATE,
             "expiry date requested twice",
@@ -300,25 +297,25 @@ impl<let K: u32, let D: u32> Query<K, D> {
         check: u16,
         message: str<M>,
         commitment: Field,
-    ) -> Query<K + 1, D> {
+    ) -> Query<K + 1, D, B> {
         let mut query = self.with_check(check, message);
         query.commitments.push(commitment);
         query
     }
 
-    fn with_face_match(self, mode: u8) -> Query<K + 1, D> {
+    fn with_face_match(self, mode: u8) -> Query<K + 1, D, B> {
         let mut query = self.with_check(CHECK_FACE_MATCH, "face match requested twice");
         query.face_match = Option::some(mode);
         query
     }
 
-    fn with_sanctions(self, strict: bool) -> Query<K + 1, D> {
+    fn with_sanctions(self, strict: bool) -> Query<K + 1, D, B> {
         let mut query = self.with_check(CHECK_SANCTIONS, "sanctions requested twice");
         query.sanctions = Option::some(strict);
         query
     }
 
-    fn with_check<let M: u32>(self, check: u16, message: str<M>) -> Query<K + 1, D> {
+    fn with_check<let M: u32>(self, check: u16, message: str<M>) -> Query<K + 1, D, B> {
         assert(self.checks & check == 0, message);
 
         let mut query = self.resized();
@@ -326,7 +323,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
         query
     }
 
-    fn resized<let L: u32, let E: u32>(self) -> Query<L, E> {
+    fn resized<let L: u32, let E: u32, let C: u32>(self) -> Query<L, E, C> {
         let mut commitments = BoundedVec::new();
         for i in 0..K {
             if i < self.commitments.len() {
@@ -339,59 +336,113 @@ impl<let K: u32, let D: u32> Query<K, D> {
             disclosed_fields: self.disclosed_fields,
             sanctions: self.sanctions,
             bound_address: self.bound_address,
+            bound_custom_data: self.bound_custom_data,
             face_match: self.face_match,
         }
     }
 }
 
-impl<let K: u32> Query<K, 0> {
+impl<let K: u32, let D: u32> Query<K, D, 0> {
+    /// Ask for the proof to be bound to `address` and to the network the contract runs on, whose
+    /// chain id is its rollup version. The SDK request binds `user_address`, the chain `aztec` or
+    /// `aztec_testnet`, and `custom_data` if the query binds it too.
+    pub fn bind_user_address(self, address: AztecAddress) -> Query<K + 1, D, 1> {
+        self.first_bind().bind_user_address(address)
+    }
+
+    /// Ask for the proof to be bound to `data` and to the network the contract runs on. `data`
+    /// holds 1 to 464 bytes and is committed as its UTF-8 bytes, as the SDK writes its custom data
+    /// string, so the two must match exactly. The SDK request binds `custom_data`, the chain
+    /// `aztec` or `aztec_testnet`, and `user_address` if the query binds it too.
+    pub fn bind_custom_data<let N: u32>(self, data: str<N>) -> Query<K + 1, D, 1> {
+        self.first_bind().bind_custom_data(data)
+    }
+
+    fn first_bind(self) -> Query<K + 1, D, 1> {
+        self.resized()
+    }
+}
+
+// Once one thing is bound, the others share its bind subproof.
+impl<let K: u32, let D: u32> Query<K, D, 1> {
+    /// Ask for the proof to be bound to `address` and to the network the contract runs on, whose
+    /// chain id is its rollup version. The SDK request binds `user_address`, the chain `aztec` or
+    /// `aztec_testnet`, and `custom_data` if the query binds it too.
+    pub fn bind_user_address(self, address: AztecAddress) -> Self {
+        assert(self.bound_address.is_none(), "user address bound twice");
+
+        let mut query = self;
+        query.bound_address = Option::some(address);
+        query
+    }
+
+    /// Ask for the proof to be bound to `data` and to the network the contract runs on. `data`
+    /// holds 1 to 464 bytes and is committed as its UTF-8 bytes, as the SDK writes its custom data
+    /// string, so the two must match exactly. The SDK request binds `custom_data`, the chain
+    /// `aztec` or `aztec_testnet`, and `user_address` if the query binds it too.
+    pub fn bind_custom_data<let N: u32>(self, data: str<N>) -> Self {
+        // The SDK writes no custom data entry for an empty string
+        std::static_assert(N != 0, "custom data is empty");
+        std::static_assert(
+            N <= CUSTOM_DATA_MAX_LENGTH,
+            "custom data longer than 464 bytes",
+        );
+        assert(self.bound_custom_data.is_none(), "custom data bound twice");
+
+        let mut query = self;
+        query.bound_custom_data = Option::some(BoundedVec::from_array(data.as_bytes()));
+        query
+    }
+}
+
+impl<let K: u32, let B: u32> Query<K, 0, B> {
     /// Ask for the document code to be disclosed, such as "P<" for a passport.
-    pub fn disclose_document_type(self) -> Query<K + 1, 1> {
+    pub fn disclose_document_type(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_DOCUMENT_TYPE)
     }
 
     /// Ask for the issuing country to be disclosed.
-    pub fn disclose_issuing_country(self) -> Query<K + 1, 1> {
+    pub fn disclose_issuing_country(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_ISSUING_COUNTRY)
     }
 
     /// Ask for the document number to be disclosed.
-    pub fn disclose_document_number(self) -> Query<K + 1, 1> {
+    pub fn disclose_document_number(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_DOCUMENT_NUMBER)
     }
 
     /// Ask for the nationality to be disclosed.
-    pub fn disclose_nationality(self) -> Query<K + 1, 1> {
+    pub fn disclose_nationality(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_NATIONALITY)
     }
 
     /// Ask for the date of birth to be disclosed.
-    pub fn disclose_birthdate(self) -> Query<K + 1, 1> {
+    pub fn disclose_birthdate(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_BIRTHDATE)
     }
 
     /// Ask for the expiry date to be disclosed.
-    pub fn disclose_expiry_date(self) -> Query<K + 1, 1> {
+    pub fn disclose_expiry_date(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_EXPIRY_DATE)
     }
 
     /// Ask for the gender to be disclosed.
-    pub fn disclose_gender(self) -> Query<K + 1, 1> {
+    pub fn disclose_gender(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_GENDER)
     }
 
     /// Ask for the name to be disclosed. A request for the first or last name alone discloses
     /// only that part of the name field; use `disclose_full_name` to require all of it.
-    pub fn disclose_name(self) -> Query<K + 1, 1> {
+    pub fn disclose_name(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_NAME)
     }
 
     /// Ask for the whole name field to be disclosed, as the SDK's full name request does.
-    pub fn disclose_full_name(self) -> Query<K + 1, 1> {
+    pub fn disclose_full_name(self) -> Query<K + 1, 1, B> {
         self.first_disclosure(FIELD_FULL_NAME)
     }
 
-    fn first_disclosure(self, field: u16) -> Query<K + 1, 1> {
+    fn first_disclosure(self, field: u16) -> Query<K + 1, 1, B> {
         let mut query = self.resized();
         query.disclosed_fields = field;
         query
@@ -399,7 +450,7 @@ impl<let K: u32> Query<K, 0> {
 }
 
 // Once one field is disclosed, the others share its disclose subproof.
-impl<let K: u32> Query<K, 1> {
+impl<let K: u32, let B: u32> Query<K, 1, B> {
     /// Ask for the document code to be disclosed, such as "P<" for a passport.
     pub fn disclose_document_type(self) -> Self {
         self.another_disclosure(FIELD_DOCUMENT_TYPE)
@@ -467,14 +518,16 @@ mod test {
         APPLE_ROOT_KEY_LEAF, FACE_MATCH_ENVIRONMENT_PRODUCTION, FACE_MATCH_MODE_STRICT, FaceMatch,
     };
 
-    fn subproofs<let K: u32, let D: u32>(_query: Query<K, D>) -> u32 {
+    fn subproofs<let K: u32, let D: u32, let B: u32>(_query: Query<K, D, B>) -> u32 {
         K
     }
 
     // The chain id of the network a test's contract runs on, Aztec testnet's rollup version
     global CHAIN_ID: Field = 679261766;
 
-    fn commitments_without_payloads<let K: u32, let D: u32>(query: Query<K, D>) -> [Field; K - 3] {
+    fn commitments_without_payloads<let K: u32, let D: u32, let B: u32>(
+        query: Query<K, D, B>,
+    ) -> [Field; K - 3] {
         query.expected_commitments(Option::none(), Option::none(), Option::none(), CHAIN_ID)
     }
 
@@ -522,7 +575,7 @@ mod test {
                 nationality_exclusion_commitment(["ITA"]),
                 issuing_country_inclusion_commitment(["ESP"]),
                 issuing_country_exclusion_commitment(["USA"]),
-                bind_commitment(user.to_field(), CHAIN_ID),
+                bind_commitment(Option::some(user.to_field()), CHAIN_ID, Option::none()),
             ],
         );
     }
@@ -563,6 +616,65 @@ mod test {
             .disclose_full_name();
 
         assert_eq(subproofs(query), 4);
+    }
+
+    #[test]
+    fn binding_an_address_and_custom_data_adds_one_subproof() {
+        let user = AztecAddress::from_field(0x1234);
+        let query = Query::new().bind_user_address(user).bind_custom_data("order-42");
+
+        assert_eq(subproofs(query), 4);
+        assert_eq(
+            commitments_without_payloads(query),
+            [bind_commitment(
+                Option::some(user.to_field()),
+                CHAIN_ID,
+                Option::some(BoundedVec::from_array("order-42".as_bytes())),
+            )],
+        );
+    }
+
+    #[test]
+    fn the_bind_order_does_not_change_the_commitment() {
+        let user = AztecAddress::from_field(0x1234);
+
+        assert_eq(
+            commitments_without_payloads(Query::new()
+                .bind_custom_data("order-42")
+                .bind_user_address(user)),
+            commitments_without_payloads(Query::new().bind_user_address(user).bind_custom_data(
+                "order-42",
+            )),
+        );
+    }
+
+    #[test]
+    fn binds_custom_data_without_an_address() {
+        let query = Query::new().age_min(18).bind_custom_data("order-42");
+
+        assert_eq(subproofs(query), 5);
+        assert_eq(
+            commitments_without_payloads(query),
+            [
+                age_commitment(18, 0),
+                bind_commitment(
+                    Option::none(),
+                    CHAIN_ID,
+                    Option::some(BoundedVec::from_array("order-42".as_bytes())),
+                ),
+            ],
+        );
+    }
+
+    #[test(should_fail_with = "user address bound twice")]
+    fn rejects_a_user_address_bound_twice() {
+        let user = AztecAddress::from_field(0x1234);
+        let _ = Query::new().bind_user_address(user).bind_user_address(user);
+    }
+
+    #[test(should_fail_with = "custom data bound twice")]
+    fn rejects_custom_data_bound_twice() {
+        let _ = Query::new().bind_custom_data("order-42").bind_custom_data("order-43");
     }
 
     #[test]

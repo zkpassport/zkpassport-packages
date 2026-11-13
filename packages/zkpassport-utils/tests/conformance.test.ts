@@ -21,11 +21,7 @@ describe("Conformance vectors", () => {
   test("every vector is checked here", () => {
     expect(vectors.vectors.map((v) => v.proofType).sort()).toEqual([
       "age",
-      "bind",
-      "bind",
-      "bind",
-      "bind",
-      "bind",
+      ...Array<string>(11).fill("bind"),
       "birthdate",
       "disclose",
       "expiry_date",
@@ -75,6 +71,37 @@ describe("Conformance vectors", () => {
     const data = formatBoundData({ user_address: params.userAddress, chain: params.chain })
     const result = await getBindParameterCommitment(data, params.maxLength)
     expect(hex(result)).toEqual(commitment)
+  })
+
+  // Custom data after chain ids of each length, without an address, in UTF-8, and as long as fits
+  test.each([
+    "bind_user_address_custom_data_aztec_testnet",
+    "bind_custom_data_aztec_testnet",
+    "bind_user_address_custom_data_ethereum",
+    "bind_user_address_custom_data_base",
+    "bind_user_address_custom_data_ethereum_sepolia",
+    "bind_user_address_longest_custom_data_aztec_testnet",
+  ])("%s", async (name) => {
+    const { params, commitment } = byName[name]
+    expect(getIdFromChain(params.chain)).toEqual(params.chainId)
+
+    const data = formatBoundData({
+      user_address: params.userAddress,
+      chain: params.chain,
+      custom_data: params.customData,
+    })
+    const result = await getBindParameterCommitment(data, params.maxLength)
+    expect(hex(result)).toEqual(commitment)
+  })
+
+  test("the longest custom data fills the bound data", () => {
+    const { params } = byName.bind_user_address_longest_custom_data_aztec_testnet
+    const data = formatBoundData({
+      user_address: params.userAddress,
+      chain: params.chain,
+      custom_data: params.customData,
+    })
+    expect(data.length).toEqual(params.maxLength)
   })
 
   // getFacematchParameterCommitment derives the integrity key from the app id, 0 for iOS

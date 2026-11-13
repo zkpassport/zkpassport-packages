@@ -1,4 +1,6 @@
-use crate::constants::{COUNTRY_LIST_LENGTH, SECONDS_BETWEEN_1900_AND_1970};
+use crate::constants::{
+    BIND_ENTRIES_LENGTH, COUNTRY_LIST_LENGTH, CUSTOM_DATA_MAX_LENGTH, SECONDS_BETWEEN_1900_AND_1970,
+};
 use bind_lib::calculate_param_commitment as bind_param_commitment;
 use compare_age_lib::calculate_param_commitment as age_param_commitment;
 use compare_date_lib::calculate_param_commitment as date_param_commitment;
@@ -87,22 +89,20 @@ pub fn sanctions_commitment(root: Field, is_strict: bool) -> Field {
     sanctions_param_commitment(root, is_strict)
 }
 
-/// bind(user_address, chain): the 509-byte bound data @zkpassport/utils' formatBoundData writes for
-/// an address and a chain, then zero padding:
+/// bind(user_address, chain, custom_data): the 509-byte bound data @zkpassport/utils'
+/// formatBoundData writes, then zero padding. The address and the custom data are optional, the
+/// chain is not:
 /// [identifier = 1 (USER_ADDRESS)][len_hi = 0][len_lo = 32][32-byte BE address]
 /// [identifier = 2 (CHAIN_ID)][len_hi = 0][len_lo = n][chain id as n BE bytes, n as small as fits]
+/// [identifier = 3 (CUSTOM_DATA)][len_hi][len_lo][custom data bytes]
 /// An Aztec network's chain id is its rollup version, a 4-byte number, so `chain_id` must fit in
-/// 4 bytes.
-pub fn bind_commitment(account: Field, chain_id: Field) -> Field {
-    let mut data = [0 as u8; 509];
-    data[0] = 1;
-    data[1] = 0;
-    data[2] = 32;
-    let account_bytes: [u8; 32] = account.to_be_bytes();
-    for i in 0..32 {
-        data[3 + i] = account_bytes[i];
-    }
-
+/// 4 bytes. formatBoundData writes no custom data entry for empty custom data, so `custom_data`
+/// holds at least one byte when it is some.
+pub fn bind_commitment(
+    account: Option<Field>,
+    chain_id: Field,
+    custom_data: Option<BoundedVec<u8, CUSTOM_DATA_MAX_LENGTH>>,
+) -> Field {
     let chain_id_bytes: [u8; 4] = chain_id.to_be_bytes();
     let leading_zero_bytes: u8 = if chain_id_bytes[0] != 0 {
         0
@@ -114,25 +114,73 @@ pub fn bind_commitment(account: Field, chain_id: Field) -> Field {
         3
     };
 
-    data[35] = 2;
-    data[36] = 0;
-    data[37] = 4 - leading_zero_bytes;
-
-    // Shifting the leading zero bytes out leaves zeros after the chain id, where the data is zero
-    // padding anyway. Writing all 4 bytes at fixed indices costs far fewer gates than a write that
-    // depends on the length.
-    let shift: Field = if leading_zero_bytes == 0 {
-        1
-    } else if leading_zero_bytes == 1 {
-        0x100
-    } else if leading_zero_bytes == 2 {
-        0x10000
-    } else {
-        0x1000000
-    };
-    let shifted_chain_id_bytes: [u8; 4] = (chain_id * shift).to_be_bytes();
+    // The chain id and custom data entries, with the chain id in all 4 of its bytes
+    let mut entries = [0 as u8; BIND_ENTRIES_LENGTH];
+    entries[0] = 2;
+    entries[1] = 0;
+    entries[2] = 4 - leading_zero_bytes;
     for i in 0..4 {
-        data[38 + i] = shifted_chain_id_bytes[i];
+        entries[3 + i] = chain_id_bytes[i];
+    }
+    if custom_data.is_some() {
+        let custom_data = custom_data.unwrap();
+        let length = custom_data.len();
+        entries[7] = 3;
+        entries[8] = (length >> 8) as u8;
+        entries[9] = length as u8;
+        for i in 0..CUSTOM_DATA_MAX_LENGTH {
+            entries[10 + i] = if i < length {
+                custom_data.get_unchecked(i)
+            } else {
+                0
+            };
+        }
+    }
+
+    // Dropping the chain id's leading zero bytes moves everything after them forward. Each byte is
+    // picked from the 4 it can be at fixed indices, since a write at an index that depends on the
+    // chain id costs far more gates.
+    let (one, two, three) =
+        (leading_zero_bytes == 1, leading_zero_bytes == 2, leading_zero_bytes == 3);
+    let mut shifted = [0 as u8; BIND_ENTRIES_LENGTH];
+    for i in 0..3 {
+        shifted[i] = entries[i];
+    }
+    for i in 3..BIND_ENTRIES_LENGTH {
+        let at = |offset: u32| {
+            if i + offset < BIND_ENTRIES_LENGTH {
+                entries[i + offset]
+            } else {
+                0
+            }
+        };
+        shifted[i] = if three {
+            at(3)
+        } else if two {
+            at(2)
+        } else if one {
+            at(1)
+        } else {
+            at(0)
+        };
+    }
+
+    let mut data = [0 as u8; 509];
+    if account.is_some() {
+        data[0] = 1;
+        data[1] = 0;
+        data[2] = 32;
+        let account_bytes: [u8; 32] = account.unwrap().to_be_bytes();
+        for i in 0..32 {
+            data[3 + i] = account_bytes[i];
+        }
+        for i in 0..BIND_ENTRIES_LENGTH {
+            data[35 + i] = shifted[i];
+        }
+    } else {
+        for i in 0..BIND_ENTRIES_LENGTH {
+            data[i] = shifted[i];
+        }
     }
 
     bind_param_commitment(data)
@@ -193,9 +241,13 @@ mod test {
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
         nationality_inclusion_commitment,
     };
+    use crate::constants::CUSTOM_DATA_MAX_LENGTH;
     use crate::fixtures::{
         AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_BASE_COMMITMENT, BIND_COMMITMENT,
-        BIND_ETHEREUM_COMMITMENT, BIND_ETHEREUM_SEPOLIA_COMMITMENT, BIRTHDATE_COMMITMENT,
+        BIND_CUSTOM_DATA_BASE_COMMITMENT, BIND_CUSTOM_DATA_COMMITMENT,
+        BIND_CUSTOM_DATA_ETHEREUM_COMMITMENT, BIND_CUSTOM_DATA_ETHEREUM_SEPOLIA_COMMITMENT,
+        BIND_CUSTOM_DATA_WITHOUT_ACCOUNT_COMMITMENT, BIND_ETHEREUM_COMMITMENT,
+        BIND_ETHEREUM_SEPOLIA_COMMITMENT, BIND_LONGEST_CUSTOM_DATA_COMMITMENT, BIRTHDATE_COMMITMENT,
         DISCLOSE_COMMITMENT, EXPIRY_DATE_COMMITMENT, FACE_MATCH_COMMITMENT,
         ISSUING_COUNTRY_EXCLUSION_COMMITMENT, ISSUING_COUNTRY_INCLUSION_COMMITMENT,
         NATIONALITY_EXCLUSION_COMMITMENT, NATIONALITY_INCLUSION_COMMITMENT,
@@ -208,19 +260,92 @@ mod test {
 
     #[test]
     fn bind_matches_conformance_anchor() {
-        assert(bind_commitment(BIND_ACCOUNT, 679261766) == BIND_COMMITMENT);
+        assert(bind_account(679261766) == BIND_COMMITMENT);
     }
 
     #[test]
     fn bind_writes_a_chain_id_in_as_few_bytes_as_utils() {
-        assert(bind_commitment(BIND_ACCOUNT, 1) == BIND_ETHEREUM_COMMITMENT);
-        assert(bind_commitment(BIND_ACCOUNT, 8453) == BIND_BASE_COMMITMENT);
-        assert(bind_commitment(BIND_ACCOUNT, 11155111) == BIND_ETHEREUM_SEPOLIA_COMMITMENT);
+        assert(bind_account(1) == BIND_ETHEREUM_COMMITMENT);
+        assert(bind_account(8453) == BIND_BASE_COMMITMENT);
+        assert(bind_account(11155111) == BIND_ETHEREUM_SEPOLIA_COMMITMENT);
     }
 
     #[test(should_fail)]
     fn bind_rejects_a_chain_id_longer_than_4_bytes() {
-        let _ = bind_commitment(BIND_ACCOUNT, 0x100000000);
+        let _ = bind_account(0x100000000);
+    }
+
+    #[test]
+    fn bind_with_custom_data_matches_conformance_anchor() {
+        assert(bind_account_and_custom_data(679261766, "order-42") == BIND_CUSTOM_DATA_COMMITMENT);
+    }
+
+    #[test]
+    fn bind_writes_custom_data_right_after_a_chain_id_as_short_as_utils_writes_it() {
+        assert(bind_account_and_custom_data(1, "order-42") == BIND_CUSTOM_DATA_ETHEREUM_COMMITMENT);
+        assert(bind_account_and_custom_data(8453, "order-42") == BIND_CUSTOM_DATA_BASE_COMMITMENT);
+        assert(
+            bind_account_and_custom_data(11155111, "order-42")
+                == BIND_CUSTOM_DATA_ETHEREUM_SEPOLIA_COMMITMENT,
+        );
+    }
+
+    #[test]
+    fn bind_custom_data_without_an_account_matches_conformance_anchor() {
+        let custom_data = BoundedVec::from_array("café".as_bytes());
+        assert(
+            bind_commitment(Option::none(), 679261766, Option::some(custom_data))
+                == BIND_CUSTOM_DATA_WITHOUT_ACCOUNT_COMMITMENT,
+        );
+    }
+
+    #[test]
+    fn bind_longest_custom_data_matches_conformance_anchor() {
+        let pattern = "0123456789abcdef".as_bytes();
+        let mut custom_data = BoundedVec::new();
+        for i in 0..CUSTOM_DATA_MAX_LENGTH {
+            custom_data.push(pattern[i % 16]);
+        }
+
+        assert(
+            bind_commitment(
+                Option::some(BIND_ACCOUNT),
+                679261766,
+                Option::some(custom_data),
+            )
+                == BIND_LONGEST_CUSTOM_DATA_COMMITMENT,
+        );
+    }
+
+    #[test]
+    fn bind_ignores_bytes_past_the_custom_data_length() {
+        let mut custom_data: BoundedVec<u8, CUSTOM_DATA_MAX_LENGTH> =
+            BoundedVec::from_array("order-42".as_bytes());
+        for i in 8..CUSTOM_DATA_MAX_LENGTH {
+            custom_data.set_unchecked(i, 0xff);
+        }
+
+        assert(
+            bind_commitment(
+                Option::some(BIND_ACCOUNT),
+                679261766,
+                Option::some(custom_data),
+            )
+                == BIND_CUSTOM_DATA_COMMITMENT,
+        );
+    }
+
+    fn bind_account(chain_id: Field) -> Field {
+        bind_commitment(Option::some(BIND_ACCOUNT), chain_id, Option::none())
+    }
+
+    fn bind_account_and_custom_data<let N: u32>(chain_id: Field, custom_data: str<N>) -> Field {
+        let custom_data = BoundedVec::from_array(custom_data.as_bytes());
+        bind_commitment(
+            Option::some(BIND_ACCOUNT),
+            chain_id,
+            Option::some(custom_data),
+        )
     }
 
     #[test]

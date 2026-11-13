@@ -32,8 +32,14 @@ test("every constant in fixtures.nr is checked here", () => {
     "BIND_ACCOUNT",
     "BIND_BASE_COMMITMENT",
     "BIND_COMMITMENT",
+    "BIND_CUSTOM_DATA_BASE_COMMITMENT",
+    "BIND_CUSTOM_DATA_COMMITMENT",
+    "BIND_CUSTOM_DATA_ETHEREUM_COMMITMENT",
+    "BIND_CUSTOM_DATA_ETHEREUM_SEPOLIA_COMMITMENT",
+    "BIND_CUSTOM_DATA_WITHOUT_ACCOUNT_COMMITMENT",
     "BIND_ETHEREUM_COMMITMENT",
     "BIND_ETHEREUM_SEPOLIA_COMMITMENT",
+    "BIND_LONGEST_CUSTOM_DATA_COMMITMENT",
     "BIRTHDATE_COMMITMENT",
     "DISCLOSE_COMMITMENT",
     "EXPIRY_DATE_COMMITMENT",
@@ -87,6 +93,27 @@ test.each([
 ])("%s matches the published %s vector", (anchor, name) => {
   expect(namedVector(name).params.userAddress).toBe(hex("BIND_ACCOUNT"))
   expect(hex(anchor)).toBe(namedVector(name).commitment)
+})
+
+// Custom data, after chain ids of each length and without an account
+test.each([
+  ["BIND_CUSTOM_DATA_COMMITMENT", "bind_user_address_custom_data_aztec_testnet"],
+  ["BIND_CUSTOM_DATA_ETHEREUM_COMMITMENT", "bind_user_address_custom_data_ethereum"],
+  ["BIND_CUSTOM_DATA_BASE_COMMITMENT", "bind_user_address_custom_data_base"],
+  [
+    "BIND_CUSTOM_DATA_ETHEREUM_SEPOLIA_COMMITMENT",
+    "bind_user_address_custom_data_ethereum_sepolia",
+  ],
+  ["BIND_LONGEST_CUSTOM_DATA_COMMITMENT", "bind_user_address_longest_custom_data_aztec_testnet"],
+])("%s matches the published %s vector", (anchor, name) => {
+  expect(namedVector(name).params.userAddress).toBe(hex("BIND_ACCOUNT"))
+  expect(hex(anchor)).toBe(namedVector(name).commitment)
+})
+
+test("BIND_CUSTOM_DATA_WITHOUT_ACCOUNT_COMMITMENT matches the published vector without an address", () => {
+  const { params, commitment } = namedVector("bind_custom_data_aztec_testnet")
+  expect("userAddress" in params).toBe(false)
+  expect(hex("BIND_CUSTOM_DATA_WITHOUT_ACCOUNT_COMMITMENT")).toBe(commitment)
 })
 
 test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () => {
