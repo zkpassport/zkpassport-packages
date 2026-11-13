@@ -104,7 +104,7 @@ pub fn bind_commitment(account: Field, chain_id: Field) -> Field {
     }
 
     let chain_id_bytes: [u8; 4] = chain_id.to_be_bytes();
-    let leading_zero_bytes = if chain_id_bytes[0] != 0 {
+    let leading_zero_bytes: u8 = if chain_id_bytes[0] != 0 {
         0
     } else if chain_id_bytes[1] != 0 {
         1
@@ -113,15 +113,26 @@ pub fn bind_commitment(account: Field, chain_id: Field) -> Field {
     } else {
         3
     };
-    let chain_id_length = 4 - leading_zero_bytes;
 
     data[35] = 2;
     data[36] = 0;
-    data[37] = chain_id_length as u8;
+    data[37] = 4 - leading_zero_bytes;
+
+    // Shifting the leading zero bytes out leaves zeros after the chain id, where the data is zero
+    // padding anyway. Writing all 4 bytes at fixed indices costs far fewer gates than a write that
+    // depends on the length.
+    let shift: Field = if leading_zero_bytes == 0 {
+        1
+    } else if leading_zero_bytes == 1 {
+        0x100
+    } else if leading_zero_bytes == 2 {
+        0x10000
+    } else {
+        0x1000000
+    };
+    let shifted_chain_id_bytes: [u8; 4] = (chain_id * shift).to_be_bytes();
     for i in 0..4 {
-        if i < chain_id_length {
-            data[38 + i] = chain_id_bytes[leading_zero_bytes + i];
-        }
+        data[38 + i] = shifted_chain_id_bytes[i];
     }
 
     bind_param_commitment(data)
