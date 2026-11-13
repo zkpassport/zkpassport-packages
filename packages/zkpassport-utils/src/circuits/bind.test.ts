@@ -5,33 +5,17 @@ const userAddress = `0x${"ab".repeat(32)}`
 const userAddressEntry = [BoundDataIdentifier.USER_ADDRESS, 0, 32, ...Array(32).fill(0xab)]
 
 describe("formatBoundData", () => {
-  test("writes an Aztec testnet as its L1 chain id and rollup version, 32 bytes each", () => {
-    const data = formatBoundData({ user_address: userAddress, chain: "aztec_testnet" })
+  test("writes an Aztec network's rollup version as its chain id", () => {
+    const testnetData = formatBoundData({ user_address: userAddress, chain: "aztec_testnet" })
+    const mainnetData = formatBoundData({ user_address: userAddress, chain: "aztec" })
 
-    expect(data).toEqual([
+    expect(testnetData).toEqual([
       ...userAddressEntry,
-      BoundDataIdentifier.AZTEC_NETWORK,
-      0,
-      64,
-      ...Array(29).fill(0),
-      ...[0xaa, 0x36, 0xa7],
-      ...Array(28).fill(0),
-      ...[0x28, 0x7c, 0xb6, 0x46],
+      ...[BoundDataIdentifier.CHAIN_ID, 0, 4, 0x28, 0x7c, 0xb6, 0x46],
     ])
-  })
-
-  test("writes Aztec mainnet as its L1 chain id and rollup version, 32 bytes each", () => {
-    const data = formatBoundData({ user_address: userAddress, chain: "aztec" })
-
-    expect(data).toEqual([
+    expect(mainnetData).toEqual([
       ...userAddressEntry,
-      BoundDataIdentifier.AZTEC_NETWORK,
-      0,
-      64,
-      ...Array(31).fill(0),
-      0x01,
-      ...Array(28).fill(0),
-      ...[0x7b, 0x6e, 0xd2, 0x98],
+      ...[BoundDataIdentifier.CHAIN_ID, 0, 4, 0x7b, 0x6e, 0xd2, 0x98],
     ])
   })
 

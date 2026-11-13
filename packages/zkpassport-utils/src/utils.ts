@@ -261,7 +261,8 @@ const CHAIN_IDS = {
   linea: 59144,
   world_chain: 480,
   robinhood: 4663,
-  // An Aztec network has no EIP-155 chain id, so its id is its rollup version
+  // An Aztec network has no EIP-155 chain id, so its id is its rollup version, which an Aztec
+  // contract reads as context.version()
   aztec: 2070860440,
   // Testnets
   ethereum_sepolia: 11155111,
@@ -275,29 +276,6 @@ const CHAIN_IDS = {
   world_chain_sepolia: 4801,
   aztec_testnet: 679261766,
   local: 31337,
-}
-
-/**
- * An Aztec network's L1 chain id and rollup version, the values an Aztec contract reads as
- * `context.chain_id()` and `context.version()`
- */
-export type AztecNetwork = {
-  l1ChainId: number
-  rollupVersion: number
-}
-
-const AZTEC_NETWORKS: Partial<Record<SupportedChain, AztecNetwork>> = {
-  aztec: { l1ChainId: 1, rollupVersion: 2070860440 },
-  aztec_testnet: { l1ChainId: 11155111, rollupVersion: 679261766 },
-}
-
-/**
- * Get the L1 chain id and rollup version of an Aztec network
- * @param chain - The chain
- * @returns The network's L1 chain id and rollup version, or undefined if the chain is not an Aztec network
- */
-export function getAztecNetwork(chain: SupportedChain): AztecNetwork | undefined {
-  return AZTEC_NETWORKS[chain]
 }
 
 export function getIdFromChain(chain: SupportedChain): number {
