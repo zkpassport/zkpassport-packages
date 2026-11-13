@@ -95,7 +95,7 @@ export class ZKPassportRegistryContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'admin' | 'operator' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'> {
+  public static get storage(): ContractStorageLayout<'admin' | 'operator' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash' | 'app_ids'> {
       return {
         admin: {
       slot: new Fr(1n),
@@ -123,8 +123,11 @@ version_enabled: {
     },
 oprf_pk_hash: {
       slot: new Fr(12n),
+    },
+app_ids: {
+      slot: new Fr(16n),
     }
-      } as ContractStorageLayout<'admin' | 'operator' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash'>;
+      } as ContractStorageLayout<'admin' | 'operator' | 'paused' | 'config' | 'latest' | 'roots' | 'accepted_vks' | 'version_enabled' | 'oprf_pk_hash' | 'app_ids'>;
     }
     
 
@@ -133,6 +136,9 @@ oprf_pk_hash: {
     
     /** add_accepted_vk(version: field, vk_hash: field) */
     add_accepted_vk: ((version: FieldLike, vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** assert_app_id_accepted(app_id_hash: field) */
+    assert_app_id_accepted: ((app_id_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** assert_proof_valid(version: field, vk_hash: field, cert_root: field, circuit_root: field, current_date: integer, nullifier_type: integer, oprf_pk_hash: field) */
     assert_proof_valid: ((version: FieldLike, vk_hash: FieldLike, cert_root: FieldLike, circuit_root: FieldLike, current_date: (bigint | number), nullifier_type: (bigint | number), oprf_pk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -148,6 +154,9 @@ oprf_pk_hash: {
 
     /** get_latest_pair(registry_id: field) */
     get_latest_pair: ((registry_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** is_app_id_accepted(app_id_hash: field) */
+    is_app_id_accepted: ((app_id_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** is_version_enabled(version: field) */
     is_version_enabled: ((version: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -166,6 +175,9 @@ oprf_pk_hash: {
 
     /** remove_accepted_vk(version: field, vk_hash: field) */
     remove_accepted_vk: ((version: FieldLike, vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_app_id_status(app_id_hash: field, accepted: boolean) */
+    set_app_id_status: ((app_id_hash: FieldLike, accepted: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** set_operator(new_operator: struct) */
     set_operator: ((new_operator: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

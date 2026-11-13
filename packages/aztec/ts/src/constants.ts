@@ -13,6 +13,8 @@ export const PROOF_CAPSULE_SLOT = 1n
 export const DISCLOSE_CAPSULE_SLOT = 2n
 /** Capsule slot for the sanctions exclusion payload. */
 export const SANCTIONS_CAPSULE_SLOT = 3n
+/** Capsule slot for the values a facematch subproof commits to. */
+export const FACE_MATCH_CAPSULE_SLOT = 4n
 
 /** The canonical 90-byte disclose payload length (TD1 exactly; TD3 zero-padded). */
 export const MRZ_LENGTH = 90

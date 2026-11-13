@@ -20,8 +20,8 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 
 | Package | Type | Purpose | Key dependencies |
 |---|---|---|---|
-| `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
-| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
+| `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, the OPRF pubkey hash, and the app ids whose face matches are accepted, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator; app ids admin only), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_app_id_accepted`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
+| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `face_match_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
 | `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants` and `disclosed_data`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose and sanctions payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
@@ -90,7 +90,8 @@ local network that is the local network registry, below. On a network without on
 `Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
 `age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
 `nationality_in`, `nationality_out`, `issuing_country_in` and `issuing_country_out`;
-`bind_user_address`; `sanctions` and `strict_sanctions`; a `disclose_*` method per MRZ field; and
+`bind_user_address`; `sanctions` and `strict_sanctions`; `face_match` and `strict_face_match`; a
+`disclose_*` method per MRZ field; and
 `disclose_full_name`, which requires the whole name where `disclose_name` accepts part of it.
 The proof must carry exactly the subproofs the query asks for, so the ZKPassport request that
 made it asks for the same checks.
@@ -171,6 +172,14 @@ A query that asks for sanctions screening needs the sanctions root the proof was
 `verify_zkpassport_proof` loads it once, adds its commitment, checks it in the registry at the
 proof's date, and returns it in `VerifiedProof.sanctions_root`.
 
+A query that asks for a face match needs the five values the proof's facematch subproof commits to
+(root key leaf, environment, app id hash, integrity key hash, mode), from `assembleFacematchCapsule`,
+in `zkpassport::constants::FACE_MATCH_CAPSULE_SLOT` (`= 4`). `verify_zkpassport_proof` loads them
+once, requires the production environment, the query's mode and a pinned root key with the
+integrity key that goes with it, adds their commitment, checks the app id in the registry, and
+returns them in `VerifiedProof.face_match`. A contract that accepts salted unique identifiers asks
+for `strict_face_match()`, since the ZKPassport SDK builds salted requests only with one.
+
 ## Trust considerations
 
 1. **ZKPassportRegistry is the source of truth.** Certificate, circuit, and sanctions root sets are
@@ -227,6 +236,12 @@ proof's date, and returns it in `VerifiedProof.sanctions_root`.
    therefore land up to `validity_period` plus a day after the date its proof was screened at, and
    the sanctions root it was screened against may have been replaced up to the registry's validity
    window before that date. Apps that need recent screening set a short `validity_period`.
+9. **A face match is as trustworthy as the apps the registry accepts and the keys the library
+   pins.** The facematch circuits prove an attestation chained to a root key, for an app id. The
+   library pins Apple's and Google's root keys and Google Play Integrity's key, so a rotation of
+   any of them needs a library release and redeployed contracts. The registry's admin decides
+   which app ids are accepted, ZKPassport's iOS app, App Clip and Android app, and a change takes
+   effect after the registry's delay.
 
 ## Running the tests
 

@@ -51,6 +51,24 @@ pub contract VerifierTest {
     }
 
     #[external("private")]
+    fn verify_face_match(user: AztecAddress) -> Field {
+        let query = Query::new().face_match().bind_user_address(user);
+        verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query)
+            .face_match
+            .unwrap()
+            .app_id_hash
+    }
+
+    #[external("private")]
+    fn verify_strict_face_match(user: AztecAddress) -> Field {
+        let query = Query::new().strict_face_match().bind_user_address(user);
+        verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query)
+            .face_match
+            .unwrap()
+            .app_id_hash
+    }
+
+    #[external("private")]
     fn verify_strict_sanctions(user: AztecAddress) -> Field {
         let query = Query::new().strict_sanctions().bind_user_address(user);
         verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query)

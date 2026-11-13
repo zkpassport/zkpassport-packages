@@ -37,6 +37,7 @@ test("every constant in fixtures.nr is checked here", () => {
     "BIRTHDATE_COMMITMENT",
     "DISCLOSE_COMMITMENT",
     "EXPIRY_DATE_COMMITMENT",
+    "FACE_MATCH_COMMITMENT",
     "FIXTURE_PUBLIC_INPUTS",
     "ISSUING_COUNTRY_EXCLUSION_COMMITMENT",
     "ISSUING_COUNTRY_INCLUSION_COMMITMENT",
@@ -58,6 +59,10 @@ test.each([
   ["ISSUING_COUNTRY_EXCLUSION_COMMITMENT", "issuing_country_exclusion"],
 ])("%s matches the published %s vector", (anchor, proofType) => {
   expect(hex(anchor)).toBe(vector(proofType).commitment)
+})
+
+test("FACE_MATCH_COMMITMENT matches the published facematch vector", () => {
+  expect(hex("FACE_MATCH_COMMITMENT")).toBe(namedVector("facematch_ios_strict").commitment)
 })
 
 test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {

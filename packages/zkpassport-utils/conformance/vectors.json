@@ -105,6 +105,18 @@
       "proofType": "expiry_date",
       "params": { "minDate": 1798761600, "maxDate": 0 },
       "commitment": "0x2f13cf0dbd16ac2637f3b19ca631933220ed96d4922e9fafcbc5b27a2df59de9"
+    },
+    {
+      "name": "facematch_ios_strict",
+      "proofType": "facematch",
+      "params": {
+        "rootKeyLeaf": "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
+        "environment": 1,
+        "appIdHash": "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b",
+        "integrityPublicKeyHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "mode": 2
+      },
+      "commitment": "0x107233271e1213147f5e686a1dbf441c4412941c5dfec4a88fe3b335d1ee1772"
     }
   ]
 }

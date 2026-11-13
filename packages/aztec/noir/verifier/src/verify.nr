@@ -6,14 +6,16 @@ use aztec::{
 };
 use poseidon::poseidon2::Poseidon2;
 use zkpassport::constants::{
-    CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, NULLIFIER_TYPE_NON_SALTED,
-    NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_SALTED,
-    NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+    CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT,
+    NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
+    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS,
+    SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
 };
 use zkpassport::disclosed_data::{
     disclosed_birthdate, disclosed_document_number, disclosed_document_type, disclosed_expiry_date,
     disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
 };
+use zkpassport::face_match::{FaceMatch, parse_face_match_payload};
 use zkpassport::verify::verify_outer_proof_core;
 use zkpassport_registry_contract::{
     local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS, ZKPassportRegistry,
@@ -42,6 +44,7 @@ pub struct VerifiedProof {
     pub current_date: u64,
     pub disclosure: Option<Disclosure>, // some exactly when the query discloses a field
     pub sanctions_root: Option<Field>, // some exactly when the query asks for sanctions
+    pub face_match: Option<FaceMatch>, // some exactly when the query asks for a face match
 }
 
 impl VerifiedProof {
@@ -241,6 +244,26 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
         Option::none()
     };
 
+    let face_match = if query.face_match_mode().is_some() {
+        // Safety: the loaded values are untrusted input; parse_face_match_payload range-constrains
+        // them, assert_attested holds them to ZKPassport's attestation keys, the query's face match
+        // commitment binds them to the proof, and the registry checks the app id below.
+        let payload: Option<[Field; 5]> = unsafe {
+            capsules::load(
+                context.this_address(),
+                FACE_MATCH_CAPSULE_SLOT,
+                capsule_scope,
+            )
+        };
+
+        assert(payload.is_some(), "missing face match capsule");
+        let face_match = parse_face_match_payload(payload.unwrap());
+        face_match.assert_attested(query.face_match_mode().unwrap());
+        Option::some(face_match)
+    } else {
+        Option::none()
+    };
+
     // Stateless core: recursion, domain and scope, nullifier policy, multiset commitment coverage.
     let out = verify_outer_proof_core::<K>(
         vk,
@@ -249,7 +272,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
         config.domain,
         config.scope,
         config.dev_mode,
-        query.expected_commitments(disclosure, sanctions_root, context.version()),
+        query.expected_commitments(disclosure, sanctions_root, face_match, context.version()),
     );
     let parsed = out.parsed;
 
@@ -278,12 +301,16 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
             context,
         );
     }
+    if face_match.is_some() {
+        registry.assert_app_id_accepted(face_match.unwrap().app_id_hash).view(context);
+    }
 
     VerifiedProof {
         unique_identifier: parsed.scoped_nullifier,
         current_date: parsed.current_date,
         disclosure,
         sanctions_root,
+        face_match,
     }
 }
 
@@ -397,6 +424,7 @@ mod test {
             current_date: 0,
             disclosure,
             sanctions_root: Option::none(),
+            face_match: Option::none(),
         }
     }
 

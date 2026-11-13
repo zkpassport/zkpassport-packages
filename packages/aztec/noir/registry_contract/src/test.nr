@@ -391,6 +391,72 @@ unconstrained fn constructor_rejects_zero_admin() {
     );
 }
 
+// ---- Accepted app ids ----
+
+global APP_ID_HASH: Field = 0xa991d;
+
+#[test]
+unconstrained fn an_accepted_app_id_takes_effect_after_the_delay() {
+    let (env, registry_address, admin, _, user) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.set_app_id_status(APP_ID_HASH, true));
+    assert(!env.execute_utility(registry.is_app_id_accepted(APP_ID_HASH)));
+
+    env.mine_block_at(env.last_block_timestamp() + INITIAL_DELAY);
+    assert(env.execute_utility(registry.is_app_id_accepted(APP_ID_HASH)));
+    let _ = env.view_private(user, registry.assert_app_id_accepted(APP_ID_HASH));
+}
+
+#[test(should_fail_with = "app id not accepted")]
+unconstrained fn an_app_id_never_accepted_is_rejected() {
+    let (env, registry_address, _, _, user) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.view_private(user, registry.assert_app_id_accepted(APP_ID_HASH));
+}
+
+#[test(should_fail_with = "app id not accepted")]
+unconstrained fn a_withdrawn_app_id_is_rejected_after_the_delay() {
+    let (env, registry_address, admin, _, user) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.set_app_id_status(APP_ID_HASH, true));
+    env.mine_block_at(env.last_block_timestamp() + INITIAL_DELAY);
+    let _ = env.call_public(admin, registry.set_app_id_status(APP_ID_HASH, false));
+    env.mine_block_at(env.last_block_timestamp() + INITIAL_DELAY);
+
+    let _ = env.view_private(user, registry.assert_app_id_accepted(APP_ID_HASH));
+}
+
+#[test(should_fail_with = "registry is paused")]
+unconstrained fn a_paused_registry_accepts_no_app_id() {
+    let (env, registry_address, admin, operator, user) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.set_app_id_status(APP_ID_HASH, true));
+    let _ = env.call_public(operator, registry.pause());
+    env.mine_block_at(env.last_block_timestamp() + INITIAL_DELAY);
+
+    let _ = env.view_private(user, registry.assert_app_id_accepted(APP_ID_HASH));
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn operator_cannot_set_an_app_id_status() {
+    let (env, registry_address, _, operator, _) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(operator, registry.set_app_id_status(APP_ID_HASH, true));
+}
+
+#[test(should_fail_with = "app id hash cannot be zero")]
+unconstrained fn a_zero_app_id_hash_is_rejected() {
+    let (env, registry_address, admin, _, _) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.call_public(admin, registry.set_app_id_status(0, true));
+}
+
 // ---- Contract updates ----
 
 unconstrained fn registry_class_id(

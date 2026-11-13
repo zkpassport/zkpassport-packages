@@ -11,6 +11,7 @@ use zkpassport::disclosed_data::{
     disclosed_full_name, disclosed_gender, disclosed_issuing_country, disclosed_name,
     disclosed_nationality,
 };
+use zkpassport::face_match::{FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, FaceMatch};
 
 /// What a contract asks a ZKPassport proof to show.
 ///
@@ -35,6 +36,7 @@ pub struct Query<let K: u32, let D: u32> {
     disclosed_fields: u16,
     sanctions: Option<bool>, // strict
     bound_address: Option<AztecAddress>,
+    face_match: Option<u8>, // mode
 }
 
 // The checks a query asks for at most once
@@ -47,6 +49,7 @@ global CHECK_ISSUING_COUNTRY_INCLUSION: u16 = 32;
 global CHECK_ISSUING_COUNTRY_EXCLUSION: u16 = 64;
 global CHECK_BIND: u16 = 128;
 global CHECK_SANCTIONS: u16 = 256;
+global CHECK_FACE_MATCH: u16 = 512;
 
 // The MRZ fields a query can ask to be disclosed
 global FIELD_DOCUMENT_TYPE: u16 = 1;
@@ -68,6 +71,7 @@ impl Query<3, 0> {
             disclosed_fields: 0,
             sanctions: Option::none(),
             bound_address: Option::none(),
+            face_match: Option::none(),
         }
     }
 }
@@ -187,10 +191,27 @@ impl<let K: u32, let D: u32> Query<K, D> {
         self.sanctions.is_some()
     }
 
+    /// Ask for a face match in the SDK's regular mode: the holder's face against the document's
+    /// photo, attested by one of ZKPassport's apps. The client stashes the facematch subproof's
+    /// committed values in the face match capsule.
+    pub fn face_match(self) -> Query<K + 1, D> {
+        self.with_face_match(FACE_MATCH_MODE_REGULAR)
+    }
+
+    /// Ask for a face match in the SDK's strict mode, which salted unique identifiers come with.
+    pub fn strict_face_match(self) -> Query<K + 1, D> {
+        self.with_face_match(FACE_MATCH_MODE_STRICT)
+    }
+
+    pub(crate) fn face_match_mode(self) -> Option<u8> {
+        self.face_match
+    }
+
     pub(crate) fn expected_commitments(
         self,
         disclosure: Option<Disclosure>,
         sanctions_root: Option<Field>,
+        face_match: Option<FaceMatch>,
         chain_id: Field,
     ) -> [Field; K - 3] {
         let mut expected: BoundedVec<Field, K - 3> = BoundedVec::new();
@@ -211,6 +232,10 @@ impl<let K: u32, let D: u32> Query<K, D> {
 
         if sanctions_root.is_some() {
             expected.push(sanctions_commitment(sanctions_root.unwrap(), self.sanctions.unwrap()));
+        }
+
+        if face_match.is_some() {
+            expected.push(face_match.unwrap().commitment());
         }
 
         assert(expected.len() == K - 3, "wrong number of expected commitments");
@@ -281,6 +306,12 @@ impl<let K: u32, let D: u32> Query<K, D> {
         query
     }
 
+    fn with_face_match(self, mode: u8) -> Query<K + 1, D> {
+        let mut query = self.with_check(CHECK_FACE_MATCH, "face match requested twice");
+        query.face_match = Option::some(mode);
+        query
+    }
+
     fn with_sanctions(self, strict: bool) -> Query<K + 1, D> {
         let mut query = self.with_check(CHECK_SANCTIONS, "sanctions requested twice");
         query.sanctions = Option::some(strict);
@@ -308,6 +339,7 @@ impl<let K: u32, let D: u32> Query<K, D> {
             disclosed_fields: self.disclosed_fields,
             sanctions: self.sanctions,
             bound_address: self.bound_address,
+            face_match: self.face_match,
         }
     }
 }
@@ -431,6 +463,9 @@ mod test {
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
         nationality_inclusion_commitment, sanctions_commitment,
     };
+    use zkpassport::face_match::{
+        APPLE_ROOT_KEY_LEAF, FACE_MATCH_ENVIRONMENT_PRODUCTION, FACE_MATCH_MODE_STRICT, FaceMatch,
+    };
 
     fn subproofs<let K: u32, let D: u32>(_query: Query<K, D>) -> u32 {
         K
@@ -440,7 +475,7 @@ mod test {
     global CHAIN_ID: Field = 679261766;
 
     fn commitments_without_payloads<let K: u32, let D: u32>(query: Query<K, D>) -> [Field; K - 3] {
-        query.expected_commitments(Option::none(), Option::none(), CHAIN_ID)
+        query.expected_commitments(Option::none(), Option::none(), Option::none(), CHAIN_ID)
     }
 
     // A passport's disclosure of its document type and `field` at `index`, nothing else
@@ -536,7 +571,12 @@ mod test {
         let query = Query::new().age_min(18).disclose_nationality().strict_sanctions();
 
         assert_eq(
-            query.expected_commitments(Option::some(disclosure), Option::some(0xabc), CHAIN_ID),
+            query.expected_commitments(
+                Option::some(disclosure),
+                Option::some(0xabc),
+                Option::none(),
+                CHAIN_ID,
+            ),
             [
                 age_commitment(18, 0),
                 disclose_commitment(disclosure.mask, disclosure.bytes),
@@ -546,11 +586,40 @@ mod test {
     }
 
     #[test]
+    fn a_face_match_adds_a_subproof_and_its_commitment() {
+        let query = Query::new().strict_face_match();
+        let face_match = FaceMatch {
+            root_key_leaf: APPLE_ROOT_KEY_LEAF,
+            environment: FACE_MATCH_ENVIRONMENT_PRODUCTION,
+            app_id_hash: 0x1234,
+            integrity_public_key_hash: 0,
+            mode: FACE_MATCH_MODE_STRICT,
+        };
+
+        assert_eq(subproofs(query), 4);
+        assert_eq(query.face_match_mode(), Option::some(FACE_MATCH_MODE_STRICT));
+        assert_eq(
+            query.expected_commitments(
+                Option::none(),
+                Option::none(),
+                Option::some(face_match),
+                CHAIN_ID,
+            ),
+            [face_match.commitment()],
+        );
+    }
+
+    #[test(should_fail_with = "face match requested twice")]
+    fn rejects_a_face_match_asked_for_twice() {
+        let _ = Query::new().face_match().strict_face_match();
+    }
+
+    #[test]
     fn sanctions_expects_a_non_strict_commitment() {
         let query = Query::new().sanctions();
 
         assert_eq(
-            query.expected_commitments(Option::none(), Option::some(0xabc), CHAIN_ID),
+            query.expected_commitments(Option::none(), Option::some(0xabc), Option::none(), CHAIN_ID),
             [sanctions_commitment(0xabc, false)],
         );
     }

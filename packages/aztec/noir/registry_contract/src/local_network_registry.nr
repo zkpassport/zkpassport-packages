@@ -7,7 +7,9 @@
 //! toolchain moves `LOCAL_NETWORK_REGISTRY_ADDRESS`.
 
 use crate::{
-    types::{MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT},
+    types::{
+        MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, ZKPASSPORT_APP_ID_HASHES,
+    },
     ZKPassportRegistry,
 };
 use aztec::{
@@ -17,7 +19,7 @@ use aztec::{
 
 /// The local network registry's address in TXE and on a local network.
 pub global LOCAL_NETWORK_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x150417513440e16bf6caa69b608dc2ec4e17cb038cd00f7714b521fe5240866d,
+    0x0381e0e7ba41d8712f7b76163b94cea49e9a216a62a91b1d746ea6ec551b49ac,
 );
 
 /// The local network registry's admin: the local network's test account 0.
@@ -69,7 +71,8 @@ pub unconstrained fn deploy_local_network_registry<let N: u32>(
 }
 
 /// Registers a certificate root and a circuit root valid from `valid_from` in the local network
-/// registry, and accepts `vk_hash` for circuit-manifest `version`.
+/// registry, accepts `vk_hash` for circuit-manifest `version`, and accepts face matches from
+/// ZKPassport's apps.
 ///
 /// The registry applies these after its delay: advance the test's time past it, and into the
 /// freshness window of the proof being verified, before verifying.
@@ -94,4 +97,10 @@ pub unconstrained fn seed_local_network_registry(
         env.call_public(LOCAL_NETWORK_REGISTRY_ADMIN, registry.add_accepted_vk(version, vk_hash));
     let _ =
         env.call_public(LOCAL_NETWORK_REGISTRY_ADMIN, registry.set_version_status(version, true));
+    for app_id_hash in ZKPASSPORT_APP_ID_HASHES {
+        let _ = env.call_public(
+            LOCAL_NETWORK_REGISTRY_ADMIN,
+            registry.set_app_id_status(app_id_hash, true),
+        );
+    }
 }

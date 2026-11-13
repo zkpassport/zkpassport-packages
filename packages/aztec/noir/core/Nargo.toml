@@ -13,3 +13,4 @@ exclusion_check_sanctions_lib = { git = "https://github.com/zkpassport/circuits"
 compare_date_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0", directory = "src/noir/lib/compare/date" }
 inclusion_check_country_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0", directory = "src/noir/lib/inclusion-check/country" }
 exclusion_check_country_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0", directory = "src/noir/lib/exclusion-check/country" }
+facematch_lib = { git = "https://github.com/zkpassport/circuits", tag = "noir-v1.0.0", directory = "src/noir/lib/facematch" }
