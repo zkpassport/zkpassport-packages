@@ -5,6 +5,7 @@ import type { FacematchMode, NullifierType } from "@zkpassport/utils"
 import { getCredentialsAddress } from "./deployments"
 import { ZKPassportCredentialsAbi } from "./abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./abi/policy-evaluator-v1"
+import { PolicyEvaluatorV2Abi } from "./abi/policy-evaluator-v2"
 
 /** Structural slice of viem's PublicClient. */
 export type CredentialsReadClient = Pick<
@@ -92,7 +93,18 @@ export type CredentialPolicyRequirements = {
    * list disables that check.
    */
   excludedNationalities: readonly string[]
+  /**
+   * The credential schemes the policy accepts (evaluator schema 2 and later): exact schemes such
+   * as 201 and/or whole tiers, an entry below 100 (1 = every issuer-signed scheme, 2 = every
+   * device-attested camera read). `[1, 201]` accepts tier 1 and Android camera reads. Empty or
+   * undefined means tier 1 only. A schema 1 evaluator accepts every scheme the root verifier
+   * does and can't express this.
+   */
+  allowedCredentialSchemes?: readonly number[]
 }
+
+/** The requirement layouts the evaluators define, by schema version */
+export type PolicyEvaluatorSchemaVersion = 1 | 2
 
 const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
   0: undefined,
@@ -110,18 +122,27 @@ const SANCTIONS_MODE_VALUES: Record<"normal" | "strict", number> = { normal: 1, 
 
 const FACEMATCH_MODE_VALUES: Record<FacematchMode, number> = { regular: 1, strict: 2 }
 
-// The tuple layout for createPolicy()'s and setRequirements()'s requirement bytes.
-const REQUIREMENTS_ABI = getAbiItem({
-  abi: PolicyEvaluatorV1Abi,
-  name: "decodeRequirements",
-}).outputs
+// The tuple layouts for createPolicy()'s and setRequirements()'s requirement bytes, by schema
+const REQUIREMENTS_ABI = {
+  1: getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeRequirements" }).outputs,
+  2: getAbiItem({ abi: PolicyEvaluatorV2Abi, name: "decodeRequirements" }).outputs,
+} as const
 
 /**
- * Encode policy requirements.
+ * Encode policy requirements for an evaluator schema: 1 (PolicyEvaluatorV1, the default) or 2
+ * (PolicyEvaluatorV2, which adds `allowedCredentialSchemes`). Use the schema of the evaluator the
+ * policy is or will be pinned to (`getEvaluatorSchemaVersion`).
  */
 export function encodeCredentialPolicyRequirements(
   requirements: CredentialPolicyRequirements,
+  schemaVersion: PolicyEvaluatorSchemaVersion = 1,
 ): `0x${string}` {
+  const schemes = requirements.allowedCredentialSchemes ?? []
+  if (schemaVersion === 1 && schemes.length > 0) {
+    throw new Error(
+      "allowedCredentialSchemes needs a schema 2 evaluator (PolicyEvaluatorV2); a schema 1 policy accepts every credential scheme the root verifier does.",
+    )
+  }
   const value = {
     minAge: requirements.minAge,
     sanctionsMode:
@@ -134,8 +155,9 @@ export function encodeCredentialPolicyRequirements(
         : FACEMATCH_MODE_VALUES[requirements.facematchMode],
     includedNationalities: requirements.includedNationalities,
     excludedNationalities: requirements.excludedNationalities,
+    ...(schemaVersion === 2 ? { allowedCredentialSchemes: schemes.map((x) => BigInt(x)) } : {}),
   }
-  return encodeAbiParameters(REQUIREMENTS_ABI, [value] as never)
+  return encodeAbiParameters(REQUIREMENTS_ABI[schemaVersion], [value] as never)
 }
 
 /**
@@ -221,6 +243,27 @@ export class CredentialsClient {
     } as never)
   }
 
+  /** The requirement schema an evaluator implements; throws for one this package can't encode */
+  async getEvaluatorSchemaVersion(evaluator: `0x${string}`): Promise<PolicyEvaluatorSchemaVersion> {
+    const version = (await this.client.readContract({
+      address: evaluator,
+      abi: PolicyEvaluatorV1Abi,
+      functionName: "schemaVersion",
+      args: [],
+    } as never)) as bigint
+    if (version !== 1n && version !== 2n) {
+      throw new Error(
+        `Unsupported policy evaluator schema ${version} at ${evaluator}; this SDK decodes schemas 1 and 2.`,
+      )
+    }
+    return Number(version) as PolicyEvaluatorSchemaVersion
+  }
+
+  /** The evaluator new policies are pinned to */
+  async getCurrentEvaluator(): Promise<`0x${string}`> {
+    return (await this.read("policyEvaluator", [])) as `0x${string}`
+  }
+
   async getPolicy(policyId: bigint): Promise<CredentialPolicy> {
     return (await this.read("getPolicy", [policyId])) as CredentialPolicy
   }
@@ -230,25 +273,20 @@ export class CredentialsClient {
    * derived from exactly what issue() will enforce.
    */
   async getRequirements(policy: CredentialPolicy): Promise<CredentialPolicyRequirements> {
-    const evaluatorRead = (functionName: string, args: readonly unknown[]) =>
-      this.client.readContract({
-        address: policy.evaluator,
-        abi: PolicyEvaluatorV1Abi,
-        functionName,
-        args,
-      } as never)
-
-    const schemaVersion = (await evaluatorRead("schemaVersion", [])) as bigint
-    if (schemaVersion !== 1n) {
-      throw new Error(
-        `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema 1.`,
-      )
-    }
-
-    const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
+    const schemaVersion = await this.getEvaluatorSchemaVersion(policy.evaluator)
+    const decoded = (await this.client.readContract({
+      address: policy.evaluator,
+      abi: schemaVersion === 2 ? PolicyEvaluatorV2Abi : PolicyEvaluatorV1Abi,
+      functionName: "decodeRequirements",
+      args: [policy.requirements],
+    } as never)) as Omit<
       CredentialPolicyRequirements,
-      "sanctionsMode" | "facematchMode"
-    > & { sanctionsMode: number; faceMatchMode: number }
+      "sanctionsMode" | "facematchMode" | "allowedCredentialSchemes"
+    > & {
+      sanctionsMode: number
+      faceMatchMode: number
+      allowedCredentialSchemes?: readonly bigint[]
+    }
 
     return {
       minAge: decoded.minAge,
@@ -256,6 +294,9 @@ export class CredentialsClient {
       facematchMode: FACEMATCH_MODES[decoded.faceMatchMode],
       includedNationalities: decoded.includedNationalities,
       excludedNationalities: decoded.excludedNationalities,
+      ...(schemaVersion === 2
+        ? { allowedCredentialSchemes: (decoded.allowedCredentialSchemes ?? []).map(Number) }
+        : {}),
     }
   }
 
@@ -438,13 +479,15 @@ export class CredentialsClient {
     ownerBannable?: boolean
     /** Allow the owner to replace requirements via setRequirements(). */
     ownerEditable?: boolean
+    /** The current evaluator's schema (`getEvaluatorSchemaVersion(await getCurrentEvaluator())`); 1 if omitted */
+    schemaVersion?: PolicyEvaluatorSchemaVersion
   }): CredentialsCall<
     "createPolicy",
     readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean, boolean]
   > {
     return this.call("createPolicy", [
       options.salt,
-      encodeCredentialPolicyRequirements(options.requirements),
+      encodeCredentialPolicyRequirements(options.requirements, options.schemaVersion),
       options.credentialDuration,
       options.metadataURL,
       options.enforceUniqueness,
@@ -464,10 +507,12 @@ export class CredentialsClient {
   buildSetRequirementsCall(
     policyId: bigint,
     requirements: CredentialPolicyRequirements,
+    /** The schema of the policy's pinned evaluator; 1 if omitted */
+    schemaVersion?: PolicyEvaluatorSchemaVersion,
   ): CredentialsCall<"setRequirements", readonly [bigint, `0x${string}`]> {
     return this.call("setRequirements", [
       policyId,
-      encodeCredentialPolicyRequirements(requirements),
+      encodeCredentialPolicyRequirements(requirements, schemaVersion),
     ] as const)
   }
 
@@ -657,5 +702,5 @@ export async function submitCredentialsCall(
   )
 }
 
-export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi }
+export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi, PolicyEvaluatorV2Abi }
 export { getCredentialsChain, getCredentialsAddress } from "./deployments"

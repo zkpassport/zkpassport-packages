@@ -1,0 +1,360 @@
+// Generated from packages/onchain-credentials/contracts. Do not edit by hand.
+// Source: forge build -> PolicyEvaluatorV2.json -> .abi
+export const PolicyEvaluatorV2Abi = [
+  {
+    type: "constructor",
+    inputs: [
+      {
+        name: "_rootVerifier",
+        type: "address",
+        internalType: "contract IRootVerifier",
+      },
+      {
+        name: "_devMode",
+        type: "bool",
+        internalType: "bool",
+      },
+      {
+        name: "_uniqueIdentifierType",
+        type: "uint8",
+        internalType: "enum NullifierType",
+      },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "PROOF_FRESHNESS",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "decodeProofData",
+    inputs: [
+      {
+        name: "proofData",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "tuple",
+        internalType: "struct ProofVerificationParams",
+        components: [
+          {
+            name: "version",
+            type: "bytes32",
+            internalType: "bytes32",
+          },
+          {
+            name: "proofVerificationData",
+            type: "tuple",
+            internalType: "struct ProofVerificationData",
+            components: [
+              {
+                name: "vkeyHash",
+                type: "bytes32",
+                internalType: "bytes32",
+              },
+              {
+                name: "proof",
+                type: "bytes",
+                internalType: "bytes",
+              },
+              {
+                name: "publicInputs",
+                type: "bytes32[]",
+                internalType: "bytes32[]",
+              },
+            ],
+          },
+          {
+            name: "committedInputs",
+            type: "bytes",
+            internalType: "bytes",
+          },
+          {
+            name: "serviceConfig",
+            type: "tuple",
+            internalType: "struct ServiceConfig",
+            components: [
+              {
+                name: "validityPeriodInSeconds",
+                type: "uint256",
+                internalType: "uint256",
+              },
+              {
+                name: "domain",
+                type: "string",
+                internalType: "string",
+              },
+              {
+                name: "scope",
+                type: "string",
+                internalType: "string",
+              },
+              {
+                name: "devMode",
+                type: "bool",
+                internalType: "bool",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "decodeRequirements",
+    inputs: [
+      {
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "tuple",
+        internalType: "struct PolicyEvaluatorV2.PolicyRequirements",
+        components: [
+          {
+            name: "minAge",
+            type: "uint8",
+            internalType: "uint8",
+          },
+          {
+            name: "sanctionsMode",
+            type: "uint8",
+            internalType: "enum PolicyEvaluatorV2.SanctionsMode",
+          },
+          {
+            name: "faceMatchMode",
+            type: "uint8",
+            internalType: "enum FaceMatchMode",
+          },
+          {
+            name: "includedNationalities",
+            type: "string[]",
+            internalType: "string[]",
+          },
+          {
+            name: "excludedNationalities",
+            type: "string[]",
+            internalType: "string[]",
+          },
+          {
+            name: "allowedCredentialSchemes",
+            type: "uint256[]",
+            internalType: "uint256[]",
+          },
+        ],
+      },
+    ],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "devMode",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "evaluate",
+    inputs: [
+      {
+        name: "domain",
+        type: "string",
+        internalType: "string",
+      },
+      {
+        name: "subscope",
+        type: "string",
+        internalType: "string",
+      },
+      {
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
+      },
+      {
+        name: "enforceUniqueness",
+        type: "bool",
+        internalType: "bool",
+      },
+      {
+        name: "proofData",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [
+      {
+        name: "result",
+        type: "tuple",
+        internalType: "struct PolicyEvaluationResult",
+        components: [
+          {
+            name: "wallet",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "nullifier",
+            type: "bytes32",
+            internalType: "bytes32",
+          },
+          {
+            name: "customData",
+            type: "string",
+            internalType: "string",
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "rootVerifier",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "contract IRootVerifier",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "schemaVersion",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "uniqueIdentifierType",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint8",
+        internalType: "enum NullifierType",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "validateRequirements",
+    inputs: [
+      {
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [],
+    stateMutability: "pure",
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__AgeRequirementNotMet",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__CredentialSchemeNotAllowed",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__DevModeProofRejected",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__ExcludedNationality",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__FaceMatchRequirementNotMet",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__InvalidCountryList",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__InvalidCredentialSchemes",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__InvalidProof",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__NationalityNotIncluded",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__ProofNotBoundToChain",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__StaleProof",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__WrongNullifierType",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__WrongScope",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__ZeroAddress",
+    inputs: [],
+  },
+] as const

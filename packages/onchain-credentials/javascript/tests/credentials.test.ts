@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { decodeAbiParameters, getAbiItem } from "viem"
 import { NullifierType } from "@zkpassport/utils"
 import { PolicyEvaluatorV1Abi } from "../src/abi/policy-evaluator-v1"
+import { PolicyEvaluatorV2Abi } from "../src/abi/policy-evaluator-v2"
 import { sepolia } from "viem/chains"
 import {
   CredentialsClient,
@@ -147,8 +148,21 @@ describe("CredentialsClient reads", () => {
     }
   })
 
+  test("getRequirements decodes a schema 2 policy's credential schemes", async () => {
+    const { client, readCalls } = stubClient((p) => {
+      if (p.functionName === "schemaVersion") return 2n
+      if (p.functionName === "decodeRequirements")
+        return { ...RAW_REQUIREMENTS, allowedCredentialSchemes: [1n, 201n] }
+      throw new Error(`unexpected read ${p.functionName}`)
+    })
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    const requirements = await credentials.getRequirements(SAMPLE_POLICY)
+    expect(requirements).toEqual({ ...SAMPLE_REQUIREMENTS, allowedCredentialSchemes: [1, 201] })
+    expect((readCalls[1] as unknown as { abi: unknown }).abi).toBe(PolicyEvaluatorV2Abi)
+  })
+
   test("getRequirements rejects unknown evaluator schemas", async () => {
-    const { client } = stubClient(() => 2n)
+    const { client } = stubClient(() => 3n)
     const credentials = new CredentialsClient({ client, address: REGISTRY })
     await expect(credentials.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
       "Unsupported policy evaluator schema",
@@ -385,6 +399,32 @@ describe("encodeCredentialPolicyRequirements", () => {
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded.sanctionsMode).toBe(0)
     expect(decoded.faceMatchMode).toBe(0)
+  })
+})
+
+describe("encodeCredentialPolicyRequirements for schema 2", () => {
+  const V2_ABI = getAbiItem({ abi: PolicyEvaluatorV2Abi, name: "decodeRequirements" }).outputs
+
+  test("adds the credential schemes, empty when not given", () => {
+    const [withSchemes] = decodeAbiParameters(
+      V2_ABI,
+      encodeCredentialPolicyRequirements(
+        { ...SAMPLE_REQUIREMENTS, allowedCredentialSchemes: [1, 201] },
+        2,
+      ),
+    )
+    expect(withSchemes.allowedCredentialSchemes).toEqual([1n, 201n])
+    const [without] = decodeAbiParameters(
+      V2_ABI,
+      encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS, 2),
+    )
+    expect(without.allowedCredentialSchemes).toEqual([])
+  })
+
+  test("refuses credential schemes for a schema 1 evaluator, which can't enforce them", () => {
+    expect(() =>
+      encodeCredentialPolicyRequirements({ ...SAMPLE_REQUIREMENTS, allowedCredentialSchemes: [2] }),
+    ).toThrow("schema 2")
   })
 })
 

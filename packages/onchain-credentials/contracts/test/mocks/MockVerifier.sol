@@ -157,6 +157,23 @@ contract MockVerifierHelper is IVerifierHelper {
     function getNullifierType(bytes32[] calldata publicInputs) external pure returns (NullifierType) {
         return NullifierType(uint256(publicInputs[publicInputs.length - 3]));
     }
+
+    uint256 public credentialScheme = 100;
+    // A helper from before circuit version 0.23.0, which has no getCredentialScheme
+    bool public legacy;
+
+    function setCredentialScheme(uint256 scheme) external {
+        credentialScheme = scheme;
+    }
+
+    function setLegacy(bool value) external {
+        legacy = value;
+    }
+
+    function getCredentialScheme(bytes32[] calldata) external view returns (uint256) {
+        require(!legacy);
+        return credentialScheme;
+    }
 }
 
 contract MockRootVerifier is IRootVerifier {
