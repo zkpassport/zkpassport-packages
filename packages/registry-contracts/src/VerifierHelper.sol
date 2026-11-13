@@ -515,38 +515,31 @@ contract VerifierHelper {
     }
 
     /**
-     * @notice Gets the assurance tier of the credential the ID was verified with
-     * @param publicInputs The public inputs of the proof
-     * @return The credential tier: 1 when the issuer signed the data, 2 when a device attested it
-     */
-    function getCredentialTier(bytes32[] calldata publicInputs) external pure returns (uint256) {
-        return Credentials.tierOf(getCredentialScheme(publicInputs));
-    }
-
-    /**
-     * @notice Whether the proof's credential is accepted by a policy
-     * @param allowedCredentials Tiers (whole tier) and/or exact schemes; empty means signed credentials only
+     * @notice Whether the proof's credential scheme is in a list of accepted ones
+     * @param allowedCredentialSchemes Exact schemes (e.g. 201) and/or whole tiers (an entry below 100,
+     *        e.g. 1 for every issuer-signed scheme), so [1, 201] accepts tier 1 and Android camera reads.
+     *        Empty means tier 1 only.
      * @param publicInputs The public inputs of the proof
      * @return True if accepted, false otherwise
      */
-    function isCredentialAllowed(uint256[] memory allowedCredentials, bytes32[] calldata publicInputs)
+    function isCredentialSchemeAllowed(uint256[] memory allowedCredentialSchemes, bytes32[] calldata publicInputs)
         public
         pure
         returns (bool)
     {
-        return Credentials.isAllowed(getCredentialScheme(publicInputs), allowedCredentials);
+        return Credentials.isAllowed(getCredentialScheme(publicInputs), allowedCredentialSchemes);
     }
 
     /**
-     * @notice Enforces that the proof's credential is accepted by a policy
-     * @param allowedCredentials Tiers (whole tier) and/or exact schemes; empty means signed credentials only
+     * @notice Reverts unless the proof's credential scheme is accepted, see isCredentialSchemeAllowed
+     * @param allowedCredentialSchemes Exact schemes and/or whole tiers; empty means tier 1 only
      * @param publicInputs The public inputs of the proof
      */
-    function enforceCredentialAllowed(uint256[] memory allowedCredentials, bytes32[] calldata publicInputs)
+    function enforceCredentialScheme(uint256[] memory allowedCredentialSchemes, bytes32[] calldata publicInputs)
         external
         pure
     {
-        require(isCredentialAllowed(allowedCredentials, publicInputs), "Credential not allowed");
+        require(isCredentialSchemeAllowed(allowedCredentialSchemes, publicInputs), "Credential scheme not allowed");
     }
 
     /**

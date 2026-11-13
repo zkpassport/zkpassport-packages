@@ -53,44 +53,48 @@ contract VerifierHelperTest is Test {
         allowed[1] = b;
     }
 
-    function testGetCredentialSchemeAndTier() public view {
+    function testGetCredentialScheme() public view {
         bytes32[] memory chip = publicInputsWithScheme(CredentialScheme.ICAO_CHIP);
         assertEq(helper.getCredentialScheme(chip), CredentialScheme.ICAO_CHIP);
-        assertEq(helper.getCredentialTier(chip), CredentialTier.GOVERNMENT_SIGNED);
 
         bytes32[] memory camera = publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_ANDROID);
         assertEq(helper.getCredentialScheme(camera), CredentialScheme.ATTESTED_CAPTURE_ANDROID);
-        assertEq(helper.getCredentialTier(camera), CredentialTier.DEVICE_ATTESTED);
     }
 
     function testEmptyPolicyAcceptsSignedCredentialsOnly() public view {
         uint256[] memory none = new uint256[](0);
-        assertTrue(helper.isCredentialAllowed(none, publicInputsWithScheme(CredentialScheme.ICAO_CHIP)));
-        assertTrue(helper.isCredentialAllowed(none, publicInputsWithScheme(CredentialScheme.JPKI)));
-        assertFalse(helper.isCredentialAllowed(none, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_IOS)));
+        assertTrue(helper.isCredentialSchemeAllowed(none, publicInputsWithScheme(CredentialScheme.ICAO_CHIP)));
+        assertTrue(helper.isCredentialSchemeAllowed(none, publicInputsWithScheme(CredentialScheme.JPKI)));
+        assertFalse(
+            helper.isCredentialSchemeAllowed(none, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_IOS))
+        );
     }
 
     function testPolicyEntryIsAWholeTierOrOneScheme() public view {
         uint256[] memory allowed = policy(CredentialTier.GOVERNMENT_SIGNED, CredentialScheme.ATTESTED_CAPTURE_IOS);
-        assertTrue(helper.isCredentialAllowed(allowed, publicInputsWithScheme(CredentialScheme.ISO_MDOC)));
-        assertTrue(helper.isCredentialAllowed(allowed, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_IOS)));
+        assertTrue(helper.isCredentialSchemeAllowed(allowed, publicInputsWithScheme(CredentialScheme.ISO_MDOC)));
+        assertTrue(
+            helper.isCredentialSchemeAllowed(allowed, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_IOS))
+        );
         assertFalse(
-            helper.isCredentialAllowed(allowed, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_ANDROID))
+            helper.isCredentialSchemeAllowed(allowed, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_ANDROID))
         );
 
         uint256[] memory cameraOnly = policy(CredentialTier.DEVICE_ATTESTED);
-        assertFalse(helper.isCredentialAllowed(cameraOnly, publicInputsWithScheme(CredentialScheme.ICAO_CHIP)));
+        assertFalse(helper.isCredentialSchemeAllowed(cameraOnly, publicInputsWithScheme(CredentialScheme.ICAO_CHIP)));
         assertTrue(
-            helper.isCredentialAllowed(cameraOnly, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_ANDROID))
+            helper.isCredentialSchemeAllowed(
+                cameraOnly, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_ANDROID)
+            )
         );
     }
 
-    function testEnforceCredentialAllowedReverts() public {
+    function testEnforceCredentialSchemeReverts() public {
         uint256[] memory none = new uint256[](0);
-        helper.enforceCredentialAllowed(none, publicInputsWithScheme(CredentialScheme.ICAO_CHIP));
+        helper.enforceCredentialScheme(none, publicInputsWithScheme(CredentialScheme.ICAO_CHIP));
 
-        vm.expectRevert("Credential not allowed");
-        helper.enforceCredentialAllowed(none, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_IOS));
+        vm.expectRevert("Credential scheme not allowed");
+        helper.enforceCredentialScheme(none, publicInputsWithScheme(CredentialScheme.ATTESTED_CAPTURE_IOS));
     }
 
     function testGetNullifierType() public view {

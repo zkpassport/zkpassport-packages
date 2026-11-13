@@ -8,7 +8,6 @@ import {SubVerifier} from "../src/SubVerifier.sol";
 import {VerifierHelper} from "../src/VerifierHelper.sol";
 import {InputsExtractor} from "../src/lib/InputsExtractor.sol";
 import {Credentials} from "../src/lib/Credentials.sol";
-import {StringUtils} from "../src/lib/StringUtils.sol";
 import {
     Environment,
     FaceMatchMode,
@@ -90,7 +89,6 @@ contract Tier2VerificationTest is Test {
 
     function test_Tier2OuterProofVerifiesOnChain() public view {
         assertEq(uint256(publicInputs[publicInputs.length - 1]), ATTESTED_CAPTURE_IOS);
-        assertTrue(StringUtils.startsWith(scope, Credentials.ATTESTED_SCOPE_PREFIX), "The fixture's scope opts in");
         (bool valid, bytes32 uniqueIdentifier, VerifierHelper helper) = testRootVerifier.verify(_params(proof));
         assertTrue(valid, "The Tier 2 outer proof should verify");
         assertEq(uniqueIdentifier, publicInputs[publicInputs.length - 3], "The scoped nullifier");
@@ -102,19 +100,16 @@ contract Tier2VerificationTest is Test {
         rootVerifier.verify(_params(proof));
     }
 
-    function test_ScopesWithoutTheOptInRefuseTier2() public pure {
-        assertTrue(Credentials.isAcceptedForScope(100, "airdrop"), "Tier 1 is accepted for any scope");
-        assertTrue(Credentials.isAcceptedForScope(100, ""), "Tier 1 is accepted for the empty scope");
-        assertFalse(Credentials.isAcceptedForScope(200, "airdrop"), "Tier 2 needs the opt-in");
-        assertFalse(Credentials.isAcceptedForScope(201, ""), "Tier 2 needs the opt-in");
-        assertFalse(Credentials.isAcceptedForScope(200, "zkpassport-tier2"), "The whole prefix is needed");
-        assertTrue(Credentials.isAcceptedForScope(200, "zkpassport-tier2:airdrop"));
-        assertTrue(Credentials.isAcceptedForScope(201, "zkpassport-tier2:"));
-        assertFalse(Credentials.isAcceptedForScope(300, "zkpassport-tier2:airdrop"), "Unknown tiers are refused");
+    function test_OnlySignedAndAttestedSchemesVerify() public pure {
+        assertTrue(Credentials.isVerifiable(100));
+        assertTrue(Credentials.isVerifiable(200));
+        assertTrue(Credentials.isVerifiable(201));
+        assertFalse(Credentials.isVerifiable(0));
+        assertFalse(Credentials.isVerifiable(300));
     }
 
-    function test_AnotherScopeCannotPassTheFixtureAsTier2() public {
-        // A service that never opted in checks its own scope, which the proof was not made for
+    function test_AnotherScopeCannotPassTheFixture() public {
+        // A proof made for one service's scope does not pass for another's
         ProofVerificationParams memory params = _params(proof);
         params.serviceConfig.scope = "tier2";
         vm.expectRevert("Invalid domain or scope");

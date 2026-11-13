@@ -307,15 +307,15 @@ contract SubVerifier {
             )
         );
 
-        // Signed credentials are always accepted; device-attested ones only when the service's scope
-        // opts in (see Credentials.ATTESTED_SCOPE_PREFIX). Services narrow this further with
-        // `helper.enforceCredentialAllowed(allowedCredentials, publicInputs)`
+        // Issuer-signed and device-attested credentials both verify; a device attestation must be the
+        // ZKPassport app's. The app only proves tier 2 for services allowed to request it, and a
+        // service narrows what it accepts with `helper.enforceCredentialScheme(allowed, publicInputs)`
         uint256 credentialScheme = uint256(
             params.proofVerificationData
             .publicInputs[params.proofVerificationData.publicInputs.length
                     - PublicInput.CREDENTIAL_SCHEME_OFFSET_FROM_END]
         );
-        require(Credentials.isAcceptedForScope(credentialScheme, params.serviceConfig.scope), "Credential not allowed");
+        require(Credentials.isVerifiable(credentialScheme), "Credential scheme not supported");
         _verifyDeviceAttestation(credentialScheme, params.committedInputs);
 
         // Allow mock proofs in dev mode
