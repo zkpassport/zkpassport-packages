@@ -15,7 +15,7 @@ use zkpassport::disclosed_data::{
     disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
 };
 use zkpassport::verify::verify_outer_proof_core;
-use zkpassport::version::assert_circuit_version_supported;
+use zkpassport::version::{assert_circuit_version_supported, MIN_SUPPORTED_CIRCUIT_VERSION};
 use zkpassport_registry_contract::{
     local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS, ZKPassportRegistry,
 };
@@ -31,6 +31,60 @@ pub struct ServiceConfig {
     pub unique_identifier_type: u8, // the real NULLIFIER_TYPE_* the proof must carry
     pub validity_period: u64, // max proof age in seconds
     pub dev_mode: bool,
+}
+
+impl ServiceConfig {
+    /// A config for proofs requested from `domain`. It accepts proofs from every circuits release
+    /// the library verifies, covers the whole domain, requires a non-salted unique identifier,
+    /// accepts proofs up to 7 days old, as the ZKPassport SDK does by default, and rejects mock
+    /// documents. The methods below change each of these.
+    ///
+    /// Build it in a global, so the domain is hashed at compile time and a mistake such as an
+    /// empty domain fails to compile:
+    /// `global SERVICE: ServiceConfig = ServiceConfig::new("example.com");`
+    pub fn new<let N: u32>(domain: str<N>) -> Self {
+        assert(N != 0, "service domain required");
+
+        ServiceConfig {
+            min_version: MIN_SUPPORTED_CIRCUIT_VERSION,
+            domain: scope_hash(domain),
+            scope: 0,
+            unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
+            validity_period: DEFAULT_VALIDITY_PERIOD,
+            dev_mode: false,
+        }
+    }
+
+    /// Accept only proofs from the circuits release `version` or later, packed with
+    /// `circuit_version`, such as a release that fixed an issue the app cares about.
+    pub fn min_version(mut self, version: Field) -> Self {
+        self.min_version = version;
+        self
+    }
+
+    /// Accept only proofs for `scope`, a scope within the domain.
+    pub fn scope<let N: u32>(mut self, scope: str<N>) -> Self {
+        self.scope = scope_hash(scope);
+        self
+    }
+
+    /// Require a unique identifier of this type, one of the `NULLIFIER_TYPE_*` constants.
+    pub fn unique_identifier_type(mut self, unique_identifier_type: u8) -> Self {
+        self.unique_identifier_type = unique_identifier_type;
+        self
+    }
+
+    /// Accept proofs up to `seconds` old.
+    pub fn validity_period(mut self, seconds: u64) -> Self {
+        self.validity_period = seconds;
+        self
+    }
+
+    /// Accept proofs of mock documents too, such as the ones ZKPassport's apps make in dev mode.
+    pub fn dev_mode(mut self) -> Self {
+        self.dev_mode = true;
+        self
+    }
 }
 
 /// The payload of a disclose subproof: which of the 90 MRZ bytes are disclosed, and the bytes.
@@ -101,6 +155,9 @@ impl VerifiedProof {
         self.disclosure.unwrap()
     }
 }
+
+// The ZKPassport SDK's default for how old a proof may be: 7 days, in seconds.
+global DEFAULT_VALIDITY_PERIOD: u64 = 7 * 86400;
 
 // Domain separator for the uniqueness nullifier.
 global UNIQUENESS_NULLIFIER_DOMAIN: Field =
@@ -386,6 +443,7 @@ mod test {
         NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
         NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK,
     };
+    use zkpassport::version::{circuit_version, MIN_SUPPORTED_CIRCUIT_VERSION};
     use zkpassport_registry_contract::local_network_registry::{
         deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS,
     };
@@ -422,6 +480,40 @@ mod test {
     #[test]
     fn scope_hash_of_empty_string_is_zero() {
         assert(scope_hash("") == 0);
+    }
+
+    #[test]
+    fn new_service_config_has_the_sdk_defaults() {
+        let config = ServiceConfig::new("example.com");
+
+        assert(config.min_version == MIN_SUPPORTED_CIRCUIT_VERSION);
+        assert(config.domain == scope_hash("example.com"));
+        assert(config.scope == 0);
+        assert(config.unique_identifier_type == NULLIFIER_TYPE_NON_SALTED);
+        assert(config.validity_period == 7 * 86400);
+        assert(!config.dev_mode);
+    }
+
+    #[test(should_fail_with = "service domain required")]
+    fn new_service_config_rejects_an_empty_domain() {
+        let _ = ServiceConfig::new("");
+    }
+
+    #[test]
+    fn service_config_methods_set_their_own_fields() {
+        let config = ServiceConfig::new("example.com")
+            .min_version(circuit_version(0, 23, 2))
+            .scope("age-check")
+            .unique_identifier_type(NULLIFIER_TYPE_SALTED)
+            .validity_period(86400)
+            .dev_mode();
+
+        assert(config.min_version == circuit_version(0, 23, 2));
+        assert(config.domain == scope_hash("example.com"));
+        assert(config.scope == scope_hash("age-check"));
+        assert(config.unique_identifier_type == NULLIFIER_TYPE_SALTED);
+        assert(config.validity_period == 86400);
+        assert(config.dev_mode);
     }
 
     #[test]
