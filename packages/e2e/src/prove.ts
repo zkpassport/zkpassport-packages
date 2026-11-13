@@ -5,6 +5,7 @@ import {
   AsyncOrderedMT,
   extractTBS,
   getAgeCircuitInputs,
+  getBindCircuitInputs,
   getBitSize,
   getCscaForPassportAsync,
   getDiscloseCircuitInputs,
@@ -109,7 +110,7 @@ export async function proveSubproofs({
   overrides?: ProvingOverrides
 }): Promise<{ subproofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
-    (field) => !["age", "nationality", "document_type", "sanctions"].includes(field),
+    (field) => !["age", "nationality", "document_type", "sanctions", "bind"].includes(field),
   )
   if (
     unhandled.length > 0 ||
@@ -118,7 +119,7 @@ export async function proveSubproofs({
     (query.document_type && !query.document_type.disclose)
   ) {
     throw new Error(
-      `Only age.gte, nationality.disclose, document_type.disclose and sanctions are handled, got ${JSON.stringify(query)}`,
+      `Only age.gte, nationality.disclose, document_type.disclose, sanctions and bind are handled, got ${JSON.stringify(query)}`,
     )
   }
 
@@ -195,6 +196,13 @@ export async function proveSubproofs({
       name: getDisclosureCircuitName("exclusion_check_sanctions", { evm }),
       inputs,
       committedInputs: { rootHash: inputs.root, isStrict: !!inputs.is_strict },
+    })
+  }
+  if (query.bind) {
+    steps.push({
+      name: getDisclosureCircuitName("bind", { evm }),
+      inputs: required(await getBindCircuitInputs(passport, query, ...disclosureArgs), "bind"),
+      committedInputs: { data: query.bind },
     })
   }
 
@@ -521,6 +529,9 @@ function getQueryResult(passport: PassportViewModel, query: Query): QueryResult 
       },
       isStrict: query.sanctions.strict ?? false,
     }
+  }
+  if (query.bind) {
+    result.bind = query.bind
   }
   return result as QueryResult
 }
