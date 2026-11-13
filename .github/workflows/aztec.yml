@@ -92,23 +92,22 @@ jobs:
           ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-public-input
         working-directory: packages/aztec/test-harness
 
-      # The TS companion package embeds the contract artifact from target/,
-      # produced by the compile step above.
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: packages/aztec/ts/package-lock.json
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
 
-      - name: Install TS package dependencies
-        run: npm ci
+      # The TS package imports @zkpassport/utils from the workspace, which resolves to its build
+      - name: Build the TS package's workspace dependencies
+        run: bunx turbo run build --filter='@zkpassport/aztec^...'
+
+      # The TS package ships a copy of the registry artifact, which must be the class compiled above
+      - name: Check the TS package's registry artifact
+        run: bun scripts/registry-artifact.ts check
         working-directory: packages/aztec/ts
 
       - name: Typecheck TS package
-        run: npm run typecheck
+        run: bun run typecheck
         working-directory: packages/aztec/ts
 
       - name: Test TS package
-        run: npm run test
+        run: bun run test
         working-directory: packages/aztec/ts

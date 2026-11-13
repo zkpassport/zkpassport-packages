@@ -41,6 +41,7 @@ import {
   type ProofResult,
   type Query,
   type QueryResult,
+  parseDocumentType,
 } from "@zkpassport/utils"
 
 const SALT = BigInt("0x" + "11".repeat(31))
@@ -109,15 +110,16 @@ export async function proveSubproofs({
   overrides?: ProvingOverrides
 }): Promise<{ subproofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
-    (field) => !["age", "nationality", "sanctions", "bind"].includes(field),
+    (field) => !["age", "nationality", "document_type", "sanctions", "bind"].includes(field),
   )
   if (
     unhandled.length > 0 ||
     (query.age && !query.age.gte) ||
-    (query.nationality && !query.nationality.disclose)
+    (query.nationality && !query.nationality.disclose) ||
+    (query.document_type && !query.document_type.disclose)
   ) {
     throw new Error(
-      `Only age.gte, nationality.disclose, sanctions and bind are handled, got ${JSON.stringify(query)}`,
+      `Only age.gte, nationality.disclose, document_type.disclose, sanctions and bind are handled, got ${JSON.stringify(query)}`,
     )
   }
 
@@ -509,6 +511,9 @@ function getQueryResult(passport: PassportViewModel, query: Query): QueryResult 
   }
   if (query.nationality) {
     result.nationality = { disclose: { result: passport.nationality } }
+  }
+  if (query.document_type) {
+    result.document_type = { disclose: { result: parseDocumentType(passport.mrz.slice(0, 2)) } }
   }
   if (query.sanctions) {
     // Proving succeeded, so the passport is not on the lists

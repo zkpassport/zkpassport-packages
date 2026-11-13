@@ -42,7 +42,7 @@ export function assembleProofCapsule(parts: OuterProofParts, k = 5): Fr[] {
 /**
  * Assemble the disclose preimage for `DISCLOSE_CAPSULE_SLOT`:
  * `mask(90) ‖ disclosedBytes(90)`, one field per element — what the library's
- * `verify_zkpassport_proof` loads when `ServiceConfig.disclose` is set (nationality claims only).
+ * `verify_zkpassport_proof` loads when the contract's query discloses a field.
  */
 export function assembleDiscloseCapsule(discloseMask: number[], disclosedBytes: number[]): Fr[] {
   if (discloseMask.length !== MRZ_LENGTH || disclosedBytes.length !== MRZ_LENGTH) {
@@ -52,4 +52,12 @@ export function assembleDiscloseCapsule(discloseMask: number[], disclosedBytes: 
     )
   }
   return [...discloseMask, ...disclosedBytes].map((b) => new Fr(BigInt(b)))
+}
+
+/**
+ * Assemble the capsule for `SANCTIONS_CAPSULE_SLOT` from the sanctions root the proof was made
+ * against, the SDK's `SanctionsCommittedInputs.rootHash`.
+ */
+export function assembleSanctionsCapsule(rootHash: string): Fr[] {
+  return [Fr.fromHexString(rootHash)]
 }
