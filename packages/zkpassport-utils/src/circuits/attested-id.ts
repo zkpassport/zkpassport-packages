@@ -148,20 +148,28 @@ function getFullDocumentNumber(dg1: Uint8Array): Uint8Array {
 }
 
 /** The MRZ fields the nullifier is made of, from a passport or ID card DG1 */
+/**
+ * Prefixed to the Tier 2 nullifier's fields, so no table built for another system hashing the same
+ * document fields applies to it, and its nullifiers never coincide with another scheme's
+ */
+const TIER2_NULLIFIER_DOMAIN = new TextEncoder().encode("ZKPTIER2")
+
 function getTier2NullifierFields(dg1: Uint8Array): Uint8Array {
   const padded = padDg1(dg1)
   const mrz = padded.subarray(5)
   const layout = mrzLayout(padded)
-  const fields = new Uint8Array(3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH + 6 + 6)
-  fields.set(getIssuingCountry(mrz))
-  fields.set(getFullDocumentNumber(padded), 3)
+  const d = TIER2_NULLIFIER_DOMAIN.length
+  const fields = new Uint8Array(d + 3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH + 6 + 6)
+  fields.set(TIER2_NULLIFIER_DOMAIN)
+  fields.set(getIssuingCountry(mrz), d)
+  fields.set(getFullDocumentNumber(padded), d + 3)
   fields.set(
     mrz.subarray(layout.dateOfBirth, layout.dateOfBirth + 6),
-    3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
+    d + 3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
   )
   fields.set(
     mrz.subarray(layout.expiryDate, layout.expiryDate + 6),
-    9 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
+    d + 9 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
   )
   return fields
 }
