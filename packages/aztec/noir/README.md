@@ -21,7 +21,7 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 | Package | Type | Purpose | Key dependencies |
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
-| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
+| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
 | `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants` and `disclosed_data`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose and sanctions payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
@@ -206,12 +206,15 @@ proof's date, and returns it in `VerifiedProof.sanctions_root`.
    authorizes nothing for anyone else, and any relayer may submit the transaction on the bound
    user's behalf. The `claim` function of the `AgeGate` example in
    [zkpassport/aztec-examples](https://github.com/zkpassport/aztec-examples) is the pattern to copy.
-6. **A bind ties a proof to an address, not to a network.** `bind_user_address_commitment` covers
-   only the user-address entry of ZKPassport's bound data, with no chain id. A proof bound to an
-   address therefore verifies against any deployment of an app, on any Aztec network, whose
-   registry accepts its roots and VK, while the proof is within its validity period. Nullifiers
-   are siloed per contract, so the same passport can claim once per deployment. A proof whose bound
-   data also carries a chain id does not verify, because the bind commitment covers every entry.
+6. **A bind ties a proof to an address and a network, not to a deployment.** `bind_user_address`
+   covers the user's address and the network the contract runs on, as a chain id: the rollup
+   version it reads from its context, so a proof bound for Aztec testnet doesn't verify on mainnet.
+   A rollup version is the first 4 bytes of a hash of the rollup's configuration and genesis state,
+   so a network deployed with the same configuration and genesis state, on any L1, shares it.
+   It verifies against any deployment of an app on that network whose registry accepts its roots
+   and VK, while the proof is within its validity period. Nullifiers are siloed per contract, so
+   the same passport can claim once per deployment. A proof whose bound data carries anything else,
+   such as custom data, does not verify, because the bind commitment covers every entry.
 7. **The admin can update the registry's code in place.** `update_to(new_class_id)` switches the
    registry to another published contract class at the same address, keeping its storage and roles,
    once the contract instance registry's update delay has passed (`set_update_delay`; one day by
