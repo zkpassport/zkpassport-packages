@@ -1,3 +1,5 @@
+import type { PopupErrorCode } from "@zkpassport/sdk/popup"
+
 /**
  * Why a verification did not produce a proof.
  *
@@ -24,11 +26,13 @@ export class ZKPassportError extends Error {
    * new kinds are added.
    */
   readonly cancelled: boolean
+  readonly code?: PopupErrorCode
 
-  constructor(kind: ZKPassportErrorKind, message: string) {
+  constructor(kind: ZKPassportErrorKind, message: string, code?: PopupErrorCode) {
     super(message)
     this.name = "ZKPassportError"
     this.kind = kind
+    this.code = code
     this.cancelled = kind === "rejected" || kind === "closed"
   }
 }

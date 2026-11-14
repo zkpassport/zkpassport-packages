@@ -4,6 +4,7 @@ import {
   DEFAULT_POPUP_URL,
   isPopupMessage,
   type PopupCredentialConfig,
+  type PopupErrorCode,
   type PopupEventMessage,
   type PopupRequestConfig,
 } from "./protocol"
@@ -16,7 +17,7 @@ export type PopupCallbacks = {
   onProofGenerated?: (progress: { index?: number; total?: number; name?: string }) => void
   onSuccess?: (response: Omit<PopupSuccess, "zkpassport" | "type" | "session">) => OnSuccessVerdict
   onReject?: () => void
-  onError?: (message: string) => void
+  onError?: (message: string, code?: PopupErrorCode) => void
   // Fired when the user closes the popup before a result was produced
   onClose?: () => void
 }
@@ -189,7 +190,7 @@ export function openVerificationPopup(
         callbacks.onReject?.()
         break
       case "error":
-        callbacks.onError?.(data.message)
+        callbacks.onError?.(data.message, data.code)
         break
     }
   }

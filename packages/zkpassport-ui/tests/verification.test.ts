@@ -274,6 +274,26 @@ describe("createVerification", () => {
 
   // The client infers this by polling `popup.closed`, so the test waits for one poll rather than
   // emitting a message the popup never sends
+  test("passes on the app's own reason for a failure", () => {
+    const { emitFromPopup } = setupFakeWindow()
+    const errors: ZKPassportError[] = []
+    createVerification(
+      () => ({ ...SIMPLE_OPTIONS, onError: (error) => void errors.push(error) }),
+      () => {},
+    ).verify()
+
+    emitFromPopup({
+      zkpassport: true,
+      type: "error",
+      message: "This ID is not supported yet",
+      code: "unsupported-id",
+    })
+
+    expect(errors.map((e) => [e.kind, e.code, e.cancelled])).toEqual([
+      ["failed", "unsupported-id", false],
+    ])
+  })
+
   test("closing the window returns to idle and reports a cancellation", async () => {
     const { emitFromPopup, popups } = setupFakeWindow()
     const statuses: string[] = []
@@ -829,6 +849,28 @@ describe("a popup window that reports closed", () => {
     await new Promise((resolve) => setTimeout(resolve, 600))
 
     expect(storage.has(PENDING_KEY)).toBe(false)
+  })
+
+  test("leaves the verification to continue on a phone, where the tab may only be discarded", async () => {
+    const storage = new Map<string, string>()
+    const { popups, openedUrls } = setupFakeWindow(storage)
+    stubPhone()
+    const controller = createVerification(
+      () => SIMPLE_OPTIONS,
+      () => {},
+    )
+    controller.verify()
+
+    popups[0].closed = true
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    expect(controller.state.status).toBe("idle")
+    expect(controller.state.resumable).toBe(true)
+
+    const reopened = setupFakeWindow(storage)
+    controller.verify()
+    expect(sessionOf(reopened.openedUrls[0])).toBe(sessionOf(openedUrls[0]))
+    controller.dispose()
   })
 })
 
