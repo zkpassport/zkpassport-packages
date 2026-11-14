@@ -107,8 +107,8 @@ export async function hashSaltDg1Dg2HashPrivateNullifier(
 }
 
 // The disclosure proofs' public inputs are, in order: comm_in, current_date, service_scope,
-// service_subscope, param_commitment, nullifier_type, nullifier, oprf_pk_hash and, from 0.23.0,
-// the credential scheme. The scheme is appended, so the earlier fields keep their positions.
+// service_subscope, param_commitment, nullifier_type, nullifier, oprf_pk_hash. They carry no
+// credential scheme: the base proof states it and the outer proof re-exports it.
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[6])
 }
