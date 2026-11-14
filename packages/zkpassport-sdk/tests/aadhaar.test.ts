@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
-  CredentialScheme,
-  CredentialTier,
+  VerificationMethod,
+  VerificationTier,
   getAgeParameterCommitment,
   getCountryParameterCommitment,
   getFacematchParameterCommitment,
@@ -9,7 +9,7 @@ import {
   getServiceSubscopeHash,
   ProofType,
   type Alpha3Code,
-  type AllowedCredential,
+  type AllowedVerificationMethod,
   type ProofResult,
   type Query,
   type QueryResult,
@@ -26,6 +26,7 @@ const OTHER_ROOT = 0x0badn
 // Accepts only REGISTRY_ROOT, as the registry would its published roots
 const registry = {
   isCertificateRootValid: async (root: string) => BigInt(`0x${root}`) === REGISTRY_ROOT,
+  isCircuitRootValid: async () => true,
 } as unknown as RegistryClient
 const FACEMATCH_COMMITTED = {
   rootKeyLeaf: APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -57,7 +58,7 @@ async function proofs({
   const base = {
     name: "aadhaar_id",
     version: "0.23.0",
-    proof: [root, COMMITMENT, CredentialScheme.UIDAI_AADHAAR].map(field).join("") + body,
+    proof: [root, COMMITMENT, VerificationMethod.UIDAI_AADHAAR].map(field).join("") + body,
   }
   const facematchProof = disclosure(
     "facematch",
@@ -92,7 +93,7 @@ const result: QueryResult = { age: { gte: { expected: 18, result: true } } }
 
 async function check(
   bundle: ProofResult[],
-  { allowed, devMode = false }: { allowed?: AllowedCredential[]; devMode?: boolean } = {},
+  { allowed, devMode = false }: { allowed?: AllowedVerificationMethod[]; devMode?: boolean } = {},
 ) {
   return PublicInputChecker.checkPublicInputs(
     DOMAIN,
@@ -113,11 +114,11 @@ describe("Aadhaar proofs", () => {
     const accepted = await check(await proofs())
     expect(accepted.queryResultErrors).toEqual({})
     expect(accepted.isCorrect).toBe(true)
-    expect(accepted.credentialScheme).toBe(CredentialScheme.UIDAI_AADHAAR)
+    expect(accepted.verificationMethod).toBe(VerificationMethod.UIDAI_AADHAAR)
 
-    const refused = await check(await proofs(), { allowed: [CredentialTier.DEVICE_ATTESTED] })
+    const refused = await check(await proofs(), { allowed: [VerificationTier.DEVICE_ATTESTED] })
     expect(refused.isCorrect).toBe(false)
-    expect(refused.queryResultErrors.credential_scheme?.eq?.message).toContain("does not accept")
+    expect(refused.queryResultErrors.verification_method?.eq?.message).toContain("does not accept")
   })
 
   test("are refused without a face match", async () => {
@@ -177,5 +178,74 @@ describe("Aadhaar proofs", () => {
         "An Aadhaar does not prove a nationality, so it can only pass an exclusion check",
       )
     }
+  })
+
+  describe("compressed into an outer proof", () => {
+    // outer_aadhaar_count_N: [certificate_registry_root, circuit_registry_root, current_date,
+    // service_scope, service_subscope, N-1 param commitments, nullifier_type, nullifier,
+    // oprf_pk_hash, verification_method]
+    async function outer({
+      root = REGISTRY_ROOT,
+      scheme = BigInt(VerificationMethod.UIDAI_AADHAAR),
+      facematch = true,
+    }: { root?: bigint; scheme?: bigint; facematch?: boolean } = {}): Promise<ProofResult> {
+      const age = await getAgeParameterCommitment(18, 0)
+      const facematchParam = await getFacematchParameterCommitment(
+        BigInt(FACEMATCH_COMMITTED.rootKeyLeaf),
+        1n,
+        BigInt(FACEMATCH_COMMITTED.appIdHash),
+        1n,
+      )
+      const params = facematch ? [facematchParam, age] : [age]
+      return {
+        name: `outer_aadhaar_count_${params.length + 1}`,
+        version: "0.23.0",
+        proof:
+          [
+            root,
+            2n,
+            Math.floor(Date.now() / 1000),
+            getServiceScopeHash(DOMAIN),
+            getServiceSubscopeHash(SCOPE),
+            ...params,
+            0n,
+            42n,
+            0n,
+            scheme,
+          ]
+            .map(field)
+            .join("") + body,
+        committedInputs: {
+          ...(facematch ? { facematch: FACEMATCH_COMMITTED } : {}),
+          compare_age: { minAge: 18, maxAge: 0 },
+        },
+      } as ProofResult
+    }
+
+    test("are accepted with a face match and a UIDAI key", async () => {
+      const accepted = await check([await outer()])
+      expect(accepted.queryResultErrors).toEqual({})
+      expect(accepted.isCorrect).toBe(true)
+      expect(accepted.verificationMethod).toBe(VerificationMethod.UIDAI_AADHAAR)
+    })
+
+    test("are refused without a face match", async () => {
+      const refused = await check([await outer({ facematch: false })])
+      expect(refused.isCorrect).toBe(false)
+      expect(refused.queryResultErrors.facematch?.eq?.message).toContain("face match")
+    })
+
+    test("are refused when the UIDAI key is not under a Certificate Registry root", async () => {
+      const refused = await check([await outer({ root: OTHER_ROOT })])
+      expect(refused.isCorrect).toBe(false)
+    })
+
+    test("are refused when they state another verification method", async () => {
+      const refused = await check([await outer({ scheme: 100n })])
+      expect(refused.isCorrect).toBe(false)
+      expect(refused.queryResultErrors.outer?.certificate?.message).toBe(
+        "An Aadhaar outer proof states another verification method",
+      )
+    })
   })
 })
