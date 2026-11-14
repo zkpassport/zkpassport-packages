@@ -73,7 +73,7 @@ async function main() {
       {
         inputs,
         dg1: Array.from(aadhaarToDg1(aadhaar)),
-        photoHashNormalized: `0x${(await normalizeDg2Hash(getAadhaarPhotoHash(aadhaar))).toString(16)}`,
+        photoHashNormalized: `0x${(await normalizeDg2Hash(Array.from(getAadhaarPhotoHash(aadhaar)))).toString(16)}`,
         privateNullifier: `0x${privateNullifier.toString(16)}`,
         commOut: `0x${commitment.toString(16)}`,
         certificateRegistryRoot: packagedCerts.root,
