@@ -201,6 +201,19 @@ export const UN_MEMBER_STATES: readonly string[] = [
 
 export const UN_OBSERVER_STATES: readonly string[] = ["PSE", "VAT"]
 
+/**
+ * States outside the UN that issue their own passports, under the code their MRZ carries: Taiwan,
+ * and Kosovo (RKS; the registry files its certificates under XKX)
+ */
+export const NON_UN_STATES: readonly string[] = ["TWN", "RKS"]
+
 const UN_STATES = new Set([...UN_MEMBER_STATES, ...UN_OBSERVER_STATES])
+const LISTED_STATES = new Set([...UN_STATES, ...NON_UN_STATES])
 
 export const isUnState = (alpha3: string): boolean => UN_STATES.has(alpha3)
+
+/** Whether the country pickers list a country: the UN's states and the states outside it */
+export const isListedState = (alpha3: string): boolean => LISTED_STATES.has(alpha3)
+
+/** Names the pickers show in place of the table's, where that one isn't how users know it */
+export const STATE_DISPLAY_NAMES: Readonly<Record<string, string>> = { TWN: "Taiwan" }
