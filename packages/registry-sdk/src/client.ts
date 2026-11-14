@@ -8,6 +8,7 @@ import {
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
   hexToCidv0,
+  isCscaCertificate,
   SANCTIONS_REGISTRY_ID,
 } from "@zkpassport/utils/registry"
 import type {
@@ -643,7 +644,7 @@ export class RegistryClient {
       const certificates = await this.getCertificates()
 
       const hasValidCertificate = certificates.certificates
-        .filter((c) => c.country === country)
+        .filter((c) => isCscaCertificate(c) && c.country === country)
         .some((c) => {
           // Check if the issue date is after the validity start date of
           // one of the certificates of the issuing country

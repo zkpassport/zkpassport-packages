@@ -378,7 +378,6 @@ export type CommittedInputs =
   | BindCommittedInputs
   | SanctionsCommittedInputs
   | FacematchCommittedInputs
-  | AadhaarCommittedInputs
 
 /** The base circuit of a Tier 2 verification, an ID read by camera attested by the device */
 export type AttestedIdCircuitName = "attested_id_ios" | `attested_id_android_${string}`
@@ -388,12 +387,6 @@ export type AttestedIdCommittedInputsKey = "attested_id_ios" | "attested_id_andr
 
 /** What the attested_id proof commits to; the same attestation parameters as facematch */
 export type AttestedIdCommittedInputs = FacematchCommittedInputs
-
-/** What the aadhaar_id proof commits to: the UIDAI key that signed the QR code */
-export type AadhaarCommittedInputs = {
-  /** RSA modulus, big-endian hex */
-  publicKey: string
-}
 
 export type DisclosureCircuitName =
   | "disclose_bytes"
@@ -425,9 +418,7 @@ export type ProofResult = {
   version?: `${number}.${number}.${number}`
   name?: string
   committedInputs?: {
-    [
-      circuitName in DisclosureCircuitName | AttestedIdCommittedInputsKey | "aadhaar_id"
-    ]?: CommittedInputs
+    [circuitName in DisclosureCircuitName | AttestedIdCommittedInputsKey]?: CommittedInputs
   }
   // Index of the proof in the proof set
   index?: number

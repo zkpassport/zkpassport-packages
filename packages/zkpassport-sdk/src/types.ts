@@ -31,7 +31,6 @@ export type QueryResultErrors = {
       | "sig_check_id_data"
       | "data_check_integrity"
       | "attested_id"
-      | "aadhaar_id"
       | "credential_scheme"
       | "outer"
       | "disclose"

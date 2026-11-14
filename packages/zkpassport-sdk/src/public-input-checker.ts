@@ -3,12 +3,9 @@
 import {
   type ProofResult,
   type QueryResult,
-  type AadhaarCommittedInputs,
   AADHAAR_CIRCUIT_NAME,
-  UIDAI_PUBLIC_KEYS,
-  getAadhaarParameterCommitment,
+  getCertificateRegistryRootFromAadhaarProof,
   getCommitmentOutFromAadhaarProof,
-  getParameterCommitmentFromAadhaarProof,
   getChainFromQuery,
   getProofData,
   getCommitmentFromDSCProof,
@@ -3109,14 +3106,24 @@ export class PublicInputChecker {
       } else if (proof.name === AADHAAR_CIRCUIT_NAME) {
         commitmentOut = getCommitmentOutFromAadhaarProof(proofData)
         credentialScheme = getCredentialSchemeFromAttestedIdProof(proofData)
-        const { isCorrect: isCorrectAadhaar, queryResultErrors: aadhaarErrors } =
-          await this.checkAadhaarPublicKey(
-            getParameterCommitmentFromAadhaarProof(proofData),
-            proof.committedInputs?.aadhaar_id as AadhaarCommittedInputs | undefined,
-            Boolean(devMode),
-          )
-        isCorrect = isCorrect && isCorrectAadhaar
-        queryResultErrors = { ...queryResultErrors, ...aadhaarErrors }
+        // The circuit proves the UIDAI key is in the Certificate Registry under this root
+        const {
+          isCorrect: isCorrectCertificateRegistryRoot,
+          queryResultErrors: queryResultErrorsCertificateRegistryRoot,
+        } = await this.checkCertificateRegistryRoot(
+          getCertificateRegistryRootFromAadhaarProof(proofData).toString(16),
+          queryResultErrors,
+          false,
+          devMode,
+          bundleRootTimestamp,
+          originalQuery,
+          registryClient,
+        )
+        isCorrect = isCorrect && isCorrectCertificateRegistryRoot
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCertificateRegistryRoot,
+        }
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
@@ -4049,50 +4056,6 @@ export class PublicInputChecker {
       queryResultErrors,
       credentialScheme: scheme,
     }
-  }
-
-  /**
-   * An Aadhaar base proof commits to the RSA key it checked UIDAI's signature with. The key
-   * must be the one its committed inputs name, and one of UIDAI's: in dev mode an unknown key
-   * is only warned about, so QR codes signed by a key not yet listed can be tried out.
-   */
-  public static async checkAadhaarPublicKey(
-    paramCommitment: bigint,
-    committed: AadhaarCommittedInputs | undefined,
-    devMode: boolean,
-  ) {
-    let isCorrect = true
-    const queryResultErrors: Partial<QueryResultErrors> = {}
-    const fail = (expected: string, received: string, message: string) => {
-      console.warn(message)
-      isCorrect = false
-      queryResultErrors.aadhaar_id = {
-        ...queryResultErrors.aadhaar_id,
-        commitment: { expected, received, message },
-      }
-    }
-    if (!committed?.publicKey) {
-      fail("Committed inputs for aadhaar_id", "none", "The Aadhaar proof names no UIDAI key")
-      return { isCorrect, queryResultErrors }
-    }
-    const publicKey = committed.publicKey.toLowerCase().replace(/^0x/, "")
-    const expected = await getAadhaarParameterCommitment(publicKey)
-    if (expected !== paramCommitment) {
-      fail(
-        `Parameter commitment: ${expected.toString()}`,
-        `Parameter commitment: ${paramCommitment.toString()}`,
-        "The Aadhaar proof was not made with the key its committed inputs name",
-      )
-    }
-    if (!UIDAI_PUBLIC_KEYS.some((key) => key.modulus === publicKey)) {
-      const message = "The Aadhaar QR code was not signed by a known UIDAI key"
-      if (devMode) {
-        console.warn(`${message}; accepted in dev mode. Key: ${publicKey}`)
-      } else {
-        fail("A UIDAI public key", publicKey, message)
-      }
-    }
-    return { isCorrect, queryResultErrors }
   }
 
   /**

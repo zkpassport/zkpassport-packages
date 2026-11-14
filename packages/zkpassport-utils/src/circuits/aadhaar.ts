@@ -5,13 +5,25 @@ import { redcLimbsFromBytes } from "../barrett-reduction"
 import { leftPadArrayWithZeros } from "../utils"
 import { Binary } from "../binary"
 import { mrzCheckDigit } from "../passport/td1"
-import { CredentialScheme, PassportViewModel } from "../types"
 import {
-  hashSaltDg1Dg2HashPrivateNullifier,
-  normalizeDg2Hash,
-  packLeBytesAndHashPoseidon2,
-  ProofData,
-} from "./index"
+  CredentialScheme,
+  PackagedCertificate,
+  PackagedCertificatesFile,
+  PassportViewModel,
+  RSAPublicKey,
+} from "../types"
+import { computeMerkleProof } from "../merkle-tree"
+import {
+  buildMerkleTreeFromMasterlists,
+  buildMerkleTreeFromRevocations,
+  CERTIFICATE_MERKLE_TREE_HEIGHT,
+  getCertificateLeafHash,
+  getCertificateLeafHashes,
+  getCertificateMerkleProofFromFile,
+  PACKAGED_CERT_TYPE_UIDAI,
+  tagsArrayToBitsFlag,
+} from "../registry"
+import { hashSaltDg1Dg2HashPrivateNullifier, normalizeDg2Hash, ProofData } from "./index"
 
 /**
  * Aadhaar's Secure QR code, printed on the Aadhaar card and letter and shown by the mAadhaar
@@ -31,7 +43,6 @@ export const AADHAAR_DELIMITER_COUNT = 18
 export const AADHAAR_SIGNATURE_LENGTH = 256
 /** Domain separator of the Aadhaar private nullifier ("AADHAAR") */
 export const AADHAAR_NULLIFIER_DOMAIN = 0x41414448414152n
-export const PROOF_TYPE_AADHAAR = 12n
 /** Aadhaar has no expiry, so the MRZ gets the signing date plus this many years */
 export const AADHAAR_VALIDITY_YEARS = 10
 /** Aadhaar is issued to residents, not only citizens: unspecified nationality */
@@ -49,7 +60,7 @@ const MRZ_NAME_LENGTH = 39
 const NAME_MAX_LENGTH = 64
 
 export type UidaiPublicKey = {
-  /** UIDAI's file name for the certificate */
+  /** The certificate's Poseidon2 fingerprint, as the Certificate Registry lists it */
   name: string
   /** RSA modulus, big-endian hex */
   modulus: string
@@ -57,76 +68,35 @@ export type UidaiPublicKey = {
   validTo: string
 }
 
+const normaliseModulus = (modulus: string) => modulus.toLowerCase().replace(/^0x/, "")
+
+const toIsoDate = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10)
+
+/** The UIDAI certificates in the Certificate Registry */
+export function getUidaiCertificates(
+  packagedCerts: PackagedCertificatesFile,
+): PackagedCertificate[] {
+  return packagedCerts.certificates.filter(
+    (cert) =>
+      cert.type === PACKAGED_CERT_TYPE_UIDAI &&
+      cert.country === AADHAAR_ISSUING_COUNTRY &&
+      cert.public_key.type === "RSA",
+  )
+}
+
 /**
- * UIDAI's keys that sign Secure QR codes: its offline e-KYC keys and its authentication signing
- * keys, which signed printed cards and letters. A QR code stays signed by the key that was current
- * when it was made, so a card printed years ago still needs the key of its time.
+ * The keys of the UIDAI certificates in the Certificate Registry. UIDAI has signed Secure QR
+ * codes with its offline e-KYC keys and with its authentication signing keys, and a QR code
+ * keeps the key of the time it was made, so the registry holds every one UIDAI has published.
  */
-export const UIDAI_PUBLIC_KEYS: UidaiPublicKey[] = [
-  {
-    name: "uidai_offline_publickey_26022019",
-    modulus:
-      "bd553dbf0a5f8b9430ffb29ba85790588bbe9a8adafe6c8607676bbed620f98594ec67e95e14d879e02f69795f162af58cfa0840b5e050867743a0873c45db01d753dff905ded1c867a03546b159af64fed1526993a4008fc918c323b0530673bd016b2935795ef1fc0962c6882cbb7ec301a30a8da6837e941543d66be735c90e110d96b5c58c9f99314561aa0023d14266e2a1913a14f269d196b13bce310379794cfe7dd2a5e3f46d9ffeac5a366b949b8fcff12f93ea0c6166559f055787f5a976311efb55e74e172466e3e0183d4cc7a18ee755b240748c4e180ec73b4c1c1c3c8c39e29602c0aec4b704d560921272de0e26bf276d50096aca0819d71f",
-    validFrom: "2017-04-27",
-    validTo: "2019-04-09",
-  },
-  {
-    name: "uidai_prod_cdup",
-    modulus:
-      "bf41e36c5a6fbbf911fa04c8dbeb2f18d996e1e6478535411bf37e6f26aadc61f448333e8cee515b805b5cdcda48a734239988c8dd6f41fd8a98d57fdd76a2e8ca248a266b0517ccf1ae3def308cb5e1d303348fd4bd039a8854b81421fecd617ea448216a5f12eee7a16d86f2da0ad1939047513416d8a758db6a11ebb194d10a81fc64378fef47382f185c3e3cf7281b9b8c75c77bfc38c31358b6d33993fb9e4380806b9de0b0ad6ee720cd0c77704f39357c881c338dd55c7431e132d4a98bd50a507c3cd2c0d1669ef2801e19d109a14b108c0a0f60eca3c7618f8f5510b6b05ade6410baaed9882fe1cc50f7224420aa3192f1ddfeb14520fdee566bff",
-    validFrom: "2017-06-08",
-    validTo: "2020-06-07",
-  },
-  {
-    name: "uidai_12_06_18_cer",
-    modulus:
-      "bf50d22bdfeaad6f115f5bc364cb04f318a2c89963fbac710edbbe9d26435bd0bf89a8d2a89d9080bbd1830793c38b2ecf3c5942c78e13e91baa56deb0d1dcd25423b7d4fe08662b51309b308fdadf365baf7bcfc73dd594dee2aabf14e88494379df1fbaa8073867f3dceba22a240eb35c13ca1598871cc9a2d3478cd781e0356acb12460713981e06606011ebf39ec912e10fac2555fee2c789ff369d737e4ee06ea0bd665ab65b01e524c649d7ace13a85d64d055786b4085eef033a5403812d428865e9d9ca5a97d6600254c5b4ab1f53822c5067d4005ef58c3989990830561aba1c85ccfd7a5c2886f754cfa0e44827cb2c211f6e7f6d68eab0fcd8e27",
-    validFrom: "2018-06-08",
-    validTo: "2021-06-07",
-  },
-  {
-    name: "uidai_offline_publickey_29032019",
-    modulus:
-      "9b76a38dcdce4214e43fdd829e66048d7030546d0a139007bba7b9865c75b76ce9eb2b3da4e565cd54cb7511568f7c8b45b49e3deef97b65137add09502ada17bfcdad7b0044fca30e855c4d39728fe24470e608ed553083d7b7e57a78ec00cdb28e87cc7846d4527d0ccca558c3fb7b0a1bfd9d0b9dba75338658193044fdb670adf3919998e5f192b3131776bb34831aef6a717d01e9b08bbf1970292a1b7c2b5381622864fd3af8770ab89e7bd1f8ba67c5bb7a96cbfce3dff7678a532cb7f56d3429971eb87146a27c212c217fe2deda3324aba557fae7095af1d3b636f5f295647257b8faad1e839d448541948e819b89c8fc4c2d2ddf13320439df3659",
-    validFrom: "2019-03-15",
-    validTo: "2021-02-28",
-  },
-  {
-    name: "uidai_auth_sign_prod_2023",
-    modulus:
-      "d48836880e9bf637a72cf4c6a20b1380bc789efd69fd5d93d2add105ae202432ab66de356cc116697905504b8de52f8db59bcf6cefe3263d968b536f490a9561303fec9cb485550e589a587afeff3c5cc00143a0928b50b26892f2186947920eb2c3bed4aad8addeca922f992e437ff4fa9a20492b261bc438fef0b4d9c5e497875db1054b3d5fa47191648cd9ca882643cf6f698f605c1c86d4c27336a969461a1a8401ea66dbc16d4f411eaa5f150155e7c57b7ef7b068773f2b72d1b38ec3f3416072c44b5a7ede35174a9da8bea331b04108ab473fa028e385b25850a6b4d7dd048590f24d8a231ae36c0f85426fb8c9935c4debbb3310ac984362ddff8d",
-    validFrom: "2020-05-27",
-    validTo: "2023-05-27",
-  },
-  {
-    name: "uidai_offline_publickey_26022021",
-    modulus:
-      "a2722c0e5f2de5ba707ed93f036ec2b1f0b955932390facc0f0bcbf20c80a15c088b4886866b72eb25ab0bf55a2fe06b69edbd5cc83b74c7709db2141e6c07c68bcdf859d3daf7f3fced241d072055dc15488474b45c2c982fa954aa52aa6fffb2481861c65085d84b64158e9f43d9f35ca69b48ce9300522102a4cae093bffd474b08d32d1d0406f687f7e55bd226a2384bf58a41c384c3974f1c7c5115819c926de3adf3ecbb9904c486f1f5d5303977bea63584367329b5c168afdc95121731f7f48d43af7cf31f69b1e3bbe7949dc7a8b10c0bddebababdebea076a1cf8166adf06a8a41dedf143bff835dbd2bd5bb0b61d2472c234a6d4411bc9b536095",
-    validFrom: "2021-02-26",
-    validTo: "2024-02-27",
-  },
-  {
-    name: "uidai_auth_sign_Prod_2026",
-    modulus:
-      "b7a7a2e109de73b5b69d63586b777acf03734cfb6b1e8821d6202feb6c9d5a0e2b14a5181a1c4fefdb2132673377f11ff228fcba851454abc28e7dd02f1567aceaa1418c8d0a7d156d4c35597f0d8f522235a4853285ed2eaa85bacce37a71a52e236f1886d8030332f2d7c83a0e9d45c5c537eddf22b5959cecfb394039ded224150c95d20213c2dc6aacab675d001bb8020b875622555307e05fcdd02871e74d2d66901f30651004a9306cfda34dcc3c0f0e2f77a3312a5cebe34379358686dcd831ff701248e8f33dc36f4c83f9d97ea9dfddaf8260b129b7dcefd21d901f34431aa53ceb210334b9139d24e6de583a57374f3ab726af5390dfbf357536c5",
-    validFrom: "2023-04-28",
-    validTo: "2026-04-28",
-  },
-  {
-    name: "uidai_offline_publickey_17022026",
-    modulus:
-      "98c2092a3dbc25c4cdd41ef6a76fe98330c2a20ba1b3fadb21780dff26cd361d0d54ead95762a596b993e5539894cac0069bc8a7b254fe7ea199adff3b5e27ee7be7809ff2ddca2587cae4ee6b03c1500eed9b950fe182cdf6983cb2e4512fb0a87eccec5387227fe9c89a35464c66f7c94edddca8c7946e2c6d94aa6ec97d52289a6d2ded0289a0ce6b7fc24dbcf5ddc2cc4df3d796953d817fb045fff1b714a885ed91dfbc8cb2aad7bfde8ad1446fccf3442a2eb0cfd5121e39ae776538082d773240e6f6c993aa347de2376b92291b2eb0d3b5ed3a3914e6f627d1dde7020cb83bf7cf0e0c593aca016b936289fdd1049e1912afd5de4040d46dd31e5d4b",
-    validFrom: "2024-02-21",
-    validTo: "2026-02-16",
-  },
-  {
-    name: "uidai_offline_publickey_2026",
-    modulus:
-      "875fb3627bdb7049b4633ef7b39bb8da876950932bf70bf96d5c3bb0e1399c535bac1f94fbee48d1ff1c2f61e81e724e930bcb673ac3d231bfbf100a8babe28bf82313350482b91d207c4c3f70fa189b343124078845ef2063b03c81f704bb4139cde6dbc355353e90f62ab4814c2ec67961577f1474d842965a8d6215a600c3c99089a068aad166f636a5636cea077e3e5005ffd48eebdc77fb599e03c90f93666f41a9d9971f6d7da13178e7bda2bdcd4222b2dbe51bb57ae972801f61b6d68b5394cd78b96c97616c6a76dfd7357d7e942b250ce4850c63e9b723bc2ed9643b96678eda7fefc33433fcf2875cf598bb76f275630b7428b4eef39006acc22b",
-    validFrom: "2026-02-03",
-    validTo: "2029-02-03",
-  },
-]
+export function getUidaiPublicKeys(packagedCerts: PackagedCertificatesFile): UidaiPublicKey[] {
+  return getUidaiCertificates(packagedCerts).map((cert) => ({
+    name: cert.fingerprint ?? "",
+    modulus: normaliseModulus((cert.public_key as RSAPublicKey).modulus),
+    validFrom: toIsoDate(cert.validity.not_before),
+    validTo: toIsoDate(cert.validity.not_after),
+  }))
+}
 
 export type AadhaarQrData = {
   /** The decompressed QR data without its signature */
@@ -386,21 +356,6 @@ export async function calculateAadhaarCommitment(
 const modulusBytes = (modulus: string | Uint8Array) =>
   typeof modulus === "string" ? Binary.fromHex(modulus).toUInt8Array() : modulus
 
-/** The parameter commitment of an aadhaar_id proof made against a UIDAI key */
-export async function getAadhaarParameterCommitment(modulus: string | Uint8Array): Promise<bigint> {
-  return poseidon2HashAsync([
-    PROOF_TYPE_AADHAAR,
-    await packLeBytesAndHashPoseidon2(modulusBytes(modulus)),
-  ])
-}
-
-/** The parameter commitments of every known UIDAI key */
-export async function getUidaiParameterCommitments(
-  keys: UidaiPublicKey[] = UIDAI_PUBLIC_KEYS,
-): Promise<bigint[]> {
-  return Promise.all(keys.map((key) => getAadhaarParameterCommitment(key.modulus)))
-}
-
 function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
   let result = 1n
   base %= modulus
@@ -427,7 +382,7 @@ export function verifyAadhaarSignature(qr: AadhaarQrData, modulus: string | Uint
 /** The known UIDAI key that signed the QR code, if any */
 export function findUidaiPublicKey(
   qr: AadhaarQrData,
-  keys: UidaiPublicKey[] = UIDAI_PUBLIC_KEYS,
+  keys: UidaiPublicKey[],
 ): UidaiPublicKey | undefined {
   return keys.find((key) => verifyAadhaarSignature(qr, key.modulus))
 }
@@ -509,8 +464,11 @@ export function aadhaarToPassportViewModel(
   }
 }
 
-/** The aadhaar_id circuit's inputs */
-export function getAadhaarCircuitInputs(
+/**
+ * The aadhaar_id circuit's inputs, with the Merkle proof that the UIDAI certificate whose key
+ * signed the QR code is in the Certificate Registry under `packagedCerts.root`
+ */
+export async function getAadhaarCircuitInputs(
   passport: PassportViewModel,
   salts: {
     dg1Salt: bigint
@@ -518,7 +476,13 @@ export function getAadhaarCircuitInputs(
     dg2HashSalt: bigint
     privateNullifierSalt: bigint
   },
+  packagedCerts: PackagedCertificatesFile,
 ) {
+  if (packagedCerts.version !== 1) {
+    throw new Error(
+      `getAadhaarCircuitInputs requires v1 packaged certificates (got version ${packagedCerts.version ?? 0})`,
+    )
+  }
   const qr = getAadhaarQrDataFromPassport(passport)
   if (qr.signedData.length > AADHAAR_MAX_DATA_LENGTH) {
     throw new Error("The Aadhaar QR data is larger than the circuit takes")
@@ -527,12 +491,48 @@ export function getAadhaarCircuitInputs(
   if (aadhaar.photo.length > AADHAAR_MAX_PHOTO_LENGTH) {
     throw new Error("The Aadhaar photo is larger than the circuit takes")
   }
-  const pubkey = Array.from(modulusBytes(passport.aadhaar!.publicKey))
+  const publicKey = normaliseModulus(passport.aadhaar!.publicKey)
+  const certificate = getUidaiCertificates(packagedCerts).find(
+    (cert) => normaliseModulus((cert.public_key as RSAPublicKey).modulus) === publicKey,
+  )
+  if (!certificate) throw new Error("The UIDAI key is not in the Certificate Registry")
+
+  const revocationTree = await buildMerkleTreeFromRevocations(packagedCerts.revocations ?? [])
+  const masterlistTree = await buildMerkleTreeFromMasterlists(packagedCerts.masterlists ?? [])
+  const leaf = await getCertificateLeafHash(certificate, { version: packagedCerts.version })
+  let merkleProof = await getCertificateMerkleProofFromFile(
+    packagedCerts,
+    leaf,
+    revocationTree.root,
+    masterlistTree.root,
+  )
+  if (!merkleProof) {
+    const leaves = await getCertificateLeafHashes(packagedCerts.certificates, packagedCerts.version)
+    merkleProof = await computeMerkleProof(
+      leaves,
+      leaves.findIndex((l) => l === leaf),
+      CERTIFICATE_MERKLE_TREE_HEIGHT,
+    )
+  }
+
+  const pubkey = Array.from(modulusBytes(publicKey))
   const qrData = new Array(AADHAAR_MAX_DATA_LENGTH).fill(0)
   qrData.splice(0, qr.signedData.length, ...qr.signedData)
   // Salts are SHA-256 outputs and may exceed the field, so they go in reduced as the prover would
   const hex = (value: bigint) => `0x${(value % BN254_SCALAR_FIELD).toString(16)}`
   return {
+    certificate_registry_root: packagedCerts.root,
+    schema_version: packagedCerts.version,
+    timestamp: packagedCerts.timestamp,
+    certificate_tree_index: merkleProof.index,
+    certificate_tree_hash_path: merkleProof.path,
+    certificate_tags: tagsArrayToBitsFlag(certificate.tags ?? []).map(
+      (tag) => `0x${tag.toString(16)}`,
+    ),
+    uidai_cert_expiry: certificate.validity.not_after,
+    uidai_cert_fingerprint: certificate.fingerprint!,
+    revocation_tree_root: revocationTree.root,
+    masterlist_tree_root: masterlistTree.root,
     qr_data: qrData,
     qr_data_length: qr.signedData.length,
     delimiter_indices: aadhaar.delimiterIndices,
@@ -546,13 +546,13 @@ export function getAadhaarCircuitInputs(
   }
 }
 
-/** The aadhaar_id proof returns (comm_out, param_commitment, credential_scheme) */
+/** The aadhaar_id proof's public inputs: (certificate_registry_root, comm_out, credential_scheme) */
 export const getAadhaarProofPublicInputCount = () => 3
 
-export function getCommitmentOutFromAadhaarProof(proofData: ProofData): bigint {
+export function getCertificateRegistryRootFromAadhaarProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[0])
 }
 
-export function getParameterCommitmentFromAadhaarProof(proofData: ProofData): bigint {
+export function getCommitmentOutFromAadhaarProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[1])
 }
