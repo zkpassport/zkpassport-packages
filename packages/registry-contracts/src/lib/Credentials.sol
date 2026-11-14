@@ -9,7 +9,7 @@
 
 pragma solidity ^0.8.30;
 
-// The assurance tier of a credential: the hundreds digit of its scheme
+// The assurance tier of a credential: tier 1 is schemes 100-199, tier 2 is 200-299
 library CredentialTier {
     // The issuer signed the data
     uint256 constant GOVERNMENT_SIGNED = 1;
@@ -19,7 +19,6 @@ library CredentialTier {
 
 // How the ID's data was verified: the last public input of the outer proof
 library CredentialScheme {
-    uint256 constant SCHEMES_PER_TIER = 100;
     // The eMRTD chip, signed by the issuing country (CSCA -> DSC)
     uint256 constant ICAO_CHIP = 100;
     uint256 constant UIDAI_AADHAAR = 101;
@@ -35,8 +34,16 @@ library CredentialScheme {
 }
 
 library Credentials {
+    /// @notice The tier of a scheme, by explicit range; 0 for a value in no tier's range
     function tierOf(uint256 scheme) internal pure returns (uint256) {
-        return scheme / CredentialScheme.SCHEMES_PER_TIER;
+        if (scheme >= 100 && scheme < 200) return CredentialTier.GOVERNMENT_SIGNED;
+        if (scheme >= 200 && scheme < 300) return CredentialTier.DEVICE_ATTESTED;
+        return 0;
+    }
+
+    /// @notice Whether a policy entry names a whole tier rather than one exact scheme
+    function isTier(uint256 entry) internal pure returns (bool) {
+        return entry == CredentialTier.GOVERNMENT_SIGNED || entry == CredentialTier.DEVICE_ATTESTED;
     }
 
     /**
@@ -50,9 +57,8 @@ library Credentials {
     }
 
     /**
-     * @notice Whether a list of accepted credential schemes includes a scheme. An entry below
-     *         SCHEMES_PER_TIER is a whole tier (1 = every issuer-signed scheme); any other entry is
-     *         one exact scheme. An empty list accepts tier 1 only.
+     * @notice Whether a list of accepted credential schemes includes a scheme. An entry that is a
+     *         tier (1 or 2) stands for every scheme of that tier; any other entry is one exact scheme. An empty list accepts tier 1 only.
      */
     function isAllowed(uint256 scheme, uint256[] memory allowedCredentialSchemes) internal pure returns (bool) {
         uint256 tier = tierOf(scheme);
@@ -61,7 +67,7 @@ library Credentials {
         }
         for (uint256 i = 0; i < allowedCredentialSchemes.length; i++) {
             uint256 entry = allowedCredentialSchemes[i];
-            if (entry == scheme || (entry < CredentialScheme.SCHEMES_PER_TIER && entry == tier)) {
+            if (entry == scheme || (isTier(entry) && entry == tier)) {
                 return true;
             }
         }

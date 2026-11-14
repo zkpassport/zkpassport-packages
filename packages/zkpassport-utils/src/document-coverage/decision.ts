@@ -2,6 +2,7 @@ import {
   AllowedCredential,
   CredentialScheme,
   DEFAULT_ALLOWED_CREDENTIALS,
+  getTierForCredentialScheme,
   isCredentialAllowed,
 } from "../types/credential"
 import type {
@@ -60,8 +61,6 @@ export interface CoverageDecision {
   /** The series considered */
   documents: CoverageDocument[]
 }
-
-const SCHEMES_PER_TIER = 100
 
 /**
  * Which reads to attempt for a document, given the policy and what the client can prove. A chip
@@ -156,7 +155,7 @@ export function decideVerificationPaths(
 /** Verifiable chip reads first, then the attested reads; an unverifiable chip read is dropped */
 function order(paths: VerificationPath[]): VerificationPath[] {
   const usable = paths.filter((p) => p.verifiable)
-  const tier = (p: VerificationPath) => Math.floor(p.scheme / SCHEMES_PER_TIER)
+  const tier = (p: VerificationPath) => getTierForCredentialScheme(p.scheme)
   return [...usable].sort((a, b) => tier(a) - tier(b) || a.scheme - b.scheme)
 }
 
