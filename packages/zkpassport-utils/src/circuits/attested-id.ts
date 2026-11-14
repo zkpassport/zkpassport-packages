@@ -41,7 +41,7 @@ export const isAndroidAttestedIdCircuit = (circuitName: string) =>
 /**
  * The attested_id proof's public inputs on either platform: the attestation's date (the Android
  * integrity token's, the iOS credential certificate's notBefore day), so the verifier can check
- * the face match is recent, then comm_out, param_commitment and credential_scheme.
+ * the face match is recent, then comm_out, param_commitment and verification_method.
  */
 export function getAttestedIdProofPublicInputCount(_circuitName?: string): number {
   return 4
@@ -147,19 +147,19 @@ function getFullDocumentNumber(dg1: Uint8Array): Uint8Array {
   return number
 }
 
-/** The MRZ fields the nullifier is made of, from a passport or ID card DG1 */
 /**
  * Prefixed to the Tier 2 nullifier's fields, so no table built for another system hashing the same
  * document fields applies to it, and its nullifiers never coincide with another scheme's
  */
 const TIER2_NULLIFIER_DOMAIN = new TextEncoder().encode("ATTESTED_ID")
 
+/** The MRZ fields the nullifier is made of, from a passport or ID card DG1 */
 function getTier2NullifierFields(dg1: Uint8Array): Uint8Array {
   const padded = padDg1(dg1)
   const mrz = padded.subarray(5)
   const layout = mrzLayout(padded)
   const d = TIER2_NULLIFIER_DOMAIN.length
-  const fields = new Uint8Array(d + 3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH + 6 + 6)
+  const fields = new Uint8Array(d + 3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH + 6)
   fields.set(TIER2_NULLIFIER_DOMAIN)
   fields.set(getIssuingCountry(mrz), d)
   fields.set(getFullDocumentNumber(padded), d + 3)
@@ -167,18 +167,16 @@ function getTier2NullifierFields(dg1: Uint8Array): Uint8Array {
     mrz.subarray(layout.dateOfBirth, layout.dateOfBirth + 6),
     d + 3 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
   )
-  fields.set(
-    mrz.subarray(layout.expiryDate, layout.expiryDate + 6),
-    d + 9 + NULLIFIER_DOCUMENT_NUMBER_LENGTH,
-  )
   return fields
 }
 
 /**
  * A camera-read ID has no signature to derive a nullifier from, so it comes from the MRZ fields
- * every document has and OCR reads reliably: issuing country, and the whole document number,
- * date of birth and expiry date, which carry check digits. The same document always gives the
- * same nullifier; names are left out, as OCR may read them differently each time.
+ * every document has and OCR reads reliably: issuing country, the whole document number and the
+ * date of birth, which carry check digits. The same document always gives the same nullifier.
+ * Names are left out, as OCR may read them differently each time, and so is the expiry date: a
+ * card may print it only on a side the scan can't tie to the holder, where another date would
+ * give the same person a new identity.
  */
 export async function calculateTier2PrivateNullifier(dg1: Uint8Array): Promise<bigint> {
   const packed = packBeBytesIntoFields(getTier2NullifierFields(dg1), 31)
