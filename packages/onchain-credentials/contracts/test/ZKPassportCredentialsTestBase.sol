@@ -75,11 +75,18 @@ contract ZKPassportCredentialsTestBase is Test {
         );
     }
 
+    function _trailingInputs(NullifierType nullifierType) internal pure returns (bytes32[] memory inputs) {
+        inputs = new bytes32[](4);
+        inputs[0] = bytes32(uint256(nullifierType));
+        inputs[1] = bytes32(uint256(0xA11CE));
+        inputs[3] = bytes32(uint256(100));
+    }
+
     function _rawParams() internal pure returns (ProofVerificationParams memory) {
-        // The evaluator reads the nullifier type from publicInputs[length - 3], as in
-        // real outer proofs; the default is the everywhere-acceptable SALTED.
-        bytes32[] memory publicInputs = new bytes32[](3);
-        publicInputs[0] = bytes32(uint256(NullifierType.SALTED_NULLIFIER));
+        // The trailing public inputs of a real outer proof from circuit version 0.23.0: nullifier
+        // type, nullifier, OPRF key hash, verification method (ICAO chip). The evaluator reads the
+        // nullifier type at publicInputs[length - 4]; the default is the everywhere-acceptable SALTED.
+        bytes32[] memory publicInputs = _trailingInputs(NullifierType.SALTED_NULLIFIER);
         return ProofVerificationParams({
             version: bytes32(uint256(1)),
             proofVerificationData: ProofVerificationData({vkeyHash: bytes32(0), proof: "", publicInputs: publicInputs}),
@@ -98,8 +105,7 @@ contract ZKPassportCredentialsTestBase is Test {
 
     function _paramsWithNullifierType(NullifierType nullifierType) internal pure returns (bytes memory) {
         ProofVerificationParams memory params = _rawParams();
-        params.proofVerificationData.publicInputs = new bytes32[](3);
-        params.proofVerificationData.publicInputs[0] = bytes32(uint256(nullifierType));
+        params.proofVerificationData.publicInputs = _trailingInputs(nullifierType);
         return abi.encode(params);
     }
 
