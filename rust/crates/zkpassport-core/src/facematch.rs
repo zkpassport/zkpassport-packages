@@ -740,6 +740,44 @@ mod tests {
     }
 
     #[test]
+    fn facematch_circuit_inputs_hide_the_id_data() {
+        use crate::commitments::IntegrityToDisclosureSalts;
+        use crate::disclosure::{get_facematch_circuit_inputs, DisclosureInput};
+        use num_bigint::BigUint;
+        let (att, cd) = fixture();
+        let input = DisclosureInput {
+            dg1: &[7u8; 95],
+            e_content: &[0u8; 200],
+            sod_signature_processed: &[0u8; 64],
+            dg2_hash: &[2u8; 32],
+            expiry_date: "350101",
+            mrz: "",
+        };
+        let salts = IntegrityToDisclosureSalts {
+            dg1_salt: BigUint::from(1u8),
+            expiry_date_salt: BigUint::from(2u8),
+            dg2_hash_salt: BigUint::from(3u8),
+            private_nullifier_salt: BigUint::from(4u8),
+        };
+        let z = BigUint::from(0u8);
+        let out =
+            get_facematch_circuit_inputs(&input, &salts, &z, &z, &z, 1_789_000_000, &att, &cd).unwrap();
+
+        // The hash is the TS `SaltedValue.fromValue(1n, dg1).getHash()` for the same ID data.
+        assert_eq!(
+            out["salted_dg1"],
+            serde_json::json!({
+                "value": vec![0u8; 95],
+                "salt": "0x0",
+                "hash": "0x14ef87a4faa408d8f2006cf9783ebdb6fb53b0d522aa29bd4949e53cde65a49a",
+            })
+        );
+        assert_eq!(out["salted_private_nullifier"]["value"], "0x0");
+        assert_eq!(out["salted_private_nullifier"]["salt"], "0x0");
+        assert_ne!(out["salted_private_nullifier"]["hash"], "0x0");
+    }
+
+    #[test]
     fn faceprint_hash_matches_ts() {
         // Same deterministic input as the TS oracle (i-256)*0.013, [7] = -0.
         let mut fp: Vec<f32> = (0..512).map(|i| ((i as f64 - 256.0) * 0.013) as f32).collect();

@@ -7,10 +7,10 @@
 //! salted values) and the common tail (scopes / nullifier_secret / oprf_proof).
 //! OPRF is out of scope: `nullifier_secret` = 0 with the zero proof.
 
-use crate::bytes::{pack_be_bytes_into_field_elems, right_pad_with_zeros};
+use crate::bytes::right_pad_with_zeros;
 use crate::commitments::{
     calculate_private_nullifier, hash_salt_dg1_dg2_hash_private_nullifier, normalize_dg2_hash,
-    IntegrityToDisclosureSalts,
+    salted_value_hash_bytes, salted_value_hash_scalar, IntegrityToDisclosureSalts,
 };
 use crate::integrity::{DG1_INPUT_SIZE, E_CONTENT_INPUT_SIZE};
 use num_bigint::BigUint;
@@ -646,6 +646,19 @@ pub fn get_facematch_circuit_inputs(
     if let Value::Object(m) = &mut obj {
         m.remove("oprf_proof");
     }
+    // This proof is made in the cloud, so the prover gets only the hashes of
+    // the ID data and of the private nullifier, as in the mobile app.
+    let hash_only = |empty_value: Value, hash: BigUint| {
+        json!({ "value": empty_value, "salt": "0x0", "hash": hex_min(&hash) })
+    };
+    insert(&mut obj, "salted_dg1", hash_only(
+        json!(vec![0u8; DG1_INPUT_SIZE]),
+        salted_value_hash_bytes(&salts.dg1_salt, &base.dg1_padded),
+    ));
+    insert(&mut obj, "salted_private_nullifier", hash_only(
+        json!("0x0"),
+        salted_value_hash_scalar(&salts.private_nullifier_salt, &base.private_nullifier),
+    ));
     let att = crate::facematch::facematch_attestation_inputs(attestation, client_data)?;
     let environment: u8 = if att.environment == "production" { 1 } else { 0 };
     insert(&mut obj, "root_key", json!(att.root_key));
@@ -660,10 +673,4 @@ pub fn get_facematch_circuit_inputs(
     insert(&mut obj, "app_id", json!(right_pad_with_zeros(att.app_id.as_bytes(), FM_APP_ID_MAX_LEN)));
     insert(&mut obj, "facematch_mode", json!(att.facematch_mode));
     Ok(obj)
-}
-
-/// Suppress unused import until the hide-sensitive path is wired.
-#[allow(unused)]
-fn _pack_unused(b: &[u8]) -> Vec<BigUint> {
-    pack_be_bytes_into_field_elems(b, 31)
 }
