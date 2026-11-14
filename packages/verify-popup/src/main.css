@@ -1131,6 +1131,28 @@ a.flow-address[data-chip]:hover {
   filter: none;
 }
 
+.flow-secondary {
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--zkp-surface);
+  background: none;
+  color: var(--zkp-fg);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.flow-secondary:hover {
+  background: var(--zkp-surface);
+}
+
 /* ─── The QR ─────────────────────────────────────────────────────────────── */
 
 .scan-slot {

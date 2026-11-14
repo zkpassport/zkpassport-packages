@@ -28,6 +28,7 @@ export function Waiting({
 }) {
   const approving = progress.stage === "scanned"
   const slow = useSlowProgress(progress.stage)
+  const quiet = useQuietPhone(progress)
   return (
     <div className="flow-body">
       <Main>
@@ -41,9 +42,11 @@ export function Waiting({
             <p className="flow-keep-open">
               {slow ? "Taking longer than usual. Check your phone." : "Keep this window open"}
             </p>
-            <button type="button" className="scan-reveal" onClick={onStartAgain}>
-              Start again
-            </button>
+            {quiet ? (
+              <button type="button" className="scan-reveal" onClick={onStartAgain}>
+                Start again
+              </button>
+            ) : null}
           </div>
         </div>
       </Main>
@@ -63,6 +66,19 @@ function useSlowProgress(stage: ScanProgress["stage"]): boolean {
     return () => window.clearTimeout(timer)
   }, [stage])
   return slow
+}
+
+const QUIET_AFTER_MS = 20 * 1000
+
+function useQuietPhone(progress: ScanProgress): boolean {
+  const [quiet, setQuiet] = useState(false)
+  const proofsDone = progress.stage === "proving" ? progress.done : 0
+  useEffect(() => {
+    setQuiet(false)
+    const timer = window.setTimeout(() => setQuiet(true), QUIET_AFTER_MS)
+    return () => window.clearTimeout(timer)
+  }, [progress.stage, proofsDone])
+  return quiet
 }
 
 // Proving runs for several seconds, so the line follows the proofs the bridge

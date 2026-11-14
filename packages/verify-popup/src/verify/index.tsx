@@ -11,6 +11,7 @@ import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
+import { describePhoneError } from "./phone-errors"
 import { Scan } from "./scan"
 import { Waiting, withProof, type ScanProgress } from "./waiting"
 
@@ -28,7 +29,7 @@ type VerifyFlowProps = {
 
 type DomainResolution = { domain: string } | { error: string } | null
 
-type Failure = { message: string; keepsBridge?: boolean }
+type Failure = { title?: string; message: string; keepsBridge?: boolean }
 
 /**
  * Settles which domain the request is made under before anything is sent to the bridge: the
@@ -131,6 +132,7 @@ export function VerifyRequest({
 
   // Nothing reports a phone that has gone quiet, so the wait needs its own way out
   const startAgain = () => {
+    setFailure(null)
     setScan(null)
     updateSession(session, { stage: undefined })
     req.retry()
@@ -169,8 +171,11 @@ export function VerifyRequest({
         send({ type: "rejected" })
       },
       onError: (message) => {
-        failWith({ message: String(message) })
-        send({ type: "error", message: String(message) })
+        const known = describePhoneError(String(message), appName)
+        failWith(
+          known ? { title: known.title, message: known.message } : { message: String(message) },
+        )
+        send({ type: "error", message: String(message), code: known?.code })
       },
       onConnectionLost: () => {
         failWith({ message: "The connection to your phone was lost.", keepsBridge: true })
@@ -202,7 +207,13 @@ export function VerifyRequest({
     <FlowCard name={appName} logo={logo} screenKey={screen}>
       {screen === "done" ? <Done outcome={{ kind: "verified" }} appName={appName} /> : null}
       {screen === "error" && failure ? (
-        <ErrorScreen message={failure.message} onRetry={tryAgain} />
+        <ErrorScreen
+          title={failure.title}
+          message={failure.message}
+          onRetry={tryAgain}
+          retryLabel={failure.keepsBridge ? "Reconnect" : undefined}
+          onStartOver={failure.keepsBridge ? startAgain : undefined}
+        />
       ) : null}
       {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
       {screen === "scan" ? <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} /> : null}

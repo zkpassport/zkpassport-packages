@@ -83,6 +83,14 @@ export function Primary({
   )
 }
 
+export function Secondary({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" className="flow-secondary" onClick={onClick}>
+      {children}
+    </button>
+  )
+}
+
 export function Panel({ children }: { children: ReactNode }) {
   return <div className="flow-panel">{children}</div>
 }

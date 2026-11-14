@@ -1,6 +1,7 @@
 import {
   openVerificationPopup,
   type PopupCredentialConfig,
+  type PopupErrorCode,
   type PopupRequestConfig,
   type PopupSuccess,
   type VerificationPopupHandle,
@@ -196,6 +197,7 @@ export function createVerification(
       kind: ZKPassportError["kind"],
       message: string,
       { status, openInBrowserUrl }: { status?: VerificationStatus; openInBrowserUrl?: string } = {},
+      code?: PopupErrorCode,
     ) => {
       if (settled || latestAttempt !== thisAttempt) return
       settled = true
@@ -203,7 +205,8 @@ export function createVerification(
       // "blocked" is this browser refusing to open a window, not an outcome for the verification.
       const stillRunning =
         kind === "blocked" ||
-        (kind === "closed" && loadPendingVerification(requestKey)?.phoneJoined === true)
+        (kind === "closed" &&
+          (isMobileLike() || loadPendingVerification(requestKey)?.phoneJoined === true))
       if (!stillRunning) forgetPendingVerification(requestKey)
       setStatus(
         status ?? "error",
@@ -211,7 +214,7 @@ export function createVerification(
         kind,
         openInBrowserUrl ?? null,
       )
-      getOptions().onError?.(new ZKPassportError(kind, message))
+      getOptions().onError?.(new ZKPassportError(kind, message, code))
     }
 
     let request: { config: PopupRequestConfig; query: object; credential?: PopupCredentialConfig }
@@ -271,7 +274,7 @@ export function createVerification(
           )
         },
         onReject: () => fail("rejected", "Verification was declined."),
-        onError: (message) => fail("failed", message),
+        onError: (message, code) => fail("failed", message, {}, code),
         // Closing without a result returns the button to idle: nothing failed, the user left
         onClose: () => fail("closed", "The verification window was closed.", { status: "idle" }),
       },
