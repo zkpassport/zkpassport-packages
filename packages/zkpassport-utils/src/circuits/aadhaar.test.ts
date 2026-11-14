@@ -13,11 +13,11 @@ import {
   findUidaiPublicKey,
   getAadhaarCircuitInputs,
   getAadhaarParameterCommitment,
-  mrzCheckDigit,
   parseAadhaarData,
   UIDAI_PUBLIC_KEYS,
   verifyAadhaarSignature,
 } from "./aadhaar"
+import { mrzCheckDigit } from "../passport/td1"
 import { CredentialScheme } from "../types"
 import { getNumberOfPublicInputs } from "./index"
 
@@ -86,7 +86,6 @@ describe("aadhaar", () => {
     expect(mrz.slice(57, 64)).toBe("9008157")
     expect(mrz.charAt(64)).toBe("M")
     expect(mrz.slice(65, 71)).toBe("360315")
-    expect(mrzCheckDigit("L898902C3")).toBe("6")
     expect(aadhaarNameToMrz(" S. R. O'Neil-Kumar")).toBe("S<R<ONEIL<KUMAR".padEnd(39, "<"))
   })
 

@@ -4,6 +4,7 @@ import { decompressSync, zlibSync } from "fflate"
 import { redcLimbsFromBytes } from "../barrett-reduction"
 import { leftPadArrayWithZeros } from "../utils"
 import { Binary } from "../binary"
+import { mrzCheckDigit } from "../passport/td1"
 import { CredentialScheme, PassportViewModel } from "../types"
 import {
   hashSaltDg1Dg2HashPrivateNullifier,
@@ -255,18 +256,6 @@ export function buildAadhaarSignedData(
   data.set(header)
   data.set(photo, header.length)
   return data
-}
-
-/** ICAO 9303 check digit */
-export function mrzCheckDigit(chars: string): string {
-  const weights = [7, 3, 1]
-  let sum = 0
-  for (let i = 0; i < chars.length; i++) {
-    const c = chars.charCodeAt(i)
-    const value = c >= 48 && c <= 57 ? c - 48 : c >= 65 && c <= 90 ? c - 55 : 0
-    sum += value * weights[i % 3]
-  }
-  return String(sum % 10)
 }
 
 /**
