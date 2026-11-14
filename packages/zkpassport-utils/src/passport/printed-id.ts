@@ -1,7 +1,7 @@
 /**
  * A national ID card without a machine-readable zone, read by camera from its printed text, as the
  * TD1 MRZ it is proven as. It discloses as an ID card ("ID"), like one read from its MRZ; how it
- * was verified is the credential scheme's business (device-attested, tier 2).
+ * was verified is the verification method's business (device-attested, tier 2).
  *
  * The rules that fill in what a card doesn't print feed the Tier 2 nullifier, so they never change:
  * see completeDocumentDate. A card missing a required field is refused rather than guessed.

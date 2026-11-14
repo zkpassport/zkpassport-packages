@@ -94,13 +94,13 @@ export type CredentialPolicyRequirements = {
    */
   excludedNationalities: readonly string[]
   /**
-   * The credential schemes the policy accepts (evaluator schema 2 and later): exact schemes such
+   * The verification methods the policy accepts (evaluator schema 2 and later): exact schemes such
    * as 201 and/or whole tiers, an entry below 100 (1 = every issuer-signed scheme, 2 = every
    * device-attested camera read). `[1, 201]` accepts tier 1 and Android camera reads. Empty or
    * undefined means tier 1 only. A schema 1 evaluator accepts every scheme the root verifier
    * does and can't express this.
    */
-  allowedCredentialSchemes?: readonly number[]
+  allowedVerificationMethods?: readonly number[]
 }
 
 /** The requirement layouts the evaluators define, by schema version */
@@ -130,7 +130,7 @@ const REQUIREMENTS_ABI = {
 
 /**
  * Encode policy requirements for an evaluator schema: 1 (PolicyEvaluatorV1) or 2 (PolicyEvaluatorV2,
- * which adds `allowedCredentialSchemes`). Required, not defaulted: each schema's encoding can
+ * which adds `allowedVerificationMethods`). Required, not defaulted: each schema's encoding can
  * decode under the other with its fields shifted, so use the schema of the evaluator the policy is
  * or will be pinned to (`getEvaluatorSchemaVersion`).
  */
@@ -138,10 +138,10 @@ export function encodeCredentialPolicyRequirements(
   requirements: CredentialPolicyRequirements,
   schemaVersion: PolicyEvaluatorSchemaVersion,
 ): `0x${string}` {
-  const schemes = requirements.allowedCredentialSchemes ?? []
+  const schemes = requirements.allowedVerificationMethods ?? []
   if (schemaVersion === 1 && schemes.length > 0) {
     throw new Error(
-      "allowedCredentialSchemes needs a schema 2 evaluator (PolicyEvaluatorV2); a schema 1 policy accepts every credential scheme the root verifier does.",
+      "allowedVerificationMethods needs a schema 2 evaluator (PolicyEvaluatorV2); a schema 1 policy accepts every verification method the root verifier does.",
     )
   }
   const value = {
@@ -156,7 +156,7 @@ export function encodeCredentialPolicyRequirements(
         : FACEMATCH_MODE_VALUES[requirements.facematchMode],
     includedNationalities: requirements.includedNationalities,
     excludedNationalities: requirements.excludedNationalities,
-    ...(schemaVersion === 2 ? { allowedCredentialSchemes: schemes.map((x) => BigInt(x)) } : {}),
+    ...(schemaVersion === 2 ? { allowedVerificationMethods: schemes.map((x) => BigInt(x)) } : {}),
   }
   return encodeAbiParameters(REQUIREMENTS_ABI[schemaVersion], [value] as never)
 }
@@ -282,11 +282,11 @@ export class CredentialsClient {
       args: [policy.requirements],
     } as never)) as Omit<
       CredentialPolicyRequirements,
-      "sanctionsMode" | "facematchMode" | "allowedCredentialSchemes"
+      "sanctionsMode" | "facematchMode" | "allowedVerificationMethods"
     > & {
       sanctionsMode: number
       faceMatchMode: number
-      allowedCredentialSchemes?: readonly bigint[]
+      allowedVerificationMethods?: readonly bigint[]
     }
 
     return {
@@ -296,7 +296,7 @@ export class CredentialsClient {
       includedNationalities: decoded.includedNationalities,
       excludedNationalities: decoded.excludedNationalities,
       ...(schemaVersion === 2
-        ? { allowedCredentialSchemes: (decoded.allowedCredentialSchemes ?? []).map(Number) }
+        ? { allowedVerificationMethods: (decoded.allowedVerificationMethods ?? []).map(Number) }
         : {}),
     }
   }

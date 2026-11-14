@@ -189,7 +189,7 @@ export function VerifyRequest({
   useConfirmClose(!verified && !failure)
 
   const link = useRequestUrl(req.url, {
-    allowedCredentials: request.allowedCredentials,
+    allowedVerificationMethods: request.allowedVerificationMethods,
     appClip: request.appClip,
   })
 

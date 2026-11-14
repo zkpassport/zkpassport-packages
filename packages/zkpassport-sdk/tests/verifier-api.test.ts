@@ -127,7 +127,7 @@ describe("verify() modes and the verifier API", () => {
         verified: true,
         uniqueIdentifier: "uid-1",
         uniqueIdentifierType: 0,
-        credentialScheme: 200,
+        verificationMethod: 200,
       })) as unknown as typeof globalThis.fetch
     const zk = new ZKPassport("example.com")
 
@@ -139,10 +139,10 @@ describe("verify() modes and the verifier API", () => {
       originalQuery,
       queryResult,
       verifierMode: "api",
-      allowedCredentials: [1, 2],
+      allowedVerificationMethods: [1, 2],
     })
     expect(accepted.verified).toBe(true)
-    expect(accepted.credentialScheme).toBe(200)
+    expect(accepted.verificationMethod).toBe(200)
   })
 
   test("local never calls the API", async () => {

@@ -4,7 +4,7 @@ import { getIDDataProofPublicInputCount, packBeBytesIntoFields, packLeBytesIntoF
 import { Binary } from "../binary"
 import { DisclosureCircuitName, NullifierType, PackagedCircuit, SaltedValue } from "../types"
 import { getAttestedIdProofPublicInputCount } from "./attested-id"
-import { hasCredentialScheme } from "./credential-scheme"
+import { hasVerificationMethod } from "./verification-method"
 import { getDSCProofPublicInputCount } from "./dsc"
 import { getIntegrityProofPublicInputCount } from "./integrity"
 
@@ -108,7 +108,7 @@ export async function hashSaltDg1Dg2HashPrivateNullifier(
 
 // The disclosure proofs' public inputs are, in order: comm_in, current_date, service_scope,
 // service_subscope, param_commitment, nullifier_type, nullifier, oprf_pk_hash. They carry no
-// credential scheme: the base proof states it and the outer proof re-exports it.
+// verification method: the base proof states it and the outer proof re-exports it.
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[6])
 }
@@ -192,11 +192,11 @@ export async function getHostedPackagedCircuitByName(
  */
 /**
  * How many public inputs a proof of the circuit has. Since circuit version 0.23.0 the integrity
- * and outer proofs carry the credential scheme as one more; `circuitVersion` is the version the
- * proof was made with (none means a version before the credential scheme).
+ * and outer proofs carry the verification method as one more; `circuitVersion` is the version the
+ * proof was made with (none means a version before the verification method).
  */
 export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: string) {
-  const scheme = hasCredentialScheme(circuitVersion) ? 1 : 0
+  const scheme = hasVerificationMethod(circuitVersion) ? 1 : 0
   if (circuitName.startsWith("attested_id")) {
     return getAttestedIdProofPublicInputCount(circuitName)
   } else if (circuitName.startsWith("data_check_integrity")) {
@@ -211,7 +211,7 @@ export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: st
     // Get the characters after the last underscore
     const subproofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1))
     // A Tier 2 outer proof commits to its attested ID proof's parameters and the disclosure
-    // proofs', and always carries the credential scheme
+    // proofs', and always carries the verification method
     if (circuitName.includes("_attested_")) return 9 + subproofCount
     return 8 + scheme + subproofCount - 3
   }
@@ -340,7 +340,7 @@ export {
 
 export * from "./age"
 export * from "./attested-id"
-export * from "./credential-scheme"
+export * from "./verification-method"
 export * from "./public-input-layout"
 export * from "./country"
 export * from "./date"

@@ -1,4 +1,4 @@
-import type { AllowedCredential, ProofResult, Query, QueryResult } from "@zkpassport/utils"
+import type { AllowedVerificationMethod, ProofResult, Query, QueryResult } from "@zkpassport/utils"
 import { VERIFIER_API_BASE_URL } from "./constants"
 import type { VerificationResult } from "./types"
 
@@ -13,7 +13,7 @@ export async function verifyWithVerifierApi({
   scope,
   devMode,
   oprfKeyId,
-  allowedCredentials,
+  allowedVerificationMethods,
 }: {
   proofs: Array<ProofResult>
   originalQuery: Query
@@ -23,7 +23,7 @@ export async function verifyWithVerifierApi({
   scope?: string
   devMode?: boolean
   oprfKeyId?: string
-  allowedCredentials?: AllowedCredential[]
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }): Promise<VerificationResult | null> {
   try {
     const response = await fetch(`${VERIFIER_API_BASE_URL}/verify`, {
@@ -35,7 +35,7 @@ export async function verifyWithVerifierApi({
         queryResult,
         serviceConfig: { domain, scope, validityPeriodInSeconds: validity, devMode },
         oprfKeyId,
-        allowedCredentials,
+        allowedVerificationMethods,
       }),
       signal: AbortSignal.timeout(60000),
     })
@@ -62,7 +62,7 @@ export async function verifyWithVerifierApi({
       uniqueIdentifier: body.uniqueIdentifier,
       uniqueIdentifierType: body.uniqueIdentifierType,
       verified: true,
-      credentialScheme: body.credentialScheme,
+      verificationMethod: body.verificationMethod,
     }
   } catch (e) {
     console.warn("Verifier API call failed:", e)

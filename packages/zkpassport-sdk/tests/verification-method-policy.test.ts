@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
-  CredentialScheme,
-  CredentialTier,
+  VerificationMethod,
+  VerificationTier,
   getAgeParameterCommitment,
   GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
   getAttestedIdEvmParameterCommitment,
@@ -10,7 +10,7 @@ import {
   getDiscloseParameterCommitment,
   getServiceScopeHash,
   getServiceSubscopeHash,
-  type AllowedCredential,
+  type AllowedVerificationMethod,
   type ProofResult,
   type Query,
   type QueryResult,
@@ -45,7 +45,7 @@ const SCOPE = "age-check"
 const field = (x: bigint | number) => BigInt(x).toString(16).padStart(64, "0")
 const body = "ab".repeat(32 * 20)
 
-async function proofs(scheme: CredentialScheme): Promise<ProofResult[]> {
+async function proofs(scheme: VerificationMethod): Promise<ProofResult[]> {
   const comm = BigInt("0x" + ATTESTED_PUBLIC_INPUTS.slice(0, 64))
   const now = Math.floor(Date.now() / 1000)
   const scopeHash = getServiceScopeHash(DOMAIN)
@@ -88,7 +88,7 @@ const result: QueryResult = {
   age: { gte: { expected: 18, result: true } },
 }
 
-async function check(scheme: CredentialScheme, allowed?: AllowedCredential[]) {
+async function check(scheme: VerificationMethod, allowed?: AllowedVerificationMethod[]) {
   return PublicInputChecker.checkPublicInputs(
     DOMAIN,
     await proofs(scheme),
@@ -105,25 +105,25 @@ async function check(scheme: CredentialScheme, allowed?: AllowedCredential[]) {
 
 describe("credential policy on an attested ID proof", () => {
   test("is refused unless the service opted into device-attested credentials", async () => {
-    const refused = await check(CredentialScheme.ATTESTED_CAPTURE_IOS)
+    const refused = await check(VerificationMethod.ATTESTED_CAPTURE_IOS)
     expect(refused.isCorrect).toBe(false)
-    expect(refused.queryResultErrors.credential_scheme?.eq?.message).toContain("does not accept")
-    expect(refused.credentialScheme).toBe(CredentialScheme.ATTESTED_CAPTURE_IOS)
+    expect(refused.queryResultErrors.verification_method?.eq?.message).toContain("does not accept")
+    expect(refused.verificationMethod).toBe(VerificationMethod.ATTESTED_CAPTURE_IOS)
 
-    const byTier = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
-      CredentialTier.DEVICE_ATTESTED,
+    const byTier = await check(VerificationMethod.ATTESTED_CAPTURE_IOS, [
+      VerificationTier.DEVICE_ATTESTED,
     ])
     expect(byTier.isCorrect).toBe(true)
-    expect(byTier.queryResultErrors.credential_scheme).toBeUndefined()
+    expect(byTier.queryResultErrors.verification_method).toBeUndefined()
 
-    const byScheme = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
-      CredentialTier.GOVERNMENT_SIGNED,
-      CredentialScheme.ATTESTED_CAPTURE_IOS,
+    const byScheme = await check(VerificationMethod.ATTESTED_CAPTURE_IOS, [
+      VerificationTier.GOVERNMENT_SIGNED,
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
     ])
     expect(byScheme.isCorrect).toBe(true)
 
-    const otherPlatform = await check(CredentialScheme.ATTESTED_CAPTURE_IOS, [
-      CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+    const otherPlatform = await check(VerificationMethod.ATTESTED_CAPTURE_IOS, [
+      VerificationMethod.ATTESTED_CAPTURE_ANDROID,
     ])
     expect(otherPlatform.isCorrect).toBe(false)
   })
@@ -183,7 +183,7 @@ describe("a Tier 2 outer proof's device attestation", () => {
   test("accepts a genuine attestation matching the first commitment, standard or EVM", async () => {
     for (const evm of [false, true]) {
       const { isCorrect } = await PublicInputChecker.checkOuterDeviceAttestation(
-        CredentialScheme.ATTESTED_CAPTURE_IOS,
+        VerificationMethod.ATTESTED_CAPTURE_IOS,
         { attested_id_ios: ios },
         await commitment(ios, evm),
         evm,
@@ -194,31 +194,37 @@ describe("a Tier 2 outer proof's device attestation", () => {
 
   test("refuses a missing, mismatched, self-signed or other platform's attestation", async () => {
     const check = (
-      scheme: CredentialScheme,
+      scheme: VerificationMethod,
       committed: Record<string, AttestedIdCommittedInputs>,
       first: bigint,
     ) => PublicInputChecker.checkOuterDeviceAttestation(scheme, committed, first, false)
     const first = await commitment(ios)
-    expect((await check(CredentialScheme.ATTESTED_CAPTURE_IOS, {}, first)).isCorrect).toBe(false)
+    expect((await check(VerificationMethod.ATTESTED_CAPTURE_IOS, {}, first)).isCorrect).toBe(false)
     expect(
-      (await check(CredentialScheme.ATTESTED_CAPTURE_IOS, { attested_id_ios: ios }, 1n)).isCorrect,
+      (await check(VerificationMethod.ATTESTED_CAPTURE_IOS, { attested_id_ios: ios }, 1n))
+        .isCorrect,
     ).toBe(false)
     const selfSigned = { ...ios, rootKeyLeaf: "0x1" }
     expect(
       (
         await check(
-          CredentialScheme.ATTESTED_CAPTURE_IOS,
+          VerificationMethod.ATTESTED_CAPTURE_IOS,
           { attested_id_ios: selfSigned },
           await commitment(selfSigned),
         )
       ).isCorrect,
     ).toBe(false)
     expect(
-      (await check(CredentialScheme.ATTESTED_CAPTURE_ANDROID, { attested_id_android: ios }, first))
-        .isCorrect,
+      (
+        await check(
+          VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+          { attested_id_android: ios },
+          first,
+        )
+      ).isCorrect,
     ).toBe(false)
     expect(
-      (await check(CredentialScheme.ATTESTED_CHIP_READ_IOS, { attested_id_ios: ios }, first))
+      (await check(VerificationMethod.ATTESTED_CHIP_READ_IOS, { attested_id_ios: ios }, first))
         .isCorrect,
     ).toBe(false)
   })

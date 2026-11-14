@@ -107,7 +107,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         validity: options.validity,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
-        allowedCredentials: options.allowedCredentials,
+        allowedVerificationMethods: options.allowedVerificationMethods,
         bridgeUrl: options.bridgeUrl,
         cloudProverUrl: options.cloudProverUrl,
         verifierMode: options.verifierMode ?? (LOCAL_CIRCUITS_URL ? "local" : "api"),

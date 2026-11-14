@@ -22,26 +22,27 @@ function credentialsOn(stub: Parameters<typeof stubChain>[0]) {
 }
 
 describe("buildCredentialProofRequest", () => {
-  test("passes a schema 2 policy's credential schemes on to the app", async () => {
+  test("passes a schema 2 policy's verification methods on to the app", async () => {
     const { credentials } = credentialsOn({
       schemaVersion: 2n,
-      requirements: { allowedCredentialSchemes: [1n, 2n] },
+      requirements: { allowedVerificationMethods: [1n, 2n] },
     })
-    expect((await buildCredentialProofRequest(credentials, MINT)).allowedCredentials).toEqual([
-      1, 2,
-    ])
+    expect(
+      (await buildCredentialProofRequest(credentials, MINT)).allowedVerificationMethods,
+    ).toEqual([1, 2])
   })
 
   test("leaves the default for a schema 1 policy or an empty list", async () => {
     expect(
-      (await buildCredentialProofRequest(credentialsOn({}).credentials, MINT)).allowedCredentials,
+      (await buildCredentialProofRequest(credentialsOn({}).credentials, MINT))
+        .allowedVerificationMethods,
     ).toBeUndefined()
     const empty = credentialsOn({
       schemaVersion: 2n,
-      requirements: { allowedCredentialSchemes: [] },
+      requirements: { allowedVerificationMethods: [] },
     })
     expect(
-      (await buildCredentialProofRequest(empty.credentials, MINT)).allowedCredentials,
+      (await buildCredentialProofRequest(empty.credentials, MINT)).allowedVerificationMethods,
     ).toBeUndefined()
   })
 

@@ -1,5 +1,5 @@
 import type {
-  AllowedCredential,
+  AllowedVerificationMethod,
   ProofMode,
   ProofResult,
   Query,
@@ -41,7 +41,7 @@ export type PopupRequestConfig = {
   bridgeUrl?: string
   cloudProverUrl?: string
   appClip?: boolean
-  allowedCredentials?: AllowedCredential[]
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }
 
 export type PopupCredentialOutcome = {

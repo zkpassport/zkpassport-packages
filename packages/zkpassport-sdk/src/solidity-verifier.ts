@@ -64,7 +64,7 @@ export class SolidityVerifier {
    * @param scope The scope to use for the service config
    * @param devMode Whether to use the dev mode
    * Both issuer-signed and device-attested proofs verify on chain; to accept only some credential
-   * schemes, call the helper's `enforceCredentialScheme(allowedCredentialSchemes, publicInputs)`
+   * schemes, call the helper's `enforceVerificationMethod(allowedVerificationMethods, publicInputs)`
    * in your contract.
    * Note that on mainnets, the dev mode will be ignored as verification
    * will always fail for mock passports. It only applies to testnets.

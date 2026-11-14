@@ -2461,7 +2461,7 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     })
   })
 
-  describe("outer proof path - Tier 2 credential scheme", () => {
+  describe("outer proof path - Tier 2 verification method", () => {
     const domain = "example.com"
     // outer_attested_id_count_3: [certRegistryRoot, circuitRegistryRoot, currentDate,
     // serviceScope, subscope, 3 paramCommitments, nullifierType, nullifier, oprfPkHash, scheme]
@@ -2491,7 +2491,7 @@ describe("PublicInputChecker - checkPublicInputs", () => {
 
     test("reads the scheme of a Tier 2 outer proof whatever version it states", async () => {
       for (const version of [undefined, "0.23.0"]) {
-        const { isCorrect, credentialScheme } = await PublicInputChecker.checkPublicInputs(
+        const { isCorrect, verificationMethod } = await PublicInputChecker.checkPublicInputs(
           domain,
           [makeAttestedOuterProof(200n, version)],
           {},
@@ -2503,7 +2503,7 @@ describe("PublicInputChecker - checkPublicInputs", () => {
           undefined,
           [1, 2],
         )
-        expect(credentialScheme).toBe(200)
+        expect(verificationMethod).toBe(200)
         // No attestation was committed to, so the device attestation check refuses it
         expect(isCorrect).toBe(false)
       }

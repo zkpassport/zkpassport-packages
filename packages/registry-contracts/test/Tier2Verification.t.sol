@@ -7,7 +7,7 @@ import {RootRegistry} from "../src/RootRegistry.sol";
 import {SubVerifier} from "../src/SubVerifier.sol";
 import {VerifierHelper} from "../src/VerifierHelper.sol";
 import {InputsExtractor} from "../src/lib/InputsExtractor.sol";
-import {Credentials} from "../src/lib/Credentials.sol";
+import {VerificationMethods} from "../src/lib/VerificationMethods.sol";
 import {
     Environment,
     FaceMatchMode,
@@ -101,28 +101,28 @@ contract Tier2VerificationTest is Test {
     }
 
     function test_OnlySignedAndAttestedSchemesVerify() public pure {
-        assertTrue(Credentials.isVerifiable(100));
-        assertTrue(Credentials.isVerifiable(200));
-        assertTrue(Credentials.isVerifiable(201));
-        assertFalse(Credentials.isVerifiable(0));
-        assertFalse(Credentials.isVerifiable(300));
+        assertTrue(VerificationMethods.isVerifiable(100));
+        assertTrue(VerificationMethods.isVerifiable(200));
+        assertTrue(VerificationMethods.isVerifiable(201));
+        assertFalse(VerificationMethods.isVerifiable(0));
+        assertFalse(VerificationMethods.isVerifiable(300));
         // In a tier's range but proven by no circuit yet
-        assertFalse(Credentials.isVerifiable(101));
-        assertFalse(Credentials.isVerifiable(199));
-        assertFalse(Credentials.isVerifiable(202));
-        assertFalse(Credentials.isVerifiable(203));
+        assertFalse(VerificationMethods.isVerifiable(101));
+        assertFalse(VerificationMethods.isVerifiable(199));
+        assertFalse(VerificationMethods.isVerifiable(202));
+        assertFalse(VerificationMethods.isVerifiable(203));
     }
 
     function test_TierIsReadFromExplicitRanges() public pure {
-        assertEq(Credentials.tierOf(99), 0);
-        assertEq(Credentials.tierOf(100), 1);
-        assertEq(Credentials.tierOf(199), 1);
-        assertEq(Credentials.tierOf(200), 2);
-        assertEq(Credentials.tierOf(299), 2);
-        assertEq(Credentials.tierOf(300), 0);
-        assertFalse(Credentials.isAllowed(300, _entries(3)));
-        assertFalse(Credentials.isAllowed(5, _entries(0)));
-        assertTrue(Credentials.isAllowed(201, _entries(2)));
+        assertEq(VerificationMethods.tierOf(99), 0);
+        assertEq(VerificationMethods.tierOf(100), 1);
+        assertEq(VerificationMethods.tierOf(199), 1);
+        assertEq(VerificationMethods.tierOf(200), 2);
+        assertEq(VerificationMethods.tierOf(299), 2);
+        assertEq(VerificationMethods.tierOf(300), 0);
+        assertFalse(VerificationMethods.isAllowed(300, _entries(3)));
+        assertFalse(VerificationMethods.isAllowed(5, _entries(0)));
+        assertTrue(VerificationMethods.isAllowed(201, _entries(2)));
     }
 
     function _entries(uint256 entry) internal pure returns (uint256[] memory entries) {
@@ -152,8 +152,14 @@ contract Tier2VerificationTest is Test {
 contract FixtureAttestationSubVerifier is SubVerifier {
     constructor(address admin, RootVerifier root) SubVerifier(admin, root, bytes32(0)) {}
 
-    function _verifyDeviceAttestation(uint256 credentialScheme, bytes calldata committedInputs) internal pure override {
-        if (credentialScheme != 200) return super._verifyDeviceAttestation(credentialScheme, committedInputs);
+    function _verifyDeviceAttestation(uint256 verificationMethod, bytes calldata committedInputs)
+        internal
+        pure
+        override
+    {
+        if (verificationMethod != 200) {
+            return super._verifyDeviceAttestation(verificationMethod, committedInputs);
+        }
         (
             bytes32 rootKeyHash,
             Environment environment,

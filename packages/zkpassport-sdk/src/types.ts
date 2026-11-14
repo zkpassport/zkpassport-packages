@@ -12,8 +12,8 @@ import {
   ProofResult,
   SupportedChain,
   Query,
-  CredentialScheme,
-  type AllowedCredential,
+  VerificationMethod,
+  type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 import type { ZKPassport } from "./index"
 
@@ -31,7 +31,7 @@ export type QueryResultErrors = {
       | "sig_check_id_data"
       | "data_check_integrity"
       | "attested_id"
-      | "credential_scheme"
+      | "verification_method"
       | "outer"
       | "disclose"
       | "bind"
@@ -85,13 +85,13 @@ export type VerificationResult = {
   uniqueIdentifierType: NullifierType | undefined
   verified: boolean
   /**
-   * The scheme the proofs were made under. Its tier (`getTierForCredentialScheme`) says what
+   * The scheme the proofs were made under. Its tier (`getTierForVerificationMethod`) says what
    * they rest on. Tier 1: the ID's chip, signed by its issuing country. Tier 2: the printed data
    * page read by camera and attested by the device (App Attest or Play Integrity) together with
    * a strict face match. A Tier 2 unique identifier is derived from the printed MRZ, not from a
    * signature, so it is not proof against fabricated documents.
    */
-  credentialScheme?: CredentialScheme
+  verificationMethod?: VerificationMethod
   queryResultErrors?: Partial<QueryResultErrors>
 }
 
@@ -107,7 +107,7 @@ export type SolidityServiceConfig = {
   scope: string
   devMode: boolean
   /** The credentials the service accepts; empty means signed credentials only */
-  allowedCredentials?: AllowedCredential[]
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }
 
 export type SolidityVerifierParameters = {
@@ -218,7 +218,7 @@ export type QueryBuilderResult = {
       uniqueIdentifier: string | undefined
       uniqueIdentifierType: NullifierType | undefined
       verified: boolean
-      credentialScheme?: CredentialScheme
+      verificationMethod?: VerificationMethod
       result: QueryResult
       queryResultErrors?: Partial<QueryResultErrors>
       proofs: ProofResult[]

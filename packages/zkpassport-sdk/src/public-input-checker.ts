@@ -13,17 +13,17 @@ import {
   getCommitmentOutFromIntegrityProof,
   getCommitmentOutFromAttestedIdProof,
   getParameterCommitmentFromAttestedIdProof,
-  getCredentialSchemeFromAttestedIdProof,
+  getVerificationMethodFromAttestedIdProof,
   getCurrentDateFromAttestedIdProof,
   isAndroidAttestedIdCircuit,
   GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
-  getCredentialSchemeFromIntegrityProof,
-  getCredentialSchemeFromOuterProof,
-  hasCredentialScheme,
-  isCredentialAllowed,
-  DEFAULT_ALLOWED_CREDENTIALS,
-  CredentialScheme,
-  type AllowedCredential,
+  getVerificationMethodFromIntegrityProof,
+  getVerificationMethodFromOuterProof,
+  hasVerificationMethod,
+  isVerificationMethodAllowed,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  VerificationMethod,
+  type AllowedVerificationMethod,
   getCommitmentInFromDisclosureProof,
   getMerkleRootFromDSCProof,
   getCurrentDateFromDisclosureProof,
@@ -76,8 +76,8 @@ import {
   getFacematchParameterCommitment,
   getAttestedIdEvmParameterCommitment,
   getAttestedIdParameterCommitment,
-  getTierForCredentialScheme,
-  CredentialTier,
+  getTierForVerificationMethod,
+  VerificationTier,
   NullifierType,
   getNullifierTypeFromOuterProof,
   getNullifierTypeFromDisclosureProof,
@@ -2405,7 +2405,7 @@ export class PublicInputChecker {
     oprfKeyId?: string,
     devMode?: boolean,
     registryClient?: RegistryClient,
-    allowedCredentials: readonly AllowedCredential[] = DEFAULT_ALLOWED_CREDENTIALS,
+    allowedVerificationMethods: readonly AllowedVerificationMethod[] = DEFAULT_ALLOWED_VERIFICATION_METHODS,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -2474,7 +2474,7 @@ export class PublicInputChecker {
     // Registry roots are checked as of the proofs' own date, so older proofs still verify
     const disclosureProofNames = proofOrder.slice(4)
     // What verified the ID, read from the base proof (or the outer)
-    let credentialScheme: CredentialScheme | undefined
+    let verificationMethod: VerificationMethod | undefined
     const firstDisclosureProof = sortedProofs.find((p) =>
       disclosureProofNames.some((name) => p.name?.startsWith(name)),
     )
@@ -2568,21 +2568,21 @@ export class PublicInputChecker {
         // A Tier 2 outer proof always carries its scheme, whatever version it states, so a proof
         // can't pass as a chip read by leaving out its version
         const isAttestedOuter = proof.name!.includes("_attested_")
-        credentialScheme =
-          isAttestedOuter || hasCredentialScheme(proof.version)
-            ? getCredentialSchemeFromOuterProof(proofData)
-            : CredentialScheme.ICAO_CHIP
+        verificationMethod =
+          isAttestedOuter || hasVerificationMethod(proof.version)
+            ? getVerificationMethodFromOuterProof(proofData)
+            : VerificationMethod.ICAO_CHIP
         if (
           isAttestedOuter &&
-          getTierForCredentialScheme(credentialScheme) !== CredentialTier.DEVICE_ATTESTED
+          getTierForVerificationMethod(verificationMethod) !== VerificationTier.DEVICE_ATTESTED
         ) {
           console.warn("A Tier 2 outer proof states a scheme of another tier")
           isCorrect = false
           queryResultErrors.outer = {
             ...queryResultErrors.outer,
             certificate: {
-              expected: "A device-attested credential scheme",
-              received: `Credential scheme ${credentialScheme}`,
+              expected: "A device-attested verification method",
+              received: `Verification method ${verificationMethod}`,
               message: "A Tier 2 outer proof states a scheme of another tier",
             },
           }
@@ -2601,10 +2601,10 @@ export class PublicInputChecker {
             },
           }
         }
-        if (getTierForCredentialScheme(credentialScheme) === CredentialTier.DEVICE_ATTESTED) {
+        if (getTierForVerificationMethod(verificationMethod) === VerificationTier.DEVICE_ATTESTED) {
           const { isCorrect: isCorrectAttestation, queryResultErrors: attestationErrors } =
             await this.checkOuterDeviceAttestation(
-              credentialScheme,
+              verificationMethod,
               committedInputs,
               paramCommitments[0],
               isForEVM,
@@ -3048,7 +3048,7 @@ export class PublicInputChecker {
         oprfPublicKeyHash = getOprfPkHashFromOuterProof(proofData, proof.version)
       } else if (proof.name?.startsWith("attested_id")) {
         commitmentOut = getCommitmentOutFromAttestedIdProof(proofData)
-        credentialScheme = getCredentialSchemeFromAttestedIdProof(proofData)
+        verificationMethod = getVerificationMethodFromAttestedIdProof(proofData)
         const committedKey = isAndroidAttestedIdCircuit(proof.name)
           ? "attested_id_android"
           : "attested_id_ios"
@@ -3149,8 +3149,8 @@ export class PublicInputChecker {
         }
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
         // Integrity proofs made before circuit version 0.23.0 carry no scheme: they are ICAO
-        credentialScheme =
-          getCredentialSchemeFromIntegrityProof(proofData) ?? CredentialScheme.ICAO_CHIP
+        verificationMethod =
+          getVerificationMethodFromIntegrityProof(proofData) ?? VerificationMethod.ICAO_CHIP
       } else if (proof.name === "disclose_bytes") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -3990,16 +3990,16 @@ export class PublicInputChecker {
     }
 
     // Proofs made before the scheme existed came from a chip
-    const scheme = credentialScheme ?? CredentialScheme.ICAO_CHIP
-    if (!isCredentialAllowed(scheme, allowedCredentials)) {
-      console.warn("The service does not accept the credential scheme the ID was verified with")
+    const scheme = verificationMethod ?? VerificationMethod.ICAO_CHIP
+    if (!isVerificationMethodAllowed(scheme, allowedVerificationMethods)) {
+      console.warn("The service does not accept the verification method the ID was verified with")
       isCorrect = false
-      queryResultErrors.credential_scheme = {
-        ...queryResultErrors.credential_scheme,
+      queryResultErrors.verification_method = {
+        ...queryResultErrors.verification_method,
         eq: {
-          expected: `Allowed credentials: ${allowedCredentials.join(", ")}`,
-          received: `Credential scheme: ${scheme}`,
-          message: "The service does not accept the credential scheme the ID was verified with",
+          expected: `Allowed credentials: ${allowedVerificationMethods.join(", ")}`,
+          received: `Verification method: ${scheme}`,
+          message: "The service does not accept the verification method the ID was verified with",
         },
       }
     }
@@ -4008,7 +4008,7 @@ export class PublicInputChecker {
       uniqueIdentifier,
       uniqueIdentifierType,
       queryResultErrors,
-      credentialScheme: scheme,
+      verificationMethod: scheme,
     }
   }
 
@@ -4043,7 +4043,7 @@ export class PublicInputChecker {
    * be a genuine one for the scheme's platform.
    */
   public static async checkOuterDeviceAttestation(
-    credentialScheme: CredentialScheme,
+    verificationMethod: VerificationMethod,
     committedInputs: ProofResult["committedInputs"],
     attestationParamCommitment: bigint | undefined,
     isForEVM: boolean,
@@ -4058,12 +4058,12 @@ export class PublicInputChecker {
         commitment: { expected, received, message },
       }
     }
-    const android = credentialScheme === CredentialScheme.ATTESTED_CAPTURE_ANDROID
-    if (!android && credentialScheme !== CredentialScheme.ATTESTED_CAPTURE_IOS) {
+    const android = verificationMethod === VerificationMethod.ATTESTED_CAPTURE_ANDROID
+    if (!android && verificationMethod !== VerificationMethod.ATTESTED_CAPTURE_IOS) {
       fail(
         "A camera read scheme",
-        String(credentialScheme),
-        "No circuit proves this credential scheme",
+        String(verificationMethod),
+        "No circuit proves this verification method",
       )
       return { isCorrect, queryResultErrors }
     }

@@ -1,6 +1,6 @@
 import { NullifierType } from "@zkpassport/sdk"
 import type {
-  AllowedCredential,
+  AllowedVerificationMethod,
   QueryBuilder,
   QueryBuilderResult,
   SupportedChain,
@@ -33,10 +33,10 @@ export type CredentialProofRequest = {
    */
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   /**
-   * The credential schemes the policy accepts (schema 2 evaluators), passed on to the app so it
+   * The verification methods the policy accepts (schema 2 evaluators), passed on to the app so it
    * offers the IDs issue() will take; undefined leaves the default, tier 1 only
    */
-  allowedCredentials?: AllowedCredential[]
+  allowedVerificationMethods?: AllowedVerificationMethod[]
   query: (qb: QueryBuilder) => QueryBuilderResult
 }
 
@@ -89,8 +89,8 @@ export async function buildCredentialProofRequest(
     // check for non-unique policies, and a NONE nullifier cannot be requested.
     uniqueIdentifierType:
       uniqueIdentifierType === NullifierType.NONE ? undefined : uniqueIdentifierType,
-    allowedCredentials: requirements.allowedCredentialSchemes?.length
-      ? (requirements.allowedCredentialSchemes as AllowedCredential[])
+    allowedVerificationMethods: requirements.allowedVerificationMethods?.length
+      ? (requirements.allowedVerificationMethods as AllowedVerificationMethod[])
       : undefined,
     query: (qb) => {
       let q = qb

@@ -28,7 +28,7 @@ interface IVerifierHelper {
     function getProofTimestamp(bytes32[] calldata publicInputs) external view returns (uint256);
     function getNullifierType(bytes32[] calldata publicInputs) external view returns (NullifierType);
     /// @dev Only on helpers from circuit version 0.23.0 on; earlier proofs are all ICAO chip reads
-    function getCredentialScheme(bytes32[] calldata publicInputs) external view returns (uint256);
+    function getVerificationMethod(bytes32[] calldata publicInputs) external view returns (uint256);
 }
 
 interface IRootVerifier {

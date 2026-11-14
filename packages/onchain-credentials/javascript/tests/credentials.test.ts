@@ -148,16 +148,16 @@ describe("CredentialsClient reads", () => {
     }
   })
 
-  test("getRequirements decodes a schema 2 policy's credential schemes", async () => {
+  test("getRequirements decodes a schema 2 policy's verification methods", async () => {
     const { client, readCalls } = stubClient((p) => {
       if (p.functionName === "schemaVersion") return 2n
       if (p.functionName === "decodeRequirements")
-        return { ...RAW_REQUIREMENTS, allowedCredentialSchemes: [1n, 201n] }
+        return { ...RAW_REQUIREMENTS, allowedVerificationMethods: [1n, 201n] }
       throw new Error(`unexpected read ${p.functionName}`)
     })
     const credentials = new CredentialsClient({ client, address: REGISTRY })
     const requirements = await credentials.getRequirements(SAMPLE_POLICY)
-    expect(requirements).toEqual({ ...SAMPLE_REQUIREMENTS, allowedCredentialSchemes: [1, 201] })
+    expect(requirements).toEqual({ ...SAMPLE_REQUIREMENTS, allowedVerificationMethods: [1, 201] })
     expect((readCalls[1] as unknown as { abi: unknown }).abi).toBe(PolicyEvaluatorV2Abi)
   })
 
@@ -408,26 +408,26 @@ describe("encodeCredentialPolicyRequirements", () => {
 describe("encodeCredentialPolicyRequirements for schema 2", () => {
   const V2_ABI = getAbiItem({ abi: PolicyEvaluatorV2Abi, name: "decodeRequirements" }).outputs
 
-  test("adds the credential schemes, empty when not given", () => {
+  test("adds the verification methods, empty when not given", () => {
     const [withSchemes] = decodeAbiParameters(
       V2_ABI,
       encodeCredentialPolicyRequirements(
-        { ...SAMPLE_REQUIREMENTS, allowedCredentialSchemes: [1, 201] },
+        { ...SAMPLE_REQUIREMENTS, allowedVerificationMethods: [1, 201] },
         2,
       ),
     )
-    expect(withSchemes.allowedCredentialSchemes).toEqual([1n, 201n])
+    expect(withSchemes.allowedVerificationMethods).toEqual([1n, 201n])
     const [without] = decodeAbiParameters(
       V2_ABI,
       encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS, 2),
     )
-    expect(without.allowedCredentialSchemes).toEqual([])
+    expect(without.allowedVerificationMethods).toEqual([])
   })
 
-  test("refuses credential schemes for a schema 1 evaluator, which can't enforce them", () => {
+  test("refuses verification methods for a schema 1 evaluator, which can't enforce them", () => {
     expect(() =>
       encodeCredentialPolicyRequirements(
-        { ...SAMPLE_REQUIREMENTS, allowedCredentialSchemes: [2] },
+        { ...SAMPLE_REQUIREMENTS, allowedVerificationMethods: [2] },
         1,
       ),
     ).toThrow("schema 2")
