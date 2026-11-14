@@ -27,7 +27,7 @@ import {
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
 import { Buffer } from "buffer/"
-import { createRegistryClient } from "@zkpassport/registry"
+import { createRegistryClient, withLocalCertificates } from "@zkpassport/registry"
 import { Bridge, BridgeInterface, type KeyPair } from "@obsidion/bridge"
 import {
   QueryBuilder,
@@ -74,7 +74,7 @@ export function getRegistryClientOptions(
   config: VerificationConfig | undefined,
 ): RegistryClientOptions {
   if (!config) return {}
-  const { circuitsUrl, ...options } = config
+  const { circuitsUrl, certificatesUrl: _certificatesUrl, ...options } = config
   if (!circuitsUrl) return options
   const base = circuitsUrl.replace(/\/+$/, "")
   return {
@@ -1080,10 +1080,14 @@ export class ZKPassport {
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
     let credentialScheme: CredentialScheme | undefined
     try {
-      const registryClient = createRegistryClient(
+      const chainRegistryClient = createRegistryClient(
         getChainFromQuery(originalQuery, devMode),
         getRegistryClientOptions(config),
       )
+      const registryClient =
+        devMode && config?.certificatesUrl
+          ? withLocalCertificates(chainRegistryClient, config.certificatesUrl)
+          : chainRegistryClient
       const {
         isCorrect,
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,
