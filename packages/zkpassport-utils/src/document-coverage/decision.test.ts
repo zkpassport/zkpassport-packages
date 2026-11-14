@@ -636,9 +636,14 @@ describe("the chip question", () => {
     ).toBe("unsupported")
   })
 
-  test("the picker lists UN states only, unless asked for everything", () => {
-    const codes = listCountries(BUNDLED_COVERAGE).map((c) => c.code)
+  test("the picker lists states only, unless asked for everything", () => {
+    const countries = listCountries(BUNDLED_COVERAGE)
+    const codes = countries.map((c) => c.code)
     expect(codes).toContain("IND")
+    // States outside the UN that issue passports with supported chips
+    expect(codes).toContain("TWN")
+    expect(codes).toContain("RKS")
+    expect(countries.find((c) => c.code === "TWN")?.name).toBe("Taiwan")
     expect(codes).not.toContain("XCT")
     expect(codes).not.toContain("UNO")
     expect(listCountries(BUNDLED_COVERAGE, { unStatesOnly: false }).map((c) => c.code)).toContain(

@@ -14,7 +14,7 @@ import type {
   CoverageShape,
   ReadMethod,
 } from "./types"
-import { isUnState } from "./un-members"
+import { isListedState, STATE_DISPLAY_NAMES } from "./un-members"
 
 export interface CoverageQuery {
   /** ISO 3166-1 alpha-3 code of the issuing country */
@@ -236,8 +236,8 @@ export function listCountries(
   { unStatesOnly = true }: { unStatesOnly?: boolean } = {},
 ): CoverageCountryOption[] {
   return Object.entries(coverage.countries)
-    .filter(([code]) => !unStatesOnly || isUnState(code))
-    .map(([code, { name }]) => ({ code, name }))
+    .filter(([code]) => !unStatesOnly || isListedState(code))
+    .map(([code, { name }]) => ({ code, name: STATE_DISPLAY_NAMES[code] ?? name }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 

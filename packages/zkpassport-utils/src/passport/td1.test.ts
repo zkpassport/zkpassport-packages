@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { fieldsToTd1Mrz, nameToMrz } from "./td1"
+import { fieldsToTd1Mrz, nameToMrz, type Td1Fields } from "./td1"
 
 describe("nameToMrz", () => {
   test("writes letters as ICAO 9303 transliterates them, as an issuer's MRZ does", () => {
@@ -20,7 +20,7 @@ describe("nameToMrz", () => {
 })
 
 describe("fieldsToTd1Mrz", () => {
-  const fields = {
+  const fields: Td1Fields = {
     documentCode: "ID",
     issuingCountry: "UTO",
     nationality: "UTO",
