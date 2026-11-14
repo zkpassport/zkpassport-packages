@@ -182,15 +182,13 @@ export function getOuterCircuitInputs(
 }
 
 /**
- * Get the name of the Tier 2 outer circuit, which aggregates an attested ID base proof and
- * `disclosureProofCount` disclosure proofs
- * @param platform - The platform whose attested ID circuit made the base proof
+ * Get the name of the Tier 2 outer circuit, which aggregates an attested ID base proof (from
+ * either platform: both have the same public inputs) and `disclosureProofCount` disclosure proofs
  * @param disclosureProofCount - The number of disclosure proofs, from 1 to 10
  * @param options.evm - Whether to get the outer circuit whose proofs are verified on EVM chains
- * @returns The outer circuit's name, e.g. outer_attested_ios_count_2
+ * @returns The outer circuit's name, e.g. outer_attested_id_count_2
  */
 export function getAttestedOuterCircuitName(
-  platform: "ios" | "android",
   disclosureProofCount: number,
   { evm = false }: { evm?: boolean } = {},
 ): string {
@@ -203,7 +201,7 @@ export function getAttestedOuterCircuitName(
       `No outer circuit for ${disclosureProofCount} disclosure proofs: expected 1 to ${MAX_OUTER_DISCLOSURE_PROOFS}`,
     )
   }
-  return `outer_${evm ? "evm_" : ""}attested_${platform}_count_${disclosureProofCount + 1}`
+  return `outer_${evm ? "evm_" : ""}attested_id_count_${disclosureProofCount + 1}`
 }
 
 /**

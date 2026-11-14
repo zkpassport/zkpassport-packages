@@ -352,16 +352,14 @@ describe("Tier 2 outer circuit", () => {
   const disclosure = subproof(["0xc0", "0x64", "0xa", "0xb", "0xd1", "0x0", "0xee", "0x0"])
 
   test("counts the public inputs: 9 fixed and one commitment per subproof", () => {
-    expect(getNumberOfPublicInputs("outer_attested_ios_count_2")).toEqual(11)
-    expect(getNumberOfPublicInputs("outer_evm_attested_android_count_11", "0.23.0")).toEqual(20)
+    expect(getNumberOfPublicInputs("outer_attested_id_count_2")).toEqual(11)
+    expect(getNumberOfPublicInputs("outer_evm_attested_id_count_11", "0.23.0")).toEqual(20)
   })
 
   test("names the outer circuit after the platform and its subproofs", () => {
-    expect(getAttestedOuterCircuitName("ios", 1)).toEqual("outer_attested_ios_count_2")
-    expect(getAttestedOuterCircuitName("android", 10, { evm: true })).toEqual(
-      "outer_evm_attested_android_count_11",
-    )
-    expect(() => getAttestedOuterCircuitName("ios", 11)).toThrow("expected 1 to 10")
+    expect(getAttestedOuterCircuitName(1)).toEqual("outer_attested_id_count_2")
+    expect(getAttestedOuterCircuitName(10, { evm: true })).toEqual("outer_evm_attested_id_count_11")
+    expect(() => getAttestedOuterCircuitName(11)).toThrow("expected 1 to 10")
   })
 
   test("puts the attested ID proof's commitment first and takes its scheme", () => {
