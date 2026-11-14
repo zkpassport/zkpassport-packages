@@ -273,13 +273,15 @@ describe("credentials deployments", () => {
     const { getCredentialsChain } = await import("../src/deployments")
     expect(getCredentialsChain("ethereum_sepolia").id).toBe(11155111)
     expect(getCredentialsChain("local").id).toBe(31337)
-    expect(() => getCredentialsChain("base")).toThrow("not supported")
+    expect(getCredentialsChain("base").id).toBe(8453)
+    expect(() => getCredentialsChain("arbitrum")).toThrow("not supported")
   })
 
   test("resolves canonical registries and rejects chains without one", async () => {
     const { getCredentialsAddress } = await import("../src/deployments")
-    // Mainnet and Sepolia share an address: same CREATE2 salt and constructor args on both.
+    // All deployments share an address: same CREATE2 salt and constructor args on each chain.
     expect(getCredentialsAddress("ethereum")).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
+    expect(getCredentialsAddress("base")).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
     expect(getCredentialsAddress("ethereum_sepolia")).toBe(
       "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
     )
