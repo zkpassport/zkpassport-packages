@@ -108,6 +108,23 @@ contract Tier2VerificationTest is Test {
         assertFalse(Credentials.isVerifiable(300));
     }
 
+    function test_TierIsReadFromExplicitRanges() public pure {
+        assertEq(Credentials.tierOf(99), 0);
+        assertEq(Credentials.tierOf(100), 1);
+        assertEq(Credentials.tierOf(199), 1);
+        assertEq(Credentials.tierOf(200), 2);
+        assertEq(Credentials.tierOf(299), 2);
+        assertEq(Credentials.tierOf(300), 0);
+        assertFalse(Credentials.isAllowed(300, _entries(3)));
+        assertFalse(Credentials.isAllowed(5, _entries(0)));
+        assertTrue(Credentials.isAllowed(201, _entries(2)));
+    }
+
+    function _entries(uint256 entry) internal pure returns (uint256[] memory entries) {
+        entries = new uint256[](1);
+        entries[0] = entry;
+    }
+
     function test_AnotherScopeCannotPassTheFixture() public {
         // A proof made for one service's scope does not pass for another's
         ProofVerificationParams memory params = _params(proof);

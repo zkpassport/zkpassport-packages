@@ -1,6 +1,6 @@
 /**
  * The assurance tier of a credential: 1 when its issuer signed the data, 2 when a device attested
- * a capture of it. The tier is the hundreds digit of the scheme.
+ * a capture of it. Tier 1 is schemes 100-199, tier 2 is schemes 200-299.
  */
 export enum CredentialTier {
   GOVERNMENT_SIGNED = 1,
@@ -34,8 +34,6 @@ export enum CredentialScheme {
   ATTESTED_CHIP_READ_ANDROID = 203,
 }
 
-const SCHEMES_PER_TIER = 100
-
 /**
  * An entry of a service's credential policy: a tier, which stands for every scheme of that tier,
  * or one exact scheme. `[CredentialTier.GOVERNMENT_SIGNED, CredentialScheme.ATTESTED_CAPTURE_IOS]`
@@ -48,8 +46,11 @@ export const DEFAULT_ALLOWED_CREDENTIALS: readonly AllowedCredential[] = [
   CredentialTier.GOVERNMENT_SIGNED,
 ]
 
+/** The tier of a scheme, by explicit range */
 export function getTierForCredentialScheme(scheme: CredentialScheme): CredentialTier {
-  return Math.floor(scheme / SCHEMES_PER_TIER) as CredentialTier
+  if (scheme >= 100 && scheme < 200) return CredentialTier.GOVERNMENT_SIGNED
+  if (scheme >= 200 && scheme < 300) return CredentialTier.DEVICE_ATTESTED
+  throw new Error(`Credential scheme in no tier: ${scheme}`)
 }
 
 const isTier = (value: number): value is CredentialTier =>

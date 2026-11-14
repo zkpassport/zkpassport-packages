@@ -190,12 +190,10 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
     function _validateCredentialSchemes(uint256[] memory schemes) internal pure {
         for (uint256 i = 0; i < schemes.length; i++) {
             uint256 entry = schemes[i];
-            bool known = entry < CredentialScheme.SCHEMES_PER_TIER
-                ? Credentials.isVerifiable(entry * CredentialScheme.SCHEMES_PER_TIER)
-                : entry == CredentialScheme.ICAO_CHIP || entry == CredentialScheme.UIDAI_AADHAAR
-                    || entry == CredentialScheme.JPKI || entry == CredentialScheme.ISO_MDOC
-                    || entry == CredentialScheme.ATTESTED_CAPTURE_IOS
-                    || entry == CredentialScheme.ATTESTED_CAPTURE_ANDROID;
+            bool known = Credentials.isTier(entry) || entry == CredentialScheme.ICAO_CHIP
+                || entry == CredentialScheme.UIDAI_AADHAAR || entry == CredentialScheme.JPKI
+                || entry == CredentialScheme.ISO_MDOC || entry == CredentialScheme.ATTESTED_CAPTURE_IOS
+                || entry == CredentialScheme.ATTESTED_CAPTURE_ANDROID;
             if (!known) revert PolicyEvaluator__InvalidCredentialSchemes();
         }
     }

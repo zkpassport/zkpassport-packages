@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import type { PassportViewModel } from "../types"
 import {
   CredentialScheme,
@@ -37,6 +39,36 @@ describe("credential scheme", () => {
     expect(() => parseCredentialScheme(1)).toThrow("Unknown credential scheme")
     expect(() => parseCredentialScheme("0x99")).toThrow("Unknown credential scheme")
     expect(credentialSchemeToHex(CredentialScheme.ICAO_CHIP)).toBe("0x64")
+  })
+
+  test("a value outside the tier ranges has no tier", () => {
+    expect(getTierForCredentialScheme(199 as CredentialScheme)).toBe(
+      CredentialTier.GOVERNMENT_SIGNED,
+    )
+    expect(() => getTierForCredentialScheme(99 as CredentialScheme)).toThrow("in no tier")
+    expect(() => getTierForCredentialScheme(300 as CredentialScheme)).toThrow("in no tier")
+  })
+
+  test("the tiers and schemes match the contracts' Credentials.sol", () => {
+    // Every tier and scheme the contracts know, by name, so a value changed or added on one side
+    // only fails here. The circuits' copy is checked by the fixture proofs' scheme public input.
+    const sol = readFileSync(
+      join(import.meta.dir, "../../../registry-contracts/src/lib/Credentials.sol"),
+      "utf8",
+    )
+    const constants = (library: string) => {
+      const body = sol.match(new RegExp(`library ${library} \\{([^}]*)\\}`))?.[1] ?? ""
+      return Object.fromEntries(
+        [...body.matchAll(/uint256 constant (\w+) = (\d+);/g)].map(([, name, value]) => [
+          name,
+          Number(value),
+        ]),
+      )
+    }
+    const members = (e: object) =>
+      Object.fromEntries(Object.entries(e).filter(([, value]) => typeof value === "number"))
+    expect(constants("CredentialTier")).toEqual(members(CredentialTier))
+    expect(constants("CredentialScheme")).toEqual(members(CredentialScheme))
   })
 
   test("a policy entry is a whole tier or one scheme", () => {
