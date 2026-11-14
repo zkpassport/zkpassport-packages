@@ -42,3 +42,25 @@ library AttestedId {
         return false;
     }
 }
+
+/// @notice The face match circuit takes its root key as an input, so the verifier must pin it and the app
+library FaceMatch {
+    function isGenuine(bytes32 rootKeyHash, Environment environment, bytes32 appIdHash, bytes32 integrityPublicKeyHash)
+        internal
+        pure
+        returns (bool)
+    {
+        if (environment != Environment.PRODUCTION) {
+            return false;
+        }
+        if (rootKeyHash == AppAttest.APPLE_ROOT_KEY_HASH) {
+            return (appIdHash == AppAttest.IOS_APP_ID_HASH || appIdHash == AppAttest.IOS_APP_CLIP_APP_ID_HASH)
+                && integrityPublicKeyHash == bytes32(0);
+        }
+        if (rootKeyHash == AppAttest.GOOGLE_RSA_ROOT_KEY_HASH || rootKeyHash == AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH) {
+            return appIdHash == AppAttest.ANDROID_APP_ID_HASH
+                && integrityPublicKeyHash == AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH;
+        }
+        return false;
+    }
+}

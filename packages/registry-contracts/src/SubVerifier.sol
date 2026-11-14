@@ -21,8 +21,8 @@ import {
     FaceMatchMode
 } from "./lib/Types.sol";
 import {PublicInput, RegistryID} from "./lib/Constants.sol";
-import {Credentials, CredentialTier} from "./lib/Credentials.sol";
-import {AttestedId} from "./lib/AttestedId.sol";
+import {Credentials, CredentialScheme, CredentialTier} from "./lib/Credentials.sol";
+import {AttestedId, FaceMatch} from "./lib/AttestedId.sol";
 import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
@@ -214,6 +214,16 @@ contract SubVerifier {
         }
     }
 
+    /// @notice Anyone with a copy of an Aadhaar QR code could prove with it, so it needs a genuine face match
+    function _verifyAadhaarFaceMatch(bytes calldata committedInputs) internal pure virtual {
+        (bytes32 rootKeyHash, Environment environment, bytes32 appIdHash, bytes32 integrityPublicKeyHash,) =
+            InputsExtractor.readFacematchProofInputs(committedInputs);
+        require(
+            FaceMatch.isGenuine(rootKeyHash, environment, appIdHash, integrityPublicKeyHash),
+            "Invalid Aadhaar face match"
+        );
+    }
+
     function _getProofVerifier(bytes32 vkeyHash) internal view returns (address) {
         address verifier = proofVerifiers[vkeyHash];
         require(verifier != address(0), "Verifier not found");
@@ -317,6 +327,9 @@ contract SubVerifier {
         );
         require(Credentials.isVerifiable(credentialScheme), "Credential scheme not supported");
         _verifyDeviceAttestation(credentialScheme, params.committedInputs);
+        if (credentialScheme == CredentialScheme.UIDAI_AADHAAR) {
+            _verifyAadhaarFaceMatch(params.committedInputs);
+        }
 
         // Allow mock proofs in dev mode
         // Note: On mainnets, this stage won't be reached as the ZKR certificates will not be part

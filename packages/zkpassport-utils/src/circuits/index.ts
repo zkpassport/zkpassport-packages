@@ -3,6 +3,7 @@ import { format } from "date-fns"
 import { getIDDataProofPublicInputCount, packBeBytesIntoFields, packLeBytesIntoFields } from ".."
 import { Binary } from "../binary"
 import { DisclosureCircuitName, NullifierType, PackagedCircuit, SaltedValue } from "../types"
+import { getAadhaarProofPublicInputCount, AADHAAR_CIRCUIT_NAME } from "./aadhaar"
 import { getAttestedIdProofPublicInputCount } from "./attested-id"
 import { hasCredentialScheme } from "./credential-scheme"
 import { getDSCProofPublicInputCount } from "./dsc"
@@ -199,6 +200,8 @@ export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: st
   const scheme = hasCredentialScheme(circuitVersion) ? 1 : 0
   if (circuitName.startsWith("attested_id")) {
     return getAttestedIdProofPublicInputCount(circuitName)
+  } else if (circuitName === AADHAAR_CIRCUIT_NAME) {
+    return getAadhaarProofPublicInputCount()
   } else if (circuitName.startsWith("data_check_integrity")) {
     return getIntegrityProofPublicInputCount() + scheme
   } else if (circuitName.startsWith("sig_check_id_data")) {
@@ -213,6 +216,8 @@ export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: st
     // A Tier 2 outer proof commits to its attested ID proof's parameters and the disclosure
     // proofs', and always carries the credential scheme
     if (circuitName.includes("_attested_")) return 9 + subproofCount
+    // An Aadhaar outer proof commits to the disclosure proofs' parameters only
+    if (circuitName.includes("_aadhaar_")) return 8 + subproofCount
     return 8 + scheme + subproofCount - 3
   }
   // Any other circuits are assumed to be disclosure circuits
@@ -339,6 +344,7 @@ export {
 } from "./disclose"
 
 export * from "./age"
+export * from "./aadhaar"
 export * from "./attested-id"
 export * from "./credential-scheme"
 export * from "./public-input-layout"

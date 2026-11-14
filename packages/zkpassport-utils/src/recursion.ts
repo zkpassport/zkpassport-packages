@@ -200,6 +200,17 @@ export function getAttestedOuterCircuitName(
   disclosureProofCount: number,
   { evm = false }: { evm?: boolean } = {},
 ): string {
+  return getSingleBaseOuterCircuitName("attested_id", disclosureProofCount, evm)
+}
+
+export function getAadhaarOuterCircuitName(
+  disclosureProofCount: number,
+  { evm = false }: { evm?: boolean } = {},
+): string {
+  return getSingleBaseOuterCircuitName("aadhaar", disclosureProofCount, evm)
+}
+
+function getSingleBaseOuterCircuitName(kind: string, disclosureProofCount: number, evm: boolean) {
   if (
     !Number.isInteger(disclosureProofCount) ||
     disclosureProofCount < 1 ||
@@ -209,7 +220,7 @@ export function getAttestedOuterCircuitName(
       `No outer circuit for ${disclosureProofCount} disclosure proofs: expected 1 to ${MAX_OUTER_DISCLOSURE_PROOFS}`,
     )
   }
-  return `outer_${evm ? "evm_" : ""}attested_id_count_${disclosureProofCount + 1}`
+  return `outer_${evm ? "evm_" : ""}${kind}_count_${disclosureProofCount + 1}`
 }
 
 /**
@@ -240,6 +251,21 @@ export function getAttestedOuterCircuitInputs(
     ],
     credential_scheme: getAttestedIdTrailingOutput(attested, "credential_scheme"),
     attested_id_proof: asOuterSubproof(attestedIdProof),
+  }
+}
+
+export function getAadhaarOuterCircuitInputs(
+  aadhaarIdProof: OuterCircuitProof,
+  disclosureProofs: OuterCircuitProof[],
+  circuitRegistryRoot: string,
+) {
+  const [certificateRegistryRoot, , credentialScheme] = aadhaarIdProof.publicInputs
+  return {
+    certificate_registry_root: certificateRegistryRoot,
+    circuit_registry_root: circuitRegistryRoot,
+    ...getDisclosureOuterInputs(disclosureProofs),
+    credential_scheme: credentialScheme,
+    aadhaar_id_proof: asOuterSubproof(aadhaarIdProof),
   }
 }
 

@@ -74,6 +74,8 @@ export type VerificationConfig = {
    * and `<url>/by-hash/<vkey hash>.json`.
    */
   circuitsUrl?: string
+  /** Dev mode only: a certificates file whose root is trusted, e.g. `serve-circuits`' */
+  certificatesUrl?: string
 }
 
 // The nullifier types a service can ask for. The mock ones only ever come from the app in dev mode.
