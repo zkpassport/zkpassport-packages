@@ -7,6 +7,7 @@ import { Binary } from "../binary"
 import { mrzCheckDigit } from "../passport/td1"
 import {
   CredentialScheme,
+  IDCredentialConfig,
   PackagedCertificate,
   PackagedCertificatesFile,
   PassportViewModel,
@@ -388,6 +389,18 @@ export function findUidaiPublicKey(
 }
 
 const toBase64 = (bytes: Uint8Array) => Binary.from(bytes).toBase64()
+
+/**
+ * Whether an Aadhaar can answer a query's nationality condition. Aadhaar is issued to residents of
+ * India, foreign nationals included, and records no nationality ("XXX" in its MRZ), so it can't
+ * prove or disclose one. It can pass an exclusion list, as a resident foreign national would too.
+ */
+export function isAadhaarNationalityConditionAllowed(config?: IDCredentialConfig): boolean {
+  if (!config) return true
+  return Object.entries(config).every(
+    ([key, value]) => key === "out" || value === undefined || value === false,
+  )
+}
 
 export const isAadhaarPassport = (passport: PassportViewModel) =>
   passport.credentialScheme === CredentialScheme.UIDAI_AADHAAR
