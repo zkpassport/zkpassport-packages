@@ -46,6 +46,12 @@ export class DrivingLicenseError extends Error {}
  */
 const HEADER = /ANSI ?\d{6}(\d{2})(?:\d{2})?\d{2}((?:[A-Z]{2}\d{8})+)/
 
+/** The types of the barcode's subfiles ("DL", "ID", "Z?"), from the header's designators */
+function subfileTypes(text: string): string[] {
+  const designators = HEADER.exec(text)?.[2] ?? ""
+  return [...designators.matchAll(/([A-Z]{2})\d{8}/g)].map((match) => match[1])
+}
+
 /** The barcode's data elements: a three-letter code, from "DAA" to "DDK", then the value */
 function readElements(text: string): Map<string, string> {
   const elements = new Map<string, string>()
@@ -123,6 +129,12 @@ export function parseAamvaBarcode(text: string): DrivingLicenseFields {
     throw new DrivingLicenseError(`Unsupported licence country ${country}`)
   }
   const yearFirst = country === "CAN" || aamvaVersion(text) === 1
+  // A non-driver ID card carries an "ID" subfile and no "DL" one. It would be proven under the
+  // licence's document code, so it is refused until it has a document code of its own
+  const types = subfileTypes(text)
+  if (types.includes("ID") && !types.includes("DL")) {
+    throw new DrivingLicenseError("An identification card, not a driving licence, is not supported")
+  }
 
   // Version 1 writes the whole name in DAA, "FAMILY,GIVEN,MIDDLE"
   const [fullFamily, ...fullGiven] = (get("DAA") ?? "").split(/,|\$/)

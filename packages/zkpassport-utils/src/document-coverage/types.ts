@@ -50,9 +50,10 @@ export interface CoverageDocument {
   /** A national ID without an MRZ that the camera reads from its printed text */
   text?: boolean
   /**
-   * Where a text-read ID's nationality comes from (absent means "issuer"): "issuer" for cards
-   * issued to citizens only, "printed" for cards also issued to residents (the nationality the card
-   * prints, or none when it isn't read), "none" for cards that prove none (e.g. a territory's)
+   * Where a text-read ID's nationality comes from (absent means "none"): "issuer" for cards
+   * checked to be issued to citizens only, "printed" for cards also issued to residents (the
+   * nationality the card prints, or none when it isn't read), "none" for cards that prove none (a
+   * territory's, or one not known to be citizens-only)
    */
   nationality?: "issuer" | "printed" | "none"
   /** Regula no longer maintains the template; the document is still in circulation */

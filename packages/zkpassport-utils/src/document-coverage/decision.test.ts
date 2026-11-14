@@ -437,6 +437,63 @@ describe("loadCoverage", () => {
     expect(isCoverage(BUNDLED_COVERAGE)).toBe(true)
     expect(isCoverage(null)).toBe(false)
   })
+
+  test("refuses a table with a malformed country or document, keeping the bundled one", async () => {
+    const withCountry = (country: unknown) => ({
+      ...remote,
+      countries: { ...remote.countries, XXX: country },
+    })
+    const malformed = [
+      withCountry({ name: "X" }),
+      withCountry({ ...remote.countries.ZWE, documents: [{ type: "passport" }] }),
+      withCountry({
+        ...remote.countries.ZWE,
+        documents: [{ ...remote.countries.ZWE.documents[0], nationality: "anything" }],
+      }),
+      { ...remote, documentTypes: { ...remote.documentTypes, id_card: { name: "x" } } },
+    ]
+    for (const table of malformed) {
+      expect(isCoverage(table)).toBe(false)
+      expect((await loadCoverage({ fetch: respond(table) })).source).toBe("bundled")
+    }
+  })
+
+  test("a downloaded table can narrow a printed ID's nationality rule but not widen it", async () => {
+    const textCard = (regulaId: number, nationality?: string) =>
+      ({
+        type: "id_card",
+        name: "Id Card",
+        chip: false,
+        mrz: false,
+        text: true,
+        regulaId,
+        nationality,
+      }) as CoverageDocument
+    const bundledPrinted = Object.values(BUNDLED_COVERAGE.countries)
+      .flatMap((c) => c.documents)
+      .find((d) => d.text && d.nationality === "printed")!
+    const table = {
+      ...remote,
+      countries: {
+        ...remote.countries,
+        XXX: {
+          ...remote.countries.ZWE,
+          documents: [
+            textCard(bundledPrinted.regulaId!, "issuer"),
+            textCard(bundledPrinted.regulaId!, "none"),
+            textCard(99999999, "issuer"),
+          ],
+        },
+      },
+    }
+    const loaded = await loadCoverage({ fetch: respond(table) })
+    expect(loaded.source).toBe("remote")
+    expect(loaded.coverage.countries.XXX.documents.map((d) => d.nationality)).toEqual([
+      "printed",
+      "none",
+      "none",
+    ])
+  })
 })
 
 describe("decideVerificationPaths for cards", () => {

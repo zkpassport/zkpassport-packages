@@ -55,6 +55,20 @@ describe("driving licence", () => {
     expect(() => parseAamvaBarcode(withElement(CALIFORNIA, "DCG", "MEX"))).toThrow("country")
   })
 
+  test("refuses a non-driver ID card, whose only subfile is an ID one", () => {
+    const idCard = CALIFORNIA.replace("080102DL00410288", "080102ID00410288").replace(
+      "DLDAQ",
+      "IDDAQ",
+    )
+    expect(() => parseAamvaBarcode(idCard)).toThrow("identification card")
+  })
+
+  test("writes an expiry past the lifetime date as it, so it stays in the circuits' window", () => {
+    const arizona = withElement(CALIFORNIA, "DBA", "01152060")
+    const line2 = drivingLicenseToMrz(parseAamvaBarcode(arizona)).slice(30, 60)
+    expect(line2.slice(8, 15)).toBe(`551231${mrzCheckDigit("551231")}`)
+  })
+
   test("check digits follow ICAO 9303", () => {
     // The ICAO 9303 Part 3 example
     expect(mrzCheckDigit("520727")).toBe("3")
