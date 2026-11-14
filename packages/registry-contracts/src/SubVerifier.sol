@@ -21,7 +21,7 @@ import {
     FaceMatchMode
 } from "./lib/Types.sol";
 import {PublicInput, RegistryID} from "./lib/Constants.sol";
-import {Credentials, CredentialTier} from "./lib/Credentials.sol";
+import {VerificationMethods, VerificationTier} from "./lib/VerificationMethods.sol";
 import {AttestedId} from "./lib/AttestedId.sol";
 import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {DateUtils} from "./lib/DateUtils.sol";
@@ -190,11 +190,15 @@ contract SubVerifier {
     /**
      * @notice A device attested credential must open with an attested ID entry pinned to the
      *         expected attestation roots and app; any other credential must not carry one
-     * @param credentialScheme The credential scheme from the proof's public inputs
+     * @param verificationMethod The verification method from the proof's public inputs
      * @param committedInputs The committed inputs, already checked against the param commitments
      */
-    function _verifyDeviceAttestation(uint256 credentialScheme, bytes calldata committedInputs) internal pure virtual {
-        if (Credentials.tierOf(credentialScheme) == CredentialTier.DEVICE_ATTESTED) {
+    function _verifyDeviceAttestation(uint256 verificationMethod, bytes calldata committedInputs)
+        internal
+        pure
+        virtual
+    {
+        if (VerificationMethods.tierOf(verificationMethod) == VerificationTier.DEVICE_ATTESTED) {
             (
                 bytes32 rootKeyHash,
                 Environment environment,
@@ -203,7 +207,9 @@ contract SubVerifier {
                 FaceMatchMode mode
             ) = InputsExtractor.getAttestedIdProofInputs(committedInputs);
             require(
-                AttestedId.isValid(credentialScheme, rootKeyHash, environment, appIdHash, integrityPublicKeyHash, mode),
+                AttestedId.isValid(
+                    verificationMethod, rootKeyHash, environment, appIdHash, integrityPublicKeyHash, mode
+                ),
                 "Invalid device attestation"
             );
         } else {
@@ -289,7 +295,7 @@ contract SubVerifier {
         );
 
         // Verifies the commitments against the committed inputs
-        // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash, credential_scheme
+        // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash, verification_method
         _verifyCommittedInputs(
             // Extracts the commitments from the public inputs
             params.proofVerificationData
@@ -309,14 +315,14 @@ contract SubVerifier {
 
         // Issuer-signed and device-attested credentials both verify; a device attestation must be the
         // ZKPassport app's. The app only proves tier 2 for services allowed to request it, and a
-        // service narrows what it accepts with `helper.enforceCredentialScheme(allowed, publicInputs)`
-        uint256 credentialScheme = uint256(
+        // service narrows what it accepts with `helper.enforceVerificationMethod(allowed, publicInputs)`
+        uint256 verificationMethod = uint256(
             params.proofVerificationData
             .publicInputs[params.proofVerificationData.publicInputs.length
-                    - PublicInput.CREDENTIAL_SCHEME_OFFSET_FROM_END]
+                    - PublicInput.VERIFICATION_METHOD_OFFSET_FROM_END]
         );
-        require(Credentials.isVerifiable(credentialScheme), "Credential scheme not supported");
-        _verifyDeviceAttestation(credentialScheme, params.committedInputs);
+        require(VerificationMethods.isVerifiable(verificationMethod), "Verification method not supported");
+        _verifyDeviceAttestation(verificationMethod, params.committedInputs);
 
         // Allow mock proofs in dev mode
         // Note: On mainnets, this stage won't be reached as the ZKR certificates will not be part

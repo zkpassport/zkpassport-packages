@@ -27,7 +27,7 @@ export type RawRequirements = {
   faceMatchMode: number
   includedNationalities: string[]
   excludedNationalities: string[]
-  allowedCredentialSchemes?: bigint[]
+  allowedVerificationMethods?: bigint[]
 }
 
 export const RAW_REQUIREMENTS: RawRequirements = {

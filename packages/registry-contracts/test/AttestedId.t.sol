@@ -8,7 +8,7 @@ import "../src/VerifierHelper.sol";
 import {AttestedId} from "../src/lib/AttestedId.sol";
 import {InputsExtractor} from "../src/lib/InputsExtractor.sol";
 import {AppAttest, CommittedInputLen} from "../src/lib/Constants.sol";
-import {CredentialScheme} from "../src/lib/Credentials.sol";
+import {VerificationMethod} from "../src/lib/VerificationMethods.sol";
 import {ProofType, Environment, FaceMatchMode, OS} from "../src/lib/Types.sol";
 
 contract AttestedIdHarness {
@@ -39,8 +39,8 @@ contract AttestedIdHarness {
 contract SubVerifierHarness is SubVerifier {
     constructor() SubVerifier(address(0x1), RootVerifier(address(0x2)), bytes32(0)) {}
 
-    function verifyDeviceAttestation(uint256 credentialScheme, bytes calldata committedInputs) external pure {
-        _verifyDeviceAttestation(credentialScheme, committedInputs);
+    function verifyDeviceAttestation(uint256 verificationMethod, bytes calldata committedInputs) external pure {
+        _verifyDeviceAttestation(verificationMethod, committedInputs);
     }
 }
 
@@ -166,7 +166,7 @@ contract AttestedIdTest is Test {
     function testIsValidIos() public view {
         assertTrue(
             harness.isValid(
-                CredentialScheme.ATTESTED_CAPTURE_IOS,
+                VerificationMethod.ATTESTED_CAPTURE_IOS,
                 AppAttest.APPLE_ROOT_KEY_HASH,
                 Environment.PRODUCTION,
                 AppAttest.IOS_APP_ID_HASH,
@@ -179,7 +179,7 @@ contract AttestedIdTest is Test {
     function testIsValidAndroidBothRoots() public view {
         assertTrue(
             harness.isValid(
-                CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+                VerificationMethod.ATTESTED_CAPTURE_ANDROID,
                 AppAttest.GOOGLE_RSA_ROOT_KEY_HASH,
                 Environment.PRODUCTION,
                 AppAttest.ANDROID_APP_ID_HASH,
@@ -189,7 +189,7 @@ contract AttestedIdTest is Test {
         );
         assertTrue(
             harness.isValid(
-                CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+                VerificationMethod.ATTESTED_CAPTURE_ANDROID,
                 AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH,
                 Environment.PRODUCTION,
                 AppAttest.ANDROID_APP_ID_HASH,
@@ -200,7 +200,7 @@ contract AttestedIdTest is Test {
     }
 
     function testIsValidIosRejectsWrongFields() public view {
-        uint256 s = CredentialScheme.ATTESTED_CAPTURE_IOS;
+        uint256 s = VerificationMethod.ATTESTED_CAPTURE_IOS;
         bytes32 root = AppAttest.APPLE_ROOT_KEY_HASH;
         bytes32 app = AppAttest.IOS_APP_ID_HASH;
         Environment prod = Environment.PRODUCTION;
@@ -221,7 +221,7 @@ contract AttestedIdTest is Test {
     }
 
     function testIsValidAndroidRejectsWrongFields() public view {
-        uint256 s = CredentialScheme.ATTESTED_CAPTURE_ANDROID;
+        uint256 s = VerificationMethod.ATTESTED_CAPTURE_ANDROID;
         bytes32 root = AppAttest.GOOGLE_RSA_ROOT_KEY_HASH;
         bytes32 app = AppAttest.ANDROID_APP_ID_HASH;
         bytes32 key = AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH;
@@ -238,9 +238,9 @@ contract AttestedIdTest is Test {
 
     function testIsValidRejectsOtherSchemes() public view {
         uint256[4] memory schemes = [
-            CredentialScheme.ATTESTED_CHIP_READ_IOS,
-            CredentialScheme.ATTESTED_CHIP_READ_ANDROID,
-            CredentialScheme.ICAO_CHIP,
+            VerificationMethod.ATTESTED_CHIP_READ_IOS,
+            VerificationMethod.ATTESTED_CHIP_READ_ANDROID,
+            VerificationMethod.ICAO_CHIP,
             uint256(299)
         ];
         for (uint256 i = 0; i < schemes.length; i++) {
@@ -271,27 +271,29 @@ contract AttestedIdTest is Test {
 
     function testSubVerifierAcceptsValidDeviceAttestation() public view {
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ATTESTED_CAPTURE_IOS, bytes.concat(entry(ProofType.ATTESTED_ID, iosPayload()), ageEntry())
+            VerificationMethod.ATTESTED_CAPTURE_IOS,
+            bytes.concat(entry(ProofType.ATTESTED_ID, iosPayload()), ageEntry())
         );
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+            VerificationMethod.ATTESTED_CAPTURE_ANDROID,
             entry(ProofType.ATTESTED_ID, androidPayload(AppAttest.GOOGLE_RSA_ROOT_KEY_HASH))
         );
     }
 
     function testSubVerifierRejectsDeviceTierWithoutAttestationFirst() public {
         vm.expectRevert("Attested ID proof inputs not found");
-        subVerifier.verifyDeviceAttestation(CredentialScheme.ATTESTED_CAPTURE_IOS, ageEntry());
+        subVerifier.verifyDeviceAttestation(VerificationMethod.ATTESTED_CAPTURE_IOS, ageEntry());
 
         vm.expectRevert("Attested ID proof inputs not found");
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ATTESTED_CAPTURE_IOS, bytes.concat(ageEntry(), entry(ProofType.ATTESTED_ID, iosPayload()))
+            VerificationMethod.ATTESTED_CAPTURE_IOS,
+            bytes.concat(ageEntry(), entry(ProofType.ATTESTED_ID, iosPayload()))
         );
 
         // A FACEMATCH entry is not a device attestation of the ID
         vm.expectRevert("Attested ID proof inputs not found");
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ATTESTED_CAPTURE_IOS, entry(ProofType.FACEMATCH, iosPayload())
+            VerificationMethod.ATTESTED_CAPTURE_IOS, entry(ProofType.FACEMATCH, iosPayload())
         );
     }
 
@@ -307,40 +309,40 @@ contract AttestedIdTest is Test {
             )
         );
         vm.expectRevert("Invalid device attestation");
-        subVerifier.verifyDeviceAttestation(CredentialScheme.ATTESTED_CAPTURE_IOS, selfSigned);
+        subVerifier.verifyDeviceAttestation(VerificationMethod.ATTESTED_CAPTURE_IOS, selfSigned);
 
         // Platform mismatch between scheme and attestation
         vm.expectRevert("Invalid device attestation");
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ATTESTED_CAPTURE_ANDROID, entry(ProofType.ATTESTED_ID, iosPayload())
+            VerificationMethod.ATTESTED_CAPTURE_ANDROID, entry(ProofType.ATTESTED_ID, iosPayload())
         );
 
         // Reserved schemes have no circuit yet
         vm.expectRevert("Invalid device attestation");
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ATTESTED_CHIP_READ_IOS, entry(ProofType.ATTESTED_ID, iosPayload())
+            VerificationMethod.ATTESTED_CHIP_READ_IOS, entry(ProofType.ATTESTED_ID, iosPayload())
         );
         vm.expectRevert("Invalid device attestation");
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ATTESTED_CHIP_READ_ANDROID,
+            VerificationMethod.ATTESTED_CHIP_READ_ANDROID,
             entry(ProofType.ATTESTED_ID, androidPayload(AppAttest.GOOGLE_RSA_ROOT_KEY_HASH))
         );
     }
 
     function testSubVerifierSignedTierRejectsAttestedIdAnywhere() public {
         // Chip proofs keep working, with or without a face match
-        subVerifier.verifyDeviceAttestation(CredentialScheme.ICAO_CHIP, ageEntry());
+        subVerifier.verifyDeviceAttestation(VerificationMethod.ICAO_CHIP, ageEntry());
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.ICAO_CHIP, bytes.concat(ageEntry(), entry(ProofType.FACEMATCH, iosPayload()))
+            VerificationMethod.ICAO_CHIP, bytes.concat(ageEntry(), entry(ProofType.FACEMATCH, iosPayload()))
         );
-        subVerifier.verifyDeviceAttestation(CredentialScheme.ICAO_CHIP, "");
+        subVerifier.verifyDeviceAttestation(VerificationMethod.ICAO_CHIP, "");
 
         vm.expectRevert("Unexpected device attestation");
-        subVerifier.verifyDeviceAttestation(CredentialScheme.ICAO_CHIP, entry(ProofType.ATTESTED_ID, iosPayload()));
+        subVerifier.verifyDeviceAttestation(VerificationMethod.ICAO_CHIP, entry(ProofType.ATTESTED_ID, iosPayload()));
 
         vm.expectRevert("Unexpected device attestation");
         subVerifier.verifyDeviceAttestation(
-            CredentialScheme.JPKI, bytes.concat(ageEntry(), entry(ProofType.ATTESTED_ID, iosPayload()))
+            VerificationMethod.JPKI, bytes.concat(ageEntry(), entry(ProofType.ATTESTED_ID, iosPayload()))
         );
     }
 

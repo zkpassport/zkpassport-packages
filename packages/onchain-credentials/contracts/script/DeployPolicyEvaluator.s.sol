@@ -10,7 +10,7 @@ import {NullifierType} from "@registry/lib/Types.sol";
 /// @notice Deploys a standalone evaluator, for pointing an existing ZKPassportCredentials at a new
 ///         one with `setPolicyEvaluator`. Policies record their evaluator at creation, so this
 ///         affects only policies created after the switch. POLICY_EVALUATOR_VERSION picks the
-///         schema: 2 (the default; policies choose the credential schemes they accept) or 1.
+///         schema: 2 (the default; policies choose the verification methods they accept) or 1.
 contract DeployPolicyEvaluatorScript is Script {
     function run() public {
         address rootVerifier = vm.envAddress("ROOT_VERIFIER_ADDRESS");

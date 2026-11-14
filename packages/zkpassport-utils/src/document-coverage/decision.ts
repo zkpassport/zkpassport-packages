@@ -1,10 +1,10 @@
 import {
-  AllowedCredential,
-  CredentialScheme,
-  DEFAULT_ALLOWED_CREDENTIALS,
-  getTierForCredentialScheme,
-  isCredentialAllowed,
-} from "../types/credential"
+  AllowedVerificationMethod,
+  VerificationMethod,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  getTierForVerificationMethod,
+  isVerificationMethodAllowed,
+} from "../types/verification-method"
 import type {
   Coverage,
   CoverageCountry,
@@ -25,14 +25,14 @@ export interface CoverageQuery {
   /** What the user says about the document: whether it carries the chip symbol */
   hasChip?: boolean
   /** The relying party's policy; none means the default one */
-  allowedCredentials?: readonly AllowedCredential[] | null
+  allowedVerificationMethods?: readonly AllowedVerificationMethod[] | null
   /** The schemes this client can prove, e.g. the iOS app proves the chip and the camera read */
-  supportedSchemes: readonly CredentialScheme[]
+  supportedSchemes: readonly VerificationMethod[]
 }
 
 export interface VerificationPath {
   method: ReadMethod
-  scheme: CredentialScheme
+  scheme: VerificationMethod
   /** Whether a read by this method yields a proof we can verify */
   verifiable: boolean
 }
@@ -121,17 +121,17 @@ export function decideVerificationPaths(
     for (const scheme of read.schemes) {
       candidates.push({
         method,
-        scheme: scheme as CredentialScheme,
+        scheme: scheme as VerificationMethod,
         // An ICAO chip is only as good as the certificate chain we hold for its country
-        verifiable: scheme === CredentialScheme.ICAO_CHIP ? chipVerifiable : true,
+        verifiable: scheme === VerificationMethod.ICAO_CHIP ? chipVerifiable : true,
       })
     }
   }
 
   const doable = candidates.filter((p) => query.supportedSchemes.includes(p.scheme))
-  const allowed = query.allowedCredentials ?? DEFAULT_ALLOWED_CREDENTIALS
-  const permitted = doable.filter((p) => isCredentialAllowed(p.scheme, allowed))
-  const refusedByPolicy = doable.filter((p) => !isCredentialAllowed(p.scheme, allowed))
+  const allowed = query.allowedVerificationMethods ?? DEFAULT_ALLOWED_VERIFICATION_METHODS
+  const permitted = doable.filter((p) => isVerificationMethodAllowed(p.scheme, allowed))
+  const refusedByPolicy = doable.filter((p) => !isVerificationMethodAllowed(p.scheme, allowed))
   const paths = order(permitted)
 
   const base = { refusedByPolicy, chip, chipVerifiable, documents } as const
@@ -155,7 +155,7 @@ export function decideVerificationPaths(
 /** Verifiable chip reads first, then the attested reads; an unverifiable chip read is dropped */
 function order(paths: VerificationPath[]): VerificationPath[] {
   const usable = paths.filter((p) => p.verifiable)
-  const tier = (p: VerificationPath) => getTierForCredentialScheme(p.scheme)
+  const tier = (p: VerificationPath) => getTierForVerificationMethod(p.scheme)
   return [...usable].sort((a, b) => tier(a) - tier(b) || a.scheme - b.scheme)
 }
 

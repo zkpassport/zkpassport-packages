@@ -1,5 +1,5 @@
-import type { AllowedCredential, CredentialScheme } from "./credential"
-export * from "./credential"
+import type { AllowedVerificationMethod, VerificationMethod } from "./verification-method"
+export * from "./verification-method"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { Alpha2Code, Alpha3Code } from "i18n-iso-countries"
@@ -31,7 +31,7 @@ export type DataGroupInfo = {
 export type PassportViewModel = {
   mrz: string
   // How the ID was verified; absent on records saved before the field existed (a chip read)
-  credentialScheme?: CredentialScheme
+  verificationMethod?: VerificationMethod
   // First name (without middle names and secondary given names) and last name
   name: string
   // First name (including middle names and secondary given names) and last name
@@ -442,7 +442,7 @@ export type QRCodeData = {
   oprfKeyId: string | null
   returnDeepLink: string | null
   // The credentials the service accepts; null means the default policy
-  allowedCredentials: AllowedCredential[] | null
+  allowedVerificationMethods: AllowedVerificationMethod[] | null
   // What the user said on the hosted page about the document they will add, if asked
   issuingCountry?: string | null
   documentType?: string | null

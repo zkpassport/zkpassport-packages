@@ -3,57 +3,57 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { PassportViewModel } from "../types"
 import {
-  CredentialScheme,
-  CredentialTier,
-  credentialSchemeToHex,
-  expandAllowedCredentials,
-  getCredentialSchemeForPassport,
-  isCredentialAllowed,
-  parseAllowedCredentials,
-  serializeAllowedCredentials,
-  getCredentialSchemeFromAttestedIdProof,
-  getCredentialSchemeFromIntegrityProof,
-  getCredentialSchemeFromOuterProof,
-  getTierForCredentialScheme,
-  hasCredentialScheme,
-  parseCredentialScheme,
-} from "./credential-scheme"
+  VerificationMethod,
+  VerificationTier,
+  verificationMethodToHex,
+  expandAllowedVerificationMethods,
+  getVerificationMethodForPassport,
+  isVerificationMethodAllowed,
+  parseAllowedVerificationMethods,
+  serializeAllowedVerificationMethods,
+  getVerificationMethodFromAttestedIdProof,
+  getVerificationMethodFromIntegrityProof,
+  getVerificationMethodFromOuterProof,
+  getTierForVerificationMethod,
+  hasVerificationMethod,
+  parseVerificationMethod,
+} from "./verification-method"
 import { getNumberOfPublicInputs } from "./index"
 
-describe("credential scheme", () => {
+describe("verification method", () => {
   test("the tier is the hundreds digit, and zero or unknown values are rejected", () => {
-    expect(getTierForCredentialScheme(CredentialScheme.ICAO_CHIP)).toBe(
-      CredentialTier.GOVERNMENT_SIGNED,
+    expect(getTierForVerificationMethod(VerificationMethod.ICAO_CHIP)).toBe(
+      VerificationTier.GOVERNMENT_SIGNED,
     )
-    expect(getTierForCredentialScheme(CredentialScheme.ISO_MDOC)).toBe(
-      CredentialTier.GOVERNMENT_SIGNED,
+    expect(getTierForVerificationMethod(VerificationMethod.ISO_MDOC)).toBe(
+      VerificationTier.GOVERNMENT_SIGNED,
     )
-    expect(getTierForCredentialScheme(CredentialScheme.ATTESTED_CAPTURE_IOS)).toBe(
-      CredentialTier.DEVICE_ATTESTED,
+    expect(getTierForVerificationMethod(VerificationMethod.ATTESTED_CAPTURE_IOS)).toBe(
+      VerificationTier.DEVICE_ATTESTED,
     )
-    expect(getTierForCredentialScheme(CredentialScheme.ATTESTED_CAPTURE_ANDROID)).toBe(
-      CredentialTier.DEVICE_ATTESTED,
+    expect(getTierForVerificationMethod(VerificationMethod.ATTESTED_CAPTURE_ANDROID)).toBe(
+      VerificationTier.DEVICE_ATTESTED,
     )
-    expect(parseCredentialScheme("0xc8")).toBe(CredentialScheme.ATTESTED_CAPTURE_IOS)
-    expect(() => parseCredentialScheme(0n)).toThrow("Unknown credential scheme")
-    expect(() => parseCredentialScheme(1)).toThrow("Unknown credential scheme")
-    expect(() => parseCredentialScheme("0x99")).toThrow("Unknown credential scheme")
-    expect(credentialSchemeToHex(CredentialScheme.ICAO_CHIP)).toBe("0x64")
+    expect(parseVerificationMethod("0xc8")).toBe(VerificationMethod.ATTESTED_CAPTURE_IOS)
+    expect(() => parseVerificationMethod(0n)).toThrow("Unknown verification method")
+    expect(() => parseVerificationMethod(1)).toThrow("Unknown verification method")
+    expect(() => parseVerificationMethod("0x99")).toThrow("Unknown verification method")
+    expect(verificationMethodToHex(VerificationMethod.ICAO_CHIP)).toBe("0x64")
   })
 
   test("a value outside the tier ranges has no tier", () => {
-    expect(getTierForCredentialScheme(199 as CredentialScheme)).toBe(
-      CredentialTier.GOVERNMENT_SIGNED,
+    expect(getTierForVerificationMethod(199 as VerificationMethod)).toBe(
+      VerificationTier.GOVERNMENT_SIGNED,
     )
-    expect(() => getTierForCredentialScheme(99 as CredentialScheme)).toThrow("in no tier")
-    expect(() => getTierForCredentialScheme(300 as CredentialScheme)).toThrow("in no tier")
+    expect(() => getTierForVerificationMethod(99 as VerificationMethod)).toThrow("in no tier")
+    expect(() => getTierForVerificationMethod(300 as VerificationMethod)).toThrow("in no tier")
   })
 
   test("the tiers and schemes match the contracts' Credentials.sol", () => {
     // Every tier and scheme the contracts know, by name, so a value changed or added on one side
     // only fails here. The circuits' copy is checked by the fixture proofs' scheme public input.
     const sol = readFileSync(
-      join(import.meta.dir, "../../../registry-contracts/src/lib/Credentials.sol"),
+      join(import.meta.dir, "../../../registry-contracts/src/lib/VerificationMethods.sol"),
       "utf8",
     )
     const constants = (library: string) => {
@@ -67,59 +67,77 @@ describe("credential scheme", () => {
     }
     const members = (e: object) =>
       Object.fromEntries(Object.entries(e).filter(([, value]) => typeof value === "number"))
-    expect(constants("CredentialTier")).toEqual(members(CredentialTier))
-    expect(constants("CredentialScheme")).toEqual(members(CredentialScheme))
+    expect(constants("VerificationTier")).toEqual(members(VerificationTier))
+    expect(constants("VerificationMethod")).toEqual(members(VerificationMethod))
   })
 
   test("a policy entry is a whole tier or one scheme", () => {
-    expect(isCredentialAllowed(CredentialScheme.ICAO_CHIP)).toBe(true)
-    expect(isCredentialAllowed(CredentialScheme.ATTESTED_CAPTURE_IOS)).toBe(false)
-    const policy = [CredentialTier.GOVERNMENT_SIGNED, CredentialScheme.ATTESTED_CAPTURE_ANDROID]
-    expect(isCredentialAllowed(CredentialScheme.JPKI, policy)).toBe(true)
-    expect(isCredentialAllowed(CredentialScheme.ATTESTED_CAPTURE_ANDROID, policy)).toBe(true)
-    expect(isCredentialAllowed(CredentialScheme.ATTESTED_CAPTURE_IOS, policy)).toBe(false)
-    expect(isCredentialAllowed(CredentialScheme.ICAO_CHIP, [])).toBe(false)
-    expect(expandAllowedCredentials([CredentialTier.DEVICE_ATTESTED])).toEqual([
-      CredentialScheme.ATTESTED_CAPTURE_IOS,
-      CredentialScheme.ATTESTED_CAPTURE_ANDROID,
-      CredentialScheme.ATTESTED_CHIP_READ_IOS,
-      CredentialScheme.ATTESTED_CHIP_READ_ANDROID,
+    expect(isVerificationMethodAllowed(VerificationMethod.ICAO_CHIP)).toBe(true)
+    expect(isVerificationMethodAllowed(VerificationMethod.ATTESTED_CAPTURE_IOS)).toBe(false)
+    const policy = [VerificationTier.GOVERNMENT_SIGNED, VerificationMethod.ATTESTED_CAPTURE_ANDROID]
+    expect(isVerificationMethodAllowed(VerificationMethod.JPKI, policy)).toBe(true)
+    expect(isVerificationMethodAllowed(VerificationMethod.ATTESTED_CAPTURE_ANDROID, policy)).toBe(
+      true,
+    )
+    expect(isVerificationMethodAllowed(VerificationMethod.ATTESTED_CAPTURE_IOS, policy)).toBe(false)
+    expect(isVerificationMethodAllowed(VerificationMethod.ICAO_CHIP, [])).toBe(false)
+    expect(expandAllowedVerificationMethods([VerificationTier.DEVICE_ATTESTED])).toEqual([
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
+      VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+      VerificationMethod.ATTESTED_CHIP_READ_IOS,
+      VerificationMethod.ATTESTED_CHIP_READ_ANDROID,
     ])
-    expect(expandAllowedCredentials([2, 201])).toEqual(expandAllowedCredentials([2]))
-  })
-
-  test("a policy round-trips through its request URL form", () => {
-    const policy = [CredentialTier.GOVERNMENT_SIGNED, CredentialScheme.ATTESTED_CAPTURE_IOS]
-    expect(serializeAllowedCredentials(policy)).toBe("1,200")
-    expect(parseAllowedCredentials("1,200")).toEqual(policy)
-    expect(parseAllowedCredentials("1, 200")).toEqual(policy)
-    expect(parseAllowedCredentials(null)).toBeNull()
-    expect(parseAllowedCredentials("")).toBeNull()
-    expect(() => parseAllowedCredentials("1,7")).toThrow("Unknown credential tier or scheme")
-    expect(() => serializeAllowedCredentials([3 as CredentialTier])).toThrow(
-      "Unknown credential tier or scheme",
+    expect(expandAllowedVerificationMethods([2, 201])).toEqual(
+      expandAllowedVerificationMethods([2]),
     )
   })
 
-  test("the scheme of a saved ID is what was recorded, else its chip", () => {
+  test("a policy round-trips through its request URL form", () => {
+    const policy = [VerificationTier.GOVERNMENT_SIGNED, VerificationMethod.ATTESTED_CAPTURE_IOS]
+    expect(serializeAllowedVerificationMethods(policy)).toBe("1,200")
+    expect(parseAllowedVerificationMethods("1,200")).toEqual(policy)
+    expect(parseAllowedVerificationMethods("1, 200")).toEqual(policy)
+    expect(parseAllowedVerificationMethods(null)).toBeNull()
+    expect(parseAllowedVerificationMethods("")).toBeNull()
+    expect(() => parseAllowedVerificationMethods("1,7")).toThrow(
+      "Unknown verification tier or scheme",
+    )
+    expect(() => serializeAllowedVerificationMethods([3 as VerificationTier])).toThrow(
+      "Unknown verification tier or scheme",
+    )
+  })
+
+  test("the method of a saved ID is what was recorded, else its chip", () => {
     const chip = { sod: {} } as unknown as PassportViewModel
-    expect(getCredentialSchemeForPassport(chip)).toBe(CredentialScheme.ICAO_CHIP)
+    expect(getVerificationMethodForPassport(chip)).toBe(VerificationMethod.ICAO_CHIP)
     const legacyCamera = { sod: undefined } as unknown as PassportViewModel
-    expect(getCredentialSchemeForPassport(legacyCamera)).toBe(CredentialScheme.ATTESTED_CAPTURE_IOS)
+    expect(getVerificationMethodForPassport(legacyCamera)).toBe(
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
+    )
     const android = {
       sod: undefined,
-      credentialScheme: CredentialScheme.ATTESTED_CAPTURE_ANDROID,
+      verificationMethod: VerificationMethod.ATTESTED_CAPTURE_ANDROID,
     } as unknown as PassportViewModel
-    expect(getCredentialSchemeForPassport(android)).toBe(CredentialScheme.ATTESTED_CAPTURE_ANDROID)
+    expect(getVerificationMethodForPassport(android)).toBe(
+      VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+    )
+    // Saved before the rename, under the old field name
+    const savedBefore = {
+      sod: undefined,
+      credentialScheme: VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+    } as unknown as PassportViewModel
+    expect(getVerificationMethodForPassport(savedBefore)).toBe(
+      VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+    )
   })
 
   test("the field exists from circuit version 0.23.0, and never on a proof without a version", () => {
-    expect(hasCredentialScheme("0.21.0")).toBe(false)
+    expect(hasVerificationMethod("0.21.0")).toBe(false)
     // 0.22.0 is live without it
-    expect(hasCredentialScheme("0.22.0")).toBe(false)
-    expect(hasCredentialScheme("0.23.0")).toBe(true)
-    expect(hasCredentialScheme("1.0.0")).toBe(true)
-    expect(hasCredentialScheme(undefined)).toBe(false)
+    expect(hasVerificationMethod("0.22.0")).toBe(false)
+    expect(hasVerificationMethod("0.23.0")).toBe(true)
+    expect(hasVerificationMethod("1.0.0")).toBe(true)
+    expect(hasVerificationMethod(undefined)).toBe(false)
   })
 
   test("public input counts grow by one with the field", () => {
@@ -139,19 +157,19 @@ describe("credential scheme", () => {
   test("reads the scheme from each proof layout", () => {
     const eight = Array.from({ length: 8 }, (_, i) => `0x${i}`)
     expect(
-      getCredentialSchemeFromIntegrityProof({ publicInputs: ["0x1", "0x2"], proof: [] }),
+      getVerificationMethodFromIntegrityProof({ publicInputs: ["0x1", "0x2"], proof: [] }),
     ).toBeUndefined()
     expect(
-      getCredentialSchemeFromIntegrityProof({ publicInputs: ["0x1", "0x2", "0x64"], proof: [] }),
-    ).toBe(CredentialScheme.ICAO_CHIP)
+      getVerificationMethodFromIntegrityProof({ publicInputs: ["0x1", "0x2", "0x64"], proof: [] }),
+    ).toBe(VerificationMethod.ICAO_CHIP)
     expect(
-      getCredentialSchemeFromAttestedIdProof({ publicInputs: ["0xa", "0xb", "0xc9"], proof: [] }),
-    ).toBe(CredentialScheme.ATTESTED_CAPTURE_ANDROID)
+      getVerificationMethodFromAttestedIdProof({ publicInputs: ["0xa", "0xb", "0xc9"], proof: [] }),
+    ).toBe(VerificationMethod.ATTESTED_CAPTURE_ANDROID)
     expect(
-      getCredentialSchemeFromOuterProof({
+      getVerificationMethodFromOuterProof({
         publicInputs: [...eight, "0x3", "0x4", "0x64"],
         proof: [],
       }),
-    ).toBe(CredentialScheme.ICAO_CHIP)
+    ).toBe(VerificationMethod.ICAO_CHIP)
   })
 })

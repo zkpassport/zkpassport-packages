@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { CredentialScheme, CredentialTier } from "../types/credential"
+import { VerificationMethod, VerificationTier } from "../types/verification-method"
 import {
   decideVerificationPaths,
   issueYearRanges,
@@ -10,10 +10,10 @@ import {
 import { BUNDLED_COVERAGE, isCoverage, loadCoverage } from "./loader"
 import type { Coverage, CoverageCountry, CoverageDocument, CoverageReadMethod } from "./types"
 
-const IOS = [CredentialScheme.ICAO_CHIP, CredentialScheme.ATTESTED_CAPTURE_IOS]
-const ANDROID = [CredentialScheme.ICAO_CHIP]
-const SIGNED_ONLY = [CredentialTier.GOVERNMENT_SIGNED]
-const ANY = [CredentialTier.GOVERNMENT_SIGNED, CredentialTier.DEVICE_ATTESTED]
+const IOS = [VerificationMethod.ICAO_CHIP, VerificationMethod.ATTESTED_CAPTURE_IOS]
+const ANDROID = [VerificationMethod.ICAO_CHIP]
+const SIGNED_ONLY = [VerificationTier.GOVERNMENT_SIGNED]
+const ANY = [VerificationTier.GOVERNMENT_SIGNED, VerificationTier.DEVICE_ATTESTED]
 
 const passport = (overrides: Partial<CoverageDocument>): CoverageDocument => ({
   type: "passport",
@@ -57,7 +57,7 @@ describe("decideVerificationPaths", () => {
     const decision = decideVerificationPaths(chipped, {
       country: "TST",
       documentType: "passport",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(decision.outcome).toBe("proceed")
@@ -78,7 +78,7 @@ describe("decideVerificationPaths", () => {
     const query = {
       country: "TST",
       documentType: "driving_license" as const,
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     }
     const readable = decideVerificationPaths(table({ TST: country([licence(true)]) }), query)
@@ -88,13 +88,13 @@ describe("decideVerificationPaths", () => {
     expect(methods(unreadable)).toEqual([])
     const signedOnly = decideVerificationPaths(table({ TST: country([licence(true)]) }), {
       ...query,
-      allowedCredentials: SIGNED_ONLY,
+      allowedVerificationMethods: SIGNED_ONLY,
     })
     expect(signedOnly.outcome).toBe("rejected_by_policy")
   })
 
   test("a national ID without an MRZ is read by camera from its printed text", () => {
-    const camera = { schemes: [CredentialScheme.ATTESTED_CAPTURE_IOS] }
+    const camera = { schemes: [VerificationMethod.ATTESTED_CAPTURE_IOS] }
     const card = (fields: Partial<CoverageDocument>): CoverageDocument => ({
       type: "id_card",
       name: "Resident Identity Card (2004)",
@@ -116,7 +116,7 @@ describe("decideVerificationPaths", () => {
     const query = {
       country: "TST",
       documentType: "id_card" as const,
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     }
     const text = { TST: country([card({ text: true })]) }
@@ -144,12 +144,12 @@ describe("decideVerificationPaths", () => {
     const decision = decideVerificationPaths(chipped, {
       country: "TST",
       documentType: "passport",
-      allowedCredentials: SIGNED_ONLY,
+      allowedVerificationMethods: SIGNED_ONLY,
       supportedSchemes: IOS,
     })
     expect(methods(decision)).toEqual(["nfc:100"])
     expect(decision.refusedByPolicy.map((p) => p.scheme)).toEqual([
-      CredentialScheme.ATTESTED_CAPTURE_IOS,
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
     ])
   })
 
@@ -168,7 +168,7 @@ describe("decideVerificationPaths", () => {
     const decision = decideVerificationPaths(chipless, {
       country: "TST",
       documentType: "passport",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(decision.outcome).toBe("proceed")
@@ -187,7 +187,7 @@ describe("decideVerificationPaths", () => {
     const decision = decideVerificationPaths(noCerts, {
       country: "TST",
       documentType: "passport",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(methods(decision)).toEqual(["camera:200"])
@@ -199,7 +199,7 @@ describe("decideVerificationPaths", () => {
       country: "TST",
       documentType: "passport",
       issueYear: 2016,
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(decision.chipVerifiable).toBe(true)
@@ -215,7 +215,7 @@ describe("decideVerificationPaths", () => {
         country: "TST",
         documentType: "passport",
         issueYear: 2008,
-        allowedCredentials: ANY,
+        allowedVerificationMethods: ANY,
         supportedSchemes: IOS,
       },
     )
@@ -227,7 +227,7 @@ describe("decideVerificationPaths", () => {
     const decision = decideVerificationPaths(mixed, {
       country: "TST",
       documentType: "passport",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(decision.outcome).toBe("ask_chip")
@@ -240,7 +240,7 @@ describe("decideVerificationPaths", () => {
       country: "TST",
       documentType: "passport",
       issueYear: 2019,
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(old.outcome).toBe("proceed")
@@ -251,7 +251,7 @@ describe("decideVerificationPaths", () => {
       country: "TST",
       documentType: "passport",
       issueYear: 2025,
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(recent.documents.map((d) => d.name)).toEqual(["ePassport (2024)"])
@@ -262,7 +262,7 @@ describe("decideVerificationPaths", () => {
     const decision = decideVerificationPaths(chipless, {
       country: "TST",
       documentType: "passport",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: ANDROID,
     })
     expect(decision.outcome).toBe("unsupported")
@@ -273,7 +273,7 @@ describe("decideVerificationPaths", () => {
     const decision = decideVerificationPaths(table({ TST: country([passport({ mrz: false })]) }), {
       country: "TST",
       documentType: "passport",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(decision.outcome).toBe("unsupported")
@@ -289,8 +289,8 @@ describe("decideVerificationPaths", () => {
       {
         country: "IND",
         documentType: "aadhaar",
-        allowedCredentials: ANY,
-        supportedSchemes: [CredentialScheme.UIDAI_AADHAAR],
+        allowedVerificationMethods: ANY,
+        supportedSchemes: [VerificationMethod.UIDAI_AADHAAR],
       },
     )
     expect(decision.outcome).toBe("unsupported")
@@ -318,7 +318,7 @@ describe("decideVerificationPaths", () => {
       country: "IND",
       documentType: "passport",
       issueYear: 2019,
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(india.outcome).toBe("proceed")
@@ -327,7 +327,7 @@ describe("decideVerificationPaths", () => {
     const japan = decideVerificationPaths(BUNDLED_COVERAGE, {
       country: "JPN",
       documentType: "passport",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(japan.outcome).toBe("proceed")
@@ -507,11 +507,11 @@ describe("decideVerificationPaths for cards", () => {
     const decision = decideVerificationPaths(table({ TST: country([card({ from: 2011 })]) }), {
       country: "TST",
       documentType: "id_card",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(decision.outcome).toBe("proceed")
-    expect(methods(decision)).toEqual([`camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`])
+    expect(methods(decision)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
   })
 
   test("an ID card whose chip we can't verify falls back to the camera", () => {
@@ -523,10 +523,15 @@ describe("decideVerificationPaths for cards", () => {
           to: null,
         }),
       }),
-      { country: "TST", documentType: "id_card", allowedCredentials: ANY, supportedSchemes: IOS },
+      {
+        country: "TST",
+        documentType: "id_card",
+        allowedVerificationMethods: ANY,
+        supportedSchemes: IOS,
+      },
     )
     expect(decision.chipVerifiable).toBe(false)
-    expect(methods(decision)).toEqual([`camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`])
+    expect(methods(decision)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
   })
 
   test("an ID card whose chip we can't verify is unsupported for a client without a camera read", () => {
@@ -541,8 +546,8 @@ describe("decideVerificationPaths for cards", () => {
       {
         country: "TST",
         documentType: "id_card",
-        allowedCredentials: ANY,
-        supportedSchemes: [CredentialScheme.ICAO_CHIP],
+        allowedVerificationMethods: ANY,
+        supportedSchemes: [VerificationMethod.ICAO_CHIP],
       },
     )
     expect(decision.outcome).toBe("unsupported")
@@ -554,12 +559,12 @@ describe("decideVerificationPaths for cards", () => {
     const decision = decideVerificationPaths(table({ TST: country([permit]) }), {
       country: "TST",
       documentType: "residence_permit",
-      allowedCredentials: ANY,
+      allowedVerificationMethods: ANY,
       supportedSchemes: IOS,
     })
     expect(methods(decision)).toEqual([
-      `nfc:${CredentialScheme.ICAO_CHIP}`,
-      `camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`,
+      `nfc:${VerificationMethod.ICAO_CHIP}`,
+      `camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`,
     ])
   })
 })
@@ -571,7 +576,11 @@ describe("the chip question", () => {
       passport({ name: "ePassport (2020)", from: 2020, chip: true }),
     ]),
   })
-  const query = { country: "TST", documentType: "passport" as const, allowedCredentials: ANY }
+  const query = {
+    country: "TST",
+    documentType: "passport" as const,
+    allowedVerificationMethods: ANY,
+  }
 
   test("a country with both kinds asks, and the answer decides", () => {
     expect(decideVerificationPaths(mixed, { ...query, supportedSchemes: IOS }).outcome).toBe(
@@ -585,8 +594,8 @@ describe("the chip question", () => {
     expect(withChip.outcome).toBe("proceed")
     expect(withChip.chip).toBe("all")
     expect(methods(withChip)).toEqual([
-      `nfc:${CredentialScheme.ICAO_CHIP}`,
-      `camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`,
+      `nfc:${VerificationMethod.ICAO_CHIP}`,
+      `camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`,
     ])
     const without = decideVerificationPaths(mixed, {
       ...query,
@@ -594,12 +603,12 @@ describe("the chip question", () => {
       hasChip: false,
     })
     expect(without.chip).toBe("none")
-    expect(methods(without)).toEqual([`camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`])
+    expect(methods(without)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
     const signedOnly = decideVerificationPaths(mixed, {
       ...query,
       supportedSchemes: IOS,
       hasChip: false,
-      allowedCredentials: SIGNED_ONLY,
+      allowedVerificationMethods: SIGNED_ONLY,
     })
     expect(signedOnly.outcome).toBe("rejected_by_policy")
   })
@@ -612,12 +621,12 @@ describe("the chip question", () => {
     const camera = decideVerificationPaths(unverifiable, { ...query, supportedSchemes: IOS })
     expect(camera.outcome).toBe("proceed")
     expect(camera.chip).toBe("mixed")
-    expect(methods(camera)).toEqual([`camera:${CredentialScheme.ATTESTED_CAPTURE_IOS}`])
+    expect(methods(camera)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
     // A request for chip reads only: either way the ID can't be used, as the chip can't be checked
     const refused = decideVerificationPaths(unverifiable, {
       ...query,
       supportedSchemes: IOS,
-      allowedCredentials: SIGNED_ONLY,
+      allowedVerificationMethods: SIGNED_ONLY,
     })
     expect(refused.outcome).toBe("rejected_by_policy")
     expect(refused.chipVerifiable).toBe(false)

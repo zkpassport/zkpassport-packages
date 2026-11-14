@@ -26,7 +26,7 @@ export interface CoverageReadMethod {
    * before it existed read `requires` and keep to the MRZ.
    */
   requiresAny?: CoverageDocumentField[]
-  /** The credential schemes a read by this method can produce */
+  /** The verification methods a read by this method can produce */
   schemes: number[]
 }
 

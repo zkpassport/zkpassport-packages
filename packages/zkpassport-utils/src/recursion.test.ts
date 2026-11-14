@@ -7,7 +7,10 @@ import {
   ProofResult,
   getNumberOfPublicInputs,
 } from "."
-import { CredentialScheme, getCredentialSchemeFromOuterProof } from "./circuits/credential-scheme"
+import {
+  VerificationMethod,
+  getVerificationMethodFromOuterProof,
+} from "./circuits/verification-method"
 import {
   getNullifierTypeFromOuterProof,
   getNullifierFromOuterProof,
@@ -242,7 +245,7 @@ describe("getOuterCircuitProof", () => {
   })
 
   test("splits an integrity proof by the public inputs of its circuit version", async () => {
-    // Since 0.23.0 the integrity check outputs the credential scheme after comm_out
+    // Since 0.23.0 the integrity check outputs the verification method after comm_out
     const integrity = { ...circuit, name: "data_check_integrity_sa_sha256_dg_sha256" }
     const proof = { ...subproof, name: integrity.name, version: "0.23.0" as const }
     const split = await getOuterCircuitProof(
@@ -312,7 +315,7 @@ describe("getOuterCircuitProof", () => {
 })
 
 describe("outer proof public inputs since circuit version 0.23.0", () => {
-  // [..., nullifier_type, scoped_nullifier, oprf_pk_hash, credential_scheme]
+  // [..., nullifier_type, scoped_nullifier, oprf_pk_hash, verification_method]
   const proof = {
     proof: [],
     publicInputs: [
@@ -330,12 +333,14 @@ describe("outer proof public inputs since circuit version 0.23.0", () => {
     ],
   }
 
-  test("the trailing fields shift by one for the credential scheme", () => {
+  test("the trailing fields shift by one for the verification method", () => {
     expect(getNullifierTypeFromOuterProof(proof, "0.23.0")).toEqual(NullifierType.SALTED)
     expect(getNullifierFromOuterProof(proof, "0.23.0")).toEqual(0x77n)
     expect(getOprfPkHashFromOuterProof(proof, "0.23.0")).toEqual(0x88n)
     expect(getParamCommitmentsFromOuterProof(proof, "0.23.0")).toEqual([0xaan, 0xbbn])
-    expect(getCredentialSchemeFromOuterProof(proof)).toEqual(CredentialScheme.ATTESTED_CAPTURE_IOS)
+    expect(getVerificationMethodFromOuterProof(proof)).toEqual(
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
+    )
   })
 })
 
@@ -363,7 +368,7 @@ describe("Tier 2 outer circuit", () => {
   })
 
   test("puts the attested ID proof's commitment first and takes its scheme", () => {
-    // iOS: comm_out, param_commitment, credential_scheme
+    // iOS: comm_out, param_commitment, verification_method
     const ios = getAttestedOuterCircuitInputs(
       subproof(["0xc0", "0xa1", "0xc8"]),
       [disclosure],
@@ -371,7 +376,7 @@ describe("Tier 2 outer circuit", () => {
       "0xcert",
     )
     expect(ios.param_commitments).toEqual(["0xa1", "0xd1"])
-    expect(ios.credential_scheme).toEqual("0xc8")
+    expect(ios.verification_method).toEqual("0xc8")
     expect(ios.certificate_registry_root).toEqual("0xcert")
     expect(ios.current_date).toEqual(100)
     expect(ios.scoped_nullifier).toEqual("0xee")
@@ -386,6 +391,6 @@ describe("Tier 2 outer circuit", () => {
       "0xcert",
     )
     expect(android.param_commitments).toEqual(["0xa2", "0xd1"])
-    expect(android.credential_scheme).toEqual("0xc9")
+    expect(android.verification_method).toEqual("0xc9")
   })
 })

@@ -157,7 +157,7 @@ export const PolicyEvaluatorV2Abi = [
             internalType: "string[]",
           },
           {
-            name: "allowedCredentialSchemes",
+            name: "allowedVerificationMethods",
             type: "uint256[]",
             internalType: "uint256[]",
           },
@@ -294,7 +294,7 @@ export const PolicyEvaluatorV2Abi = [
   },
   {
     type: "error",
-    name: "PolicyEvaluator__CredentialSchemeNotAllowed",
+    name: "PolicyEvaluator__VerificationMethodNotAllowed",
     inputs: [],
   },
   {
@@ -319,7 +319,7 @@ export const PolicyEvaluatorV2Abi = [
   },
   {
     type: "error",
-    name: "PolicyEvaluator__InvalidCredentialSchemes",
+    name: "PolicyEvaluator__InvalidVerificationMethods",
     inputs: [],
   },
   {

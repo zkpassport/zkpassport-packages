@@ -215,7 +215,7 @@ function VerifyStep({
         devMode: options.devMode,
         uniqueIdentifierType: options.uniqueIdentifierType,
         oprfKeyId: options.oprfKeyId,
-        allowedCredentials: options.allowedCredentials,
+        allowedVerificationMethods: options.allowedVerificationMethods,
         verifierMode: options.verifierMode,
       },
       query: options.query,
@@ -239,7 +239,9 @@ function VerifyStep({
     },
   )
 
-  const link = useRequestUrl(req.url, { allowedCredentials: options.allowedCredentials })
+  const link = useRequestUrl(req.url, {
+    allowedVerificationMethods: options.allowedVerificationMethods,
+  })
 
   const tryAgain = () => {
     setFailure(null)

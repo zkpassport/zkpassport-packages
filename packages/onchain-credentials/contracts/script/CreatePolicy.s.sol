@@ -24,7 +24,7 @@ import {FaceMatchMode} from "@registry/lib/Types.sol";
  *                                    evaluator's uniqueIdentifierType nullifier
  *   POLICY_INCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
  *   POLICY_EXCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
- *   POLICY_ALLOWED_CREDENTIAL_SCHEMES required by a schema 2 evaluator, comma separated tiers (1, 2)
+ *   POLICY_ALLOWED_VERIFICATION_METHODS required by a schema 2 evaluator, comma separated tiers (1, 2)
  *                                    or exact schemes (100, 200, 201); empty accepts tier 1 only.
  *                                    The requirements are encoded for the deployment's evaluator
  *   POLICY_DURATION_DAYS             default 90; also bounds how stale a sanctions check may be
@@ -88,7 +88,7 @@ contract CreatePolicyScript is Script {
             );
         }
         require(schemaVersion == 2, "Unknown evaluator schema version");
-        uint256[] memory schemes = _uints("POLICY_ALLOWED_CREDENTIAL_SCHEMES");
+        uint256[] memory schemes = _uints("POLICY_ALLOWED_VERIFICATION_METHODS");
         console.log("schemes     ", schemes.length);
         return abi.encode(
             PolicyEvaluatorV2.PolicyRequirements({
@@ -97,7 +97,7 @@ contract CreatePolicyScript is Script {
                 faceMatchMode: faceMatchMode,
                 includedNationalities: included,
                 excludedNationalities: excluded,
-                allowedCredentialSchemes: schemes
+                allowedVerificationMethods: schemes
             })
         );
     }

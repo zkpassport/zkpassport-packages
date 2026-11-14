@@ -10,18 +10,20 @@ const OUTER_TRAILING = [
   "scoped_nullifier",
   "oprf_pk_hash",
   // Since circuit version 0.23.0
-  "credential_scheme",
+  "verification_method",
 ] as const
 
 /** An attested ID (Tier 2 base) proof's last outputs, in order */
-const ATTESTED_ID_TRAILING = ["param_commitment", "credential_scheme"] as const
+const ATTESTED_ID_TRAILING = ["param_commitment", "verification_method"] as const
 
 export type OuterTrailingInput = (typeof OUTER_TRAILING)[number]
 export type AttestedIdTrailingOutput = (typeof ATTESTED_ID_TRAILING)[number]
 
-/** The outer proof's trailing inputs, for a layout with or without the credential scheme */
-export function outerTrailingInputs(withCredentialScheme: boolean): readonly OuterTrailingInput[] {
-  return withCredentialScheme ? OUTER_TRAILING : OUTER_TRAILING.slice(0, 3)
+/** The outer proof's trailing inputs, for a layout with or without the verification method */
+export function outerTrailingInputs(
+  withVerificationMethod: boolean,
+): readonly OuterTrailingInput[] {
+  return withVerificationMethod ? OUTER_TRAILING : OUTER_TRAILING.slice(0, 3)
 }
 
 function trailing<T extends string>(
@@ -40,17 +42,17 @@ function trailing<T extends string>(
 export function getOuterTrailingInput(
   publicInputs: readonly string[],
   name: OuterTrailingInput,
-  withCredentialScheme: boolean,
+  withVerificationMethod: boolean,
 ): string {
-  return trailing(publicInputs, outerTrailingInputs(withCredentialScheme), name)
+  return trailing(publicInputs, outerTrailingInputs(withVerificationMethod), name)
 }
 
 /** Where an outer proof's param commitments end: the index of its first trailing input */
 export function outerTrailingStart(
   publicInputs: readonly string[],
-  withCredentialScheme: boolean,
+  withVerificationMethod: boolean,
 ): number {
-  return publicInputs.length - outerTrailingInputs(withCredentialScheme).length
+  return publicInputs.length - outerTrailingInputs(withVerificationMethod).length
 }
 
 /** One of an attested ID proof's last outputs */

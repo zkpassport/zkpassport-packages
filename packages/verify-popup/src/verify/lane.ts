@@ -1,8 +1,8 @@
 import {
-  CredentialTier,
-  expandAllowedCredentials,
-  getTierForCredentialScheme,
-  type AllowedCredential,
+  VerificationTier,
+  expandAllowedVerificationMethods,
+  getTierForVerificationMethod,
+  type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 
 /** Where the ID will be read; the popup learns it from the browser or assumes a phone that can do everything */
@@ -11,9 +11,11 @@ export type PhoneOs = "ios" | "android" | "unknown"
 export type Lane = "r" | "c"
 
 /** Whether every credential the policy accepts is read from a chip */
-export function chipOnlyPolicy(allowedCredentials?: readonly AllowedCredential[]): boolean {
-  return expandAllowedCredentials(allowedCredentials).every(
-    (scheme) => getTierForCredentialScheme(scheme) === CredentialTier.GOVERNMENT_SIGNED,
+export function chipOnlyPolicy(
+  allowedVerificationMethods?: readonly AllowedVerificationMethod[],
+): boolean {
+  return expandAllowedVerificationMethods(allowedVerificationMethods).every(
+    (scheme) => getTierForVerificationMethod(scheme) === VerificationTier.GOVERNMENT_SIGNED,
   )
 }
 
@@ -22,11 +24,13 @@ export function chipOnlyPolicy(allowedCredentials?: readonly AllowedCredential[]
  * accepts nothing but chip reads, the relying party allows the lane and the phone is not Android.
  */
 export function laneFor(
-  allowedCredentials: readonly AllowedCredential[] | undefined,
+  allowedVerificationMethods: readonly AllowedVerificationMethod[] | undefined,
   appClipAllowed: boolean,
   os: PhoneOs,
 ): Lane {
-  return appClipAllowed && os !== "android" && chipOnlyPolicy(allowedCredentials) ? "c" : "r"
+  return appClipAllowed && os !== "android" && chipOnlyPolicy(allowedVerificationMethods)
+    ? "c"
+    : "r"
 }
 
 /** The request URL on the given lane */

@@ -52,7 +52,7 @@ library PublicInput {
     uint256 constant NULLIFIER_TYPE_OFFSET_FROM_END = 4;
     uint256 constant SCOPED_NULLIFIER_OFFSET_FROM_END = 3;
     uint256 constant OPRF_PK_HASH_OFFSET_FROM_END = 2;
-    uint256 constant CREDENTIAL_SCHEME_OFFSET_FROM_END = 1;
+    uint256 constant VERIFICATION_METHOD_OFFSET_FROM_END = 1;
 }
 
 // Gather all the MRZ indices in one place

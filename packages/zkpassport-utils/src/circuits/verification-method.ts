@@ -1,25 +1,25 @@
-import { CredentialScheme, PassportViewModel } from "../types"
-import { parseCredentialScheme } from "../types/credential"
+import { VerificationMethod, PassportViewModel } from "../types"
+import { parseVerificationMethod } from "../types/verification-method"
 import { isChiplessPassport } from "./attested-id"
 import { ProofData } from "./index"
 import { getAttestedIdTrailingOutput, getOuterTrailingInput } from "./public-input-layout"
 
 export {
-  CredentialScheme,
-  CredentialTier,
-  DEFAULT_ALLOWED_CREDENTIALS,
-  getTierForCredentialScheme,
-  isCredentialAllowed,
-  expandAllowedCredentials,
-  parseCredentialScheme,
-  parseAllowedCredential,
-  parseAllowedCredentials,
-  serializeAllowedCredentials,
-} from "../types/credential"
-export type { AllowedCredential } from "../types/credential"
+  VerificationMethod,
+  VerificationTier,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  getTierForVerificationMethod,
+  isVerificationMethodAllowed,
+  expandAllowedVerificationMethods,
+  parseVerificationMethod,
+  parseAllowedVerificationMethod,
+  parseAllowedVerificationMethods,
+  serializeAllowedVerificationMethods,
+} from "../types/verification-method"
+export type { AllowedVerificationMethod } from "../types/verification-method"
 
-/** The first circuit version whose proofs carry the credential scheme */
-export const CREDENTIAL_SCHEME_CIRCUIT_VERSION = "0.23.0"
+/** The first circuit version whose proofs carry the verification method */
+export const VERIFICATION_METHOD_CIRCUIT_VERSION = "0.23.0"
 
 const CIRCUIT_VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/
 
@@ -46,29 +46,32 @@ function compareVersions(a: string, b: string): number {
 }
 
 /**
- * Whether proofs of a circuit version carry the credential scheme. Proofs always state their
+ * Whether proofs of a circuit version carry the verification method. Proofs always state their
  * version; one without is from before the field existed and is read with the older layout. A
  * verifier must not take that on the prover's word: it requires the version (`isCircuitVersion`).
  * Throws on a malformed version.
  */
-export function hasCredentialScheme(circuitVersion?: string): boolean {
+export function hasVerificationMethod(circuitVersion?: string): boolean {
   if (!circuitVersion) return false
-  return compareVersions(circuitVersion, CREDENTIAL_SCHEME_CIRCUIT_VERSION) >= 0
+  return compareVersions(circuitVersion, VERIFICATION_METHOD_CIRCUIT_VERSION) >= 0
 }
 
 /**
- * The scheme an ID proves under: the one recorded when it was added, else its chip. A camera-read
- * record from before the field existed came from the iOS build, the only one that made them.
+ * The method an ID proves under: the one recorded when it was added, else its chip. A record saved
+ * before the rename holds it as `credentialScheme`; a camera-read record from before either field
+ * existed came from the iOS build, the only one that made them.
  */
-export function getCredentialSchemeForPassport(passport: PassportViewModel): CredentialScheme {
-  if (passport.credentialScheme) return passport.credentialScheme
+export function getVerificationMethodForPassport(passport: PassportViewModel): VerificationMethod {
+  if (passport.verificationMethod) return passport.verificationMethod
+  const legacy = (passport as { credentialScheme?: VerificationMethod }).credentialScheme
+  if (legacy) return legacy
   return isChiplessPassport(passport)
-    ? CredentialScheme.ATTESTED_CAPTURE_IOS
-    : CredentialScheme.ICAO_CHIP
+    ? VerificationMethod.ATTESTED_CAPTURE_IOS
+    : VerificationMethod.ICAO_CHIP
 }
 
 /** The scheme as a circuit input */
-export function credentialSchemeToHex(scheme: CredentialScheme): string {
+export function verificationMethodToHex(scheme: VerificationMethod): string {
   return `0x${scheme.toString(16)}`
 }
 
@@ -76,23 +79,23 @@ export function credentialSchemeToHex(scheme: CredentialScheme): string {
 // proof's last public input. Disclosure proofs carry no scheme: the commitment ties them to the
 // base proof that states it.
 
-export function getCredentialSchemeFromIntegrityProof(
+export function getVerificationMethodFromIntegrityProof(
   proofData: ProofData,
-): CredentialScheme | undefined {
+): VerificationMethod | undefined {
   return proofData.publicInputs.length > 2
-    ? parseCredentialScheme(proofData.publicInputs[2])
+    ? parseVerificationMethod(proofData.publicInputs[2])
     : undefined
 }
 
-export function getCredentialSchemeFromAttestedIdProof(proofData: ProofData): CredentialScheme {
-  return parseCredentialScheme(
-    getAttestedIdTrailingOutput(proofData.publicInputs, "credential_scheme"),
+export function getVerificationMethodFromAttestedIdProof(proofData: ProofData): VerificationMethod {
+  return parseVerificationMethod(
+    getAttestedIdTrailingOutput(proofData.publicInputs, "verification_method"),
   )
 }
 
 /** The scheme an outer proof states: only one from circuit version 0.23.0 on has one */
-export function getCredentialSchemeFromOuterProof(proofData: ProofData): CredentialScheme {
-  return parseCredentialScheme(
-    getOuterTrailingInput(proofData.publicInputs, "credential_scheme", true),
+export function getVerificationMethodFromOuterProof(proofData: ProofData): VerificationMethod {
+  return parseVerificationMethod(
+    getOuterTrailingInput(proofData.publicInputs, "verification_method", true),
   )
 }

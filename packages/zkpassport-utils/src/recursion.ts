@@ -9,7 +9,7 @@ import {
   ProofResult,
   ultraVkToFields,
 } from "."
-import { hasCredentialScheme } from "./circuits/credential-scheme"
+import { hasVerificationMethod } from "./circuits/verification-method"
 import {
   getAttestedIdTrailingOutput,
   getOuterTrailingInput,
@@ -24,7 +24,7 @@ const outerTrailing = (
   proofData: ProofData,
   name: Parameters<typeof getOuterTrailingInput>[1],
   circuitVersion?: string,
-) => getOuterTrailingInput(proofData.publicInputs, name, hasCredentialScheme(circuitVersion))
+) => getOuterTrailingInput(proofData.publicInputs, name, hasVerificationMethod(circuitVersion))
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -181,7 +181,7 @@ export function getOuterCircuitInputs(
     circuit_registry_root: circuitRegistryRoot,
     ...disclosure,
     // Output by the base proof; the outer checks it
-    credential_scheme: integrityCheckProof.publicInputs[2],
+    verification_method: integrityCheckProof.publicInputs[2],
     // Remove the certificate registry root from the public inputs
     csc_to_dsc_proof: asOuterSubproof(cscToDscProof, cscToDscProof.publicInputs.slice(1)),
     dsc_to_id_data_proof: asOuterSubproof(dscToIdDataProof),
@@ -238,7 +238,7 @@ export function getAttestedOuterCircuitInputs(
       getAttestedIdTrailingOutput(attested, "param_commitment"),
       ...disclosure.param_commitments,
     ],
-    credential_scheme: getAttestedIdTrailingOutput(attested, "credential_scheme"),
+    verification_method: getAttestedIdTrailingOutput(attested, "verification_method"),
     attested_id_proof: asOuterSubproof(attestedIdProof),
   }
 }
@@ -316,6 +316,6 @@ export function getParamCommitmentsFromOuterProof(
 ): bigint[] {
   // The 5 header inputs, then the commitments, then the trailing inputs
   return proofData.publicInputs
-    .slice(5, outerTrailingStart(proofData.publicInputs, hasCredentialScheme(circuitVersion)))
+    .slice(5, outerTrailingStart(proofData.publicInputs, hasVerificationMethod(circuitVersion)))
     .map(BigInt)
 }

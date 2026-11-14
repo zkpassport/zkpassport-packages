@@ -14,7 +14,7 @@ import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
 import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {SECONDS_BETWEEN_1900_AND_1970, PublicInput, AppAttest, RegistryID} from "./lib/Constants.sol";
-import {Credentials} from "./lib/Credentials.sol";
+import {VerificationMethods} from "./lib/VerificationMethods.sol";
 import {ProofType, DisclosedData, BoundData, FaceMatchMode, Environment, OS, NullifierType} from "./lib/Types.sol";
 
 contract VerifierHelper {
@@ -506,40 +506,42 @@ contract VerifierHelper {
     }
 
     /**
-     * @notice Gets the credential scheme the ID was verified with, see lib/Credentials.sol
+     * @notice Gets the verification method the ID was verified with, see lib/VerificationMethods.sol
      * @param publicInputs The public inputs of the proof
-     * @return The credential scheme
+     * @return The verification method
      */
-    function getCredentialScheme(bytes32[] calldata publicInputs) public pure returns (uint256) {
-        return uint256(publicInputs[publicInputs.length - PublicInput.CREDENTIAL_SCHEME_OFFSET_FROM_END]);
+    function getVerificationMethod(bytes32[] calldata publicInputs) public pure returns (uint256) {
+        return uint256(publicInputs[publicInputs.length - PublicInput.VERIFICATION_METHOD_OFFSET_FROM_END]);
     }
 
     /**
-     * @notice Whether the proof's credential scheme is in a list of accepted ones
-     * @param allowedCredentialSchemes Exact schemes (e.g. 201) and/or whole tiers (an entry below 100,
+     * @notice Whether the proof's verification method is in a list of accepted ones
+     * @param allowedVerificationMethods Exact schemes (e.g. 201) and/or whole tiers (an entry below 100,
      *        e.g. 1 for every issuer-signed scheme), so [1, 201] accepts tier 1 and Android camera reads.
      *        Empty means tier 1 only.
      * @param publicInputs The public inputs of the proof
      * @return True if accepted, false otherwise
      */
-    function isCredentialSchemeAllowed(uint256[] memory allowedCredentialSchemes, bytes32[] calldata publicInputs)
+    function isVerificationMethodAllowed(uint256[] memory allowedVerificationMethods, bytes32[] calldata publicInputs)
         public
         pure
         returns (bool)
     {
-        return Credentials.isAllowed(getCredentialScheme(publicInputs), allowedCredentialSchemes);
+        return VerificationMethods.isAllowed(getVerificationMethod(publicInputs), allowedVerificationMethods);
     }
 
     /**
-     * @notice Reverts unless the proof's credential scheme is accepted, see isCredentialSchemeAllowed
-     * @param allowedCredentialSchemes Exact schemes and/or whole tiers; empty means tier 1 only
+     * @notice Reverts unless the proof's verification method is accepted, see isVerificationMethodAllowed
+     * @param allowedVerificationMethods Exact schemes and/or whole tiers; empty means tier 1 only
      * @param publicInputs The public inputs of the proof
      */
-    function enforceCredentialScheme(uint256[] memory allowedCredentialSchemes, bytes32[] calldata publicInputs)
+    function enforceVerificationMethod(uint256[] memory allowedVerificationMethods, bytes32[] calldata publicInputs)
         external
         pure
     {
-        require(isCredentialSchemeAllowed(allowedCredentialSchemes, publicInputs), "Credential scheme not allowed");
+        require(
+            isVerificationMethodAllowed(allowedVerificationMethods, publicInputs), "Verification method not allowed"
+        );
     }
 
     /**

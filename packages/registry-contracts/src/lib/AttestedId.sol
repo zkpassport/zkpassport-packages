@@ -10,7 +10,7 @@
 pragma solidity ^0.8.30;
 
 import {AppAttest} from "./Constants.sol";
-import {CredentialScheme} from "./Credentials.sol";
+import {VerificationMethod} from "./VerificationMethods.sol";
 import {Environment, FaceMatchMode} from "./Types.sol";
 
 /**
@@ -19,7 +19,7 @@ import {Environment, FaceMatchMode} from "./Types.sol";
  */
 library AttestedId {
     function isValid(
-        uint256 credentialScheme,
+        uint256 verificationMethod,
         bytes32 rootKeyHash,
         Environment environment,
         bytes32 appIdHash,
@@ -29,11 +29,11 @@ library AttestedId {
         if (environment != Environment.PRODUCTION || mode != FaceMatchMode.STRICT) {
             return false;
         }
-        if (credentialScheme == CredentialScheme.ATTESTED_CAPTURE_IOS) {
+        if (verificationMethod == VerificationMethod.ATTESTED_CAPTURE_IOS) {
             return rootKeyHash == AppAttest.APPLE_ROOT_KEY_HASH && appIdHash == AppAttest.IOS_APP_ID_HASH
                 && integrityPublicKeyHash == bytes32(0);
         }
-        if (credentialScheme == CredentialScheme.ATTESTED_CAPTURE_ANDROID) {
+        if (verificationMethod == VerificationMethod.ATTESTED_CAPTURE_ANDROID) {
             return (rootKeyHash == AppAttest.GOOGLE_RSA_ROOT_KEY_HASH
                     || rootKeyHash == AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH)
                 && appIdHash == AppAttest.ANDROID_APP_ID_HASH

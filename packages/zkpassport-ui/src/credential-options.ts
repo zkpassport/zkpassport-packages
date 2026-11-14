@@ -77,7 +77,7 @@ export async function buildCredentialCardOptions(
     // verdict where that API is unreachable (local dev has no CORS grant).
     verifierMode: "auto",
     uniqueIdentifierType: request.uniqueIdentifierType,
-    allowedCredentials: request.allowedCredentials,
+    allowedVerificationMethods: request.allowedVerificationMethods,
     query: request.query,
     onReady: options.onReady,
     onRetryClicked: options.onRetryClicked,
