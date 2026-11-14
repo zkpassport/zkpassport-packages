@@ -1,4 +1,5 @@
 export { createRegistryClient, RegistryClient } from "./client"
 export { getNetworkConstants } from "./networks"
+export { withLocalCertificates } from "./local-certificates"
 export type { RootDetails } from "./types"
 export type { PackagedCertificatesFile } from "@zkpassport/utils/types"
