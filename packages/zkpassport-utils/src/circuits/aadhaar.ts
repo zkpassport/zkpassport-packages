@@ -83,6 +83,13 @@ export const UIDAI_PUBLIC_KEYS: UidaiPublicKey[] = [
     validFrom: "2024-02-21",
     validTo: "2026-02-16",
   },
+  {
+    name: "uidai_offline_publickey_2026",
+    modulus:
+      "875fb3627bdb7049b4633ef7b39bb8da876950932bf70bf96d5c3bb0e1399c535bac1f94fbee48d1ff1c2f61e81e724e930bcb673ac3d231bfbf100a8babe28bf82313350482b91d207c4c3f70fa189b343124078845ef2063b03c81f704bb4139cde6dbc355353e90f62ab4814c2ec67961577f1474d842965a8d6215a600c3c99089a068aad166f636a5636cea077e3e5005ffd48eebdc77fb599e03c90f93666f41a9d9971f6d7da13178e7bda2bdcd4222b2dbe51bb57ae972801f61b6d68b5394cd78b96c97616c6a76dfd7357d7e942b250ce4850c63e9b723bc2ed9643b96678eda7fefc33433fcf2875cf598bb76f275630b7428b4eef39006acc22b",
+    validFrom: "2026-02-03",
+    validTo: "2029-02-03",
+  },
 ]
 
 export type AadhaarQrData = {
