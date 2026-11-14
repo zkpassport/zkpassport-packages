@@ -10,13 +10,21 @@ import {
   ultraVkToFields,
 } from "."
 import { hasCredentialScheme } from "./circuits/credential-scheme"
+import {
+  getAttestedIdTrailingOutput,
+  getOuterTrailingInput,
+  outerTrailingStart,
+} from "./circuits/public-input-layout"
 
 const BASE_SUBPROOF_COUNT = 3
 const MAX_OUTER_DISCLOSURE_PROOFS = 10
 
-// Trailing outer public inputs: nullifier_type, scoped_nullifier, oprf_pk_hash, and since
-// circuit version 0.23.0 the credential scheme
-const trailingCount = (circuitVersion?: string) => (hasCredentialScheme(circuitVersion) ? 4 : 3)
+/** One of an outer proof's trailing public inputs, in the layout of its circuit version */
+const outerTrailing = (
+  proofData: ProofData,
+  name: Parameters<typeof getOuterTrailingInput>[1],
+  circuitVersion?: string,
+) => getOuterTrailingInput(proofData.publicInputs, name, hasCredentialScheme(circuitVersion))
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -226,9 +234,11 @@ export function getAttestedOuterCircuitInputs(
     certificate_registry_root: certificateRegistryRoot,
     circuit_registry_root: circuitRegistryRoot,
     ...disclosure,
-    // The attested ID proof's outputs end with param_commitment and credential_scheme
-    param_commitments: [attested[attested.length - 2], ...disclosure.param_commitments],
-    credential_scheme: attested[attested.length - 1],
+    param_commitments: [
+      getAttestedIdTrailingOutput(attested, "param_commitment"),
+      ...disclosure.param_commitments,
+    ],
+    credential_scheme: getAttestedIdTrailingOutput(attested, "credential_scheme"),
     attested_id_proof: asOuterSubproof(attestedIdProof),
   }
 }
@@ -267,9 +277,7 @@ export function getNullifierTypeFromOuterProof(
   proofData: ProofData,
   circuitVersion?: string,
 ): NullifierType {
-  const nullifierType = BigInt(
-    proofData.publicInputs[proofData.publicInputs.length - trailingCount(circuitVersion)],
-  )
+  const nullifierType = BigInt(outerTrailing(proofData, "nullifier_type", circuitVersion))
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -290,15 +298,11 @@ export function getNullifierTypeFromOuterProof(
  * @returns The scoped nullifier.
  */
 export function getNullifierFromOuterProof(proofData: ProofData, circuitVersion?: string): bigint {
-  return BigInt(
-    proofData.publicInputs[proofData.publicInputs.length - trailingCount(circuitVersion) + 1],
-  )
+  return BigInt(outerTrailing(proofData, "scoped_nullifier", circuitVersion))
 }
 
 export function getOprfPkHashFromOuterProof(proofData: ProofData, circuitVersion?: string): bigint {
-  return BigInt(
-    proofData.publicInputs[proofData.publicInputs.length - trailingCount(circuitVersion) + 2],
-  )
+  return BigInt(outerTrailing(proofData, "oprf_pk_hash", circuitVersion))
 }
 
 /**
@@ -310,9 +314,8 @@ export function getParamCommitmentsFromOuterProof(
   proofData: ProofData,
   circuitVersion?: string,
 ): bigint[] {
-  // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash, and
-  // since circuit version 0.23.0 the credential scheme.
+  // The 5 header inputs, then the commitments, then the trailing inputs
   return proofData.publicInputs
-    .slice(5, proofData.publicInputs.length - trailingCount(circuitVersion))
+    .slice(5, outerTrailingStart(proofData.publicInputs, hasCredentialScheme(circuitVersion)))
     .map(BigInt)
 }

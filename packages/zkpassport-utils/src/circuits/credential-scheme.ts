@@ -2,6 +2,7 @@ import { CredentialScheme, PassportViewModel } from "../types"
 import { parseCredentialScheme } from "../types/credential"
 import { isChiplessPassport } from "./attested-id"
 import { ProofData } from "./index"
+import { getAttestedIdTrailingOutput, getOuterTrailingInput } from "./public-input-layout"
 
 export {
   CredentialScheme,
@@ -84,9 +85,14 @@ export function getCredentialSchemeFromIntegrityProof(
 }
 
 export function getCredentialSchemeFromAttestedIdProof(proofData: ProofData): CredentialScheme {
-  return parseCredentialScheme(proofData.publicInputs[proofData.publicInputs.length - 1])
+  return parseCredentialScheme(
+    getAttestedIdTrailingOutput(proofData.publicInputs, "credential_scheme"),
+  )
 }
 
+/** The scheme an outer proof states: only one from circuit version 0.23.0 on has one */
 export function getCredentialSchemeFromOuterProof(proofData: ProofData): CredentialScheme {
-  return parseCredentialScheme(proofData.publicInputs[proofData.publicInputs.length - 1])
+  return parseCredentialScheme(
+    getOuterTrailingInput(proofData.publicInputs, "credential_scheme", true),
+  )
 }
