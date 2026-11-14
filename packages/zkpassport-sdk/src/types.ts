@@ -74,11 +74,7 @@ export type VerificationConfig = {
    * and `<url>/by-hash/<vkey hash>.json`.
    */
   circuitsUrl?: string
-  /**
-   * Dev mode only: a packaged certificates file whose root is accepted as a valid certificate
-   * registry root, for verifying proofs made against certificates that are not published yet,
-   * such as `serve-circuits`' `certificates.json`. The app must prove with the same file.
-   */
+  /** Dev mode only: a certificates file whose root is trusted, e.g. `serve-circuits`' */
   certificatesUrl?: string
 }
 

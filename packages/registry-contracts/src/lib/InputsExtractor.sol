@@ -340,10 +340,7 @@ library InputsExtractor {
         return readFacematchProofInputs(committedInputs);
     }
 
-    /**
-     * @notice Reads the parameters of the one face match proof, as getFacematchProofInputs, for
-     *         contracts that call it without linking this library
-     */
+    /// @notice Internal, so contracts can call it without linking this library
     function readFacematchProofInputs(bytes calldata committedInputs)
         internal
         pure

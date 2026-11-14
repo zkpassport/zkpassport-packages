@@ -43,11 +43,7 @@ library AttestedId {
     }
 }
 
-/**
- * @notice A face match proof takes its attestation root key as an input, so it only shows the
- *         ZKPassport app matched the face on a genuine device if the verifier pins the root key,
- *         the app and the environment, as here for either platform
- */
+/// @notice The face match circuit takes its root key as an input, so the verifier must pin it and the app
 library FaceMatch {
     function isGenuine(bytes32 rootKeyHash, Environment environment, bytes32 appIdHash, bytes32 integrityPublicKeyHash)
         internal

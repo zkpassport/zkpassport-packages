@@ -1,13 +1,7 @@
 import type { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import type { RegistryClient } from "./client"
 
-/**
- * For development: makes a registry client take its certificates from a packaged certificates
- * file served at `url` (as the circuits repo's `serve-circuits` serves `certificates.json`), and
- * treat that file's root as the latest valid certificate root, so certificates that are not
- * published yet can be proven and verified against. Every other root is still checked on chain.
- * When nothing is served at `url`, the client is unchanged.
- */
+/** Development only: trusts the root of the certificates file served at `url` */
 export function withLocalCertificates<T extends RegistryClient>(client: T, url: string): T {
   let local: Promise<PackagedCertificatesFile | null> | undefined
   const load = () =>

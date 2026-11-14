@@ -2204,8 +2204,6 @@ export class PublicInputChecker {
         },
       }
     }
-    // A face match the service did not request (an Aadhaar always comes with one) may be in
-    // either mode; a requested one must be in the mode requested
     const requestedMode = originalQuery.facematch?.mode
     if (
       (queryResult.facematch && facematchCommittedInputs.mode !== queryResult.facematch.mode) ||
@@ -2453,7 +2451,6 @@ export class PublicInputChecker {
     const proofOrder = [
       // Tier 2 base: the device attested the camera-read ID, in place of the three chip proofs
       "attested_id",
-      // Aadhaar base: UIDAI signed the QR code, in place of the three chip proofs
       AADHAAR_CIRCUIT_NAME,
       "sig_check_dsc",
       "sig_check_id_data",
@@ -3119,8 +3116,7 @@ export class PublicInputChecker {
         }
       } else if (proof.name === AADHAAR_CIRCUIT_NAME) {
         commitmentOut = getCommitmentOutFromAadhaarProof(proofData)
-        credentialScheme = getCredentialSchemeFromAttestedIdProof(proofData)
-        // The circuit proves the UIDAI key is in the Certificate Registry under this root
+        verificationMethod = getVerificationMethodFromAttestedIdProof(proofData)
         const {
           isCorrect: isCorrectCertificateRegistryRoot,
           queryResultErrors: queryResultErrorsCertificateRegistryRoot,
@@ -4032,10 +4028,8 @@ export class PublicInputChecker {
       uniqueIdentifier = undefined
     }
 
-    // Anyone holding a copy of an Aadhaar QR code could prove with it, so only a face match
-    // against its photo ties it to the person proving
     if (
-      credentialScheme === CredentialScheme.UIDAI_AADHAAR &&
+      verificationMethod === VerificationMethod.UIDAI_AADHAAR &&
       !sortedProofs.some(
         (p) =>
           p.name?.startsWith("facematch") ||
@@ -4055,7 +4049,7 @@ export class PublicInputChecker {
       }
     }
     if (
-      credentialScheme === CredentialScheme.UIDAI_AADHAAR &&
+      verificationMethod === VerificationMethod.UIDAI_AADHAAR &&
       !isAadhaarNationalityConditionAllowed(originalQuery.nationality)
     ) {
       console.warn(

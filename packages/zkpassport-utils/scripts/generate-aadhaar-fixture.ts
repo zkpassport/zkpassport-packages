@@ -1,10 +1,4 @@
-/**
- * Writes the aadhaar_id test fixture the circuits repo proves: a V2 Secure QR code signed by a
- * throwaway RSA-2048 key, a Certificate Registry holding that key as a UIDAI certificate, the
- * circuit inputs and the outputs the circuit must give.
- *
- *   bun scripts/generate-aadhaar-fixture.ts <circuits repo>/src/ts/tests/fixtures/aadhaar.json
- */
+// bun scripts/generate-aadhaar-fixture.ts <circuits repo>/src/ts/tests/fixtures/aadhaar.json
 import { createSign, generateKeyPairSync } from "crypto"
 import { writeFileSync } from "fs"
 import {
