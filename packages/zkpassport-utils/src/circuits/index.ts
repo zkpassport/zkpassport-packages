@@ -216,6 +216,8 @@ export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: st
     // A Tier 2 outer proof commits to its attested ID proof's parameters and the disclosure
     // proofs', and always carries the credential scheme
     if (circuitName.includes("_attested_")) return 9 + subproofCount
+    // An Aadhaar outer proof commits to the disclosure proofs' parameters only
+    if (circuitName.includes("_aadhaar_")) return 8 + subproofCount
     return 8 + scheme + subproofCount - 3
   }
   // Any other circuits are assumed to be disclosure circuits

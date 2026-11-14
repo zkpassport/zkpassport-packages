@@ -2577,10 +2577,23 @@ export class PublicInputChecker {
         // A Tier 2 outer proof always carries its scheme, whatever version it states, so a proof
         // can't pass as a chip read by leaving out its version
         const isAttestedOuter = proof.name!.includes("_attested_")
+        const isAadhaarOuter = proof.name!.includes("_aadhaar_")
         credentialScheme =
-          isAttestedOuter || hasCredentialScheme(proof.version)
+          isAttestedOuter || isAadhaarOuter || hasCredentialScheme(proof.version)
             ? getCredentialSchemeFromOuterProof(proofData)
             : CredentialScheme.ICAO_CHIP
+        if (isAadhaarOuter && credentialScheme !== CredentialScheme.UIDAI_AADHAAR) {
+          console.warn("An Aadhaar outer proof states another credential scheme")
+          isCorrect = false
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            certificate: {
+              expected: `Credential scheme ${CredentialScheme.UIDAI_AADHAAR}`,
+              received: `Credential scheme ${credentialScheme}`,
+              message: "An Aadhaar outer proof states another credential scheme",
+            },
+          }
+        }
         if (
           isAttestedOuter &&
           getTierForCredentialScheme(credentialScheme) !== CredentialTier.DEVICE_ATTESTED
@@ -4023,7 +4036,12 @@ export class PublicInputChecker {
     // against its photo ties it to the person proving
     if (
       credentialScheme === CredentialScheme.UIDAI_AADHAAR &&
-      !sortedProofs.some((p) => p.name?.startsWith("facematch"))
+      !sortedProofs.some(
+        (p) =>
+          p.name?.startsWith("facematch") ||
+          (p.name?.startsWith("outer") &&
+            (!!p.committedInputs?.facematch || !!p.committedInputs?.facematch_evm)),
+      )
     ) {
       console.warn("An Aadhaar proof must come with a face match against its photo")
       isCorrect = false
