@@ -20,19 +20,35 @@ export type { AllowedCredential } from "../types/credential"
 /** The first circuit version whose proofs carry the credential scheme */
 export const CREDENTIAL_SCHEME_CIRCUIT_VERSION = "0.23.0"
 
+const CIRCUIT_VERSION = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/
+
+/** Whether a circuit version is well formed: major.minor.patch, with an optional pre-release */
+export function isCircuitVersion(circuitVersion: unknown): circuitVersion is string {
+  return typeof circuitVersion === "string" && CIRCUIT_VERSION.test(circuitVersion)
+}
+
+// A pre-release counts as its release, so 0.23.0-rc.1 carries the scheme like 0.23.0 (as the Rust
+// core reads it)
+function versionParts(version: string): number[] {
+  const match = CIRCUIT_VERSION.exec(version)
+  if (!match) throw new Error(`Malformed circuit version: ${version}`)
+  return match.slice(1, 4).map(Number)
+}
+
 function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map((x) => Number(x))
-  const pb = b.split(".").map((x) => Number(x))
+  const pa = versionParts(a)
+  const pb = versionParts(b)
   for (let i = 0; i < 3; i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0)
-    if (d !== 0) return d
+    if (pa[i] !== pb[i]) return pa[i] - pb[i]
   }
   return 0
 }
 
 /**
  * Whether proofs of a circuit version carry the credential scheme. Proofs always state their
- * version; one without is from before the field existed and is read with the older layout.
+ * version; one without is from before the field existed and is read with the older layout. A
+ * verifier must not take that on the prover's word: it requires the version (`isCircuitVersion`).
+ * Throws on a malformed version.
  */
 export function hasCredentialScheme(circuitVersion?: string): boolean {
   if (!circuitVersion) return false

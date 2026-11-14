@@ -21,6 +21,8 @@ import {
   CredentialScheme,
   CredentialTier,
   serializeAllowedCredentials,
+  isCircuitVersion,
+  isCredentialAllowed,
   type AllowedCredential,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
@@ -95,6 +97,27 @@ function realNullifierType({
     return uniqueIdentifier === undefined ? NullifierType.NONE : NullifierType.NON_SALTED
   }
   return uniqueIdentifierType
+}
+
+/**
+ * Applies the service's credential policy to a result, whichever verifier gave it: the hosted
+ * verifier checks proofs under the default policy, not the service's. A result without a scheme
+ * comes from a verifier that predates it, which only knew chip reads.
+ */
+function enforceCredentialPolicy(
+  result: VerificationResult,
+  allowedCredentials: AllowedCredential[] | undefined,
+): VerificationResult {
+  if (!result.verified) return result
+  const scheme = result.credentialScheme ?? CredentialScheme.ICAO_CHIP
+  if (isCredentialAllowed(scheme, allowedCredentials)) return result
+  console.warn(`The credential scheme ${scheme} is not one the service accepts`)
+  return {
+    ...result,
+    verified: false,
+    uniqueIdentifier: undefined,
+    uniqueIdentifierType: undefined,
+  }
 }
 
 function enforceUniqueIdentifierType(
@@ -1003,7 +1026,10 @@ export class ZKPassport {
         ? localResult
         : ((await verifyWithVerifierApi(apiParams)) ?? localResult ?? notVerified)
     }
-    return enforceUniqueIdentifierType(result, requestedType)
+    return enforceUniqueIdentifierType(
+      enforceCredentialPolicy(result, allowedCredentials),
+      requestedType,
+    )
   }
 
   private async verifyLocally({
@@ -1030,6 +1056,15 @@ export class ZKPassport {
     allowedCredentials?: AllowedCredential[]
   }): Promise<VerificationResult> {
     const formattedResult: QueryResult = formatQueryResultDates(queryResult)
+
+    // The version picks the public-input layout and the circuit manifest, so every proof must
+    // state the same well-formed one: a proof without it would be read with the layout of
+    // circuits made before the credential scheme existed, as a chip read
+    const version = proofs[0]?.version
+    if (!isCircuitVersion(version) || proofs.some((proof) => proof.version !== version)) {
+      console.warn("The proofs must all state the same circuit version")
+      return { uniqueIdentifier: undefined, uniqueIdentifierType: undefined, verified: false }
+    }
 
     // Automatically set the writing directory to `/tmp` if it is not provided
     // and the code is not running in the browser

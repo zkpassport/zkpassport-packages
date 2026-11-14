@@ -105,7 +105,7 @@ import {
 
 // Allowance for clock/timezone skew between the proving device and the verifier
 const CURRENT_DATE_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000
-// The app makes a new Android attested ID proof once its date is a week old
+// How old an attested ID proof's date may be; the app renews its proofs after 28 days
 const ATTESTED_ID_PROOF_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 export function withDocumentType(query: Query): Query {
@@ -2475,8 +2475,6 @@ export class PublicInputChecker {
     const disclosureProofNames = proofOrder.slice(4)
     // What verified the ID, read from the base proof (or the outer)
     let credentialScheme: CredentialScheme | undefined
-    const isDisclosureProof = (proof: ProofResult) =>
-      disclosureProofNames.some((name) => proof.name?.startsWith(name))
     const firstDisclosureProof = sortedProofs.find((p) =>
       disclosureProofNames.some((name) => p.name?.startsWith(name)),
     )
@@ -2567,9 +2565,28 @@ export class PublicInputChecker {
           }
         }
         const paramCommitments = getParamCommitmentsFromOuterProof(proofData, proof.version)
-        credentialScheme = hasCredentialScheme(proof.version)
-          ? getCredentialSchemeFromOuterProof(proofData)
-          : CredentialScheme.ICAO_CHIP
+        // A Tier 2 outer proof always carries its scheme, whatever version it states, so a proof
+        // can't pass as a chip read by leaving out its version
+        const isAttestedOuter = proof.name!.includes("_attested_")
+        credentialScheme =
+          isAttestedOuter || hasCredentialScheme(proof.version)
+            ? getCredentialSchemeFromOuterProof(proofData)
+            : CredentialScheme.ICAO_CHIP
+        if (
+          isAttestedOuter &&
+          getTierForCredentialScheme(credentialScheme) !== CredentialTier.DEVICE_ATTESTED
+        ) {
+          console.warn("A Tier 2 outer proof states a scheme of another tier")
+          isCorrect = false
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            certificate: {
+              expected: "A device-attested credential scheme",
+              received: `Credential scheme ${credentialScheme}`,
+              message: "A Tier 2 outer proof states a scheme of another tier",
+            },
+          }
+        }
         const committedInputs = proof.committedInputs
         const keysInCommittedInputs = Object.keys(committedInputs || {})
         if (keysInCommittedInputs.length !== paramCommitments.length) {
@@ -3038,12 +3055,10 @@ export class PublicInputChecker {
         const committed = proof.committedInputs?.[committedKey] as
           AttestedIdCommittedInputs | undefined
         const attestedAt = getCurrentDateFromAttestedIdProof(proofData)
-        if (attestedAt) {
-          const { isCorrect: isCorrectDate, queryResultErrors: dateErrors } =
-            this.checkAttestedIdDate(attestedAt)
-          isCorrect = isCorrect && isCorrectDate
-          queryResultErrors = { ...queryResultErrors, ...dateErrors }
-        }
+        const { isCorrect: isCorrectDate, queryResultErrors: dateErrors } =
+          this.checkAttestedIdDate(attestedAt)
+        isCorrect = isCorrect && isCorrectDate
+        queryResultErrors = { ...queryResultErrors, ...dateErrors }
         if (!committed) {
           console.warn("The attested ID proof carries no committed attestation parameters")
           isCorrect = false
@@ -4001,10 +4016,11 @@ export class PublicInputChecker {
    * An attested ID proof carries its attestation's date, which must be recent: the face match
    * is at most 30 days old. The app reuses the proof, so it may be older than a disclosure proof's.
    */
-  public static checkAttestedIdDate(attestedAt: Date) {
+  public static checkAttestedIdDate(attestedAt: Date | undefined) {
     let isCorrect = true
     const queryResultErrors: Partial<QueryResultErrors> = {}
-    const age = Date.now() - attestedAt.getTime()
+    // A proof without a date is refused as not recent
+    const age = attestedAt ? Date.now() - attestedAt.getTime() : Infinity
     if (age > ATTESTED_ID_PROOF_MAX_AGE_MS || -age > CURRENT_DATE_FUTURE_TOLERANCE_MS) {
       const message = "The attested ID proof's date is not recent"
       console.warn(message)
@@ -4013,7 +4029,7 @@ export class PublicInputChecker {
         ...queryResultErrors.attested_id,
         date: {
           expected: `Within ${ATTESTED_ID_PROOF_MAX_AGE_MS / 1000} seconds of now`,
-          received: attestedAt.toISOString(),
+          received: attestedAt?.toISOString() ?? "no date",
           message,
         },
       }
@@ -4115,16 +4131,6 @@ export class PublicInputChecker {
     }
     if (committed.environment !== "production") {
       fail("production", committed.environment, "Invalid attested ID environment")
-    }
-    if (
-      committed.appIdHash !== ZKPASSPORT_IOS_APP_ID_HASH &&
-      committed.appIdHash !== ZKPASSPORT_ANDROID_APP_ID_HASH
-    ) {
-      fail(
-        `${ZKPASSPORT_IOS_APP_ID_HASH} (iOS) or ${ZKPASSPORT_ANDROID_APP_ID_HASH} (Android)`,
-        committed.appIdHash,
-        "Invalid attested ID app id hash",
-      )
     }
     if (committed.mode !== "strict") {
       fail("strict", committed.mode, "A Tier 2 ID requires a strict face match")
