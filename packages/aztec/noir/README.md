@@ -22,7 +22,7 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
 | `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_user_address_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
-| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants` and `disclosed_data`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose and sanctions payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants` and `disclosed_data`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig` with its builder, `circuit_version`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose and sanctions payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crate (upstream noir-contracts style):
@@ -41,21 +41,16 @@ the `AgeGate` example in [zkpassport/aztec-examples](https://github.com/zkpasspo
 which passes its own registry so its tests can deploy one:
 
 ```noir
-use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
 use zkpassport_aztec_verifier::query::Query;
 use zkpassport_aztec_verifier::verify::{
-    emit_uniqueness_nullifier, scope_hash, ServiceConfig, verify_zkpassport_proof,
+    circuit_version, emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof,
 };
 
 global MIN_AGE: u8 = 18;
 
-// The domain this app's ZKPassport requests come from.
-global DOMAIN: Field = scope_hash("example.com");
-
-// The CircuitManifest semver packed as 2-byte BE major/minor/patch, left-aligned bytes32.
-// This is packed("0.0.1") — the local/dev release the fixtures are built from.
-global CIRCUIT_MANIFEST_VERSION: Field =
-    0x0000000000010000000000000000000000000000000000000000000000000000;
+// The domain this app's ZKPassport requests come from, and the circuits release it accepts
+// proofs from.
+global SERVICE: ServiceConfig = ServiceConfig::new("example.com", circuit_version(0, 22, 0));
 
 /// Claim the 18+ badge for `user`: verifies a ZKPassport proof (outer_count_5, param
 /// commitments = {age(18, 0), bind(user)}), burns the unique identifier — one claim per
@@ -63,17 +58,9 @@ global CIRCUIT_MANIFEST_VERSION: Field =
 /// proof itself to `user`, so anyone — a relayer included — may submit the transaction.
 #[external("private")]
 fn claim(user: AztecAddress) {
-    let config = ServiceConfig {
-        version: CIRCUIT_MANIFEST_VERSION,
-        domain: DOMAIN,
-        scope: 0,
-        unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
-        validity_period: 7 * 86400,
-        dev_mode: false,
-    };
     let query = Query::new().age_min(MIN_AGE).bind_user_address(user);
     // The capsule rides in the sender's PXE, so it is scoped to the sender.
-    let verified = verify_zkpassport_proof(self.context, self.msg_sender(), config, query);
+    let verified = verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query);
     emit_uniqueness_nullifier(self.context, verified.unique_identifier);
     // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
     // passport proof behind it is private.
@@ -81,11 +68,16 @@ fn claim(user: AztecAddress) {
 }
 ```
 
-`ServiceConfig.domain` is required: the library rejects a config whose domain is 0.
-`ServiceConfig.scope` is optional, 0 for the whole domain. `verify_zkpassport_proof` uses
-ZKPassport's registry on the network, found by its L1 chain id and rollup version. In TXE and on a
-local network that is the local network registry, below. On a network without one, use
-`verify_zkpassport_proof_with_registry`.
+`ServiceConfig::new` takes the domain and the circuits release, packed by `circuit_version` as
+`@zkpassport/utils` does. The rest defaults to the whole domain, a non-salted unique identifier,
+proofs up to 7 days old (the ZKPassport SDK's default validity), and no mock documents.
+`.scope("…")`, `.unique_identifier_type(…)`, `.validity_period(seconds)` and `.dev_mode()` change
+them. In a global it is built at compile time, so an empty domain or a 0.0.0 version fails to
+compile.
+
+`verify_zkpassport_proof` uses ZKPassport's registry on the network, found by its L1 chain id and
+rollup version. In TXE and on a local network that is the local network registry, below. On a
+network without one, use `verify_zkpassport_proof_with_registry`.
 
 `Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
 `age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
