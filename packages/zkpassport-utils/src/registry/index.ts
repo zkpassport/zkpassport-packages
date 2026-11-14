@@ -61,6 +61,27 @@ export const CERT_TYPE_CSCA = 1
 export const CERT_TYPE_DSC = 2
 
 /**
+ * Canonical certificate type for a UIDAI key that signs Aadhaar Secure QR codes. Circuits that
+ * take a CSCA fix the leaf type to {@link CERT_TYPE_CSCA}, so a UIDAI key is never accepted as one.
+ */
+export const CERT_TYPE_UIDAI = 3
+
+/** The `type` of a packaged UIDAI certificate; a packaged certificate without one is a CSCA */
+export const PACKAGED_CERT_TYPE_UIDAI = "uidai"
+
+/** The canonical leaf type of a packaged certificate */
+export function getCertificateType(cert: PackagedCertificate): number {
+  if (cert.type === undefined) return CERT_TYPE_CSCA
+  if (cert.type === PACKAGED_CERT_TYPE_UIDAI) return CERT_TYPE_UIDAI
+  throw new Error(`Unknown packaged certificate type: ${cert.type}`)
+}
+
+/** Whether a packaged certificate is a CSCA, the only kind that can sign a DSC */
+export function isCscaCertificate(cert: PackagedCertificate): boolean {
+  return getCertificateType(cert) === CERT_TYPE_CSCA
+}
+
+/**
  * @deprecated Used by the old registry
  * Canonical list of tags for packaged certificates
  * This is used to identify the publisher of the masterlist
@@ -212,7 +233,7 @@ export async function getCertificateLeafHash(
   // Tags must be exactly 3 fields
   assert(tags.length === 3, `Tags must be exactly 3 fields`)
   // Certificate type
-  const type = options?.type ?? CERT_TYPE_CSCA
+  const type = options?.type ?? getCertificateType(cert)
   assert(type >= 0 && type <= 255, `Certificate type must fit in a single byte: ${type}`)
   // Ensure country code is 3 characters
   assert(cert?.country?.length === 3, `Country code must be 3 characters: ${cert?.country}`)
