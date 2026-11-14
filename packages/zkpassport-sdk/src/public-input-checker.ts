@@ -4058,14 +4058,17 @@ export class PublicInputChecker {
       credentialScheme === CredentialScheme.UIDAI_AADHAAR &&
       !isAadhaarNationalityConditionAllowed(originalQuery.nationality)
     ) {
-      console.warn("An Aadhaar does not prove a nationality, so it can only pass an exclusion check")
+      console.warn(
+        "An Aadhaar does not prove a nationality, so it can only pass an exclusion check",
+      )
       isCorrect = false
       queryResultErrors.nationality = {
         ...queryResultErrors.nationality,
         eq: {
           expected: "An ID that proves a nationality",
           received: "Aadhaar",
-          message: "An Aadhaar does not prove a nationality, so it can only pass an exclusion check",
+          message:
+            "An Aadhaar does not prove a nationality, so it can only pass an exclusion check",
         },
       }
     }

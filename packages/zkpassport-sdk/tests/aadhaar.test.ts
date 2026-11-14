@@ -43,9 +43,7 @@ async function proofs({
   root = REGISTRY_ROOT,
   facematch = true,
   excluded,
-}: { root?: bigint; facematch?: boolean; excluded?: Alpha3Code[] } = {}): Promise<
-  ProofResult[]
-> {
+}: { root?: bigint; facematch?: boolean; excluded?: Alpha3Code[] } = {}): Promise<ProofResult[]> {
   const now = Math.floor(Date.now() / 1000)
   const scopeHash = getServiceScopeHash(DOMAIN)
   const subscope = getServiceSubscopeHash(SCOPE)
