@@ -786,6 +786,28 @@ describe("PublicInputChecker - originalQuery validation", () => {
       expect(hasOriginalQueryError(queryResultErrors.bind, "eq")).toBe(true)
     })
 
+    test("no originalQuery error when the proof is bound to the query's Aztec network", () => {
+      const bind = { user_address: `0x${"ab".repeat(32)}`, chain: "aztec_testnet" as const }
+      const { queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
+        { bind },
+        { bind },
+        bind,
+      )
+      expect(hasOriginalQueryError(queryResultErrors.bind, "eq")).toBe(false)
+    })
+
+    test("fails when the proof is bound to another Aztec network", () => {
+      const userAddress = `0x${"ab".repeat(32)}`
+      const originalQuery: Query = { bind: { user_address: userAddress, chain: "aztec_testnet" } }
+      const queryResult: QueryResult = { bind: { user_address: userAddress, chain: "aztec" } }
+      const { queryResultErrors } = PublicInputChecker.checkBindPublicInputs(
+        originalQuery,
+        queryResult,
+        { user_address: userAddress, chain: "aztec" },
+      )
+      expect(hasOriginalQueryError(queryResultErrors.bind, "eq")).toBe(true)
+    })
+
     test("fails when queryResult has bind but originalQuery does not", () => {
       const originalQuery: Query = {}
       const queryResult: QueryResult = {

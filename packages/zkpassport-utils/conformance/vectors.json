@@ -27,6 +27,50 @@
       "commitment": "0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970"
     },
     {
+      "name": "bind_user_address_ethereum",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "ethereum",
+        "chainId": 1,
+        "maxLength": 509
+      },
+      "commitment": "0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784"
+    },
+    {
+      "name": "bind_user_address_base",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "base",
+        "chainId": 8453,
+        "maxLength": 509
+      },
+      "commitment": "0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3"
+    },
+    {
+      "name": "bind_user_address_ethereum_sepolia",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "ethereum_sepolia",
+        "chainId": 11155111,
+        "maxLength": 509
+      },
+      "commitment": "0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76"
+    },
+    {
+      "name": "bind_user_address_aztec_testnet",
+      "proofType": "bind",
+      "params": {
+        "userAddress": "0x1122334455667788990011223344556677889900112233445566778899001122",
+        "chain": "aztec_testnet",
+        "chainId": 679261766,
+        "maxLength": 509
+      },
+      "commitment": "0x260abafd2a3531d54ac6b4595a8a231bee885906858d3fa97d9dc09e8121c69e"
+    },
+    {
       "name": "nationality_in_fra_deu_ita",
       "proofType": "nationality_inclusion",
       "params": { "countries": ["FRA", "DEU", "ITA"] },
