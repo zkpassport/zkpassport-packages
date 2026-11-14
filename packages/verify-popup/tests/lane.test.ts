@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { VerificationMethod, VerificationTier } from "@zkpassport/utils"
 
-import { chipOnlyPolicy, isAppClipLane, laneFor, withLane } from "../src/verify/lane"
+import { chipOnlyPolicy, isAppClipLane, isSamePage, laneFor, withLane } from "../src/verify/lane"
 
 const REQUEST = "https://zkpassport.id/r?d=example.com&t=abc"
 
@@ -43,5 +43,16 @@ describe("withLane / isAppClipLane", () => {
     expect(isAppClipLane(withLane(clip, "r"))).toBe(false)
     expect(isAppClipLane(null)).toBe(false)
     expect(isAppClipLane("not a url")).toBe(false)
+  })
+})
+
+describe("isSamePage", () => {
+  it("is true on the /c page for its own link, so the button doesn't just reopen it", () => {
+    const clip = withLane(REQUEST, "c")
+    expect(isSamePage(clip, "https://zkpassport.id/c?d=example.com&t=abc")).toBe(true)
+    // From the popup, the /c link is another page: it opens in a new tab and invokes the clip
+    expect(isSamePage(clip, "https://verify.zkpassport.id/verify?x=1")).toBe(false)
+    expect(isSamePage(clip, "https://zkpassport.id/r?d=example.com")).toBe(false)
+    expect(isSamePage("not a url", "https://zkpassport.id/c")).toBe(false)
   })
 })
