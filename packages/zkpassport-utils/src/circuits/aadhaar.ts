@@ -58,8 +58,9 @@ export type UidaiPublicKey = {
 }
 
 /**
- * UIDAI's offline signing keys. A QR code stays signed by the key that was current when it was
- * made, so a card printed years ago still needs the key of its time.
+ * UIDAI's keys that sign Secure QR codes: its offline e-KYC keys and its authentication signing
+ * keys, which signed printed cards and letters. A QR code stays signed by the key that was current
+ * when it was made, so a card printed years ago still needs the key of its time.
  */
 export const UIDAI_PUBLIC_KEYS: UidaiPublicKey[] = [
   {
@@ -91,11 +92,25 @@ export const UIDAI_PUBLIC_KEYS: UidaiPublicKey[] = [
     validTo: "2021-02-28",
   },
   {
+    name: "uidai_auth_sign_prod_2023",
+    modulus:
+      "d48836880e9bf637a72cf4c6a20b1380bc789efd69fd5d93d2add105ae202432ab66de356cc116697905504b8de52f8db59bcf6cefe3263d968b536f490a9561303fec9cb485550e589a587afeff3c5cc00143a0928b50b26892f2186947920eb2c3bed4aad8addeca922f992e437ff4fa9a20492b261bc438fef0b4d9c5e497875db1054b3d5fa47191648cd9ca882643cf6f698f605c1c86d4c27336a969461a1a8401ea66dbc16d4f411eaa5f150155e7c57b7ef7b068773f2b72d1b38ec3f3416072c44b5a7ede35174a9da8bea331b04108ab473fa028e385b25850a6b4d7dd048590f24d8a231ae36c0f85426fb8c9935c4debbb3310ac984362ddff8d",
+    validFrom: "2020-05-27",
+    validTo: "2023-05-27",
+  },
+  {
     name: "uidai_offline_publickey_26022021",
     modulus:
       "a2722c0e5f2de5ba707ed93f036ec2b1f0b955932390facc0f0bcbf20c80a15c088b4886866b72eb25ab0bf55a2fe06b69edbd5cc83b74c7709db2141e6c07c68bcdf859d3daf7f3fced241d072055dc15488474b45c2c982fa954aa52aa6fffb2481861c65085d84b64158e9f43d9f35ca69b48ce9300522102a4cae093bffd474b08d32d1d0406f687f7e55bd226a2384bf58a41c384c3974f1c7c5115819c926de3adf3ecbb9904c486f1f5d5303977bea63584367329b5c168afdc95121731f7f48d43af7cf31f69b1e3bbe7949dc7a8b10c0bddebababdebea076a1cf8166adf06a8a41dedf143bff835dbd2bd5bb0b61d2472c234a6d4411bc9b536095",
     validFrom: "2021-02-26",
     validTo: "2024-02-27",
+  },
+  {
+    name: "uidai_auth_sign_Prod_2026",
+    modulus:
+      "b7a7a2e109de73b5b69d63586b777acf03734cfb6b1e8821d6202feb6c9d5a0e2b14a5181a1c4fefdb2132673377f11ff228fcba851454abc28e7dd02f1567aceaa1418c8d0a7d156d4c35597f0d8f522235a4853285ed2eaa85bacce37a71a52e236f1886d8030332f2d7c83a0e9d45c5c537eddf22b5959cecfb394039ded224150c95d20213c2dc6aacab675d001bb8020b875622555307e05fcdd02871e74d2d66901f30651004a9306cfda34dcc3c0f0e2f77a3312a5cebe34379358686dcd831ff701248e8f33dc36f4c83f9d97ea9dfddaf8260b129b7dcefd21d901f34431aa53ceb210334b9139d24e6de583a57374f3ab726af5390dfbf357536c5",
+    validFrom: "2023-04-28",
+    validTo: "2026-04-28",
   },
   {
     name: "uidai_offline_publickey_17022026",
