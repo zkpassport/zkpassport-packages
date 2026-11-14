@@ -10,7 +10,7 @@ export type PhoneOs = "ios" | "android" | "unknown"
 
 export type Lane = "r" | "c"
 
-/** Whether every credential the policy accepts is read from a chip */
+/** Whether every verification method the policy accepts is a chip read */
 export function chipOnlyPolicy(
   allowedVerificationMethods?: readonly AllowedVerificationMethod[],
 ): boolean {
@@ -44,6 +44,17 @@ export function isAppClipLane(requestUrl: string | null): boolean {
   if (!requestUrl) return false
   try {
     return new URL(requestUrl).pathname === "/c"
+  } catch {
+    return false
+  }
+}
+
+/** Whether a link is the page we are on (query aside): opening it would only open this page again */
+export function isSamePage(url: string, here: string): boolean {
+  try {
+    const target = new URL(url)
+    const current = new URL(here)
+    return target.origin === current.origin && target.pathname === current.pathname
   } catch {
     return false
   }
