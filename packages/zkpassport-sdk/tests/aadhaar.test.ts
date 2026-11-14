@@ -118,4 +118,22 @@ describe("Aadhaar proofs", () => {
       "unrecognized root certificate",
     )
   })
+
+  test("are refused for a request about nationality", async () => {
+    const refused = await PublicInputChecker.checkPublicInputs(
+      DOMAIN,
+      await proofs(),
+      { ...query, nationality: { out: ["PRK"] } },
+      result,
+      undefined,
+      SCOPE,
+      undefined,
+      false,
+      registry,
+    )
+    expect(refused.isCorrect).toBe(false)
+    expect(refused.queryResultErrors.nationality?.eq?.message).toBe(
+      "An Aadhaar does not prove a nationality",
+    )
+  })
 })

@@ -4035,6 +4035,20 @@ export class PublicInputChecker {
         },
       }
     }
+    // Aadhaar is issued to residents of India, not only its citizens, so its MRZ carries no
+    // nationality ("XXX"), which a nationality exclusion check would pass
+    if (credentialScheme === CredentialScheme.UIDAI_AADHAAR && originalQuery.nationality) {
+      console.warn("An Aadhaar does not prove a nationality")
+      isCorrect = false
+      queryResultErrors.nationality = {
+        ...queryResultErrors.nationality,
+        eq: {
+          expected: "An ID that proves a nationality",
+          received: "Aadhaar",
+          message: "An Aadhaar does not prove a nationality",
+        },
+      }
+    }
     // Proofs made before the scheme existed came from a chip
     const scheme = credentialScheme ?? CredentialScheme.ICAO_CHIP
     if (!isCredentialAllowed(scheme, allowedCredentials)) {
