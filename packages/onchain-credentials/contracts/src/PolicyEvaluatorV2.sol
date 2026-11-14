@@ -46,6 +46,7 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
     error PolicyEvaluator__ZeroAddress();
     error PolicyEvaluator__InvalidCredentialSchemes();
     error PolicyEvaluator__CredentialSchemeNotAllowed();
+    error PolicyEvaluator__NonCanonicalRequirements();
 
     IRootVerifier public immutable rootVerifier;
 
@@ -93,6 +94,9 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
     /// @inheritdoc IPolicyEvaluator
     function validateRequirements(bytes calldata requirements) external pure {
         PolicyRequirements memory r = decodeRequirements(requirements);
+        // Only the exact encoding of what decodes: a blob encoded for V1 can decode here with its
+        // fields shifted (a minAge 1, STRICT policy reads as allowedCredentialSchemes [2])
+        if (keccak256(abi.encode(r)) != keccak256(requirements)) revert PolicyEvaluator__NonCanonicalRequirements();
         _validateCountryList(r.includedNationalities);
         _validateCountryList(r.excludedNationalities);
         _validateCredentialSchemes(r.allowedCredentialSchemes);

@@ -70,6 +70,8 @@ const call = credentials.buildCreatePolicyCall({
   requirements,
   metadataURL,
   enforceUniqueness: true,
+  // The encoding of the evaluator new policies are pinned to
+  schemaVersion: await credentials.getEvaluatorSchemaVersion(await credentials.getCurrentEvaluator()),
 })
 await submitCredentialsCall(ctx, call, { client: walletClient, account: owner })
 ```

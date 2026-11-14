@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {FaceMatchMode, NullifierType} from "@registry/lib/Types.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
+import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 
@@ -126,6 +127,23 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
         }
         evaluatorV2.validateRequirements(_requirementsV2(_schemes(1, 2), 0));
         evaluatorV2.validateRequirements(_requirementsV2(_schemes(100, 201), 0));
+    }
+
+    function testRequirementsEncodedForV1AreRefused() public {
+        bytes memory v1 = abi.encode(
+            PolicyEvaluatorV1.PolicyRequirements({
+                minAge: 1,
+                sanctionsMode: PolicyEvaluatorV1.SanctionsMode.STRICT,
+                faceMatchMode: FaceMatchMode.NONE,
+                includedNationalities: noCountries,
+                excludedNationalities: noCountries
+            })
+        );
+        vm.expectRevert();
+        evaluatorV2.validateRequirements(v1);
+        // Trailing bytes after a valid encoding are refused too
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__NonCanonicalRequirements.selector);
+        evaluatorV2.validateRequirements(bytes.concat(_requirementsV2(_schemes(1), 0), bytes32(0)));
     }
 
     function testAV1PolicyIsUnaffectedBySwappingTheEvaluator() public view {

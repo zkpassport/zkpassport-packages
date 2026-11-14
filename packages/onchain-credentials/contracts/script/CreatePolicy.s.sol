@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Script, console} from "forge-std/Script.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {IPolicyEvaluator} from "../src/IPolicyEvaluator.sol";
 import {FaceMatchMode} from "@registry/lib/Types.sol";
 
@@ -23,6 +24,9 @@ import {FaceMatchMode} from "@registry/lib/Types.sol";
  *                                    evaluator's uniqueIdentifierType nullifier
  *   POLICY_INCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
  *   POLICY_EXCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
+ *   POLICY_ALLOWED_CREDENTIAL_SCHEMES required by a schema 2 evaluator, comma separated tiers (1, 2)
+ *                                    or exact schemes (100, 200, 201); empty accepts tier 1 only.
+ *                                    The requirements are encoded for the deployment's evaluator
  *   POLICY_DURATION_DAYS             default 90; also bounds how stale a sanctions check may be
  *   POLICY_OWNER_ISSUABLE            default false; ownerIssue() bypasses nullifier bookkeeping
  *   POLICY_OWNER_BANNABLE            default false; true lets the owner ban a wallet, removing any
@@ -33,7 +37,7 @@ contract CreatePolicyScript is Script {
     function run() public {
         ZKPassportCredentials credentials = ZKPassportCredentials(vm.envAddress("ZKPASSPORT_CREDENTIALS_ADDRESS"));
         bytes32 salt = vm.envBytes32("POLICY_SALT");
-        bytes memory encoded = _requirements();
+        bytes memory encoded = _requirements(credentials.policyEvaluator().schemaVersion());
         bool enforceUniqueness = vm.envBool("POLICY_ENFORCE_UNIQUENESS");
         console.log("uniqueness  ", enforceUniqueness);
 
@@ -62,18 +66,50 @@ contract CreatePolicyScript is Script {
         _record(credentials, policyId, salt);
     }
 
-    function _requirements() internal view returns (bytes memory) {
-        PolicyEvaluatorV1.PolicyRequirements memory r = PolicyEvaluatorV1.PolicyRequirements({
-            minAge: uint8(vm.envUint("POLICY_MIN_AGE")),
-            sanctionsMode: _sanctionsMode(vm.envString("POLICY_SANCTIONS_MODE")),
-            faceMatchMode: _faceMatchMode(vm.envString("POLICY_FACEMATCH_MODE")),
-            includedNationalities: _countries("POLICY_INCLUDED_NATIONALITIES"),
-            excludedNationalities: _countries("POLICY_EXCLUDED_NATIONALITIES")
-        });
-        console.log("minAge      ", r.minAge);
-        console.log("included    ", r.includedNationalities.length);
-        console.log("excluded    ", r.excludedNationalities.length);
-        return abi.encode(r);
+    function _requirements(uint256 schemaVersion) internal view returns (bytes memory) {
+        uint8 minAge = uint8(vm.envUint("POLICY_MIN_AGE"));
+        uint8 sanctionsMode = _sanctionsMode(vm.envString("POLICY_SANCTIONS_MODE"));
+        FaceMatchMode faceMatchMode = _faceMatchMode(vm.envString("POLICY_FACEMATCH_MODE"));
+        string[] memory included = _countries("POLICY_INCLUDED_NATIONALITIES");
+        string[] memory excluded = _countries("POLICY_EXCLUDED_NATIONALITIES");
+        console.log("schema      ", schemaVersion);
+        console.log("minAge      ", minAge);
+        console.log("included    ", included.length);
+        console.log("excluded    ", excluded.length);
+        if (schemaVersion == 1) {
+            return abi.encode(
+                PolicyEvaluatorV1.PolicyRequirements({
+                    minAge: minAge,
+                    sanctionsMode: PolicyEvaluatorV1.SanctionsMode(sanctionsMode),
+                    faceMatchMode: faceMatchMode,
+                    includedNationalities: included,
+                    excludedNationalities: excluded
+                })
+            );
+        }
+        require(schemaVersion == 2, "Unknown evaluator schema version");
+        uint256[] memory schemes = _uints("POLICY_ALLOWED_CREDENTIAL_SCHEMES");
+        console.log("schemes     ", schemes.length);
+        return abi.encode(
+            PolicyEvaluatorV2.PolicyRequirements({
+                minAge: minAge,
+                sanctionsMode: PolicyEvaluatorV2.SanctionsMode(sanctionsMode),
+                faceMatchMode: faceMatchMode,
+                includedNationalities: included,
+                excludedNationalities: excluded,
+                allowedCredentialSchemes: schemes
+            })
+        );
+    }
+
+    /// @dev An empty value means an empty list
+    function _uints(string memory name) private view returns (uint256[] memory values) {
+        string[] memory raw = vm.envString(name, ",");
+        if (raw.length == 1 && bytes(raw[0]).length == 0) return new uint256[](0);
+        values = new uint256[](raw.length);
+        for (uint256 i = 0; i < raw.length; i++) {
+            values[i] = vm.parseUint(raw[i]);
+        }
     }
 
     function _record(ZKPassportCredentials credentials, uint256 policyId, bytes32 salt) internal {
@@ -87,11 +123,12 @@ contract CreatePolicyScript is Script {
         );
     }
 
-    function _sanctionsMode(string memory value) private pure returns (PolicyEvaluatorV1.SanctionsMode) {
+    /// @dev The same order in both evaluators: NONE, NORMAL, STRICT
+    function _sanctionsMode(string memory value) private pure returns (uint8) {
         bytes32 h = keccak256(bytes(value));
-        if (h == keccak256("none")) return PolicyEvaluatorV1.SanctionsMode.NONE;
-        if (h == keccak256("normal")) return PolicyEvaluatorV1.SanctionsMode.NORMAL;
-        if (h == keccak256("strict")) return PolicyEvaluatorV1.SanctionsMode.STRICT;
+        if (h == keccak256("none")) return uint8(PolicyEvaluatorV1.SanctionsMode.NONE);
+        if (h == keccak256("normal")) return uint8(PolicyEvaluatorV1.SanctionsMode.NORMAL);
+        if (h == keccak256("strict")) return uint8(PolicyEvaluatorV1.SanctionsMode.STRICT);
         revert("POLICY_SANCTIONS_MODE must be none, normal or strict");
     }
 

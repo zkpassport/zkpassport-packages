@@ -106,6 +106,11 @@ contract Tier2VerificationTest is Test {
         assertTrue(Credentials.isVerifiable(201));
         assertFalse(Credentials.isVerifiable(0));
         assertFalse(Credentials.isVerifiable(300));
+        // In a tier's range but proven by no circuit yet
+        assertFalse(Credentials.isVerifiable(101));
+        assertFalse(Credentials.isVerifiable(199));
+        assertFalse(Credentials.isVerifiable(202));
+        assertFalse(Credentials.isVerifiable(203));
     }
 
     function test_TierIsReadFromExplicitRanges() public pure {
