@@ -51,8 +51,8 @@ library VerificationMethods {
     function isVerifiable(uint256 scheme) internal pure returns (bool) {
         // Only the schemes a circuit proves today, each by name: a new scheme must be added here
         // with its own checks, never accepted for falling in a tier's range
-        return scheme == VerificationMethod.ICAO_CHIP || scheme == VerificationMethod.ATTESTED_CAPTURE_IOS
-            || scheme == VerificationMethod.ATTESTED_CAPTURE_ANDROID;
+        return scheme == VerificationMethod.ICAO_CHIP || scheme == VerificationMethod.UIDAI_AADHAAR
+            || scheme == VerificationMethod.ATTESTED_CAPTURE_IOS || scheme == VerificationMethod.ATTESTED_CAPTURE_ANDROID;
     }
 
     /**
