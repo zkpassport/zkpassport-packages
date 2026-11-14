@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { CLOSE_ON_RETURN_HASH } from "@zkpassport/ui/app-link"
 import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
 import { Frame } from "../shared/frame"
@@ -15,6 +16,7 @@ import "../main.css"
  * installed app, so whoever sees this page almost certainly has to install it first.
  */
 export function RequestPage() {
+  useCloseOnReturn()
   const request = parseVerifyRequest(window.location.search)
   const requestUrl = request ? window.location.href : null
   const siteName = request?.serviceName || request?.domain || null
@@ -48,6 +50,23 @@ export function RequestPage() {
       </div>
     </Frame>
   )
+}
+
+/**
+ * A page that waits for the result opened this tab. When the user comes back from the app or the
+ * App Clip, that page has the result, so this tab gets out of its way.
+ */
+function useCloseOnReturn() {
+  useEffect(() => {
+    if (window.location.hash !== CLOSE_ON_RETURN_HASH) return
+    let leftThePage = false
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") leftThePage = true
+      else if (leftThePage) window.close()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange)
+  }, [])
 }
 
 function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName: string | null }) {

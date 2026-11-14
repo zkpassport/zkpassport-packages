@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { CLOSE_ON_RETURN_HASH, detectMobileOs } from "@zkpassport/ui/app-link"
 import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
 import { ICON_ZKP_MARK } from "../shared/icons"
@@ -67,6 +68,9 @@ function ContinueInApp({
   const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
   const opening = openState === "opening"
   const handedOff = openState === "opened"
+  // iOS takes the request link to the app, or to the page that offers the App Clip. It opens
+  // in a new tab, because this page holds the request's connection to the phone.
+  const opensRequestLink = detectMobileOs() === "ios" && !inAppBrowser
 
   return (
     <div className="flow-body">
@@ -82,6 +86,15 @@ function ContinueInApp({
             <button type="button" className="scan-reveal" onClick={openApp}>
               Open the app again
             </button>
+          ) : requestUrl && opensRequestLink ? (
+            <a
+              className="flow-primary"
+              href={requestUrl + CLOSE_ON_RETURN_HASH}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open ZKPassport App
+            </a>
           ) : requestUrl ? (
             <Primary busy={opening} onClick={openApp}>
               {opening ? "Opening…" : "Open ZKPassport App"}

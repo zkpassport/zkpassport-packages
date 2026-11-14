@@ -3,8 +3,8 @@
   "rewrites": [
     { "source": "/r", "destination": "/r.html" },
     { "source": "/r/:path*", "destination": "/r.html" },
-    { "source": "/c", "destination": "/r.html" },
-    { "source": "/c/:path*", "destination": "/r.html" }
+    { "source": "/c", "destination": "/c.html" },
+    { "source": "/c/:path*", "destination": "/c.html" }
   ],
   "headers": [
     {

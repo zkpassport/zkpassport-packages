@@ -17,7 +17,7 @@ import {
   SPINNER_SVG,
   ZKPASSPORT_DOWNLOAD_URL,
 } from "./assets"
-import { detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
+import { CLOSE_ON_RETURN_HASH, detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
 import cardStyles from "./styles.css"
 import { injectStylesheet } from "./inject-styles"
 import { useCard, type CardState, type ProofStreamProgress } from "./use-card"
@@ -505,6 +505,9 @@ function OpenAppHero({
   const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
   const opening = openState === "opening"
   const handedOff = openState === "opened"
+  // iOS takes the request link to the app, or to the page that offers the App Clip. It opens
+  // in a new tab, because this page holds the request's connection to the phone.
+  const opensRequestLink = detectMobileOs() === "ios" && !inAppBrowser
 
   if (handedOff) {
     return (
@@ -524,7 +527,16 @@ function OpenAppHero({
 
   return (
     <div className="zkp-open-app-hero" data-state={openState}>
-      {requestUrl ? (
+      {requestUrl && opensRequestLink ? (
+        <a
+          className="zkp-open-app zkp-open-app-block"
+          href={requestUrl + CLOSE_ON_RETURN_HASH}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open ZKPassport App
+        </a>
+      ) : requestUrl ? (
         <button
           type="button"
           className="zkp-open-app zkp-open-app-block"

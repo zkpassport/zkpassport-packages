@@ -151,7 +151,6 @@ export class ZKPassport {
       returnDeepLink: string | undefined
       verifierMode: VerifierMode | undefined
       config: VerificationConfig | undefined
-      appClip: boolean
     }
   > = {}
   private topicToPublicKey: Record<string, string> = {}
@@ -731,7 +730,6 @@ export class ZKPassport {
     returnDeepLink,
     verifierMode,
     config,
-    overrides,
   }: {
     name?: string
     logo?: string
@@ -751,7 +749,6 @@ export class ZKPassport {
     returnDeepLink?: string
     verifierMode?: VerifierMode
     config?: VerificationConfig
-    overrides?: { appClip?: boolean }
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
       throw new Error("You cannot override the topic with 'offline-query'")
@@ -801,7 +798,6 @@ export class ZKPassport {
       returnDeepLink,
       verifierMode,
       config,
-      appClip: overrides?.appClip ?? false,
     }
 
     this.onRequestReceivedCallbacks[topic] = []
@@ -1107,9 +1103,11 @@ export class ZKPassport {
     const nullifierType = this.topicToLocalConfig[requestId].uniqueIdentifierType
     const oprfKeyId = this.topicToLocalConfig[requestId].oprfKeyId
     const returnDeepLink = this.topicToLocalConfig[requestId].returnDeepLink
-    // `/c` is the no-install App Clip lane (opted into via `overrides.appClip`);
-    // `/r` is the default (full app, or web download fallback).
-    const path = this.topicToLocalConfig[requestId].appClip ? "c" : "r"
+    // A `/c` link also opens the iOS App Clip when the app is not installed. The clip can only
+    // make a non-salted identifier, so the other identifier types keep the `/r` link.
+    const needsFullApp =
+      nullifierType === NullifierType.SALTED || nullifierType === NullifierType.NONE
+    const path = needsFullApp ? "r" : "c"
     let url = `https://zkpassport.id/${path}?d=${this.domain}&t=${requestId}&c=${encodeURIComponent(base64Config)}&s=${encodeURIComponent(base64Service)}&p=${pubkey}&m=${this.topicToLocalConfig[requestId].mode}&v=${VERSION}&dt=${timestamp}&dev=${this.topicToLocalConfig[requestId].devMode ? "1" : "0"}`
     if (nullifierType != null) {
       url += `&nt=${nullifierType}`

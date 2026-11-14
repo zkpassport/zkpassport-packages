@@ -8,6 +8,13 @@ const CANONICAL_REQUEST_URL = "https://zkpassport.id/r"
 const APP_OPEN_PROBE_MS = 2500
 
 /**
+ * Added to a request link that a page opens in a new tab while it waits for the result. The
+ * request page then closes itself when the user comes back from the app or the App Clip, so the
+ * waiting page is the one they see.
+ */
+export const CLOSE_ON_RETURN_HASH = "#close-on-return"
+
+/**
  * Sends the browser to the app through its custom scheme. The https link would unload the page and
  * take the live request with it; an unhandled custom scheme goes nowhere, so the page survives when
  * the app is missing.
