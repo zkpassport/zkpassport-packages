@@ -6,16 +6,25 @@
         "appID": "YL5MS3Z639.app.zkpassport.zkpassport",
         "paths": [
           "/r",
-          "/r/*"
+          "/r/*",
+          "/c",
+          "/c/*"
         ]
       },
       {
         "appID": "YL5MS3Z639.app.zkpassport.wallet",
         "paths": [
           "/r",
-          "/r/*"
+          "/r/*",
+          "/c",
+          "/c/*"
         ]
       }
+    ]
+  },
+  "appclips": {
+    "apps": [
+      "YL5MS3Z639.app.zkpassport.zkpassport.clip"
     ]
   }
 }
