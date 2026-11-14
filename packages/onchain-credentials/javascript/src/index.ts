@@ -129,13 +129,14 @@ const REQUIREMENTS_ABI = {
 } as const
 
 /**
- * Encode policy requirements for an evaluator schema: 1 (PolicyEvaluatorV1, the default) or 2
- * (PolicyEvaluatorV2, which adds `allowedCredentialSchemes`). Use the schema of the evaluator the
- * policy is or will be pinned to (`getEvaluatorSchemaVersion`).
+ * Encode policy requirements for an evaluator schema: 1 (PolicyEvaluatorV1) or 2 (PolicyEvaluatorV2,
+ * which adds `allowedCredentialSchemes`). Required, not defaulted: each schema's encoding can
+ * decode under the other with its fields shifted, so use the schema of the evaluator the policy is
+ * or will be pinned to (`getEvaluatorSchemaVersion`).
  */
 export function encodeCredentialPolicyRequirements(
   requirements: CredentialPolicyRequirements,
-  schemaVersion: PolicyEvaluatorSchemaVersion = 1,
+  schemaVersion: PolicyEvaluatorSchemaVersion,
 ): `0x${string}` {
   const schemes = requirements.allowedCredentialSchemes ?? []
   if (schemaVersion === 1 && schemes.length > 0) {
@@ -479,8 +480,8 @@ export class CredentialsClient {
     ownerBannable?: boolean
     /** Allow the owner to replace requirements via setRequirements(). */
     ownerEditable?: boolean
-    /** The current evaluator's schema (`getEvaluatorSchemaVersion(await getCurrentEvaluator())`); 1 if omitted */
-    schemaVersion?: PolicyEvaluatorSchemaVersion
+    /** The current evaluator's schema: `getEvaluatorSchemaVersion(await getCurrentEvaluator())` */
+    schemaVersion: PolicyEvaluatorSchemaVersion
   }): CredentialsCall<
     "createPolicy",
     readonly [`0x${string}`, `0x${string}`, bigint, string, boolean, boolean, boolean, boolean]
@@ -507,8 +508,8 @@ export class CredentialsClient {
   buildSetRequirementsCall(
     policyId: bigint,
     requirements: CredentialPolicyRequirements,
-    /** The schema of the policy's pinned evaluator; 1 if omitted */
-    schemaVersion?: PolicyEvaluatorSchemaVersion,
+    /** The schema of the policy's pinned evaluator (`getEvaluatorSchemaVersion`) */
+    schemaVersion: PolicyEvaluatorSchemaVersion,
   ): CredentialsCall<"setRequirements", readonly [bigint, `0x${string}`]> {
     return this.call("setRequirements", [
       policyId,

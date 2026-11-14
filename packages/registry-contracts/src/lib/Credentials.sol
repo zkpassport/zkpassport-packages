@@ -52,13 +52,16 @@ library Credentials {
      *         choice, made with the helper's enforceCredentialScheme.
      */
     function isVerifiable(uint256 scheme) internal pure returns (bool) {
-        uint256 tier = tierOf(scheme);
-        return tier == CredentialTier.GOVERNMENT_SIGNED || tier == CredentialTier.DEVICE_ATTESTED;
+        // Only the schemes a circuit proves today, each by name: a new scheme must be added here
+        // with its own checks, never accepted for falling in a tier's range
+        return scheme == CredentialScheme.ICAO_CHIP || scheme == CredentialScheme.ATTESTED_CAPTURE_IOS
+            || scheme == CredentialScheme.ATTESTED_CAPTURE_ANDROID;
     }
 
     /**
      * @notice Whether a list of accepted credential schemes includes a scheme. An entry that is a
-     *         tier (1 or 2) stands for every scheme of that tier; any other entry is one exact scheme. An empty list accepts tier 1 only.
+     *         tier (1 or 2) stands for every scheme of that tier; any other entry is one exact scheme. An
+     *         empty list accepts tier 1 only.
      */
     function isAllowed(uint256 scheme, uint256[] memory allowedCredentialSchemes) internal pure returns (bool) {
         uint256 tier = tierOf(scheme);
