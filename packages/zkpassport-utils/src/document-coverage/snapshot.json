@@ -244,8 +244,7 @@
           "from": 2018,
           "chip": false,
           "mrz": false,
-          "regulaId": 1019981408,
-          "text": true
+          "regulaId": 1019981408
         },
         {
           "type": "id_card",
@@ -253,8 +252,7 @@
           "from": 2022,
           "chip": false,
           "mrz": false,
-          "regulaId": 1519236855,
-          "text": true
+          "regulaId": 1519236855
         },
         {
           "type": "id_card",
@@ -426,8 +424,7 @@
           "from": 2004,
           "chip": false,
           "mrz": false,
-          "regulaId": -1545367817,
-          "text": true
+          "regulaId": -1545367817
         },
         {
           "type": "id_card",
@@ -435,8 +432,7 @@
           "from": 2019,
           "chip": false,
           "mrz": false,
-          "regulaId": 529138511,
-          "text": true
+          "regulaId": 529138511
         },
         {
           "type": "residence_permit",
@@ -784,8 +780,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": -1817352218,
-          "text": true
+          "regulaId": -1817352218
         },
         {
           "type": "id_card",
@@ -1362,8 +1357,7 @@
           "to": 2010,
           "chip": false,
           "mrz": false,
-          "regulaId": 2017165806,
-          "text": true
+          "regulaId": 2017165806
         },
         {
           "type": "id_card",
@@ -2060,8 +2054,7 @@
           "from": 2008,
           "chip": false,
           "mrz": false,
-          "regulaId": -83435063,
-          "text": true
+          "regulaId": -83435063
         },
         {
           "type": "id_card",
@@ -2069,8 +2062,7 @@
           "from": 2023,
           "chip": false,
           "mrz": false,
-          "regulaId": 1821622404,
-          "text": true
+          "regulaId": 1821622404
         },
         {
           "type": "id_card",
@@ -2520,8 +2512,7 @@
           "from": 2013,
           "chip": false,
           "mrz": false,
-          "regulaId": -1177917284,
-          "text": true
+          "regulaId": -1177917284
         },
         {
           "type": "id_card",
@@ -2529,8 +2520,7 @@
           "from": 2023,
           "chip": false,
           "mrz": false,
-          "regulaId": 1963429231,
-          "text": true
+          "regulaId": 1963429231
         },
         {
           "type": "residence_permit",
@@ -4381,8 +4371,7 @@
           "from": 2003,
           "chip": false,
           "mrz": false,
-          "regulaId": -1621942289,
-          "text": true
+          "regulaId": -1621942289
         },
         {
           "type": "id_card",
@@ -4390,8 +4379,7 @@
           "from": 2005,
           "chip": false,
           "mrz": false,
-          "regulaId": -1621942618,
-          "text": true
+          "regulaId": -1621942618
         },
         {
           "type": "id_card",
@@ -4979,8 +4967,7 @@
           "from": 2017,
           "chip": false,
           "mrz": false,
-          "regulaId": -216471787,
-          "text": true
+          "regulaId": -216471787
         },
         {
           "type": "id_card",
@@ -5990,8 +5977,7 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": 1699178498,
-          "text": true
+          "regulaId": 1699178498
         },
         {
           "type": "id_card",
@@ -6595,8 +6581,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": -1557325519,
-          "text": true
+          "regulaId": -1557325519
         },
         {
           "type": "id_card",
@@ -6884,8 +6869,7 @@
           "from": 2010,
           "chip": false,
           "mrz": false,
-          "regulaId": -1871068088,
-          "text": true
+          "regulaId": -1871068088
         },
         {
           "type": "id_card",
@@ -7601,8 +7585,7 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": 1709553811,
-          "text": true
+          "regulaId": 1709553811
         },
         {
           "type": "id_card",
@@ -7611,8 +7594,7 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": -1519396701,
-          "text": true
+          "regulaId": -1519396701
         },
         {
           "type": "id_card",
@@ -7658,8 +7640,7 @@
           "from": 2012,
           "chip": false,
           "mrz": false,
-          "regulaId": -1443363307,
-          "text": true
+          "regulaId": -1443363307
         },
         {
           "type": "id_card",
@@ -7857,8 +7838,7 @@
           "from": 1999,
           "chip": false,
           "mrz": false,
-          "regulaId": 1153978775,
-          "text": true
+          "regulaId": 1153978775
         },
         {
           "type": "id_card",
@@ -9084,9 +9064,7 @@
           "from": 2015,
           "chip": false,
           "mrz": false,
-          "regulaId": -879932534,
-          "text": true,
-          "nationality": "none"
+          "regulaId": -879932534
         },
         {
           "type": "id_card",
@@ -9094,9 +9072,7 @@
           "from": 2021,
           "chip": false,
           "mrz": false,
-          "regulaId": 1400847182,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 1400847182
         }
       ]
     },
@@ -9622,8 +9598,7 @@
           "from": 2009,
           "chip": false,
           "mrz": false,
-          "regulaId": -718251181,
-          "text": true
+          "regulaId": -718251181
         },
         {
           "type": "id_card",
@@ -9631,8 +9606,7 @@
           "from": 2014,
           "chip": false,
           "mrz": false,
-          "regulaId": 528538949,
-          "text": true
+          "regulaId": 528538949
         },
         {
           "type": "id_card",
@@ -10054,8 +10028,7 @@
           "from": 2013,
           "chip": false,
           "mrz": false,
-          "regulaId": -799621059,
-          "text": true
+          "regulaId": -799621059
         },
         {
           "type": "id_card",
@@ -10063,8 +10036,7 @@
           "from": 2015,
           "chip": false,
           "mrz": false,
-          "regulaId": -669253206,
-          "text": true
+          "regulaId": -669253206
         },
         {
           "type": "id_card",
@@ -11819,8 +11791,7 @@
           "to": 2022,
           "chip": false,
           "mrz": false,
-          "regulaId": -1040772594,
-          "text": true
+          "regulaId": -1040772594
         },
         {
           "type": "id_card",
@@ -11847,8 +11818,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": 1370602779,
-          "text": true
+          "regulaId": 1370602779
         },
         {
           "type": "id_card",
@@ -12054,8 +12024,7 @@
           "to": 2020,
           "chip": false,
           "mrz": false,
-          "regulaId": -416020342,
-          "text": true
+          "regulaId": -416020342
         },
         {
           "type": "id_card",
@@ -12515,9 +12484,7 @@
           "to": 2020,
           "chip": false,
           "mrz": false,
-          "regulaId": 414252585,
-          "text": true,
-          "nationality": "printed"
+          "regulaId": 414252585
         },
         {
           "type": "id_card",
@@ -12921,8 +12888,7 @@
           "to": 2018,
           "chip": false,
           "mrz": false,
-          "regulaId": -1208186601,
-          "text": true
+          "regulaId": -1208186601
         },
         {
           "type": "id_card",
@@ -15020,8 +14986,7 @@
           "from": 2008,
           "chip": false,
           "mrz": false,
-          "regulaId": 1921157802,
-          "text": true
+          "regulaId": 1921157802
         },
         {
           "type": "id_card",
@@ -15029,8 +14994,7 @@
           "from": 2010,
           "chip": false,
           "mrz": false,
-          "regulaId": -572260507,
-          "text": true
+          "regulaId": -572260507
         },
         {
           "type": "id_card",
@@ -15046,8 +15010,7 @@
           "from": 2019,
           "chip": false,
           "mrz": false,
-          "regulaId": 149195724,
-          "text": true
+          "regulaId": 149195724
         },
         {
           "type": "id_card",
@@ -15686,8 +15649,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": 1176500274,
-          "text": true
+          "regulaId": 1176500274
         },
         {
           "type": "id_card",
@@ -15925,8 +15887,7 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": -1437168874,
-          "text": true
+          "regulaId": -1437168874
         },
         {
           "type": "id_card",
@@ -15944,8 +15905,7 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": -1866786183,
-          "text": true
+          "regulaId": -1866786183
         },
         {
           "type": "id_card",
@@ -16293,8 +16253,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": 1580571042,
-          "text": true
+          "regulaId": 1580571042
         }
       ]
     },
@@ -16631,8 +16590,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": -2024889030,
-          "text": true
+          "regulaId": -2024889030
         },
         {
           "type": "id_card",
@@ -16641,8 +16599,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": -1704214779,
-          "text": true
+          "regulaId": -1704214779
         }
       ],
       "documentNames": {
@@ -17143,8 +17100,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": 1000221455,
-          "text": true
+          "regulaId": 1000221455
         },
         {
           "type": "id_card",
@@ -17923,8 +17879,7 @@
           "from": 2009,
           "chip": false,
           "mrz": false,
-          "regulaId": -1322395287,
-          "text": true
+          "regulaId": -1322395287
         },
         {
           "type": "id_card",
@@ -17932,8 +17887,7 @@
           "from": 2012,
           "chip": false,
           "mrz": false,
-          "regulaId": -541343262,
-          "text": true
+          "regulaId": -541343262
         },
         {
           "type": "id_card",
@@ -19316,8 +19270,7 @@
           "from": 2011,
           "chip": false,
           "mrz": false,
-          "regulaId": -1214228372,
-          "text": true
+          "regulaId": -1214228372
         },
         {
           "type": "id_card",
@@ -19325,8 +19278,7 @@
           "from": 2016,
           "chip": false,
           "mrz": false,
-          "regulaId": 19390047,
-          "text": true
+          "regulaId": 19390047
         },
         {
           "type": "id_card",
@@ -20192,8 +20144,7 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": 1915233518,
-          "text": true
+          "regulaId": 1915233518
         },
         {
           "type": "id_card",
@@ -20202,8 +20153,7 @@
           "chip": false,
           "mrz": false,
           "deprecated": true,
-          "regulaId": -1661847789,
-          "text": true
+          "regulaId": -1661847789
         },
         {
           "type": "id_card",
@@ -20732,8 +20682,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": -1225410047,
-          "text": true
+          "regulaId": -1225410047
         },
         {
           "type": "id_card",
@@ -20742,8 +20691,7 @@
           "chip": false,
           "mrz": false,
           "barcode": true,
-          "regulaId": -651940950,
-          "text": true
+          "regulaId": -651940950
         },
         {
           "type": "id_card",
@@ -21590,8 +21538,7 @@
           "to": 2018,
           "chip": false,
           "mrz": false,
-          "regulaId": -792661834,
-          "text": true
+          "regulaId": -792661834
         },
         {
           "type": "id_card",
