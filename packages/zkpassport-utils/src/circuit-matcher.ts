@@ -7,7 +7,6 @@ import {
   getPortraitHash,
   isChiplessPassport,
 } from "./circuits/attested-id"
-import {} from "./circuits/credential-scheme"
 import { AsnParser } from "@peculiar/asn1-schema"
 import { AuthorityKeyIdentifier } from "@peculiar/asn1-x509"
 import { Alpha3Code } from "i18n-iso-countries"

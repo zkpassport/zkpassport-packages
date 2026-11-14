@@ -133,8 +133,8 @@ const FILLER = 60 // "<"
 /**
  * The whole document number. A TD1 number longer than 9 characters leaves its check digit
  * position empty and continues in the optional data (ICAO 9303-5), which is then taken as well;
- * otherwise the rest is filler. Sub-national documents (US driving licences) put their
- * subdivision code first, since their numbers are unique only within it.
+ * otherwise the rest is filler. Sub-national documents (US driving licences) carry their
+ * subdivision code after the number, since their numbers are unique only within it.
  */
 function getFullDocumentNumber(dg1: Uint8Array): Uint8Array {
   const mrz = dg1.subarray(5)

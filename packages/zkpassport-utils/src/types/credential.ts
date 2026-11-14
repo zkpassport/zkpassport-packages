@@ -8,8 +8,8 @@ export enum CredentialTier {
 }
 
 /**
- * How an ID's data was verified: what the base proofs output, every disclosure proof carries as
- * its last public input, and the outer proof re-exports. One value per scheme, never reused.
+ * How an ID's data was verified: what the base proof outputs and the outer proof re-exports as its
+ * last public input (disclosure proofs carry none; their commitment ties them to the base proof). One value per scheme, never reused.
  * Zero is never valid, so a proof made before the field existed can't pass as a real scheme.
  */
 export enum CredentialScheme {
@@ -42,9 +42,9 @@ export enum CredentialScheme {
 export type AllowedCredential = CredentialTier | CredentialScheme
 
 /** What a service accepts unless it says otherwise: signed credentials only */
-export const DEFAULT_ALLOWED_CREDENTIALS: readonly AllowedCredential[] = [
+export const DEFAULT_ALLOWED_CREDENTIALS: readonly AllowedCredential[] = Object.freeze([
   CredentialTier.GOVERNMENT_SIGNED,
-]
+])
 
 /** The tier of a scheme, by explicit range */
 export function getTierForCredentialScheme(scheme: CredentialScheme): CredentialTier {

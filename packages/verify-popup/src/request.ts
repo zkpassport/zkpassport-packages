@@ -16,8 +16,11 @@ import { readSession, updateSession, type Session } from "./session"
 export type RequestState = "preparing" | "connecting" | "waiting"
 
 // Development: verify in this page against circuits served from a local machine (the circuits
-// repo's `serve-circuits`), which the hosted verification API cannot know about
-const LOCAL_CIRCUITS_URL = (import.meta.env.VITE_CIRCUITS_URL as string | undefined) || undefined
+// repo's `serve-circuits`), which the hosted verification API cannot know about. Dev builds only,
+// so a stray variable can't switch a production build to local verification
+const LOCAL_CIRCUITS_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_CIRCUITS_URL as string | undefined) || undefined
+  : undefined
 
 export type QuerySource = Query | ((builder: QueryBuilder) => QueryBuilderResult)
 
