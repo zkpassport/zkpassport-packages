@@ -65,9 +65,39 @@ export function mrzCheckDigit(value: string): string {
   return String(sum % 10)
 }
 
-/** Latin letters only, accents dropped; anything else separates name parts */
+/**
+ * Letters ICAO 9303 Part 3 (section 6, Table A) writes as more than their base letter, by its
+ * recommended form: an issuer's MRZ writes MÜLLER as MUELLER and SØRENSEN as SOERENSEN, so a
+ * camera-built MRZ must too. Every other accented letter drops its accent.
+ */
+const ICAO_TRANSLITERATION: Record<string, string> = {
+  Ä: "AE",
+  Å: "AA",
+  Æ: "AE",
+  Ö: "OE",
+  Ø: "OE",
+  Œ: "OE",
+  Ü: "UE",
+  ß: "SS",
+  ẞ: "SS",
+  Þ: "TH",
+  Ð: "D",
+  Đ: "D",
+  Ħ: "H",
+  Ĳ: "IJ",
+  Ŀ: "L",
+  Ł: "L",
+  Ŋ: "N",
+  Ŧ: "T",
+  ı: "I",
+}
+
+/** Latin letters only, transliterated as ICAO 9303 writes them; anything else separates name parts */
 export function nameToMrz(name: string): string {
   return name
+    .normalize("NFC")
+    .toUpperCase()
+    .replace(/[ÄÅÆÖØŒÜẞÞÐĐĦĲĿŁŊŦ]|ß|ı/g, (char) => ICAO_TRANSLITERATION[char] ?? char)
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toUpperCase()
@@ -116,6 +146,11 @@ export function fieldsToTd1Mrz(fields: Td1Fields): string {
   }
   if (!ISO_DATE.test(fields.dateOfBirth) || !ISO_DATE.test(fields.dateOfExpiry)) {
     throw new Td1MrzError("Dates must be YYYY-MM-DD")
+  }
+  // A birth date after today is a misread: refused rather than written into the MRZ, whose
+  // two-digit year would read it as a century earlier
+  if (fields.dateOfBirth > new Date().toISOString().slice(0, 10)) {
+    throw new Td1MrzError("The date of birth is in the future")
   }
   const line1 = `${fields.documentCode}${fields.issuingCountry}${numberArea(fields.number, fields.numberSuffix)}`
 
