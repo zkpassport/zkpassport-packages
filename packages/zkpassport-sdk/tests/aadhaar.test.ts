@@ -3,9 +3,12 @@ import {
   CredentialScheme,
   CredentialTier,
   getAgeParameterCommitment,
+  getCountryParameterCommitment,
   getFacematchParameterCommitment,
   getServiceScopeHash,
   getServiceSubscopeHash,
+  ProofType,
+  type Alpha3Code,
   type AllowedCredential,
   type ProofResult,
   type Query,
@@ -38,7 +41,10 @@ const body = "ab".repeat(32 * 20)
 async function proofs({
   root = REGISTRY_ROOT,
   facematch = true,
-}: { root?: bigint; facematch?: boolean } = {}): Promise<ProofResult[]> {
+  excluded,
+}: { root?: bigint; facematch?: boolean; excluded?: Alpha3Code[] } = {}): Promise<
+  ProofResult[]
+> {
   const now = Math.floor(Date.now() / 1000)
   const scopeHash = getServiceScopeHash(DOMAIN)
   const subscope = getServiceSubscopeHash(SCOPE)
@@ -69,6 +75,15 @@ async function proofs({
       compare_age: { minAge: 18, maxAge: 0 },
     }),
     ...(facematch ? [facematchProof] : []),
+    ...(excluded
+      ? [
+          disclosure(
+            "exclusion_check_nationality",
+            await getCountryParameterCommitment(ProofType.NATIONALITY_EXCLUSION, excluded, true),
+            { exclusion_check_nationality: { countries: excluded } },
+          ),
+        ]
+      : []),
   ] as ProofResult[]
 }
 
@@ -119,21 +134,48 @@ describe("Aadhaar proofs", () => {
     )
   })
 
-  test("are refused for a request about nationality", async () => {
-    const refused = await PublicInputChecker.checkPublicInputs(
+  const checkNationality = async (
+    bundle: ProofResult[],
+    nationality: Query["nationality"],
+    nationalityResult: QueryResult["nationality"],
+  ) =>
+    PublicInputChecker.checkPublicInputs(
       DOMAIN,
-      await proofs(),
-      { ...query, nationality: { out: ["PRK"] } },
-      result,
+      bundle,
+      { ...query, nationality },
+      { ...result, nationality: nationalityResult },
       undefined,
       SCOPE,
       undefined,
       false,
       registry,
     )
-    expect(refused.isCorrect).toBe(false)
-    expect(refused.queryResultErrors.nationality?.eq?.message).toBe(
-      "An Aadhaar does not prove a nationality",
+
+  test("pass a nationality exclusion check", async () => {
+    const accepted = await checkNationality(
+      await proofs({ excluded: ["IRN", "PRK"] }),
+      { out: ["IRN", "PRK"] },
+      { out: { expected: ["IRN", "PRK"], result: true } },
     )
+    expect(accepted.queryResultErrors).toEqual({})
+    expect(accepted.isCorrect).toBe(true)
+  })
+
+  test("are refused for a nationality inclusion check or disclosure", async () => {
+    for (const [nationality, nationalityResult] of [
+      [{ in: ["IND"] }, { in: { expected: ["IND"], result: true } }],
+      [{ eq: "IND" }, { eq: { expected: "IND", result: true } }],
+      [{ disclose: true }, { disclose: { result: "IND" } }],
+    ] as const) {
+      const refused = await checkNationality(
+        await proofs(),
+        nationality as Query["nationality"],
+        nationalityResult as QueryResult["nationality"],
+      )
+      expect(refused.isCorrect).toBe(false)
+      expect(refused.queryResultErrors.nationality?.eq?.message).toBe(
+        "An Aadhaar does not prove a nationality, so it can only pass an exclusion check",
+      )
+    }
   })
 })
