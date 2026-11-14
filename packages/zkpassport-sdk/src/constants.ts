@@ -18,6 +18,11 @@ export const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000
 export const ZKPASSPORT_IOS_APP_ID_HASH =
   "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b"
 
+// This is the app id hash for the ZKPassport App Clip on iOS
+// i.e. hash of `YL5MS3Z639.app.zkpassport.zkpassport.clip`
+export const ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH =
+  "0x1409355f7733451c37093c8aac68611b102c0f270c9961d74ef6cfa6f888d3f0"
+
 // This is the app id hash for the ZKPassport app on Android
 // i.e. hash of `app.zkpassport.zkpassport`
 export const ZKPASSPORT_ANDROID_APP_ID_HASH =

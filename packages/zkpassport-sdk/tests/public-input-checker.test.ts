@@ -24,6 +24,7 @@ import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
+  ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
 } from "../src/constants"
 import { RegistryClient } from "@zkpassport/registry"
@@ -1727,6 +1728,18 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
         originalQuery,
         queryResult,
         makeFacematchInputs(),
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("passes with the iOS App Clip app id", async () => {
+      const queryResult: QueryResult = {
+        facematch: { mode: "regular", passed: true },
+      }
+      const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        queryResult,
+        makeFacematchInputs({ appIdHash: ZKPASSPORT_IOS_APP_CLIP_APP_ID_HASH }),
       )
       expect(isCorrect).toBe(true)
     })
