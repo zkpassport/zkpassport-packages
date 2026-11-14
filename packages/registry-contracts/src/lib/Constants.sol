@@ -120,6 +120,9 @@ library AppAttest {
     // ZKPassport iOS App ID hash
     // Little-endian packed and poseidon2 hash of `YL5MS3Z639.app.zkpassport.zkpassport`
     bytes32 constant IOS_APP_ID_HASH = 0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b;
+    // ZKPassport iOS App Clip App ID hash
+    // Little-endian packed and poseidon2 hash of `YL5MS3Z639.app.zkpassport.zkpassport.clip`
+    bytes32 constant IOS_APP_CLIP_APP_ID_HASH = 0x1409355f7733451c37093c8aac68611b102c0f270c9961d74ef6cfa6f888d3f0;
     // ZKPassport Android App ID hash
     // Little-endian packed and poseidon2 hash of `app.zkpassport.zkpassport`
     bytes32 constant ANDROID_APP_ID_HASH = 0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d;
