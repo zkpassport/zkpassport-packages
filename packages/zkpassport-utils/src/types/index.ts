@@ -58,17 +58,12 @@ export type PassportViewModel = {
 
   sod: SOD
   appVersion: string
-  // An Aadhaar's Secure QR data, which its base proof verifies in place of a chip's SOD
   aadhaar?: AadhaarCredential
 }
 
-/** An Aadhaar as the app keeps it: the signed QR data its base proof needs */
 export type AadhaarCredential = {
-  /** The decompressed QR data without its signature, base64 */
   signedData: string
-  /** UIDAI's signature, base64 */
   signature: string
-  /** The UIDAI key that signed it, big-endian hex */
   publicKey: string
 }
 

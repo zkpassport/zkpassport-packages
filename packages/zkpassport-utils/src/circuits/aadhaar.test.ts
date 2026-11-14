@@ -134,7 +134,6 @@ describe("aadhaar", () => {
     expect(inputs.delimiter_indices).toHaveLength(18)
     expect(inputs.uidai_cert_expiry).toBe(UIDAI_CERT.validity.not_after)
     expect(inputs.certificate_tree_hash_path).toHaveLength(16)
-    // The path leads from the UIDAI leaf to the certificate tree's root
     let node = await getCertificateLeafHash(UIDAI_CERT, { version: 1 })
     for (let level = 0; level < 16; level++) {
       const sibling = BigInt(inputs.certificate_tree_hash_path[level])
@@ -150,7 +149,6 @@ describe("aadhaar", () => {
       parseAadhaarData(SIGNED_DATA),
     )
     expect(commitment).toBeGreaterThan(0n)
-    // A new QR code of the same person keeps the nullifier
     const later = buildAadhaarSignedData(
       {
         aadhaarLastDigits: "1234",

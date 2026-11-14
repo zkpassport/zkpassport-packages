@@ -26,30 +26,15 @@ import {
 } from "../registry"
 import { hashSaltDg1Dg2HashPrivateNullifier, normalizeDg2Hash, ProofData } from "./index"
 
-/**
- * Aadhaar's Secure QR code, printed on the Aadhaar card and letter and shown by the mAadhaar
- * app, as the `aadhaar_id` base proof reads it. These are the TypeScript twins of
- * `lib/aadhaar` in the circuits repo.
- *
- * The QR code holds a decimal number whose bytes are compressed data: fields separated by 255,
- * then the photo (JPEG 2000), then UIDAI's RSA-2048 PKCS#1 v1.5 SHA-256 signature over
- * everything before it. V2 data starts with "V2" and carries the last 4 digits of the mobile
- * number before the photo. V1 has neither, and ends its signed data with the SHA-256 of the
- * email and/or mobile number.
- */
 export const AADHAAR_CIRCUIT_NAME = "aadhaar_id"
 export const AADHAAR_MAX_DATA_LENGTH = 2048
 export const AADHAAR_MAX_PHOTO_LENGTH = 1536
 export const AADHAAR_DELIMITER_COUNT = 18
 export const AADHAAR_SIGNATURE_LENGTH = 256
-/** Domain separator of the Aadhaar private nullifier ("AADHAAR") */
 export const AADHAAR_NULLIFIER_DOMAIN = 0x41414448414152n
-/** Aadhaar has no expiry, so the MRZ gets the signing date plus this many years */
 export const AADHAAR_VALIDITY_YEARS = 10
-/** Aadhaar is issued to residents, not only citizens: unspecified nationality */
 export const AADHAAR_NATIONALITY = "XXX"
 export const AADHAAR_ISSUING_COUNTRY = "IND"
-/** The photo hash goes in the DG2 hash slot as SHA-256 */
 export const AADHAAR_PHOTO_HASH_TYPE = 3
 
 const DELIMITER = 255
@@ -61,9 +46,7 @@ const MRZ_NAME_LENGTH = 39
 const NAME_MAX_LENGTH = 64
 
 export type UidaiPublicKey = {
-  /** The certificate's Poseidon2 fingerprint, as the Certificate Registry lists it */
   name: string
-  /** RSA modulus, big-endian hex */
   modulus: string
   validFrom: string
   validTo: string
@@ -73,7 +56,6 @@ const normaliseModulus = (modulus: string) => modulus.toLowerCase().replace(/^0x
 
 const toIsoDate = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10)
 
-/** The UIDAI certificates in the Certificate Registry */
 export function getUidaiCertificates(
   packagedCerts: PackagedCertificatesFile,
 ): PackagedCertificate[] {
@@ -85,11 +67,6 @@ export function getUidaiCertificates(
   )
 }
 
-/**
- * The keys of the UIDAI certificates in the Certificate Registry. UIDAI has signed Secure QR
- * codes with its offline e-KYC keys and with its authentication signing keys, and a QR code
- * keeps the key of the time it was made, so the registry holds every one UIDAI has published.
- */
 export function getUidaiPublicKeys(packagedCerts: PackagedCertificatesFile): UidaiPublicKey[] {
   return getUidaiCertificates(packagedCerts).map((cert) => ({
     name: cert.fingerprint ?? "",
@@ -100,21 +77,16 @@ export function getUidaiPublicKeys(packagedCerts: PackagedCertificatesFile): Uid
 }
 
 export type AadhaarQrData = {
-  /** The decompressed QR data without its signature */
   signedData: Uint8Array
   signature: Uint8Array
 }
 
 export type AadhaarData = {
   version: 1 | 2
-  /** 0 none, 1 email, 2 mobile, 3 both */
   emailMobileIndicator: number
-  /** The last 4 digits of the Aadhaar number */
   aadhaarLastDigits: string
-  /** When UIDAI signed the QR code, from its reference ID, as YYYYMMDDHHMMSSsss */
   signedAt: string
   name: string
-  /** DD-MM-YYYY */
   dateOfBirth: string
   gender: string
   address: {
@@ -132,7 +104,6 @@ export type AadhaarData = {
   }
   mobileLastDigits?: string
   photo: Uint8Array
-  /** The first 18 delimiters' indices, as the circuit takes them (V1 uses 16) */
   delimiterIndices: number[]
 }
 
@@ -146,7 +117,6 @@ function bytesToBigint(bytes: Uint8Array): bigint {
   return bytes.length === 0 ? 0n : BigInt(`0x${Binary.from(bytes).toHex().replace(/^0x/, "")}`)
 }
 
-/** The QR code's decimal text to its signed data and signature */
 export function decodeAadhaarQr(qrText: string): AadhaarQrData {
   const text = qrText.trim()
   if (!/^\d+$/.test(text)) throw new Error("Not an Aadhaar Secure QR code")
@@ -163,7 +133,6 @@ export function decodeAadhaarQr(qrText: string): AadhaarQrData {
   }
 }
 
-/** The inverse of decodeAadhaarQr, compressed with zlib as UIDAI does; for tests */
 export function encodeAadhaarQr(signedData: Uint8Array, signature: Uint8Array): string {
   const data = new Uint8Array(signedData.length + signature.length)
   data.set(signedData)
@@ -173,7 +142,6 @@ export function encodeAadhaarQr(signedData: Uint8Array, signature: Uint8Array): 
 
 const decodeText = (bytes: Uint8Array) => String.fromCharCode(...bytes)
 
-/** Reads the fields of the signed QR data */
 export function parseAadhaarData(signedData: Uint8Array): AadhaarData {
   const version = signedData[0] === 86 && signedData[1] === 50 && signedData[2] === 255 ? 2 : 1
   if (version === 1 && !(signedData[0] >= 48 && signedData[0] <= 57 && signedData[1] === 255)) {
@@ -226,7 +194,6 @@ export function parseAadhaarData(signedData: Uint8Array): AadhaarData {
   }
 }
 
-/** The signed data of a V2 QR code with these fields; for tests and mock IDs */
 export function buildAadhaarSignedData(
   fields: Pick<AadhaarData, "aadhaarLastDigits" | "signedAt" | "name" | "dateOfBirth" | "gender"> &
     Partial<Pick<AadhaarData, "address" | "mobileLastDigits" | "emailMobileIndicator">>,
@@ -272,10 +239,6 @@ export function buildAadhaarSignedData(
   return data
 }
 
-/**
- * The name as the MRZ writes it: upper case, words separated by one '<', other characters
- * dropped, cut to 39 characters. The whole name is the primary identifier.
- */
 export function aadhaarNameToMrz(name: string): string {
   let out = ""
   let afterSeparator = true
@@ -291,13 +254,11 @@ export function aadhaarNameToMrz(name: string): string {
   return out.slice(0, MRZ_NAME_LENGTH).padEnd(MRZ_NAME_LENGTH, "<")
 }
 
-/** The expiry the MRZ gets: the signing date plus 10 years, YYMMDD */
 export function getAadhaarExpiryDate(signedAt: string): string {
   const year = (Number(signedAt.slice(2, 4)) + AADHAAR_VALIDITY_YEARS) % 100
   return `${String(year).padStart(2, "0")}${signedAt.slice(4, 8)}`
 }
 
-/** The 88-character TD3 MRZ the circuit builds from the Aadhaar data */
 export function aadhaarToMrz(aadhaar: AadhaarData): string {
   const name = aadhaarNameToMrz(aadhaar.name)
   const documentNumber = `XXXXX${aadhaar.aadhaarLastDigits}`
@@ -312,7 +273,6 @@ export function aadhaarToMrz(aadhaar: AadhaarData): string {
   return `${line1}${line2Start}${mrzCheckDigit(composite)}`
 }
 
-/** The DG1 the circuit builds, zero-padded to the circuits' DG1 input length */
 export function aadhaarToDg1(aadhaar: AadhaarData): Uint8Array {
   const dg1 = new Uint8Array(DG1_INPUT_LENGTH)
   dg1.set(DG1_HEADER)
@@ -331,7 +291,6 @@ export async function calculateAadhaarPrivateNullifier(photoHash: Uint8Array): P
   ])
 }
 
-/** The commitment the aadhaar_id circuit outputs, which the disclosure circuits take as comm_in */
 export async function calculateAadhaarCommitment(
   salts: {
     dg1Salt: bigint
@@ -368,10 +327,8 @@ function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
   return result
 }
 
-// DER DigestInfo prefix for SHA-256 in PKCS#1 v1.5
 const SHA256_DIGEST_INFO = "3031300d060960864801650304020105000420"
 
-/** Checks an RSA PKCS#1 v1.5 SHA-256 signature, as the circuit does, with exponent 65537 */
 export function verifyAadhaarSignature(qr: AadhaarQrData, modulus: string | Uint8Array): boolean {
   const n = bytesToBigint(modulusBytes(modulus))
   const decrypted = modPow(bytesToBigint(qr.signature), 65537n, n).toString(16).padStart(512, "0")
@@ -380,7 +337,6 @@ export function verifyAadhaarSignature(qr: AadhaarQrData, modulus: string | Uint
   return decrypted === expected
 }
 
-/** The known UIDAI key that signed the QR code, if any */
 export function findUidaiPublicKey(
   qr: AadhaarQrData,
   keys: UidaiPublicKey[],
@@ -390,11 +346,7 @@ export function findUidaiPublicKey(
 
 const toBase64 = (bytes: Uint8Array) => Binary.from(bytes).toBase64()
 
-/**
- * Whether an Aadhaar can answer a query's nationality condition. Aadhaar is issued to residents of
- * India, foreign nationals included, and records no nationality ("XXX" in its MRZ), so it can't
- * prove or disclose one. It can pass an exclusion list, as a resident foreign national would too.
- */
+// Aadhaar records no nationality, so it can only pass an exclusion list
 export function isAadhaarNationalityConditionAllowed(config?: IDCredentialConfig): boolean {
   if (!config) return true
   return Object.entries(config).every(
@@ -417,10 +369,6 @@ export function getAadhaarDataFromPassport(passport: PassportViewModel): Aadhaar
   return parseAadhaarData(getAadhaarQrDataFromPassport(passport).signedData)
 }
 
-/**
- * An Aadhaar as the app keeps an ID: its MRZ is the one the circuit builds, its photo the one
- * in the QR code (JPEG 2000), and the QR data itself is kept for the base proof.
- */
 export function aadhaarToPassportViewModel(
   qr: AadhaarQrData,
   publicKey: UidaiPublicKey | string,
@@ -438,14 +386,12 @@ export function aadhaarToPassportViewModel(
     fullName: name,
     firstName: name,
     lastName: "",
-    // As the MRZ writes dates, YYMMDD, like every stored ID
     dateOfBirth: `${year.slice(2)}${month}${day}`,
     nationality: AADHAAR_NATIONALITY,
     gender: aadhaar.gender === "M" || aadhaar.gender === "F" ? aadhaar.gender : "",
     passportNumber: `XXXXX${aadhaar.aadhaarLastDigits}`,
     dateOfIssue: aadhaar.signedAt.slice(2, 8),
     passportExpiry: getAadhaarExpiryDate(aadhaar.signedAt),
-    // JPEG 2000, which the app converts for display and face matching
     photo: `data:image/jp2;base64,${photo}`,
     originalPhoto: photo,
     chipAuthSupported: false,
@@ -477,10 +423,6 @@ export function aadhaarToPassportViewModel(
   }
 }
 
-/**
- * The aadhaar_id circuit's inputs, with the Merkle proof that the UIDAI certificate whose key
- * signed the QR code is in the Certificate Registry under `packagedCerts.root`
- */
 export async function getAadhaarCircuitInputs(
   passport: PassportViewModel,
   salts: {
@@ -559,7 +501,6 @@ export async function getAadhaarCircuitInputs(
   }
 }
 
-/** The aadhaar_id proof's public inputs: (certificate_registry_root, comm_out, credential_scheme) */
 export const getAadhaarProofPublicInputCount = () => 3
 
 export function getCertificateRegistryRootFromAadhaarProof(proofData: ProofData): bigint {

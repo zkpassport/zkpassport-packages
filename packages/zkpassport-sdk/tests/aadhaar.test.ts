@@ -23,7 +23,6 @@ const SCOPE = "age-check"
 const COMMITMENT = 0x0a7d0237ba949f4239d663f66399a6cb7cace709f54385d3fb008ed5d22148c3n
 const REGISTRY_ROOT = 0x1f2e3d4c5b6a79881f2e3d4c5b6a79881f2e3d4c5b6a79881f2e3d4c5b6a7988n
 const OTHER_ROOT = 0x0badn
-// Accepts only REGISTRY_ROOT, as the registry would its published roots
 const registry = {
   isCertificateRootValid: async (root: string) => BigInt(`0x${root}`) === REGISTRY_ROOT,
   isCircuitRootValid: async () => true,
@@ -179,9 +178,7 @@ describe("Aadhaar proofs", () => {
   })
 
   describe("compressed into an outer proof", () => {
-    // outer_aadhaar_count_N: [certificate_registry_root, circuit_registry_root, current_date,
-    // service_scope, service_subscope, N-1 param commitments, nullifier_type, nullifier,
-    // oprf_pk_hash, credential_scheme]
+    // [cert root, circuit root, date, scope, subscope, ...params, nullifier type, nullifier, oprf pk hash, scheme]
     async function outer({
       root = REGISTRY_ROOT,
       scheme = BigInt(CredentialScheme.UIDAI_AADHAAR),

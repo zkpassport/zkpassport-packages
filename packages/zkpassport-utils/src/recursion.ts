@@ -195,13 +195,6 @@ export function getAttestedOuterCircuitName(
   return getSingleBaseOuterCircuitName("attested_id", disclosureProofCount, evm)
 }
 
-/**
- * Get the name of the Aadhaar outer circuit, which aggregates an aadhaar_id base proof and
- * `disclosureProofCount` disclosure proofs, a face match among them
- * @param disclosureProofCount - The number of disclosure proofs, from 1 to 10
- * @param options.evm - Whether to get the outer circuit whose proofs are verified on EVM chains
- * @returns The outer circuit's name, e.g. outer_aadhaar_count_3
- */
 export function getAadhaarOuterCircuitName(
   disclosureProofCount: number,
   { evm = false }: { evm?: boolean } = {},
@@ -251,13 +244,6 @@ export function getAttestedOuterCircuitInputs(
   }
 }
 
-/**
- * The inputs of an Aadhaar outer circuit. Its certificate registry root is the one the aadhaar_id
- * proof proved the UIDAI key under, which a verifier checks as for a chip ID.
- * @param aadhaarIdProof - The aadhaar_id base proof
- * @param disclosureProofs - The disclosure proofs built on its commitment, a face match among them
- * @param circuitRegistryRoot - The root of the circuit registry the subproofs' vkeys are in
- */
 export function getAadhaarOuterCircuitInputs(
   aadhaarIdProof: OuterCircuitProof,
   disclosureProofs: OuterCircuitProof[],

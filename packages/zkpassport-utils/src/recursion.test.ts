@@ -404,7 +404,6 @@ describe("Tier 2 outer circuit", () => {
     })
 
     test("takes the certificate registry root and scheme from the aadhaar_id proof", () => {
-      // certificate_registry_root, comm_out, credential_scheme
       const inputs = getAadhaarOuterCircuitInputs(
         subproof(["0xcert", "0xc0", "0x65"]),
         [disclosure],

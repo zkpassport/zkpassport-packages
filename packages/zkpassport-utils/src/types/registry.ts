@@ -210,7 +210,6 @@ export type PackagedCertificate = {
   authority_key_identifier?: string
   fingerprint?: string
   tags?: TwoLetterCode[]
-  /** Unset for a CSCA; "uidai" for a UIDAI key that signs Aadhaar Secure QR codes */
   type?: string
 }
 
