@@ -5,11 +5,18 @@ import {
   poseidon2,
   ProofData,
   ProofResult,
+  getNumberOfPublicInputs,
 } from "."
+import {
+  VerificationMethod,
+  getVerificationMethodFromOuterProof,
+} from "./circuits/verification-method"
 import {
   getNullifierTypeFromOuterProof,
   getNullifierFromOuterProof,
   getOprfPkHashFromOuterProof,
+  getAttestedOuterCircuitInputs,
+  getAttestedOuterCircuitName,
   getOuterCircuitInputs,
   getOuterCircuitName,
   getOuterCircuitProof,
@@ -217,7 +224,7 @@ describe("getOuterCircuitProof", () => {
 
   async function getCircuitManifest(): Promise<CircuitManifest> {
     return {
-      version: "0.22.0",
+      version: "0.23.0",
       root: await calculateCircuitRoot({ hashes: VKEY_HASHES }),
       circuits: Object.fromEntries(
         VKEY_HASHES.map((hash, index) => [`circuit_${index}`, { hash, size: 1 }]),
@@ -235,6 +242,19 @@ describe("getOuterCircuitProof", () => {
     expect(outerCircuitProof.proof).toEqual(PROOF_BODY.map((value) => `0x${value}`))
     expect(outerCircuitProof.vkey).toEqual(VKEY_FIELDS.map((value) => `0x${value}`))
     expect(outerCircuitProof.keyHash).toEqual("0x0b")
+  })
+
+  test("splits an integrity proof by the public inputs of its circuit version", async () => {
+    // Since 0.23.0 the integrity check outputs the verification method after comm_out
+    const integrity = { ...circuit, name: "data_check_integrity_sa_sha256_dg_sha256" }
+    const proof = { ...subproof, name: integrity.name, version: "0.23.0" as const }
+    const split = await getOuterCircuitProof(
+      { ...proof, proof: [1, 2, 0x64, 0x21].map(field).join("") },
+      integrity,
+      await getCircuitManifest(),
+    )
+    expect(split.publicInputs).toEqual([1, 2, 0x64].map((value) => `0x${field(value)}`))
+    expect(split.proof).toEqual([`0x${field(0x21)}`])
   })
 
   test("gives the path from the vkey hash to the manifest's root", async () => {
@@ -291,5 +311,86 @@ describe("getOuterCircuitProof", () => {
       await getCircuitManifest(),
     )
     expect(outerCircuitProof.keyHash).toEqual("0x0b")
+  })
+})
+
+describe("outer proof public inputs since circuit version 0.23.0", () => {
+  // [..., nullifier_type, scoped_nullifier, oprf_pk_hash, verification_method]
+  const proof = {
+    proof: [],
+    publicInputs: [
+      "0x1",
+      "0x2",
+      "0x3",
+      "0x4",
+      "0x5",
+      "0xaa",
+      "0xbb",
+      "0x1",
+      "0x77",
+      "0x88",
+      "0xc8",
+    ],
+  }
+
+  test("the trailing fields shift by one for the verification method", () => {
+    expect(getNullifierTypeFromOuterProof(proof, "0.23.0")).toEqual(NullifierType.SALTED)
+    expect(getNullifierFromOuterProof(proof, "0.23.0")).toEqual(0x77n)
+    expect(getOprfPkHashFromOuterProof(proof, "0.23.0")).toEqual(0x88n)
+    expect(getParamCommitmentsFromOuterProof(proof, "0.23.0")).toEqual([0xaan, 0xbbn])
+    expect(getVerificationMethodFromOuterProof(proof)).toEqual(
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
+    )
+  })
+})
+
+describe("Tier 2 outer circuit", () => {
+  const subproof = (publicInputs: string[]) => ({
+    proof: ["0xp"],
+    publicInputs,
+    vkey: ["0xv"],
+    keyHash: "0xk",
+    treeHashPath: ["0xh"],
+    treeIndex: "0x1",
+  })
+  // [comm_in, current_date, scope, subscope, param_commitment, nullifier_type, nullifier, oprf]
+  const disclosure = subproof(["0xc0", "0x64", "0xa", "0xb", "0xd1", "0x0", "0xee", "0x0"])
+
+  test("counts the public inputs: 9 fixed and one commitment per subproof", () => {
+    expect(getNumberOfPublicInputs("outer_attested_id_count_2")).toEqual(11)
+    expect(getNumberOfPublicInputs("outer_evm_attested_id_count_11", "0.23.0")).toEqual(20)
+  })
+
+  test("names the outer circuit after the platform and its subproofs", () => {
+    expect(getAttestedOuterCircuitName(1)).toEqual("outer_attested_id_count_2")
+    expect(getAttestedOuterCircuitName(10, { evm: true })).toEqual("outer_evm_attested_id_count_11")
+    expect(() => getAttestedOuterCircuitName(11)).toThrow("expected 1 to 10")
+  })
+
+  test("puts the attested ID proof's commitment first and takes its scheme", () => {
+    // iOS: comm_out, param_commitment, verification_method
+    const ios = getAttestedOuterCircuitInputs(
+      subproof(["0xc0", "0xa1", "0xc8"]),
+      [disclosure],
+      "0xr",
+      "0xcert",
+    )
+    expect(ios.param_commitments).toEqual(["0xa1", "0xd1"])
+    expect(ios.verification_method).toEqual("0xc8")
+    expect(ios.certificate_registry_root).toEqual("0xcert")
+    expect(ios.current_date).toEqual(100)
+    expect(ios.scoped_nullifier).toEqual("0xee")
+    expect(ios.attested_id_proof.public_inputs).toEqual(["0xc0", "0xa1", "0xc8"])
+    expect(ios.disclosure_proofs[0].public_inputs).toEqual(["0xc0", "0xee", "0x0", "0x0"])
+
+    // Android: current_date first
+    const android = getAttestedOuterCircuitInputs(
+      subproof(["0x5f", "0xc0", "0xa2", "0xc9"]),
+      [disclosure],
+      "0xr",
+      "0xcert",
+    )
+    expect(android.param_commitments).toEqual(["0xa2", "0xd1"])
+    expect(android.verification_method).toEqual("0xc9")
   })
 })

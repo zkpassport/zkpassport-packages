@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/utils",
-  "version": "0.40.0",
+  "version": "0.41.0-beta.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/zkpassport/zkpassport-packages",
@@ -93,6 +93,10 @@
     "./oprf": {
       "import": "./dist/esm/oprf/index.js",
       "require": "./dist/cjs/oprf/index.cjs"
+    },
+    "./document-coverage": {
+      "import": "./dist/esm/document-coverage/index.js",
+      "require": "./dist/cjs/document-coverage/index.cjs"
     }
   },
   "scripts": {

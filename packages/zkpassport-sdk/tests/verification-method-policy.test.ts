@@ -1,0 +1,231 @@
+import { describe, expect, test } from "bun:test"
+import {
+  VerificationMethod,
+  VerificationTier,
+  getAgeParameterCommitment,
+  GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
+  getAttestedIdEvmParameterCommitment,
+  type AttestedIdCommittedInputs,
+  getAttestedIdParameterCommitment,
+  getDiscloseParameterCommitment,
+  getServiceScopeHash,
+  getServiceSubscopeHash,
+  type AllowedVerificationMethod,
+  type ProofResult,
+  type Query,
+  type QueryResult,
+} from "@zkpassport/utils"
+import { PublicInputChecker } from "../src/public-input-checker"
+
+// The public inputs of an attested ID proof made on a real device, with its parameter commitment
+// recomputed under the attested ID proof type, followed by the disclosure proofs' public inputs
+// the app would make on top of it (8 inputs each)
+const ATTESTED_PUBLIC_INPUTS =
+  "0a7d0237ba949f4239d663f66399a6cb7cace709f54385d3fb008ed5d22148c322ad0facfad6d79b410849cb811339faeed481012319bea453cbc5664e397f470000000000000000000000000000000000000000000000000000000000000002"
+const ATTESTED_COMMITTED = {
+  rootKeyLeaf: "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
+  environment: "production",
+  appIdHash: "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b",
+  integrityPubkeyHash: "0x0",
+  mode: "strict",
+}
+const DISCLOSED_BYTES = [
+  80, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 60, 60, 83, 65, 76, 69, 69, 76, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+]
+const DISCLOSE_MASK = [
+  1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+]
+const DOMAIN = "localhost"
+const SCOPE = "age-check"
+
+const field = (x: bigint | number) => BigInt(x).toString(16).padStart(64, "0")
+const body = "ab".repeat(32 * 20)
+
+async function proofs(scheme: VerificationMethod): Promise<ProofResult[]> {
+  const comm = BigInt("0x" + ATTESTED_PUBLIC_INPUTS.slice(0, 64))
+  const now = Math.floor(Date.now() / 1000)
+  const scopeHash = getServiceScopeHash(DOMAIN)
+  const subscope = getServiceSubscopeHash(SCOPE)
+  const disclosure = (name: string, param: bigint, committedInputs: object) => ({
+    name,
+    version: "0.23.0" as const,
+    proof: [comm, now, scopeHash, subscope, param, 4, 0, 0].map(field).join("") + body,
+    committedInputs,
+  })
+  // The attested proof starts with its attestation's date and states its scheme in its own last
+  // public input
+  const attestedPublicInputs = field(now) + ATTESTED_PUBLIC_INPUTS.slice(0, 2 * 64) + field(scheme)
+  return [
+    {
+      name: "attested_id_ios",
+      version: "0.23.0",
+      proof: attestedPublicInputs + body,
+      committedInputs: { attested_id_ios: ATTESTED_COMMITTED },
+    },
+    disclosure("compare_age", await getAgeParameterCommitment(18, 0), {
+      compare_age: { minAge: 18, maxAge: 0 },
+    }),
+    disclosure(
+      "disclose_bytes",
+      await getDiscloseParameterCommitment(DISCLOSE_MASK, DISCLOSED_BYTES),
+      { disclose_bytes: { disclosedBytes: DISCLOSED_BYTES, discloseMask: DISCLOSE_MASK } },
+    ),
+  ] as ProofResult[]
+}
+
+const query: Query = {
+  firstname: { disclose: true },
+  document_type: { disclose: true },
+  age: { gte: 18 },
+}
+const result: QueryResult = {
+  firstname: { disclose: { result: "SALEEL" } },
+  document_type: { disclose: { result: "passport" } },
+  age: { gte: { expected: 18, result: true } },
+}
+
+async function check(scheme: VerificationMethod, allowed?: AllowedVerificationMethod[]) {
+  return PublicInputChecker.checkPublicInputs(
+    DOMAIN,
+    await proofs(scheme),
+    query,
+    result,
+    undefined,
+    SCOPE,
+    undefined,
+    true,
+    undefined,
+    allowed,
+  )
+}
+
+describe("credential policy on an attested ID proof", () => {
+  test("is refused unless the service opted into device-attested credentials", async () => {
+    const refused = await check(VerificationMethod.ATTESTED_CAPTURE_IOS)
+    expect(refused.isCorrect).toBe(false)
+    expect(refused.queryResultErrors.verification_method?.eq?.message).toContain("does not accept")
+    expect(refused.verificationMethod).toBe(VerificationMethod.ATTESTED_CAPTURE_IOS)
+
+    const byTier = await check(VerificationMethod.ATTESTED_CAPTURE_IOS, [
+      VerificationTier.DEVICE_ATTESTED,
+    ])
+    expect(byTier.isCorrect).toBe(true)
+    expect(byTier.queryResultErrors.verification_method).toBeUndefined()
+
+    const byScheme = await check(VerificationMethod.ATTESTED_CAPTURE_IOS, [
+      VerificationTier.GOVERNMENT_SIGNED,
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
+    ])
+    expect(byScheme.isCorrect).toBe(true)
+
+    const otherPlatform = await check(VerificationMethod.ATTESTED_CAPTURE_IOS, [
+      VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+    ])
+    expect(otherPlatform.isCorrect).toBe(false)
+  })
+})
+
+describe("android attested ID parameters", () => {
+  const android = {
+    rootKeyLeaf: "0x0e1889bec6c1d686abcf08360ff404f803ab345881ea8cba6aad33b7f7f7ffe0",
+    environment: "production" as const,
+    appIdHash: "0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d",
+    integrityPubkeyHash: `0x${GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH.toString(16)}`,
+    mode: "strict" as const,
+  }
+
+  test("accepts Google's root, the Android app and the Play Integrity key", () => {
+    expect(PublicInputChecker.checkAttestedIdParameters(android, true).isCorrect).toBe(true)
+  })
+
+  test("refuses iOS and Android values mixed", () => {
+    expect(PublicInputChecker.checkAttestedIdParameters(android, false).isCorrect).toBe(false)
+    expect(
+      PublicInputChecker.checkAttestedIdParameters(
+        { ...android, appIdHash: ATTESTED_COMMITTED.appIdHash },
+        true,
+      ).isCorrect,
+    ).toBe(false)
+    expect(
+      PublicInputChecker.checkAttestedIdParameters({ ...android, integrityPubkeyHash: "0x1" }, true)
+        .isCorrect,
+    ).toBe(false)
+  })
+
+  test("needs a recent proof date", () => {
+    const day = 24 * 60 * 60 * 1000
+    expect(PublicInputChecker.checkAttestedIdDate(new Date(Date.now() - 7 * day)).isCorrect).toBe(
+      true,
+    )
+    expect(PublicInputChecker.checkAttestedIdDate(new Date(Date.now() - 31 * day)).isCorrect).toBe(
+      false,
+    )
+    expect(PublicInputChecker.checkAttestedIdDate(new Date(Date.now() + 2 * day)).isCorrect).toBe(
+      false,
+    )
+  })
+})
+
+describe("a Tier 2 outer proof's device attestation", () => {
+  const ios = ATTESTED_COMMITTED as AttestedIdCommittedInputs
+  const commitment = (committed: AttestedIdCommittedInputs, evm = false) =>
+    (evm ? getAttestedIdEvmParameterCommitment : getAttestedIdParameterCommitment)(
+      BigInt(committed.rootKeyLeaf),
+      1n,
+      BigInt(committed.appIdHash),
+      2n,
+    )
+
+  test("accepts a genuine attestation matching the first commitment, standard or EVM", async () => {
+    for (const evm of [false, true]) {
+      const { isCorrect } = await PublicInputChecker.checkOuterDeviceAttestation(
+        VerificationMethod.ATTESTED_CAPTURE_IOS,
+        { attested_id_ios: ios },
+        await commitment(ios, evm),
+        evm,
+      )
+      expect(isCorrect).toBe(true)
+    }
+  })
+
+  test("refuses a missing, mismatched, self-signed or other platform's attestation", async () => {
+    const check = (
+      scheme: VerificationMethod,
+      committed: Record<string, AttestedIdCommittedInputs>,
+      first: bigint,
+    ) => PublicInputChecker.checkOuterDeviceAttestation(scheme, committed, first, false)
+    const first = await commitment(ios)
+    expect((await check(VerificationMethod.ATTESTED_CAPTURE_IOS, {}, first)).isCorrect).toBe(false)
+    expect(
+      (await check(VerificationMethod.ATTESTED_CAPTURE_IOS, { attested_id_ios: ios }, 1n))
+        .isCorrect,
+    ).toBe(false)
+    const selfSigned = { ...ios, rootKeyLeaf: "0x1" }
+    expect(
+      (
+        await check(
+          VerificationMethod.ATTESTED_CAPTURE_IOS,
+          { attested_id_ios: selfSigned },
+          await commitment(selfSigned),
+        )
+      ).isCorrect,
+    ).toBe(false)
+    expect(
+      (
+        await check(
+          VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+          { attested_id_android: ios },
+          first,
+        )
+      ).isCorrect,
+    ).toBe(false)
+    expect(
+      (await check(VerificationMethod.ATTESTED_CHIP_READ_IOS, { attested_id_ios: ios }, first))
+        .isCorrect,
+    ).toBe(false)
+  })
+})

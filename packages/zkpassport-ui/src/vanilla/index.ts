@@ -44,3 +44,9 @@ export type {
 } from "../verification"
 export type { VerifyWithZKPassportOptions } from "../verify-button"
 export * from "../types"
+export {
+  VerificationMethod,
+  VerificationTier,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  type AllowedVerificationMethod,
+} from "@zkpassport/sdk"

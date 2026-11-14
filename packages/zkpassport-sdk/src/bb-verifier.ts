@@ -60,7 +60,10 @@ export class BBVerifier {
 
   /** Verify a proof with bb.js, starting the bb it needs on first use */
   async verify(proof: ProofResult, circuit: PackagedCircuit): Promise<boolean> {
-    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+    const proofData = getProofData(
+      proof.proof as string,
+      getNumberOfPublicInputs(proof.name!, proof.version),
+    )
     this.loadedVerifier ??= await createUltraHonkVerifier(
       getBBVersionForCircuitVersion(proof.version),
       { writingDirectory: this.writingDirectory },

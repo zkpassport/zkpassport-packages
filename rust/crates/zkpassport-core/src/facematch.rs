@@ -732,7 +732,7 @@ mod tests {
         assert_eq!(n("intermediate_sig"), 96);
         assert_eq!(n("credential_tbs"), 1000);
         assert_eq!(n("credential_sig"), 96);
-        assert_eq!(n("auth_data"), 180);
+        assert_eq!(n("auth_data"), 384);
         assert_eq!(n("client_data"), 169);
         assert_eq!(n("app_id"), 100);
         assert_eq!(obj["environment"].as_u64().unwrap(), 0); // fixture = development

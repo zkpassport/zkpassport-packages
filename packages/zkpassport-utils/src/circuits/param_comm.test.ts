@@ -1,5 +1,10 @@
 import { getDiscloseParameterCommitment } from "./disclose"
-import { getFacematchEvmParameterCommitment, getFacematchParameterCommitment } from "./facematch"
+import {
+  getAttestedIdEvmParameterCommitment,
+  getAttestedIdParameterCommitment,
+  getFacematchEvmParameterCommitment,
+  getFacematchParameterCommitment,
+} from "./facematch"
 
 describe("Parameter Commitments", () => {
   test("Facematch", async () => {
@@ -15,6 +20,18 @@ describe("Parameter Commitments", () => {
     )
     expect(result).toEqual(
       17383518782000629355431899258197281410942500696842135446165121988567400919786n,
+    )
+  })
+
+  test("Attested ID, the face match parameters under their own proof type", async () => {
+    const root_key_leaf = 0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340bn
+    const app_id_hash = 0x067041deed02d9d2df216a420b50404bdf5bcb0026db2602a4142e380a9d6e2an
+    // Printed by `nargo test --package facematch_lib test_attested_id_param_commitment_vectors`
+    expect(await getAttestedIdParameterCommitment(root_key_leaf, 1n, app_id_hash, 2n)).toEqual(
+      0x2c5c0a8d08506d9d8f3117a09dc1d1a863b3a41213f4f70587d0e001569eb2f7n,
+    )
+    expect(await getAttestedIdEvmParameterCommitment(root_key_leaf, 1n, app_id_hash, 2n)).toEqual(
+      0xa7be63944bb0c911f50d5cad4dafb737f48459d1f1347e33c6aec727a67793n,
     )
   })
 

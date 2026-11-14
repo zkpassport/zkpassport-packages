@@ -1,3 +1,4 @@
+import type { AllowedVerificationMethod } from "@zkpassport/sdk"
 import {
   openVerificationPopup,
   type PopupCredentialConfig,
@@ -40,6 +41,8 @@ export type ServiceConfig = {
   uniqueIdentifierType?: "salted" | "non-salted" | "none"
   validity?: number
   devMode?: boolean
+  /** The credentials your service accepts; signed credentials only unless set */
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }
 
 /** Points the flow at your own deployment of the services ZKPassport runs. */
@@ -48,7 +51,10 @@ export type VerificationOverrides = {
   cloudProverUrl?: string
   /** @internal Points the flow at another popup origin; for testing. */
   popupUrl?: string
-  /** Opt into the no-install App Clip lane: the popup emits a `/c` request URL instead of `/r`. */
+  /**
+   * Allow the no-install App Clip lane: the popup sends a request whose policy accepts chip reads
+   * only to a `/c` request URL; one that accepts camera reads stays on `/r`, the full app.
+   */
   appClip?: boolean
 }
 
@@ -427,6 +433,7 @@ function toPopupRequest(
     appClip: options.overrides?.appClip,
     // Left unset when not configured, so the SDK's own default applies
     uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
+    allowedVerificationMethods: service.allowedVerificationMethods,
   }
   for (const key of Object.keys(config) as Array<keyof PopupRequestConfig>) {
     if (config[key] === undefined) delete config[key]

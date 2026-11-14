@@ -356,4 +356,48 @@ library InputsExtractor {
         require(foundCount > 0, "Facematch proof inputs not found");
         require(foundCount == 1, "Found multiple facematch proofs, the proof should only have one");
     }
+
+    /**
+     * @notice Reads the parameters of the attested ID proof, which must be the first committed input entry
+     */
+    function getAttestedIdProofInputs(bytes calldata committedInputs)
+        internal
+        pure
+        returns (
+            bytes32 rootKeyHash,
+            Environment environment,
+            bytes32 appIdHash,
+            bytes32 integrityPublicKeyHash,
+            FaceMatchMode facematchMode
+        )
+    {
+        require(
+            committedInputs.length >= 3 && uint8(committedInputs[0]) == uint8(ProofType.ATTESTED_ID),
+            "Attested ID proof inputs not found"
+        );
+        require(
+            uint16(bytes2(committedInputs[1:3])) == CommittedInputLen.ATTESTED_ID
+                && committedInputs.length >= 3 + CommittedInputLen.ATTESTED_ID,
+            "Invalid attested ID proof inputs length"
+        );
+        rootKeyHash = bytes32(committedInputs[3:35]);
+        environment = Environment(uint8(committedInputs[35]));
+        appIdHash = bytes32(committedInputs[36:68]);
+        integrityPublicKeyHash = bytes32(committedInputs[68:100]);
+        facematchMode = FaceMatchMode(uint8(committedInputs[100]));
+    }
+
+    /**
+     * @notice Whether any committed input entry is of the given proof type
+     */
+    function containsProofType(bytes calldata committedInputs, ProofType proofType) internal pure returns (bool) {
+        uint256 offset = 0;
+        while (offset < committedInputs.length) {
+            if (uint8(committedInputs[offset]) == uint8(proofType)) {
+                return true;
+            }
+            offset += 3 + uint16(bytes2(committedInputs[offset + 1:offset + 3]));
+        }
+        return false;
+    }
 }
