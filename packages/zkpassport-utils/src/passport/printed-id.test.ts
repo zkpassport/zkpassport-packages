@@ -61,12 +61,16 @@ describe("national IDs read from their printed text", () => {
     expect(() => printedIdToMrz({ ...CHINA, number: "A".repeat(24) })).toThrow("too long")
   })
 
-  test("the same card always gives the same nullifier, a renewed one another", async () => {
+  test("the same card always gives the same nullifier, whatever its expiry", async () => {
     const nullifier = async (fields: PrintedIdFields) =>
       calculateTier2PrivateNullifier(td1Dg1(printedIdToMrz(fields)))
     expect(await nullifier(CHINA)).toBe(await nullifier(CHINA))
-    const renewed = { ...CHINA, dateOfExpiry: { year: 2040, month: 5, day: 1 } }
-    expect(await nullifier(renewed)).not.toBe(await nullifier(CHINA))
+    // The expiry may come from a side the scan can't tie to the holder: it is no part of it
+    const otherExpiry = { ...CHINA, dateOfExpiry: { year: 2040, month: 5, day: 1 } }
+    expect(await nullifier(otherExpiry)).toBe(await nullifier(CHINA))
+    expect(await nullifier({ ...CHINA, number: "11010519491231003X" })).not.toBe(
+      await nullifier(CHINA),
+    )
     // The name is not part of it
     expect(await nullifier({ ...CHINA, givenNames: "XIAO MING" })).toBe(await nullifier(CHINA))
   })

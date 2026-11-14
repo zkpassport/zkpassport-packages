@@ -23,14 +23,14 @@ const DG1 = new Uint8Array([
 const PORTRAIT_HASH = sha256(new TextEncoder().encode("portrait"))
 
 // Printed by `nargo test --package attested_to_disclosure_commitment --show-output test_vectors`
-const NOIR_PRIVATE_NULLIFIER = 0x064c866cb0248d050c72dc3a01c74d839bbc18df5600debb0b2e2ff1a645c447n
+const NOIR_PRIVATE_NULLIFIER = 0x1d7dc5da5df5c2bd5557d57aba828043a2b90eaf96d623c0e8ab49720ef7542en
 const NOIR_ID_CARD_PRIVATE_NULLIFIER =
-  0x02c7905c961b56ce7050e0cc7873e9d2bbabfca8835d7eb74619eaa3f2a8a5aen
+  0x2cb827c084093276ffc846f806d1c6b1c27b7fbd0f1ee0008d4778c66b95268an
 const NOIR_GERMAN_PRIVATE_NULLIFIER =
-  0x2e2744a716091a7543c8953ae0f37f99203ceb3007b5947ad303400802d57ea4n
+  0x1f180760db638ff2c74cb7f862f10f4b19a76b742e307d714ac975acd736a6can
 const NOIR_LONG_NUMBER_PRIVATE_NULLIFIER =
-  0x19ab7b603299a71e284d8871c0400dfbf94bdf092fbb4e62065779c367bfa653n
-const NOIR_COMM_OUT = 0x00f92dc8dc9c50429014208f468fd8e06a83062b2a2d0d5349dd497f9fe3c6ben
+  0x065ac3643fddb079f4ba4dc9581aeb6985adeef1e48c2bba91dc5e69da45b8fbn
+const NOIR_COMM_OUT = 0x2835c00a0035ee2e89cceb33c9f4d08020df39f910b3bb36a1d27bcebc258410n
 
 // The ICAO 9303 sample TD1 ID card "I<UTOD231458907...", born 1974-08-12, expiring 2012-04-15
 const ID_CARD_DG1 = new Uint8Array([
@@ -75,7 +75,7 @@ describe("attested id", () => {
     )
   })
 
-  test("private nullifier ignores the name but not the document number or expiry", async () => {
+  test("private nullifier ignores the name and expiry, not the document number", async () => {
     const renamed = Uint8Array.from(DG1)
     renamed[13] = 70 // DOE -> DOF
     const otherNumber = Uint8Array.from(DG1)
@@ -84,7 +84,7 @@ describe("attested id", () => {
     expect(await calculateTier2PrivateNullifier(otherNumber)).not.toBe(NOIR_PRIVATE_NULLIFIER)
     const otherExpiry = Uint8Array.from(DG1)
     otherExpiry[71] = 49 // 2030 -> 2031
-    expect(await calculateTier2PrivateNullifier(otherExpiry)).not.toBe(NOIR_PRIVATE_NULLIFIER)
+    expect(await calculateTier2PrivateNullifier(otherExpiry)).toBe(NOIR_PRIVATE_NULLIFIER)
   })
 
   test("expiry date comes from the MRZ", () => {
