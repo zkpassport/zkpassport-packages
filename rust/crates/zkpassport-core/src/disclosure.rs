@@ -618,7 +618,8 @@ pub fn get_bind_circuit_inputs(
 // builders, but NO oprf_proof / data, plus the attestation-derived fields.
 const FM_INTERMEDIATE_TBS_LEN: usize = 500; // hardcoded in main.nr
 const FM_CREDENTIAL_TBS_MAX_LEN: usize = 1000;
-const FM_AUTH_DATA_MAX_LEN: usize = 180;
+// iOS 27 App Attest auth data carries an extensions block, about 306 bytes; the circuits pad to 384
+const FM_AUTH_DATA_MAX_LEN: usize = 384;
 const FM_CLIENT_DATA_MAX_LEN: usize = 169;
 const FM_APP_ID_MAX_LEN: usize = 100;
 
