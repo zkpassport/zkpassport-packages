@@ -7,6 +7,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import type { QueryResult } from "@zkpassport/utils"
 import { createMockPassport } from "@zkpassport/utils/mock-passports"
+import type { Hex } from "viem"
 import type { HeadlessApp } from "../src/headless-app"
 import { startTestEnv, type TestEnv } from "../src/test-env"
 import { withFlippedProofByte } from "../src/utils"
@@ -20,6 +21,9 @@ const CIRCUITS = [
 ]
 // A circuits release whose root Sepolia's circuit registry no longer accepts
 const RETIRED_CIRCUIT_VERSION = "0.20.0"
+// A circuits release built with bb 5, which the SDK does not bundle
+const BB_5_CIRCUIT_VERSION = "0.21.1"
+const WRONG_WASM_SHA256: Hex = `0x${"00".repeat(31)}01`
 
 describe("fast mode, end to end on a Sepolia fork", () => {
   let testEnv: TestEnv
@@ -94,6 +98,41 @@ describe("fast mode, end to end on a Sepolia fork", () => {
     })
     expect(verification.verified).toBe(false)
   }, 180_000)
+
+  describe("with proofs from bb 5", () => {
+    let bb5App: HeadlessApp
+
+    beforeAll(async () => {
+      bb5App = await testEnv.runHeadlessApp({
+        passport: createMockPassport(),
+        query: (query) => query.gte("age", 18).disclose("nationality"),
+        overrides: { circuitVersion: BB_5_CIRCUIT_VERSION },
+      })
+    }, 180_000)
+
+    test("the proofs verify with bb 5's wasm from the circuits CDN", async () => {
+      const { proofs, result: queryResult } = bb5App.request.result()!
+
+      const verification = await testEnv.verify({
+        proofs,
+        queryResult,
+        originalQuery: bb5App.request.query,
+      })
+      expect(verification.verified).toBe(true)
+    }, 60_000)
+
+    test("the proofs do not verify when the registry holds another sha256 for that wasm", async () => {
+      const { proofs, result: queryResult } = bb5App.request.result()!
+
+      const verification = await testEnv.verify({
+        proofs,
+        queryResult,
+        originalQuery: bb5App.request.query,
+        bb5WasmSha256: WRONG_WASM_SHA256,
+      })
+      expect(verification.verified).toBe(false)
+    }, 60_000)
+  })
 
   test("nothing but the SDK's dashboard lookup tried to reach other hosts", () => {
     // request() looks the domain up on the dashboard API and carries on when that fails

@@ -991,15 +991,15 @@ export class ZKPassport {
     if (typeof window === "undefined" && !writingDirectory) {
       writingDirectory = "/tmp"
     }
+    const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode), config)
     // Starts bb only once the public inputs check out and a proof needs it, so rejected proofs and
     // outer EVM proofs, which are verified on chain, never spawn bb
-    const bbVerifier = new BBVerifier({ writingDirectory })
+    const bbVerifier = new BBVerifier({ registryClient, writingDirectory })
     let verified = true
     let uniqueIdentifier: string | undefined
     let uniqueIdentifierType: NullifierType | undefined
     let queryResultErrors: Partial<QueryResultErrors> | undefined = undefined
     try {
-      const registryClient = createRegistryClient(getChainFromQuery(originalQuery, devMode), config)
       const {
         isCorrect,
         uniqueIdentifier: uniqueIdentifierFromPublicInputs,

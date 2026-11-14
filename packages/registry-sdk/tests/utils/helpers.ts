@@ -13,6 +13,8 @@ export const CHAIN_ID = 31337
 export const PORT = 9545
 export const RPC_URL = `http://localhost:${PORT}`
 export const ORACLE_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+// The admin registry-contracts' script/test/deploy-root-registry.sh gives the Root Registry
+export const ROOT_REGISTRY_ADMIN_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 export const CONTRACTS_DIR = path.resolve(__dirname, "../../../registry-contracts")
 
 interface ExecException extends Error {
