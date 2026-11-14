@@ -102,12 +102,13 @@ contract Tier2VerificationTest is Test {
 
     function test_OnlySignedAndAttestedSchemesVerify() public pure {
         assertTrue(Credentials.isVerifiable(100));
+        assertTrue(Credentials.isVerifiable(101));
         assertTrue(Credentials.isVerifiable(200));
         assertTrue(Credentials.isVerifiable(201));
         assertFalse(Credentials.isVerifiable(0));
         assertFalse(Credentials.isVerifiable(300));
         // In a tier's range but proven by no circuit yet
-        assertFalse(Credentials.isVerifiable(101));
+        assertFalse(Credentials.isVerifiable(102));
         assertFalse(Credentials.isVerifiable(199));
         assertFalse(Credentials.isVerifiable(202));
         assertFalse(Credentials.isVerifiable(203));

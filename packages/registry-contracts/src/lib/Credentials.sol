@@ -54,8 +54,8 @@ library Credentials {
     function isVerifiable(uint256 scheme) internal pure returns (bool) {
         // Only the schemes a circuit proves today, each by name: a new scheme must be added here
         // with its own checks, never accepted for falling in a tier's range
-        return scheme == CredentialScheme.ICAO_CHIP || scheme == CredentialScheme.ATTESTED_CAPTURE_IOS
-            || scheme == CredentialScheme.ATTESTED_CAPTURE_ANDROID;
+        return scheme == CredentialScheme.ICAO_CHIP || scheme == CredentialScheme.UIDAI_AADHAAR
+            || scheme == CredentialScheme.ATTESTED_CAPTURE_IOS || scheme == CredentialScheme.ATTESTED_CAPTURE_ANDROID;
     }
 
     /**
