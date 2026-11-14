@@ -120,7 +120,12 @@ export function fieldsToTd1Mrz(fields: Td1Fields): string {
   const line1 = `${fields.documentCode}${fields.issuingCountry}${numberArea(fields.number, fields.numberSuffix)}`
 
   const birth = mrzDate(fields.dateOfBirth)
-  const expiry = mrzDate(fields.dateOfExpiry)
+  // An expiry past the lifetime date is written as it, like a lifetime card's: the circuits read a
+  // two-digit year beyond this year + 30 as 19YY, so a licence valid to 65 would read as expired.
+  // Fixed, so the nullifier doesn't move with the reading year
+  const expiry = mrzDate(
+    fields.dateOfExpiry > LIFETIME_EXPIRY_DATE ? LIFETIME_EXPIRY_DATE : fields.dateOfExpiry,
+  )
   const sex = fields.sex === "M" || fields.sex === "F" ? fields.sex : MRZ_FILLER
   const line2Start = `${birth}${mrzCheckDigit(birth)}${sex}${expiry}${mrzCheckDigit(expiry)}`
   const line2Body = `${line2Start}${fit(fields.nationality, 3)}${fit("", 11)}`
