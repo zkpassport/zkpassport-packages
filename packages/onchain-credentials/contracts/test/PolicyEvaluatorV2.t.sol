@@ -7,7 +7,7 @@ import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 
-/// PolicyEvaluatorV2: V1's checks plus the credential schemes a policy accepts
+/// PolicyEvaluatorV2: V1's checks plus the verification methods a policy accepts
 contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
     PolicyEvaluatorV2 internal evaluatorV2;
 
@@ -29,7 +29,7 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
         list[1] = b;
     }
 
-    function _requirementsV2(uint256[] memory allowedCredentialSchemes, uint8 minAge)
+    function _requirementsV2(uint256[] memory allowedVerificationMethods, uint8 minAge)
         internal
         view
         returns (bytes memory)
@@ -41,7 +41,7 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
                 faceMatchMode: FaceMatchMode.NONE,
                 includedNationalities: noCountries,
                 excludedNationalities: noCountries,
-                allowedCredentialSchemes: allowedCredentialSchemes
+                allowedVerificationMethods: allowedVerificationMethods
             })
         );
     }
@@ -56,7 +56,7 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
     }
 
     function _issueWithScheme(uint256 policyId, uint256 scheme) internal {
-        mockHelper.setCredentialScheme(scheme);
+        mockHelper.setVerificationMethod(scheme);
         zkPassportCredentials.issue(policyId, _params());
     }
 
@@ -69,11 +69,11 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
         _issueWithScheme(policyId, 100);
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
 
-        mockHelper.setCredentialScheme(200);
-        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__CredentialSchemeNotAllowed.selector);
+        mockHelper.setVerificationMethod(200);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
-        mockHelper.setCredentialScheme(201);
-        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__CredentialSchemeNotAllowed.selector);
+        mockHelper.setVerificationMethod(201);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
@@ -88,16 +88,24 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
     function testAnExactSchemeAcceptsOnlyItself() public {
         uint256 policyId = _createPolicy(_requirementsV2(_schemes(1, 201), 0));
         _issueWithScheme(policyId, 201);
-        mockHelper.setCredentialScheme(200);
-        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__CredentialSchemeNotAllowed.selector);
+        mockHelper.setVerificationMethod(200);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
     function testATier2OnlyPolicyRefusesChipReads() public {
         uint256 policyId = _createPolicy(_requirementsV2(_schemes(2), 0));
-        mockHelper.setCredentialScheme(100);
-        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__CredentialSchemeNotAllowed.selector);
+        mockHelper.setVerificationMethod(100);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
+    }
+
+    function testAHelperFailingForAnotherReasonIsNotTakenForAChipRead() public {
+        mockHelper.setVerificationMethod(200);
+        mockHelper.setBroken(true);
+        uint256 tier1 = _createPolicy(_requirementsV2(new uint256[](0), 0));
+        vm.expectRevert(bytes("helper failed"));
+        zkPassportCredentials.issue(tier1, _params());
     }
 
     function testAProofFromBeforeTheSchemeExistedIsAChipRead() public {
@@ -107,14 +115,14 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, tier1), 1);
 
         uint256 tier2Only = _createPolicy(_requirementsV2(_schemes(200), 0));
-        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__CredentialSchemeNotAllowed.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(tier2Only, _params());
     }
 
     function testV1ChecksStillApply() public {
         uint256 policyId = _createPolicy(_requirementsV2(_schemes(1, 2), 18));
         mockHelper.setAgeOk(false);
-        mockHelper.setCredentialScheme(200);
+        mockHelper.setVerificationMethod(200);
         vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__AgeRequirementNotMet.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
@@ -122,7 +130,7 @@ contract PolicyEvaluatorV2Test is ZKPassportCredentialsTestBase {
     function testUnknownSchemesAreRefusedAtCreation() public {
         uint256[4] memory bad = [uint256(0), 3, 202, 999];
         for (uint256 i = 0; i < bad.length; i++) {
-            vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__InvalidCredentialSchemes.selector);
+            vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__InvalidVerificationMethods.selector);
             evaluatorV2.validateRequirements(_requirementsV2(_schemes(bad[i]), 0));
         }
         evaluatorV2.validateRequirements(_requirementsV2(_schemes(1, 2), 0));

@@ -153,26 +153,36 @@ contract MockVerifierHelper is IVerifierHelper {
         return proofTimestamp;
     }
 
-    /// @dev Reads the same public input as VerifierHelper.getNullifierType.
+    /// @dev Reads the same public input as VerifierHelper.getNullifierType, in the layout from
+    ///      circuit version 0.23.0: nullifier type, nullifier, OPRF key hash, verification method
     function getNullifierType(bytes32[] calldata publicInputs) external pure returns (NullifierType) {
-        return NullifierType(uint256(publicInputs[publicInputs.length - 3]));
+        return NullifierType(uint256(publicInputs[publicInputs.length - 4]));
     }
 
-    uint256 public credentialScheme = 100;
-    // A helper from before circuit version 0.23.0, which has no getCredentialScheme
+    uint256 public verificationMethod = 100;
+    // A helper from before circuit version 0.23.0, which has no getVerificationMethod
     bool public legacy;
 
-    function setCredentialScheme(uint256 scheme) external {
-        credentialScheme = scheme;
+    function setVerificationMethod(uint256 scheme) external {
+        verificationMethod = scheme;
     }
 
     function setLegacy(bool value) external {
         legacy = value;
     }
 
-    function getCredentialScheme(bytes32[] calldata) external view returns (uint256) {
+    // A newer helper that fails for a reason of its own
+    bool public broken;
+
+    function setBroken(bool value) external {
+        broken = value;
+    }
+
+    function getVerificationMethod(bytes32[] calldata) external view returns (uint256) {
+        // A legacy helper has no such function: the call reverts with no data
         require(!legacy);
-        return credentialScheme;
+        require(!broken, "helper failed");
+        return verificationMethod;
     }
 }
 

@@ -3,11 +3,11 @@ pragma solidity ^0.8.30;
 
 import {BoundData, FaceMatchMode, NullifierType, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
-import {Credentials, CredentialScheme} from "@registry/lib/Credentials.sol";
+import {VerificationMethods, VerificationMethod} from "@registry/lib/VerificationMethods.sol";
 import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 /**
- * @notice PolicyEvaluatorV1 plus the credential schemes a policy accepts. V1 accepts any ID the
+ * @notice PolicyEvaluatorV1 plus the verification methods a policy accepts. V1 accepts any ID the
  *         root verifier does, which since circuit version 0.23.0 includes device-attested camera
  *         reads (tier 2); a V2 policy accepts tier 1 only unless it lists more.
  */
@@ -19,7 +19,7 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
     }
 
     /// @dev minAge 0 disables the age check. Country lists are ISO 3166-1 alpha-3, strictly
-    ///      ascending; an empty list disables that check. allowedCredentialSchemes lists exact
+    ///      ascending; an empty list disables that check. allowedVerificationMethods lists exact
     ///      schemes (e.g. 201) and/or whole tiers (an entry below 100, e.g. 1 for every
     ///      issuer-signed scheme), so [1, 201] accepts tier 1 and Android camera reads; empty
     ///      means tier 1 only.
@@ -29,7 +29,7 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
         FaceMatchMode faceMatchMode;
         string[] includedNationalities;
         string[] excludedNationalities;
-        uint256[] allowedCredentialSchemes;
+        uint256[] allowedVerificationMethods;
     }
 
     error PolicyEvaluator__DevModeProofRejected();
@@ -44,8 +44,8 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
     error PolicyEvaluator__ExcludedNationality();
     error PolicyEvaluator__FaceMatchRequirementNotMet();
     error PolicyEvaluator__ZeroAddress();
-    error PolicyEvaluator__InvalidCredentialSchemes();
-    error PolicyEvaluator__CredentialSchemeNotAllowed();
+    error PolicyEvaluator__InvalidVerificationMethods();
+    error PolicyEvaluator__VerificationMethodNotAllowed();
     error PolicyEvaluator__NonCanonicalRequirements();
 
     IRootVerifier public immutable rootVerifier;
@@ -95,11 +95,11 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
     function validateRequirements(bytes calldata requirements) external pure {
         PolicyRequirements memory r = decodeRequirements(requirements);
         // Only the exact encoding of what decodes: a blob encoded for V1 can decode here with its
-        // fields shifted (a minAge 1, STRICT policy reads as allowedCredentialSchemes [2])
+        // fields shifted (a minAge 1, STRICT policy reads as allowedVerificationMethods [2])
         if (keccak256(abi.encode(r)) != keccak256(requirements)) revert PolicyEvaluator__NonCanonicalRequirements();
         _validateCountryList(r.includedNationalities);
         _validateCountryList(r.excludedNationalities);
-        _validateCredentialSchemes(r.allowedCredentialSchemes);
+        _validateVerificationMethods(r.allowedVerificationMethods);
     }
 
     /// @inheritdoc IPolicyEvaluator
@@ -150,8 +150,8 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
     ) internal view {
         PolicyRequirements memory r = decodeRequirements(requirements);
 
-        if (!Credentials.isAllowed(_credentialScheme(helper, publicInputs), r.allowedCredentialSchemes)) {
-            revert PolicyEvaluator__CredentialSchemeNotAllowed();
+        if (!VerificationMethods.isAllowed(_verificationMethod(helper, publicInputs), r.allowedVerificationMethods)) {
+            revert PolicyEvaluator__VerificationMethodNotAllowed();
         }
 
         if (r.minAge > 0 && !helper.isAgeAboveOrEqual(r.minAge, committedInputs)) {
@@ -178,27 +178,38 @@ contract PolicyEvaluatorV2 is IPolicyEvaluator {
         }
     }
 
-    /// @dev The scheme the proof's ID was verified with. Helpers for circuit versions before
-    ///      0.23.0 have no getCredentialScheme, and every proof of those versions is an ICAO chip
-    ///      read, so a helper without it means ICAO_CHIP.
-    function _credentialScheme(IVerifierHelper helper, bytes32[] memory publicInputs) internal view returns (uint256) {
-        try helper.getCredentialScheme(publicInputs) returns (uint256 scheme) {
+    /// @dev The method the proof's ID was verified with. Helpers for circuit versions before
+    ///      0.23.0 have no getVerificationMethod, and every proof of those versions is an ICAO chip
+    ///      read, so a helper without it means ICAO_CHIP. Calling a function a contract doesn't have
+    ///      reverts with no data; any other revert is passed on, so a newer helper that fails for
+    ///      another reason can't make a Tier 2 proof pass as a chip read.
+    function _verificationMethod(IVerifierHelper helper, bytes32[] memory publicInputs)
+        internal
+        view
+        returns (uint256)
+    {
+        try helper.getVerificationMethod(publicInputs) returns (uint256 scheme) {
             return scheme;
-        } catch {
-            return CredentialScheme.ICAO_CHIP;
+        } catch (bytes memory reason) {
+            if (reason.length != 0) {
+                assembly {
+                    revert(add(reason, 32), mload(reason))
+                }
+            }
+            return VerificationMethod.ICAO_CHIP;
         }
     }
 
     /// @dev Each entry a whole tier the root verifier can verify (1 or 2) or one of its known
     ///      schemes, so a typo can't silently accept nothing or something unintended
-    function _validateCredentialSchemes(uint256[] memory schemes) internal pure {
+    function _validateVerificationMethods(uint256[] memory schemes) internal pure {
         for (uint256 i = 0; i < schemes.length; i++) {
             uint256 entry = schemes[i];
-            bool known = Credentials.isTier(entry) || entry == CredentialScheme.ICAO_CHIP
-                || entry == CredentialScheme.UIDAI_AADHAAR || entry == CredentialScheme.JPKI
-                || entry == CredentialScheme.ISO_MDOC || entry == CredentialScheme.ATTESTED_CAPTURE_IOS
-                || entry == CredentialScheme.ATTESTED_CAPTURE_ANDROID;
-            if (!known) revert PolicyEvaluator__InvalidCredentialSchemes();
+            bool known = VerificationMethods.isTier(entry) || entry == VerificationMethod.ICAO_CHIP
+                || entry == VerificationMethod.UIDAI_AADHAAR || entry == VerificationMethod.JPKI
+                || entry == VerificationMethod.ISO_MDOC || entry == VerificationMethod.ATTESTED_CAPTURE_IOS
+                || entry == VerificationMethod.ATTESTED_CAPTURE_ANDROID;
+            if (!known) revert PolicyEvaluator__InvalidVerificationMethods();
         }
     }
 
