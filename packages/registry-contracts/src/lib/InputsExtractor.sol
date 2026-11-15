@@ -334,7 +334,8 @@ library InputsExtractor {
             Environment environment,
             bytes32 appIdHash,
             bytes32 integrityPublicKeyHash,
-            FaceMatchMode facematchMode
+            FaceMatchMode facematchMode,
+            bytes32 revocationRoot
         )
     {
         uint256 offset = 0;
@@ -349,6 +350,7 @@ library InputsExtractor {
                 appIdHash = bytes32(committedInputs[offset + 33:offset + 65]);
                 integrityPublicKeyHash = bytes32(committedInputs[offset + 65:offset + 97]);
                 facematchMode = FaceMatchMode(uint8(committedInputs[offset + 97]));
+                revocationRoot = bytes32(committedInputs[offset + 98:offset + 130]);
                 foundCount++;
             }
             offset += length;

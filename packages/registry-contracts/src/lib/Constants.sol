@@ -19,6 +19,8 @@ library RegistryID {
     bytes32 constant CERTIFICATE = bytes32(0x0000000000000000000000000000000000000000000000000000000000000001);
     bytes32 constant CIRCUIT = bytes32(0x0000000000000000000000000000000000000000000000000000000000000002);
     bytes32 constant SANCTIONS = bytes32(0x0000000000000000000000000000000000000000000000000000000000000003);
+    bytes32 constant ATTESTATION_REVOCATION =
+        bytes32(0x0000000000000000000000000000000000000000000000000000000000000004);
 }
 
 // The lengths of the preimages of the `param_commitments` of the various disclosure circuits.
@@ -34,7 +36,7 @@ library CommittedInputLen {
     uint256 constant EXCL_NATIONALITY = 600;
     uint256 constant BIND = 509;
     uint256 constant SANCTIONS = 33;
-    uint256 constant FACEMATCH = 98;
+    uint256 constant FACEMATCH = 130;
 }
 
 // Gather all the public input indices in one place
@@ -134,6 +136,9 @@ library AppAttest {
     bytes32 constant GOOGLE_RSA_ROOT_KEY_HASH = 0x16700a2d9168a194fc85f237af5829b5a2be05b8ae8ac4879ada34cf54a9c211;
     // The hash of Google's ECDSA (P384) root certificate public key
     bytes32 constant GOOGLE_ECDSA_ROOT_KEY_HASH = 0x0e1889bec6c1d686abcf08360ff404f803ab345881ea8cba6aad33b7f7f7ffe0;
+    // Root of the Android attestation revocation tree with no revoked serials, accepted only while
+    // the attestation revocation registry has no root
+    bytes32 constant EMPTY_REVOCATION_ROOT = 0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525;
     // The hash of the Android integrity public key
     bytes32 constant ANDROID_INTEGRITY_PUBLIC_KEY_HASH = 0x12e3dc7cc8fec0205b51ff21825630865028f3be5bc64a6eec9ee5e71221319f;
 }

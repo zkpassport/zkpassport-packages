@@ -3,6 +3,7 @@ import { Binary, getIdFromChain } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
+  ATTESTATION_REVOCATION_REGISTRY_ID,
   calculateCircuitRoot,
   calculatePackagedCertificatesRoot,
   CERTIFICATE_REGISTRY_ID,
@@ -578,6 +579,37 @@ export class RegistryClient {
    */
   async getSanctionsRootDetails(root?: string): Promise<RootDetails> {
     return this.getRootDetails(SANCTIONS_REGISTRY_ID, "sanctions", root)
+  }
+
+  /**
+   * Get latest Android attestation revocation registry root
+   */
+  async getLatestAttestationRevocationRoot(): Promise<string> {
+    return this.getLatestRoot(ATTESTATION_REVOCATION_REGISTRY_ID, "attestation revocation")
+  }
+
+  /**
+   * Check if an Android attestation revocation root is valid
+   *
+   * @param root The root hash to check
+   * @param timestamp Optional timestamp to check validity for (defaults to current time)
+   * @returns True if the root is valid, false otherwise
+   */
+  async isAttestationRevocationRootValid(root: string, timestamp?: number): Promise<boolean> {
+    return this.isRootValid(
+      ATTESTATION_REVOCATION_REGISTRY_ID,
+      "attestation revocation",
+      root,
+      timestamp,
+    )
+  }
+
+  /**
+   * Get Android attestation revocation root details
+   * @param root Optional root to get details for (defaults to latest)
+   */
+  async getAttestationRevocationRootDetails(root?: string): Promise<RootDetails> {
+    return this.getRootDetails(ATTESTATION_REVOCATION_REGISTRY_ID, "attestation revocation", root)
   }
 
   /**

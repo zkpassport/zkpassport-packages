@@ -16,6 +16,7 @@ import {
   getAgeParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
   getSanctionsParameterCommitment,
+  EMPTY_ATTESTATION_REVOCATION_ROOT,
 } from "@zkpassport/utils"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
@@ -1702,6 +1703,78 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
 
   describe("checkFacematchPublicInputs", () => {
     const originalQuery: Query = { facematch: { mode: "regular" } }
+    const PUBLISHED_REVOCATION_ROOT = "0x" + "cd".repeat(32)
+    let latestRevocationRoot = "0x" + "00".repeat(32)
+    const mocks: { mockRestore: () => void }[] = []
+
+    beforeEach(() => {
+      latestRevocationRoot = "0x" + "00".repeat(32)
+      mocks.push(
+        spyOn(RegistryClient.prototype, "getLatestAttestationRevocationRoot").mockImplementation(
+          async () => latestRevocationRoot,
+        ),
+        spyOn(RegistryClient.prototype, "isAttestationRevocationRootValid").mockImplementation(
+          async (root: string) => root === latestRevocationRoot,
+        ),
+      )
+    })
+
+    afterEach(() => {
+      mocks.splice(0).forEach((mock) => mock.mockRestore())
+    })
+
+    const androidInputs = (revocationRoot?: string) =>
+      makeFacematchInputs({
+        rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+        appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
+        revocationRoot,
+      })
+    const regular: QueryResult = { facematch: { mode: "regular", passed: true } }
+
+    test("accepts an Android empty revocation root while the registry has none", async () => {
+      const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs(EMPTY_ATTESTATION_REVOCATION_ROOT),
+      )
+      expect(isCorrect).toBe(true)
+    })
+
+    test("rejects the empty revocation root once the registry publishes a root", async () => {
+      latestRevocationRoot = PUBLISHED_REVOCATION_ROOT
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs(EMPTY_ATTESTATION_REVOCATION_ROOT),
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.revocation?.message).toContain("revocation")
+      const published = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs(PUBLISHED_REVOCATION_ROOT),
+      )
+      expect(published.isCorrect).toBe(true)
+    })
+
+    test("rejects an Android revocation root the registry does not hold", async () => {
+      const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        androidInputs("0x" + "ef".repeat(32)),
+      )
+      expect(isCorrect).toBe(false)
+    })
+
+    test("rejects an iOS face match with a revocation root", async () => {
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
+        originalQuery,
+        regular,
+        makeFacematchInputs({ revocationRoot: PUBLISHED_REVOCATION_ROOT }),
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.facematch?.revocation?.message).toContain("iOS")
+    })
 
     function makeFacematchInputs(
       overrides: Partial<FacematchCommittedInputs> = {},
@@ -1735,10 +1808,7 @@ describe("PublicInputChecker - committed inputs vs queryResult", () => {
       const { isCorrect } = await PublicInputChecker.checkFacematchPublicInputs(
         originalQuery,
         queryResult,
-        makeFacematchInputs({
-          rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
-          appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
-        }),
+        androidInputs(EMPTY_ATTESTATION_REVOCATION_ROOT),
       )
       expect(isCorrect).toBe(true)
     })
