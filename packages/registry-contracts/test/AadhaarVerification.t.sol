@@ -7,7 +7,7 @@ import {RootRegistry} from "../src/RootRegistry.sol";
 import {SubVerifier} from "../src/SubVerifier.sol";
 import {VerifierHelper} from "../src/VerifierHelper.sol";
 import {InputsExtractor} from "../src/lib/InputsExtractor.sol";
-import {Credentials} from "../src/lib/VerificationMethods.sol";
+import {VerificationMethods} from "../src/lib/VerificationMethods.sol";
 import {FaceMatch} from "../src/lib/AttestedId.sol";
 import {AppAttest} from "../src/lib/Constants.sol";
 import {

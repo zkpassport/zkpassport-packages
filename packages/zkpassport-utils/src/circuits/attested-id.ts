@@ -2,7 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js"
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { packBeBytesIntoFields } from "../utils"
 import { Binary } from "../binary"
-import { CredentialScheme, PassportViewModel } from "../types"
+import { PassportViewModel, VerificationMethod } from "../types"
 import { hashSaltDg1Dg2HashPrivateNullifier, normalizeDg2Hash } from "./index"
 import { ProofData } from "./index"
 
@@ -20,7 +20,7 @@ export const ATTESTED_ID_CIRCUIT_NAME = "attested_id_ios"
  * the three chip proofs, and its nullifier and DG2 hash come from the attestation.
  */
 export const isChiplessPassport = (passport: PassportViewModel) =>
-  !passport.sod && passport.credentialScheme !== CredentialScheme.UIDAI_AADHAAR
+  !passport.sod && passport.verificationMethod !== VerificationMethod.UIDAI_AADHAAR
 
 /** SHA-256 of the portrait the face was matched against, for a passport read by camera */
 export function getPortraitHash(passport: PassportViewModel): Uint8Array {
