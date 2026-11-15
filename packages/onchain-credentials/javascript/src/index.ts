@@ -28,7 +28,10 @@ export type CredentialPolicy = {
    * after creation.
    */
   enforceUniqueness: boolean
-  /** When true, the policy owner may issue credentials directly via ownerIssue(), without a proof. */
+  /**
+   * When true, the policy owner and its issuers may issue credentials directly via ownerIssue()
+   * and ownerIssueBatch(), without a proof.
+   */
   ownerIssuable: boolean
   /**
    * When true, the policy owner may ban a wallet via ban(), which also removes any standing
@@ -36,7 +39,10 @@ export type CredentialPolicy = {
    * renounce their own credential.
    */
   ownerBannable: boolean
-  /** When true, the policy owner may replace the policy's requirements via setRequirements(). */
+  /**
+   * When true, the policy owner may replace the policy's requirements, evaluator and credential
+   * duration via setRequirements(), migrateEvaluator() and setCredentialDuration().
+   */
   ownerEditable: boolean
   /**
    * Address of the contract that defines and decodes the policy's requirements schema, and that
@@ -56,6 +62,8 @@ export type CredentialPolicy = {
    * Timestamp that tracks whether the policy has been retired by its owner, and when.
    */
   retiredAt: bigint
+  /** Accounts the owner allows to issue credentials without a proof, as the owner can. */
+  issuers: readonly `0x${string}`[]
 }
 
 /**
@@ -432,11 +440,14 @@ export class CredentialsClient {
      * evaluator's `uniqueIdentifierType` is `NONE`.
      */
     enforceUniqueness: boolean
-    /** Allow proofless issuance via ownerIssue(). */
+    /** Allow proofless issuance by the owner and its issuers via ownerIssue() and ownerIssueBatch(). */
     ownerIssuable?: boolean
     /** Allow the owner to ban wallets (removing any standing credential) via ban(). */
     ownerBannable?: boolean
-    /** Allow the owner to replace requirements via setRequirements(). */
+    /**
+     * Allow the owner to replace requirements, evaluator and credential duration via
+     * setRequirements(), migrateEvaluator() and setCredentialDuration().
+     */
     ownerEditable?: boolean
   }): CredentialsCall<
     "createPolicy",
@@ -471,6 +482,33 @@ export class CredentialsClient {
     ] as const)
   }
 
+  /**
+   * Assemble the migrateEvaluator() call, moving a policy to the current policy evaluator with
+   * new requirements, which that evaluator validates on-chain. Owner-only, and only for
+   * `ownerEditable` policies. Already-issued credentials and nullifier bindings are untouched.
+   */
+  buildMigrateEvaluatorCall(
+    policyId: bigint,
+    requirements: CredentialPolicyRequirements,
+  ): CredentialsCall<"migrateEvaluator", readonly [bigint, `0x${string}`]> {
+    return this.call("migrateEvaluator", [
+      policyId,
+      encodeCredentialPolicyRequirements(requirements),
+    ] as const)
+  }
+
+  /**
+   * Assemble the setCredentialDuration() call, changing how long credentials stay valid from
+   * their next issuance or renewal on. Owner-only, and only for `ownerEditable` policies;
+   * already-issued credentials keep their expiry.
+   */
+  buildSetCredentialDurationCall(
+    policyId: bigint,
+    credentialDuration: bigint,
+  ): CredentialsCall<"setCredentialDuration", readonly [bigint, bigint]> {
+    return this.call("setCredentialDuration", [policyId, credentialDuration] as const)
+  }
+
   /** Assemble the setMetadataURL() call, updating a policy's display metadata URL. Owner-only. */
   buildSetMetadataURLCall(
     policyId: bigint,
@@ -489,8 +527,8 @@ export class CredentialsClient {
 
   /**
    * Assemble the ownerIssue() call, issuing (or extending) a credential without a proof.
-   * Owner-only, and only for `ownerIssuable` policies; reverts for banned wallets and retired
-   * policies. Owner issuance never touches nullifier bindings, so on `enforceUniqueness`
+   * Owner or issuer only, and only for `ownerIssuable` policies; reverts for banned wallets and
+   * retired policies. Owner issuance never touches nullifier bindings, so on `enforceUniqueness`
    * policies it bypasses one-per-document sybil protection.
    */
   buildOwnerIssueCall(
@@ -498,6 +536,40 @@ export class CredentialsClient {
     policyId: bigint,
   ): CredentialsCall<"ownerIssue", readonly [`0x${string}`, bigint]> {
     return this.call("ownerIssue", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the ownerIssueBatch() call, issuing (or extending) credentials for several wallets
+   * as ownerIssue() does. All or nothing: the transaction reverts if any wallet cannot be
+   * issued to.
+   */
+  buildOwnerIssueBatchCall(
+    wallets: readonly `0x${string}`[],
+    policyId: bigint,
+  ): CredentialsCall<"ownerIssueBatch", readonly [readonly `0x${string}`[], bigint]> {
+    return this.call("ownerIssueBatch", [wallets, policyId] as const)
+  }
+
+  /**
+   * Assemble the addIssuer() call, letting an account issue credentials without a proof as the
+   * owner can. Owner-only, and only for `ownerIssuable` policies.
+   */
+  buildAddIssuerCall(
+    issuer: `0x${string}`,
+    policyId: bigint,
+  ): CredentialsCall<"addIssuer", readonly [`0x${string}`, bigint]> {
+    return this.call("addIssuer", [issuer, policyId] as const)
+  }
+
+  /**
+   * Assemble the removeIssuer() call, stopping an issuer from issuing credentials. Owner-only;
+   * credentials the issuer already issued are untouched.
+   */
+  buildRemoveIssuerCall(
+    issuer: `0x${string}`,
+    policyId: bigint,
+  ): CredentialsCall<"removeIssuer", readonly [`0x${string}`, bigint]> {
+    return this.call("removeIssuer", [issuer, policyId] as const)
   }
 
   /**

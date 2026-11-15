@@ -18,6 +18,7 @@ export const SAMPLE_POLICY: CredentialPolicy = {
   requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
   retiredAt: 0n,
+  issuers: [],
 }
 
 /** decodeRequirements as the contract returns it: raw enum numbers. */

@@ -38,6 +38,7 @@ const VERIFIER_PARAMS = {
 } as const
 
 const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
+const ISSUER = "0x4444444444444444444444444444444444444444" as const
 
 const SAMPLE_POLICY: CredentialPolicy = {
   owner: WALLET,
@@ -50,6 +51,7 @@ const SAMPLE_POLICY: CredentialPolicy = {
   requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
   retiredAt: 0n,
+  issuers: [ISSUER],
 }
 
 /** decodeRequirements as the contract returns it: raw enum numbers. */
@@ -445,6 +447,12 @@ describe("CredentialsClient owner calls", () => {
     expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
   })
 
+  test("buildMigrateEvaluatorCall pairs the policy id with re-encoded requirements", () => {
+    const call = credentials.buildMigrateEvaluatorCall(POLICY_ID, SAMPLE_REQUIREMENTS)
+    expect(call.functionName).toBe("migrateEvaluator")
+    expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
+  })
+
   test("the remaining owner calls mirror the contract signatures", () => {
     expect(credentials.buildSetMetadataURLCall(POLICY_ID, "https://p.example/2")).toMatchObject({
       address: REGISTRY,
@@ -455,9 +463,25 @@ describe("CredentialsClient owner calls", () => {
       functionName: "retire",
       args: [POLICY_ID],
     })
+    expect(credentials.buildSetCredentialDurationCall(POLICY_ID, 604800n)).toMatchObject({
+      functionName: "setCredentialDuration",
+      args: [POLICY_ID, 604800n],
+    })
     expect(credentials.buildOwnerIssueCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "ownerIssue",
       args: [WALLET, POLICY_ID],
+    })
+    expect(credentials.buildOwnerIssueBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "ownerIssueBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
+    })
+    expect(credentials.buildAddIssuerCall(ISSUER, POLICY_ID)).toMatchObject({
+      functionName: "addIssuer",
+      args: [ISSUER, POLICY_ID],
+    })
+    expect(credentials.buildRemoveIssuerCall(ISSUER, POLICY_ID)).toMatchObject({
+      functionName: "removeIssuer",
+      args: [ISSUER, POLICY_ID],
     })
     expect(credentials.buildRenounceCall(POLICY_ID)).toMatchObject({
       functionName: "renounce",

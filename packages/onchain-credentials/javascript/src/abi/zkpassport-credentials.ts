@@ -1,4 +1,4 @@
-// Generated from packages/onchain-credentials/contracts (commit 1e0de461). Do not edit by hand.
+// Generated from packages/onchain-credentials/contracts (commit ac4a7f97). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -34,6 +34,24 @@ export const ZKPassportCredentialsAbi = [
       },
     ],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "addIssuer",
+    inputs: [
+      {
+        name: "issuer",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -271,6 +289,11 @@ export const ZKPassportCredentialsAbi = [
             type: "uint64",
             internalType: "uint64",
           },
+          {
+            name: "issuers",
+            type: "address[]",
+            internalType: "address[]",
+          },
         ],
       },
     ],
@@ -344,6 +367,24 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "function",
+    name: "migrateEvaluator",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "requirements",
+        type: "bytes",
+        internalType: "bytes",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "nullifierWallet",
     inputs: [
       {
@@ -374,6 +415,24 @@ export const ZKPassportCredentialsAbi = [
         name: "wallet",
         type: "address",
         internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "ownerIssueBatch",
+    inputs: [
+      {
+        name: "wallets",
+        type: "address[]",
+        internalType: "address[]",
       },
       {
         name: "policyId",
@@ -435,6 +494,24 @@ export const ZKPassportCredentialsAbi = [
       },
     ],
     stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "removeIssuer",
+    inputs: [
+      {
+        name: "issuer",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -545,6 +622,24 @@ export const ZKPassportCredentialsAbi = [
     ],
     outputs: [],
     stateMutability: "pure",
+  },
+  {
+    type: "function",
+    name: "setCredentialDuration",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "credentialDuration",
+        type: "uint64",
+        internalType: "uint64",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -761,7 +856,7 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "event",
-    name: "CredentialIssuedByPolicyOwner",
+    name: "CredentialIssuedBy",
     inputs: [
       {
         name: "wallet",
@@ -774,6 +869,12 @@ export const ZKPassportCredentialsAbi = [
         type: "uint256",
         indexed: true,
         internalType: "uint256",
+      },
+      {
+        name: "issuer",
+        type: "address",
+        indexed: true,
+        internalType: "address",
       },
       {
         name: "heldUntil",
@@ -855,6 +956,44 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "event",
+    name: "IssuerAdded",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "issuer",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "IssuerRemoved",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "issuer",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "PausedStatusChanged",
     inputs: [
       {
@@ -878,6 +1017,50 @@ export const ZKPassportCredentialsAbi = [
       },
       {
         name: "owner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PolicyCredentialDurationChanged",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "credentialDuration",
+        type: "uint64",
+        indexed: false,
+        internalType: "uint64",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PolicyEvaluatorMigrated",
+    inputs: [
+      {
+        name: "policyId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "oldEvaluator",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "newEvaluator",
         type: "address",
         indexed: true,
         internalType: "address",
@@ -1200,6 +1383,11 @@ export const ZKPassportCredentialsAbi = [
   },
   {
     type: "error",
+    name: "ZKPassportCredentials__AlreadyIssuer",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "ZKPassportCredentials__InvalidCredentialDuration",
     inputs: [],
   },
@@ -1231,6 +1419,16 @@ export const ZKPassportCredentialsAbi = [
   {
     type: "error",
     name: "ZKPassportCredentials__NotIssuableByOwner",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZKPassportCredentials__NotIssuer",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "ZKPassportCredentials__NotOwnerOrIssuer",
     inputs: [],
   },
   {
