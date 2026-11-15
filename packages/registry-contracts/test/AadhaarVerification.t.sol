@@ -18,10 +18,9 @@ contract AadhaarVerificationTest is Test {
         pure
         returns (bytes memory)
     {
-        return
-            abi.encodePacked(
-                uint8(10), uint16(98), rootKeyHash, uint8(environment), appIdHash, integrityKeyHash, uint8(1)
-            );
+        return abi.encodePacked(
+            uint8(10), uint16(130), rootKeyHash, uint8(environment), appIdHash, integrityKeyHash, uint8(1), bytes32(0)
+        );
     }
 
     function test_AadhaarIsGovernmentSignedAndVerifiable() public pure {

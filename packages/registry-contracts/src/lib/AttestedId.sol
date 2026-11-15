@@ -9,7 +9,8 @@
 
 pragma solidity ^0.8.30;
 
-import {AppAttest} from "./Constants.sol";
+import {AppAttest, RegistryID} from "./Constants.sol";
+import {RootRegistry} from "../RootRegistry.sol";
 import {VerificationMethod} from "./VerificationMethods.sol";
 import {Environment, FaceMatchMode} from "./Types.sol";
 
@@ -62,5 +63,23 @@ library FaceMatch {
                 && integrityPublicKeyHash == AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH;
         }
         return false;
+    }
+}
+
+/**
+ * @notice An Android attestation chain is checked in the circuit against a tree of revoked certificate serials,
+ *         whose root the verifier must find in the attestation revocation registry. The empty tree's root is
+ *         accepted only while that registry has no root, so it stops being accepted once the first one is published.
+ */
+library AttestationRevocation {
+    function isRootAccepted(RootRegistry rootRegistry, bytes32 revocationRoot, uint256 timestamp)
+        internal
+        view
+        returns (bool)
+    {
+        if (revocationRoot == AppAttest.EMPTY_REVOCATION_ROOT) {
+            return rootRegistry.latestRoot(RegistryID.ATTESTATION_REVOCATION) == bytes32(0);
+        }
+        return rootRegistry.isRootValid(RegistryID.ATTESTATION_REVOCATION, revocationRoot, timestamp);
     }
 }

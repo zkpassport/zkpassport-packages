@@ -7,7 +7,8 @@ import "../src/SubVerifier.sol";
 import "../src/VerifierHelper.sol";
 import {AttestedId} from "../src/lib/AttestedId.sol";
 import {InputsExtractor} from "../src/lib/InputsExtractor.sol";
-import {AppAttest, CommittedInputLen} from "../src/lib/Constants.sol";
+import {AppAttest, CommittedInputLen, RegistryID} from "../src/lib/Constants.sol";
+import {MockRegistry} from "./MockRegistry.sol";
 import {VerificationMethod} from "../src/lib/VerificationMethods.sol";
 import {ProofType, Environment, FaceMatchMode, OS} from "../src/lib/Types.sol";
 
@@ -15,7 +16,7 @@ contract AttestedIdHarness {
     function getAttestedIdProofInputs(bytes calldata committedInputs)
         external
         pure
-        returns (bytes32, Environment, bytes32, bytes32, FaceMatchMode)
+        returns (bytes32, Environment, bytes32, bytes32, FaceMatchMode, bytes32)
     {
         return InputsExtractor.getAttestedIdProofInputs(committedInputs);
     }
@@ -42,6 +43,14 @@ contract SubVerifierHarness is SubVerifier {
     function verifyDeviceAttestation(uint256 verificationMethod, bytes calldata committedInputs) external pure {
         _verifyDeviceAttestation(verificationMethod, committedInputs);
     }
+
+    function verifyAttestationRevocation(
+        RootRegistry rootRegistry,
+        uint256 verificationMethod,
+        bytes calldata committedInputs
+    ) external view {
+        _verifyAttestationRevocation(rootRegistry, verificationMethod, committedInputs, block.timestamp);
+    }
 }
 
 contract AttestedIdTest is Test {
@@ -62,7 +71,12 @@ contract AttestedIdTest is Test {
         bytes32 integrityPublicKeyHash,
         FaceMatchMode mode
     ) internal pure returns (bytes memory) {
-        return abi.encodePacked(rootKeyHash, uint8(environment), appIdHash, integrityPublicKeyHash, uint8(mode));
+        // iOS commits no revocation root, Android the empty tree's while the registry has none
+        bytes32 revocationRoot =
+            rootKeyHash == AppAttest.APPLE_ROOT_KEY_HASH ? bytes32(0) : AppAttest.EMPTY_REVOCATION_ROOT;
+        return abi.encodePacked(
+            rootKeyHash, uint8(environment), appIdHash, integrityPublicKeyHash, uint8(mode), revocationRoot
+        );
     }
 
     function entry(ProofType proofType, bytes memory payload) internal pure returns (bytes memory) {
@@ -98,15 +112,16 @@ contract AttestedIdTest is Test {
     function testProofTypeAndLength() public pure {
         assertEq(uint256(ProofType.FACEMATCH), 10);
         assertEq(uint256(ProofType.ATTESTED_ID), 11);
-        assertEq(CommittedInputLen.ATTESTED_ID, 98);
+        assertEq(CommittedInputLen.ATTESTED_ID, 130);
     }
 
     // ---- Extractor ----
 
     function testExtractorReadsFirstEntry() public view {
         bytes memory inputs = bytes.concat(entry(ProofType.ATTESTED_ID, iosPayload()), ageEntry());
-        (bytes32 root, Environment env, bytes32 app, bytes32 integrity, FaceMatchMode mode) =
+        (bytes32 root, Environment env, bytes32 app, bytes32 integrity, FaceMatchMode mode, bytes32 revocationRoot) =
             harness.getAttestedIdProofInputs(inputs);
+        assertEq(revocationRoot, bytes32(0));
         assertEq(root, AppAttest.APPLE_ROOT_KEY_HASH);
         assertEq(uint256(env), uint256(Environment.PRODUCTION));
         assertEq(app, AppAttest.IOS_APP_ID_HASH);
@@ -116,7 +131,9 @@ contract AttestedIdTest is Test {
 
     function testExtractorReadsAndroidFields() public view {
         bytes memory inputs = entry(ProofType.ATTESTED_ID, androidPayload(AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH));
-        (bytes32 root,, bytes32 app, bytes32 integrity,) = harness.getAttestedIdProofInputs(inputs);
+        (bytes32 root,, bytes32 app, bytes32 integrity,, bytes32 revocationRoot) =
+            harness.getAttestedIdProofInputs(inputs);
+        assertEq(revocationRoot, AppAttest.EMPTY_REVOCATION_ROOT);
         assertEq(root, AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH);
         assertEq(app, AppAttest.ANDROID_APP_ID_HASH);
         assertEq(integrity, AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH);
@@ -148,7 +165,7 @@ contract AttestedIdTest is Test {
         harness.getAttestedIdProofInputs(entry(ProofType.ATTESTED_ID, short));
 
         // Declared length right, payload truncated
-        bytes memory truncated = abi.encodePacked(uint8(ProofType.ATTESTED_ID), uint16(98), new bytes(50));
+        bytes memory truncated = abi.encodePacked(uint8(ProofType.ATTESTED_ID), uint16(130), new bytes(50));
         vm.expectRevert("Invalid attested ID proof inputs length");
         harness.getAttestedIdProofInputs(truncated);
     }
@@ -391,5 +408,76 @@ contract AttestedIdTest is Test {
             )
         );
         assertFalse(helper.isFaceMatchVerified(FaceMatchMode.STRICT, OS.IOS, inputs));
+    }
+
+    // ---- attestation revocation root ----
+
+    function androidPayloadWithRevocationRoot(bytes32 revocationRoot) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH,
+            uint8(Environment.PRODUCTION),
+            AppAttest.ANDROID_APP_ID_HASH,
+            AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH,
+            uint8(FaceMatchMode.STRICT),
+            revocationRoot
+        );
+    }
+
+    function testRevocationAcceptsEmptyRootWhileRegistryHasNone() public {
+        RootRegistry bare = new RootRegistry(address(this), address(0));
+        subVerifier.verifyAttestationRevocation(
+            bare,
+            VerificationMethod.ATTESTED_CAPTURE_ANDROID,
+            entry(ProofType.ATTESTED_ID, androidPayload(AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH))
+        );
+    }
+
+    function testRevocationRefusesUnknownRootWhileRegistryHasNone() public {
+        RootRegistry bare = new RootRegistry(address(this), address(0));
+        bytes memory inputs = entry(ProofType.ATTESTED_ID, androidPayloadWithRevocationRoot(keccak256("root")));
+        vm.expectRevert("Invalid attestation revocation root");
+        subVerifier.verifyAttestationRevocation(bare, VerificationMethod.ATTESTED_CAPTURE_ANDROID, inputs);
+    }
+
+    function testRevocationChecksTheRegistryOnceItHasARoot() public {
+        RootRegistry rootRegistry = new RootRegistry(address(this), address(0));
+        MockRegistry revocationRegistry = new MockRegistry(true);
+        rootRegistry.addRegistry(RegistryID.ATTESTATION_REVOCATION, revocationRegistry);
+        bytes memory current = entry(ProofType.ATTESTED_ID, androidPayloadWithRevocationRoot(keccak256("root")));
+        subVerifier.verifyAttestationRevocation(rootRegistry, VerificationMethod.ATTESTED_CAPTURE_ANDROID, current);
+
+        bytes memory empty = entry(ProofType.ATTESTED_ID, androidPayload(AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH));
+        vm.expectRevert("Invalid attestation revocation root");
+        subVerifier.verifyAttestationRevocation(rootRegistry, VerificationMethod.ATTESTED_CAPTURE_ANDROID, empty);
+
+        revocationRegistry.setShouldReturnValid(false);
+        vm.expectRevert("Invalid attestation revocation root");
+        subVerifier.verifyAttestationRevocation(rootRegistry, VerificationMethod.ATTESTED_CAPTURE_ANDROID, current);
+    }
+
+    function testRevocationRefusesAnIosRoot() public {
+        RootRegistry bare = new RootRegistry(address(this), address(0));
+        bytes memory payload = bytes.concat(
+            abi.encodePacked(
+                AppAttest.APPLE_ROOT_KEY_HASH,
+                uint8(Environment.PRODUCTION),
+                AppAttest.IOS_APP_ID_HASH,
+                bytes32(0),
+                uint8(FaceMatchMode.STRICT)
+            ),
+            abi.encodePacked(AppAttest.EMPTY_REVOCATION_ROOT)
+        );
+        vm.expectRevert("Unexpected attestation revocation root");
+        subVerifier.verifyAttestationRevocation(
+            bare, VerificationMethod.ATTESTED_CAPTURE_IOS, entry(ProofType.ATTESTED_ID, payload)
+        );
+        subVerifier.verifyAttestationRevocation(
+            bare, VerificationMethod.ATTESTED_CAPTURE_IOS, entry(ProofType.ATTESTED_ID, iosPayload())
+        );
+    }
+
+    function testRevocationIgnoresIssuerSignedCredentials() public {
+        RootRegistry bare = new RootRegistry(address(this), address(0));
+        subVerifier.verifyAttestationRevocation(bare, VerificationMethod.ICAO_CHIP, ageEntry());
     }
 }

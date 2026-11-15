@@ -4,6 +4,7 @@ import {
   calculateAttestedDigest,
   calculateAttestedIdCommitment,
   calculateTier2PrivateNullifier,
+  EMPTY_ATTESTATION_REVOCATION_ROOT,
   getAttestationRevocationProofs,
   getAttestedIdAndroidCircuitName,
   getCertificateSerialNumber,
@@ -145,5 +146,12 @@ describe("android attested id", () => {
     expect(proofs[0].left.sibling_path).toHaveLength(20)
     await expect(getAttestationRevocationProofs([5n], [5n])).rejects.toThrow("revoked")
     expect(getCertificateSerialNumber(new Uint8Array([0x01, 0x00]))).toBe(256n)
+  })
+
+  test("builds the empty revocation tree's root, as the circuit's tests pin it", async () => {
+    const { root, proofs } = await getAttestationRevocationProofs([], [1n])
+    expect(root).toBe(EMPTY_ATTESTATION_REVOCATION_ROOT)
+    expect(BigInt(proofs[0].left.leaf)).toBe(0n)
+    expect(proofs[0].right.leaf_index).toBe(`0x${"1".padStart(64, "0")}`)
   })
 })

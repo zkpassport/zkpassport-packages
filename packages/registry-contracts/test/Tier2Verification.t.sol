@@ -166,7 +166,7 @@ contract FixtureAttestationSubVerifier is SubVerifier {
             Environment environment,
             bytes32 appIdHash,
             bytes32 integrityPublicKeyHash,
-            FaceMatchMode mode
+            FaceMatchMode mode,
         ) = InputsExtractor.getAttestedIdProofInputs(committedInputs);
         require(
             rootKeyHash == FIXTURE_ROOT_KEY_HASH && appIdHash == FIXTURE_APP_ID_HASH

@@ -94,6 +94,13 @@ export function getAttestedIdAndroidCircuitName({
 /** Depth of the tree of revoked Android attestation certificate serials */
 export const ANDROID_REVOCATION_TREE_DEPTH = 20
 
+/**
+ * Root of the revocation tree with no revoked serials. Verifiers accept it while the attestation
+ * revocation registry has no root yet, so proofs can be made before the registry goes live.
+ */
+export const EMPTY_ATTESTATION_REVOCATION_ROOT =
+  "0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525"
+
 export type CircuitRevocationProof = {
   left: { leaf: string; leaf_index: string; sibling_path: string[] }
   right: { leaf: string; leaf_index: string; sibling_path: string[] }
