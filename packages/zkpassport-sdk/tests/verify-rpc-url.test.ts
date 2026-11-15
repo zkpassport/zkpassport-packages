@@ -7,19 +7,13 @@ import ZKPassportVerifierAbi from "../src/assets/abi/ZKPassportVerifier.json"
 import * as bbVerifier from "../src/bb-verifier"
 import { ZKPassport } from "../src/index"
 import { PublicInputChecker } from "../src/public-input-checker"
+import { fakeOuterProofCommittingTo } from "./helpers"
 
 describe("verify() config.rpcUrl", () => {
   const circuitVersion = "0.21.0"
   const outerEvmProofName = "outer_evm_3"
   const outerEvmCircuitHash = "0x0000000000000000000000000000000000000000000000000000000000000001"
-  const proofs: ProofResult[] = [
-    {
-      name: outerEvmProofName,
-      version: circuitVersion,
-      vkeyHash: outerEvmCircuitHash,
-      proof: "00".repeat(32 * 20),
-    },
-  ]
+  let proofs: ProofResult[]
   const originalQuery: Query = { age: { gte: 18 } }
   const queryResult: QueryResult = { age: { gte: { expected: 18, result: true } } }
   const rpcUrl = "http://rpc.test"
@@ -31,6 +25,14 @@ describe("verify() config.rpcUrl", () => {
 
   beforeEach(async () => {
     const circuitRoot = await calculateCircuitRoot({ hashes: [outerEvmCircuitHash] })
+    proofs = [
+      {
+        name: outerEvmProofName,
+        version: circuitVersion,
+        vkeyHash: outerEvmCircuitHash,
+        proof: fakeOuterProofCommittingTo(circuitRoot),
+      },
+    ]
 
     originalFetch = globalThis.fetch
     fetchedUrls = []
@@ -67,6 +69,7 @@ describe("verify() config.rpcUrl", () => {
       uniqueIdentifier: "1",
       uniqueIdentifierType: NullifierType.NON_SALTED,
       queryResultErrors: {},
+      rootTimestamp: undefined,
     })
     bbVerifierSpy = spyOn(bbVerifier, "createUltraHonkVerifier").mockResolvedValue({
       verifier: { verifyProof: async () => true },
