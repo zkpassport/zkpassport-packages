@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-13T12:17:32.641Z",
+  "generatedAt": "2026-11-15T09:24:23.421Z",
   "sources": {
     "regula": {
       "database": "FullAuthLight",
@@ -889,9 +889,7 @@
           "from": 2026,
           "chip": true,
           "mrz": false,
-          "regulaId": -1709486024,
-          "text": true,
-          "nationality": "none"
+          "regulaId": -1709486024
         },
         {
           "type": "residence_permit",
@@ -4411,9 +4409,7 @@
           "from": 2026,
           "chip": true,
           "mrz": false,
-          "regulaId": -1751891076,
-          "text": true,
-          "nationality": "none"
+          "regulaId": -1751891076
         },
         {
           "type": "residence_permit",
@@ -5866,9 +5862,7 @@
           "from": 2021,
           "chip": true,
           "mrz": false,
-          "regulaId": 981892286,
-          "text": true,
-          "nationality": "issuer"
+          "regulaId": 981892286
         },
         {
           "type": "id_card",
@@ -5876,9 +5870,7 @@
           "from": 2023,
           "chip": true,
           "mrz": false,
-          "regulaId": 1635065506,
-          "text": true,
-          "nationality": "issuer"
+          "regulaId": 1635065506
         },
         {
           "type": "id_card",
@@ -6034,9 +6026,7 @@
           "from": 2010,
           "chip": true,
           "mrz": false,
-          "regulaId": 1829644991,
-          "text": true,
-          "nationality": "issuer"
+          "regulaId": 1829644991
         },
         {
           "type": "id_card",
@@ -6044,9 +6034,7 @@
           "from": 2016,
           "chip": true,
           "mrz": false,
-          "regulaId": 698449815,
-          "text": true,
-          "nationality": "issuer"
+          "regulaId": 698449815
         },
         {
           "type": "id_card",
@@ -6054,9 +6042,7 @@
           "from": 2021,
           "chip": true,
           "mrz": false,
-          "regulaId": 981832706,
-          "text": true,
-          "nationality": "issuer"
+          "regulaId": 981832706
         },
         {
           "type": "id_card",
@@ -6653,9 +6639,7 @@
           "from": 2021,
           "chip": true,
           "mrz": false,
-          "regulaId": 905865945,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 905865945
         },
         {
           "type": "id_card",
@@ -6671,9 +6655,7 @@
           "from": 2025,
           "chip": true,
           "mrz": false,
-          "regulaId": -2115364516,
-          "text": true,
-          "nationality": "none"
+          "regulaId": -2115364516
         }
       ],
       "documentNames": {
@@ -7259,9 +7241,7 @@
           "from": 2018,
           "chip": true,
           "mrz": false,
-          "regulaId": 137102900,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 137102900
         },
         {
           "type": "id_card",
@@ -7269,9 +7249,7 @@
           "from": 2021,
           "chip": true,
           "mrz": false,
-          "regulaId": 934490473,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 934490473
         },
         {
           "type": "id_card",
@@ -7394,9 +7372,7 @@
           "chip": true,
           "mrz": false,
           "barcode": true,
-          "regulaId": 1546026024,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 1546026024
         },
         {
           "type": "id_card",
@@ -10305,9 +10281,7 @@
           "from": 2021,
           "chip": true,
           "mrz": false,
-          "regulaId": 981919800,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 981919800
         },
         {
           "type": "id_card",
@@ -10315,9 +10289,7 @@
           "from": 2025,
           "chip": true,
           "mrz": false,
-          "regulaId": -2024865054,
-          "text": true,
-          "nationality": "none"
+          "regulaId": -2024865054
         },
         {
           "type": "id_card",
@@ -11157,9 +11129,7 @@
           "from": 2015,
           "chip": true,
           "mrz": false,
-          "regulaId": -536000916,
-          "text": true,
-          "nationality": "none"
+          "regulaId": -536000916
         },
         {
           "type": "id_card",
@@ -11167,9 +11137,7 @@
           "from": 2019,
           "chip": true,
           "mrz": false,
-          "regulaId": 1314730530,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 1314730530
         },
         {
           "type": "id_card",
@@ -11356,9 +11324,7 @@
           "chip": true,
           "mrz": false,
           "barcode": true,
-          "regulaId": 1272171137,
-          "text": true,
-          "nationality": "printed"
+          "regulaId": 1272171137
         },
         {
           "type": "id_card",
@@ -11511,9 +11477,7 @@
           "from": 2022,
           "chip": true,
           "mrz": false,
-          "regulaId": 1325824446,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 1325824446
         },
         {
           "type": "residence_permit",
@@ -13554,9 +13518,7 @@
           "from": 2019,
           "chip": true,
           "mrz": false,
-          "regulaId": 354584812,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 354584812
         },
         {
           "type": "id_card",
@@ -13564,9 +13526,7 @@
           "from": 2021,
           "chip": true,
           "mrz": false,
-          "regulaId": 1044252657,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 1044252657
         },
         {
           "type": "id_card",
@@ -14704,9 +14664,7 @@
           "from": 2020,
           "chip": true,
           "mrz": false,
-          "regulaId": 698657269,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 698657269
         },
         {
           "type": "id_card",
@@ -14714,9 +14672,7 @@
           "from": 2025,
           "chip": true,
           "mrz": false,
-          "regulaId": -2114570632,
-          "text": true,
-          "nationality": "none"
+          "regulaId": -2114570632
         },
         {
           "type": "residence_permit",
@@ -15295,9 +15251,7 @@
           "chip": true,
           "mrz": false,
           "barcode": true,
-          "regulaId": 1774975979,
-          "text": true,
-          "nationality": "issuer"
+          "regulaId": 1774975979
         }
       ]
     },
@@ -16198,9 +16152,7 @@
           "from": 2020,
           "chip": true,
           "mrz": false,
-          "regulaId": 673674242,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 673674242
         },
         {
           "type": "id_card",
@@ -16209,9 +16161,7 @@
           "to": 2024,
           "chip": true,
           "mrz": false,
-          "regulaId": 981991829,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 981991829
         },
         {
           "type": "id_card",
@@ -16219,9 +16169,7 @@
           "from": 2021,
           "chip": true,
           "mrz": false,
-          "regulaId": 1110775471,
-          "text": true,
-          "nationality": "none"
+          "regulaId": 1110775471
         },
         {
           "type": "id_card",
