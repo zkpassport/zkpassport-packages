@@ -202,8 +202,10 @@ export const UN_MEMBER_STATES: readonly string[] = [
 export const UN_OBSERVER_STATES: readonly string[] = ["PSE", "VAT"]
 
 /**
- * States outside the UN that issue their own passports, under the code their MRZ carries: Taiwan,
- * and Kosovo (RKS; the registry files its certificates under XKX)
+ * States outside the UN whose passports both the US and the UK accept, under the code their MRZ
+ * carries: Taiwan, and Kosovo (RKS; the registry files its certificates under XKX). With the UN's
+ * member and observer states these are the countries the app lists and a camera-read ID may name.
+ * Issuers neither accepts (Abkhazia, Somaliland, Northern Cyprus) stay out.
  */
 export const NON_UN_STATES: readonly string[] = ["TWN", "RKS"]
 
