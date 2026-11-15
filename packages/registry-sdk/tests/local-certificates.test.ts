@@ -14,7 +14,9 @@ const fakeClient = () =>
 
 const serve = (body: object | null) => {
   globalThis.fetch = (async () =>
-    body ? new Response(JSON.stringify(body)) : new Response("not found", { status: 404 })) as any
+    body
+      ? new Response(JSON.stringify(body))
+      : new Response("not found", { status: 404 })) as unknown as typeof fetch
 }
 
 afterEach(() => {

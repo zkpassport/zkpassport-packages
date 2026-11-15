@@ -231,9 +231,7 @@ function getCscaCandidates(
 
   // Get all certificates from the same country
   const countryCerts = certificates.filter((cert) => {
-    return (
-      isCscaCertificate(cert) && cert.country.toLowerCase() === formattedCountry.toLowerCase()
-    )
+    return isCscaCertificate(cert) && cert.country.toLowerCase() === formattedCountry.toLowerCase()
   })
 
   // First try to find the CSC by looking at the authority key identifier
