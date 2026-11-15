@@ -18,7 +18,7 @@ struct PolicyEvaluationResult {
  *         proof-parameter changes, root-verifier upgrades, and requirements-schema changes are
  *         all absorbed by deploying a new evaluator, never by redeploying the ledger. Policies
  *         pin the evaluator in force at their creation, so new evaluator deployments never
- *         affect pre-existing policies.
+ *         affect pre-existing policies unless their owners migrate them.
  */
 interface IPolicyEvaluator {
     /// @notice Reverts unless the bytes decode to a well-formed requirements value for this
