@@ -89,23 +89,12 @@ contract ZKPassportCredentialsVerificationMethodsTest is ZKPassportCredentialsTe
         zkPassportCredentials.issue(policyId, _params());
     }
 
-    function testAHelperFailingForAnotherReasonIsNotTakenForAChipRead() public {
-        mockHelper.setVerificationMethod(200);
-        mockHelper.setBroken(true);
-        uint256 tier1 = _createPolicy(_requirements(new uint256[](0), 0));
-        vm.expectRevert(bytes("helper failed"));
-        zkPassportCredentials.issue(tier1, _params());
-    }
-
-    function testAProofFromBeforeTheSchemeExistedIsAChipRead() public {
+    function testAProofFromBeforeCircuitVersion0_23_0CannotIssue() public {
+        // Its helper has no getVerificationMethod, so the proof can't say how its ID was verified
         mockHelper.setLegacy(true);
         uint256 tier1 = _createPolicy(_requirements(new uint256[](0), 0));
+        vm.expectRevert();
         zkPassportCredentials.issue(tier1, _params());
-        assertEq(zkPassportCredentials.balanceOf(wallet, tier1), 1);
-
-        uint256 tier2Only = _createPolicy(_requirements(_schemes(200), 0));
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__VerificationMethodNotAllowed.selector);
-        zkPassportCredentials.issue(tier2Only, _params());
     }
 
     function testOtherChecksStillApply() public {

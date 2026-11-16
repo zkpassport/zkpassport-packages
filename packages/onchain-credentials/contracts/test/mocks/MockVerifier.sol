@@ -171,17 +171,9 @@ contract MockVerifierHelper is IVerifierHelper {
         legacy = value;
     }
 
-    // A newer helper that fails for a reason of its own
-    bool public broken;
-
-    function setBroken(bool value) external {
-        broken = value;
-    }
-
     function getVerificationMethod(bytes32[] calldata) external view returns (uint256) {
         // A legacy helper has no such function: the call reverts with no data
         require(!legacy);
-        require(!broken, "helper failed");
         return verificationMethod;
     }
 }

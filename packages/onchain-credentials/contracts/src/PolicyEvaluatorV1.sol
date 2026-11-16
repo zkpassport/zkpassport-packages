@@ -141,7 +141,7 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     ) internal view {
         PolicyRequirements memory r = decodeRequirements(requirements);
 
-        if (!VerificationMethods.isAllowed(_verificationMethod(helper, publicInputs), r.allowedVerificationMethods)) {
+        if (!VerificationMethods.isAllowed(helper.getVerificationMethod(publicInputs), r.allowedVerificationMethods)) {
             revert PolicyEvaluator__VerificationMethodNotAllowed();
         }
 
@@ -166,28 +166,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
         if (r.sanctionsMode != SanctionsMode.NONE) {
             helper.enforceSanctionsRoot(block.timestamp, r.sanctionsMode == SanctionsMode.STRICT, committedInputs);
-        }
-    }
-
-    /// @dev The method the proof's ID was verified with. Helpers for circuit versions before
-    ///      0.23.0 have no getVerificationMethod, and every proof of those versions is an ICAO chip
-    ///      read, so a helper without it means ICAO_CHIP. Calling a function a contract doesn't have
-    ///      reverts with no data; any other revert is passed on, so a newer helper that fails for
-    ///      another reason can't make a Tier 2 proof pass as a chip read.
-    function _verificationMethod(IVerifierHelper helper, bytes32[] memory publicInputs)
-        internal
-        view
-        returns (uint256)
-    {
-        try helper.getVerificationMethod(publicInputs) returns (uint256 scheme) {
-            return scheme;
-        } catch (bytes memory reason) {
-            if (reason.length != 0) {
-                assembly {
-                    revert(add(reason, 32), mload(reason))
-                }
-            }
-            return VerificationMethod.ICAO_CHIP;
         }
     }
 
