@@ -4,7 +4,7 @@ import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType } from "@zkpassport/utils"
 import { getCredentialsAddress } from "./deployments"
 import { ZKPassportCredentialsAbi } from "./abi/zkpassport-credentials"
-import { PolicyEvaluatorV2Abi } from "./abi/policy-evaluator-v2"
+import { PolicyEvaluatorV1Abi } from "./abi/policy-evaluator-v1"
 
 /** Structural slice of viem's PublicClient. */
 export type CredentialsReadClient = Pick<
@@ -100,9 +100,6 @@ export type CredentialPolicyRequirements = {
   allowedVerificationMethods?: readonly number[]
 }
 
-/** The evaluator requirement schema this package encodes and decodes: PolicyEvaluatorV2's */
-const SCHEMA_VERSION = 2n
-
 const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
   0: undefined,
   1: "normal",
@@ -119,13 +116,15 @@ const SANCTIONS_MODE_VALUES: Record<"normal" | "strict", number> = { normal: 1, 
 
 const FACEMATCH_MODE_VALUES: Record<FacematchMode, number> = { regular: 1, strict: 2 }
 
-// The tuple layout for createPolicy()'s and setRequirements()'s requirement bytes
+// The tuple layout for createPolicy()'s and setRequirements()'s requirement bytes.
 const REQUIREMENTS_ABI = getAbiItem({
-  abi: PolicyEvaluatorV2Abi,
+  abi: PolicyEvaluatorV1Abi,
   name: "decodeRequirements",
 }).outputs
 
-/** Encode policy requirements, in PolicyEvaluatorV2's layout */
+/**
+ * Encode policy requirements.
+ */
 export function encodeCredentialPolicyRequirements(
   requirements: CredentialPolicyRequirements,
 ): `0x${string}` {
@@ -167,10 +166,10 @@ export type CredentialPolicySummary = {
 const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "PolicyCreated" })
 
 // The tuple layout issue()'s proofData bytes.
-const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV2Abi, name: "decodeProofData" }).outputs
+const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeProofData" }).outputs
 
 /**
- * The verified proof as PolicyEvaluatorV2's `ProofVerificationParams` struct, which is what
+ * The verified proof as PolicyEvaluatorV1's `ProofVerificationParams` struct, which is what
  * `issue()` decodes out of its `proofData` argument. `ZKPassport.getSolidityVerifierParameters()`
  * returns this shape; deriving the params is the SDK's job, encoding them is this package's.
  */
@@ -192,8 +191,9 @@ export type IssueProofVerificationParams = {
 
 /**
  * Encode the `proofData` argument for `issue()`: the proof verification params encoded per
- * PolicyEvaluatorV2's layout. `getRequirements` rejects a policy pinned to another evaluator
- * schema before a proof request is ever built.
+ * PolicyEvaluatorV1's schema-1 layout. Policies pinned to another evaluator schema need that
+ * schema's encoding instead; `getRequirements` rejects such policies before a proof request
+ * is ever built.
  *
  * The params must have been derived for the policy's own scope, from `policyScope(policyId)`,
  * against the contract's `domain()`. A manually built scope string risks not matching what the
@@ -239,23 +239,22 @@ export class CredentialsClient {
    * derived from exactly what issue() will enforce.
    */
   async getRequirements(policy: CredentialPolicy): Promise<CredentialPolicyRequirements> {
-    const schemaVersion = (await this.client.readContract({
-      address: policy.evaluator,
-      abi: PolicyEvaluatorV2Abi,
-      functionName: "schemaVersion",
-      args: [],
-    } as never)) as bigint
-    if (schemaVersion !== SCHEMA_VERSION) {
+    const evaluatorRead = (functionName: string, args: readonly unknown[]) =>
+      this.client.readContract({
+        address: policy.evaluator,
+        abi: PolicyEvaluatorV1Abi,
+        functionName,
+        args,
+      } as never)
+
+    const schemaVersion = (await evaluatorRead("schemaVersion", [])) as bigint
+    if (schemaVersion !== 1n) {
       throw new Error(
-        `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema ${SCHEMA_VERSION}.`,
+        `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema 1.`,
       )
     }
-    const decoded = (await this.client.readContract({
-      address: policy.evaluator,
-      abi: PolicyEvaluatorV2Abi,
-      functionName: "decodeRequirements",
-      args: [policy.requirements],
-    } as never)) as Omit<
+
+    const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       CredentialPolicyRequirements,
       "sanctionsMode" | "facematchMode" | "allowedVerificationMethods"
     > & {
@@ -282,7 +281,7 @@ export class CredentialsClient {
   async getDevMode(policy: CredentialPolicy): Promise<boolean> {
     return (await this.client.readContract({
       address: policy.evaluator,
-      abi: PolicyEvaluatorV2Abi,
+      abi: PolicyEvaluatorV1Abi,
       functionName: "devMode",
     } as never)) as boolean
   }
@@ -295,7 +294,7 @@ export class CredentialsClient {
   async getUniqueIdentifierType(policy: CredentialPolicy): Promise<NullifierType> {
     return (await this.client.readContract({
       address: policy.evaluator,
-      abi: PolicyEvaluatorV2Abi,
+      abi: PolicyEvaluatorV1Abi,
       functionName: "uniqueIdentifierType",
     } as never)) as NullifierType
   }
@@ -672,5 +671,5 @@ export async function submitCredentialsCall(
   )
 }
 
-export { ZKPassportCredentialsAbi, PolicyEvaluatorV2Abi }
+export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi }
 export { getCredentialsChain, getCredentialsAddress } from "./deployments"

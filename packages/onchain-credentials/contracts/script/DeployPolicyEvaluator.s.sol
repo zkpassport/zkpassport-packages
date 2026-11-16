@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
+import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {NullifierType} from "@registry/lib/Types.sol";
 
@@ -20,11 +20,11 @@ contract DeployPolicyEvaluatorScript is Script {
             _nullifierType(vm.envString("ZKPASSPORT_CREDENTIALS_UNIQUE_IDENTIFIER_TYPE"));
 
         vm.startBroadcast();
-        PolicyEvaluatorV2 policyEvaluator =
-            new PolicyEvaluatorV2{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
+        PolicyEvaluatorV1 policyEvaluator =
+            new PolicyEvaluatorV1{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
         vm.stopBroadcast();
 
-        console.log("PolicyEvaluatorV2 deployed at:", address(policyEvaluator));
+        console.log("PolicyEvaluatorV1 deployed at:", address(policyEvaluator));
         console.log("Set it with: cast send <credentials> 'setPolicyEvaluator(address)'", address(policyEvaluator));
     }
 

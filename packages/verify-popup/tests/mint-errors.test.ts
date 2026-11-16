@@ -6,7 +6,7 @@ import {
   UserRejectedRequestError,
   encodeErrorResult,
 } from "viem"
-import { PolicyEvaluatorV2Abi, ZKPassportCredentialsAbi } from "@zkpassport/onchain-credentials"
+import { PolicyEvaluatorV1Abi, ZKPassportCredentialsAbi } from "@zkpassport/onchain-credentials"
 import { describeMintError } from "../src/mint/errors"
 
 describe("describeMintError", () => {
@@ -36,7 +36,7 @@ describe("describeMintError", () => {
   test("a revert forwarded from the policy evaluator is named too", () => {
     // issue() bubbles the evaluator's reverts, whose errors are not in the credentials ABI
     const data = encodeErrorResult({
-      abi: PolicyEvaluatorV2Abi,
+      abi: PolicyEvaluatorV1Abi,
       errorName: "PolicyEvaluator__InvalidProof",
     })
     const revert = new ContractFunctionRevertedError({

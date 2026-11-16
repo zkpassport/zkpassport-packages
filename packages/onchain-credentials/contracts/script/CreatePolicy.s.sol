@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
+import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {IPolicyEvaluator} from "../src/IPolicyEvaluator.sol";
 import {FaceMatchMode} from "@registry/lib/Types.sol";
 
@@ -35,9 +35,6 @@ contract CreatePolicyScript is Script {
     function run() public {
         ZKPassportCredentials credentials = ZKPassportCredentials(vm.envAddress("ZKPASSPORT_CREDENTIALS_ADDRESS"));
         bytes32 salt = vm.envBytes32("POLICY_SALT");
-        require(
-            credentials.policyEvaluator().schemaVersion() == 2, "The deployment's evaluator is not a PolicyEvaluatorV2"
-        );
         bytes memory encoded = _requirements();
         bool enforceUniqueness = vm.envBool("POLICY_ENFORCE_UNIQUENESS");
         console.log("uniqueness  ", enforceUniqueness);
@@ -68,7 +65,7 @@ contract CreatePolicyScript is Script {
     }
 
     function _requirements() internal view returns (bytes memory) {
-        PolicyEvaluatorV2.PolicyRequirements memory r = PolicyEvaluatorV2.PolicyRequirements({
+        PolicyEvaluatorV1.PolicyRequirements memory r = PolicyEvaluatorV1.PolicyRequirements({
             minAge: uint8(vm.envUint("POLICY_MIN_AGE")),
             sanctionsMode: _sanctionsMode(vm.envString("POLICY_SANCTIONS_MODE")),
             faceMatchMode: _faceMatchMode(vm.envString("POLICY_FACEMATCH_MODE")),
@@ -104,11 +101,11 @@ contract CreatePolicyScript is Script {
         );
     }
 
-    function _sanctionsMode(string memory value) private pure returns (PolicyEvaluatorV2.SanctionsMode) {
+    function _sanctionsMode(string memory value) private pure returns (PolicyEvaluatorV1.SanctionsMode) {
         bytes32 h = keccak256(bytes(value));
-        if (h == keccak256("none")) return PolicyEvaluatorV2.SanctionsMode.NONE;
-        if (h == keccak256("normal")) return PolicyEvaluatorV2.SanctionsMode.NORMAL;
-        if (h == keccak256("strict")) return PolicyEvaluatorV2.SanctionsMode.STRICT;
+        if (h == keccak256("none")) return PolicyEvaluatorV1.SanctionsMode.NONE;
+        if (h == keccak256("normal")) return PolicyEvaluatorV1.SanctionsMode.NORMAL;
+        if (h == keccak256("strict")) return PolicyEvaluatorV1.SanctionsMode.STRICT;
         revert("POLICY_SANCTIONS_MODE must be none, normal or strict");
     }
 

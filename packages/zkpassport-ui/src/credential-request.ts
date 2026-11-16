@@ -33,8 +33,8 @@ export type CredentialProofRequest = {
    */
   uniqueIdentifierType?: NullifierType.NON_SALTED | NullifierType.SALTED
   /**
-   * The verification methods the policy accepts (schema 2 evaluators), passed on to the app so it
-   * offers the IDs issue() will take; undefined leaves the default, tier 1 only
+   * The verification methods the policy accepts, passed on to the app so it offers the IDs issue()
+   * will take; undefined leaves the default, tier 1 only
    */
   allowedVerificationMethods?: AllowedVerificationMethod[]
   query: (qb: QueryBuilder) => QueryBuilderResult

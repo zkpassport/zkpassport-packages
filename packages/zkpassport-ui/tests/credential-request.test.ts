@@ -38,12 +38,6 @@ describe("buildCredentialProofRequest", () => {
     ).toBeUndefined()
   })
 
-  test("refuses a policy on a V1 evaluator", async () => {
-    await expect(
-      buildCredentialProofRequest(credentialsOn({ schemaVersion: 1n }).credentials, MINT),
-    ).rejects.toThrow("Unsupported policy evaluator schema")
-  })
-
   test("reads scope and domain on-chain and applies predicates, facematch, and bindings", async () => {
     const { credentials } = credentialsOn({
       uniqueIdentifierType: NullifierType.SALTED,

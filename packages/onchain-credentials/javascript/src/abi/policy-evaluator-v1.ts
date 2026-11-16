@@ -1,6 +1,6 @@
 // Generated from packages/onchain-credentials/contracts. Do not edit by hand.
-// Source: forge build -> PolicyEvaluatorV2.json -> .abi
-export const PolicyEvaluatorV2Abi = [
+// Source: forge build -> PolicyEvaluatorV1.json -> .abi
+export const PolicyEvaluatorV1Abi = [
   {
     type: "constructor",
     inputs: [
@@ -129,7 +129,7 @@ export const PolicyEvaluatorV2Abi = [
       {
         name: "",
         type: "tuple",
-        internalType: "struct PolicyEvaluatorV2.PolicyRequirements",
+        internalType: "struct PolicyEvaluatorV1.PolicyRequirements",
         components: [
           {
             name: "minAge",
@@ -139,7 +139,7 @@ export const PolicyEvaluatorV2Abi = [
           {
             name: "sanctionsMode",
             type: "uint8",
-            internalType: "enum PolicyEvaluatorV2.SanctionsMode",
+            internalType: "enum PolicyEvaluatorV1.SanctionsMode",
           },
           {
             name: "faceMatchMode",
@@ -294,11 +294,6 @@ export const PolicyEvaluatorV2Abi = [
   },
   {
     type: "error",
-    name: "PolicyEvaluator__VerificationMethodNotAllowed",
-    inputs: [],
-  },
-  {
-    type: "error",
     name: "PolicyEvaluator__DevModeProofRejected",
     inputs: [],
   },
@@ -319,12 +314,12 @@ export const PolicyEvaluatorV2Abi = [
   },
   {
     type: "error",
-    name: "PolicyEvaluator__InvalidVerificationMethods",
+    name: "PolicyEvaluator__InvalidProof",
     inputs: [],
   },
   {
     type: "error",
-    name: "PolicyEvaluator__InvalidProof",
+    name: "PolicyEvaluator__InvalidVerificationMethods",
     inputs: [],
   },
   {
@@ -340,6 +335,11 @@ export const PolicyEvaluatorV2Abi = [
   {
     type: "error",
     name: "PolicyEvaluator__StaleProof",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__VerificationMethodNotAllowed",
     inputs: [],
   },
   {

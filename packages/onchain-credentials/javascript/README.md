@@ -1,7 +1,7 @@
 # ZKPassport Onchain Credentials
 
 Typed [viem](https://viem.sh) bindings for the ZKPassport onchain credentials contract
-(`ZKPassportCredentials` and `PolicyEvaluatorV2`), whose Solidity sources live in
+(`ZKPassportCredentials` and `PolicyEvaluatorV1`), whose Solidity sources live in
 [`packages/onchain-credentials/contracts`](../contracts).
 
 A credential is an ERC-1155 token a wallet holds for a *policy*. The policy declares what a
