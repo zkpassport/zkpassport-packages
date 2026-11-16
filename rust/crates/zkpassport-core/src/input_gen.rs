@@ -306,7 +306,7 @@ pub fn generate_all_inputs(p: &GenerateParams, salts: &InputGenSalts) -> Result<
             }
         }
     }
-    let query_result = crate::query::build_query_result(p.query, &disclosed);
+    let query_result = crate::query::build_query_result(p.query, &disclosed, p.current_date_timestamp);
 
     Ok(json!({
         "dsc": dsc_inputs,

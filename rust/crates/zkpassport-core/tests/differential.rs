@@ -595,6 +595,23 @@ fn certificate_leaf_hash_matches_ts() {
     }
 }
 
+/// An Aadhaar signing certificate of the published registry, with its leaf in the published tree.
+#[derive(Deserialize)]
+struct UidaiLeafFixture {
+    version: u32,
+    certificate: registry::PackagedCertificate,
+    leaf: String,
+}
+
+#[test]
+fn certificate_tree_hashes_a_uidai_certificate_with_its_own_type() {
+    let fixture: UidaiLeafFixture =
+        serde_json::from_str(include_str!("fixtures/uidai-certificate-leaf.json")).unwrap();
+    let leaves = registry::get_certificate_leaf_hashes(&[fixture.certificate], fixture.version)
+        .expect("leaf hashes");
+    assert_eq!(leaves, vec![dec(&fixture.leaf)]);
+}
+
 #[test]
 fn dsc_circuit_inputs_match_ts() {
     let v = load();
