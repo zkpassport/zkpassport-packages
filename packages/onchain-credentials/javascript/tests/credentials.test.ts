@@ -51,7 +51,6 @@ const SAMPLE_POLICY: CredentialPolicy = {
   requirements: "0xabcd",
   metadataURL: "https://policy.example/kyc",
   retiredAt: 0n,
-  issuers: [ISSUER],
 }
 
 /** decodeRequirements as the contract returns it: raw enum numbers. */
@@ -164,12 +163,13 @@ describe("CredentialsClient reads", () => {
     expect(readCalls[0]).toMatchObject({ address: EVALUATOR, functionName: "devMode" })
   })
 
-  test("uri, balanceOf, heldUntil, banned, policyScope forward the right calls", async () => {
+  test("uri, balanceOf, heldUntil, banned, isIssuer, policyScope forward the right calls", async () => {
     const results: Record<string, unknown> = {
       uri: "https://policy.example/kyc",
       balanceOf: 1n,
       heldUntil: 1702592000n,
       banned: true,
+      isIssuer: true,
       policyScope: "0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
@@ -178,17 +178,20 @@ describe("CredentialsClient reads", () => {
     expect(await credentials.balanceOf(WALLET, POLICY_ID)).toBe(1n)
     expect(await credentials.heldUntil(WALLET, POLICY_ID)).toBe(1702592000n)
     expect(await credentials.banned(WALLET, POLICY_ID)).toBe(true)
+    expect(await credentials.isIssuer(ISSUER, POLICY_ID)).toBe(true)
     expect(await credentials.policyScope(POLICY_ID)).toBe(results.policyScope as string)
     expect(readCalls.map((c) => c.functionName)).toEqual([
       "uri",
       "balanceOf",
       "heldUntil",
       "banned",
+      "isIssuer",
       "policyScope",
     ])
     expect(readCalls[1].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[2].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[3].args).toEqual([WALLET, POLICY_ID])
+    expect(readCalls[4].args).toEqual([ISSUER, POLICY_ID])
   })
 })
 

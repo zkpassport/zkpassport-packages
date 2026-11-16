@@ -62,8 +62,6 @@ export type CredentialPolicy = {
    * Timestamp that tracks whether the policy has been retired by its owner, and when.
    */
   retiredAt: bigint
-  /** Accounts the owner allows to issue credentials without a proof, as the owner can. */
-  issuers: readonly `0x${string}`[]
 }
 
 /**
@@ -327,6 +325,15 @@ export class CredentialsClient {
    */
   async banned(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
     return (await this.read("banned", [wallet, policyId])) as boolean
+  }
+
+  /**
+   * True while the account is an issuer of the policy: added by its owner via addIssuer() and not
+   * removed since. Issuers may issue credentials without a proof, and ban and unban wallets, as
+   * the owner can.
+   */
+  async isIssuer(issuer: `0x${string}`, policyId: bigint): Promise<boolean> {
+    return (await this.read("isIssuer", [issuer, policyId])) as boolean
   }
 
   /**

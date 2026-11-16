@@ -1,4 +1,4 @@
-// Generated from packages/onchain-credentials/contracts (commit 8663d577). Do not edit by hand.
+// Generated from packages/onchain-credentials/contracts (commit 2094f68d). Do not edit by hand.
 // Source: forge build -> ZKPassportCredentials.json -> .abi
 export const ZKPassportCredentialsAbi = [
   {
@@ -307,11 +307,6 @@ export const ZKPassportCredentialsAbi = [
             type: "uint64",
             internalType: "uint64",
           },
-          {
-            name: "issuers",
-            type: "address[]",
-            internalType: "address[]",
-          },
         ],
       },
     ],
@@ -354,6 +349,30 @@ export const ZKPassportCredentialsAbi = [
         name: "operator",
         type: "address",
         internalType: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isIssuer",
+    inputs: [
+      {
+        name: "issuer",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "policyId",
+        type: "uint256",
+        internalType: "uint256",
       },
     ],
     outputs: [
