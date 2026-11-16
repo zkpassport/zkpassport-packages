@@ -121,9 +121,27 @@ contract ZKPassportCredentialsOwnerIssueTest is ZKPassportCredentialsTestBase {
         emit ZKPassportCredentials.IssuerAdded(ownerIssuablePolicyId, issuer);
         _addIssuer(issuer);
 
-        address[] memory issuers = zkPassportCredentials.getPolicy(ownerIssuablePolicyId).issuers;
-        assertEq(issuers.length, 1);
-        assertEq(issuers[0], issuer);
+        assertTrue(zkPassportCredentials.isIssuer(issuer, ownerIssuablePolicyId));
+    }
+
+    function testIssuerOfOnePolicyCannotIssueForAnother() public {
+        vm.prank(creator);
+        uint256 otherPolicyId = zkPassportCredentials.createPolicy(
+            bytes32(uint256(32)),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            7 days,
+            "https://policy.example/other-owner-issuable",
+            false,
+            true,
+            false,
+            false
+        );
+        _addIssuer(issuer);
+
+        assertFalse(zkPassportCredentials.isIssuer(issuer, otherPolicyId));
+        vm.prank(issuer);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotOwnerOrIssuer.selector);
+        zkPassportCredentials.ownerIssue(recipient, otherPolicyId);
     }
 
     function testIssuerCanIssueWithoutProof() public {
@@ -180,7 +198,7 @@ contract ZKPassportCredentialsOwnerIssueTest is ZKPassportCredentialsTestBase {
         vm.prank(issuer);
         vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotOwnerOrIssuer.selector);
         zkPassportCredentials.ownerIssue(recipient, ownerIssuablePolicyId);
-        assertEq(zkPassportCredentials.getPolicy(ownerIssuablePolicyId).issuers.length, 0);
+        assertFalse(zkPassportCredentials.isIssuer(issuer, ownerIssuablePolicyId));
     }
 
     function testRemoveIssuerKeepsTheOtherIssuers() public {
@@ -193,10 +211,8 @@ contract ZKPassportCredentialsOwnerIssueTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         zkPassportCredentials.removeIssuer(issuer, ownerIssuablePolicyId);
 
-        address[] memory issuers = zkPassportCredentials.getPolicy(ownerIssuablePolicyId).issuers;
-        assertEq(issuers.length, 2);
-        assertEq(issuers[0], thirdIssuer);
-        assertEq(issuers[1], secondIssuer);
+        assertTrue(zkPassportCredentials.isIssuer(secondIssuer, ownerIssuablePolicyId));
+        assertTrue(zkPassportCredentials.isIssuer(thirdIssuer, ownerIssuablePolicyId));
         vm.prank(secondIssuer);
         zkPassportCredentials.ownerIssue(recipient, ownerIssuablePolicyId);
         vm.prank(thirdIssuer);

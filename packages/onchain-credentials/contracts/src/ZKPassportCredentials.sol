@@ -23,7 +23,6 @@ contract ZKPassportCredentials is ERC1155 {
         bytes requirements;
         string metadataURL;
         uint64 retiredAt;
-        address[] issuers;
     }
 
     error ZKPassportCredentials__PolicyNotFound(uint256 policyId);
@@ -81,6 +80,7 @@ contract ZKPassportCredentials is ERC1155 {
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
     mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
     mapping(address wallet => mapping(uint256 policyId => bool)) public banned;
+    mapping(address issuer => mapping(uint256 policyId => bool)) public isIssuer;
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
@@ -98,8 +98,7 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     modifier onlyPolicyOwnerOrIssuer(uint256 policyId) {
-        CredentialsPolicy storage policy = _policies[policyId];
-        if (policy.owner != msg.sender && !_isIssuer(policy, msg.sender)) {
+        if (_policies[policyId].owner != msg.sender && !isIssuer[msg.sender][policyId]) {
             revert ZKPassportCredentials__NotOwnerOrIssuer();
         }
         _;
@@ -302,12 +301,11 @@ contract ZKPassportCredentials is ERC1155 {
     /// @param issuer The account to add; must not be zero or already an issuer.
     /// @param policyId The policy to add the issuer to; only its owner may call.
     function addIssuer(address issuer, uint256 policyId) external onlyPolicyOwner(policyId) {
-        CredentialsPolicy storage policy = _policies[policyId];
-        if (!policy.ownerIssuable) revert ZKPassportCredentials__NotIssuableByOwner();
+        if (!_policies[policyId].ownerIssuable) revert ZKPassportCredentials__NotIssuableByOwner();
         if (issuer == address(0)) revert ZKPassportCredentials__ZeroAddress();
-        if (_isIssuer(policy, issuer)) revert ZKPassportCredentials__AlreadyIssuer();
+        if (isIssuer[issuer][policyId]) revert ZKPassportCredentials__AlreadyIssuer();
 
-        policy.issuers.push(issuer);
+        isIssuer[issuer][policyId] = true;
         emit IssuerAdded(policyId, issuer);
     }
 
@@ -316,16 +314,10 @@ contract ZKPassportCredentials is ERC1155 {
     /// @param issuer The issuer to remove.
     /// @param policyId The policy to remove the issuer from; only its owner may call.
     function removeIssuer(address issuer, uint256 policyId) external onlyPolicyOwner(policyId) {
-        address[] storage issuers = _policies[policyId].issuers;
-        for (uint256 i = 0; i < issuers.length; i++) {
-            if (issuers[i] == issuer) {
-                issuers[i] = issuers[issuers.length - 1];
-                issuers.pop();
-                emit IssuerRemoved(policyId, issuer);
-                return;
-            }
-        }
-        revert ZKPassportCredentials__NotIssuer();
+        if (!isIssuer[issuer][policyId]) revert ZKPassportCredentials__NotIssuer();
+
+        isIssuer[issuer][policyId] = false;
+        emit IssuerRemoved(policyId, issuer);
     }
 
     /// @notice Issue (or extend) a credential by the authority of the policy owner or one of
@@ -363,14 +355,6 @@ contract ZKPassportCredentials is ERC1155 {
 
         uint64 newHeldUntil = _issueCredential(wallet, policyId, policy.credentialDuration);
         emit CredentialIssuedBy(wallet, policyId, msg.sender, newHeldUntil);
-    }
-
-    function _isIssuer(CredentialsPolicy storage policy, address account) internal view returns (bool) {
-        address[] storage issuers = policy.issuers;
-        for (uint256 i = 0; i < issuers.length; i++) {
-            if (issuers[i] == account) return true;
-        }
-        return false;
     }
 
     function _issueCredential(address wallet, uint256 policyId, uint64 credentialDuration)
