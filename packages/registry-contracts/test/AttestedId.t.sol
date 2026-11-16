@@ -237,12 +237,7 @@ contract AttestedIdTest is Test {
     }
 
     function testIsValidRejectsOtherSchemes() public view {
-        uint256[4] memory schemes = [
-            uint256(202),
-            uint256(203),
-            VerificationMethod.ICAO_CHIP,
-            uint256(299)
-        ];
+        uint256[4] memory schemes = [uint256(202), uint256(203), VerificationMethod.ICAO_CHIP, uint256(299)];
         for (uint256 i = 0; i < schemes.length; i++) {
             assertFalse(
                 harness.isValid(
