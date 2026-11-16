@@ -77,7 +77,8 @@ await submitCredentialsCall(ctx, call, { client: walletClient, account: owner })
 The rest follow the same shape: `buildSetRequirementsCall`, `buildMigrateEvaluatorCall`,
 `buildSetCredentialDurationCall`, `buildSetMetadataURLCall`, `buildRetireCall`,
 `buildOwnerIssueCall`, `buildOwnerIssueBatchCall`, `buildAddIssuerCall`,
-`buildRemoveIssuerCall`, `buildBanCall`, `buildUnbanCall`, and `buildRenounceCall`.
+`buildRemoveIssuerCall`, `buildBanCall`, `buildBanBatchCall`, `buildUnbanCall`,
+`buildUnbanBatchCall`, and `buildRenounceCall`.
 
 ## License
 

@@ -491,9 +491,17 @@ describe("CredentialsClient owner calls", () => {
       functionName: "ban",
       args: [WALLET, POLICY_ID],
     })
+    expect(credentials.buildBanBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "banBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
+    })
     expect(credentials.buildUnbanCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "unban",
       args: [WALLET, POLICY_ID],
+    })
+    expect(credentials.buildUnbanBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "unbanBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
     })
   })
 })
