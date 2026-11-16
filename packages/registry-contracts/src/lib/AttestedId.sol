@@ -43,7 +43,7 @@ library AttestedId {
     }
 }
 
-/// @notice The face match circuit takes its root key as an input, so the verifier must pin it and the app
+/// @notice The face match circuit takes its root key as an input, so the verifier pins the root key and the app
 library FaceMatch {
     function isGenuine(bytes32 rootKeyHash, Environment environment, bytes32 appIdHash, bytes32 integrityPublicKeyHash)
         internal

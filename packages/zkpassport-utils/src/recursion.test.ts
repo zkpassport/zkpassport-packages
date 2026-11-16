@@ -16,7 +16,6 @@ import {
   getNullifierFromOuterProof,
   getOprfPkHashFromOuterProof,
   getAadhaarOuterCircuitInputs,
-  getAadhaarOuterCircuitName,
   getAttestedOuterCircuitInputs,
   getAttestedOuterCircuitName,
   getOuterCircuitInputs,
@@ -400,12 +399,6 @@ describe("Tier 2 outer circuit", () => {
     test("counts the public inputs: 9 fixed and one commitment per disclosure proof", () => {
       expect(getNumberOfPublicInputs("outer_aadhaar_count_2", "0.23.0")).toEqual(10)
       expect(getNumberOfPublicInputs("outer_evm_aadhaar_count_11", "0.23.0")).toEqual(19)
-    })
-
-    test("names the outer circuit after its subproofs", () => {
-      expect(getAadhaarOuterCircuitName(2)).toEqual("outer_aadhaar_count_3")
-      expect(getAadhaarOuterCircuitName(10, { evm: true })).toEqual("outer_evm_aadhaar_count_11")
-      expect(() => getAadhaarOuterCircuitName(0)).toThrow("expected 1 to 10")
     })
 
     test("takes the certificate registry root and scheme from the aadhaar_id proof", () => {

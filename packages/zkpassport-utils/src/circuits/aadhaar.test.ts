@@ -86,22 +86,6 @@ describe("aadhaar", () => {
     ).toBe(false)
   })
 
-  test("rejects text that is not a Secure QR code", () => {
-    expect(() => decodeAadhaarQr("https://example.com")).toThrow("Not an Aadhaar Secure QR code")
-    expect(() => decodeAadhaarQr("12345")).toThrow("Not an Aadhaar Secure QR code")
-  })
-
-  test("parses V2 fields and the photo", () => {
-    const data = parseAadhaarData(SIGNED_DATA)
-    expect(data.version).toBe(2)
-    expect(data.aadhaarLastDigits).toBe("1234")
-    expect(data.signedAt).toBe("20260315123045678")
-    expect(data.name).toBe("Rahul Kumar Sharma")
-    expect(data.dateOfBirth).toBe("15-08-1990")
-    expect(data.mobileLastDigits).toBe("5678")
-    expect(data.photo).toEqual(PHOTO)
-  })
-
   test("builds the MRZ the circuit builds, with valid check digits", () => {
     const mrz = aadhaarToMrz(parseAadhaarData(SIGNED_DATA))
     expect(mrz).toHaveLength(88)

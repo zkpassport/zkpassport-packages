@@ -221,7 +221,7 @@ contract SubVerifier {
     }
 
     /// @notice Anyone with a copy of an Aadhaar QR code could prove with it, so it needs a genuine face match
-    function _verifyAadhaarFaceMatch(bytes calldata committedInputs) internal pure virtual {
+    function _verifyAadhaarFaceMatch(bytes calldata committedInputs) internal pure {
         (bytes32 rootKeyHash, Environment environment, bytes32 appIdHash, bytes32 integrityPublicKeyHash,) =
             InputsExtractor.readFacematchProofInputs(committedInputs);
         require(

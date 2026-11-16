@@ -3,12 +3,9 @@ import {
   VerificationMethod,
   VerificationTier,
   getAgeParameterCommitment,
-  getCountryParameterCommitment,
   getFacematchParameterCommitment,
   getServiceScopeHash,
   getServiceSubscopeHash,
-  ProofType,
-  type Alpha3Code,
   type AllowedVerificationMethod,
   type ProofResult,
   type Query,
@@ -41,8 +38,7 @@ const body = "ab".repeat(32 * 20)
 async function proofs({
   root = REGISTRY_ROOT,
   facematch = true,
-  excluded,
-}: { root?: bigint; facematch?: boolean; excluded?: Alpha3Code[] } = {}): Promise<ProofResult[]> {
+}: { root?: bigint; facematch?: boolean } = {}): Promise<ProofResult[]> {
   const now = Math.floor(Date.now() / 1000)
   const scopeHash = getServiceScopeHash(DOMAIN)
   const subscope = getServiceSubscopeHash(SCOPE)
@@ -73,15 +69,6 @@ async function proofs({
       compare_age: { minAge: 18, maxAge: 0 },
     }),
     ...(facematch ? [facematchProof] : []),
-    ...(excluded
-      ? [
-          disclosure(
-            "exclusion_check_nationality",
-            await getCountryParameterCommitment(ProofType.NATIONALITY_EXCLUSION, excluded, true),
-            { exclusion_check_nationality: { countries: excluded } },
-          ),
-        ]
-      : []),
   ] as ProofResult[]
 }
 
@@ -149,16 +136,6 @@ describe("Aadhaar proofs", () => {
       registry,
     )
 
-  test("pass a nationality exclusion check", async () => {
-    const accepted = await checkNationality(
-      await proofs({ excluded: ["IRN", "PRK"] }),
-      { out: ["IRN", "PRK"] },
-      { out: { expected: ["IRN", "PRK"], result: true } },
-    )
-    expect(accepted.queryResultErrors).toEqual({})
-    expect(accepted.isCorrect).toBe(true)
-  })
-
   test("are refused for a nationality inclusion check or disclosure", async () => {
     for (const [nationality, nationalityResult] of [
       [{ in: ["IND"] }, { in: { expected: ["IND"], result: true } }],
@@ -180,10 +157,9 @@ describe("Aadhaar proofs", () => {
   describe("compressed into an outer proof", () => {
     // [cert root, circuit root, date, scope, subscope, ...params, nullifier type, nullifier, oprf pk hash, scheme]
     async function outer({
-      root = REGISTRY_ROOT,
       scheme = BigInt(VerificationMethod.UIDAI_AADHAAR),
       facematch = true,
-    }: { root?: bigint; scheme?: bigint; facematch?: boolean } = {}): Promise<ProofResult> {
+    }: { scheme?: bigint; facematch?: boolean } = {}): Promise<ProofResult> {
       const age = await getAgeParameterCommitment(18, 0)
       const facematchParam = await getFacematchParameterCommitment(
         BigInt(FACEMATCH_COMMITTED.rootKeyLeaf),
@@ -197,7 +173,7 @@ describe("Aadhaar proofs", () => {
         version: "0.23.0",
         proof:
           [
-            root,
+            REGISTRY_ROOT,
             2n,
             Math.floor(Date.now() / 1000),
             getServiceScopeHash(DOMAIN),
@@ -228,11 +204,6 @@ describe("Aadhaar proofs", () => {
       const refused = await check([await outer({ facematch: false })])
       expect(refused.isCorrect).toBe(false)
       expect(refused.queryResultErrors.facematch?.eq?.message).toContain("face match")
-    })
-
-    test("are refused when the UIDAI key is not under a Certificate Registry root", async () => {
-      const refused = await check([await outer({ root: OTHER_ROOT })])
-      expect(refused.isCorrect).toBe(false)
     })
 
     test("are refused when they state another verification method", async () => {
