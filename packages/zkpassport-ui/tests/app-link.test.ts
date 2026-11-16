@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { detectMobileOs, playStoreUrlWithReferrer, toAppSchemeUrl } from "../src/app-link"
+import {
+  copyRequestForInstall,
+  detectMobileOs,
+  playStoreUrlWithReferrer,
+  toAppSchemeUrl,
+} from "../src/app-link"
 
 const REQUEST_URL = "https://zkpassport.id/r?d=example.com&t=abc&p=1"
 
@@ -40,6 +45,36 @@ describe("playStoreUrlWithReferrer", () => {
   test("falls back to the plain store link when there is no usable request", () => {
     expect(readRequestUrlFromStoreLink(playStoreUrlWithReferrer(null))).toBeNull()
     expect(readRequestUrlFromStoreLink(playStoreUrlWithReferrer("not a url"))).toBeNull()
+  })
+})
+
+describe("copyRequestForInstall", () => {
+  afterEach(() => {
+    if (realNavigator) Object.defineProperty(globalThis, "navigator", realNavigator)
+  })
+
+  function stubClipboard(userAgent: string) {
+    const copied: string[] = []
+    const clipboard = { writeText: async (text: string) => void copied.push(text) }
+    stubNavigator({ userAgent, clipboard: clipboard as Clipboard })
+    return copied
+  }
+
+  test("copies the canonical request on iOS, where the store carries no referrer", () => {
+    const copied = stubClipboard("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)")
+    copyRequestForInstall("https://verify.zkpassport.id/r?t=abc&p=1")
+    expect(copied).toEqual(["https://zkpassport.id/r?t=abc&p=1"])
+  })
+
+  test("leaves the clipboard alone off iOS and without a usable request", () => {
+    const onAndroid = stubClipboard("Mozilla/5.0 (Linux; Android 14; Pixel 8)")
+    copyRequestForInstall(REQUEST_URL)
+    expect(onAndroid).toEqual([])
+
+    const onIos = stubClipboard("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)")
+    copyRequestForInstall(null)
+    copyRequestForInstall("not a url")
+    expect(onIos).toEqual([])
   })
 })
 
