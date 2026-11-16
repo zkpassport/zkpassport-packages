@@ -43,8 +43,19 @@ fn u32_at(query: &Value, field: &str, op: &str) -> Option<u32> {
 
 /// A date operator value is milliseconds (JS Date.getTime) — to unix seconds.
 fn date_secs(query: &Value, field: &str, op: &str) -> Option<i64> {
-    let v = query.get(field)?.get(op)?;
-    v.as_i64().map(|ms| ms / 1000)
+    date_value_secs(query.get(field)?.get(op)?)
+}
+
+/// A query date in unix seconds. The SDK sends a `Date` as JSON does (an ISO string) and a
+/// number as milliseconds.
+fn date_value_secs(v: &Value) -> Option<i64> {
+    if let Some(ms) = v.as_i64() {
+        return Some(ms / 1000);
+    }
+    let s = v.as_str()?;
+    let num = |range: std::ops::Range<usize>| -> Option<i64> { s.get(range)?.parse().ok() };
+    let days = days_from_civil(num(0..4)?, num(5..7)?, num(8..10)?);
+    Some(days * 86400 + num(11..13).unwrap_or(0) * 3600 + num(14..16).unwrap_or(0) * 60 + num(17..19).unwrap_or(0))
 }
 
 fn str_list(query: &Value, field: &str, op: &str) -> Vec<String> {
@@ -138,13 +149,7 @@ pub fn build_disclosures(
 
     // Date comparisons (birthdate / expiry)
     for (field, is_birth, circuit) in [("birthdate", true, "compare_birthdate"), ("expiry_date", false, "compare_expiry")] {
-        // The passport's own value for this field, for a bare `disclose` (min=max=it).
-        let disclose_date = if is_birth {
-            dob_from_mrz(input.mrz).and_then(|d| parse_mrz_date(d, current_date))
-        } else {
-            parse_mrz_date(input.expiry_date, current_date)
-        };
-        let bounds = resolve_date_bounds(query, field, disclose_date);
+        let bounds = resolve_date_bounds(query, field);
         if let Some(bounds) = bounds {
             let inputs = get_date_circuit_inputs(input, &bounds, is_birth, salts, z, ss, sub, current_date, None)?;
             let committed = json!({
@@ -205,7 +210,7 @@ pub fn build_disclosures(
 /// becomes `{field: {op: {expected, result:true}}}`; `disclose` (and `eq` on a
 /// disclosable field) becomes `{field: {disclose: {result: <value>}}}`.
 /// This is the single source of truth for the QueryResult across platforms.
-pub fn build_query_result(query: &Value, disclosed: &Value) -> Value {
+pub fn build_query_result(query: &Value, disclosed: &Value, current_date: u64) -> Value {
     let mut result = serde_json::Map::new();
     let Some(obj) = query.as_object() else {
         return Value::Object(result);
@@ -228,7 +233,11 @@ pub fn build_query_result(query: &Value, disclosed: &Value) -> Value {
         let mut field_result = serde_json::Map::new();
         for (op, value) in cfg {
             if op == "disclose" || (op == "eq" && !comparison_field) {
-                let v = disclosed.get(field).cloned().unwrap_or(Value::Null);
+                let mut v = disclosed.get(field).cloned().unwrap_or(Value::Null);
+                // The SDK reads a disclosed date as a date, so send it as one, not as the MRZ's YYMMDD
+                if field == "birthdate" || field == "expiry_date" {
+                    v = v.as_str().and_then(|s| mrz_date_iso(s, current_date)).map_or(Value::Null, Value::from);
+                }
                 field_result.insert("disclose".into(), json!({ "result": v }));
             } else {
                 field_result.insert(op.clone(), json!({ "expected": value, "result": true }));
@@ -257,11 +266,9 @@ fn facematch_result(config: &serde_json::Map<String, Value>) -> Value {
 }
 
 /// Resolve a date field's min/max bounds (gt/gte/lt/lte/range/eq), applying
-/// the ±1 day for exclusive gt/lt. Returns None if the field is absent.
-/// `disclose_date` = the passport's own value for this field (unix secs). For a bare
-/// `{ disclose: true }` the TS sets min=max to it (a tight range that reveals the date);
-/// omitting it would leave 0/0 which makes the circuit unsatisfiable.
-fn resolve_date_bounds(query: &Value, field: &str, disclose_date: Option<i64>) -> Option<DateBounds> {
+/// the ±1 day for exclusive gt/lt. Returns None when the query compares nothing: a bare
+/// `disclose` is proven by the disclose proof alone, as in the app.
+fn resolve_date_bounds(query: &Value, field: &str) -> Option<DateBounds> {
     let f = query.get(field)?;
     if !f.is_object() || f.as_object()?.is_empty() {
         return None;
@@ -274,19 +281,19 @@ fn resolve_date_bounds(query: &Value, field: &str, disclose_date: Option<i64>) -
     } else if let Some(gte) = date_secs(query, field, "gte") {
         min = Some(gte);
     } else if let Some(r) = f.get("range").and_then(|r| r.as_array()) {
-        min = r.first().and_then(|v| v.as_i64()).map(|ms| ms / 1000);
-        max = r.get(1).and_then(|v| v.as_i64()).map(|ms| ms / 1000);
+        min = r.first().and_then(date_value_secs);
+        max = r.get(1).and_then(date_value_secs);
     } else if let Some(eq) = date_secs(query, field, "eq") {
         min = Some(eq);
         max = Some(eq);
-    } else if f.get("disclose").and_then(|d| d.as_bool()) == Some(true) {
-        min = disclose_date;
-        max = disclose_date;
     }
     if let Some(lt) = date_secs(query, field, "lt") {
         max = Some(lt - DAY);
     } else if let Some(lte) = date_secs(query, field, "lte") {
         max = Some(lte);
+    }
+    if min.is_none() && max.is_none() {
+        return None;
     }
     Some(DateBounds { min, max })
 }
@@ -301,16 +308,28 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     era * 146097 + doe - 719468
 }
 
+/// Year, month and day of a count of days since 1970-01-01 (Howard Hinnant).
+fn civil_from_days(days: i64) -> (i64, i64, i64) {
+    let z = days + 719468;
+    let era = (if z >= 0 { z } else { z - 146096 }) / 146097;
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    (if month <= 2 { yoe + era * 400 + 1 } else { yoe + era * 400 }, month, day)
+}
+
 /// Year of a unix timestamp (for parseDate's current-year century rule).
 fn year_of_unix(secs: i64) -> i64 {
-    let mut z = secs.div_euclid(86400) + 719468;
-    let era = (if z >= 0 { z } else { z - 146096 }) / 146097;
-    z -= era * 146097;
-    let yoe = (z - z / 1460 + z / 36524 - z / 146096) / 365;
-    let y = yoe + era * 400;
-    let doy = z - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    if mp < 10 { y } else { y + 1 }
+    civil_from_days(secs.div_euclid(86400)).0
+}
+
+/// `parseDate(YYMMDD).toISOString()`: the disclosed date as the SDK reads it.
+fn mrz_date_iso(yymmdd: &str, current_date: u64) -> Option<String> {
+    let (year, month, day) = civil_from_days(parse_mrz_date(yymmdd, current_date)? / 86400);
+    Some(format!("{year:04}-{month:02}-{day:02}T00:00:00.000Z"))
 }
 
 /// `parseDate(YYMMDD)` + `getUnixTimestamp`: 2-digit year → current century unless that
@@ -328,12 +347,6 @@ fn parse_mrz_date(yymmdd: &str, current_date: u64) -> Option<i64> {
     let full_year = year
         + if year + current_century > current_year + 10 { current_century - 100 } else { current_century };
     Some(days_from_civil(full_year, month, day) * 86400)
-}
-
-/// Date-of-birth YYMMDD from the MRZ (TD1 line 2 start vs TD3 line 2 offset 13).
-fn dob_from_mrz(mrz: &str) -> Option<&str> {
-    let range = if mrz.len() == 90 { 30..36 } else { 57..63 };
-    mrz.get(range)
 }
 
 #[cfg(test)]
@@ -355,7 +368,7 @@ mod query_result_tests {
 
     #[test]
     fn sanctions_result_has_the_form_the_sdk_reads() {
-        let result = build_query_result(&json!({ "sanctions": { "strict": true } }), &json!({}));
+        let result = build_query_result(&json!({ "sanctions": { "strict": true } }), &json!({}), 0);
 
         assert_eq!(result["sanctions"]["passed"], true);
         assert_eq!(result["sanctions"]["isStrict"], true);
@@ -363,8 +376,38 @@ mod query_result_tests {
 
     #[test]
     fn facematch_result_has_the_form_the_sdk_reads() {
-        let result = build_query_result(&json!({ "facematch": { "mode": "strict" } }), &json!({}));
+        let result = build_query_result(&json!({ "facematch": { "mode": "strict" } }), &json!({}), 0);
 
         assert_eq!(result["facematch"], json!({ "mode": "strict", "passed": true }));
+    }
+
+    #[test]
+    fn a_disclosed_date_gets_no_comparison_proof() {
+        let query = json!({ "birthdate": { "disclose": true }, "expiry_date": { "disclose": true, "gte": 1_767_225_600_000u64 } });
+
+        assert!(resolve_date_bounds(&query, "birthdate").is_none());
+        assert!(resolve_date_bounds(&query, "expiry_date").is_some());
+    }
+
+    #[test]
+    fn a_date_comparison_is_read_as_the_sdk_sends_it() {
+        let query = json!({ "expiry_date": { "gte": "2026-11-16T00:00:00.000Z" } });
+
+        let bounds = resolve_date_bounds(&query, "expiry_date").expect("bounds");
+
+        assert_eq!(bounds.min, Some(1_794_787_200));
+        assert_eq!(bounds.max, None);
+    }
+
+    #[test]
+    fn disclosed_dates_are_sent_as_dates() {
+        let query = json!({ "birthdate": { "disclose": true }, "expiry_date": { "disclose": true } });
+        let disclosed = json!({ "birthdate": "900101", "expiry_date": "350101" });
+        let now = 1_760_000_000; // ~Oct 2025
+
+        let result = build_query_result(&query, &disclosed, now);
+
+        assert_eq!(result["birthdate"]["disclose"]["result"], "1990-01-01T00:00:00.000Z");
+        assert_eq!(result["expiry_date"]["disclose"]["result"], "2035-01-01T00:00:00.000Z");
     }
 }
