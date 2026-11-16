@@ -84,8 +84,6 @@ describe("verification method", () => {
     expect(expandAllowedVerificationMethods([VerificationTier.DEVICE_ATTESTED])).toEqual([
       VerificationMethod.ATTESTED_CAPTURE_IOS,
       VerificationMethod.ATTESTED_CAPTURE_ANDROID,
-      VerificationMethod.ATTESTED_CHIP_READ_IOS,
-      VerificationMethod.ATTESTED_CHIP_READ_ANDROID,
     ])
     expect(expandAllowedVerificationMethods([2, 201])).toEqual(
       expandAllowedVerificationMethods([2]),

@@ -224,8 +224,8 @@ describe("a Tier 2 outer proof's device attestation", () => {
       ).isCorrect,
     ).toBe(false)
     expect(
-      (await check(VerificationMethod.ATTESTED_CHIP_READ_IOS, { attested_id_ios: ios }, first))
-        .isCorrect,
+      // A method in the attested range that no circuit proves
+      (await check(202 as VerificationMethod, { attested_id_ios: ios }, first)).isCorrect,
     ).toBe(false)
   })
 })

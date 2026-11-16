@@ -238,8 +238,8 @@ contract AttestedIdTest is Test {
 
     function testIsValidRejectsOtherSchemes() public view {
         uint256[4] memory schemes = [
-            VerificationMethod.ATTESTED_CHIP_READ_IOS,
-            VerificationMethod.ATTESTED_CHIP_READ_ANDROID,
+            uint256(202),
+            uint256(203),
             VerificationMethod.ICAO_CHIP,
             uint256(299)
         ];
@@ -317,15 +317,12 @@ contract AttestedIdTest is Test {
             VerificationMethod.ATTESTED_CAPTURE_ANDROID, entry(ProofType.ATTESTED_ID, iosPayload())
         );
 
-        // Reserved schemes have no circuit yet
+        // A method in the attested range that no circuit proves
+        vm.expectRevert("Invalid device attestation");
+        subVerifier.verifyDeviceAttestation(202, entry(ProofType.ATTESTED_ID, iosPayload()));
         vm.expectRevert("Invalid device attestation");
         subVerifier.verifyDeviceAttestation(
-            VerificationMethod.ATTESTED_CHIP_READ_IOS, entry(ProofType.ATTESTED_ID, iosPayload())
-        );
-        vm.expectRevert("Invalid device attestation");
-        subVerifier.verifyDeviceAttestation(
-            VerificationMethod.ATTESTED_CHIP_READ_ANDROID,
-            entry(ProofType.ATTESTED_ID, androidPayload(AppAttest.GOOGLE_RSA_ROOT_KEY_HASH))
+            203, entry(ProofType.ATTESTED_ID, androidPayload(AppAttest.GOOGLE_RSA_ROOT_KEY_HASH))
         );
     }
 
