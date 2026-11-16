@@ -893,6 +893,26 @@ describe("PublicInputChecker - originalQuery validation", () => {
         expect(modeMessage).not.toContain("facematch mode")
       }
     })
+
+    test("asks no revocation root of an Android face match from circuits before 0.23.0", async () => {
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkFacematchPublicInputs(
+        { facematch: { mode: "strict" } },
+        { facematch: { mode: "strict", passed: true } },
+        {
+          rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+          environment: "production" as const,
+          appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
+          integrityPubkeyHash: "0x0",
+          mode: "strict" as const,
+        },
+        false,
+        undefined,
+        undefined,
+        false,
+      )
+      expect(queryResultErrors.facematch?.revocation).toBeUndefined()
+      expect(isCorrect).toBe(true)
+    })
   })
 })
 

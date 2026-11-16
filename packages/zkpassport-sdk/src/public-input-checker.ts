@@ -24,6 +24,7 @@ import {
   GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
   getVerificationMethodFromIntegrityProof,
   getVerificationMethodFromOuterProof,
+  commitsAttestationRevocationRoot,
   hasVerificationMethod,
   isVerificationMethodAllowed,
   DEFAULT_ALLOWED_VERIFICATION_METHODS,
@@ -2190,6 +2191,8 @@ export class PublicInputChecker {
     // Same as above, see checkCertificateRegistryRoot
     timestamp?: number,
     registryClient?: RegistryClient,
+    // False for a proof of circuits before 0.23.0, which has no revocation root to check
+    commitsRevocationRoot: boolean = true,
   ) {
     let isCorrect = true
     const queryResultErrors: Partial<QueryResultErrors> = {}
@@ -2259,6 +2262,7 @@ export class PublicInputChecker {
         },
       }
     }
+    if (!commitsRevocationRoot) return { isCorrect, queryResultErrors }
     const revocationRoot = facematchCommittedInputs.revocationRoot ?? "0x0"
     if (facematchCommittedInputs.rootKeyLeaf === APPLE_APP_ATTEST_ROOT_KEY_HASH) {
       if (BigInt(revocationRoot) !== 0n) {
@@ -3090,6 +3094,7 @@ export class PublicInputChecker {
           const facematchCommittedInputs =
             (committedInputs?.facematch as FacematchCommittedInputs) ??
             (committedInputs?.facematch_evm as FacematchCommittedInputs)
+          const commitsRevocationRoot = commitsAttestationRevocationRoot(proof.version)
           const facematchParameterCommitment = isForEVM
             ? await getFacematchEvmParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
@@ -3098,6 +3103,7 @@ export class PublicInputChecker {
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
                 undefined,
                 BigInt(facematchCommittedInputs.revocationRoot ?? 0),
+                commitsRevocationRoot,
               )
             : await getFacematchParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
@@ -3106,6 +3112,7 @@ export class PublicInputChecker {
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
                 undefined,
                 BigInt(facematchCommittedInputs.revocationRoot ?? 0),
+                commitsRevocationRoot,
               )
           if (!paramCommitments.includes(facematchParameterCommitment)) {
             console.warn("This proof does not verify FaceMatch")
@@ -3127,6 +3134,7 @@ export class PublicInputChecker {
               devMode,
               bundleRootTimestamp,
               registryClient,
+              commitsRevocationRoot,
             )
           isCorrect = isCorrect && isCorrectFacematch
           queryResultErrors = {
@@ -3992,6 +4000,7 @@ export class PublicInputChecker {
         const facematchCommittedInputs = proof.committedInputs
           ?.facematch as FacematchCommittedInputs
         const paramCommittment = getParameterCommitmentFromDisclosureProof(proofData)
+        const commitsRevocationRoot = commitsAttestationRevocationRoot(proof.version)
         const calculatedParamCommitment = await getFacematchParameterCommitment(
           BigInt(facematchCommittedInputs.rootKeyLeaf),
           facematchCommittedInputs.environment === "development" ? 0n : 1n,
@@ -3999,6 +4008,7 @@ export class PublicInputChecker {
           facematchCommittedInputs.mode === "regular" ? 1n : 2n,
           undefined,
           BigInt(facematchCommittedInputs.revocationRoot ?? 0),
+          commitsRevocationRoot,
         )
         if (paramCommittment !== calculatedParamCommitment) {
           console.warn("The FaceMatch verification does not match the ones from the proof")
@@ -4028,6 +4038,7 @@ export class PublicInputChecker {
             devMode,
             bundleRootTimestamp,
             registryClient,
+            commitsRevocationRoot,
           )
         isCorrect = isCorrect && isCorrectFacematch && isCorrectScope
         queryResultErrors = {
