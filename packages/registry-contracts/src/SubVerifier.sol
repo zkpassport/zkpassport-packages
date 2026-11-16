@@ -20,9 +20,9 @@ import {
     Environment,
     FaceMatchMode
 } from "./lib/Types.sol";
-import {PublicInput, RegistryID} from "./lib/Constants.sol";
+import {PublicInput, RegistryID, AppAttest} from "./lib/Constants.sol";
 import {VerificationMethods, VerificationMethod, VerificationTier} from "./lib/VerificationMethods.sol";
-import {AttestedId, FaceMatch} from "./lib/AttestedId.sol";
+import {AttestedId, FaceMatch, AttestationRevocation} from "./lib/AttestedId.sol";
 import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
@@ -204,7 +204,7 @@ contract SubVerifier {
                 Environment environment,
                 bytes32 appIdHash,
                 bytes32 integrityPublicKeyHash,
-                FaceMatchMode mode
+                FaceMatchMode mode,
             ) = InputsExtractor.getAttestedIdProofInputs(committedInputs);
             require(
                 AttestedId.isValid(
@@ -222,12 +222,41 @@ contract SubVerifier {
 
     /// @notice Anyone with a copy of an Aadhaar QR code could prove with it, so it needs a genuine face match
     function _verifyAadhaarFaceMatch(bytes calldata committedInputs) internal pure {
-        (bytes32 rootKeyHash, Environment environment, bytes32 appIdHash, bytes32 integrityPublicKeyHash,) =
+        (bytes32 rootKeyHash, Environment environment, bytes32 appIdHash, bytes32 integrityPublicKeyHash,,) =
             InputsExtractor.readFacematchProofInputs(committedInputs);
         require(
             FaceMatch.isGenuine(rootKeyHash, environment, appIdHash, integrityPublicKeyHash),
             "Invalid Aadhaar face match"
         );
+    }
+
+    /**
+     * @notice The attestation behind a device attested credential or an Aadhaar face match commits the
+     *         revocation tree its Android chain was checked against; iOS commits none
+     */
+    function _verifyAttestationRevocation(
+        RootRegistry _rootRegistry,
+        uint256 verificationMethod,
+        bytes calldata committedInputs,
+        uint256 timestamp
+    ) internal view {
+        bytes32 rootKeyHash;
+        bytes32 revocationRoot;
+        if (VerificationMethods.tierOf(verificationMethod) == VerificationTier.DEVICE_ATTESTED) {
+            (rootKeyHash,,,,, revocationRoot) = InputsExtractor.getAttestedIdProofInputs(committedInputs);
+        } else if (verificationMethod == VerificationMethod.UIDAI_AADHAAR) {
+            (rootKeyHash,,,,, revocationRoot) = InputsExtractor.readFacematchProofInputs(committedInputs);
+        } else {
+            return;
+        }
+        if (rootKeyHash == AppAttest.APPLE_ROOT_KEY_HASH) {
+            require(revocationRoot == bytes32(0), "Unexpected attestation revocation root");
+        } else {
+            require(
+                AttestationRevocation.isRootAccepted(_rootRegistry, revocationRoot, timestamp),
+                "Invalid attestation revocation root"
+            );
+        }
     }
 
     function _getProofVerifier(bytes32 vkeyHash) internal view returns (address) {
@@ -336,6 +365,7 @@ contract SubVerifier {
         if (verificationMethod == VerificationMethod.UIDAI_AADHAAR) {
             _verifyAadhaarFaceMatch(params.committedInputs);
         }
+        _verifyAttestationRevocation(rootRegistry, verificationMethod, params.committedInputs, currentTimestamp);
 
         // Allow mock proofs in dev mode
         // Note: On mainnets, this stage won't be reached as the ZKR certificates will not be part

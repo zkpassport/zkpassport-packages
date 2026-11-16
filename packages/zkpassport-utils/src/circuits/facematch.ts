@@ -16,6 +16,8 @@ const ANDROID_APP_ID_HASH = 0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8
  * @param environment - Environment
  * @param appIdHash - Hash of the app id
  * @param facematchMode - Facematch mode
+ * @param integrityAnchor - Android only: the Play Integrity key hash. 0 on iOS
+ * @param revocationRoot - Android only: the attestation revocation tree root. 0 on iOS
  * @returns Parameter commitment
  */
 export async function getFacematchParameterCommitment(
@@ -23,6 +25,8 @@ export async function getFacematchParameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint = defaultIntegrityAnchor(appIdHash),
+  revocationRoot: bigint = 0n,
 ): Promise<bigint> {
   return parameterCommitment(
     ProofType.FACEMATCH,
@@ -30,6 +34,8 @@ export async function getFacematchParameterCommitment(
     environment,
     appIdHash,
     facematchMode,
+    integrityAnchor,
+    revocationRoot,
   )
 }
 
@@ -39,6 +45,8 @@ export async function getFacematchParameterCommitment(
  * @param environment - Environment
  * @param appIdHash - Hash of the app id
  * @param facematchMode - Facematch mode
+ * @param integrityAnchor - Android only: the Play Integrity key hash. 0 on iOS
+ * @param revocationRoot - Android only: the attestation revocation tree root. 0 on iOS
  * @returns Parameter commitment
  */
 export async function getFacematchEvmParameterCommitment(
@@ -46,6 +54,8 @@ export async function getFacematchEvmParameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint = defaultIntegrityAnchor(appIdHash),
+  revocationRoot: bigint = 0n,
 ): Promise<bigint> {
   return evmParameterCommitment(
     ProofType.FACEMATCH,
@@ -53,6 +63,8 @@ export async function getFacematchEvmParameterCommitment(
     environment,
     appIdHash,
     facematchMode,
+    integrityAnchor,
+    revocationRoot,
   )
 }
 
@@ -65,6 +77,8 @@ export async function getAttestedIdParameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint = defaultIntegrityAnchor(appIdHash),
+  revocationRoot: bigint = 0n,
 ): Promise<bigint> {
   return parameterCommitment(
     ProofType.ATTESTED_ID,
@@ -72,6 +86,8 @@ export async function getAttestedIdParameterCommitment(
     environment,
     appIdHash,
     facematchMode,
+    integrityAnchor,
+    revocationRoot,
   )
 }
 
@@ -81,6 +97,8 @@ export async function getAttestedIdEvmParameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint = defaultIntegrityAnchor(appIdHash),
+  revocationRoot: bigint = 0n,
 ): Promise<bigint> {
   return evmParameterCommitment(
     ProofType.ATTESTED_ID,
@@ -88,12 +106,16 @@ export async function getAttestedIdEvmParameterCommitment(
     environment,
     appIdHash,
     facematchMode,
+    integrityAnchor,
+    revocationRoot,
   )
 }
 
-// The Play Integrity key is only committed to on Android, otherwise it is 0
-const integrityKeyHash = (appIdHash: bigint) =>
-  appIdHash === ANDROID_APP_ID_HASH ? GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH : 0n
+/** The integrity anchor a face match or attested ID proof commits to when none is given */
+function defaultIntegrityAnchor(appIdHash: bigint): bigint {
+  // The Play Integrity key for the Android app, nothing for iOS
+  return appIdHash === ANDROID_APP_ID_HASH ? GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH : 0n
+}
 
 function parameterCommitment(
   proofType: ProofType.FACEMATCH | ProofType.ATTESTED_ID,
@@ -101,6 +123,8 @@ function parameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint,
+  revocationRoot: bigint,
 ): Promise<bigint> {
   return poseidon2HashAsync([
     BigInt(proofType),
@@ -108,8 +132,9 @@ function parameterCommitment(
     rootKeyLeaf,
     environment,
     appIdHash,
-    integrityKeyHash(appIdHash),
+    integrityAnchor,
     facematchMode,
+    revocationRoot,
   ])
 }
 
@@ -119,6 +144,8 @@ async function evmParameterCommitment(
   environment: bigint,
   appIdHash: bigint,
   facematchMode: bigint,
+  integrityAnchor: bigint,
+  revocationRoot: bigint,
 ): Promise<bigint> {
   const hash = sha256(
     new Uint8Array([
@@ -127,8 +154,9 @@ async function evmParameterCommitment(
       ...numberToBytesBE(rootKeyLeaf, 32),
       ...numberToBytesBE(environment, 1),
       ...numberToBytesBE(appIdHash, 32),
-      ...numberToBytesBE(integrityKeyHash(appIdHash), 32),
+      ...numberToBytesBE(integrityAnchor, 32),
       ...numberToBytesBE(facematchMode, 1),
+      ...numberToBytesBE(revocationRoot, 32),
     ]),
   )
   return packBeBytesIntoField(hash, 31)

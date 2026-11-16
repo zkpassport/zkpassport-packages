@@ -15,6 +15,7 @@ import {StringUtils} from "./lib/StringUtils.sol";
 import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {SECONDS_BETWEEN_1900_AND_1970, PublicInput, AppAttest, RegistryID} from "./lib/Constants.sol";
 import {VerificationMethods} from "./lib/VerificationMethods.sol";
+import {AttestationRevocation} from "./lib/AttestedId.sol";
 import {ProofType, DisclosedData, BoundData, FaceMatchMode, Environment, OS, NullifierType} from "./lib/Types.sol";
 
 contract VerifierHelper {
@@ -432,7 +433,7 @@ contract VerifierHelper {
      */
     function isFaceMatchVerified(FaceMatchMode faceMatchMode, OS os, bytes calldata committedInputs)
         external
-        pure
+        view
         returns (bool)
     {
         (
@@ -440,27 +441,23 @@ contract VerifierHelper {
             Environment environment,
             bytes32 appIdHash,
             bytes32 integrityPublicKeyHash,
-            FaceMatchMode retrievedFaceMatchMode
+            FaceMatchMode retrievedFaceMatchMode,
+            bytes32 revocationRoot
         ) = !InputsExtractor.containsProofType(committedInputs, ProofType.FACEMATCH)
             && InputsExtractor.containsProofType(committedInputs, ProofType.ATTESTED_ID)
             ? InputsExtractor.getAttestedIdProofInputs(committedInputs)
             : InputsExtractor.getFacematchProofInputs(committedInputs);
-        bool isProduction = environment == Environment.PRODUCTION;
-        bool isCorrectMode = retrievedFaceMatchMode == faceMatchMode;
-        bool isCorrectRootKeyHash = (rootKeyHash == AppAttest.APPLE_ROOT_KEY_HASH && (os == OS.IOS || os == OS.ANY))
-            || ((rootKeyHash == AppAttest.GOOGLE_RSA_ROOT_KEY_HASH
-                    || rootKeyHash == AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH)
-                && (os == OS.ANDROID || os == OS.ANY));
+        if (environment != Environment.PRODUCTION || retrievedFaceMatchMode != faceMatchMode) return false;
         bool isIosAppIdHash = appIdHash == AppAttest.IOS_APP_ID_HASH || appIdHash == AppAttest.IOS_APP_CLIP_APP_ID_HASH;
-        bool isCorrectAppIdHash = (isIosAppIdHash && (os == OS.IOS || os == OS.ANY))
-            || (appIdHash == AppAttest.ANDROID_APP_ID_HASH && (os == OS.ANDROID || os == OS.ANY));
-        // The integrity public key hash is 0 for iOS as it's logic specific to Android
-        bool isCorrectIntegrityPublicKeyHash = (integrityPublicKeyHash == bytes32(0) && (os == OS.IOS || os == OS.ANY))
-            || (integrityPublicKeyHash == AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH
-                && (os == OS.ANDROID || os == OS.ANY));
-        return
-            isProduction && isCorrectMode && isCorrectRootKeyHash && isCorrectAppIdHash
-                && isCorrectIntegrityPublicKeyHash;
+        bool isIos = rootKeyHash == AppAttest.APPLE_ROOT_KEY_HASH && isIosAppIdHash
+            && integrityPublicKeyHash == bytes32(0) && revocationRoot == bytes32(0);
+        if (isIos) return os == OS.IOS || os == OS.ANY;
+        bool isAndroid =
+            (rootKeyHash == AppAttest.GOOGLE_RSA_ROOT_KEY_HASH || rootKeyHash == AppAttest.GOOGLE_ECDSA_ROOT_KEY_HASH)
+                && appIdHash == AppAttest.ANDROID_APP_ID_HASH
+                && integrityPublicKeyHash == AppAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH;
+        if (!isAndroid || (os != OS.ANDROID && os != OS.ANY)) return false;
+        return AttestationRevocation.isRootAccepted(rootRegistry, revocationRoot, block.timestamp);
     }
 
     /**

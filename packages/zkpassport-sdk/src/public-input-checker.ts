@@ -15,6 +15,7 @@ import {
   getNullifierFromDisclosureProof,
   getCommitmentInFromIntegrityProof,
   getCommitmentOutFromIntegrityProof,
+  EMPTY_ATTESTATION_REVOCATION_ROOT,
   getCommitmentOutFromAttestedIdProof,
   getParameterCommitmentFromAttestedIdProof,
   getVerificationMethodFromAttestedIdProof,
@@ -2011,6 +2012,40 @@ export class PublicInputChecker {
     )
   }
 
+  /**
+   * An Android attestation chain must have been checked against a revocation tree root the
+   * registry holds, or against the empty tree's root while the registry has no root yet
+   */
+  public static async checkAttestationRevocationRoot(
+    root: string,
+    queryResultErrors: any,
+    section: "facematch" | "attested_id",
+    devMode?: boolean,
+    // Same as above, see checkCertificateRegistryRoot
+    timestamp?: number,
+    originalQuery: Query = {},
+    registryClient?: RegistryClient,
+  ) {
+    const isEmptyRoot = BigInt(root) === BigInt(EMPTY_ATTESTATION_REVOCATION_ROOT)
+    return this.checkRegistryRoot(
+      async (registry) =>
+        isEmptyRoot
+          ? BigInt(await registry.getLatestAttestationRevocationRoot()) === 0n
+          : registry.isAttestationRevocationRootValid(root, timestamp),
+      devMode,
+      originalQuery,
+      queryResultErrors,
+      {
+        section,
+        field: "revocation",
+        expected: "A valid root from ZKPassport Registry",
+        received: `Got invalid attestation revocation root: ${root}`,
+        message: "The device attestation was checked against an unrecognized revocation list",
+      },
+      registryClient,
+    )
+  }
+
   public static checkBindPublicInputs(
     originalQuery: Query,
     queryResult: QueryResult,
@@ -2151,6 +2186,10 @@ export class PublicInputChecker {
     originalQuery: Query,
     queryResult: QueryResult,
     facematchCommittedInputs: FacematchCommittedInputs,
+    devMode?: boolean,
+    // Same as above, see checkCertificateRegistryRoot
+    timestamp?: number,
+    registryClient?: RegistryClient,
   ) {
     let isCorrect = true
     const queryResultErrors: Partial<QueryResultErrors> = {}
@@ -2219,6 +2258,32 @@ export class PublicInputChecker {
           message: "Invalid facematch mode",
         },
       }
+    }
+    const revocationRoot = facematchCommittedInputs.revocationRoot ?? "0x0"
+    if (facematchCommittedInputs.rootKeyLeaf === APPLE_APP_ATTEST_ROOT_KEY_HASH) {
+      if (BigInt(revocationRoot) !== 0n) {
+        console.warn("An iOS face match has no revocation root")
+        isCorrect = false
+        queryResultErrors.facematch = {
+          ...queryResultErrors.facematch,
+          revocation: {
+            expected: "0",
+            received: revocationRoot,
+            message: "An iOS face match has no revocation root",
+          },
+        }
+      }
+    } else {
+      const { isCorrect: isCorrectRevocationRoot } = await this.checkAttestationRevocationRoot(
+        revocationRoot,
+        queryResultErrors,
+        "facematch",
+        devMode,
+        timestamp,
+        originalQuery,
+        registryClient,
+      )
+      isCorrect = isCorrect && isCorrectRevocationRoot
     }
     return { isCorrect, queryResultErrors }
   }
@@ -3031,12 +3096,16 @@ export class PublicInputChecker {
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                undefined,
+                BigInt(facematchCommittedInputs.revocationRoot ?? 0),
               )
             : await getFacematchParameterCommitment(
                 BigInt(facematchCommittedInputs.rootKeyLeaf),
                 facematchCommittedInputs.environment === "development" ? 0n : 1n,
                 BigInt(facematchCommittedInputs.appIdHash),
                 facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+                undefined,
+                BigInt(facematchCommittedInputs.revocationRoot ?? 0),
               )
           if (!paramCommitments.includes(facematchParameterCommitment)) {
             console.warn("This proof does not verify FaceMatch")
@@ -3055,6 +3124,9 @@ export class PublicInputChecker {
               originalQuery,
               queryResult,
               facematchCommittedInputs,
+              devMode,
+              bundleRootTimestamp,
+              registryClient,
             )
           isCorrect = isCorrect && isCorrectFacematch
           queryResultErrors = {
@@ -3095,6 +3167,8 @@ export class PublicInputChecker {
             committed.environment === "development" ? 0n : 1n,
             BigInt(committed.appIdHash),
             committed.mode === "regular" ? 1n : 2n,
+            BigInt(committed.integrityPubkeyHash),
+            BigInt(committed.revocationRoot ?? 0),
           )
           const paramCommitment = getParameterCommitmentFromAttestedIdProof(proofData)
           if (paramCommitment !== expectedParamCommitment) {
@@ -3113,6 +3187,19 @@ export class PublicInputChecker {
             this.checkAttestedIdParameters(committed, committedKey === "attested_id_android")
           isCorrect = isCorrect && isCorrectAttestation
           queryResultErrors = { ...queryResultErrors, ...attestationErrors }
+          if (committedKey === "attested_id_android") {
+            const { isCorrect: isCorrectRevocationRoot } =
+              await this.checkAttestationRevocationRoot(
+                committed.revocationRoot ?? "0x0",
+                queryResultErrors,
+                "attested_id",
+                devMode,
+                attestedAt ? Math.floor(attestedAt.getTime() / 1000) : bundleRootTimestamp,
+                originalQuery,
+                registryClient,
+              )
+            isCorrect = isCorrect && isCorrectRevocationRoot
+          }
         }
       } else if (proof.name === AADHAAR_CIRCUIT_NAME) {
         commitmentOut = getCommitmentOutFromAadhaarProof(proofData)
@@ -3910,6 +3997,8 @@ export class PublicInputChecker {
           facematchCommittedInputs.environment === "development" ? 0n : 1n,
           BigInt(facematchCommittedInputs.appIdHash),
           facematchCommittedInputs.mode === "regular" ? 1n : 2n,
+          undefined,
+          BigInt(facematchCommittedInputs.revocationRoot ?? 0),
         )
         if (paramCommittment !== calculatedParamCommitment) {
           console.warn("The FaceMatch verification does not match the ones from the proof")
@@ -3936,6 +4025,9 @@ export class PublicInputChecker {
             originalQuery,
             queryResult,
             facematchCommittedInputs,
+            devMode,
+            bundleRootTimestamp,
+            registryClient,
           )
         isCorrect = isCorrect && isCorrectFacematch && isCorrectScope
         queryResultErrors = {
@@ -4205,6 +4297,9 @@ export class PublicInputChecker {
         committed.integrityPubkeyHash,
         "Invalid attested ID integrity key",
       )
+    }
+    if (!android && BigInt(committed.revocationRoot ?? 0) !== 0n) {
+      fail("0", committed.revocationRoot!, "An iOS attested ID has no revocation root")
     }
     if (committed.environment !== "production") {
       fail("production", committed.environment, "Invalid attested ID environment")

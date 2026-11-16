@@ -5,6 +5,8 @@ import { Binary } from "../binary"
 import { PassportViewModel, VerificationMethod } from "../types"
 import { hashSaltDg1Dg2HashPrivateNullifier, normalizeDg2Hash } from "./index"
 import { ProofData } from "./index"
+import { poseidon2 } from "../merkle-tree"
+import { BN254_MODULUS_MINUS_ONE } from "../merkle-tree/async-ordered-mt"
 
 /**
  * The base proof of a Tier 2 verification: an ID read by camera, with no chip to sign its
@@ -87,6 +89,71 @@ export function getAttestedIdAndroidCircuitName({
       `ik_${type === "rsa" ? "rsa_" : "ecdsa_p"}${bitSize}_${hashAlgorithm}`,
   )
   return `${ATTESTED_ID_ANDROID_CIRCUIT_PREFIX}_rk_${rootType}_ik_count_${intermediates.length}_${chain.join("_")}`
+}
+
+/** Depth of the tree of revoked Android attestation certificate serials */
+export const ANDROID_REVOCATION_TREE_DEPTH = 20
+
+/**
+ * Root of the revocation tree with no revoked serials. Verifiers accept it while the attestation
+ * revocation registry has no root yet, so proofs can be made before the registry goes live.
+ */
+export const EMPTY_ATTESTATION_REVOCATION_ROOT =
+  "0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525"
+
+export type CircuitRevocationProof = {
+  left: { leaf: string; leaf_index: string; sibling_path: string[] }
+  right: { leaf: string; leaf_index: string; sibling_path: string[] }
+}
+
+const toHex = (value: bigint) => `0x${value.toString(16).padStart(64, "0")}`
+
+/**
+ * Shows each certificate serial is not among the revoked ones, as the circuits'
+ * `assert_serial_not_revoked` takes it. The tree is the ordered one the sanctions use (sorted
+ * leaves between a 0 and a BN254_MODULUS_MINUS_ONE sentinel, zero padded), built sparsely here
+ * since a full depth 20 tree takes over a minute to hash on a phone.
+ */
+export async function getAttestationRevocationProofs(
+  revokedSerials: bigint[],
+  serials: bigint[],
+): Promise<{ root: string; proofs: CircuitRevocationProof[] }> {
+  const sorted = Array.from(new Set(revokedSerials)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+  const layers: bigint[][] = [[0n, ...sorted, BN254_MODULUS_MINUS_ONE]]
+  const empty: bigint[] = [0n]
+  for (let level = 0; level < ANDROID_REVOCATION_TREE_DEPTH; level++) {
+    const nodes = layers[level]
+    const next: bigint[] = []
+    for (let i = 0; i < nodes.length; i += 2) {
+      next.push(await poseidon2([nodes[i], nodes[i + 1] ?? empty[level]]))
+    }
+    layers.push(next)
+    empty.push(await poseidon2([empty[level], empty[level]]))
+  }
+  const inclusion = (index: number) => {
+    const siblings: bigint[] = []
+    for (let level = 0, i = index; level < ANDROID_REVOCATION_TREE_DEPTH; level++, i >>= 1) {
+      siblings.push(layers[level][i ^ 1] ?? empty[level])
+    }
+    return {
+      leaf: toHex(layers[0][index]),
+      leaf_index: toHex(BigInt(index)),
+      sibling_path: siblings.map(toHex),
+    }
+  }
+  const proofs = serials.map((serial) => {
+    const right = layers[0].findIndex((leaf) => leaf > serial)
+    if (right <= 0 || layers[0][right - 1] === serial) {
+      throw new Error(`Attestation certificate serial ${serial} is revoked`)
+    }
+    return { left: inclusion(right - 1), right: inclusion(right) }
+  })
+  return { root: toHex(layers[ANDROID_REVOCATION_TREE_DEPTH][0]), proofs }
+}
+
+/** A certificate's serial number as the circuits read it: the INTEGER's bytes as one integer */
+export function getCertificateSerialNumber(serialBytes: Uint8Array): bigint {
+  return serialBytes.reduce((acc, byte) => acc * 256n + BigInt(byte), 0n)
 }
 
 export function padDg1(dg1: Uint8Array): Uint8Array {

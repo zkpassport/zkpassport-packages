@@ -155,7 +155,8 @@ contract VerifierHelperTest is Test {
             uint8(Environment.PRODUCTION),
             AppAttest.IOS_APP_CLIP_APP_ID_HASH,
             bytes32(0),
-            uint8(FaceMatchMode.STRICT)
+            uint8(FaceMatchMode.STRICT),
+            bytes32(0)
         );
 
         assertTrue(helper.isFaceMatchVerified(FaceMatchMode.STRICT, OS.IOS, committedInputs));
