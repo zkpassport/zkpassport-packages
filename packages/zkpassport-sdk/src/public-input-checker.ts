@@ -3,6 +3,10 @@
 import {
   type ProofResult,
   type QueryResult,
+  AADHAAR_CIRCUIT_NAME,
+  getCertificateRegistryRootFromAadhaarProof,
+  isAadhaarNationalityConditionAllowed,
+  getCommitmentOutFromAadhaarProof,
   getChainFromQuery,
   getProofData,
   getCommitmentFromDSCProof,
@@ -2200,9 +2204,10 @@ export class PublicInputChecker {
         },
       }
     }
+    const requestedMode = originalQuery.facematch?.mode
     if (
       (queryResult.facematch && facematchCommittedInputs.mode !== queryResult.facematch.mode) ||
-      facematchCommittedInputs.mode !== originalQuery.facematch?.mode
+      (requestedMode !== undefined && facematchCommittedInputs.mode !== requestedMode)
     ) {
       console.warn("Invalid facematch mode")
       isCorrect = false
@@ -2446,6 +2451,7 @@ export class PublicInputChecker {
     const proofOrder = [
       // Tier 2 base: the device attested the camera-read ID, in place of the three chip proofs
       "attested_id",
+      AADHAAR_CIRCUIT_NAME,
       "sig_check_dsc",
       "sig_check_id_data",
       "data_check_integrity",
@@ -2472,7 +2478,7 @@ export class PublicInputChecker {
     })
 
     // Registry roots are checked as of the proofs' own date, so older proofs still verify
-    const disclosureProofNames = proofOrder.slice(4)
+    const disclosureProofNames = proofOrder.slice(5)
     // What verified the ID, read from the base proof (or the outer)
     let verificationMethod: VerificationMethod | undefined
     const firstDisclosureProof = sortedProofs.find((p) =>
@@ -2568,10 +2574,23 @@ export class PublicInputChecker {
         // A Tier 2 outer proof always carries its scheme, whatever version it states, so a proof
         // can't pass as a chip read by leaving out its version
         const isAttestedOuter = proof.name!.includes("_attested_")
+        const isAadhaarOuter = proof.name!.includes("_aadhaar_")
         verificationMethod =
-          isAttestedOuter || hasVerificationMethod(proof.version)
+          isAttestedOuter || isAadhaarOuter || hasVerificationMethod(proof.version)
             ? getVerificationMethodFromOuterProof(proofData)
             : VerificationMethod.ICAO_CHIP
+        if (isAadhaarOuter && verificationMethod !== VerificationMethod.UIDAI_AADHAAR) {
+          console.warn("An Aadhaar outer proof states another verification method")
+          isCorrect = false
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            certificate: {
+              expected: `Verification method ${VerificationMethod.UIDAI_AADHAAR}`,
+              received: `Verification method ${verificationMethod}`,
+              message: "An Aadhaar outer proof states another verification method",
+            },
+          }
+        }
         if (
           isAttestedOuter &&
           getTierForVerificationMethod(verificationMethod) !== VerificationTier.DEVICE_ATTESTED
@@ -3094,6 +3113,26 @@ export class PublicInputChecker {
             this.checkAttestedIdParameters(committed, committedKey === "attested_id_android")
           isCorrect = isCorrect && isCorrectAttestation
           queryResultErrors = { ...queryResultErrors, ...attestationErrors }
+        }
+      } else if (proof.name === AADHAAR_CIRCUIT_NAME) {
+        commitmentOut = getCommitmentOutFromAadhaarProof(proofData)
+        verificationMethod = getVerificationMethodFromAttestedIdProof(proofData)
+        const {
+          isCorrect: isCorrectCertificateRegistryRoot,
+          queryResultErrors: queryResultErrorsCertificateRegistryRoot,
+        } = await this.checkCertificateRegistryRoot(
+          getCertificateRegistryRootFromAadhaarProof(proofData).toString(16),
+          queryResultErrors,
+          false,
+          devMode,
+          bundleRootTimestamp,
+          originalQuery,
+          registryClient,
+        )
+        isCorrect = isCorrect && isCorrectCertificateRegistryRoot
+        queryResultErrors = {
+          ...queryResultErrors,
+          ...queryResultErrorsCertificateRegistryRoot,
         }
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
@@ -3989,6 +4028,44 @@ export class PublicInputChecker {
       uniqueIdentifier = undefined
     }
 
+    if (
+      verificationMethod === VerificationMethod.UIDAI_AADHAAR &&
+      !sortedProofs.some(
+        (p) =>
+          p.name?.startsWith("facematch") ||
+          (p.name?.startsWith("outer") &&
+            (!!p.committedInputs?.facematch || !!p.committedInputs?.facematch_evm)),
+      )
+    ) {
+      console.warn("An Aadhaar proof must come with a face match against its photo")
+      isCorrect = false
+      queryResultErrors.facematch = {
+        ...queryResultErrors.facematch,
+        eq: {
+          expected: "A FaceMatch proof",
+          received: "none",
+          message: "An Aadhaar proof must come with a face match against its photo",
+        },
+      }
+    }
+    if (
+      verificationMethod === VerificationMethod.UIDAI_AADHAAR &&
+      !isAadhaarNationalityConditionAllowed(originalQuery.nationality)
+    ) {
+      console.warn(
+        "An Aadhaar does not prove a nationality, so it can only pass an exclusion check",
+      )
+      isCorrect = false
+      queryResultErrors.nationality = {
+        ...queryResultErrors.nationality,
+        eq: {
+          expected: "An ID that proves a nationality",
+          received: "Aadhaar",
+          message:
+            "An Aadhaar does not prove a nationality, so it can only pass an exclusion check",
+        },
+      }
+    }
     // Proofs made before the scheme existed came from a chip
     const scheme = verificationMethod ?? VerificationMethod.ICAO_CHIP
     if (!isVerificationMethodAllowed(scheme, allowedVerificationMethods)) {

@@ -58,6 +58,13 @@ export type PassportViewModel = {
 
   sod: SOD
   appVersion: string
+  aadhaar?: AadhaarCredential
+}
+
+export type AadhaarCredential = {
+  signedData: string
+  signature: string
+  publicKey: string
 }
 
 export type RSACertificate = {

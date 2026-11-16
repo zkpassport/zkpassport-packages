@@ -337,6 +337,21 @@ library InputsExtractor {
             FaceMatchMode facematchMode
         )
     {
+        return readFacematchProofInputs(committedInputs);
+    }
+
+    /// @notice Internal, so contracts can call it without linking this library
+    function readFacematchProofInputs(bytes calldata committedInputs)
+        internal
+        pure
+        returns (
+            bytes32 rootKeyHash,
+            Environment environment,
+            bytes32 appIdHash,
+            bytes32 integrityPublicKeyHash,
+            FaceMatchMode facematchMode
+        )
+    {
         uint256 offset = 0;
         uint256 foundCount = 0;
         while (offset < committedInputs.length) {

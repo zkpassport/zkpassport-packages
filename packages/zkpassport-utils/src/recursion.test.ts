@@ -15,6 +15,7 @@ import {
   getNullifierTypeFromOuterProof,
   getNullifierFromOuterProof,
   getOprfPkHashFromOuterProof,
+  getAadhaarOuterCircuitInputs,
   getAttestedOuterCircuitInputs,
   getAttestedOuterCircuitName,
   getOuterCircuitInputs,
@@ -392,5 +393,26 @@ describe("Tier 2 outer circuit", () => {
     )
     expect(android.param_commitments).toEqual(["0xa2", "0xd1"])
     expect(android.verification_method).toEqual("0xc9")
+  })
+
+  describe("Aadhaar", () => {
+    test("counts the public inputs: 9 fixed and one commitment per disclosure proof", () => {
+      expect(getNumberOfPublicInputs("outer_aadhaar_count_2", "0.23.0")).toEqual(10)
+      expect(getNumberOfPublicInputs("outer_evm_aadhaar_count_11", "0.23.0")).toEqual(19)
+    })
+
+    test("takes the certificate registry root and scheme from the aadhaar_id proof", () => {
+      const inputs = getAadhaarOuterCircuitInputs(
+        subproof(["0xcert", "0xc0", "0x65"]),
+        [disclosure],
+        "0xr",
+      )
+      expect(inputs.certificate_registry_root).toEqual("0xcert")
+      expect(inputs.verification_method).toEqual("0x65")
+      expect(inputs.param_commitments).toEqual(["0xd1"])
+      expect(inputs.scoped_nullifier).toEqual("0xee")
+      expect(inputs.aadhaar_id_proof.public_inputs).toEqual(["0xcert", "0xc0", "0x65"])
+      expect(inputs.disclosure_proofs[0].public_inputs).toEqual(["0xc0", "0xee", "0x0", "0x0"])
+    })
   })
 })

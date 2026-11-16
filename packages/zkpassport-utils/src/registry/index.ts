@@ -60,6 +60,20 @@ export const CERT_TYPE_CSCA = 1
  */
 export const CERT_TYPE_DSC = 2
 
+export const CERT_TYPE_UIDAI = 3
+
+export const PACKAGED_CERT_TYPE_UIDAI = "uidai"
+
+export function getCertificateType(cert: PackagedCertificate): number {
+  if (cert.type === undefined) return CERT_TYPE_CSCA
+  if (cert.type === PACKAGED_CERT_TYPE_UIDAI) return CERT_TYPE_UIDAI
+  throw new Error(`Unknown packaged certificate type: ${cert.type}`)
+}
+
+export function isCscaCertificate(cert: PackagedCertificate): boolean {
+  return getCertificateType(cert) === CERT_TYPE_CSCA
+}
+
 /**
  * @deprecated Used by the old registry
  * Canonical list of tags for packaged certificates
@@ -212,7 +226,7 @@ export async function getCertificateLeafHash(
   // Tags must be exactly 3 fields
   assert(tags.length === 3, `Tags must be exactly 3 fields`)
   // Certificate type
-  const type = options?.type ?? CERT_TYPE_CSCA
+  const type = options?.type ?? getCertificateType(cert)
   assert(type >= 0 && type <= 255, `Certificate type must fit in a single byte: ${type}`)
   // Ensure country code is 3 characters
   assert(cert?.country?.length === 3, `Country code must be 3 characters: ${cert?.country}`)
