@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
@@ -18,7 +18,7 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         bannablePolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(41)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             30 days,
             "https://policy.example/bannable",
             false,
@@ -73,7 +73,7 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         uint256 uniquePolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(42)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             30 days,
             "https://policy.example/bannable-unique",
             true,

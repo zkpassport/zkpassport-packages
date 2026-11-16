@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {FaceMatchMode} from "@registry/lib/Types.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 
 /// The verification methods a policy accepts
@@ -28,9 +28,9 @@ contract ZKPassportCredentialsVerificationMethodsTest is ZKPassportCredentialsTe
         returns (bytes memory)
     {
         return abi.encode(
-            PolicyEvaluatorV1.PolicyRequirements({
+            PolicyEvaluatorV2.PolicyRequirements({
                 minAge: minAge,
-                sanctionsMode: PolicyEvaluatorV1.SanctionsMode.NONE,
+                sanctionsMode: PolicyEvaluatorV2.SanctionsMode.NONE,
                 faceMatchMode: FaceMatchMode.NONE,
                 includedNationalities: noCountries,
                 excludedNationalities: noCountries,
@@ -59,10 +59,10 @@ contract ZKPassportCredentialsVerificationMethodsTest is ZKPassportCredentialsTe
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
 
         mockHelper.setVerificationMethod(200);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__VerificationMethodNotAllowed.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
         mockHelper.setVerificationMethod(201);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__VerificationMethodNotAllowed.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
@@ -78,14 +78,14 @@ contract ZKPassportCredentialsVerificationMethodsTest is ZKPassportCredentialsTe
         uint256 policyId = _createPolicy(_requirements(_schemes(1, 201), 0));
         _issueWithScheme(policyId, 201);
         mockHelper.setVerificationMethod(200);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__VerificationMethodNotAllowed.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
     function testATier2OnlyPolicyRefusesChipReads() public {
         uint256 policyId = _createPolicy(_requirements(_schemes(2), 0));
         mockHelper.setVerificationMethod(100);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__VerificationMethodNotAllowed.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__VerificationMethodNotAllowed.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
@@ -101,14 +101,14 @@ contract ZKPassportCredentialsVerificationMethodsTest is ZKPassportCredentialsTe
         uint256 policyId = _createPolicy(_requirements(_schemes(1, 2), 18));
         mockHelper.setAgeOk(false);
         mockHelper.setVerificationMethod(200);
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__AgeRequirementNotMet.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__AgeRequirementNotMet.selector);
         zkPassportCredentials.issue(policyId, _params());
     }
 
     function testUnknownSchemesAreRefusedAtCreation() public {
         uint256[4] memory bad = [uint256(0), 3, 202, 999];
         for (uint256 i = 0; i < bad.length; i++) {
-            vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidVerificationMethods.selector);
+            vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__InvalidVerificationMethods.selector);
             evaluator.validateRequirements(_requirements(_schemes(bad[i]), 0));
         }
         evaluator.validateRequirements(_requirements(_schemes(1, 2), 0));
