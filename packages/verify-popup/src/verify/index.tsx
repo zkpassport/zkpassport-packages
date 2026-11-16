@@ -188,10 +188,7 @@ export function VerifyRequest({
   // phone has joined it also throws away work in progress
   useConfirmClose(!verified && !failure)
 
-  const link = useRequestUrl(req.url, {
-    allowedVerificationMethods: request.allowedVerificationMethods,
-    appClip: request.appClip,
-  })
+  const link = useRequestUrl(req.url, request)
 
   const screen = (() => {
     if (verified) return "done"
