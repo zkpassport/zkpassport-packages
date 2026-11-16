@@ -22,9 +22,8 @@ function credentialsOn(stub: Parameters<typeof stubChain>[0]) {
 }
 
 describe("buildCredentialProofRequest", () => {
-  test("passes a schema 2 policy's verification methods on to the app", async () => {
+  test("passes a policy's verification methods on to the app", async () => {
     const { credentials } = credentialsOn({
-      schemaVersion: 2n,
       requirements: { allowedVerificationMethods: [1n, 2n] },
     })
     expect(
@@ -32,18 +31,17 @@ describe("buildCredentialProofRequest", () => {
     ).toEqual([1, 2])
   })
 
-  test("leaves the default for a schema 1 policy or an empty list", async () => {
+  test("leaves the default for an empty list", async () => {
     expect(
       (await buildCredentialProofRequest(credentialsOn({}).credentials, MINT))
         .allowedVerificationMethods,
     ).toBeUndefined()
-    const empty = credentialsOn({
-      schemaVersion: 2n,
-      requirements: { allowedVerificationMethods: [] },
-    })
-    expect(
-      (await buildCredentialProofRequest(empty.credentials, MINT)).allowedVerificationMethods,
-    ).toBeUndefined()
+  })
+
+  test("refuses a policy on a V1 evaluator", async () => {
+    await expect(
+      buildCredentialProofRequest(credentialsOn({ schemaVersion: 1n }).credentials, MINT),
+    ).rejects.toThrow("Unsupported policy evaluator schema")
   })
 
   test("reads scope and domain on-chain and applies predicates, facematch, and bindings", async () => {

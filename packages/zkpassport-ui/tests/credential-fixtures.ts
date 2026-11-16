@@ -27,7 +27,7 @@ export type RawRequirements = {
   faceMatchMode: number
   includedNationalities: string[]
   excludedNationalities: string[]
-  allowedVerificationMethods?: bigint[]
+  allowedVerificationMethods: bigint[]
 }
 
 export const RAW_REQUIREMENTS: RawRequirements = {
@@ -36,6 +36,7 @@ export const RAW_REQUIREMENTS: RawRequirements = {
   faceMatchMode: 0,
   includedNationalities: [],
   excludedNationalities: [],
+  allowedVerificationMethods: [],
 }
 
 type ReadCall = { address: string; functionName: string; args?: readonly unknown[] }
@@ -51,7 +52,7 @@ export function stubChain(
      * 1 salted, 2-3 mock twins, 4 none); defaults to non-salted.
      */
     uniqueIdentifierType?: number
-    /** The evaluator's requirement schema; defaults to 1 */
+    /** The evaluator's requirement schema; defaults to 2 */
     schemaVersion?: bigint
   } = {},
 ) {
@@ -70,7 +71,7 @@ export function stubChain(
         case "domain":
           return DOMAIN
         case "schemaVersion":
-          return stub.schemaVersion ?? 1n
+          return stub.schemaVersion ?? 2n
         case "decodeRequirements":
           return requirements
         case "devMode":

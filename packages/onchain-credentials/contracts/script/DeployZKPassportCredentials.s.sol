@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {NullifierType} from "@registry/lib/Types.sol";
 
@@ -30,15 +30,15 @@ contract DeployZKPassportCredentialsScript is Script {
             _nullifierType(vm.envString("ZKPASSPORT_CREDENTIALS_UNIQUE_IDENTIFIER_TYPE"));
 
         vm.startBroadcast();
-        PolicyEvaluatorV1 policyEvaluator = existingEvaluator != address(0)
-            ? PolicyEvaluatorV1(existingEvaluator)
-            : new PolicyEvaluatorV1{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
+        PolicyEvaluatorV2 policyEvaluator = existingEvaluator != address(0)
+            ? PolicyEvaluatorV2(existingEvaluator)
+            : new PolicyEvaluatorV2{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
         ZKPassportCredentials zkPassportCredentials =
             new ZKPassportCredentials{salt: credentialsSalt}(domain, adminAddress, policyEvaluator);
         vm.stopBroadcast();
 
         console.log("ZKPassportCredentials deployed at:", address(zkPassportCredentials));
-        console.log("PolicyEvaluatorV1 deployed at:", address(policyEvaluator));
+        console.log("PolicyEvaluatorV2 deployed at:", address(policyEvaluator));
 
         string memory json = "credentials";
         vm.serializeAddress(json, "address", address(zkPassportCredentials));

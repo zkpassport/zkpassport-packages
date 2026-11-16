@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { decodeAbiParameters, getAbiItem } from "viem"
 import { NullifierType } from "@zkpassport/utils"
-import { PolicyEvaluatorV1Abi } from "../src/abi/policy-evaluator-v1"
 import { PolicyEvaluatorV2Abi } from "../src/abi/policy-evaluator-v2"
 import { sepolia } from "viem/chains"
 import {
@@ -60,6 +59,7 @@ const RAW_REQUIREMENTS = {
   faceMatchMode: 2,
   includedNationalities: [],
   excludedNationalities: ["PRK"],
+  allowedVerificationMethods: [] as bigint[],
 }
 
 const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
@@ -68,6 +68,7 @@ const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
   facematchMode: "strict",
   includedNationalities: [],
   excludedNationalities: ["PRK"],
+  allowedVerificationMethods: [],
 }
 
 function stubClient(
@@ -121,7 +122,7 @@ describe("CredentialsClient reads", () => {
 
   test("getRequirements decodes through the policy's evaluator", async () => {
     const { client, readCalls } = stubClient((p) => {
-      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "schemaVersion") return 2n
       if (p.functionName === "decodeRequirements") return RAW_REQUIREMENTS
       throw new Error(`unexpected read ${p.functionName}`)
     })
@@ -148,7 +149,7 @@ describe("CredentialsClient reads", () => {
     }
   })
 
-  test("getRequirements decodes a schema 2 policy's verification methods", async () => {
+  test("getRequirements decodes a policy's verification methods", async () => {
     const { client, readCalls } = stubClient((p) => {
       if (p.functionName === "schemaVersion") return 2n
       if (p.functionName === "decodeRequirements")
@@ -161,12 +162,14 @@ describe("CredentialsClient reads", () => {
     expect((readCalls[1] as unknown as { abi: unknown }).abi).toBe(PolicyEvaluatorV2Abi)
   })
 
-  test("getRequirements rejects unknown evaluator schemas", async () => {
-    const { client } = stubClient(() => 3n)
-    const credentials = new CredentialsClient({ client, address: REGISTRY })
-    await expect(credentials.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
-      "Unsupported policy evaluator schema",
-    )
+  test("getRequirements rejects evaluator schemas other than 2, V1's included", async () => {
+    for (const version of [1n, 3n]) {
+      const { client } = stubClient(() => version)
+      const credentials = new CredentialsClient({ client, address: REGISTRY })
+      await expect(credentials.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
+        "Unsupported policy evaluator schema",
+      )
+    }
   })
 
   test("getDevMode reads the flag off the policy's evaluator", async () => {
@@ -268,7 +271,7 @@ describe("CredentialsClient issue helpers", () => {
 
     // The bytes must decode back through the evaluator's own decodeProofData layout.
     const proofDataAbi = getAbiItem({
-      abi: PolicyEvaluatorV1Abi,
+      abi: PolicyEvaluatorV2Abi,
       name: "decodeProofData",
     }).outputs
     const [decoded] = decodeAbiParameters(proofDataAbi, proofData)
@@ -375,13 +378,13 @@ describe("submitIssueCall", () => {
 const SALT = "0x0000000000000000000000000000000000000000000000000000000000000007" as const
 
 const REQUIREMENTS_ABI = getAbiItem({
-  abi: PolicyEvaluatorV1Abi,
+  abi: PolicyEvaluatorV2Abi,
   name: "decodeRequirements",
 }).outputs
 
 describe("encodeCredentialPolicyRequirements", () => {
-  test("round-trips through the evaluator's schema-1 layout", () => {
-    const encoded = encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS, 1)
+  test("round-trips through the evaluator's layout", () => {
+    const encoded = encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded).toEqual({
       ...RAW_REQUIREMENTS,
@@ -391,46 +394,35 @@ describe("encodeCredentialPolicyRequirements", () => {
   })
 
   test("encodes absent sanctions and facematch modes as NONE", () => {
-    const encoded = encodeCredentialPolicyRequirements(
-      {
-        ...SAMPLE_REQUIREMENTS,
-        sanctionsMode: undefined,
-        facematchMode: undefined,
-      },
-      1,
-    )
+    const encoded = encodeCredentialPolicyRequirements({
+      ...SAMPLE_REQUIREMENTS,
+      sanctionsMode: undefined,
+      facematchMode: undefined,
+    })
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded.sanctionsMode).toBe(0)
     expect(decoded.faceMatchMode).toBe(0)
   })
 })
 
-describe("encodeCredentialPolicyRequirements for schema 2", () => {
-  const V2_ABI = getAbiItem({ abi: PolicyEvaluatorV2Abi, name: "decodeRequirements" }).outputs
-
-  test("adds the verification methods, empty when not given", () => {
+describe("encodeCredentialPolicyRequirements verification methods", () => {
+  test("encodes the verification methods, empty when not given", () => {
     const [withSchemes] = decodeAbiParameters(
-      V2_ABI,
-      encodeCredentialPolicyRequirements(
-        { ...SAMPLE_REQUIREMENTS, allowedVerificationMethods: [1, 201] },
-        2,
-      ),
+      REQUIREMENTS_ABI,
+      encodeCredentialPolicyRequirements({
+        ...SAMPLE_REQUIREMENTS,
+        allowedVerificationMethods: [1, 201],
+      }),
     )
     expect(withSchemes.allowedVerificationMethods).toEqual([1n, 201n])
     const [without] = decodeAbiParameters(
-      V2_ABI,
-      encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS, 2),
+      REQUIREMENTS_ABI,
+      encodeCredentialPolicyRequirements({
+        ...SAMPLE_REQUIREMENTS,
+        allowedVerificationMethods: undefined,
+      }),
     )
     expect(without.allowedVerificationMethods).toEqual([])
-  })
-
-  test("refuses verification methods for a schema 1 evaluator, which can't enforce them", () => {
-    expect(() =>
-      encodeCredentialPolicyRequirements(
-        { ...SAMPLE_REQUIREMENTS, allowedVerificationMethods: [2] },
-        1,
-      ),
-    ).toThrow("schema 2")
   })
 })
 
@@ -456,13 +448,12 @@ describe("CredentialsClient owner calls", () => {
       credentialDuration: 2592000n,
       metadataURL: "https://policy.example/kyc",
       enforceUniqueness: true,
-      schemaVersion: 1,
     })
     expect(call.address).toBe(REGISTRY)
     expect(call.functionName).toBe("createPolicy")
     expect(call.args).toEqual([
       SALT,
-      encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS, 1),
+      encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS),
       2592000n,
       "https://policy.example/kyc",
       true,
@@ -482,18 +473,14 @@ describe("CredentialsClient owner calls", () => {
       ownerIssuable: true,
       ownerBannable: true,
       ownerEditable: true,
-      schemaVersion: 2,
     })
     expect(call.args.slice(4)).toEqual([false, true, true, true])
   })
 
   test("buildSetRequirementsCall pairs the policy id with re-encoded requirements", () => {
-    const call = credentials.buildSetRequirementsCall(POLICY_ID, SAMPLE_REQUIREMENTS, 1)
+    const call = credentials.buildSetRequirementsCall(POLICY_ID, SAMPLE_REQUIREMENTS)
     expect(call.functionName).toBe("setRequirements")
-    expect(call.args).toEqual([
-      POLICY_ID,
-      encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS, 1),
-    ])
+    expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
   })
 
   test("the remaining owner calls mirror the contract signatures", () => {

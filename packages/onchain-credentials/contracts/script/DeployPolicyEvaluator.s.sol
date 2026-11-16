@@ -2,15 +2,13 @@
 pragma solidity ^0.8.30;
 
 import {Script, console} from "forge-std/Script.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
 import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {NullifierType} from "@registry/lib/Types.sol";
 
 /// @notice Deploys a standalone evaluator, for pointing an existing ZKPassportCredentials at a new
 ///         one with `setPolicyEvaluator`. Policies record their evaluator at creation, so this
-///         affects only policies created after the switch. POLICY_EVALUATOR_VERSION picks the
-///         schema: 2 (the default; policies choose the verification methods they accept) or 1.
+///         affects only policies created after the switch.
 contract DeployPolicyEvaluatorScript is Script {
     function run() public {
         address rootVerifier = vm.envAddress("ROOT_VERIFIER_ADDRESS");
@@ -21,21 +19,13 @@ contract DeployPolicyEvaluatorScript is Script {
         NullifierType uniqueIdentifierType =
             _nullifierType(vm.envString("ZKPASSPORT_CREDENTIALS_UNIQUE_IDENTIFIER_TYPE"));
 
-        uint256 version = vm.envOr("POLICY_EVALUATOR_VERSION", uint256(2));
-        require(version == 1 || version == 2, "POLICY_EVALUATOR_VERSION must be 1 or 2");
-
         vm.startBroadcast();
-        address policyEvaluator = version == 2
-            ? address(
-                new PolicyEvaluatorV2{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType)
-            )
-            : address(
-                new PolicyEvaluatorV1{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType)
-            );
+        PolicyEvaluatorV2 policyEvaluator =
+            new PolicyEvaluatorV2{salt: evaluatorSalt}(IRootVerifier(rootVerifier), devMode, uniqueIdentifierType);
         vm.stopBroadcast();
 
-        console.log("PolicyEvaluator schema", version, "deployed at:", policyEvaluator);
-        console.log("Set it with: cast send <credentials> 'setPolicyEvaluator(address)'", policyEvaluator);
+        console.log("PolicyEvaluatorV2 deployed at:", address(policyEvaluator));
+        console.log("Set it with: cast send <credentials> 'setPolicyEvaluator(address)'", address(policyEvaluator));
     }
 
     /// @dev The nullifier type uniqueness policies require, matched exactly with no mock-to-real
