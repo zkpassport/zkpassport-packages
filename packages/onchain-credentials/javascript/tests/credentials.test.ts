@@ -38,6 +38,7 @@ const VERIFIER_PARAMS = {
 } as const
 
 const EVALUATOR = "0x3333333333333333333333333333333333333333" as const
+const ISSUER = "0x4444444444444444444444444444444444444444" as const
 
 const SAMPLE_POLICY: CredentialPolicy = {
   owner: WALLET,
@@ -164,12 +165,13 @@ describe("CredentialsClient reads", () => {
     expect(readCalls[0]).toMatchObject({ address: EVALUATOR, functionName: "devMode" })
   })
 
-  test("uri, balanceOf, heldUntil, banned, policyScope forward the right calls", async () => {
+  test("uri, balanceOf, heldUntil, banned, isIssuer, policyScope forward the right calls", async () => {
     const results: Record<string, unknown> = {
       uri: "https://policy.example/kyc",
       balanceOf: 1n,
       heldUntil: 1702592000n,
       banned: true,
+      isIssuer: true,
       policyScope: "0x000000000000000000000000000000000000000000000000000000000000002a",
     }
     const { client, readCalls } = stubClient((p) => results[p.functionName])
@@ -178,17 +180,20 @@ describe("CredentialsClient reads", () => {
     expect(await credentials.balanceOf(WALLET, POLICY_ID)).toBe(1n)
     expect(await credentials.heldUntil(WALLET, POLICY_ID)).toBe(1702592000n)
     expect(await credentials.banned(WALLET, POLICY_ID)).toBe(true)
+    expect(await credentials.isIssuer(ISSUER, POLICY_ID)).toBe(true)
     expect(await credentials.policyScope(POLICY_ID)).toBe(results.policyScope as string)
     expect(readCalls.map((c) => c.functionName)).toEqual([
       "uri",
       "balanceOf",
       "heldUntil",
       "banned",
+      "isIssuer",
       "policyScope",
     ])
     expect(readCalls[1].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[2].args).toEqual([WALLET, POLICY_ID])
     expect(readCalls[3].args).toEqual([WALLET, POLICY_ID])
+    expect(readCalls[4].args).toEqual([ISSUER, POLICY_ID])
   })
 })
 
@@ -482,6 +487,12 @@ describe("CredentialsClient owner calls", () => {
     expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
   })
 
+  test("buildMigrateEvaluatorCall pairs the policy id with re-encoded requirements", () => {
+    const call = credentials.buildMigrateEvaluatorCall(POLICY_ID, SAMPLE_REQUIREMENTS)
+    expect(call.functionName).toBe("migrateEvaluator")
+    expect(call.args).toEqual([POLICY_ID, encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)])
+  })
+
   test("the remaining owner calls mirror the contract signatures", () => {
     expect(credentials.buildSetMetadataURLCall(POLICY_ID, "https://p.example/2")).toMatchObject({
       address: REGISTRY,
@@ -492,9 +503,25 @@ describe("CredentialsClient owner calls", () => {
       functionName: "retire",
       args: [POLICY_ID],
     })
+    expect(credentials.buildSetCredentialDurationCall(POLICY_ID, 604800n)).toMatchObject({
+      functionName: "setCredentialDuration",
+      args: [POLICY_ID, 604800n],
+    })
     expect(credentials.buildOwnerIssueCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "ownerIssue",
       args: [WALLET, POLICY_ID],
+    })
+    expect(credentials.buildOwnerIssueBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "ownerIssueBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
+    })
+    expect(credentials.buildAddIssuerCall(ISSUER, POLICY_ID)).toMatchObject({
+      functionName: "addIssuer",
+      args: [ISSUER, POLICY_ID],
+    })
+    expect(credentials.buildRemoveIssuerCall(ISSUER, POLICY_ID)).toMatchObject({
+      functionName: "removeIssuer",
+      args: [ISSUER, POLICY_ID],
     })
     expect(credentials.buildRenounceCall(POLICY_ID)).toMatchObject({
       functionName: "renounce",
@@ -504,9 +531,17 @@ describe("CredentialsClient owner calls", () => {
       functionName: "ban",
       args: [WALLET, POLICY_ID],
     })
+    expect(credentials.buildBanBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "banBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
+    })
     expect(credentials.buildUnbanCall(WALLET, POLICY_ID)).toMatchObject({
       functionName: "unban",
       args: [WALLET, POLICY_ID],
+    })
+    expect(credentials.buildUnbanBatchCall([WALLET, ISSUER], POLICY_ID)).toMatchObject({
+      functionName: "unbanBatch",
+      args: [[WALLET, ISSUER], POLICY_ID],
     })
   })
 })

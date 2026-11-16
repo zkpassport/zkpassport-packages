@@ -426,6 +426,65 @@ contract ZKPassportCredentialsPoliciesTest is ZKPassportCredentialsTestBase {
         assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
     }
 
+    function testSetCredentialDurationStoresDuration() public {
+        uint256 policyId = _createEditablePolicy();
+
+        vm.expectEmit(true, false, false, true);
+        emit ZKPassportCredentials.PolicyCredentialDurationChanged(policyId, 7 days);
+        vm.prank(creator);
+        zkPassportCredentials.setCredentialDuration(policyId, 7 days);
+
+        assertEq(zkPassportCredentials.getPolicy(policyId).credentialDuration, 7 days);
+    }
+
+    function testSetCredentialDurationAppliesFromTheNextRenewal() public {
+        vm.warp(1_700_000_000);
+        _deployWithMocks();
+        uint256 policyId = _createEditablePolicy();
+        zkPassportCredentials.issue(policyId, _params());
+        uint64 issuedHeldUntil = uint64(block.timestamp + 30 days);
+
+        vm.prank(creator);
+        zkPassportCredentials.setCredentialDuration(policyId, 7 days);
+        assertEq(zkPassportCredentials.heldUntil(wallet, policyId), issuedHeldUntil);
+
+        vm.warp(block.timestamp + 1 days);
+        mockHelper.setProofTimestamp(block.timestamp);
+        zkPassportCredentials.issue(policyId, _params());
+        assertEq(zkPassportCredentials.heldUntil(wallet, policyId), uint64(block.timestamp + 7 days));
+    }
+
+    function testSetCredentialDurationRejectsOutOfRangeDurations() public {
+        uint256 policyId = _createEditablePolicy();
+        uint64 max = zkPassportCredentials.MAX_CREDENTIAL_DURATION();
+
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
+        zkPassportCredentials.setCredentialDuration(policyId, 0);
+
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__InvalidCredentialDuration.selector);
+        zkPassportCredentials.setCredentialDuration(policyId, max + 1);
+
+        vm.prank(creator);
+        zkPassportCredentials.setCredentialDuration(policyId, max);
+        assertEq(zkPassportCredentials.getPolicy(policyId).credentialDuration, max);
+    }
+
+    function testSetCredentialDurationRevertsWhenNotOwnerEditable() public {
+        uint256 policyId = _createDefaultPolicy();
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotEditable.selector);
+        zkPassportCredentials.setCredentialDuration(policyId, 7 days);
+    }
+
+    function testOnlyPolicyOwnerCanSetCredentialDuration() public {
+        uint256 policyId = _createEditablePolicy();
+        vm.prank(wallet);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
+        zkPassportCredentials.setCredentialDuration(policyId, 7 days);
+    }
+
     function testSetMetadataURLEmitsStandardURIEvent() public {
         uint256 policyId = _createDefaultPolicy();
         vm.prank(creator);

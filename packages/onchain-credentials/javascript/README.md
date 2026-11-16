@@ -74,9 +74,11 @@ const call = credentials.buildCreatePolicyCall({
 await submitCredentialsCall(ctx, call, { client: walletClient, account: owner })
 ```
 
-The rest follow the same shape: `buildSetRequirementsCall`, `buildSetMetadataURLCall`,
-`buildRetireCall`, `buildOwnerIssueCall`, `buildBanCall`, `buildUnbanCall`, and
-`buildRenounceCall`.
+The rest follow the same shape: `buildSetRequirementsCall`, `buildMigrateEvaluatorCall`,
+`buildSetCredentialDurationCall`, `buildSetMetadataURLCall`, `buildRetireCall`,
+`buildOwnerIssueCall`, `buildOwnerIssueBatchCall`, `buildAddIssuerCall`,
+`buildRemoveIssuerCall`, `buildBanCall`, `buildBanBatchCall`, `buildUnbanCall`,
+`buildUnbanBatchCall`, and `buildRenounceCall`.
 
 ## License
 

@@ -4,10 +4,13 @@ pragma solidity ^0.8.30;
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
 import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
     uint256 internal bannablePolicyId;
     uint256 internal proofOnlyPolicyId;
+    address internal issuer = makeAddr("issuer");
+    address internal otherWallet = makeAddr("otherWallet");
 
     function setUp() public {
         vm.warp(1_700_000_000);
@@ -106,7 +109,7 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
 
     function testOthersCannotBan() public {
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotOwnerOrIssuer.selector);
         zkPassportCredentials.ban(wallet, bannablePolicyId);
     }
 
@@ -149,7 +152,7 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
         vm.prank(creator);
         zkPassportCredentials.ban(wallet, bannablePolicyId);
         vm.prank(wallet);
-        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotOwnerOrIssuer.selector);
         zkPassportCredentials.unban(wallet, bannablePolicyId);
     }
 
@@ -170,5 +173,135 @@ contract ZKPassportCredentialsBanTest is ZKPassportCredentialsTestBase {
     function testStoresOwnerBannableFlag() public {
         assertTrue(zkPassportCredentials.getPolicy(bannablePolicyId).ownerBannable);
         assertFalse(zkPassportCredentials.getPolicy(proofOnlyPolicyId).ownerBannable);
+    }
+
+    function testIssuerCanBanAndUnban() public {
+        _addIssuer(issuer);
+
+        vm.prank(issuer);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+        assertTrue(zkPassportCredentials.banned(wallet, bannablePolicyId));
+        assertEq(zkPassportCredentials.balanceOf(wallet, bannablePolicyId), 0);
+
+        vm.prank(issuer);
+        zkPassportCredentials.unban(wallet, bannablePolicyId);
+        assertFalse(zkPassportCredentials.banned(wallet, bannablePolicyId));
+    }
+
+    function testRemovedIssuerCannotBan() public {
+        _addIssuer(issuer);
+        vm.prank(creator);
+        zkPassportCredentials.removeIssuer(issuer, bannablePolicyId);
+
+        vm.prank(issuer);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotOwnerOrIssuer.selector);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+    }
+
+    function testBanBatchBansEveryWalletAndRemovesTheirCredentials() public {
+        vm.prank(creator);
+        zkPassportCredentials.ownerIssue(otherWallet, bannablePolicyId);
+
+        vm.prank(creator);
+        zkPassportCredentials.banBatch(_bothWallets(), bannablePolicyId);
+
+        assertTrue(zkPassportCredentials.banned(wallet, bannablePolicyId));
+        assertTrue(zkPassportCredentials.banned(otherWallet, bannablePolicyId));
+        assertEq(zkPassportCredentials.balanceOf(wallet, bannablePolicyId), 0);
+        assertEq(zkPassportCredentials.balanceOf(otherWallet, bannablePolicyId), 0);
+    }
+
+    function testBanBatchSkipsBannedWallets() public {
+        vm.prank(creator);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+
+        vm.recordLogs();
+        vm.prank(creator);
+        zkPassportCredentials.banBatch(_bothWallets(), bannablePolicyId);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], ZKPassportCredentials.WalletBanned.selector);
+        assertEq(logs[0].topics[1], bytes32(uint256(uint160(otherWallet))));
+        assertTrue(zkPassportCredentials.banned(otherWallet, bannablePolicyId));
+    }
+
+    function testBanBatchRequiresOwnerBannablePolicy() public {
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotBannable.selector);
+        zkPassportCredentials.banBatch(_bothWallets(), proofOnlyPolicyId);
+    }
+
+    function testUnbanBatchSkipsWalletsNotBanned() public {
+        vm.prank(creator);
+        zkPassportCredentials.ban(wallet, bannablePolicyId);
+
+        vm.recordLogs();
+        vm.prank(creator);
+        zkPassportCredentials.unbanBatch(_bothWallets(), bannablePolicyId);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], ZKPassportCredentials.WalletUnbanned.selector);
+        assertEq(logs[0].topics[1], bytes32(uint256(uint160(wallet))));
+        assertFalse(zkPassportCredentials.banned(wallet, bannablePolicyId));
+    }
+
+    function testIssuerCanBanAndUnbanInBatches() public {
+        _addIssuer(issuer);
+
+        vm.prank(issuer);
+        zkPassportCredentials.banBatch(_bothWallets(), bannablePolicyId);
+        assertTrue(zkPassportCredentials.banned(wallet, bannablePolicyId));
+        assertTrue(zkPassportCredentials.banned(otherWallet, bannablePolicyId));
+
+        vm.prank(issuer);
+        zkPassportCredentials.unbanBatch(_bothWallets(), bannablePolicyId);
+        assertFalse(zkPassportCredentials.banned(wallet, bannablePolicyId));
+        assertFalse(zkPassportCredentials.banned(otherWallet, bannablePolicyId));
+    }
+
+    function testOthersCannotBanOrUnbanInBatches() public {
+        vm.prank(wallet);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotOwnerOrIssuer.selector);
+        zkPassportCredentials.banBatch(_bothWallets(), bannablePolicyId);
+
+        vm.prank(wallet);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotOwnerOrIssuer.selector);
+        zkPassportCredentials.unbanBatch(_bothWallets(), bannablePolicyId);
+    }
+
+    function testBanAndUnbanBatchesWorkWhilePaused() public {
+        vm.prank(admin);
+        zkPassportCredentials.pause();
+
+        vm.prank(creator);
+        zkPassportCredentials.banBatch(_bothWallets(), bannablePolicyId);
+        assertTrue(zkPassportCredentials.banned(wallet, bannablePolicyId));
+        assertEq(zkPassportCredentials.balanceOf(wallet, bannablePolicyId), 0);
+
+        vm.prank(creator);
+        zkPassportCredentials.unbanBatch(_bothWallets(), bannablePolicyId);
+        assertFalse(zkPassportCredentials.banned(wallet, bannablePolicyId));
+    }
+
+    function testEmptyBanAndUnbanBatchesChangeNothing() public {
+        vm.recordLogs();
+        vm.prank(creator);
+        zkPassportCredentials.banBatch(new address[](0), bannablePolicyId);
+        vm.prank(creator);
+        zkPassportCredentials.unbanBatch(new address[](0), bannablePolicyId);
+        assertEq(vm.getRecordedLogs().length, 0);
+    }
+
+    function _addIssuer(address account) internal {
+        vm.prank(creator);
+        zkPassportCredentials.addIssuer(account, bannablePolicyId);
+    }
+
+    function _bothWallets() internal view returns (address[] memory wallets) {
+        wallets = new address[](2);
+        wallets[0] = wallet;
+        wallets[1] = otherWallet;
     }
 }

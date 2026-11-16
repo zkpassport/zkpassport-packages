@@ -150,6 +150,92 @@ contract ZKPassportCredentialsEvaluatorSwapTest is ZKPassportCredentialsTestBase
         vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__InvalidProof.selector);
         zkPassportCredentials.issue(v1PolicyId, _params());
     }
+
+    function _createEditableV1Policy(bool enforceUniqueness) internal returns (uint256) {
+        vm.prank(creator);
+        return zkPassportCredentials.createPolicy(
+            bytes32(uint256(55)),
+            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            30 days,
+            "x",
+            enforceUniqueness,
+            false,
+            false,
+            true
+        );
+    }
+
+    function testMigrateEvaluatorMovesPolicyToTheCurrentEvaluator() public {
+        uint256 policyId = _createEditableV1Policy(false);
+        _swapToV2();
+
+        vm.expectEmit(true, true, true, false);
+        emit ZKPassportCredentials.PolicyEvaluatorMigrated(policyId, address(evaluator), address(evaluatorV2));
+        vm.expectEmit(true, false, false, false);
+        emit ZKPassportCredentials.PolicyRequirementsChanged(policyId);
+        vm.prank(creator);
+        zkPassportCredentials.migrateEvaluator(policyId, v2Requirements);
+
+        ZKPassportCredentials.CredentialsPolicy memory policy = zkPassportCredentials.getPolicy(policyId);
+        assertEq(policy.evaluator, address(evaluatorV2));
+        assertEq(policy.requirements, v2Requirements);
+    }
+
+    function testMigratedPolicyIssuesUnderTheNewEvaluator() public {
+        uint256 policyId = _createEditableV1Policy(false);
+        _swapToV2();
+        vm.prank(creator);
+        zkPassportCredentials.migrateEvaluator(policyId, v2Requirements);
+
+        v2Helper.setAgeOk(false);
+        vm.expectRevert(MockEvaluatorV2.MockEvaluatorV2__AgeNotMet.selector);
+        zkPassportCredentials.issue(policyId, _params());
+
+        v2Helper.setAgeOk(true);
+        mockVerifier.setValid(false);
+        zkPassportCredentials.issue(policyId, _params());
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
+    }
+
+    function testMigrateEvaluatorValidatesUnderTheCurrentEvaluator() public {
+        uint256 policyId = _createEditableV1Policy(false);
+        _swapToV2();
+
+        vm.prank(creator);
+        vm.expectRevert(MockEvaluatorV2.MockEvaluatorV2__InvalidRequirements.selector);
+        zkPassportCredentials.migrateEvaluator(policyId, abi.encode(uint256(200)));
+    }
+
+    function testMigrateEvaluatorKeepsCredentialsAndBindings() public {
+        uint256 policyId = _createEditableV1Policy(true);
+        zkPassportCredentials.issue(policyId, _params());
+        bytes32 boundNullifier = mockVerifier.nullifier();
+        _swapToV2();
+
+        vm.prank(creator);
+        zkPassportCredentials.migrateEvaluator(policyId, v2Requirements);
+
+        assertEq(zkPassportCredentials.balanceOf(wallet, policyId), 1);
+        assertEq(zkPassportCredentials.nullifierWallet(policyId, boundNullifier), wallet);
+    }
+
+    function testMigrateEvaluatorRevertsWhenNotOwnerEditable() public {
+        uint256 policyId = _createDefaultPolicy();
+        _swapToV2();
+
+        vm.prank(creator);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotEditable.selector);
+        zkPassportCredentials.migrateEvaluator(policyId, v2Requirements);
+    }
+
+    function testOnlyPolicyOwnerCanMigrateEvaluator() public {
+        uint256 policyId = _createEditableV1Policy(false);
+        _swapToV2();
+
+        vm.prank(wallet);
+        vm.expectRevert(ZKPassportCredentials.ZKPassportCredentials__NotPolicyOwner.selector);
+        zkPassportCredentials.migrateEvaluator(policyId, v2Requirements);
+    }
 }
 
 contract ZKPassportCredentialsResultInvariantsTest is ZKPassportCredentialsTestBase {

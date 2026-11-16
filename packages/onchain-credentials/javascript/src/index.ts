@@ -28,15 +28,21 @@ export type CredentialPolicy = {
    * after creation.
    */
   enforceUniqueness: boolean
-  /** When true, the policy owner may issue credentials directly via ownerIssue(), without a proof. */
+  /**
+   * When true, the policy owner and its issuers may issue credentials directly via ownerIssue()
+   * and ownerIssueBatch(), without a proof.
+   */
   ownerIssuable: boolean
   /**
-   * When true, the policy owner may ban a wallet via ban(), which also removes any standing
-   * credential and blocks issuance and renewal until the owner unbans it. Holders may always
-   * renounce their own credential.
+   * When true, the policy owner and its issuers may ban wallets via ban() and banBatch(), which
+   * also remove any standing credential and block issuance and renewal until unbanned. Holders
+   * may always renounce their own credential.
    */
   ownerBannable: boolean
-  /** When true, the policy owner may replace the policy's requirements via setRequirements(). */
+  /**
+   * When true, the policy owner may replace the policy's requirements, evaluator and credential
+   * duration via setRequirements(), migrateEvaluator() and setCredentialDuration().
+   */
   ownerEditable: boolean
   /**
    * Address of the contract that defines and decodes the policy's requirements schema, and that
@@ -328,11 +334,20 @@ export class CredentialsClient {
   }
 
   /**
-   * True while the wallet is banned from the policy by its owner; issue() and ownerIssue()
-   * revert for banned wallets until the owner unbans.
+   * True while the wallet is banned from the policy by its owner or an issuer; issue() and
+   * ownerIssue() revert for banned wallets until unbanned.
    */
   async banned(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
     return (await this.read("banned", [wallet, policyId])) as boolean
+  }
+
+  /**
+   * True while the account is an issuer of the policy: added by its owner via addIssuer() and not
+   * removed since. Issuers may issue credentials without a proof, and ban and unban wallets, as
+   * the owner can.
+   */
+  async isIssuer(issuer: `0x${string}`, policyId: bigint): Promise<boolean> {
+    return (await this.read("isIssuer", [issuer, policyId])) as boolean
   }
 
   /**
@@ -411,8 +426,8 @@ export class CredentialsClient {
    *   registries, which contain the mock certificates. On mainnet deployments they fail the
    *   certificate root check.
    * - The proof must be at most 1 day old at inclusion time.
-   * - The recipient wallet must not be banned. A ban blocks issuance until the policy owner
-   *   unbans. Only relevant for `ownerBannable` policies.
+   * - The recipient wallet must not be banned. A ban blocks issuance until the policy owner or
+   *   an issuer unbans the wallet. Only relevant for `ownerBannable` policies.
    * - The policy must exist, not be retired, and the contract not paused.
    */
   buildIssueCall(options: {
@@ -446,11 +461,17 @@ export class CredentialsClient {
      * evaluator's `uniqueIdentifierType` is `NONE`.
      */
     enforceUniqueness: boolean
-    /** Allow proofless issuance via ownerIssue(). */
+    /** Allow proofless issuance by the owner and its issuers via ownerIssue() and ownerIssueBatch(). */
     ownerIssuable?: boolean
-    /** Allow the owner to ban wallets (removing any standing credential) via ban(). */
+    /**
+     * Allow the owner and its issuers to ban wallets (removing any standing credential) via ban()
+     * and banBatch().
+     */
     ownerBannable?: boolean
-    /** Allow the owner to replace requirements via setRequirements(). */
+    /**
+     * Allow the owner to replace requirements, evaluator and credential duration via
+     * setRequirements(), migrateEvaluator() and setCredentialDuration().
+     */
     ownerEditable?: boolean
   }): CredentialsCall<
     "createPolicy",
@@ -485,6 +506,33 @@ export class CredentialsClient {
     ] as const)
   }
 
+  /**
+   * Assemble the migrateEvaluator() call, moving a policy to the current policy evaluator with
+   * new requirements, which that evaluator validates on-chain. Owner-only, and only for
+   * `ownerEditable` policies. Already-issued credentials and nullifier bindings are untouched.
+   */
+  buildMigrateEvaluatorCall(
+    policyId: bigint,
+    requirements: CredentialPolicyRequirements,
+  ): CredentialsCall<"migrateEvaluator", readonly [bigint, `0x${string}`]> {
+    return this.call("migrateEvaluator", [
+      policyId,
+      encodeCredentialPolicyRequirements(requirements),
+    ] as const)
+  }
+
+  /**
+   * Assemble the setCredentialDuration() call, changing how long credentials stay valid from
+   * their next issuance or renewal on. Owner-only, and only for `ownerEditable` policies;
+   * already-issued credentials keep their expiry.
+   */
+  buildSetCredentialDurationCall(
+    policyId: bigint,
+    credentialDuration: bigint,
+  ): CredentialsCall<"setCredentialDuration", readonly [bigint, bigint]> {
+    return this.call("setCredentialDuration", [policyId, credentialDuration] as const)
+  }
+
   /** Assemble the setMetadataURL() call, updating a policy's display metadata URL. Owner-only. */
   buildSetMetadataURLCall(
     policyId: bigint,
@@ -503,8 +551,8 @@ export class CredentialsClient {
 
   /**
    * Assemble the ownerIssue() call, issuing (or extending) a credential without a proof.
-   * Owner-only, and only for `ownerIssuable` policies; reverts for banned wallets and retired
-   * policies. Owner issuance never touches nullifier bindings, so on `enforceUniqueness`
+   * Owner or issuer only, and only for `ownerIssuable` policies; reverts for banned wallets and
+   * retired policies. Owner issuance never touches nullifier bindings, so on `enforceUniqueness`
    * policies it bypasses one-per-document sybil protection.
    */
   buildOwnerIssueCall(
@@ -512,6 +560,40 @@ export class CredentialsClient {
     policyId: bigint,
   ): CredentialsCall<"ownerIssue", readonly [`0x${string}`, bigint]> {
     return this.call("ownerIssue", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the ownerIssueBatch() call, issuing (or extending) credentials for several wallets
+   * as ownerIssue() does. All or nothing: the transaction reverts if any wallet cannot be
+   * issued to.
+   */
+  buildOwnerIssueBatchCall(
+    wallets: readonly `0x${string}`[],
+    policyId: bigint,
+  ): CredentialsCall<"ownerIssueBatch", readonly [readonly `0x${string}`[], bigint]> {
+    return this.call("ownerIssueBatch", [wallets, policyId] as const)
+  }
+
+  /**
+   * Assemble the addIssuer() call, letting an account issue credentials without a proof, and
+   * ban and unban wallets, as the owner can. Owner-only, and only for `ownerIssuable` policies.
+   */
+  buildAddIssuerCall(
+    issuer: `0x${string}`,
+    policyId: bigint,
+  ): CredentialsCall<"addIssuer", readonly [`0x${string}`, bigint]> {
+    return this.call("addIssuer", [issuer, policyId] as const)
+  }
+
+  /**
+   * Assemble the removeIssuer() call, stopping an issuer from acting for the policy. Owner-only;
+   * the credentials the issuer issued and the bans it placed stay.
+   */
+  buildRemoveIssuerCall(
+    issuer: `0x${string}`,
+    policyId: bigint,
+  ): CredentialsCall<"removeIssuer", readonly [`0x${string}`, bigint]> {
+    return this.call("removeIssuer", [issuer, policyId] as const)
   }
 
   /**
@@ -527,7 +609,8 @@ export class CredentialsClient {
   /**
    * Assemble the ban() call, banning a wallet from a policy effective immediately: any
    * standing credential is removed in the same transaction, and issuance and renewal stay
-   * blocked until unban(). Owner-only, and only for `ownerBannable` policies.
+   * blocked until unban(). Owner or issuer only, and only for `ownerBannable` policies; reverts
+   * if the wallet is already banned.
    */
   buildBanCall(
     wallet: `0x${string}`,
@@ -537,13 +620,36 @@ export class CredentialsClient {
   }
 
   /**
-   * Assemble the unban() call, lifting a ban placed on a wallet. Owner-only.
+   * Assemble the banBatch() call, banning several wallets as ban() does and skipping any wallet
+   * that is already banned.
+   */
+  buildBanBatchCall(
+    wallets: readonly `0x${string}`[],
+    policyId: bigint,
+  ): CredentialsCall<"banBatch", readonly [readonly `0x${string}`[], bigint]> {
+    return this.call("banBatch", [wallets, policyId] as const)
+  }
+
+  /**
+   * Assemble the unban() call, lifting a ban placed on a wallet. Owner or issuer only; reverts if
+   * the wallet is not banned.
    */
   buildUnbanCall(
     wallet: `0x${string}`,
     policyId: bigint,
   ): CredentialsCall<"unban", readonly [`0x${string}`, bigint]> {
     return this.call("unban", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the unbanBatch() call, lifting the bans on several wallets as unban() does and
+   * skipping any wallet that is not banned.
+   */
+  buildUnbanBatchCall(
+    wallets: readonly `0x${string}`[],
+    policyId: bigint,
+  ): CredentialsCall<"unbanBatch", readonly [readonly `0x${string}`[], bigint]> {
+    return this.call("unbanBatch", [wallets, policyId] as const)
   }
 }
 
