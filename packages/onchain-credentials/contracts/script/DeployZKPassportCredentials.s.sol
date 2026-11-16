@@ -75,8 +75,8 @@ contract DeployZKPassportCredentialsScript is Script {
  *   export ZKPASSPORT_CREDENTIALS_ADMIN_ADDRESS=0x2000ab040a899f914D6DfD2457C3dFBB22d4c762
  *   export ZKPASSPORT_CREDENTIALS_DEV_MODE=false
  *   export ZKPASSPORT_CREDENTIALS_UNIQUE_IDENTIFIER_TYPE=salted
- *   export EVALUATOR_SALT=0xaff5912563440cf851f9f0bfe451f004a1cf59dc58a700ae23548a008602e8ca
- *   export CREDENTIALS_SALT=0xa0f75792a261027209ba68bf657a4e5b7a2d8ebe0804382920b59e2e9ff617bc
+ *   export EVALUATOR_SALT=0x682066bbddeb751e4c77c9aaf3a414068e4ea67c4276ca7f9ade30d1f906e94c
+ *   export CREDENTIALS_SALT=0xb334a82c40632f94f85eac9541b5be8103c462bda54a2fe9e668a64293eb2d70
  *
  *   forge script script/DeployZKPassportCredentials.s.sol --rpc-url <> --private-key <> --broadcast --verify --etherscan-api-key <>
  *
