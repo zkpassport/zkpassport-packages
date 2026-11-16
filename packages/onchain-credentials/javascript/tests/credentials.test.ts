@@ -281,16 +281,18 @@ describe("credentials deployments", () => {
     expect(getCredentialsChain("ethereum_sepolia").id).toBe(11155111)
     expect(getCredentialsChain("local").id).toBe(31337)
     expect(getCredentialsChain("base").id).toBe(8453)
+    expect(getCredentialsChain("robinhood").id).toBe(4663)
     expect(() => getCredentialsChain("arbitrum")).toThrow("not supported")
   })
 
   test("resolves canonical registries and rejects chains without one", async () => {
     const { getCredentialsAddress } = await import("../src/deployments")
     // All deployments share an address: same CREATE2 salt and constructor args on each chain.
-    expect(getCredentialsAddress("ethereum")).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
-    expect(getCredentialsAddress("base")).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
+    expect(getCredentialsAddress("ethereum")).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
+    expect(getCredentialsAddress("base")).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
+    expect(getCredentialsAddress("robinhood")).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
     expect(getCredentialsAddress("ethereum_sepolia")).toBe(
-      "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C",
+      "0x000C8Dbf0F3855D66f346bD969e659D93f744E4b",
     )
     expect(() => getCredentialsAddress("local")).toThrow(
       "Credential minting is not supported on 'local': no credentials contract is deployed.",
@@ -301,7 +303,7 @@ describe("credentials deployments", () => {
 describe("createCredentialsContext", () => {
   test("binds a CredentialsClient to the chain's canonical contract", () => {
     const ctx = createCredentialsContext(sepolia)
-    expect(ctx.credentials.address).toBe("0x000C558ea450790ad88f4f15A302B8F2C9b60d6C")
+    expect(ctx.credentials.address).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
     expect(ctx.chain).toBe(sepolia)
   })
 
