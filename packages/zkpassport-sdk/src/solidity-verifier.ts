@@ -10,7 +10,9 @@ import {
   DisclosureCircuitName,
   FacematchCommittedInputs,
   formatBoundData,
+  commitsAttestationRevocationRoot,
   getCommittedInputCount,
+  getFacematchCommittedInputLength,
   getNumberOfPublicInputs,
   getParamCommitmentsFromOuterProof,
   getProofData,
@@ -92,6 +94,7 @@ export class SolidityVerifier {
       proof.proof as string,
       getNumberOfPublicInputs(proof.name!, proof.version),
     )
+    const commitsRevocationRoot = commitsAttestationRevocationRoot(proof.version)
     const committedInputCounts: { circuitName: string; count: number }[] = []
     const committedInputs: { circuitName: string; inputs: string }[] = []
     for (const key in proof.committedInputs) {
@@ -105,7 +108,10 @@ export class SolidityVerifier {
         committedInputs.push({ circuitName: key, inputs })
         continue
       }
-      const committedInputCount = getCommittedInputCount(key as DisclosureCircuitName)
+      const committedInputCount = getCommittedInputCount(
+        key as DisclosureCircuitName,
+        commitsRevocationRoot,
+      )
       const circuitName = key as DisclosureCircuitName
       committedInputCounts.push({ circuitName, count: committedInputCount })
       let compressedCommittedInputs = ""
@@ -198,6 +204,7 @@ export class SolidityVerifier {
         compressedCommittedInputs += facematchStyleInputs(
           ProofType.FACEMATCH,
           proof.committedInputs[circuitName] as FacematchCommittedInputs,
+          commitsRevocationRoot,
         )
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
@@ -302,15 +309,19 @@ const toHex = (bytes: Uint8Array) =>
 function facematchStyleInputs(
   proofType: ProofType.FACEMATCH | ProofType.ATTESTED_ID,
   value: FacematchCommittedInputs,
+  commitsRevocationRoot: boolean = true,
 ): string {
+  const length = commitsRevocationRoot
+    ? ProofTypeLength[proofType].evm
+    : getFacematchCommittedInputLength(false).evm
   return (
     proofType.toString(16).padStart(2, "0") +
-    ProofTypeLength[proofType].evm.toString(16).padStart(4, "0") +
+    length.toString(16).padStart(4, "0") +
     toHex(numberToBytesBE(BigInt(value.rootKeyLeaf), 32)) +
     (value.environment === "development" ? "00" : "01") +
     toHex(numberToBytesBE(BigInt(value.appIdHash), 32)) +
     toHex(numberToBytesBE(BigInt(value.integrityPubkeyHash), 32)) +
     (value.mode === "regular" ? "01" : "02") +
-    toHex(numberToBytesBE(BigInt(value.revocationRoot ?? 0), 32))
+    (commitsRevocationRoot ? toHex(numberToBytesBE(BigInt(value.revocationRoot ?? 0), 32)) : "")
   )
 }

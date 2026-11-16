@@ -1,5 +1,7 @@
 import { getDiscloseParameterCommitment } from "./disclose"
+import { getCommittedInputCount } from "."
 import {
+  commitsAttestationRevocationRoot,
   getAttestedIdEvmParameterCommitment,
   getAttestedIdParameterCommitment,
   getFacematchEvmParameterCommitment,
@@ -45,6 +47,48 @@ describe("Parameter Commitments", () => {
       facematch_mode,
     )
     expect(result).toEqual(0xb2cd74f039fa19de2360cfe9c8cdadce0ed2a466d337f1989d4017369f8ec9n)
+  })
+
+  describe("Facematch from circuits before 0.23.0, which commit no revocation root", () => {
+    const root_key_leaf = 0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340bn
+    const app_id_hash = 0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179bn
+
+    test("matches a strict face match proof of circuits 0.20.0", async () => {
+      expect(
+        await getFacematchParameterCommitment(root_key_leaf, 1n, app_id_hash, 2n, 0n, 0n, false),
+      ).toEqual(7438779186385408546226403715817005459727206807590906574528659021144190228338n)
+    })
+
+    test("matches a regular face match proof of circuits 0.21.1", async () => {
+      expect(
+        await getFacematchParameterCommitment(root_key_leaf, 1n, app_id_hash, 1n, 0n, 0n, false),
+      ).toEqual(2919795106877527433942073835761878337022109858994280829023674958407404617384n)
+    })
+
+    test("matches a strict face match in an outer EVM proof of circuits 0.20.0", async () => {
+      const commitmentsOfTheOuterProof = [
+        444826654266636050352548063575117043796992248246325876451783108364158146665n,
+        315848951692328637606055348525757850584668551982797540673891161099824807780n,
+        190890436774503985762881743748997731829130769703490215221257259038598668126n,
+      ]
+      expect(commitmentsOfTheOuterProof).toContain(
+        await getFacematchEvmParameterCommitment(root_key_leaf, 1n, app_id_hash, 2n, 0n, 0n, false),
+      )
+    })
+
+    test("only circuits from 0.23.0 commit a revocation root", () => {
+      expect(commitsAttestationRevocationRoot("0.22.0")).toBe(false)
+      expect(commitsAttestationRevocationRoot(undefined)).toBe(false)
+      expect(commitsAttestationRevocationRoot("0.23.0")).toBe(true)
+      expect(commitsAttestationRevocationRoot("0.23.0-beta.1")).toBe(true)
+    })
+
+    test("the committed inputs of an EVM face match are 32 bytes shorter", () => {
+      expect(getCommittedInputCount("facematch_evm", false)).toEqual(98 + 3)
+      expect(getCommittedInputCount("facematch_evm")).toEqual(130 + 3)
+      expect(getCommittedInputCount("facematch", false)).toEqual(5 + 2)
+      expect(getCommittedInputCount("facematch")).toEqual(6 + 2)
+    })
   })
 
   test("Facematch with an integrity anchor and revocation root, as on Android", async () => {

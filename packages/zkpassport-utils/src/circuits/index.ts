@@ -6,6 +6,7 @@ import { DisclosureCircuitName, NullifierType, PackagedCircuit, SaltedValue } fr
 import { getAadhaarProofPublicInputCount, AADHAAR_CIRCUIT_NAME } from "./aadhaar"
 import { getAttestedIdProofPublicInputCount } from "./attested-id"
 import { hasVerificationMethod } from "./verification-method"
+import { getFacematchCommittedInputLength } from "./facematch"
 import { getDSCProofPublicInputCount } from "./dsc"
 import { getIntegrityProofPublicInputCount } from "./integrity"
 
@@ -239,7 +240,11 @@ export function getDisclosureCircuitName(
   return evm ? `${circuitName}_evm` : circuitName
 }
 
-export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
+export function getCommittedInputCount(
+  circuitName: DisclosureCircuitName,
+  // False for a face match of circuits before 0.23.0, see commitsAttestationRevocationRoot
+  commitsRevocationRoot: boolean = true,
+) {
   // The hash for the parameter commitment is over single bytes for EVM circuits,
   // so the size needs to be encoded over 2 bytes to give enough room (i.e. 2^16)
   // For standard circuits, the hash is over fields, so we just need one field for the length
@@ -286,9 +291,9 @@ export function getCommittedInputCount(circuitName: DisclosureCircuitName) {
     case "exclusion_check_sanctions_evm":
       return ProofTypeLength[ProofType.SANCTIONS_EXCLUSION].evm + typeAndLengthSize
     case "facematch":
-      return ProofTypeLength[ProofType.FACEMATCH].standard + typeAndLengthSize
+      return getFacematchCommittedInputLength(commitsRevocationRoot).standard + typeAndLengthSize
     case "facematch_evm":
-      return ProofTypeLength[ProofType.FACEMATCH].evm + typeAndLengthSize
+      return getFacematchCommittedInputLength(commitsRevocationRoot).evm + typeAndLengthSize
     default:
       throw new Error(`Unknown circuit name: ${circuitName}`)
   }
