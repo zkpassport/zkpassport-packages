@@ -1,0 +1,654 @@
+import { describe, expect, test } from "bun:test"
+import { VerificationMethod, VerificationTier } from "../types/verification-method"
+import {
+  decideVerificationPaths,
+  issueYearRanges,
+  listCountries,
+  listDocumentTypes,
+  seriesInCirculation,
+} from "./decision"
+import { BUNDLED_COVERAGE, isCoverage, loadCoverage } from "./loader"
+import type { Coverage, CoverageCountry, CoverageDocument, CoverageReadMethod } from "./types"
+
+const IOS = [VerificationMethod.ICAO_CHIP, VerificationMethod.ATTESTED_CAPTURE_IOS]
+const ANDROID = [VerificationMethod.ICAO_CHIP]
+const SIGNED_ONLY = [VerificationTier.GOVERNMENT_SIGNED]
+const ANY = [VerificationTier.GOVERNMENT_SIGNED, VerificationTier.DEVICE_ATTESTED]
+
+const passport = (overrides: Partial<CoverageDocument>): CoverageDocument => ({
+  type: "passport",
+  name: "Passport",
+  chip: false,
+  mrz: true,
+  ...overrides,
+})
+
+const country = (
+  documents: CoverageDocument[],
+  chipCertificates: CoverageCountry["chipCertificates"] = { supported: true, from: 2010, to: 2040 },
+): CoverageCountry => ({
+  name: "Testland",
+  chipCertificates,
+  signedSupport: { passport: 1, id_card: 0, residence_permit: 0 },
+  documents,
+})
+
+const table = (countries: Record<string, CoverageCountry>): Coverage => ({
+  ...BUNDLED_COVERAGE,
+  countries,
+})
+
+const methods = (decision: ReturnType<typeof decideVerificationPaths>) =>
+  decision.paths.map((p) => `${p.method}:${p.scheme}`)
+
+describe("decideVerificationPaths", () => {
+  const chipped = table({
+    TST: country([passport({ name: "ePassport (2015)", from: 2015, chip: true })]),
+  })
+  const chipless = table({ TST: country([passport({ name: "Passport (2015)", from: 2015 })]) })
+  const mixed = table({
+    TST: country([
+      passport({ name: "Passport (2008)", from: 2008 }),
+      passport({ name: "ePassport (2024)", from: 2024, chip: true }),
+    ]),
+  })
+
+  test("a verifiable chip comes first, the camera is the fallback", () => {
+    const decision = decideVerificationPaths(chipped, {
+      country: "TST",
+      documentType: "passport",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(decision.outcome).toBe("proceed")
+    expect(methods(decision)).toEqual(["nfc:100", "camera:200"])
+    expect(decision.chip).toBe("all")
+    expect(decision.chipVerifiable).toBe(true)
+  })
+
+  test("a US driving licence is read by camera from its barcode, never by chip", () => {
+    const licence = (barcode: boolean): CoverageDocument => ({
+      type: "driving_license",
+      name: "California Driving License (2018)",
+      from: 2018,
+      chip: false,
+      mrz: false,
+      ...(barcode ? { barcode: true } : {}),
+    })
+    const query = {
+      country: "TST",
+      documentType: "driving_license" as const,
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    }
+    const readable = decideVerificationPaths(table({ TST: country([licence(true)]) }), query)
+    expect(readable.outcome).toBe("proceed")
+    expect(methods(readable)).toEqual(["camera:200"])
+    const unreadable = decideVerificationPaths(table({ TST: country([licence(false)]) }), query)
+    expect(methods(unreadable)).toEqual([])
+    const signedOnly = decideVerificationPaths(table({ TST: country([licence(true)]) }), {
+      ...query,
+      allowedVerificationMethods: SIGNED_ONLY,
+    })
+    expect(signedOnly.outcome).toBe("rejected_by_policy")
+  })
+
+  test("a national ID without an MRZ is read by camera from its printed text", () => {
+    const camera = { schemes: [VerificationMethod.ATTESTED_CAPTURE_IOS] }
+    const card = (fields: Partial<CoverageDocument>): CoverageDocument => ({
+      type: "id_card",
+      name: "Resident Identity Card (2004)",
+      from: 2004,
+      chip: false,
+      mrz: false,
+      ...fields,
+    })
+    const withRule = (
+      countries: Record<string, CoverageCountry>,
+      read: CoverageReadMethod,
+    ): Coverage => ({
+      ...table(countries),
+      documentTypes: {
+        ...BUNDLED_COVERAGE.documentTypes,
+        id_card: { name: "National ID", shape: "card", read: { camera: read } },
+      },
+    })
+    const query = {
+      country: "TST",
+      documentType: "id_card" as const,
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    }
+    const text = { TST: country([card({ text: true })]) }
+    // New apps read requiresAny
+    const decision = decideVerificationPaths(
+      withRule(text, { ...camera, requires: "mrz", requiresAny: ["mrz", "text"] }),
+      query,
+    )
+    expect(methods(decision)).toEqual(["camera:200"])
+    // A card neither text-read nor with an MRZ stays unreadable
+    const neither = decideVerificationPaths(
+      withRule(
+        { TST: country([card({})]) },
+        { ...camera, requires: "mrz", requiresAny: ["mrz", "text"] },
+      ),
+      query,
+    )
+    expect(neither.outcome).toBe("unsupported")
+    // A rule without requiresAny, as older tables have, keeps to the MRZ
+    const mrzOnly = decideVerificationPaths(withRule(text, { ...camera, requires: "mrz" }), query)
+    expect(mrzOnly.outcome).toBe("unsupported")
+  })
+
+  test("a signed-only policy leaves the chip read alone and reports the refused camera read", () => {
+    const decision = decideVerificationPaths(chipped, {
+      country: "TST",
+      documentType: "passport",
+      allowedVerificationMethods: SIGNED_ONLY,
+      supportedSchemes: IOS,
+    })
+    expect(methods(decision)).toEqual(["nfc:100"])
+    expect(decision.refusedByPolicy.map((p) => p.scheme)).toEqual([
+      VerificationMethod.ATTESTED_CAPTURE_IOS,
+    ])
+  })
+
+  test("the default policy is signed only", () => {
+    const decision = decideVerificationPaths(chipless, {
+      country: "TST",
+      documentType: "passport",
+      supportedSchemes: IOS,
+    })
+    expect(decision.outcome).toBe("rejected_by_policy")
+    expect(decision.paths).toEqual([])
+    expect(decision.refusedByPolicy.map((p) => p.method)).toEqual(["camera"])
+  })
+
+  test("a chipless passport goes to the camera when the policy allows it", () => {
+    const decision = decideVerificationPaths(chipless, {
+      country: "TST",
+      documentType: "passport",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(decision.outcome).toBe("proceed")
+    expect(methods(decision)).toEqual(["camera:200"])
+    expect(decision.chip).toBe("none")
+  })
+
+  test("a chip we have no certificate for is read by camera instead", () => {
+    const noCerts = table({
+      TST: country([passport({ from: 2015, chip: true })], {
+        supported: false,
+        from: null,
+        to: null,
+      }),
+    })
+    const decision = decideVerificationPaths(noCerts, {
+      country: "TST",
+      documentType: "passport",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(methods(decision)).toEqual(["camera:200"])
+    expect(decision.chipVerifiable).toBe(false)
+  })
+
+  test("a chip issued before our certificates start is not verifiable", () => {
+    const decision = decideVerificationPaths(chipped, {
+      country: "TST",
+      documentType: "passport",
+      issueYear: 2016,
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(decision.chipVerifiable).toBe(true)
+    const early = decideVerificationPaths(
+      table({
+        TST: country([passport({ from: 2005, chip: true })], {
+          supported: true,
+          from: 2010,
+          to: 2040,
+        }),
+      }),
+      {
+        country: "TST",
+        documentType: "passport",
+        issueYear: 2008,
+        allowedVerificationMethods: ANY,
+        supportedSchemes: IOS,
+      },
+    )
+    expect(early.chipVerifiable).toBe(false)
+    expect(methods(early)).toEqual(["camera:200"])
+  })
+
+  test("a country with both kinds in circulation asks for the issue year", () => {
+    const decision = decideVerificationPaths(mixed, {
+      country: "TST",
+      documentType: "passport",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(decision.outcome).toBe("ask_chip")
+    expect(decision.chip).toBe("mixed")
+    expect(methods(decision)).toEqual(["nfc:100", "camera:200"])
+  })
+
+  test("the issue year picks the series", () => {
+    const old = decideVerificationPaths(mixed, {
+      country: "TST",
+      documentType: "passport",
+      issueYear: 2019,
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(old.outcome).toBe("proceed")
+    expect(old.documents.map((d) => d.name)).toEqual(["Passport (2008)"])
+    expect(methods(old)).toEqual(["camera:200"])
+
+    const recent = decideVerificationPaths(mixed, {
+      country: "TST",
+      documentType: "passport",
+      issueYear: 2025,
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(recent.documents.map((d) => d.name)).toEqual(["ePassport (2024)"])
+    expect(methods(recent)).toEqual(["nfc:100", "camera:200"])
+  })
+
+  test("a client that cannot prove a camera read gets no camera path", () => {
+    const decision = decideVerificationPaths(chipless, {
+      country: "TST",
+      documentType: "passport",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: ANDROID,
+    })
+    expect(decision.outcome).toBe("unsupported")
+    expect(decision.refusedByPolicy).toEqual([])
+  })
+
+  test("a passport with neither chip nor MRZ is unsupported", () => {
+    const decision = decideVerificationPaths(table({ TST: country([passport({ mrz: false })]) }), {
+      country: "TST",
+      documentType: "passport",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(decision.outcome).toBe("unsupported")
+  })
+
+  test("a document listed ahead of our support is unsupported", () => {
+    const decision = decideVerificationPaths(
+      table({
+        IND: country([
+          { type: "aadhaar", name: "Aadhaar", chip: false, mrz: false, available: false },
+        ]),
+      }),
+      {
+        country: "IND",
+        documentType: "aadhaar",
+        allowedVerificationMethods: ANY,
+        supportedSchemes: [VerificationMethod.UIDAI_AADHAAR],
+      },
+    )
+    expect(decision.outcome).toBe("unsupported")
+  })
+
+  test("an unknown country or document type is unknown", () => {
+    expect(
+      decideVerificationPaths(chipped, {
+        country: "XXX",
+        documentType: "passport",
+        supportedSchemes: IOS,
+      }).outcome,
+    ).toBe("unknown")
+    expect(
+      decideVerificationPaths(chipped, {
+        country: "TST",
+        documentType: "aadhaar",
+        supportedSchemes: IOS,
+      }).outcome,
+    ).toBe("unsupported")
+  })
+
+  test("the bundled table sends an Indian passport to the camera and a Japanese one to the chip", () => {
+    const india = decideVerificationPaths(BUNDLED_COVERAGE, {
+      country: "IND",
+      documentType: "passport",
+      issueYear: 2019,
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(india.outcome).toBe("proceed")
+    expect(methods(india)).toEqual(["camera:200"])
+
+    const japan = decideVerificationPaths(BUNDLED_COVERAGE, {
+      country: "JPN",
+      documentType: "passport",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(japan.outcome).toBe("proceed")
+    expect(methods(japan)).toEqual(["nfc:100", "camera:200"])
+  })
+})
+
+describe("seriesInCirculation", () => {
+  const series = [
+    passport({ name: "A", from: 2000, to: 2006 }),
+    passport({ name: "B", from: 2008 }),
+    passport({ name: "C", from: 2015, deprecated: true }),
+    passport({ name: "D" }),
+  ]
+
+  test("a series runs to its last year or the next series' first", () => {
+    expect(seriesInCirculation(series, 2003).map((d) => d.name)).toEqual(["A"])
+    expect(seriesInCirculation(series, 2007).map((d) => d.name)).toEqual(["D"])
+    expect(seriesInCirculation(series, 2010).map((d) => d.name)).toEqual(["B"])
+    expect(seriesInCirculation(series, 2020).map((d) => d.name)).toEqual(["C"])
+  })
+
+  test("without a year, the maintained series count", () => {
+    expect(seriesInCirculation(series).map((d) => d.name)).toEqual(["A", "B", "D"])
+    expect(
+      seriesInCirculation([passport({ name: "C", deprecated: true })]).map((d) => d.name),
+    ).toEqual(["C"])
+  })
+})
+
+describe("issueYearRanges", () => {
+  test("groups the issue years by whether the series has a chip", () => {
+    expect(issueYearRanges(BUNDLED_COVERAGE, "IND", "passport")).toEqual([
+      { from: 2000, to: 2023, chip: false },
+      { from: 2024, chip: true },
+    ])
+    expect(issueYearRanges(BUNDLED_COVERAGE, "AUS", "passport")).toEqual([
+      { from: 2014, chip: true },
+    ])
+    expect(issueYearRanges(BUNDLED_COVERAGE, "XXX", "passport")).toEqual([])
+  })
+})
+
+describe("listDocumentTypes and listCountries", () => {
+  test("lists a country's document types with their shape and chip mix", () => {
+    const options = listDocumentTypes(BUNDLED_COVERAGE, "IND")
+    expect(options.map((o) => o.type)).toEqual([
+      "passport",
+      "id_card",
+      "residence_permit",
+      "aadhaar",
+    ])
+    expect(options[0]).toMatchObject({
+      shape: { aspectRatio: 1.42 },
+      available: true,
+      mixedChip: true,
+    })
+    expect(options[1]).toMatchObject({ shape: { aspectRatio: 1.586 }, available: true })
+    expect(options[3]).toMatchObject({ available: false })
+    expect(listDocumentTypes(BUNDLED_COVERAGE, "XXX")).toEqual([])
+  })
+
+  test("names a document type as the country's people do, where the table knows it", () => {
+    const coverage = table({
+      ARE: {
+        ...country([passport({}), passport({ type: "id_card", name: "Id Card (2021)" })]),
+        documentNames: { id_card: "Emirates ID" },
+      },
+    })
+    expect(listDocumentTypes(coverage, "ARE").map((o) => o.name)).toEqual([
+      "Passport",
+      "Emirates ID",
+    ])
+  })
+
+  test("lists the countries by name", () => {
+    const countries = listCountries(BUNDLED_COVERAGE)
+    expect(countries.length).toBeGreaterThan(180)
+    expect(countries.find((c) => c.code === "IND")).toEqual({ code: "IND", name: "India" })
+    expect([...countries].sort((a, b) => a.name.localeCompare(b.name))).toEqual(countries)
+  })
+})
+
+describe("loadCoverage", () => {
+  const remote = { ...BUNDLED_COVERAGE, generatedAt: "2099-01-01T00:00:00.000Z" }
+  const respond = (body: unknown, ok = true) =>
+    (async () => ({ ok, json: async () => body })) as unknown as typeof fetch
+
+  test("uses the CDN's table when it is newer", async () => {
+    const loaded = await loadCoverage({ fetch: respond(remote) })
+    expect(loaded.source).toBe("remote")
+    expect(loaded.coverage.generatedAt).toBe(remote.generatedAt)
+  })
+
+  test("keeps the bundled table when the CDN's is older, malformed or unreachable", async () => {
+    const older = { ...BUNDLED_COVERAGE, generatedAt: "2000-01-01T00:00:00.000Z" }
+    expect((await loadCoverage({ fetch: respond(older) })).source).toBe("bundled")
+    expect((await loadCoverage({ fetch: respond({ hello: 1 }) })).source).toBe("bundled")
+    expect((await loadCoverage({ fetch: respond(remote, false) })).source).toBe("bundled")
+    const failing = (async () => {
+      throw new Error("offline")
+    }) as unknown as typeof fetch
+    expect((await loadCoverage({ fetch: failing })).source).toBe("bundled")
+  })
+
+  test("the bundled table is well formed", () => {
+    expect(isCoverage(BUNDLED_COVERAGE)).toBe(true)
+    expect(isCoverage(null)).toBe(false)
+  })
+
+  test("refuses a table with a malformed country or document, keeping the bundled one", async () => {
+    const withCountry = (country: unknown) => ({
+      ...remote,
+      countries: { ...remote.countries, XXX: country },
+    })
+    const malformed = [
+      withCountry({ name: "X" }),
+      withCountry({ ...remote.countries.ZWE, documents: [{ type: "passport" }] }),
+      withCountry({
+        ...remote.countries.ZWE,
+        documents: [{ ...remote.countries.ZWE.documents[0], nationality: "anything" }],
+      }),
+      { ...remote, documentTypes: { ...remote.documentTypes, id_card: { name: "x" } } },
+    ]
+    for (const table of malformed) {
+      expect(isCoverage(table)).toBe(false)
+      expect((await loadCoverage({ fetch: respond(table) })).source).toBe("bundled")
+    }
+  })
+
+  test("a downloaded table can narrow a printed ID's nationality rule but not widen it", async () => {
+    const textCard = (regulaId: number, nationality?: string) =>
+      ({
+        type: "id_card",
+        name: "Id Card",
+        chip: false,
+        mrz: false,
+        text: true,
+        regulaId,
+        nationality,
+      }) as CoverageDocument
+    const bundledPrinted = Object.values(BUNDLED_COVERAGE.countries)
+      .flatMap((c) => c.documents)
+      .find((d) => d.text && d.nationality === "printed")!
+    const table = {
+      ...remote,
+      countries: {
+        ...remote.countries,
+        XXX: {
+          ...remote.countries.ZWE,
+          documents: [
+            textCard(bundledPrinted.regulaId!, "issuer"),
+            textCard(bundledPrinted.regulaId!, "none"),
+            textCard(99999999, "issuer"),
+          ],
+        },
+      },
+    }
+    const loaded = await loadCoverage({ fetch: respond(table) })
+    expect(loaded.source).toBe("remote")
+    expect(loaded.coverage.countries.XXX.documents.map((d) => d.nationality)).toEqual([
+      "printed",
+      "none",
+      "none",
+    ])
+  })
+})
+
+describe("decideVerificationPaths for cards", () => {
+  const card = (overrides: Partial<CoverageDocument>): CoverageDocument => ({
+    ...passport(overrides),
+    type: "id_card",
+    name: "Id Card",
+  })
+
+  test("an ID card with an MRZ and no chip is read by camera", () => {
+    const decision = decideVerificationPaths(table({ TST: country([card({ from: 2011 })]) }), {
+      country: "TST",
+      documentType: "id_card",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(decision.outcome).toBe("proceed")
+    expect(methods(decision)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
+  })
+
+  test("an ID card whose chip we can't verify falls back to the camera", () => {
+    const decision = decideVerificationPaths(
+      table({
+        TST: country([card({ from: 2015, chip: true })], {
+          supported: false,
+          from: null,
+          to: null,
+        }),
+      }),
+      {
+        country: "TST",
+        documentType: "id_card",
+        allowedVerificationMethods: ANY,
+        supportedSchemes: IOS,
+      },
+    )
+    expect(decision.chipVerifiable).toBe(false)
+    expect(methods(decision)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
+  })
+
+  test("an ID card whose chip we can't verify is unsupported for a client without a camera read", () => {
+    const decision = decideVerificationPaths(
+      table({
+        TST: country([card({ from: 2015, chip: true })], {
+          supported: false,
+          from: null,
+          to: null,
+        }),
+      }),
+      {
+        country: "TST",
+        documentType: "id_card",
+        allowedVerificationMethods: ANY,
+        supportedSchemes: [VerificationMethod.ICAO_CHIP],
+      },
+    )
+    expect(decision.outcome).toBe("unsupported")
+    expect(decision.refusedByPolicy).toEqual([])
+  })
+
+  test("a residence permit with a verifiable chip is read over NFC first", () => {
+    const permit = { ...card({ from: 2015, chip: true }), type: "residence_permit" as const }
+    const decision = decideVerificationPaths(table({ TST: country([permit]) }), {
+      country: "TST",
+      documentType: "residence_permit",
+      allowedVerificationMethods: ANY,
+      supportedSchemes: IOS,
+    })
+    expect(methods(decision)).toEqual([
+      `nfc:${VerificationMethod.ICAO_CHIP}`,
+      `camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`,
+    ])
+  })
+})
+
+describe("the chip question", () => {
+  const mixed = table({
+    TST: country([
+      passport({ name: "Passport (2000)", from: 2000 }),
+      passport({ name: "ePassport (2020)", from: 2020, chip: true }),
+    ]),
+  })
+  const query = {
+    country: "TST",
+    documentType: "passport" as const,
+    allowedVerificationMethods: ANY,
+  }
+
+  test("a country with both kinds asks, and the answer decides", () => {
+    expect(decideVerificationPaths(mixed, { ...query, supportedSchemes: IOS }).outcome).toBe(
+      "ask_chip",
+    )
+    const withChip = decideVerificationPaths(mixed, {
+      ...query,
+      supportedSchemes: IOS,
+      hasChip: true,
+    })
+    expect(withChip.outcome).toBe("proceed")
+    expect(withChip.chip).toBe("all")
+    expect(methods(withChip)).toEqual([
+      `nfc:${VerificationMethod.ICAO_CHIP}`,
+      `camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`,
+    ])
+    const without = decideVerificationPaths(mixed, {
+      ...query,
+      supportedSchemes: IOS,
+      hasChip: false,
+    })
+    expect(without.chip).toBe("none")
+    expect(methods(without)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
+    const signedOnly = decideVerificationPaths(mixed, {
+      ...query,
+      supportedSchemes: IOS,
+      hasChip: false,
+      allowedVerificationMethods: SIGNED_ONLY,
+    })
+    expect(signedOnly.outcome).toBe("rejected_by_policy")
+  })
+
+  test("is skipped when the answer changes nothing", () => {
+    // No certificate for the country's chips: either way the camera reads it
+    const unverifiable = table({
+      TST: country(mixed.countries.TST.documents, { supported: false, from: null, to: null }),
+    })
+    const camera = decideVerificationPaths(unverifiable, { ...query, supportedSchemes: IOS })
+    expect(camera.outcome).toBe("proceed")
+    expect(camera.chip).toBe("mixed")
+    expect(methods(camera)).toEqual([`camera:${VerificationMethod.ATTESTED_CAPTURE_IOS}`])
+    // A request for chip reads only: either way the ID can't be used, as the chip can't be checked
+    const refused = decideVerificationPaths(unverifiable, {
+      ...query,
+      supportedSchemes: IOS,
+      allowedVerificationMethods: SIGNED_ONLY,
+    })
+    expect(refused.outcome).toBe("rejected_by_policy")
+    expect(refused.chipVerifiable).toBe(false)
+    // A client with no camera read and no certificate: nothing to try either way
+    expect(
+      decideVerificationPaths(unverifiable, { ...query, supportedSchemes: ANDROID }).outcome,
+    ).toBe("unsupported")
+  })
+
+  test("the picker lists states only, unless asked for everything", () => {
+    const countries = listCountries(BUNDLED_COVERAGE)
+    const codes = countries.map((c) => c.code)
+    expect(codes).toContain("IND")
+    // States outside the UN that issue passports with supported chips
+    expect(codes).toContain("TWN")
+    expect(codes).toContain("RKS")
+    expect(countries.find((c) => c.code === "TWN")?.name).toBe("Taiwan")
+    expect(codes).not.toContain("XCT")
+    expect(codes).not.toContain("UNO")
+    expect(listCountries(BUNDLED_COVERAGE, { unStatesOnly: false }).map((c) => c.code)).toContain(
+      "XCT",
+    )
+    expect(listDocumentTypes(BUNDLED_COVERAGE, "IND")[0]).toMatchObject({ name: "Passport" })
+  })
+})

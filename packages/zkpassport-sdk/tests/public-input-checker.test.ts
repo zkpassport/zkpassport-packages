@@ -2461,6 +2461,67 @@ describe("PublicInputChecker - checkPublicInputs", () => {
     })
   })
 
+  describe("outer proof path - Tier 2 verification method", () => {
+    const domain = "example.com"
+    // outer_attested_id_count_3: [certRegistryRoot, circuitRegistryRoot, currentDate,
+    // serviceScope, subscope, 3 paramCommitments, nullifierType, nullifier, oprfPkHash, scheme]
+    function makeAttestedOuterProof(scheme: bigint, version?: string): ProofResult {
+      return {
+        name: "outer_attested_id_count_3",
+        version,
+        proof: buildProofHex([
+          1n,
+          2n,
+          BigInt(getTodayTimestamp()),
+          getServiceScopeHash(domain),
+          0n,
+          0n,
+          0n,
+          0n,
+          0n,
+          // Zero, so the layout of a proof without a version still reads a valid nullifier type
+          0n,
+          0n,
+          scheme,
+        ]),
+        total: 1,
+        committedInputs: {},
+      } as ProofResult
+    }
+
+    test("reads the scheme of a Tier 2 outer proof whatever version it states", async () => {
+      for (const version of [undefined, "0.23.0"]) {
+        const { isCorrect, verificationMethod } = await PublicInputChecker.checkPublicInputs(
+          domain,
+          [makeAttestedOuterProof(200n, version)],
+          {},
+          {},
+          86400 * 365,
+          undefined,
+          undefined,
+          true,
+          undefined,
+          [1, 2],
+        )
+        expect(verificationMethod).toBe(200)
+        // No attestation was committed to, so the device attestation check refuses it
+        expect(isCorrect).toBe(false)
+      }
+    })
+
+    test("refuses a Tier 2 outer proof stating a chip scheme", async () => {
+      const { isCorrect, queryResultErrors } = await PublicInputChecker.checkPublicInputs(
+        domain,
+        [makeAttestedOuterProof(100n, "0.23.0")],
+        {},
+        {},
+        86400 * 365,
+      )
+      expect(isCorrect).toBe(false)
+      expect(queryResultErrors.outer?.certificate?.message).toContain("scheme of another tier")
+    })
+  })
+
   describe("outer proof path - scope validation", () => {
     const domain = "example.com"
     const domainScopeHash = getServiceScopeHash(domain)

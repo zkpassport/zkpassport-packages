@@ -60,6 +60,8 @@ export function parseDocumentType(documentType: string): string {
     return "residence_permit"
   } else if (documentType.startsWith("I")) {
     return "id_card"
+  } else if (documentType === "DL") {
+    return "driving_license"
   } else {
     return "other"
   }

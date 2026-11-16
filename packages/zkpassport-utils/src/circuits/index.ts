@@ -3,6 +3,8 @@ import { format } from "date-fns"
 import { getIDDataProofPublicInputCount, packBeBytesIntoFields, packLeBytesIntoFields } from ".."
 import { Binary } from "../binary"
 import { DisclosureCircuitName, NullifierType, PackagedCircuit, SaltedValue } from "../types"
+import { getAttestedIdProofPublicInputCount } from "./attested-id"
+import { hasVerificationMethod } from "./verification-method"
 import { getDSCProofPublicInputCount } from "./dsc"
 import { getIntegrityProofPublicInputCount } from "./integrity"
 
@@ -104,16 +106,19 @@ export async function hashSaltDg1Dg2HashPrivateNullifier(
   return Binary.from(await poseidon2HashAsync(result.map((x) => BigInt(x))))
 }
 
+// The disclosure proofs' public inputs are, in order: comm_in, current_date, service_scope,
+// service_subscope, param_commitment, nullifier_type, nullifier, oprf_pk_hash. They carry no
+// verification method: the base proof states it and the outer proof re-exports it.
 export function getNullifierFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+  return BigInt(proofData.publicInputs[6])
 }
 
 export function getOprfPkHashFromDisclosureProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
+  return BigInt(proofData.publicInputs[7])
 }
 
 export function getNullifierTypeFromDisclosureProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
+  const nullifierType = BigInt(proofData.publicInputs[5])
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -185,9 +190,17 @@ export async function getHostedPackagedCircuitByName(
  * @param circuitName - The name of the circuit.
  * @returns The number of public inputs.
  */
-export function getNumberOfPublicInputs(circuitName: string) {
-  if (circuitName.startsWith("data_check_integrity")) {
-    return getIntegrityProofPublicInputCount()
+/**
+ * How many public inputs a proof of the circuit has. Since circuit version 0.23.0 the integrity
+ * and outer proofs carry the verification method as one more; `circuitVersion` is the version the
+ * proof was made with (none means a version before the verification method).
+ */
+export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: string) {
+  const scheme = hasVerificationMethod(circuitVersion) ? 1 : 0
+  if (circuitName.startsWith("attested_id")) {
+    return getAttestedIdProofPublicInputCount(circuitName)
+  } else if (circuitName.startsWith("data_check_integrity")) {
+    return getIntegrityProofPublicInputCount() + scheme
   } else if (circuitName.startsWith("sig_check_id_data")) {
     return getIDDataProofPublicInputCount()
   } else if (circuitName.startsWith("sig_check_dsc")) {
@@ -196,8 +209,11 @@ export function getNumberOfPublicInputs(circuitName: string) {
     return 3
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
-    const disclosureProofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1)) - 3
-    return 8 + disclosureProofCount
+    const subproofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1))
+    // A Tier 2 outer proof commits to its attested ID proof's parameters and the disclosure
+    // proofs', and always carries the verification method
+    if (circuitName.includes("_attested_")) return 9 + subproofCount
+    return 8 + scheme + subproofCount - 3
   }
   // Any other circuits are assumed to be disclosure circuits
   // which have a universal interface of 8 public inputs
@@ -293,6 +309,8 @@ export enum ProofType {
   BIND = 8,
   SANCTIONS_EXCLUSION = 9,
   FACEMATCH = 10,
+  // The device attestation of a Tier 2 base proof, with the face match parameters
+  ATTESTED_ID = 11,
 }
 
 export const ProofTypeLength = {
@@ -307,6 +325,7 @@ export const ProofTypeLength = {
   [ProofType.BIND]: { evm: 509, standard: 17 },
   [ProofType.SANCTIONS_EXCLUSION]: { evm: 33, standard: 2 },
   [ProofType.FACEMATCH]: { evm: 98, standard: 5 },
+  [ProofType.ATTESTED_ID]: { evm: 98, standard: 5 },
 }
 
 export {
@@ -320,6 +339,9 @@ export {
 } from "./disclose"
 
 export * from "./age"
+export * from "./attested-id"
+export * from "./verification-method"
+export * from "./public-input-layout"
 export * from "./country"
 export * from "./date"
 export * from "./dsc"

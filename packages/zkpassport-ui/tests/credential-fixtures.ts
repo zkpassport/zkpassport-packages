@@ -27,6 +27,7 @@ export type RawRequirements = {
   faceMatchMode: number
   includedNationalities: string[]
   excludedNationalities: string[]
+  allowedVerificationMethods: bigint[]
 }
 
 export const RAW_REQUIREMENTS: RawRequirements = {
@@ -35,6 +36,7 @@ export const RAW_REQUIREMENTS: RawRequirements = {
   faceMatchMode: 0,
   includedNationalities: [],
   excludedNationalities: [],
+  allowedVerificationMethods: [],
 }
 
 type ReadCall = { address: string; functionName: string; args?: readonly unknown[] }

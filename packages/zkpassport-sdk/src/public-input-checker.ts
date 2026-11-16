@@ -11,6 +11,19 @@ import {
   getNullifierFromDisclosureProof,
   getCommitmentInFromIntegrityProof,
   getCommitmentOutFromIntegrityProof,
+  getCommitmentOutFromAttestedIdProof,
+  getParameterCommitmentFromAttestedIdProof,
+  getVerificationMethodFromAttestedIdProof,
+  getCurrentDateFromAttestedIdProof,
+  isAndroidAttestedIdCircuit,
+  GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH,
+  getVerificationMethodFromIntegrityProof,
+  getVerificationMethodFromOuterProof,
+  hasVerificationMethod,
+  isVerificationMethodAllowed,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  VerificationMethod,
+  type AllowedVerificationMethod,
   getCommitmentInFromDisclosureProof,
   getMerkleRootFromDSCProof,
   getCurrentDateFromDisclosureProof,
@@ -58,8 +71,13 @@ import {
   getSanctionsParameterCommitment,
   SECONDS_BETWEEN_1900_AND_1970,
   FacematchCommittedInputs,
+  AttestedIdCommittedInputs,
   getFacematchEvmParameterCommitment,
   getFacematchParameterCommitment,
+  getAttestedIdEvmParameterCommitment,
+  getAttestedIdParameterCommitment,
+  getTierForVerificationMethod,
+  VerificationTier,
   NullifierType,
   getNullifierTypeFromOuterProof,
   getNullifierTypeFromDisclosureProof,
@@ -87,6 +105,8 @@ import {
 
 // Allowance for clock/timezone skew between the proving device and the verifier
 const CURRENT_DATE_FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000
+// How old an attested ID proof's date may be; the app renews its proofs after 28 days
+const ATTESTED_ID_PROOF_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 export function withDocumentType(query: Query): Query {
   const needed = (
@@ -2385,6 +2405,7 @@ export class PublicInputChecker {
     oprfKeyId?: string,
     devMode?: boolean,
     registryClient?: RegistryClient,
+    allowedVerificationMethods: readonly AllowedVerificationMethod[] = DEFAULT_ALLOWED_VERIFICATION_METHODS,
   ) {
     let commitmentIn: bigint | undefined
     let commitmentOut: bigint | undefined
@@ -2423,6 +2444,8 @@ export class PublicInputChecker {
     }
 
     const proofOrder = [
+      // Tier 2 base: the device attested the camera-read ID, in place of the three chip proofs
+      "attested_id",
       "sig_check_dsc",
       "sig_check_id_data",
       "data_check_integrity",
@@ -2449,7 +2472,9 @@ export class PublicInputChecker {
     })
 
     // Registry roots are checked as of the proofs' own date, so older proofs still verify
-    const disclosureProofNames = proofOrder.slice(3)
+    const disclosureProofNames = proofOrder.slice(4)
+    // What verified the ID, read from the base proof (or the outer)
+    let verificationMethod: VerificationMethod | undefined
     const firstDisclosureProof = sortedProofs.find((p) =>
       disclosureProofNames.some((name) => p.name?.startsWith(name)),
     )
@@ -2457,14 +2482,17 @@ export class PublicInputChecker {
       ? getCurrentDateFromDisclosureProof(
           getProofData(
             firstDisclosureProof.proof as string,
-            getNumberOfPublicInputs(firstDisclosureProof.name!),
+            getNumberOfPublicInputs(firstDisclosureProof.name!, firstDisclosureProof.version),
           ),
         )
       : undefined
     const bundleRootTimestamp = bundleDate ? Math.floor(bundleDate.getTime() / 1000) : undefined
 
     for (const proof of sortedProofs!) {
-      const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
+      const proofData = getProofData(
+        proof.proof as string,
+        getNumberOfPublicInputs(proof.name!, proof.version),
+      )
       if (proof.name?.startsWith("outer")) {
         const isForEVM = proof.name?.startsWith("outer_evm")
         const currentDate = getCurrentDateFromOuterProof(proofData)
@@ -2536,7 +2564,29 @@ export class PublicInputChecker {
             },
           }
         }
-        const paramCommitments = getParamCommitmentsFromOuterProof(proofData)
+        const paramCommitments = getParamCommitmentsFromOuterProof(proofData, proof.version)
+        // A Tier 2 outer proof always carries its scheme, whatever version it states, so a proof
+        // can't pass as a chip read by leaving out its version
+        const isAttestedOuter = proof.name!.includes("_attested_")
+        verificationMethod =
+          isAttestedOuter || hasVerificationMethod(proof.version)
+            ? getVerificationMethodFromOuterProof(proofData)
+            : VerificationMethod.ICAO_CHIP
+        if (
+          isAttestedOuter &&
+          getTierForVerificationMethod(verificationMethod) !== VerificationTier.DEVICE_ATTESTED
+        ) {
+          console.warn("A Tier 2 outer proof states a scheme of another tier")
+          isCorrect = false
+          queryResultErrors.outer = {
+            ...queryResultErrors.outer,
+            certificate: {
+              expected: "A device-attested verification method",
+              received: `Verification method ${verificationMethod}`,
+              message: "A Tier 2 outer proof states a scheme of another tier",
+            },
+          }
+        }
         const committedInputs = proof.committedInputs
         const keysInCommittedInputs = Object.keys(committedInputs || {})
         if (keysInCommittedInputs.length !== paramCommitments.length) {
@@ -2550,6 +2600,17 @@ export class PublicInputChecker {
               message: "The proof does not verify all the requested conditions and information",
             },
           }
+        }
+        if (getTierForVerificationMethod(verificationMethod) === VerificationTier.DEVICE_ATTESTED) {
+          const { isCorrect: isCorrectAttestation, queryResultErrors: attestationErrors } =
+            await this.checkOuterDeviceAttestation(
+              verificationMethod,
+              committedInputs,
+              paramCommitments[0],
+              isForEVM,
+            )
+          isCorrect = isCorrect && isCorrectAttestation
+          queryResultErrors = { ...queryResultErrors, ...attestationErrors }
         }
         if (getServiceScopeHash(domain) !== getScopeFromOuterProof(proofData)) {
           console.warn("The proof comes from a different domain than the one expected")
@@ -2982,9 +3043,58 @@ export class PublicInputChecker {
             ...queryResultErrorsFacematch,
           }
         }
-        uniqueIdentifier = getNullifierFromOuterProof(proofData).toString(10)
-        uniqueIdentifierType = getNullifierTypeFromOuterProof(proofData)
-        oprfPublicKeyHash = getOprfPkHashFromOuterProof(proofData)
+        uniqueIdentifier = getNullifierFromOuterProof(proofData, proof.version).toString(10)
+        uniqueIdentifierType = getNullifierTypeFromOuterProof(proofData, proof.version)
+        oprfPublicKeyHash = getOprfPkHashFromOuterProof(proofData, proof.version)
+      } else if (proof.name?.startsWith("attested_id")) {
+        commitmentOut = getCommitmentOutFromAttestedIdProof(proofData)
+        verificationMethod = getVerificationMethodFromAttestedIdProof(proofData)
+        const committedKey = isAndroidAttestedIdCircuit(proof.name)
+          ? "attested_id_android"
+          : "attested_id_ios"
+        const committed = proof.committedInputs?.[committedKey] as
+          AttestedIdCommittedInputs | undefined
+        const attestedAt = getCurrentDateFromAttestedIdProof(proofData)
+        const { isCorrect: isCorrectDate, queryResultErrors: dateErrors } =
+          this.checkAttestedIdDate(attestedAt)
+        isCorrect = isCorrect && isCorrectDate
+        queryResultErrors = { ...queryResultErrors, ...dateErrors }
+        if (!committed) {
+          console.warn("The attested ID proof carries no committed attestation parameters")
+          isCorrect = false
+          queryResultErrors.attested_id = {
+            ...queryResultErrors.attested_id,
+            commitment: {
+              expected: `Committed inputs for ${committedKey}`,
+              received: "none",
+              message: "The attested ID proof carries no committed attestation parameters",
+            },
+          }
+        } else {
+          const expectedParamCommitment = await getAttestedIdParameterCommitment(
+            BigInt(committed.rootKeyLeaf),
+            committed.environment === "development" ? 0n : 1n,
+            BigInt(committed.appIdHash),
+            committed.mode === "regular" ? 1n : 2n,
+          )
+          const paramCommitment = getParameterCommitmentFromAttestedIdProof(proofData)
+          if (paramCommitment !== expectedParamCommitment) {
+            console.warn("The attested ID proof does not match its committed parameters")
+            isCorrect = false
+            queryResultErrors.attested_id = {
+              ...queryResultErrors.attested_id,
+              commitment: {
+                expected: `Parameter commitment: ${expectedParamCommitment.toString()}`,
+                received: `Parameter commitment: ${paramCommitment.toString()}`,
+                message: "The attested ID proof does not match its committed parameters",
+              },
+            }
+          }
+          const { isCorrect: isCorrectAttestation, queryResultErrors: attestationErrors } =
+            this.checkAttestedIdParameters(committed, committedKey === "attested_id_android")
+          isCorrect = isCorrect && isCorrectAttestation
+          queryResultErrors = { ...queryResultErrors, ...attestationErrors }
+        }
       } else if (proof.name?.startsWith("sig_check_dsc")) {
         commitmentOut = getCommitmentFromDSCProof(proofData)
         const merkleRoot = getMerkleRootFromDSCProof(proofData)
@@ -3038,6 +3148,9 @@ export class PublicInputChecker {
           }
         }
         commitmentOut = getCommitmentOutFromIntegrityProof(proofData)
+        // Integrity proofs made before circuit version 0.23.0 carry no scheme: they are ICAO
+        verificationMethod =
+          getVerificationMethodFromIntegrityProof(proofData) ?? VerificationMethod.ICAO_CHIP
       } else if (proof.name === "disclose_bytes") {
         commitmentIn = getCommitmentInFromDisclosureProof(proofData)
         if (commitmentIn !== commitmentOut) {
@@ -3817,7 +3930,7 @@ export class PublicInputChecker {
     // As in the outer circuit, each disclosure proof carries no nullifier or the bundle's one
     const nullifierProofs = sortedProofs
       .filter((p) => p.name !== "facematch" && disclosureProofNames.includes(p.name!))
-      .map((p) => getProofData(p.proof as string, getNumberOfPublicInputs(p.name!)))
+      .map((p) => getProofData(p.proof as string, getNumberOfPublicInputs(p.name!, p.version)))
     if (nullifierProofs.length > 0) {
       const distinct = <T>(values: T[], none: T) => [...new Set(values.filter((v) => v !== none))]
       const nullifiers = distinct(nullifierProofs.map(getNullifierFromDisclosureProof), 0n)
@@ -3876,6 +3989,152 @@ export class PublicInputChecker {
       uniqueIdentifier = undefined
     }
 
-    return { isCorrect, uniqueIdentifier, uniqueIdentifierType, queryResultErrors }
+    // Proofs made before the scheme existed came from a chip
+    const scheme = verificationMethod ?? VerificationMethod.ICAO_CHIP
+    if (!isVerificationMethodAllowed(scheme, allowedVerificationMethods)) {
+      console.warn("The service does not accept the verification method the ID was verified with")
+      isCorrect = false
+      queryResultErrors.verification_method = {
+        ...queryResultErrors.verification_method,
+        eq: {
+          expected: `Allowed credentials: ${allowedVerificationMethods.join(", ")}`,
+          received: `Verification method: ${scheme}`,
+          message: "The service does not accept the verification method the ID was verified with",
+        },
+      }
+    }
+    return {
+      isCorrect,
+      uniqueIdentifier,
+      uniqueIdentifierType,
+      queryResultErrors,
+      verificationMethod: scheme,
+    }
+  }
+
+  /**
+   * An attested ID proof carries its attestation's date, which must be recent: the face match
+   * is at most 30 days old. The app reuses the proof, so it may be older than a disclosure proof's.
+   */
+  public static checkAttestedIdDate(attestedAt: Date | undefined) {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    // A proof without a date is refused as not recent
+    const age = attestedAt ? Date.now() - attestedAt.getTime() : Infinity
+    if (age > ATTESTED_ID_PROOF_MAX_AGE_MS || -age > CURRENT_DATE_FUTURE_TOLERANCE_MS) {
+      const message = "The attested ID proof's date is not recent"
+      console.warn(message)
+      isCorrect = false
+      queryResultErrors.attested_id = {
+        ...queryResultErrors.attested_id,
+        date: {
+          expected: `Within ${ATTESTED_ID_PROOF_MAX_AGE_MS / 1000} seconds of now`,
+          received: attestedAt?.toISOString() ?? "no date",
+          message,
+        },
+      }
+    }
+    return { isCorrect, queryResultErrors }
+  }
+
+  /**
+   * A Tier 2 outer proof's first parameter commitment is its base proof's device attestation, which
+   * the circuit cannot judge: it must match the committed attestation, and that attestation must
+   * be a genuine one for the scheme's platform.
+   */
+  public static async checkOuterDeviceAttestation(
+    verificationMethod: VerificationMethod,
+    committedInputs: ProofResult["committedInputs"],
+    attestationParamCommitment: bigint | undefined,
+    isForEVM: boolean,
+  ) {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const fail = (expected: string, received: string, message: string) => {
+      console.warn(message)
+      isCorrect = false
+      queryResultErrors.attested_id = {
+        ...queryResultErrors.attested_id,
+        commitment: { expected, received, message },
+      }
+    }
+    const android = verificationMethod === VerificationMethod.ATTESTED_CAPTURE_ANDROID
+    if (!android && verificationMethod !== VerificationMethod.ATTESTED_CAPTURE_IOS) {
+      fail(
+        "A camera read scheme",
+        String(verificationMethod),
+        "No circuit proves this verification method",
+      )
+      return { isCorrect, queryResultErrors }
+    }
+    const key = android ? "attested_id_android" : "attested_id_ios"
+    const committed = committedInputs?.[key] as AttestedIdCommittedInputs | undefined
+    if (!committed) {
+      fail(`Committed inputs for ${key}`, "none", "The proof carries no device attestation")
+      return { isCorrect, queryResultErrors }
+    }
+    const commit = isForEVM ? getAttestedIdEvmParameterCommitment : getAttestedIdParameterCommitment
+    const expected = await commit(
+      BigInt(committed.rootKeyLeaf),
+      committed.environment === "development" ? 0n : 1n,
+      BigInt(committed.appIdHash),
+      committed.mode === "regular" ? 1n : 2n,
+    )
+    if (attestationParamCommitment !== expected) {
+      fail(
+        `First parameter commitment: ${expected.toString()}`,
+        `First parameter commitment: ${attestationParamCommitment?.toString()}`,
+        "The proof's device attestation does not match its committed parameters",
+      )
+    }
+    const parameters = this.checkAttestedIdParameters(committed, android)
+    return {
+      isCorrect: isCorrect && parameters.isCorrect,
+      queryResultErrors: { ...queryResultErrors, ...parameters.queryResultErrors },
+    }
+  }
+
+  /**
+   * The attestation behind a Tier 2 base proof must come from a genuine ZKPassport build on a
+   * real device, in the production attestation environment, with a strict face match: that
+   * face match is the only thing binding a camera-read ID to its holder.
+   */
+  public static checkAttestedIdParameters(committed: AttestedIdCommittedInputs, android = false) {
+    let isCorrect = true
+    const queryResultErrors: Partial<QueryResultErrors> = {}
+    const fail = (expected: string, received: string, message: string) => {
+      console.warn(message)
+      isCorrect = false
+      queryResultErrors.attested_id = {
+        ...queryResultErrors.attested_id,
+        eq: { expected, received, message },
+      }
+    }
+    // Each value must come from the platform the circuit is for, so iOS and Android ones can't mix
+    const rootKeys = android
+      ? [GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH, GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH]
+      : [APPLE_APP_ATTEST_ROOT_KEY_HASH]
+    if (!rootKeys.includes(committed.rootKeyLeaf)) {
+      fail(rootKeys.join(" or "), committed.rootKeyLeaf, "Invalid attested ID root key hash")
+    }
+    const appIdHash = android ? ZKPASSPORT_ANDROID_APP_ID_HASH : ZKPASSPORT_IOS_APP_ID_HASH
+    if (committed.appIdHash !== appIdHash) {
+      fail(appIdHash, committed.appIdHash, "Invalid attested ID app id hash")
+    }
+    const integrityAnchors = android ? [GOOGLE_PLAY_INTEGRITY_PUBKEY_HASH] : [0n]
+    if (!integrityAnchors.includes(BigInt(committed.integrityPubkeyHash))) {
+      fail(
+        integrityAnchors.join(" or "),
+        committed.integrityPubkeyHash,
+        "Invalid attested ID integrity key",
+      )
+    }
+    if (committed.environment !== "production") {
+      fail("production", committed.environment, "Invalid attested ID environment")
+    }
+    if (committed.mode !== "strict") {
+      fail("strict", committed.mode, "A Tier 2 ID requires a strict face match")
+    }
+    return { isCorrect, queryResultErrors }
   }
 }

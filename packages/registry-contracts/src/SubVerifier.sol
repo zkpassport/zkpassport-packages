@@ -12,8 +12,18 @@ pragma solidity ^0.8.30;
 import {RootVerifier} from "./RootVerifier.sol";
 import {RootRegistry} from "./RootRegistry.sol";
 import {IProofVerifier} from "./IProofVerifier.sol";
-import {ProofVerificationParams, NullifierType, ProofVerifier} from "./lib/Types.sol";
+import {
+    ProofVerificationParams,
+    NullifierType,
+    ProofVerifier,
+    ProofType,
+    Environment,
+    FaceMatchMode
+} from "./lib/Types.sol";
 import {PublicInput, RegistryID} from "./lib/Constants.sol";
+import {VerificationMethods, VerificationTier} from "./lib/VerificationMethods.sol";
+import {AttestedId} from "./lib/AttestedId.sol";
+import {InputsExtractor} from "./lib/InputsExtractor.sol";
 import {DateUtils} from "./lib/DateUtils.sol";
 import {StringUtils} from "./lib/StringUtils.sol";
 
@@ -171,7 +181,43 @@ contract SubVerifier {
             return;
         }
         require(globalOPRFPubKeyHash != bytes32(0), "globalOPRFPubKeyHash hash not set");
-        require(publicInputs[publicInputs.length - 1] == globalOPRFPubKeyHash, "Invalid OPRF public key");
+        require(
+            publicInputs[publicInputs.length - PublicInput.OPRF_PK_HASH_OFFSET_FROM_END] == globalOPRFPubKeyHash,
+            "Invalid OPRF public key"
+        );
+    }
+
+    /**
+     * @notice A device attested credential must open with an attested ID entry pinned to the
+     *         expected attestation roots and app; any other credential must not carry one
+     * @param verificationMethod The verification method from the proof's public inputs
+     * @param committedInputs The committed inputs, already checked against the param commitments
+     */
+    function _verifyDeviceAttestation(uint256 verificationMethod, bytes calldata committedInputs)
+        internal
+        pure
+        virtual
+    {
+        if (VerificationMethods.tierOf(verificationMethod) == VerificationTier.DEVICE_ATTESTED) {
+            (
+                bytes32 rootKeyHash,
+                Environment environment,
+                bytes32 appIdHash,
+                bytes32 integrityPublicKeyHash,
+                FaceMatchMode mode
+            ) = InputsExtractor.getAttestedIdProofInputs(committedInputs);
+            require(
+                AttestedId.isValid(
+                    verificationMethod, rootKeyHash, environment, appIdHash, integrityPublicKeyHash, mode
+                ),
+                "Invalid device attestation"
+            );
+        } else {
+            require(
+                !InputsExtractor.containsProofType(committedInputs, ProofType.ATTESTED_ID),
+                "Unexpected device attestation"
+            );
+        }
     }
 
     function _getProofVerifier(bytes32 vkeyHash) internal view returns (address) {
@@ -249,17 +295,34 @@ contract SubVerifier {
         );
 
         // Verifies the commitments against the committed inputs
-        // Trailing public inputs (in order): [length-3] nullifier_type, [length-2] scoped_nullifier, [length-1] oprf_pk_hash.
+        // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash, verification_method
         _verifyCommittedInputs(
             // Extracts the commitments from the public inputs
             params.proofVerificationData
-            .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length - 3],
+            .publicInputs[PublicInput.PARAM_COMMITMENTS_INDEX:params.proofVerificationData.publicInputs.length
+                        - PublicInput.NULLIFIER_TYPE_OFFSET_FROM_END
+            ],
             params.committedInputs
         );
 
         NullifierType nullifierType = NullifierType(
-            uint256(params.proofVerificationData.publicInputs[params.proofVerificationData.publicInputs.length - 3])
+            uint256(
+                params.proofVerificationData
+                .publicInputs[params.proofVerificationData.publicInputs.length
+                        - PublicInput.NULLIFIER_TYPE_OFFSET_FROM_END]
+            )
         );
+
+        // Issuer-signed and device-attested credentials both verify; a device attestation must be the
+        // ZKPassport app's. The app only proves tier 2 for services allowed to request it, and a
+        // service narrows what it accepts with `helper.enforceVerificationMethod(allowed, publicInputs)`
+        uint256 verificationMethod = uint256(
+            params.proofVerificationData
+            .publicInputs[params.proofVerificationData.publicInputs.length
+                    - PublicInput.VERIFICATION_METHOD_OFFSET_FROM_END]
+        );
+        require(VerificationMethods.isVerifiable(verificationMethod), "Verification method not supported");
+        _verifyDeviceAttestation(verificationMethod, params.committedInputs);
 
         // Allow mock proofs in dev mode
         // Note: On mainnets, this stage won't be reached as the ZKR certificates will not be part
@@ -284,8 +347,8 @@ contract SubVerifier {
             .verify(params.proofVerificationData.proof, params.proofVerificationData.publicInputs);
 
         // Get the unique identifier from the public inputs
-        // Layout: [length-3] nullifier_type, [length-2] scoped_nullifier, [length-1] oprf_pk_hash
-        uint256 uniqueIdentifierIndex = params.proofVerificationData.publicInputs.length - 2;
+        uint256 uniqueIdentifierIndex =
+            params.proofVerificationData.publicInputs.length - PublicInput.SCOPED_NULLIFIER_OFFSET_FROM_END;
         uniqueIdentifier = params.proofVerificationData.publicInputs[uniqueIdentifierIndex];
 
         // Return the validity of the proof verification and the unique identifier

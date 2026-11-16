@@ -25,7 +25,8 @@ enum ProofType {
     ISSUING_COUNTRY_EXCLUSION,
     BIND,
     SANCTIONS,
-    FACEMATCH
+    FACEMATCH,
+    ATTESTED_ID
 }
 
 enum BoundDataIdentifier {
@@ -77,7 +78,8 @@ enum OS {
 // │       ├── [5:5+N] param_commitments      // Field[N] - PublicInputsCast.getParamCommitment(array, index)
 // │       ├── [5+N] nullifier_type           // u8 - PublicInputsCast.getNullifierType(array, paramCount)
 // │       ├── [6+N] scoped_nullifier         // Field - PublicInputsCast.getScopedNullifier(array, paramCount)
-// │       └── [7+N] oprf_pk_hash             // Poseidon2(pk.x, pk.y) for SALTED, 0 for NON_SALTED
+// │       ├── [7+N] oprf_pk_hash             // Poseidon2(pk.x, pk.y) for SALTED, 0 for NON_SALTED
+// │       └── [8+N] verification_method        // What verified the ID, see lib/VerificationMethods.sol
 // │
 // ├── bytes committedInputs              // Preimages of param_commitments
 // │

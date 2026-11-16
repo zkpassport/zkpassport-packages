@@ -5,6 +5,7 @@ import "../src/RootRegistry.sol";
 import "../src/VerifierHelper.sol";
 import {NullifierType, ProofType, Environment, FaceMatchMode, OS} from "../src/lib/Types.sol";
 import {AppAttest, CommittedInputLen} from "../src/lib/Constants.sol";
+import {VerificationMethod, VerificationTier} from "../src/lib/VerificationMethods.sol";
 
 contract VerifierHelperTest is Test {
     VerifierHelper public helper;
@@ -22,10 +23,82 @@ contract VerifierHelperTest is Test {
         pure
         returns (bytes32[] memory)
     {
-        bytes32[] memory publicInputs = new bytes32[](8);
-        publicInputs[publicInputs.length - 3] = bytes32(uint256(nullifierType));
-        publicInputs[publicInputs.length - 2] = nullifier;
+        return publicInputsWith(nullifierType, nullifier, VerificationMethod.ICAO_CHIP);
+    }
+
+    function publicInputsWithScheme(uint256 scheme) internal pure returns (bytes32[] memory) {
+        return publicInputsWith(NullifierType.SALTED_NULLIFIER, bytes32(uint256(1)), scheme);
+    }
+
+    function publicInputsWith(NullifierType nullifierType, bytes32 nullifier, uint256 scheme)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        bytes32[] memory publicInputs = new bytes32[](9);
+        publicInputs[publicInputs.length - 4] = bytes32(uint256(nullifierType));
+        publicInputs[publicInputs.length - 3] = nullifier;
+        publicInputs[publicInputs.length - 1] = bytes32(scheme);
         return publicInputs;
+    }
+
+    function policy(uint256 a) internal pure returns (uint256[] memory allowed) {
+        allowed = new uint256[](1);
+        allowed[0] = a;
+    }
+
+    function policy(uint256 a, uint256 b) internal pure returns (uint256[] memory allowed) {
+        allowed = new uint256[](2);
+        allowed[0] = a;
+        allowed[1] = b;
+    }
+
+    function testGetVerificationMethod() public view {
+        bytes32[] memory chip = publicInputsWithScheme(VerificationMethod.ICAO_CHIP);
+        assertEq(helper.getVerificationMethod(chip), VerificationMethod.ICAO_CHIP);
+
+        bytes32[] memory camera = publicInputsWithScheme(VerificationMethod.ATTESTED_CAPTURE_ANDROID);
+        assertEq(helper.getVerificationMethod(camera), VerificationMethod.ATTESTED_CAPTURE_ANDROID);
+    }
+
+    function testEmptyPolicyAcceptsSignedCredentialsOnly() public view {
+        uint256[] memory none = new uint256[](0);
+        assertTrue(helper.isVerificationMethodAllowed(none, publicInputsWithScheme(VerificationMethod.ICAO_CHIP)));
+        assertTrue(helper.isVerificationMethodAllowed(none, publicInputsWithScheme(VerificationMethod.JPKI)));
+        assertFalse(
+            helper.isVerificationMethodAllowed(none, publicInputsWithScheme(VerificationMethod.ATTESTED_CAPTURE_IOS))
+        );
+    }
+
+    function testPolicyEntryIsAWholeTierOrOneScheme() public view {
+        uint256[] memory allowed = policy(VerificationTier.GOVERNMENT_SIGNED, VerificationMethod.ATTESTED_CAPTURE_IOS);
+        assertTrue(helper.isVerificationMethodAllowed(allowed, publicInputsWithScheme(VerificationMethod.ISO_MDOC)));
+        assertTrue(
+            helper.isVerificationMethodAllowed(allowed, publicInputsWithScheme(VerificationMethod.ATTESTED_CAPTURE_IOS))
+        );
+        assertFalse(
+            helper.isVerificationMethodAllowed(
+                allowed, publicInputsWithScheme(VerificationMethod.ATTESTED_CAPTURE_ANDROID)
+            )
+        );
+
+        uint256[] memory cameraOnly = policy(VerificationTier.DEVICE_ATTESTED);
+        assertFalse(
+            helper.isVerificationMethodAllowed(cameraOnly, publicInputsWithScheme(VerificationMethod.ICAO_CHIP))
+        );
+        assertTrue(
+            helper.isVerificationMethodAllowed(
+                cameraOnly, publicInputsWithScheme(VerificationMethod.ATTESTED_CAPTURE_ANDROID)
+            )
+        );
+    }
+
+    function testEnforceVerificationMethodReverts() public {
+        uint256[] memory none = new uint256[](0);
+        helper.enforceVerificationMethod(none, publicInputsWithScheme(VerificationMethod.ICAO_CHIP));
+
+        vm.expectRevert("Verification method not allowed");
+        helper.enforceVerificationMethod(none, publicInputsWithScheme(VerificationMethod.ATTESTED_CAPTURE_IOS));
     }
 
     function testGetNullifierType() public view {

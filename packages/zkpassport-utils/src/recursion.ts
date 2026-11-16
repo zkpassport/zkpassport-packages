@@ -9,9 +9,22 @@ import {
   ProofResult,
   ultraVkToFields,
 } from "."
+import { hasVerificationMethod } from "./circuits/verification-method"
+import {
+  getAttestedIdTrailingOutput,
+  getOuterTrailingInput,
+  outerTrailingStart,
+} from "./circuits/public-input-layout"
 
 const BASE_SUBPROOF_COUNT = 3
 const MAX_OUTER_DISCLOSURE_PROOFS = 10
+
+/** One of an outer proof's trailing public inputs, in the layout of its circuit version */
+const outerTrailing = (
+  proofData: ProofData,
+  name: Parameters<typeof getOuterTrailingInput>[1],
+  circuitVersion?: string,
+) => getOuterTrailingInput(proofData.publicInputs, name, hasVerificationMethod(circuitVersion))
 
 export type OuterCircuitProof = {
   // The proof as field elements
@@ -74,7 +87,10 @@ export async function getOuterCircuitProof(
     )
   }
 
-  const proofData = getProofData(subproof.proof as string, getNumberOfPublicInputs(circuit.name))
+  const proofData = getProofData(
+    subproof.proof as string,
+    getNumberOfPublicInputs(circuit.name, subproof.version),
+  )
   const { index, path } = await getCircuitMerkleProof(
     circuit.vkey_hash,
     circuitManifest,
@@ -97,13 +113,8 @@ function getDisclosureProofWithNonZeroNullifier(
   return disclosureProofs.find((proof) => BigInt(proof.publicInputs[6]) !== 0n)
 }
 
-export function getOuterCircuitInputs(
-  cscToDscProof: OuterCircuitProof,
-  dscToIdDataProof: OuterCircuitProof,
-  integrityCheckProof: OuterCircuitProof,
-  disclosureProofs: OuterCircuitProof[],
-  circuitRegistryRoot: string,
-) {
+/** What every outer circuit takes from the disclosure proofs, whatever its base proofs */
+function getDisclosureOuterInputs(disclosureProofs: OuterCircuitProof[]) {
   if (disclosureProofs.length === 0) {
     throw new Error("At least one disclosure proof is required")
   }
@@ -119,57 +130,22 @@ export function getOuterCircuitInputs(
       (proof) => BigInt(proof.publicInputs[5]) !== BigInt(NullifierType.NONE),
     ) ??
     sourceProof
-  const certificateRegistryRoot = cscToDscProof.publicInputs[0]
-  const currentDateTimestamp = Number(BigInt(sourceProof.publicInputs[1]))
-  const scope = sourceProof.publicInputs[2]
-  const subscope = sourceProof.publicInputs[3]
-  const nullifierType = nullifierTypeProof.publicInputs[5]
-  const nullifier = (nullifierProof ?? sourceProof).publicInputs[6]
-  const oprfPkHash = (nullifierProof ?? sourceProof).publicInputs[7]
-  const paramCommitments = disclosureProofs.map((proof) => proof.publicInputs[4])
-
   return {
-    certificate_registry_root: certificateRegistryRoot,
-    circuit_registry_root: circuitRegistryRoot,
-    current_date: currentDateTimestamp,
-    service_scope: scope,
-    service_subscope: subscope,
-    param_commitments: paramCommitments,
-    scoped_nullifier: nullifier,
-    nullifier_type: nullifierType,
-    oprf_pk_hash: oprfPkHash,
-    csc_to_dsc_proof: {
-      vkey: cscToDscProof.vkey,
-      proof: cscToDscProof.proof,
-      // Remove the certificate registry root from the public inputs
-      public_inputs: cscToDscProof.publicInputs.slice(1),
-      key_hash: cscToDscProof.keyHash,
-      tree_hash_path: cscToDscProof.treeHashPath,
-      tree_index: cscToDscProof.treeIndex,
-    },
-    dsc_to_id_data_proof: {
-      vkey: dscToIdDataProof.vkey,
-      proof: dscToIdDataProof.proof,
-      public_inputs: dscToIdDataProof.publicInputs,
-      key_hash: dscToIdDataProof.keyHash,
-      tree_hash_path: dscToIdDataProof.treeHashPath,
-      tree_index: dscToIdDataProof.treeIndex,
-    },
-    integrity_check_proof: {
-      vkey: integrityCheckProof.vkey,
-      proof: integrityCheckProof.proof,
-      public_inputs: integrityCheckProof.publicInputs,
-      key_hash: integrityCheckProof.keyHash,
-      tree_hash_path: integrityCheckProof.treeHashPath,
-      tree_index: integrityCheckProof.treeIndex,
-    },
+    current_date: Number(BigInt(sourceProof.publicInputs[1])),
+    service_scope: sourceProof.publicInputs[2],
+    service_subscope: sourceProof.publicInputs[3],
+    param_commitments: disclosureProofs.map((proof) => proof.publicInputs[4]),
+    scoped_nullifier: (nullifierProof ?? sourceProof).publicInputs[6],
+    nullifier_type: nullifierTypeProof.publicInputs[5],
+    oprf_pk_hash: (nullifierProof ?? sourceProof).publicInputs[7],
     disclosure_proofs: disclosureProofs.map((proof) => ({
       vkey: proof.vkey,
       proof: proof.proof,
       // Keep the commitment in, scoped nullifier, nullifier type and oprf pk hash from the
       // disclosure proof's public inputs (in the order the outer circuit's DisclosureProof
       // struct expects them). The remaining values are passed directly to the outer circuit.
-      // Disclosure circuit layout: [0] comm_in, [5] nullifier_type, [6] scoped_nullifier, [7] oprf_pk_hash.
+      // Disclosure circuit layout: [0] comm_in, [5] nullifier_type, [6] scoped_nullifier,
+      // [7] oprf_pk_hash.
       public_inputs: [
         proof.publicInputs[0], // comm_in
         proof.publicInputs[6], // scoped_nullifier
@@ -180,6 +156,90 @@ export function getOuterCircuitInputs(
       tree_hash_path: proof.treeHashPath,
       tree_index: proof.treeIndex,
     })),
+  }
+}
+
+const asOuterSubproof = (proof: OuterCircuitProof, publicInputs = proof.publicInputs) => ({
+  vkey: proof.vkey,
+  proof: proof.proof,
+  public_inputs: publicInputs,
+  key_hash: proof.keyHash,
+  tree_hash_path: proof.treeHashPath,
+  tree_index: proof.treeIndex,
+})
+
+export function getOuterCircuitInputs(
+  cscToDscProof: OuterCircuitProof,
+  dscToIdDataProof: OuterCircuitProof,
+  integrityCheckProof: OuterCircuitProof,
+  disclosureProofs: OuterCircuitProof[],
+  circuitRegistryRoot: string,
+) {
+  const disclosure = getDisclosureOuterInputs(disclosureProofs)
+  return {
+    certificate_registry_root: cscToDscProof.publicInputs[0],
+    circuit_registry_root: circuitRegistryRoot,
+    ...disclosure,
+    // Output by the base proof; the outer checks it
+    verification_method: integrityCheckProof.publicInputs[2],
+    // Remove the certificate registry root from the public inputs
+    csc_to_dsc_proof: asOuterSubproof(cscToDscProof, cscToDscProof.publicInputs.slice(1)),
+    dsc_to_id_data_proof: asOuterSubproof(dscToIdDataProof),
+    integrity_check_proof: asOuterSubproof(integrityCheckProof),
+  }
+}
+
+/**
+ * Get the name of the Tier 2 outer circuit, which aggregates an attested ID base proof (from
+ * either platform: both have the same public inputs) and `disclosureProofCount` disclosure proofs
+ * @param disclosureProofCount - The number of disclosure proofs, from 1 to 10
+ * @param options.evm - Whether to get the outer circuit whose proofs are verified on EVM chains
+ * @returns The outer circuit's name, e.g. outer_attested_id_count_2
+ */
+export function getAttestedOuterCircuitName(
+  disclosureProofCount: number,
+  { evm = false }: { evm?: boolean } = {},
+): string {
+  if (
+    !Number.isInteger(disclosureProofCount) ||
+    disclosureProofCount < 1 ||
+    disclosureProofCount > MAX_OUTER_DISCLOSURE_PROOFS
+  ) {
+    throw new Error(
+      `No outer circuit for ${disclosureProofCount} disclosure proofs: expected 1 to ${MAX_OUTER_DISCLOSURE_PROOFS}`,
+    )
+  }
+  return `outer_${evm ? "evm_" : ""}attested_id_count_${disclosureProofCount + 1}`
+}
+
+/**
+ * The inputs of a Tier 2 outer circuit. The attested ID proof's parameter commitment comes
+ * first, then the disclosure proofs'; a verifier must check that first one is a genuine device
+ * attestation, which the circuit cannot.
+ * @param attestedIdProof - The attested ID base proof
+ * @param disclosureProofs - The disclosure proofs built on its commitment
+ * @param circuitRegistryRoot - The root of the circuit registry the subproofs' vkeys are in
+ * @param certificateRegistryRoot - A valid certificate registry root: a camera-read ID uses no
+ * certificate, but the verifier checks this public input as for a chip ID
+ */
+export function getAttestedOuterCircuitInputs(
+  attestedIdProof: OuterCircuitProof,
+  disclosureProofs: OuterCircuitProof[],
+  circuitRegistryRoot: string,
+  certificateRegistryRoot: string,
+) {
+  const disclosure = getDisclosureOuterInputs(disclosureProofs)
+  const attested = attestedIdProof.publicInputs
+  return {
+    certificate_registry_root: certificateRegistryRoot,
+    circuit_registry_root: circuitRegistryRoot,
+    ...disclosure,
+    param_commitments: [
+      getAttestedIdTrailingOutput(attested, "param_commitment"),
+      ...disclosure.param_commitments,
+    ],
+    verification_method: getAttestedIdTrailingOutput(attested, "verification_method"),
+    attested_id_proof: asOuterSubproof(attestedIdProof),
   }
 }
 
@@ -213,8 +273,11 @@ export function getSubscopeFromOuterProof(proofData: ProofData): bigint {
   return BigInt(proofData.publicInputs[4])
 }
 
-export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierType {
-  const nullifierType = BigInt(proofData.publicInputs[proofData.publicInputs.length - 3])
+export function getNullifierTypeFromOuterProof(
+  proofData: ProofData,
+  circuitVersion?: string,
+): NullifierType {
+  const nullifierType = BigInt(outerTrailing(proofData, "nullifier_type", circuitVersion))
   if (nullifierType === 0n) {
     return NullifierType.NON_SALTED
   } else if (nullifierType === 1n) {
@@ -234,12 +297,12 @@ export function getNullifierTypeFromOuterProof(proofData: ProofData): NullifierT
  * @param proofData - The proof data.
  * @returns The scoped nullifier.
  */
-export function getNullifierFromOuterProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 2])
+export function getNullifierFromOuterProof(proofData: ProofData, circuitVersion?: string): bigint {
+  return BigInt(outerTrailing(proofData, "scoped_nullifier", circuitVersion))
 }
 
-export function getOprfPkHashFromOuterProof(proofData: ProofData): bigint {
-  return BigInt(proofData.publicInputs[proofData.publicInputs.length - 1])
+export function getOprfPkHashFromOuterProof(proofData: ProofData, circuitVersion?: string): bigint {
+  return BigInt(outerTrailing(proofData, "oprf_pk_hash", circuitVersion))
 }
 
 /**
@@ -247,7 +310,12 @@ export function getOprfPkHashFromOuterProof(proofData: ProofData): bigint {
  * @param proofData - The proof data.
  * @returns The param commitments.
  */
-export function getParamCommitmentsFromOuterProof(proofData: ProofData): bigint[] {
-  // Trailing public inputs (in order): nullifier_type, scoped_nullifier, oprf_pk_hash.
-  return proofData.publicInputs.slice(5, proofData.publicInputs.length - 3).map(BigInt)
+export function getParamCommitmentsFromOuterProof(
+  proofData: ProofData,
+  circuitVersion?: string,
+): bigint[] {
+  // The 5 header inputs, then the commitments, then the trailing inputs
+  return proofData.publicInputs
+    .slice(5, outerTrailingStart(proofData.publicInputs, hasVerificationMethod(circuitVersion)))
+    .map(BigInt)
 }

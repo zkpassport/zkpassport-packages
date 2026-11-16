@@ -1,4 +1,4 @@
-// Generated from packages/onchain-credentials/contracts (commit 1e0de461). Do not edit by hand.
+// Generated from packages/onchain-credentials/contracts. Do not edit by hand.
 // Source: forge build -> PolicyEvaluatorV1.json -> .abi
 export const PolicyEvaluatorV1Abi = [
   {
@@ -155,6 +155,11 @@ export const PolicyEvaluatorV1Abi = [
             name: "excludedNationalities",
             type: "string[]",
             internalType: "string[]",
+          },
+          {
+            name: "allowedVerificationMethods",
+            type: "uint256[]",
+            internalType: "uint256[]",
           },
         ],
       },
@@ -314,6 +319,11 @@ export const PolicyEvaluatorV1Abi = [
   },
   {
     type: "error",
+    name: "PolicyEvaluator__InvalidVerificationMethods",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "PolicyEvaluator__NationalityNotIncluded",
     inputs: [],
   },
@@ -325,6 +335,11 @@ export const PolicyEvaluatorV1Abi = [
   {
     type: "error",
     name: "PolicyEvaluator__StaleProof",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "PolicyEvaluator__VerificationMethodNotAllowed",
     inputs: [],
   },
   {

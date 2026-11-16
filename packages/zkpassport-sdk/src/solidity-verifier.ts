@@ -63,6 +63,9 @@ export class SolidityVerifier {
    * @param domain The domain to use for the service config
    * @param scope The scope to use for the service config
    * @param devMode Whether to use the dev mode
+   * Both issuer-signed and device-attested proofs verify on chain; to accept only some credential
+   * schemes, call the helper's `enforceVerificationMethod(allowedVerificationMethods, publicInputs)`
+   * in your contract.
    * Note that on mainnets, the dev mode will be ignored as verification
    * will always fail for mock passports. It only applies to testnets.
    * @returns The parameters for the Solidity verifier contract
@@ -73,24 +76,35 @@ export class SolidityVerifier {
     domain,
     scope,
     devMode = false,
-    // oprfPubKeyHash,
   }: {
     proof: ProofResult
     validityPeriodInSeconds?: number
     domain: string
     scope?: string
     devMode?: boolean
-    // oprfPubKeyHash?: string
   }) {
     if (!proof.name?.startsWith("outer_evm")) {
       throw new Error(
         "This proof cannot be verified on an EVM chain. Please make sure to use the `compressed-evm` mode.",
       )
     }
-    const proofData = getProofData(proof.proof as string, getNumberOfPublicInputs(proof.name!))
-    const committedInputCounts: { circuitName: DisclosureCircuitName; count: number }[] = []
-    const committedInputs: { circuitName: DisclosureCircuitName; inputs: string }[] = []
+    const proofData = getProofData(
+      proof.proof as string,
+      getNumberOfPublicInputs(proof.name!, proof.version),
+    )
+    const committedInputCounts: { circuitName: string; count: number }[] = []
+    const committedInputs: { circuitName: string; inputs: string }[] = []
     for (const key in proof.committedInputs) {
+      // A Tier 2 outer proof's first commitment is its base proof's device attestation
+      if (key === "attested_id_ios" || key === "attested_id_android") {
+        const inputs = facematchStyleInputs(
+          ProofType.ATTESTED_ID,
+          proof.committedInputs[key] as FacematchCommittedInputs,
+        )
+        committedInputCounts.push({ circuitName: key, count: inputs.length / 2 })
+        committedInputs.push({ circuitName: key, inputs })
+        continue
+      }
       const committedInputCount = getCommittedInputCount(key as DisclosureCircuitName)
       const circuitName = key as DisclosureCircuitName
       committedInputCounts.push({ circuitName, count: committedInputCount })
@@ -181,31 +195,17 @@ export class SolidityVerifier {
           .join("")
         compressedCommittedInputs += value.isStrict ? "01" : "00"
       } else if (circuitName.startsWith("facematch") && circuitName.endsWith("_evm")) {
-        const value = proof.committedInputs[circuitName] as FacematchCommittedInputs
-        compressedCommittedInputs += ProofType.FACEMATCH.toString(16).padStart(2, "0")
-        compressedCommittedInputs += ProofTypeLength[ProofType.FACEMATCH].evm
-          .toString(16)
-          .padStart(4, "0")
-        compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.rootKeyLeaf), 32))
-          .map((x) => x.toString(16).padStart(2, "0"))
-          .join("")
-        compressedCommittedInputs += value.environment === "development" ? "00" : "01"
-        compressedCommittedInputs += Array.from(numberToBytesBE(BigInt(value.appIdHash), 32))
-          .map((x) => x.toString(16).padStart(2, "0"))
-          .join("")
-        compressedCommittedInputs += Array.from(
-          numberToBytesBE(BigInt(value.integrityPubkeyHash), 32),
+        compressedCommittedInputs += facematchStyleInputs(
+          ProofType.FACEMATCH,
+          proof.committedInputs[circuitName] as FacematchCommittedInputs,
         )
-          .map((x) => x.toString(16).padStart(2, "0"))
-          .join("")
-        compressedCommittedInputs += value.mode === "regular" ? "01" : "02"
       } else {
         throw new Error(`Unsupported circuit for EVM verification: ${circuitName}`)
       }
       committedInputs.push({ circuitName, inputs: compressedCommittedInputs })
     }
-    const parameterCommitments = getParamCommitmentsFromOuterProof(proofData).map((x) =>
-      x.toString(16).padStart(64, "0"),
+    const parameterCommitments = getParamCommitmentsFromOuterProof(proofData, proof.version).map(
+      (x) => x.toString(16).padStart(64, "0"),
     )
     let compressedCommittedInputs = ""
     const committedInputCountsArray = []
@@ -252,7 +252,6 @@ export class SolidityVerifier {
         domain,
         scope: scope ?? "",
         devMode,
-        // oprfPubKeyHash: oprfPubKeyHash ?? ZERO_BYTES32,
       },
     }
     return params
@@ -292,4 +291,25 @@ export class SolidityVerifier {
       return false
     }
   }
+}
+
+const toHex = (bytes: Uint8Array) =>
+  Array.from(bytes)
+    .map((x) => x.toString(16).padStart(2, "0"))
+    .join("")
+
+/** A face match's committed inputs, as the contract reads them, under the given proof type */
+function facematchStyleInputs(
+  proofType: ProofType.FACEMATCH | ProofType.ATTESTED_ID,
+  value: FacematchCommittedInputs,
+): string {
+  return (
+    proofType.toString(16).padStart(2, "0") +
+    ProofTypeLength[proofType].evm.toString(16).padStart(4, "0") +
+    toHex(numberToBytesBE(BigInt(value.rootKeyLeaf), 32)) +
+    (value.environment === "development" ? "00" : "01") +
+    toHex(numberToBytesBE(BigInt(value.appIdHash), 32)) +
+    toHex(numberToBytesBE(BigInt(value.integrityPubkeyHash), 32)) +
+    (value.mode === "regular" ? "01" : "02")
+  )
 }

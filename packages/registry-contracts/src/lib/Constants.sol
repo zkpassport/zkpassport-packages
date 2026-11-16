@@ -35,6 +35,7 @@ library CommittedInputLen {
     uint256 constant BIND = 509;
     uint256 constant SANCTIONS = 33;
     uint256 constant FACEMATCH = 98;
+    uint256 constant ATTESTED_ID = 98;
 }
 
 // Gather all the public input indices in one place
@@ -46,7 +47,12 @@ library PublicInput {
     uint256 constant SUBSCOPE_INDEX = 4;
     uint256 constant PARAM_COMMITMENTS_INDEX = 5;
     // The length of the public inputs excluding the param commitments
-    uint256 constant PUBLIC_INPUTS_EXCLUDING_PARAM_COMMITMENTS_LENGTH = 8;
+    uint256 constant PUBLIC_INPUTS_EXCLUDING_PARAM_COMMITMENTS_LENGTH = 9;
+    // The trailing public inputs, counted from the end
+    uint256 constant NULLIFIER_TYPE_OFFSET_FROM_END = 4;
+    uint256 constant SCOPED_NULLIFIER_OFFSET_FROM_END = 3;
+    uint256 constant OPRF_PK_HASH_OFFSET_FROM_END = 2;
+    uint256 constant VERIFICATION_METHOD_OFFSET_FROM_END = 1;
 }
 
 // Gather all the MRZ indices in one place

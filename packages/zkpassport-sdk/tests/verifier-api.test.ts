@@ -105,6 +105,46 @@ describe("verify() modes and the verifier API", () => {
     expect(result).toEqual(localResult as any)
   })
 
+  test("local refuses proofs without one well-formed circuit version", async () => {
+    const zk = new ZKPassport("example.com")
+    for (const versions of [[undefined], ["0.23"], ["0.23.0", "0.22.0"]]) {
+      const unversioned = versions.map((version) => ({ ...proofs[0], version })) as any
+      const result = await zk.verify({
+        proofs: unversioned,
+        originalQuery,
+        queryResult,
+        verifierMode: "local",
+      })
+      expect(result).toEqual(notVerified)
+    }
+    expect(warnings.some((w) => w.includes("same circuit version"))).toBe(true)
+    expect(fetchedUrls).toEqual([])
+  })
+
+  test("applies the service's credential policy to the API's verdict", async () => {
+    globalThis.fetch = (async () =>
+      Response.json({
+        verified: true,
+        uniqueIdentifier: "uid-1",
+        uniqueIdentifierType: 0,
+        verificationMethod: 200,
+      })) as unknown as typeof globalThis.fetch
+    const zk = new ZKPassport("example.com")
+
+    const refused = await zk.verify({ proofs, originalQuery, queryResult, verifierMode: "api" })
+    expect(refused.verified).toBe(false)
+    expect(refused.uniqueIdentifier).toBeUndefined()
+    const accepted = await zk.verify({
+      proofs,
+      originalQuery,
+      queryResult,
+      verifierMode: "api",
+      allowedVerificationMethods: [1, 2],
+    })
+    expect(accepted.verified).toBe(true)
+    expect(accepted.verificationMethod).toBe(200)
+  })
+
   test("local never calls the API", async () => {
     localSpy.mockResolvedValue(notVerified)
     const zk = new ZKPassport("example.com")

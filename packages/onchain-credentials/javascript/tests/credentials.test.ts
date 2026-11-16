@@ -59,6 +59,7 @@ const RAW_REQUIREMENTS = {
   faceMatchMode: 2,
   includedNationalities: [],
   excludedNationalities: ["PRK"],
+  allowedVerificationMethods: [] as bigint[],
 }
 
 const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
@@ -67,6 +68,7 @@ const SAMPLE_REQUIREMENTS: CredentialPolicyRequirements = {
   facematchMode: "strict",
   includedNationalities: [],
   excludedNationalities: ["PRK"],
+  allowedVerificationMethods: [],
 }
 
 function stubClient(
@@ -385,6 +387,41 @@ describe("encodeCredentialPolicyRequirements", () => {
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded.sanctionsMode).toBe(0)
     expect(decoded.faceMatchMode).toBe(0)
+  })
+})
+
+describe("encodeCredentialPolicyRequirements verification methods", () => {
+  test("encodes the verification methods, empty when not given", () => {
+    const [withMethods] = decodeAbiParameters(
+      REQUIREMENTS_ABI,
+      encodeCredentialPolicyRequirements({
+        ...SAMPLE_REQUIREMENTS,
+        allowedVerificationMethods: [1, 201],
+      }),
+    )
+    expect(withMethods.allowedVerificationMethods).toEqual([1n, 201n])
+    const [without] = decodeAbiParameters(
+      REQUIREMENTS_ABI,
+      encodeCredentialPolicyRequirements({
+        ...SAMPLE_REQUIREMENTS,
+        allowedVerificationMethods: undefined,
+      }),
+    )
+    expect(without.allowedVerificationMethods).toEqual([])
+  })
+
+  test("getRequirements decodes a policy's verification methods", async () => {
+    const { client } = stubClient((p) => {
+      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "decodeRequirements")
+        return { ...RAW_REQUIREMENTS, allowedVerificationMethods: [1n, 201n] }
+      throw new Error(`unexpected read ${p.functionName}`)
+    })
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    expect(await credentials.getRequirements(SAMPLE_POLICY)).toEqual({
+      ...SAMPLE_REQUIREMENTS,
+      allowedVerificationMethods: [1, 201],
+    })
   })
 })
 

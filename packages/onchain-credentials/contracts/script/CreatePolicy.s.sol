@@ -23,6 +23,8 @@ import {FaceMatchMode} from "@registry/lib/Types.sol";
  *                                    evaluator's uniqueIdentifierType nullifier
  *   POLICY_INCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
  *   POLICY_EXCLUDED_NATIONALITIES    required, comma separated ISO 3166-1 alpha-3, any order
+ *   POLICY_ALLOWED_VERIFICATION_METHODS required, comma separated tiers (1, 2) or exact methods
+ *                                    (100, 200, 201); empty accepts tier 1 only
  *   POLICY_DURATION_DAYS             default 90; also bounds how stale a sanctions check may be
  *   POLICY_OWNER_ISSUABLE            default false; ownerIssue() bypasses nullifier bookkeeping
  *   POLICY_OWNER_BANNABLE            default false; true lets the owner ban a wallet, removing any
@@ -68,12 +70,24 @@ contract CreatePolicyScript is Script {
             sanctionsMode: _sanctionsMode(vm.envString("POLICY_SANCTIONS_MODE")),
             faceMatchMode: _faceMatchMode(vm.envString("POLICY_FACEMATCH_MODE")),
             includedNationalities: _countries("POLICY_INCLUDED_NATIONALITIES"),
-            excludedNationalities: _countries("POLICY_EXCLUDED_NATIONALITIES")
+            excludedNationalities: _countries("POLICY_EXCLUDED_NATIONALITIES"),
+            allowedVerificationMethods: _uints("POLICY_ALLOWED_VERIFICATION_METHODS")
         });
         console.log("minAge      ", r.minAge);
         console.log("included    ", r.includedNationalities.length);
         console.log("excluded    ", r.excludedNationalities.length);
+        console.log("methods     ", r.allowedVerificationMethods.length);
         return abi.encode(r);
+    }
+
+    /// @dev An empty value means an empty list
+    function _uints(string memory name) private view returns (uint256[] memory values) {
+        string[] memory raw = vm.envString(name, ",");
+        if (raw.length == 1 && bytes(raw[0]).length == 0) return new uint256[](0);
+        values = new uint256[](raw.length);
+        for (uint256 i = 0; i < raw.length; i++) {
+            values[i] = vm.parseUint(raw[i]);
+        }
     }
 
     function _record(ZKPassportCredentials credentials, uint256 policyId, bytes32 salt) internal {
@@ -147,6 +161,7 @@ contract CreatePolicyScript is Script {
  *   export POLICY_ENFORCE_UNIQUENESS=false
  *   export POLICY_INCLUDED_NATIONALITIES=""
  *   export POLICY_EXCLUDED_NATIONALITIES="SYR,CUB,PRK,IRN"
+ *   export POLICY_ALLOWED_VERIFICATION_METHODS=""
  *
  *   forge script script/CreatePolicy.s.sol --rpc-url <> --private-key <> --broadcast
  */

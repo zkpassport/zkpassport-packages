@@ -133,3 +133,10 @@ export type {
   VerificationState,
   VerificationStatus,
 } from "../verification"
+
+export {
+  VerificationMethod,
+  VerificationTier,
+  DEFAULT_ALLOWED_VERIFICATION_METHODS,
+  type AllowedVerificationMethod,
+} from "@zkpassport/sdk"

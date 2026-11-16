@@ -92,6 +92,12 @@ export type CredentialPolicyRequirements = {
    * list disables that check.
    */
   excludedNationalities: readonly string[]
+  /**
+   * The verification methods the policy accepts: exact schemes such as 201 and/or whole tiers, an
+   * entry below 100 (1 = every issuer-signed scheme, 2 = every device-attested camera read).
+   * `[1, 201]` accepts tier 1 and Android camera reads. Empty or undefined means tier 1 only.
+   */
+  allowedVerificationMethods?: readonly number[]
 }
 
 const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
@@ -134,6 +140,9 @@ export function encodeCredentialPolicyRequirements(
         : FACEMATCH_MODE_VALUES[requirements.facematchMode],
     includedNationalities: requirements.includedNationalities,
     excludedNationalities: requirements.excludedNationalities,
+    allowedVerificationMethods: (requirements.allowedVerificationMethods ?? []).map((x) =>
+      BigInt(x),
+    ),
   }
   return encodeAbiParameters(REQUIREMENTS_ABI, [value] as never)
 }
@@ -247,8 +256,12 @@ export class CredentialsClient {
 
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       CredentialPolicyRequirements,
-      "sanctionsMode" | "facematchMode"
-    > & { sanctionsMode: number; faceMatchMode: number }
+      "sanctionsMode" | "facematchMode" | "allowedVerificationMethods"
+    > & {
+      sanctionsMode: number
+      faceMatchMode: number
+      allowedVerificationMethods: readonly bigint[]
+    }
 
     return {
       minAge: decoded.minAge,
@@ -256,6 +269,7 @@ export class CredentialsClient {
       facematchMode: FACEMATCH_MODES[decoded.faceMatchMode],
       includedNationalities: decoded.includedNationalities,
       excludedNationalities: decoded.excludedNationalities,
+      allowedVerificationMethods: decoded.allowedVerificationMethods.map(Number),
     }
   }
 
