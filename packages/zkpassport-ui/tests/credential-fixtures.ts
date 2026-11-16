@@ -69,7 +69,7 @@ export function stubChain(
         case "domain":
           return DOMAIN
         case "schemaVersion":
-          return 1n
+          return 2n
         case "decodeRequirements":
           return requirements
         case "devMode":

@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {BoundData, FaceMatchMode, NullifierType, OS, ProofVerificationParams} from "@registry/lib/Types.sol";
 import {IRootVerifier, IVerifierHelper} from "@registry/IRootVerifier.sol";
-import {VerificationMethods, VerificationMethod} from "@registry/lib/VerificationMethods.sol";
 import {PolicyEvaluationResult, IPolicyEvaluator} from "./IPolicyEvaluator.sol";
 
 contract PolicyEvaluatorV1 is IPolicyEvaluator {
@@ -14,17 +13,13 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     }
 
     /// @dev minAge 0 disables the age check. Country lists are ISO 3166-1 alpha-3, strictly
-    ///      ascending; an empty list disables that check. allowedVerificationMethods lists exact
-    ///      schemes (e.g. 201) and/or whole tiers (an entry below 100, e.g. 1 for every
-    ///      issuer-signed scheme), so [1, 201] accepts tier 1 and Android camera reads; empty
-    ///      means tier 1 only.
+    ///      ascending; an empty list disables that check.
     struct PolicyRequirements {
         uint8 minAge;
         SanctionsMode sanctionsMode;
         FaceMatchMode faceMatchMode;
         string[] includedNationalities;
         string[] excludedNationalities;
-        uint256[] allowedVerificationMethods;
     }
 
     error PolicyEvaluator__DevModeProofRejected();
@@ -39,8 +34,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
     error PolicyEvaluator__ExcludedNationality();
     error PolicyEvaluator__FaceMatchRequirementNotMet();
     error PolicyEvaluator__ZeroAddress();
-    error PolicyEvaluator__InvalidVerificationMethods();
-    error PolicyEvaluator__VerificationMethodNotAllowed();
 
     IRootVerifier public immutable rootVerifier;
 
@@ -90,7 +83,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
         PolicyRequirements memory r = decodeRequirements(requirements);
         _validateCountryList(r.includedNationalities);
         _validateCountryList(r.excludedNationalities);
-        _validateVerificationMethods(r.allowedVerificationMethods);
     }
 
     /// @inheritdoc IPolicyEvaluator
@@ -130,20 +122,14 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
         result.wallet = bound.senderAddress;
         result.customData = bound.customData;
-        _validateRequirements(requirements, helper, params.proofVerificationData.publicInputs, params.committedInputs);
+        _validateRequirements(requirements, helper, params.committedInputs);
     }
 
-    function _validateRequirements(
-        bytes calldata requirements,
-        IVerifierHelper helper,
-        bytes32[] memory publicInputs,
-        bytes memory committedInputs
-    ) internal view {
+    function _validateRequirements(bytes calldata requirements, IVerifierHelper helper, bytes memory committedInputs)
+        internal
+        view
+    {
         PolicyRequirements memory r = decodeRequirements(requirements);
-
-        if (!VerificationMethods.isAllowed(helper.getVerificationMethod(publicInputs), r.allowedVerificationMethods)) {
-            revert PolicyEvaluator__VerificationMethodNotAllowed();
-        }
 
         if (r.minAge > 0 && !helper.isAgeAboveOrEqual(r.minAge, committedInputs)) {
             revert PolicyEvaluator__AgeRequirementNotMet();
@@ -166,19 +152,6 @@ contract PolicyEvaluatorV1 is IPolicyEvaluator {
 
         if (r.sanctionsMode != SanctionsMode.NONE) {
             helper.enforceSanctionsRoot(block.timestamp, r.sanctionsMode == SanctionsMode.STRICT, committedInputs);
-        }
-    }
-
-    /// @dev Each entry a whole tier the root verifier can verify (1 or 2) or one of its known
-    ///      schemes, so a typo can't silently accept nothing or something unintended
-    function _validateVerificationMethods(uint256[] memory schemes) internal pure {
-        for (uint256 i = 0; i < schemes.length; i++) {
-            uint256 entry = schemes[i];
-            bool known = VerificationMethods.isTier(entry) || entry == VerificationMethod.ICAO_CHIP
-                || entry == VerificationMethod.UIDAI_AADHAAR || entry == VerificationMethod.JPKI
-                || entry == VerificationMethod.ISO_MDOC || entry == VerificationMethod.ATTESTED_CAPTURE_IOS
-                || entry == VerificationMethod.ATTESTED_CAPTURE_ANDROID;
-            if (!known) revert PolicyEvaluator__InvalidVerificationMethods();
         }
     }
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { decodeAbiParameters, getAbiItem } from "viem"
 import { NullifierType } from "@zkpassport/utils"
-import { PolicyEvaluatorV1Abi } from "../src/abi/policy-evaluator-v1"
+import { PolicyEvaluatorV2Abi } from "../src/abi/policy-evaluator-v2"
 import { sepolia } from "viem/chains"
 import {
   CredentialsClient,
@@ -123,7 +123,7 @@ describe("CredentialsClient reads", () => {
 
   test("getRequirements decodes through the policy's evaluator", async () => {
     const { client, readCalls } = stubClient((p) => {
-      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "schemaVersion") return 2n
       if (p.functionName === "decodeRequirements") return RAW_REQUIREMENTS
       throw new Error(`unexpected read ${p.functionName}`)
     })
@@ -150,8 +150,8 @@ describe("CredentialsClient reads", () => {
     }
   })
 
-  test("getRequirements rejects unknown evaluator schemas", async () => {
-    const { client } = stubClient(() => 2n)
+  test("getRequirements rejects policies on a schema-1 evaluator", async () => {
+    const { client } = stubClient(() => 1n)
     const credentials = new CredentialsClient({ client, address: REGISTRY })
     await expect(credentials.getRequirements(SAMPLE_POLICY)).rejects.toThrow(
       "Unsupported policy evaluator schema",
@@ -261,7 +261,7 @@ describe("CredentialsClient issue helpers", () => {
 
     // The bytes must decode back through the evaluator's own decodeProofData layout.
     const proofDataAbi = getAbiItem({
-      abi: PolicyEvaluatorV1Abi,
+      abi: PolicyEvaluatorV2Abi,
       name: "decodeProofData",
     }).outputs
     const [decoded] = decodeAbiParameters(proofDataAbi, proofData)
@@ -368,12 +368,12 @@ describe("submitIssueCall", () => {
 const SALT = "0x0000000000000000000000000000000000000000000000000000000000000007" as const
 
 const REQUIREMENTS_ABI = getAbiItem({
-  abi: PolicyEvaluatorV1Abi,
+  abi: PolicyEvaluatorV2Abi,
   name: "decodeRequirements",
 }).outputs
 
 describe("encodeCredentialPolicyRequirements", () => {
-  test("round-trips through the evaluator's schema-1 layout", () => {
+  test("round-trips through the evaluator's schema-2 layout", () => {
     const encoded = encodeCredentialPolicyRequirements(SAMPLE_REQUIREMENTS)
     const [decoded] = decodeAbiParameters(REQUIREMENTS_ABI, encoded)
     expect(decoded).toEqual({
@@ -417,7 +417,7 @@ describe("encodeCredentialPolicyRequirements verification methods", () => {
 
   test("getRequirements decodes a policy's verification methods", async () => {
     const { client } = stubClient((p) => {
-      if (p.functionName === "schemaVersion") return 1n
+      if (p.functionName === "schemaVersion") return 2n
       if (p.functionName === "decodeRequirements")
         return { ...RAW_REQUIREMENTS, allowedVerificationMethods: [1n, 201n] }
       throw new Error(`unexpected read ${p.functionName}`)
