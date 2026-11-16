@@ -127,8 +127,9 @@ contract ZKPassportCredentials is ERC1155 {
     /// @param ownerIssuable Whether the owner, and the issuers it adds via addIssuer(), are allowed
     ///        to issue credentials without a proof via ownerIssue() and ownerIssueBatch();
     ///        immutable after creation.
-    /// @param ownerBannable Whether the owner is allowed to ban a wallet via ban(), which also
-    ///        removes any standing credential; immutable after creation.
+    /// @param ownerBannable Whether the owner, and the issuers it adds via addIssuer(), are allowed
+    ///        to ban wallets via ban() and banBatch(), which also remove any standing credential;
+    ///        immutable after creation.
     /// @param ownerEditable Whether the owner is allowed to change the policy's requirements,
     ///        evaluator and credential duration after creation via setRequirements(),
     ///        migrateEvaluator() and setCredentialDuration(); immutable after creation.
@@ -295,8 +296,9 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     /// @notice Let an account issue credentials without a proof via ownerIssue() and
-    ///         ownerIssueBatch(), as the policy owner can. Only available when the policy opted
-    ///         in at creation (`ownerIssuable==true`).
+    ///         ownerIssueBatch(), and ban and unban wallets via ban(), banBatch(), unban() and
+    ///         unbanBatch(), as the policy owner can. Only available when the policy opted in to
+    ///         owner issuance at creation (`ownerIssuable==true`).
     /// @param issuer The account to add; must not be zero or already an issuer.
     /// @param policyId The policy to add the issuer to; only its owner may call.
     function addIssuer(address issuer, uint256 policyId) external onlyPolicyOwner(policyId) {
@@ -309,8 +311,8 @@ contract ZKPassportCredentials is ERC1155 {
         emit IssuerAdded(policyId, issuer);
     }
 
-    /// @notice Stop an issuer from issuing credentials for a policy; credentials it already
-    ///         issued are untouched.
+    /// @notice Stop an issuer from acting for a policy; the credentials it issued and the bans
+    ///         it placed stay.
     /// @param issuer The issuer to remove.
     /// @param policyId The policy to remove the issuer from; only its owner may call.
     function removeIssuer(address issuer, uint256 policyId) external onlyPolicyOwner(policyId) {
@@ -441,10 +443,28 @@ contract ZKPassportCredentials is ERC1155 {
     ///         sanctions propagation does NOT happen here, it is enforced at issuance/renewal
     ///         against the current sanctions root, bounded by the policy's `credentialDuration`.
     /// @param wallet The wallet to ban; must not already be banned.
-    /// @param policyId The policy the ban applies to; only its owner may call.
-    function ban(address wallet, uint256 policyId) external onlyPolicyOwner(policyId) {
+    /// @param policyId The policy the ban applies to; only the policy owner or one of its
+    ///        issuers may call.
+    function ban(address wallet, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
         if (!_policies[policyId].ownerBannable) revert ZKPassportCredentials__NotBannable();
         if (banned[wallet][policyId]) revert ZKPassportCredentials__WalletBanned();
+        _ban(wallet, policyId);
+    }
+
+    /// @notice Ban several wallets as ban() does, skipping any wallet that is already banned.
+    /// @param wallets The wallets to ban.
+    /// @param policyId The policy the bans apply to; only the policy owner or one of its
+    ///        issuers may call.
+    function banBatch(address[] calldata wallets, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
+        if (!_policies[policyId].ownerBannable) revert ZKPassportCredentials__NotBannable();
+        for (uint256 i = 0; i < wallets.length; i++) {
+            if (!banned[wallets[i]][policyId]) {
+                _ban(wallets[i], policyId);
+            }
+        }
+    }
+
+    function _ban(address wallet, uint256 policyId) internal {
         banned[wallet][policyId] = true;
         emit WalletBanned(wallet, policyId);
 
@@ -456,14 +476,33 @@ contract ZKPassportCredentials is ERC1155 {
     /// @notice Lift a ban placed on a wallet for a given policy, restoring its ability to be
     ///         issued credentials (by proof, by the owner or by an issuer) under the policy.
     /// @param wallet The banned wallet.
-    /// @param policyId The policy the ban applies to; only its owner may call.
-    function unban(address wallet, uint256 policyId) external onlyPolicyOwner(policyId) {
+    /// @param policyId The policy the ban applies to; only the policy owner or one of its
+    ///        issuers may call.
+    function unban(address wallet, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
         if (!banned[wallet][policyId]) revert ZKPassportCredentials__NotBanned();
+        _unban(wallet, policyId);
+    }
+
+    /// @notice Lift the bans on several wallets as unban() does, skipping any wallet that is not
+    ///         banned.
+    /// @param wallets The wallets to unban.
+    /// @param policyId The policy the bans apply to; only the policy owner or one of its
+    ///        issuers may call.
+    function unbanBatch(address[] calldata wallets, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
+        for (uint256 i = 0; i < wallets.length; i++) {
+            if (banned[wallets[i]][policyId]) {
+                _unban(wallets[i], policyId);
+            }
+        }
+    }
+
+    function _unban(address wallet, uint256 policyId) internal {
         banned[wallet][policyId] = false;
         emit WalletUnbanned(wallet, policyId);
     }
 
-    /// @notice Emergency stop for issuance and policy creation; reads, renounce, and ban stay live.
+    /// @notice Emergency stop for issuance and policy creation; reads, renounce, ban and unban
+    ///         stay live.
     function pause() external onlyAdmin {
         paused = true;
         emit PausedStatusChanged(true);
