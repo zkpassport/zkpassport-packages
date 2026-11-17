@@ -1,10 +1,17 @@
 import { describe, expect, test } from "bun:test"
-import { decodeAbiParameters, getAbiItem } from "viem"
+import {
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  decodeAbiParameters,
+  encodeErrorResult,
+  getAbiItem,
+} from "viem"
 import { NullifierType } from "@zkpassport/utils"
 import { PolicyEvaluatorV2Abi } from "../src/abi/policy-evaluator-v2"
 import { sepolia } from "viem/chains"
 import {
   CredentialsClient,
+  ZKPassportCredentialsAbi,
   computePolicyId,
   createCredentialsContext,
   encodeCredentialPolicyRequirements,
@@ -119,6 +126,42 @@ describe("CredentialsClient reads", () => {
     expect(readCalls[0].address).toBe(REGISTRY)
     expect(readCalls[0].functionName).toBe("getPolicy")
     expect(readCalls[0].args).toEqual([POLICY_ID])
+  })
+
+  test("findPolicy returns the policy, or null when the contract has no policy with the id", async () => {
+    const policyNotFound = new ContractFunctionExecutionError(
+      new ContractFunctionRevertedError({
+        abi: ZKPassportCredentialsAbi,
+        data: encodeErrorResult({
+          abi: ZKPassportCredentialsAbi,
+          errorName: "ZKPassportCredentials__PolicyNotFound",
+          args: [POLICY_ID],
+        }),
+        functionName: "getPolicy",
+      }),
+      { abi: ZKPassportCredentialsAbi, args: [POLICY_ID], functionName: "getPolicy" },
+    )
+
+    const { client: existing } = stubClient(() => SAMPLE_POLICY)
+    const { client: missing } = stubClient(() => {
+      throw policyNotFound
+    })
+
+    expect(
+      await new CredentialsClient({ client: existing, address: REGISTRY }).findPolicy(POLICY_ID),
+    ).toEqual(SAMPLE_POLICY)
+    expect(
+      await new CredentialsClient({ client: missing, address: REGISTRY }).findPolicy(POLICY_ID),
+    ).toBeNull()
+  })
+
+  test("findPolicy rethrows failures other than a missing policy", async () => {
+    const { client } = stubClient(() => {
+      throw new Error("RPC unavailable")
+    })
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+
+    await expect(credentials.findPolicy(POLICY_ID)).rejects.toThrow("RPC unavailable")
   })
 
   test("getRequirements decodes through the policy's evaluator", async () => {
