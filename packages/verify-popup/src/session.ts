@@ -137,6 +137,42 @@ export function resumableKeyPair(session: Session, owner?: string): KeyPair | un
   return stored?.keyPair
 }
 
+export type ConfigureAttempt = {
+  // Browser-attested origin of the page that sent this configure
+  origin: string
+  session?: string
+  request: SessionConfiguration["request"]
+  query: SessionConfiguration["query"]
+  credential: SessionConfiguration["credential"]
+}
+
+export type ConfigureDecision =
+  | { accepted: false }
+  | { accepted: true; configuration: SessionConfiguration; handOver: HeldResult | null }
+
+/**
+ * What a configure message is allowed to do, given what is stored. A message for another session,
+ * or from an origin other than the one already bound, is refused; otherwise the sender's origin is
+ * bound (or the stored binding kept) and any held result is handed back to that same origin.
+ */
+export function decideConfigure(
+  session: Session,
+  stored: SessionState | null,
+  attempt: ConfigureAttempt,
+): ConfigureDecision {
+  if (attempt.session && attempt.session !== session.id) return { accepted: false }
+  if (stored?.configuration && stored.configuration.rpOrigin !== attempt.origin) {
+    return { accepted: false }
+  }
+  const configuration = stored?.configuration ?? {
+    request: attempt.request,
+    query: attempt.query,
+    credential: attempt.credential,
+    rpOrigin: attempt.origin,
+  }
+  return { accepted: true, configuration, handOver: stored?.result ?? null }
+}
+
 /** The result has been handed over, so none of this verification is worth keeping. */
 export function clearSession(session: Session): void {
   remove(session.id)

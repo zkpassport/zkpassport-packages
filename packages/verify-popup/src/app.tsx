@@ -11,6 +11,7 @@ import { LinkActions } from "./shared/link-actions"
 import { LinkVerification } from "./link"
 import {
   clearSession,
+  decideConfigure,
   finishSession,
   openSession,
   readSession,
@@ -56,22 +57,23 @@ export function App() {
     const onMessage = (event: MessageEvent) => {
       const data = event.data
       if (!isPopupMessage(data) || data.type !== "configure") return
-      if (data.session && data.session !== session.id) return
       const known = readSession(session)
-      // Once an origin has been attested for a verification, only that origin may drive it
-      if (known?.configuration && known.configuration.rpOrigin !== event.origin) return
-      if (event.source) replyTo.current = event.source as Window
-      const configuration = known?.configuration ?? {
+      // Only that origin may drive a verification once one has been attested for it, and a held
+      // result goes back only to it
+      const decision = decideConfigure(session, known, {
+        origin: event.origin,
+        session: data.session,
         request: data.request,
         query: data.query,
         credential: data.credential,
-        rpOrigin: event.origin,
-      }
-      if (!known?.configuration) updateSession(session, { configuration })
-      setConfig((current) => current ?? configuration)
+      })
+      if (!decision.accepted) return
+      if (event.source) replyTo.current = event.source as Window
+      if (!known?.configuration) updateSession(session, { configuration: decision.configuration })
+      setConfig((current) => current ?? decision.configuration)
       // A result produced while the asking page was gone is still waiting to be handed over
-      if (known?.result) {
-        post(known.result, configuration.rpOrigin)
+      if (decision.handOver) {
+        post(decision.handOver, decision.configuration.rpOrigin)
         clearSession(session)
       }
     }
