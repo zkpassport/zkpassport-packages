@@ -13,6 +13,7 @@ import {
   CredentialsClient,
   ZKPassportCredentialsAbi,
   computePolicyId,
+  credentialQueryFromRequirements,
   credentialRequirementsFromQuery,
   getCredentialsChains,
   createCredentialsContext,
@@ -823,6 +824,62 @@ describe("credentialRequirementsFromQuery", () => {
     expect(credentialRequirementsFromQuery({ nationality: { in: ["France"] } })).toEqual({
       unsupported: [{ field: "nationality", method: "in" }],
     })
+  })
+})
+
+describe("credentialQueryFromRequirements", () => {
+  test("writes each requirement as the SDK query check that asks for it", () => {
+    const query = credentialQueryFromRequirements({
+      minAge: 21,
+      includedNationalities: ["FRA", "DEU"],
+      excludedNationalities: ["PRK"],
+      sanctionsMode: "strict",
+      facematchMode: "regular",
+      allowedVerificationMethods: [1, 2],
+    })
+
+    expect(query).toEqual({
+      age: { gte: 21 },
+      nationality: { in: ["FRA", "DEU"], out: ["PRK"] },
+      sanctions: { countries: "all", lists: "all", strict: true },
+      facematch: { mode: "regular" },
+    })
+  })
+
+  test("leaves out the checks the requirements turn off", () => {
+    expect(
+      credentialQueryFromRequirements({
+        minAge: 0,
+        includedNationalities: [],
+        excludedNationalities: [],
+      }),
+    ).toEqual({})
+  })
+
+  test("round-trips through credentialRequirementsFromQuery", () => {
+    const cases: CredentialPolicyRequirements[] = [
+      { ...SAMPLE_REQUIREMENTS, allowedVerificationMethods: undefined },
+      {
+        minAge: 0,
+        includedNationalities: ["CAN", "GBR"],
+        excludedNationalities: [],
+        sanctionsMode: "strict",
+      },
+      {
+        minAge: 65,
+        includedNationalities: [],
+        excludedNationalities: [],
+        facematchMode: "regular",
+      },
+    ]
+    for (const requirements of cases) {
+      const { allowedVerificationMethods: _, ...expected } = requirements
+      expect(
+        credentialRequirementsFromQuery(credentialQueryFromRequirements(requirements)),
+      ).toEqual({
+        requirements: expected,
+      })
+    }
   })
 })
 

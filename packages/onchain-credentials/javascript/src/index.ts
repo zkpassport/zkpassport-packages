@@ -938,4 +938,8 @@ export async function submitCredentialsCall(
 
 export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi, PolicyEvaluatorV2Abi }
 export { getCredentialsChain, getCredentialsChains, getCredentialsAddress } from "./deployments"
-export { credentialRequirementsFromQuery, type UnsupportedQueryCheck } from "./query-requirements"
+export {
+  credentialQueryFromRequirements,
+  credentialRequirementsFromQuery,
+  type UnsupportedQueryCheck,
+} from "./query-requirements"
