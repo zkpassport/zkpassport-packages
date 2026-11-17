@@ -24,7 +24,7 @@ export function LinkVerification({ linkId, session }: { linkId: string; session:
     fetchLink(linkId).then(setLink, (error: Error) => setErrorMessage(error.message))
   }, [linkId])
 
-  if (errorMessage) return <Notice>{errorMessage}</Notice>
+  if (errorMessage) return <Notice title="This link can’t be used">{errorMessage}</Notice>
   if (!link) return <Notice>Loading…</Notice>
 
   const appName = link.request.name || link.domain
