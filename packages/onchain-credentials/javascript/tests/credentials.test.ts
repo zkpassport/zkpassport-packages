@@ -13,6 +13,8 @@ import {
   CredentialsClient,
   ZKPassportCredentialsAbi,
   computePolicyId,
+  credentialRequirementsFromQuery,
+  getCredentialsChains,
   createCredentialsContext,
   encodeCredentialPolicyRequirements,
   encodeIssueProofData,
@@ -624,5 +626,77 @@ describe("submitCredentialsCall", () => {
     await expect(
       submitCredentialsCall(ctx, credentials.buildUnbanCall(WALLET, POLICY_ID), wallet),
     ).rejects.toThrow("unban transaction reverted (tx 0xhash).")
+  })
+})
+
+describe("credentialRequirementsFromQuery", () => {
+  test("carries age, nationality, sanctions and FaceMatch checks over, nationalities sorted", () => {
+    const result = credentialRequirementsFromQuery({
+      age: { gte: 18 },
+      nationality: { out: ["SYR", "CUB", "PRK", "IRN"] },
+      sanctions: { countries: "all", lists: "all", strict: false },
+      facematch: { mode: "strict" },
+    })
+
+    expect(result).toEqual({
+      requirements: {
+        minAge: 18,
+        includedNationalities: [],
+        excludedNationalities: ["CUB", "IRN", "PRK", "SYR"],
+        sanctionsMode: "normal",
+        facematchMode: "strict",
+      },
+    })
+  })
+
+  test("reads a single included nationality and strict sanctions", () => {
+    const result = credentialRequirementsFromQuery({
+      nationality: { eq: "FRA" },
+      sanctions: { strict: true },
+    })
+
+    expect(result).toEqual({
+      requirements: {
+        minAge: 0,
+        includedNationalities: ["FRA"],
+        excludedNationalities: [],
+        sanctionsMode: "strict",
+      },
+    })
+  })
+
+  test("names every check a credential policy cannot carry", () => {
+    const result = credentialRequirementsFromQuery({
+      age: { gte: 18, lt: 65 },
+      nationality: { in: ["FRA"], disclose: true },
+      issuing_country: { in: ["GBR", "CAN"] },
+      firstname: { disclose: true },
+    })
+
+    expect(result).toEqual({
+      unsupported: [
+        { field: "age", method: "lt" },
+        { field: "nationality", method: "disclose" },
+        { field: "issuing_country", method: "in" },
+        { field: "firstname", method: "disclose" },
+      ],
+    })
+  })
+
+  test("rejects nationalities that are not ISO alpha-3 codes", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { in: ["France"] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "in" }],
+    })
+  })
+})
+
+describe("getCredentialsChains", () => {
+  test("lists the chains with a deployed credentials contract", () => {
+    expect(getCredentialsChains().sort()).toEqual([
+      "base",
+      "ethereum",
+      "ethereum_sepolia",
+      "robinhood",
+    ])
   })
 })
