@@ -24,6 +24,8 @@ type VerifyFlowProps = {
   query: PopupConfigureMessage["query"]
   // Hostname of the relying party page; the header falls back to it when no name is sent
   rpHost: string
+  // Attested origin that owns this verification; gates what the stored session may be used for
+  rpOrigin?: string
   session: Session
   send: SendEvent
 }
@@ -36,7 +38,7 @@ type Failure = { title?: string; message: string; keepsBridge?: boolean }
  * Settles which domain the request is made under before anything is sent to the bridge: the
  * attested host, or a claimed one the dashboard vouches for.
  */
-export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlowProps) {
+export function VerifyFlow({ request, query, rpHost, rpOrigin, session, send }: VerifyFlowProps) {
   const [resolution, setResolution] = useState<DomainResolution>(null)
   const [attempt, setAttempt] = useState(0)
   const appName = request.name || rpHost
@@ -83,6 +85,7 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
       query={query}
       appName={appName}
       logo={request.logo}
+      rpOrigin={rpOrigin}
       session={session}
       send={send}
     />
@@ -95,6 +98,7 @@ type VerifyRequestProps = {
   query: PopupConfigureMessage["query"]
   appName: string
   logo?: string
+  rpOrigin?: string
   session: Session
   send: SendEvent
   onRequestCreated?: (
@@ -109,6 +113,7 @@ export function VerifyRequest({
   query,
   appName,
   logo,
+  rpOrigin,
   session,
   send,
   onRequestCreated,
@@ -124,7 +129,7 @@ export function VerifyRequest({
   const failWith = (reason: Failure) => {
     setScan(null)
     // Without the bridge the phone cannot still be working, so forget how far it got
-    if (!reason.keepsBridge) updateSession(session, { stage: undefined })
+    if (!reason.keepsBridge) updateSession(session, { stage: undefined }, rpOrigin)
     setFailure(reason)
   }
 
@@ -135,13 +140,13 @@ export function VerifyRequest({
   const startAgain = () => {
     setFailure(null)
     setScan(null)
-    updateSession(session, { stage: undefined })
+    updateSession(session, { stage: undefined }, rpOrigin)
     req.retry()
   }
 
   // Started before consent, so the QR is ready the moment Continue is pressed
   const req = useRequest(
-    { domain, request, query, session },
+    { domain, request, query, session, rpOrigin },
     {
       onCreated: (created, info) => {
         Promise.resolve()
@@ -150,12 +155,12 @@ export function VerifyRequest({
       },
       onReceived: () => {
         setScan({ stage: "scanned" })
-        updateSession(session, { stage: "scanned" })
+        updateSession(session, { stage: "scanned" }, rpOrigin)
         send({ type: "request-received" })
       },
       onProving: () => {
         setScan({ stage: "proving", done: 0, total: null })
-        updateSession(session, { stage: "proving" })
+        updateSession(session, { stage: "proving" }, rpOrigin)
         send({ type: "generating" })
       },
       onProof: (proof) => {

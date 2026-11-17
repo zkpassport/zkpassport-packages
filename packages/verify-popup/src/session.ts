@@ -91,9 +91,21 @@ export function readSession(session: Session): SessionState | null {
     : rest
 }
 
-export function updateSession(session: Session, patch: Partial<SessionState>): void {
+/**
+ * Save progress on a verification. With `owner` set, the write is only applied while the stored
+ * record is still bound to that origin: a session the sweep removed, or one another origin has
+ * rebound, is no longer this page's to touch, so the write is dropped rather than resurrecting it.
+ * The first write, which establishes the binding, passes no `owner`.
+ */
+export function updateSession(
+  session: Session,
+  patch: Partial<SessionState>,
+  owner?: string,
+): void {
+  const stored = read(session.id)
+  if (owner !== undefined && stored?.configuration?.rpOrigin !== owner) return
   const { keyPair, ...rest } = patch
-  const next: StoredSession = { createdAt: Date.now(), ...read(session.id), ...rest }
+  const next: StoredSession = { createdAt: Date.now(), ...stored, ...rest }
   if (keyPair) {
     next.keyPair = {
       privateKey: bytesToHex(keyPair.privateKey),
@@ -103,10 +115,26 @@ export function updateSession(session: Session, patch: Partial<SessionState>): v
   write(session.id, next)
 }
 
-/** The bridge has done its job, so only the result is worth keeping until it is handed over. */
-export function finishSession(session: Session, result: HeldResult): void {
-  const { keyPair: _droppedKey, ...rest } = read(session.id) ?? { createdAt: Date.now() }
+/**
+ * The bridge has done its job, so only the result is worth keeping until it is handed over. With
+ * `owner` set, a result is kept only while the session is still bound to that origin, so a swept
+ * or rebound verification is dropped instead of leaving a result with no owner.
+ */
+export function finishSession(session: Session, result: HeldResult, owner?: string): void {
+  const stored = read(session.id)
+  if (owner !== undefined && stored?.configuration?.rpOrigin !== owner) return
+  const { keyPair: _droppedKey, ...rest } = stored ?? { createdAt: Date.now() }
   write(session.id, { ...rest, result })
+}
+
+/**
+ * The bridge key to resume this verification on, but only while it is still bound to `owner`. A
+ * session that was swept, or rebound to another origin, is not ours to rejoin, so none is returned.
+ */
+export function resumableKeyPair(session: Session, owner?: string): KeyPair | undefined {
+  const stored = readSession(session)
+  if (owner !== undefined && stored?.configuration?.rpOrigin !== owner) return undefined
+  return stored?.keyPair
 }
 
 /** The result has been handed over, so none of this verification is worth keeping. */
