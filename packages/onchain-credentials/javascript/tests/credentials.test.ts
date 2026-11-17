@@ -300,7 +300,7 @@ describe("CredentialsClient discovery", () => {
   })
 
   test("listIssuers replays additions and removals in log order", async () => {
-    const issuerLogs = issuerLogsClient({
+    const issuerLogs = eventLogsClient({
       IssuerAdded: [
         issuerLog(POLICY_ID, ISSUER, 10n, 0),
         issuerLog(POLICY_ID, WALLET, 12n, 1),
@@ -319,7 +319,7 @@ describe("CredentialsClient discovery", () => {
   })
 
   test("listPoliciesWithIssuer keeps the policies the address was not removed from", async () => {
-    const issuerLogs = issuerLogsClient({
+    const issuerLogs = eventLogsClient({
       IssuerAdded: [issuerLog(1n, ISSUER, 5n, 0), issuerLog(2n, ISSUER, 6n, 0)],
       IssuerRemoved: [issuerLog(1n, ISSUER, 7n, 0)],
     })
@@ -343,13 +343,60 @@ describe("CredentialsClient discovery", () => {
       "listPoliciesWithIssuer needs a starting block",
     )
   })
+
+  test("listBannedWallets replays bans and unbans in log order, with each ban's block", async () => {
+    const banLogs = eventLogsClient({
+      WalletBanned: [
+        banLog(POLICY_ID, WALLET, 10n, 0),
+        banLog(POLICY_ID, ISSUER, 12n, 1),
+        banLog(POLICY_ID, WALLET, 30n, 2),
+      ],
+      WalletUnbanned: [banLog(POLICY_ID, WALLET, 20n, 0), banLog(POLICY_ID, ISSUER, 12n, 5)],
+    })
+    const credentials = new CredentialsClient({
+      client: banLogs.client,
+      address: REGISTRY,
+      deployBlock: 1n,
+    })
+
+    expect(await credentials.listBannedWallets(POLICY_ID)).toEqual([
+      { wallet: WALLET, bannedAtBlock: 30n },
+    ])
+    expect(banLogs.filters).toEqual([{ policyId: POLICY_ID }, { policyId: POLICY_ID }])
+  })
+
+  test("listBannedWallets matches a wallet's ban and unban across address casing", async () => {
+    const banLogs = eventLogsClient({
+      WalletBanned: [banLog(POLICY_ID, "0xAbCdEf0000000000000000000000000000000001", 10n, 0)],
+      WalletUnbanned: [banLog(POLICY_ID, "0xabcdef0000000000000000000000000000000001", 11n, 0)],
+    })
+    const credentials = new CredentialsClient({
+      client: banLogs.client,
+      address: REGISTRY,
+      deployBlock: 1n,
+    })
+
+    expect(await credentials.listBannedWallets(POLICY_ID)).toEqual([])
+  })
+
+  test("listBannedWallets throws without fromBlock or deployBlock", async () => {
+    const { client } = stubClient(() => null)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    await expect(credentials.listBannedWallets(POLICY_ID)).rejects.toThrow(
+      "listBannedWallets needs a starting block",
+    )
+  })
 })
 
 function issuerLog(policyId: bigint, issuer: `0x${string}`, blockNumber: bigint, logIndex: number) {
   return { args: { policyId, issuer }, blockNumber, logIndex }
 }
 
-function issuerLogsClient(logsByEvent: Record<string, ReturnType<typeof issuerLog>[]>) {
+function banLog(policyId: bigint, wallet: `0x${string}`, blockNumber: bigint, logIndex: number) {
+  return { args: { policyId, wallet }, blockNumber, logIndex }
+}
+
+function eventLogsClient(logsByEvent: Record<string, readonly object[]>) {
   const filters: unknown[] = []
   const client = {
     readContract: async () => null,

@@ -36,7 +36,7 @@ const held = await credentials.hasCredential(wallet, policyId)
 const expiresAt = await credentials.heldUntil(wallet, policyId)
 ```
 
-### Listing policies and issuers
+### Listing policies, issuers and bans
 
 These read the contract's logs, from its deploy block to the current block:
 
@@ -44,6 +44,7 @@ These read the contract's logs, from its deploy block to the current block:
 const owned = await credentials.listPolicies({ owner })
 const issuers = await credentials.listIssuers(policyId)
 const issuing = await credentials.listPoliciesWithIssuer(issuer)
+const bans = await credentials.listBannedWallets(policyId)
 ```
 
 ### Minting a credential

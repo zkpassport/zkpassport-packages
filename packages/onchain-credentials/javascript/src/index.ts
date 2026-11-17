@@ -178,9 +178,17 @@ export type CredentialPolicySummary = {
   owner: `0x${string}`
 }
 
+export type BannedWallet = {
+  wallet: `0x${string}`
+  /** The block the ban in force landed in. */
+  bannedAtBlock: bigint
+}
+
 const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "PolicyCreated" })
 const ISSUER_ADDED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "IssuerAdded" })
 const ISSUER_REMOVED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "IssuerRemoved" })
+const WALLET_BANNED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "WalletBanned" })
+const WALLET_UNBANNED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "WalletUnbanned" })
 
 /** The blocks a log scan covers, and the most blocks one getLogs call may span. */
 type LogScanRange = {
@@ -189,10 +197,17 @@ type LogScanRange = {
   blockRange?: bigint
 }
 
-type IssuerLog = {
-  args: { policyId: bigint; issuer: `0x${string}` }
+type OrderedLog = {
   blockNumber: bigint
   logIndex: number
+}
+
+type IssuerLog = OrderedLog & {
+  args: { policyId: bigint; issuer: `0x${string}` }
+}
+
+type BanLog = OrderedLog & {
+  args: { policyId: bigint; wallet: `0x${string}` }
 }
 
 // The tuple layout issue()'s proofData bytes.
@@ -438,6 +453,23 @@ export class CredentialsClient {
     return issuerships.map((issuership) => issuership.policyId)
   }
 
+  /**
+   * List the wallets currently banned from a policy, with the block each ban landed in. Scans the
+   * same blocks as `listPolicies`.
+   */
+  async listBannedWallets(policyId: bigint, range: LogScanRange = {}): Promise<BannedWallet[]> {
+    const scan = await this.resolveLogScan("listBannedWallets", range)
+    const [bans, unbans] = await Promise.all([
+      this.getLogsInChunks(WALLET_BANNED_EVENT, { policyId }, scan),
+      this.getLogsInChunks(WALLET_UNBANNED_EVENT, { policyId }, scan),
+    ])
+
+    const current = this.replayLogs(bans as BanLog[], unbans as BanLog[], (log) =>
+      log.args.wallet.toLowerCase(),
+    )
+    return current.map((log) => ({ wallet: log.args.wallet, bannedAtBlock: log.blockNumber }))
+  }
+
   private async resolveLogScan(method: string, range: LogScanRange) {
     const fromBlock = range.fromBlock ?? this.deployBlock
     if (fromBlock === undefined) {
@@ -485,9 +517,26 @@ export class CredentialsClient {
       this.getLogsInChunks(ISSUER_REMOVED_EVENT, args, scan),
     ])
 
+    const current = this.replayLogs(
+      added as IssuerLog[],
+      removed as IssuerLog[],
+      (log) => `${log.args.policyId}:${log.args.issuer.toLowerCase()}`,
+    )
+    return current.map((log) => ({ policyId: log.args.policyId, issuer: log.args.issuer }))
+  }
+
+  /**
+   * Replay additions and removals in chain order, and return the addition still in force for
+   * each key.
+   */
+  private replayLogs<T extends OrderedLog>(
+    added: T[],
+    removed: T[],
+    keyOf: (log: T) => string,
+  ): T[] {
     const changes = [
-      ...(added as IssuerLog[]).map((log) => ({ log, isIssuer: true })),
-      ...(removed as IssuerLog[]).map((log) => ({ log, isIssuer: false })),
+      ...added.map((log) => ({ log, isAdded: true })),
+      ...removed.map((log) => ({ log, isAdded: false })),
     ].sort((a, b) =>
       a.log.blockNumber === b.log.blockNumber
         ? a.log.logIndex - b.log.logIndex
@@ -496,13 +545,12 @@ export class CredentialsClient {
           : 1,
     )
 
-    const current = new Map<string, IssuerLog["args"]>()
-    for (const { log, isIssuer } of changes) {
-      const key = `${log.args.policyId}:${log.args.issuer.toLowerCase()}`
-      if (isIssuer) {
-        current.set(key, { policyId: log.args.policyId, issuer: log.args.issuer })
+    const current = new Map<string, T>()
+    for (const { log, isAdded } of changes) {
+      if (isAdded) {
+        current.set(keyOf(log), log)
       } else {
-        current.delete(key)
+        current.delete(keyOf(log))
       }
     }
     return [...current.values()]
