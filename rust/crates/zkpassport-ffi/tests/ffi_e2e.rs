@@ -151,7 +151,7 @@ fn ffi_request_without_identifier_hides_the_nullifier() {
         },
         "query": { "age": { "gte": 18 } },
         "service_scope": "", "service_subscope": "",
-        "hide_nullifier": true,
+        "unique_identifier_type": 4,
         "current_date_timestamp": age_case["current_date"],
         "salts": {
             "dsc": dsc_case["salt"], "id_in": id_case["salt_in"], "id_out": id_case["salt_out"],
