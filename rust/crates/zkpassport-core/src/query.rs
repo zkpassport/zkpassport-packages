@@ -124,7 +124,7 @@ pub fn build_disclosures(
             "discloseMask": mask,
         });
         out.push(DisclosureResult { name: format!("disclose_bytes{sfx}"), inputs, committed_inputs: committed,
-            disclosed: Some(crate::disclosure::disclosed_values(&disclosed_bytes(dg1_padded, &mask))) });
+            disclosed: Some(crate::disclosure::disclosed_values(&disclosed_bytes(dg1_padded, &mask), input.mrz)) });
     }
 
     // Age
@@ -199,7 +199,7 @@ pub fn build_disclosures(
             "disclosedBytes": disclosed_bytes(dg1_padded, &mask), "discloseMask": mask,
         });
         out.push(DisclosureResult { name: format!("disclose_bytes{sfx}"), inputs, committed_inputs: committed,
-            disclosed: Some(crate::disclosure::disclosed_values(&disclosed_bytes(dg1_padded, &mask))) });
+            disclosed: Some(crate::disclosure::disclosed_values(&disclosed_bytes(dg1_padded, &mask), input.mrz)) });
     }
 
     Ok(out)
@@ -409,5 +409,65 @@ mod query_result_tests {
 
         assert_eq!(result["birthdate"]["disclose"]["result"], "1990-01-01T00:00:00.000Z");
         assert_eq!(result["expiry_date"]["disclose"]["result"], "2035-01-01T00:00:00.000Z");
+    }
+
+    /// Disclose `fields` from `mrz` and return the values the SDK's checker compares, with
+    /// the dates in the SDK's ISO form.
+    fn disclose(mrz: &str, fields: DiscloseFields) -> Value {
+        let mut dg1 = vec![0u8; 5];
+        dg1.extend_from_slice(mrz.as_bytes());
+        dg1.resize(95, 0);
+        let mask = disclose_mask(mrz, &fields);
+        let mut v = disclosed_values(&disclosed_bytes(&dg1, &mask), mrz);
+        for date in ["birthdate", "expiry_date"] {
+            let iso = mrz_date_iso(v[date].as_str().unwrap(), 1_760_000_000);
+            v[date] = iso.map_or(Value::Null, Value::from);
+        }
+        v
+    }
+
+    fn all_fields() -> DiscloseFields {
+        DiscloseFields {
+            firstname: true, lastname: true, fullname: true, birthdate: true, document_number: true,
+            nationality: true, document_type: true, expiry_date: true, gender: true, issuing_country: true,
+        }
+    }
+
+    // Expected values come from `DisclosedData.fromDisclosedBytes` in @zkpassport/utils 0.41.1,
+    // run on the same MRZ and mask.
+    #[test]
+    fn id_card_values_match_the_sdk() {
+        let icao_specimen = "I<UTOD231458907<<<<<<<<<<<<<<<7408122F1204159UTO<<<<<<<<<<<6ERIKSSON<<ANNA<MARIA<<<<<<<<<<";
+        let few = DiscloseFields { firstname: true, lastname: true, birthdate: true, ..Default::default() };
+        let v = disclose(icao_specimen, few);
+        assert_eq!(v["firstname"], "ANNA");
+        assert_eq!(v["lastname"], "ERIKSSON");
+        assert_eq!(v["fullname"], "ANNA ERIKSSON");
+        assert_eq!(v["birthdate"], "1974-08-12T00:00:00.000Z");
+
+        let german = "IDD<<T220001293<<<<<<<<<<<<<<<6408125<2010315D<<<<<<<<<<<<<4MUSTERMANN<<ERIKA<<<<<<<<<<<<<";
+        assert_eq!(
+            disclose(german, all_fields()),
+            json!({
+                "firstname": "ERIKA", "lastname": "MUSTERMANN", "fullname": "ERIKA MUSTERMANN",
+                "nationality": "DEU", "issuing_country": "DEU", "document_number": "T22000129",
+                "document_type": "id_card", "gender": "<",
+                "birthdate": "1964-08-12T00:00:00.000Z", "expiry_date": "2020-10-31T00:00:00.000Z",
+            })
+        );
+    }
+
+    #[test]
+    fn passport_values_match_the_sdk() {
+        let icao_specimen = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<L898902C36UTO7408122F1204159ZE184226B<<<<<10";
+        assert_eq!(
+            disclose(icao_specimen, all_fields()),
+            json!({
+                "firstname": "ANNA", "lastname": "ERIKSSON", "fullname": "ANNA MARIA ERIKSSON",
+                "nationality": "UTO", "issuing_country": "UTO", "document_number": "L898902C3",
+                "document_type": "passport", "gender": "F",
+                "birthdate": "1974-08-12T00:00:00.000Z", "expiry_date": "2012-04-15T00:00:00.000Z",
+            })
+        );
     }
 }
