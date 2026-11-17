@@ -1,4 +1,9 @@
-import { APP_STORE_URL, detectMobileOs, playStoreUrlWithReferrer } from "@zkpassport/ui/app-link"
+import {
+  APP_STORE_URL,
+  copyRequestForInstall,
+  detectMobileOs,
+  playStoreUrlWithReferrer,
+} from "@zkpassport/ui/app-link"
 
 /** Store links for the ZKPassport app, narrowed to the platform the visitor is on. */
 export function StoreBadges({ requestUrl }: { requestUrl: string | null }) {
@@ -7,7 +12,13 @@ export function StoreBadges({ requestUrl }: { requestUrl: string | null }) {
   return (
     <div className="store-badges">
       {os !== "android" ? (
-        <a className="store-badge" href={APP_STORE_URL} target="_blank" rel="noreferrer">
+        <a
+          className="store-badge"
+          href={APP_STORE_URL}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => copyRequestForInstall(requestUrl)}
+        >
           <img src="/app-store-badge.svg" alt="Download on the App Store" width={144} height={48} />
         </a>
       ) : null}
