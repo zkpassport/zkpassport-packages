@@ -1,0 +1,9 @@
+[package]
+name = "zkpassport_verifier_test_contract"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr", tag = "v6.0.0", directory = "aztec" }
+zkpassport = { path = "../core" }
+zkpassport_aztec_verifier = { path = "../verifier" }
+zkpassport_registry_contract = { path = "../registry_contract" }

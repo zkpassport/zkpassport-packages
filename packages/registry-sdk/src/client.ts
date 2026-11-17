@@ -3,11 +3,13 @@ import { Binary, getIdFromChain } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
+  ATTESTATION_REVOCATION_REGISTRY_ID,
   calculateCircuitRoot,
   calculatePackagedCertificatesRoot,
   CERTIFICATE_REGISTRY_ID,
   CIRCUIT_REGISTRY_ID,
   hexToCidv0,
+  isCscaCertificate,
   SANCTIONS_REGISTRY_ID,
 } from "@zkpassport/utils/registry"
 import type {
@@ -581,6 +583,37 @@ export class RegistryClient {
   }
 
   /**
+   * Get latest Android attestation revocation registry root
+   */
+  async getLatestAttestationRevocationRoot(): Promise<string> {
+    return this.getLatestRoot(ATTESTATION_REVOCATION_REGISTRY_ID, "attestation revocation")
+  }
+
+  /**
+   * Check if an Android attestation revocation root is valid
+   *
+   * @param root The root hash to check
+   * @param timestamp Optional timestamp to check validity for (defaults to current time)
+   * @returns True if the root is valid, false otherwise
+   */
+  async isAttestationRevocationRootValid(root: string, timestamp?: number): Promise<boolean> {
+    return this.isRootValid(
+      ATTESTATION_REVOCATION_REGISTRY_ID,
+      "attestation revocation",
+      root,
+      timestamp,
+    )
+  }
+
+  /**
+   * Get Android attestation revocation root details
+   * @param root Optional root to get details for (defaults to latest)
+   */
+  async getAttestationRevocationRootDetails(root?: string): Promise<RootDetails> {
+    return this.getRootDetails(ATTESTATION_REVOCATION_REGISTRY_ID, "attestation revocation", root)
+  }
+
+  /**
    * Get registry address for a specific registryId
    * @param registryId The registry ID to look up (number or hex string)
    * @returns The registry address as a hex string
@@ -643,7 +676,7 @@ export class RegistryClient {
       const certificates = await this.getCertificates()
 
       const hasValidCertificate = certificates.certificates
-        .filter((c) => c.country === country)
+        .filter((c) => isCscaCertificate(c) && c.country === country)
         .some((c) => {
           // Check if the issue date is after the validity start date of
           // one of the certificates of the issuing country

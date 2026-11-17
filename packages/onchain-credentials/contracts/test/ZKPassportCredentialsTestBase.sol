@@ -4,13 +4,13 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {NullifierType, ProofVerificationParams, ProofVerificationData, ServiceConfig} from "@registry/lib/Types.sol";
 import {ZKPassportCredentials} from "../src/ZKPassportCredentials.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 import {IRootVerifier} from "@registry/IRootVerifier.sol";
 import {MockRootVerifier, MockVerifierHelper} from "./mocks/MockVerifier.sol";
 
 contract ZKPassportCredentialsTestBase is Test {
     ZKPassportCredentials internal zkPassportCredentials;
-    PolicyEvaluatorV1 internal evaluator;
+    PolicyEvaluatorV2 internal evaluator;
     MockVerifierHelper internal mockHelper;
     MockRootVerifier internal mockVerifier;
     address internal admin = makeAddr("admin");
@@ -24,14 +24,14 @@ contract ZKPassportCredentialsTestBase is Test {
     ///      exercisable; the non-dev polarity is covered by the dedicated devMode tests.
     ///      Uniqueness policies on it require SALTED nullifiers, the type _rawParams carries.
     function _deployZKPassportCredentials(IRootVerifier verifier) internal {
-        evaluator = new PolicyEvaluatorV1(verifier, true, NullifierType.SALTED_NULLIFIER);
+        evaluator = new PolicyEvaluatorV2(verifier, true, NullifierType.SALTED_NULLIFIER);
         zkPassportCredentials = new ZKPassportCredentials(DOMAIN, admin, evaluator);
     }
 
     /// @dev Point future policies at a dev-mode evaluator on the same root verifier whose
     ///      uniqueness policies require `uniqueIdentifierType`.
-    function _swapEvaluator(NullifierType uniqueIdentifierType) internal returns (PolicyEvaluatorV1 swapped) {
-        swapped = new PolicyEvaluatorV1(evaluator.rootVerifier(), true, uniqueIdentifierType);
+    function _swapEvaluator(NullifierType uniqueIdentifierType) internal returns (PolicyEvaluatorV2 swapped) {
+        swapped = new PolicyEvaluatorV2(evaluator.rootVerifier(), true, uniqueIdentifierType);
         vm.prank(admin);
         zkPassportCredentials.setPolicyEvaluator(swapped);
     }
@@ -44,17 +44,17 @@ contract ZKPassportCredentialsTestBase is Test {
         mockHelper.setProofTimestamp(block.timestamp);
     }
 
-    function _emptyRequirements() internal view returns (PolicyEvaluatorV1.PolicyRequirements memory r) {
+    function _emptyRequirements() internal view returns (PolicyEvaluatorV2.PolicyRequirements memory r) {
         r.includedNationalities = noCountries;
         r.excludedNationalities = noCountries;
     }
 
     function _requirements(
         uint8 minAge,
-        PolicyEvaluatorV1.SanctionsMode sanctionsMode,
+        PolicyEvaluatorV2.SanctionsMode sanctionsMode,
         string[] memory excludedNationalities
     ) internal view returns (bytes memory) {
-        PolicyEvaluatorV1.PolicyRequirements memory r = _emptyRequirements();
+        PolicyEvaluatorV2.PolicyRequirements memory r = _emptyRequirements();
         r.minAge = minAge;
         r.sanctionsMode = sanctionsMode;
         r.excludedNationalities = excludedNationalities;
@@ -65,7 +65,7 @@ contract ZKPassportCredentialsTestBase is Test {
         vm.prank(creator);
         return zkPassportCredentials.createPolicy(
             bytes32(uint256(1)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             30 days,
             "https://policy.example/1",
             false,
@@ -75,11 +75,18 @@ contract ZKPassportCredentialsTestBase is Test {
         );
     }
 
+    function _trailingInputs(NullifierType nullifierType) internal pure returns (bytes32[] memory inputs) {
+        inputs = new bytes32[](4);
+        inputs[0] = bytes32(uint256(nullifierType));
+        inputs[1] = bytes32(uint256(0xA11CE));
+        inputs[3] = bytes32(uint256(100));
+    }
+
     function _rawParams() internal pure returns (ProofVerificationParams memory) {
-        // The evaluator reads the nullifier type from publicInputs[length - 3], as in
-        // real outer proofs; the default is the everywhere-acceptable SALTED.
-        bytes32[] memory publicInputs = new bytes32[](3);
-        publicInputs[0] = bytes32(uint256(NullifierType.SALTED_NULLIFIER));
+        // The trailing public inputs of a real outer proof from circuit version 0.23.0: nullifier
+        // type, nullifier, OPRF key hash, verification method (ICAO chip). The evaluator reads the
+        // nullifier type at publicInputs[length - 4]; the default is the everywhere-acceptable SALTED.
+        bytes32[] memory publicInputs = _trailingInputs(NullifierType.SALTED_NULLIFIER);
         return ProofVerificationParams({
             version: bytes32(uint256(1)),
             proofVerificationData: ProofVerificationData({vkeyHash: bytes32(0), proof: "", publicInputs: publicInputs}),
@@ -90,7 +97,7 @@ contract ZKPassportCredentialsTestBase is Test {
         });
     }
 
-    // issue() takes evaluator-schema-encoded bytes; for PolicyEvaluatorV1 that is
+    // issue() takes evaluator-schema-encoded bytes; for PolicyEvaluatorV2 that is
     // abi.encode(ProofVerificationParams).
     function _params() internal pure returns (bytes memory) {
         return abi.encode(_rawParams());
@@ -98,8 +105,7 @@ contract ZKPassportCredentialsTestBase is Test {
 
     function _paramsWithNullifierType(NullifierType nullifierType) internal pure returns (bytes memory) {
         ProofVerificationParams memory params = _rawParams();
-        params.proofVerificationData.publicInputs = new bytes32[](3);
-        params.proofVerificationData.publicInputs[0] = bytes32(uint256(nullifierType));
+        params.proofVerificationData.publicInputs = _trailingInputs(nullifierType);
         return abi.encode(params);
     }
 

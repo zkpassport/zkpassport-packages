@@ -1,2 +1,2 @@
 [workspace]
-members = ["registry_contract", "core", "verifier"]
+members = ["registry_contract", "core", "verifier", "verifier_test_contract"]

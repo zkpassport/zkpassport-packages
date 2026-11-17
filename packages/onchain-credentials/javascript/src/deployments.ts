@@ -1,5 +1,5 @@
 import type { Chain } from "viem"
-import { anvil, mainnet, sepolia } from "viem/chains"
+import { anvil, base, mainnet, robinhood, sepolia } from "viem/chains"
 import type { SupportedChain } from "@zkpassport/utils"
 
 /**
@@ -9,8 +9,10 @@ import type { SupportedChain } from "@zkpassport/utils"
 const CREDENTIALS_DEPLOYMENTS: Partial<
   Record<SupportedChain, { chain: Chain; address?: `0x${string}` }>
 > = {
-  ethereum: { chain: mainnet, address: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C" },
-  ethereum_sepolia: { chain: sepolia, address: "0x000C558ea450790ad88f4f15A302B8F2C9b60d6C" },
+  ethereum: { chain: mainnet, address: "0x000C8Dbf0F3855D66f346bD969e659D93f744E4b" },
+  base: { chain: base, address: "0x000C8Dbf0F3855D66f346bD969e659D93f744E4b" },
+  robinhood: { chain: robinhood, address: "0x000C8Dbf0F3855D66f346bD969e659D93f744E4b" },
+  ethereum_sepolia: { chain: sepolia, address: "0x000C8Dbf0F3855D66f346bD969e659D93f744E4b" },
   local: { chain: anvil },
 }
 

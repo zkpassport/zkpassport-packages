@@ -5,6 +5,7 @@ import type { FacematchMode, NullifierType } from "@zkpassport/utils"
 import { getCredentialsAddress } from "./deployments"
 import { ZKPassportCredentialsAbi } from "./abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./abi/policy-evaluator-v1"
+import { PolicyEvaluatorV2Abi } from "./abi/policy-evaluator-v2"
 
 /** Structural slice of viem's PublicClient. */
 export type CredentialsReadClient = Pick<
@@ -28,15 +29,21 @@ export type CredentialPolicy = {
    * after creation.
    */
   enforceUniqueness: boolean
-  /** When true, the policy owner may issue credentials directly via ownerIssue(), without a proof. */
+  /**
+   * When true, the policy owner and its issuers may issue credentials directly via ownerIssue()
+   * and ownerIssueBatch(), without a proof.
+   */
   ownerIssuable: boolean
   /**
-   * When true, the policy owner may ban a wallet via ban(), which also removes any standing
-   * credential and blocks issuance and renewal until the owner unbans it. Holders may always
-   * renounce their own credential.
+   * When true, the policy owner and its issuers may ban wallets via ban() and banBatch(), which
+   * also remove any standing credential and block issuance and renewal until unbanned. Holders
+   * may always renounce their own credential.
    */
   ownerBannable: boolean
-  /** When true, the policy owner may replace the policy's requirements via setRequirements(). */
+  /**
+   * When true, the policy owner may replace the policy's requirements, evaluator and credential
+   * duration via setRequirements(), migrateEvaluator() and setCredentialDuration().
+   */
   ownerEditable: boolean
   /**
    * Address of the contract that defines and decodes the policy's requirements schema, and that
@@ -92,6 +99,12 @@ export type CredentialPolicyRequirements = {
    * list disables that check.
    */
   excludedNationalities: readonly string[]
+  /**
+   * The verification methods the policy accepts: exact schemes such as 201 and/or whole tiers, an
+   * entry below 100 (1 = every issuer-signed scheme, 2 = every device-attested camera read).
+   * `[1, 201]` accepts tier 1 and Android camera reads. Empty or undefined means tier 1 only.
+   */
+  allowedVerificationMethods?: readonly number[]
 }
 
 const SANCTIONS_MODES: Record<number, "normal" | "strict" | undefined> = {
@@ -112,7 +125,7 @@ const FACEMATCH_MODE_VALUES: Record<FacematchMode, number> = { regular: 1, stric
 
 // The tuple layout for createPolicy()'s and setRequirements()'s requirement bytes.
 const REQUIREMENTS_ABI = getAbiItem({
-  abi: PolicyEvaluatorV1Abi,
+  abi: PolicyEvaluatorV2Abi,
   name: "decodeRequirements",
 }).outputs
 
@@ -134,6 +147,9 @@ export function encodeCredentialPolicyRequirements(
         : FACEMATCH_MODE_VALUES[requirements.facematchMode],
     includedNationalities: requirements.includedNationalities,
     excludedNationalities: requirements.excludedNationalities,
+    allowedVerificationMethods: (requirements.allowedVerificationMethods ?? []).map((x) =>
+      BigInt(x),
+    ),
   }
   return encodeAbiParameters(REQUIREMENTS_ABI, [value] as never)
 }
@@ -157,10 +173,10 @@ export type CredentialPolicySummary = {
 const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "PolicyCreated" })
 
 // The tuple layout issue()'s proofData bytes.
-const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV1Abi, name: "decodeProofData" }).outputs
+const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV2Abi, name: "decodeProofData" }).outputs
 
 /**
- * The verified proof as PolicyEvaluatorV1's `ProofVerificationParams` struct, which is what
+ * The verified proof as PolicyEvaluatorV2's `ProofVerificationParams` struct, which is what
  * `issue()` decodes out of its `proofData` argument. `ZKPassport.getSolidityVerifierParameters()`
  * returns this shape; deriving the params is the SDK's job, encoding them is this package's.
  */
@@ -182,7 +198,7 @@ export type IssueProofVerificationParams = {
 
 /**
  * Encode the `proofData` argument for `issue()`: the proof verification params encoded per
- * PolicyEvaluatorV1's schema-1 layout. Policies pinned to another evaluator schema need that
+ * PolicyEvaluatorV2's schema-2 layout. Policies pinned to another evaluator schema need that
  * schema's encoding instead; `getRequirements` rejects such policies before a proof request
  * is ever built.
  *
@@ -233,22 +249,26 @@ export class CredentialsClient {
     const evaluatorRead = (functionName: string, args: readonly unknown[]) =>
       this.client.readContract({
         address: policy.evaluator,
-        abi: PolicyEvaluatorV1Abi,
+        abi: PolicyEvaluatorV2Abi,
         functionName,
         args,
       } as never)
 
     const schemaVersion = (await evaluatorRead("schemaVersion", [])) as bigint
-    if (schemaVersion !== 1n) {
+    if (schemaVersion !== 2n) {
       throw new Error(
-        `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema 1.`,
+        `Unsupported policy evaluator schema ${schemaVersion} at ${policy.evaluator}; this SDK decodes schema 2.`,
       )
     }
 
     const decoded = (await evaluatorRead("decodeRequirements", [policy.requirements])) as Omit<
       CredentialPolicyRequirements,
-      "sanctionsMode" | "facematchMode"
-    > & { sanctionsMode: number; faceMatchMode: number }
+      "sanctionsMode" | "facematchMode" | "allowedVerificationMethods"
+    > & {
+      sanctionsMode: number
+      faceMatchMode: number
+      allowedVerificationMethods: readonly bigint[]
+    }
 
     return {
       minAge: decoded.minAge,
@@ -256,6 +276,7 @@ export class CredentialsClient {
       facematchMode: FACEMATCH_MODES[decoded.faceMatchMode],
       includedNationalities: decoded.includedNationalities,
       excludedNationalities: decoded.excludedNationalities,
+      allowedVerificationMethods: decoded.allowedVerificationMethods.map(Number),
     }
   }
 
@@ -267,7 +288,7 @@ export class CredentialsClient {
   async getDevMode(policy: CredentialPolicy): Promise<boolean> {
     return (await this.client.readContract({
       address: policy.evaluator,
-      abi: PolicyEvaluatorV1Abi,
+      abi: PolicyEvaluatorV2Abi,
       functionName: "devMode",
     } as never)) as boolean
   }
@@ -280,7 +301,7 @@ export class CredentialsClient {
   async getUniqueIdentifierType(policy: CredentialPolicy): Promise<NullifierType> {
     return (await this.client.readContract({
       address: policy.evaluator,
-      abi: PolicyEvaluatorV1Abi,
+      abi: PolicyEvaluatorV2Abi,
       functionName: "uniqueIdentifierType",
     } as never)) as NullifierType
   }
@@ -314,11 +335,20 @@ export class CredentialsClient {
   }
 
   /**
-   * True while the wallet is banned from the policy by its owner; issue() and ownerIssue()
-   * revert for banned wallets until the owner unbans.
+   * True while the wallet is banned from the policy by its owner or an issuer; issue() and
+   * ownerIssue() revert for banned wallets until unbanned.
    */
   async banned(wallet: `0x${string}`, policyId: bigint): Promise<boolean> {
     return (await this.read("banned", [wallet, policyId])) as boolean
+  }
+
+  /**
+   * True while the account is an issuer of the policy: added by its owner via addIssuer() and not
+   * removed since. Issuers may issue credentials without a proof, and ban and unban wallets, as
+   * the owner can.
+   */
+  async isIssuer(issuer: `0x${string}`, policyId: bigint): Promise<boolean> {
+    return (await this.read("isIssuer", [issuer, policyId])) as boolean
   }
 
   /**
@@ -397,8 +427,8 @@ export class CredentialsClient {
    *   registries, which contain the mock certificates. On mainnet deployments they fail the
    *   certificate root check.
    * - The proof must be at most 1 day old at inclusion time.
-   * - The recipient wallet must not be banned. A ban blocks issuance until the policy owner
-   *   unbans. Only relevant for `ownerBannable` policies.
+   * - The recipient wallet must not be banned. A ban blocks issuance until the policy owner or
+   *   an issuer unbans the wallet. Only relevant for `ownerBannable` policies.
    * - The policy must exist, not be retired, and the contract not paused.
    */
   buildIssueCall(options: {
@@ -432,11 +462,17 @@ export class CredentialsClient {
      * evaluator's `uniqueIdentifierType` is `NONE`.
      */
     enforceUniqueness: boolean
-    /** Allow proofless issuance via ownerIssue(). */
+    /** Allow proofless issuance by the owner and its issuers via ownerIssue() and ownerIssueBatch(). */
     ownerIssuable?: boolean
-    /** Allow the owner to ban wallets (removing any standing credential) via ban(). */
+    /**
+     * Allow the owner and its issuers to ban wallets (removing any standing credential) via ban()
+     * and banBatch().
+     */
     ownerBannable?: boolean
-    /** Allow the owner to replace requirements via setRequirements(). */
+    /**
+     * Allow the owner to replace requirements, evaluator and credential duration via
+     * setRequirements(), migrateEvaluator() and setCredentialDuration().
+     */
     ownerEditable?: boolean
   }): CredentialsCall<
     "createPolicy",
@@ -471,6 +507,33 @@ export class CredentialsClient {
     ] as const)
   }
 
+  /**
+   * Assemble the migrateEvaluator() call, moving a policy to the current policy evaluator with
+   * new requirements, which that evaluator validates on-chain. Owner-only, and only for
+   * `ownerEditable` policies. Already-issued credentials and nullifier bindings are untouched.
+   */
+  buildMigrateEvaluatorCall(
+    policyId: bigint,
+    requirements: CredentialPolicyRequirements,
+  ): CredentialsCall<"migrateEvaluator", readonly [bigint, `0x${string}`]> {
+    return this.call("migrateEvaluator", [
+      policyId,
+      encodeCredentialPolicyRequirements(requirements),
+    ] as const)
+  }
+
+  /**
+   * Assemble the setCredentialDuration() call, changing how long credentials stay valid from
+   * their next issuance or renewal on. Owner-only, and only for `ownerEditable` policies;
+   * already-issued credentials keep their expiry.
+   */
+  buildSetCredentialDurationCall(
+    policyId: bigint,
+    credentialDuration: bigint,
+  ): CredentialsCall<"setCredentialDuration", readonly [bigint, bigint]> {
+    return this.call("setCredentialDuration", [policyId, credentialDuration] as const)
+  }
+
   /** Assemble the setMetadataURL() call, updating a policy's display metadata URL. Owner-only. */
   buildSetMetadataURLCall(
     policyId: bigint,
@@ -489,8 +552,8 @@ export class CredentialsClient {
 
   /**
    * Assemble the ownerIssue() call, issuing (or extending) a credential without a proof.
-   * Owner-only, and only for `ownerIssuable` policies; reverts for banned wallets and retired
-   * policies. Owner issuance never touches nullifier bindings, so on `enforceUniqueness`
+   * Owner or issuer only, and only for `ownerIssuable` policies; reverts for banned wallets and
+   * retired policies. Owner issuance never touches nullifier bindings, so on `enforceUniqueness`
    * policies it bypasses one-per-document sybil protection.
    */
   buildOwnerIssueCall(
@@ -498,6 +561,40 @@ export class CredentialsClient {
     policyId: bigint,
   ): CredentialsCall<"ownerIssue", readonly [`0x${string}`, bigint]> {
     return this.call("ownerIssue", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the ownerIssueBatch() call, issuing (or extending) credentials for several wallets
+   * as ownerIssue() does. All or nothing: the transaction reverts if any wallet cannot be
+   * issued to.
+   */
+  buildOwnerIssueBatchCall(
+    wallets: readonly `0x${string}`[],
+    policyId: bigint,
+  ): CredentialsCall<"ownerIssueBatch", readonly [readonly `0x${string}`[], bigint]> {
+    return this.call("ownerIssueBatch", [wallets, policyId] as const)
+  }
+
+  /**
+   * Assemble the addIssuer() call, letting an account issue credentials without a proof, and
+   * ban and unban wallets, as the owner can. Owner-only, and only for `ownerIssuable` policies.
+   */
+  buildAddIssuerCall(
+    issuer: `0x${string}`,
+    policyId: bigint,
+  ): CredentialsCall<"addIssuer", readonly [`0x${string}`, bigint]> {
+    return this.call("addIssuer", [issuer, policyId] as const)
+  }
+
+  /**
+   * Assemble the removeIssuer() call, stopping an issuer from acting for the policy. Owner-only;
+   * the credentials the issuer issued and the bans it placed stay.
+   */
+  buildRemoveIssuerCall(
+    issuer: `0x${string}`,
+    policyId: bigint,
+  ): CredentialsCall<"removeIssuer", readonly [`0x${string}`, bigint]> {
+    return this.call("removeIssuer", [issuer, policyId] as const)
   }
 
   /**
@@ -513,7 +610,8 @@ export class CredentialsClient {
   /**
    * Assemble the ban() call, banning a wallet from a policy effective immediately: any
    * standing credential is removed in the same transaction, and issuance and renewal stay
-   * blocked until unban(). Owner-only, and only for `ownerBannable` policies.
+   * blocked until unban(). Owner or issuer only, and only for `ownerBannable` policies; reverts
+   * if the wallet is already banned.
    */
   buildBanCall(
     wallet: `0x${string}`,
@@ -523,13 +621,36 @@ export class CredentialsClient {
   }
 
   /**
-   * Assemble the unban() call, lifting a ban placed on a wallet. Owner-only.
+   * Assemble the banBatch() call, banning several wallets as ban() does and skipping any wallet
+   * that is already banned.
+   */
+  buildBanBatchCall(
+    wallets: readonly `0x${string}`[],
+    policyId: bigint,
+  ): CredentialsCall<"banBatch", readonly [readonly `0x${string}`[], bigint]> {
+    return this.call("banBatch", [wallets, policyId] as const)
+  }
+
+  /**
+   * Assemble the unban() call, lifting a ban placed on a wallet. Owner or issuer only; reverts if
+   * the wallet is not banned.
    */
   buildUnbanCall(
     wallet: `0x${string}`,
     policyId: bigint,
   ): CredentialsCall<"unban", readonly [`0x${string}`, bigint]> {
     return this.call("unban", [wallet, policyId] as const)
+  }
+
+  /**
+   * Assemble the unbanBatch() call, lifting the bans on several wallets as unban() does and
+   * skipping any wallet that is not banned.
+   */
+  buildUnbanBatchCall(
+    wallets: readonly `0x${string}`[],
+    policyId: bigint,
+  ): CredentialsCall<"unbanBatch", readonly [readonly `0x${string}`[], bigint]> {
+    return this.call("unbanBatch", [wallets, policyId] as const)
   }
 }
 
@@ -657,5 +778,5 @@ export async function submitCredentialsCall(
   )
 }
 
-export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi }
+export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi, PolicyEvaluatorV2Abi }
 export { getCredentialsChain, getCredentialsAddress } from "./deployments"

@@ -5,6 +5,7 @@ import {
   AsyncOrderedMT,
   extractTBS,
   getAgeCircuitInputs,
+  getBindCircuitInputs,
   getBitSize,
   getCscaForPassportAsync,
   getDiscloseCircuitInputs,
@@ -12,11 +13,15 @@ import {
   getDisclosureCircuitName,
   getDSCSignatureAlgorithmHashAlgorithm,
   getECDSAInfo,
+  getFacematchCircuitInputs,
   getIDDataCircuitInputs,
   getIntegrityCheckCircuitInputs,
+  getNumberOfPublicInputs,
+  getOprfAuthCircuitInputs,
   getOuterCircuitInputs,
   getOuterCircuitName,
   getOuterCircuitProof,
+  getProofData,
   getRSAInfo,
   getSanctionsExclusionCheckCircuitInputs,
   getServiceScopeHash,
@@ -25,6 +30,7 @@ import {
   getSodSignatureAlgorithmType,
   getTBSMaxLen,
   poseidon2,
+  randomBlindingFactor,
   SanctionsBuilder,
   TargetExistsError,
   type OuterCircuitProof,
@@ -35,9 +41,16 @@ import {
   type ProofResult,
   type Query,
   type QueryResult,
+  parseDocumentType,
 } from "@zkpassport/utils"
 
 const SALT = BigInt("0x" + "11".repeat(31))
+
+// Copied from zkpassport-mobile-app src/lib/circuit-matcher.ts
+const APPLE_APP_ATTEST_ROOT_KEY_LEAF =
+  "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b"
+const ZKPASSPORT_IOS_APP_ID_HASH =
+  "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b"
 
 type ProofStep = { name: string; inputs: object; committedInputs?: unknown }
 
@@ -53,6 +66,23 @@ type Prover = {
 export type ProvingOverrides = {
   /** Packaged certificates to prove against instead of those for the registry's latest root */
   certificates?: PackagedCertificatesFile
+}
+
+/** An App Attest attestation of a face match, as the facematch_ios circuit takes it */
+export type FacematchAttestation = {
+  root_key: number[]
+  intermediate_key: number[]
+  intermediate_tbs: number[]
+  intermediate_sig: number[]
+  credential_tbs: number[]
+  credential_sig: number[]
+  auth_data: number[]
+  client_data: number[]
+  app_id: number[]
+  /** 0 for App Attest's development environment, 1 for production */
+  environment: number
+  /** 1 for regular, 2 for strict */
+  facematch_mode: number
 }
 
 /**
@@ -80,15 +110,16 @@ export async function proveSubproofs({
   overrides?: ProvingOverrides
 }): Promise<{ subproofs: ProofResult[]; queryResult: QueryResult }> {
   const unhandled = Object.keys(query).filter(
-    (field) => !["age", "nationality", "sanctions"].includes(field),
+    (field) => !["age", "nationality", "document_type", "sanctions", "bind"].includes(field),
   )
   if (
     unhandled.length > 0 ||
     (query.age && !query.age.gte) ||
-    (query.nationality && !query.nationality.disclose)
+    (query.nationality && !query.nationality.disclose) ||
+    (query.document_type && !query.document_type.disclose)
   ) {
     throw new Error(
-      `Only age.gte, nationality.disclose and sanctions are handled, got ${JSON.stringify(query)}`,
+      `Only age.gte, nationality.disclose, document_type.disclose, sanctions and bind are handled, got ${JSON.stringify(query)}`,
     )
   }
 
@@ -167,6 +198,13 @@ export async function proveSubproofs({
       committedInputs: { rootHash: inputs.root, isStrict: !!inputs.is_strict },
     })
   }
+  if (query.bind) {
+    steps.push({
+      name: getDisclosureCircuitName("bind", { evm }),
+      inputs: required(await getBindCircuitInputs(passport, query, ...disclosureArgs), "bind"),
+      committedInputs: { data: query.bind },
+    })
+  }
 
   let prover: Prover | undefined
   const subproofs: ProofResult[] = []
@@ -240,6 +278,103 @@ export async function proveOuterProof({
         (committedInputs, subproof) => ({ ...committedInputs, ...subproof.committedInputs }),
         {},
       ),
+    }
+  } finally {
+    await prover.destroy()
+  }
+}
+
+/**
+ * Prove what the app sends the OPRF nodes for a passport's unique identifier: the DSC, ID data and
+ * integrity subproofs, a facematch proof of `attestation`, and an oprf_auth proof, whose public
+ * outputs are the blinded unique identifier
+ */
+export async function proveOprfAuthProofs({
+  passport,
+  attestation,
+  domain,
+  scope,
+  circuitVersion,
+  registry,
+}: {
+  passport: PassportViewModel
+  attestation: FacematchAttestation
+  domain: string
+  scope?: string
+  circuitVersion: string
+  registry: RegistryClient
+}): Promise<{ proofs: ProofResult[]; blindedUniqueIdentifier: string }> {
+  const { subproofs } = await proveSubproofs({
+    passport,
+    query: {},
+    domain,
+    scope,
+    circuitVersion,
+    registry,
+  })
+  const manifest = await registry.getCircuitManifest(undefined, { version: circuitVersion })
+
+  const salts = getIntegrityToDisclosureSalts(SALT)
+  const mode = attestation.facematch_mode === 1 ? "regular" : "strict"
+  const facematchInputs = {
+    ...required(
+      await getFacematchCircuitInputs(
+        passport,
+        { facematch: { mode } },
+        salts,
+        0n,
+        getServiceScopeHash(domain),
+        getServiceSubscopeHash(scope as string),
+        Math.floor(Date.now() / 1000),
+        true,
+      ),
+      "facematch_ios",
+    ),
+    ...attestation,
+  }
+  const { inputs: oprfAuthInputs } = await getOprfAuthCircuitInputs(
+    passport,
+    salts,
+    randomBlindingFactor(),
+  )
+
+  const facematchCircuit = await registry.getPackagedCircuit("facematch_ios", manifest)
+  const oprfAuthCircuit = await registry.getPackagedCircuit("oprf_auth", manifest)
+  const prover = await startProver(facematchCircuit.bb_version)
+  try {
+    // Committed inputs as the app's DisclosureProofService records them
+    const facematch: ProofResult = {
+      proof: await proveCircuit(prover, facematchCircuit, facematchInputs),
+      vkeyHash: facematchCircuit.vkey_hash,
+      version: manifest.version as ProofResult["version"],
+      name: facematchCircuit.name,
+      committedInputs: {
+        facematch: {
+          rootKeyLeaf: APPLE_APP_ATTEST_ROOT_KEY_LEAF,
+          environment: attestation.environment === 1 ? "production" : "development",
+          appIdHash: ZKPASSPORT_IOS_APP_ID_HASH,
+          integrityPubkeyHash: "0x0",
+          mode,
+        },
+      },
+    }
+    const oprfAuth: ProofResult = {
+      proof: await proveCircuit(prover, oprfAuthCircuit, oprfAuthInputs),
+      vkeyHash: oprfAuthCircuit.vkey_hash,
+      version: manifest.version as ProofResult["version"],
+      name: oprfAuthCircuit.name,
+    }
+
+    const { publicInputs } = getProofData(
+      oprfAuth.proof as string,
+      getNumberOfPublicInputs(oprfAuthCircuit.name),
+    )
+    const [, blindedX, blindedY] = publicInputs.map((input) =>
+      BigInt(input).toString(16).padStart(64, "0"),
+    )
+    return {
+      proofs: [...subproofs, facematch, oprfAuth],
+      blindedUniqueIdentifier: `0x${blindedX}${blindedY}`,
     }
   } finally {
     await prover.destroy()
@@ -377,6 +512,9 @@ function getQueryResult(passport: PassportViewModel, query: Query): QueryResult 
   if (query.nationality) {
     result.nationality = { disclose: { result: passport.nationality } }
   }
+  if (query.document_type) {
+    result.document_type = { disclose: { result: parseDocumentType(passport.mrz.slice(0, 2)) } }
+  }
   if (query.sanctions) {
     // Proving succeeded, so the passport is not on the lists
     const passed = { passed: true }
@@ -391,6 +529,9 @@ function getQueryResult(passport: PassportViewModel, query: Query): QueryResult 
       },
       isStrict: query.sanctions.strict ?? false,
     }
+  }
+  if (query.bind) {
+    result.bind = query.bind
   }
   return result as QueryResult
 }

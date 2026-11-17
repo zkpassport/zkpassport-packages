@@ -58,6 +58,12 @@ export function playStoreUrlWithReferrer(requestUrl: string | null): string {
   }
 }
 
+export function copyRequestForInstall(requestUrl: string | null): void {
+  if (!requestUrl || !toAppSchemeUrl(requestUrl) || detectMobileOs() !== "ios") return
+  const canonicalRequestUrl = `${CANONICAL_REQUEST_URL}${new URL(requestUrl).search}`
+  navigator.clipboard?.writeText(canonicalRequestUrl).catch(() => {})
+}
+
 /** Best-effort mobile OS detection, so only the relevant store badge shows. */
 export function detectMobileOs(): "ios" | "android" | "unknown" {
   if (typeof navigator === "undefined") return "unknown"

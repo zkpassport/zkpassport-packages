@@ -13,6 +13,10 @@ bun run dev   # http://localhost:5173
 
 Point the button at it with `popupUrl="http://localhost:5173"`.
 
+To verify against circuits that are not published yet, serve them from the circuits repo
+(`npm run serve-circuits`) and start the popup with `VITE_CIRCUITS_URL=http://<ip>:8000`: it then
+verifies in the page (`verifierMode: "local"`) and fetches the manifest and keys from there.
+
 ## Verification links
 
 `https://verify.zkpassport.id?vl=<link id>` runs the same verification screens for a link created
@@ -27,6 +31,9 @@ when the OS did not hand it to the installed app, so it leads with the store
 badges. It is a second Vite entry (`r.html`, `src/r/`) rather than a route in
 the SPA, so people on mobile data never download the SDK or the proving
 backends to read it. `vercel.json` rewrites `/r` and `/r/*` to `/r.html`.
+
+`/c` request links, which can also open the iOS App Clip, land on the same page:
+`vercel.json` rewrites `/c` and `/c/*` to `/r.html` too.
 
 The Play Store link carries the request as an install referrer built from the
 canonical `https://zkpassport.id/r?…` URL, the only form the app accepts, so

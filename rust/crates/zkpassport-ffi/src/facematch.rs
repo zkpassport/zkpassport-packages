@@ -2,6 +2,7 @@
 //! derive the attestation witness fields. JSON-in / JSON-out (like the other FFI fns).
 use base64::Engine;
 use serde::Deserialize;
+use zkpassport_core::bytes::left_pad_with_zeros;
 use zkpassport_core::facematch::{
     build_facematch_client_data, facematch_attestation_inputs, hash_faceprint_poseidon2,
     pack_and_hash_poseidon2,
@@ -68,7 +69,8 @@ pub fn facematch_client_data_json(req: &str) -> Result<serde_json::Value, String
     let fp_hash = hash_faceprint_poseidon2(&r.dg2_faceprint)?;
     let client_data =
         build_facematch_client_data(&r.app_version, r.mode, &dg2_hash, &fp_hash, r.cosine, r.threshold)?;
-    let cd_hash = pack_and_hash_poseidon2(&client_data);
+    // App Attest signs this hash and the circuit rebuilds it with 32 bytes, so a leading zero byte must stay
+    let cd_hash = left_pad_with_zeros(&pack_and_hash_poseidon2(&client_data), 32);
     Ok(serde_json::json!({
         "clientData": hex::encode(&client_data),
         "clientDataHashB64": base64::engine::general_purpose::STANDARD.encode(&cd_hash),
@@ -103,4 +105,26 @@ pub fn facematch_attestation_inputs_json(req: &str) -> Result<serde_json::Value,
         "app_id": o.app_id,
         "facematch_mode": o.facematch_mode,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn client_data_hash_always_has_32_bytes() {
+        // About one hash in 48 starts with a zero byte
+        for cosine in 0..300 {
+            let request = serde_json::json!({
+                "appVersion": "1.0.0",
+                "mode": 1,
+                "dg2Hash": "00".repeat(32),
+                "dg2Faceprint": vec![0.0f32; 512],
+                "cosine": cosine,
+            });
+            let out = facematch_client_data_json(&request.to_string()).unwrap();
+            let hash = b64(out["clientDataHashB64"].as_str().unwrap()).unwrap();
+            assert_eq!(hash.len(), 32);
+        }
+    }
 }

@@ -336,6 +336,91 @@ unconstrained fn salted_type_checks_oprf() {
     );
 }
 
+global OPRF_PK_HASH: Field = 0x0123;
+
+unconstrained fn set_oprf_key(
+    env: TestEnvironment,
+    registry_address: AztecAddress,
+    admin: AztecAddress,
+) {
+    let _ = env.call_public(
+        admin,
+        ZKPassportRegistry::at(registry_address).set_oprf_pk_hash(OPRF_PK_HASH),
+    );
+    env.mine_block_at(env.last_block_timestamp() + INITIAL_DELAY);
+}
+
+unconstrained fn assert_proof_with_oprf(
+    env: TestEnvironment,
+    registry_address: AztecAddress,
+    user: AztecAddress,
+    nullifier_type: u8,
+    oprf_pk_hash: Field,
+) {
+    let _ = env.view_private(
+        user,
+        ZKPassportRegistry::at(registry_address).assert_proof_valid(
+            CIRCUIT_MANIFEST_VERSION,
+            VK_HASH,
+            CERT_ROOT,
+            CIRC_ROOT,
+            T0 + 100,
+            nullifier_type,
+            oprf_pk_hash,
+        ),
+    );
+}
+
+#[test]
+unconstrained fn salted_type_with_the_oprf_key_passes() {
+    let (env, registry_address, admin, _, user) = setup_and_seed();
+
+    set_oprf_key(env, registry_address, admin);
+    assert_proof_with_oprf(env, registry_address, user, 1, OPRF_PK_HASH);
+}
+
+#[test]
+unconstrained fn salted_mock_type_with_the_oprf_key_passes() {
+    let (env, registry_address, admin, _, user) = setup_and_seed();
+
+    set_oprf_key(env, registry_address, admin);
+    assert_proof_with_oprf(env, registry_address, user, 3, OPRF_PK_HASH);
+}
+
+#[test(should_fail_with = "oprf pk hash mismatch")]
+unconstrained fn salted_mock_type_checks_oprf() {
+    let (env, registry_address, admin, _, user) = setup_and_seed();
+
+    set_oprf_key(env, registry_address, admin);
+    assert_proof_with_oprf(env, registry_address, user, 3, 0x9999);
+}
+
+#[test(should_fail_with = "oprf pk hash not set")]
+unconstrained fn salted_type_without_oprf_key_rejected() {
+    let (env, registry_address, _, _, user) = setup_and_seed();
+
+    assert_proof_with_oprf(env, registry_address, user, 1, OPRF_PK_HASH);
+}
+
+#[test(should_fail_with = "oprf pk hash not set")]
+unconstrained fn oprf_key_invisible_before_delay() {
+    let (env, registry_address, admin, _, user) = setup_and_seed();
+
+    let _ = env.call_public(
+        admin,
+        ZKPassportRegistry::at(registry_address).set_oprf_pk_hash(OPRF_PK_HASH),
+    );
+    env.mine_block();
+    assert_proof_with_oprf(env, registry_address, user, 1, OPRF_PK_HASH);
+}
+
+#[test]
+unconstrained fn non_salted_type_ignores_the_oprf_key() {
+    let (env, registry_address, _, _, user) = setup_and_seed();
+
+    assert_proof_with_oprf(env, registry_address, user, 0, 0x9999);
+}
+
 #[test(should_fail_with = "version not enabled")]
 unconstrained fn disabled_version_rejected() {
     let (env, registry_address, admin, _, user) = setup_and_seed();

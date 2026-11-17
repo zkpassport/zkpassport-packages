@@ -12,6 +12,7 @@ use serde::Deserialize;
 
 pub const CERT_TYPE_CSCA: u8 = 1;
 pub const CERT_TYPE_DSC: u8 = 2;
+pub const CERT_TYPE_UIDAI: u8 = 3;
 pub const CERTIFICATE_MERKLE_TREE_HEIGHT: usize = 16;
 pub const REVOCATION_MERKLE_TREE_HEIGHT: usize = 14;
 pub const MASTERLIST_MERKLE_TREE_HEIGHT: usize = 8;
@@ -44,6 +45,9 @@ pub enum PublicKey {
 
 #[derive(Deserialize, Clone)]
 pub struct PackagedCertificate {
+    /// Absent for a CSCA, "uidai" for an Aadhaar signing certificate.
+    #[serde(default, rename = "type")]
+    pub cert_type: Option<String>,
     pub country: String,
     pub public_key: PublicKey,
     #[serde(default)]
@@ -55,6 +59,15 @@ pub struct PackagedCertificate {
     pub signature_algorithm: Option<String>,
     #[serde(default)]
     pub subject_key_identifier: Option<String>,
+}
+
+/// `getCertificateType`
+pub fn get_certificate_type(cert: &PackagedCertificate) -> Result<u8, String> {
+    match cert.cert_type.as_deref() {
+        None => Ok(CERT_TYPE_CSCA),
+        Some("uidai") => Ok(CERT_TYPE_UIDAI),
+        Some(other) => Err(format!("unknown packaged certificate type: {other}")),
+    }
 }
 
 /// AKI/SKI CSCA matching (the primary path of TS `getCscaCandidates`):
@@ -69,6 +82,7 @@ pub fn match_csca<'a>(
     let country = dsc_country.to_lowercase();
     let country_certs: Vec<&PackagedCertificate> = certificates
         .iter()
+        .filter(|c| get_certificate_type(c) == Ok(CERT_TYPE_CSCA))
         .filter(|c| c.country.to_lowercase() == country)
         .collect();
     let aki = authority_key_identifier?.trim_start_matches("0x").to_lowercase();
@@ -199,7 +213,7 @@ pub fn get_certificate_leaf_hashes(
 ) -> Result<Vec<BigUint>, String> {
     let mut leaves = certs
         .iter()
-        .map(|c| get_certificate_leaf_hash(c, CERT_TYPE_CSCA, version))
+        .map(|c| get_certificate_leaf_hash(c, get_certificate_type(c)?, version))
         .collect::<Result<Vec<_>, _>>()?;
     leaves.sort();
     Ok(leaves)

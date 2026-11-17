@@ -1,7 +1,11 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { assembleDiscloseCapsule, assembleProofCapsule } from "../src/capsule.ts"
+import {
+  assembleDiscloseCapsule,
+  assembleProofCapsule,
+  assembleSanctionsCapsule,
+} from "../src/capsule.ts"
 import { outerCapsuleLength } from "../src/constants.ts"
 
 const parts = {
@@ -35,4 +39,11 @@ test("assembles and shape-checks the disclose preimage", () => {
   const bytes = Array(90).fill(0)
   assert.equal(assembleDiscloseCapsule(mask, bytes).length, 180)
   assert.throws(() => assembleDiscloseCapsule(mask.slice(1), bytes), /mask 89\/90/)
+})
+
+test("assembles the sanctions capsule from the SDK's sanctions root", () => {
+  assert.deepEqual(
+    assembleSanctionsCapsule("0x2a5a").map((field) => field.toBigInt()),
+    [0x2a5an],
+  )
 })

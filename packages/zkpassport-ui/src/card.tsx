@@ -17,7 +17,7 @@ import {
   SPINNER_SVG,
   ZKPASSPORT_DOWNLOAD_URL,
 } from "./assets"
-import { detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
+import { copyRequestForInstall, detectMobileOs, playStoreUrlWithReferrer } from "./app-link"
 import cardStyles from "./styles.css"
 import { injectStylesheet } from "./inject-styles"
 import { useCard, type CardState, type ProofStreamProgress } from "./use-card"
@@ -575,7 +575,13 @@ function InstallOptions({
           : "Verification happens in the ZKPassport app: it reads the chip in your passport or ID card, and that data never leaves your phone. Free on iOS and Android."}
       </p>
       <div className="zkp-store-buttons zkp-install-stores">
-        {os !== "android" ? <StoreButton href={APP_STORE_URL} badge={APP_STORE_BADGE} /> : null}
+        {os !== "android" ? (
+          <StoreButton
+            href={APP_STORE_URL}
+            badge={APP_STORE_BADGE}
+            onClick={() => copyRequestForInstall(requestUrl)}
+          />
+        ) : null}
         {os !== "ios" ? (
           <StoreButton href={playStoreUrlWithReferrer(requestUrl)} badge={GOOGLE_PLAY_BADGE} />
         ) : null}
@@ -584,11 +590,20 @@ function InstallOptions({
   )
 }
 
-function StoreButton({ href, badge }: { href: string; badge: { ariaLabel: string; svg: string } }) {
+function StoreButton({
+  href,
+  badge,
+  onClick,
+}: {
+  href: string
+  badge: { ariaLabel: string; svg: string }
+  onClick?: () => void
+}) {
   return (
     <a
       className="zkp-store-button"
       href={href}
+      onClick={onClick}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={badge.ariaLabel}

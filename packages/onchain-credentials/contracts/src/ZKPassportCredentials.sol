@@ -42,11 +42,18 @@ contract ZKPassportCredentials is ERC1155 {
     error ZKPassportCredentials__NotBanned();
     error ZKPassportCredentials__NotAuthorized();
     error ZKPassportCredentials__ZeroAddress();
+    error ZKPassportCredentials__NotOwnerOrIssuer();
+    error ZKPassportCredentials__AlreadyIssuer();
+    error ZKPassportCredentials__NotIssuer();
 
     event PolicyCreated(uint256 indexed policyId, address indexed owner);
     event PolicyMetadataURLUpdated(uint256 indexed policyId, string url);
     event PolicyRequirementsChanged(uint256 indexed policyId);
+    event PolicyEvaluatorMigrated(uint256 indexed policyId, address indexed oldEvaluator, address indexed newEvaluator);
+    event PolicyCredentialDurationChanged(uint256 indexed policyId, uint64 credentialDuration);
     event PolicyRetired(uint256 indexed policyId);
+    event IssuerAdded(uint256 indexed policyId, address indexed issuer);
+    event IssuerRemoved(uint256 indexed policyId, address indexed issuer);
     event CredentialIssued(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
     event CredentialRenewed(address indexed wallet, uint256 indexed policyId, uint64 heldUntil, string customData);
     event CredentialRenounced(address indexed wallet, uint256 indexed policyId);
@@ -54,7 +61,9 @@ contract ZKPassportCredentials is ERC1155 {
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
     event PolicyEvaluatorUpdated(address indexed oldEvaluator, address indexed newEvaluator);
     event DomainUpdated(string oldDomain, string newDomain);
-    event CredentialIssuedByPolicyOwner(address indexed wallet, uint256 indexed policyId, uint64 heldUntil);
+    event CredentialIssuedBy(
+        address indexed wallet, uint256 indexed policyId, address indexed issuer, uint64 heldUntil
+    );
     event WalletBanned(address indexed wallet, uint256 indexed policyId);
     event WalletUnbanned(address indexed wallet, uint256 indexed policyId);
 
@@ -71,6 +80,7 @@ contract ZKPassportCredentials is ERC1155 {
     mapping(address wallet => mapping(uint256 policyId => uint64)) public heldUntil;
     mapping(uint256 policyId => mapping(bytes32 nullifier => address wallet)) public nullifierWallet;
     mapping(address wallet => mapping(uint256 policyId => bool)) public banned;
+    mapping(address issuer => mapping(uint256 policyId => bool)) public isIssuer;
 
     modifier onlyAdmin() {
         if (msg.sender != admin) revert ZKPassportCredentials__NotAuthorized();
@@ -84,6 +94,13 @@ contract ZKPassportCredentials is ERC1155 {
 
     modifier onlyPolicyOwner(uint256 policyId) {
         if (_policies[policyId].owner != msg.sender) revert ZKPassportCredentials__NotPolicyOwner();
+        _;
+    }
+
+    modifier onlyPolicyOwnerOrIssuer(uint256 policyId) {
+        if (_policies[policyId].owner != msg.sender && !isIssuer[msg.sender][policyId]) {
+            revert ZKPassportCredentials__NotOwnerOrIssuer();
+        }
         _;
     }
 
@@ -106,12 +123,15 @@ contract ZKPassportCredentials is ERC1155 {
     /// @param enforceUniqueness Whether to limit the policy to one credential per document: each
     ///        issuance consumes the proof's nullifier, which the current policy evaluator then
     ///        requires to be of its uniqueIdentifierType; immutable after creation.
-    /// @param ownerIssuable Whether the owner is allowed to issue credentials without a proof via
-    ///        ownerIssue(); immutable after creation.
-    /// @param ownerBannable Whether the owner is allowed to ban a wallet via ban(), which also
-    ///        removes any standing credential; immutable after creation.
-    /// @param ownerEditable Whether the owner is allowed to change the policy's requirements
-    ///        after creation via setRequirements(); immutable after creation.
+    /// @param ownerIssuable Whether the owner, and the issuers it adds via addIssuer(), are allowed
+    ///        to issue credentials without a proof via ownerIssue() and ownerIssueBatch();
+    ///        immutable after creation.
+    /// @param ownerBannable Whether the owner, and the issuers it adds via addIssuer(), are allowed
+    ///        to ban wallets via ban() and banBatch(), which also remove any standing credential;
+    ///        immutable after creation.
+    /// @param ownerEditable Whether the owner is allowed to change the policy's requirements,
+    ///        evaluator and credential duration after creation via setRequirements(),
+    ///        migrateEvaluator() and setCredentialDuration(); immutable after creation.
     /// @return policyId The policy id, also the ERC-1155 tokenId of its credentials.
     function createPolicy(
         bytes32 salt,
@@ -123,9 +143,7 @@ contract ZKPassportCredentials is ERC1155 {
         bool ownerBannable,
         bool ownerEditable
     ) external whenNotPaused returns (uint256 policyId) {
-        if (credentialDuration == 0 || credentialDuration > MAX_CREDENTIAL_DURATION) {
-            revert ZKPassportCredentials__InvalidCredentialDuration();
-        }
+        _validateCredentialDuration(credentialDuration);
         IPolicyEvaluator evaluator = policyEvaluator;
         evaluator.validateRequirements(requirements);
 
@@ -177,6 +195,47 @@ contract ZKPassportCredentials is ERC1155 {
 
         policy.requirements = requirements;
         emit PolicyRequirementsChanged(policyId);
+    }
+
+    /// @notice Move a policy to the current policy evaluator, replacing its requirements with
+    ///         bytes encoded for that evaluator's schema. Only available when the policy opted
+    ///         in at creation (`ownerEditable==true`). Already-issued credentials and nullifier
+    ///         bindings are untouched. Note on `enforceUniqueness` policies: if the new
+    ///         evaluator requires a different nullifier type, a document proves with a
+    ///         different nullifier, so a document already bound to one wallet can bind another.
+    /// @param policyId The policy to migrate; only its owner may call.
+    /// @param requirements The new requirement bytes, encoded per the current evaluator's schema.
+    function migrateEvaluator(uint256 policyId, bytes calldata requirements) external onlyPolicyOwner(policyId) {
+        CredentialsPolicy storage policy = _policies[policyId];
+        if (!policy.ownerEditable) revert ZKPassportCredentials__NotEditable();
+        IPolicyEvaluator evaluator = policyEvaluator;
+        evaluator.validateRequirements(requirements);
+
+        emit PolicyEvaluatorMigrated(policyId, policy.evaluator, address(evaluator));
+        policy.evaluator = address(evaluator);
+        policy.requirements = requirements;
+        emit PolicyRequirementsChanged(policyId);
+    }
+
+    /// @notice Change how long a policy's credentials stay valid, from their next issuance or
+    ///         renewal on. Only available when the policy opted in at creation
+    ///         (`ownerEditable==true`); already-issued credentials keep their expiry.
+    /// @param policyId The policy to update; only its owner may call.
+    /// @param credentialDuration Seconds a credential stays valid after each issuance or
+    ///        renewal; must be between 1 and MAX_CREDENTIAL_DURATION (10 years).
+    function setCredentialDuration(uint256 policyId, uint64 credentialDuration) external onlyPolicyOwner(policyId) {
+        CredentialsPolicy storage policy = _policies[policyId];
+        if (!policy.ownerEditable) revert ZKPassportCredentials__NotEditable();
+        _validateCredentialDuration(credentialDuration);
+
+        policy.credentialDuration = credentialDuration;
+        emit PolicyCredentialDurationChanged(policyId, credentialDuration);
+    }
+
+    function _validateCredentialDuration(uint64 credentialDuration) internal pure {
+        if (credentialDuration == 0 || credentialDuration > MAX_CREDENTIAL_DURATION) {
+            revert ZKPassportCredentials__InvalidCredentialDuration();
+        }
     }
 
     /// @notice Permanently stop new issuance and renewals for a policy; existing credentials stay
@@ -235,13 +294,59 @@ contract ZKPassportCredentials is ERC1155 {
         }
     }
 
-    /// @notice Issue (or extend) a credential by policy-owner authority, without a proof.
-    ///         Only available when the policy opted in at creation (`ownerIssuable==true`).
-    ///         Note owner issuance never touches nullifier bindings, so on `enforceUniqueness`
-    ///         policies it bypasses one-per-document sybil protection.
+    /// @notice Let an account issue credentials without a proof via ownerIssue() and
+    ///         ownerIssueBatch(), and ban and unban wallets via ban(), banBatch(), unban() and
+    ///         unbanBatch(), as the policy owner can. Only available when the policy opted in to
+    ///         owner issuance at creation (`ownerIssuable==true`).
+    /// @param issuer The account to add; must not be zero or already an issuer.
+    /// @param policyId The policy to add the issuer to; only its owner may call.
+    function addIssuer(address issuer, uint256 policyId) external onlyPolicyOwner(policyId) {
+        if (!_policies[policyId].ownerIssuable) revert ZKPassportCredentials__NotIssuableByOwner();
+        if (issuer == address(0)) revert ZKPassportCredentials__ZeroAddress();
+        if (isIssuer[issuer][policyId]) revert ZKPassportCredentials__AlreadyIssuer();
+
+        isIssuer[issuer][policyId] = true;
+        emit IssuerAdded(policyId, issuer);
+    }
+
+    /// @notice Stop an issuer from acting for a policy; the credentials it issued and the bans
+    ///         it placed stay.
+    /// @param issuer The issuer to remove.
+    /// @param policyId The policy to remove the issuer from; only its owner may call.
+    function removeIssuer(address issuer, uint256 policyId) external onlyPolicyOwner(policyId) {
+        if (!isIssuer[issuer][policyId]) revert ZKPassportCredentials__NotIssuer();
+
+        isIssuer[issuer][policyId] = false;
+        emit IssuerRemoved(policyId, issuer);
+    }
+
+    /// @notice Issue (or extend) a credential by the authority of the policy owner or one of
+    ///         its issuers, without a proof. Only available when the policy opted in at creation
+    ///         (`ownerIssuable==true`). Note owner issuance never touches nullifier bindings, so
+    ///         on `enforceUniqueness` policies it bypasses one-per-document sybil protection.
     /// @param wallet The recipient; must not be zero.
-    /// @param policyId The policy to issue a credential under; only the policy owner may call.
-    function ownerIssue(address wallet, uint256 policyId) external whenNotPaused onlyPolicyOwner(policyId) {
+    /// @param policyId The policy to issue a credential under; only the policy owner or one of
+    ///        its issuers may call.
+    function ownerIssue(address wallet, uint256 policyId) external whenNotPaused onlyPolicyOwnerOrIssuer(policyId) {
+        _ownerIssue(wallet, policyId);
+    }
+
+    /// @notice Issue (or extend) credentials for several wallets as ownerIssue() does, all or
+    ///         nothing: the call reverts if any wallet cannot be issued to.
+    /// @param wallets The recipients; none may be zero or banned.
+    /// @param policyId The policy to issue credentials under; only the policy owner or one of
+    ///        its issuers may call.
+    function ownerIssueBatch(address[] calldata wallets, uint256 policyId)
+        external
+        whenNotPaused
+        onlyPolicyOwnerOrIssuer(policyId)
+    {
+        for (uint256 i = 0; i < wallets.length; i++) {
+            _ownerIssue(wallets[i], policyId);
+        }
+    }
+
+    function _ownerIssue(address wallet, uint256 policyId) internal {
         CredentialsPolicy storage policy = _policies[policyId];
         if (!policy.ownerIssuable) revert ZKPassportCredentials__NotIssuableByOwner();
         if (policy.retiredAt != 0) revert ZKPassportCredentials__PolicyRetired(policyId);
@@ -249,7 +354,7 @@ contract ZKPassportCredentials is ERC1155 {
         if (banned[wallet][policyId]) revert ZKPassportCredentials__WalletBanned();
 
         uint64 newHeldUntil = _issueCredential(wallet, policyId, policy.credentialDuration);
-        emit CredentialIssuedByPolicyOwner(wallet, policyId, newHeldUntil);
+        emit CredentialIssuedBy(wallet, policyId, msg.sender, newHeldUntil);
     }
 
     function _issueCredential(address wallet, uint256 policyId, uint64 credentialDuration)
@@ -322,10 +427,28 @@ contract ZKPassportCredentials is ERC1155 {
     ///         sanctions propagation does NOT happen here, it is enforced at issuance/renewal
     ///         against the current sanctions root, bounded by the policy's `credentialDuration`.
     /// @param wallet The wallet to ban; must not already be banned.
-    /// @param policyId The policy the ban applies to; only its owner may call.
-    function ban(address wallet, uint256 policyId) external onlyPolicyOwner(policyId) {
+    /// @param policyId The policy the ban applies to; only the policy owner or one of its
+    ///        issuers may call.
+    function ban(address wallet, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
         if (!_policies[policyId].ownerBannable) revert ZKPassportCredentials__NotBannable();
         if (banned[wallet][policyId]) revert ZKPassportCredentials__WalletBanned();
+        _ban(wallet, policyId);
+    }
+
+    /// @notice Ban several wallets as ban() does, skipping any wallet that is already banned.
+    /// @param wallets The wallets to ban.
+    /// @param policyId The policy the bans apply to; only the policy owner or one of its
+    ///        issuers may call.
+    function banBatch(address[] calldata wallets, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
+        if (!_policies[policyId].ownerBannable) revert ZKPassportCredentials__NotBannable();
+        for (uint256 i = 0; i < wallets.length; i++) {
+            if (!banned[wallets[i]][policyId]) {
+                _ban(wallets[i], policyId);
+            }
+        }
+    }
+
+    function _ban(address wallet, uint256 policyId) internal {
         banned[wallet][policyId] = true;
         emit WalletBanned(wallet, policyId);
 
@@ -335,16 +458,35 @@ contract ZKPassportCredentials is ERC1155 {
     }
 
     /// @notice Lift a ban placed on a wallet for a given policy, restoring its ability to be
-    ///         issued credentials (by proof or by the owner) under the policy.
+    ///         issued credentials (by proof, by the owner or by an issuer) under the policy.
     /// @param wallet The banned wallet.
-    /// @param policyId The policy the ban applies to; only its owner may call.
-    function unban(address wallet, uint256 policyId) external onlyPolicyOwner(policyId) {
+    /// @param policyId The policy the ban applies to; only the policy owner or one of its
+    ///        issuers may call.
+    function unban(address wallet, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
         if (!banned[wallet][policyId]) revert ZKPassportCredentials__NotBanned();
+        _unban(wallet, policyId);
+    }
+
+    /// @notice Lift the bans on several wallets as unban() does, skipping any wallet that is not
+    ///         banned.
+    /// @param wallets The wallets to unban.
+    /// @param policyId The policy the bans apply to; only the policy owner or one of its
+    ///        issuers may call.
+    function unbanBatch(address[] calldata wallets, uint256 policyId) external onlyPolicyOwnerOrIssuer(policyId) {
+        for (uint256 i = 0; i < wallets.length; i++) {
+            if (banned[wallets[i]][policyId]) {
+                _unban(wallets[i], policyId);
+            }
+        }
+    }
+
+    function _unban(address wallet, uint256 policyId) internal {
         banned[wallet][policyId] = false;
         emit WalletUnbanned(wallet, policyId);
     }
 
-    /// @notice Emergency stop for issuance and policy creation; reads, renounce, and ban stay live.
+    /// @notice Emergency stop for issuance and policy creation; reads, renounce, ban and unban
+    ///         stay live.
     function pause() external onlyAdmin {
         paused = true;
         emit PausedStatusChanged(true);
@@ -366,8 +508,9 @@ contract ZKPassportCredentials is ERC1155 {
 
     /// @notice Point future policies at a new policy evaluator, which might define a new
     ///         requirements schema, proof-data encoding, or root verifier. Each preexisting
-    ///         policy keeps the evaluator recorded at its creation: existing credentials,
-    ///         nullifier bindings, and policies are untouched.
+    ///         policy keeps its recorded evaluator until its owner moves it with
+    ///         migrateEvaluator(): existing credentials, nullifier bindings, and policies are
+    ///         untouched.
     /// @param newEvaluator The evaluator recorded by policies created from now on; must not be zero.
     function setPolicyEvaluator(IPolicyEvaluator newEvaluator) external onlyAdmin {
         if (address(newEvaluator) == address(0)) revert ZKPassportCredentials__ZeroAddress();

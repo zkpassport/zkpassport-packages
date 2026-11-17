@@ -27,6 +27,7 @@ interface IVerifierHelper {
         returns (bool);
     function getProofTimestamp(bytes32[] calldata publicInputs) external view returns (uint256);
     function getNullifierType(bytes32[] calldata publicInputs) external view returns (NullifierType);
+    function getVerificationMethod(bytes32[] calldata publicInputs) external view returns (uint256);
 }
 
 interface IRootVerifier {

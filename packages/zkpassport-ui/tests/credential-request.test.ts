@@ -22,6 +22,22 @@ function credentialsOn(stub: Parameters<typeof stubChain>[0]) {
 }
 
 describe("buildCredentialProofRequest", () => {
+  test("passes a policy's verification methods on to the app", async () => {
+    const { credentials } = credentialsOn({
+      requirements: { allowedVerificationMethods: [1n, 2n] },
+    })
+    expect(
+      (await buildCredentialProofRequest(credentials, MINT)).allowedVerificationMethods,
+    ).toEqual([1, 2])
+  })
+
+  test("leaves the default for an empty list", async () => {
+    expect(
+      (await buildCredentialProofRequest(credentialsOn({}).credentials, MINT))
+        .allowedVerificationMethods,
+    ).toBeUndefined()
+  })
+
   test("reads scope and domain on-chain and applies predicates, facematch, and bindings", async () => {
     const { credentials } = credentialsOn({
       uniqueIdentifierType: NullifierType.SALTED,

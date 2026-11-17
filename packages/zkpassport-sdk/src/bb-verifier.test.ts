@@ -5,7 +5,7 @@ describe("getBBVersionForCircuitVersion", () => {
   test("picks the bb version each circuit release was built with", () => {
     expect(getBBVersionForCircuitVersion("0.20.0")).toBe("v5")
     expect(getBBVersionForCircuitVersion("0.21.1")).toBe("v5")
-    expect(getBBVersionForCircuitVersion("0.22.0")).toBe("v6")
+    expect(getBBVersionForCircuitVersion("0.23.0")).toBe("v6")
   })
 
   test("picks the newest bb version for later releases", () => {

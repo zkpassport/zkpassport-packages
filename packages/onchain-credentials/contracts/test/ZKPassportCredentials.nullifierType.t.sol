@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {NullifierType} from "@registry/lib/Types.sol";
 import {ZKPassportCredentialsTestBase} from "./ZKPassportCredentialsTestBase.sol";
-import {PolicyEvaluatorV1} from "../src/PolicyEvaluatorV1.sol";
+import {PolicyEvaluatorV2} from "../src/PolicyEvaluatorV2.sol";
 
 contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase {
     uint256 internal saltedPolicyId;
@@ -15,7 +15,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         saltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(21)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             7 days,
             "https://p.example/s",
             true,
@@ -28,7 +28,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         nonSaltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(22)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             7 days,
             "https://p.example/n",
             true,
@@ -42,7 +42,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         assertEq(uint8(evaluator.uniqueIdentifierType()), uint8(NullifierType.SALTED_NULLIFIER));
         assertEq(
             uint8(
-                PolicyEvaluatorV1(zkPassportCredentials.getPolicy(nonSaltedPolicyId).evaluator).uniqueIdentifierType()
+                PolicyEvaluatorV2(zkPassportCredentials.getPolicy(nonSaltedPolicyId).evaluator).uniqueIdentifierType()
             ),
             uint8(NullifierType.NON_SALTED_NULLIFIER)
         );
@@ -59,12 +59,12 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
     }
 
     function testSaltedPolicyRejectsNonSaltedNullifier() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_NULLIFIER));
     }
 
     function testSaltedPolicyRejectsHiddenNullifier() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.NONE_NULLIFIER));
     }
 
@@ -74,7 +74,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
     }
 
     function testNonSaltedPolicyRejectsSaltedNullifier() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
     }
 
@@ -94,24 +94,24 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
     }
 
     function testSaltedPolicyRejectsMockSaltedNullifier() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }
 
     function testSaltedPolicyRejectsMockNonSaltedNullifier() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(saltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER));
     }
 
     function testNonSaltedPolicyRejectsMockNonSaltedNullifier() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(
             nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.NON_SALTED_MOCK_NULLIFIER)
         );
     }
 
     function testNonSaltedPolicyRejectsMockSaltedNullifier() public {
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(nonSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));
     }
 
@@ -120,7 +120,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
         vm.prank(creator);
         uint256 mockSaltedPolicyId = zkPassportCredentials.createPolicy(
             bytes32(uint256(23)),
-            _requirements(0, PolicyEvaluatorV1.SanctionsMode.NONE, noCountries),
+            _requirements(0, PolicyEvaluatorV2.SanctionsMode.NONE, noCountries),
             7 days,
             "https://p.example/ms",
             true,
@@ -128,7 +128,7 @@ contract ZKPassportCredentialsNullifierTypeTest is ZKPassportCredentialsTestBase
             false,
             false
         );
-        vm.expectRevert(PolicyEvaluatorV1.PolicyEvaluator__WrongNullifierType.selector);
+        vm.expectRevert(PolicyEvaluatorV2.PolicyEvaluator__WrongNullifierType.selector);
         zkPassportCredentials.issue(mockSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_NULLIFIER));
 
         zkPassportCredentials.issue(mockSaltedPolicyId, _paramsWithNullifierType(NullifierType.SALTED_MOCK_NULLIFIER));

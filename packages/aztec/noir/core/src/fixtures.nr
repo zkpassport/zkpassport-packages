@@ -46,11 +46,12 @@ pub(crate) global BIND_ACCOUNT: Field =
 pub(crate) global BIND_COMMITMENT: Field =
     0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970;
 
-/// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against
-/// dev-mode registries, current_date 2050-01-01), in the K=4 layout parse.nr decodes.
+/// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against a
+/// synthetic certificate registry and a circuits release's circuit registry, current_date
+/// 2050-01-01), in the K=4 layout parse.nr decodes.
 pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
-    0x070d2f8b8b8f1d2d0234d81987b9abb0968e7767feb42c5728e83002e757de27, // cert root
-    0x24b08b409233539aa81c76dd73c48fc41895e66ece1b32fa60aa63fdbd036ce6, // circuit root
+    0x27465e0ef850b441de340e5d0223edc6e21b6902fb57550bb367b5df382375f9, // cert root
+    0x0289526299c3d1afa2ad1113678fb426ed587156a1a4ba622023d81989728210, // circuit root
     0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
     0x0000000000000000000000000000000000000000000000000000000000000000, // domain
     0x0000000000000000000000000000000000000000000000000000000000000000, // scope

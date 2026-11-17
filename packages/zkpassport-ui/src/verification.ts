@@ -1,6 +1,8 @@
+import type { AllowedVerificationMethod } from "@zkpassport/sdk"
 import {
   openVerificationPopup,
   type PopupCredentialConfig,
+  type PopupErrorCode,
   type PopupRequestConfig,
   type PopupSuccess,
   type VerificationPopupHandle,
@@ -39,6 +41,8 @@ export type ServiceConfig = {
   uniqueIdentifierType?: "salted" | "non-salted" | "none"
   validity?: number
   devMode?: boolean
+  /** The credentials your service accepts; signed credentials only unless set */
+  allowedVerificationMethods?: AllowedVerificationMethod[]
 }
 
 /** Points the flow at your own deployment of the services ZKPassport runs. */
@@ -47,7 +51,10 @@ export type VerificationOverrides = {
   cloudProverUrl?: string
   /** @internal Points the flow at another popup origin; for testing. */
   popupUrl?: string
-  /** Opt into the no-install App Clip lane: the popup emits a `/c` request URL instead of `/r`. */
+  /**
+   * Allow the no-install App Clip lane: the popup sends a request whose policy accepts chip reads
+   * only to a `/c` request URL; one that accepts camera reads stays on `/r`, the full app.
+   */
   appClip?: boolean
 }
 
@@ -196,6 +203,7 @@ export function createVerification(
       kind: ZKPassportError["kind"],
       message: string,
       { status, openInBrowserUrl }: { status?: VerificationStatus; openInBrowserUrl?: string } = {},
+      code?: PopupErrorCode,
     ) => {
       if (settled || latestAttempt !== thisAttempt) return
       settled = true
@@ -203,7 +211,8 @@ export function createVerification(
       // "blocked" is this browser refusing to open a window, not an outcome for the verification.
       const stillRunning =
         kind === "blocked" ||
-        (kind === "closed" && loadPendingVerification(requestKey)?.phoneJoined === true)
+        (kind === "closed" &&
+          (isMobileLike() || loadPendingVerification(requestKey)?.phoneJoined === true))
       if (!stillRunning) forgetPendingVerification(requestKey)
       setStatus(
         status ?? "error",
@@ -211,7 +220,7 @@ export function createVerification(
         kind,
         openInBrowserUrl ?? null,
       )
-      getOptions().onError?.(new ZKPassportError(kind, message))
+      getOptions().onError?.(new ZKPassportError(kind, message, code))
     }
 
     let request: { config: PopupRequestConfig; query: object; credential?: PopupCredentialConfig }
@@ -271,7 +280,7 @@ export function createVerification(
           )
         },
         onReject: () => fail("rejected", "Verification was declined."),
-        onError: (message) => fail("failed", message),
+        onError: (message, code) => fail("failed", message, {}, code),
         // Closing without a result returns the button to idle: nothing failed, the user left
         onClose: () => fail("closed", "The verification window was closed.", { status: "idle" }),
       },
@@ -424,6 +433,7 @@ function toPopupRequest(
     appClip: options.overrides?.appClip,
     // Left unset when not configured, so the SDK's own default applies
     uniqueIdentifierType: identifier ? IDENTIFIER_TYPES[identifier] : undefined,
+    allowedVerificationMethods: service.allowedVerificationMethods,
   }
   for (const key of Object.keys(config) as Array<keyof PopupRequestConfig>) {
     if (config[key] === undefined) delete config[key]
