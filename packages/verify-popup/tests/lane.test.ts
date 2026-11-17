@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test"
 import { NullifierType, VerificationMethod, VerificationTier } from "@zkpassport/utils"
 
 import {
+  MIN_STALLED_ATTEMPT_MS,
   STALLED_ATTEMPTS_BEFORE_APP_LANE,
   isAppClipLane,
+  isStalledAttempt,
   isSamePage,
   laneFor,
   withLane,
@@ -38,6 +40,14 @@ describe("laneFor", () => {
     expect(laneFor({}, "ios", STALLED_ATTEMPTS_BEFORE_APP_LANE - 1)).toBe("c")
     expect(laneFor({}, "ios", STALLED_ATTEMPTS_BEFORE_APP_LANE)).toBe("r")
     expect(laneFor({}, "unknown", STALLED_ATTEMPTS_BEFORE_APP_LANE + 3)).toBe("r")
+  })
+})
+
+describe("isStalledAttempt", () => {
+  it("ignores a restart too quick to follow a real attempt", () => {
+    expect(isStalledAttempt(1_000, 1_000 + MIN_STALLED_ATTEMPT_MS - 1)).toBe(false)
+    expect(isStalledAttempt(1_000, 1_000 + MIN_STALLED_ATTEMPT_MS)).toBe(true)
+    expect(isStalledAttempt(null, 1_000_000)).toBe(false)
   })
 })
 

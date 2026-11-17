@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { QueryBuilderResult } from "@zkpassport/sdk"
 import type { PopupConfigureMessage } from "@zkpassport/sdk/popup"
 
@@ -11,6 +11,7 @@ import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
+import { isStalledAttempt } from "./lane"
 import { describePhoneError } from "./phone-errors"
 import { Scan } from "./scan"
 import { useRequestUrl } from "./use-request-url"
@@ -128,7 +129,10 @@ export function VerifyRequest({
     () => readSession(session)?.stalledAttempts ?? 0,
   )
 
+  const codeShownAt = useRef<number | null>(null)
+
   const countStalledAttempt = () => {
+    if (!isStalledAttempt(codeShownAt.current, Date.now())) return
     const next = stalledAttempts + 1
     setStalledAttempts(next)
     updateSession(session, { stalledAttempts: next })
@@ -200,6 +204,10 @@ export function VerifyRequest({
       },
     },
   )
+
+  useEffect(() => {
+    codeShownAt.current = req.url ? Date.now() : null
+  }, [req.url])
 
   // From the moment the request is live: closing drops the bridge, and once the
   // phone has joined it also throws away work in progress

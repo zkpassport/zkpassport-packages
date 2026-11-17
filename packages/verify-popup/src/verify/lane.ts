@@ -16,7 +16,15 @@ export type LaneRequest = Pick<
  * Attempts that ended with no answer from the phone, or with a failure the ID does not explain,
  * after which new codes leave the App Clip lane: the clip itself may be what keeps failing.
  */
-export const STALLED_ATTEMPTS_BEFORE_APP_LANE = 2
+export const STALLED_ATTEMPTS_BEFORE_APP_LANE = 1
+
+/** Opening the App Clip and scanning an ID takes longer than this, so a quicker restart is not a failed attempt */
+export const MIN_STALLED_ATTEMPT_MS = 30 * 1000
+
+/** Whether restarting a code shown at `codeShownAt` counts as a stalled attempt */
+export function isStalledAttempt(codeShownAt: number | null, now: number): boolean {
+  return codeShownAt !== null && now - codeShownAt >= MIN_STALLED_ATTEMPT_MS
+}
 
 /**
  * A `/c` link opens the App Clip on an iPhone without the app. The clip reads chips and sends
