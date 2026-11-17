@@ -649,6 +649,8 @@ for (const name of ["john", "mary"]) {
   const p = PASSPORTS[name]
   const bdMin = utc("1990-01-01T00:00:00Z"), bdMax = utc("2015-01-01T00:00:00Z")
   const exMin = utc("2024-01-01T00:00:00Z")
+  // One chain id with an even and one with an odd number of hex digits
+  const chain = name === "john" ? "ethereum_sepolia" : "ethereum"
   disclosures.push(
     {
       label: `${name}:disclose`, kind: "disclose", master_salt: DISC_SALT.toString(),
@@ -677,8 +679,8 @@ for (const name of ["john", "mary"]) {
     },
     {
       label: `${name}:bind`, kind: "bind", master_salt: DISC_SALT.toString(),
-      user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", custom_data: "email:test@test.com",
-      expected: await getBindCircuitInputs(p, { bind: { user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", custom_data: "email:test@test.com" } } as any, DSALTS, 0n, S0, S0, DTS),
+      user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", chain, custom_data: "email:test@test.com",
+      expected: await getBindCircuitInputs(p, { bind: { user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", chain, custom_data: "email:test@test.com" } } as any, DSALTS, 0n, S0, S0, DTS),
     },
   )
 }

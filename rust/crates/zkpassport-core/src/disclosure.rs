@@ -554,9 +554,37 @@ pub fn disclosed_values(disclosed: &[u8]) -> Value {
 pub struct BoundData {
     /// 0x-hex address bytes.
     pub user_address: Option<String>,
-    /// Numeric chain id.
-    pub chain_id: Option<u64>,
+    /// Chain name, as the SDK sends it (e.g. "ethereum_sepolia").
+    pub chain: Option<String>,
     pub custom_data: Option<String>,
+}
+
+/// `getIdFromChain` in @zkpassport/utils. A cross-repo contract: keep both lists the same.
+fn chain_id(chain: &str) -> Result<u64, String> {
+    Ok(match chain {
+        "ethereum" => 1,
+        "base" => 8453,
+        "arbitrum" => 42161,
+        "optimism" => 10,
+        "polygon" => 137,
+        "celo" => 42220,
+        "gnosis" => 100,
+        "scroll" => 534352,
+        "linea" => 59144,
+        "world_chain" => 480,
+        "robinhood" => 4663,
+        "ethereum_sepolia" => 11155111,
+        "base_sepolia" => 84532,
+        "arbitrum_sepolia" => 421614,
+        "polygon_amoy" => 80002,
+        "celo_sepolia" => 11142220,
+        "gnosis_chiado" => 10200,
+        "scroll_sepolia" => 534351,
+        "linea_sepolia" => 59141,
+        "world_chain_sepolia" => 4801,
+        "local" => 31337,
+        _ => return Err(format!("Unsupported chain: {chain}")),
+    })
 }
 
 fn hex_bytes(hex: &str) -> Vec<u8> {
@@ -575,15 +603,9 @@ pub fn format_bound_data(b: &BoundData) -> Result<Vec<u8>, String> {
         out.extend_from_slice(&[(bytes.len() >> 8) as u8, (bytes.len() & 0xff) as u8]);
         out.extend_from_slice(&bytes);
     }
-    if let Some(chain) = b.chain_id {
-        // Binary.fromHex(chainId.toString(16)).toNumberArray()
-        let hex = format!("{chain:x}");
-        let bytes = hex_bytes(if hex.len() % 2 == 1 {
-            // Binary.fromHex left-pads odd to even
-            return Err("odd chain id hex unsupported".into());
-        } else {
-            &hex
-        });
+    if let Some(chain) = &b.chain {
+        // The id's big-endian bytes without leading zeros, as TS gets from its hex string
+        let bytes: Vec<u8> = chain_id(chain)?.to_be_bytes().into_iter().skip_while(|&x| x == 0).collect();
         out.push(2);
         out.extend_from_slice(&[0, bytes.len() as u8]);
         out.extend_from_slice(&bytes);
