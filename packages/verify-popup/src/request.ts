@@ -10,7 +10,7 @@ import {
 } from "@zkpassport/sdk"
 import { hydrateQueryBuilder, type PopupRequestConfig } from "@zkpassport/sdk/popup"
 
-import { readSession, updateSession, type Session } from "./session"
+import { resumableKeyPair, updateSession, type Session } from "./session"
 
 // Stops at `waiting`: everything after the phone joins is a screen, not a state
 export type RequestState = "preparing" | "connecting" | "waiting"
@@ -34,6 +34,8 @@ export type RequestConfig = {
   query: QuerySource
   /** Carries the request across a reload; omitted by flows that cannot be resumed. */
   session?: Session
+  /** Attested origin that owns this verification; gates what the stored session may be used for. */
+  rpOrigin?: string
 }
 
 export type RequestCallbacks = {
@@ -77,14 +79,15 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
   callbacksRef.current = callbacks
 
   useEffect(() => {
-    const { domain, request: options, query: wanted, session } = configRef.current
+    const { domain, request: options, query: wanted, session, rpOrigin } = configRef.current
     const sdk = new ZKPassport(domain)
     let cancelled = false
     let requestId: string | null = null
 
     // The old keypair brings the old bridge topic with it, so the phone is still talking to this
     // request. A plain retry asks for a new one instead.
-    const resumeWith = attempt.keepBridge && session ? readSession(session)?.keyPair : undefined
+    const resumeWith =
+      attempt.keepBridge && session ? resumableKeyPair(session, rpOrigin) : undefined
 
     const fail = (summary: string, reason: unknown) => {
       const detail = reason instanceof Error ? reason.message : String(reason)
@@ -138,7 +141,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         // Stored straight away, so a tab discarded mid-flight comes back to the same bridge
         if (session && !resumeWith) {
           const keyPair = sdk.getRequestKeyPair(built.requestId)
-          if (keyPair) updateSession(session, { keyPair })
+          if (keyPair) updateSession(session, { keyPair }, rpOrigin)
         }
         callbacksRef.current.onCreated?.(built, { resumed: !!resumeWith })
 

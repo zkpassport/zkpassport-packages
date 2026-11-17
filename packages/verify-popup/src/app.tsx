@@ -96,7 +96,7 @@ export function App() {
     if (!config) return null
     return (message: OutgoingEvent) => {
       // Held before it is sent, so a page that was not there to receive it can still be given it
-      if (message.type === "success") finishSession(session, message)
+      if (message.type === "success") finishSession(session, message, config.rpOrigin)
       post(message, config.rpOrigin)
     }
   }, [config, session])
@@ -164,6 +164,7 @@ export function App() {
         request={config.request}
         query={config.query}
         rpHost={domain}
+        rpOrigin={config.rpOrigin}
         session={session}
         send={send}
       />

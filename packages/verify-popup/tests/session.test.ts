@@ -4,6 +4,7 @@ import {
   finishSession,
   openSession,
   readSession,
+  resumableKeyPair,
   updateSession,
   type Session,
 } from "../src/session"
@@ -174,6 +175,59 @@ describe("finishSession", () => {
     expect(state?.keyPair).toBeUndefined()
     expect(state?.result?.type).toBe("success")
     expect(state?.configuration).toEqual(CONFIGURATION)
+  })
+})
+
+describe("writes bound to the owning origin", () => {
+  const session: Session = { id: "abc-123", resumed: false, fromUrl: true }
+  const owner = CONFIGURATION.rpOrigin
+
+  test("saves progress while the record is still bound to the owner", () => {
+    setupWindow("?s=abc-123")
+    updateSession(session, { configuration: CONFIGURATION })
+
+    updateSession(session, { stage: "scanned" }, owner)
+
+    expect(readSession(session)?.stage).toBe("scanned")
+  })
+
+  test("drops a write when the record has been swept away", () => {
+    const stored = setupWindow("?s=abc-123")
+
+    updateSession(session, { stage: "scanned" }, owner)
+
+    expect(stored.has(PREFIX + "abc-123")).toBe(false)
+  })
+
+  test("drops a write when another origin has rebound the session", () => {
+    setupWindow("?s=abc-123")
+    const attacker = { ...CONFIGURATION, rpOrigin: "https://attacker.example" }
+    updateSession(session, { configuration: attacker })
+
+    updateSession(session, { stage: "scanned" }, owner)
+
+    const state = readSession(session)
+    expect(state?.stage).toBeUndefined()
+    expect(state?.configuration?.rpOrigin).toBe("https://attacker.example")
+  })
+
+  test("does not keep a result for a session that is no longer the owner's", () => {
+    setupWindow("?s=abc-123")
+    // A site-less record, as an in-flight write leaves behind after the sweep removed the binding
+    updateSession(session, { stage: "proving" })
+
+    finishSession(session, { type: "success", proofs: [], result: {} } as never, owner)
+
+    expect(readSession(session)?.result).toBeUndefined()
+  })
+
+  test("resumes the bridge only for the owning origin", () => {
+    setupWindow("?s=abc-123")
+    const keyPair = { privateKey: Uint8Array.from([1]), publicKey: Uint8Array.from([2]) }
+    updateSession(session, { configuration: CONFIGURATION, keyPair })
+
+    expect(resumableKeyPair(session, owner)).toEqual(keyPair)
+    expect(resumableKeyPair(session, "https://attacker.example")).toBeUndefined()
   })
 })
 
