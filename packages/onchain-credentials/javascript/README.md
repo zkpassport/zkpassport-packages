@@ -36,6 +36,17 @@ const held = await credentials.hasCredential(wallet, policyId)
 const expiresAt = await credentials.heldUntil(wallet, policyId)
 ```
 
+### Listing policies and issuers
+
+The contract keeps no lists, so these replay its logs, from the contract's deploy block to the
+current block:
+
+```typescript
+const owned = await credentials.listPolicies({ owner })
+const issuers = await credentials.listIssuers(policyId)
+const issuing = await credentials.listPoliciesWithIssuer(issuer)
+```
+
 ### Minting a credential
 
 `issue()` takes the proof as `ProofVerificationParams`, which the SDK derives from a verified
