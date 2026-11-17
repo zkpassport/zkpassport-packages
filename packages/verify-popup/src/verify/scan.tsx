@@ -12,16 +12,25 @@ export function Scan({
   state,
   url,
   qrSvg,
+  onNewCode,
 }: {
   state: RequestState
   url: string | null
   qrSvg: string | null
+  onNewCode?: () => void
 }) {
   const [qrRevealed, setQrRevealed] = useState(false)
   const [mobile] = useState(isMobileLike)
 
   if (mobile && !qrRevealed) {
-    return <ContinueInApp requestUrl={url} onRevealQr={() => setQrRevealed(true)} />
+    return (
+      <ContinueInApp
+        key={url ?? "preparing"}
+        requestUrl={url}
+        onRevealQr={() => setQrRevealed(true)}
+        onStartAgain={onNewCode}
+      />
+    )
   }
 
   return (
@@ -49,6 +58,11 @@ export function Scan({
           </button>
         ) : null}
         <Fallback url={url} />
+        {url && onNewCode ? (
+          <button type="button" className="scan-reveal" onClick={onNewCode}>
+            Having trouble? Get a new code
+          </button>
+        ) : null}
       </Main>
     </div>
   )
@@ -57,9 +71,11 @@ export function Scan({
 function ContinueInApp({
   requestUrl,
   onRevealQr,
+  onStartAgain,
 }: {
   requestUrl: string | null
   onRevealQr: () => void
+  onStartAgain?: () => void
 }) {
   const [inAppBrowser] = useState(isInAppBrowser)
   // An in-app browser swallows the custom scheme even when the app is installed, so a probe there
@@ -79,9 +95,16 @@ function ContinueInApp({
         </p>
         <div className="scan-hero" data-state={openState}>
           {handedOff ? (
-            <button type="button" className="scan-reveal" onClick={openApp}>
-              Open the app again
-            </button>
+            <>
+              <button type="button" className="scan-reveal" onClick={openApp}>
+                Open the app again
+              </button>
+              {onStartAgain ? (
+                <button type="button" className="scan-reveal" onClick={onStartAgain}>
+                  Having trouble? Start again
+                </button>
+              ) : null}
+            </>
           ) : requestUrl ? (
             <Primary busy={opening} onClick={openApp}>
               {opening ? "Opening…" : "Open ZKPassport App"}

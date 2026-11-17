@@ -12,13 +12,21 @@ export type LaneRequest = Pick<
   "allowedVerificationMethods" | "uniqueIdentifierType"
 >
 
+export const STALLED_ATTEMPTS_BEFORE_APP_LANE = 1
+
+export const MIN_STALLED_ATTEMPT_MS = 30 * 1000
+
+export function isStalledAttempt(codeShownAt: number | null, now: number): boolean {
+  return codeShownAt !== null && now - codeShownAt >= MIN_STALLED_ATTEMPT_MS
+}
+
 /**
  * A `/c` link opens the App Clip on an iPhone without the app. The clip reads chips and sends
  * any other ID to the full app, so a request keeps `/r` only when the clip could never finish
  * it: the policy accepts no chip read, the identifier is one the clip cannot make (salted or
  * none), or the phone is Android, which has no clip.
  */
-export function laneFor(request: LaneRequest, os: PhoneOs): Lane {
+export function laneFor(request: LaneRequest, os: PhoneOs, stalledAttempts = 0): Lane {
   const acceptsChipRead = isVerificationMethodAllowed(
     VerificationMethod.ICAO_CHIP,
     request.allowedVerificationMethods,
@@ -26,7 +34,12 @@ export function laneFor(request: LaneRequest, os: PhoneOs): Lane {
   const clipMakesIdentifier =
     request.uniqueIdentifierType !== NullifierType.SALTED &&
     request.uniqueIdentifierType !== NullifierType.NONE
-  return os !== "android" && acceptsChipRead && clipMakesIdentifier ? "c" : "r"
+  return os !== "android" &&
+    acceptsChipRead &&
+    clipMakesIdentifier &&
+    stalledAttempts < STALLED_ATTEMPTS_BEFORE_APP_LANE
+    ? "c"
+    : "r"
 }
 
 /** The request URL on the given lane */

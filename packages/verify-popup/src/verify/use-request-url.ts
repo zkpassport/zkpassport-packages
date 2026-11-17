@@ -8,14 +8,18 @@ import { laneFor, withLane, type LaneRequest } from "./lane"
 export function useRequestUrl(
   requestUrl: string | null,
   { allowedVerificationMethods, uniqueIdentifierType }: LaneRequest,
+  stalledAttempts = 0,
 ) {
   const [os] = useState(detectMobileOs)
   const url = useMemo(
     () =>
       requestUrl
-        ? withLane(requestUrl, laneFor({ allowedVerificationMethods, uniqueIdentifierType }, os))
+        ? withLane(
+            requestUrl,
+            laneFor({ allowedVerificationMethods, uniqueIdentifierType }, os, stalledAttempts),
+          )
         : null,
-    [requestUrl, allowedVerificationMethods, uniqueIdentifierType, os],
+    [requestUrl, allowedVerificationMethods, uniqueIdentifierType, os, stalledAttempts],
   )
   const qrSvg = useMemo(() => {
     if (!url) return null
