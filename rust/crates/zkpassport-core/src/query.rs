@@ -182,7 +182,7 @@ pub fn build_disclosures(
     if let Some(bind) = query.get("bind").filter(|b| b.is_object()) {
         let bound = BoundData {
             user_address: bind.get("user_address").and_then(|v| v.as_str()).map(String::from),
-            chain_id: bind.get("chain").and_then(|v| v.as_u64()),
+            chain: bind.get("chain").and_then(|v| v.as_str()).map(String::from),
             custom_data: bind.get("custom_data").and_then(|v| v.as_str()).map(String::from),
         };
         let inputs = get_bind_circuit_inputs(input, &bound, salts, z, ss, sub, current_date, None)?;

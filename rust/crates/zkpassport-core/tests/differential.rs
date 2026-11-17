@@ -129,6 +129,8 @@ struct DisclosureCase {
     #[serde(default)]
     user_address: String,
     #[serde(default)]
+    chain: String,
+    #[serde(default)]
     custom_data: String,
     expected: serde_json::Value,
 }
@@ -850,7 +852,7 @@ fn disclosure_builders_match_ts() {
                 let bound = disclosure::BoundData {
                     user_address: Some(case.user_address.clone()),
                     custom_data: Some(case.custom_data.clone()),
-                    chain_id: None,
+                    chain: Some(case.chain.clone()),
                 };
                 disclosure::get_bind_circuit_inputs(&input, &bound, &salts, z, z, z, 1789000000, None)
             }
