@@ -80,6 +80,8 @@ struct Vectors {
     circuit_merkle: CircuitMerkleCase,
     #[serde(rename = "outerInputs")]
     outer_inputs: OuterInputsCase,
+    #[serde(rename = "outerInputsNoIdentifier")]
+    outer_inputs_no_identifier: OuterInputsCase,
 }
 
 #[derive(Deserialize)]
@@ -187,6 +189,8 @@ struct AgeQueryJson {
 #[derive(Deserialize)]
 struct AgeCase {
     name: String,
+    #[serde(default)]
+    hide_nullifier: bool,
     dg1: Vec<u8>,
     e_content: Vec<u8>,
     sod_signature_processed: Vec<u8>,
@@ -646,6 +650,7 @@ fn age_circuit_inputs_match_ts() {
             dg2_hash: &case.dg2_hash,
             expiry_date: &case.expiry_date,
             mrz: &mrz,
+            hide_nullifier: case.hide_nullifier,
         };
         let query = disclosure::AgeQuery {
             gt: case.query.gt,
@@ -813,6 +818,7 @@ fn disclosure_builders_match_ts() {
             dg2_hash: &age.dg2_hash,
             expiry_date: &age.expiry_date,
             mrz: &mrz,
+            hide_nullifier: false,
         };
         let salts = input_gen::InputGenSalts::from_master(dec(&case.master_salt)).disclosure;
         let z = &BigUint::from(0u8);
@@ -908,6 +914,14 @@ fn outer_assembly_matches_ts() {
     )
     .unwrap();
     assert_eq!(got, v.outer_inputs.result, "getOuterCircuitInputs");
+
+    let no_id1 = ocp("d", &["0xd0", "0x64", "0xd2", "0xd3", "0xd4", "0x4", "0x0", "0xd7"]);
+    let no_id2 = ocp("e", &["0xe0", "0x64", "0xe2", "0xe3", "0xe4", "0x4", "0x0", "0xe7"]);
+    let got = outer::get_outer_circuit_inputs(
+        &csc, &dsc_id, &integ, &[no_id1, no_id2], &v.outer_inputs_no_identifier.circuit_root,
+    )
+    .unwrap();
+    assert_eq!(got, v.outer_inputs_no_identifier.result, "getOuterCircuitInputs without an identifier");
 }
 
 #[test]
@@ -966,6 +980,7 @@ fn end_to_end_input_generation_matches_ts() {
             query: &query,
             evm: false,
             nullifier_secret: BigUint::from(0u8),
+            hide_nullifier: false,
             service_scope: dec(&age_case.service_scope),
             service_subscope: dec(&age_case.service_subscope),
             current_date_timestamp: age_case.current_date,

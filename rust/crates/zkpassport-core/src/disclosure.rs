@@ -62,6 +62,9 @@ pub struct DisclosureInput<'a> {
     pub expiry_date: &'a str,
     /// The MRZ string (from DG1), for disclose-mask ranges.
     pub mrz: &'a str,
+    /// The request asks for no unique identifier: the circuit gets the hash of the private
+    /// nullifier in place of its value, so the proof carries no scoped nullifier.
+    pub hide_nullifier: bool,
 }
 
 /// The disclosure prologue, computed once and shared by every builder in a run.
@@ -121,9 +124,15 @@ fn base_object(
     let salted = |value: Value, salt: &BigUint| {
         json!({ "value": value, "salt": hex_min(salt), "hash": "0x0" })
     };
+    let salted_private_nullifier = if input.hide_nullifier {
+        let hash = salted_value_hash_scalar(&salts.private_nullifier_salt, &base.private_nullifier);
+        json!({ "value": "0x0", "salt": "0x0", "hash": hex_min(&hash) })
+    } else {
+        salted(json!(hex_min(&base.private_nullifier)), &salts.private_nullifier_salt)
+    };
     json!({
         "salted_dg1": salted(json!(base.dg1_padded), &salts.dg1_salt),
-        "salted_private_nullifier": salted(json!(hex_min(&base.private_nullifier)), &salts.private_nullifier_salt),
+        "salted_private_nullifier": salted_private_nullifier,
         "salted_expiry_date": salted(json!(input.expiry_date.as_bytes()), &salts.expiry_date_salt),
         "salted_dg2_hash": salted(json!(hex_min(&base.dg2_hash_normalized)), &salts.dg2_hash_salt),
         "salted_dg2_hash_type": salted(json!(hex_min(&BigUint::from(base.dg2_hash_type))), &salts.dg2_hash_salt),

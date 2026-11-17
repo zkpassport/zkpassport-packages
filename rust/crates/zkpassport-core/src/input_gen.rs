@@ -152,6 +152,8 @@ pub struct GenerateParams<'a> {
     pub query: &'a Value,
     pub evm: bool,
     pub nullifier_secret: BigUint,
+    /// See [`DisclosureInput::hide_nullifier`].
+    pub hide_nullifier: bool,
     pub service_scope: BigUint,
     pub service_subscope: BigUint,
     pub current_date_timestamp: u64,
@@ -271,6 +273,7 @@ pub fn generate_all_inputs(p: &GenerateParams, salts: &InputGenSalts) -> Result<
         dg2_hash: p.dg2_hash,
         expiry_date: &expiry,
         mrz: &mrz,
+        hide_nullifier: p.hide_nullifier,
     };
     let disclosures = crate::query::build_disclosures(
         p.query,

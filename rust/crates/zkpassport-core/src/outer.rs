@@ -173,6 +173,9 @@ impl OuterSubproof {
     }
 }
 
+/// `NullifierType.NONE`: the proof carries no scoped nullifier.
+const NULLIFIER_TYPE_NONE: u8 = 4;
+
 /// `getOuterCircuitInputs`. Disclosure PI layout:
 /// [0]=comm_in [1]=current_date [2]=scope [3]=subscope [4]=param_commitment
 /// [5]=nullifier_type [6]=scoped_nullifier [7]=oprf_pk_hash
@@ -183,30 +186,32 @@ pub fn get_outer_circuit_inputs(
     disclosures: &[OuterSubproof],
     circuit_registry_root: &str,
 ) -> Result<Value, String> {
+    let field = |p: &OuterSubproof, index: usize| {
+        p.public_inputs.get(index).and_then(|n| {
+            BigUint::parse_bytes(n.strip_prefix("0x").unwrap_or(n).as_bytes(), 16)
+        })
+    };
+    let zero = BigUint::from(0u8);
+    // All subproofs carry the same date, scope and subscope, so the first one provides them
+    let source = disclosures.first().ok_or("At least one disclosure proof is required")?;
+    // The nullifier may sit on another subproof, or on none when the request asks for no identifier
     let with_nullifier = disclosures
         .iter()
-        .find(|p| {
-            p.public_inputs
-                .get(6)
-                .map(|n| {
-                    let h = n.strip_prefix("0x").unwrap_or(n);
-                    BigUint::parse_bytes(h.as_bytes(), 16)
-                        .map(|b| b != BigUint::from(0u8))
-                        .unwrap_or(false)
-                })
-                .unwrap_or(false)
+        .find(|p| field(p, 6).is_some_and(|n| n != zero));
+    // A mock type must win at the top level so mock proofs stay detectable
+    let nullifier_type_source = with_nullifier
+        .or_else(|| {
+            disclosures
+                .iter()
+                .find(|p| field(p, 5).is_some_and(|t| t != BigUint::from(NULLIFIER_TYPE_NONE)))
         })
-        .ok_or("No disclosure proof with non-zero nullifier found")?;
+        .unwrap_or(source);
+    let nullifier_source = with_nullifier.unwrap_or(source);
 
     let certificate_registry_root = &csc_to_dsc.public_inputs[0];
-    let current_date: u64 = {
-        let s = with_nullifier.public_inputs[1]
-            .strip_prefix("0x")
-            .unwrap_or(&with_nullifier.public_inputs[1]);
-        BigUint::parse_bytes(s.as_bytes(), 16)
-            .and_then(|b| u64::try_from(b).ok())
-            .unwrap_or(0)
-    };
+    let current_date: u64 = field(source, 1)
+        .and_then(|b| u64::try_from(b).ok())
+        .unwrap_or(0);
     let param_commitments: Vec<String> = disclosures
         .iter()
         .map(|p| p.public_inputs[4].clone())
@@ -216,12 +221,12 @@ pub fn get_outer_circuit_inputs(
         "certificate_registry_root": certificate_registry_root,
         "circuit_registry_root": circuit_registry_root,
         "current_date": current_date,
-        "service_scope": with_nullifier.public_inputs[2],
-        "service_subscope": with_nullifier.public_inputs[3],
+        "service_scope": source.public_inputs[2],
+        "service_subscope": source.public_inputs[3],
         "param_commitments": param_commitments,
-        "scoped_nullifier": with_nullifier.public_inputs[6],
-        "nullifier_type": with_nullifier.public_inputs[5],
-        "oprf_pk_hash": with_nullifier.public_inputs[7],
+        "scoped_nullifier": nullifier_source.public_inputs[6],
+        "nullifier_type": nullifier_type_source.public_inputs[5],
+        "oprf_pk_hash": nullifier_source.public_inputs[7],
         // csc_to_dsc drops PI[0] (the cert registry root).
         "csc_to_dsc_proof": csc_to_dsc.to_json(&csc_to_dsc.public_inputs[1..].to_vec()),
         "dsc_to_id_data_proof": dsc_to_id.to_json(&dsc_to_id.public_inputs),

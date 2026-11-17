@@ -121,6 +121,54 @@ fn ffi_query_driven_request_matches_ts() {
     }
 }
 
+/// A request for no unique identifier gets the hash of the private nullifier in place of its value.
+#[test]
+fn ffi_request_without_identifier_hides_the_nullifier() {
+    let v = load_vectors();
+    let fixtures = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../packages/zkpassport-utils/tests/fixtures/root-certs-v1.json"
+    );
+    let file: Value = serde_json::from_str(&std::fs::read_to_string(fixtures).unwrap()).unwrap();
+    let sod_case = &v["sod"].as_array().unwrap()[0];
+    let name = sod_case["name"].as_str().unwrap();
+    let find = |arr: &str, key: &str| -> Value {
+        v[arr].as_array().unwrap().iter().find(|c| c["name"] == key).unwrap().clone()
+    };
+    let age_case = find("age", &format!("{name}:gte18_no_identifier"));
+    let id_case = find("idData", name);
+    let integ_case = find("integrity", name);
+    let dsc_case = find("dsc", name);
+
+    let request = json!({
+        "sod": sod_case["sod_base64"],
+        "dg1": b64(&bytes_of(&id_case["dg1"])),
+        "certificates": file["certificates"],
+        "certs_meta": {
+            "version": v["dscMeta"]["version"], "root": v["dscMeta"]["root"],
+            "timestamp": v["dscMeta"]["timestamp"], "revocations": v["dscMeta"]["revocations"],
+            "masterlists": v["dscMeta"]["masterlists"],
+        },
+        "query": { "age": { "gte": 18 } },
+        "service_scope": "", "service_subscope": "",
+        "hide_nullifier": true,
+        "current_date_timestamp": age_case["current_date"],
+        "salts": {
+            "dsc": dsc_case["salt"], "id_in": id_case["salt_in"], "id_out": id_case["salt_out"],
+            "integrity_in": integ_case["salt_in"],
+            "dg1": age_case["salts"]["dg1_salt"], "expiry_date": age_case["salts"]["expiry_date_salt"],
+            "dg2_hash": age_case["salts"]["dg2_hash_salt"], "private_nullifier": age_case["salts"]["private_nullifier_salt"],
+        },
+    });
+
+    let out: Value = serde_json::from_str(&generate_inputs_json(&request.to_string())).unwrap();
+    assert!(out["error"].is_null(), "{name}: {}", out["error"]);
+    let mut expected_age = age_case["expected"].clone();
+    expected_age["service_scope"] = json!("0x0");
+    expected_age["service_subscope"] = json!("0x0");
+    assert_eq!(disclosure(&out, "compare_age")["inputs"], expected_age, "compare_age inputs");
+}
+
 /// A multi-condition query fans out to several disclosure circuits.
 #[test]
 fn ffi_multi_disclosure_query() {
