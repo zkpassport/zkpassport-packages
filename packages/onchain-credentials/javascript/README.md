@@ -38,8 +38,7 @@ const expiresAt = await credentials.heldUntil(wallet, policyId)
 
 ### Listing policies and issuers
 
-The contract keeps no lists, so these replay its logs, from the contract's deploy block to the
-current block:
+These read the contract's logs, from its deploy block to the current block:
 
 ```typescript
 const owned = await credentials.listPolicies({ owner })

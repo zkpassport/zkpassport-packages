@@ -4,7 +4,6 @@ import type { SupportedChain } from "@zkpassport/utils"
 
 type CredentialsContract = {
   address: `0x${string}`
-  /** The block of the contract's creation transaction, where log scans can start. */
   deployBlock: bigint
 }
 

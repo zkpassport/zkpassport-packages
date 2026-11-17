@@ -174,11 +174,7 @@ const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "
 const ISSUER_ADDED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "IssuerAdded" })
 const ISSUER_REMOVED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "IssuerRemoved" })
 
-/**
- * The block window a log scan covers. It starts at `fromBlock`, or the client's `deployBlock`
- * when omitted, and ends at `toBlock`, or the current block. `blockRange` caps each getLogs call
- * (10,000 blocks by default), since RPC providers limit the range one call may span.
- */
+/** The blocks a log scan covers, and the most blocks one getLogs call may span. */
 type LogScanRange = {
   fromBlock?: bigint
   toBlock?: bigint
@@ -403,19 +399,15 @@ export class CredentialsClient {
     return logs.map((log) => ({ policyId: log.args.policyId, owner: log.args.owner }))
   }
 
-  /**
-   * The current issuers of a policy, replayed from its `IssuerAdded` and `IssuerRemoved` logs. The
-   * contract keeps only the `isIssuer` mapping, so logs are the only on-chain enumeration. The
-   * scan covers the same blocks as `listPolicies`.
-   */
+  /** List a policy's current issuers. Scans the same blocks as `listPolicies`. */
   async listIssuers(policyId: bigint, range: LogScanRange = {}): Promise<`0x${string}`[]> {
     const issuerships = await this.listCurrentIssuerships("listIssuers", { policyId }, range)
     return issuerships.map((issuership) => issuership.issuer)
   }
 
   /**
-   * The policies an address is currently an issuer of, replayed from the `IssuerAdded` and
-   * `IssuerRemoved` logs naming it. The scan covers the same blocks as `listPolicies`.
+   * List the policies an address is currently an issuer of. Scans the same blocks as
+   * `listPolicies`.
    */
   async listPoliciesWithIssuer(issuer: `0x${string}`, range: LogScanRange = {}): Promise<bigint[]> {
     const issuerships = await this.listCurrentIssuerships(
@@ -773,7 +765,7 @@ export type CredentialsContext = {
  * Read context for the canonical credentials contract on a chain: a public client on the
  * chain's default RPC plus a CredentialsClient bound to it. The address and deploy block
  * are derived from the viem chain's id, so chains without a recorded
- * deployment are rejected here, and log scans start at the contract's deploy block.
+ * deployment are rejected here.
  */
 export function createCredentialsContext(chain: Chain): CredentialsContext {
   const publicClient = createPublicClient({ chain, transport: http() })
