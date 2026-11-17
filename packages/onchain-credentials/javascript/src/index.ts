@@ -1,8 +1,8 @@
-import type { Chain, PublicClient, WalletClient } from "viem"
+import type { AbiEvent, Chain, PublicClient, WalletClient } from "viem"
 import { createPublicClient, encodeAbiParameters, getAbiItem, http, keccak256 } from "viem"
 import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType } from "@zkpassport/utils"
-import { getCredentialsAddress } from "./deployments"
+import { getCredentialsAddress, getCredentialsDeployBlock } from "./deployments"
 import { ZKPassportCredentialsAbi } from "./abi/zkpassport-credentials"
 import { PolicyEvaluatorV1Abi } from "./abi/policy-evaluator-v1"
 import { PolicyEvaluatorV2Abi } from "./abi/policy-evaluator-v2"
@@ -171,6 +171,25 @@ export type CredentialPolicySummary = {
 }
 
 const POLICY_CREATED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "PolicyCreated" })
+const ISSUER_ADDED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "IssuerAdded" })
+const ISSUER_REMOVED_EVENT = getAbiItem({ abi: ZKPassportCredentialsAbi, name: "IssuerRemoved" })
+
+/**
+ * The block window a log scan covers. It starts at `fromBlock`, or the client's `deployBlock`
+ * when omitted, and ends at `toBlock`, or the current block. `blockRange` caps each getLogs call
+ * (10,000 blocks by default), since RPC providers limit the range one call may span.
+ */
+type LogScanRange = {
+  fromBlock?: bigint
+  toBlock?: bigint
+  blockRange?: bigint
+}
+
+type IssuerLog = {
+  args: { policyId: bigint; issuer: `0x${string}` }
+  blockNumber: bigint
+  logIndex: number
+}
 
 // The tuple layout issue()'s proofData bytes.
 const PROOF_DATA_ABI = getAbiItem({ abi: PolicyEvaluatorV2Abi, name: "decodeProofData" }).outputs
@@ -374,42 +393,107 @@ export class CredentialsClient {
    * the client without either is an error. It ends at `toBlock`, or the current block.
    */
   async listPolicies(
-    filter: {
-      owner?: `0x${string}`
-      fromBlock?: bigint
-      toBlock?: bigint
-      blockRange?: bigint
-    } = {},
+    filter: { owner?: `0x${string}` } & LogScanRange = {},
   ): Promise<CredentialPolicySummary[]> {
-    const fromBlock = filter.fromBlock ?? this.deployBlock
+    const scan = await this.resolveLogScan("listPolicies", filter)
+    const args = filter.owner !== undefined ? { owner: filter.owner } : undefined
+    const logs = (await this.getLogsInChunks(POLICY_CREATED_EVENT, args, scan)) as {
+      args: CredentialPolicySummary
+    }[]
+    return logs.map((log) => ({ policyId: log.args.policyId, owner: log.args.owner }))
+  }
+
+  /**
+   * The current issuers of a policy, replayed from its `IssuerAdded` and `IssuerRemoved` logs. The
+   * contract keeps only the `isIssuer` mapping, so logs are the only on-chain enumeration. The
+   * scan covers the same blocks as `listPolicies`.
+   */
+  async listIssuers(policyId: bigint, range: LogScanRange = {}): Promise<`0x${string}`[]> {
+    const issuerships = await this.listCurrentIssuerships("listIssuers", { policyId }, range)
+    return issuerships.map((issuership) => issuership.issuer)
+  }
+
+  /**
+   * The policies an address is currently an issuer of, replayed from the `IssuerAdded` and
+   * `IssuerRemoved` logs naming it. The scan covers the same blocks as `listPolicies`.
+   */
+  async listPoliciesWithIssuer(issuer: `0x${string}`, range: LogScanRange = {}): Promise<bigint[]> {
+    const issuerships = await this.listCurrentIssuerships(
+      "listPoliciesWithIssuer",
+      { issuer },
+      range,
+    )
+    return issuerships.map((issuership) => issuership.policyId)
+  }
+
+  private async resolveLogScan(method: string, range: LogScanRange) {
+    const fromBlock = range.fromBlock ?? this.deployBlock
     if (fromBlock === undefined) {
       throw new Error(
-        "listPolicies needs a starting block: pass fromBlock, or construct CredentialsClient with the credentials contract's deployBlock.",
+        `${method} needs a starting block: pass fromBlock, or construct CredentialsClient with the credentials contract's deployBlock.`,
       )
     }
 
-    const blockRange = filter.blockRange ?? 10_000n
+    const blockRange = range.blockRange ?? 10_000n
     if (blockRange < 1n) throw new Error("blockRange must be at least 1")
 
-    const toBlock = filter.toBlock ?? (await this.client.getBlockNumber())
-    const summaries: CredentialPolicySummary[] = []
+    const toBlock = range.toBlock ?? (await this.client.getBlockNumber())
+    return { fromBlock, toBlock, blockRange }
+  }
 
-    for (let start = fromBlock; start <= toBlock; start += blockRange) {
-      const end = start + blockRange - 1n < toBlock ? start + blockRange - 1n : toBlock
-      const logs = await this.client.getLogs({
+  private async getLogsInChunks(
+    event: AbiEvent,
+    args: Record<string, unknown> | undefined,
+    scan: { fromBlock: bigint; toBlock: bigint; blockRange: bigint },
+  ): Promise<unknown[]> {
+    const logs: unknown[] = []
+    for (let start = scan.fromBlock; start <= scan.toBlock; start += scan.blockRange) {
+      const end =
+        start + scan.blockRange - 1n < scan.toBlock ? start + scan.blockRange - 1n : scan.toBlock
+      const chunk = await this.client.getLogs({
         address: this.address,
-        event: POLICY_CREATED_EVENT,
-        args: filter.owner !== undefined ? { owner: filter.owner } : undefined,
+        event,
+        args,
         fromBlock: start,
         toBlock: end,
       } as never)
+      logs.push(...(chunk as unknown[]))
+    }
+    return logs
+  }
 
-      for (const log of logs as unknown as { args: CredentialPolicySummary }[]) {
-        summaries.push({ policyId: log.args.policyId, owner: log.args.owner })
+  private async listCurrentIssuerships(
+    method: string,
+    args: { policyId: bigint } | { issuer: `0x${string}` },
+    range: LogScanRange,
+  ): Promise<IssuerLog["args"][]> {
+    const scan = await this.resolveLogScan(method, range)
+    const [added, removed] = await Promise.all([
+      this.getLogsInChunks(ISSUER_ADDED_EVENT, args, scan),
+      this.getLogsInChunks(ISSUER_REMOVED_EVENT, args, scan),
+    ])
+
+    const changes = [
+      ...(added as IssuerLog[]).map((log) => ({ log, isIssuer: true })),
+      ...(removed as IssuerLog[]).map((log) => ({ log, isIssuer: false })),
+    ].sort((a, b) =>
+      a.log.blockNumber === b.log.blockNumber
+        ? a.log.logIndex - b.log.logIndex
+        : a.log.blockNumber < b.log.blockNumber
+          ? -1
+          : 1,
+    )
+
+    const current = new Map<string, IssuerLog["args"]>()
+    for (const { log, isIssuer } of changes) {
+      const key = `${log.args.policyId}:${log.args.issuer.toLowerCase()}`
+      if (isIssuer) {
+        current.set(key, { policyId: log.args.policyId, issuer: log.args.issuer })
+      } else {
+        current.delete(key)
       }
     }
-
-    return summaries
+    return [...current.values()]
   }
 
   /**
@@ -687,15 +771,17 @@ export type CredentialsContext = {
 
 /**
  * Read context for the canonical credentials contract on a chain: a public client on the
- * chain's default RPC plus a CredentialsClient bound to it. The address
- * is derived from the viem chain's id, so chains without a recorded
- * deployment are rejected here.
+ * chain's default RPC plus a CredentialsClient bound to it. The address and deploy block
+ * are derived from the viem chain's id, so chains without a recorded
+ * deployment are rejected here, and log scans start at the contract's deploy block.
  */
 export function createCredentialsContext(chain: Chain): CredentialsContext {
   const publicClient = createPublicClient({ chain, transport: http() })
+  const supportedChain = getChainFromId(chain.id)
   const credentials = new CredentialsClient({
     client: publicClient,
-    address: getCredentialsAddress(getChainFromId(chain.id)),
+    address: getCredentialsAddress(supportedChain),
+    deployBlock: getCredentialsDeployBlock(supportedChain),
   })
   return { chain, publicClient, credentials }
 }

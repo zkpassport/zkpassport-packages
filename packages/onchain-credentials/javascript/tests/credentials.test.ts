@@ -253,7 +253,70 @@ describe("CredentialsClient discovery", () => {
       { policyId: 20n, owner: WALLET },
     ])
   })
+
+  test("listIssuers replays additions and removals in log order", async () => {
+    const issuerLogs = issuerLogsClient({
+      IssuerAdded: [
+        issuerLog(POLICY_ID, ISSUER, 10n, 0),
+        issuerLog(POLICY_ID, WALLET, 12n, 1),
+        issuerLog(POLICY_ID, ISSUER, 30n, 2),
+      ],
+      IssuerRemoved: [issuerLog(POLICY_ID, ISSUER, 20n, 0), issuerLog(POLICY_ID, WALLET, 12n, 5)],
+    })
+    const credentials = new CredentialsClient({
+      client: issuerLogs.client,
+      address: REGISTRY,
+      deployBlock: 1n,
+    })
+
+    expect(await credentials.listIssuers(POLICY_ID)).toEqual([ISSUER])
+    expect(issuerLogs.filters).toEqual([{ policyId: POLICY_ID }, { policyId: POLICY_ID }])
+  })
+
+  test("listPoliciesWithIssuer keeps the policies the address was not removed from", async () => {
+    const issuerLogs = issuerLogsClient({
+      IssuerAdded: [issuerLog(1n, ISSUER, 5n, 0), issuerLog(2n, ISSUER, 6n, 0)],
+      IssuerRemoved: [issuerLog(1n, ISSUER, 7n, 0)],
+    })
+    const credentials = new CredentialsClient({
+      client: issuerLogs.client,
+      address: REGISTRY,
+      deployBlock: 1n,
+    })
+
+    expect(await credentials.listPoliciesWithIssuer(ISSUER)).toEqual([2n])
+    expect(issuerLogs.filters).toEqual([{ issuer: ISSUER }, { issuer: ISSUER }])
+  })
+
+  test("the issuer reads throw without fromBlock or deployBlock", async () => {
+    const { client } = stubClient(() => null)
+    const credentials = new CredentialsClient({ client, address: REGISTRY })
+    await expect(credentials.listIssuers(POLICY_ID)).rejects.toThrow(
+      "listIssuers needs a starting block",
+    )
+    await expect(credentials.listPoliciesWithIssuer(ISSUER)).rejects.toThrow(
+      "listPoliciesWithIssuer needs a starting block",
+    )
+  })
 })
+
+function issuerLog(policyId: bigint, issuer: `0x${string}`, blockNumber: bigint, logIndex: number) {
+  return { args: { policyId, issuer }, blockNumber, logIndex }
+}
+
+function issuerLogsClient(logsByEvent: Record<string, ReturnType<typeof issuerLog>[]>) {
+  const filters: unknown[] = []
+  const client = {
+    readContract: async () => null,
+    getLogs: async (params: never) => {
+      const p = params as { event: { name: string }; args?: unknown }
+      filters.push(p.args)
+      return (logsByEvent[p.event.name] ?? []) as never
+    },
+    getBlockNumber: async () => 100n,
+  } as unknown as CredentialsReadClient
+  return { client, filters }
+}
 
 describe("CredentialsClient issue helpers", () => {
   test("encodeIssueProofData abi-encodes the verifier parameters per the evaluator schema", () => {
@@ -298,6 +361,17 @@ describe("credentials deployments", () => {
       "Credential minting is not supported on 'local': no credentials contract is deployed.",
     )
   })
+
+  test("records the block each canonical contract was deployed in", async () => {
+    const { getCredentialsDeployBlock } = await import("../src/deployments")
+    expect(getCredentialsDeployBlock("ethereum")).toBe(26428042n)
+    expect(getCredentialsDeployBlock("base")).toBe(58237426n)
+    expect(getCredentialsDeployBlock("robinhood")).toBe(115822367n)
+    expect(getCredentialsDeployBlock("ethereum_sepolia")).toBe(12147616n)
+    expect(() => getCredentialsDeployBlock("local")).toThrow(
+      "Credential minting is not supported on 'local': no credentials contract is deployed.",
+    )
+  })
 })
 
 describe("createCredentialsContext", () => {
@@ -305,6 +379,21 @@ describe("createCredentialsContext", () => {
     const ctx = createCredentialsContext(sepolia)
     expect(ctx.credentials.address).toBe("0x000C8Dbf0F3855D66f346bD969e659D93f744E4b")
     expect(ctx.chain).toBe(sepolia)
+  })
+
+  test("scans logs from the chain's deploy block by default", async () => {
+    const ctx = createCredentialsContext(sepolia)
+    const scannedFrom: bigint[] = []
+    Object.assign(ctx.publicClient, {
+      getBlockNumber: async () => 12147620n,
+      getLogs: async (params: { fromBlock: bigint }) => {
+        scannedFrom.push(params.fromBlock)
+        return []
+      },
+    })
+
+    expect(await ctx.credentials.listPolicies()).toEqual([])
+    expect(scannedFrom).toEqual([12147616n])
   })
 
   test("rejects chains without a recorded deployment", () => {
