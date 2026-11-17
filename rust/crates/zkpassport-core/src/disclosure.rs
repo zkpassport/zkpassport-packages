@@ -505,13 +505,22 @@ fn decode_strip(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).replace('\u{0}', "")
 }
 
-/// Passport `disclosedBytes` → the values the SDK's checker recomputes.
+/// `DisclosedData.fromDisclosedBytes` in @zkpassport/utils: the values the SDK's checker
+/// recomputes from `disclosedBytes`. A cross-repo contract: keep the field positions the same.
 /// `disclosed` is the 90-byte MRZ region (dg1[5..]) with non-disclosed
 /// positions zeroed. Only fields covered by the mask come back non-empty.
-pub fn disclosed_values(disclosed: &[u8]) -> Value {
+pub fn disclosed_values(disclosed: &[u8], mrz: &str) -> Value {
+    let is_id = mrz.len() == 90;
     let slice = |a: usize, b: usize| -> &[u8] { disclosed.get(a..b).unwrap_or(&[]) };
-    // Name field [5,44): SURNAME<<GIVEN1<GIVEN2...
-    let raw_name = decode_strip(slice(5, 44));
+    // The [start, end) range of a field: passport (TD3) or ID card (TD1).
+    let field = |passport: (usize, usize), id_card: (usize, usize)| -> String {
+        let (a, b) = if is_id { id_card } else { passport };
+        decode_strip(slice(a, b))
+    };
+    // `normalizeCountryCode`: Germany's MRZ code is "D<<".
+    let country = |code: String| if code == "D<<" { "DEU".to_string() } else { code };
+    // Name field: SURNAME<<GIVEN1<GIVEN2...
+    let raw_name = field((5, 44), (60, 90));
     let (last, given) = match raw_name.find("<<") {
         Some(i) => (raw_name[..i].to_string(), raw_name[i + 2..].to_string()),
         None => (String::new(), String::new()),
@@ -537,13 +546,13 @@ pub fn disclosed_values(disclosed: &[u8]) -> Value {
         "firstname": format_name(&first),
         "lastname": format_name(&last),
         "fullname": format_name(&full),
-        "nationality": decode_strip(slice(54, 57)),
-        "issuing_country": decode_strip(slice(2, 5)),
-        "document_number": strip_chevrons(&decode_strip(slice(44, 53))),
+        "nationality": country(field((54, 57), (45, 48))),
+        "issuing_country": country(decode_strip(slice(2, 5))),
+        "document_number": strip_chevrons(&field((44, 53), (5, 14))),
         "document_type": doc_type,
-        "gender": decode_strip(slice(64, 65)),
-        "birthdate": decode_strip(slice(57, 63)),   // raw YYMMDD
-        "expiry_date": decode_strip(slice(65, 71)), // raw YYMMDD
+        "gender": field((64, 65), (37, 38)),
+        "birthdate": field((57, 63), (30, 36)),   // raw YYMMDD
+        "expiry_date": field((65, 71), (38, 44)), // raw YYMMDD
     })
 }
 
