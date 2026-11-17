@@ -31,7 +31,8 @@ test("auth commitment matches test_commit_matches_typescript in the oprf_registr
   )
 })
 
-// Regression check for the @taceo/oprf-core patch in patches/: without it no blinding factor inverts
+// @taceo/oprf-core 0.4.0 on @noble/curves >= 2.2 took the wrong subgroup order, so no blinding
+// factor inverted
 test("registration id is deterministic per passport and key, whatever the blinding", async () => {
   const sk = 123456789n
   const r1 = await evaluateMock(42n, sk)
