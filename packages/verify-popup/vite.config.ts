@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 
 // Grants crossOriginIsolated (SharedArrayBuffer → multithreaded WASM proving)
 // WITHOUT COOP, so the window.opener postMessage channel to the RP page survives.
@@ -9,8 +9,35 @@ const DOCUMENT_ISOLATION_HEADERS = {
   "Document-Isolation-Policy": "isolate-and-credentialless",
 }
 
+// With this tag iPhone Safari offers the App Clip, but only where the page is shown under
+// zkpassport.id, the domain the clip is tied to.
+const APP_CLIP_TAG =
+  '<meta name="apple-itunes-app" content="app-id=6477371975, app-clip-bundle-id=app.zkpassport.zkpassport.clip, app-clip-display=card" />'
+
+/**
+ * Builds the /c page: the /r page plus the App Clip tag. /r stays without the tag, where it would
+ * show Apple's plain app banner, which opens the app without the request.
+ */
+function appClipRequestPage(): Plugin {
+  return {
+    name: "app-clip-request-page",
+    enforce: "post",
+    generateBundle(_, bundle) {
+      const requestPage = bundle["r.html"]
+      const html = requestPage?.type === "asset" ? String(requestPage.source) : ""
+      // /c is the default request link, so a build without its page or its tag must not pass
+      if (!html.includes("<head>")) this.error("c.html: r.html was not built or has no <head>")
+      this.emitFile({
+        type: "asset",
+        fileName: "c.html",
+        source: html.replace("<head>", `<head>\n    ${APP_CLIP_TAG}`),
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), appClipRequestPage()],
   resolve: {
     alias: {
       // internal build of @zkpassport/ui, not part of its public exports
