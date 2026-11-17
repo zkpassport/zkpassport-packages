@@ -205,7 +205,6 @@ export class ZKPassport {
       returnDeepLink: string | undefined
       verifierMode: VerifierMode | undefined
       config: VerificationConfig | undefined
-      appClip: boolean
       allowedVerificationMethods: AllowedVerificationMethod[] | undefined
     }
   > = {}
@@ -799,7 +798,6 @@ export class ZKPassport {
     returnDeepLink,
     verifierMode,
     config,
-    overrides,
     allowedVerificationMethods,
   }: {
     name?: string
@@ -820,8 +818,6 @@ export class ZKPassport {
     returnDeepLink?: string
     verifierMode?: VerifierMode
     config?: VerificationConfig
-    /** `appClip` has no effect any more: the popup picks the App Clip link (`/c`) on its own */
-    overrides?: { appClip?: boolean }
     allowedVerificationMethods?: AllowedVerificationMethod[]
   }): Promise<QueryBuilder> {
     if (topicOverride === "offline-query") {
@@ -874,7 +870,6 @@ export class ZKPassport {
       returnDeepLink,
       verifierMode,
       config,
-      appClip: overrides?.appClip ?? false,
       allowedVerificationMethods,
     }
 
