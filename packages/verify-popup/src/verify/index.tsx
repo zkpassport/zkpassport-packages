@@ -32,7 +32,15 @@ type VerifyFlowProps = {
 
 type DomainResolution = { domain: string } | { error: string } | null
 
-type Failure = { title?: string; message: string; keepsBridge?: boolean; explained?: boolean }
+type Failure = {
+  title?: string
+  message: string
+  // The raw reason, kept for a bug report but folded away from the explanation
+  detail?: string
+  retryLabel?: string
+  keepsBridge?: boolean
+  explained?: boolean
+}
 
 /**
  * Settles which domain the request is made under before anything is sent to the bridge: the
@@ -65,7 +73,12 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
   if (resolution && "error" in resolution) {
     return (
       <FlowCard name={appName} logo={request.logo} screenKey="error">
-        <ErrorScreen message={resolution.error} onRetry={() => setAttempt((n) => n + 1)} />
+        <ErrorScreen
+          title="This site isn’t set up yet"
+          message={`${appName} can’t use ZKPassport verification from this page yet.`}
+          detail={resolution.error}
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
       </FlowCard>
     )
   }
@@ -188,7 +201,12 @@ export function VerifyRequest({
           .then(() => setVerified(true), failFrom)
       },
       onReject: () => {
-        failWith({ message: "The request was declined on your phone.", explained: true })
+        failWith({
+          title: "Request declined",
+          message: "You declined the request in ZKPassport. Start again if that was a mistake.",
+          retryLabel: "Start again",
+          explained: true,
+        })
         send({ type: "rejected" })
       },
       onError: (message) => {
@@ -196,12 +214,20 @@ export function VerifyRequest({
         failWith(
           known
             ? { title: known.title, message: known.message, explained: true }
-            : { message: String(message) },
+            : {
+                title: "Verification didn’t finish",
+                message: "Something went wrong on your phone. Try again.",
+                detail: String(message),
+              },
         )
         send({ type: "error", message: String(message), code: known?.code })
       },
       onConnectionLost: () => {
-        failWith({ message: "The connection to your phone was lost.", keepsBridge: true })
+        failWith({
+          title: "Lost touch with your phone",
+          message: "Check your phone is online, then reconnect.",
+          keepsBridge: true,
+        })
       },
     },
   )
@@ -242,8 +268,9 @@ export function VerifyRequest({
         <ErrorScreen
           title={failure.title}
           message={failure.message}
+          detail={failure.detail}
           onRetry={tryAgain}
-          retryLabel={failure.keepsBridge ? "Reconnect" : undefined}
+          retryLabel={failure.keepsBridge ? "Reconnect" : failure.retryLabel}
           onStartOver={failure.keepsBridge ? startAgain : undefined}
         />
       ) : null}

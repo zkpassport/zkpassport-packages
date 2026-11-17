@@ -21,6 +21,7 @@ import { codeReplaced, codeShown, type Attempts } from "../verify/lane"
 import { Scan } from "../verify/scan"
 import { useRequestUrl } from "../verify/use-request-url"
 import { Waiting } from "../verify/waiting"
+import { describePhoneError } from "../verify/phone-errors"
 import { useRequest } from "../request"
 import {
   mintInProgress,
@@ -57,8 +58,12 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   // nothing to retry
   if ("error" in resolved) {
     return (
-      <FlowCard name={appName} logo={request.logo} screenKey="error">
-        <ErrorScreen message={resolved.error} />
+      <FlowCard name={appName} logo={request.logo} screenKey="error" wide>
+        <ErrorScreen
+          title="This site isn’t set up yet"
+          message={`${appName} can’t save verifications on this network yet.`}
+          detail={resolved.error}
+        />
       </FlowCard>
     )
   }
@@ -177,6 +182,7 @@ export function FlowBody({
       logo={request.logo}
       progress={progressSegments(step.kind, payer !== undefined, phase)}
       screenKey={step.kind}
+      wide
     >
       {screen}
     </FlowCard>
@@ -234,7 +240,13 @@ function VerifyStep({
   onChangeWallet?: () => void
 }) {
   const [consented, setConsented] = useState(false)
-  const [failure, setFailure] = useState<{ message: string; explained?: boolean } | null>(null)
+  const [failure, setFailure] = useState<{
+    title?: string
+    message: string
+    detail?: string
+    retryLabel?: string
+    explained?: boolean
+  } | null>(null)
   const req = useRequest(
     {
       // The policy's domain is read from the chain, not from the opener
@@ -258,16 +270,34 @@ function VerifyStep({
       onProving: options.onGeneratingProof,
       onProof: options.onProofGenerated,
       onResult: (result) => {
-        if (!result.verified)
-          setFailure({ message: "Your ID could not be verified. Please try again." })
+        if (!result.verified) {
+          setFailure({
+            title: "Verification didn’t finish",
+            message: "Your ID could not be verified. Try again.",
+          })
+        }
         options.onResult?.(result)
       },
       onReject: () => {
-        setFailure({ message: "The request was declined on your phone.", explained: true })
+        setFailure({
+          title: "Request declined",
+          message: "You declined the request in ZKPassport. Start again if that was a mistake.",
+          retryLabel: "Start again",
+          explained: true,
+        })
         options.onReject?.()
       },
       onError: (message) => {
-        setFailure({ message: String(message) })
+        const known = describePhoneError(String(message), appName)
+        setFailure(
+          known
+            ? { title: known.title, message: known.message }
+            : {
+                title: "Verification didn’t finish",
+                message: "Something went wrong on your phone. Try again.",
+                detail: String(message),
+              },
+        )
         options.onError?.(message)
       },
     },
@@ -291,7 +321,10 @@ function VerifyStep({
     onStartAgain()
   }
 
-  if (failure) return <ErrorScreen message={failure.message} onRetry={tryAgain} />
+  if (failure) {
+    const { explained: _explained, ...shown } = failure
+    return <ErrorScreen {...shown} onRetry={tryAgain} />
+  }
   if (progress) return <Waiting progress={progress} onStartAgain={startAgain} />
   if (!consented) {
     return (

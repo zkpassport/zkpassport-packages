@@ -56,7 +56,7 @@ function describeConnectError(error: Error): string {
 /** `verified` shows that the holder has already proved who they are. */
 export function Connect({
   title = "Connect a wallet",
-  hint = "The wallet you pick pays a small network fee.",
+  hint = "It only pays the network fee, not where your token goes.",
   verified = true,
 }: {
   title?: string

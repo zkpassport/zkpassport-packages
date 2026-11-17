@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import type { Address, Chain, Hex } from "viem"
 
-import { ICON_CHECK, ICON_EXTERNAL, ICON_SPINNER } from "../shared/icons"
+import { ICON_CHECK, ICON_EXTERNAL, ICON_LOCK, ICON_SPINNER } from "../shared/icons"
 
 // Sized in em, so every glyph matches the text it sits with
 function Glyph({ icon, after, spin }: { icon: string; after?: boolean; spin?: boolean }) {
@@ -21,10 +21,13 @@ export function Main({ children }: { children: ReactNode }) {
 
 export function Heading({
   title,
+  lock,
   hint,
   badge,
 }: {
   title: string
+  // The screen's privacy promise, said once under its title
+  lock?: string
   hint?: string
   badge?: ReactNode
 }) {
@@ -32,12 +35,23 @@ export function Heading({
     <div className="flow-heading">
       {badge}
       <p className="flow-title">{title}</p>
+      {lock ? <LockLine>{lock}</LockLine> : null}
       {hint ? (
         <p className="flow-hint" role="status">
           {hint}
         </p>
       ) : null}
     </div>
+  )
+}
+
+/** One short privacy promise, at full strength rather than in the small print */
+export function LockLine({ children }: { children: ReactNode }) {
+  return (
+    <p className="flow-lock">
+      <Glyph icon={ICON_LOCK} />
+      {children}
+    </p>
   )
 }
 

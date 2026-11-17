@@ -2,7 +2,7 @@ import { describeQuery, type QueryDescriptionItem } from "@zkpassport/ui/hosted"
 import type { Query } from "@zkpassport/sdk"
 
 import { ICON_CHECK } from "../shared/icons"
-import { Main, Secondary } from "../shared/controls"
+import { Heading, Main, Secondary } from "../shared/controls"
 
 const SKELETON_ROWS = 2
 
@@ -25,10 +25,7 @@ export function Intro({
   return (
     <div className="flow-body">
       <Main>
-        <p className="flow-lede">
-          {appName} uses ZKPassport to verify your identity privately. Your ID is checked on your
-          phone, and its details never reach a server.
-        </p>
+        <Heading title="Verify privately" lock="Your ID never leaves your phone" />
 
         <div className="intro-asks">
           <p className="intro-asks-head">{appName} wants to verify</p>
@@ -42,7 +39,6 @@ export function Intro({
           {onChangeWallet ? (
             <Secondary onClick={onChangeWallet}>Use another wallet</Secondary>
           ) : null}
-          <p className="intro-privacy">Your ID data never leaves your device.</p>
         </div>
       </Main>
     </div>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="dark" />
     <title>Verify with ZKPassport</title>
     <style>
       html,
@@ -11,17 +11,12 @@
         margin: 0;
         padding: 0;
         height: 100%;
-        background: #f3f4f6;
+        /* Every screen is the dark card now, so the first paint matches it */
+        background: #060c22;
         font-family: ui-sans-serif, system-ui, sans-serif;
       }
       #root {
         height: 100%;
-      }
-      @media (prefers-color-scheme: dark) {
-        html,
-        body {
-          background: #0b1120;
-        }
       }
     </style>
   </head>

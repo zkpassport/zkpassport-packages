@@ -1,9 +1,11 @@
 import { ICON_SEAL_CROSS } from "../shared/icons"
-import { Actions, ErrorDetail, Heading, Primary, Secondary } from "../shared/controls"
+import { Actions, Primary, Secondary } from "../shared/controls"
 
 type ErrorScreenProps = {
   title?: string
   message: string
+  // Technical text worth keeping for a bug report, folded away from the explanation
+  detail?: string
   // Given when the flow can be started again; otherwise the only way on is out
   onRetry?: () => void
   retryLabel?: string
@@ -15,26 +17,35 @@ type ErrorScreenProps = {
 export function ErrorScreen({
   title = "Something went wrong",
   message,
+  detail,
   onRetry,
   retryLabel = "Try again",
   onStartOver,
   closable = true,
 }: ErrorScreenProps) {
+  // A page opened from a link has no window to go back to, and the browser will not close it
+  const canClose = closable && !!window.opener
   return (
     <div className="flow-body">
-      <div className="flow-done">
+      <div className="flow-done" role="alert">
         <div
           className="flow-seal"
           data-tone="error"
           dangerouslySetInnerHTML={{ __html: ICON_SEAL_CROSS }}
         />
-        <Heading title={title} />
-        <ErrorDetail text={message} />
+        <p className="flow-done-title">{title}</p>
+        <p className="flow-done-sub">{message}</p>
+        {detail && detail !== message ? (
+          <details className="flow-more">
+            <summary>Details</summary>
+            <p className="flow-detail">{detail}</p>
+          </details>
+        ) : null}
       </div>
       <Actions>
         {onRetry ? (
           <Primary onClick={onRetry}>{retryLabel}</Primary>
-        ) : closable ? (
+        ) : canClose ? (
           <Primary onClick={() => window.close()}>Close</Primary>
         ) : null}
         {onStartOver ? <Secondary onClick={onStartOver}>Start over</Secondary> : null}
