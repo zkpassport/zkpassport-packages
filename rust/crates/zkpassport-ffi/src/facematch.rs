@@ -57,7 +57,7 @@ struct ClientDataReq {
     sod: Option<String>,      // base64
     dg2: Option<String>,      // base64
     #[serde(rename = "dg2Faceprint")]
-    dg2_faceprint: Vec<f32>, // 512
+    dg2_faceprint: Vec<f32>, // 128
     cosine: i64,
     threshold: Option<i64>,
 }
@@ -119,7 +119,7 @@ mod tests {
                 "appVersion": "1.0.0",
                 "mode": 1,
                 "dg2Hash": "00".repeat(32),
-                "dg2Faceprint": vec![0.0f32; 512],
+                "dg2Faceprint": vec![0.0f32; 128],
                 "cosine": cosine,
             });
             let out = facematch_client_data_json(&request.to_string()).unwrap();

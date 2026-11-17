@@ -720,7 +720,7 @@ fn ffi_json(request_json: *const c_char, f: impl Fn(&str) -> Result<serde_json::
 }
 
 /// Build the facematch `client_data` + the poseidon2 hash to pass to App Attest `attestKey`.
-/// Request: `{appVersion,mode,dg2Hash(hex),dg2Faceprint[512],cosine,threshold?}`.
+/// Request: `{appVersion,mode,dg2Hash(hex),dg2Faceprint[128],cosine,threshold?}`.
 /// Response: `{clientData(hex),clientDataHashB64,dg2FaceprintHash(hex)}`. Free with `zkpassport_free_string`.
 ///
 /// # Safety
