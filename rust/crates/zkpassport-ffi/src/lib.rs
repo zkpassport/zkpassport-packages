@@ -100,6 +100,9 @@ struct Request {
     service_subscope: String,
     #[serde(default)]
     nullifier_secret: Option<String>,
+    /// The request's `NullifierType`, as in the SDK (`4` = `NONE`). Absent means non-salted.
+    #[serde(default)]
+    unique_identifier_type: Option<u8>,
     current_date_timestamp: u64,
     /// The single master salt (production). All base + disclosure salts derive
     /// from it (see InputGenSalts::from_master). Takes precedence over `salts`.
@@ -209,6 +212,7 @@ fn run(request_json: &str) -> Result<serde_json::Value, String> {
             Some(s) => dec(s)?,
             None => BigUint::from(0u8),
         },
+        hide_nullifier: hides_identifier(req.unique_identifier_type),
         service_scope: scope_hash(&req.service_scope),
         service_subscope: scope_hash(&req.service_subscope),
         current_date_timestamp: req.current_date_timestamp,
@@ -517,6 +521,13 @@ pub unsafe extern "C" fn zkpassport_session_free(session: *mut driver::Session) 
     }
 }
 
+/// `NullifierType.NONE`: the proofs carry no unique identifier.
+const UNIQUE_IDENTIFIER_TYPE_NONE: u8 = 4;
+
+fn hides_identifier(unique_identifier_type: Option<u8>) -> bool {
+    unique_identifier_type == Some(UNIQUE_IDENTIFIER_TYPE_NONE)
+}
+
 // ---- facematch (clip) ----
 
 #[derive(Deserialize)]
@@ -585,6 +596,7 @@ pub fn facematch_circuit_inputs_json(request_json: &str) -> Result<serde_json::V
         dg2_hash: &dg2_hash,
         expiry_date: &expiry,
         mrz: &mrz,
+        hide_nullifier: false,
     };
     let nullifier_secret = match &req.nullifier_secret {
         Some(s) => dec(s)?,
@@ -619,6 +631,9 @@ struct SanctionsInputsRequest {
     service_subscope: String,
     #[serde(default)]
     nullifier_secret: Option<String>,
+    /// The request's `NullifierType`, as in the SDK (`4` = `NONE`). Absent means non-salted.
+    #[serde(default)]
+    unique_identifier_type: Option<u8>,
     current_date_timestamp: u64,
     #[serde(default)]
     salt: Option<String>,
@@ -678,6 +693,7 @@ pub fn sanctions_circuit_inputs_json(request_json: &str) -> Result<serde_json::V
         dg2_hash: &dg2_hash,
         expiry_date: &expiry,
         mrz: &mrz,
+        hide_nullifier: hides_identifier(req.unique_identifier_type),
     };
     let nullifier_secret = match &req.nullifier_secret {
         Some(s) => dec(s)?,
