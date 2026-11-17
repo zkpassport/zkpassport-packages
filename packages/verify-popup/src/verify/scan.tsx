@@ -17,7 +17,6 @@ export function Scan({
   state: RequestState
   url: string | null
   qrSvg: string | null
-  /** Starts the request again on a new code; without it the screen offers no restart */
   onNewCode?: () => void
 }) {
   const [qrRevealed, setQrRevealed] = useState(false)
@@ -25,7 +24,6 @@ export function Scan({
 
   if (mobile && !qrRevealed) {
     return (
-      // Keyed by the link, so a new code forgets that the previous one was handed to the app
       <ContinueInApp
         key={url ?? "preparing"}
         requestUrl={url}

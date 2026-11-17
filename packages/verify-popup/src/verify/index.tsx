@@ -31,10 +31,6 @@ type VerifyFlowProps = {
 
 type DomainResolution = { domain: string } | { error: string } | null
 
-/**
- * `explained`: the user declined or the ID cannot do what is asked, which another lane would not
- * change, so trying again does not count as a stalled attempt.
- */
 type Failure = { title?: string; message: string; keepsBridge?: boolean; explained?: boolean }
 
 /**
@@ -148,8 +144,7 @@ export function VerifyRequest({
   const failFrom = (reason: unknown) =>
     failWith({ message: reason instanceof Error ? reason.message : String(reason) })
 
-  // Nothing reports a phone that has gone quiet (the App Clip says nothing until its proof is
-  // ready, and a crash says nothing at all), so the wait needs its own way out
+  // Nothing reports a phone that has gone quiet, so the wait needs its own way out
   const startAgain = () => {
     setFailure(null)
     setScan(null)
