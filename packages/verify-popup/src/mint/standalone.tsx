@@ -1,0 +1,206 @@
+import { useEffect, useMemo, useState } from "react"
+import { useConnection } from "wagmi"
+import { BaseError, ContractFunctionRevertedError, type Chain } from "viem"
+import { createCredentialsContext } from "@zkpassport/onchain-credentials"
+import type { PopupRequestConfig } from "@zkpassport/sdk/popup"
+
+import { FlowCard } from "../shared/flow-card"
+import { ErrorScreen } from "../shared/error"
+import { Heading, Main, Primary } from "../shared/controls"
+import { FlowBody, WalletProviders } from "./index"
+import { parseMintLink, type MintLink } from "./mint-link"
+import { Resolving } from "./resolving"
+import { WalletPicker } from "./wallet"
+import { resolveWalletChain } from "./wagmi"
+
+const FALLBACK_NAME = "Credential"
+const METADATA_TIMEOUT_MS = 5_000
+
+type PolicyDetails =
+  | { status: "loading" }
+  | { status: "unavailable"; message: string; retryable: boolean }
+  | { status: "ready"; request: PopupRequestConfig }
+
+/**
+ * The hosted mint page, opened from a link to a credential policy rather than by a website: the
+ * holder connects a wallet, proves the policy, and mints the credential to that wallet.
+ */
+export function StandaloneMint() {
+  const link = useMemo(() => parseMintLink(window.location.search), [])
+  if ("error" in link) {
+    return (
+      <FlowCard name={FALLBACK_NAME} screenKey="error">
+        <ErrorScreen message={link.error} closable={false} />
+      </FlowCard>
+    )
+  }
+  return <MintFromLink link={link} />
+}
+
+function MintFromLink({ link }: { link: MintLink }) {
+  const resolved = useMemo(() => resolveWalletChain(link.chain), [link.chain])
+  if ("error" in resolved) {
+    return (
+      <FlowCard name={FALLBACK_NAME} screenKey="error">
+        <ErrorScreen message={resolved.error} closable={false} />
+      </FlowCard>
+    )
+  }
+  return (
+    <WalletProviders config={resolved.config}>
+      <MintBody link={link} chain={resolved.chain} />
+    </WalletProviders>
+  )
+}
+
+function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
+  const { address } = useConnection()
+  const [reads, setReads] = useState(0)
+  const details = usePolicyDetails(chain, link.policyId, reads)
+  // A renewal is for the wallet that asked for it; another wallet starts from the beginning
+  const [renewFor, setRenewFor] = useState<`0x${string}` | null>(null)
+
+  if (details.status !== "ready") {
+    return (
+      <FlowCard name={FALLBACK_NAME} screenKey={details.status}>
+        {details.status === "loading" ? (
+          <Resolving />
+        ) : (
+          <ErrorScreen
+            message={details.message}
+            onRetry={details.retryable ? () => setReads((count) => count + 1) : undefined}
+            closable={false}
+          />
+        )}
+      </FlowCard>
+    )
+  }
+
+  const appName = details.request.name ?? FALLBACK_NAME
+  if (!address) {
+    return (
+      <FlowCard name={appName} logo={details.request.logo} screenKey="connect">
+        <div className="flow-body">
+          <Main>
+            <Heading
+              title="Connect your wallet"
+              hint="The credential goes to this wallet, which also pays a small network fee."
+            />
+            <WalletPicker />
+          </Main>
+        </div>
+      </FlowCard>
+    )
+  }
+
+  const renew = renewFor !== null && renewFor.toLowerCase() === address.toLowerCase()
+  return (
+    <FlowBody
+      key={`${address}:${renew}`}
+      request={details.request}
+      credential={{ chain: link.chain, policyId: link.policyId, recipient: address }}
+      appName={appName}
+      rpHost={window.location.hostname}
+      send={() => {}}
+      chain={chain}
+      renew={renew}
+      doneActions={(step) =>
+        step.outcome === "already-verified" ? (
+          <Primary onClick={() => setRenewFor(address)}>Renew now</Primary>
+        ) : null
+      }
+    />
+  )
+}
+
+/** The policy's name, image and description from its metadata, once the policy is known to be live. */
+function usePolicyDetails(chain: Chain, policyId: `0x${string}`, reads: number): PolicyDetails {
+  const [details, setDetails] = useState<PolicyDetails>({ status: "loading" })
+
+  useEffect(() => {
+    let cancelled = false
+    setDetails({ status: "loading" })
+
+    const read = async (): Promise<PolicyDetails> => {
+      const { credentials } = createCredentialsContext(chain)
+      let policy
+      try {
+        policy = await credentials.getPolicy(BigInt(policyId))
+      } catch (reason) {
+        if (isPolicyNotFound(reason)) {
+          return {
+            status: "unavailable",
+            message: `There is no credential with this ID on ${chain.name}.`,
+            retryable: false,
+          }
+        }
+        throw reason
+      }
+      if (policy.retiredAt > 0n) {
+        return {
+          status: "unavailable",
+          message: `This credential was retired on ${chain.name}, so it can't be minted any more.`,
+          retryable: false,
+        }
+      }
+      return { status: "ready", request: await readMetadata(policy.metadataURL) }
+    }
+
+    read()
+      .then((result) => {
+        if (!cancelled) setDetails(result)
+      })
+      .catch((reason: unknown) => {
+        if (cancelled) return
+        const detail =
+          reason instanceof BaseError
+            ? reason.shortMessage
+            : reason instanceof Error
+              ? reason.message
+              : String(reason)
+        setDetails({
+          status: "unavailable",
+          message: `Could not read the credential from ${chain.name}: ${detail}`,
+          retryable: true,
+        })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [chain, policyId, reads])
+
+  return details
+}
+
+// The page still works without the metadata, under a generic name
+async function readMetadata(url: string): Promise<PopupRequestConfig> {
+  if (!url) return {}
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(METADATA_TIMEOUT_MS) })
+    if (!response.ok) return {}
+    const body: unknown = await response.json()
+    if (typeof body !== "object" || body === null) return {}
+    return {
+      name: stringField(body, "name"),
+      logo: stringField(body, "image"),
+      purpose: stringField(body, "description"),
+    }
+  } catch {
+    return {}
+  }
+}
+
+function stringField(body: object, key: string): string | undefined {
+  const value: unknown = Object.entries(body).find(([name]) => name === key)?.[1]
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined
+}
+
+function isPolicyNotFound(reason: unknown): boolean {
+  if (!(reason instanceof BaseError)) return false
+  const revert = reason.walk((cause) => cause instanceof ContractFunctionRevertedError)
+  return (
+    revert instanceof ContractFunctionRevertedError &&
+    revert.data?.errorName === "ZKPassportCredentials__PolicyNotFound"
+  )
+}

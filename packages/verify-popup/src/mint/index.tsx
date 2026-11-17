@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WagmiProvider, useDisconnect, useSwitchChain, type Config } from "wagmi"
 import type { PopupCredentialConfig, PopupConfigureMessage } from "@zkpassport/sdk/popup"
 import type { Chain } from "viem"
 
-import { configuredRpcUrl, resolveCredentialsChain, rpcOverrideFromLocation } from "./wagmi"
+import { resolveWalletChain } from "./wagmi"
 import type { OutgoingEvent } from "../app"
-import { buildWalletConfig } from "./wagmi"
 import { FlowCard, type ProgressSegment } from "../shared/flow-card"
 import { useConfirmClose } from "../shared/use-confirm-close"
 import { Connect } from "./wallet"
@@ -42,20 +41,9 @@ type CredentialFlowProps = {
 export function CredentialFlow({ request, credential, rpHost, send }: CredentialFlowProps) {
   const sendRef = useRef(send)
   sendRef.current = send
-  const [queryClient] = useState(() => new QueryClient())
   const appName = request.name || rpHost
 
-  const resolved = useMemo((): { chain: Chain; config: Config } | { error: string } => {
-    try {
-      const chain = resolveCredentialsChain(
-        credential.chain,
-        rpcOverrideFromLocation(window.location) ?? configuredRpcUrl(credential.chain),
-      )
-      return { chain, config: buildWalletConfig(chain) }
-    } catch (reason) {
-      return { error: reason instanceof Error ? reason.message : String(reason) }
-    }
-  }, [credential])
+  const resolved = useMemo(() => resolveWalletChain(credential.chain), [credential])
 
   useEffect(() => {
     if ("error" in resolved) {
@@ -74,17 +62,24 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   }
 
   return (
-    <WagmiProvider config={resolved.config}>
-      <QueryClientProvider client={queryClient}>
-        <FlowBody
-          request={request}
-          credential={credential}
-          appName={appName}
-          rpHost={rpHost}
-          send={send}
-          chain={resolved.chain}
-        />
-      </QueryClientProvider>
+    <WalletProviders config={resolved.config}>
+      <FlowBody
+        request={request}
+        credential={credential}
+        appName={appName}
+        rpHost={rpHost}
+        send={send}
+        chain={resolved.chain}
+      />
+    </WalletProviders>
+  )
+}
+
+export function WalletProviders({ config, children }: { config: Config; children: ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient())
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </WagmiProvider>
   )
 }
@@ -92,11 +87,24 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
 type FlowBodyProps = CredentialFlowProps & {
   appName: string
   chain: Chain
+  /** Prove and mint again even when the recipient already holds the credential. */
+  renew?: boolean
+  /** Replaces the done screen's "Return to" button; null shows no action. */
+  doneActions?: (step: DoneStep) => ReactNode
 }
 
-function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBodyProps) {
+export function FlowBody({
+  request,
+  credential,
+  appName,
+  rpHost,
+  send,
+  chain,
+  renew,
+  doneActions,
+}: FlowBodyProps) {
   const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
-    useCredentialFlow({ request, credential, appName, chain, send })
+    useCredentialFlow({ request, credential, appName, chain, send, renew })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
 
@@ -138,7 +146,13 @@ function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBod
           />
         )
       case "done":
-        return <Done outcome={doneOutcome(step, credential.recipient, chain)} appName={appName} />
+        return (
+          <Done
+            outcome={doneOutcome(step, credential.recipient, chain)}
+            appName={appName}
+            actions={doneActions?.(step)}
+          />
+        )
       case "error":
         return <ErrorScreen message={step.message} onRetry={startOver} />
     }
@@ -159,7 +173,7 @@ function FlowBody({ request, credential, appName, rpHost, send, chain }: FlowBod
 function doneOutcome(step: DoneStep, recipient: `0x${string}`, chain: Chain): DoneOutcome {
   return step.outcome === "minted"
     ? { kind: "minted", hash: step.hash, recipient, chain }
-    : { kind: "already-verified", recipient, chain }
+    : { kind: "already-verified", recipient, chain, heldUntil: step.heldUntil }
 }
 
 // Two steps: prove who you are, then mint the token
