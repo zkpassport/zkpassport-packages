@@ -1,37 +1,31 @@
 import { describe, expect, it } from "bun:test"
-import { VerificationMethod, VerificationTier } from "@zkpassport/utils"
+import { NullifierType, VerificationMethod, VerificationTier } from "@zkpassport/utils"
 
-import { chipOnlyPolicy, isAppClipLane, isSamePage, laneFor, withLane } from "../src/verify/lane"
+import { isAppClipLane, isSamePage, laneFor, withLane } from "../src/verify/lane"
 
 const REQUEST = "https://zkpassport.id/r?d=example.com&t=abc"
 
-describe("chipOnlyPolicy", () => {
-  it("is true for the default policy and for chip schemes only", () => {
-    expect(chipOnlyPolicy(undefined)).toBe(true)
-    expect(chipOnlyPolicy([VerificationTier.GOVERNMENT_SIGNED])).toBe(true)
-    expect(chipOnlyPolicy([VerificationMethod.ICAO_CHIP])).toBe(true)
-  })
-
-  it("is false once a camera-read credential is accepted", () => {
-    expect(
-      chipOnlyPolicy([VerificationTier.GOVERNMENT_SIGNED, VerificationTier.DEVICE_ATTESTED]),
-    ).toBe(false)
-    expect(
-      chipOnlyPolicy([VerificationMethod.ICAO_CHIP, VerificationMethod.ATTESTED_CAPTURE_IOS]),
-    ).toBe(false)
-  })
-})
-
 describe("laneFor", () => {
-  it("sends a chip-only request to the App Clip when allowed and the phone is not Android", () => {
-    expect(laneFor(undefined, true, "ios")).toBe("c")
-    expect(laneFor(undefined, true, "unknown")).toBe("c")
+  it("sends a request that accepts chip reads to the App Clip", () => {
+    expect(laneFor({}, "ios")).toBe("c")
+    expect(laneFor({}, "unknown")).toBe("c")
+    expect(laneFor({ allowedVerificationMethods: [VerificationMethod.ICAO_CHIP] }, "ios")).toBe("c")
+    expect(laneFor({ uniqueIdentifierType: NullifierType.NON_SALTED }, "ios")).toBe("c")
   })
 
-  it("keeps the full app otherwise", () => {
-    expect(laneFor(undefined, false, "ios")).toBe("r")
-    expect(laneFor(undefined, true, "android")).toBe("r")
-    expect(laneFor([VerificationTier.DEVICE_ATTESTED], true, "ios")).toBe("r")
+  it("also when it accepts camera reads too: the clip sends those IDs to the full app", () => {
+    const chipAndCamera = [VerificationTier.GOVERNMENT_SIGNED, VerificationTier.DEVICE_ATTESTED]
+    expect(laneFor({ allowedVerificationMethods: chipAndCamera }, "ios")).toBe("c")
+  })
+
+  it("keeps the full app for a request the clip can never finish", () => {
+    const cameraOnly = [VerificationTier.DEVICE_ATTESTED]
+    const aadhaarOnly = [VerificationMethod.UIDAI_AADHAAR]
+    expect(laneFor({}, "android")).toBe("r")
+    expect(laneFor({ allowedVerificationMethods: cameraOnly }, "ios")).toBe("r")
+    expect(laneFor({ allowedVerificationMethods: aadhaarOnly }, "ios")).toBe("r")
+    expect(laneFor({ uniqueIdentifierType: NullifierType.SALTED }, "ios")).toBe("r")
+    expect(laneFor({ uniqueIdentifierType: NullifierType.NONE }, "ios")).toBe("r")
   })
 })
 

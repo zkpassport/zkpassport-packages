@@ -114,7 +114,6 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         config: LOCAL_CIRCUITS_URL ? { circuitsUrl: LOCAL_CIRCUITS_URL } : undefined,
         keyPairOverride: resumeWith,
         replayMissedMessages: !!resumeWith,
-        overrides: options.appClip ? { appClip: true } : undefined,
       })
       .then((builder) => {
         const built =
