@@ -12,7 +12,10 @@ export type DoneOutcome =
 const AUTO_CLOSE_SECONDS = 5
 
 export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: string }) {
-  const closesItself = outcome.kind === "verified" && !!window.opener
+  // A page opened from a verification link has no window to go back to, and the browser will not
+  // close it, so it says so instead of offering a button that does nothing
+  const canClose = !!window.opener
+  const closesItself = outcome.kind === "verified" && canClose
   const secondsLeft = useAutoClose(closesItself)
   return (
     <div className="flow-body">
@@ -20,14 +23,19 @@ export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: stri
         <div className="flow-seal" dangerouslySetInnerHTML={{ __html: ICON_SEAL_CHECK }} />
         <p className="flow-done-title">Verified</p>
         <Outcome outcome={outcome} appName={appName} />
-        {closesItself ? (
-          <p className="flow-done-sub">
-            This window closes in {secondsLeft} {secondsLeft === 1 ? "second" : "seconds"}
-          </p>
-        ) : null}
+        <p className="flow-done-sub">Your ID never left your phone.</p>
       </div>
       <Actions>
-        <Primary onClick={() => window.close()}>Return to {appName}</Primary>
+        {canClose ? (
+          <Primary onClick={() => window.close()}>Return to {appName}</Primary>
+        ) : (
+          <p className="flow-actions-note">You can close this page now.</p>
+        )}
+        {closesItself ? (
+          <p className="flow-actions-note">
+            Closing in {secondsLeft} {secondsLeft === 1 ? "second" : "seconds"}
+          </p>
+        ) : null}
       </Actions>
     </div>
   )
@@ -49,7 +57,7 @@ function useAutoClose(active: boolean): number {
 
 function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }) {
   if (outcome.kind === "verified") {
-    return <p className="flow-done-sub">{appName} has everything it needs.</p>
+    return <p className="flow-done-sub">{appName} got your proof.</p>
   }
   if (outcome.kind === "already-verified") {
     return (

@@ -6,6 +6,8 @@ import type { BoundData, IDCredential, Query } from "@zkpassport/sdk"
 
 export type QueryDescriptionItem = {
   title: string
+  /** For a disclosed field, its plain label ("nationality"), so a screen can word the row itself */
+  disclosed?: string
   detail?: string
   note?: string
   rows?: Array<{ label: string; value: string }>
@@ -115,11 +117,7 @@ function describeSet(field: IDCredential, values: unknown[], excluded: boolean):
     .sort((a, b) => a.localeCompare(b))
   const group = COUNTRY_FIELDS.includes(field) ? GROUP.country : GROUP.field
   if (formatted.length <= INLINE_LIST_MAX) {
-    const phrase = excluded
-      ? formatted.length === 1
-        ? `is not ${formatted[0]}`
-        : `is not any of ${formatted.join(", ")}`
-      : `is ${joinNatural(formatted, "or")}`
+    const phrase = `${excluded ? "is not" : "is"} ${joinNatural(formatted, "or")}`
     return { title: `Your ${fieldLabel} ${phrase}`, group }
   }
   const unit = COUNTRY_FIELDS.includes(field) ? "countries" : "values"
@@ -247,6 +245,7 @@ function describeDisclosures(fields: IDCredential[]): Entry[] {
     : fields
   return named.map((field) => ({
     title: `Share your ${label(field)}`,
+    disclosed: label(field),
     group: GROUP.disclose,
     order: rank(field),
   }))
@@ -260,7 +259,7 @@ export function describeQuery(query: Query | null | undefined): QueryDescription
   for (const [field, conditions] of Object.entries(query)) {
     if (conditions == null) continue
     if (field === "sanctions") {
-      entries.push({ title: "You are not on any sanctions list", group: GROUP.sanctions })
+      entries.push({ title: "You are not on a sanctions list", group: GROUP.sanctions })
       continue
     }
     if (field === "facematch") {

@@ -9,6 +9,7 @@ import {
   AddressLink,
   ErrorDetail,
   Heading,
+  LockLine,
   Main,
   Note,
   Panel,
@@ -117,10 +118,13 @@ function MintNote({
     }
     default:
       return (
-        <Note>
-          The token holds no personal data. It only proves you passed the check.
-          {payerDiffers ? " This wallet only pays the fee." : ""}
-        </Note>
+        <>
+          <LockLine>The token holds no personal data</LockLine>
+          <Note>
+            It only proves you passed the check.
+            {payerDiffers ? " This wallet only pays the fee." : ""}
+          </Note>
+        </>
       )
   }
 }

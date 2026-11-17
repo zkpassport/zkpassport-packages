@@ -2,7 +2,7 @@ import { describeQuery, type QueryDescriptionItem } from "@zkpassport/ui/hosted"
 import type { Query } from "@zkpassport/sdk"
 
 import { ICON_CHECK } from "../shared/icons"
-import { Main } from "../shared/controls"
+import { Heading, Main } from "../shared/controls"
 
 const SKELETON_ROWS = 2
 
@@ -23,13 +23,10 @@ export function Intro({
   return (
     <div className="flow-body">
       <Main>
-        <p className="flow-lede">
-          {appName} uses ZKPassport to verify your identity privately. Your ID is checked on your
-          phone, and its details never reach a server.
-        </p>
+        <Heading title="Verify privately" lock="Your ID never leaves your phone" />
 
         <div className="intro-asks">
-          <p className="intro-asks-head">{appName} wants to verify</p>
+          <p className="intro-asks-head">{appName} will only learn</p>
           {items ? <Asks items={items} purpose={purpose} /> : <AsksLoading />}
         </div>
 
@@ -37,7 +34,6 @@ export function Intro({
           <button type="button" className="flow-primary" disabled={!items} onClick={onContinue}>
             Continue
           </button>
-          <p className="intro-privacy">Your ID data never leaves your device.</p>
         </div>
       </Main>
     </div>
@@ -45,7 +41,10 @@ export function Intro({
 }
 
 function Asks({ items, purpose }: { items: QueryDescriptionItem[]; purpose?: string }) {
-  const claims = items.filter((item) => !item.note)
+  // What is proved comes first, what is handed over last, right above the button
+  const claims = items
+    .filter((item) => !item.note)
+    .sort((a, b) => Number(!!a.disclosed) - Number(!!b.disclosed))
   const notes = items.filter((item) => item.note)
 
   return (
@@ -54,7 +53,10 @@ function Asks({ items, purpose }: { items: QueryDescriptionItem[]; purpose?: str
         <li key={item.title}>
           <span className="intro-tick" dangerouslySetInnerHTML={{ __html: ICON_CHECK }} />
           <span className="intro-ask">
-            <span className="intro-ask-title">{item.title}</span>
+            {/* Under "will only learn", a shared field is named rather than asked for */}
+            <span className="intro-ask-title">
+              {item.disclosed ? `Your ${item.disclosed}` : item.title}
+            </span>
             {item.detail ? <span className="intro-ask-detail">{item.detail}</span> : null}
           </span>
         </li>

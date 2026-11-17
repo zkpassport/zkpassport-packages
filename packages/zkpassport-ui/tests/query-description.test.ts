@@ -9,4 +9,17 @@ describe("describeQuery", () => {
     const titles = describeQuery(query).map((item) => item.title)
     expect(titles).toContain("Your ID is a driving license")
   })
+
+  test("a short exclusion list reads as one sentence", () => {
+    const query = { nationality: { out: ["IRN", "PRK", "SYR"] } } as unknown as Query
+    const titles = describeQuery(query).map((item) => item.title)
+    expect(titles).toContain("Your nationality is not IRN, PRK or SYR")
+  })
+
+  test("a disclosed field carries its label for the screen to word", () => {
+    const query = { nationality: { disclose: true } } as unknown as Query
+    expect(describeQuery(query)).toEqual([
+      { title: "Share your nationality", disclosed: "nationality" },
+    ])
+  })
 })

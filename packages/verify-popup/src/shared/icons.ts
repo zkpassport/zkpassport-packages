@@ -5,6 +5,12 @@ const line = (body: string, width = 2) =>
 
 export const ICON_CHECK = line(`<polyline points="4 12.5 9.5 18 20 6.5"/>`, 3.2)
 
+// Marks the one privacy promise a screen makes
+export const ICON_LOCK = line(
+  `<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>`,
+  2.2,
+)
+
 // The two endings, each a tinted disc around its mark. Both take their colour
 // from the element, so the tint and the mark always agree.
 const seal = (mark: string) =>

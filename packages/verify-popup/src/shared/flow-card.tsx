@@ -12,6 +12,8 @@ type FlowCardProps = {
   progress?: ProgressSegment[]
   // Changes remount the screen, which replays its entrance animation
   screenKey: string
+  // The credential flow opens in a full tab, so its card can take more width
+  wide?: boolean
   children: ReactNode
 }
 
@@ -19,17 +21,17 @@ type FlowCardProps = {
  * The dark backdrop is only set while a flow is mounted, so the popup's other
  * screens keep the default background.
  */
-function useFlowPage() {
+export function useFlowPage() {
   useLayoutEffect(() => {
     document.body.classList.add("flow-page")
     return () => document.body.classList.remove("flow-page")
   }, [])
 }
 
-export function FlowCard({ name, logo, progress, screenKey, children }: FlowCardProps) {
+export function FlowCard({ name, logo, progress, screenKey, wide, children }: FlowCardProps) {
   useFlowPage()
   return (
-    <div className="flow-card" data-theme="light">
+    <div className="flow-card" data-theme="light" data-wide={wide ? "" : undefined}>
       <div className="flow-id">
         <span className="flow-id-app">
           {logo ? <img className="flow-id-logo" src={logo} alt="" /> : null}
@@ -45,12 +47,6 @@ export function FlowCard({ name, logo, progress, screenKey, children }: FlowCard
           {children}
         </div>
       </div>
-      {/* The opening screen has no progress to show, so it puts these here instead */}
-      <p className="flow-privacy">
-        <span>Private</span>
-        <span>Encrypted</span>
-        <span>On your device</span>
-      </p>
       {progress ? (
         <ol className="flow-progress" aria-hidden="true">
           {progress.map((segment, index) => (

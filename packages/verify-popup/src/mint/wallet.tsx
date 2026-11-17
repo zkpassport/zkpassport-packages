@@ -59,7 +59,7 @@ export function Connect() {
       <Main>
         <Heading
           title="Connect a wallet"
-          hint="The wallet you pick pays a small network fee."
+          hint="It only pays the network fee, not where your token goes."
           badge={<VerifiedBadge />}
         />
         <WalletPicker />

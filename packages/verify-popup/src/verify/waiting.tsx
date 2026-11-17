@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-import { Heading, Main } from "../shared/controls"
+import { Heading, LockLine, Main } from "../shared/controls"
 
 /**
  * How far the phone has got, once it has picked the request up. While proving,
@@ -30,13 +30,19 @@ export function Waiting({
   return (
     <div className="flow-body">
       <Main>
-        <Heading title={approving ? "Check your phone" : "Checking your ID"} />
+        <Heading title={approving ? "Check your phone" : "Creating your proof"} />
         <div className="flow-waiting">
           {approving ? <PhoneSwipe /> : <PulsingDots />}
           <div className="flow-waiting-text">
-            <p className="flow-hint" role="status">
-              {caption(progress)}
-            </p>
+            <div role="status">
+              {approving ? (
+                <p className="flow-hint">Slide to approve in ZKPassport</p>
+              ) : finishing(progress) ? (
+                <p className="flow-hint">Finishing up…</p>
+              ) : (
+                <LockLine>On your phone. Your ID isn&rsquo;t uploaded.</LockLine>
+              )}
+            </div>
             <p className="flow-keep-open">
               {slow ? "Taking longer than usual. Check your phone." : "Keep this window open"}
             </p>
@@ -64,14 +70,9 @@ function useSlowProgress(stage: ScanProgress["stage"]): boolean {
   return slow
 }
 
-// Proving runs for several seconds, so the line follows the proofs the bridge
-// sends back rather than a timer
-function caption(progress: ScanProgress): string {
-  if (progress.stage === "scanned") return "Approve in the ZKPassport app"
-  const { done, total } = progress
-  if (total === null) return "Your phone is working on it..."
-  if (done < total) return `Checking your details · ${done} of ${total}`
-  return "Finishing up..."
+// The proof count means nothing to the user, so it only decides when the wait is nearly over
+function finishing(progress: ScanProgress): boolean {
+  return progress.stage === "proving" && progress.total !== null && progress.done >= progress.total
 }
 
 // The app confirms with a slide, not a tap, so the knob runs the track over and
