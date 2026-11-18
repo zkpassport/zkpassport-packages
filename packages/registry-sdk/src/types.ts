@@ -49,6 +49,22 @@ export interface RegistryClientOptions {
    * Number of retries for fetching data, default is 3
    */
   retryCount?: number
+
+  /**
+   * RPC URLs to try in order when the main one fails, times out or answers with an error status.
+   * Defaults to the fallbacks of the chain, if any.
+   */
+  fallbackRpcUrls?: string[]
+
+  /**
+   * Deadline for one RPC attempt in milliseconds, default is 15000
+   */
+  rpcTimeoutMs?: number
+
+  /**
+   * Deadline for one file download attempt in milliseconds, default is 60000
+   */
+  downloadTimeoutMs?: number
 }
 
 /**

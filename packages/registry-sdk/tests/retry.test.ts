@@ -1,4 +1,5 @@
 import { RegistryClient } from "../src/client"
+import { DEFAULT_DOWNLOAD_TIMEOUT_MS } from "../src/constants"
 import type { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import FakeTimers from "@sinonjs/fake-timers"
 import type { InstalledClock } from "@sinonjs/fake-timers"
@@ -149,8 +150,10 @@ describe("Retry Logic", () => {
       await clock.runAllAsync()
       const certs = await certPromise
 
-      // Verify exponential backoff: 100ms, 200ms, 400ms
-      expect(timerDelays).toEqual([100, 200, 400])
+      // Verify exponential backoff: 100ms, 200ms, 400ms. Each attempt also arms a download deadline.
+      expect(timerDelays.filter((delay) => delay !== DEFAULT_DOWNLOAD_TIMEOUT_MS)).toEqual([
+        100, 200, 400,
+      ])
       expect(attemptCount).toBe(4) // Initial attempt + 3 retries
       expect(certs.certificates).toHaveLength(1)
 

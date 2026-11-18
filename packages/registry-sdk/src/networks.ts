@@ -8,6 +8,7 @@ type NetworkConstants = {
   chain: SupportedChain
   type: NetworkType
   rpcUrl: string
+  fallbackRpcUrls?: string[]
   rootRegistry: string
   registryHelper: string
   packagedCertificatesUrl: string

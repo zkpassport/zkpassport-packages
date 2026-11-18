@@ -7,6 +7,16 @@ import { normaliseHash } from "./utils"
 export const DEFAULT_RETRY_COUNT = 3
 
 /**
+ * Default deadline for one RPC attempt, in milliseconds
+ */
+export const DEFAULT_RPC_TIMEOUT_MS = 15_000
+
+/**
+ * Default deadline for one file download attempt (certificates, manifests, circuits), in milliseconds
+ */
+export const DEFAULT_DOWNLOAD_TIMEOUT_MS = 60_000
+
+/**
  * Certificate Registry ID
  * Used to identify the certificate registry in the root registry
  */

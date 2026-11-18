@@ -22,7 +22,9 @@ import debug from "debug"
 import {
   CIRCUIT_MANIFEST_URL_TEMPLATE,
   DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
+  DEFAULT_DOWNLOAD_TIMEOUT_MS,
   DEFAULT_RETRY_COUNT,
+  DEFAULT_RPC_TIMEOUT_MS,
   GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE,
   GET_HISTORICAL_ROOTS_SIGNATURE,
   GET_LATEST_ROOT_DETAILS_SIGNATURE,
@@ -34,6 +36,7 @@ import {
   REGISTRIES_MAPPING_SIGNATURE,
   SANCTIONS_TREE_URL_TEMPLATE,
 } from "./constants"
+import { withTimeout } from "./errors"
 import { findNetworkConstants } from "./networks"
 import {
   DocumentSupport,
@@ -73,7 +76,7 @@ export function createRegistryClient(
  */
 export class RegistryClient {
   private readonly chainId: number
-  private readonly rpcUrl: string
+  private readonly rpcUrls: string[]
   private readonly rootRegistry: string
   private readonly registryHelper: string
   private readonly packagedCertsUrlGenerator: (
@@ -92,6 +95,8 @@ export class RegistryClient {
   ) => string
   private readonly sanctionsTreeUrlGenerator: (chainId: number, root: string) => string
   private readonly retryCount: number
+  private readonly rpcTimeoutMs: number
+  private readonly downloadTimeoutMs: number
 
   constructor({
     rpcUrl,
@@ -103,6 +108,9 @@ export class RegistryClient {
     packagedCircuitUrlGenerator,
     sanctionsTreeUrlGenerator,
     retryCount,
+    fallbackRpcUrls,
+    rpcTimeoutMs,
+    downloadTimeoutMs,
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
     this.chainId = chainId
@@ -115,7 +123,9 @@ export class RegistryClient {
       throw new Error(`Unsupported chain ID: ${chainId}`)
     }
 
-    this.rpcUrl = resolvedRpcUrl
+    // A caller's own RPC URL replaces the chain's, so the chain's fallbacks don't apply to it
+    const resolvedFallbackRpcUrls = fallbackRpcUrls ?? (rpcUrl ? [] : network?.fallbackRpcUrls ?? [])
+    this.rpcUrls = [resolvedRpcUrl, ...resolvedFallbackRpcUrls]
     this.rootRegistry = resolvedRootRegistry
     this.registryHelper = resolvedRegistryHelper
     this.packagedCertsUrlGenerator = packagedCertsUrlGenerator || PACKAGED_CERTIFICATES_URL_TEMPLATE
@@ -123,6 +133,8 @@ export class RegistryClient {
     this.packagedCircuitUrlGenerator = packagedCircuitUrlGenerator || PACKAGED_CIRCUIT_URL_TEMPLATE
     this.sanctionsTreeUrlGenerator = sanctionsTreeUrlGenerator || SANCTIONS_TREE_URL_TEMPLATE
     this.retryCount = retryCount || DEFAULT_RETRY_COUNT
+    this.rpcTimeoutMs = rpcTimeoutMs || DEFAULT_RPC_TIMEOUT_MS
+    this.downloadTimeoutMs = downloadTimeoutMs || DEFAULT_DOWNLOAD_TIMEOUT_MS
   }
 
   /**
@@ -702,11 +714,11 @@ export class RegistryClient {
   }
 
   /**
-   * Get the URL of the RPC endpoint the client calls
+   * Get the URL of the main RPC endpoint the client calls
    * @returns The RPC URL
    */
   getRpcUrl(): string {
-    return this.rpcUrl
+    return this.rpcUrls[0]
   }
 
   /**
@@ -838,30 +850,70 @@ export class RegistryClient {
 
   private async fetchJson<T>(url: string, what: string, init?: RequestInit): Promise<T> {
     log(`Getting ${what} from:`, url)
-    const response = await withRetry(() => fetch(url, init), this.retryCount)
+    // The body is read inside the deadline: a large file can stall halfway through
+    const { response, data } = await withRetry(
+      () =>
+        withTimeout(
+          async (signal) => {
+            const response = await fetch(url, { ...init, signal })
+            return { response, data: response.ok ? ((await response.json()) as T) : undefined }
+          },
+          { timeoutMs: this.downloadTimeoutMs, url, what },
+        ),
+      this.retryCount,
+    )
     if (!response.ok) {
       throw new Error(
         `Failed to get ${what}: ${response.status} ${response.statusText}, URL: ${url}`,
       )
     }
-    return (await response.json()) as T
+    return data as T
   }
 
+  /**
+   * Make an eth_call, trying each RPC URL in turn until one answers with a success status.
+   * The returned response has its body already read, so callers can read it without a deadline.
+   */
   private async rpcRequest(to: string, data: string): Promise<Response> {
-    return withRetry(
-      () =>
-        fetch(this.rpcUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: Math.floor(Math.random() * 1000000),
-            method: "eth_call",
-            params: [{ to, data }, "latest"],
-          }),
-        }),
-      this.retryCount,
-    )
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: Math.floor(Math.random() * 1000000),
+      method: "eth_call",
+      params: [{ to, data }, "latest"],
+    })
+    let lastFailure: { response: Response } | { error: unknown } | undefined
+    for (const url of this.rpcUrls) {
+      try {
+        const response = await withRetry(
+          () =>
+            withTimeout(
+              async (signal) => {
+                const response = await fetch(url, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body,
+                  signal,
+                })
+                const text = await response.text()
+                return new Response(text, {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+              },
+              { timeoutMs: this.rpcTimeoutMs, url, what: "eth_call" },
+            ),
+          this.retryCount,
+        )
+        if (response.ok) return response
+        log(`RPC ${url} answered ${response.status}, trying the next one`)
+        lastFailure = { response }
+      } catch (error) {
+        log(`RPC ${url} failed, trying the next one:`, error)
+        lastFailure = { error }
+      }
+    }
+    if (lastFailure && "response" in lastFailure) return lastFailure.response
+    throw lastFailure?.error ?? new Error("No RPC URL configured")
   }
 
   private async _handleRootDetailsResponse(response: Response): Promise<RootDetails> {
