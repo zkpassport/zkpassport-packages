@@ -27,6 +27,8 @@ export type SessionState = {
   /** How far the phone had got, so a reloaded page reopens on the screen the user left. */
   stage?: ScanProgress["stage"]
   stalledAttempts?: number
+  /** Whether the current code has been shown, so a reload still knows a restart replaces one. */
+  codeOnScreen?: boolean
   result?: HeldResult
 }
 

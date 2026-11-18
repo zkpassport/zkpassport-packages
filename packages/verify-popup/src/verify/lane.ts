@@ -14,10 +14,21 @@ export type LaneRequest = Pick<
 
 export const STALLED_ATTEMPTS_BEFORE_APP_LANE = 1
 
-export const MIN_STALLED_ATTEMPT_MS = 30 * 1000
+/** What the popup remembers about the codes it has shown */
+export type Attempts = { codeOnScreen?: boolean; stalledAttempts?: number }
 
-export function isStalledAttempt(codeShownAt: number | null, now: number): boolean {
-  return codeShownAt !== null && now - codeShownAt >= MIN_STALLED_ATTEMPT_MS
+/** A code is on screen */
+export function codeShown(attempts: Attempts): Attempts {
+  return attempts.codeOnScreen ? attempts : { ...attempts, codeOnScreen: true }
+}
+
+/**
+ * The code on screen is being swapped for a new one. Asking for that counts as a stalled attempt,
+ * unless the phone explained why it gave up.
+ */
+export function codeReplaced(attempts: Attempts, explained = false): Attempts {
+  const stalled = !explained && attempts.codeOnScreen === true
+  return { stalledAttempts: (attempts.stalledAttempts ?? 0) + (stalled ? 1 : 0) }
 }
 
 /**

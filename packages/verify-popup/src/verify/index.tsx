@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import type { QueryBuilderResult } from "@zkpassport/sdk"
 import type { PopupConfigureMessage } from "@zkpassport/sdk/popup"
 
@@ -12,7 +12,7 @@ import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
-import { isStalledAttempt } from "./lane"
+import { codeReplaced, codeShown, type Attempts } from "./lane"
 import { describePhoneError } from "./phone-errors"
 import { Scan } from "./scan"
 import { useRequestUrl } from "./use-request-url"
@@ -122,17 +122,18 @@ export function VerifyRequest({
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
-  const [stalledAttempts, setStalledAttempts] = useState(
-    () => readSession(session)?.stalledAttempts ?? 0,
-  )
+  const [attempts, setAttempts] = useState<Attempts>(() => {
+    const stored = readSession(session)
+    return { codeOnScreen: stored?.codeOnScreen, stalledAttempts: stored?.stalledAttempts }
+  })
 
-  const codeShownAt = useRef<number | null>(null)
-
-  const countStalledAttempt = () => {
-    if (!isStalledAttempt(codeShownAt.current, Date.now())) return
-    const next = stalledAttempts + 1
-    setStalledAttempts(next)
-    updateSession(session, { stalledAttempts: next })
+  const recordAttempts = (next: Attempts) => {
+    if (next === attempts) return
+    setAttempts(next)
+    updateSession(session, {
+      codeOnScreen: next.codeOnScreen,
+      stalledAttempts: next.stalledAttempts,
+    })
   }
 
   const failWith = (reason: Failure) => {
@@ -150,7 +151,7 @@ export function VerifyRequest({
     setFailure(null)
     setScan(null)
     updateSession(session, { stage: undefined })
-    countStalledAttempt()
+    recordAttempts(codeReplaced(attempts))
     req.retry()
   }
 
@@ -202,14 +203,14 @@ export function VerifyRequest({
   )
 
   useEffect(() => {
-    codeShownAt.current = req.url ? Date.now() : null
+    if (req.url) recordAttempts(codeShown(attempts))
   }, [req.url])
 
   // From the moment the request is live: closing drops the bridge, and once the
   // phone has joined it also throws away work in progress
   useConfirmClose(!verified && !failure)
 
-  const link = useRequestUrl(req.url, request, stalledAttempts)
+  const link = useRequestUrl(req.url, request, attempts.stalledAttempts)
   const appClip = useContinueToAppClip(link.url, () => setConsented(true))
 
   const screen = (() => {
@@ -226,7 +227,7 @@ export function VerifyRequest({
     const explained = failure?.explained
     setFailure(null)
     if (keepsBridge) return req.resume()
-    if (!explained) countStalledAttempt()
+    recordAttempts(codeReplaced(attempts, explained))
     req.retry()
   }
 
