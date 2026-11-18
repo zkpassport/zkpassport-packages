@@ -19,6 +19,7 @@ describe("laneFor", () => {
     expect(laneFor({}, "unknown")).toBe("c")
     expect(laneFor({ allowedVerificationMethods: [VerificationMethod.ICAO_CHIP] }, "ios")).toBe("c")
     expect(laneFor({ uniqueIdentifierType: NullifierType.NON_SALTED }, "ios")).toBe("c")
+    expect(laneFor({ uniqueIdentifierType: NullifierType.NONE }, "ios")).toBe("c")
   })
 
   it("also when it accepts camera reads too: the clip sends those IDs to the full app", () => {
@@ -33,7 +34,6 @@ describe("laneFor", () => {
     expect(laneFor({ allowedVerificationMethods: cameraOnly }, "ios")).toBe("r")
     expect(laneFor({ allowedVerificationMethods: aadhaarOnly }, "ios")).toBe("r")
     expect(laneFor({ uniqueIdentifierType: NullifierType.SALTED }, "ios")).toBe("r")
-    expect(laneFor({ uniqueIdentifierType: NullifierType.NONE }, "ios")).toBe("r")
   })
 
   it("leaves the App Clip once enough attempts have stalled", () => {
