@@ -421,7 +421,8 @@ export class CredentialsClient {
    * need frequent or large listings should index `PolicyCreated` themselves instead.
    *
    * The scan starts at `fromBlock`, or the client's `deployBlock` when omitted; constructing
-   * the client without either is an error. It ends at `toBlock`, or the current block.
+   * the client without either is an error. It ends at `toBlock`, or, when omitted, at the newest
+   * block of the node that answers the last chunk.
    */
   async listPolicies(
     filter: { owner?: `0x${string}` } & LogScanRange = {},
@@ -482,24 +483,28 @@ export class CredentialsClient {
     if (blockRange < 1n) throw new Error("blockRange must be at least 1")
 
     const toBlock = range.toBlock ?? (await this.client.getBlockNumber())
-    return { fromBlock, toBlock, blockRange }
+    return { fromBlock, toBlock, blockRange, toLatest: range.toBlock === undefined }
   }
 
+  /**
+   * With `toLatest`, the last chunk asks for "latest" instead of `toBlock`: the client's block
+   * number can be cached and behind the chain, or ahead of a load-balanced node that answers.
+   */
   private async getLogsInChunks(
     event: AbiEvent,
     args: Record<string, unknown> | undefined,
-    scan: { fromBlock: bigint; toBlock: bigint; blockRange: bigint },
+    scan: { fromBlock: bigint; toBlock: bigint; blockRange: bigint; toLatest: boolean },
   ): Promise<unknown[]> {
     const logs: unknown[] = []
     for (let start = scan.fromBlock; start <= scan.toBlock; start += scan.blockRange) {
-      const end =
-        start + scan.blockRange - 1n < scan.toBlock ? start + scan.blockRange - 1n : scan.toBlock
+      const last = start + scan.blockRange - 1n >= scan.toBlock
+      const end = last ? scan.toBlock : start + scan.blockRange - 1n
       const chunk = await this.client.getLogs({
         address: this.address,
         event,
         args,
         fromBlock: start,
-        toBlock: end,
+        toBlock: last && scan.toLatest ? "latest" : end,
       } as never)
       logs.push(...(chunk as unknown[]))
     }

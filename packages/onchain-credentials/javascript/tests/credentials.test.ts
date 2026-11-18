@@ -243,6 +243,30 @@ describe("CredentialsClient reads", () => {
   })
 })
 
+/**
+ * A node at block `head` serving one PolicyCreated log per entry of `policyIds` (block → policy
+ * id), behind a client whose block number reads `reportedBlock`, as viem's cached one can.
+ */
+function nodeClient(chain: {
+  head: bigint
+  reportedBlock: bigint
+  policyIds: Record<number, bigint>
+}): CredentialsReadClient {
+  return {
+    getBlockNumber: async () => chain.reportedBlock,
+    getLogs: async (params: never) => {
+      const { fromBlock, toBlock } = params as { fromBlock: bigint; toBlock: bigint | "latest" }
+      const lastBlock = toBlock === "latest" ? chain.head : toBlock
+      if (lastBlock > chain.head) {
+        throw new Error("block range extends beyond current head block")
+      }
+      return Object.entries(chain.policyIds)
+        .filter(([block]) => BigInt(block) >= fromBlock && BigInt(block) <= lastBlock)
+        .map(([, policyId]) => ({ args: { policyId, owner: WALLET } }))
+    },
+  } as unknown as CredentialsReadClient
+}
+
 describe("CredentialsClient discovery", () => {
   test("listPolicies maps PolicyCreated logs and forwards the owner filter", async () => {
     const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
@@ -265,14 +289,14 @@ describe("CredentialsClient discovery", () => {
     await expect(credentials.listPolicies()).rejects.toThrow("needs a starting block")
   })
 
-  test("listPolicies starts at the client's deployBlock and ends at the current block", async () => {
+  test("listPolicies starts at the client's deployBlock and reads up to the latest block", async () => {
     const { client, logCalls } = stubClient(() => SAMPLE_POLICY)
     const credentials = new CredentialsClient({ client, address: REGISTRY, deployBlock: 40n })
     await credentials.listPolicies()
-    const call = logCalls[0] as { args?: unknown; fromBlock?: bigint; toBlock?: bigint }
+    const call = logCalls[0] as { args?: unknown; fromBlock?: bigint; toBlock?: bigint | "latest" }
     expect(call.args).toBeUndefined()
     expect(call.fromBlock).toBe(40n)
-    expect(call.toBlock).toBe(100n)
+    expect(call.toBlock).toBe("latest")
   })
 
   test("listPolicies chunks the scan into blockRange windows and aggregates results", async () => {
@@ -298,6 +322,18 @@ describe("CredentialsClient discovery", () => {
       { policyId: 10n, owner: WALLET },
       { policyId: 20n, owner: WALLET },
     ])
+  })
+
+  test("an open-ended scan includes logs newer than the client's cached block number", async () => {
+    const client = nodeClient({ head: 103n, reportedBlock: 100n, policyIds: { 103: POLICY_ID } })
+    const credentials = new CredentialsClient({ client, address: REGISTRY, deployBlock: 40n })
+    expect(await credentials.listPolicies()).toEqual([{ policyId: POLICY_ID, owner: WALLET }])
+  })
+
+  test("an open-ended scan reads a node one block behind the reported block number", async () => {
+    const client = nodeClient({ head: 99n, reportedBlock: 100n, policyIds: { 50: POLICY_ID } })
+    const credentials = new CredentialsClient({ client, address: REGISTRY, deployBlock: 40n })
+    expect(await credentials.listPolicies()).toEqual([{ policyId: POLICY_ID, owner: WALLET }])
   })
 
   test("listIssuers replays additions and removals in log order", async () => {
