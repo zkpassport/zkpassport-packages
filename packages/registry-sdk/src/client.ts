@@ -36,7 +36,7 @@ import {
   REGISTRIES_MAPPING_SIGNATURE,
   SANCTIONS_TREE_URL_TEMPLATE,
 } from "./constants"
-import { withTimeout } from "./errors"
+import { RegistryRequestTimeoutError, withTimeout } from "./errors"
 import { findNetworkConstants } from "./networks"
 import {
   DocumentSupport,
@@ -77,6 +77,7 @@ export function createRegistryClient(
 export class RegistryClient {
   private readonly chainId: number
   private readonly rpcUrls: string[]
+  private preferredRpcIndex = 0
   private readonly rootRegistry: string
   private readonly registryHelper: string
   private readonly packagedCertsUrlGenerator: (
@@ -124,7 +125,8 @@ export class RegistryClient {
     }
 
     // A caller's own RPC URL replaces the chain's, so the chain's fallbacks don't apply to it
-    const resolvedFallbackRpcUrls = fallbackRpcUrls ?? (rpcUrl ? [] : network?.fallbackRpcUrls ?? [])
+    const resolvedFallbackRpcUrls =
+      fallbackRpcUrls ?? (rpcUrl ? [] : (network?.fallbackRpcUrls ?? []))
     this.rpcUrls = [resolvedRpcUrl, ...resolvedFallbackRpcUrls]
     this.rootRegistry = resolvedRootRegistry
     this.registryHelper = resolvedRegistryHelper
@@ -871,8 +873,9 @@ export class RegistryClient {
   }
 
   /**
-   * Make an eth_call, trying each RPC URL in turn until one answers with a success status.
-   * The returned response has its body already read, so callers can read it without a deadline.
+   * Make an eth_call, trying each RPC URL in turn until one answers with a success status,
+   * starting with the one that last did. The returned response has its body already read, so
+   * callers can read it without a deadline.
    */
   private async rpcRequest(to: string, data: string): Promise<Response> {
     const body = JSON.stringify({
@@ -882,29 +885,15 @@ export class RegistryClient {
       params: [{ to, data }, "latest"],
     })
     let lastFailure: { response: Response } | { error: unknown } | undefined
-    for (const url of this.rpcUrls) {
+    for (let offset = 0; offset < this.rpcUrls.length; offset++) {
+      const index = (this.preferredRpcIndex + offset) % this.rpcUrls.length
+      const url = this.rpcUrls[index]
       try {
-        const response = await withRetry(
-          () =>
-            withTimeout(
-              async (signal) => {
-                const response = await fetch(url, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body,
-                  signal,
-                })
-                const text = await response.text()
-                return new Response(text, {
-                  status: response.status,
-                  statusText: response.statusText,
-                })
-              },
-              { timeoutMs: this.rpcTimeoutMs, url, what: "eth_call" },
-            ),
-          this.retryCount,
-        )
-        if (response.ok) return response
+        const response = await this.rpcAttempts(url, body)
+        if (response.ok) {
+          this.preferredRpcIndex = index
+          return response
+        }
         log(`RPC ${url} answered ${response.status}, trying the next one`)
         lastFailure = { response }
       } catch (error) {
@@ -914,6 +903,33 @@ export class RegistryClient {
     }
     if (lastFailure && "response" in lastFailure) return lastFailure.response
     throw lastFailure?.error ?? new Error("No RPC URL configured")
+  }
+
+  /**
+   * Post to one RPC URL, retrying network errors with backoff. A timeout is not retried: a host
+   * that drops packets will drop the next attempt too, so the caller moves to the next URL.
+   */
+  private async rpcAttempts(url: string, body: string): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await withTimeout(
+          async (signal) => {
+            const response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body,
+              signal,
+            })
+            const text = await response.text()
+            return new Response(text, { status: response.status, statusText: response.statusText })
+          },
+          { timeoutMs: this.rpcTimeoutMs, url, what: "eth_call" },
+        )
+      } catch (error) {
+        if (error instanceof RegistryRequestTimeoutError || attempt >= this.retryCount) throw error
+        await new Promise((resolve) => setTimeout(resolve, Math.min(100 * 2 ** attempt, 5000)))
+      }
+    }
   }
 
   private async _handleRootDetailsResponse(response: Response): Promise<RootDetails> {

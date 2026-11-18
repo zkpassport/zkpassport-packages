@@ -1,4 +1,4 @@
-import { RegistryClient, RegistryRequestTimeoutError } from "../src"
+import { createRegistryClient, RegistryClient, RegistryRequestTimeoutError } from "../src"
 
 const MOCK_ROOT = "0x1234567890123456789012345678901234567890123456789012345678901234"
 const PRIMARY_RPC = "https://primary-rpc.example.com"
@@ -113,5 +113,61 @@ describe("Fallback RPC URLs", () => {
 
     expect(error).toBeInstanceOf(RegistryRequestTimeoutError)
     expect(error.url).toBe(FALLBACK_RPC)
+  })
+})
+
+describe("Failover between RPC URLs", () => {
+  let originalFetch: typeof globalThis.fetch
+  let calls: string[]
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch
+    calls = []
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  const primaryHangs = ((input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push(input.toString())
+    return input.toString() === PRIMARY_RPC
+      ? hangingFetch(input, init)
+      : Promise.resolve(rpcResponse(MOCK_ROOT))
+  }) as typeof fetch
+
+  it("moves on after one timeout instead of retrying a blocked URL", async () => {
+    globalThis.fetch = primaryHangs
+
+    await newClient({ retryCount: 3, fallbackRpcUrls: [FALLBACK_RPC] }).getLatestCertificateRoot()
+
+    expect(calls).toEqual([PRIMARY_RPC, FALLBACK_RPC])
+  })
+
+  it("starts with the URL that last worked", async () => {
+    globalThis.fetch = primaryHangs
+    const client = newClient({ fallbackRpcUrls: [FALLBACK_RPC] })
+
+    await client.getLatestCertificateRoot()
+    await client.getLatestCircuitRoot()
+
+    expect(calls).toEqual([PRIMARY_RPC, FALLBACK_RPC, FALLBACK_RPC])
+  })
+
+  it("falls back to ZKPassport's RPC route for a chain it knows", async () => {
+    const sepoliaFallback = "https://api.zkpassport.id/api/rpc/ethereum_sepolia"
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(input.toString())
+      return input.toString() === sepoliaFallback
+        ? Promise.resolve(rpcResponse(MOCK_ROOT))
+        : hangingFetch(input, init)
+    }) as typeof fetch
+
+    const root = await createRegistryClient("ethereum_sepolia", {
+      rpcTimeoutMs: 50,
+    }).getLatestCertificateRoot()
+
+    expect(root).toBe(MOCK_ROOT)
+    expect(calls[calls.length - 1]).toBe(sepoliaFallback)
   })
 })
