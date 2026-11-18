@@ -17,12 +17,6 @@ export const DEFAULT_RPC_TIMEOUT_MS = 5_000
 export const DEFAULT_FALLBACK_RPC_TIMEOUT_MS = 15_000
 
 /**
- * Default deadline for a file download (certificates, manifests, circuits) to start answering,
- * in milliseconds. The body itself has no deadline.
- */
-export const DEFAULT_DOWNLOAD_TIMEOUT_MS = 15_000
-
-/**
  * Certificate Registry ID
  * Used to identify the certificate registry in the root registry
  */
