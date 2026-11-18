@@ -1,7 +1,3 @@
-/**
- * Thrown when an RPC call gets no answer in time. A host blocked by a firewall often drops
- * packets instead of refusing the connection, so without a deadline the call waits forever.
- */
 export class RegistryRequestTimeoutError extends Error {
   constructor(
     what: string,
@@ -13,7 +9,6 @@ export class RegistryRequestTimeoutError extends Error {
   }
 }
 
-/** Runs a request with a deadline, aborting the fetch where the platform supports it */
 export function withTimeout<T>(
   request: (signal?: AbortSignal) => Promise<T>,
   { timeoutMs, url, what }: { timeoutMs: number; url: string; what: string },

@@ -6,14 +6,8 @@ import { normaliseHash } from "./utils"
  */
 export const DEFAULT_RETRY_COUNT = 3
 
-/**
- * Default deadline for one attempt at the first RPC URL tried, in milliseconds
- */
 export const DEFAULT_RPC_TIMEOUT_MS = 5_000
 
-/**
- * Default deadline for one attempt at a fallback RPC URL, in milliseconds
- */
 export const DEFAULT_FALLBACK_RPC_TIMEOUT_MS = 15_000
 
 /**

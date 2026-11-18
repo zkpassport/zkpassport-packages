@@ -50,20 +50,10 @@ export interface RegistryClientOptions {
    */
   retryCount?: number
 
-  /**
-   * RPC URLs to try in order when the main one fails, times out or answers with an error status.
-   * Defaults to the fallbacks of the chain, if any.
-   */
   fallbackRpcUrls?: string[]
 
-  /**
-   * Deadline for one attempt at the first RPC URL tried, in milliseconds, default is 5000
-   */
   rpcTimeoutMs?: number
 
-  /**
-   * Deadline for one attempt at a fallback RPC URL, in milliseconds, default is 15000
-   */
   fallbackRpcTimeoutMs?: number
 }
 

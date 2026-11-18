@@ -124,7 +124,6 @@ export class RegistryClient {
       throw new Error(`Unsupported chain ID: ${chainId}`)
     }
 
-    // A caller's own RPC URL replaces the chain's, so the chain's fallbacks don't apply to it
     const resolvedFallbackRpcUrls =
       fallbackRpcUrls ?? (rpcUrl ? [] : (network?.fallbackRpcUrls ?? []))
     this.rpcUrls = [resolvedRpcUrl, ...resolvedFallbackRpcUrls]
@@ -716,7 +715,7 @@ export class RegistryClient {
   }
 
   /**
-   * Get the URL of the main RPC endpoint the client calls
+   * Get the URL of the RPC endpoint the client calls
    * @returns The RPC URL
    */
   getRpcUrl(): string {
@@ -861,11 +860,6 @@ export class RegistryClient {
     return (await response.json()) as T
   }
 
-  /**
-   * Make an eth_call, trying each RPC URL in turn until one answers with a success status,
-   * starting with the one that last did. The returned response has its body already read, so
-   * callers can read it without a deadline.
-   */
   private async rpcRequest(to: string, data: string): Promise<Response> {
     const body = JSON.stringify({
       jsonrpc: "2.0",
@@ -894,11 +888,6 @@ export class RegistryClient {
     throw lastFailure?.error ?? new Error("No RPC URL configured")
   }
 
-  /**
-   * Post to one RPC URL, retrying network errors. A timeout is not retried: a host that drops
-   * packets drops the next attempt too. The first URL tried gets a short deadline, so a blocked
-   * provider hands over to the fallbacks quickly.
-   */
   private async rpcAttempt(url: string, body: string, isFirstTried: boolean): Promise<Response> {
     const timeoutMs = isFirstTried ? this.rpcTimeoutMs : this.fallbackRpcTimeoutMs
     for (let attempt = 0; ; attempt++) {

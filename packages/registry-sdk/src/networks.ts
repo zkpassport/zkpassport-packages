@@ -52,10 +52,6 @@ const CIRCUIT_URL_MAINNET = "https://circuits2.zkpassport.id/mainnet"
 const CIRCUIT_URL_SEPOLIA = "https://circuits2.zkpassport.id/testnet"
 const CIRCUIT_URL_DEV = "http://localhost:8000"
 
-/**
- * ZKPassport's RPC route for a chain, which forwards the registry reads to the provider from the
- * server. A fallback for clients that can't reach the provider (from mainland China, for one).
- */
 const zkpassportRpcUrl = (chain: SupportedChain) => `https://api.zkpassport.id/api/rpc/${chain}`
 
 /**
