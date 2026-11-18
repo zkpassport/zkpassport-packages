@@ -65,6 +65,9 @@ pub struct DisclosureInput<'a> {
     /// The request asks for no unique identifier: the circuit gets the hash of the private
     /// nullifier in place of its value, so the proof carries no scoped nullifier.
     pub hide_nullifier: bool,
+    /// The private nullifier of an ID without a chip signature (an Aadhaar). `None` derives it
+    /// from the SOD.
+    pub private_nullifier: Option<BigUint>,
 }
 
 /// The disclosure prologue, computed once and shared by every builder in a run.
@@ -85,11 +88,9 @@ impl DisclosureBase {
         let e_content_padded = right_pad_with_zeros(input.e_content, E_CONTENT_INPUT_SIZE);
         let dg2_hash_normalized = normalize_dg2_hash(input.dg2_hash);
         let dg2_hash_type = hash_algorithm_id_from_length(input.dg2_hash.len())?;
-        let private_nullifier = calculate_private_nullifier(
-            &dg1_padded,
-            &e_content_padded,
-            input.sod_signature_processed,
-        );
+        let private_nullifier = input.private_nullifier.clone().unwrap_or_else(|| {
+            calculate_private_nullifier(&dg1_padded, &e_content_padded, input.sod_signature_processed)
+        });
         let comm_in = hash_salt_dg1_dg2_hash_private_nullifier(
             salts,
             &dg1_padded,
