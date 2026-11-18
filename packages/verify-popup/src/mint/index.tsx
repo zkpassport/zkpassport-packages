@@ -17,7 +17,9 @@ import { Resolving } from "./resolving"
 import type { ZKPassportQRCodeOptions } from "@zkpassport/ui/hosted"
 import type { ScanProgress } from "../verify/waiting"
 import { Intro } from "../verify/intro"
+import { isStalledAttempt } from "../verify/lane"
 import { Scan } from "../verify/scan"
+import { useRequestUrl } from "../verify/use-request-url"
 import { Waiting } from "../verify/waiting"
 import { useRequest } from "../request"
 import {
@@ -201,6 +203,8 @@ function VerifyStep({
 }) {
   const [consented, setConsented] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
+  const [stalledAttempts, setStalledAttempts] = useState(0)
+  const codeShownAt = useRef<number | null>(null)
   const req = useRequest(
     {
       // The policy's domain is read from the chain, not from the opener
@@ -238,8 +242,15 @@ function VerifyStep({
     },
   )
 
+  useEffect(() => {
+    codeShownAt.current = req.url ? Date.now() : null
+  }, [req.url])
+
+  const link = useRequestUrl(req.url, options, stalledAttempts)
+
   const tryAgain = () => {
     setFailure(null)
+    if (isStalledAttempt(codeShownAt.current, Date.now())) setStalledAttempts((n) => n + 1)
     req.retry()
   }
 
@@ -255,6 +266,5 @@ function VerifyStep({
       />
     )
   }
-  // The full-app link: issuing a credential has not been tried in the App Clip
-  return <Scan state={req.state} url={req.url} qrSvg={req.qrSvg} />
+  return <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} onNewCode={tryAgain} />
 }
