@@ -23,6 +23,7 @@ import {
   CIRCUIT_MANIFEST_URL_TEMPLATE,
   DEFAULT_HISTORICAL_ROOTS_PAGE_SIZE,
   DEFAULT_DOWNLOAD_TIMEOUT_MS,
+  DEFAULT_FALLBACK_RPC_TIMEOUT_MS,
   DEFAULT_RETRY_COUNT,
   DEFAULT_RPC_TIMEOUT_MS,
   GET_HISTORICAL_ROOTS_BY_HASH_SIGNATURE,
@@ -45,7 +46,6 @@ import {
   type RootDetails,
 } from "./types"
 import { normaliseHash, strip0x } from "./utils"
-import { withRetry } from "@zkpassport/utils"
 import documentSupportRules from "./document-support-rules.json"
 
 const log = debug("zkpassport:registry")
@@ -97,6 +97,7 @@ export class RegistryClient {
   private readonly sanctionsTreeUrlGenerator: (chainId: number, root: string) => string
   private readonly retryCount: number
   private readonly rpcTimeoutMs: number
+  private readonly fallbackRpcTimeoutMs: number
   private readonly downloadTimeoutMs: number
 
   constructor({
@@ -111,6 +112,7 @@ export class RegistryClient {
     retryCount,
     fallbackRpcUrls,
     rpcTimeoutMs,
+    fallbackRpcTimeoutMs,
     downloadTimeoutMs,
   }: Partial<RegistryClientOptions> = {}) {
     if (chainId === undefined) throw new Error("chainId is required")
@@ -136,6 +138,7 @@ export class RegistryClient {
     this.sanctionsTreeUrlGenerator = sanctionsTreeUrlGenerator || SANCTIONS_TREE_URL_TEMPLATE
     this.retryCount = retryCount || DEFAULT_RETRY_COUNT
     this.rpcTimeoutMs = rpcTimeoutMs || DEFAULT_RPC_TIMEOUT_MS
+    this.fallbackRpcTimeoutMs = fallbackRpcTimeoutMs || DEFAULT_FALLBACK_RPC_TIMEOUT_MS
     this.downloadTimeoutMs = downloadTimeoutMs || DEFAULT_DOWNLOAD_TIMEOUT_MS
   }
 
@@ -852,24 +855,19 @@ export class RegistryClient {
 
   private async fetchJson<T>(url: string, what: string, init?: RequestInit): Promise<T> {
     log(`Getting ${what} from:`, url)
-    // The body is read inside the deadline: a large file can stall halfway through
-    const { response, data } = await withRetry(
-      () =>
-        withTimeout(
-          async (signal) => {
-            const response = await fetch(url, { ...init, signal })
-            return { response, data: response.ok ? ((await response.json()) as T) : undefined }
-          },
-          { timeoutMs: this.downloadTimeoutMs, url, what },
-        ),
-      this.retryCount,
-    )
+    // The deadline covers waiting for the server to answer, not the body: a blocked host never
+    // answers, while a large file on a slow connection can take as long as it needs
+    const response = await this.attempts((signal) => fetch(url, { ...init, signal }), {
+      timeoutMs: this.downloadTimeoutMs,
+      url,
+      what,
+    })
     if (!response.ok) {
       throw new Error(
         `Failed to get ${what}: ${response.status} ${response.statusText}, URL: ${url}`,
       )
     }
-    return data as T
+    return (await response.json()) as T
   }
 
   /**
@@ -889,7 +887,7 @@ export class RegistryClient {
       const index = (this.preferredRpcIndex + offset) % this.rpcUrls.length
       const url = this.rpcUrls[index]
       try {
-        const response = await this.rpcAttempts(url, body)
+        const response = await this.rpcAttempt(url, body, offset === 0)
         if (response.ok) {
           this.preferredRpcIndex = index
           return response
@@ -906,25 +904,40 @@ export class RegistryClient {
   }
 
   /**
-   * Post to one RPC URL, retrying network errors with backoff. A timeout is not retried: a host
-   * that drops packets will drop the next attempt too, so the caller moves to the next URL.
+   * Post to one RPC URL. The first URL tried gets a short deadline, so a blocked provider hands
+   * over to the fallbacks quickly; a fallback gets longer, as it is the last chance.
    */
-  private async rpcAttempts(url: string, body: string): Promise<Response> {
+  private rpcAttempt(url: string, body: string, isFirstTried: boolean): Promise<Response> {
+    return this.attempts(
+      async (signal) => {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal,
+        })
+        const text = await response.text()
+        return new Response(text, { status: response.status, statusText: response.statusText })
+      },
+      {
+        timeoutMs: isFirstTried ? this.rpcTimeoutMs : this.fallbackRpcTimeoutMs,
+        url,
+        what: "eth_call",
+      },
+    )
+  }
+
+  /**
+   * Run a request, retrying network errors with backoff. A timeout is not retried: a host that
+   * drops packets will drop the next attempt too.
+   */
+  private async attempts<R>(
+    request: (signal?: AbortSignal) => Promise<R>,
+    deadline: { timeoutMs: number; url: string; what: string },
+  ): Promise<R> {
     for (let attempt = 0; ; attempt++) {
       try {
-        return await withTimeout(
-          async (signal) => {
-            const response = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body,
-              signal,
-            })
-            const text = await response.text()
-            return new Response(text, { status: response.status, statusText: response.statusText })
-          },
-          { timeoutMs: this.rpcTimeoutMs, url, what: "eth_call" },
-        )
+        return await withTimeout(request, deadline)
       } catch (error) {
         if (error instanceof RegistryRequestTimeoutError || attempt >= this.retryCount) throw error
         await new Promise((resolve) => setTimeout(resolve, Math.min(100 * 2 ** attempt, 5000)))

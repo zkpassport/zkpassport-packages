@@ -7,14 +7,20 @@ import { normaliseHash } from "./utils"
 export const DEFAULT_RETRY_COUNT = 3
 
 /**
- * Default deadline for one RPC attempt, in milliseconds
+ * Default deadline for one attempt at the first RPC URL tried, in milliseconds
  */
-export const DEFAULT_RPC_TIMEOUT_MS = 15_000
+export const DEFAULT_RPC_TIMEOUT_MS = 5_000
 
 /**
- * Default deadline for one file download attempt (certificates, manifests, circuits), in milliseconds
+ * Default deadline for one attempt at a fallback RPC URL, in milliseconds
  */
-export const DEFAULT_DOWNLOAD_TIMEOUT_MS = 60_000
+export const DEFAULT_FALLBACK_RPC_TIMEOUT_MS = 15_000
+
+/**
+ * Default deadline for a file download (certificates, manifests, circuits) to start answering,
+ * in milliseconds. The body itself has no deadline.
+ */
+export const DEFAULT_DOWNLOAD_TIMEOUT_MS = 15_000
 
 /**
  * Certificate Registry ID

@@ -21,6 +21,7 @@ const newClient = (overrides: Record<string, unknown> = {}) =>
     registryHelper: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
     retryCount: 1,
     rpcTimeoutMs: 50,
+    fallbackRpcTimeoutMs: 50,
     downloadTimeoutMs: 50,
     ...overrides,
   })
@@ -58,6 +59,23 @@ describe("Request timeouts", () => {
     expect(error.url).toContain(MOCK_ROOT)
   })
 
+  it("lets a download that has started take longer than the deadline", async () => {
+    const certificates = { version: 1, certificates: [], certificates_serialised: [] }
+    globalThis.fetch = (async () => {
+      const response = new Response(JSON.stringify(certificates), { status: 200 })
+      const json = response.json.bind(response)
+      response.json = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        return json()
+      }
+      return response
+    }) as unknown as typeof fetch
+
+    const data = await newClient().getCertificates(MOCK_ROOT, { validate: false })
+
+    expect(data.certificates).toEqual([])
+  })
+
   it("times out even when fetch ignores the abort signal", async () => {
     globalThis.fetch = (() => new Promise<Response>(() => {})) as unknown as typeof fetch
 
@@ -87,6 +105,22 @@ describe("Fallback RPC URLs", () => {
         : Promise.resolve(rpcResponse(MOCK_ROOT))) as typeof fetch
 
     const root = await newClient({ fallbackRpcUrls: [FALLBACK_RPC] }).getLatestCertificateRoot()
+
+    expect(root).toBe(MOCK_ROOT)
+  })
+
+  it("gives a fallback RPC URL longer than the first one", async () => {
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input.toString() === PRIMARY_RPC) return hangingFetch(input, init)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      return rpcResponse(MOCK_ROOT)
+    }) as typeof fetch
+
+    const root = await newClient({
+      rpcTimeoutMs: 50,
+      fallbackRpcTimeoutMs: 1000,
+      fallbackRpcUrls: [FALLBACK_RPC],
+    }).getLatestCertificateRoot()
 
     expect(root).toBe(MOCK_ROOT)
   })

@@ -1,5 +1,5 @@
 /**
- * Thrown when a registry request gets no complete answer in time. A host that a firewall
+ * Thrown when a registry request gets no answer in time. A host that a firewall
  * blocks often drops packets instead of refusing the connection, so without a deadline the
  * request would wait forever.
  */

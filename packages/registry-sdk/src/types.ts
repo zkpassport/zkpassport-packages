@@ -57,12 +57,18 @@ export interface RegistryClientOptions {
   fallbackRpcUrls?: string[]
 
   /**
-   * Deadline for one RPC attempt in milliseconds, default is 15000
+   * Deadline for one attempt at the first RPC URL tried, in milliseconds, default is 5000
    */
   rpcTimeoutMs?: number
 
   /**
-   * Deadline for one file download attempt in milliseconds, default is 60000
+   * Deadline for one attempt at a fallback RPC URL, in milliseconds, default is 15000
+   */
+  fallbackRpcTimeoutMs?: number
+
+  /**
+   * Deadline for a file download to start answering, in milliseconds, default is 15000. The body
+   * itself has no deadline, so a large file on a slow connection can take as long as it needs.
    */
   downloadTimeoutMs?: number
 }
