@@ -1,5 +1,4 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { withRetry } from "@zkpassport/utils"
 import { normaliseHash } from "./utils"
 
 /**
@@ -8,10 +7,13 @@ import { normaliseHash } from "./utils"
  * within the registry's delay is ignored until its time comes.
  */
 export class AztecRegistryReader {
+  /**
+   * @param post - Posts a JSON-RPC body to an Aztec node and resolves to the node's response
+   * @param registry - The address of the registry contract
+   */
   constructor(
-    private readonly rpcUrl: string,
+    private readonly post: (body: string) => Promise<Response>,
     private readonly registry: string,
-    private readonly retryCount: number,
   ) {}
 
   /**
@@ -92,16 +94,10 @@ export class AztecRegistryReader {
   }
 
   private async request(calls: { method: string; params: unknown[] }[]): Promise<unknown[]> {
-    const response = await withRetry(
-      () =>
-        fetch(this.rpcUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            calls.map(({ method, params }, id) => ({ jsonrpc: "2.0", id, method, params })),
-          ),
-        }),
-      this.retryCount,
+    const response = await this.post(
+      JSON.stringify(
+        calls.map(({ method, params }, id) => ({ jsonrpc: "2.0", id, method, params })),
+      ),
     )
     if (!response.ok) {
       throw new Error(`Error reading the Aztec registry: ${response.status} ${response.statusText}`)

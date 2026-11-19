@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { createRegistryClient } from "./client"
+import { RegistryRequestTimeoutError } from "./errors"
 import { normaliseHash } from "./utils"
 
 const ROOT_A = `0x${"11".repeat(32)}`
@@ -101,6 +102,30 @@ describe("RegistryClient on an Aztec network", () => {
 
     expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
     expect(fetchedUrls).toEqual(["https://aztec-testnet.drpc.org/"])
+  })
+
+  test("times out a node that doesn't answer, then reads from the fallback RPC URL", async () => {
+    const fallback = "https://aztec-fallback.example.com/"
+    const node = globalThis.fetch
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      new URL(input.toString()).href === fallback
+        ? node(input, init)
+        : new Promise<Response>((_resolve, reject) => {
+            fetchedUrls.push(new URL(input.toString()).href)
+            init?.signal?.addEventListener("abort", () => reject(new Error("aborted")))
+          })) as typeof globalThis.fetch
+
+    const timingOut = createRegistryClient("aztec_testnet", { rpcTimeoutMs: 50 })
+    await expect(timingOut.getLatestCertificateRoot()).rejects.toBeInstanceOf(
+      RegistryRequestTimeoutError,
+    )
+
+    const fallingBack = createRegistryClient("aztec_testnet", {
+      rpcTimeoutMs: 50,
+      fallbackRpcUrls: [fallback],
+    })
+    expect(await fallingBack.getLatestCertificateRoot()).toBe(ROOT_B)
+    expect(fetchedUrls).toContain(fallback)
   })
 
   test("reads a scheduled latest root only once the node's latest block reaches its time", async () => {
