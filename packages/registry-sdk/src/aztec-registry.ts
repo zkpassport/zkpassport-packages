@@ -4,7 +4,7 @@ import { normaliseHash } from "./utils"
 /**
  * Reads ZKPassportRegistry, ZKPassport's registry contract on an Aztec network, from an Aztec node's public storage.
  * Each value is read as the registry's private functions read it at the node's latest block: a change scheduled
- * within the registry's delay is ignored until its time comes.
+ * within the registry's delay is ignored until its time comes. Each call reads all its values at one block.
  */
 export class AztecRegistryReader {
   /**
@@ -62,7 +62,8 @@ export class AztecRegistryReader {
   }
 
   /**
-   * Reads the current value of each DelayedPublicMutable, in one batch with the latest block's timestamp. A
+   * Reads the current value of each DelayedPublicMutable at the node's latest block. The block's number is read first
+   * and every later read names it, as a block landing between "latest" reads would mix the slots of two blocks. A
    * DelayedPublicMutable holding a value of packed length N takes 2N + 2 slots: the scheduled change's timestamp
    * (the low 32 bits, packed with the delay's own scheduled change), the value before the change, the value after it,
    * and a hash of them all.
@@ -73,15 +74,16 @@ export class AztecRegistryReader {
     const slots = variables.flatMap(({ slot, length }) =>
       Array.from({ length: 2 * length + 1 }, (_, offset) => slot + BigInt(offset)),
     )
+    const [blockNumber] = await this.request([{ method: "node_getBlockNumber", params: [] }])
     const [block, ...words] = await this.request([
-      { method: "node_getBlockData", params: ["latest"] },
+      { method: "node_getBlockData", params: [blockNumber] },
       ...slots.map((slot) => ({
         method: "node_getPublicStorageAt",
-        params: ["latest", this.registry, normaliseHash(slot)],
+        params: [blockNumber, this.registry, normaliseHash(slot)],
       })),
     ])
 
-    const now = BigInt(readBlockTimestamp(block))
+    const now = BigInt(readBlockTimestamp(block, blockNumber))
     const values = words.map((word) => BigInt(String(word)))
     let offset = 0
     return variables.map(({ length }) => {
@@ -148,11 +150,11 @@ function mapSlot(slot: bigint, key: bigint): Promise<bigint> {
   return poseidon2HashAsync([PUBLIC_STORAGE_MAP_SLOT_SEPARATOR, slot, key])
 }
 
-function readBlockTimestamp(block: unknown): string {
+function readBlockTimestamp(block: unknown, blockNumber: unknown): string {
   const timestamp = (block as { header?: { globalVariables?: { timestamp?: unknown } } } | null)
     ?.header?.globalVariables?.timestamp
   if (timestamp === undefined) {
-    throw new Error("Error reading the Aztec registry: the node returned no latest block")
+    throw new Error(`Error reading the Aztec registry: the node returned no block ${blockNumber}`)
   }
   return String(timestamp)
 }
