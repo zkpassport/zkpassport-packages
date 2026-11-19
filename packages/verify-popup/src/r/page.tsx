@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
 import { Frame } from "../shared/frame"
@@ -6,7 +6,7 @@ import { Primary } from "../shared/controls"
 import { ZKPASSPORT_WORDMARK } from "../shared/icons"
 import { LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
-import { useOpenApp } from "../shared/use-open-app"
+import { CLOSE_ON_RETURN_HASH, useOpenApp } from "../shared/use-open-app"
 import { parseVerifyRequest } from "./request-link"
 import "../main.css"
 
@@ -15,6 +15,7 @@ import "../main.css"
  * installed app, so whoever sees this page almost certainly has to install it first.
  */
 export function RequestPage() {
+  useCloseOnReturn()
   const request = parseVerifyRequest(window.location.search)
   const requestUrl = request ? window.location.href : null
   const siteName = request?.serviceName || request?.domain || null
@@ -48,6 +49,23 @@ export function RequestPage() {
       </div>
     </Frame>
   )
+}
+
+/**
+ * The waiting page opened this tab. When the user comes back from the App Clip, the waiting page
+ * has the result, so this tab gets out of its way.
+ */
+function useCloseOnReturn() {
+  useEffect(() => {
+    if (window.location.hash !== CLOSE_ON_RETURN_HASH) return
+    let leftThePage = false
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") leftThePage = true
+      else if (leftThePage) window.close()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange)
+  }, [])
 }
 
 function OpenAppPrompt({ requestUrl, siteName }: { requestUrl: string; siteName: string | null }) {
