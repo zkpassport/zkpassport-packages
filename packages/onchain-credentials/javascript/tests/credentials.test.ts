@@ -684,6 +684,12 @@ describe("credentialRequirementsFromQuery", () => {
     })
   })
 
+  test("names an empty nationality in, which admits nobody but would turn the check off", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { in: [] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "in" }],
+    })
+  })
+
   test("names nationality eq beside in, which one included list cannot require together", () => {
     expect(credentialRequirementsFromQuery({ nationality: { eq: "FRA", in: ["DEU"] } })).toEqual({
       unsupported: [{ field: "nationality", method: "eq" }],

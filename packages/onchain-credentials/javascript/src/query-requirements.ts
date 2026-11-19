@@ -40,7 +40,15 @@ export function credentialRequirementsFromQuery(
       method === "out" ? excluded : method === "in" || method === "eq" ? included : null
     // A query holds a nationality to both `eq` and `in`, but one included list would accept either.
     const eqBesideIn = method === "eq" && query.nationality?.in !== undefined
-    if (!target || eqBesideIn || !Array.isArray(countries) || !countries.every(isAlpha3Code)) {
+    // An empty `in` admits nobody, but an empty included list turns the nationality check off.
+    const emptyIn = method === "in" && Array.isArray(countries) && countries.length === 0
+    if (
+      !target ||
+      eqBesideIn ||
+      emptyIn ||
+      !Array.isArray(countries) ||
+      !countries.every(isAlpha3Code)
+    ) {
       unsupported.push({ field: "nationality", method })
       continue
     }
