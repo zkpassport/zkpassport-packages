@@ -5,11 +5,17 @@ import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
 
 import {
   assembleDiscloseCapsule,
+  assembleFacematchCapsule,
   assembleProofCapsule,
   assembleSanctionsCapsule,
   toAztecCapsules,
 } from "../src/capsule.ts"
-import { outerCapsuleLength, PROOF_CAPSULE_SLOT, SANCTIONS_CAPSULE_SLOT } from "../src/constants.ts"
+import {
+  FACE_MATCH_CAPSULE_SLOT,
+  outerCapsuleLength,
+  PROOF_CAPSULE_SLOT,
+  SANCTIONS_CAPSULE_SLOT,
+} from "../src/constants.ts"
 
 const parts = {
   vk: Array(115).fill("01"),
@@ -51,6 +57,25 @@ test("assembles the disclose and sanctions capsules as fields", () => {
   assert.deepEqual(
     assembleSanctionsCapsule("0x2a5a").map((field) => field.toBigInt()),
     [0x2a5an],
+  )
+})
+
+test("assembles a face match's parameters, in the order its proof commits them, for slot 4", () => {
+  const appleRootKey = 0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340bn
+  const iosAppId = 0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179bn
+
+  const capsule = assembleFacematchCapsule({
+    rootKeyLeaf: `0x${appleRootKey.toString(16)}`,
+    environment: "production",
+    appIdHash: `0x${iosAppId.toString(16)}`,
+    integrityPubkeyHash: "0x00",
+    mode: "strict",
+  })
+
+  assert.equal(FACE_MATCH_CAPSULE_SLOT, 4n)
+  assert.deepEqual(
+    capsule.map((field) => field.toBigInt()),
+    [appleRootKey, 1n, iosAppId, 0n, 2n, 0n],
   )
 })
 
