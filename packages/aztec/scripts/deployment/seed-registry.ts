@@ -21,6 +21,12 @@
  * registry the script checks that the manifest commits to a circuit root the RootRegistry holds
  * and has not revoked, so the vks it accepts are exactly the set that root commits to.
  *
+ * Rollbacks: an older release's circuit root is not scheduled as the registry's latest unless
+ * the registry already holds or has scheduled it. Doing so would close the validity interval of
+ * the registry's newer root, and the contract's duplicate-root guard would then stop that root
+ * from becoming the latest again. The older release's vks are still seeded. Set
+ * ALLOW_CIRCUIT_ROOT_ROLLBACK=1 to schedule the older root deliberately.
+ *
  * Every seeded value is a DelayedPublicMutable write: it becomes readable by private
  * verifiers only INITIAL_DELAY after the tx (24h production, or the PREVIEW_DELAY the
  * class was compiled with). There is no time-warp on a real network. Note that in
@@ -37,8 +43,8 @@
  *
  * Removals: is_vk_accepted and is_version_enabled read `false` both for a value that was never
  * written and for one that was removed. Raw storage tells them apart, since every write records
- * its change's timestamp. A removed vk is accepted again only when named in VK_CIRCUITS or
- * VK_HASH, and a disabled version is never re-enabled.
+ * its change's timestamp. A removed vk is restored only when named in VK_CIRCUITS or VK_HASH, and
+ * the diff marks it as previously revoked; a disabled version is never re-enabled.
  *
  * Dry run by default: the script prints the plan, with a per-vk diff of what would be added,
  * what is already accepted and what is already scheduled, and sends nothing without SEND_TXS=1.
@@ -64,14 +70,16 @@
  *                                root (default: the RootRegistry's latest circuit root and its
  *                                manifest). The vks are accepted and enabled under the release's
  *                                semver, packed as 2-byte BE major/minor/patch, left-aligned
- *                                bytes32 (the SDK's L1 params.version encoding); consumer
- *                                apps must pass the same value in ServiceConfig.version.
+ *                                bytes32 (the SDK's L1 params.version encoding).
+ *   ALLOW_CIRCUIT_ROOT_ROLLBACK  "1" to schedule an older release's circuit root as the latest
+ *                                even though the registry may hold a newer one (see Rollbacks)
  *   VK_CIRCUITS                  comma-separated circuits of the release's manifest to accept,
  *                                named explicitly (default: every outer_count_N in it)
  *   VK_HASH                      accept this exact vk hash instead, named explicitly
  *   OPRF_PK_HASH                 OPRF public key hash to seed (default: DEFAULT_OPRF_PUB_KEY_HASH
  *                                from @zkpassport/utils, the hash of the default OPRF key)
- *   SEND_TXS                     "1" to send the planned transactions; any other run is a dry run
+ *   SEND_TXS                     exactly "1" to send the planned transactions; any other run is
+ *                                a dry run
  *   DRY_RUN                      force a dry run even with SEND_TXS=1
  *
  * Fees: testnet uses the live SponsoredFPC (same artifact derivation + on-chain
@@ -89,9 +97,11 @@ import {
   type CircuitManifest,
   type CircuitRootDetails,
   type ReleaseManifest,
+  type RootState,
   type SelectedVk,
   type VkDecision,
   assertManifestMatchesRoot,
+  decideRoot,
   decideVersion,
   decideVk,
   formatVkDiff,
@@ -142,7 +152,7 @@ const NETWORKS = {
 const require = createRequire(import.meta.url)
 type RegistryClientT = {
   getCircuitManifest(root?: string, opts?: { version?: string }): Promise<CircuitManifest>
-  getCircuitRootDetails(root: string): Promise<CircuitRootDetails & { isLatest?: boolean }>
+  getCircuitRootDetails(root: string): Promise<CircuitRootDetails>
   getLatestCertificateRoot(): Promise<string>
   getLatestCircuitRoot(): Promise<string>
   getUrlForCircuitManifestByRoot(root: string): string
@@ -167,8 +177,10 @@ async function fetchRelease(
   version: string | undefined,
 ): Promise<{
   manifest: ReleaseManifest
-  circuitRoot: CircuitRootDetails & { isLatest?: boolean }
+  circuitRoot: CircuitRootDetails
+  isRootRegistryLatest: boolean
 }> {
+  const latestRoot = await client.getLatestCircuitRoot()
   let manifest: CircuitManifest
   let root: string | undefined
   if (version) {
@@ -178,19 +190,19 @@ async function fetchRelease(
     manifest = await client.getCircuitManifest(undefined, { version })
     root = manifest.root
   } else {
-    root = await client.getLatestCircuitRoot()
+    root = latestRoot
     console.log(`circuit manifest (latest): ${client.getUrlForCircuitManifestByRoot(root)}`)
     manifest = await client.getCircuitManifest(root)
   }
   if (!root) throw new Error(`circuit manifest v${manifest.version ?? "?"} has no root`)
-  let circuitRoot: CircuitRootDetails & { isLatest?: boolean }
+  let circuitRoot: CircuitRootDetails
   try {
     circuitRoot = await client.getCircuitRootDetails(root)
   } catch (e) {
     throw new Error(`circuit root ${root} not found in the RootRegistry: ${(e as Error).message}`)
   }
   assertManifestMatchesRoot(manifest, circuitRoot, version)
-  return { manifest, circuitRoot }
+  return { manifest, circuitRoot, isRootRegistryLatest: BigInt(root) === BigInt(latestRoot) }
 }
 
 /** Unwrap a utility-view simulate() (SimulationResult carries the value in .result). */
@@ -270,7 +282,7 @@ async function main() {
   console.log(`ZKPassport RootRegistry (chain ${zkpChainId}, manifest v${manifestSemver}):`)
   console.log(`  certificate root: ${certRoot}`)
   console.log(
-    `  circuit root:     ${circuitRoot}${release.circuitRoot.isLatest === false ? " (not the RootRegistry's latest)" : ""}`,
+    `  circuit root:     ${circuitRoot}${release.isRootRegistryLatest ? "" : " (not the RootRegistry's latest)"}`,
   )
   console.log(`  circuit manifest version: ${manifestSemver} -> ${vkVersionFr}`)
   console.log(
@@ -305,41 +317,66 @@ async function main() {
 
   // ── Plan: compare against the registry's (delay-applied) current state ───────
   const nowSecs = BigInt(Math.floor(Date.now() / 1000))
+  const allowRollback = process.env.ALLOW_CIRCUIT_ROOT_ROLLBACK === "1"
   const roots = [
-    { id: REGISTRY_CERTIFICATE, label: "certificate", root: certRoot },
-    { id: REGISTRY_CIRCUIT, label: "circuit", root: circuitRoot },
+    {
+      id: REGISTRY_CERTIFICATE,
+      label: "certificate",
+      root: certRoot,
+      opts: { isRootRegistryLatest: true, allowRollback: false },
+    },
+    {
+      id: REGISTRY_CIRCUIT,
+      label: "circuit",
+      root: circuitRoot,
+      opts: { isRootRegistryLatest: release.isRootRegistryLatest, allowRollback },
+    },
   ]
 
   // Storage slots for the raw scheduled-change reads (see readScheduledChange).
   const layout = ZKPassportRegistryContract.storage
-  const actions: string[] = []
-  let pendingMaturity = 0
-  for (const r of roots) {
-    const rootFr = Fr.fromHexString(r.root)
+  const rootState = async (id: bigint): Promise<RootState> => {
     const pair = unwrap<{ latest: bigint }>(
-      await registry.methods.get_latest_pair(r.id).simulate({ from: operatorSender.address }),
+      await registry.methods.get_latest_pair(id).simulate({ from: operatorSender.address }),
     )
-    const current = new Fr(pair.latest)
-    if (current.equals(rootFr)) {
-      console.log(`${r.label} root is already live in the registry — skipping`)
-      continue
-    }
     // LatestRootPair packs to 2 fields (latest, previous); post[0] is the scheduled latest.
     const sched = await readScheduledChange(
       node,
       registryAddress,
       layout.latest.slot,
-      [new Fr(r.id)],
+      [new Fr(id)],
       2,
     )
-    if (sched.post[0].equals(rootFr) && sched.maturesAt > nowSecs) {
+    return {
+      current: BigInt(pair.latest),
+      scheduled: sched.post[0].toBigInt(),
+      maturesAt: sched.maturesAt,
+    }
+  }
+
+  const actions: string[] = []
+  let pendingMaturity = 0
+  let heldBack = 0
+  for (const r of roots) {
+    const state = await rootState(r.id)
+    const decision = decideRoot(BigInt(r.root), state, r.opts, nowSecs)
+    if (decision.status === "live") {
+      console.log(`${r.label} root is already live in the registry — skipping`)
+    } else if (decision.status === "scheduled") {
       console.log(
-        `${r.label} root ${r.root} is already pushed — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
+        `${r.label} root ${r.root} is already pushed — ${liveAt(decision.maturesAt, nowSecs)} — skipping`,
       )
       pendingMaturity++
-      continue
+    } else if (decision.status === "rollback") {
+      console.log(
+        `${r.label} root ${r.root} (v${manifestSemver}) is neither the RootRegistry's latest nor ` +
+          `held by the registry (latest ${new Fr(state.current)}): scheduling it could roll back ` +
+          `a newer root for good — skipping; set ALLOW_CIRCUIT_ROOT_ROLLBACK=1 to do it deliberately`,
+      )
+      heldBack++
+    } else {
+      actions.push(`update_root(${r.label}): ${new Fr(state.current)} -> ${r.root}`)
     }
-    actions.push(`update_root(${r.label}): ${current} -> ${r.root}`)
   }
 
   const boolState = async (
@@ -364,7 +401,6 @@ async function main() {
       vkVersionFr,
     ])
 
-  let heldBack = 0
   const vkPlans: (SelectedVk & { decision: VkDecision })[] = []
   for (const vk of vkHashes) {
     vkPlans.push({ ...vk, decision: decideVk(await vkState(vk), vk.explicit, nowSecs) })
@@ -373,6 +409,10 @@ async function main() {
   for (const vk of vkPlans) {
     if (vk.decision.status === "add") {
       actions.push(`add_accepted_vk(v${manifestSemver}, ${vk.name}): ${vk.hash}`)
+    } else if (vk.decision.status === "restore") {
+      actions.push(
+        `add_accepted_vk(v${manifestSemver}, ${vk.name}): ${vk.hash} (previously revoked; re-adding)`,
+      )
     } else if (vk.decision.status === "scheduled") {
       pendingMaturity++
     } else if (vk.decision.status === "revoked") {
@@ -429,7 +469,7 @@ async function main() {
     }
     if (heldBack > 0) {
       console.log(
-        `nothing to send — ${heldBack} value(s) removed or disabled earlier and held back (see above)`,
+        `nothing to send — ${heldBack} value(s) held back: revoked, disabled, or a circuit-root rollback (see above)`,
       )
     }
     if (pendingMaturity === 0 && heldBack === 0) {
@@ -450,34 +490,28 @@ async function main() {
   // ── Execute (sequential txs; each is minutes of client-side proving) ─────────
   const seeded: Record<string, string> = {}
   for (const r of roots) {
-    const rootFr = Fr.fromHexString(r.root)
-    const pair = unwrap<{ latest: bigint }>(
-      await registry.methods.get_latest_pair(r.id).simulate({ from: operatorSender.address }),
+    const state = await rootState(r.id)
+    // Reported in the plan unless it changed since; only "update" sends.
+    if (decideRoot(BigInt(r.root), state, r.opts, nowSecs).status !== "update") continue
+    const call = registry.methods.update_root(
+      r.id,
+      Fr.fromHexString(r.root),
+      new Fr(state.current),
+      nowSecs,
     )
-    const current = new Fr(pair.latest)
-    if (current.equals(rootFr)) continue
-    const sched = await readScheduledChange(
-      node,
-      registryAddress,
-      layout.latest.slot,
-      [new Fr(r.id)],
-      2,
-    )
-    if (sched.post[0].equals(rootFr) && sched.maturesAt > nowSecs) continue // reported in the plan
-    const call = registry.methods.update_root(r.id, rootFr, current, nowSecs)
     try {
       await call.simulate({ from: operatorSender.address })
     } catch (e) {
       const msg = (e as Error).message ?? String(e)
       if (msg.includes("root already exists")) {
         console.log(
-          `${r.label} root ${r.root} was already pushed (still inside the DPM delay) — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
+          `${r.label} root ${r.root} was already pushed (still inside the DPM delay) — ${liveAt(state.maturesAt, nowSecs)} — skipping`,
         )
         continue
       }
       if (msg.includes("current root mismatch")) {
         console.log(
-          `${r.label}: a different root (${sched.post[0]}) is scheduled — ${liveAt(sched.maturesAt, nowSecs)} — re-run after the delay. Skipping.`,
+          `${r.label}: a different root (${new Fr(state.scheduled)}) is scheduled — ${liveAt(state.maturesAt, nowSecs)} — re-run after the delay. Skipping.`,
         )
         continue
       }
@@ -491,7 +525,8 @@ async function main() {
 
   for (const vk of vkHashes) {
     // Re-read right before sending: each earlier tx took minutes, and the plan may be stale.
-    if (decideVk(await vkState(vk), vk.explicit, nowSecs).status !== "add") continue
+    const { status } = decideVk(await vkState(vk), vk.explicit, nowSecs)
+    if (status !== "add" && status !== "restore") continue
     console.log(
       `add_accepted_vk(v${manifestSemver}, ${vk.name}, ${vk.hash}) — proving + sending...`,
     )

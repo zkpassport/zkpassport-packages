@@ -98,6 +98,37 @@ export function assertManifestMatchesRoot(
   }
 }
 
+/** A registry's latest-root slot: its delay-applied latest root and its last scheduled one. */
+export type RootState = { current: bigint; scheduled: bigint; maturesAt: bigint }
+
+export type RootDecision =
+  | { status: "live" }
+  | { status: "scheduled"; maturesAt: bigint }
+  | { status: "update" }
+  | { status: "rollback" }
+
+/**
+ * Decide whether to schedule `root` as the registry's latest root.
+ *
+ * A root that is not the RootRegistry's latest, and that the registry neither holds nor has
+ * scheduled, is held back as a rollback unless `allowRollback`. Scheduling it would close the
+ * validity interval of the registry's newer root, and the contract's duplicate-root guard would
+ * then refuse to make that newer root the latest again.
+ */
+export function decideRoot(
+  root: bigint,
+  state: RootState,
+  opts: { isRootRegistryLatest: boolean; allowRollback: boolean },
+  nowSecs: bigint,
+): RootDecision {
+  if (root === state.current) return { status: "live" }
+  if (root === state.scheduled && state.maturesAt > nowSecs) {
+    return { status: "scheduled", maturesAt: state.maturesAt }
+  }
+  if (!opts.isRootRegistryLatest && !opts.allowRollback) return { status: "rollback" }
+  return { status: "update" }
+}
+
 /** A registry `DelayedPublicMutable<bool>`, read through its utility view and raw storage. */
 export type BoolDpmState = {
   /** The delay-applied value private verifiers read now. */
@@ -112,20 +143,24 @@ export type BoolDpmState = {
 export type PendingChange = { status: "scheduled"; to: boolean; maturesAt: bigint }
 
 export type VkDecision =
-  { status: "add" } | { status: "accepted" } | PendingChange | { status: "revoked" }
+  | { status: "add" }
+  | { status: "restore" }
+  | { status: "accepted" }
+  | PendingChange
+  | { status: "revoked" }
 
 /**
  * Decide what a selected vk needs. A scheduled change is never overridden. A vk that is not
  * accepted is added when its slot was never written; once written it reads `false` only after a
- * removal, so it is added again only when named explicitly.
+ * removal, so it is restored only when named explicitly and is otherwise left revoked.
  */
 export function decideVk(state: BoolDpmState, explicit: boolean, nowSecs: bigint): VkDecision {
   if (state.maturesAt > nowSecs) {
     return { status: "scheduled", to: state.scheduled, maturesAt: state.maturesAt }
   }
   if (state.current) return { status: "accepted" }
-  if (state.maturesAt === 0n || explicit) return { status: "add" }
-  return { status: "revoked" }
+  if (state.maturesAt === 0n) return { status: "add" }
+  return explicit ? { status: "restore" } : { status: "revoked" }
 }
 
 export type VersionDecision =
@@ -167,15 +202,17 @@ export function formatVkDiff(
       case "scheduled":
         return `~ ${label}  already scheduled: ${decision.to ? "accept" : "remove"}, ${liveAt(decision.maturesAt, nowSecs)}`
       case "revoked":
-        return `! ${label}  removed earlier: not re-added unless named in VK_CIRCUITS or VK_HASH`
+        return `! ${label}  previously revoked: not re-added unless named in VK_CIRCUITS or VK_HASH`
+      case "restore":
+        return `R ${label}  previously revoked; will re-add (named explicitly)`
     }
   })
 }
 
 /**
- * Whether this run may send transactions: only when SEND_TXS is "1" or "true", and never while
+ * Whether this run may send transactions: only when SEND_TXS is exactly "1", and never while
  * DRY_RUN is set. Every other run only prints the plan.
  */
 export function sendRequested(env: { SEND_TXS?: string; DRY_RUN?: string }): boolean {
-  return !env.DRY_RUN && (env.SEND_TXS === "1" || env.SEND_TXS === "true")
+  return !env.DRY_RUN && env.SEND_TXS === "1"
 }

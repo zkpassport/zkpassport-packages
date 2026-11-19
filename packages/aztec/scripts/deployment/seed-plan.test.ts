@@ -5,6 +5,7 @@ import {
   assertManifestMatchesRoot,
   type BoolDpmState,
   type CircuitManifest,
+  decideRoot,
   decideVersion,
   decideVk,
   formatVkDiff,
@@ -86,9 +87,9 @@ test("a never-written vk is added without being named", () => {
   assert.deepEqual(decideVk(NEVER_WRITTEN, false, NOW), { status: "add" })
 })
 
-test("a removed vk is re-added only when named explicitly", () => {
+test("a removed vk is restored only when named explicitly", () => {
   assert.deepEqual(decideVk(REMOVED, false, NOW), { status: "revoked" })
-  assert.deepEqual(decideVk(REMOVED, true, NOW), { status: "add" })
+  assert.deepEqual(decideVk(REMOVED, true, NOW), { status: "restore" })
 })
 
 test("an accepted vk is left alone, and a scheduled change is never overridden", () => {
@@ -131,20 +132,56 @@ test("the diff names each vk with what the run would do to it", () => {
         decision: { status: "scheduled", to: true, maturesAt: NOW + 600n },
       },
       { name: "outer_count_7", hash: hash(7), explicit: false, decision: { status: "revoked" } },
+      { name: "outer_count_8", hash: hash(8), explicit: true, decision: { status: "restore" } },
     ],
     NOW,
   )
-  assert.equal(lines.length, 4)
+  assert.equal(lines.length, 5)
   assert.match(lines[0], /^\+ outer_count_4 .* would be added$/)
   assert.match(lines[1], /^= outer_count_5 .* already accepted$/)
   assert.match(lines[2], /^~ outer_count_6 .* already scheduled: accept, live at .*\(~10min\)$/)
-  assert.match(lines[3], /^! outer_count_7 .* not re-added unless named/)
+  assert.match(lines[3], /^! outer_count_7 .* previously revoked: not re-added unless named/)
+  assert.match(lines[4], /^R outer_count_8 .* previously revoked; will re-add/)
 })
 
-test("transactions are sent only with SEND_TXS set and DRY_RUN unset", () => {
+const RELEASE_A = 0xaaan
+const RELEASE_B = 0xbbbn
+const HOLDS_B = { current: RELEASE_B, scheduled: RELEASE_B, maturesAt: NOW - 3600n }
+
+test("an older release's root is not scheduled over the registry's newer root by default", () => {
+  const older = { isRootRegistryLatest: false, allowRollback: false }
+  assert.deepEqual(decideRoot(RELEASE_A, HOLDS_B, older, NOW), { status: "rollback" })
+  const deliberate = { isRootRegistryLatest: false, allowRollback: true }
+  assert.deepEqual(decideRoot(RELEASE_A, HOLDS_B, deliberate, NOW), { status: "update" })
+})
+
+test("the RootRegistry's latest root replaces the registry's root, which is never re-sent", () => {
+  const latest = { isRootRegistryLatest: true, allowRollback: false }
+  assert.deepEqual(decideRoot(RELEASE_B, HOLDS_B, latest, NOW), { status: "live" })
+  const holdsA = { current: RELEASE_A, scheduled: RELEASE_A, maturesAt: NOW - 3600n }
+  assert.deepEqual(decideRoot(RELEASE_B, holdsA, latest, NOW), { status: "update" })
+  const pendingB = { current: RELEASE_A, scheduled: RELEASE_B, maturesAt: NOW + 600n }
+  assert.deepEqual(decideRoot(RELEASE_B, pendingB, latest, NOW), {
+    status: "scheduled",
+    maturesAt: NOW + 600n,
+  })
+})
+
+test("an older release's root the registry already holds or has scheduled is not a rollback", () => {
+  const older = { isRootRegistryLatest: false, allowRollback: false }
+  const holdsA = { current: RELEASE_A, scheduled: RELEASE_A, maturesAt: NOW - 3600n }
+  assert.deepEqual(decideRoot(RELEASE_A, holdsA, older, NOW), { status: "live" })
+  const pendingA = { current: RELEASE_B, scheduled: RELEASE_A, maturesAt: NOW + 600n }
+  assert.deepEqual(decideRoot(RELEASE_A, pendingA, older, NOW), {
+    status: "scheduled",
+    maturesAt: NOW + 600n,
+  })
+})
+
+test("transactions are sent only with SEND_TXS=1 and DRY_RUN unset", () => {
   assert.equal(sendRequested({}), false)
   assert.equal(sendRequested({ SEND_TXS: "0" }), false)
+  assert.equal(sendRequested({ SEND_TXS: "true" }), false)
   assert.equal(sendRequested({ SEND_TXS: "1" }), true)
-  assert.equal(sendRequested({ SEND_TXS: "true" }), true)
   assert.equal(sendRequested({ SEND_TXS: "1", DRY_RUN: "1" }), false)
 })
