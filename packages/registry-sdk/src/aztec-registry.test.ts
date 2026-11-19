@@ -28,6 +28,8 @@ const ROOT_STATUS_CERTIFICATE_C =
 
 const MODE_VALID_WITHIN_WINDOW = 3n
 const WINDOW = 86400n
+/** The registry's DelayedPublicMutable delay */
+const DELAY = 86400n
 const REPLACED_AT = 5000n
 const TESTNET_REGISTRY = "0x019de2b2c83e178733dce20707949a17ec3465caba6ccd24b3d861f151bf0f30"
 
@@ -261,6 +263,104 @@ describe("RegistryClient on an Aztec network", () => {
     setValue(PAUSED, [1n])
 
     expect(await client.isCertificateRootValid(ROOT_B, Number(REPLACED_AT))).toBe(false)
+  })
+
+  describe("as its scheduled changes take effect", () => {
+    const PUBLISHED_AT = 100_000n
+    const CHANGE_AT = PUBLISHED_AT + DELAY
+
+    test("keeps a root update's latest pair and root statuses until its time, then applies them all", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      // What update_root schedules when ROOT_C, published at PUBLISHED_AT, replaces ROOT_B
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_B), BigInt(ROOT_A)],
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        CHANGE_AT,
+      )
+      schedule(
+        ROOT_STATUS_CERTIFICATE_B,
+        [1n, 0n, REPLACED_AT, 0n],
+        [1n, 0n, REPLACED_AT, PUBLISHED_AT - 1n],
+        CHANGE_AT,
+      )
+      schedule(ROOT_STATUS_CERTIFICATE_C, [0n, 0n, 0n, 0n], [1n, 0n, PUBLISHED_AT, 0n], CHANGE_AT)
+
+      blockTimestamp = CHANGE_AT - 1n
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+      expect(await client.isCertificateRootValid(ROOT_B, Number(CHANGE_AT + 10n * WINDOW))).toBe(
+        true,
+      )
+      expect(await client.isCertificateRootValid(ROOT_C, Number(CHANGE_AT))).toBe(false)
+
+      blockTimestamp = CHANGE_AT
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+      expect(await client.isCertificateRootValid(ROOT_C, Number(CHANGE_AT))).toBe(true)
+      expect(await client.isCertificateRootValid(ROOT_B, Number(PUBLISHED_AT - 1n + WINDOW))).toBe(
+        true,
+      )
+      expect(await client.isCertificateRootValid(ROOT_B, Number(PUBLISHED_AT + WINDOW))).toBe(false)
+    })
+
+    test("reads two updates in a row, each from its own time", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_B), BigInt(ROOT_A)],
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        CHANGE_AT,
+      )
+      blockTimestamp = CHANGE_AT
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+
+      // Scheduling once the first change has taken effect keeps its value until the second's time
+      const secondChangeAt = CHANGE_AT + 10n + DELAY
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        [BigInt(ROOT_D), BigInt(ROOT_C)],
+        secondChangeAt,
+      )
+      blockTimestamp = secondChangeAt - 1n
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+      blockTimestamp = secondChangeAt
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_D)
+    })
+
+    test("skips an update that a second one replaces before its time", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      // Scheduling while the first change is pending keeps the value from before it
+      const secondChangeAt = CHANGE_AT + 10n
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_B), BigInt(ROOT_A)],
+        [BigInt(ROOT_D), BigInt(ROOT_C)],
+        secondChangeAt,
+      )
+
+      blockTimestamp = CHANGE_AT
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+      blockTimestamp = secondChangeAt
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_D)
+    })
+
+    test("rejects every root from a scheduled pause until a scheduled unpause", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      const proofTime = Number(REPLACED_AT)
+      schedule(PAUSED, [0n], [1n], CHANGE_AT)
+
+      blockTimestamp = CHANGE_AT - 1n
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(true)
+      blockTimestamp = CHANGE_AT
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(false)
+
+      const unpauseAt = CHANGE_AT + 10n + DELAY
+      schedule(PAUSED, [1n], [0n], unpauseAt)
+      blockTimestamp = unpauseAt - 1n
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(false)
+      blockTimestamp = unpauseAt
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(true)
+    })
   })
 
   test("downloads the latest root's sanctions tree from the network's CDN", async () => {
