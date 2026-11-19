@@ -1,7 +1,7 @@
 /**
  * Sanctions, end to end on a fork of Sepolia, against the sanctions root on chain:
  *
- *   SDK request() with .sanctions() in dev mode → bridge → headless app (john) proves against the
+ *   SDK request() with a non-strict .sanctions() in dev mode → bridge → headless app (john) proves against the
  *   tree published for Sepolia's latest sanctions root → SDK verify() checks that root in the
  *   Sanctions Registry
  *
@@ -37,7 +37,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     sanctionsRoot = await testEnv.registry.getLatestSanctionsRoot()
     app = await testEnv.runHeadlessApp({
       passport: createMockPassport(),
-      query: (query) => query.sanctions(),
+      query: (query) => query.sanctions("all", "all", { strict: false }),
     })
   }, 180_000)
 
@@ -88,7 +88,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
   test("a sanctioned person's passport fails the sanctions check", async () => {
     const sanctionedApp = await testEnv.runHeadlessApp({
       passport: createMockPassport(SANCTIONED_PERSON),
-      query: (query) => query.sanctions(),
+      query: (query) => query.sanctions("all", "all", { strict: false }),
     })
 
     expect(sanctionedApp.request.errors()).toEqual(["Sanctions check failed"])

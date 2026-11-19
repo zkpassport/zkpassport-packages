@@ -335,7 +335,7 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    * @param lists The specific lists from a given country to check against. Defaults to "all".
    * e.g. ["OFAC_SDN"], "all"
    * @param options The options to use for the sanction check.
-   * @param options.strict Whether to use a strict sanction check. Defaults to false.
+   * @param options.strict Whether to use a strict sanction check. Defaults to true.
    *
    * If set to true, this means the checks will be done against just the lastname and firstname,
    * while when set to false, matches will need to include either the date of birth and name or
