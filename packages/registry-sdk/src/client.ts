@@ -36,7 +36,7 @@ import {
   REGISTRIES_MAPPING_SIGNATURE,
   SANCTIONS_TREE_URL_TEMPLATE,
 } from "./constants"
-import { RegistryRequestTimeoutError, withTimeout } from "./errors"
+import { RegistryRequestTimeoutError, RpcEndpointError, withTimeout } from "./errors"
 import { AztecRegistryReader } from "./aztec-registry"
 import { findNetworkConstants } from "./networks"
 import {
@@ -141,7 +141,7 @@ export class RegistryClient {
     this.fallbackRpcTimeoutMs = fallbackRpcTimeoutMs || DEFAULT_FALLBACK_RPC_TIMEOUT_MS
     this.aztecRegistry = isAztec
       ? new AztecRegistryReader(
-          (body) => this.rpcPost(body, "Aztec registry storage"),
+          (read) => this.onRpcEndpoint("Aztec registry storage", read),
           this.rootRegistry,
         )
       : undefined
@@ -896,25 +896,48 @@ export class RegistryClient {
   }
 
   private async rpcPost(body: string, what: string): Promise<Response> {
-    let lastFailure: { response: Response } | { error: unknown } | undefined
+    try {
+      return await this.onRpcEndpoint(what, async (post) => {
+        const response = await post(body)
+        if (!response.ok) throw new RpcEndpointError(`answered ${response.status}`, response)
+        return response
+      })
+    } catch (error) {
+      if (error instanceof RpcEndpointError && error.response) return error.response
+      throw error
+    }
+  }
+
+  /**
+   * Runs `read` against one RPC URL at a time, from the one that last served a read, until a URL serves it. The URL
+   * is given up on when its `post` fails or times out, or when `read` throws an {@link RpcEndpointError}; any other
+   * error is thrown at once. Once every URL is given up on, the last one's error is thrown.
+   */
+  private async onRpcEndpoint<T>(
+    what: string,
+    read: (post: (body: string) => Promise<Response>) => Promise<T>,
+  ): Promise<T> {
+    let lastError: unknown = new Error("No RPC URL configured")
     for (let offset = 0; offset < this.rpcUrls.length; offset++) {
       const index = (this.preferredRpcIndex + offset) % this.rpcUrls.length
       const url = this.rpcUrls[index]
+      let postFailed = false
+      const post = (body: string) =>
+        this.rpcAttempt(url, body, what, offset === 0).catch((error: unknown) => {
+          postFailed = true
+          throw error
+        })
       try {
-        const response = await this.rpcAttempt(url, body, what, offset === 0)
-        if (response.ok) {
-          this.preferredRpcIndex = index
-          return response
-        }
-        log(`RPC ${url} answered ${response.status}, trying the next one`)
-        lastFailure = { response }
+        const result = await read(post)
+        this.preferredRpcIndex = index
+        return result
       } catch (error) {
+        if (!postFailed && !(error instanceof RpcEndpointError)) throw error
         log(`RPC ${url} failed, trying the next one:`, error)
-        lastFailure = { error }
+        lastError = error
       }
     }
-    if (lastFailure && "response" in lastFailure) return lastFailure.response
-    throw lastFailure?.error ?? new Error("No RPC URL configured")
+    throw lastError
   }
 
   private async rpcAttempt(
