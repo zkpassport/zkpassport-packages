@@ -11,9 +11,12 @@ use zkpassport::constants::{
     DISCLOSE_CAPSULE_SLOT, PI_PARAMS_START, PROOF_CAPSULE_SLOT, PROOF_FIELDS,
     SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
 };
-use zkpassport::fixtures::proof::{
-    AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT,
-    AGE_FIXTURE_CIRCUIT_VERSION, AGE_FIXTURE_CURRENT_DATE, AGE_FIXTURE_VK_HASH,
+use zkpassport::fixtures::{
+    proof::{
+        AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT,
+        AGE_FIXTURE_CIRCUIT_VERSION, AGE_FIXTURE_CURRENT_DATE, AGE_FIXTURE_VK_HASH,
+    },
+    txe::age_fixture_blob_for_txe,
 };
 use zkpassport::version::circuit_version;
 use zkpassport_registry_contract::{
@@ -81,7 +84,7 @@ unconstrained fn setup_enabling<let N: u32, let M: u32>(
 // The age fixture is a real outer_count_5 proof of {age(18, 0), bind}. Swapping its age commitment
 // for another gives a proof of {that, bind} with the fixture's roots, date, vk and bound address.
 fn fixture_with(commitment: Field) -> [Field; 585] {
-    let mut blob = AGE_FIXTURE_BLOB;
+    let mut blob = age_fixture_blob_for_txe();
     let params_start = VK_FIELDS + PROOF_FIELDS + PI_PARAMS_START;
     for i in params_start..params_start + 2 {
         if blob[i] == age_commitment(18, 0) {
@@ -158,7 +161,7 @@ unconstrained fn verifies_an_age_proof() {
         &mut env,
         verifier,
         sender,
-        Option::some(AGE_FIXTURE_BLOB),
+        Option::some(age_fixture_blob_for_txe()),
         Option::none(),
         Option::none(),
     );
@@ -168,7 +171,7 @@ unconstrained fn verifies_an_age_proof() {
 
 // The age fixture's capsule, claiming another circuits release
 fn fixture_claiming(version: Field) -> [Field; 585] {
-    let mut blob = AGE_FIXTURE_BLOB;
+    let mut blob = age_fixture_blob_for_txe();
     blob[584] = version;
     blob
 }
@@ -223,7 +226,7 @@ unconstrained fn rejects_a_proof_older_than_the_services_minimum() {
         &mut env,
         verifier,
         sender,
-        Option::some(AGE_FIXTURE_BLOB),
+        Option::some(age_fixture_blob_for_txe()),
         Option::none(),
         Option::none(),
     );
@@ -250,12 +253,30 @@ unconstrained fn rejects_a_proof_bound_to_another_address() {
         &mut env,
         verifier,
         sender,
-        Option::some(AGE_FIXTURE_BLOB),
+        Option::some(age_fixture_blob_for_txe()),
         Option::none(),
         Option::none(),
     );
 
     let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age(other_user));
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_a_proof_bound_to_another_network() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(AGE_FIXTURE_BLOB),
+        Option::none(),
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age(user));
 }
 
 #[test]
