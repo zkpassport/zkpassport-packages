@@ -683,6 +683,12 @@ describe("credentialRequirementsFromQuery", () => {
     })
   })
 
+  test("names nationality eq beside in, which one included list cannot require together", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { eq: "FRA", in: ["DEU"] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "eq" }],
+    })
+  })
+
   test("rejects nationalities that are not ISO alpha-3 codes", () => {
     expect(credentialRequirementsFromQuery({ nationality: { in: ["France"] } })).toEqual({
       unsupported: [{ field: "nationality", method: "in" }],

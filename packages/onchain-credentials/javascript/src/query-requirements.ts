@@ -38,7 +38,9 @@ export function credentialRequirementsFromQuery(
     const countries = method === "eq" ? [value] : value
     const target =
       method === "out" ? excluded : method === "in" || method === "eq" ? included : null
-    if (!target || !Array.isArray(countries) || !countries.every(isAlpha3Code)) {
+    // A query holds a nationality to both `eq` and `in`, but one included list would accept either.
+    const eqBesideIn = method === "eq" && query.nationality?.in !== undefined
+    if (!target || eqBesideIn || !Array.isArray(countries) || !countries.every(isAlpha3Code)) {
       unsupported.push({ field: "nationality", method })
       continue
     }
