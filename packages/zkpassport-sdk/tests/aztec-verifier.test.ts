@@ -152,7 +152,10 @@ describe("getAztecVerifierParameters", () => {
 
   test("reads the vk from the circuits host of the Aztec network the proof is bound to", async () => {
     await new ZKPassport("example.com").getAztecVerifierParameters({
-      proof: { ...proof, committedInputs: { bind: { data: { chain: "aztec_testnet" } } } },
+      proof: {
+        ...proof,
+        committedInputs: { bind: { data: { user_address: "0x1122", chain: "aztec_testnet" } } },
+      },
     })
     expect(fetchedUrls).toEqual(getCircuitUrls("aztec_testnet"))
   })
@@ -175,16 +178,38 @@ describe("getAztecVerifierParameters", () => {
   test("rejects a network other than the one the proof is bound to", async () => {
     await expect(
       new ZKPassport("example.com").getAztecVerifierParameters({
-        proof: { ...proof, committedInputs: { bind: { data: { chain: "aztec_testnet" } } } },
+        proof: {
+          ...proof,
+          committedInputs: { bind: { data: { user_address: "0x1122", chain: "aztec_testnet" } } },
+        },
         network: "aztec",
       }),
     ).rejects.toThrow(/bound to aztec_testnet/)
   })
 
+  // The Aztec library's bind commits to a user address and the contract's network, nothing else,
+  // so no network passed here can make another bind verify
+  test.each([
+    ["an address and no network", { user_address: "0x1122" }],
+    ["a network and no address", { chain: "aztec_testnet" }],
+    ["custom data", { user_address: "0x1122", chain: "aztec_testnet", custom_data: "hi" }],
+  ])("rejects a proof that binds %s", async (_, data) => {
+    await expect(
+      new ZKPassport("example.com").getAztecVerifierParameters({
+        proof: { ...proof, committedInputs: { bind: { data } } } as ProofResult,
+        network: "aztec_testnet",
+      }),
+    ).rejects.toThrow(/request a new proof/)
+    expect(fetchedUrls).toEqual([])
+  })
+
   test("rejects a proof bound to a chain that isn't an Aztec network", async () => {
     await expect(
       new ZKPassport("example.com").getAztecVerifierParameters({
-        proof: { ...proof, committedInputs: { bind: { data: { chain: "ethereum" } } } },
+        proof: {
+          ...proof,
+          committedInputs: { bind: { data: { user_address: "0x1122", chain: "ethereum" } } },
+        },
       }),
     ).rejects.toThrow(/bound to ethereum/)
   })
