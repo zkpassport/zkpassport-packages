@@ -1,0 +1,484 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { createRegistryClient } from "./client"
+import { RegistryRequestTimeoutError } from "./errors"
+import { normaliseHash } from "./utils"
+
+const ROOT_A = `0x${"11".repeat(32)}`
+const ROOT_B = `0x${"22".repeat(32)}`
+const ROOT_C = `0x${"0c".repeat(32)}`
+const ROOT_D = `0x${"0d".repeat(32)}`
+
+// The slots of the registry's storage variables
+const PAUSED = 3n
+const CONFIG = 7n
+const LATEST = 8n
+const ROOTS = 9n
+
+// Slots in its maps, from @aztec-labs/stdlib's deriveStorageSlotInMap over CONFIG, LATEST and ROOTS
+const LATEST_CERTIFICATE = 0x0cf8ce2bc3b2b2ae03caaab0d8e620df5c780e2b09a43f0b9bd0458847308ca4n
+const LATEST_CIRCUIT = 0x02f2f2c711b07c5b3e451652f95e973cd3fddc316ad99df65e9872ea652c5050n
+const LATEST_SANCTIONS = 0x1ff113a83ed3e36ef00580b705cf6d26496d42ad7de586d222f15796dc43983cn
+const CONFIG_CERTIFICATE = 0x29dc8c7d0cd7c1466ed7fe05e006a2b50049d209be60512c9b2cb7af5a10a022n
+const ROOT_STATUS_CERTIFICATE_A =
+  0x1239804902fe7a8f2b08753c05be7de1904957cc78c6ec22236c3b4b5bb88a38n
+const ROOT_STATUS_CERTIFICATE_B =
+  0x1da807156d3ebec9208488b6fef95a4c8428e8d0074b963391aeffaa82311b61n
+const ROOT_STATUS_CERTIFICATE_C =
+  0x1b077163787b7e7e043eadfd484c26550c1982b65fa2f3d14c257d12c0ea8d9dn
+
+const MODE_VALID_WITHIN_WINDOW = 3n
+const WINDOW = 86400n
+/** The registry's DelayedPublicMutable delay */
+const DELAY = 86400n
+const REPLACED_AT = 5000n
+const TESTNET_REGISTRY = "0x019de2b2c83e178733dce20707949a17ec3465caba6ccd24b3d861f151bf0f30"
+
+describe("RegistryClient on an Aztec network", () => {
+  let originalFetch: typeof globalThis.fetch
+  /** The storage and timestamp of the node's latest block, whose number is `blocks.length + 1` */
+  let storage: Map<string, bigint>
+  let blockTimestamp: bigint
+  /** The blocks before the latest one, from block 1 */
+  let blocks: { storage: Map<string, bigint>; timestamp: bigint }[]
+  /** Runs after the node answers each call, to land a block while the registry is read */
+  let onRead: ((method: string) => void) | undefined
+  let fetchedUrls: string[]
+
+  /** Lands the latest block, starting a new one with a copy of its storage */
+  function mineBlock(timestamp: bigint) {
+    blocks.push({ storage, timestamp: blockTimestamp })
+    storage = new Map(storage)
+    blockTimestamp = timestamp
+  }
+
+  function blockAt(param: unknown) {
+    const latest = blocks.length + 1
+    const number = param === "latest" ? latest : Number(param)
+    return number === latest ? { storage, timestamp: blockTimestamp } : blocks[number - 1]
+  }
+
+  /** The node's reply to a JSON-RPC call, an error for storage at a block it doesn't have */
+  function answer(
+    method: string,
+    params: string[],
+  ): { result: unknown } | { error: { code: number; message: string } } {
+    if (method === "node_getBlockNumber") {
+      return { result: blocks.length + 1 }
+    }
+    const block = blockAt(params[0])
+    if (method === "node_getBlockData") {
+      const header = block && { globalVariables: { timestamp: block.timestamp.toString() } }
+      return { result: block ? { header } : null }
+    }
+    expect(method).toBe("node_getPublicStorageAt")
+    expect(params[1]).toBe(TESTNET_REGISTRY)
+    if (!block) {
+      return { error: { code: -32702, message: `Block ${params[0]} not found` } }
+    }
+    return { result: normaliseHash(block.storage.get(params[2]) ?? 0n) }
+  }
+
+  /** Writes a DelayedPublicMutable whose value changes from `before` to `after` at `changeAt` */
+  function schedule(slot: bigint, before: bigint[], after: bigint[], changeAt = 0n) {
+    storage.set(normaliseHash(slot), changeAt)
+    for (const [offset, word] of [...before, ...after].entries()) {
+      storage.set(normaliseHash(slot + 1n + BigInt(offset)), word)
+    }
+  }
+
+  function setValue(slot: bigint, value: bigint[]) {
+    schedule(
+      slot,
+      value.map(() => 0n),
+      value,
+    )
+  }
+
+  beforeEach(() => {
+    storage = new Map()
+    blockTimestamp = REPLACED_AT + 100n
+    blocks = []
+    onRead = undefined
+    fetchedUrls = []
+
+    setValue(CONFIG_CERTIFICATE, [MODE_VALID_WITHIN_WINDOW, WINDOW])
+    setValue(LATEST_CERTIFICATE, [BigInt(ROOT_B), BigInt(ROOT_A)])
+    setValue(ROOT_STATUS_CERTIFICATE_A, [1n, 0n, 100n, REPLACED_AT])
+    setValue(ROOT_STATUS_CERTIFICATE_B, [1n, 0n, REPLACED_AT, 0n])
+
+    originalFetch = globalThis.fetch
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input.toString()).href
+      fetchedUrls.push(url)
+      if (url.endsWith(".tree.json.gz")) {
+        const root = url.slice(url.lastIndexOf("/") + 1, -".tree.json.gz".length)
+        return Response.json([[root]])
+      }
+
+      const calls = JSON.parse(init?.body as string) as {
+        id: number
+        method: string
+        params: string[]
+      }[]
+      return Response.json(
+        calls.map(({ id, method, params }) => {
+          const reply = answer(method, params)
+          onRead?.(method)
+          return { jsonrpc: "2.0", id, ...reply }
+        }),
+      )
+    }) as typeof globalThis.fetch
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  test("reads the latest root from the network's registry", async () => {
+    const client = createRegistryClient("aztec_testnet")
+
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+    expect([...new Set(fetchedUrls)]).toEqual(["https://aztec-testnet.drpc.org/"])
+  })
+
+  test("reads every slot at one block when a block lands during the read", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    schedule(
+      LATEST_CERTIFICATE,
+      [BigInt(ROOT_B), BigInt(ROOT_A)],
+      [BigInt(ROOT_C), BigInt(ROOT_B)],
+      9000n,
+    )
+    blockTimestamp = 9500n
+    onRead = (method) => {
+      if (method !== "node_getPublicStorageAt") return
+      onRead = undefined
+      mineBlock(9600n)
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        [BigInt(ROOT_D), BigInt(ROOT_C)],
+        10000n,
+      )
+    }
+
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+  })
+
+  test("evaluates the slots at the timestamp of the block they are read at", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    schedule(
+      LATEST_CERTIFICATE,
+      [BigInt(ROOT_B), BigInt(ROOT_A)],
+      [BigInt(ROOT_C), BigInt(ROOT_B)],
+      9000n,
+    )
+    blockTimestamp = 8999n
+    onRead = (method) => {
+      if (method !== "node_getBlockNumber") return
+      onRead = undefined
+      mineBlock(9000n)
+    }
+
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+  })
+
+  test("times out a node that doesn't answer, then reads from the fallback RPC URL", async () => {
+    const fallback = "https://aztec-fallback.example.com/"
+    const node = globalThis.fetch
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      new URL(input.toString()).href === fallback
+        ? node(input, init)
+        : new Promise<Response>((_resolve, reject) => {
+            fetchedUrls.push(new URL(input.toString()).href)
+            init?.signal?.addEventListener("abort", () => reject(new Error("aborted")))
+          })) as typeof globalThis.fetch
+
+    const timingOut = createRegistryClient("aztec_testnet", { rpcTimeoutMs: 50 })
+    await expect(timingOut.getLatestCertificateRoot()).rejects.toBeInstanceOf(
+      RegistryRequestTimeoutError,
+    )
+
+    const fallingBack = createRegistryClient("aztec_testnet", {
+      rpcTimeoutMs: 50,
+      fallbackRpcUrls: [fallback],
+    })
+    expect(await fallingBack.getLatestCertificateRoot()).toBe(ROOT_B)
+    expect(fetchedUrls).toContain(fallback)
+  })
+
+  test("reads from the fallback RPC URL, and keeps to it, when a node's batch answers with an error", async () => {
+    const primary = "https://aztec-testnet.drpc.org/"
+    const fallback = "https://aztec-fallback.example.com/"
+    const node = globalThis.fetch
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (new URL(input.toString()).href !== primary) {
+        return node(input, init)
+      }
+      fetchedUrls.push(primary)
+      const calls = JSON.parse(init?.body as string) as { id: number; method: string }[]
+      // As an Aztec 6.0 node answers a batch: HTTP 200, with an error in the entry that failed
+      return Response.json(
+        calls.map(({ id, method }) =>
+          method === "node_getPublicStorageAt"
+            ? { jsonrpc: "2.0", id, error: { code: -32702, message: "World state unavailable" } }
+            : {
+                jsonrpc: "2.0",
+                id,
+                result:
+                  method === "node_getBlockNumber"
+                    ? 5
+                    : { header: { globalVariables: { timestamp: "9000" } } },
+              },
+        ),
+      )
+    }) as typeof globalThis.fetch
+    const client = createRegistryClient("aztec_testnet", { fallbackRpcUrls: [fallback] })
+
+    // The fallback's latest block is 1, so it fails any read at the primary's block 5
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+
+    const readsBefore = fetchedUrls.length
+    expect(await client.isCertificateRootValid(ROOT_B, Number(REPLACED_AT))).toBe(true)
+    expect([...new Set(fetchedUrls.slice(readsBefore))]).toEqual([fallback])
+  })
+
+  test("reads a scheduled latest root only once the node's latest block reaches its time", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    schedule(
+      LATEST_CERTIFICATE,
+      [BigInt(ROOT_B), BigInt(ROOT_A)],
+      [BigInt(ROOT_C), BigInt(ROOT_B)],
+      9000n,
+    )
+
+    blockTimestamp = 8999n
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+
+    blockTimestamp = 9000n
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+  })
+
+  test("reads each root set's latest root from its own slot", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    setValue(LATEST_SANCTIONS, [BigInt(ROOT_C), 0n])
+
+    expect(await client.getLatestSanctionsRoot()).toBe(ROOT_C)
+  })
+
+  test("accepts the latest root at any time", async () => {
+    const client = createRegistryClient("aztec_testnet")
+
+    expect(await client.isCertificateRootValid(ROOT_B, Number(REPLACED_AT + 10n * WINDOW))).toBe(
+      true,
+    )
+  })
+
+  test("accepts a replaced root until the registry's window after its replacement", async () => {
+    const client = createRegistryClient("aztec_testnet")
+
+    expect(await client.isCertificateRootValid(ROOT_A, Number(REPLACED_AT + WINDOW))).toBe(true)
+    expect(await client.isCertificateRootValid(ROOT_A, Number(REPLACED_AT + WINDOW + 1n))).toBe(
+      false,
+    )
+  })
+
+  test("rejects a root the registry doesn't have, or has only scheduled", async () => {
+    const client = createRegistryClient("aztec_testnet")
+
+    expect(await client.isCertificateRootValid(ROOT_C, Number(REPLACED_AT))).toBe(false)
+
+    schedule(ROOT_STATUS_CERTIFICATE_C, [0n, 0n, 0n, 0n], [1n, 0n, 100n, 0n], blockTimestamp + 1n)
+    expect(await client.isCertificateRootValid(ROOT_C, Number(REPLACED_AT))).toBe(false)
+  })
+
+  test("rejects a revoked root", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    setValue(ROOT_STATUS_CERTIFICATE_B, [1n, 1n, REPLACED_AT, 0n])
+
+    expect(await client.isCertificateRootValid(ROOT_B, Number(REPLACED_AT))).toBe(false)
+  })
+
+  test("rejects every root while the registry is paused", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    setValue(PAUSED, [1n])
+
+    expect(await client.isCertificateRootValid(ROOT_B, Number(REPLACED_AT))).toBe(false)
+  })
+
+  describe("as its scheduled changes take effect", () => {
+    const PUBLISHED_AT = 100_000n
+    const CHANGE_AT = PUBLISHED_AT + DELAY
+
+    test("keeps a root update's latest pair and root statuses until its time, then applies them all", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      // What update_root schedules when ROOT_C, published at PUBLISHED_AT, replaces ROOT_B
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_B), BigInt(ROOT_A)],
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        CHANGE_AT,
+      )
+      schedule(
+        ROOT_STATUS_CERTIFICATE_B,
+        [1n, 0n, REPLACED_AT, 0n],
+        [1n, 0n, REPLACED_AT, PUBLISHED_AT - 1n],
+        CHANGE_AT,
+      )
+      schedule(ROOT_STATUS_CERTIFICATE_C, [0n, 0n, 0n, 0n], [1n, 0n, PUBLISHED_AT, 0n], CHANGE_AT)
+
+      blockTimestamp = CHANGE_AT - 1n
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+      expect(await client.isCertificateRootValid(ROOT_B, Number(CHANGE_AT + 10n * WINDOW))).toBe(
+        true,
+      )
+      expect(await client.isCertificateRootValid(ROOT_C, Number(CHANGE_AT))).toBe(false)
+
+      blockTimestamp = CHANGE_AT
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+      expect(await client.isCertificateRootValid(ROOT_C, Number(CHANGE_AT))).toBe(true)
+      expect(await client.isCertificateRootValid(ROOT_B, Number(PUBLISHED_AT - 1n + WINDOW))).toBe(
+        true,
+      )
+      expect(await client.isCertificateRootValid(ROOT_B, Number(PUBLISHED_AT + WINDOW))).toBe(false)
+    })
+
+    test("reads two updates in a row, each from its own time", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_B), BigInt(ROOT_A)],
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        CHANGE_AT,
+      )
+      blockTimestamp = CHANGE_AT
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+
+      // Scheduling once the first change has taken effect keeps its value until the second's time
+      const secondChangeAt = CHANGE_AT + 10n + DELAY
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        [BigInt(ROOT_D), BigInt(ROOT_C)],
+        secondChangeAt,
+      )
+      blockTimestamp = secondChangeAt - 1n
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+      blockTimestamp = secondChangeAt
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_D)
+    })
+
+    test("skips an update that a second one replaces before its time", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      // Scheduling while the first change is pending keeps the value from before it
+      const secondChangeAt = CHANGE_AT + 10n
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_B), BigInt(ROOT_A)],
+        [BigInt(ROOT_D), BigInt(ROOT_C)],
+        secondChangeAt,
+      )
+
+      blockTimestamp = CHANGE_AT
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+      blockTimestamp = secondChangeAt
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_D)
+    })
+
+    test("rejects every root from a scheduled pause until a scheduled unpause", async () => {
+      const client = createRegistryClient("aztec_testnet")
+      const proofTime = Number(REPLACED_AT)
+      schedule(PAUSED, [0n], [1n], CHANGE_AT)
+
+      blockTimestamp = CHANGE_AT - 1n
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(true)
+      blockTimestamp = CHANGE_AT
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(false)
+
+      const unpauseAt = CHANGE_AT + 10n + DELAY
+      schedule(PAUSED, [1n], [0n], unpauseAt)
+      blockTimestamp = unpauseAt - 1n
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(false)
+      blockTimestamp = unpauseAt
+      expect(await client.isCertificateRootValid(ROOT_B, proofTime)).toBe(true)
+    })
+  })
+
+  test("downloads the latest root's sanctions tree from the network's CDN", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    setValue(LATEST_SANCTIONS, [BigInt(ROOT_C), 0n])
+
+    const { root } = await client.getSanctionsTree()
+
+    expect(root).toBe(ROOT_C)
+    expect(fetchedUrls[fetchedUrls.length - 1]).toBe(
+      `https://sanctions.zkpassport.id/testnet/${ROOT_C}.tree.json.gz`,
+    )
+  })
+
+  test("takes the circuit manifest, and so the version, of the registry's latest circuit root", async () => {
+    const manifestFile = new URL("../tests/fixtures/manifest.json", import.meta.url)
+    const manifest = JSON.parse(readFileSync(manifestFile, "utf8")) as {
+      root: string
+      version: string
+    }
+    setValue(LATEST_CIRCUIT, [BigInt(manifest.root), 0n])
+    const manifestUrl = `https://circuits2.zkpassport.id/testnet/by-root/${manifest.root}/manifest.json`
+    const node = globalThis.fetch
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      new URL(input.toString()).href === manifestUrl
+        ? Promise.resolve(Response.json(manifest))
+        : node(input, init)) as typeof globalThis.fetch
+
+    const chosen = await createRegistryClient("aztec_testnet").getCircuitManifest()
+
+    expect(chosen.root).toBe(manifest.root)
+    expect(chosen.version).toBe(manifest.version)
+  })
+
+  test("has no root details or historical roots", async () => {
+    const client = createRegistryClient("aztec_testnet")
+
+    await expect(client.getCertificateRootDetails(ROOT_B)).rejects.toThrow(
+      "only available on EVM chains",
+    )
+    await expect(client.getHistoricalCertificateRoots(1)).rejects.toThrow(
+      "only available on EVM chains",
+    )
+  })
+})
+
+describe("ZKPassportRegistry's storage layout", () => {
+  test("keeps the slots the reader reads", () => {
+    expect(compiledRegistrySlots()).toMatchObject({
+      paused: PAUSED,
+      config: CONFIG,
+      latest: LATEST,
+      roots: ROOTS,
+    })
+  })
+})
+
+type StructField = { name: string; value: { fields?: StructField[]; value?: string } }
+
+/**
+ * The slot of each storage variable in the ZKPassportRegistry artifact that @zkpassport/aztec ships,
+ * which its CI keeps equal to the compiled registry
+ */
+function compiledRegistrySlots(): Record<string, bigint> {
+  const artifactUrl = new URL("../../aztec/ts/registry/ZKPassportRegistry.json", import.meta.url)
+  const artifact = JSON.parse(readFileSync(artifactUrl, "utf8")) as {
+    outputs: { globals: { storage: { value: StructField["value"] }[] } }
+  }
+  const variables =
+    artifact.outputs.globals.storage[0].value.fields?.find((field) => field.name === "fields")
+      ?.value.fields ?? []
+
+  return Object.fromEntries(
+    variables.map(({ name, value }) => {
+      const slot = value.fields?.find((field) => field.name === "slot")?.value.value
+      return [name, BigInt(`0x${slot}`)]
+    }),
+  )
+}

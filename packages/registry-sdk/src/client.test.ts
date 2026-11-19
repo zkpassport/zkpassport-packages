@@ -24,3 +24,41 @@ describe("createRegistryClient", () => {
     expect(clientById.getRootRegistryAddress()).toBe(customRootRegistry)
   })
 })
+
+describe("getSanctionsTree", () => {
+  test("downloads from the CDN of the chain's network type", async () => {
+    const root = `0x${"0c".repeat(32)}`
+    const fetchedUrls: string[] = []
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      fetchedUrls.push(input.toString())
+      return Response.json([[root]])
+    }) as typeof globalThis.fetch
+
+    try {
+      for (const chain of [
+        "ethereum",
+        "base",
+        "robinhood",
+        "aztec",
+        "ethereum_sepolia",
+        "aztec_testnet",
+      ] as const) {
+        await createRegistryClient(chain).getSanctionsTree(root)
+      }
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+
+    const mainnetUrl = `https://sanctions.zkpassport.id/mainnet/${root}.tree.json.gz`
+    const testnetUrl = `https://sanctions.zkpassport.id/testnet/${root}.tree.json.gz`
+    expect(fetchedUrls).toEqual([
+      mainnetUrl,
+      mainnetUrl,
+      mainnetUrl,
+      mainnetUrl,
+      testnetUrl,
+      testnetUrl,
+    ])
+  })
+})
