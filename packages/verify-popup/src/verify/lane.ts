@@ -56,6 +56,28 @@ export function isAppClipLane(requestUrl: string | null): boolean {
   }
 }
 
+// Apple's own App Clip page counts a browser as Safari only when its user agent names exactly these
+// products (the second is an iPad that asks for desktop sites). Chrome, Firefox, Edge and other iOS
+// browsers add a product of their own.
+const SAFARI_PRODUCTS = [
+  "Mozilla AppleWebKit Version Mobile Safari",
+  "Mozilla AppleWebKit Version Safari",
+]
+
+/**
+ * Whether a user agent is Safari. On iOS only Safari, and the Safari view that other apps open with
+ * the same user agent, show the App Clip card.
+ */
+export function isSafariUserAgent(userAgent: string): boolean {
+  const products = userAgent
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.split("/")[0])
+    .join(" ")
+  return SAFARI_PRODUCTS.includes(products)
+}
+
 /** Whether a link is the page we are on (query aside): opening it would only open this page again */
 export function isSamePage(url: string, here: string): boolean {
   try {

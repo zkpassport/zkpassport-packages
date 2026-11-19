@@ -5,6 +5,7 @@ import {
   MIN_STALLED_ATTEMPT_MS,
   STALLED_ATTEMPTS_BEFORE_APP_LANE,
   isAppClipLane,
+  isSafariUserAgent,
   isStalledAttempt,
   isSamePage,
   laneFor,
@@ -70,5 +71,27 @@ describe("isSamePage", () => {
     expect(isSamePage(clip, "https://verify.zkpassport.id/verify?x=1")).toBe(false)
     expect(isSamePage(clip, "https://zkpassport.id/r?d=example.com")).toBe(false)
     expect(isSamePage("not a url", "https://zkpassport.id/c")).toBe(false)
+  })
+})
+
+const IPHONE =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+const SAFARI = `${IPHONE} Version/18.5 Mobile/15E148 Safari/604.1`
+const CHROME = `${IPHONE} CriOS/138.0.7204.156 Mobile/15E148 Safari/604.1`
+const FIREFOX = `${IPHONE} FxiOS/139.0 Mobile/15E148 Safari/605.1.15`
+const EDGE = `${IPHONE} Version/18.0 EdgiOS/138.0.3351.83 Mobile/15E148 Safari/605.1.15`
+
+describe("isSafariUserAgent", () => {
+  it("accepts Safari, also an iPad that asks for desktop sites", () => {
+    expect(isSafariUserAgent(SAFARI)).toBe(true)
+    const ipadDesktop =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15"
+    expect(isSafariUserAgent(ipadDesktop)).toBe(true)
+  })
+
+  it("rejects other iOS browsers, which cannot show the App Clip card", () => {
+    expect(isSafariUserAgent(CHROME)).toBe(false)
+    expect(isSafariUserAgent(FIREFOX)).toBe(false)
+    expect(isSafariUserAgent(EDGE)).toBe(false)
   })
 })
