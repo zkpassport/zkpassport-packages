@@ -140,7 +140,10 @@ export class RegistryClient {
     this.rpcTimeoutMs = rpcTimeoutMs || DEFAULT_RPC_TIMEOUT_MS
     this.fallbackRpcTimeoutMs = fallbackRpcTimeoutMs || DEFAULT_FALLBACK_RPC_TIMEOUT_MS
     this.aztecRegistry = isAztec
-      ? new AztecRegistryReader(this.rpcUrls[0], this.rootRegistry, this.retryCount)
+      ? new AztecRegistryReader(
+          (body) => this.rpcPost(body, "Aztec registry storage"),
+          this.rootRegistry,
+        )
       : undefined
   }
 
@@ -889,12 +892,16 @@ export class RegistryClient {
       method: "eth_call",
       params: [{ to, data }, "latest"],
     })
+    return this.rpcPost(body, "eth_call")
+  }
+
+  private async rpcPost(body: string, what: string): Promise<Response> {
     let lastFailure: { response: Response } | { error: unknown } | undefined
     for (let offset = 0; offset < this.rpcUrls.length; offset++) {
       const index = (this.preferredRpcIndex + offset) % this.rpcUrls.length
       const url = this.rpcUrls[index]
       try {
-        const response = await this.rpcAttempt(url, body, offset === 0)
+        const response = await this.rpcAttempt(url, body, what, offset === 0)
         if (response.ok) {
           this.preferredRpcIndex = index
           return response
@@ -910,7 +917,12 @@ export class RegistryClient {
     throw lastFailure?.error ?? new Error("No RPC URL configured")
   }
 
-  private async rpcAttempt(url: string, body: string, isFirstTried: boolean): Promise<Response> {
+  private async rpcAttempt(
+    url: string,
+    body: string,
+    what: string,
+    isFirstTried: boolean,
+  ): Promise<Response> {
     const timeoutMs = isFirstTried ? this.rpcTimeoutMs : this.fallbackRpcTimeoutMs
     for (let attempt = 0; ; attempt++) {
       try {
@@ -925,7 +937,7 @@ export class RegistryClient {
             const text = await response.text()
             return new Response(text, { status: response.status, statusText: response.statusText })
           },
-          { timeoutMs, url, what: "eth_call" },
+          { timeoutMs, url, what },
         )
       } catch (error) {
         if (error instanceof RegistryRequestTimeoutError || attempt >= this.retryCount) throw error
