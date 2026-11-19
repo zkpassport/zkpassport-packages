@@ -88,8 +88,8 @@ jobs:
       - name: Run bb recursion harness
         run: |
           ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json
-          ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof
-          ! ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-public-input
+          ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-proof
+          ./test-recursive-verification.sh fixtures/outer_count_4_disclose.json --tamper-public-input
         working-directory: packages/aztec/test-harness
 
       - name: Install workspace dependencies
