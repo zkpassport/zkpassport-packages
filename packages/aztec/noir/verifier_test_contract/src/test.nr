@@ -18,7 +18,7 @@ use zkpassport::fixtures::proof::{
 use zkpassport::version::circuit_version;
 use zkpassport_registry_contract::{
     local_network_registry::{
-        deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS,
+        deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS, LOCAL_NETWORK_REGISTRY_ADMIN,
         LOCAL_NETWORK_REGISTRY_OPERATOR, seed_local_network_registry,
     },
     types::REGISTRY_SANCTIONS,
@@ -34,6 +34,14 @@ global OLD_SANCTIONS_ROOT: Field = 0x5b5b;
 // date, past the registry's delay and inside the proof's validity period.
 unconstrained fn setup<let N: u32>(
     sanctions_roots: [(Field, u64); N],
+) -> (TestEnvironment, AztecAddress) {
+    setup_enabling(sanctions_roots, [])
+}
+
+// `setup`, with each of `versions` enabled in the registry too, without accepting any vk under it
+unconstrained fn setup_enabling<let N: u32, let M: u32>(
+    sanctions_roots: [(Field, u64); N],
+    versions: [Field; M],
 ) -> (TestEnvironment, AztecAddress) {
     let mut env = TestEnvironment::new();
     let _ =
@@ -56,6 +64,12 @@ unconstrained fn setup<let N: u32>(
             registry.update_root(REGISTRY_SANCTIONS, root, current_root, valid_from),
         );
         current_root = root;
+    }
+    for version in versions {
+        let _ = env.call_public(
+            LOCAL_NETWORK_REGISTRY_ADMIN,
+            registry.set_version_status(version, true),
+        );
     }
 
     env.mine_block_at(AGE_FIXTURE_CURRENT_DATE + DAY + 1);
@@ -159,8 +173,8 @@ fn fixture_claiming(version: Field) -> [Field; 585] {
     blob
 }
 
-unconstrained fn verify_age_claiming(version: Field) {
-    let (mut env, verifier) = setup([]);
+unconstrained fn verify_age_claiming<let M: u32>(version: Field, enabled_versions: [Field; M]) {
+    let (mut env, verifier) = setup_enabling([], enabled_versions);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let sender = env.create_light_account();
 
@@ -178,19 +192,25 @@ unconstrained fn verify_age_claiming(version: Field) {
 
 #[test(should_fail_with = "unsupported circuits version")]
 unconstrained fn rejects_a_proof_claiming_an_older_layout() {
-    verify_age_claiming(circuit_version(0, 22, 0));
+    verify_age_claiming(circuit_version(0, 22, 0), []);
 }
 
 #[test(should_fail_with = "unsupported circuits version")]
 unconstrained fn rejects_a_proof_claiming_a_newer_layout() {
-    verify_age_claiming(circuit_version(0, 24, 0));
+    verify_age_claiming(circuit_version(0, 24, 0), []);
 }
 
 // The registry accepts the fixture's vk under 0.23.0 only, so claiming another 0.23.x release the
 // library parses still fails: the registry authenticates the version
 #[test(should_fail_with = "version not enabled")]
 unconstrained fn rejects_a_proof_claiming_a_release_the_registry_does_not_accept() {
-    verify_age_claiming(circuit_version(0, 23, 1));
+    verify_age_claiming(circuit_version(0, 23, 1), []);
+}
+
+// Even with 0.23.1 enabled, the registry accepts the fixture's vk under 0.23.0 only
+#[test(should_fail_with = "vk not accepted")]
+unconstrained fn rejects_a_proof_claiming_a_release_its_vk_is_not_accepted_under() {
+    verify_age_claiming(circuit_version(0, 23, 1), [circuit_version(0, 23, 1)]);
 }
 
 #[test(should_fail_with = "circuits version older than the service accepts")]

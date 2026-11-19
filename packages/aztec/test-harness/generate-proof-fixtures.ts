@@ -102,13 +102,13 @@ const MAX_TBS_LENGTH = 700
 // can be tested.
 const nowTimestamp = Number(process.env.FIXTURE_NOW ?? 2524608000) // 2050-01-01T00:00:00Z
 
+// VERIFICATION_METHOD_ICAO_CHIP in the circuits repo's utils lib, the only method the Aztec library
+// accepts
+const VERIFICATION_METHOD_ICAO_CHIP = 100n
+
 // Blinding salts for the integrity -> disclosure commitment chain: both stages must hash the
 // carried passport data with the same salts. Any fixed value works for a deterministic
 // capture; 3n matches the circuits repo's own test suite.
-// The verification method an ICAO chip read carries (VERIFICATION_METHOD_ICAO_CHIP in the circuits
-// repo's utils lib), the only one the Aztec library accepts
-const VERIFICATION_METHOD_ICAO_CHIP = 100n
-
 const INTEGRITY_TO_DISCLOSURE_SALTS: IntegrityToDisclosureSalts = {
   dg1Salt: 3n,
   expiryDateSalt: 3n,
