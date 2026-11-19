@@ -6,6 +6,10 @@ import { normaliseHash } from "./utils"
  */
 export const DEFAULT_RETRY_COUNT = 3
 
+export const DEFAULT_RPC_TIMEOUT_MS = 5_000
+
+export const DEFAULT_FALLBACK_RPC_TIMEOUT_MS = 15_000
+
 /**
  * Certificate Registry ID
  * Used to identify the certificate registry in the root registry
