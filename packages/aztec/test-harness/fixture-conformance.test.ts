@@ -37,6 +37,8 @@ test("every constant in fixtures.nr is checked here", () => {
     "BIRTHDATE_COMMITMENT",
     "DISCLOSE_COMMITMENT",
     "EXPIRY_DATE_COMMITMENT",
+    "FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT",
+    "FACE_MATCH_IOS_STRICT_COMMITMENT",
     "FIXTURE_PUBLIC_INPUTS",
     "ISSUING_COUNTRY_EXCLUSION_COMMITMENT",
     "ISSUING_COUNTRY_INCLUSION_COMMITMENT",
@@ -62,6 +64,13 @@ test.each([
 
 test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
+})
+
+test.each([
+  ["FACE_MATCH_IOS_STRICT_COMMITMENT", "facematch_ios_strict"],
+  ["FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT", "facematch_ios_app_clip_regular"],
+])("%s matches the published %s vector", (anchor, name) => {
+  expect(hex(anchor)).toBe(namedVector(name).commitment)
 })
 
 test("BIND_ACCOUNT matches the published Aztec testnet bind vector's user address", () => {
