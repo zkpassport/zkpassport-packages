@@ -37,30 +37,10 @@ export function credentialRequirementsFromQuery(
     }
   }
 
-  const included = new Set<string>()
-  const excluded = new Set<string>()
-  for (const [method, value] of definedEntries(query.nationality)) {
-    const countries = method === "eq" ? [value] : value
-    const target =
-      method === "out" ? excluded : method === "in" || method === "eq" ? included : null
-    // A query holds a nationality to both `eq` and `in`, but one included list would accept either.
-    const eqBesideIn = method === "eq" && query.nationality?.in !== undefined
-    // An empty `in` admits nobody, but an empty included list turns the nationality check off.
-    const emptyIn = method === "in" && Array.isArray(countries) && countries.length === 0
-    if (
-      !target ||
-      eqBesideIn ||
-      emptyIn ||
-      !Array.isArray(countries) ||
-      !countries.every(isAlpha3Code)
-    ) {
-      unsupported.push({ field: "nationality", method })
-      continue
-    }
-    countries.forEach((country) => target.add(country))
-  }
-  requirements.includedNationalities = [...included].sort()
-  requirements.excludedNationalities = [...excluded].sort()
+  const nationality = nationalityLists(query.nationality)
+  requirements.includedNationalities = nationality.included
+  requirements.excludedNationalities = nationality.excluded
+  unsupported.push(...nationality.unsupported)
 
   if (query.sanctions) {
     requirements.sanctionsMode = query.sanctions.strict ? "strict" : "normal"
@@ -83,6 +63,41 @@ export function credentialRequirementsFromQuery(
   }
 
   return unsupported.length > 0 ? { unsupported } : { requirements }
+}
+
+/**
+ * The sorted nationality lists a credential policy checks for a query's nationality config, and the
+ * nationality checks it cannot carry.
+ */
+function nationalityLists(config: IDCredentialConfig | undefined): {
+  included: string[]
+  excluded: string[]
+  unsupported: UnsupportedQueryCheck[]
+} {
+  const included = new Set<string>()
+  const excluded = new Set<string>()
+  const unsupported: UnsupportedQueryCheck[] = []
+  for (const [method, value] of definedEntries(config)) {
+    const countries = method === "eq" ? [value] : value
+    const target =
+      method === "out" ? excluded : method === "in" || method === "eq" ? included : null
+    // A query holds a nationality to both `eq` and `in`, but one included list would accept either.
+    const eqBesideIn = method === "eq" && config?.in !== undefined
+    // An empty `in` admits nobody, but an empty included list turns the nationality check off.
+    const emptyIn = method === "in" && Array.isArray(countries) && countries.length === 0
+    if (
+      !target ||
+      eqBesideIn ||
+      emptyIn ||
+      !Array.isArray(countries) ||
+      !countries.every(isAlpha3Code)
+    ) {
+      unsupported.push({ field: "nationality", method })
+      continue
+    }
+    countries.forEach((country) => target.add(country))
+  }
+  return { included: [...included].sort(), excluded: [...excluded].sort(), unsupported }
 }
 
 function definedEntries(config: IDCredentialConfig | undefined): [string, unknown][] {
