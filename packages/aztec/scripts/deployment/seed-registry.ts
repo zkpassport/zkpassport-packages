@@ -1,11 +1,12 @@
 /**
- * Seed a deployed ZKPassportRegistry with the live ZKPassport roots + circuit vk.
+ * Seed a deployed ZKPassportRegistry with the live ZKPassport roots and a circuit release's vks.
  *
  * The registry deploys empty (see deploy-testnet.ts / deploy-mainnet.ts); private
  * verifiers can pass `assert_proof_valid` only after this script has pushed:
  *   - update_root(REGISTRY_CERTIFICATE, <latest cert root>)
- *   - update_root(REGISTRY_CIRCUIT, <latest circuit root>)
- *   - add_accepted_vk(<version>, <outer circuit vk hash>) (one per circuit in VK_CIRCUITS)
+ *   - update_root(REGISTRY_CIRCUIT, <the release's circuit root>)
+ *   - add_accepted_vk(<version>, <outer circuit vk hash>) (one per selected vk: by default every
+ *                                                          outer_count_N of the release)
  *   - set_version_status(<version>, true)               (enables the circuit release)
  *   - set_oprf_pk_hash(<OPRF public key hash>)          (checked against salted proofs)
  *
@@ -14,6 +15,11 @@
  * against the SEPOLIA registry, real passports against ETHEREUM MAINNET. So:
  *   testnet seed  -> Sepolia roots  (dev-mode phone flows verify)
  *   mainnet seed  -> mainnet roots  (real-passport flows verify)
+ *
+ * The release is the RootRegistry's latest circuit root and its manifest, or the manifest of
+ * CIRCUIT_MANIFEST_VERSION from the circuits CDN's by-version path. Before touching the Aztec
+ * registry the script checks that the manifest commits to a circuit root the RootRegistry holds
+ * and has not revoked, so the vks it accepts are exactly the set that root commits to.
  *
  * Every seeded value is a DelayedPublicMutable write: it becomes readable by private
  * verifiers only INITIAL_DELAY after the tx (24h production, or the PREVIEW_DELAY the
@@ -29,7 +35,16 @@
  * seeded — nothing to do" therefore doubles as the readiness probe, and mid-delay
  * re-runs send nothing.
  *
+ * Removals: is_vk_accepted and is_version_enabled read `false` both for a value that was never
+ * written and for one that was removed. Raw storage tells them apart, since every write records
+ * its change's timestamp. A removed vk is accepted again only when named in VK_CIRCUITS or
+ * VK_HASH, and a disabled version is never re-enabled.
+ *
+ * Dry run by default: the script prints the plan, with a per-vk diff of what would be added,
+ * what is already accepted and what is already scheduled, and sends nothing without SEND_TXS=1.
+ *
  * Usage: npm run seed:testnet | npm run seed:mainnet   (or: npx tsx deployment/seed-registry.ts <network>)
+ *        SEND_TXS=1 npm run seed:testnet               (send the planned transactions)
  *
  * Env:
  *   REGISTRY_OPERATOR_SECRET     REQUIRED: secret of the account holding the operator
@@ -42,21 +57,22 @@
  *   ZKP_REGISTRY_RPC_URL         Ethereum RPC for ZKPassport's RootRegistry
  *                                (default: public Sepolia RPC on testnet, mainnet RPC on mainnet)
  *   ZKP_REGISTRY_CHAIN_ID        chain of that RootRegistry (default matches the RPC above).
- *   CIRCUIT_MANIFEST_VERSION     circuit-manifest semver to register the vks under and
- *                                enable (default: the fetched manifest's own version).
- *                                Packed as 2-byte BE major/minor/patch, left-aligned
- *                                bytes32 (the SDK's L1 params.version encoding); consumer
- *                                apps must pass the same value in ServiceConfig.version.
  *                                Override BOTH to seed cross-chain roots — e.g. REAL passports
  *                                verified on the Aztec testnet need the MAINNET roots:
  *                                ZKP_REGISTRY_CHAIN_ID=1 ZKP_REGISTRY_RPC_URL=<mainnet rpc>
- *   VK_CIRCUITS                  comma-separated outer circuit names to accept from the
- *                                current circuit manifest (default "outer_count_5" — what
- *                                an age/nationality query with a bind resolves to)
- *   VK_HASH                      accept this exact vk hash instead of resolving VK_CIRCUITS
+ *   CIRCUIT_MANIFEST_VERSION     circuit release to seed, e.g. 0.23.0: its manifest and circuit
+ *                                root (default: the RootRegistry's latest circuit root and its
+ *                                manifest). The vks are accepted and enabled under the release's
+ *                                semver, packed as 2-byte BE major/minor/patch, left-aligned
+ *                                bytes32 (the SDK's L1 params.version encoding); consumer
+ *                                apps must pass the same value in ServiceConfig.version.
+ *   VK_CIRCUITS                  comma-separated circuits of the release's manifest to accept,
+ *                                named explicitly (default: every outer_count_N in it)
+ *   VK_HASH                      accept this exact vk hash instead, named explicitly
  *   OPRF_PK_HASH                 OPRF public key hash to seed (default: DEFAULT_OPRF_PUB_KEY_HASH
  *                                from @zkpassport/utils, the hash of the default OPRF key)
- *   DRY_RUN                      resolve + print everything, send nothing
+ *   SEND_TXS                     "1" to send the planned transactions; any other run is a dry run
+ *   DRY_RUN                      force a dry run even with SEND_TXS=1
  *
  * Fees: testnet uses the live SponsoredFPC (same artifact derivation + on-chain
  * verification as deploy-testnet.ts). Mainnet pays with the operator's own Fee Juice —
@@ -68,6 +84,21 @@ import { Fr } from "@aztec-labs/aztec.js/fields"
 import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash"
 import { DEFAULT_OPRF_PUB_KEY_HASH } from "@zkpassport/utils/oprf"
 import { packCircuitManifestVersion } from "./circuit-version.js"
+import {
+  type BoolDpmState,
+  type CircuitManifest,
+  type CircuitRootDetails,
+  type ReleaseManifest,
+  type SelectedVk,
+  type VkDecision,
+  assertManifestMatchesRoot,
+  decideVersion,
+  decideVk,
+  formatVkDiff,
+  liveAt,
+  selectVks,
+  sendRequested,
+} from "./seed-plan.js"
 import { existsSync, readFileSync } from "fs"
 import { createRequire } from "node:module"
 import { ZKPassportRegistryContract } from "../artifacts/ZKPassportRegistry.js"
@@ -110,15 +141,56 @@ const NETWORKS = {
 // @zkpassport/registry is CJS-friendly
 const require = createRequire(import.meta.url)
 type RegistryClientT = {
-  getCircuitManifest(): Promise<{ version?: string; circuits: Record<string, { hash: string }> }>
+  getCircuitManifest(root?: string, opts?: { version?: string }): Promise<CircuitManifest>
+  getCircuitRootDetails(root: string): Promise<CircuitRootDetails & { isLatest?: boolean }>
   getLatestCertificateRoot(): Promise<string>
   getLatestCircuitRoot(): Promise<string>
+  getUrlForCircuitManifestByRoot(root: string): string
+  getUrlForCircuitManifestByVersion(version: string): string
 }
 function registryClient(chainId: number, rpcUrl: string): RegistryClientT {
   const { RegistryClient } = require("@zkpassport/registry") as {
     RegistryClient: new (o: { chainId: number; rpcUrl: string }) => RegistryClientT
   }
   return new RegistryClient({ chainId, rpcUrl })
+}
+
+/**
+ * Fetch a circuit release and its circuit root from the RootRegistry, and check they agree.
+ *
+ * With `version`, the manifest comes from the circuits CDN's by-version path; otherwise it is
+ * the manifest of the RootRegistry's latest circuit root. Either way the client checks that the
+ * manifest's vk hashes hash to its root.
+ */
+async function fetchRelease(
+  client: RegistryClientT,
+  version: string | undefined,
+): Promise<{
+  manifest: ReleaseManifest
+  circuitRoot: CircuitRootDetails & { isLatest?: boolean }
+}> {
+  let manifest: CircuitManifest
+  let root: string | undefined
+  if (version) {
+    console.log(
+      `circuit manifest v${version}: ${client.getUrlForCircuitManifestByVersion(version)}`,
+    )
+    manifest = await client.getCircuitManifest(undefined, { version })
+    root = manifest.root
+  } else {
+    root = await client.getLatestCircuitRoot()
+    console.log(`circuit manifest (latest): ${client.getUrlForCircuitManifestByRoot(root)}`)
+    manifest = await client.getCircuitManifest(root)
+  }
+  if (!root) throw new Error(`circuit manifest v${manifest.version ?? "?"} has no root`)
+  let circuitRoot: CircuitRootDetails & { isLatest?: boolean }
+  try {
+    circuitRoot = await client.getCircuitRootDetails(root)
+  } catch (e) {
+    throw new Error(`circuit root ${root} not found in the RootRegistry: ${(e as Error).message}`)
+  }
+  assertManifestMatchesRoot(manifest, circuitRoot, version)
+  return { manifest, circuitRoot }
 }
 
 /** Unwrap a utility-view simulate() (SimulationResult carries the value in .result). */
@@ -151,13 +223,6 @@ async function readScheduledChange(
     ),
   )
   return { post: fields.slice(1 + valueSize), maturesAt: fields[0].toBigInt() & 0xffffffffn }
-}
-
-/** "live at 2026-08-20T14:31:00Z (~87min)" — when a scheduled DPM change becomes readable. */
-function liveAt(maturesAt: bigint, nowSecs: bigint): string {
-  const at = new Date(Number(maturesAt) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z")
-  if (maturesAt <= nowSecs) return `readable since ${at}`
-  return `live at ${at} (~${Math.ceil(Number(maturesAt - nowSecs) / 60)}min)`
 }
 
 function resolveRegistryAddress(network: Network): { address: AztecAddress; source: string } {
@@ -193,42 +258,24 @@ async function main() {
     ? Number(process.env.ZKP_REGISTRY_CHAIN_ID)
     : cfg.registryChainId
   const client = registryClient(zkpChainId, zkpRpc)
-  const [certRoot, circuitRoot, manifest] = await Promise.all([
+  const [certRoot, release] = await Promise.all([
     client.getLatestCertificateRoot(),
-    client.getLatestCircuitRoot(),
-    client.getCircuitManifest(),
+    fetchRelease(client, process.env.CIRCUIT_MANIFEST_VERSION || undefined),
   ])
-  const vkHashes: { name: string; hash: string }[] = []
-  if (process.env.VK_HASH) {
-    vkHashes.push({ name: "(VK_HASH env)", hash: process.env.VK_HASH })
-  } else {
-    const names = (process.env.VK_CIRCUITS ?? "outer_count_5").split(",").map((s) => s.trim())
-    for (const name of names) {
-      const entry = manifest.circuits[name]
-      if (!entry?.hash) {
-        throw new Error(
-          `"${name}" not in the ZKPassport circuit manifest (v${manifest.version ?? "?"}) — available: ${Object.keys(manifest.circuits).join(", ")}`,
-        )
-      }
-      vkHashes.push({ name, hash: entry.hash })
-    }
-  }
-  console.log(
-    `ZKPassport RootRegistry (chain ${zkpChainId}, manifest v${manifest.version ?? "?"}):`,
-  )
-  console.log(`  certificate root: ${certRoot}`)
-  console.log(`  circuit root:     ${circuitRoot}`)
-  for (const vk of vkHashes) console.log(`  vk ${vk.name}: ${vk.hash}`)
-  // Circuit-manifest version the vks are registered under (registry: version => vk set),
-  // derived from the manifest itself unless overridden.
-  const manifestSemver = process.env.CIRCUIT_MANIFEST_VERSION ?? manifest.version
-  if (!manifestSemver) {
-    throw new Error(
-      "circuit manifest has no version and CIRCUIT_MANIFEST_VERSION is not set — cannot derive the vk version id",
-    )
-  }
+  const { manifest } = release
+  const circuitRoot = release.circuitRoot.root
+  const vkHashes = selectVks(manifest, process.env)
+  const manifestSemver = manifest.version
   const vkVersionFr = packCircuitManifestVersion(manifestSemver)
+  console.log(`ZKPassport RootRegistry (chain ${zkpChainId}, manifest v${manifestSemver}):`)
+  console.log(`  certificate root: ${certRoot}`)
+  console.log(
+    `  circuit root:     ${circuitRoot}${release.circuitRoot.isLatest === false ? " (not the RootRegistry's latest)" : ""}`,
+  )
   console.log(`  circuit manifest version: ${manifestSemver} -> ${vkVersionFr}`)
+  console.log(
+    `  vks selected: ${vkHashes.length} (${vkHashes.some((vk) => vk.explicit) ? "named explicitly" : "every outer_count_N"})`,
+  )
 
   // ── Connect + rebuild the operator account ───────────────────────────────────
   const { node } = await connectAndCheckNode(nodeUrl, network)
@@ -294,58 +341,60 @@ async function main() {
     }
     actions.push(`update_root(${r.label}): ${current} -> ${r.root}`)
   }
-  for (const vk of vkHashes) {
+
+  const boolState = async (
+    view: { simulate(o: { from: AztecAddress }): Promise<unknown> },
+    varSlot: Fr,
+    mapKeys: Fr[],
+  ): Promise<BoolDpmState> => {
+    const current = Boolean(unwrap(await view.simulate({ from: operatorSender.address })))
+    const sched = await readScheduledChange(node, registryAddress, varSlot, mapKeys, 1)
+    return { current, scheduled: !sched.post[0].isZero(), maturesAt: sched.maturesAt }
+  }
+  const vkState = (vk: SelectedVk) => {
     const hashFr = Fr.fromHexString(vk.hash)
-    const accepted = unwrap<boolean>(
-      await registry.methods
-        .is_vk_accepted(vkVersionFr, hashFr)
-        .simulate({ from: operatorSender.address }),
-    )
-    if (accepted) {
-      console.log(`vk ${vk.name} is already accepted — skipping`)
-      continue
-    }
-    const sched = await readScheduledChange(
-      node,
-      registryAddress,
+    return boolState(
+      registry.methods.is_vk_accepted(vkVersionFr, hashFr),
       layout.accepted_vks.slot,
       [vkVersionFr, hashFr],
-      1,
     )
-    if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) {
-      console.log(
-        `vk ${vk.name} is already scheduled — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
-      )
-      pendingMaturity++
-      continue
-    }
-    actions.push(`add_accepted_vk(v${manifestSemver}, ${vk.name}): ${vk.hash}`)
   }
-  {
-    const enabled = unwrap<boolean>(
-      await registry.methods
-        .is_version_enabled(vkVersionFr)
-        .simulate({ from: operatorSender.address }),
-    )
-    if (enabled) {
-      console.log(`vk version ${manifestSemver} is already enabled — skipping`)
-    } else {
-      const sched = await readScheduledChange(
-        node,
-        registryAddress,
-        layout.version_enabled.slot,
-        [vkVersionFr],
-        1,
-      )
-      if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) {
-        console.log(
-          `vk version ${manifestSemver} enable is already scheduled — ${liveAt(sched.maturesAt, nowSecs)} — skipping`,
-        )
-        pendingMaturity++
-      } else {
-        actions.push(`set_version_status(v${manifestSemver}, true)`)
-      }
+  const versionState = () =>
+    boolState(registry.methods.is_version_enabled(vkVersionFr), layout.version_enabled.slot, [
+      vkVersionFr,
+    ])
+
+  let heldBack = 0
+  const vkPlans: (SelectedVk & { decision: VkDecision })[] = []
+  for (const vk of vkHashes) {
+    vkPlans.push({ ...vk, decision: decideVk(await vkState(vk), vk.explicit, nowSecs) })
+  }
+  console.log(`vks under v${manifestSemver}:\n  ${formatVkDiff(vkPlans, nowSecs).join("\n  ")}`)
+  for (const vk of vkPlans) {
+    if (vk.decision.status === "add") {
+      actions.push(`add_accepted_vk(v${manifestSemver}, ${vk.name}): ${vk.hash}`)
+    } else if (vk.decision.status === "scheduled") {
+      pendingMaturity++
+    } else if (vk.decision.status === "revoked") {
+      heldBack++
     }
+  }
+
+  const version = decideVersion(await versionState(), nowSecs)
+  if (version.status === "enable") {
+    actions.push(`set_version_status(v${manifestSemver}, true)`)
+  } else if (version.status === "enabled") {
+    console.log(`vk version ${manifestSemver} is already enabled — skipping`)
+  } else if (version.status === "scheduled") {
+    console.log(
+      `vk version ${manifestSemver} is already scheduled to be ${version.to ? "enabled" : "disabled"} — ${liveAt(version.maturesAt, nowSecs)} — skipping`,
+    )
+    pendingMaturity++
+  } else {
+    console.log(
+      `vk version ${manifestSemver} was disabled — this script never re-enables a release — skipping`,
+    )
+    heldBack++
   }
   const oprf = process.env.OPRF_PK_HASH
     ? Fr.fromHexString(process.env.OPRF_PK_HASH)
@@ -377,14 +426,24 @@ async function main() {
       console.log(
         `nothing to send — ${pendingMaturity} value(s) already pushed and still inside the DPM delay (maturity times above); re-run later to confirm`,
       )
-    } else {
+    }
+    if (heldBack > 0) {
+      console.log(
+        `nothing to send — ${heldBack} value(s) removed or disabled earlier and held back (see above)`,
+      )
+    }
+    if (pendingMaturity === 0 && heldBack === 0) {
       console.log("registry is fully seeded — nothing to do")
     }
     return
   }
   console.log(`planned actions:\n  ${actions.join("\n  ")}`)
-  if (process.env.DRY_RUN) {
-    console.log("DRY_RUN set — stopping before any tx")
+  if (!sendRequested(process.env)) {
+    console.log(
+      process.env.DRY_RUN
+        ? "DRY_RUN set — stopping before any tx"
+        : "dry run — set SEND_TXS=1 to send these transactions",
+    )
     return
   }
 
@@ -431,53 +490,25 @@ async function main() {
   }
 
   for (const vk of vkHashes) {
-    const hashFr = Fr.fromHexString(vk.hash)
-    const accepted = unwrap<boolean>(
-      await registry.methods
-        .is_vk_accepted(vkVersionFr, hashFr)
-        .simulate({ from: operatorSender.address }),
-    )
-    if (accepted) continue
-    const sched = await readScheduledChange(
-      node,
-      registryAddress,
-      layout.accepted_vks.slot,
-      [vkVersionFr, hashFr],
-      1,
-    )
-    if (!sched.post[0].isZero() && sched.maturesAt > nowSecs) continue // reported in the plan
+    // Re-read right before sending: each earlier tx took minutes, and the plan may be stale.
+    if (decideVk(await vkState(vk), vk.explicit, nowSecs).status !== "add") continue
     console.log(
       `add_accepted_vk(v${manifestSemver}, ${vk.name}, ${vk.hash}) — proving + sending...`,
     )
     await registry.methods
-      .add_accepted_vk(vkVersionFr, hashFr)
+      .add_accepted_vk(vkVersionFr, Fr.fromHexString(vk.hash))
       .send(sendOptsFor(operatorSender.address))
     console.log(`  done`)
     seeded[`vk:${vk.name}`] = vk.hash
   }
 
-  {
-    const enabled = unwrap<boolean>(
-      await registry.methods
-        .is_version_enabled(vkVersionFr)
-        .simulate({ from: operatorSender.address }),
-    )
-    const sched = await readScheduledChange(
-      node,
-      registryAddress,
-      layout.version_enabled.slot,
-      [vkVersionFr],
-      1,
-    )
-    const pending = !sched.post[0].isZero() && sched.maturesAt > nowSecs
-    if (!enabled && !pending) {
-      console.log(`set_version_status(v${manifestSemver}, true) — proving + sending...`)
-      await registry.methods
-        .set_version_status(vkVersionFr, true)
-        .send(sendOptsFor(operatorSender.address))
-      console.log(`  done`)
-      seeded[`version:${manifestSemver}`] = "enabled"
-    }
+  if (decideVersion(await versionState(), nowSecs).status === "enable") {
+    console.log(`set_version_status(v${manifestSemver}, true) — proving + sending...`)
+    await registry.methods
+      .set_version_status(vkVersionFr, true)
+      .send(sendOptsFor(operatorSender.address))
+    console.log(`  done`)
+    seeded[`version:${manifestSemver}`] = "enabled"
   }
 
   if (oprfNeeded) {
@@ -495,7 +526,7 @@ async function main() {
       operator: operatorSender.address.toString(),
     },
     zkpassportRegistryChainId: zkpChainId,
-    circuitManifestVersion: manifest.version ?? null,
+    circuitManifestVersion: manifestSemver,
     certRoot,
     circuitRoot,
     vkHashes,
