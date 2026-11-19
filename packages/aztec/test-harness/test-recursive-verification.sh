@@ -7,11 +7,13 @@
 #
 # Steps: fixture -> Prover.toml -> nargo execute -> bb write_vk -> bb prove -> bb verify.
 #
-# Negative controls (each MUST exit non-zero):
-#   --tamper-proof         -> fails at bb prove / bb verify (recursion constraint over `proof`)
-#   --tamper-public-input  -> fails at bb prove / bb verify (recursion constraint over
-#                             `public_inputs`; the load-bearing control that no PI can be
-#                             substituted post-proof without breaking verification)
+# Negative controls, which exit 0 only when bb rejects the tampered proof (at bb prove or
+# bb verify), and non-zero when it verifies or anything fails before bb proves, such as a fixture
+# of the wrong shape:
+#   --tamper-proof         -> rejected by the recursion constraint over `proof`
+#   --tamper-public-input  -> rejected by the recursion constraint over `public_inputs`; the
+#                             control that no PI can be substituted post-proof without breaking
+#                             verification
 #
 # WARNING: do not run this script concurrently with itself (or with another mode) -- all
 # invocations write to the shared recursive_verification/Prover.toml before executing. Run the
@@ -41,6 +43,15 @@ fail() { # fail <step> <rc>
   exit "$2"
 }
 
+# A tampered proof must fail where bb checks the recursion constraint, and nowhere earlier
+rejected() { # rejected <step> <rc>
+  if [ -n "$TAMPER" ]; then
+    echo "RESULT($LABEL): REJECTED at $1 (exit $2), as expected"
+    exit 0
+  fi
+  fail "$1" "$2"
+}
+
 bun "$HARNESS_DIR/fixture-to-prover-toml.ts" "$FIXTURE" "$WRAP/Prover.toml" $TAMPER
 rc=$?
 [ $rc -eq 0 ] || fail "prover-toml" $rc
@@ -63,12 +74,16 @@ echo "== bb prove"
 $BB prove -t noir-recursive -b "$ARTIFACT" -w target/witness.gz -k "$OUT/vk" -o "$OUT" > "$OUT/prove.log" 2>&1
 rc=$?
 tail -3 "$OUT/prove.log"
-[ $rc -eq 0 ] || fail "bb prove" $rc
+[ $rc -eq 0 ] || rejected "bb prove" $rc
 
 echo "== bb verify"
 $BB verify -t noir-recursive -p "$OUT/proof" -i "$OUT/public_inputs" -k "$OUT/vk" > "$OUT/verify.log" 2>&1
 rc=$?
 tail -3 "$OUT/verify.log"
-[ $rc -eq 0 ] || fail "bb verify" $rc
+[ $rc -eq 0 ] || rejected "bb verify" $rc
 
+if [ -n "$TAMPER" ]; then
+  echo "RESULT($LABEL): VERIFIED a tampered proof"
+  exit 1
+fi
 echo "RESULT($LABEL): VERIFIED"
