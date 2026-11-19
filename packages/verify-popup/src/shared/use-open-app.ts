@@ -15,7 +15,7 @@ function showsAppClipCard(): boolean {
   return detectMobileOs() === "ios" && !isInAppBrowser() && isSafariUserAgent(navigator.userAgent)
 }
 
-function canOpenAppClip(requestUrl: string): boolean {
+export function canOpenAppClip(requestUrl: string): boolean {
   return isAppClipLane(requestUrl) && showsAppClipCard()
 }
 

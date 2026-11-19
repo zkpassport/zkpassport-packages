@@ -6,19 +6,22 @@ import { Primary } from "../shared/controls"
 import { ZKPASSPORT_WORDMARK } from "../shared/icons"
 import { LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
-import { CLOSE_ON_RETURN_HASH, useOpenApp } from "../shared/use-open-app"
+import { CLOSE_ON_RETURN_HASH, canOpenAppClip, useOpenApp } from "../shared/use-open-app"
 import { parseVerifyRequest } from "./request-link"
 import "../main.css"
 
 /**
  * Where a request link lands when the app did not take it. The OS hands the link straight to the
- * installed app, so whoever sees this page almost certainly has to install it first.
+ * installed app, so whoever sees this page almost certainly has no app yet.
  */
 export function RequestPage() {
   useCloseOnReturn()
   const request = parseVerifyRequest(window.location.search)
   const requestUrl = request ? window.location.href : null
   const siteName = request?.serviceName || request?.domain || null
+  // In Safari, iOS offers the App Clip on this page through its own banner, which opens the full
+  // app instead when it is installed. The full app's link would only show an error without the app.
+  const [appClipBanner] = useState(() => requestUrl !== null && canOpenAppClip(requestUrl))
 
   return (
     <Frame>
@@ -35,13 +38,30 @@ export function RequestPage() {
                       : "Verify your identity privately with ZKPassport"}
                   </h1>
                 </div>
-                <p className="flow-lede">
-                  {siteName ? "To continue, download" : "Download"} the free ZKPassport app. It
-                  reads your passport or ID securely and verifies your identity. Your ID data never
-                  leaves your phone, except the details you choose to share.
-                </p>
-                <StoreBadges requestUrl={requestUrl} />
-                {requestUrl ? <OpenAppPrompt requestUrl={requestUrl} siteName={siteName} /> : null}
+                {appClipBanner ? (
+                  <>
+                    <p className="flow-lede">
+                      Tap Open in the ZKPassport banner at the top of this page. ZKPassport opens
+                      right away, usually with nothing to install.
+                    </p>
+                    <div className="r-actions">
+                      <p className="r-note">Prefer the full app?</p>
+                      <StoreBadges requestUrl={requestUrl} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="flow-lede">
+                      {siteName ? "To continue, download" : "Download"} the free ZKPassport app. It
+                      reads your passport or ID securely and verifies your identity. Your ID data
+                      never leaves your phone, except the details you choose to share.
+                    </p>
+                    <StoreBadges requestUrl={requestUrl} />
+                    {requestUrl ? (
+                      <OpenAppPrompt requestUrl={requestUrl} siteName={siteName} />
+                    ) : null}
+                  </>
+                )}
               </div>
             </div>
           </div>
