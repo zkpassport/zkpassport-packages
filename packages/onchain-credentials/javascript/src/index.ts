@@ -815,5 +815,4 @@ export { getCredentialsChain, getCredentialsChains, getCredentialsAddress } from
 export {
   credentialQueryFromRequirements,
   credentialRequirementsFromQuery,
-  type UnsupportedQueryCheck,
 } from "./query-requirements"
