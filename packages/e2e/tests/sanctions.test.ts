@@ -1,7 +1,7 @@
 /**
  * Sanctions, end to end on a fork of Sepolia, against the sanctions root on chain:
  *
- *   SDK request() with a non-strict .sanctions() in dev mode → bridge → headless app (john) proves against the
+ *   SDK request() with .sanctions() in dev mode → bridge → headless app (john) proves against the
  *   tree published for Sepolia's latest sanctions root → SDK verify() checks that root in the
  *   Sanctions Registry
  *
@@ -37,16 +37,16 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     sanctionsRoot = await testEnv.registry.getLatestSanctionsRoot()
     app = await testEnv.runHeadlessApp({
       passport: createMockPassport(),
-      query: (query) => query.sanctions("all", "all", { strict: false }),
+      query: (query) => query.sanctions(),
     })
   }, 180_000)
 
   afterAll(() => testEnv?.stop())
 
-  test("john passes the non-strict sanctions check", () => {
+  test("john passes the strict sanctions check", () => {
     const { result: queryResult } = app.request.result()!
     expect(queryResult.sanctions?.passed).toBe(true)
-    expect(queryResult.sanctions?.isStrict).toBe(false)
+    expect(queryResult.sanctions?.isStrict).toBe(true)
   })
 
   test("the sanctions proof commits to Sepolia's latest sanctions root", () => {
@@ -54,7 +54,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     const sanctionsProof = proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     expect(sanctionsProof.committedInputs?.exclusion_check_sanctions).toEqual({
       rootHash: sanctionsRoot,
-      isStrict: false,
+      isStrict: true,
     })
   })
 
@@ -74,7 +74,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     const tamperedProofs = proofs.map((proof) => ({ ...proof }))
     const target = tamperedProofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     target.committedInputs = {
-      exclusion_check_sanctions: { rootHash: `0x${"0".repeat(63)}1`, isStrict: false },
+      exclusion_check_sanctions: { rootHash: `0x${"0".repeat(63)}1`, isStrict: true },
     }
 
     const verification = await testEnv.verify({
@@ -88,7 +88,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
   test("a sanctioned person's passport fails the sanctions check", async () => {
     const sanctionedApp = await testEnv.runHeadlessApp({
       passport: createMockPassport(SANCTIONED_PERSON),
-      query: (query) => query.sanctions("all", "all", { strict: false }),
+      query: (query) => query.sanctions(),
     })
 
     expect(sanctionedApp.request.errors()).toEqual(["Sanctions check failed"])
