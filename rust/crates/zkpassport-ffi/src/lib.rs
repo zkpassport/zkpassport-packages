@@ -71,10 +71,22 @@ struct SaltsJson {
     private_nullifier: String,
 }
 
+/// An Aadhaar Secure QR code, read in place of a chip: the request then carries no `sod` or `dg1`.
+#[derive(Deserialize)]
+struct AadhaarJson {
+    /// The decompressed QR data less its trailing 256-byte signature, base64.
+    signed_data: String,
+    signature: String,
+}
+
 #[derive(Deserialize)]
 struct Request {
+    #[serde(default)]
     sod: String,
+    #[serde(default)]
     dg1: String,
+    #[serde(default)]
+    aadhaar: Option<AadhaarJson>,
     /// Pre-computed DG2 hash; if absent, `dg2` (raw) is hashed with the
     /// SOD's data-group hash algorithm.
     #[serde(default)]
@@ -141,9 +153,101 @@ fn b64(s: &str) -> Result<Vec<u8>, String> {
         .map_err(|e| format!("invalid base64: {e}"))
 }
 
+fn input_gen_salts(salt: &Option<String>, salts: &Option<SaltsJson>) -> Result<InputGenSalts, String> {
+    match (salt, salts) {
+        (Some(master), _) => Ok(InputGenSalts::from_master(dec(master)?)),
+        (None, Some(s)) => Ok(InputGenSalts {
+            dsc_salt: dec(&s.dsc)?,
+            id_salt_in: dec(&s.id_in)?,
+            id_salt_out: dec(&s.id_out)?,
+            integrity_salt_in: dec(&s.integrity_in)?,
+            disclosure: IntegrityToDisclosureSalts {
+                dg1_salt: dec(&s.dg1)?,
+                expiry_date_salt: dec(&s.expiry_date)?,
+                dg2_hash_salt: dec(&s.dg2_hash)?,
+                private_nullifier_salt: dec(&s.private_nullifier)?,
+            },
+        }),
+        (None, None) => Err("either salt or salts is required".into()),
+    }
+}
+
+/// The ID data the disclosure proofs are built on, from a chip read or an Aadhaar QR code.
+struct Document {
+    dg1: Vec<u8>,
+    e_content: Vec<u8>,
+    sod_signature_processed: Vec<u8>,
+    dg2_hash: Vec<u8>,
+    mrz: String,
+    expiry: String,
+    private_nullifier: Option<BigUint>,
+}
+
+impl Document {
+    fn resolve(
+        sod: &str,
+        dg1: &str,
+        dg2_hash: &Option<String>,
+        dg2: &Option<String>,
+        aadhaar: &Option<AadhaarJson>,
+    ) -> Result<Self, String> {
+        if let Some(aadhaar) = aadhaar {
+            let parsed = zkpassport_core::aadhaar::parse_aadhaar(&b64(&aadhaar.signed_data)?)?;
+            let mrz = parsed.mrz().to_string();
+            return Ok(Document {
+                expiry: expiry_from_mrz(&mrz)?,
+                mrz,
+                private_nullifier: Some(parsed.private_nullifier()),
+                dg1: parsed.dg1,
+                dg2_hash: parsed.photo_hash,
+                e_content: vec![],
+                sod_signature_processed: vec![],
+            });
+        }
+        let dg1 = b64(dg1)?;
+        let parsed = zkpassport_core::sod::parse_sod(&b64(sod)?)?;
+        let dg2_hash = match (dg2_hash, dg2) {
+            (Some(h), _) => b64(h)?,
+            (None, Some(raw)) => hash_data_group(&b64(raw)?, &parsed.dg_hash_alg)?,
+            (None, None) => parsed
+                .dg_hashes
+                .iter()
+                .find(|(n, _)| *n == 2)
+                .map(|(_, h)| h.clone())
+                .ok_or("SOD has no DG2 hash")?,
+        };
+        let mrz = mrz_from_dg1(&dg1)?;
+        Ok(Document {
+            expiry: expiry_from_mrz(&mrz)?,
+            mrz,
+            private_nullifier: None,
+            sod_signature_processed: processed_sod_signature(&parsed)?,
+            e_content: parsed.e_content,
+            dg1,
+            dg2_hash,
+        })
+    }
+
+    fn disclosure_input(&self, hide_nullifier: bool) -> DisclosureInput<'_> {
+        DisclosureInput {
+            dg1: &self.dg1,
+            e_content: &self.e_content,
+            sod_signature_processed: &self.sod_signature_processed,
+            dg2_hash: &self.dg2_hash,
+            expiry_date: &self.expiry,
+            mrz: &self.mrz,
+            hide_nullifier,
+            private_nullifier: self.private_nullifier.clone(),
+        }
+    }
+}
+
 fn run(request_json: &str) -> Result<serde_json::Value, String> {
     let req: Request =
         serde_json::from_str(request_json).map_err(|e| format!("invalid request: {e}"))?;
+    if let Some(aadhaar) = &req.aadhaar {
+        return run_aadhaar(&req, aadhaar);
+    }
 
     let sod_der = b64(&req.sod)?;
     let dg1 = b64(&req.dg1)?;
@@ -217,22 +321,7 @@ fn run(request_json: &str) -> Result<serde_json::Value, String> {
         service_subscope: scope_hash(&req.service_subscope),
         current_date_timestamp: req.current_date_timestamp,
     };
-    let salts = match (&req.salt, &req.salts) {
-        (Some(master), _) => InputGenSalts::from_master(dec(master)?),
-        (None, Some(s)) => InputGenSalts {
-            dsc_salt: dec(&s.dsc)?,
-            id_salt_in: dec(&s.id_in)?,
-            id_salt_out: dec(&s.id_out)?,
-            integrity_salt_in: dec(&s.integrity_in)?,
-            disclosure: IntegrityToDisclosureSalts {
-                dg1_salt: dec(&s.dg1)?,
-                expiry_date_salt: dec(&s.expiry_date)?,
-                dg2_hash_salt: dec(&s.dg2_hash)?,
-                private_nullifier_salt: dec(&s.private_nullifier)?,
-            },
-        },
-        (None, None) => return Err("either salt or salts is required".into()),
-    };
+    let salts = input_gen_salts(&req.salt, &req.salts)?;
     let mut result = generate_all_inputs(&params, &salts)?;
     // Circuit names: base three (from the passport) + one per disclosure
     // (query-driven, already named in the result), in proving order.
@@ -257,6 +346,50 @@ fn run(request_json: &str) -> Result<serde_json::Value, String> {
         }
         None => serde_json::json!({ "list": circuit_names }),
     };
+    Ok(result)
+}
+
+/// The inputs of an Aadhaar: one `aadhaar_id` base proof in place of the three chip base
+/// proofs. The response has it under `aadhaar_id` and names it in `base_circuits`.
+fn run_aadhaar(req: &Request, aadhaar: &AadhaarJson) -> Result<serde_json::Value, String> {
+    use zkpassport_core::aadhaar::AADHAAR_CIRCUIT_NAME;
+    let certificates = req.certificates.as_ref().ok_or("certificates is required")?;
+    let meta = PackagedCertsMeta {
+        version: req.certs_meta.version,
+        root: &req.certs_meta.root,
+        timestamp: req.certs_meta.timestamp,
+        revocations: &req.certs_meta.revocations,
+        masterlists: &req.certs_meta.masterlists,
+    };
+    let params = zkpassport_core::input_gen::AadhaarParams {
+        signed_data: &b64(&aadhaar.signed_data)?,
+        signature: &b64(&aadhaar.signature)?,
+        certificates,
+        certs_meta: &meta,
+        cert_leaves: &zkpassport_core::registry::get_certificate_leaf_hashes(certificates, meta.version)?,
+        query: &req.query,
+        evm: req.evm,
+        nullifier_secret: match &req.nullifier_secret {
+            Some(s) => dec(s)?,
+            None => BigUint::from(0u8),
+        },
+        hide_nullifier: hides_identifier(req.unique_identifier_type),
+        service_scope: scope_hash(&req.service_scope),
+        service_subscope: scope_hash(&req.service_subscope),
+        current_date_timestamp: req.current_date_timestamp,
+    };
+    let salts = input_gen_salts(&req.salt, &req.salts)?;
+    let mut result = zkpassport_core::input_gen::generate_aadhaar_inputs(&params, &salts.disclosure)?;
+    let mut circuit_names = vec![AADHAAR_CIRCUIT_NAME];
+    if let Some(disclosures) = result["disclosures"].as_array() {
+        circuit_names.extend(disclosures.iter().filter_map(|d| d["name"].as_str()));
+    }
+    let circuits = match &req.manifest {
+        Some(manifest) => zkpassport_core::plan::plan_for_names(manifest, &circuit_names, req.chain_id)?,
+        None => serde_json::json!({ "list": circuit_names }),
+    };
+    result["circuits"] = circuits;
+    result["base_circuits"] = serde_json::json!({ AADHAAR_CIRCUIT_NAME: AADHAAR_CIRCUIT_NAME });
     Ok(result)
 }
 
@@ -352,8 +485,10 @@ fn build_outer_request(request_json: &str) -> Result<serde_json::Value, String> 
         chain_id: u64,
     }
     let req: Req = serde_json::from_str(request_json).map_err(|e| e.to_string())?;
-    if req.subproofs.len() < 4 {
-        return Err("need at least 3 base + 1 disclosure subproof".into());
+    let is_aadhaar = req.subproofs.first().is_some_and(|s| s.name == zkpassport_core::aadhaar::AADHAAR_CIRCUIT_NAME);
+    let base_count = if is_aadhaar { 1 } else { 3 };
+    if req.subproofs.len() <= base_count {
+        return Err("need the base subproofs + 1 disclosure subproof".into());
     }
     let build = |s: &OuterSubproofJson| -> Result<outer::OuterSubproof, String> {
         let key_hash = req
@@ -387,15 +522,18 @@ fn build_outer_request(request_json: &str) -> Result<serde_json::Value, String> 
     };
     let subs: Vec<outer::OuterSubproof> =
         req.subproofs.iter().map(build).collect::<Result<_, _>>()?;
-    let disclosures = &subs[3..];
-    let inputs = outer::get_outer_circuit_inputs(
-        &subs[0],
-        &subs[1],
-        &subs[2],
-        disclosures,
-        &req.manifest.root,
-    )?;
-    let circuit_name = outer::outer_circuit_name(disclosures.len(), req.evm)?;
+    let disclosures = &subs[base_count..];
+    let (inputs, circuit_name) = if is_aadhaar {
+        (
+            outer::get_aadhaar_outer_circuit_inputs(&subs[0], disclosures, &req.manifest.root)?,
+            outer::aadhaar_outer_circuit_name(disclosures.len(), req.evm)?,
+        )
+    } else {
+        (
+            outer::get_outer_circuit_inputs(&subs[0], &subs[1], &subs[2], disclosures, &req.manifest.root)?,
+            outer::outer_circuit_name(disclosures.len(), req.evm)?,
+        )
+    };
     let entry = req
         .manifest
         .circuits
@@ -532,8 +670,12 @@ fn hides_identifier(unique_identifier_type: Option<u8>) -> bool {
 
 #[derive(Deserialize)]
 struct FmInputsRequest {
+    #[serde(default)]
     sod: String,
+    #[serde(default)]
     dg1: String,
+    #[serde(default)]
+    aadhaar: Option<AadhaarJson>,
     #[serde(default)]
     dg2_hash: Option<String>,
     #[serde(default)]
@@ -557,47 +699,9 @@ struct FmInputsRequest {
 /// plus `{attestation, clientData}`.
 pub fn facematch_circuit_inputs_json(request_json: &str) -> Result<serde_json::Value, String> {
     let req: FmInputsRequest = serde_json::from_str(request_json).map_err(|e| e.to_string())?;
-    let sod_der = b64(&req.sod)?;
-    let dg1 = b64(&req.dg1)?;
-    let parsed = zkpassport_core::sod::parse_sod(&sod_der)?;
-    let dg2_hash = match (&req.dg2_hash, &req.dg2) {
-        (Some(h), _) => b64(h)?,
-        (None, Some(raw)) => hash_data_group(&b64(raw)?, &parsed.dg_hash_alg)?,
-        (None, None) => parsed
-            .dg_hashes
-            .iter()
-            .find(|(n, _)| *n == 2)
-            .map(|(_, h)| h.clone())
-            .ok_or("SOD has no DG2 hash")?,
-    };
-    let salts = match (&req.salt, &req.salts) {
-        (Some(master), _) => InputGenSalts::from_master(dec(master)?),
-        (None, Some(s)) => InputGenSalts {
-            dsc_salt: dec(&s.dsc)?,
-            id_salt_in: dec(&s.id_in)?,
-            id_salt_out: dec(&s.id_out)?,
-            integrity_salt_in: dec(&s.integrity_in)?,
-            disclosure: zkpassport_core::commitments::IntegrityToDisclosureSalts {
-                dg1_salt: dec(&s.dg1)?,
-                expiry_date_salt: dec(&s.expiry_date)?,
-                dg2_hash_salt: dec(&s.dg2_hash)?,
-                private_nullifier_salt: dec(&s.private_nullifier)?,
-            },
-        },
-        (None, None) => return Err("either salt or salts is required".into()),
-    };
-    let sod_sig_processed = processed_sod_signature(&parsed)?;
-    let mrz = mrz_from_dg1(&dg1)?;
-    let expiry = expiry_from_mrz(&mrz)?;
-    let disc_input = DisclosureInput {
-        dg1: &dg1,
-        e_content: &parsed.e_content,
-        sod_signature_processed: &sod_sig_processed,
-        dg2_hash: &dg2_hash,
-        expiry_date: &expiry,
-        mrz: &mrz,
-        hide_nullifier: false,
-    };
+    let document = Document::resolve(&req.sod, &req.dg1, &req.dg2_hash, &req.dg2, &req.aadhaar)?;
+    let salts = input_gen_salts(&req.salt, &req.salts)?;
+    let disc_input = document.disclosure_input(false);
     let nullifier_secret = match &req.nullifier_secret {
         Some(s) => dec(s)?,
         None => BigUint::from(0u8),
@@ -621,8 +725,12 @@ pub fn facematch_circuit_inputs_json(request_json: &str) -> Result<serde_json::V
 
 #[derive(Deserialize)]
 struct SanctionsInputsRequest {
+    #[serde(default)]
     sod: String,
+    #[serde(default)]
     dg1: String,
+    #[serde(default)]
+    aadhaar: Option<AadhaarJson>,
     #[serde(default)]
     dg2_hash: Option<String>,
     #[serde(default)]
@@ -654,47 +762,9 @@ struct SanctionsInputsRequest {
 /// non-membership proofs. Same passport request as the facematch inputs, plus `{tree_path, is_strict}`.
 pub fn sanctions_circuit_inputs_json(request_json: &str) -> Result<serde_json::Value, String> {
     let req: SanctionsInputsRequest = serde_json::from_str(request_json).map_err(|e| e.to_string())?;
-    let sod_der = b64(&req.sod)?;
-    let dg1 = b64(&req.dg1)?;
-    let parsed = zkpassport_core::sod::parse_sod(&sod_der)?;
-    let dg2_hash = match (&req.dg2_hash, &req.dg2) {
-        (Some(h), _) => b64(h)?,
-        (None, Some(raw)) => hash_data_group(&b64(raw)?, &parsed.dg_hash_alg)?,
-        (None, None) => parsed
-            .dg_hashes
-            .iter()
-            .find(|(n, _)| *n == 2)
-            .map(|(_, h)| h.clone())
-            .ok_or("SOD has no DG2 hash")?,
-    };
-    let salts = match (&req.salt, &req.salts) {
-        (Some(master), _) => InputGenSalts::from_master(dec(master)?),
-        (None, Some(s)) => InputGenSalts {
-            dsc_salt: dec(&s.dsc)?,
-            id_salt_in: dec(&s.id_in)?,
-            id_salt_out: dec(&s.id_out)?,
-            integrity_salt_in: dec(&s.integrity_in)?,
-            disclosure: zkpassport_core::commitments::IntegrityToDisclosureSalts {
-                dg1_salt: dec(&s.dg1)?,
-                expiry_date_salt: dec(&s.expiry_date)?,
-                dg2_hash_salt: dec(&s.dg2_hash)?,
-                private_nullifier_salt: dec(&s.private_nullifier)?,
-            },
-        },
-        (None, None) => return Err("either salt or salts is required".into()),
-    };
-    let sod_sig_processed = processed_sod_signature(&parsed)?;
-    let mrz = mrz_from_dg1(&dg1)?;
-    let expiry = expiry_from_mrz(&mrz)?;
-    let disc_input = DisclosureInput {
-        dg1: &dg1,
-        e_content: &parsed.e_content,
-        sod_signature_processed: &sod_sig_processed,
-        dg2_hash: &dg2_hash,
-        expiry_date: &expiry,
-        mrz: &mrz,
-        hide_nullifier: hides_identifier(req.unique_identifier_type),
-    };
+    let document = Document::resolve(&req.sod, &req.dg1, &req.dg2_hash, &req.dg2, &req.aadhaar)?;
+    let salts = input_gen_salts(&req.salt, &req.salts)?;
+    let disc_input = document.disclosure_input(hides_identifier(req.unique_identifier_type));
     let nullifier_secret = match &req.nullifier_secret {
         Some(s) => dec(s)?,
         None => BigUint::from(0u8),

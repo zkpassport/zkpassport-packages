@@ -704,6 +704,7 @@ mod tests {
             expiry_date: "350101",
             mrz: "",
             hide_nullifier: false,
+            private_nullifier: None,
         };
         let salts = IntegrityToDisclosureSalts {
             dg1_salt: BigUint::from(1u8),
@@ -754,6 +755,7 @@ mod tests {
             expiry_date: "350101",
             mrz: "",
             hide_nullifier: false,
+            private_nullifier: None,
         };
         let salts = IntegrityToDisclosureSalts {
             dg1_salt: BigUint::from(1u8),

@@ -42,7 +42,9 @@ pub fn has_verification_method(version: Option<&str>) -> bool {
 /// verification method, and the outer proof re-exports it
 pub fn num_public_inputs(name: &str, version: Option<&str>) -> usize {
     let scheme = usize::from(has_verification_method(version));
-    if name.starts_with("data_check_integrity") {
+    if name == crate::aadhaar::AADHAAR_CIRCUIT_NAME {
+        3
+    } else if name.starts_with("data_check_integrity") {
         2 + scheme
     } else if name.starts_with("sig_check_id_data") || name.starts_with("sig_check_dsc") {
         2
@@ -54,6 +56,10 @@ pub fn num_public_inputs(name: &str, version: Option<&str>) -> usize {
             .next()
             .and_then(|s| s.parse().ok())
             .unwrap_or(3);
+        // An Aadhaar outer proof has one base proof and always carries the verification method
+        if name.contains("_aadhaar_") {
+            return (8 + n).max(0) as usize;
+        }
         (8 + (n - 3)).max(0) as usize + scheme
     } else {
         8
@@ -186,6 +192,42 @@ pub fn get_outer_circuit_inputs(
     disclosures: &[OuterSubproof],
     circuit_registry_root: &str,
 ) -> Result<Value, String> {
+    let mut inputs = disclosure_outer_inputs(disclosures, circuit_registry_root)?;
+    inputs["certificate_registry_root"] = json!(csc_to_dsc.public_inputs[0]);
+    // csc_to_dsc drops PI[0] (the cert registry root).
+    inputs["csc_to_dsc_proof"] = csc_to_dsc.to_json(&csc_to_dsc.public_inputs[1..]);
+    inputs["dsc_to_id_data_proof"] = dsc_to_id.to_json(&dsc_to_id.public_inputs);
+    inputs["integrity_check_proof"] = integrity.to_json(&integrity.public_inputs);
+    // Since 0.23.0 the integrity proof outputs the verification method, which the outer checks
+    if let Some(scheme) = integrity.public_inputs.get(2) {
+        inputs["verification_method"] = json!(scheme);
+    }
+    Ok(inputs)
+}
+
+/// `getAadhaarOuterCircuitInputs`. `aadhaar_id` PI layout:
+/// [0]=certificate_registry_root [1]=comm_out [2]=verification_method
+pub fn get_aadhaar_outer_circuit_inputs(
+    aadhaar_id: &OuterSubproof,
+    disclosures: &[OuterSubproof],
+    circuit_registry_root: &str,
+) -> Result<Value, String> {
+    let [certificate_registry_root, _comm_out, verification_method] = &aadhaar_id.public_inputs[..]
+    else {
+        return Err("aadhaar_id proof must have 3 public inputs".into());
+    };
+    let mut inputs = disclosure_outer_inputs(disclosures, circuit_registry_root)?;
+    inputs["certificate_registry_root"] = json!(certificate_registry_root);
+    inputs["verification_method"] = json!(verification_method);
+    inputs["aadhaar_id_proof"] = aadhaar_id.to_json(&aadhaar_id.public_inputs);
+    Ok(inputs)
+}
+
+/// `getDisclosureOuterInputs`
+fn disclosure_outer_inputs(
+    disclosures: &[OuterSubproof],
+    circuit_registry_root: &str,
+) -> Result<Value, String> {
     let field = |p: &OuterSubproof, index: usize| {
         p.public_inputs.get(index).and_then(|n| {
             BigUint::parse_bytes(n.strip_prefix("0x").unwrap_or(n).as_bytes(), 16)
@@ -208,7 +250,6 @@ pub fn get_outer_circuit_inputs(
         .unwrap_or(source);
     let nullifier_source = with_nullifier.unwrap_or(source);
 
-    let certificate_registry_root = &csc_to_dsc.public_inputs[0];
     let current_date: u64 = field(source, 1)
         .and_then(|b| u64::try_from(b).ok())
         .unwrap_or(0);
@@ -217,8 +258,7 @@ pub fn get_outer_circuit_inputs(
         .map(|p| p.public_inputs[4].clone())
         .collect();
 
-    let mut inputs = json!({
-        "certificate_registry_root": certificate_registry_root,
+    Ok(json!({
         "circuit_registry_root": circuit_registry_root,
         "current_date": current_date,
         "service_scope": source.public_inputs[2],
@@ -227,10 +267,6 @@ pub fn get_outer_circuit_inputs(
         "scoped_nullifier": nullifier_source.public_inputs[6],
         "nullifier_type": nullifier_type_source.public_inputs[5],
         "oprf_pk_hash": nullifier_source.public_inputs[7],
-        // csc_to_dsc drops PI[0] (the cert registry root).
-        "csc_to_dsc_proof": csc_to_dsc.to_json(&csc_to_dsc.public_inputs[1..].to_vec()),
-        "dsc_to_id_data_proof": dsc_to_id.to_json(&dsc_to_id.public_inputs),
-        "integrity_check_proof": integrity.to_json(&integrity.public_inputs),
         "disclosure_proofs": disclosures.iter().map(|p| {
             let reordered = vec![
                 p.public_inputs[0].clone(), // comm_in
@@ -240,12 +276,7 @@ pub fn get_outer_circuit_inputs(
             ];
             p.to_json(&reordered)
         }).collect::<Vec<_>>(),
-    });
-    // Since 0.23.0 the integrity proof outputs the verification method, which the outer checks
-    if let Some(scheme) = integrity.public_inputs.get(2) {
-        inputs["verification_method"] = json!(scheme);
-    }
-    Ok(inputs)
+    }))
 }
 
 /// `getOuterCircuit` naming: N = disclosure_count + 3, range 4..=13.
@@ -255,6 +286,14 @@ pub fn outer_circuit_name(disclosure_count: usize, evm: bool) -> Result<String, 
         return Err(format!("Unsupported number of subproofs: {n} (expected 4-13)"));
     }
     Ok(format!("outer_{}count_{n}", if evm { "evm_" } else { "" }))
+}
+
+/// `getAadhaarOuterCircuitName`: N = disclosure_count + 1, range 2..=11.
+pub fn aadhaar_outer_circuit_name(disclosure_count: usize, evm: bool) -> Result<String, String> {
+    if !(1..=10).contains(&disclosure_count) {
+        return Err(format!("No outer circuit for {disclosure_count} disclosure proofs: expected 1 to 10"));
+    }
+    Ok(format!("outer_{}aadhaar_count_{}", if evm { "evm_" } else { "" }, disclosure_count + 1))
 }
 
 #[cfg(test)]

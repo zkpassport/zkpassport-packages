@@ -12,6 +12,7 @@
 //! and `tests/differential.rs`). The TS code stays as the oracle until a
 //! module is fully ported and proof-tested end-to-end.
 
+pub mod aadhaar;
 pub mod barrett;
 pub mod bytes;
 pub mod commitments;

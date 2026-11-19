@@ -269,16 +269,17 @@ impl Session {
         let out = super::run(&req.to_string())?;
         // Extract proving order + inputs + plan.
         let base = &out["base_circuits"];
-        self.circuit_names = vec![
-            base["dsc"].as_str().unwrap_or("").to_string(),
-            base["id_data"].as_str().unwrap_or("").to_string(),
-            base["integrity"].as_str().unwrap_or("").to_string(),
-        ];
-        self.circuit_inputs = vec![
-            out["dsc"].clone(),
-            out["id_data"].clone(),
-            out["integrity"].clone(),
-        ];
+        // An Aadhaar has one base proof in place of the three chip base proofs
+        let base_keys: &[&str] = if base["aadhaar_id"].is_string() {
+            &["aadhaar_id"]
+        } else {
+            &["dsc", "id_data", "integrity"]
+        };
+        self.circuit_names = base_keys
+            .iter()
+            .map(|key| base[key].as_str().unwrap_or("").to_string())
+            .collect();
+        self.circuit_inputs = base_keys.iter().map(|key| out[key].clone()).collect();
         if let Some(discs) = out["disclosures"].as_array() {
             for d in discs {
                 self.circuit_names.push(d["name"].as_str().unwrap_or("").to_string());
