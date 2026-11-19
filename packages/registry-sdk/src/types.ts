@@ -49,6 +49,12 @@ export interface RegistryClientOptions {
    * Number of retries for fetching data, default is 3
    */
   retryCount?: number
+
+  fallbackRpcUrls?: string[]
+
+  rpcTimeoutMs?: number
+
+  fallbackRpcTimeoutMs?: number
 }
 
 /**
