@@ -10,22 +10,14 @@ export interface RegistryNode {
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>
 }
 
-/**
- * The slice of an aztec.js `Wallet` that registration uses. The metadata methods are optional: a
- * wallet without them is always registered.
- */
+/** The slice of an aztec.js `Wallet` that registration uses. */
 export interface RegistryWallet {
   registerContract(
     instance: ContractInstanceWithAddress,
     artifact: ContractArtifact,
   ): Promise<unknown>
-  getContractMetadata?(address: AztecAddress): Promise<{ instance?: unknown }>
-  getContractClassMetadata?(id: Fr): Promise<{ isArtifactRegistered: boolean }>
-  /**
-   * @deprecated No longer consulted. Knowing the address does not say which class's artifact
-   * the wallet holds, so registration relies on the metadata methods above instead.
-   */
-  hasContract?(address: AztecAddress): Promise<boolean>
+  getContractMetadata(address: AztecAddress): Promise<{ instance?: unknown }>
+  getContractClassMetadata(id: Fr): Promise<{ isArtifactRegistered: boolean }>
 }
 
 /**
@@ -69,13 +61,11 @@ export async function registerZKPassportRegistry(
 
   // The PXE resolves the current class from chain state and looks its artifact up by class id, so
   // knowing the address is not enough once `update_to` has moved the registry to a new class.
-  if (wallet.getContractMetadata && wallet.getContractClassMetadata) {
-    const [{ instance: known }, { isArtifactRegistered }] = await Promise.all([
-      wallet.getContractMetadata(address),
-      wallet.getContractClassMetadata(expected),
-    ])
-    if (known && isArtifactRegistered) return instance
-  }
+  const [{ instance: known }, { isArtifactRegistered }] = await Promise.all([
+    wallet.getContractMetadata(address),
+    wallet.getContractClassMetadata(expected),
+  ])
+  if (known && isArtifactRegistered) return instance
   await wallet.registerContract(instance, artifact)
   return instance
 }
