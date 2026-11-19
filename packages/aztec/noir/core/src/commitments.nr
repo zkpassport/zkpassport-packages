@@ -194,6 +194,7 @@ fn country_weighted_sum(country: Alpha3CountryCode) -> u32 {
 }
 
 mod test {
+    use crate::app_attest::{APPLE_ROOT_KEY_HASH, IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH};
     use crate::commitments::{
         age_commitment, bind_commitment, birthdate_commitment, disclose_commitment,
         expiry_date_commitment, face_match_commitment, issuing_country_exclusion_commitment,
@@ -208,9 +209,6 @@ mod test {
         ISSUING_COUNTRY_INCLUSION_COMMITMENT, NATIONALITY_EXCLUSION_COMMITMENT,
         NATIONALITY_INCLUSION_COMMITMENT,
     };
-
-    global APPLE_ROOT_KEY_HASH: Field =
-        0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b;
 
     #[test]
     fn age_matches_conformance_anchor() {
@@ -236,15 +234,12 @@ mod test {
 
     #[test]
     fn face_match_matches_conformance_anchors() {
-        let ios_app_id_hash = 0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b;
-        let app_clip_app_id_hash =
-            0x1409355f7733451c37093c8aac68611b102c0f270c9961d74ef6cfa6f888d3f0;
         assert(
-            face_match_commitment(APPLE_ROOT_KEY_HASH, 1, ios_app_id_hash, 0, 2, 0)
+            face_match_commitment(APPLE_ROOT_KEY_HASH, 1, IOS_APP_ID_HASH, 0, 2, 0)
                 == FACE_MATCH_IOS_STRICT_COMMITMENT,
         );
         assert(
-            face_match_commitment(APPLE_ROOT_KEY_HASH, 1, app_clip_app_id_hash, 0, 1, 0)
+            face_match_commitment(APPLE_ROOT_KEY_HASH, 1, IOS_APP_CLIP_APP_ID_HASH, 0, 1, 0)
                 == FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT,
         );
     }
