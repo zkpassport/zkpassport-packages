@@ -2,7 +2,7 @@ import { countryCodeAlpha3ToAlpha2, type IDCredentialConfig, type Query } from "
 import type { CredentialPolicyRequirements } from "./index"
 
 /** A check of an SDK query that a credential policy cannot carry, e.g. `issuing_country` `in`. */
-export type UnsupportedQueryCheck = {
+type UnsupportedQueryCheck = {
   field: string
   method: string
 }
