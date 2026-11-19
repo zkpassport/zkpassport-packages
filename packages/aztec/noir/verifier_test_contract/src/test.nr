@@ -13,8 +13,9 @@ use zkpassport::constants::{
 };
 use zkpassport::fixtures::proof::{
     AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT,
-    AGE_FIXTURE_CURRENT_DATE, AGE_FIXTURE_VK_HASH,
+    AGE_FIXTURE_CIRCUIT_VERSION, AGE_FIXTURE_CURRENT_DATE, AGE_FIXTURE_VK_HASH,
 };
+use zkpassport::version::circuit_version;
 use zkpassport_registry_contract::{
     local_network_registry::{
         deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS,
@@ -39,7 +40,7 @@ unconstrained fn setup<let N: u32>(
         deploy_local_network_registry(&mut env, "@zkpassport_registry_contract/ZKPassportRegistry");
     seed_local_network_registry(
         &mut env,
-        VerifierTest::CIRCUIT_VERSION,
+        AGE_FIXTURE_CIRCUIT_VERSION,
         AGE_FIXTURE_CERT_ROOT,
         AGE_FIXTURE_CIRCUIT_ROOT,
         AGE_FIXTURE_VK_HASH,
@@ -65,7 +66,7 @@ unconstrained fn setup<let N: u32>(
 
 // The age fixture is a real outer_count_5 proof of {age(18, 0), bind}. Swapping its age commitment
 // for another gives a proof of {that, bind} with the fixture's roots, date, vk and bound address.
-fn fixture_with(commitment: Field) -> [Field; 583] {
+fn fixture_with(commitment: Field) -> [Field; 585] {
     let mut blob = AGE_FIXTURE_BLOB;
     let params_start = VK_FIELDS + PROOF_FIELDS + PI_PARAMS_START;
     for i in params_start..params_start + 2 {
@@ -106,7 +107,7 @@ unconstrained fn deliver(
     env: &mut TestEnvironment,
     verifier: AztecAddress,
     sender: AztecAddress,
-    blob: Option<[Field; 583]>,
+    blob: Option<[Field; 585]>,
     disclose_payload: Option<[Field; 180]>,
     sanctions_root: Option<Field>,
 ) {
@@ -149,6 +150,65 @@ unconstrained fn verifies_an_age_proof() {
     );
 
     assert(env.call_private(sender, VerifierTest::at(verifier).verify_age(user)) != 0);
+}
+
+// The age fixture's capsule, claiming another circuits release
+fn fixture_claiming(version: Field) -> [Field; 585] {
+    let mut blob = AGE_FIXTURE_BLOB;
+    blob[584] = version;
+    blob
+}
+
+unconstrained fn verify_age_claiming(version: Field) {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(fixture_claiming(version)),
+        Option::none(),
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age(user));
+}
+
+#[test(should_fail_with = "unsupported circuits version")]
+unconstrained fn rejects_a_proof_claiming_an_older_layout() {
+    verify_age_claiming(circuit_version(0, 22, 0));
+}
+
+#[test(should_fail_with = "unsupported circuits version")]
+unconstrained fn rejects_a_proof_claiming_a_newer_layout() {
+    verify_age_claiming(circuit_version(0, 24, 0));
+}
+
+// The registry accepts the fixture's vk under 0.23.0 only, so claiming another 0.23.x release the
+// library parses still fails: the registry authenticates the version
+#[test(should_fail_with = "version not enabled")]
+unconstrained fn rejects_a_proof_claiming_a_release_the_registry_does_not_accept() {
+    verify_age_claiming(circuit_version(0, 23, 1));
+}
+
+#[test(should_fail_with = "circuits version older than the service accepts")]
+unconstrained fn rejects_a_proof_older_than_the_services_minimum() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(AGE_FIXTURE_BLOB),
+        Option::none(),
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age_from_0_23_1(user));
 }
 
 #[test(should_fail_with = "missing zkpassport proof capsule")]
