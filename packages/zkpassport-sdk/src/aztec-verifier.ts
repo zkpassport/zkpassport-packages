@@ -103,14 +103,14 @@ export class AztecVerifier {
 
   /**
    * The Aztec network whose circuits host serves a proof's vk: the network the proof is bound to,
-   * or `network` for a proof bound to none. A proof bound to one network never verifies on
-   * another, so a `network` other than the bound one is an error, as is a proof bound to another
-   * chain, or to no network without a `network`.
+   * or `network` for a proof bound to none. The Aztec library's bind covers a user address and the
+   * contract's network, nothing else, so a proof whose bind holds anything else never verifies, nor
+   * does a proof bound to one network on another: each of these is an error, as is a proof bound
+   * to no network without a `network`.
    */
   public static getChain(proof: ProofResult, network?: AztecNetwork): AztecNetwork {
     const bind = proof.committedInputs?.bind as BindCommittedInputs | undefined
-    const bound = bind?.data.chain
-    if (bound === undefined) {
+    if (!bind) {
       if (!network) {
         throw new Error(
           "This proof is bound to no Aztec network: pass the network it will be verified on",
@@ -118,13 +118,21 @@ export class AztecVerifier {
       }
       return network
     }
-    if (bound !== "aztec" && bound !== "aztec_testnet") {
-      throw new Error(`This proof is bound to ${bound}, so it cannot be verified on Aztec`)
+
+    const { user_address, chain, custom_data } = bind.data
+    if (!user_address || !chain || custom_data) {
+      throw new Error(
+        "This proof's bind cannot be verified on Aztec, which binds a user address and an Aztec " +
+          "network only: request a new proof that binds the user's address and the network",
+      )
     }
-    if (network && network !== bound) {
-      throw new Error(`This proof is bound to ${bound}, so it cannot be verified on ${network}`)
+    if (chain !== "aztec" && chain !== "aztec_testnet") {
+      throw new Error(`This proof is bound to ${chain}, so it cannot be verified on Aztec`)
     }
-    return bound
+    if (network && network !== chain) {
+      throw new Error(`This proof is bound to ${chain}, so it cannot be verified on ${network}`)
+    }
+    return chain
   }
 }
 
