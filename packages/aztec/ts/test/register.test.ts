@@ -47,6 +47,19 @@ test("skips registration when the wallet has the instance and the current class'
   assert.equal(registered.length, 0)
 })
 
+test("a wallet that only reports hasContract is still registered", async () => {
+  const cls = await getContractClassFromArtifact(ZKPassportRegistryArtifact)
+  const { node, registered } = fakes(cls.id)
+  const wallet: RegistryWallet = {
+    registerContract: async (instance) => {
+      registered.push(instance)
+    },
+    hasContract: async () => true,
+  }
+  await registerZKPassportRegistry(wallet, node, ADDRESS)
+  assert.equal(registered.length, 1)
+})
+
 /**
  * A wallet shaped like aztec.js 6.0's BaseWallet: artifacts keyed by class id, instances by address. The PXE resolves
  * an instance's current class from the chain, so a call only works when the artifact for that class is stored.

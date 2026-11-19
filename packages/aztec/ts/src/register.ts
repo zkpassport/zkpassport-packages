@@ -21,6 +21,11 @@ export interface RegistryWallet {
   ): Promise<unknown>
   getContractMetadata?(address: AztecAddress): Promise<{ instance?: unknown }>
   getContractClassMetadata?(id: Fr): Promise<{ isArtifactRegistered: boolean }>
+  /**
+   * @deprecated No longer consulted. Knowing the address does not say which class's artifact
+   * the wallet holds, so registration relies on the metadata methods above instead.
+   */
+  hasContract?(address: AztecAddress): Promise<boolean>
 }
 
 /**
