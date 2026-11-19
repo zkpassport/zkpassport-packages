@@ -17,6 +17,7 @@ const ROOTS = 9n
 
 // Slots in its maps, from @aztec-labs/stdlib's deriveStorageSlotInMap over CONFIG, LATEST and ROOTS
 const LATEST_CERTIFICATE = 0x0cf8ce2bc3b2b2ae03caaab0d8e620df5c780e2b09a43f0b9bd0458847308ca4n
+const LATEST_CIRCUIT = 0x02f2f2c711b07c5b3e451652f95e973cd3fddc316ad99df65e9872ea652c5050n
 const LATEST_SANCTIONS = 0x1ff113a83ed3e36ef00580b705cf6d26496d42ad7de586d222f15796dc43983cn
 const CONFIG_CERTIFICATE = 0x29dc8c7d0cd7c1466ed7fe05e006a2b50049d209be60512c9b2cb7af5a10a022n
 const ROOT_STATUS_CERTIFICATE_A =
@@ -373,6 +374,26 @@ describe("RegistryClient on an Aztec network", () => {
     expect(fetchedUrls[fetchedUrls.length - 1]).toBe(
       `https://sanctions.zkpassport.id/testnet/${ROOT_C}.tree.json.gz`,
     )
+  })
+
+  test("takes the circuit manifest, and so the version, of the registry's latest circuit root", async () => {
+    const manifestFile = new URL("../tests/fixtures/manifest.json", import.meta.url)
+    const manifest = JSON.parse(readFileSync(manifestFile, "utf8")) as {
+      root: string
+      version: string
+    }
+    setValue(LATEST_CIRCUIT, [BigInt(manifest.root), 0n])
+    const manifestUrl = `https://circuits2.zkpassport.id/testnet/by-root/${manifest.root}/manifest.json`
+    const node = globalThis.fetch
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+      new URL(input.toString()).href === manifestUrl
+        ? Promise.resolve(Response.json(manifest))
+        : node(input, init)) as typeof globalThis.fetch
+
+    const chosen = await createRegistryClient("aztec_testnet").getCircuitManifest()
+
+    expect(chosen.root).toBe(manifest.root)
+    expect(chosen.version).toBe(manifest.version)
   })
 
   test("has no root details or historical roots", async () => {
