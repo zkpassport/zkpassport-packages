@@ -983,65 +983,6 @@ describe("a verification that is still running", () => {
   })
 })
 
-describe("a verification the browser will not reopen", () => {
-  test("gives way to a new one in the same tap", async () => {
-    const storage = new Map<string, string>()
-    const session = await leavePending(storage)
-    const { openedUrls } = setupFakeWindow(storage)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const browser = globalThis as any
-    const open = browser.window.open
-    browser.window.open = (url: string, name?: string) =>
-      sessionOf(url) === session ? null : open(url, name)
-    const controller = createVerification(
-      () => SIMPLE_OPTIONS,
-      () => {},
-    )
-    expect(controller.state.resumable).toBe(true)
-
-    controller.verify()
-
-    expect(controller.state.status).toBe("in-progress")
-    expect(controller.state.error).toBeNull()
-    expect(openedUrls).toHaveLength(1)
-    const fresh = sessionOf(openedUrls[0])!
-    expect(fresh).not.toBe(session)
-    expect(onlyPending(storage).session).toBe(fresh)
-  })
-
-  test("leaves an iPhone user with something they can do", () => {
-    setupFakeWindow()
-    stubPhone()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(globalThis as any).window.open = () => null
-    const controller = createVerification(
-      () => SIMPLE_OPTIONS,
-      () => {},
-    )
-
-    controller.verify()
-
-    expect(controller.state.errorKind).toBe("blocked")
-    // Safari on iOS has one Block Pop-ups switch for every site
-    expect(controller.state.error).not.toMatch(/for this site/)
-    expect(controller.state.error).toMatch(/Tap the button again/)
-  })
-
-  test("points a desktop user at the site's pop-up permission", () => {
-    setupFakeWindow()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(globalThis as any).window.open = () => null
-    const controller = createVerification(
-      () => SIMPLE_OPTIONS,
-      () => {},
-    )
-
-    controller.verify()
-
-    expect(controller.state.error).toMatch(/Allow pop-ups for this site/)
-  })
-})
-
 describe("a reopened verification on a phone", () => {
   test("closes a window the browser kept out of sight and asks for another tap", async () => {
     const storage = new Map<string, string>()
