@@ -6,7 +6,7 @@ import {
   encodeErrorResult,
   getAbiItem,
 } from "viem"
-import { NullifierType } from "@zkpassport/utils"
+import { NullifierType, type Query } from "@zkpassport/utils"
 import { PolicyEvaluatorV2Abi } from "../src/abi/policy-evaluator-v2"
 import { sepolia } from "viem/chains"
 import {
@@ -692,6 +692,26 @@ describe("credentialRequirementsFromQuery", () => {
   test("names nationality eq beside in, which one included list cannot require together", () => {
     expect(credentialRequirementsFromQuery({ nationality: { eq: "FRA", in: ["DEU"] } })).toEqual({
       unsupported: [{ field: "nationality", method: "eq" }],
+    })
+  })
+
+  test("carries nationality in and out together, since the evaluator checks both lists", () => {
+    expect(
+      credentialRequirementsFromQuery({ nationality: { in: ["FRA", "DEU"], out: ["DEU"] } }),
+    ).toEqual({
+      requirements: {
+        minAge: 0,
+        includedNationalities: ["DEU", "FRA"],
+        excludedNationalities: ["DEU"],
+      },
+    })
+  })
+
+  test("names a FaceMatch mode the evaluator does not know", () => {
+    const query = JSON.parse('{ "facematch": { "mode": "lenient" } }') as Query
+
+    expect(credentialRequirementsFromQuery(query)).toEqual({
+      unsupported: [{ field: "facematch", method: "mode" }],
     })
   })
 
