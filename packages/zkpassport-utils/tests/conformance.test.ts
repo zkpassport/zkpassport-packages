@@ -10,6 +10,7 @@ import { getIdFromChain } from "../src/utils"
 import { getCountryParameterCommitment } from "../src/circuits/country"
 import { getDateParameterCommitment } from "../src/circuits/date"
 import { getDiscloseParameterCommitment } from "../src/circuits/disclose"
+import { getFacematchParameterCommitment } from "../src/circuits/facematch"
 
 type Vector = { name: string; proofType: string; params: Record<string, any>; commitment: string }
 const byType = Object.fromEntries((vectors.vectors as Vector[]).map((v) => [v.proofType, v]))
@@ -28,6 +29,8 @@ describe("Conformance vectors", () => {
       "birthdate",
       "disclose",
       "expiry_date",
+      "facematch",
+      "facematch",
       "issuing_country_exclusion",
       "issuing_country_inclusion",
       "nationality_exclusion",
@@ -84,6 +87,20 @@ describe("Conformance vectors", () => {
   ] as const)("%s", async (name, proofType, sorted) => {
     const { params, commitment } = byType[name]
     const result = await getCountryParameterCommitment(proofType, params.countries, sorted)
+    expect(hex(result)).toEqual(commitment)
+  })
+
+  // From ZKPassport's iOS app and its App Clip, which commit no integrity key or revocation root
+  test.each(["facematch_ios_strict", "facematch_ios_app_clip_regular"])("%s", async (name) => {
+    const { params, commitment } = byName[name]
+    const result = await getFacematchParameterCommitment(
+      BigInt(params.rootKeyLeaf),
+      BigInt(params.environment),
+      BigInt(params.appIdHash),
+      BigInt(params.facematchMode),
+      BigInt(params.integrityPublicKeyHash),
+      BigInt(params.revocationRoot),
+    )
     expect(hex(result)).toEqual(commitment)
   })
 
