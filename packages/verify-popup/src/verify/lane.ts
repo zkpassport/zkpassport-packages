@@ -23,17 +23,15 @@ export function isStalledAttempt(codeShownAt: number | null, now: number): boole
 /**
  * A `/c` link opens the App Clip on an iPhone without the app. The clip reads chips and sends
  * any other ID to the full app, so a request keeps `/r` only when the clip could never finish
- * it: the policy accepts no chip read, the identifier is one the clip cannot make (salted or
- * none), or the phone is Android, which has no clip.
+ * it: the policy accepts no chip read, the identifier is salted (the clip does not call the OPRF
+ * nodes), or the phone is Android, which has no clip.
  */
 export function laneFor(request: LaneRequest, os: PhoneOs, stalledAttempts = 0): Lane {
   const acceptsChipRead = isVerificationMethodAllowed(
     VerificationMethod.ICAO_CHIP,
     request.allowedVerificationMethods,
   )
-  const clipMakesIdentifier =
-    request.uniqueIdentifierType !== NullifierType.SALTED &&
-    request.uniqueIdentifierType !== NullifierType.NONE
+  const clipMakesIdentifier = request.uniqueIdentifierType !== NullifierType.SALTED
   return os !== "android" &&
     acceptsChipRead &&
     clipMakesIdentifier &&
@@ -56,6 +54,28 @@ export function isAppClipLane(requestUrl: string | null): boolean {
   } catch {
     return false
   }
+}
+
+// Apple's own App Clip page counts a browser as Safari only when its user agent names exactly these
+// products (the second is an iPad that asks for desktop sites). Chrome, Firefox, Edge and other iOS
+// browsers add a product of their own.
+const SAFARI_PRODUCTS = [
+  "Mozilla AppleWebKit Version Mobile Safari",
+  "Mozilla AppleWebKit Version Safari",
+]
+
+/**
+ * Whether a user agent is Safari. On iOS only Safari, and the Safari view that other apps open with
+ * the same user agent, show the App Clip card.
+ */
+export function isSafariUserAgent(userAgent: string): boolean {
+  const products = userAgent
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.split("/")[0])
+    .join(" ")
+  return SAFARI_PRODUCTS.includes(products)
 }
 
 /** Whether a link is the page we are on (query aside): opening it would only open this page again */
