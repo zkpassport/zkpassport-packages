@@ -7,6 +7,7 @@ import { normaliseHash } from "./utils"
 const ROOT_A = `0x${"11".repeat(32)}`
 const ROOT_B = `0x${"22".repeat(32)}`
 const ROOT_C = `0x${"0c".repeat(32)}`
+const ROOT_D = `0x${"0d".repeat(32)}`
 
 // The slots of the registry's storage variables
 const PAUSED = 3n
@@ -32,9 +33,43 @@ const TESTNET_REGISTRY = "0x019de2b2c83e178733dce20707949a17ec3465caba6ccd24b3d8
 
 describe("RegistryClient on an Aztec network", () => {
   let originalFetch: typeof globalThis.fetch
+  /** The storage and timestamp of the node's latest block, whose number is `blocks.length + 1` */
   let storage: Map<string, bigint>
   let blockTimestamp: bigint
+  /** The blocks before the latest one, from block 1 */
+  let blocks: { storage: Map<string, bigint>; timestamp: bigint }[]
+  /** Runs after the node answers each call, to land a block while the registry is read */
+  let onRead: ((method: string) => void) | undefined
   let fetchedUrls: string[]
+
+  /** Lands the latest block, starting a new one with a copy of its storage */
+  function mineBlock(timestamp: bigint) {
+    blocks.push({ storage, timestamp: blockTimestamp })
+    storage = new Map(storage)
+    blockTimestamp = timestamp
+  }
+
+  function blockAt(param: unknown) {
+    const latest = blocks.length + 1
+    const number = param === "latest" ? latest : Number(param)
+    return number === latest ? { storage, timestamp: blockTimestamp } : blocks[number - 1]
+  }
+
+  /** The node's answer to a JSON-RPC call */
+  function answer(method: string, params: string[]): unknown {
+    if (method === "node_getBlockNumber") {
+      return blocks.length + 1
+    }
+    if (method === "node_getBlockData") {
+      const block = blockAt(params[0])
+      return block
+        ? { header: { globalVariables: { timestamp: block.timestamp.toString() } } }
+        : null
+    }
+    expect(method).toBe("node_getPublicStorageAt")
+    expect(params[1]).toBe(TESTNET_REGISTRY)
+    return normaliseHash(blockAt(params[0]).storage.get(params[2]) ?? 0n)
+  }
 
   /** Writes a DelayedPublicMutable whose value changes from `before` to `after` at `changeAt` */
   function schedule(slot: bigint, before: bigint[], after: bigint[], changeAt = 0n) {
@@ -55,6 +90,8 @@ describe("RegistryClient on an Aztec network", () => {
   beforeEach(() => {
     storage = new Map()
     blockTimestamp = REPLACED_AT + 100n
+    blocks = []
+    onRead = undefined
     fetchedUrls = []
 
     setValue(CONFIG_CERTIFICATE, [MODE_VALID_WITHIN_WINDOW, WINDOW])
@@ -78,16 +115,9 @@ describe("RegistryClient on an Aztec network", () => {
       }[]
       return Response.json(
         calls.map(({ id, method, params }) => {
-          if (method === "node_getBlockData") {
-            return {
-              jsonrpc: "2.0",
-              id,
-              result: { header: { globalVariables: { timestamp: blockTimestamp.toString() } } },
-            }
-          }
-          expect(method).toBe("node_getPublicStorageAt")
-          expect(params[1]).toBe(TESTNET_REGISTRY)
-          return { jsonrpc: "2.0", id, result: normaliseHash(storage.get(params[2]) ?? 0n) }
+          const result = answer(method, params)
+          onRead?.(method)
+          return { jsonrpc: "2.0", id, result }
         }),
       )
     }) as typeof globalThis.fetch
@@ -101,7 +131,49 @@ describe("RegistryClient on an Aztec network", () => {
     const client = createRegistryClient("aztec_testnet")
 
     expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
-    expect(fetchedUrls).toEqual(["https://aztec-testnet.drpc.org/"])
+    expect([...new Set(fetchedUrls)]).toEqual(["https://aztec-testnet.drpc.org/"])
+  })
+
+  test("reads every slot at one block when a block lands during the read", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    schedule(
+      LATEST_CERTIFICATE,
+      [BigInt(ROOT_B), BigInt(ROOT_A)],
+      [BigInt(ROOT_C), BigInt(ROOT_B)],
+      9000n,
+    )
+    blockTimestamp = 9500n
+    onRead = (method) => {
+      if (method !== "node_getPublicStorageAt") return
+      onRead = undefined
+      mineBlock(9600n)
+      schedule(
+        LATEST_CERTIFICATE,
+        [BigInt(ROOT_C), BigInt(ROOT_B)],
+        [BigInt(ROOT_D), BigInt(ROOT_C)],
+        10000n,
+      )
+    }
+
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_C)
+  })
+
+  test("evaluates the slots at the timestamp of the block they are read at", async () => {
+    const client = createRegistryClient("aztec_testnet")
+    schedule(
+      LATEST_CERTIFICATE,
+      [BigInt(ROOT_B), BigInt(ROOT_A)],
+      [BigInt(ROOT_C), BigInt(ROOT_B)],
+      9000n,
+    )
+    blockTimestamp = 8999n
+    onRead = (method) => {
+      if (method !== "node_getBlockNumber") return
+      onRead = undefined
+      mineBlock(9000n)
+    }
+
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
   })
 
   test("times out a node that doesn't answer, then reads from the fallback RPC URL", async () => {
