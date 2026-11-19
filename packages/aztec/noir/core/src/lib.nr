@@ -6,3 +6,4 @@ pub mod commitments;
 pub mod verify;
 pub mod version;
 pub mod disclosed_data;
+pub mod face_match;
