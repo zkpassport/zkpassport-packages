@@ -7,7 +7,12 @@ type UnsupportedQueryCheck = {
   method: string
 }
 
-const CARRIED_FIELDS = new Set(["age", "nationality", "sanctions", "facematch"])
+const CARRIED_FIELDS: ReadonlySet<string> = new Set<keyof Query>([
+  "age",
+  "nationality",
+  "sanctions",
+  "facematch",
+])
 
 /**
  * Translate an SDK query into credential policy requirements, or list the checks that no
