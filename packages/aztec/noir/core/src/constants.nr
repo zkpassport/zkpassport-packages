@@ -34,6 +34,7 @@ pub global FACE_MATCH_MODE_STRICT: u8 = 2;
 pub global PROOF_CAPSULE_SLOT: Field = 1;
 pub global DISCLOSE_CAPSULE_SLOT: Field = 2;
 pub global SANCTIONS_CAPSULE_SLOT: Field = 3;
+pub global FACE_MATCH_CAPSULE_SLOT: Field = 4;
 
 // Freshness: device clock may run ahead of the (past) anchor-block timestamp
 pub global CURRENT_DATE_MAX_SKEW: u64 = 3600;

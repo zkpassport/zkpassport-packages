@@ -7,6 +7,7 @@ use crate::constants::APP_ATTEST_ENV_PRODUCTION;
 
 /// What a face match proof commits to: the device attestation it was made under, and the face
 /// match mode.
+#[derive(Eq)]
 pub struct FaceMatch {
     /// The hash of the attestation root key the device's attestation chains to.
     pub root_key_leaf: Field,
@@ -33,6 +34,26 @@ impl FaceMatch {
             self.mode,
             self.revocation_root,
         )
+    }
+}
+
+/// Reads a face match out of the face match capsule's payload (`FACE_MATCH_CAPSULE_SLOT`): its
+/// parameters in the order the proof commits them, one per Field: root_key_leaf, environment,
+/// app_id_hash, integrity_public_key_hash, mode and revocation_root.
+pub fn parse_face_match_payload(payload: [Field; 6]) -> FaceMatch {
+    // Field-to-integer casts truncate silently, so both casts are range-checked
+    let environment = payload[1] as u8;
+    assert(environment as Field == payload[1], "face match environment out of range");
+    let mode = payload[4] as u8;
+    assert(mode as Field == payload[4], "face match mode out of range");
+
+    FaceMatch {
+        root_key_leaf: payload[0],
+        environment,
+        app_id_hash: payload[2],
+        integrity_public_key_hash: payload[3],
+        mode,
+        revocation_root: payload[5],
     }
 }
 
@@ -71,7 +92,7 @@ mod test {
     use crate::constants::{
         APP_ATTEST_ENV_PRODUCTION, FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT,
     };
-    use crate::face_match::{assert_face_match_policy, FaceMatch};
+    use crate::face_match::{assert_face_match_policy, FaceMatch, parse_face_match_payload};
     use crate::fixtures::{
         FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT, FACE_MATCH_IOS_STRICT_COMMITMENT,
     };
@@ -106,6 +127,49 @@ mod test {
         app_clip_regular.app_id_hash = IOS_APP_CLIP_APP_ID_HASH;
         app_clip_regular.mode = FACE_MATCH_MODE_REGULAR;
         assert(app_clip_regular.commitment() == FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT);
+    }
+
+    fn ios_strict_payload() -> [Field; 6] {
+        [
+            APPLE_ROOT_KEY_HASH,
+            APP_ATTEST_ENV_PRODUCTION as Field,
+            IOS_APP_ID_HASH,
+            0,
+            FACE_MATCH_MODE_STRICT as Field,
+            0,
+        ]
+    }
+
+    #[test]
+    fn payload_parses_in_commitment_order() {
+        let face_match = parse_face_match_payload(ios_strict_payload());
+        assert(face_match == ios_strict());
+        assert(face_match.commitment() == FACE_MATCH_IOS_STRICT_COMMITMENT);
+
+        let payload = [1, 0, 2, 3, FACE_MATCH_MODE_REGULAR as Field, 4];
+        let face_match = parse_face_match_payload(payload);
+        assert(face_match.root_key_leaf == 1);
+        assert(face_match.environment == 0);
+        assert(face_match.app_id_hash == 2);
+        assert(face_match.integrity_public_key_hash == 3);
+        assert(face_match.mode == FACE_MATCH_MODE_REGULAR);
+        assert(face_match.revocation_root == 4);
+    }
+
+    // 257 would truncate to production
+    #[test(should_fail_with = "face match environment out of range")]
+    fn environment_out_of_range_rejected() {
+        let mut payload = ios_strict_payload();
+        payload[1] = 257;
+        let _ = parse_face_match_payload(payload);
+    }
+
+    // 258 would truncate to strict
+    #[test(should_fail_with = "face match mode out of range")]
+    fn mode_out_of_range_rejected() {
+        let mut payload = ios_strict_payload();
+        payload[4] = 258;
+        let _ = parse_face_match_payload(payload);
     }
 
     #[test]
