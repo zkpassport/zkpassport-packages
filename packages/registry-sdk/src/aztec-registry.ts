@@ -1,18 +1,20 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
+import { RpcEndpointError, type RpcEndpointSession } from "./errors"
 import { normaliseHash } from "./utils"
 
 /**
  * Reads ZKPassportRegistry, ZKPassport's registry contract on an Aztec network, from an Aztec node's public storage.
  * Each value is read as the registry's private functions read it at the node's latest block: a change scheduled
- * within the registry's delay is ignored until its time comes. Each call reads all its values at one block.
+ * within the registry's delay is ignored until its time comes. Each call reads all its values at one block, from one
+ * node: when a node fails any part of the read, the whole read moves to the next node.
  */
 export class AztecRegistryReader {
   /**
-   * @param post - Posts a JSON-RPC body to an Aztec node and resolves to the node's response
+   * @param onNode - Runs a read against one Aztec node, moving it to the next node on an {@link RpcEndpointError}
    * @param registry - The address of the registry contract
    */
   constructor(
-    private readonly post: (body: string) => Promise<Response>,
+    private readonly onNode: RpcEndpointSession,
     private readonly registry: string,
   ) {}
 
@@ -74,17 +76,21 @@ export class AztecRegistryReader {
     const slots = variables.flatMap(({ slot, length }) =>
       Array.from({ length: 2 * length + 1 }, (_, offset) => slot + BigInt(offset)),
     )
-    const [blockNumber] = await this.request([{ method: "node_getBlockNumber", params: [] }])
-    const [block, ...words] = await this.request([
-      { method: "node_getBlockData", params: [blockNumber] },
-      ...slots.map((slot) => ({
-        method: "node_getPublicStorageAt",
-        params: [blockNumber, this.registry, normaliseHash(slot)],
-      })),
-    ])
+    const { now, values } = await this.onNode(async (post) => {
+      const [blockNumber] = await request(post, [{ method: "node_getBlockNumber", params: [] }])
+      const [block, ...words] = await request(post, [
+        { method: "node_getBlockData", params: [blockNumber] },
+        ...slots.map((slot) => ({
+          method: "node_getPublicStorageAt",
+          params: [blockNumber, this.registry, normaliseHash(slot)],
+        })),
+      ])
+      return {
+        now: BigInt(readBlockTimestamp(block, blockNumber)),
+        values: words.map((word) => BigInt(String(word))),
+      }
+    })
 
-    const now = BigInt(readBlockTimestamp(block, blockNumber))
-    const values = words.map((word) => BigInt(String(word)))
     let offset = 0
     return variables.map(({ length }) => {
       const changeTimestamp = values[offset] & 0xffffffffn
@@ -94,35 +100,45 @@ export class AztecRegistryReader {
       return now < changeTimestamp ? before : after
     })
   }
+}
 
-  private async request(calls: { method: string; params: unknown[] }[]): Promise<unknown[]> {
-    const response = await this.post(
-      JSON.stringify(
-        calls.map(({ method, params }, id) => ({ jsonrpc: "2.0", id, method, params })),
-      ),
+/**
+ * Sends `calls` to an Aztec node in one JSON-RPC batch and returns their results in order. Every failure of the node's
+ * answer is an {@link RpcEndpointError}, so the read moves to another node: an error status, a reply that isn't the
+ * batch, a missing reply, and a reply with an error of any code. An Aztec node answers a batch with HTTP 200 and puts
+ * each call's error in its reply, and each code it uses can come from that node alone: -32601 from its version's
+ * methods, -32701 from its version's parameter schemas, -32702 from its state (such as a block it doesn't have),
+ * -32603 from its own faults, and -32600 from its own batch size limit.
+ */
+async function request(
+  post: (body: string) => Promise<Response>,
+  calls: { method: string; params: unknown[] }[],
+): Promise<unknown[]> {
+  const response = await post(
+    JSON.stringify(calls.map(({ method, params }, id) => ({ jsonrpc: "2.0", id, method, params }))),
+  )
+  if (!response.ok) {
+    throw new RpcEndpointError(
+      `Error reading the Aztec registry: ${response.status} ${response.statusText}`,
     )
-    if (!response.ok) {
-      throw new Error(`Error reading the Aztec registry: ${response.status} ${response.statusText}`)
-    }
-
-    const replies = (await response.json()) as {
-      id: number
-      result?: unknown
-      error?: { message: string }
-    }[]
-    if (!Array.isArray(replies)) {
-      throw new Error("Error reading the Aztec registry: the node did not answer the batch")
-    }
-    return calls.map((_, id) => {
-      const reply = replies.find((r) => r.id === id)
-      if (!reply || reply.error) {
-        throw new Error(
-          `Error from the Aztec node: ${reply?.error?.message ?? `no reply to ${calls[id].method}`}`,
-        )
-      }
-      return reply.result
-    })
   }
+
+  const replies = (await response.json().catch(() => undefined)) as
+    { id: number; result?: unknown; error?: { message: string } }[] | undefined
+  if (!Array.isArray(replies)) {
+    throw new RpcEndpointError(
+      "Error reading the Aztec registry: the node did not answer the batch",
+    )
+  }
+  return calls.map(({ method }, id) => {
+    const reply = replies.find((r) => r.id === id)
+    if (!reply || reply.error) {
+      throw new RpcEndpointError(
+        `Error from the Aztec node: ${reply?.error?.message ?? `no reply to ${method}`}`,
+      )
+    }
+    return reply.result
+  })
 }
 
 /** ZKPassportRegistry's storage slots, from its compiled storage layout */
@@ -154,7 +170,9 @@ function readBlockTimestamp(block: unknown, blockNumber: unknown): string {
   const timestamp = (block as { header?: { globalVariables?: { timestamp?: unknown } } } | null)
     ?.header?.globalVariables?.timestamp
   if (timestamp === undefined) {
-    throw new Error(`Error reading the Aztec registry: the node returned no block ${blockNumber}`)
+    throw new RpcEndpointError(
+      `Error reading the Aztec registry: the node returned no block ${blockNumber}`,
+    )
   }
   return String(timestamp)
 }

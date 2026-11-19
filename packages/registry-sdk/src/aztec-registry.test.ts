@@ -58,20 +58,25 @@ describe("RegistryClient on an Aztec network", () => {
     return number === latest ? { storage, timestamp: blockTimestamp } : blocks[number - 1]
   }
 
-  /** The node's answer to a JSON-RPC call */
-  function answer(method: string, params: string[]): unknown {
+  /** The node's reply to a JSON-RPC call, an error for storage at a block it doesn't have */
+  function answer(
+    method: string,
+    params: string[],
+  ): { result: unknown } | { error: { code: number; message: string } } {
     if (method === "node_getBlockNumber") {
-      return blocks.length + 1
+      return { result: blocks.length + 1 }
     }
+    const block = blockAt(params[0])
     if (method === "node_getBlockData") {
-      const block = blockAt(params[0])
-      return block
-        ? { header: { globalVariables: { timestamp: block.timestamp.toString() } } }
-        : null
+      const header = block && { globalVariables: { timestamp: block.timestamp.toString() } }
+      return { result: block ? { header } : null }
     }
     expect(method).toBe("node_getPublicStorageAt")
     expect(params[1]).toBe(TESTNET_REGISTRY)
-    return normaliseHash(blockAt(params[0]).storage.get(params[2]) ?? 0n)
+    if (!block) {
+      return { error: { code: -32702, message: `Block ${params[0]} not found` } }
+    }
+    return { result: normaliseHash(block.storage.get(params[2]) ?? 0n) }
   }
 
   /** Writes a DelayedPublicMutable whose value changes from `before` to `after` at `changeAt` */
@@ -118,9 +123,9 @@ describe("RegistryClient on an Aztec network", () => {
       }[]
       return Response.json(
         calls.map(({ id, method, params }) => {
-          const result = answer(method, params)
+          const reply = answer(method, params)
           onRead?.(method)
-          return { jsonrpc: "2.0", id, result }
+          return { jsonrpc: "2.0", id, ...reply }
         }),
       )
     }) as typeof globalThis.fetch
@@ -201,6 +206,42 @@ describe("RegistryClient on an Aztec network", () => {
     })
     expect(await fallingBack.getLatestCertificateRoot()).toBe(ROOT_B)
     expect(fetchedUrls).toContain(fallback)
+  })
+
+  test("reads from the fallback RPC URL, and keeps to it, when a node's batch answers with an error", async () => {
+    const primary = "https://aztec-testnet.drpc.org/"
+    const fallback = "https://aztec-fallback.example.com/"
+    const node = globalThis.fetch
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (new URL(input.toString()).href !== primary) {
+        return node(input, init)
+      }
+      fetchedUrls.push(primary)
+      const calls = JSON.parse(init?.body as string) as { id: number; method: string }[]
+      // As an Aztec 6.0 node answers a batch: HTTP 200, with an error in the entry that failed
+      return Response.json(
+        calls.map(({ id, method }) =>
+          method === "node_getPublicStorageAt"
+            ? { jsonrpc: "2.0", id, error: { code: -32702, message: "World state unavailable" } }
+            : {
+                jsonrpc: "2.0",
+                id,
+                result:
+                  method === "node_getBlockNumber"
+                    ? 5
+                    : { header: { globalVariables: { timestamp: "9000" } } },
+              },
+        ),
+      )
+    }) as typeof globalThis.fetch
+    const client = createRegistryClient("aztec_testnet", { fallbackRpcUrls: [fallback] })
+
+    // The fallback's latest block is 1, so it fails any read at the primary's block 5
+    expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+
+    const readsBefore = fetchedUrls.length
+    expect(await client.isCertificateRootValid(ROOT_B, Number(REPLACED_AT))).toBe(true)
+    expect([...new Set(fetchedUrls.slice(readsBefore))]).toEqual([fallback])
   })
 
   test("reads a scheduled latest root only once the node's latest block reaches its time", async () => {
