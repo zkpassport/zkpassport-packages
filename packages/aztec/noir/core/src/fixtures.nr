@@ -37,6 +37,16 @@ pub(crate) global ISSUING_COUNTRY_EXCLUSION_COMMITMENT: Field =
 pub global DISCLOSE_COMMITMENT: Field =
     0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
 
+/// face_match_commitment(Apple's App Attest root key, production, the iOS app's app id hash, 0,
+/// strict, 0): a strict face match from ZKPassport's iOS app.
+pub(crate) global FACE_MATCH_IOS_STRICT_COMMITMENT: Field =
+    0x12a2e5b32f9791f950cd54edf2d743b21280e357a0a9416d88067c7f2556dbc2;
+
+/// face_match_commitment(Apple's App Attest root key, production, the iOS App Clip's app id hash,
+/// 0, regular, 0): a regular face match from ZKPassport's iOS App Clip.
+pub(crate) global FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT: Field =
+    0x0cb1797e10e3e6b5b3f20481f7bf5b215be2568dbc9cb2b3cf8dacb6a3c88d47;
+
 /// An account address to bind a proof to. @zkpassport/utils' bind conformance vector uses the
 /// same one.
 pub(crate) global BIND_ACCOUNT: Field =
