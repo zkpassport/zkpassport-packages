@@ -6,6 +6,7 @@ import type { OutgoingEvent } from "../app"
 import { FlowCard } from "../shared/flow-card"
 import { Done } from "../shared/done"
 import { useConfirmClose } from "../shared/use-confirm-close"
+import { useContinueToAppClip } from "../shared/use-open-app"
 import { ErrorScreen } from "../shared/error"
 import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
@@ -209,6 +210,7 @@ export function VerifyRequest({
   useConfirmClose(!verified && !failure)
 
   const link = useRequestUrl(req.url, request, stalledAttempts)
+  const appClip = useContinueToAppClip(link.url, () => setConsented(true))
 
   const screen = (() => {
     if (verified) return "done"
@@ -242,14 +244,20 @@ export function VerifyRequest({
       ) : null}
       {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
       {screen === "scan" ? (
-        <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} onNewCode={startAgain} />
+        <Scan
+          state={req.state}
+          url={link.url}
+          qrSvg={link.qrSvg}
+          onNewCode={startAgain}
+          appClipOpened={appClip.appClipOpened}
+        />
       ) : null}
       {screen === "intro" ? (
         <Intro
           appName={appName}
           query={req.query ?? (hasQuery ? query : null)}
           purpose={request.purpose}
-          onContinue={() => setConsented(true)}
+          onContinue={appClip.onContinue}
         />
       ) : null}
     </FlowCard>

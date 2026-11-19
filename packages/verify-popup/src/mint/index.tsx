@@ -9,6 +9,7 @@ import type { OutgoingEvent } from "../app"
 import { buildWalletConfig } from "./wagmi"
 import { FlowCard, type ProgressSegment } from "../shared/flow-card"
 import { useConfirmClose } from "../shared/use-confirm-close"
+import { useContinueToAppClip } from "../shared/use-open-app"
 import { Connect } from "./wallet"
 import { Done, type DoneOutcome } from "../shared/done"
 import { ErrorScreen } from "../shared/error"
@@ -247,6 +248,7 @@ function VerifyStep({
   }, [req.url])
 
   const link = useRequestUrl(req.url, options, stalledAttempts)
+  const appClip = useContinueToAppClip(link.url, () => setConsented(true))
 
   const tryAgain = () => {
     setFailure(null)
@@ -262,9 +264,17 @@ function VerifyStep({
         appName={appName}
         query={req.query}
         purpose={purpose}
-        onContinue={() => setConsented(true)}
+        onContinue={appClip.onContinue}
       />
     )
   }
-  return <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} onNewCode={tryAgain} />
+  return (
+    <Scan
+      state={req.state}
+      url={link.url}
+      qrSvg={link.qrSvg}
+      onNewCode={tryAgain}
+      appClipOpened={appClip.appClipOpened}
+    />
+  )
 }

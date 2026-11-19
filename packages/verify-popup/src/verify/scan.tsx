@@ -13,11 +13,13 @@ export function Scan({
   url,
   qrSvg,
   onNewCode,
+  appClipOpened,
 }: {
   state: RequestState
   url: string | null
   qrSvg: string | null
   onNewCode?: () => void
+  appClipOpened?: boolean
 }) {
   const [qrRevealed, setQrRevealed] = useState(false)
   const [mobile] = useState(isMobileLike)
@@ -27,6 +29,7 @@ export function Scan({
       <ContinueInApp
         key={url ?? "preparing"}
         requestUrl={url}
+        appClipOpened={appClipOpened}
         onRevealQr={() => setQrRevealed(true)}
         onStartAgain={onNewCode}
       />
@@ -70,17 +73,22 @@ export function Scan({
 
 function ContinueInApp({
   requestUrl,
+  appClipOpened,
   onRevealQr,
   onStartAgain,
 }: {
   requestUrl: string | null
+  appClipOpened?: boolean
   onRevealQr: () => void
   onStartAgain?: () => void
 }) {
   const [inAppBrowser] = useState(isInAppBrowser)
   // An in-app browser swallows the custom scheme even when the app is installed, so a probe there
   // would always report a miss
-  const { openState, openApp } = useOpenApp(requestUrl, { probe: !inAppBrowser })
+  const { openState, openApp } = useOpenApp(requestUrl, {
+    probe: !inAppBrowser,
+    opened: appClipOpened,
+  })
   const opening = openState === "opening"
   const handedOff = openState === "opened"
 
