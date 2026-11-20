@@ -76,7 +76,7 @@ export function assembleSanctionsCapsule(rootHash: string): Fr[] {
  * Assemble the capsule for `FACE_MATCH_CAPSULE_SLOT` from a face match's committed inputs, the
  * SDK's `FacematchCommittedInputs`: the root key leaf, the environment, the app id hash, the
  * integrity public key hash, the mode and the revocation root, in the order the proof commits
- * them. The library only accepts an iOS face match for now.
+ * them.
  */
 export function assembleFacematchCapsule(facematch: FacematchCommittedInputs): Fr[] {
   return getAztecFacematchCapsule(facematch).map(Fr.fromHexString)
