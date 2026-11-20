@@ -5,6 +5,7 @@
 import {
   AZTEC_DISCLOSE_CAPSULE_SLOT,
   AZTEC_DISCLOSE_LENGTH,
+  AZTEC_FACE_MATCH_CAPSULE_SLOT,
   AZTEC_OUTER_PROOF_FIELDS,
   AZTEC_OUTER_VK_FIELDS,
   AZTEC_PROOF_CAPSULE_SLOT,
@@ -24,6 +25,8 @@ export const PROOF_CAPSULE_SLOT = BigInt(AZTEC_PROOF_CAPSULE_SLOT)
 export const DISCLOSE_CAPSULE_SLOT = BigInt(AZTEC_DISCLOSE_CAPSULE_SLOT)
 /** Capsule slot for the sanctions exclusion payload. */
 export const SANCTIONS_CAPSULE_SLOT = BigInt(AZTEC_SANCTIONS_CAPSULE_SLOT)
+/** Capsule slot for a face match's parameters. */
+export const FACE_MATCH_CAPSULE_SLOT = BigInt(AZTEC_FACE_MATCH_CAPSULE_SLOT)
 
 /** The canonical 90-byte disclose payload length (TD1 exactly; TD3 zero-padded). */
 export const MRZ_LENGTH = AZTEC_DISCLOSE_LENGTH

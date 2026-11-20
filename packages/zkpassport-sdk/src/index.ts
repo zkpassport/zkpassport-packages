@@ -1213,8 +1213,9 @@ export class ZKPassport {
    * @param proof The `outer_count_N` proof of a circuits 0.23.x request made in `compressed` mode.
    * @param network The Aztec network the proof will be verified on, `aztec` or `aztec_testnet`.
    * Required for a proof bound to no Aztec network; for a bound one it must be the bound network.
-   * @returns The proof capsule, then a disclose or sanctions capsule for each of those the proof
-   * carries.
+   * @returns The proof capsule, then a disclose, sanctions or face match capsule for each of those
+   * the proof carries. A proof with an Android face match is rejected, as the Aztec library only
+   * verifies iOS ones for now.
    */
   public async getAztecVerifierParameters({
     proof,

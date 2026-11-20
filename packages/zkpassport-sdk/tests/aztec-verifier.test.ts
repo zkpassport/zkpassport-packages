@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { createRegistryClient } from "@zkpassport/registry"
-import type { ProofResult, SupportedChain } from "@zkpassport/utils"
+import type { FacematchCommittedInputs, ProofResult, SupportedChain } from "@zkpassport/utils"
 import { calculateCircuitRoot } from "@zkpassport/utils/registry"
+import {
+  APPLE_APP_ATTEST_ROOT_KEY_HASH,
+  GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
+  GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+  ZKPASSPORT_ANDROID_APP_ID_HASH,
+  ZKPASSPORT_IOS_APP_ID_HASH,
+} from "../src/constants"
 import { ZKPassport } from "../src/index"
 
 // A real circuits 0.23.0 outer_count_5 proof of {age, bind}, the one the Aztec library's TXE tests
@@ -119,24 +126,55 @@ describe("getAztecVerifierParameters", () => {
     ])
   })
 
-  test("rejects a proof with a face match, which the Aztec library doesn't verify yet", async () => {
+  // A strict face match from ZKPassport's iOS app
+  const iosFacematch: FacematchCommittedInputs = {
+    rootKeyLeaf: APPLE_APP_ATTEST_ROOT_KEY_HASH,
+    environment: "production",
+    appIdHash: ZKPASSPORT_IOS_APP_ID_HASH,
+    integrityPubkeyHash: "0x00",
+    mode: "strict",
+  }
+
+  test("adds a capsule for a face match, its parameters in the order the proof commits them", async () => {
+    const { capsules } = await new ZKPassport("example.com").getAztecVerifierParameters({
+      proof: { ...proof, committedInputs: { facematch: iosFacematch } },
+      network: "aztec",
+    })
+
+    expect(capsules.slice(1)).toEqual([
+      {
+        slot: 4,
+        fields: [
+          hexField(APPLE_APP_ATTEST_ROOT_KEY_HASH),
+          hexField(1),
+          hexField(ZKPASSPORT_IOS_APP_ID_HASH),
+          hexField(0),
+          hexField(2),
+          hexField(0),
+        ],
+      },
+    ])
+  })
+
+  test.each([
+    [
+      "Google's RSA root key",
+      {
+        rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+        appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
+        integrityPubkeyHash: "0x1234",
+        revocationRoot: "0x5678",
+      },
+    ],
+    ["Google's ECDSA root key", { rootKeyLeaf: GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH }],
+    ["the Android app's id", { appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH }],
+  ])("rejects an Android face match, under %s, before fetching anything", async (_, android) => {
     await expect(
       new ZKPassport("example.com").getAztecVerifierParameters({
-        proof: {
-          ...proof,
-          committedInputs: {
-            facematch: {
-              rootKeyLeaf: "0x01",
-              environment: "production",
-              appIdHash: "0x02",
-              integrityPubkeyHash: "0x00",
-              mode: "strict",
-            },
-          },
-        },
+        proof: { ...proof, committedInputs: { facematch: { ...iosFacematch, ...android } } },
         network: "aztec",
       }),
-    ).rejects.toThrow(/face match/)
+    ).rejects.toThrow(/Android face match/)
     expect(fetchedUrls).toEqual([])
   })
 

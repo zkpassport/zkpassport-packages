@@ -7,11 +7,15 @@ on:
     branches: [main]
     paths:
       - "packages/aztec/**"
+      # core/src/app_attest.nr mirrors its AppAttest constants
+      - "packages/registry-contracts/src/lib/Constants.sol"
       - ".github/workflows/aztec.yml"
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
     paths:
       - "packages/aztec/**"
+      # core/src/app_attest.nr mirrors its AppAttest constants
+      - "packages/registry-contracts/src/lib/Constants.sol"
       - ".github/workflows/aztec.yml"
 
 jobs:
@@ -74,7 +78,8 @@ jobs:
 
       # The anchors in core/src/fixtures.nr must mirror the conformance
       # vectors published by @zkpassport/utils (the nargo tests above hold the Noir
-      # side to the anchors; the SDK's own suite holds it to the vectors).
+      # side to the anchors; the SDK's own suite holds it to the vectors), and the
+      # constants in core/src/app_attest.nr the L1 verifier's AppAttest library.
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:

@@ -1,5 +1,6 @@
 import {
   AZTEC_DISCLOSE_CAPSULE_SLOT,
+  AZTEC_FACE_MATCH_CAPSULE_SLOT,
   AZTEC_PROOF_CAPSULE_SLOT,
   AZTEC_SANCTIONS_CAPSULE_SLOT,
   AztecCapsule,
@@ -7,7 +8,9 @@ import {
   Binary,
   BindCommittedInputs,
   DiscloseCommittedInputs,
+  FacematchCommittedInputs,
   getAztecDiscloseCapsule,
+  getAztecFacematchCapsule,
   getAztecProofCapsule,
   getAztecSanctionsCapsule,
   getNumberOfPublicInputs,
@@ -18,6 +21,11 @@ import {
   ultraVkToFields,
 } from "@zkpassport/utils"
 import type { RegistryClient } from "@zkpassport/registry"
+import {
+  GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
+  GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+  ZKPASSPORT_ANDROID_APP_ID_HASH,
+} from "./constants"
 
 /** The Aztec networks ZKPassport's Aztec library has a registry on */
 export type AztecNetwork = "aztec" | "aztec_testnet"
@@ -25,8 +33,9 @@ export type AztecNetwork = "aztec" | "aztec_testnet"
 export class AztecVerifier {
   /**
    * The capsules an Aztec contract's `verify_zkpassport_proof` reads for an `outer_count_N` proof
-   * of circuits 0.23.x: the proof capsule, then the disclose and sanctions capsules of the
-   * committed inputs the proof carries. The outer circuit's vk comes from `registryClient`,
+   * of circuits 0.23.x: the proof capsule, then the disclose, sanctions and face match capsules of
+   * the committed inputs the proof carries. A proof with an Android face match is rejected, as the
+   * Aztec library only verifies iOS ones for now. The outer circuit's vk comes from `registryClient`,
    * checked against the circuit manifest of the proof's version and against the proof's vk hash.
    */
   public static async getParameters({
@@ -52,8 +61,12 @@ export class AztecVerifier {
       )
     }
     const committedInputs = proof.committedInputs ?? {}
-    if (committedInputs.facematch) {
-      throw new Error("Proofs with a face match cannot be verified on Aztec yet")
+    const facematch = committedInputs.facematch as FacematchCommittedInputs | undefined
+    if (facematch && isAndroidFacematch(facematch)) {
+      throw new Error(
+        "Proofs with an Android face match cannot be verified on Aztec yet: the Aztec library " +
+          "only verifies face matches from ZKPassport's iOS app",
+      )
     }
 
     const manifest = await registryClient.getCircuitManifest(undefined, { version: proof.version })
@@ -97,6 +110,12 @@ export class AztecVerifier {
         fields: getAztecSanctionsCapsule(sanctions.rootHash),
       })
     }
+    if (facematch) {
+      capsules.push({
+        slot: AZTEC_FACE_MATCH_CAPSULE_SLOT,
+        fields: getAztecFacematchCapsule(facematch),
+      })
+    }
 
     return { capsules }
   }
@@ -134,6 +153,18 @@ export class AztecVerifier {
     }
     return chain
   }
+}
+
+// Made under one of Google's attestation root keys, or by the Android app
+function isAndroidFacematch({ rootKeyLeaf, appIdHash }: FacematchCommittedInputs): boolean {
+  const googleRootKeys = [
+    GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
+    GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
+  ]
+  return (
+    googleRootKeys.some((key) => BigInt(key) === BigInt(rootKeyLeaf)) ||
+    BigInt(appIdHash) === BigInt(ZKPASSPORT_ANDROID_APP_ID_HASH)
+  )
 }
 
 function hexPrefixed(hex: string): string {
