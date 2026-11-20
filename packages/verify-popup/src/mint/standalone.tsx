@@ -27,25 +27,21 @@ type PolicyDetails =
  */
 export function StandaloneMint() {
   const link = useMemo(() => parseMintLink(window.location.search), [])
-  if ("error" in link) {
-    return (
-      <FlowCard name={FALLBACK_NAME} screenKey="error">
-        <ErrorScreen message={link.error} closable={false} />
-      </FlowCard>
-    )
-  }
+  if ("error" in link) return <ErrorCard message={link.error} />
   return <MintFromLink link={link} />
+}
+
+function ErrorCard({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <FlowCard name={FALLBACK_NAME} screenKey="error">
+      <ErrorScreen message={message} onRetry={onRetry} closable={false} />
+    </FlowCard>
+  )
 }
 
 function MintFromLink({ link }: { link: MintLink }) {
   const resolved = useMemo(() => resolveWalletChain(link.chain), [link.chain])
-  if ("error" in resolved) {
-    return (
-      <FlowCard name={FALLBACK_NAME} screenKey="error">
-        <ErrorScreen message={resolved.error} closable={false} />
-      </FlowCard>
-    )
-  }
+  if ("error" in resolved) return <ErrorCard message={resolved.error} />
   return (
     <WalletProviders config={resolved.config}>
       <MintBody link={link} chain={resolved.chain} />
@@ -60,19 +56,19 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
   // A renewal is for the wallet that asked for it; another wallet starts from the beginning
   const [renewFor, setRenewFor] = useState<`0x${string}` | null>(null)
 
-  if (details.status !== "ready") {
+  if (details.status === "loading") {
     return (
-      <FlowCard name={FALLBACK_NAME} screenKey={details.status}>
-        {details.status === "loading" ? (
-          <Resolving />
-        ) : (
-          <ErrorScreen
-            message={details.message}
-            onRetry={details.retryable ? () => setReads((count) => count + 1) : undefined}
-            closable={false}
-          />
-        )}
+      <FlowCard name={FALLBACK_NAME} screenKey="loading">
+        <Resolving />
       </FlowCard>
+    )
+  }
+  if (details.status === "unavailable") {
+    return (
+      <ErrorCard
+        message={details.message}
+        onRetry={details.retryable ? () => setReads((count) => count + 1) : undefined}
+      />
     )
   }
 
