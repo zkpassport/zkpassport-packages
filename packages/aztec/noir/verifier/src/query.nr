@@ -194,14 +194,15 @@ impl<let K: u32, let D: u32> Query<K, D> {
     /// photo, as a request's `facematch("regular")` asks. The client stashes the face match's
     /// parameters in the face match capsule.
     ///
-    /// Only a face match the L1 verifier accepts from ZKPassport's iOS app or App Clip verifies:
-    /// one made in production. An Android face match fails, as it is not supported yet.
+    /// Only a face match the L1 verifier accepts verifies: one made in production by ZKPassport's
+    /// iOS app, App Clip or Android app. An Android face match's attestation must also have been
+    /// checked against a revocation root the registry accepts.
     pub fn face_match(self) -> Query<K + 1, D> {
         self.with_face_match(FACE_MATCH_MODE_REGULAR)
     }
 
     /// Ask for a strict face match, as a request's `facematch("strict")` asks. The ZKPassport SDK
-    /// only makes a salted unique identifier with one. Only iOS face matches verify, as for
+    /// only makes a salted unique identifier with one. The same face matches verify as for
     /// `face_match`.
     pub fn strict_face_match(self) -> Query<K + 1, D> {
         self.with_face_match(FACE_MATCH_MODE_STRICT)

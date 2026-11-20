@@ -428,6 +428,15 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
             context,
         );
     }
+    if face_match.is_some() {
+        let face_match = face_match.unwrap();
+        // As on L1, at the time of verification rather than the proof's date
+        if face_match.is_android() {
+            registry
+                .assert_attestation_revocation_root_accepted(face_match.revocation_root, anchor_ts)
+                .view(context);
+        }
+    }
 
     VerifiedProof {
         unique_identifier: parsed.scoped_nullifier,
