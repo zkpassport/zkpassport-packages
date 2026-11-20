@@ -1,20 +1,14 @@
-/**
- * The pure parts of seed-registry.ts: which vks a run seeds, whether the release's manifest and
- * circuit root agree, and what each selected vk and the release's version need.
- */
+/** Planning logic for seed-registry.ts that does not touch the network. */
 
 /** The parts of a ZKPassport circuit manifest the seed script reads. */
 export type CircuitManifest = {
-  version?: string
-  root?: string
+  version: string
+  root: string
   circuits: Record<string, { hash: string }>
 }
 
-/**
- * The standard outer circuits, one per subproof count (outer_count_4 .. outer_count_13). The
- * EVM (`outer_evm_*`) and Aadhaar (`outer_aadhaar_*`) families are never seeded by default.
- */
-export const STANDARD_OUTER_CIRCUIT = /^outer_count_\d+$/
+/** The EVM (`outer_evm_*`) and Aadhaar (`outer_aadhaar_*`) families are never seeded by default. */
+const STANDARD_OUTER_CIRCUIT = /^outer_count_\d+$/
 
 /** A vk to seed. `explicit` is true when the operator named it in VK_CIRCUITS or VK_HASH. */
 export type SelectedVk = { name: string; hash: string; explicit: boolean }
@@ -38,7 +32,7 @@ export function selectVks(
       const entry = manifest.circuits[name]
       if (!entry?.hash) {
         throw new Error(
-          `"${name}" not in the ZKPassport circuit manifest (v${manifest.version ?? "?"}) — available: ${Object.keys(manifest.circuits).join(", ")}`,
+          `"${name}" not in the ZKPassport circuit manifest (v${manifest.version}) — available: ${Object.keys(manifest.circuits).join(", ")}`,
         )
       }
       return { name, hash: entry.hash, explicit: true }
@@ -49,9 +43,7 @@ export function selectVks(
     .filter((name) => STANDARD_OUTER_CIRCUIT.test(name))
     .sort((a, b) => subproofCount(a) - subproofCount(b))
   if (standard.length === 0) {
-    throw new Error(
-      `no outer_count_N circuit in the circuit manifest (v${manifest.version ?? "?"})`,
-    )
+    throw new Error(`no outer_count_N circuit in the circuit manifest (v${manifest.version})`)
   }
   return standard.map((name) => ({ name, hash: manifest.circuits[name].hash, explicit: false }))
 }
@@ -63,32 +55,19 @@ function subproofCount(name: string): number {
 /** A circuit root as the L1 RootRegistry reports it. */
 export type CircuitRootDetails = { root: string; revoked: boolean }
 
-/** A manifest that passed {@link assertManifestMatchesRoot}. */
-export type ReleaseManifest = CircuitManifest & { version: string; root: string }
-
 /**
- * Throw unless `manifest` is the requested release and its vk set is the one `circuitRoot`
- * commits to, so the vks seeded under the manifest's version match the circuit root seeded
- * alongside them.
+ * Throw unless `manifest` is the requested release and the RootRegistry has not revoked its root.
  *
  * @param requestedVersion - CIRCUIT_MANIFEST_VERSION, or undefined for the latest release
  */
-export function assertManifestMatchesRoot(
+export function assertSeedableRelease(
   manifest: CircuitManifest,
   circuitRoot: CircuitRootDetails,
   requestedVersion?: string,
-): asserts manifest is ReleaseManifest {
-  if (!manifest.version) throw new Error("the circuit manifest has no version")
+): void {
   if (requestedVersion !== undefined && manifest.version !== requestedVersion) {
     throw new Error(
       `fetched circuit manifest is v${manifest.version}, not the requested v${requestedVersion}`,
-    )
-  }
-  if (!manifest.root) throw new Error(`circuit manifest v${manifest.version} has no root`)
-  if (BigInt(manifest.root) !== BigInt(circuitRoot.root)) {
-    throw new Error(
-      `circuit manifest v${manifest.version} commits to root ${manifest.root}, but the RootRegistry ` +
-        `returned circuit root ${circuitRoot.root}`,
     )
   }
   if (circuitRoot.revoked) {
@@ -108,12 +87,9 @@ export type RootDecision =
   | { status: "rollback" }
 
 /**
- * Decide whether to schedule `root` as the registry's latest root.
- *
- * A root that is not the RootRegistry's latest, and that the registry neither holds nor has
- * scheduled, is held back as a rollback unless `allowRollback`. Scheduling it would close the
- * validity interval of the registry's newer root, and the contract's duplicate-root guard would
- * then refuse to make that newer root the latest again.
+ * Decide whether to schedule `root` as the registry's latest root. A root that is not the
+ * RootRegistry's latest is held back as a rollback, unless `allowRollback` or the registry holds
+ * no circuit root yet (see Rollbacks in seed-registry.ts).
  */
 export function decideRoot(
   root: bigint,
@@ -125,7 +101,10 @@ export function decideRoot(
   if (root === state.scheduled && state.maturesAt > nowSecs) {
     return { status: "scheduled", maturesAt: state.maturesAt }
   }
-  if (!opts.isRootRegistryLatest && !opts.allowRollback) return { status: "rollback" }
+  const registryEmpty = state.current === 0n && state.scheduled === 0n
+  if (!opts.isRootRegistryLatest && !opts.allowRollback && !registryEmpty) {
+    return { status: "rollback" }
+  }
   return { status: "update" }
 }
 
@@ -150,25 +129,24 @@ export type VkDecision =
   | { status: "revoked" }
 
 /**
- * Decide what a selected vk needs. A scheduled change is never overridden. A vk that is not
- * accepted is added when its slot was never written; once written it reads `false` only after a
- * removal, so it is restored only when named explicitly and is otherwise left revoked.
+ * Decide what a selected vk needs. A written slot reads `false` only after a removal, so a
+ * removed vk is re-added only when the operator named it.
  */
-export function decideVk(state: BoolDpmState, explicit: boolean, nowSecs: bigint): VkDecision {
+export function decideVk(vk: SelectedVk, state: BoolDpmState, nowSecs: bigint): VkDecision {
   if (state.maturesAt > nowSecs) {
     return { status: "scheduled", to: state.scheduled, maturesAt: state.maturesAt }
   }
   if (state.current) return { status: "accepted" }
   if (state.maturesAt === 0n) return { status: "add" }
-  return explicit ? { status: "restore" } : { status: "revoked" }
+  return vk.explicit ? { status: "restore" } : { status: "revoked" }
 }
 
 export type VersionDecision =
   { status: "enable" } | { status: "enabled" } | PendingChange | { status: "disabled" }
 
 /**
- * Decide what the release's version needs. It is enabled only when it was never written: a
- * version that reads `false` after a write was disabled, and this script never re-enables one.
+ * Decide what the release's version needs. A written slot reads `false` only after the version
+ * was disabled, and this script never re-enables one.
  */
 export function decideVersion(state: BoolDpmState, nowSecs: bigint): VersionDecision {
   if (state.maturesAt > nowSecs) {
@@ -209,10 +187,7 @@ export function formatVkDiff(
   })
 }
 
-/**
- * Whether this run may send transactions: only when SEND_TXS is exactly "1", and never while
- * DRY_RUN is set. Every other run only prints the plan.
- */
+/** Whether this run may send transactions (see SEND_TXS and DRY_RUN in seed-registry.ts). */
 export function sendRequested(env: { SEND_TXS?: string; DRY_RUN?: string }): boolean {
   return !env.DRY_RUN && env.SEND_TXS === "1"
 }

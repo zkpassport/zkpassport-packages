@@ -16,16 +16,12 @@
  *   testnet seed  -> Sepolia roots  (dev-mode phone flows verify)
  *   mainnet seed  -> mainnet roots  (real-passport flows verify)
  *
- * The release is the RootRegistry's latest circuit root and its manifest, or the manifest of
- * CIRCUIT_MANIFEST_VERSION from the circuits CDN's by-version path. Before touching the Aztec
- * registry the script checks that the manifest commits to a circuit root the RootRegistry holds
- * and has not revoked, so the vks it accepts are exactly the set that root commits to.
- *
  * Rollbacks: an older release's circuit root is not scheduled as the registry's latest unless
- * the registry already holds or has scheduled it. Doing so would close the validity interval of
- * the registry's newer root, and the contract's duplicate-root guard would then stop that root
- * from becoming the latest again. The older release's vks are still seeded. Set
- * ALLOW_CIRCUIT_ROOT_ROLLBACK=1 to schedule the older root deliberately.
+ * the registry already holds or has scheduled it, or holds no circuit root yet. Scheduling it
+ * closes the validity interval of the registry's current root, which may be newer, and the
+ * contract's duplicate-root guard then stops that root from becoming the latest again. The older
+ * release's vks are still seeded. Set ALLOW_CIRCUIT_ROOT_ROLLBACK=1 to schedule the older root
+ * deliberately.
  *
  * Every seeded value is a DelayedPublicMutable write: it becomes readable by private
  * verifiers only INITIAL_DELAY after the tx (24h production, or the PREVIEW_DELAY the
@@ -41,13 +37,8 @@
  * seeded — nothing to do" therefore doubles as the readiness probe, and mid-delay
  * re-runs send nothing.
  *
- * Removals: is_vk_accepted and is_version_enabled read `false` both for a value that was never
- * written and for one that was removed. Raw storage tells them apart, since every write records
- * its change's timestamp. A removed vk is restored only when named in VK_CIRCUITS or VK_HASH, and
- * the diff marks it as previously revoked; a disabled version is never re-enabled.
- *
- * Dry run by default: the script prints the plan, with a per-vk diff of what would be added,
- * what is already accepted and what is already scheduled, and sends nothing without SEND_TXS=1.
+ * Removals: a removed vk is re-added only when named in VK_CIRCUITS or VK_HASH; a disabled
+ * version is never re-enabled.
  *
  * Usage: npm run seed:testnet | npm run seed:mainnet   (or: npx tsx deployment/seed-registry.ts <network>)
  *        SEND_TXS=1 npm run seed:testnet               (send the planned transactions)
@@ -96,11 +87,10 @@ import {
   type BoolDpmState,
   type CircuitManifest,
   type CircuitRootDetails,
-  type ReleaseManifest,
   type RootState,
   type SelectedVk,
   type VkDecision,
-  assertManifestMatchesRoot,
+  assertSeedableRelease,
   decideRoot,
   decideVersion,
   decideVk,
@@ -166,23 +156,21 @@ function registryClient(chainId: number, rpcUrl: string): RegistryClientT {
 }
 
 /**
- * Fetch a circuit release and its circuit root from the RootRegistry, and check they agree.
- *
- * With `version`, the manifest comes from the circuits CDN's by-version path; otherwise it is
- * the manifest of the RootRegistry's latest circuit root. Either way the client checks that the
- * manifest's vk hashes hash to its root.
+ * Fetch a circuit release's manifest and its circuit root's RootRegistry details: the manifest of
+ * `version` when given, else of the RootRegistry's latest circuit root. The client checks that
+ * the manifest's vk hashes hash to that root, so the vks seeded are the set the root commits to.
  */
 async function fetchRelease(
   client: RegistryClientT,
   version: string | undefined,
 ): Promise<{
-  manifest: ReleaseManifest
+  manifest: CircuitManifest
   circuitRoot: CircuitRootDetails
   isRootRegistryLatest: boolean
 }> {
   const latestRoot = await client.getLatestCircuitRoot()
   let manifest: CircuitManifest
-  let root: string | undefined
+  let root: string
   if (version) {
     console.log(
       `circuit manifest v${version}: ${client.getUrlForCircuitManifestByVersion(version)}`,
@@ -194,14 +182,13 @@ async function fetchRelease(
     console.log(`circuit manifest (latest): ${client.getUrlForCircuitManifestByRoot(root)}`)
     manifest = await client.getCircuitManifest(root)
   }
-  if (!root) throw new Error(`circuit manifest v${manifest.version ?? "?"} has no root`)
   let circuitRoot: CircuitRootDetails
   try {
     circuitRoot = await client.getCircuitRootDetails(root)
   } catch (e) {
     throw new Error(`circuit root ${root} not found in the RootRegistry: ${(e as Error).message}`)
   }
-  assertManifestMatchesRoot(manifest, circuitRoot, version)
+  assertSeedableRelease(manifest, circuitRoot, version)
   return { manifest, circuitRoot, isRootRegistryLatest: BigInt(root) === BigInt(latestRoot) }
 }
 
@@ -403,7 +390,7 @@ async function main() {
 
   const vkPlans: (SelectedVk & { decision: VkDecision })[] = []
   for (const vk of vkHashes) {
-    vkPlans.push({ ...vk, decision: decideVk(await vkState(vk), vk.explicit, nowSecs) })
+    vkPlans.push({ ...vk, decision: decideVk(vk, await vkState(vk), nowSecs) })
   }
   console.log(`vks under v${manifestSemver}:\n  ${formatVkDiff(vkPlans, nowSecs).join("\n  ")}`)
   for (const vk of vkPlans) {
@@ -491,7 +478,7 @@ async function main() {
   const seeded: Record<string, string> = {}
   for (const r of roots) {
     const state = await rootState(r.id)
-    // Reported in the plan unless it changed since; only "update" sends.
+    // Re-read right before sending: the plan may be stale.
     if (decideRoot(BigInt(r.root), state, r.opts, nowSecs).status !== "update") continue
     const call = registry.methods.update_root(
       r.id,
@@ -525,7 +512,7 @@ async function main() {
 
   for (const vk of vkHashes) {
     // Re-read right before sending: each earlier tx took minutes, and the plan may be stale.
-    const { status } = decideVk(await vkState(vk), vk.explicit, nowSecs)
+    const { status } = decideVk(vk, await vkState(vk), nowSecs)
     if (status !== "add" && status !== "restore") continue
     console.log(
       `add_accepted_vk(v${manifestSemver}, ${vk.name}, ${vk.hash}) — proving + sending...`,

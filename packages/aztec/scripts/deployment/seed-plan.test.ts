@@ -2,13 +2,12 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 
 import {
-  assertManifestMatchesRoot,
+  assertSeedableRelease,
   type BoolDpmState,
   type CircuitManifest,
   decideRoot,
   decideVersion,
   decideVk,
-  formatVkDiff,
   selectVks,
   sendRequested,
 } from "./seed-plan.js"
@@ -35,6 +34,10 @@ const NEVER_WRITTEN: BoolDpmState = { current: false, scheduled: false, maturesA
 const REMOVED: BoolDpmState = { current: false, scheduled: false, maturesAt: NOW - 3600n }
 const ACCEPTED: BoolDpmState = { current: true, scheduled: true, maturesAt: NOW - 3600n }
 
+const [DEFAULT_VK] = selectVks(MANIFEST, {})
+const [NAMED_VK] = selectVks(MANIFEST, { VK_CIRCUITS: "outer_count_4" })
+const [HASH_VK] = selectVks(MANIFEST, { VK_HASH: hash(9) })
+
 test("the default selection seeds every outer_count_N and nothing else", () => {
   const names = selectVks(MANIFEST, {}).map((vk) => vk.name)
   assert.deepEqual(
@@ -43,15 +46,19 @@ test("the default selection seeds every outer_count_N and nothing else", () => {
   )
 })
 
-test("the default selection is not explicit; named circuits are, whatever their family", () => {
-  assert.ok(selectVks(MANIFEST, {}).every((vk) => !vk.explicit))
-  assert.deepEqual(selectVks(MANIFEST, { VK_CIRCUITS: "outer_count_4, outer_evm_count_4" }), [
-    { name: "outer_count_4", hash: hash(0x104), explicit: true },
-    { name: "outer_evm_count_4", hash: hash(4), explicit: true },
-  ])
-  assert.deepEqual(selectVks(MANIFEST, { VK_HASH: hash(9) }), [
-    { name: "(VK_HASH env)", hash: hash(9), explicit: true },
-  ])
+test("named circuits are seeded whatever their family, and VK_HASH seeds exactly that hash", () => {
+  const named = selectVks(MANIFEST, { VK_CIRCUITS: "outer_count_4, outer_evm_count_4" })
+  assert.deepEqual(
+    named.map(({ name, hash }) => ({ name, hash })),
+    [
+      { name: "outer_count_4", hash: hash(0x104) },
+      { name: "outer_evm_count_4", hash: hash(4) },
+    ],
+  )
+  assert.deepEqual(
+    selectVks(MANIFEST, { VK_HASH: hash(9) }).map((vk) => vk.hash),
+    [hash(9)],
+  )
 })
 
 test("a named circuit missing from the manifest is rejected", () => {
@@ -63,45 +70,34 @@ test("a manifest without standard outer circuits is rejected", () => {
   assert.throws(() => selectVks(manifest, {}), /no outer_count_N/)
 })
 
-test("the manifest and circuit root agree regardless of hex padding and case", () => {
-  const root = `0x${"A11".padStart(64, "0")}`
-  assert.doesNotThrow(() => assertManifestMatchesRoot(MANIFEST, { root, revoked: false }, "0.23.0"))
-  assert.doesNotThrow(() => assertManifestMatchesRoot(MANIFEST, { root: "0xa11", revoked: false }))
-})
-
-test("a manifest for another release, another root, or a revoked root is rejected", () => {
-  const root = { root: hash(0xa11), revoked: false }
-  assert.throws(() => assertManifestMatchesRoot(MANIFEST, root, "0.22.0"), /not the requested/)
-  assert.throws(
-    () => assertManifestMatchesRoot(MANIFEST, { root: hash(0xb22), revoked: false }),
-    /commits to root/,
-  )
-  assert.throws(() => assertManifestMatchesRoot(MANIFEST, { ...root, revoked: true }), /is revoked/)
-  assert.throws(
-    () => assertManifestMatchesRoot({ ...MANIFEST, version: undefined }, root),
-    /no version/,
-  )
+test("a release is seeded only when it is the requested version and its root is not revoked", () => {
+  const root = { root: MANIFEST.root, revoked: false }
+  assert.doesNotThrow(() => assertSeedableRelease(MANIFEST, root, "0.23.0"))
+  assert.doesNotThrow(() => assertSeedableRelease(MANIFEST, root))
+  assert.throws(() => assertSeedableRelease(MANIFEST, root, "0.22.0"), /not the requested/)
+  assert.throws(() => assertSeedableRelease(MANIFEST, { ...root, revoked: true }), /is revoked/)
 })
 
 test("a never-written vk is added without being named", () => {
-  assert.deepEqual(decideVk(NEVER_WRITTEN, false, NOW), { status: "add" })
+  assert.deepEqual(decideVk(DEFAULT_VK, NEVER_WRITTEN, NOW), { status: "add" })
 })
 
-test("a removed vk is restored only when named explicitly", () => {
-  assert.deepEqual(decideVk(REMOVED, false, NOW), { status: "revoked" })
-  assert.deepEqual(decideVk(REMOVED, true, NOW), { status: "restore" })
+test("a removed vk is re-added only when named in VK_CIRCUITS or VK_HASH", () => {
+  assert.deepEqual(decideVk(DEFAULT_VK, REMOVED, NOW), { status: "revoked" })
+  assert.deepEqual(decideVk(NAMED_VK, REMOVED, NOW), { status: "restore" })
+  assert.deepEqual(decideVk(HASH_VK, REMOVED, NOW), { status: "restore" })
 })
 
 test("an accepted vk is left alone, and a scheduled change is never overridden", () => {
-  assert.deepEqual(decideVk(ACCEPTED, true, NOW), { status: "accepted" })
+  assert.deepEqual(decideVk(NAMED_VK, ACCEPTED, NOW), { status: "accepted" })
   const pendingAdd = { current: false, scheduled: true, maturesAt: NOW + 600n }
-  assert.deepEqual(decideVk(pendingAdd, true, NOW), {
+  assert.deepEqual(decideVk(NAMED_VK, pendingAdd, NOW), {
     status: "scheduled",
     to: true,
     maturesAt: NOW + 600n,
   })
   const pendingRemoval = { current: true, scheduled: false, maturesAt: NOW + 600n }
-  assert.deepEqual(decideVk(pendingRemoval, true, NOW), {
+  assert.deepEqual(decideVk(NAMED_VK, pendingRemoval, NOW), {
     status: "scheduled",
     to: false,
     maturesAt: NOW + 600n,
@@ -120,62 +116,36 @@ test("a version is enabled only when it was never written", () => {
   })
 })
 
-test("the diff names each vk with what the run would do to it", () => {
-  const lines = formatVkDiff(
-    [
-      { name: "outer_count_4", hash: hash(4), explicit: false, decision: { status: "add" } },
-      { name: "outer_count_5", hash: hash(5), explicit: false, decision: { status: "accepted" } },
-      {
-        name: "outer_count_6",
-        hash: hash(6),
-        explicit: false,
-        decision: { status: "scheduled", to: true, maturesAt: NOW + 600n },
-      },
-      { name: "outer_count_7", hash: hash(7), explicit: false, decision: { status: "revoked" } },
-      { name: "outer_count_8", hash: hash(8), explicit: true, decision: { status: "restore" } },
-    ],
-    NOW,
-  )
-  assert.equal(lines.length, 5)
-  assert.match(lines[0], /^\+ outer_count_4 .* would be added$/)
-  assert.match(lines[1], /^= outer_count_5 .* already accepted$/)
-  assert.match(lines[2], /^~ outer_count_6 .* already scheduled: accept, live at .*\(~10min\)$/)
-  assert.match(lines[3], /^! outer_count_7 .* previously revoked: not re-added unless named/)
-  assert.match(lines[4], /^R outer_count_8 .* previously revoked; will re-add/)
-})
-
 const RELEASE_A = 0xaaan
 const RELEASE_B = 0xbbbn
-const HOLDS_B = { current: RELEASE_B, scheduled: RELEASE_B, maturesAt: NOW - 3600n }
+const LATEST = { isRootRegistryLatest: true, allowRollback: false }
+const OLDER = { isRootRegistryLatest: false, allowRollback: false }
+const holds = (root: bigint) => ({ current: root, scheduled: root, maturesAt: NOW - 3600n })
 
 test("an older release's root is not scheduled over the registry's newer root by default", () => {
-  const older = { isRootRegistryLatest: false, allowRollback: false }
-  assert.deepEqual(decideRoot(RELEASE_A, HOLDS_B, older, NOW), { status: "rollback" })
+  assert.deepEqual(decideRoot(RELEASE_A, holds(RELEASE_B), OLDER, NOW), { status: "rollback" })
   const deliberate = { isRootRegistryLatest: false, allowRollback: true }
-  assert.deepEqual(decideRoot(RELEASE_A, HOLDS_B, deliberate, NOW), { status: "update" })
+  assert.deepEqual(decideRoot(RELEASE_A, holds(RELEASE_B), deliberate, NOW), { status: "update" })
 })
 
-test("the RootRegistry's latest root replaces the registry's root, which is never re-sent", () => {
-  const latest = { isRootRegistryLatest: true, allowRollback: false }
-  assert.deepEqual(decideRoot(RELEASE_B, HOLDS_B, latest, NOW), { status: "live" })
-  const holdsA = { current: RELEASE_A, scheduled: RELEASE_A, maturesAt: NOW - 3600n }
-  assert.deepEqual(decideRoot(RELEASE_B, holdsA, latest, NOW), { status: "update" })
-  const pendingB = { current: RELEASE_A, scheduled: RELEASE_B, maturesAt: NOW + 600n }
-  assert.deepEqual(decideRoot(RELEASE_B, pendingB, latest, NOW), {
-    status: "scheduled",
-    maturesAt: NOW + 600n,
-  })
+test("an older release's root is scheduled on a registry that holds no circuit root yet", () => {
+  const empty = { current: 0n, scheduled: 0n, maturesAt: 0n }
+  assert.deepEqual(decideRoot(RELEASE_A, empty, OLDER, NOW), { status: "update" })
 })
 
-test("an older release's root the registry already holds or has scheduled is not a rollback", () => {
-  const older = { isRootRegistryLatest: false, allowRollback: false }
-  const holdsA = { current: RELEASE_A, scheduled: RELEASE_A, maturesAt: NOW - 3600n }
-  assert.deepEqual(decideRoot(RELEASE_A, holdsA, older, NOW), { status: "live" })
-  const pendingA = { current: RELEASE_B, scheduled: RELEASE_A, maturesAt: NOW + 600n }
-  assert.deepEqual(decideRoot(RELEASE_A, pendingA, older, NOW), {
-    status: "scheduled",
-    maturesAt: NOW + 600n,
-  })
+test("the RootRegistry's latest root replaces the registry's root", () => {
+  assert.deepEqual(decideRoot(RELEASE_B, holds(RELEASE_A), LATEST, NOW), { status: "update" })
+})
+
+test("a root the registry already holds or has scheduled is never re-sent, whichever release", () => {
+  for (const opts of [LATEST, OLDER]) {
+    assert.deepEqual(decideRoot(RELEASE_A, holds(RELEASE_A), opts, NOW), { status: "live" })
+    const pendingA = { current: RELEASE_B, scheduled: RELEASE_A, maturesAt: NOW + 600n }
+    assert.deepEqual(decideRoot(RELEASE_A, pendingA, opts, NOW), {
+      status: "scheduled",
+      maturesAt: NOW + 600n,
+    })
+  }
 })
 
 test("transactions are sent only with SEND_TXS=1 and DRY_RUN unset", () => {
