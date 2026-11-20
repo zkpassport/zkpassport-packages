@@ -247,7 +247,7 @@ describe("Query Builder", () => {
     })
   })
 
-  test("should build sanctions query defaulting to all countries and lists", async () => {
+  test("should build a strict sanctions query of all countries and lists by default", async () => {
     const result = queryBuilder.sanctions().done()
 
     const configPart = new URL(result.url).searchParams.get("c")!
@@ -256,7 +256,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: "all",
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })
 
@@ -277,6 +277,19 @@ describe("Query Builder", () => {
     })
   })
 
+  test("should build sanctions query with non-strict mode", async () => {
+    const result = queryBuilder.sanctions("all", "all", { strict: false }).done()
+
+    const configPart = new URL(result.url).searchParams.get("c")!
+    const config = JSON.parse(Buffer.from(configPart, "base64").toString())
+
+    expect(config.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+      strict: false,
+    })
+  })
+
   /*test("should build sanctions query for single country", async () => {
     const result = queryBuilder.sanctions("GB").done()
 
@@ -286,7 +299,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["GB"],
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })
 
@@ -299,7 +312,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US"],
       lists: ["OFAC_SDN"],
-      strict: false,
+      strict: true,
     })
   })
 
@@ -312,7 +325,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US", "GB", "CH", "EU"],
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })
 
@@ -330,7 +343,7 @@ describe("Query Builder", () => {
     expect(config.sanctions).toEqual({
       countries: ["US", "GB", "CH", "EU"],
       lists: "all",
-      strict: false,
+      strict: true,
     })
   })*/
 
@@ -440,7 +453,7 @@ describe("createQuery (offline mode)", () => {
       age: { gte: 18 },
       fullname: { disclose: true },
       nationality: { in: ["FRA", "DEU"] },
-      sanctions: { countries: "all", lists: "all", strict: false },
+      sanctions: { countries: "all", lists: "all", strict: true },
     })
   })
 
@@ -451,6 +464,16 @@ describe("createQuery (offline mode)", () => {
       countries: "all",
       lists: "all",
       strict: true,
+    })
+  })
+
+  test("should build sanctions query with non-strict mode", () => {
+    const result = zkPassport.createQuery().sanctions("all", "all", { strict: false }).done()
+
+    expect(result.query.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+      strict: false,
     })
   })
 

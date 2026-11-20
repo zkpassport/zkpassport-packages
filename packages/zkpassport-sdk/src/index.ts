@@ -528,7 +528,7 @@ export class ZKPassport {
       sanctions: (
         countries: SanctionsCountries = "all",
         lists: SanctionsLists = "all",
-        options: { strict?: boolean } = { strict: false },
+        options: { strict?: boolean } = { strict: true },
       ) => {
         this.assertNotPolicyLocked(topic, "sanctions")
         this.topicToConfig[topic].sanctions = {
@@ -553,7 +553,7 @@ export class ZKPassport {
               : Array.isArray(lists)
                 ? [...(this.topicToConfig[topic].sanctions?.lists ?? []), ...lists]
                 : [...(this.topicToConfig[topic].sanctions?.lists ?? []), lists],*/
-          strict: options.strict ?? false,
+          strict: options.strict ?? true,
         }
         return this.getZkPassportRequest(topic)
       },
