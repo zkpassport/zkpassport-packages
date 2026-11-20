@@ -35,7 +35,13 @@ export const DEFAULT_OPRF_PUB_KEY_HASH =
 
 export const OPRF_DEFAULT_THRESHOLD = 2
 export const OPRF_DEFAULT_MODULE = "face-match"
-export const OPRF_DEFAULT_DOMAIN_SEPARATOR = 1330664006n // matching oprf-nr library
+export const OPRF_REGISTER_MODULE = "register"
+export const OPRF_NULLIFIER_MODULE = "nullifier"
+export const OPRF_DEFAULT_DOMAIN_SEPARATOR = 1330664006n
+
+// b"zkpassport-oprf-v2-commit", must match DS_COMMIT in the oprf_registration circuit
+export const OPRF_AUTH_COMMITMENT_DOMAIN_SEPARATOR =
+  768440808012663903960036740188911341512384528114964212050292n
 
 // OPRF wire-protocol version announced to the nodes during the WebSocket handshake.
 // @taceo/oprf-client defaults this to "0.8.0", but the deployed nodes require

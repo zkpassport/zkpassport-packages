@@ -211,6 +211,9 @@ export function getNumberOfPublicInputs(circuitName: string, circuitVersion?: st
     return getDSCProofPublicInputCount()
   } else if (circuitName.startsWith("oprf_auth")) {
     return 3
+  } else if (circuitName.startsWith("oprf_registration")) {
+    // comm_in, registration_id (x, y), oprf_pk (x, y), auth_commitment
+    return 6
   } else if (circuitName.startsWith("outer")) {
     // Get the characters after the last underscore
     const subproofCount = Number(circuitName.substring(circuitName.lastIndexOf("_") + 1))
