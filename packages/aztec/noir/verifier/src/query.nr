@@ -170,15 +170,17 @@ impl<let K: u32, let D: u32> Query<K, D> {
         )
     }
 
-    /// Ask for the holder not to be on the sanctions lists. The client stashes the sanctions root
-    /// the proof was made against in the sanctions capsule.
+    /// Ask for the holder not to be on the sanctions lists, screened in strict mode, which matches
+    /// on first and last name alone, as the SDK's `sanctions()` does by default. The client stashes
+    /// the sanctions root the proof was made against in the sanctions capsule.
     pub fn sanctions(self) -> Query<K + 1, D> {
-        self.with_sanctions(false)
+        self.with_sanctions(true)
     }
 
-    /// Ask for the holder not to be on the sanctions lists, screened in strict mode.
-    pub fn strict_sanctions(self) -> Query<K + 1, D> {
-        self.with_sanctions(true)
+    /// Ask for the holder not to be on the sanctions lists, screened in non-strict mode, which
+    /// matches on name and date of birth, or on document number and nationality.
+    pub fn non_strict_sanctions(self) -> Query<K + 1, D> {
+        self.with_sanctions(false)
     }
 
     pub(crate) fn sanctions_requested(self) -> bool {
@@ -522,7 +524,7 @@ mod test {
     #[test]
     fn a_disclosure_and_sanctions_complete_the_expected_commitments() {
         let disclosure = passport_disclosure(54, "FRA".as_bytes());
-        let query = Query::new().age_min(18).disclose_nationality().strict_sanctions();
+        let query = Query::new().age_min(18).disclose_nationality().sanctions();
 
         assert_eq(
             query.expected_commitments(Option::some(disclosure), Option::some(0xabc)),
@@ -535,8 +537,18 @@ mod test {
     }
 
     #[test]
-    fn sanctions_expects_a_non_strict_commitment() {
+    fn sanctions_expects_a_strict_commitment() {
         let query = Query::new().sanctions();
+
+        assert_eq(
+            query.expected_commitments(Option::none(), Option::some(0xabc)),
+            [sanctions_commitment(0xabc, true)],
+        );
+    }
+
+    #[test]
+    fn non_strict_sanctions_expects_a_non_strict_commitment() {
+        let query = Query::new().non_strict_sanctions();
 
         assert_eq(
             query.expected_commitments(Option::none(), Option::some(0xabc)),
@@ -606,7 +618,7 @@ mod test {
 
     #[test(should_fail_with = "sanctions requested twice")]
     fn rejects_sanctions_asked_for_twice() {
-        let _ = Query::new().sanctions().strict_sanctions();
+        let _ = Query::new().sanctions().non_strict_sanctions();
     }
 
     #[test]

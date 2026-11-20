@@ -90,7 +90,7 @@ local network that is the local network registry, below. On a network without on
 `Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
 `age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
 `nationality_in`, `nationality_out`, `issuing_country_in` and `issuing_country_out`;
-`bind_user_address`; `sanctions` and `strict_sanctions`; a `disclose_*` method per MRZ field; and
+`bind_user_address`; `sanctions`, strict like the SDK's, and `non_strict_sanctions`; a `disclose_*` method per MRZ field; and
 `disclose_full_name`, which requires the whole name where `disclose_name` accepts part of it.
 The proof must carry exactly the subproofs the query asks for, so the ZKPassport request that
 made it asks for the same checks.
@@ -191,7 +191,7 @@ proof's date, and returns it in `VerifiedProof.sanctions_root`.
    client-IVC proof produced by the local PXE.
 4. **Sanctions screening is opt-in, per query.** The registry's mandatory verify path
    (`assert_proof_valid`, called from `verify_zkpassport_proof`) only checks the certificate and
-   circuit registries. A query with `sanctions()` or `strict_sanctions()` also has
+   circuit registries. A query with `sanctions()` or `non_strict_sanctions()` also has
    `verify_zkpassport_proof` check the sanctions root with the registry's
    `assert_sanctions_root_valid` view, at the proof's date.
 5. **The library verifies the *proof*, binding it to a claimant is the app's job.**
