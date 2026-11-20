@@ -66,6 +66,44 @@ export function credentialRequirementsFromQuery(
 }
 
 /**
+ * Translate credential policy requirements into the SDK query that checks the same things, the
+ * inverse of `credentialRequirementsFromQuery`. Accepted verification methods are not part of a
+ * query, so they are left out.
+ */
+export function credentialQueryFromRequirements(requirements: CredentialPolicyRequirements): Query {
+  const query: Query = {}
+
+  if (requirements.minAge > 0) {
+    query.age = { gte: requirements.minAge }
+  }
+
+  const nationality: IDCredentialConfig = {}
+  if (requirements.includedNationalities.length > 0) {
+    nationality.in = [...requirements.includedNationalities]
+  }
+  if (requirements.excludedNationalities.length > 0) {
+    nationality.out = [...requirements.excludedNationalities]
+  }
+  if (Object.keys(nationality).length > 0) {
+    query.nationality = nationality
+  }
+
+  if (requirements.sanctionsMode) {
+    query.sanctions = {
+      countries: "all",
+      lists: "all",
+      strict: requirements.sanctionsMode === "strict",
+    }
+  }
+
+  if (requirements.facematchMode) {
+    query.facematch = { mode: requirements.facematchMode }
+  }
+
+  return query
+}
+
+/**
  * The sorted nationality lists a credential policy checks for a query's nationality config, and the
  * nationality checks it cannot carry.
  */
