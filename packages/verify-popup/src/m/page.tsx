@@ -6,7 +6,6 @@ import type { PopupRequestConfig } from "@zkpassport/sdk/popup"
 
 import { FlowCard } from "../shared/flow-card"
 import { ErrorScreen } from "../shared/error"
-import { Primary } from "../shared/controls"
 import { FlowBody, WalletProviders } from "../mint"
 import { Resolving } from "../mint/resolving"
 import { Connect } from "../mint/wallet"
@@ -62,7 +61,6 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
   useEffect(() => {
     if (recipient) setBoundRecipient(recipient)
   }, [recipient])
-  const [renew, setRenew] = useState(false)
 
   if (details.status === "loading") {
     return (
@@ -102,29 +100,19 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
 
   // Unbinding only once the wallet is gone keeps the old wallet from being bound again meanwhile
   const changeWallet = () =>
-    disconnect.mutate(undefined, {
-      onSuccess: () => {
-        setBoundRecipient(null)
-        setRenew(false)
-      },
-    })
+    disconnect.mutate(undefined, { onSuccess: () => setBoundRecipient(null) })
 
   return (
     <FlowBody
-      key={`${recipient}:${renew}`}
+      key={recipient}
       request={details.request}
       credential={{ chain: link.chain, policyId: link.policyId, recipient }}
       appName={appName}
       rpHost={window.location.hostname}
       send={() => {}}
       chain={chain}
-      renew={renew}
+      closable={false}
       onChangeWallet={changeWallet}
-      doneActions={(step) =>
-        step.outcome === "already-verified" ? (
-          <Primary onClick={() => setRenew(true)}>Renew now</Primary>
-        ) : null
-      }
     />
   )
 }

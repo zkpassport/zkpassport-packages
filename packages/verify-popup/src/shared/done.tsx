@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState } from "react"
 import type { Chain, Hex } from "viem"
 
 import { ICON_SEAL_CHECK } from "../shared/icons"
@@ -11,15 +11,15 @@ export type DoneOutcome =
 
 const AUTO_CLOSE_SECONDS = 5
 
-/** The end of a flow. `actions` replaces the "Return to" button; null shows no action. */
 export function Done({
   outcome,
   appName,
-  actions,
+  closable = true,
 }: {
   outcome: DoneOutcome
   appName: string
-  actions?: ReactNode
+  // A tab the user opened themselves can't be closed by the page, so it offers no Return button
+  closable?: boolean
 }) {
   const closesItself = outcome.kind === "verified" && !!window.opener
   const secondsLeft = useAutoClose(closesItself)
@@ -35,13 +35,11 @@ export function Done({
           </p>
         ) : null}
       </div>
-      {actions === undefined ? (
+      {closable ? (
         <Actions>
           <Primary onClick={() => window.close()}>Return to {appName}</Primary>
         </Actions>
-      ) : actions === null ? null : (
-        <Actions>{actions}</Actions>
-      )}
+      ) : null}
     </div>
   )
 }

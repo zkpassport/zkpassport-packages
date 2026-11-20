@@ -61,7 +61,6 @@ type CredentialFlowParams = {
   appName: string
   chain: Chain
   send: (message: OutgoingEvent) => void
-  renew?: boolean
 }
 
 // The card's raw result carries the live SDK instance; postMessage needs
@@ -71,7 +70,7 @@ function toSuccessMessage(raw: CredentialVerifyResult["raw"]): SuccessMessage {
 }
 
 export function useCredentialFlow(params: CredentialFlowParams) {
-  const { request, credential, appName, chain, send, renew } = params
+  const { request, credential, appName, chain, send } = params
   const [step, setStep] = useState<FlowStep>({ kind: "resolving" })
   const [scan, setScan] = useState<ScanProgress | null>(null)
   const sendRef = useRef(send)
@@ -101,7 +100,7 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     const run = async () => {
       const policyId = BigInt(credential.policyId)
 
-      if (!renew && (await credentialsContract.hasCredential(recipient, policyId))) {
+      if (await credentialsContract.hasCredential(recipient, policyId)) {
         const heldUntil = await credentialsContract.heldUntil(recipient, policyId)
         if (stale()) return
         setStep({ kind: "done", outcome: "already-verified", heldUntil })

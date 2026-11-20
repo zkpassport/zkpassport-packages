@@ -89,10 +89,11 @@ export function WalletProviders({ config, children }: { config: Config; children
 type FlowBodyProps = CredentialFlowProps & {
   appName: string
   chain: Chain
-  /** Prove and mint again even when the recipient already holds the credential. */
-  renew?: boolean
-  /** Replaces the done screen's "Return to" button; null shows no action. */
-  doneActions?: (step: DoneStep) => ReactNode
+  /**
+   * False on a page the user opened themselves, which can't close itself, so the done screen
+   * offers no Return button.
+   */
+  closable?: boolean
   /** Offers another wallet on the consent screen, where the connected wallet is the recipient. */
   onChangeWallet?: () => void
 }
@@ -104,12 +105,11 @@ export function FlowBody({
   rpHost,
   send,
   chain,
-  renew,
-  doneActions,
+  closable,
   onChangeWallet,
 }: FlowBodyProps) {
   const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
-    useCredentialFlow({ request, credential, appName, chain, send, renew })
+    useCredentialFlow({ request, credential, appName, chain, send })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
 
@@ -156,7 +156,7 @@ export function FlowBody({
           <Done
             outcome={doneOutcome(step, credential.recipient, chain)}
             appName={appName}
-            actions={doneActions?.(step)}
+            closable={closable}
           />
         )
       case "error":

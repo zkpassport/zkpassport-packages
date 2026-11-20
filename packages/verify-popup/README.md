@@ -31,7 +31,7 @@ credential without a website in between: they connect a wallet, prove the policy
 the credential is minted to that wallet, which also pays the network fee. The first wallet to
 connect stays the recipient: switching accounts in the wallet afterwards only changes who pays, and
 "Use another wallet" on the consent screen picks another recipient. A wallet that already holds the
-credential can renew it. The header shows the name and image from the policy's metadata
+credential sees until when it is valid. The header shows the name and image from the policy's metadata
 URL. Like `/r`, it is its own page (`m.html`, which `vercel.json` rewrites `/m` and `/m/*` to), so
 a mint link never runs the popup's session handling.
 
