@@ -7,7 +7,7 @@ import { Actions, AddressLink, Primary, TxLink } from "../shared/controls"
 export type DoneOutcome =
   | { kind: "verified" }
   | { kind: "minted"; hash: Hex; recipient: `0x${string}`; chain: Chain }
-  | { kind: "already-verified"; recipient: `0x${string}`; chain: Chain; heldUntil?: bigint }
+  | { kind: "already-verified"; recipient: `0x${string}`; chain: Chain; heldUntil: bigint }
 
 const AUTO_CLOSE_SECONDS = 5
 
@@ -69,9 +69,7 @@ function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }
       <>
         <p className="flow-done-sub">Verification token already minted to</p>
         <AddressLink chain={outcome.chain} address={outcome.recipient} chip />
-        {outcome.heldUntil ? (
-          <p className="flow-done-sub">Valid until {formatDate(outcome.heldUntil)}</p>
-        ) : null}
+        <p className="flow-done-sub">Valid until {formatDate(outcome.heldUntil)}</p>
       </>
     )
   }
