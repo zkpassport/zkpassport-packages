@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { parseMintLink } from "../src/mint/mint-link"
+import { parseMintLink } from "../src/m/mint-link"
 
 const POLICY_ID = `0x${"ab".repeat(32)}` as const
 

@@ -6,12 +6,12 @@ import type { PopupRequestConfig } from "@zkpassport/sdk/popup"
 
 import { FlowCard } from "../shared/flow-card"
 import { ErrorScreen } from "../shared/error"
-import { Heading, Main, Primary } from "../shared/controls"
-import { FlowBody, WalletProviders } from "./index"
+import { Primary } from "../shared/controls"
+import { FlowBody, WalletProviders } from "../mint"
+import { Resolving } from "../mint/resolving"
+import { Connect } from "../mint/wallet"
+import { resolveWalletChain } from "../mint/wagmi"
 import { parseMintLink, type MintLink } from "./mint-link"
-import { Resolving } from "./resolving"
-import { WalletPicker } from "./wallet"
-import { resolveWalletChain } from "./wagmi"
 
 const FALLBACK_NAME = "Credential"
 const METADATA_TIMEOUT_MS = 5_000
@@ -25,7 +25,7 @@ type PolicyDetails =
  * The hosted mint page, opened from a link to a credential policy rather than by a website: the
  * holder connects a wallet, proves the policy, and mints the credential to that wallet.
  */
-export function StandaloneMint() {
+export function MintPage() {
   const link = useMemo(() => parseMintLink(window.location.search), [])
   if ("error" in link) return <ErrorCard message={link.error} />
   return <MintFromLink link={link} />
@@ -76,15 +76,11 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
   if (!address) {
     return (
       <FlowCard name={appName} logo={details.request.logo} screenKey="connect">
-        <div className="flow-body">
-          <Main>
-            <Heading
-              title="Connect your wallet"
-              hint="The credential goes to this wallet, which also pays a small network fee."
-            />
-            <WalletPicker />
-          </Main>
-        </div>
+        <Connect
+          title="Connect your wallet"
+          hint="The credential goes to this wallet, which also pays a small network fee."
+          verified={false}
+        />
       </FlowCard>
     )
   }

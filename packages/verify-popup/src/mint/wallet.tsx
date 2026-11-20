@@ -53,15 +53,20 @@ function describeConnectError(error: Error): string {
   return "Could not connect to that wallet."
 }
 
-export function Connect() {
+/** `verified` shows that the holder has already proved who they are. */
+export function Connect({
+  title = "Connect a wallet",
+  hint = "The wallet you pick pays a small network fee.",
+  verified = true,
+}: {
+  title?: string
+  hint?: string
+  verified?: boolean
+}) {
   return (
     <div className="flow-body">
       <Main>
-        <Heading
-          title="Connect a wallet"
-          hint="The wallet you pick pays a small network fee."
-          badge={<VerifiedBadge />}
-        />
+        <Heading title={title} hint={hint} badge={verified ? <VerifiedBadge /> : undefined} />
         <WalletPicker />
       </Main>
     </div>
