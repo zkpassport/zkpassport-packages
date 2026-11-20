@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { QueryBuilderResult } from "@zkpassport/sdk"
 import type { PopupConfigureMessage } from "@zkpassport/sdk/popup"
 
@@ -6,11 +6,13 @@ import type { OutgoingEvent } from "../app"
 import { FlowCard } from "../shared/flow-card"
 import { Done } from "../shared/done"
 import { useConfirmClose } from "../shared/use-confirm-close"
+import { useContinueToAppClip } from "../shared/use-open-app"
 import { ErrorScreen } from "../shared/error"
 import { resolveTrustedDomain } from "../shared/trusted-domain"
 import { useRequest } from "../request"
 import { readSession, updateSession, type Session } from "../session"
 import { Intro } from "./intro"
+import { isStalledAttempt } from "./lane"
 import { describePhoneError } from "./phone-errors"
 import { Scan } from "./scan"
 import { useRequestUrl } from "./use-request-url"
@@ -30,7 +32,7 @@ type VerifyFlowProps = {
 
 type DomainResolution = { domain: string } | { error: string } | null
 
-type Failure = { title?: string; message: string; keepsBridge?: boolean }
+type Failure = { title?: string; message: string; keepsBridge?: boolean; explained?: boolean }
 
 /**
  * Settles which domain the request is made under before anything is sent to the bridge: the
@@ -120,6 +122,18 @@ export function VerifyRequest({
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
+  const [stalledAttempts, setStalledAttempts] = useState(
+    () => readSession(session)?.stalledAttempts ?? 0,
+  )
+
+  const codeShownAt = useRef<number | null>(null)
+
+  const countStalledAttempt = () => {
+    if (!isStalledAttempt(codeShownAt.current, Date.now())) return
+    const next = stalledAttempts + 1
+    setStalledAttempts(next)
+    updateSession(session, { stalledAttempts: next })
+  }
 
   const failWith = (reason: Failure) => {
     setScan(null)
@@ -136,6 +150,7 @@ export function VerifyRequest({
     setFailure(null)
     setScan(null)
     updateSession(session, { stage: undefined })
+    countStalledAttempt()
     req.retry()
   }
 
@@ -168,13 +183,15 @@ export function VerifyRequest({
           .then(() => setVerified(true), failFrom)
       },
       onReject: () => {
-        failWith({ message: "The request was declined on your phone." })
+        failWith({ message: "The request was declined on your phone.", explained: true })
         send({ type: "rejected" })
       },
       onError: (message) => {
         const known = describePhoneError(String(message), appName)
         failWith(
-          known ? { title: known.title, message: known.message } : { message: String(message) },
+          known
+            ? { title: known.title, message: known.message, explained: true }
+            : { message: String(message) },
         )
         send({ type: "error", message: String(message), code: known?.code })
       },
@@ -184,14 +201,16 @@ export function VerifyRequest({
     },
   )
 
+  useEffect(() => {
+    codeShownAt.current = req.url ? Date.now() : null
+  }, [req.url])
+
   // From the moment the request is live: closing drops the bridge, and once the
   // phone has joined it also throws away work in progress
   useConfirmClose(!verified && !failure)
 
-  const link = useRequestUrl(req.url, {
-    allowedVerificationMethods: request.allowedVerificationMethods,
-    appClip: request.appClip,
-  })
+  const link = useRequestUrl(req.url, request, stalledAttempts)
+  const appClip = useContinueToAppClip(link.url, () => setConsented(true))
 
   const screen = (() => {
     if (verified) return "done"
@@ -204,9 +223,11 @@ export function VerifyRequest({
   // replay the decline itself.
   const tryAgain = () => {
     const keepsBridge = failure?.keepsBridge
+    const explained = failure?.explained
     setFailure(null)
-    if (keepsBridge) req.resume()
-    else req.retry()
+    if (keepsBridge) return req.resume()
+    if (!explained) countStalledAttempt()
+    req.retry()
   }
 
   return (
@@ -222,13 +243,21 @@ export function VerifyRequest({
         />
       ) : null}
       {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
-      {screen === "scan" ? <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} /> : null}
+      {screen === "scan" ? (
+        <Scan
+          state={req.state}
+          url={link.url}
+          qrSvg={link.qrSvg}
+          onNewCode={startAgain}
+          appClipOpened={appClip.appClipOpened}
+        />
+      ) : null}
       {screen === "intro" ? (
         <Intro
           appName={appName}
           query={req.query ?? (hasQuery ? query : null)}
           purpose={request.purpose}
-          onContinue={() => setConsented(true)}
+          onContinue={appClip.onContinue}
         />
       ) : null}
     </FlowCard>

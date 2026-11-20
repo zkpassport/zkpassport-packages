@@ -434,14 +434,15 @@ const dscMeta = {
 const AGE_TS = 1789000000
 const SCOPE = 0x1234n
 const SUBSCOPE = 0x56n
-const ageQueries: { label: string; query: any }[] = [
+const ageQueries: { label: string; query: any; hideNullifier?: boolean }[] = [
   { label: "gte18", query: { age: { gte: 18 } } },
   { label: "gt20_lte65", query: { age: { gt: 20, lte: 65 } } },
+  { label: "gte18_no_identifier", query: { age: { gte: 18 } }, hideNullifier: true },
 ]
 const age = []
 for (const name of ["john", "mary"]) {
   const passport = PASSPORTS[name]
-  for (const { label, query } of ageQueries) {
+  for (const { label, query, hideNullifier = false } of ageQueries) {
     const expected = await getAgeCircuitInputs(
       passport,
       query,
@@ -450,6 +451,8 @@ for (const name of ["john", "mary"]) {
       SCOPE,
       SUBSCOPE,
       AGE_TS,
+      undefined,
+      hideNullifier,
     )
     age.push({
       name: `${name}:${label}`,
@@ -462,6 +465,7 @@ for (const name of ["john", "mary"]) {
       dg2_hash: passport.dataGroups.find((dg: any) => dg.groupNumber === 2)!.hash,
       expiry_date: passport.passportExpiry,
       query: query.age,
+      hide_nullifier: hideNullifier,
       salts: {
         dg1_salt: INTEGRITY_SALTS.dg1Salt.toString(),
         expiry_date_salt: INTEGRITY_SALTS.expiryDateSalt.toString(),
@@ -645,6 +649,8 @@ for (const name of ["john", "mary"]) {
   const p = PASSPORTS[name]
   const bdMin = utc("1990-01-01T00:00:00Z"), bdMax = utc("2015-01-01T00:00:00Z")
   const exMin = utc("2024-01-01T00:00:00Z")
+  // One chain id with an even and one with an odd number of hex digits
+  const chain = name === "john" ? "ethereum_sepolia" : "ethereum"
   disclosures.push(
     {
       label: `${name}:disclose`, kind: "disclose", master_salt: DISC_SALT.toString(),
@@ -673,8 +679,8 @@ for (const name of ["john", "mary"]) {
     },
     {
       label: `${name}:bind`, kind: "bind", master_salt: DISC_SALT.toString(),
-      user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", custom_data: "email:test@test.com",
-      expected: await getBindCircuitInputs(p, { bind: { user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", custom_data: "email:test@test.com" } } as any, DSALTS, 0n, S0, S0, DTS),
+      user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", chain, custom_data: "email:test@test.com",
+      expected: await getBindCircuitInputs(p, { bind: { user_address: "0x5e4B11F7B7995F5Cee0134692a422b045091112F", chain, custom_data: "email:test@test.com" } } as any, DSALTS, 0n, S0, S0, DTS),
     },
   )
 }
@@ -757,6 +763,13 @@ const outerInputs = {
   circuit_root: "0xabc123",
   result: getOuterCircuitInputs(csc, dscId, integ, [disc1, disc2], "0xabc123"),
 }
+// A request without an identifier: no disclosure proof carries a nullifier (type 4 is NONE)
+const discNoId1 = ocp(["0xd0", "0x64", "0xd2", "0xd3", "0xd4", "0x4", "0x0", "0xd7"], "d")
+const discNoId2 = ocp(["0xe0", "0x64", "0xe2", "0xe3", "0xe4", "0x4", "0x0", "0xe7"], "e")
+const outerInputsNoIdentifier = {
+  circuit_root: "0xabc123",
+  result: getOuterCircuitInputs(csc, dscId, integ, [discNoId1, discNoId2], "0xabc123"),
+}
 
 // --- scope hashes ---
 const scopeHashes = ["demo.zkpassport.id", "bank.example.com:proof-of-age", ""].map((value) => ({
@@ -789,6 +802,7 @@ const vectors = {
   proofData2,
   circuitMerkle,
   outerInputs,
+  outerInputsNoIdentifier,
 }
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), "..", "vectors")

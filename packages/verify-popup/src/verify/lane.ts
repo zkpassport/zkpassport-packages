@@ -1,34 +1,41 @@
-import {
-  VerificationTier,
-  expandAllowedVerificationMethods,
-  getTierForVerificationMethod,
-  type AllowedVerificationMethod,
-} from "@zkpassport/utils"
+import type { PopupRequestConfig } from "@zkpassport/sdk/popup"
+import { NullifierType, VerificationMethod, isVerificationMethodAllowed } from "@zkpassport/utils"
 
 /** Where the ID will be read; the popup learns it from the browser or assumes a phone that can do everything */
 export type PhoneOs = "ios" | "android" | "unknown"
 
 export type Lane = "r" | "c"
 
-/** Whether every verification method the policy accepts is a chip read */
-export function chipOnlyPolicy(
-  allowedVerificationMethods?: readonly AllowedVerificationMethod[],
-): boolean {
-  return expandAllowedVerificationMethods(allowedVerificationMethods).every(
-    (scheme) => getTierForVerificationMethod(scheme) === VerificationTier.GOVERNMENT_SIGNED,
-  )
+/** The parts of a request that decide its lane */
+export type LaneRequest = Pick<
+  PopupRequestConfig,
+  "allowedVerificationMethods" | "uniqueIdentifierType"
+>
+
+export const STALLED_ATTEMPTS_BEFORE_APP_LANE = 1
+
+export const MIN_STALLED_ATTEMPT_MS = 30 * 1000
+
+export function isStalledAttempt(codeShownAt: number | null, now: number): boolean {
+  return codeShownAt !== null && now - codeShownAt >= MIN_STALLED_ATTEMPT_MS
 }
 
 /**
- * The App Clip lane reads a chip and nothing else, so a request goes there only when its policy
- * accepts nothing but chip reads, the relying party allows the lane and the phone is not Android.
+ * A `/c` link opens the App Clip on an iPhone without the app. The clip reads chips and sends
+ * any other ID to the full app, so a request keeps `/r` only when the clip could never finish
+ * it: the policy accepts no chip read, the identifier is salted (the clip does not call the OPRF
+ * nodes), or the phone is Android, which has no clip.
  */
-export function laneFor(
-  allowedVerificationMethods: readonly AllowedVerificationMethod[] | undefined,
-  appClipAllowed: boolean,
-  os: PhoneOs,
-): Lane {
-  return appClipAllowed && os !== "android" && chipOnlyPolicy(allowedVerificationMethods)
+export function laneFor(request: LaneRequest, os: PhoneOs, stalledAttempts = 0): Lane {
+  const acceptsChipRead = isVerificationMethodAllowed(
+    VerificationMethod.ICAO_CHIP,
+    request.allowedVerificationMethods,
+  )
+  const clipMakesIdentifier = request.uniqueIdentifierType !== NullifierType.SALTED
+  return os !== "android" &&
+    acceptsChipRead &&
+    clipMakesIdentifier &&
+    stalledAttempts < STALLED_ATTEMPTS_BEFORE_APP_LANE
     ? "c"
     : "r"
 }
@@ -47,6 +54,28 @@ export function isAppClipLane(requestUrl: string | null): boolean {
   } catch {
     return false
   }
+}
+
+// Apple's own App Clip page counts a browser as Safari only when its user agent names exactly these
+// products (the second is an iPad that asks for desktop sites). Chrome, Firefox, Edge and other iOS
+// browsers add a product of their own.
+const SAFARI_PRODUCTS = [
+  "Mozilla AppleWebKit Version Mobile Safari",
+  "Mozilla AppleWebKit Version Safari",
+]
+
+/**
+ * Whether a user agent is Safari. On iOS only Safari, and the Safari view that other apps open with
+ * the same user agent, show the App Clip card.
+ */
+export function isSafariUserAgent(userAgent: string): boolean {
+  const products = userAgent
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.split("/")[0])
+    .join(" ")
+  return SAFARI_PRODUCTS.includes(products)
 }
 
 /** Whether a link is the page we are on (query aside): opening it would only open this page again */

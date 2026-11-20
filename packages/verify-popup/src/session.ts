@@ -26,6 +26,7 @@ export type SessionState = {
   keyPair?: KeyPair
   /** How far the phone had got, so a reloaded page reopens on the screen the user left. */
   stage?: ScanProgress["stage"]
+  stalledAttempts?: number
   result?: HeldResult
 }
 

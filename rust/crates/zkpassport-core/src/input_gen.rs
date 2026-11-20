@@ -3,6 +3,7 @@
 //!
 //! Composes the ported builders exactly as the TS ProofService pipeline does.
 
+use crate::aadhaar;
 use crate::bytes::right_pad_with_zeros;
 use crate::commitments::IntegrityToDisclosureSalts;
 use crate::curves;
@@ -152,6 +153,8 @@ pub struct GenerateParams<'a> {
     pub query: &'a Value,
     pub evm: bool,
     pub nullifier_secret: BigUint,
+    /// See [`DisclosureInput::hide_nullifier`].
+    pub hide_nullifier: bool,
     pub service_scope: BigUint,
     pub service_subscope: BigUint,
     pub current_date_timestamp: u64,
@@ -263,7 +266,6 @@ pub fn generate_all_inputs(p: &GenerateParams, salts: &InputGenSalts) -> Result<
     );
 
     // 4. Disclosure circuits — whatever the verifier query asks for.
-    let dg1_padded = right_pad_with_zeros(p.dg1, DG1_INPUT_SIZE);
     let disc_input = DisclosureInput {
         dg1: p.dg1,
         e_content: &parsed.e_content,
@@ -271,8 +273,10 @@ pub fn generate_all_inputs(p: &GenerateParams, salts: &InputGenSalts) -> Result<
         dg2_hash: p.dg2_hash,
         expiry_date: &expiry,
         mrz: &mrz,
+        hide_nullifier: p.hide_nullifier,
+        private_nullifier: None,
     };
-    let disclosures = crate::query::build_disclosures(
+    let mut result = disclosure_outputs(
         p.query,
         &disc_input,
         &salts.disclosure,
@@ -281,6 +285,36 @@ pub fn generate_all_inputs(p: &GenerateParams, salts: &InputGenSalts) -> Result<
         &p.service_subscope,
         p.current_date_timestamp,
         p.evm,
+    )?;
+    result["dsc"] = dsc_inputs;
+    result["id_data"] = id_data_inputs;
+    result["integrity"] = integrity_inputs;
+    Ok(result)
+}
+
+/// The disclosure circuits the query asks for, the values they disclose and the QueryResult
+/// (single source of truth — the platform sends it verbatim).
+#[allow(clippy::too_many_arguments)]
+fn disclosure_outputs(
+    query: &Value,
+    disc_input: &DisclosureInput,
+    salts: &IntegrityToDisclosureSalts,
+    nullifier_secret: &BigUint,
+    service_scope: &BigUint,
+    service_subscope: &BigUint,
+    current_date_timestamp: u64,
+    evm: bool,
+) -> Result<Value, String> {
+    let dg1_padded = right_pad_with_zeros(disc_input.dg1, DG1_INPUT_SIZE);
+    let disclosures = crate::query::build_disclosures(
+        query,
+        disc_input,
+        salts,
+        nullifier_secret,
+        service_scope,
+        service_subscope,
+        current_date_timestamp,
+        evm,
         &dg1_padded,
     )?;
     let disclosures_json: Vec<Value> = disclosures
@@ -294,8 +328,6 @@ pub fn generate_all_inputs(p: &GenerateParams, salts: &InputGenSalts) -> Result<
         })
         .collect();
 
-    // Merge the disclosed values and build the QueryResult (single source of
-    // truth — the platform sends this verbatim).
     let mut disclosed = json!({});
     for d in &disclosures {
         if let (Some(map), Some(disc)) = (disclosed.as_object_mut(), &d.disclosed) {
@@ -306,14 +338,73 @@ pub fn generate_all_inputs(p: &GenerateParams, salts: &InputGenSalts) -> Result<
             }
         }
     }
-    let query_result = crate::query::build_query_result(p.query, &disclosed, p.current_date_timestamp);
+    let query_result = crate::query::build_query_result(query, &disclosed, current_date_timestamp);
 
     Ok(json!({
-        "dsc": dsc_inputs,
-        "id_data": id_data_inputs,
-        "integrity": integrity_inputs,
         "disclosures": disclosures_json,
         "disclosed": disclosed,
         "query_result": query_result,
     }))
+}
+
+pub struct AadhaarParams<'a> {
+    /// The decompressed QR data less its trailing signature.
+    pub signed_data: &'a [u8],
+    pub signature: &'a [u8],
+    pub certificates: &'a [PackagedCertificate],
+    pub certs_meta: &'a PackagedCertsMeta<'a>,
+    pub cert_leaves: &'a [BigUint],
+    pub query: &'a Value,
+    pub evm: bool,
+    pub nullifier_secret: BigUint,
+    pub hide_nullifier: bool,
+    pub service_scope: BigUint,
+    pub service_subscope: BigUint,
+    pub current_date_timestamp: u64,
+}
+
+/// As `generate_all_inputs` for an Aadhaar: the `aadhaar_id` base proof's inputs in place of
+/// the three chip base proofs', then the disclosure circuits on its commitment.
+pub fn generate_aadhaar_inputs(
+    p: &AadhaarParams,
+    salts: &IntegrityToDisclosureSalts,
+) -> Result<Value, String> {
+    if !aadhaar::is_nationality_condition_allowed(p.query) {
+        return Err("An Aadhaar does not prove a nationality, so it can only pass an exclusion check".into());
+    }
+    let parsed = aadhaar::parse_aadhaar(p.signed_data)?;
+    let certificate = aadhaar::find_uidai_certificate(p.certificates, p.signed_data, p.signature)
+        .ok_or("The UIDAI key is not in the Certificate Registry")?;
+    let base_inputs = aadhaar::get_aadhaar_circuit_inputs(
+        p.signed_data,
+        p.signature,
+        &parsed,
+        certificate,
+        p.certs_meta,
+        p.cert_leaves,
+        salts,
+    )?;
+    let mrz = parsed.mrz();
+    let disc_input = DisclosureInput {
+        dg1: &parsed.dg1,
+        e_content: &[],
+        sod_signature_processed: &[],
+        dg2_hash: &parsed.photo_hash,
+        expiry_date: &expiry_from_mrz(mrz)?,
+        mrz,
+        hide_nullifier: p.hide_nullifier,
+        private_nullifier: Some(parsed.private_nullifier()),
+    };
+    let mut result = disclosure_outputs(
+        p.query,
+        &disc_input,
+        salts,
+        &p.nullifier_secret,
+        &p.service_scope,
+        &p.service_subscope,
+        p.current_date_timestamp,
+        p.evm,
+    )?;
+    result[aadhaar::AADHAAR_CIRCUIT_NAME] = base_inputs;
+    Ok(result)
 }

@@ -80,6 +80,8 @@ struct Vectors {
     circuit_merkle: CircuitMerkleCase,
     #[serde(rename = "outerInputs")]
     outer_inputs: OuterInputsCase,
+    #[serde(rename = "outerInputsNoIdentifier")]
+    outer_inputs_no_identifier: OuterInputsCase,
 }
 
 #[derive(Deserialize)]
@@ -126,6 +128,8 @@ struct DisclosureCase {
     countries: Vec<String>,
     #[serde(default)]
     user_address: String,
+    #[serde(default)]
+    chain: String,
     #[serde(default)]
     custom_data: String,
     expected: serde_json::Value,
@@ -187,6 +191,8 @@ struct AgeQueryJson {
 #[derive(Deserialize)]
 struct AgeCase {
     name: String,
+    #[serde(default)]
+    hide_nullifier: bool,
     dg1: Vec<u8>,
     e_content: Vec<u8>,
     sod_signature_processed: Vec<u8>,
@@ -646,6 +652,8 @@ fn age_circuit_inputs_match_ts() {
             dg2_hash: &case.dg2_hash,
             expiry_date: &case.expiry_date,
             mrz: &mrz,
+            hide_nullifier: case.hide_nullifier,
+            private_nullifier: None,
         };
         let query = disclosure::AgeQuery {
             gt: case.query.gt,
@@ -813,6 +821,8 @@ fn disclosure_builders_match_ts() {
             dg2_hash: &age.dg2_hash,
             expiry_date: &age.expiry_date,
             mrz: &mrz,
+            hide_nullifier: false,
+            private_nullifier: None,
         };
         let salts = input_gen::InputGenSalts::from_master(dec(&case.master_salt)).disclosure;
         let z = &BigUint::from(0u8);
@@ -844,7 +854,7 @@ fn disclosure_builders_match_ts() {
                 let bound = disclosure::BoundData {
                     user_address: Some(case.user_address.clone()),
                     custom_data: Some(case.custom_data.clone()),
-                    chain_id: None,
+                    chain: Some(case.chain.clone()),
                 };
                 disclosure::get_bind_circuit_inputs(&input, &bound, &salts, z, z, z, 1789000000, None)
             }
@@ -908,6 +918,14 @@ fn outer_assembly_matches_ts() {
     )
     .unwrap();
     assert_eq!(got, v.outer_inputs.result, "getOuterCircuitInputs");
+
+    let no_id1 = ocp("d", &["0xd0", "0x64", "0xd2", "0xd3", "0xd4", "0x4", "0x0", "0xd7"]);
+    let no_id2 = ocp("e", &["0xe0", "0x64", "0xe2", "0xe3", "0xe4", "0x4", "0x0", "0xe7"]);
+    let got = outer::get_outer_circuit_inputs(
+        &csc, &dsc_id, &integ, &[no_id1, no_id2], &v.outer_inputs_no_identifier.circuit_root,
+    )
+    .unwrap();
+    assert_eq!(got, v.outer_inputs_no_identifier.result, "getOuterCircuitInputs without an identifier");
 }
 
 #[test]
@@ -966,6 +984,7 @@ fn end_to_end_input_generation_matches_ts() {
             query: &query,
             evm: false,
             nullifier_secret: BigUint::from(0u8),
+            hide_nullifier: false,
             service_scope: dec(&age_case.service_scope),
             service_subscope: dec(&age_case.service_subscope),
             current_date_timestamp: age_case.current_date,
@@ -1005,4 +1024,137 @@ fn integrity_circuit_inputs_match_ts() {
         );
         assert_eq!(got, case.expected, "integrity fixture '{}'", case.name);
     }
+}
+
+#[derive(Deserialize)]
+struct AadhaarVectors {
+    cases: Vec<AadhaarCase>,
+    outer: AadhaarOuterCase,
+    #[serde(rename = "numPub")]
+    num_pub: Vec<NumPubCase>,
+}
+
+#[derive(Deserialize)]
+struct AadhaarCase {
+    label: String,
+    signed_data: String,
+    signature: String,
+    certs: AadhaarCertsFile,
+    mrz: String,
+    photo_hash: Vec<u8>,
+    private_nullifier: String,
+    inputs: serde_json::Value,
+    age: serde_json::Value,
+}
+
+#[derive(Deserialize)]
+struct AadhaarCertsFile {
+    version: u32,
+    root: String,
+    timestamp: u64,
+    certificates: Vec<registry::PackagedCertificate>,
+}
+
+#[derive(Deserialize)]
+struct AadhaarOuterCase {
+    circuit_root: String,
+    name: String,
+    result: serde_json::Value,
+}
+
+fn load_aadhaar() -> AadhaarVectors {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../vectors/aadhaar.json");
+    let data = std::fs::read_to_string(path)
+        .expect("aadhaar.json missing — run `bun rust/scripts/gen-aadhaar-vectors.ts` first");
+    serde_json::from_str(&data).expect("aadhaar.json parse")
+}
+
+#[test]
+fn aadhaar_inputs_match_ts() {
+    use zkpassport_core::aadhaar;
+    let salts = commitments::IntegrityToDisclosureSalts {
+        dg1_salt: BigUint::from(3u8),
+        expiry_date_salt: BigUint::from(5u8),
+        // Above the field modulus, as a SHA-256 salt can be
+        dg2_hash_salt: dec("21888242871839275222246405745257275088548364400416034343698204186575808495624"),
+        private_nullifier_salt: BigUint::from(11u8),
+    };
+    for case in load_aadhaar().cases {
+        let signed_data = base64_decode(&case.signed_data);
+        let signature = base64_decode(&case.signature);
+        let parsed = aadhaar::parse_aadhaar(&signed_data).expect("parse");
+        assert_eq!(parsed.mrz(), case.mrz, "{} mrz", case.label);
+        assert_eq!(parsed.photo_hash, case.photo_hash, "{} photo hash", case.label);
+        assert_eq!(parsed.private_nullifier(), dec(&case.private_nullifier), "{} nullifier", case.label);
+
+        let certificates = &case.certs.certificates;
+        let uidai = aadhaar::find_uidai_certificate(certificates, &signed_data, &signature)
+            .expect("the UIDAI certificate that signed the QR data");
+        assert_eq!(uidai.cert_type.as_deref(), Some("uidai"));
+        let mut tampered = signed_data.clone();
+        tampered[10] ^= 1;
+        assert!(aadhaar::find_uidai_certificate(certificates, &tampered, &signature).is_none());
+
+        let meta = dsc::PackagedCertsMeta {
+            version: case.certs.version,
+            root: &case.certs.root,
+            timestamp: case.certs.timestamp,
+            revocations: &[],
+            masterlists: &[],
+        };
+        let leaves = registry::get_certificate_leaf_hashes(certificates, meta.version).unwrap();
+        let params = input_gen::AadhaarParams {
+            signed_data: &signed_data,
+            signature: &signature,
+            certificates,
+            certs_meta: &meta,
+            cert_leaves: &leaves,
+            query: &json!({ "age": { "gte": 18 } }),
+            evm: false,
+            nullifier_secret: BigUint::from(0u8),
+            hide_nullifier: false,
+            service_scope: input_gen::scope_hash("demo.zkpassport.id"),
+            service_subscope: BigUint::from(0u8),
+            current_date_timestamp: 1789000000,
+        };
+        let got = input_gen::generate_aadhaar_inputs(&params, &salts).expect("inputs");
+        assert_eq!(got["aadhaar_id"], case.inputs, "{} aadhaar_id inputs", case.label);
+        assert_eq!(got["disclosures"][0]["name"], "compare_age");
+        assert_eq!(got["disclosures"][0]["inputs"], case.age, "{} age inputs", case.label);
+    }
+}
+
+#[test]
+fn aadhaar_refuses_a_nationality_check_other_than_exclusion() {
+    use zkpassport_core::aadhaar::is_nationality_condition_allowed;
+    assert!(is_nationality_condition_allowed(&json!({ "age": { "gte": 18 } })));
+    assert!(is_nationality_condition_allowed(&json!({ "nationality": { "out": ["PRK"] } })));
+    assert!(is_nationality_condition_allowed(&json!({ "nationality": { "disclose": false } })));
+    assert!(!is_nationality_condition_allowed(&json!({ "nationality": { "in": ["IND"] } })));
+    assert!(!is_nationality_condition_allowed(&json!({ "nationality": { "disclose": true } })));
+    assert!(!is_nationality_condition_allowed(&json!({ "nationality": { "out": ["PRK"], "eq": "IND" } })));
+}
+
+#[test]
+fn aadhaar_outer_assembly_matches_ts() {
+    use zkpassport_core::outer;
+    let v = load_aadhaar();
+    for c in v.num_pub.iter() {
+        assert_eq!(outer::num_public_inputs(&c.name, Some("0.23.0")), c.count, "numPub {}", c.name);
+    }
+    let ocp = |tag: &str, pis: &[&str]| outer::OuterSubproof {
+        proof: vec![format!("0x{tag}1")],
+        public_inputs: pis.iter().map(|s| s.to_string()).collect(),
+        vkey: vec![format!("0x{tag}2")],
+        key_hash: format!("0x{tag}3"),
+        tree_hash_path: vec![format!("0x{tag}4"), format!("0x{tag}5")],
+        tree_index: format!("0x{tag}6"),
+    };
+    let aadhaar_id = ocp("f", &["0xf0", "0xf1", "0x65"]);
+    let disc1 = ocp("d", &["0xd0", "0x64", "0xd2", "0xd3", "0xd4", "0xd5", "0x99", "0xd7"]);
+    let disc2 = ocp("e", &["0xe0", "0x64", "0xe2", "0xe3", "0xe4", "0xe5", "0x0", "0xe7"]);
+    let got = outer::get_aadhaar_outer_circuit_inputs(&aadhaar_id, &[disc1, disc2], &v.outer.circuit_root)
+        .unwrap();
+    assert_eq!(got, v.outer.result, "getAadhaarOuterCircuitInputs");
+    assert_eq!(outer::aadhaar_outer_circuit_name(2, true).unwrap(), v.outer.name);
 }

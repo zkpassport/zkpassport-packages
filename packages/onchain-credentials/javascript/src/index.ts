@@ -1,5 +1,13 @@
 import type { Chain, PublicClient, WalletClient } from "viem"
-import { createPublicClient, encodeAbiParameters, getAbiItem, http, keccak256 } from "viem"
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  createPublicClient,
+  encodeAbiParameters,
+  getAbiItem,
+  http,
+  keccak256,
+} from "viem"
 import { getChainFromId } from "@zkpassport/utils"
 import type { FacematchMode, NullifierType } from "@zkpassport/utils"
 import { getCredentialsAddress } from "./deployments"
@@ -239,6 +247,18 @@ export class CredentialsClient {
 
   async getPolicy(policyId: bigint): Promise<CredentialPolicy> {
     return (await this.read("getPolicy", [policyId])) as CredentialPolicy
+  }
+
+  /** Get a policy, or null when no policy has the id. */
+  async findPolicy(policyId: bigint): Promise<CredentialPolicy | null> {
+    try {
+      return await this.getPolicy(policyId)
+    } catch (error) {
+      if (isPolicyNotFound(error)) {
+        return null
+      }
+      throw error
+    }
   }
 
   /**
@@ -730,6 +750,18 @@ async function submitCall(
   return hash
 }
 
+function isPolicyNotFound(error: unknown): boolean {
+  if (!(error instanceof BaseError)) {
+    return false
+  }
+  const revert = error.walk(
+    (cause) =>
+      cause instanceof ContractFunctionRevertedError &&
+      cause.data?.errorName === "ZKPassportCredentials__PolicyNotFound",
+  )
+  return revert !== null
+}
+
 /**
  * Submit ZKPassportCredentials.issue() and wait for inclusion. Any sender
  * works — the credential lands on the wallet the proof is bound to — so a
@@ -779,4 +811,8 @@ export async function submitCredentialsCall(
 }
 
 export { ZKPassportCredentialsAbi, PolicyEvaluatorV1Abi, PolicyEvaluatorV2Abi }
-export { getCredentialsChain, getCredentialsAddress } from "./deployments"
+export { getCredentialsChain, getCredentialsChains, getCredentialsAddress } from "./deployments"
+export {
+  credentialQueryFromRequirements,
+  credentialRequirementsFromQuery,
+} from "./query-requirements"

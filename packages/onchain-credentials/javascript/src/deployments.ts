@@ -24,6 +24,13 @@ export function getCredentialsChain(chain: SupportedChain): Chain {
   return deployment.chain
 }
 
+/** List the chains with a deployed credentials contract. */
+export function getCredentialsChains(): SupportedChain[] {
+  return (Object.keys(CREDENTIALS_DEPLOYMENTS) as SupportedChain[]).filter(
+    (chain) => CREDENTIALS_DEPLOYMENTS[chain]?.address !== undefined,
+  )
+}
+
 export function getCredentialsAddress(chain: SupportedChain): `0x${string}` {
   const address = CREDENTIALS_DEPLOYMENTS[chain]?.address
   if (!address) {

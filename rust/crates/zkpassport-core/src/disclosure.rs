@@ -62,6 +62,12 @@ pub struct DisclosureInput<'a> {
     pub expiry_date: &'a str,
     /// The MRZ string (from DG1), for disclose-mask ranges.
     pub mrz: &'a str,
+    /// The request asks for no unique identifier: the circuit gets the hash of the private
+    /// nullifier in place of its value, so the proof carries no scoped nullifier.
+    pub hide_nullifier: bool,
+    /// The private nullifier of an ID without a chip signature (an Aadhaar). `None` derives it
+    /// from the SOD.
+    pub private_nullifier: Option<BigUint>,
 }
 
 /// The disclosure prologue, computed once and shared by every builder in a run.
@@ -82,11 +88,9 @@ impl DisclosureBase {
         let e_content_padded = right_pad_with_zeros(input.e_content, E_CONTENT_INPUT_SIZE);
         let dg2_hash_normalized = normalize_dg2_hash(input.dg2_hash);
         let dg2_hash_type = hash_algorithm_id_from_length(input.dg2_hash.len())?;
-        let private_nullifier = calculate_private_nullifier(
-            &dg1_padded,
-            &e_content_padded,
-            input.sod_signature_processed,
-        );
+        let private_nullifier = input.private_nullifier.clone().unwrap_or_else(|| {
+            calculate_private_nullifier(&dg1_padded, &e_content_padded, input.sod_signature_processed)
+        });
         let comm_in = hash_salt_dg1_dg2_hash_private_nullifier(
             salts,
             &dg1_padded,
@@ -121,9 +125,15 @@ fn base_object(
     let salted = |value: Value, salt: &BigUint| {
         json!({ "value": value, "salt": hex_min(salt), "hash": "0x0" })
     };
+    let salted_private_nullifier = if input.hide_nullifier {
+        let hash = salted_value_hash_scalar(&salts.private_nullifier_salt, &base.private_nullifier);
+        json!({ "value": "0x0", "salt": "0x0", "hash": hex_min(&hash) })
+    } else {
+        salted(json!(hex_min(&base.private_nullifier)), &salts.private_nullifier_salt)
+    };
     json!({
         "salted_dg1": salted(json!(base.dg1_padded), &salts.dg1_salt),
-        "salted_private_nullifier": salted(json!(hex_min(&base.private_nullifier)), &salts.private_nullifier_salt),
+        "salted_private_nullifier": salted_private_nullifier,
         "salted_expiry_date": salted(json!(input.expiry_date.as_bytes()), &salts.expiry_date_salt),
         "salted_dg2_hash": salted(json!(hex_min(&base.dg2_hash_normalized)), &salts.dg2_hash_salt),
         "salted_dg2_hash_type": salted(json!(hex_min(&BigUint::from(base.dg2_hash_type))), &salts.dg2_hash_salt),
@@ -496,13 +506,22 @@ fn decode_strip(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).replace('\u{0}', "")
 }
 
-/// Passport `disclosedBytes` → the values the SDK's checker recomputes.
+/// `DisclosedData.fromDisclosedBytes` in @zkpassport/utils: the values the SDK's checker
+/// recomputes from `disclosedBytes`. A cross-repo contract: keep the field positions the same.
 /// `disclosed` is the 90-byte MRZ region (dg1[5..]) with non-disclosed
 /// positions zeroed. Only fields covered by the mask come back non-empty.
-pub fn disclosed_values(disclosed: &[u8]) -> Value {
+pub fn disclosed_values(disclosed: &[u8], mrz: &str) -> Value {
+    let is_id = mrz.len() == 90;
     let slice = |a: usize, b: usize| -> &[u8] { disclosed.get(a..b).unwrap_or(&[]) };
-    // Name field [5,44): SURNAME<<GIVEN1<GIVEN2...
-    let raw_name = decode_strip(slice(5, 44));
+    // The [start, end) range of a field: passport (TD3) or ID card (TD1).
+    let field = |passport: (usize, usize), id_card: (usize, usize)| -> String {
+        let (a, b) = if is_id { id_card } else { passport };
+        decode_strip(slice(a, b))
+    };
+    // `normalizeCountryCode`: Germany's MRZ code is "D<<".
+    let country = |code: String| if code == "D<<" { "DEU".to_string() } else { code };
+    // Name field: SURNAME<<GIVEN1<GIVEN2...
+    let raw_name = field((5, 44), (60, 90));
     let (last, given) = match raw_name.find("<<") {
         Some(i) => (raw_name[..i].to_string(), raw_name[i + 2..].to_string()),
         None => (String::new(), String::new()),
@@ -528,13 +547,13 @@ pub fn disclosed_values(disclosed: &[u8]) -> Value {
         "firstname": format_name(&first),
         "lastname": format_name(&last),
         "fullname": format_name(&full),
-        "nationality": decode_strip(slice(54, 57)),
-        "issuing_country": decode_strip(slice(2, 5)),
-        "document_number": strip_chevrons(&decode_strip(slice(44, 53))),
+        "nationality": country(field((54, 57), (45, 48))),
+        "issuing_country": country(decode_strip(slice(2, 5))),
+        "document_number": strip_chevrons(&field((44, 53), (5, 14))),
         "document_type": doc_type,
-        "gender": decode_strip(slice(64, 65)),
-        "birthdate": decode_strip(slice(57, 63)),   // raw YYMMDD
-        "expiry_date": decode_strip(slice(65, 71)), // raw YYMMDD
+        "gender": field((64, 65), (37, 38)),
+        "birthdate": field((57, 63), (30, 36)),   // raw YYMMDD
+        "expiry_date": field((65, 71), (38, 44)), // raw YYMMDD
     })
 }
 
@@ -545,9 +564,37 @@ pub fn disclosed_values(disclosed: &[u8]) -> Value {
 pub struct BoundData {
     /// 0x-hex address bytes.
     pub user_address: Option<String>,
-    /// Numeric chain id.
-    pub chain_id: Option<u64>,
+    /// Chain name, as the SDK sends it (e.g. "ethereum_sepolia").
+    pub chain: Option<String>,
     pub custom_data: Option<String>,
+}
+
+/// `getIdFromChain` in @zkpassport/utils. A cross-repo contract: keep both lists the same.
+fn chain_id(chain: &str) -> Result<u64, String> {
+    Ok(match chain {
+        "ethereum" => 1,
+        "base" => 8453,
+        "arbitrum" => 42161,
+        "optimism" => 10,
+        "polygon" => 137,
+        "celo" => 42220,
+        "gnosis" => 100,
+        "scroll" => 534352,
+        "linea" => 59144,
+        "world_chain" => 480,
+        "robinhood" => 4663,
+        "ethereum_sepolia" => 11155111,
+        "base_sepolia" => 84532,
+        "arbitrum_sepolia" => 421614,
+        "polygon_amoy" => 80002,
+        "celo_sepolia" => 11142220,
+        "gnosis_chiado" => 10200,
+        "scroll_sepolia" => 534351,
+        "linea_sepolia" => 59141,
+        "world_chain_sepolia" => 4801,
+        "local" => 31337,
+        _ => return Err(format!("Unsupported chain: {chain}")),
+    })
 }
 
 fn hex_bytes(hex: &str) -> Vec<u8> {
@@ -566,15 +613,9 @@ pub fn format_bound_data(b: &BoundData) -> Result<Vec<u8>, String> {
         out.extend_from_slice(&[(bytes.len() >> 8) as u8, (bytes.len() & 0xff) as u8]);
         out.extend_from_slice(&bytes);
     }
-    if let Some(chain) = b.chain_id {
-        // Binary.fromHex(chainId.toString(16)).toNumberArray()
-        let hex = format!("{chain:x}");
-        let bytes = hex_bytes(if hex.len() % 2 == 1 {
-            // Binary.fromHex left-pads odd to even
-            return Err("odd chain id hex unsupported".into());
-        } else {
-            &hex
-        });
+    if let Some(chain) = &b.chain {
+        // The id's big-endian bytes without leading zeros, as TS gets from its hex string
+        let bytes: Vec<u8> = chain_id(chain)?.to_be_bytes().into_iter().skip_while(|&x| x == 0).collect();
         out.push(2);
         out.extend_from_slice(&[0, bytes.len() as u8]);
         out.extend_from_slice(&bytes);
