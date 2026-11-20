@@ -8,6 +8,8 @@ type ErrorScreenProps = {
   onRetry?: () => void
   retryLabel?: string
   onStartOver?: () => void
+  // A tab the user opened themselves can't be closed by the page, so it offers no Close
+  closable?: boolean
 }
 
 export function ErrorScreen({
@@ -16,6 +18,7 @@ export function ErrorScreen({
   onRetry,
   retryLabel = "Try again",
   onStartOver,
+  closable = true,
 }: ErrorScreenProps) {
   return (
     <div className="flow-body">
@@ -31,9 +34,9 @@ export function ErrorScreen({
       <Actions>
         {onRetry ? (
           <Primary onClick={onRetry}>{retryLabel}</Primary>
-        ) : (
+        ) : closable ? (
           <Primary onClick={() => window.close()}>Close</Primary>
-        )}
+        ) : null}
         {onStartOver ? <Secondary onClick={onStartOver}>Start over</Secondary> : null}
       </Actions>
     </div>

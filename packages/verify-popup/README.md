@@ -24,6 +24,17 @@ in the ZKPassport dashboard. The page loads the request from the dashboard API a
 proofs back to it once the phone has answered. For a local API set
 `VITE_DASHBOARD_API_URL=http://localhost:3001`.
 
+## Hosted mint page
+
+`https://verify.zkpassport.id/m?chain=<chain>&policy=<credential id>` lets someone mint a
+credential without a website in between: they connect a wallet, prove the policy with the app, and
+the credential is minted to that wallet, which also pays the network fee. The first wallet to
+connect stays the recipient: switching accounts in the wallet afterwards only changes who pays, and
+"Use another wallet" on the consent screen picks another recipient. A wallet that already holds the
+credential sees until when it is valid. The header shows the name and image from the policy's metadata
+URL. Like `/r`, it is its own page (`m.html`, which `vercel.json` rewrites `/m` and `/m/*` to), so
+a mint link never runs the popup's session handling.
+
 ## The `/r` page
 
 `https://verify.zkpassport.id/r?<request params>` is where a request link lands
@@ -83,6 +94,9 @@ The RP's identity is derived exclusively from the browser-attested
 In link mode it comes from the dashboard API, which owns the link.
 The mobile app's origin trust for `verify.zkpassport.id`
 (`ZKPASSPORT_TRUSTED_ORIGINS` in the app) depends on this invariant.
+
+On the hosted mint page there is no RP: nothing is posted to another window, and the
+credential goes to the wallet the holder connected.
 
 In credential mode the SDK domain (the `d=` in the request URL, and the domain
 the proof is bound to) is the `ZKPassportCredentials` contract's on-chain

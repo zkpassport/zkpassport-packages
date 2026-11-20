@@ -7,11 +7,20 @@ import { Actions, AddressLink, Primary, TxLink } from "../shared/controls"
 export type DoneOutcome =
   | { kind: "verified" }
   | { kind: "minted"; hash: Hex; recipient: `0x${string}`; chain: Chain }
-  | { kind: "already-verified"; recipient: `0x${string}`; chain: Chain }
+  | { kind: "already-verified"; recipient: `0x${string}`; chain: Chain; heldUntil: bigint }
 
 const AUTO_CLOSE_SECONDS = 5
 
-export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: string }) {
+export function Done({
+  outcome,
+  appName,
+  closable = true,
+}: {
+  outcome: DoneOutcome
+  appName: string
+  // A tab the user opened themselves can't be closed by the page, so it offers no Return button
+  closable?: boolean
+}) {
   const closesItself = outcome.kind === "verified" && !!window.opener
   const secondsLeft = useAutoClose(closesItself)
   return (
@@ -26,9 +35,11 @@ export function Done({ outcome, appName }: { outcome: DoneOutcome; appName: stri
           </p>
         ) : null}
       </div>
-      <Actions>
-        <Primary onClick={() => window.close()}>Return to {appName}</Primary>
-      </Actions>
+      {closable ? (
+        <Actions>
+          <Primary onClick={() => window.close()}>Return to {appName}</Primary>
+        </Actions>
+      ) : null}
     </div>
   )
 }
@@ -56,6 +67,7 @@ function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }
       <>
         <p className="flow-done-sub">Verification token already minted to</p>
         <AddressLink chain={outcome.chain} address={outcome.recipient} chip />
+        <p className="flow-done-sub">Valid until {formatDate(outcome.heldUntil)}</p>
       </>
     )
   }
@@ -66,4 +78,12 @@ function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }
       <TxLink chain={outcome.chain} hash={outcome.hash} label="Transaction" quiet />
     </>
   )
+}
+
+function formatDate(seconds: bigint): string {
+  return new Date(Number(seconds) * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
 }

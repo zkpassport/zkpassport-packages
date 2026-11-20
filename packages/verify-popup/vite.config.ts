@@ -80,10 +80,12 @@ export default defineConfig({
   build: {
     target: "esnext",
     rollupOptions: {
-      // /r is its own page so it stays free of the SDK, wagmi and the proving backends
+      // /r is its own page so it stays free of the SDK, wagmi and the proving backends, and /m so a
+      // mint link never runs the popup's session handling
       input: {
         main: fileURLToPath(new URL("index.html", import.meta.url)),
         r: fileURLToPath(new URL("r.html", import.meta.url)),
+        m: fileURLToPath(new URL("m.html", import.meta.url)),
       },
     },
   },
