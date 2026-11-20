@@ -21,6 +21,7 @@ import {
 import type { OutgoingEvent } from "../app"
 import { withProof, type ScanProgress } from "../verify/waiting"
 import { describeMintError, type MintError } from "./errors"
+import { heldCredentialUntil } from "./held-credential"
 
 type SuccessMessage = Extract<OutgoingEvent, { type: "success" }>
 
@@ -101,8 +102,8 @@ export function useCredentialFlow(params: CredentialFlowParams) {
     const run = async () => {
       const policyId = BigInt(credential.policyId)
 
-      if (!renew && (await credentialsContract.hasCredential(recipient, policyId))) {
-        const heldUntil = await credentialsContract.heldUntil(recipient, policyId)
+      const heldUntil = await heldCredentialUntil(credentialsContract, recipient, policyId, renew)
+      if (heldUntil !== null) {
         if (stale()) return
         setStep({ kind: "done", outcome: "already-verified", heldUntil })
         emit({
