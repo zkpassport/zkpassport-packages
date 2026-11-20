@@ -12,7 +12,7 @@ export function parseMintLink(search: string): MintLink | { error: string } {
   const policyId = params.get("policy") ?? ""
 
   if (!isSupportedChain(chain)) {
-    return { error: "This mint link names a network ZKPassport does not support." }
+    return { error: "This mint link doesn't name a network ZKPassport supports." }
   }
   if (!/^0x[0-9a-fA-F]{64}$/.test(policyId)) {
     return { error: "This mint link has no valid credential ID." }

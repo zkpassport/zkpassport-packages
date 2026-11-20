@@ -11,13 +11,10 @@ describe("parseMintLink", () => {
     })
   })
 
-  test("rejects a chain name ZKPassport does not know", () => {
-    expect(parseMintLink(`?chain=solana&policy=${POLICY_ID}`)).toEqual({
-      error: "This mint link names a network ZKPassport does not support.",
-    })
-    expect(parseMintLink(`?policy=${POLICY_ID}`)).toEqual({
-      error: "This mint link names a network ZKPassport does not support.",
-    })
+  test("rejects a missing chain or one ZKPassport does not know", () => {
+    const error = { error: "This mint link doesn't name a network ZKPassport supports." }
+    expect(parseMintLink(`?chain=solana&policy=${POLICY_ID}`)).toEqual(error)
+    expect(parseMintLink(`?policy=${POLICY_ID}`)).toEqual(error)
   })
 
   test("rejects a missing or malformed credential id", () => {
