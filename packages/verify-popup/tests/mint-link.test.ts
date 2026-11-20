@@ -12,7 +12,7 @@ describe("parseMintLink", () => {
   })
 
   test("rejects a missing chain or one ZKPassport does not know", () => {
-    const error = { error: "This mint link doesn't name a network ZKPassport supports." }
+    const error = { error: "Credential minting is not supported in this network." }
     expect(parseMintLink(`?chain=solana&policy=${POLICY_ID}`)).toEqual(error)
     expect(parseMintLink(`?policy=${POLICY_ID}`)).toEqual(error)
   })
