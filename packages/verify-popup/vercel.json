@@ -5,7 +5,7 @@
     { "source": "/r/:path*", "destination": "/r.html" },
     { "source": "/c", "destination": "/c.html" },
     { "source": "/c/:path*", "destination": "/c.html" },
-    { "source": "/mint", "destination": "/index.html" }
+    { "source": "/m", "destination": "/m.html" }
   ],
   "headers": [
     {
