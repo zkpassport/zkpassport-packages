@@ -134,6 +134,9 @@ oprf_pk_hash: {
     /** add_accepted_vk(version: field, vk_hash: field) */
     add_accepted_vk: ((version: FieldLike, vk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** assert_attestation_revocation_root_accepted(root: field, timestamp: integer) */
+    assert_attestation_revocation_root_accepted: ((root: FieldLike, timestamp: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** assert_proof_valid(version: field, vk_hash: field, cert_root: field, circuit_root: field, current_date: integer, nullifier_type: integer, oprf_pk_hash: field) */
     assert_proof_valid: ((version: FieldLike, vk_hash: FieldLike, cert_root: FieldLike, circuit_root: FieldLike, current_date: (bigint | number), nullifier_type: (bigint | number), oprf_pk_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
