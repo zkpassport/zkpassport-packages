@@ -1,6 +1,6 @@
 use crate::app_attest::{
-    APPLE_ROOT_KEY_HASH, GOOGLE_ECDSA_ROOT_KEY_HASH, GOOGLE_RSA_ROOT_KEY_HASH,
-    IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
+    ANDROID_APP_ID_HASH, ANDROID_INTEGRITY_PUBLIC_KEY_HASH, APPLE_ROOT_KEY_HASH,
+    GOOGLE_ECDSA_ROOT_KEY_HASH, GOOGLE_RSA_ROOT_KEY_HASH, IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
 };
 use crate::commitments::face_match_commitment;
 use crate::constants::APP_ATTEST_ENV_PRODUCTION;
@@ -35,6 +35,13 @@ impl FaceMatch {
             self.revocation_root,
         )
     }
+
+    /// Whether the face match was made under one of Google's attestation root keys, so by an
+    /// Android device: its revocation root must then be checked against the registry.
+    pub fn is_android(self) -> bool {
+        (self.root_key_leaf == GOOGLE_RSA_ROOT_KEY_HASH)
+            | (self.root_key_leaf == GOOGLE_ECDSA_ROOT_KEY_HASH)
+    }
 }
 
 /// Reads a face match out of the face match capsule's payload (`FACE_MATCH_CAPSULE_SLOT`): its
@@ -57,9 +64,11 @@ pub fn parse_face_match_payload(payload: [Field; 6]) -> FaceMatch {
     }
 }
 
-/// Fails unless the L1 verifier would accept `face_match` for a `mode` face match, which for now
-/// only an iOS face match passes: one made in production, in `mode`, by ZKPassport's iOS app or
-/// App Clip under Apple's App Attest root key, with no integrity key or revocation root.
+/// Fails unless the L1 verifier would accept `face_match` for a `mode` face match, short of an
+/// Android face match's revocation root, which the registry checks: one made in production, in
+/// `mode`, either by ZKPassport's iOS app or App Clip under Apple's App Attest root key with no
+/// integrity key or revocation root, or by ZKPassport's Android app under one of Google's root keys
+/// with ZKPassport's Play Integrity key.
 pub fn assert_face_match_policy(face_match: FaceMatch, mode: u8) {
     assert(
         face_match.environment == APP_ATTEST_ENV_PRODUCTION,
@@ -67,20 +76,28 @@ pub fn assert_face_match_policy(face_match: FaceMatch, mode: u8) {
     );
     assert(face_match.mode == mode, "face match mode not the requested one");
 
-    let root_key = face_match.root_key_leaf;
-    assert(
-        (root_key != GOOGLE_RSA_ROOT_KEY_HASH) & (root_key != GOOGLE_ECDSA_ROOT_KEY_HASH),
-        "Android face match not supported yet",
-    );
-    assert(root_key == APPLE_ROOT_KEY_HASH, "face match root key not Apple's App Attest root key");
-
     let app_id = face_match.app_id_hash;
-    assert(
-        (app_id == IOS_APP_ID_HASH) | (app_id == IOS_APP_CLIP_APP_ID_HASH),
-        "face match app id not ZKPassport's iOS app or App Clip",
-    );
-    assert(face_match.integrity_public_key_hash == 0, "iOS face match commits an integrity key");
-    assert(face_match.revocation_root == 0, "iOS face match commits a revocation root");
+    if face_match.is_android() {
+        assert(app_id == ANDROID_APP_ID_HASH, "face match app id not ZKPassport's Android app");
+        assert(
+            face_match.integrity_public_key_hash == ANDROID_INTEGRITY_PUBLIC_KEY_HASH,
+            "Android face match not under ZKPassport's Play Integrity key",
+        );
+    } else {
+        assert(
+            face_match.root_key_leaf == APPLE_ROOT_KEY_HASH,
+            "face match root key not Apple's or Google's attestation root key",
+        );
+        assert(
+            (app_id == IOS_APP_ID_HASH) | (app_id == IOS_APP_CLIP_APP_ID_HASH),
+            "face match app id not ZKPassport's iOS app or App Clip",
+        );
+        assert(
+            face_match.integrity_public_key_hash == 0,
+            "iOS face match commits an integrity key",
+        );
+        assert(face_match.revocation_root == 0, "iOS face match commits a revocation root");
+    }
 }
 
 mod test {
@@ -94,7 +111,8 @@ mod test {
     };
     use crate::face_match::{assert_face_match_policy, FaceMatch, parse_face_match_payload};
     use crate::fixtures::{
-        FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT, FACE_MATCH_IOS_STRICT_COMMITMENT,
+        FACE_MATCH_ANDROID_STRICT_COMMITMENT, FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT,
+        FACE_MATCH_IOS_STRICT_COMMITMENT,
     };
 
     fn ios_strict() -> FaceMatch {
@@ -127,6 +145,7 @@ mod test {
         app_clip_regular.app_id_hash = IOS_APP_CLIP_APP_ID_HASH;
         app_clip_regular.mode = FACE_MATCH_MODE_REGULAR;
         assert(app_clip_regular.commitment() == FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT);
+        assert(android_strict().commitment() == FACE_MATCH_ANDROID_STRICT_COMMITMENT);
     }
 
     fn ios_strict_payload() -> [Field; 6] {
@@ -240,19 +259,60 @@ mod test {
         assert_face_match_policy(face_match, FACE_MATCH_MODE_STRICT);
     }
 
-    #[test(should_fail_with = "Android face match not supported yet")]
-    fn android_face_match_under_google_rsa_root_key_rejected() {
+    #[test]
+    fn strict_face_match_from_the_android_app_accepted_under_either_google_root_key() {
         assert_face_match_policy(android_strict(), FACE_MATCH_MODE_STRICT);
-    }
-
-    #[test(should_fail_with = "Android face match not supported yet")]
-    fn android_face_match_under_google_ecdsa_root_key_rejected() {
         let mut face_match = android_strict();
         face_match.root_key_leaf = GOOGLE_ECDSA_ROOT_KEY_HASH;
         assert_face_match_policy(face_match, FACE_MATCH_MODE_STRICT);
     }
 
-    #[test(should_fail_with = "face match root key not Apple's App Attest root key")]
+    #[test]
+    fn regular_face_match_from_the_android_app_accepted() {
+        let mut face_match = android_strict();
+        face_match.mode = FACE_MATCH_MODE_REGULAR;
+        assert_face_match_policy(face_match, FACE_MATCH_MODE_REGULAR);
+    }
+
+    // The registry checks an Android face match's revocation root, not the policy
+    #[test]
+    fn android_face_match_under_any_revocation_root_left_to_the_registry() {
+        let mut face_match = android_strict();
+        face_match.revocation_root = 0x7e7e;
+        assert_face_match_policy(face_match, FACE_MATCH_MODE_STRICT);
+    }
+
+    #[test]
+    fn only_google_root_keys_make_an_android_face_match() {
+        assert(android_strict().is_android());
+        let mut face_match = android_strict();
+        face_match.root_key_leaf = GOOGLE_ECDSA_ROOT_KEY_HASH;
+        assert(face_match.is_android());
+        assert(!ios_strict().is_android());
+    }
+
+    #[test(should_fail_with = "face match not made in production")]
+    fn development_android_face_match_rejected() {
+        let mut face_match = android_strict();
+        face_match.environment = 0;
+        assert_face_match_policy(face_match, FACE_MATCH_MODE_STRICT);
+    }
+
+    #[test(should_fail_with = "face match app id not ZKPassport's Android app")]
+    fn ios_app_id_under_a_google_root_key_rejected() {
+        let mut face_match = android_strict();
+        face_match.app_id_hash = IOS_APP_ID_HASH;
+        assert_face_match_policy(face_match, FACE_MATCH_MODE_STRICT);
+    }
+
+    #[test(should_fail_with = "Android face match not under ZKPassport's Play Integrity key")]
+    fn android_face_match_without_the_integrity_key_rejected() {
+        let mut face_match = android_strict();
+        face_match.integrity_public_key_hash = 0;
+        assert_face_match_policy(face_match, FACE_MATCH_MODE_STRICT);
+    }
+
+    #[test(should_fail_with = "face match root key not Apple's or Google's attestation root key")]
     fn face_match_under_another_root_key_rejected() {
         let mut face_match = ios_strict();
         face_match.root_key_leaf = 0x1234;

@@ -6,7 +6,6 @@ import { calculateCircuitRoot } from "@zkpassport/utils/registry"
 import {
   APPLE_APP_ATTEST_ROOT_KEY_HASH,
   GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
-  GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
   ZKPASSPORT_ANDROID_APP_ID_HASH,
   ZKPASSPORT_IOS_APP_ID_HASH,
 } from "../src/constants"
@@ -156,26 +155,34 @@ describe("getAztecVerifierParameters", () => {
     ])
   })
 
-  test.each([
-    [
-      "Google's RSA root key",
+  test("adds the capsule of a face match from the Android app, with its revocation root", async () => {
+    const androidFacematch: FacematchCommittedInputs = {
+      rootKeyLeaf: GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH,
+      environment: "production",
+      appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
+      integrityPubkeyHash: "0x1234",
+      mode: "regular",
+      revocationRoot: "0x5678",
+    }
+
+    const { capsules } = await new ZKPassport("example.com").getAztecVerifierParameters({
+      proof: { ...proof, committedInputs: { facematch: androidFacematch } },
+      network: "aztec",
+    })
+
+    expect(capsules.slice(1)).toEqual([
       {
-        rootKeyLeaf: GOOGLE_APP_ATTEST_RSA_ROOT_KEY_HASH,
-        appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH,
-        integrityPubkeyHash: "0x1234",
-        revocationRoot: "0x5678",
+        slot: 4,
+        fields: [
+          hexField(GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH),
+          hexField(1),
+          hexField(ZKPASSPORT_ANDROID_APP_ID_HASH),
+          hexField("0x1234"),
+          hexField(1),
+          hexField("0x5678"),
+        ],
       },
-    ],
-    ["Google's ECDSA root key", { rootKeyLeaf: GOOGLE_APP_ATTEST_ECDSA_P384_ROOT_KEY_HASH }],
-    ["the Android app's id", { appIdHash: ZKPASSPORT_ANDROID_APP_ID_HASH }],
-  ])("rejects an Android face match, under %s, before fetching anything", async (_, android) => {
-    await expect(
-      new ZKPassport("example.com").getAztecVerifierParameters({
-        proof: { ...proof, committedInputs: { facematch: { ...iosFacematch, ...android } } },
-        network: "aztec",
-      }),
-    ).rejects.toThrow(/Android face match/)
-    expect(fetchedUrls).toEqual([])
+    ])
   })
 
   test("rejects a proof of a circuits release the Aztec library doesn't verify", async () => {
