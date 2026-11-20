@@ -116,9 +116,21 @@ describe("getAztecFacematchCapsule", () => {
     ])
   })
 
-  test("holds what the face match conformance vector commits", async () => {
-    const vector = vectors.vectors.find((v) => v.name === "facematch_ios_strict")!
-    const capsule = getAztecFacematchCapsule(iosStrict).map(BigInt)
+  const androidStrict: FacematchCommittedInputs = {
+    rootKeyLeaf: "0x16700a2d9168a194fc85f237af5829b5a2be05b8ae8ac4879ada34cf54a9c211",
+    environment: "production",
+    appIdHash: "0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d",
+    integrityPubkeyHash: "0x12e3dc7cc8fec0205b51ff21825630865028f3be5bc64a6eec9ee5e71221319f",
+    mode: "strict",
+    revocationRoot: "0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525",
+  }
+
+  test.each([
+    ["facematch_ios_strict", iosStrict],
+    ["facematch_android_strict", androidStrict],
+  ])("holds what the %s conformance vector commits", async (name, facematch) => {
+    const vector = vectors.vectors.find((v) => v.name === name)!
+    const capsule = getAztecFacematchCapsule(facematch).map(BigInt)
     const [rootKeyLeaf, environment, appIdHash, integrityKey, mode, revocationRoot] = capsule
 
     const commitment = await getFacematchParameterCommitment(
