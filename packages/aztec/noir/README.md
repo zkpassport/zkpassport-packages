@@ -22,8 +22,8 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 
 | Package | Type | Purpose | Key dependencies |
 |---|---|---|---|
-| `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
-| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), ZKPassport's app ids and the attestation root keys a face match is checked against (`app_attest.nr`, the L1 verifier's `AppAttest` constants), a face match's parameters, the parser for their capsule payload and the L1 verifier's policy for them, for now iOS only (`face_match.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs, and `face_match_commitment`, which computes the circuits 0.23.0 face match commitment itself. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
+| `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions/Android attestation revocation) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_attestation_revocation_root_accepted`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
+| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), ZKPassport's app ids and the attestation root keys a face match is checked against (`app_attest.nr`, the L1 verifier's `AppAttest` constants), a face match's parameters, the parser for their capsule payload and the L1 verifier's policy for them (`face_match.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs, and `face_match_commitment`, which computes the circuits 0.23.0 face match commitment itself. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
 | `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `app_attest`, `commitments`, `constants`, `disclosed_data`, `face_match` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose, sanctions and face match payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
@@ -180,13 +180,19 @@ parameters the face match proof commits, in its order: the root key leaf, the en
 id hash, the integrity public key hash, the mode and the revocation root. The client stashes them,
 from `assembleFacematchCapsule` or the SDK's `getAztecVerifierParameters`, in
 `zkpassport::constants::FACE_MATCH_CAPSULE_SLOT` (`= 4`). `verify_zkpassport_proof` loads them
-once, accepts them as the L1 verifier's `isFaceMatchVerified` accepts an iOS face match, adds
-their commitment, and returns them in `VerifiedProof.face_match`. That is a face match made in
-production, in the mode the query asks for, by ZKPassport's iOS app or App Clip under Apple's App
-Attest root key, with no integrity key or revocation root: `zkpassport::app_attest` holds L1's app
-ids and root keys. Android face matches fail with "Android face match not supported yet". With
-Android unsupported, every face match that verifies is an iOS one, so the query takes no OS like
-L1's `os` argument.
+once, accepts them as the L1 verifier's `isFaceMatchVerified` accepts a face match from any OS,
+adds their commitment, and returns them in `VerifiedProof.face_match`. That is a face match made
+in production, in the mode the query asks for, either:
+
+- by ZKPassport's iOS app or App Clip under Apple's App Attest root key, with no integrity key or
+  revocation root;
+- or by ZKPassport's Android app under one of Google's root keys, with ZKPassport's Play Integrity
+  key, and a revocation root the registry's `assert_attestation_revocation_root_accepted` accepts
+  at the anchor block's timestamp: the empty tree's root only while the registry has no
+  attestation revocation root, any other by the registry's validation mode.
+
+`zkpassport::app_attest` holds L1's app ids and root keys. The query takes no OS like L1's `os`
+argument; `FaceMatch::is_android` tells the two apart.
 
 The ZKPassport SDK only makes a salted unique identifier with a strict face match, so an app that
 requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
@@ -194,8 +200,11 @@ requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
 
 ## Trust considerations
 
-1. **ZKPassportRegistry is the source of truth.** Certificate, circuit, and sanctions root sets are
-   maintained by the registry's operator account, and it trails the Ethereum version of the registry.
+1. **ZKPassportRegistry is the source of truth.** Certificate, circuit, sanctions and Android
+   attestation revocation root sets are maintained by the registry's operator account, and it
+   trails the Ethereum version of the registry. A revocation reaches Aztec after that delay too:
+   once L1 publishes its first attestation revocation root, Aztec keeps accepting Android face
+   matches under the empty tree's root until the operator publishes it and the delay has passed.
 2. **All policy changes go through `DelayedPublicMutable` with a 24h delay, including
    revocation.** `set_revocation_status`, `set_root_validation_mode`, `set_validity_window`,
    `pause`/`unpause`, and the accepted-VK/version-status/OPRF-pubkey setters all call
@@ -244,15 +253,17 @@ requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
    `verify_zkpassport_proof` accepts a `current_date` from `validity_period` before the anchor
    block's timestamp to `CURRENT_DATE_MAX_SKEW` (one hour) after it, and the sender's PXE picks an
    anchor block up to `MAX_TX_LIFETIME` (one day) older than the block that includes the
-   transaction. Certificate, circuit and sanctions roots are checked at that date. A transaction can
+   transaction. Certificate, circuit and sanctions roots are checked at that date. An Android face
+   match's revocation root is checked at the anchor block's timestamp instead, as L1 checks it at
+   the block's. A transaction can
    therefore land up to `validity_period` plus a day after the date its proof was screened at, and
    the sanctions root it was screened against may have been replaced up to the registry's validity
    window before that date. Apps that need recent screening set a short `validity_period`.
 9. **Face matches are checked against attestation keys and app ids pinned in the library.**
    `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants, which
-   `test-harness/fixture-conformance.test.ts` holds it to, and the registry plays no part. A new
-   ZKPassport app or attestation root key takes a library update, as it takes a verifier update on
-   L1.
+   `test-harness/fixture-conformance.test.ts` holds it to. The registry only checks an Android
+   face match's revocation root. A new ZKPassport app or attestation root key takes a library
+   update, as it takes a verifier update on L1.
 
 ## Running the tests
 
