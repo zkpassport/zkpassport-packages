@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useConnection } from "wagmi"
-import { BaseError, ContractFunctionRevertedError, type Chain } from "viem"
+import { BaseError, type Chain } from "viem"
 import { createCredentialsContext } from "@zkpassport/onchain-credentials"
 import type { PopupRequestConfig } from "@zkpassport/sdk/popup"
 
@@ -123,18 +123,13 @@ function usePolicyDetails(chain: Chain, policyId: `0x${string}`, reads: number):
 
     const read = async (): Promise<PolicyDetails> => {
       const { credentials } = createCredentialsContext(chain)
-      let policy
-      try {
-        policy = await credentials.getPolicy(BigInt(policyId))
-      } catch (reason) {
-        if (isPolicyNotFound(reason)) {
-          return {
-            status: "unavailable",
-            message: `There is no credential with this ID on ${chain.name}.`,
-            retryable: false,
-          }
+      const policy = await credentials.findPolicy(BigInt(policyId))
+      if (!policy) {
+        return {
+          status: "unavailable",
+          message: `There is no credential with this ID on ${chain.name}.`,
+          retryable: false,
         }
-        throw reason
       }
       if (policy.retiredAt > 0n) {
         return {
@@ -194,13 +189,4 @@ async function readMetadata(url: string): Promise<PopupRequestConfig> {
 function stringField(body: object, key: string): string | undefined {
   const value: unknown = Object.entries(body).find(([name]) => name === key)?.[1]
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined
-}
-
-function isPolicyNotFound(reason: unknown): boolean {
-  if (!(reason instanceof BaseError)) return false
-  const revert = reason.walk((cause) => cause instanceof ContractFunctionRevertedError)
-  return (
-    revert instanceof ContractFunctionRevertedError &&
-    revert.data?.errorName === "ZKPassportCredentials__PolicyNotFound"
-  )
 }
