@@ -188,8 +188,9 @@ in production, in the mode the query asks for, either:
   revocation root;
 - or by ZKPassport's Android app under one of Google's root keys, with ZKPassport's Play Integrity
   key, and a revocation root the registry's `assert_attestation_revocation_root_accepted` accepts
-  at the anchor block's timestamp: the empty tree's root only while the registry has no
-  attestation revocation root, any other by the registry's validation mode.
+  when the transaction lands: the empty tree's root only while the registry has no attestation
+  revocation root, any other by the registry's validation mode. It checks the root at the anchor
+  block, and keeps the transaction from landing after a superseded root's window ends.
 
 `zkpassport::app_attest` holds L1's app ids and root keys. The query takes no OS like L1's `os`
 argument; `FaceMatch::is_android` tells the two apart.
@@ -253,12 +254,12 @@ requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
    `verify_zkpassport_proof` accepts a `current_date` from `validity_period` before the anchor
    block's timestamp to `CURRENT_DATE_MAX_SKEW` (one hour) after it, and the sender's PXE picks an
    anchor block up to `MAX_TX_LIFETIME` (one day) older than the block that includes the
-   transaction. Certificate, circuit and sanctions roots are checked at that date. An Android face
-   match's revocation root is checked at the anchor block's timestamp instead, as L1 checks it at
-   the block's. A transaction can
+   transaction. Certificate, circuit and sanctions roots are checked at that date. A transaction can
    therefore land up to `validity_period` plus a day after the date its proof was screened at, and
    the sanctions root it was screened against may have been replaced up to the registry's validity
    window before that date. Apps that need recent screening set a short `validity_period`.
+   An Android face match's revocation root is the exception: as on L1, it must be accepted when
+   the transaction lands, not at the proof's date.
 9. **Face matches are checked against attestation keys and app ids pinned in the library.**
    `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants, which
    `test-harness/fixture-conformance.test.ts` holds it to. The registry only checks an Android

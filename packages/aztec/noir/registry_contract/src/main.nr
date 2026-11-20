@@ -12,7 +12,7 @@ pub contract ZKPassportRegistry {
         assert_address_not_zero, assert_admin, assert_admin_or_operator, assert_valid_mode,
         assert_valid_registry_id,
     };
-    use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp};
+    use crate::root_validation::{is_root_valid, is_root_valid_at_timestamp, root_valid_until};
     use crate::types::{
         EMPTY_REVOCATION_ROOT, INITIAL_DELAY, LatestRootPair, REGISTRY_ATTESTATION_REVOCATION,
         REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS, RegistryConfig, RootStatus,
@@ -312,11 +312,13 @@ pub contract ZKPassportRegistry {
     }
 
     // Whether an Android face match's attestation was checked against a revocation tree the L1
-    // verifier accepts at `timestamp`, as its `AttestationRevocation.isRootAccepted`: the empty
-    // tree's root only while no root is published, any other root by this registry's mode.
+    // verifier accepts when the transaction lands, as its `AttestationRevocation.isRootAccepted`
+    // at the block's timestamp: the empty tree's root only while no root is published, any other
+    // root by this registry's mode. Unlike `isRootAccepted`, it fails while the registry is paused,
+    // as every view here does.
     #[external("private")]
     #[view]
-    fn assert_attestation_revocation_root_accepted(root: Field, timestamp: u64) {
+    fn assert_attestation_revocation_root_accepted(root: Field) {
         assert(!self.storage.paused.get_current_value(), "registry is paused");
         let cfg = self.storage.config.at(REGISTRY_ATTESTATION_REVOCATION).get_current_value();
         let latest = self.storage.latest.at(REGISTRY_ATTESTATION_REVOCATION).get_current_value();
@@ -325,10 +327,17 @@ pub contract ZKPassportRegistry {
         if root == EMPTY_REVOCATION_ROOT {
             assert(latest.latest == 0, "empty revocation root no longer accepted");
         } else {
+            let anchor_timestamp = self.context.get_anchor_block_header().timestamp();
             assert(
-                is_root_valid(cfg, latest, status, root, timestamp),
+                is_root_valid(cfg, latest, status, root, anchor_timestamp),
                 "invalid attestation revocation root",
             );
+            // The transaction lands after its anchor block, and a superseded root expires with time
+            // alone, which no delayed read bounds
+            let valid_until = root_valid_until(cfg, latest, status, root);
+            if valid_until.is_some() {
+                self.context.set_expiration_timestamp(valid_until.unwrap());
+            }
         }
     }
 
