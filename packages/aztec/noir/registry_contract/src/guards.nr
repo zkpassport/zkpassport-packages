@@ -1,13 +1,14 @@
 use crate::types::{
     MODE_LATEST_AND_PREVIOUS, MODE_LATEST_ONLY, MODE_VALID_AT_TIMESTAMP, MODE_VALID_WITHIN_WINDOW,
-    REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS,
+    REGISTRY_ATTESTATION_REVOCATION, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT, REGISTRY_SANCTIONS,
 };
 use aztec::protocol::address::AztecAddress;
 
 pub fn assert_valid_registry_id(registry_id: Field) {
     let ok = (registry_id == REGISTRY_CERTIFICATE)
         | (registry_id == REGISTRY_CIRCUIT)
-        | (registry_id == REGISTRY_SANCTIONS);
+        | (registry_id == REGISTRY_SANCTIONS)
+        | (registry_id == REGISTRY_ATTESTATION_REVOCATION);
     assert(ok, "unknown registry id");
 }
 
@@ -47,6 +48,18 @@ mod test {
     #[test(should_fail_with = "unknown registry id")]
     fn rejects_unknown_registry_id() {
         assert_valid_registry_id(0);
+    }
+
+    #[test]
+    fn accepts_every_registry_id_up_to_the_attestation_revocation_registry() {
+        for registry_id in 1..5 {
+            assert_valid_registry_id(registry_id as Field);
+        }
+    }
+
+    #[test(should_fail_with = "unknown registry id")]
+    fn rejects_the_registry_id_past_the_attestation_revocation_registry() {
+        assert_valid_registry_id(5);
     }
 
     #[test(should_fail_with = "unknown validation mode")]
