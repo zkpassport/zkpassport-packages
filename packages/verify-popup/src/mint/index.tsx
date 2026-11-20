@@ -93,6 +93,8 @@ type FlowBodyProps = CredentialFlowProps & {
   renew?: boolean
   /** Replaces the done screen's "Return to" button; null shows no action. */
   doneActions?: (step: DoneStep) => ReactNode
+  /** Offers another wallet on the consent screen, where the connected wallet is the recipient. */
+  onChangeWallet?: () => void
 }
 
 export function FlowBody({
@@ -104,6 +106,7 @@ export function FlowBody({
   chain,
   renew,
   doneActions,
+  onChangeWallet,
 }: FlowBodyProps) {
   const { step, scan, phase, payer, connector, onRightChain, mint, startOver, checkTransaction } =
     useCredentialFlow({ request, credential, appName, chain, send, renew })
@@ -127,6 +130,7 @@ export function FlowBody({
             options={step.cardOptions}
             progress={scan}
             onStartAgain={startOver}
+            onChangeWallet={onChangeWallet}
           />
         )
       case "mint":
@@ -208,6 +212,7 @@ function VerifyStep({
   options,
   progress,
   onStartAgain,
+  onChangeWallet,
 }: {
   appName: string
   rpHost: string
@@ -215,6 +220,7 @@ function VerifyStep({
   options: ZKPassportQRCodeOptions
   progress: ScanProgress | null
   onStartAgain: () => void
+  onChangeWallet?: () => void
 }) {
   const [consented, setConsented] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -279,6 +285,7 @@ function VerifyStep({
         query={req.query}
         purpose={purpose}
         onContinue={appClip.onContinue}
+        onChangeWallet={onChangeWallet}
       />
     )
   }

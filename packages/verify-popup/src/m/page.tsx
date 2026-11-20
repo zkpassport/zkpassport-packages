@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useConnection } from "wagmi"
+import { useConnection, useDisconnect } from "wagmi"
 import { BaseError, type Chain } from "viem"
 import { createCredentialsContext } from "@zkpassport/onchain-credentials"
 import type { PopupRequestConfig } from "@zkpassport/sdk/popup"
@@ -51,6 +51,7 @@ function MintFromLink({ link }: { link: MintLink }) {
 
 function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
   const { address } = useConnection()
+  const disconnect = useDisconnect()
   const [reads, setReads] = useState(0)
   const details = usePolicyDetails(chain, link.policyId, reads)
   // A renewal is for the wallet that asked for it; another wallet starts from the beginning
@@ -96,6 +97,7 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
       send={() => {}}
       chain={chain}
       renew={renew}
+      onChangeWallet={() => disconnect.mutate()}
       doneActions={(step) =>
         step.outcome === "already-verified" ? (
           <Primary onClick={() => setRenewFor(address)}>Renew now</Primary>

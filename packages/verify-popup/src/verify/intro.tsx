@@ -2,7 +2,7 @@ import { describeQuery, type QueryDescriptionItem } from "@zkpassport/ui/hosted"
 import type { Query } from "@zkpassport/sdk"
 
 import { ICON_CHECK } from "../shared/icons"
-import { Main } from "../shared/controls"
+import { Main, Secondary } from "../shared/controls"
 
 const SKELETON_ROWS = 2
 
@@ -12,11 +12,13 @@ export function Intro({
   query,
   purpose,
   onContinue,
+  onChangeWallet,
 }: {
   appName: string
   query: Query | null
   purpose?: string
   onContinue: () => void
+  onChangeWallet?: () => void
 }) {
   const items = query ? describeQuery(query) : null
 
@@ -37,6 +39,9 @@ export function Intro({
           <button type="button" className="flow-primary" disabled={!items} onClick={onContinue}>
             Continue
           </button>
+          {onChangeWallet ? (
+            <Secondary onClick={onChangeWallet}>Use another wallet</Secondary>
+          ) : null}
           <p className="intro-privacy">Your ID data never leaves your device.</p>
         </div>
       </Main>
