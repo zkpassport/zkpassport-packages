@@ -31,6 +31,7 @@ describe("Conformance vectors", () => {
       "expiry_date",
       "facematch",
       "facematch",
+      "facematch",
       "issuing_country_exclusion",
       "issuing_country_inclusion",
       "nationality_exclusion",
@@ -90,19 +91,23 @@ describe("Conformance vectors", () => {
     expect(hex(result)).toEqual(commitment)
   })
 
-  // From ZKPassport's iOS app and its App Clip, which commit no integrity key or revocation root
-  test.each(["facematch_ios_strict", "facematch_ios_app_clip_regular"])("%s", async (name) => {
-    const { params, commitment } = byName[name]
-    const result = await getFacematchParameterCommitment(
-      BigInt(params.rootKeyLeaf),
-      BigInt(params.environment),
-      BigInt(params.appIdHash),
-      BigInt(params.facematchMode),
-      BigInt(params.integrityPublicKeyHash),
-      BigInt(params.revocationRoot),
-    )
-    expect(hex(result)).toEqual(commitment)
-  })
+  // From ZKPassport's iOS app and its App Clip, which commit no integrity key or revocation root,
+  // and from its Android app, under Google's RSA root key and the empty revocation tree
+  test.each(["facematch_ios_strict", "facematch_ios_app_clip_regular", "facematch_android_strict"])(
+    "%s",
+    async (name) => {
+      const { params, commitment } = byName[name]
+      const result = await getFacematchParameterCommitment(
+        BigInt(params.rootKeyLeaf),
+        BigInt(params.environment),
+        BigInt(params.appIdHash),
+        BigInt(params.facematchMode),
+        BigInt(params.integrityPublicKeyHash),
+        BigInt(params.revocationRoot),
+      )
+      expect(hex(result)).toEqual(commitment)
+    },
+  )
 
   test.each([
     ["birthdate", ProofType.BIRTHDATE],

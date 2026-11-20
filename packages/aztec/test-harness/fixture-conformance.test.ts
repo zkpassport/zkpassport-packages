@@ -2,7 +2,8 @@
 // - the commitment anchors in fixtures.nr to the SDK's conformance vectors,
 // - FIXTURE_PUBLIC_INPUTS to the public inputs of the checked-in disclose proof fixture,
 // - the proof fixtures themselves to the circuits submodule commit they were generated from,
-// - the App Attest constants in app_attest.nr to the L1 verifier's.
+// - the App Attest constants in app_attest.nr, and the registry's empty revocation root, to the L1
+//   verifier's.
 // The sanctions anchors are checked by zkpassport-sdk's tests/aztec-query-conformance.test.ts,
 // against the SDK's query builders.
 //
@@ -18,6 +19,9 @@ import { evaluateExpressions, parseNoirFile } from "./vendor/constants-generator
 
 const FIXTURES_NR = fileURLToPath(new URL("../noir/core/src/fixtures.nr", import.meta.url))
 const APP_ATTEST_NR = fileURLToPath(new URL("../noir/core/src/app_attest.nr", import.meta.url))
+const REGISTRY_TYPES_NR = fileURLToPath(
+  new URL("../noir/registry_contract/src/types.nr", import.meta.url),
+)
 const CONSTANTS_SOL = fileURLToPath(
   new URL("../../registry-contracts/src/lib/Constants.sol", import.meta.url),
 )
@@ -42,6 +46,7 @@ test("every constant in fixtures.nr is checked here", () => {
     "BIRTHDATE_COMMITMENT",
     "DISCLOSE_COMMITMENT",
     "EXPIRY_DATE_COMMITMENT",
+    "FACE_MATCH_ANDROID_STRICT_COMMITMENT",
     "FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT",
     "FACE_MATCH_IOS_STRICT_COMMITMENT",
     "FIXTURE_PUBLIC_INPUTS",
@@ -76,6 +81,7 @@ test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
 test.each([
   ["FACE_MATCH_IOS_STRICT_COMMITMENT", "facematch_ios_strict"],
   ["FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT", "facematch_ios_app_clip_regular"],
+  ["FACE_MATCH_ANDROID_STRICT_COMMITMENT", "facematch_android_strict"],
 ])("%s matches the published %s vector", (anchor, name) => {
   expect(hex(anchor)).toBe(namedVector(name).commitment)
 })
@@ -100,10 +106,19 @@ const appAttest = Object.fromEntries(
   ]),
 )
 
+const l1AppAttest = solidityBytes32Constants(readFileSync(CONSTANTS_SOL, "utf8"), "AppAttest")
+
 test("app_attest.nr holds the L1 verifier's AppAttest constants", () => {
-  const l1 = solidityBytes32Constants(readFileSync(CONSTANTS_SOL, "utf8"), "AppAttest")
-  expect(Object.keys(l1).length).toBeGreaterThan(0)
-  expect(appAttest).toEqual(l1)
+  expect(Object.keys(l1AppAttest).length).toBeGreaterThan(0)
+  expect(appAttest).toEqual(l1AppAttest)
+})
+
+test("the registry's EMPTY_REVOCATION_ROOT is the L1 verifier's", () => {
+  const registry = readFileSync(REGISTRY_TYPES_NR, "utf8").match(
+    /pub global EMPTY_REVOCATION_ROOT: Field =\s*(0x[0-9a-fA-F]{64});/,
+  )?.[1]
+  expect(registry).toBeDefined()
+  expect(fieldHex(registry!)).toBe(l1AppAttest.EMPTY_REVOCATION_ROOT)
 })
 
 test.each([
@@ -113,6 +128,14 @@ test.each([
   const { params } = namedVector(name)
   expect(params.rootKeyLeaf).toBe(appAttest.APPLE_ROOT_KEY_HASH)
   expect(params.appIdHash).toBe(appAttest[appId])
+})
+
+test("the facematch_android_strict vector is a face match from the Android app, under the empty revocation tree", () => {
+  const { params } = namedVector("facematch_android_strict")
+  expect(params.rootKeyLeaf).toBe(appAttest.GOOGLE_RSA_ROOT_KEY_HASH)
+  expect(params.appIdHash).toBe(appAttest.ANDROID_APP_ID_HASH)
+  expect(params.integrityPublicKeyHash).toBe(appAttest.ANDROID_INTEGRITY_PUBLIC_KEY_HASH)
+  expect(params.revocationRoot).toBe(appAttest.EMPTY_REVOCATION_ROOT)
 })
 
 test("BIND_ACCOUNT matches the published Aztec testnet bind vector's user address", () => {
