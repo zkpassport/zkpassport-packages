@@ -467,6 +467,16 @@ describe("createQuery (offline mode)", () => {
     })
   })
 
+  test("should build sanctions query with non-strict mode", () => {
+    const result = zkPassport.createQuery().sanctions("all", "all", { strict: false }).done()
+
+    expect(result.query.sanctions).toEqual({
+      countries: "all",
+      lists: "all",
+      strict: false,
+    })
+  })
+
   test("should build bind query", () => {
     const result = zkPassport
       .createQuery()
