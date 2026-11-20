@@ -6,13 +6,15 @@ import {
   encodeErrorResult,
   getAbiItem,
 } from "viem"
-import { NullifierType } from "@zkpassport/utils"
+import { NullifierType, type Query } from "@zkpassport/utils"
 import { PolicyEvaluatorV2Abi } from "../src/abi/policy-evaluator-v2"
 import { sepolia } from "viem/chains"
 import {
   CredentialsClient,
   ZKPassportCredentialsAbi,
   computePolicyId,
+  credentialRequirementsFromQuery,
+  getCredentialsChains,
   createCredentialsContext,
   encodeCredentialPolicyRequirements,
   encodeIssueProofData,
@@ -624,5 +626,109 @@ describe("submitCredentialsCall", () => {
     await expect(
       submitCredentialsCall(ctx, credentials.buildUnbanCall(WALLET, POLICY_ID), wallet),
     ).rejects.toThrow("unban transaction reverted (tx 0xhash).")
+  })
+})
+
+describe("credentialRequirementsFromQuery", () => {
+  test("carries age, nationality, sanctions and FaceMatch checks over, nationalities sorted", () => {
+    const result = credentialRequirementsFromQuery({
+      age: { gte: 18 },
+      nationality: { out: ["SYR", "CUB", "PRK", "IRN"] },
+      sanctions: { countries: "all", lists: "all", strict: false },
+      facematch: { mode: "strict" },
+    })
+
+    expect(result).toEqual({
+      requirements: {
+        minAge: 18,
+        includedNationalities: [],
+        excludedNationalities: ["CUB", "IRN", "PRK", "SYR"],
+        sanctionsMode: "normal",
+        facematchMode: "strict",
+      },
+    })
+  })
+
+  test("reads a single included nationality and strict sanctions", () => {
+    const result = credentialRequirementsFromQuery({
+      nationality: { eq: "FRA" },
+      sanctions: { strict: true },
+    })
+
+    expect(result).toEqual({
+      requirements: {
+        minAge: 0,
+        includedNationalities: ["FRA"],
+        excludedNationalities: [],
+        sanctionsMode: "strict",
+      },
+    })
+  })
+
+  test("names every check a credential policy cannot carry", () => {
+    const result = credentialRequirementsFromQuery({
+      age: { gte: 18, lt: 65 },
+      nationality: { in: ["FRA"], disclose: true },
+      issuing_country: { in: ["GBR", "CAN"] },
+      firstname: { disclose: true },
+    })
+
+    expect(result).toEqual({
+      unsupported: [
+        { field: "age", method: "lt" },
+        { field: "nationality", method: "disclose" },
+        { field: "issuing_country", method: "in" },
+        { field: "firstname", method: "disclose" },
+      ],
+    })
+  })
+
+  test("names an empty nationality in, which admits nobody but would turn the check off", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { in: [] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "in" }],
+    })
+  })
+
+  test("names nationality eq beside in, which one included list cannot require together", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { eq: "FRA", in: ["DEU"] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "eq" }],
+    })
+  })
+
+  test("carries nationality in and out together, since the evaluator checks both lists", () => {
+    expect(
+      credentialRequirementsFromQuery({ nationality: { in: ["FRA", "DEU"], out: ["DEU"] } }),
+    ).toEqual({
+      requirements: {
+        minAge: 0,
+        includedNationalities: ["DEU", "FRA"],
+        excludedNationalities: ["DEU"],
+      },
+    })
+  })
+
+  test("names a FaceMatch mode the evaluator does not know", () => {
+    const query = JSON.parse('{ "facematch": { "mode": "lenient" } }') as Query
+
+    expect(credentialRequirementsFromQuery(query)).toEqual({
+      unsupported: [{ field: "facematch", method: "mode" }],
+    })
+  })
+
+  test("rejects nationalities that are not ISO alpha-3 codes", () => {
+    expect(credentialRequirementsFromQuery({ nationality: { in: ["France"] } })).toEqual({
+      unsupported: [{ field: "nationality", method: "in" }],
+    })
+  })
+})
+
+describe("getCredentialsChains", () => {
+  test("lists the chains with a deployed credentials contract", () => {
+    expect(getCredentialsChains().sort()).toEqual([
+      "base",
+      "ethereum",
+      "ethereum_sepolia",
+      "robinhood",
+    ])
   })
 })
