@@ -50,12 +50,19 @@ function MintFromLink({ link }: { link: MintLink }) {
 }
 
 function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
-  const { address } = useConnection()
+  const { address, status } = useConnection()
   const disconnect = useDisconnect()
   const [reads, setReads] = useState(0)
   const details = usePolicyDetails(chain, link.policyId, reads)
-  // A renewal is for the wallet that asked for it; another wallet starts from the beginning
-  const [renewFor, setRenewFor] = useState<`0x${string}` | null>(null)
+  // The first wallet to connect receives the credential. Switching accounts in the wallet after
+  // that only changes who pays, as in the popup, so a proof or a sent transaction is kept. A
+  // wallet that is still reconnecting may come back on another account, so it isn't bound yet.
+  const [boundRecipient, setBoundRecipient] = useState<`0x${string}` | null>(null)
+  const recipient = boundRecipient ?? (status === "connected" ? address : undefined)
+  useEffect(() => {
+    if (recipient) setBoundRecipient(recipient)
+  }, [recipient])
+  const [renew, setRenew] = useState(false)
 
   if (details.status === "loading") {
     return (
@@ -74,7 +81,14 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
   }
 
   const appName = details.request.name ?? FALLBACK_NAME
-  if (!address) {
+  if (!recipient) {
+    if (status === "reconnecting") {
+      return (
+        <FlowCard name={appName} logo={details.request.logo} screenKey="loading">
+          <Resolving />
+        </FlowCard>
+      )
+    }
     return (
       <FlowCard name={appName} logo={details.request.logo} screenKey="connect">
         <Connect
@@ -86,21 +100,29 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
     )
   }
 
-  const renew = renewFor !== null && renewFor.toLowerCase() === address.toLowerCase()
+  // Unbinding only once the wallet is gone keeps the old wallet from being bound again meanwhile
+  const changeWallet = () =>
+    disconnect.mutate(undefined, {
+      onSuccess: () => {
+        setBoundRecipient(null)
+        setRenew(false)
+      },
+    })
+
   return (
     <FlowBody
-      key={`${address}:${renew}`}
+      key={`${recipient}:${renew}`}
       request={details.request}
-      credential={{ chain: link.chain, policyId: link.policyId, recipient: address }}
+      credential={{ chain: link.chain, policyId: link.policyId, recipient }}
       appName={appName}
       rpHost={window.location.hostname}
       send={() => {}}
       chain={chain}
       renew={renew}
-      onChangeWallet={() => disconnect.mutate()}
+      onChangeWallet={changeWallet}
       doneActions={(step) =>
         step.outcome === "already-verified" ? (
-          <Primary onClick={() => setRenewFor(address)}>Renew now</Primary>
+          <Primary onClick={() => setRenew(true)}>Renew now</Primary>
         ) : null
       }
     />
