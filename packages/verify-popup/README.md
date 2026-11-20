@@ -30,8 +30,8 @@ proofs back to it once the phone has answered. For a local API set
 credential without a website in between: they connect a wallet, prove the policy with the app, and
 the credential is minted to that wallet, which also pays the network fee. A wallet that already
 holds the credential can renew it. The header shows the name and image from the policy's metadata
-URL. Like `/r`, it is its own page (`m.html`, which `vercel.json` rewrites `/m` to), so a mint
-link never runs the popup's session handling.
+URL. Like `/r`, it is its own page (`m.html`, which `vercel.json` rewrites `/m` and `/m/*` to), so
+a mint link never runs the popup's session handling.
 
 ## The `/r` page
 
