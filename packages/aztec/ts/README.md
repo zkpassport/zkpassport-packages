@@ -25,7 +25,7 @@ npm install @zkpassport/aztec @aztec-labs/aztec.js@6.0 @aztec-labs/stdlib@6.0
   await gate.methods.claim(user).send({ from: sender, capsules })
   ```
 
-- **`assembleProofCapsule` / `assembleDiscloseCapsule` / `assembleSanctionsCapsule` / `assembleFacematchCapsule`**: the same capsules' fields from the parts of a proof, for a client that builds them itself. The proof capsule ends with the circuits release that made the proof; only 0.23.x proofs verify. The face match capsule holds a face match's committed inputs; only iOS face matches verify for now.
+- **`assembleProofCapsule` / `assembleDiscloseCapsule` / `assembleSanctionsCapsule` / `assembleFacematchCapsule`**: the same capsules' fields from the parts of a proof, for a client that builds them itself. The proof capsule ends with the circuits release that made the proof; only 0.23.x proofs verify. The face match capsule holds a face match's committed inputs; an Android one verifies only under a revocation root the registry accepts.
 - **`nationalityBytes` / `packNationality` / `isIdCard`** — TS twins of the Noir `disclosed_data` module's nationality reader. `@zkpassport/utils`' `DisclosedData.fromDisclosedBytes(bytes, isIdCard(bytes) ? "id_card" : "passport")` reads every field.
 - **`fetchOuterVk(vkeyHash)`**: the outer vk from the live `circuits2.zkpassport.id` host.
 - **`constants.ts`**: the field counts and capsule slots, from `@zkpassport/utils`' mirror of `core/src/constants.nr`.
