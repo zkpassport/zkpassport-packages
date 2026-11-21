@@ -21,6 +21,7 @@ import type {
 import {
   Binary,
   calculatePackagedCertificatesRoot,
+  circuitVersionToBytes32,
   formatBoundData,
   getAgeCircuitInputs,
   getBindCircuitInputs,
@@ -29,9 +30,7 @@ import {
   getCommitmentFromDSCProof,
   getCommitmentInFromDisclosureProof,
   getCommitmentInFromIDDataProof,
-  getCommitmentInFromIntegrityProof,
   getCommitmentOutFromIDDataProof,
-  getCommitmentOutFromIntegrityProof,
   getDiscloseCircuitInputs,
   getDiscloseParameterCommitment,
   getDisclosedBytesFromMrzAndMask,
@@ -102,6 +101,10 @@ const MAX_TBS_LENGTH = 700
 // deliberately future-dated (2050-01-01). That way downstream consumers that enforce freshness
 // can be tested.
 const nowTimestamp = Number(process.env.FIXTURE_NOW ?? 2524608000) // 2050-01-01T00:00:00Z
+
+// VERIFICATION_METHOD_ICAO_CHIP in the circuits repo's utils lib, the only method the Aztec library
+// accepts
+const VERIFICATION_METHOD_ICAO_CHIP = 100n
 
 // Blinding salts for the integrity -> disclosure commitment chain: both stages must hash the
 // carried passport data with the same salts. Any fixed value works for a deterministic
@@ -419,9 +422,16 @@ async function main() {
   const integrityName = "data_check_integrity_sa_sha256_dg_sha256"
   const integrityInputs = await helper.generateCircuitInputs("integrity", nowTimestamp)
   const integrityR = await proveSubproof(integrityName, integrityInputs, manifest)
-  const integrityCommitmentIn = getCommitmentInFromIntegrityProof(integrityR.proof)
-  const integrityToDisclosureCommitment = getCommitmentOutFromIntegrityProof(integrityR.proof)
+  // [comm_in, comm_out, verification_method]. The utils the submodule pins predate the
+  // verification method and read comm_in and comm_out from the end, so they're read directly.
+  assert(integrityR.proof.publicInputs.length === 3, "integrity publicInputs length == 3")
+  const [integrityCommitmentIn, integrityToDisclosureCommitment, verificationMethod] =
+    integrityR.proof.publicInputs.map(BigInt)
   assert(integrityCommitmentIn === dscToIdDataCommitment, "integrity commitment_in == id commitment_out")
+  assert(
+    verificationMethod === VERIFICATION_METHOD_ICAO_CHIP,
+    `integrity verification_method == ${VERIFICATION_METHOD_ICAO_CHIP} (got ${verificationMethod})`,
+  )
   subproofs.set(2, { proof: integrityR.proof.proof, publicInputs: integrityR.proof.publicInputs, vkey: integrityR.vkey, vkeyHash: integrityR.vkeyHash })
   await integrityR.circuit.destroy()
 
@@ -439,7 +449,7 @@ async function main() {
 
   // ---- Membership proofs in the release's circuit registry tree ----
   const mp0 = await getCircuitMerkleProof(subproofs.get(0)!.vkeyHash, manifest)
-  assert(mp0.root === manifest.root, `the manifest's circuits hash to its root ${manifest.root} (got ${mp0.root})`)
+  assert(BigInt(mp0.root) === BigInt(manifest.root), `the manifest's circuits hash to its root ${manifest.root} (got ${mp0.root})`)
   const mp1 = await getCircuitMerkleProof(subproofs.get(1)!.vkeyHash, manifest)
   const mp2 = await getCircuitMerkleProof(subproofs.get(2)!.vkeyHash, manifest)
   const mp3 = await getCircuitMerkleProof(subproofs.get(3)!.vkeyHash, manifest)
@@ -447,7 +457,7 @@ async function main() {
   log(`circuit registry root of ${CIRCUIT_VERSION}: ${manifest.root}`)
 
   // ---- Outer proof ----
-  const outerInputs = await getOuterCircuitInputs(
+  const outerCircuitInputs = await getOuterCircuitInputs(
     { ...toSubproofInput(subproofs.get(0)!, mp0) },
     { ...toSubproofInput(subproofs.get(1)!, mp1) },
     { ...toSubproofInput(subproofs.get(2)!, mp2) },
@@ -457,6 +467,12 @@ async function main() {
     ],
     manifest.root,
   )
+  // The outer circuit also takes the integrity proof's verification method, which these utils
+  // don't fill in
+  const outerInputs = {
+    ...outerCircuitInputs,
+    verification_method: integrityR.proof.publicInputs[2],
+  }
 
   const outerPackaged = await fetchPackagedCircuit(outerName, manifest)
   const outerCircuit = new Circuit(outerPackaged, outerName)
@@ -486,9 +502,9 @@ async function main() {
   assert(paramCommitment !== undefined, "disclosure param commitment present")
 
   // The outer proof's public inputs are [certRoot, circuitRoot, currentDate, scope, subscope,
-  // paramCommitments..., nullifierType, scopedNullifier, oprfPkHash] -- one commitment slot
-  // per disclosure subproof, starting at slot 5. The prover does not fix the slot order, so
-  // compare as a set.
+  // paramCommitments..., nullifierType, scopedNullifier, oprfPkHash, verificationMethod] -- one
+  // commitment slot per disclosure subproof, starting at slot 5. The prover does not fix the slot
+  // order, so compare as a set.
   const expectedParams = new Set([paramCommitment!, ...(bind ? [bind.subproof.paramCommitment!] : [])])
   const proofParams = new Set(
     outerProof.publicInputs.slice(5, 5 + expectedParams.size).map(BigInt),
@@ -497,6 +513,15 @@ async function main() {
     proofParams.size === expectedParams.size &&
       [...expectedParams].every((c) => proofParams.has(c)),
     "outer param commitment slots == the disclosure/bind param commitments",
+  )
+  const outerCount = bind ? 5 : 4
+  assert(
+    outerProof.publicInputs.length === outerCount + 6,
+    `outer publicInputs length == ${outerCount + 6} (got ${outerProof.publicInputs.length})`,
+  )
+  assert(
+    BigInt(outerProof.publicInputs[outerCount + 5]) === VERIFICATION_METHOD_ICAO_CHIP,
+    "the outer proof's last public input is the ICAO chip verification method",
   )
 
   const fixture = {
@@ -508,6 +533,8 @@ async function main() {
     // circuits commit the proof was built from; fixture-conformance.test.ts holds it to the pin.
     circuitsCommit: execSync("git rev-parse HEAD").toString().trim(),
     circuitVersion: CIRCUIT_VERSION,
+    // The version as the registry keys vks and the proof capsule carries it
+    circuitVersionPacked: circuitVersionToBytes32(CIRCUIT_VERSION),
     circuit: outerName,
     nowTimestamp,
     certificateRegistryRoot: hex(certificateRegistryRoot),
@@ -555,6 +582,8 @@ function toSubproofInput(
 function emitProofGlobals(
   fx: {
     circuit: string
+    circuitVersion: string
+    circuitVersionPacked: string
     vkeyFields: string[]
     proof: string[]
     publicInputs: string[]
@@ -566,15 +595,17 @@ function emitProofGlobals(
   },
   outPath: string,
 ) {
-  const blob = [...fx.vkeyFields, ...fx.proof, ...fx.publicInputs] // capsule layout: vk ‖ proof ‖ PIs
+  // The proof capsule's layout: vk ‖ proof ‖ public inputs ‖ circuit version
+  const blob = [...fx.vkeyFields, ...fx.proof, ...fx.publicInputs, fx.circuitVersionPacked]
 
   const arr = (name: string, values: string[]) =>
     `pub global ${name}: [Field; ${values.length}] = [\n    ${values.join(",\n    ")},\n];\n`
 
   fs.writeFileSync(
     outPath,
-    `//! Proof-fixture globals: a real ${fx.circuit} proof (vk ‖ proof ‖ public inputs) plus the\n` +
-      "//! registry roots, vk hash, timestamp, and bound address it was produced under, for\n" +
+    `//! Proof-fixture globals: a real ${fx.circuit} proof capsule (vk ‖ proof ‖ public inputs ‖\n` +
+      `//! circuit version, circuits ${fx.circuitVersion}) plus the registry roots, vk hash,\n` +
+      "//! timestamp, and bound address it was produced under, for\n" +
       "//! consumers' TXE tests. Source of truth on the Noir side; fixture-conformance.test.ts\n" +
       "//! checks the checked-in age fixture JSON agrees. Regenerated by\n" +
       "//! test-harness/generate-proof-fixtures.sh on a capture.\n" +
@@ -582,6 +613,7 @@ function emitProofGlobals(
       `pub global AGE_FIXTURE_CERT_ROOT: Field = ${fx.certificateRegistryRoot};\n` +
       `pub global AGE_FIXTURE_CIRCUIT_ROOT: Field = ${fx.circuitRegistryRoot};\n` +
       `pub global AGE_FIXTURE_VK_HASH: Field = ${fx.vkeyHashBB};\n` +
+      `pub global AGE_FIXTURE_CIRCUIT_VERSION: Field = ${fx.circuitVersionPacked};\n` +
       `pub global AGE_FIXTURE_CURRENT_DATE: u64 = ${fx.nowTimestamp};\n` +
       `pub global AGE_FIXTURE_BIND_ADDRESS: Field = ${fx.bindAddress};\n`,
   )

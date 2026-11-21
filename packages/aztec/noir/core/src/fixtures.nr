@@ -46,12 +46,12 @@ pub(crate) global BIND_ACCOUNT: Field =
 pub(crate) global BIND_COMMITMENT: Field =
     0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970;
 
-/// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against a
-/// synthetic certificate registry and a circuits release's circuit registry, current_date
+/// Public inputs transcribed from a real circuits 0.23.0 outer_count_4 proof (a byte-disclosure
+/// check against a synthetic certificate registry and the release's circuit registry, current_date
 /// 2050-01-01), in the K=4 layout parse.nr decodes.
-pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
-    0x27465e0ef850b441de340e5d0223edc6e21b6902fb57550bb367b5df382375f9, // cert root
-    0x0289526299c3d1afa2ad1113678fb426ed587156a1a4ba622023d81989728210, // circuit root
+pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 10] = [
+    0x1b8e5d87ccfbc9a6bc78d462cef815afa7f1ad749bb9b00141a1bcc3b776cb5c, // cert root
+    0x002ec7a7f7faa8aa6507eec1920a6b775114de2c5a9d9c608fce9223d5cc6321, // circuit root
     0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
     0x0000000000000000000000000000000000000000000000000000000000000000, // domain
     0x0000000000000000000000000000000000000000000000000000000000000000, // scope
@@ -59,6 +59,7 @@ pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
     0x0000000000000000000000000000000000000000000000000000000000000000, // nullifier_type
     0x1c2de0aff0b433e96e0f1da31cec1d9e8b5e98c75d8d5c2e3e255ad689fe6354, // scoped_nullifier
     0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
+    0x0000000000000000000000000000000000000000000000000000000000000064, // verification_method
 ];
 
 // A real age proof for tests, written by test-harness/generate-proof-fixtures.sh.

@@ -69,7 +69,7 @@ test("BIND_COMMITMENT matches the published bind vector", () => {
 test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () => {
   const pis = anchors.FIXTURE_PUBLIC_INPUTS
   expect(Array.isArray(pis)).toBe(true)
-  expect(pis).toHaveLength(9)
+  expect(pis).toHaveLength(10)
   expect((pis as string[]).map(BigInt)).toEqual(
     discloseFixture.publicInputs.map((pi: string) => BigInt(pi)),
   )
@@ -78,7 +78,7 @@ test("FIXTURE_PUBLIC_INPUTS matches the disclose fixture's public inputs", () =>
 // The age fixture is an outer_count_5 proof (age + bind subproofs): slots 5 and 6 are its two
 // param commitments, in prover-chosen order, and they must be exactly the age and bind anchors.
 test("the age fixture's param commitments are the age and bind anchors", () => {
-  expect(ageFixture.publicInputs).toHaveLength(10)
+  expect(ageFixture.publicInputs).toHaveLength(11)
   const params = ageFixture.publicInputs.slice(5, 7).map((pi: string) => BigInt(pi))
   const anchorsExpected = [
     BigInt(anchors.AGE_18_COMMITMENT as string),
@@ -131,6 +131,7 @@ test("the proof-fixture globals match the age proof fixture", () => {
     ...ageFixture.vkeyFields,
     ...ageFixture.proof,
     ...ageFixture.publicInputs,
+    ageFixture.circuitVersionPacked,
   ].map((x: string) => BigInt(x).toString())
 
   expect(gen.AGE_FIXTURE_BLOB).toEqual(expectedBlob)
@@ -146,4 +147,25 @@ test("the proof-fixture globals match the age proof fixture", () => {
   expect(BigInt(gen.AGE_FIXTURE_VK_HASH as string)).toBe(BigInt(ageFixture.vkeyHashBB))
   expect(BigInt(gen.AGE_FIXTURE_CURRENT_DATE as string)).toBe(BigInt(ageFixture.nowTimestamp))
   expect(BigInt(gen.AGE_FIXTURE_BIND_ADDRESS as string)).toBe(BigInt(ageFixture.bindAddress))
+  expect(BigInt(gen.AGE_FIXTURE_CIRCUIT_VERSION as string)).toBe(
+    BigInt(ageFixture.circuitVersionPacked),
+  )
+})
+
+// The registry keys vks by the packed version and the proof capsule carries it: both fixtures pack
+// their release the way the SDK does (2-byte big-endian major, minor, patch, left-aligned).
+test("both proof fixtures pack their circuits release like the SDK", () => {
+  for (const fixture of [ageFixture, discloseFixture]) {
+    const [major, minor, patch] = fixture.circuitVersion.split(".").map(BigInt)
+    expect(BigInt(fixture.circuitVersionPacked)).toBe(
+      (major << 240n) | (minor << 224n) | (patch << 208n),
+    )
+  }
+})
+
+// The outer proof's last public input is the verification method, and the library only accepts
+// an ICAO chip read (100)
+test("both proof fixtures are ICAO chip proofs", () => {
+  expect(BigInt(ageFixture.publicInputs.at(-1)!)).toBe(100n)
+  expect(BigInt(discloseFixture.publicInputs.at(-1)!)).toBe(100n)
 })
