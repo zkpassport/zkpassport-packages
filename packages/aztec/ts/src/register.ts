@@ -1,5 +1,6 @@
 import type { ContractArtifact } from "@aztec-labs/aztec.js/abi"
 import { AztecAddress } from "@aztec-labs/aztec.js/addresses"
+import type { Fr } from "@aztec-labs/aztec.js/fields"
 import { getContractClassFromArtifact } from "@aztec-labs/stdlib/contract"
 import type { ContractInstanceWithAddress } from "@aztec-labs/stdlib/contract"
 
@@ -9,12 +10,14 @@ export interface RegistryNode {
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>
 }
 
+/** The slice of an aztec.js `Wallet` that registration uses. */
 export interface RegistryWallet {
   registerContract(
     instance: ContractInstanceWithAddress,
     artifact: ContractArtifact,
   ): Promise<unknown>
-  hasContract?(address: AztecAddress): Promise<boolean>
+  getContractMetadata(address: AztecAddress): Promise<{ instance?: unknown }>
+  getContractClassMetadata(id: Fr): Promise<{ isArtifactRegistered: boolean }>
 }
 
 /**
@@ -23,6 +26,11 @@ export interface RegistryWallet {
  * Any app whose verifier calls `verify_zkpassport_proof*` needs this once per
  * wallet: the verifier privately `.view()`s the registry, and the PXE executes
  * that call locally during simulation/proving.
+ *
+ * Registration is skipped only when the wallet reports both the registry's
+ * instance and the artifact of its current class. After the registry is
+ * upgraded, a wallet that still holds the old class's artifact is registered
+ * again with the current one.
  */
 export async function registerZKPassportRegistry(
   wallet: RegistryWallet,
@@ -51,7 +59,13 @@ export async function registerZKPassportRegistry(
     )
   }
 
-  if (wallet.hasContract && (await wallet.hasContract(address))) return instance
+  // The PXE resolves the current class from chain state and looks its artifact up by class id, so
+  // knowing the address is not enough once `update_to` has moved the registry to a new class.
+  const [{ instance: known }, { isArtifactRegistered }] = await Promise.all([
+    wallet.getContractMetadata(address),
+    wallet.getContractClassMetadata(expected),
+  ])
+  if (known && isArtifactRegistered) return instance
   await wallet.registerContract(instance, artifact)
   return instance
 }
