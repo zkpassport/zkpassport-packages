@@ -26,8 +26,18 @@ describe("createRegistryClient", () => {
 })
 
 describe("getSanctionsTree", () => {
-  test("downloads from the CDN of the chain's network type", async () => {
-    const root = `0x${"0c".repeat(32)}`
+  const root = `0x${"0c".repeat(32)}`
+  const mainnetUrl = `https://sanctions.zkpassport.id/mainnet/${root}.tree.json.gz`
+  const testnetUrl = `https://sanctions.zkpassport.id/testnet/${root}.tree.json.gz`
+
+  test.each([
+    ["ethereum", mainnetUrl],
+    ["base", mainnetUrl],
+    ["robinhood", mainnetUrl],
+    ["aztec", mainnetUrl],
+    ["ethereum_sepolia", testnetUrl],
+    ["aztec_testnet", testnetUrl],
+  ] as const)("downloads %s's tree from the CDN of its network type", async (chain, url) => {
     const fetchedUrls: string[] = []
     const originalFetch = globalThis.fetch
     globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -36,29 +46,11 @@ describe("getSanctionsTree", () => {
     }) as typeof globalThis.fetch
 
     try {
-      for (const chain of [
-        "ethereum",
-        "base",
-        "robinhood",
-        "aztec",
-        "ethereum_sepolia",
-        "aztec_testnet",
-      ] as const) {
-        await createRegistryClient(chain).getSanctionsTree(root)
-      }
+      await createRegistryClient(chain).getSanctionsTree(root)
     } finally {
       globalThis.fetch = originalFetch
     }
 
-    const mainnetUrl = `https://sanctions.zkpassport.id/mainnet/${root}.tree.json.gz`
-    const testnetUrl = `https://sanctions.zkpassport.id/testnet/${root}.tree.json.gz`
-    expect(fetchedUrls).toEqual([
-      mainnetUrl,
-      mainnetUrl,
-      mainnetUrl,
-      mainnetUrl,
-      testnetUrl,
-      testnetUrl,
-    ])
+    expect(new Set(fetchedUrls)).toEqual(new Set([url]))
   })
 })
