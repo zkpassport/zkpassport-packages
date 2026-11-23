@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "subproofs",
+    "subproofs_aztec",
+    "registry_standin_contract",
+    "subproofs_verifier_contract",
+    "subproofs_test_contract",
+]

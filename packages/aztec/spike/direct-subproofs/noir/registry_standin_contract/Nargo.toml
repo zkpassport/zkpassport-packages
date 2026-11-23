@@ -1,0 +1,8 @@
+[package]
+name = "zkpassport_registry_standin_contract"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr", tag = "v6.0.0", directory = "aztec" }
+zkpassport_subproofs = { path = "../subproofs" }
+zkpassport_subproofs_aztec = { path = "../subproofs_aztec" }
