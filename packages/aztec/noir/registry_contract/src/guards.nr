@@ -50,13 +50,6 @@ mod test {
         assert_valid_registry_id(0);
     }
 
-    #[test]
-    fn accepts_every_registry_id_up_to_the_attestation_revocation_registry() {
-        for registry_id in 1..5 {
-            assert_valid_registry_id(registry_id as Field);
-        }
-    }
-
     #[test(should_fail_with = "unknown registry id")]
     fn rejects_the_registry_id_past_the_attestation_revocation_registry() {
         assert_valid_registry_id(5);

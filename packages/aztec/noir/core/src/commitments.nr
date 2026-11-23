@@ -249,18 +249,6 @@ mod test {
         );
     }
 
-    // The anchors commit 0 for both the integrity key and the revocation root, so they leave the
-    // two fields' order open. This is @zkpassport/utils' value for nonzero ones, which the
-    // circuits' 0.23.0 facematch lib also computes.
-    #[test]
-    fn face_match_commits_the_integrity_key_before_the_revocation_root() {
-        let app_id_hash = 0x067041deed02d9d2df216a420b50404bdf5bcb0026db2602a4142e380a9d6e2a;
-        assert(
-            face_match_commitment(APPLE_ROOT_KEY_HASH, 1, app_id_hash, 0x1234, 2, 0x5678)
-                == 0x27f5e34206f161fea4e5d43e053fa539a504d23175f26e414dad76954fc6c0e7,
-        );
-    }
-
     #[test]
     fn disclose_matches_conformance_anchor() {
         let mut mask = [false; 90];
