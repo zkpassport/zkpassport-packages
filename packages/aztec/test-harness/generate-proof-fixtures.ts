@@ -37,6 +37,7 @@ import {
   getDisclosedBytesFromMrzAndMask,
   getAgeParameterCommitment,
   getMerkleRootFromDSCProof,
+  getNationalityInclusionCircuitInputs,
   getOuterCircuitInputs,
   getParameterCommitmentFromDisclosureProof,
   getServiceScopeHash,
@@ -63,10 +64,19 @@ const hex = (v: bigint) => `0x${v.toString(16).padStart(64, "0")}`
 const FIXTURE_OUT = process.env.FIXTURE_OUT as string
 if (!FIXTURE_OUT) throw new Error("Set FIXTURE_OUT to the output JSON path")
 
-const FIXTURE_KIND = (process.env.FIXTURE_KIND ?? "disclose") as "disclose" | "age"
-if (FIXTURE_KIND !== "disclose" && FIXTURE_KIND !== "age") {
-  throw new Error(`FIXTURE_KIND must be 'disclose' or 'age', got '${FIXTURE_KIND}'`)
+// age7 is age + bind + disclose_bytes + nationality inclusion: a 7-subproof query.
+const FIXTURE_KIND = (process.env.FIXTURE_KIND ?? "disclose") as "disclose" | "age" | "age7"
+if (FIXTURE_KIND !== "disclose" && FIXTURE_KIND !== "age" && FIXTURE_KIND !== "age7") {
+  throw new Error(`FIXTURE_KIND must be 'disclose', 'age' or 'age7', got '${FIXTURE_KIND}'`)
 }
+
+// Optional: where to write every subproof (vk, proof, public inputs, circuit-tree path) and the
+// outer circuit's inputs, for verifying the subproofs directly instead of the outer proof.
+const SUBPROOFS_OUT = process.env.SUBPROOFS_OUT
+// Optional: a directory to save the outer circuit, its vk and witness in, to time `bb prove` on.
+const OUTER_PROVE_DIR = process.env.OUTER_PROVE_DIR
+// Set to 1 to leave core/src/fixtures/proof.nr alone on an age run.
+const SKIP_NOIR_FIXTURE = process.env.SKIP_NOIR_FIXTURE === "1"
 
 const AGE_MIN = 18
 const AGE_MAX = 0 // 0 == "no upper bound" per the compare_age circuit
@@ -182,6 +192,7 @@ async function proveDisclosureStage(
   helper: TestHelper,
   integrityToDisclosureCommitment: bigint,
   manifest: CircuitManifest,
+  serviceScope: bigint = 0n,
 ): Promise<DisclosureStage> {
   const name = "disclose_bytes"
 
@@ -201,7 +212,7 @@ async function proveDisclosureStage(
     discloseQuery,
     INTEGRITY_TO_DISCLOSURE_SALTS,
     0n,
-    0n,
+    serviceScope,
     0n,
     nowTimestamp,
   )
@@ -347,6 +358,44 @@ async function proveBindStage(
   }
 }
 
+// The age7 query's last subproof: the nationality is in a one-country list.
+async function proveNationalityInclusionStage(
+  helper: TestHelper,
+  integrityToDisclosureCommitment: bigint,
+  manifest: CircuitManifest,
+): Promise<DisclosureStage> {
+  const name = "inclusion_check_nationality"
+
+  const inputs = await getNationalityInclusionCircuitInputs(
+    helper.passport as any,
+    { nationality: { in: ["AUS"] } },
+    INTEGRITY_TO_DISCLOSURE_SALTS,
+    0n,
+    getServiceScopeHash(SERVICE_DOMAIN),
+    0n,
+    nowTimestamp,
+  )
+  assert(!!inputs, "nationality inclusion inputs generated")
+
+  const r = await proveSubproof(name, inputs, manifest)
+  const paramCommitment = getParameterCommitmentFromDisclosureProof(r.proof)
+  const commitmentIn = getCommitmentInFromDisclosureProof(r.proof)
+  assert(commitmentIn === integrityToDisclosureCommitment, "nationality commitment_in == integrity commitment_out")
+  await r.circuit.destroy()
+
+  return {
+    name,
+    subproof: {
+      proof: r.proof.proof,
+      publicInputs: r.proof.publicInputs,
+      vkey: r.vkey,
+      vkeyHash: r.vkeyHash,
+      paramCommitment,
+    },
+    extras: { nationalityParamCommitment: hex(paramCommitment) },
+  }
+}
+
 async function main() {
   const bbVersion = execSync("bb --version").toString().trim().split("\n").pop()
   log(`bb on PATH: ${bbVersion}, FIXTURE_KIND=${FIXTURE_KIND}, circuits ${CIRCUIT_VERSION}`)
@@ -419,8 +468,15 @@ async function main() {
   const integrityName = "data_check_integrity_sa_sha256_dg_sha256"
   const integrityInputs = await helper.generateCircuitInputs("integrity", nowTimestamp)
   const integrityR = await proveSubproof(integrityName, integrityInputs, manifest)
-  const integrityCommitmentIn = getCommitmentInFromIntegrityProof(integrityR.proof)
-  const integrityToDisclosureCommitment = getCommitmentOutFromIntegrityProof(integrityR.proof)
+  // From 0.23.0 the integrity check outputs [comm_in, comm_out, verification_method]; the getters of
+  // utils 0.40.0-beta.3 index the 0.22.0 layout [comm_in, comm_out] from the end.
+  const integrityPis = integrityR.proof.publicInputs
+  const integrityCommitmentIn = integrityPis.length === 3
+    ? BigInt(integrityPis[0])
+    : getCommitmentInFromIntegrityProof(integrityR.proof)
+  const integrityToDisclosureCommitment = integrityPis.length === 3
+    ? BigInt(integrityPis[1])
+    : getCommitmentOutFromIntegrityProof(integrityR.proof)
   assert(integrityCommitmentIn === dscToIdDataCommitment, "integrity commitment_in == id commitment_out")
   subproofs.set(2, { proof: integrityR.proof.proof, publicInputs: integrityR.proof.publicInputs, vkey: integrityR.vkey, vkeyHash: integrityR.vkeyHash })
   await integrityR.circuit.destroy()
@@ -428,41 +484,61 @@ async function main() {
   const disclosure = FIXTURE_KIND === "disclose"
     ? await proveDisclosureStage(helper, integrityToDisclosureCommitment, manifest)
     : await proveAgeStage(helper, integrityToDisclosureCommitment, manifest)
-  subproofs.set(3, disclosure.subproof)
 
-  const bind = FIXTURE_KIND === "age"
+  const bind = FIXTURE_KIND !== "disclose"
     ? await proveBindStage(helper, integrityToDisclosureCommitment, manifest)
     : undefined
-  if (bind) subproofs.set(4, bind.subproof)
 
-  const outerName = bind ? "outer_count_5" : "outer_count_4"
+  const extraStages = FIXTURE_KIND === "age7"
+    ? [
+        // The outer circuit verifies every disclosure proof for the same scope
+        await proveDisclosureStage(helper, integrityToDisclosureCommitment, manifest, getServiceScopeHash(SERVICE_DOMAIN)),
+        await proveNationalityInclusionStage(helper, integrityToDisclosureCommitment, manifest),
+      ]
+    : []
+
+  const disclosureStages = [disclosure, ...(bind ? [bind] : []), ...extraStages]
+  disclosureStages.forEach((stage, i) => subproofs.set(3 + i, stage.subproof))
+
+  const outerName = `outer_count_${3 + disclosureStages.length}`
 
   // ---- Membership proofs in the release's circuit registry tree ----
-  const mp0 = await getCircuitMerkleProof(subproofs.get(0)!.vkeyHash, manifest)
-  assert(mp0.root === manifest.root, `the manifest's circuits hash to its root ${manifest.root} (got ${mp0.root})`)
-  const mp1 = await getCircuitMerkleProof(subproofs.get(1)!.vkeyHash, manifest)
-  const mp2 = await getCircuitMerkleProof(subproofs.get(2)!.vkeyHash, manifest)
-  const mp3 = await getCircuitMerkleProof(subproofs.get(3)!.vkeyHash, manifest)
-  const mp4 = bind ? await getCircuitMerkleProof(subproofs.get(4)!.vkeyHash, manifest) : undefined
+  const memberships = []
+  for (let i = 0; i < subproofs.size; i++) {
+    memberships.push(await getCircuitMerkleProof(subproofs.get(i)!.vkeyHash, manifest))
+  }
+  assert(BigInt(memberships[0].root) === BigInt(manifest.root), `the manifest's circuits hash to its root ${manifest.root} (got ${memberships[0].root})`)
   log(`circuit registry root of ${CIRCUIT_VERSION}: ${manifest.root}`)
 
   // ---- Outer proof ----
-  const outerInputs = await getOuterCircuitInputs(
-    { ...toSubproofInput(subproofs.get(0)!, mp0) },
-    { ...toSubproofInput(subproofs.get(1)!, mp1) },
-    { ...toSubproofInput(subproofs.get(2)!, mp2) },
-    [
-      { ...toSubproofInput(subproofs.get(3)!, mp3) },
-      ...(bind ? [{ ...toSubproofInput(subproofs.get(4)!, mp4!) }] : []),
-    ],
+  const subproofInputs = memberships.map((mp, i) => toSubproofInput(subproofs.get(i)!, mp))
+  const outerInputs: Record<string, unknown> = await getOuterCircuitInputs(
+    subproofInputs[0],
+    subproofInputs[1],
+    subproofInputs[2],
+    subproofInputs.slice(3),
     manifest.root,
   )
+  // From 0.23.0 the integrity check also outputs the verification method, which the outer circuit
+  // takes as a public input. utils 0.40.0-beta.3 predates it.
+  const integrityPublicInputs = subproofs.get(2)!.publicInputs
+  if (integrityPublicInputs.length === 3 && outerInputs.verification_method === undefined) {
+    outerInputs.verification_method = integrityPublicInputs[2]
+  }
 
   const outerPackaged = await fetchPackagedCircuit(outerName, manifest)
   const outerCircuit = new Circuit(outerPackaged, outerName)
+
+  if (OUTER_PROVE_DIR) {
+    fs.mkdirSync(OUTER_PROVE_DIR, { recursive: true })
+    fs.writeFileSync(path.join(OUTER_PROVE_DIR, "circuit.json"), JSON.stringify(outerPackaged))
+    fs.writeFileSync(path.join(OUTER_PROVE_DIR, "witness.gz"), await outerCircuit.solve(outerInputs as any, true))
+    log(`outer circuit and witness saved to ${OUTER_PROVE_DIR}`)
+  }
+
   log(`proving ${outerName} ...`)
 
-  const outerProof = await outerCircuit.prove(outerInputs, {
+  const outerProof = await outerCircuit.prove(outerInputs as any, {
     useCli: true,
     circuitName: outerName,
     recursive: true,
@@ -489,7 +565,7 @@ async function main() {
   // paramCommitments..., nullifierType, scopedNullifier, oprfPkHash] -- one commitment slot
   // per disclosure subproof, starting at slot 5. The prover does not fix the slot order, so
   // compare as a set.
-  const expectedParams = new Set([paramCommitment!, ...(bind ? [bind.subproof.paramCommitment!] : [])])
+  const expectedParams = new Set(disclosureStages.map((stage) => stage.subproof.paramCommitment!))
   const proofParams = new Set(
     outerProof.publicInputs.slice(5, 5 + expectedParams.size).map(BigInt),
   )
@@ -513,8 +589,7 @@ async function main() {
     certificateRegistryRoot: hex(certificateRegistryRoot),
     circuitRegistryRoot: manifest.root,
     paramCommitment: hex(paramCommitment!),
-    ...disclosure.extras,
-    ...(bind?.extras ?? {}),
+    ...Object.assign({}, ...disclosureStages.map((stage) => stage.extras)),
     vkeyFields: outerVkey,
     vkeyHashPoseidon2: outerVkeyHashPoseidon,
     vkeyHashBB: outerVkeyHashBB,
@@ -525,9 +600,33 @@ async function main() {
   fs.writeFileSync(FIXTURE_OUT, JSON.stringify(fixture, null, 2))
   log(`fixture written to ${FIXTURE_OUT}`)
 
+  if (SUBPROOFS_OUT) {
+    const dump = {
+      circuitVersion: CIRCUIT_VERSION,
+      circuitsCommit: fixture.circuitsCommit,
+      bbVersion,
+      outerCircuit: outerName,
+      nowTimestamp,
+      bindAddress: BIND_ADDRESS,
+      circuitRegistryRoot: manifest.root,
+      outerVkeyHash: outerVkeyHashBB,
+      // The outer circuit's inputs: its public inputs and each subproof as the outer circuit takes it
+      outerInputs,
+      subproofs: subproofInputs.map((s, i) => ({
+        name: i < 3 ? [dscName, idName, integrityName][i] : disclosureStages[i - 3].name,
+        ...s,
+      })),
+      outer: { vkey: outerVkey, proof: outerProof.proof, publicInputs: outerProof.publicInputs },
+      extras: fixture,
+    }
+    fs.mkdirSync(path.dirname(SUBPROOFS_OUT), { recursive: true })
+    fs.writeFileSync(SUBPROOFS_OUT, JSON.stringify(dump, null, 2))
+    log(`subproofs written to ${SUBPROOFS_OUT}`)
+  }
+
   // The age fixture also becomes the Noir-side source of truth for consumers' TXE tests
   // (the disclose fixture is consumed by test-recursive-verification.sh straight from the JSON).
-  if (FIXTURE_KIND === "age") {
+  if (FIXTURE_KIND === "age" && !SKIP_NOIR_FIXTURE) {
     const proofNr = new URL(
       "../noir/core/src/fixtures/proof.nr",
       import.meta.url,

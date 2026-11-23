@@ -1,0 +1,5 @@
+target/
+harness/*/out-*/
+fixtures/*_prove/
+e2e/node_modules
+e2e/deployment.json

@@ -1,0 +1,7 @@
+[package]
+name = "direct_subproofs_count_7"
+type = "bin"
+compiler_version = ">=1.0.0"
+
+[dependencies]
+zkpassport_subproofs = { path = "../../noir/subproofs" }
