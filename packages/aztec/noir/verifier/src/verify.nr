@@ -20,6 +20,7 @@ use zkpassport_registry_contract::{
     local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS, ZKPassportRegistry,
 };
 
+#[derive(Eq)]
 pub struct ServiceConfig {
     // The oldest circuits release the app accepts, as `circuit_version(major, minor, patch)`
     // packs it. The proof capsule carries the release the proof was made with, which the registry
@@ -34,10 +35,13 @@ pub struct ServiceConfig {
 }
 
 impl ServiceConfig {
-    /// A config for proofs requested from `domain`. It accepts proofs from every circuits release
-    /// the library verifies, covers the whole domain, requires a non-salted unique identifier,
-    /// accepts proofs up to 7 days old, as the ZKPassport SDK does by default, and rejects mock
-    /// documents. The methods below change each of these.
+    /// A config for proofs requested from `domain`, a hostname such as "example.com". It accepts
+    /// proofs from every circuits release the library verifies, covers the whole domain, requires
+    /// a non-salted unique identifier, accepts proofs up to 7 days old, as the ZKPassport SDK does
+    /// by default, and rejects mock documents. The methods below change each of these.
+    ///
+    /// The domain is lowercased, as the SDK lowercases it, so their hashes match. Only ASCII letters
+    /// are lowercased here, so write any other letters in lowercase.
     ///
     /// Build it in a global, so the domain is hashed at compile time and a mistake such as an
     /// empty domain fails to compile:
@@ -45,9 +49,36 @@ impl ServiceConfig {
     pub fn new<let N: u32>(domain: str<N>) -> Self {
         assert(N != 0, "service domain required");
 
+        let mut hostname = domain.as_bytes();
+        for i in 0..N {
+            let byte = hostname[i];
+            if (byte >= 65) & (byte <= 90) {
+                hostname[i] = byte + 32;
+            }
+            // What the SDK would strip: whitespace, and the ':', '/', '?' and '#' of a URL
+            let byte = hostname[i];
+            let stripped = (byte == 9)
+                | (byte == 10)
+                | (byte == 13)
+                | (byte == 32)
+                | (byte == 35)
+                | (byte == 47)
+                | (byte == 58)
+                | (byte == 63);
+            assert(!stripped, "service domain must be a hostname, such as example.com");
+        }
+
+        ServiceConfig::from_domain_hash(sha256_to_field(hostname))
+    }
+
+    /// `new` for a domain already hashed with `scope_hash`, such as one a contract reads from
+    /// storage.
+    pub fn from_domain_hash(domain: Field) -> Self {
+        assert(domain != 0, "service domain required");
+
         ServiceConfig {
             min_version: MIN_SUPPORTED_CIRCUIT_VERSION,
-            domain: scope_hash(domain),
+            domain,
             scope: 0,
             unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
             validity_period: DEFAULT_VALIDITY_PERIOD,
@@ -68,8 +99,15 @@ impl ServiceConfig {
         self
     }
 
-    /// Require a unique identifier of this type, one of the `NULLIFIER_TYPE_*` constants.
+    /// Require a unique identifier of this type: `NULLIFIER_TYPE_NONE`, `NULLIFIER_TYPE_NON_SALTED`
+    /// or `NULLIFIER_TYPE_SALTED`. A mock document's proof counts as the type it mocks.
     pub fn unique_identifier_type(mut self, unique_identifier_type: u8) -> Self {
+        assert(
+            (unique_identifier_type == NULLIFIER_TYPE_NONE)
+                | (unique_identifier_type == NULLIFIER_TYPE_NON_SALTED)
+                | (unique_identifier_type == NULLIFIER_TYPE_SALTED),
+            "unique identifier type must be NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_NON_SALTED or NULLIFIER_TYPE_SALTED",
+        );
         self.unique_identifier_type = unique_identifier_type;
         self
     }
@@ -233,6 +271,23 @@ pub fn verify_zkpassport_proof<let K: u32, let D: u32>(
     verify_zkpassport_proof_with_registry(context, registry, capsule_scope, config, query)
 }
 
+/// `verify_zkpassport_proof` for a proof bound to `user`. Use it whenever the proof grants
+/// something to `user`: a proof bound to no one can be submitted by anyone who sees it.
+pub fn verify_zkpassport_proof_for_user<let K: u32, let D: u32>(
+    context: &mut PrivateContext,
+    capsule_scope: AztecAddress,
+    user: AztecAddress,
+    config: ServiceConfig,
+    query: Query<K, D>,
+) -> VerifiedProof {
+    verify_zkpassport_proof(
+        context,
+        capsule_scope,
+        config,
+        query.bind_user_address(user),
+    )
+}
+
 /// `verify_zkpassport_proof` against the registry at `registry`.
 ///
 /// For a network without a ZKPassport registry, such as a local network or TXE tests, or an app
@@ -359,9 +414,8 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
 pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, unique_identifier: Field) {
     // zkpassport::verify's "zero scoped nullifier" assert exempts a hidden nullifier
     // (NULLIFIER_TYPE_NONE, or a mock type in dev mode), so a zero identifier CAN reach here.
-    // This is where it actually matters: pushing it would burn one single global nullifier slot
-    // and permanently block every future caller of this function, in every app, for the rest of
-    // time.
+    // Pushing it would burn one nullifier shared by every such proof, so the first one would block
+    // every later caller in this contract.
     assert(unique_identifier != 0, "no unique identifier in this proof");
     context.push_nullifier_unsafe(Poseidon2::hash(
         [UNIQUENESS_NULLIFIER_DOMAIN, unique_identifier],
@@ -514,6 +568,61 @@ mod test {
         assert(config.unique_identifier_type == NULLIFIER_TYPE_SALTED);
         assert(config.validity_period == 86400);
         assert(config.dev_mode);
+    }
+
+    #[test]
+    fn new_service_config_lowercases_the_domain_as_the_sdk_does() {
+        assert(ServiceConfig::new("Example.COM").domain == scope_hash("example.com"));
+    }
+
+    #[test]
+    fn new_service_config_keeps_what_the_sdk_keeps() {
+        assert(ServiceConfig::new("bücher.de").domain == scope_hash("bücher.de"));
+        assert(ServiceConfig::new("my_app.example.com").domain == scope_hash("my_app.example.com"));
+    }
+
+    #[test(should_fail_with = "service domain must be a hostname, such as example.com")]
+    fn new_service_config_rejects_a_url() {
+        let _ = ServiceConfig::new("https://example.com");
+    }
+
+    #[test(should_fail_with = "service domain must be a hostname, such as example.com")]
+    fn new_service_config_rejects_a_port() {
+        let _ = ServiceConfig::new("example.com:443");
+    }
+
+    #[test(should_fail_with = "service domain must be a hostname, such as example.com")]
+    fn new_service_config_rejects_a_path() {
+        let _ = ServiceConfig::new("example.com/app");
+    }
+
+    #[test(should_fail_with = "service domain must be a hostname, such as example.com")]
+    fn new_service_config_rejects_a_query() {
+        let _ = ServiceConfig::new("example.com?ref=1");
+    }
+
+    #[test(should_fail_with = "service domain must be a hostname, such as example.com")]
+    fn new_service_config_rejects_whitespace() {
+        let _ = ServiceConfig::new(" example.com");
+    }
+
+    #[test]
+    fn a_service_config_from_a_domain_hash_has_the_same_defaults() {
+        assert(
+            ServiceConfig::from_domain_hash(scope_hash("example.com"))
+                == ServiceConfig::new("example.com"),
+        );
+    }
+
+    #[test(should_fail_with = "service domain required")]
+    fn a_service_config_from_a_domain_hash_rejects_zero() {
+        let _ = ServiceConfig::from_domain_hash(0);
+    }
+
+    #[test(should_fail_with = "unique identifier type must be NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_NON_SALTED or NULLIFIER_TYPE_SALTED")]
+    fn rejects_a_mock_unique_identifier_type() {
+        let _ =
+            ServiceConfig::new("example.com").unique_identifier_type(NULLIFIER_TYPE_SALTED_MOCK);
     }
 
     #[test]

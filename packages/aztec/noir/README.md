@@ -44,7 +44,9 @@ which passes its own registry so its tests can deploy one:
 
 ```noir
 use zkpassport_aztec_verifier::query::Query;
-use zkpassport_aztec_verifier::verify::{emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof};
+use zkpassport_aztec_verifier::verify::{
+    emit_uniqueness_nullifier, ServiceConfig, verify_zkpassport_proof_for_user,
+};
 
 global MIN_AGE: u8 = 18;
 
@@ -58,9 +60,11 @@ global SERVICE: ServiceConfig = ServiceConfig::new("example.com");
 /// proof itself to `user`, so anyone — a relayer included — may submit the transaction.
 #[external("private")]
 fn claim(user: AztecAddress) {
-    let query = Query::new().age_min(MIN_AGE).bind_user_address(user);
-    // The capsule rides in the sender's PXE, so it is scoped to the sender.
-    let verified = verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query);
+    let query = Query::new().age_min(MIN_AGE);
+    // The capsule rides in the sender's PXE, so it is scoped to the sender. The proof must be
+    // bound to `user`.
+    let verified =
+        verify_zkpassport_proof_for_user(self.context, self.msg_sender(), user, SERVICE, query);
     emit_uniqueness_nullifier(self.context, verified.unique_identifier);
     // Deliberately public: the badge is readable by anyone (has_badge(user)); only the
     // passport proof behind it is private.
@@ -68,7 +72,9 @@ fn claim(user: AztecAddress) {
 }
 ```
 
-`ServiceConfig::new` takes the domain. The rest defaults to proofs from every circuits release the
+`ServiceConfig::new` takes the domain as a hostname, and lowercases it as the ZKPassport SDK does; a
+URL, a port, a path or whitespace fails. `ServiceConfig::from_domain_hash` takes a domain already
+hashed with `scope_hash`, such as one a contract reads from storage. The rest defaults to proofs from every circuits release the
 library verifies, the whole domain, a non-salted unique identifier, proofs up to 7 days old (the
 ZKPassport SDK's default validity), and no mock documents. `.min_version(circuit_version(…))`,
 `.scope("…")`, `.unique_identifier_type(…)`, `.validity_period(seconds)` and `.dev_mode()` change
@@ -81,6 +87,11 @@ keeps working as ZKPassport ships patch releases. The proof capsule carries the 
 made with, and the registry only accepts the proof's vk under that release. The library also rejects
 any release outside 0.23.x, whose public inputs it may not parse; supporting a later minor release
 takes a library update.
+
+`verify_zkpassport_proof_for_user` asks for a proof bound to `user` and to the contract's network,
+by adding `bind_user_address(user)` to the query. Use it whenever the proof grants something to an
+account: a proof bound to no one can be submitted by anyone who sees it. `verify_zkpassport_proof`
+takes the query as it is.
 
 `verify_zkpassport_proof` uses ZKPassport's registry on the network, found by its L1 chain id and
 rollup version. In TXE and on a local network that is the local network registry, below. On a
