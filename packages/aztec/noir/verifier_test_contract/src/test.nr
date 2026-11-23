@@ -166,7 +166,7 @@ unconstrained fn verifies_an_age_proof() {
         Option::none(),
     );
 
-    assert(env.call_private(sender, VerifierTest::at(verifier).verify_age(user)) != 0);
+    assert(env.call_private(sender, VerifierTest::at(verifier).verify_age(user)).value != 0);
 }
 
 #[test]
@@ -184,7 +184,9 @@ unconstrained fn verifies_an_age_proof_for_the_user_it_is_bound_to() {
         Option::none(),
     );
 
-    assert(env.call_private(sender, VerifierTest::at(verifier).verify_age_for_user(user)) != 0);
+    assert(
+        env.call_private(sender, VerifierTest::at(verifier).verify_age_for_user(user)).value != 0,
+    );
 }
 
 #[test(should_fail_with = "param commitment mismatch")]
@@ -203,6 +205,57 @@ unconstrained fn rejects_an_age_proof_for_a_user_it_is_not_bound_to() {
     );
 
     let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age_for_user(other_user));
+}
+
+// The test contract with the age fixture delivered to it, the proof's user, and the sender
+unconstrained fn setup_claim() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(age_fixture_blob_for_txe()),
+        Option::none(),
+        Option::none(),
+    );
+    (env, verifier, user, sender)
+}
+
+#[test(should_fail_with = "duplicate nullifiers")]
+unconstrained fn rejects_a_second_claim_in_the_same_period() {
+    let (mut env, verifier, user, sender) = setup_claim();
+
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
+}
+
+#[test]
+unconstrained fn accepts_a_claim_in_another_period() {
+    let (mut env, verifier, user, sender) = setup_claim();
+
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 8));
+}
+
+#[test]
+unconstrained fn a_custom_uniqueness_nullifier_is_not_the_plain_one() {
+    let (mut env, verifier, user, sender) = setup_claim();
+
+    env.call_private(sender, VerifierTest::at(verifier).claim_age(user));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
+}
+
+#[test(should_fail_with = "duplicate nullifiers")]
+unconstrained fn a_claim_through_a_verifier_call_shares_the_direct_claims_nullifier() {
+    let (mut env, verifier, user, sender) = setup_claim();
+
+    env.call_private(
+        sender,
+        VerifierTest::at(verifier).claim_age_for_period_through_a_verifier(user, 7),
+    );
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
 }
 
 // The age fixture's capsule, claiming another circuits release

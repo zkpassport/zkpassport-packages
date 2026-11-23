@@ -2,7 +2,11 @@ use crate::query::Query;
 use aztec::{
     context::PrivateContext,
     oracle::capsules,
-    protocol::{address::AztecAddress, hash::sha256_to_field, traits::FromField},
+    protocol::{
+        address::AztecAddress,
+        hash::sha256_to_field,
+        traits::{Deserialize, FromField, Serialize},
+    },
 };
 use poseidon::poseidon2::Poseidon2;
 use zkpassport::constants::{
@@ -135,8 +139,15 @@ pub struct Disclosure {
     pub bytes: [u8; 90],
 }
 
+/// A proof's unique identifier: the passport's identifier, scoped to the app's domain and scope.
+/// Its own type, so a nullifier helper can't be handed some other `Field` by mistake.
+#[derive(Deserialize, Eq, Serialize)]
+pub struct UniqueIdentifier {
+    pub value: Field,
+}
+
 pub struct VerifiedProof {
-    pub unique_identifier: Field,
+    pub unique_identifier: UniqueIdentifier,
     pub current_date: u64,
     pub disclosure: Option<Disclosure>, // some exactly when the query discloses a field
     pub sanctions_root: Option<Field>, // some exactly when the query asks for sanctions
@@ -201,9 +212,11 @@ impl VerifiedProof {
 // The ZKPassport SDK's default for how old a proof may be: 7 days, in seconds.
 global DEFAULT_VALIDITY_PERIOD: u64 = 7 * 86400;
 
-// Domain separator for the uniqueness nullifier.
+// Domain separators for the uniqueness nullifiers.
 global UNIQUENESS_NULLIFIER_DOMAIN: Field =
     sha256_to_field("ZKPASSPORT::AZTEC::UNIQUENESS_NULLIFIER".as_bytes());
+global CUSTOM_UNIQUENESS_NULLIFIER_DOMAIN: Field =
+    sha256_to_field("ZKPASSPORT::AZTEC::CUSTOM_UNIQUENESS_NULLIFIER".as_bytes());
 
 // The L1 chain id and the rollup version TXE reports.
 global TXE_CHAIN_ID: Field = 1;
@@ -406,7 +419,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
     }
 
     VerifiedProof {
-        unique_identifier: parsed.scoped_nullifier,
+        unique_identifier: UniqueIdentifier { value: parsed.scoped_nullifier },
         current_date: parsed.current_date,
         disclosure,
         sanctions_root,
@@ -415,16 +428,43 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
 
 /// One-proof-per-passport-per-service: pushes a domain-separated nullifier derived from the
 /// unique identifier. Siloed per app contract by the kernel → per-app uniqueness.
-pub fn emit_uniqueness_nullifier(context: &mut PrivateContext, unique_identifier: Field) {
+pub fn emit_uniqueness_nullifier(
+    context: &mut PrivateContext,
+    unique_identifier: UniqueIdentifier,
+) {
+    assert_unique_identifier(unique_identifier);
+    context.push_nullifier_unsafe(Poseidon2::hash(
+        [UNIQUENESS_NULLIFIER_DOMAIN, unique_identifier.value],
+        2,
+    ));
+}
+
+/// A uniqueness nullifier for a passport and the app's own `components`, such as a period: one
+/// proof per passport per set of components. Use it when an app counts something other than one
+/// claim per passport. It never equals `emit_uniqueness_nullifier`'s for the same passport.
+pub fn emit_custom_uniqueness_nullifier<let N: u32>(
+    context: &mut PrivateContext,
+    unique_identifier: UniqueIdentifier,
+    components: [Field; N],
+) {
+    assert(N != 0, "custom uniqueness nullifier needs components");
+    assert_unique_identifier(unique_identifier);
+    context.push_nullifier_unsafe(Poseidon2::hash(
+        [
+            CUSTOM_UNIQUENESS_NULLIFIER_DOMAIN,
+            unique_identifier.value,
+            Poseidon2::hash(components, N),
+        ],
+        3,
+    ));
+}
+
+fn assert_unique_identifier(unique_identifier: UniqueIdentifier) {
     // zkpassport::verify's "zero scoped nullifier" assert exempts a hidden nullifier
     // (NULLIFIER_TYPE_NONE, or a mock type in dev mode), so a zero identifier CAN reach here.
     // Pushing it would burn one nullifier shared by every such proof, so the first one would block
     // every later caller in this contract.
-    assert(unique_identifier != 0, "no unique identifier in this proof");
-    context.push_nullifier_unsafe(Poseidon2::hash(
-        [UNIQUENESS_NULLIFIER_DOMAIN, unique_identifier],
-        2,
-    ));
+    assert(unique_identifier.value != 0, "no unique identifier in this proof");
 }
 
 pub(crate) fn default_registry(chain_id: Field, version: Field) -> AztecAddress {
@@ -491,10 +531,11 @@ fn parse_disclose_payload(payload: [Field; 180]) -> Disclosure {
 
 mod test {
     use crate::verify::{
-        ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure, MAINNET_CHAIN_ID,
-        MAINNET_REGISTRY_ADDRESS, MAINNET_VERSION, parse_disclose_payload, scope_hash,
-        ServiceConfig, TESTNET_CHAIN_ID, TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID,
-        TXE_VERSION, VerifiedProof,
+        ANVIL_CHAIN_ID, assert_service_policy, default_registry, Disclosure,
+        emit_custom_uniqueness_nullifier, MAINNET_CHAIN_ID, MAINNET_REGISTRY_ADDRESS,
+        MAINNET_VERSION, parse_disclose_payload, scope_hash, ServiceConfig, TESTNET_CHAIN_ID,
+        TESTNET_REGISTRY_ADDRESS, TESTNET_VERSION, TXE_CHAIN_ID, TXE_VERSION, UniqueIdentifier,
+        VerifiedProof,
     };
     use aztec::test::helpers::test_environment::TestEnvironment;
     use zkpassport::constants::{
@@ -519,7 +560,7 @@ mod test {
 
     fn verified_proof(disclosure: Option<Disclosure>) -> VerifiedProof {
         VerifiedProof {
-            unique_identifier: 1,
+            unique_identifier: UniqueIdentifier { value: 1 },
             current_date: 0,
             disclosure,
             sanctions_root: Option::none(),
@@ -734,6 +775,14 @@ mod test {
     #[test(should_fail_with = "no default ZKPassport registry on this network")]
     fn another_rollup_on_chain_1_does_not_get_the_local_network_registry() {
         let _ = default_registry(TXE_CHAIN_ID, TXE_VERSION + 1);
+    }
+
+    #[test(should_fail_with = "no unique identifier in this proof")]
+    unconstrained fn a_custom_uniqueness_nullifier_rejects_a_zero_identifier() {
+        let env = TestEnvironment::new();
+        env.private_context(|context| {
+            emit_custom_uniqueness_nullifier(context, UniqueIdentifier { value: 0 }, [1]);
+        });
     }
 
     #[test]
