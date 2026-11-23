@@ -120,10 +120,10 @@ export class AztecVerifier {
     }
 
     const { user_address, chain, custom_data } = bind.data
-    if (!user_address || !chain || custom_data) {
+    if (!user_address || !chain || custom_data || !/^0x[0-9a-fA-F]{64}$/.test(user_address)) {
       throw new Error(
-        "This proof's bind cannot be verified on Aztec, which binds a user address and an Aztec " +
-          "network only: request a new proof that binds the user's address and the network",
+        "This proof's bind cannot be verified on Aztec, which binds a 32-byte user address and an " +
+          "Aztec network only: request a new proof that binds the user's address and the network",
       )
     }
     if (chain !== "aztec" && chain !== "aztec_testnet") {

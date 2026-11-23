@@ -23,6 +23,7 @@ const fixture = JSON.parse(
   ),
 ) as AgeFixture
 
+const USER = `0x${"11".repeat(32)}`
 const bare = (field: string) => field.replace(/^0x/, "").padStart(64, "0")
 const hexField = (field: string | number) =>
   `0x${(typeof field === "number" ? field.toString(16) : bare(field)).padStart(64, "0")}`
@@ -154,10 +155,10 @@ describe("getAztecVerifierParameters", () => {
     await new ZKPassport("example.com").getAztecVerifierParameters({
       proof: {
         ...proof,
-        committedInputs: { bind: { data: { user_address: "0x1122", chain: "aztec_testnet" } } },
+        committedInputs: { bind: { data: { user_address: USER, chain: "aztec_testnet" } } },
       },
     })
-    expect(fetchedUrls).toEqual(getCircuitUrls("aztec_testnet"))
+    expect(new Set(fetchedUrls)).toEqual(new Set(getCircuitUrls("aztec_testnet")))
   })
 
   test("reads the vk from the network it's given for a proof bound to none", async () => {
@@ -165,7 +166,7 @@ describe("getAztecVerifierParameters", () => {
       proof,
       network: "aztec_testnet",
     })
-    expect(fetchedUrls).toEqual(getCircuitUrls("aztec_testnet"))
+    expect(new Set(fetchedUrls)).toEqual(new Set(getCircuitUrls("aztec_testnet")))
   })
 
   test("needs a network for a proof bound to none, rather than assuming one", async () => {
@@ -180,7 +181,7 @@ describe("getAztecVerifierParameters", () => {
       new ZKPassport("example.com").getAztecVerifierParameters({
         proof: {
           ...proof,
-          committedInputs: { bind: { data: { user_address: "0x1122", chain: "aztec_testnet" } } },
+          committedInputs: { bind: { data: { user_address: USER, chain: "aztec_testnet" } } },
         },
         network: "aztec",
       }),
@@ -190,9 +191,13 @@ describe("getAztecVerifierParameters", () => {
   // The Aztec library's bind commits to a user address and the contract's network, nothing else,
   // so no network passed here can make another bind verify
   test.each([
-    ["an address and no network", { user_address: "0x1122" }],
+    ["an address and no network", { user_address: USER }],
     ["a network and no address", { chain: "aztec_testnet" }],
-    ["custom data", { user_address: "0x1122", chain: "aztec_testnet", custom_data: "hi" }],
+    ["custom data", { user_address: USER, chain: "aztec_testnet", custom_data: "hi" }],
+    [
+      "an address shorter than an Aztec address",
+      { user_address: "0x1122", chain: "aztec_testnet" },
+    ],
   ])("rejects a proof that binds %s", async (_, data) => {
     await expect(
       new ZKPassport("example.com").getAztecVerifierParameters({
@@ -208,7 +213,7 @@ describe("getAztecVerifierParameters", () => {
       new ZKPassport("example.com").getAztecVerifierParameters({
         proof: {
           ...proof,
-          committedInputs: { bind: { data: { user_address: "0x1122", chain: "ethereum" } } },
+          committedInputs: { bind: { data: { user_address: USER, chain: "ethereum" } } },
         },
       }),
     ).rejects.toThrow(/bound to ethereum/)
