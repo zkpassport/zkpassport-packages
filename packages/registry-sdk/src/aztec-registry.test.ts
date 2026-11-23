@@ -244,6 +244,44 @@ describe("RegistryClient on an Aztec network", () => {
     expect([...new Set(fetchedUrls.slice(readsBefore))]).toEqual([fallback])
   })
 
+  for (const [reply, entry] of [
+    ["no result", {}],
+    ["a result that isn't a field", { result: "World state unavailable" }],
+    ["an empty result", { result: "" }],
+    ["a negative result", { result: "-1" }],
+  ] as const) {
+    test(`reads from the fallback RPC URL when a node answers a storage read with ${reply}`, async () => {
+      const primary = "https://aztec-testnet.drpc.org/"
+      const fallback = "https://aztec-fallback.example.com/"
+      const node = globalThis.fetch
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (new URL(input.toString()).href !== primary) {
+          return node(input, init)
+        }
+        fetchedUrls.push(primary)
+        const calls = JSON.parse(init?.body as string) as { id: number; method: string }[]
+        return Response.json(
+          calls.map(({ id, method }) =>
+            method === "node_getPublicStorageAt"
+              ? { jsonrpc: "2.0", id, ...entry }
+              : {
+                  jsonrpc: "2.0",
+                  id,
+                  result:
+                    method === "node_getBlockNumber"
+                      ? 1
+                      : { header: { globalVariables: { timestamp: blockTimestamp.toString() } } },
+                },
+          ),
+        )
+      }) as typeof globalThis.fetch
+      const client = createRegistryClient("aztec_testnet", { fallbackRpcUrls: [fallback] })
+
+      expect(await client.getLatestCertificateRoot()).toBe(ROOT_B)
+      expect(fetchedUrls).toContain(fallback)
+    })
+  }
+
   test("reads a scheduled latest root only once the node's latest block reaches its time", async () => {
     const client = createRegistryClient("aztec_testnet")
     schedule(

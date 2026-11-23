@@ -87,7 +87,7 @@ export class AztecRegistryReader {
       ])
       return {
         now: BigInt(readBlockTimestamp(block, blockNumber)),
-        values: words.map((word) => BigInt(String(word))),
+        values: words.map(readStorageWord),
       }
     })
 
@@ -175,6 +175,15 @@ function readBlockTimestamp(block: unknown, blockNumber: unknown): string {
     )
   }
   return String(timestamp)
+}
+
+function readStorageWord(word: unknown): bigint {
+  if (typeof word === "string" && /^0x[0-9a-fA-F]{1,64}$/.test(word)) {
+    return BigInt(word)
+  }
+  throw new RpcEndpointError(
+    `Error reading the Aztec registry: the node returned ${JSON.stringify(word) ?? "nothing"} as a storage value`,
+  )
 }
 
 /** ZKPassportRegistry's is_root_valid */
