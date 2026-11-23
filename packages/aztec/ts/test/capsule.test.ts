@@ -18,6 +18,8 @@ const parts = {
   version: "0.23.0",
 }
 
+// The layouts and their shape checks are @zkpassport/utils' and tested there; these tests cover
+// what the adapters add: Fr fields, and the proof count passed through.
 test("assembles the 585-field outer_count_5 blob, reading bare SDK output as hex", () => {
   const blob = assembleProofCapsule(parts)
 
@@ -27,27 +29,13 @@ test("assembles the 585-field outer_count_5 blob, reading bare SDK output as hex
   assert.equal(blob[blob.length - 2].toBigInt(), 0x11n)
 })
 
-test("ends the blob with the circuits release, packed as the registry keys vks", () => {
-  const blob = assembleProofCapsule({ ...parts, version: "0.23.4" })
-  assert.equal(blob[blob.length - 1].toBigInt(), (23n << 224n) | (4n << 208n))
-})
-
-test("rejects a proof of a circuits release the library does not parse", () => {
-  assert.throws(() => assembleProofCapsule({ ...parts, version: "0.22.0" }), /0\.23\.x/)
-  assert.throws(() => assembleProofCapsule({ ...parts, version: "0.24.0" }), /0\.23\.x/)
-})
-
-test("rejects a wrong-shaped proof with the actual counts", () => {
-  assert.throws(
-    () => assembleProofCapsule({ ...parts, publicInputs: Array(10).fill("11") }),
-    /public inputs 10\/11/,
-  )
-  assert.throws(() => assembleProofCapsule({ ...parts, vk: Array(114).fill("01") }), /vk 114\/115/)
+test("assembles the blob of the outer_count it is given", () => {
+  const blob = assembleProofCapsule({ ...parts, publicInputs: Array(9).fill("11") }, 3)
+  assert.equal(blob.length, outerCapsuleLength(3))
 })
 
 test("assembles the disclose and sanctions capsules as fields", () => {
   assert.equal(assembleDiscloseCapsule(Array(90).fill(0), Array(90).fill(1)).length, 180)
-  assert.throws(() => assembleDiscloseCapsule(Array(89).fill(0), Array(90).fill(0)), /mask 89\/90/)
   assert.deepEqual(
     assembleSanctionsCapsule("0x2a5a").map((field) => field.toBigInt()),
     [0x2a5an],
