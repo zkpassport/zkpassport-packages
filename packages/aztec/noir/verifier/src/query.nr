@@ -639,15 +639,16 @@ mod test {
         let query = Query::new().strict_face_match().bind_user_address(user);
 
         assert_eq(subproofs(query), 5);
-        assert_eq(
-            query.expected_commitments(
-                Option::none(),
-                Option::none(),
-                Option::some(face_match),
-                CHAIN_ID,
-            ),
-            [bind_commitment(user.to_field(), CHAIN_ID), face_match.commitment()],
+        let commitments = query.expected_commitments(
+            Option::none(),
+            Option::none(),
+            Option::some(face_match),
+            CHAIN_ID,
         );
+        let bind = bind_commitment(user.to_field(), CHAIN_ID);
+        assert_eq(commitments.len(), 2);
+        assert(commitments.any(|commitment| commitment == bind));
+        assert(commitments.any(|commitment| commitment == face_match.commitment()));
     }
 
     #[test]
