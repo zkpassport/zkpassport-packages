@@ -7,7 +7,14 @@ export type CircuitManifest = {
   circuits: Record<string, { hash: string }>
 }
 
-/** The EVM (`outer_evm_*`) and Aadhaar (`outer_aadhaar_*`) families are never seeded by default. */
+/**
+ * The registry's vk allowlist covers only the proof the contract verifies itself: the outer proof.
+ * Each outer circuit checks its subproofs' vk hashes by Merkle membership in the circuit root, so
+ * seeding the release's circuit root already authorizes its inner vks. Accepting an inner vk would
+ * let a bare inner proof pass as an outer one.
+ *
+ * The EVM (`outer_evm_*`) and Aadhaar (`outer_aadhaar_*`) families are never seeded by default.
+ */
 const STANDARD_OUTER_CIRCUIT = /^outer_count_\d+$/
 
 /** A vk to seed. `explicit` is true when the operator named it in VK_CIRCUITS or VK_HASH. */
