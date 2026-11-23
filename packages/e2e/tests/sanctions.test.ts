@@ -43,10 +43,10 @@ describe("sanctions, end to end on a Sepolia fork", () => {
 
   afterAll(() => testEnv?.stop())
 
-  test("john passes the non-strict sanctions check", () => {
+  test("john passes the strict sanctions check", () => {
     const { result: queryResult } = app.request.result()!
     expect(queryResult.sanctions?.passed).toBe(true)
-    expect(queryResult.sanctions?.isStrict).toBe(false)
+    expect(queryResult.sanctions?.isStrict).toBe(true)
   })
 
   test("the sanctions proof commits to Sepolia's latest sanctions root", () => {
@@ -54,7 +54,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     const sanctionsProof = proofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     expect(sanctionsProof.committedInputs?.exclusion_check_sanctions).toEqual({
       rootHash: sanctionsRoot,
-      isStrict: false,
+      isStrict: true,
     })
   })
 
@@ -74,7 +74,7 @@ describe("sanctions, end to end on a Sepolia fork", () => {
     const tamperedProofs = proofs.map((proof) => ({ ...proof }))
     const target = tamperedProofs.find((proof) => proof.name === "exclusion_check_sanctions")!
     target.committedInputs = {
-      exclusion_check_sanctions: { rootHash: `0x${"0".repeat(63)}1`, isStrict: false },
+      exclusion_check_sanctions: { rootHash: `0x${"0".repeat(63)}1`, isStrict: true },
     }
 
     const verification = await testEnv.verify({
