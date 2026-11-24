@@ -272,10 +272,11 @@ requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
    An Android face match's revocation root is the exception: as on L1, it must be accepted when
    the transaction lands, not at the proof's date.
 9. **Face matches are checked against attestation keys and app ids pinned in the library.**
-   `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants, which
-   `test-harness/fixture-conformance.test.ts` holds it to. The registry only checks an Android
-   face match's revocation root. A new ZKPassport app or attestation root key takes a library
-   update, as it takes a verifier update on L1.
+   `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants: it is generated from
+   that library by `test-harness/generate-app-attest.ts`, and
+   `test-harness/fixture-conformance.test.ts` fails while it is stale. The registry only checks
+   an Android face match's revocation root. A new ZKPassport app or attestation root key takes a
+   library update, as it takes a verifier update on L1.
 
 ## Running the tests
 
