@@ -140,7 +140,6 @@ pub struct Disclosure {
 }
 
 /// A proof's unique identifier: the passport's identifier, scoped to the app's domain and scope.
-/// Its own type, so a nullifier helper can't be handed some other `Field` by mistake.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct UniqueIdentifier {
     pub value: Field,
