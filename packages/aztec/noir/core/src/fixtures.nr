@@ -47,6 +47,12 @@ pub(crate) global FACE_MATCH_IOS_STRICT_COMMITMENT: Field =
 pub(crate) global FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT: Field =
     0x0cb1797e10e3e6b5b3f20481f7bf5b215be2568dbc9cb2b3cf8dacb6a3c88d47;
 
+/// face_match_commitment(Google's RSA root key, production, the Android app's app id hash, its
+/// Play Integrity key hash, strict, the empty revocation root): a strict face match from
+/// ZKPassport's Android app.
+pub(crate) global FACE_MATCH_ANDROID_STRICT_COMMITMENT: Field =
+    0x1ec0db9cde1f07c72a2fb5ce008c18bd9ad150477fef05665aba7e09bb5dfa11;
+
 /// An account address to bind a proof to. @zkpassport/utils' bind conformance vector uses the
 /// same one.
 pub(crate) global BIND_ACCOUNT: Field =

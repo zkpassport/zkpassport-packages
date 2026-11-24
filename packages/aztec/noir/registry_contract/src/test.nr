@@ -1,5 +1,8 @@
 use crate::{
-    types::{INITIAL_DELAY, MODE_VALID_WITHIN_WINDOW, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT},
+    types::{
+        EMPTY_REVOCATION_ROOT, INITIAL_DELAY, MODE_VALID_WITHIN_WINDOW,
+        REGISTRY_ATTESTATION_REVOCATION, REGISTRY_CERTIFICATE, REGISTRY_CIRCUIT,
+    },
     ZKPassportRegistry,
 };
 use aztec::{
@@ -523,4 +526,140 @@ unconstrained fn update_delay_below_the_protocol_minimum_fails() {
     let registry = ZKPassportRegistry::at(registry_address);
 
     let _ = env.call_public(admin, registry.set_update_delay(599));
+}
+
+// ---- Android attestation revocation roots ----
+
+global REVOCATION_ROOT: Field = 0x7e01;
+global NEXT_REVOCATION_ROOT: Field = 0x7e02;
+global DAY: u64 = 86400;
+
+// The registry with `roots` published to the attestation revocation registry a day apart, in
+// order, the first valid from the returned timestamp, and time a second past the registry's delay
+// after it
+unconstrained fn setup_with_revocation_roots<let N: u32>(
+    roots: [Field; N],
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, u64) {
+    let (env, registry_address, admin, operator, user) = setup();
+    let registry = ZKPassportRegistry::at(registry_address);
+    let start = env.last_block_timestamp();
+
+    let mut current_root = 0;
+    for i in 0..N {
+        let _ = env.call_public(
+            operator,
+            registry.update_root(
+                REGISTRY_ATTESTATION_REVOCATION,
+                roots[i],
+                current_root,
+                start + (i as u64) * DAY,
+            ),
+        );
+        current_root = roots[i];
+    }
+    env.mine_block_at(start + INITIAL_DELAY + 1);
+
+    (env, registry_address, admin, user, start)
+}
+
+#[test]
+unconstrained fn empty_revocation_root_accepted_while_no_revocation_root_is_published() {
+    let (env, registry_address, _, user, _) = setup_with_revocation_roots([]);
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(EMPTY_REVOCATION_ROOT),
+    );
+}
+
+#[test(should_fail_with = "empty revocation root no longer accepted")]
+unconstrained fn empty_revocation_root_rejected_once_a_revocation_root_is_published() {
+    let (env, registry_address, _, user, _) = setup_with_revocation_roots([REVOCATION_ROOT]);
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(EMPTY_REVOCATION_ROOT),
+    );
+}
+
+#[test]
+unconstrained fn published_revocation_root_accepted() {
+    let (env, registry_address, _, user, _) = setup_with_revocation_roots([REVOCATION_ROOT]);
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(REVOCATION_ROOT),
+    );
+}
+
+// The constructor gives the attestation revocation registry its mode and window: a superseded
+// root stays accepted for the window past its replacement, to the second
+#[test]
+unconstrained fn superseded_revocation_root_accepted_to_the_end_of_the_window() {
+    let (env, registry_address, _, user, start) =
+        setup_with_revocation_roots([REVOCATION_ROOT, NEXT_REVOCATION_ROOT]);
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(REVOCATION_ROOT),
+    );
+    env.mine_block_at(start + 2 * DAY - 1);
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(REVOCATION_ROOT),
+    );
+}
+
+#[test(should_fail_with = "invalid attestation revocation root")]
+unconstrained fn superseded_revocation_root_rejected_past_the_window() {
+    let (env, registry_address, _, user, start) =
+        setup_with_revocation_roots([REVOCATION_ROOT, NEXT_REVOCATION_ROOT]);
+    let registry = ZKPassportRegistry::at(registry_address);
+    env.mine_block_at(start + 2 * DAY);
+
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(REVOCATION_ROOT),
+    );
+}
+
+#[test(should_fail_with = "invalid attestation revocation root")]
+unconstrained fn unpublished_revocation_root_rejected() {
+    let (env, registry_address, _, user, _) = setup_with_revocation_roots([REVOCATION_ROOT]);
+    let registry = ZKPassportRegistry::at(registry_address);
+
+    let _ = env.view_private(user, registry.assert_attestation_revocation_root_accepted(0xbad));
+}
+
+#[test(should_fail_with = "invalid attestation revocation root")]
+unconstrained fn revoked_revocation_root_rejected() {
+    let (env, registry_address, admin, user, _) = setup_with_revocation_roots([REVOCATION_ROOT]);
+    let registry = ZKPassportRegistry::at(registry_address);
+    let _ = env.call_public(
+        admin,
+        registry.set_revocation_status(REGISTRY_ATTESTATION_REVOCATION, REVOCATION_ROOT, true),
+    );
+    env.mine_block_at(env.last_block_timestamp() + INITIAL_DELAY);
+
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(REVOCATION_ROOT),
+    );
+}
+
+#[test(should_fail_with = "registry is paused")]
+unconstrained fn revocation_root_rejected_while_paused() {
+    let (env, registry_address, admin, user, _) = setup_with_revocation_roots([]);
+    let registry = ZKPassportRegistry::at(registry_address);
+    let _ = env.call_public(admin, registry.pause());
+    env.mine_block_at(env.last_block_timestamp() + INITIAL_DELAY);
+
+    let _ = env.view_private(
+        user,
+        registry.assert_attestation_revocation_root_accepted(EMPTY_REVOCATION_ROOT),
+    );
 }

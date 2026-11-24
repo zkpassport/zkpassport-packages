@@ -19,6 +19,14 @@ pub global MODE_VALID_WITHIN_WINDOW: u8 = 3;
 pub global REGISTRY_CERTIFICATE: Field = 1;
 pub global REGISTRY_CIRCUIT: Field = 2;
 pub global REGISTRY_SANCTIONS: Field = 3;
+/// The roots of the Android attestation revocation tree, the revoked attestation keys' serials.
+pub global REGISTRY_ATTESTATION_REVOCATION: Field = 4;
+
+/// The root of the attestation revocation tree with no revoked serials, as `AppAttest` in the L1
+/// verifier's lib/Constants.sol has it. An Android face match may commit it only while the
+/// attestation revocation registry has no root.
+pub global EMPTY_REVOCATION_ROOT: Field =
+    0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525;
 
 pub global INITIAL_DELAY: u64 = 86400;
 

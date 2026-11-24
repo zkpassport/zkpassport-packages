@@ -8,7 +8,8 @@ use aztec::{
 };
 use zkpassport::app_attest::{
     ANDROID_APP_ID_HASH, ANDROID_INTEGRITY_PUBLIC_KEY_HASH, APPLE_ROOT_KEY_HASH,
-    EMPTY_REVOCATION_ROOT, GOOGLE_RSA_ROOT_KEY_HASH, IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
+    EMPTY_REVOCATION_ROOT, GOOGLE_ECDSA_ROOT_KEY_HASH, GOOGLE_RSA_ROOT_KEY_HASH,
+    IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
 };
 use zkpassport::commitments::{age_commitment, disclose_commitment, sanctions_commitment};
 use zkpassport::constants::{
@@ -30,7 +31,7 @@ use zkpassport_registry_contract::{
         deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS, LOCAL_NETWORK_REGISTRY_ADMIN,
         LOCAL_NETWORK_REGISTRY_OPERATOR, seed_local_network_registry,
     },
-    types::REGISTRY_SANCTIONS,
+    types::{REGISTRY_ATTESTATION_REVOCATION, REGISTRY_SANCTIONS},
     ZKPassportRegistry,
 };
 
@@ -38,6 +39,7 @@ global DAY: u64 = 86400;
 global SANCTIONS_ROOT: Field = 0x5a5a;
 global OLD_SANCTIONS_ROOT: Field = 0x5b5b;
 global OPRF_PK_HASH: Field = 0x6f707266;
+global REVOCATION_ROOT: Field = 0x7e01;
 
 // The age fixture's public inputs end at the end of its blob, before the circuits version
 global FIXTURE_PUBLIC_INPUTS_END: u32 = VK_FIELDS + PROOF_FIELDS + 11;
@@ -56,6 +58,22 @@ unconstrained fn setup_enabling<let N: u32, let M: u32>(
     sanctions_roots: [(Field, u64); N],
     versions: [Field; M],
 ) -> (TestEnvironment, AztecAddress) {
+    setup_with(sanctions_roots, [], versions)
+}
+
+// `setup`, with `revocation_roots` as (root, valid from) published to the attestation revocation
+// registry in order
+unconstrained fn setup_with_revocation_roots<let N: u32>(
+    revocation_roots: [(Field, u64); N],
+) -> (TestEnvironment, AztecAddress) {
+    setup_with([], revocation_roots, [])
+}
+
+unconstrained fn setup_with<let N: u32, let R: u32, let M: u32>(
+    sanctions_roots: [(Field, u64); N],
+    revocation_roots: [(Field, u64); R],
+    versions: [Field; M],
+) -> (TestEnvironment, AztecAddress) {
     let mut env = TestEnvironment::new();
     let _ =
         deploy_local_network_registry(&mut env, "@zkpassport_registry_contract/ZKPassportRegistry");
@@ -68,16 +86,9 @@ unconstrained fn setup_enabling<let N: u32, let M: u32>(
         AGE_FIXTURE_CURRENT_DATE - 100,
     );
 
+    publish_roots(&mut env, REGISTRY_SANCTIONS, sanctions_roots);
+    publish_roots(&mut env, REGISTRY_ATTESTATION_REVOCATION, revocation_roots);
     let registry = ZKPassportRegistry::at(LOCAL_NETWORK_REGISTRY_ADDRESS);
-    let mut current_root = 0;
-    for i in 0..N {
-        let (root, valid_from) = sanctions_roots[i];
-        let _ = env.call_public(
-            LOCAL_NETWORK_REGISTRY_OPERATOR,
-            registry.update_root(REGISTRY_SANCTIONS, root, current_root, valid_from),
-        );
-        current_root = root;
-    }
     let _ = env.call_public(LOCAL_NETWORK_REGISTRY_ADMIN, registry.set_oprf_pk_hash(OPRF_PK_HASH));
     for version in versions {
         let _ = env.call_public(
@@ -90,6 +101,24 @@ unconstrained fn setup_enabling<let N: u32, let M: u32>(
 
     let verifier = env.deploy("VerifierTest").without_initializer();
     (env, verifier)
+}
+
+// Publishes `roots` as (root, valid from) to the local network registry's `registry_id`, in order
+unconstrained fn publish_roots<let N: u32>(
+    env: &mut TestEnvironment,
+    registry_id: Field,
+    roots: [(Field, u64); N],
+) {
+    let registry = ZKPassportRegistry::at(LOCAL_NETWORK_REGISTRY_ADDRESS);
+    let mut current_root = 0;
+    for i in 0..N {
+        let (root, valid_from) = roots[i];
+        let _ = env.call_public(
+            LOCAL_NETWORK_REGISTRY_OPERATOR,
+            registry.update_root(registry_id, root, current_root, valid_from),
+        );
+        current_root = root;
+    }
 }
 
 // The age fixture is a real outer_count_5 proof of {age(18, 0), bind}. Swapping its age commitment
@@ -666,7 +695,17 @@ unconstrained fn verify_salted_strict_face_match(
     proven: FaceMatch,
     delivered: Option<FaceMatch>,
 ) -> [Field; 2] {
-    let (mut env, verifier) = setup([]);
+    verify_salted_strict_face_match_under([], proven, delivered)
+}
+
+// `verify_salted_strict_face_match`, with `revocation_roots` as (root, valid from) published to
+// the attestation revocation registry
+unconstrained fn verify_salted_strict_face_match_under<let N: u32>(
+    revocation_roots: [(Field, u64); N],
+    proven: FaceMatch,
+    delivered: Option<FaceMatch>,
+) -> [Field; 2] {
+    let (mut env, verifier) = setup_with_revocation_roots(revocation_roots);
     let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
     let sender = env.create_light_account();
 
@@ -739,9 +778,54 @@ unconstrained fn rejects_a_face_match_from_another_app() {
     let _ = verify_salted_strict_face_match(face_match, Option::some(face_match));
 }
 
-#[test(should_fail_with = "Android face match not supported yet")]
-unconstrained fn rejects_an_android_face_match() {
+#[test]
+unconstrained fn verifies_a_salted_proof_with_a_strict_face_match_from_the_android_app() {
     let face_match = android_face_match();
+
+    let result = verify_salted_strict_face_match(face_match, Option::some(face_match));
+
+    assert_eq(result[0], AGE_FIXTURE_BLOB[FIXTURE_PUBLIC_INPUTS_END - 3]);
+    assert_eq(result[1], face_match.commitment());
+}
+
+#[test]
+unconstrained fn verifies_an_android_face_match_under_the_registrys_revocation_root() {
+    let mut face_match = android_face_match();
+    face_match.root_key_leaf = GOOGLE_ECDSA_ROOT_KEY_HASH;
+    face_match.revocation_root = REVOCATION_ROOT;
+
+    let result = verify_salted_strict_face_match_under(
+        [(REVOCATION_ROOT, AGE_FIXTURE_CURRENT_DATE - 100)],
+        face_match,
+        Option::some(face_match),
+    );
+
+    assert_eq(result[1], face_match.commitment());
+}
+
+#[test(should_fail_with = "empty revocation root no longer accepted")]
+unconstrained fn rejects_an_android_face_match_under_the_empty_root_once_a_root_is_published() {
+    let face_match = android_face_match();
+
+    let _ = verify_salted_strict_face_match_under(
+        [(REVOCATION_ROOT, AGE_FIXTURE_CURRENT_DATE - 100)],
+        face_match,
+        Option::some(face_match),
+    );
+}
+
+#[test(should_fail_with = "invalid attestation revocation root")]
+unconstrained fn rejects_an_android_face_match_under_a_revocation_root_the_registry_lacks() {
+    let mut face_match = android_face_match();
+    face_match.revocation_root = REVOCATION_ROOT;
+
+    let _ = verify_salted_strict_face_match(face_match, Option::some(face_match));
+}
+
+#[test(should_fail_with = "Android face match not under ZKPassport's Play Integrity key")]
+unconstrained fn rejects_an_android_face_match_without_the_integrity_key() {
+    let mut face_match = android_face_match();
+    face_match.integrity_public_key_hash = 0;
 
     let _ = verify_salted_strict_face_match(face_match, Option::some(face_match));
 }
