@@ -6,11 +6,18 @@ use aztec::{
     protocol::{address::AztecAddress, traits::FromField},
     test::helpers::test_environment::TestEnvironment,
 };
+use zkpassport::app_attest::{
+    ANDROID_APP_ID_HASH, ANDROID_INTEGRITY_PUBLIC_KEY_HASH, APPLE_ROOT_KEY_HASH,
+    EMPTY_REVOCATION_ROOT, GOOGLE_ECDSA_ROOT_KEY_HASH, GOOGLE_RSA_ROOT_KEY_HASH,
+    IOS_APP_CLIP_APP_ID_HASH, IOS_APP_ID_HASH,
+};
 use zkpassport::commitments::{age_commitment, disclose_commitment, sanctions_commitment};
 use zkpassport::constants::{
-    DISCLOSE_CAPSULE_SLOT, PI_PARAMS_START, PROOF_CAPSULE_SLOT, PROOF_FIELDS,
-    SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+    APP_ATTEST_ENV_PRODUCTION, DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT,
+    FACE_MATCH_MODE_REGULAR, FACE_MATCH_MODE_STRICT, NULLIFIER_TYPE_SALTED, PI_PARAMS_START,
+    PROOF_CAPSULE_SLOT, PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
 };
+use zkpassport::face_match::FaceMatch;
 use zkpassport::fixtures::{
     proof::{
         AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BLOB, AGE_FIXTURE_CERT_ROOT, AGE_FIXTURE_CIRCUIT_ROOT,
@@ -24,17 +31,22 @@ use zkpassport_registry_contract::{
         deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS, LOCAL_NETWORK_REGISTRY_ADMIN,
         LOCAL_NETWORK_REGISTRY_OPERATOR, seed_local_network_registry,
     },
-    types::REGISTRY_SANCTIONS,
+    types::{REGISTRY_ATTESTATION_REVOCATION, REGISTRY_SANCTIONS},
     ZKPassportRegistry,
 };
 
 global DAY: u64 = 86400;
 global SANCTIONS_ROOT: Field = 0x5a5a;
 global OLD_SANCTIONS_ROOT: Field = 0x5b5b;
+global OPRF_PK_HASH: Field = 0x6f707266;
+global REVOCATION_ROOT: Field = 0x7e01;
 
-// The registry with the fixture's roots and vk, and with `sanctions_roots` as (root, valid from)
-// in publishing order, then the test contract. Time ends a day and a second after the proof's
-// date, past the registry's delay and inside the proof's validity period.
+// The age fixture's public inputs end at the end of its blob, before the circuits version
+global FIXTURE_PUBLIC_INPUTS_END: u32 = VK_FIELDS + PROOF_FIELDS + 11;
+
+// The registry with the fixture's roots and vk, an OPRF key hash, and `sanctions_roots` as
+// (root, valid from) in publishing order, then the test contract. Time ends a day and a second
+// after the proof's date, past the registry's delay and inside the proof's validity period.
 unconstrained fn setup<let N: u32>(
     sanctions_roots: [(Field, u64); N],
 ) -> (TestEnvironment, AztecAddress) {
@@ -44,6 +56,22 @@ unconstrained fn setup<let N: u32>(
 // `setup`, with each of `versions` enabled in the registry too, without accepting any vk under it
 unconstrained fn setup_enabling<let N: u32, let M: u32>(
     sanctions_roots: [(Field, u64); N],
+    versions: [Field; M],
+) -> (TestEnvironment, AztecAddress) {
+    setup_with(sanctions_roots, [], versions)
+}
+
+// `setup`, with `revocation_roots` as (root, valid from) published to the attestation revocation
+// registry in order
+unconstrained fn setup_with_revocation_roots<let N: u32>(
+    revocation_roots: [(Field, u64); N],
+) -> (TestEnvironment, AztecAddress) {
+    setup_with([], revocation_roots, [])
+}
+
+unconstrained fn setup_with<let N: u32, let R: u32, let M: u32>(
+    sanctions_roots: [(Field, u64); N],
+    revocation_roots: [(Field, u64); R],
     versions: [Field; M],
 ) -> (TestEnvironment, AztecAddress) {
     let mut env = TestEnvironment::new();
@@ -58,16 +86,10 @@ unconstrained fn setup_enabling<let N: u32, let M: u32>(
         AGE_FIXTURE_CURRENT_DATE - 100,
     );
 
+    publish_roots(&mut env, REGISTRY_SANCTIONS, sanctions_roots);
+    publish_roots(&mut env, REGISTRY_ATTESTATION_REVOCATION, revocation_roots);
     let registry = ZKPassportRegistry::at(LOCAL_NETWORK_REGISTRY_ADDRESS);
-    let mut current_root = 0;
-    for i in 0..N {
-        let (root, valid_from) = sanctions_roots[i];
-        let _ = env.call_public(
-            LOCAL_NETWORK_REGISTRY_OPERATOR,
-            registry.update_root(REGISTRY_SANCTIONS, root, current_root, valid_from),
-        );
-        current_root = root;
-    }
+    let _ = env.call_public(LOCAL_NETWORK_REGISTRY_ADMIN, registry.set_oprf_pk_hash(OPRF_PK_HASH));
     for version in versions {
         let _ = env.call_public(
             LOCAL_NETWORK_REGISTRY_ADMIN,
@@ -79,6 +101,24 @@ unconstrained fn setup_enabling<let N: u32, let M: u32>(
 
     let verifier = env.deploy("VerifierTest").without_initializer();
     (env, verifier)
+}
+
+// Publishes `roots` as (root, valid from) to the local network registry's `registry_id`, in order
+unconstrained fn publish_roots<let N: u32>(
+    env: &mut TestEnvironment,
+    registry_id: Field,
+    roots: [(Field, u64); N],
+) {
+    let registry = ZKPassportRegistry::at(LOCAL_NETWORK_REGISTRY_ADDRESS);
+    let mut current_root = 0;
+    for i in 0..N {
+        let (root, valid_from) = roots[i];
+        let _ = env.call_public(
+            LOCAL_NETWORK_REGISTRY_OPERATOR,
+            registry.update_root(registry_id, root, current_root, valid_from),
+        );
+        current_root = root;
+    }
 }
 
 // The age fixture is a real outer_count_5 proof of {age(18, 0), bind}. Swapping its age commitment
@@ -508,7 +548,7 @@ unconstrained fn accepts_a_latest_sanctions_root() {
     );
 
     assert_eq(
-        env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user)),
+        env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user)),
         SANCTIONS_ROOT,
     );
 }
@@ -528,7 +568,7 @@ unconstrained fn rejects_a_sanctions_root_the_registry_does_not_have() {
         Option::some(OLD_SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 #[test(should_fail_with = "invalid sanctions registry root")]
@@ -549,7 +589,7 @@ unconstrained fn rejects_a_sanctions_root_replaced_more_than_a_window_before_the
         Option::some(OLD_SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 // Valid at the proof's date, but replaced more than a window before the anchor block
@@ -572,7 +612,7 @@ unconstrained fn accepts_a_sanctions_root_replaced_after_the_proof_was_made() {
     );
 
     assert_eq(
-        env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user)),
+        env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user)),
         OLD_SANCTIONS_ROOT,
     );
 }
@@ -592,7 +632,7 @@ unconstrained fn rejects_a_missing_sanctions_capsule() {
         Option::none(),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 // Both roots are valid at the proof's date; the capsule carries the one the proof didn't use
@@ -614,7 +654,7 @@ unconstrained fn rejects_a_sanctions_root_other_than_the_proofs() {
         Option::some(OLD_SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 #[test(should_fail_with = "param commitment mismatch")]
@@ -632,7 +672,7 @@ unconstrained fn rejects_a_non_strict_sanctions_proof_for_a_strict_query() {
         Option::some(SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 #[test]
@@ -651,7 +691,212 @@ unconstrained fn accepts_a_non_strict_sanctions_proof_for_a_non_strict_query() {
     );
 
     assert_eq(
-        env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user)),
+        env.call_private(sender, VerifierTest::at(verifier).verify_non_strict_sanctions(user)),
         SANCTIONS_ROOT,
+    );
+}
+
+// A face match from ZKPassport's iOS app, as its proof commits it
+fn ios_face_match(mode: u8) -> FaceMatch {
+    FaceMatch {
+        root_key_leaf: APPLE_ROOT_KEY_HASH,
+        environment: APP_ATTEST_ENV_PRODUCTION,
+        app_id_hash: IOS_APP_ID_HASH,
+        integrity_public_key_hash: 0,
+        mode,
+        revocation_root: 0,
+    }
+}
+
+// A strict face match from ZKPassport's Android app, under Google's RSA root key
+fn android_face_match() -> FaceMatch {
+    FaceMatch {
+        root_key_leaf: GOOGLE_RSA_ROOT_KEY_HASH,
+        environment: APP_ATTEST_ENV_PRODUCTION,
+        app_id_hash: ANDROID_APP_ID_HASH,
+        integrity_public_key_hash: ANDROID_INTEGRITY_PUBLIC_KEY_HASH,
+        mode: FACE_MATCH_MODE_STRICT,
+        revocation_root: EMPTY_REVOCATION_ROOT,
+    }
+}
+
+// The face match capsule's layout: the parameters in the order the proof commits them
+fn face_match_payload(face_match: FaceMatch) -> [Field; 6] {
+    [
+        face_match.root_key_leaf,
+        face_match.environment as Field,
+        face_match.app_id_hash,
+        face_match.integrity_public_key_hash,
+        face_match.mode as Field,
+        face_match.revocation_root,
+    ]
+}
+
+// The age fixture made a salted proof of {face match, bind}: its age commitment swapped for the
+// face match's, its nullifier type for a salted one and its OPRF key hash for the registry's. TXE
+// doesn't verify the recursion, so swapping these public inputs stands for a real salted proof.
+fn salted_fixture_with(face_match: FaceMatch) -> [Field; 585] {
+    let mut blob = fixture_with(face_match.commitment());
+    blob[FIXTURE_PUBLIC_INPUTS_END - 4] = NULLIFIER_TYPE_SALTED as Field;
+    blob[FIXTURE_PUBLIC_INPUTS_END - 2] = OPRF_PK_HASH;
+    blob
+}
+
+// A salted proof that commits `proven`, verified with a strict face match query, its face match
+// capsule holding `delivered`
+unconstrained fn verify_salted_strict_face_match(
+    proven: FaceMatch,
+    delivered: Option<FaceMatch>,
+) -> [Field; 2] {
+    verify_salted_strict_face_match_under([], proven, delivered)
+}
+
+// `verify_salted_strict_face_match`, with `revocation_roots` as (root, valid from) published to
+// the attestation revocation registry
+unconstrained fn verify_salted_strict_face_match_under<let N: u32>(
+    revocation_roots: [(Field, u64); N],
+    proven: FaceMatch,
+    delivered: Option<FaceMatch>,
+) -> [Field; 2] {
+    let (mut env, verifier) = setup_with_revocation_roots(revocation_roots);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(salted_fixture_with(proven)),
+        Option::none(),
+        Option::none(),
+    );
+    if delivered.is_some() {
+        let payload = face_match_payload(delivered.unwrap());
+        env.utility_context_at(verifier, |_| {
+            capsules::store(verifier, FACE_MATCH_CAPSULE_SLOT, payload, sender);
+        });
+    }
+
+    env.call_private(sender, VerifierTest::at(verifier).verify_salted_strict_face_match(user))
+}
+
+#[test]
+unconstrained fn verifies_a_salted_proof_with_a_strict_face_match_from_the_ios_app() {
+    let face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+
+    let result = verify_salted_strict_face_match(face_match, Option::some(face_match));
+
+    assert_eq(result[0], AGE_FIXTURE_BLOB[FIXTURE_PUBLIC_INPUTS_END - 3]);
+    assert_eq(result[1], face_match.commitment());
+}
+
+#[test]
+unconstrained fn verifies_a_face_match_from_the_app_clip() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    let mut face_match = ios_face_match(FACE_MATCH_MODE_REGULAR);
+    face_match.app_id_hash = IOS_APP_CLIP_APP_ID_HASH;
+    let payload = face_match_payload(face_match);
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(fixture_with(face_match.commitment())),
+        Option::none(),
+        Option::none(),
+    );
+    env.utility_context_at(verifier, |_| {
+        capsules::store(verifier, FACE_MATCH_CAPSULE_SLOT, payload, sender);
+    });
+
+    assert_eq(
+        env.call_private(sender, VerifierTest::at(verifier).verify_face_match(user)),
+        face_match.commitment(),
+    );
+}
+
+#[test(should_fail_with = "missing face match capsule")]
+unconstrained fn rejects_a_missing_face_match_capsule() {
+    let _ = verify_salted_strict_face_match(ios_face_match(FACE_MATCH_MODE_STRICT), Option::none());
+}
+
+// Each face match below is the one the proof commits, so only the face match policy rejects it
+#[test(should_fail_with = "face match app id not ZKPassport's iOS app or App Clip")]
+unconstrained fn rejects_a_face_match_from_another_app() {
+    let mut face_match = ios_face_match(FACE_MATCH_MODE_STRICT);
+    face_match.app_id_hash = 0x067041deed02d9d2df216a420b50404bdf5bcb0026db2602a4142e380a9d6e2a;
+
+    let _ = verify_salted_strict_face_match(face_match, Option::some(face_match));
+}
+
+#[test]
+unconstrained fn verifies_a_salted_proof_with_a_strict_face_match_from_the_android_app() {
+    let face_match = android_face_match();
+
+    let result = verify_salted_strict_face_match(face_match, Option::some(face_match));
+
+    assert_eq(result[0], AGE_FIXTURE_BLOB[FIXTURE_PUBLIC_INPUTS_END - 3]);
+    assert_eq(result[1], face_match.commitment());
+}
+
+#[test]
+unconstrained fn verifies_an_android_face_match_under_the_registrys_revocation_root() {
+    let mut face_match = android_face_match();
+    face_match.root_key_leaf = GOOGLE_ECDSA_ROOT_KEY_HASH;
+    face_match.revocation_root = REVOCATION_ROOT;
+
+    let result = verify_salted_strict_face_match_under(
+        [(REVOCATION_ROOT, AGE_FIXTURE_CURRENT_DATE - 100)],
+        face_match,
+        Option::some(face_match),
+    );
+
+    assert_eq(result[1], face_match.commitment());
+}
+
+#[test(should_fail_with = "empty revocation root no longer accepted")]
+unconstrained fn rejects_an_android_face_match_under_the_empty_root_once_a_root_is_published() {
+    let face_match = android_face_match();
+
+    let _ = verify_salted_strict_face_match_under(
+        [(REVOCATION_ROOT, AGE_FIXTURE_CURRENT_DATE - 100)],
+        face_match,
+        Option::some(face_match),
+    );
+}
+
+#[test(should_fail_with = "invalid attestation revocation root")]
+unconstrained fn rejects_an_android_face_match_under_a_revocation_root_the_registry_lacks() {
+    let mut face_match = android_face_match();
+    face_match.revocation_root = REVOCATION_ROOT;
+
+    let _ = verify_salted_strict_face_match(face_match, Option::some(face_match));
+}
+
+#[test(should_fail_with = "Android face match not under ZKPassport's Play Integrity key")]
+unconstrained fn rejects_an_android_face_match_without_the_integrity_key() {
+    let mut face_match = android_face_match();
+    face_match.integrity_public_key_hash = 0;
+
+    let _ = verify_salted_strict_face_match(face_match, Option::some(face_match));
+}
+
+#[test(should_fail_with = "face match mode not the requested one")]
+unconstrained fn rejects_a_regular_face_match_for_a_strict_query() {
+    let face_match = ios_face_match(FACE_MATCH_MODE_REGULAR);
+
+    let _ = verify_salted_strict_face_match(face_match, Option::some(face_match));
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_a_face_match_other_than_the_proofs() {
+    let mut delivered = ios_face_match(FACE_MATCH_MODE_STRICT);
+    delivered.app_id_hash = IOS_APP_CLIP_APP_ID_HASH;
+
+    let _ = verify_salted_strict_face_match(
+        ios_face_match(FACE_MATCH_MODE_STRICT),
+        Option::some(delivered),
     );
 }

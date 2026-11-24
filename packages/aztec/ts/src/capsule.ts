@@ -3,7 +3,9 @@ import { Fr } from "@aztec-labs/aztec.js/fields"
 import { Capsule } from "@aztec-labs/aztec.js/tx"
 import {
   type AztecVerifierParameters,
+  type FacematchCommittedInputs,
   getAztecDiscloseCapsule,
+  getAztecFacematchCapsule,
   getAztecProofCapsule,
   getAztecSanctionsCapsule,
 } from "@zkpassport/utils"
@@ -68,4 +70,14 @@ export function assembleDiscloseCapsule(discloseMask: number[], disclosedBytes: 
  */
 export function assembleSanctionsCapsule(rootHash: string): Fr[] {
   return getAztecSanctionsCapsule(rootHash).map(Fr.fromHexString)
+}
+
+/**
+ * Assemble the capsule for `FACE_MATCH_CAPSULE_SLOT` from a face match's committed inputs, the
+ * SDK's `FacematchCommittedInputs`: the root key leaf, the environment, the app id hash, the
+ * integrity public key hash, the mode and the revocation root, in the order the proof commits
+ * them.
+ */
+export function assembleFacematchCapsule(facematch: FacematchCommittedInputs): Fr[] {
+  return getAztecFacematchCapsule(facematch).map(Fr.fromHexString)
 }

@@ -37,6 +37,22 @@ pub(crate) global ISSUING_COUNTRY_EXCLUSION_COMMITMENT: Field =
 pub global DISCLOSE_COMMITMENT: Field =
     0x1b6d3f9e55b8456c4baf5f21d14e5e425b6d23df44e3067f561b0ab41cf7b59f;
 
+/// face_match_commitment(Apple's App Attest root key, production, the iOS app's app id hash, 0,
+/// strict, 0): a strict face match from ZKPassport's iOS app.
+pub(crate) global FACE_MATCH_IOS_STRICT_COMMITMENT: Field =
+    0x12a2e5b32f9791f950cd54edf2d743b21280e357a0a9416d88067c7f2556dbc2;
+
+/// face_match_commitment(Apple's App Attest root key, production, the iOS App Clip's app id hash,
+/// 0, regular, 0): a regular face match from ZKPassport's iOS App Clip.
+pub(crate) global FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT: Field =
+    0x0cb1797e10e3e6b5b3f20481f7bf5b215be2568dbc9cb2b3cf8dacb6a3c88d47;
+
+/// face_match_commitment(Google's RSA root key, production, the Android app's app id hash, its
+/// Play Integrity key hash, strict, the empty revocation root): a strict face match from
+/// ZKPassport's Android app.
+pub(crate) global FACE_MATCH_ANDROID_STRICT_COMMITMENT: Field =
+    0x1ec0db9cde1f07c72a2fb5ce008c18bd9ad150477fef05665aba7e09bb5dfa11;
+
 /// An account address to bind a proof to. @zkpassport/utils' bind conformance vector uses the
 /// same one.
 pub(crate) global BIND_ACCOUNT: Field =
@@ -58,6 +74,16 @@ pub(crate) global BIND_BASE_COMMITMENT: Field =
 /// bind_commitment(BIND_ACCOUNT, 11155111): the account bound to Sepolia, a chain id of 3 bytes.
 pub(crate) global BIND_ETHEREUM_SEPOLIA_COMMITMENT: Field =
     0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76;
+
+/// A sanctions tree root.
+pub global SANCTIONS_ROOT: Field =
+    0x0f4bd1a7c33e2b5d6e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5;
+
+/// sanctions_commitment(SANCTIONS_ROOT, true). The SDK's `sanctions()` and the verifier's
+/// `Query::sanctions()` must both ask for it: the verifier's tests hold `Query` to it, and
+/// zkpassport-sdk's tests/aztec-query-conformance.test.ts holds the SDK's builders to it.
+pub global SANCTIONS_COMMITMENT: Field =
+    0x01c9c6d5d275b0ba3ba052df81cbb349b947582b3a9807adc6decfd3e19111d9;
 
 /// Public inputs transcribed from a real circuits 0.23.0 outer_count_4 proof (a byte-disclosure
 /// check against a synthetic certificate registry and the release's circuit registry, current_date

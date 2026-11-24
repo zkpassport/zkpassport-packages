@@ -1,10 +1,15 @@
 import { describe, expect, test } from "bun:test"
+import vectors from "../../conformance/vectors.json"
+import type { FacematchCommittedInputs } from "../types"
 import {
+  AZTEC_FACE_MATCH_CAPSULE_SLOT,
   getAztecDiscloseCapsule,
+  getAztecFacematchCapsule,
   getAztecOuterPublicInputCount,
   getAztecProofCapsule,
   getAztecSanctionsCapsule,
 } from "./aztec"
+import { getFacematchParameterCommitment } from "./facematch"
 
 const parts = {
   vk: Array(115).fill("01"),
@@ -84,4 +89,88 @@ describe("getAztecDiscloseCapsule", () => {
 
 test("getAztecSanctionsCapsule holds the sanctions root", () => {
   expect(getAztecSanctionsCapsule("0x2a5a")).toEqual([`0x${"2a5a".padStart(64, "0")}`])
+})
+
+describe("getAztecFacematchCapsule", () => {
+  const iosStrict: FacematchCommittedInputs = {
+    rootKeyLeaf: "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b",
+    environment: "production",
+    appIdHash: "0x1fa73686cf510f8f85757b0602de0dd72a13e68ae2092462be8b72662e7f179b",
+    integrityPubkeyHash: "0x00",
+    mode: "strict",
+  }
+  const field = (value: bigint) => `0x${value.toString(16).padStart(64, "0")}`
+
+  test("goes in the slot the Aztec library reads it from", () => {
+    expect(AZTEC_FACE_MATCH_CAPSULE_SLOT).toBe(4)
+  })
+
+  test("lays out the parameters in the order the proof commits them", () => {
+    expect(getAztecFacematchCapsule(iosStrict)).toEqual([
+      iosStrict.rootKeyLeaf,
+      field(1n),
+      iosStrict.appIdHash,
+      field(0n),
+      field(2n),
+      field(0n),
+    ])
+  })
+
+  const androidStrict: FacematchCommittedInputs = {
+    rootKeyLeaf: "0x16700a2d9168a194fc85f237af5829b5a2be05b8ae8ac4879ada34cf54a9c211",
+    environment: "production",
+    appIdHash: "0x24d9929b248be7eeecaa98e105c034a50539610f3fdd4cb9c8983ef4100d615d",
+    integrityPubkeyHash: "0x12e3dc7cc8fec0205b51ff21825630865028f3be5bc64a6eec9ee5e71221319f",
+    mode: "strict",
+    revocationRoot: "0x23157e6435e936c4698498358363acb2a9a811908c4806e1087677338e1c5525",
+  }
+
+  test.each([
+    ["facematch_ios_strict", iosStrict],
+    ["facematch_android_strict", androidStrict],
+  ])("holds what the %s conformance vector commits", async (name, facematch) => {
+    const vector = vectors.vectors.find((v) => v.name === name)!
+    const capsule = getAztecFacematchCapsule(facematch).map(BigInt)
+    const [rootKeyLeaf, environment, appIdHash, integrityKey, mode, revocationRoot] = capsule
+
+    const commitment = await getFacematchParameterCommitment(
+      rootKeyLeaf,
+      environment,
+      appIdHash,
+      mode,
+      integrityKey,
+      revocationRoot,
+    )
+
+    expect(field(commitment)).toBe(vector.commitment)
+  })
+
+  test("numbers a development environment 0 and a regular face match 1", () => {
+    const capsule = getAztecFacematchCapsule({
+      ...iosStrict,
+      environment: "development",
+      mode: "regular",
+    })
+
+    expect([capsule[1], capsule[4]]).toEqual([field(0n), field(1n)])
+  })
+
+  test("carries an Android face match's integrity key and revocation root", () => {
+    const capsule = getAztecFacematchCapsule({
+      ...iosStrict,
+      integrityPubkeyHash: "0x1234",
+      revocationRoot: "0x5678",
+    })
+
+    expect([capsule[3], capsule[5]]).toEqual([field(0x1234n), field(0x5678n)])
+  })
+
+  test("rejects a mode it doesn't know", () => {
+    expect(() =>
+      getAztecFacematchCapsule({
+        ...iosStrict,
+        mode: "lenient" as FacematchCommittedInputs["mode"],
+      }),
+    ).toThrow(/Unknown face match environment production or mode lenient/)
+  })
 })

@@ -24,10 +24,17 @@ pub global NULLIFIER_TYPE_NON_SALTED_MOCK: u8 = 2;
 pub global NULLIFIER_TYPE_SALTED_MOCK: u8 = 3;
 pub global NULLIFIER_TYPE_NONE: u8 = 4;
 
+// App Attest's production environment and the face match modes, numbered as the circuits'
+// facematch lib and lib/Types.sol's Environment and FaceMatchMode number them
+pub global APP_ATTEST_ENV_PRODUCTION: u8 = 1;
+pub global FACE_MATCH_MODE_REGULAR: u8 = 1;
+pub global FACE_MATCH_MODE_STRICT: u8 = 2;
+
 // Capsule slots (app-side delivery convention)
 pub global PROOF_CAPSULE_SLOT: Field = 1;
 pub global DISCLOSE_CAPSULE_SLOT: Field = 2;
 pub global SANCTIONS_CAPSULE_SLOT: Field = 3;
+pub global FACE_MATCH_CAPSULE_SLOT: Field = 4;
 
 // Freshness: device clock may run ahead of the (past) anchor-block timestamp
 pub global CURRENT_DATE_MAX_SKEW: u64 = 3600;

@@ -33,6 +33,32 @@ pub fn is_root_valid(
     }
 }
 
+/// The last timestamp `root`, valid now under `config`, stays valid at while the registry's state
+/// stays as it is: a closed root's `valid_to` in `MODE_VALID_AT_TIMESTAMP`, latest or not, and a
+/// superseded root's `valid_to` plus `config.window` in `MODE_VALID_WITHIN_WINDOW`. None when only a
+/// change to the registry's state ends its validity.
+pub fn root_valid_until(
+    config: RegistryConfig,
+    latest_root_pair: LatestRootPair,
+    status: RootStatus,
+    root: Field,
+) -> Option<u64> {
+    let closed = status.valid_to != 0;
+    if closed & (config.mode == MODE_VALID_AT_TIMESTAMP) {
+        Option::some(status.valid_to)
+    } else if closed & (latest_root_pair.latest != root) & (config.mode == MODE_VALID_WITHIN_WINDOW)
+         {
+            let end = (status.valid_to as u128) + (config.window as u128);
+            if end > 0xffffffffffffffff {
+                Option::none()
+            } else {
+                Option::some(end as u64)
+            }
+        } else {
+            Option::none()
+        }
+}
+
 /// Evaluates root validity only based on existence, revocation status, and validity timestamps
 pub fn is_root_valid_at_timestamp(status: RootStatus, timestamp: u64) -> bool {
     status.exists
@@ -46,7 +72,7 @@ mod test {
         LatestRootPair, MODE_LATEST_AND_PREVIOUS, MODE_LATEST_ONLY, MODE_VALID_AT_TIMESTAMP,
         MODE_VALID_WITHIN_WINDOW, RegistryConfig, RootStatus,
     };
-    use super::{is_root_valid, is_root_valid_at_timestamp};
+    use super::{is_root_valid, is_root_valid_at_timestamp, root_valid_until};
 
     global ROOT_1: Field = 111;
     global ROOT_2: Field = 222;
@@ -258,5 +284,74 @@ mod test {
 
         let revoked = RootStatus { exists: true, revoked: true, valid_from: 100, valid_to: 200 };
         assert(!is_root_valid_at_timestamp(revoked, 150));
+    }
+
+    #[test]
+    fn a_superseded_root_is_valid_until_its_window_ends() {
+        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 50 };
+        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
+        let superseded =
+            RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 199 };
+
+        assert_eq(
+            root_valid_until(config, latest_root_pair, superseded, ROOT_1),
+            Option::some(249),
+        );
+        assert(is_root_valid(config, latest_root_pair, superseded, ROOT_1, 249));
+        assert(!is_root_valid(config, latest_root_pair, superseded, ROOT_1, 250));
+    }
+
+    #[test]
+    fn a_root_valid_at_timestamp_is_valid_until_its_valid_to() {
+        let config = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 50 };
+        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
+        let superseded =
+            RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 199 };
+
+        assert_eq(
+            root_valid_until(config, latest_root_pair, superseded, ROOT_1),
+            Option::some(199),
+        );
+    }
+
+    // Only a change to the registry's state ends these roots' validity, never time alone
+    #[test]
+    fn the_latest_root_and_roots_of_the_latest_modes_have_no_end() {
+        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
+        let latest = RootStatus { exists: true, revoked: false, valid_from: 200, valid_to: 0 };
+        let superseded =
+            RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 199 };
+
+        let window = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 50 };
+        let at_timestamp = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 0 };
+        assert(root_valid_until(window, latest_root_pair, latest, ROOT_2).is_none());
+        assert(root_valid_until(at_timestamp, latest_root_pair, latest, ROOT_2).is_none());
+
+        let latest_only = RegistryConfig { mode: MODE_LATEST_ONLY, window: 0 };
+        let latest_and_previous = RegistryConfig { mode: MODE_LATEST_AND_PREVIOUS, window: 0 };
+        assert(root_valid_until(latest_only, latest_root_pair, superseded, ROOT_1).is_none());
+        assert(root_valid_until(latest_and_previous, latest_root_pair, superseded, ROOT_1).is_none());
+    }
+
+    // Two root updates scheduled before the first applies can leave the latest root closed: in this
+    // mode its `valid_to` still ends it
+    #[test]
+    fn a_closed_latest_root_valid_at_timestamp_is_valid_until_its_valid_to() {
+        let config = RegistryConfig { mode: MODE_VALID_AT_TIMESTAMP, window: 0 };
+        let latest_root_pair = LatestRootPair { latest: ROOT_1, previous: 0 };
+        let closed = RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 199 };
+
+        assert_eq(root_valid_until(config, latest_root_pair, closed, ROOT_1), Option::some(199));
+        assert(!is_root_valid(config, latest_root_pair, closed, ROOT_1, 200));
+    }
+
+    #[test]
+    fn a_window_past_the_largest_timestamp_has_no_end() {
+        let config = RegistryConfig { mode: MODE_VALID_WITHIN_WINDOW, window: 0xffffffffffffffff };
+        let latest_root_pair = LatestRootPair { latest: ROOT_2, previous: ROOT_1 };
+        let superseded =
+            RootStatus { exists: true, revoked: false, valid_from: 100, valid_to: 199 };
+
+        assert(root_valid_until(config, latest_root_pair, superseded, ROOT_1).is_none());
     }
 }

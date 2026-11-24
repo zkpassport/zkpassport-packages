@@ -1,5 +1,6 @@
 import {
   AZTEC_DISCLOSE_CAPSULE_SLOT,
+  AZTEC_FACE_MATCH_CAPSULE_SLOT,
   AZTEC_PROOF_CAPSULE_SLOT,
   AZTEC_SANCTIONS_CAPSULE_SLOT,
   AztecCapsule,
@@ -7,7 +8,9 @@ import {
   Binary,
   BindCommittedInputs,
   DiscloseCommittedInputs,
+  FacematchCommittedInputs,
   getAztecDiscloseCapsule,
+  getAztecFacematchCapsule,
   getAztecProofCapsule,
   getAztecSanctionsCapsule,
   getNumberOfPublicInputs,
@@ -26,8 +29,8 @@ export type AztecNetwork = "aztec" | "aztec_testnet"
 export class AztecVerifier {
   /**
    * The capsules an Aztec contract's `verify_zkpassport_proof` reads for an `outer_count_N` proof
-   * of circuits 0.23.x: the proof capsule, then the disclose and sanctions capsules of the
-   * committed inputs the proof carries. The outer circuit's vk comes from `registryClient`,
+   * of circuits 0.23.x: the proof capsule, then the disclose, sanctions and face match capsules of
+   * the committed inputs the proof carries. The outer circuit's vk comes from `registryClient`,
    * checked against the circuit manifest of the proof's version and against the proof's vk hash.
    */
   public static async getParameters({
@@ -53,9 +56,7 @@ export class AztecVerifier {
       )
     }
     const committedInputs = proof.committedInputs ?? {}
-    if (committedInputs.facematch) {
-      throw new Error("Proofs with a face match cannot be verified on Aztec yet")
-    }
+    const facematch = committedInputs.facematch as FacematchCommittedInputs | undefined
 
     const manifest = await registryClient.getCircuitManifest(undefined, { version: proof.version })
     const circuit = await registryClient.getPackagedCircuit(proof.name!, manifest)
@@ -96,6 +97,12 @@ export class AztecVerifier {
       capsules.push({
         slot: AZTEC_SANCTIONS_CAPSULE_SLOT,
         fields: getAztecSanctionsCapsule(sanctions.rootHash),
+      })
+    }
+    if (facematch) {
+      capsules.push({
+        slot: AZTEC_FACE_MATCH_CAPSULE_SLOT,
+        fields: getAztecFacematchCapsule(facematch),
       })
     }
 
