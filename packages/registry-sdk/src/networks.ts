@@ -6,11 +6,16 @@ type NetworkType = "mainnet" | "testnet" | "dev"
 type NetworkConstants = {
   chainId: number
   chain: SupportedChain
+  /** Whether the registry is the RootRegistry contract on an EVM chain or the ZKPassportRegistry contract on Aztec */
+  kind: "evm" | "aztec"
   type: NetworkType
+  /** The JSON-RPC URL of an EVM node, or of an Aztec node */
   rpcUrl: string
   fallbackRpcUrls?: string[]
+  /** The address of the contract holding the certificate, circuit and sanctions roots */
   rootRegistry: string
-  registryHelper: string
+  /** The RegistryHelper contract, which only EVM chains have */
+  registryHelper?: string
   packagedCertificatesUrl: string
   circuitUrl: string
 }
@@ -61,6 +66,7 @@ const NETWORKS: NetworkConstants[] = [
   {
     chainId: getIdFromChain("ethereum"),
     chain: "ethereum",
+    kind: "evm",
     type: "mainnet",
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     fallbackRpcUrls: [zkpassportRpcUrl("ethereum")],
@@ -73,6 +79,7 @@ const NETWORKS: NetworkConstants[] = [
   {
     chainId: getIdFromChain("base"),
     chain: "base",
+    kind: "evm",
     type: "mainnet",
     rpcUrl: "https://base-mainnet.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     fallbackRpcUrls: [zkpassportRpcUrl("base")],
@@ -85,6 +92,7 @@ const NETWORKS: NetworkConstants[] = [
   {
     chainId: getIdFromChain("robinhood"),
     chain: "robinhood",
+    kind: "evm",
     type: "mainnet",
     rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
     fallbackRpcUrls: [zkpassportRpcUrl("robinhood")],
@@ -94,8 +102,19 @@ const NETWORKS: NetworkConstants[] = [
     circuitUrl: CIRCUIT_URL_MAINNET,
   },
   {
+    chainId: getIdFromChain("aztec"),
+    chain: "aztec",
+    kind: "aztec",
+    type: "mainnet",
+    rpcUrl: "https://aztec-mainnet.drpc.org",
+    rootRegistry: "0x1478d06759c62f151751aa08e2ce8950dd49e9891c40b9a93774a4686000e8fc",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_MAINNET,
+    circuitUrl: CIRCUIT_URL_MAINNET,
+  },
+  {
     chainId: getIdFromChain("ethereum_sepolia"),
     chain: "ethereum_sepolia",
+    kind: "evm",
     type: "testnet",
     rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/in6UjcATST36yyKuk83yb1yukKs65u8G",
     fallbackRpcUrls: [zkpassportRpcUrl("ethereum_sepolia")],
@@ -106,8 +125,19 @@ const NETWORKS: NetworkConstants[] = [
     circuitUrl: CIRCUIT_URL_SEPOLIA,
   },
   {
+    chainId: getIdFromChain("aztec_testnet"),
+    chain: "aztec_testnet",
+    kind: "aztec",
+    type: "testnet",
+    rpcUrl: "https://aztec-testnet.drpc.org",
+    rootRegistry: "0x019de2b2c83e178733dce20707949a17ec3465caba6ccd24b3d861f151bf0f30",
+    packagedCertificatesUrl: PACKAGED_CERTIFICATES_URL_TESTNET,
+    circuitUrl: CIRCUIT_URL_SEPOLIA,
+  },
+  {
     chainId: getIdFromChain("local"),
     chain: "local",
+    kind: "evm",
     type: "dev",
     rpcUrl: "http://localhost:8545",
     rootRegistry: "0x5FbDB2315678afecb367f032d93F642f64180aa3",

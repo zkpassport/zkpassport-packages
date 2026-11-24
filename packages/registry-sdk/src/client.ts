@@ -36,7 +36,8 @@ import {
   REGISTRIES_MAPPING_SIGNATURE,
   SANCTIONS_TREE_URL_TEMPLATE,
 } from "./constants"
-import { RegistryRequestTimeoutError, withTimeout } from "./errors"
+import { RegistryRequestTimeoutError, RpcEndpointError, withTimeout } from "./errors"
+import { AztecRegistryReader } from "./aztec-registry"
 import { findNetworkConstants } from "./networks"
 import {
   DocumentSupport,
@@ -79,7 +80,8 @@ export class RegistryClient {
   private readonly rpcUrls: string[]
   private preferredRpcIndex = 0
   private readonly rootRegistry: string
-  private readonly registryHelper: string
+  private readonly registryHelper: string | undefined
+  private readonly aztecRegistry: AztecRegistryReader | undefined
   private readonly packagedCertsUrlGenerator: (
     chainId: number,
     root: string,
@@ -120,7 +122,8 @@ export class RegistryClient {
     const resolvedRpcUrl = rpcUrl || network?.rpcUrl
     const resolvedRootRegistry = rootRegistry || network?.rootRegistry
     const resolvedRegistryHelper = registryHelper || network?.registryHelper
-    if (!resolvedRpcUrl || !resolvedRootRegistry || !resolvedRegistryHelper) {
+    const isAztec = network?.kind === "aztec"
+    if (!resolvedRpcUrl || !resolvedRootRegistry || (!isAztec && !resolvedRegistryHelper)) {
       throw new Error(`Unsupported chain ID: ${chainId}`)
     }
 
@@ -136,6 +139,12 @@ export class RegistryClient {
     this.retryCount = retryCount || DEFAULT_RETRY_COUNT
     this.rpcTimeoutMs = rpcTimeoutMs || DEFAULT_RPC_TIMEOUT_MS
     this.fallbackRpcTimeoutMs = fallbackRpcTimeoutMs || DEFAULT_FALLBACK_RPC_TIMEOUT_MS
+    this.aztecRegistry = isAztec
+      ? new AztecRegistryReader(
+          (read) => this.onRpcEndpoint("Aztec registry storage", read),
+          this.rootRegistry,
+        )
+      : undefined
   }
 
   /**
@@ -260,7 +269,7 @@ export class RegistryClient {
             limit.toString(16).padStart(64, "0")
           }`
     try {
-      const response = await this.rpcRequest(this.registryHelper, requestData)
+      const response = await this.rpcRequest(this.getRegistryHelperAddress(), requestData)
       return this._handleHistoricalRootsResponse(response)
     } catch (err) {
       throw err instanceof Error ? err : new Error(String(err))
@@ -479,7 +488,7 @@ export class RegistryClient {
             limit.toString(16).padStart(64, "0")
           }`
     try {
-      const response = await this.rpcRequest(this.registryHelper, requestData)
+      const response = await this.rpcRequest(this.getRegistryHelperAddress(), requestData)
       return this._handleHistoricalRootsResponse(response)
     } catch (err) {
       throw err instanceof Error ? err : new Error(String(err))
@@ -632,6 +641,11 @@ export class RegistryClient {
    * @returns The registry address as a hex string
    */
   async getRegistryAddress(registryId: number | string): Promise<string> {
+    if (this.aztecRegistry) {
+      throw new Error(
+        `Chain ${this.chainId}'s registry holds every root set itself, so it has no registry addresses`,
+      )
+    }
     log(`Getting registry address for ID ${registryId} from root registry ${this.rootRegistry}`)
 
     let formattedRegistryId: string
@@ -735,6 +749,11 @@ export class RegistryClient {
    * @returns The address of the Registry Helper
    */
   getRegistryHelperAddress(): string {
+    if (!this.registryHelper) {
+      throw new Error(
+        `Chain ${this.chainId} has no Registry Helper: root details and historical roots are only available on EVM chains`,
+      )
+    }
     return this.registryHelper
   }
 
@@ -776,6 +795,9 @@ export class RegistryClient {
 
   private async getLatestRoot(registryId: number, registryName: string): Promise<string> {
     log(`Getting latest ${registryName} root`, { registry: this.rootRegistry })
+    if (this.aztecRegistry) {
+      return this.aztecRegistry.getLatestRoot(registryId)
+    }
     const response = await this.rpcRequest(
       this.rootRegistry,
       LATEST_ROOT_WITH_PARAM_SIGNATURE + registryIdWord(registryId),
@@ -799,6 +821,9 @@ export class RegistryClient {
   ): Promise<boolean> {
     root = normaliseHash(root)
     const ts = timestamp ?? Math.floor(Date.now() / 1000)
+    if (this.aztecRegistry) {
+      return this.aztecRegistry.isRootValid(registryId, root, ts)
+    }
     const response = await this.rpcRequest(
       this.rootRegistry,
       IS_ROOT_VALID_SIGNATURE +
@@ -824,7 +849,7 @@ export class RegistryClient {
     if (root) {
       log(`Getting ${registryName} root details`)
       const response = await this.rpcRequest(
-        this.registryHelper,
+        this.getRegistryHelperAddress(),
         GET_ROOT_DETAILS_BY_ROOT_SIGNATURE +
           registryIdWord(registryId) +
           strip0x(root).padStart(64, "0"),
@@ -838,7 +863,7 @@ export class RegistryClient {
     }
     log(`Getting latest ${registryName} root details`)
     const response = await this.rpcRequest(
-      this.registryHelper,
+      this.getRegistryHelperAddress(),
       GET_LATEST_ROOT_DETAILS_SIGNATURE + registryIdWord(registryId),
     )
     if (!response.ok) {
@@ -867,28 +892,60 @@ export class RegistryClient {
       method: "eth_call",
       params: [{ to, data }, "latest"],
     })
-    let lastFailure: { response: Response } | { error: unknown } | undefined
+    return this.rpcPost(body, "eth_call")
+  }
+
+  private async rpcPost(body: string, what: string): Promise<Response> {
+    try {
+      return await this.onRpcEndpoint(what, async (post) => {
+        const response = await post(body)
+        if (!response.ok) throw new RpcEndpointError(`answered ${response.status}`, response)
+        return response
+      })
+    } catch (error) {
+      if (error instanceof RpcEndpointError && error.response) return error.response
+      throw error
+    }
+  }
+
+  /**
+   * Runs `read` against one RPC URL at a time, from the one that last served a read, until a URL serves it. The URL
+   * is given up on when its `post` fails or times out, or when `read` throws an {@link RpcEndpointError}; any other
+   * error is thrown at once. Once every URL is given up on, the last one's error is thrown.
+   */
+  private async onRpcEndpoint<T>(
+    what: string,
+    read: (post: (body: string) => Promise<Response>) => Promise<T>,
+  ): Promise<T> {
+    let lastError: unknown = new Error("No RPC URL configured")
     for (let offset = 0; offset < this.rpcUrls.length; offset++) {
       const index = (this.preferredRpcIndex + offset) % this.rpcUrls.length
       const url = this.rpcUrls[index]
+      let postFailed = false
+      const post = (body: string) =>
+        this.rpcAttempt(url, body, what, offset === 0).catch((error: unknown) => {
+          postFailed = true
+          throw error
+        })
       try {
-        const response = await this.rpcAttempt(url, body, offset === 0)
-        if (response.ok) {
-          this.preferredRpcIndex = index
-          return response
-        }
-        log(`RPC ${url} answered ${response.status}, trying the next one`)
-        lastFailure = { response }
+        const result = await read(post)
+        this.preferredRpcIndex = index
+        return result
       } catch (error) {
+        if (!postFailed && !(error instanceof RpcEndpointError)) throw error
         log(`RPC ${url} failed, trying the next one:`, error)
-        lastFailure = { error }
+        lastError = error
       }
     }
-    if (lastFailure && "response" in lastFailure) return lastFailure.response
-    throw lastFailure?.error ?? new Error("No RPC URL configured")
+    throw lastError
   }
 
-  private async rpcAttempt(url: string, body: string, isFirstTried: boolean): Promise<Response> {
+  private async rpcAttempt(
+    url: string,
+    body: string,
+    what: string,
+    isFirstTried: boolean,
+  ): Promise<Response> {
     const timeoutMs = isFirstTried ? this.rpcTimeoutMs : this.fallbackRpcTimeoutMs
     for (let attempt = 0; ; attempt++) {
       try {
@@ -903,7 +960,7 @@ export class RegistryClient {
             const text = await response.text()
             return new Response(text, { status: response.status, statusText: response.statusText })
           },
-          { timeoutMs, url, what: "eth_call" },
+          { timeoutMs, url, what },
         )
       } catch (error) {
         if (error instanceof RegistryRequestTimeoutError || attempt >= this.retryCount) throw error
