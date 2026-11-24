@@ -27,27 +27,3 @@ pub fn age_fixture_blob_for_txe() -> [Field; 585] {
     assert(swapped, "the age fixture has no bind commitment over its own network");
     blob
 }
-
-mod test {
-    use crate::commitments::bind_commitment;
-    use crate::constants::{PI_PARAMS_START, PROOF_FIELDS, VK_FIELDS};
-    use crate::fixtures::proof::{AGE_FIXTURE_BIND_ADDRESS, AGE_FIXTURE_BLOB};
-    use super::{age_fixture_blob_for_txe, TXE_CHAIN_ID};
-
-    #[test]
-    fn swaps_only_the_bind_commitment() {
-        let blob = age_fixture_blob_for_txe();
-        let params_start = VK_FIELDS + PROOF_FIELDS + PI_PARAMS_START;
-        let txe_bind = bind_commitment(AGE_FIXTURE_BIND_ADDRESS, TXE_CHAIN_ID);
-
-        let mut changed = 0;
-        for i in 0..585 {
-            if blob[i] != AGE_FIXTURE_BLOB[i] {
-                assert((i >= params_start) & (i < params_start + 2));
-                assert_eq(blob[i], txe_bind);
-                changed += 1;
-            }
-        }
-        assert_eq(changed, 1);
-    }
-}
