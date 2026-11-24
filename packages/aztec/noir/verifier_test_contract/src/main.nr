@@ -42,22 +42,26 @@ pub contract VerifierTest {
     }
 
     #[external("private")]
-    fn claim_age_for_period(user: AztecAddress, period: Field) {
+    fn claim_age_with_component(user: AztecAddress, component: Field) {
         let query = Query::new().age_min(18);
         let verified =
             verify_zkpassport_proof_for_user(self.context, self.msg_sender(), user, SERVICE, query);
         emit_custom_uniqueness_nullifier(
             self.context,
             verified.unique_identifier,
-            [CLAIM_DOMAIN, period],
+            [CLAIM_DOMAIN, component],
         );
     }
 
     #[external("private")]
-    fn claim_age_for_period_through_a_verifier(user: AztecAddress, period: Field) {
+    fn claim_age_with_component_through_a_verifier(user: AztecAddress, component: Field) {
         let unique_identifier =
             self.call(VerifierTest::at(self.address).verify_age_for(self.msg_sender(), user));
-        emit_custom_uniqueness_nullifier(self.context, unique_identifier, [CLAIM_DOMAIN, period]);
+        emit_custom_uniqueness_nullifier(
+            self.context,
+            unique_identifier,
+            [CLAIM_DOMAIN, component],
+        );
     }
 
     #[external("private")]

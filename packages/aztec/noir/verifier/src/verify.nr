@@ -438,9 +438,8 @@ pub fn emit_uniqueness_nullifier(
     ));
 }
 
-/// A uniqueness nullifier for a passport and the app's own `components`, such as a period: one
-/// proof per passport per set of components. Use it when an app counts something other than one
-/// claim per passport. It never equals `emit_uniqueness_nullifier`'s for the same passport.
+/// One proof per passport per set of `components`. Use it when an app counts something other than
+/// one claim per passport. It never equals `emit_uniqueness_nullifier`'s for the same passport.
 pub fn emit_custom_uniqueness_nullifier<let N: u32>(
     context: &mut PrivateContext,
     unique_identifier: UniqueIdentifier,
@@ -449,12 +448,8 @@ pub fn emit_custom_uniqueness_nullifier<let N: u32>(
     assert(N != 0, "custom uniqueness nullifier needs components");
     assert_unique_identifier(unique_identifier);
     context.push_nullifier_unsafe(Poseidon2::hash(
-        [
-            CUSTOM_UNIQUENESS_NULLIFIER_DOMAIN,
-            unique_identifier.value,
-            Poseidon2::hash(components, N),
-        ],
-        3,
+        [CUSTOM_UNIQUENESS_NULLIFIER_DOMAIN, unique_identifier.value].concat(components),
+        N + 2,
     ));
 }
 

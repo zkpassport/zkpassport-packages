@@ -74,10 +74,9 @@ fn claim(user: AztecAddress) {
 
 `emit_uniqueness_nullifier` allows one claim per passport in the contract that pushes it.
 `emit_custom_uniqueness_nullifier(context, verified.unique_identifier, components)` allows one per
-passport per set of `components`, such as `[CLAIM_DOMAIN, period]` for one claim per period. A
-contract that verifies through another contract's private function, so it can switch verifiers, has
-that function return the `UniqueIdentifier` and pushes the nullifier itself, so its count survives
-a verifier change. The capsules then go to the verifier contract, under the scope the app passes it.
+passport per set of `components`. A contract that verifies through another contract's private
+function, so it can switch verifiers, has that function return the `UniqueIdentifier` and pushes the
+nullifier itself, so its count survives a verifier change. The capsules then go to the verifier contract, under the scope the app passes it.
 
 `ServiceConfig::new` takes the domain as a hostname, and lowercases it as the ZKPassport SDK does; a
 URL, a port, a path or whitespace fails. `ServiceConfig::from_domain_hash` takes a domain already

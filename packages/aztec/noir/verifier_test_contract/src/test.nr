@@ -224,19 +224,19 @@ unconstrained fn setup_claim() -> (TestEnvironment, AztecAddress, AztecAddress, 
 }
 
 #[test(should_fail_with = "duplicate nullifiers")]
-unconstrained fn rejects_a_second_claim_in_the_same_period() {
+unconstrained fn rejects_a_second_claim_with_the_same_components() {
     let (mut env, verifier, user, sender) = setup_claim();
 
-    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
-    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_with_component(user, 7));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_with_component(user, 7));
 }
 
 #[test]
-unconstrained fn accepts_a_claim_in_another_period() {
+unconstrained fn accepts_a_claim_with_other_components() {
     let (mut env, verifier, user, sender) = setup_claim();
 
-    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
-    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 8));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_with_component(user, 7));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_with_component(user, 8));
 }
 
 #[test]
@@ -244,7 +244,7 @@ unconstrained fn a_custom_uniqueness_nullifier_is_not_the_plain_one() {
     let (mut env, verifier, user, sender) = setup_claim();
 
     env.call_private(sender, VerifierTest::at(verifier).claim_age(user));
-    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_with_component(user, 7));
 }
 
 #[test(should_fail_with = "duplicate nullifiers")]
@@ -253,9 +253,9 @@ unconstrained fn a_claim_through_a_verifier_call_shares_the_direct_claims_nullif
 
     env.call_private(
         sender,
-        VerifierTest::at(verifier).claim_age_for_period_through_a_verifier(user, 7),
+        VerifierTest::at(verifier).claim_age_with_component_through_a_verifier(user, 7),
     );
-    env.call_private(sender, VerifierTest::at(verifier).claim_age_for_period(user, 7));
+    env.call_private(sender, VerifierTest::at(verifier).claim_age_with_component(user, 7));
 }
 
 // The age fixture's capsule, claiming another circuits release
