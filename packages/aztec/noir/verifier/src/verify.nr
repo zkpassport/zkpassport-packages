@@ -479,7 +479,7 @@ pub fn emit_custom_uniqueness_nullifier<let N: u32>(
     unique_identifier: UniqueIdentifier,
     components: [Field; N],
 ) {
-    assert(N != 0, "custom uniqueness nullifier needs components");
+    std::static_assert(N != 0, "custom uniqueness nullifier needs components");
     assert_unique_identifier(unique_identifier);
     context.push_nullifier_unsafe(Poseidon2::hash(
         [CUSTOM_UNIQUENESS_NULLIFIER_DOMAIN, unique_identifier.value].concat(components),
