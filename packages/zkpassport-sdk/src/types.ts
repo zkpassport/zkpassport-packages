@@ -337,10 +337,9 @@ export type QueryBuilder<T extends "online" | "offline" = "online"> = {
    * @param options The options to use for the sanction check.
    * @param options.strict Whether to use a strict sanction check. Defaults to true.
    *
-   * If set to true, this means the checks will be done against just the lastname and firstname,
-   * while when set to false, matches will need to include either the date of birth and name or
-   * the passport number and nationality.
-   * Strict mode has therefore a higher false positive rate but is harder to evade.
+   * Both modes reject a match on name and date of birth, name and year of birth, or passport
+   * number and nationality. Strict mode also rejects a match on first and last name alone, so it
+   * has a higher false positive rate but is harder to evade.
    */
   sanctions: (
     countries?: SanctionsCountries,

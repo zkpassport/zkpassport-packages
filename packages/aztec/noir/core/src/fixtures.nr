@@ -59,6 +59,16 @@ pub(crate) global BIND_BASE_COMMITMENT: Field =
 pub(crate) global BIND_ETHEREUM_SEPOLIA_COMMITMENT: Field =
     0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76;
 
+/// A sanctions tree root.
+pub global SANCTIONS_ROOT: Field =
+    0x0f4bd1a7c33e2b5d6e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5;
+
+/// sanctions_commitment(SANCTIONS_ROOT, true). The SDK's `sanctions()` and the verifier's
+/// `Query::sanctions()` must both ask for it: the verifier's tests hold `Query` to it, and
+/// zkpassport-sdk's tests/aztec-query-conformance.test.ts holds the SDK's builders to it.
+pub global SANCTIONS_COMMITMENT: Field =
+    0x01c9c6d5d275b0ba3ba052df81cbb349b947582b3a9807adc6decfd3e19111d9;
+
 /// Public inputs transcribed from a real circuits 0.23.0 outer_count_4 proof (a byte-disclosure
 /// check against a synthetic certificate registry and the release's circuit registry, current_date
 /// 2050-01-01), in the K=4 layout parse.nr decodes.

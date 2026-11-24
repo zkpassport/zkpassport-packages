@@ -172,19 +172,24 @@ mod test {
         age_commitment, bind_commitment, birthdate_commitment, disclose_commitment,
         expiry_date_commitment, issuing_country_exclusion_commitment,
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
-        nationality_inclusion_commitment,
+        nationality_inclusion_commitment, sanctions_commitment,
     };
     use crate::fixtures::{
         AGE_18_COMMITMENT, BIND_ACCOUNT, BIND_BASE_COMMITMENT, BIND_COMMITMENT,
         BIND_ETHEREUM_COMMITMENT, BIND_ETHEREUM_SEPOLIA_COMMITMENT, BIRTHDATE_COMMITMENT,
         DISCLOSE_COMMITMENT, EXPIRY_DATE_COMMITMENT, ISSUING_COUNTRY_EXCLUSION_COMMITMENT,
         ISSUING_COUNTRY_INCLUSION_COMMITMENT, NATIONALITY_EXCLUSION_COMMITMENT,
-        NATIONALITY_INCLUSION_COMMITMENT,
+        NATIONALITY_INCLUSION_COMMITMENT, SANCTIONS_COMMITMENT, SANCTIONS_ROOT,
     };
 
     #[test]
     fn age_matches_conformance_anchor() {
         assert(age_commitment(18, 0) == AGE_18_COMMITMENT);
+    }
+
+    #[test]
+    fn sanctions_matches_conformance_anchor() {
+        assert(sanctions_commitment(SANCTIONS_ROOT, true) == SANCTIONS_COMMITMENT);
     }
 
     #[test]

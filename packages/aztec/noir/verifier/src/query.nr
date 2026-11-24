@@ -172,15 +172,15 @@ impl<let K: u32, let D: u32> Query<K, D> {
         query
     }
 
-    /// Ask for the holder not to be on the sanctions lists, screened in strict mode, which matches
-    /// on first and last name alone, as the SDK's `sanctions()` does by default. The client stashes
-    /// the sanctions root the proof was made against in the sanctions capsule.
+    /// Ask for the holder not to be on the sanctions lists, screened in strict mode, as the SDK's
+    /// `sanctions()` does by default: a match on first and last name alone also fails. The client
+    /// stashes the sanctions root the proof was made against in the sanctions capsule.
     pub fn sanctions(self) -> Query<K + 1, D> {
         self.with_sanctions(true)
     }
 
-    /// Ask for the holder not to be on the sanctions lists, screened in non-strict mode, which
-    /// matches on name and date of birth, or on document number and nationality.
+    /// Ask for the holder not to be on the sanctions lists, screened in non-strict mode: only a
+    /// match on name and date or year of birth, or on document number and nationality, fails.
     pub fn non_strict_sanctions(self) -> Query<K + 1, D> {
         self.with_sanctions(false)
     }
@@ -433,6 +433,7 @@ mod test {
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
         nationality_inclusion_commitment, sanctions_commitment,
     };
+    use zkpassport::fixtures::{SANCTIONS_COMMITMENT, SANCTIONS_ROOT};
 
     fn subproofs<let K: u32, let D: u32>(_query: Query<K, D>) -> u32 {
         K
@@ -548,12 +549,12 @@ mod test {
     }
 
     #[test]
-    fn sanctions_expects_a_strict_commitment() {
+    fn sanctions_expects_the_commitment_the_sdks_sanctions_asks_for() {
         let query = Query::new().sanctions();
 
         assert_eq(
-            query.expected_commitments(Option::none(), Option::some(0xabc), CHAIN_ID),
-            [sanctions_commitment(0xabc, true)],
+            query.expected_commitments(Option::none(), Option::some(SANCTIONS_ROOT), CHAIN_ID),
+            [SANCTIONS_COMMITMENT],
         );
     }
 
