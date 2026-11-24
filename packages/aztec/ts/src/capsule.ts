@@ -6,6 +6,7 @@ import {
   outerPublicInputCount,
   PROOF_FIELDS,
   SUPPORTED_CIRCUIT_VERSION,
+  SUPPORTED_CIRCUIT_VERSION_LABEL,
   VK_FIELDS,
 } from "./constants.ts"
 
@@ -39,7 +40,7 @@ export function assembleProofCapsule(parts: OuterProofParts, k = 5): Fr[] {
   if (!SUPPORTED_CIRCUIT_VERSION.test(parts.version)) {
     throw new Error(
       `zkPassport circuits ${parts.version} proofs do not verify on Aztec: the library verifies ` +
-        `circuits 0.23.x`,
+        `circuits ${SUPPORTED_CIRCUIT_VERSION_LABEL}`,
     )
   }
   const wantPIs = outerPublicInputCount(k)
@@ -52,7 +53,7 @@ export function assembleProofCapsule(parts: OuterProofParts, k = 5): Fr[] {
       `zkPassport outer-proof shape mismatch: vk ${parts.vk.length}/${VK_FIELDS}, ` +
         `proof ${parts.proof.length}/${PROOF_FIELDS}, public inputs ` +
         `${parts.publicInputs.length}/${wantPIs} — expected an outer_count_${k} proof of circuits ` +
-        `0.23.x`,
+        SUPPORTED_CIRCUIT_VERSION_LABEL,
     )
   }
   return [

@@ -17,8 +17,15 @@ export const SANCTIONS_CAPSULE_SLOT = 3n
 /** The canonical 90-byte disclose payload length (TD1 exactly; TD3 zero-padded). */
 export const MRZ_LENGTH = 90
 
-/** The circuits releases the library parses: 0.23.x. */
-export const SUPPORTED_CIRCUIT_VERSION = /^0\.23\.\d+$/
+const SUPPORTED_CIRCUITS_MAJOR = 0
+const SUPPORTED_CIRCUITS_MINOR = 23
+
+/** The circuits releases the library parses: every patch of 0.23. */
+export const SUPPORTED_CIRCUIT_VERSION = new RegExp(
+  `^${SUPPORTED_CIRCUITS_MAJOR}\\.${SUPPORTED_CIRCUITS_MINOR}\\.\\d+$`,
+)
+/** `SUPPORTED_CIRCUIT_VERSION` for messages: "0.23.x". */
+export const SUPPORTED_CIRCUIT_VERSION_LABEL = `${SUPPORTED_CIRCUITS_MAJOR}.${SUPPORTED_CIRCUITS_MINOR}.x`
 
 /**
  * Public-input count for a circuits 0.23.x `outer_count_K` proof is K + 6, ending in the

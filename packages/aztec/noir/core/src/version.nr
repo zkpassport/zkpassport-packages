@@ -37,6 +37,8 @@ pub fn unpack_circuit_version(version: Field) -> (u16, u16, u16) {
 /// is checked here.
 pub fn assert_circuit_version_supported(version: Field, min_version: Field) {
     let (major, minor, patch) = unpack_circuit_version(version);
+    // Circuits are below 1.0.0, so a minor release may break the public-input layout while a
+    // patch release keeps it: every patch of the supported minor release is accepted.
     assert(
         (major == SUPPORTED_CIRCUITS_MAJOR) & (minor == SUPPORTED_CIRCUITS_MINOR),
         "unsupported circuits version",
