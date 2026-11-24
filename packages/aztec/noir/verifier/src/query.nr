@@ -172,15 +172,15 @@ impl<let K: u32, let D: u32> Query<K, D> {
         query
     }
 
-    /// Ask for the holder not to be on the sanctions lists, screened in strict mode, which matches
-    /// on first and last name alone, as the SDK's `sanctions()` does by default. The client stashes
-    /// the sanctions root the proof was made against in the sanctions capsule.
+    /// Ask for the holder not to be on the sanctions lists, screened in strict mode, as the SDK's
+    /// `sanctions()` does by default: a match on first and last name alone also fails. The client
+    /// stashes the sanctions root the proof was made against in the sanctions capsule.
     pub fn sanctions(self) -> Query<K + 1, D> {
         self.with_sanctions(true)
     }
 
-    /// Ask for the holder not to be on the sanctions lists, screened in non-strict mode, which
-    /// matches on name and date of birth, or on document number and nationality.
+    /// Ask for the holder not to be on the sanctions lists, screened in non-strict mode: only a
+    /// match on name and date or year of birth, or on document number and nationality, fails.
     pub fn non_strict_sanctions(self) -> Query<K + 1, D> {
         self.with_sanctions(false)
     }
