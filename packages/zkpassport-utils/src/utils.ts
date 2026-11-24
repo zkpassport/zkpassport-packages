@@ -261,6 +261,9 @@ const CHAIN_IDS = {
   linea: 59144,
   world_chain: 480,
   robinhood: 4663,
+  // An Aztec network has no EIP-155 chain id, so its id is its rollup version, which an Aztec
+  // contract reads as context.version()
+  aztec: 2070860440,
   // Testnets
   ethereum_sepolia: 11155111,
   base_sepolia: 84532,
@@ -271,6 +274,7 @@ const CHAIN_IDS = {
   scroll_sepolia: 534351,
   linea_sepolia: 59141,
   world_chain_sepolia: 4801,
+  aztec_testnet: 679261766,
   local: 31337,
 }
 

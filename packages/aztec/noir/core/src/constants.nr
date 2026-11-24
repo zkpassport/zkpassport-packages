@@ -2,15 +2,20 @@
 pub global VK_FIELDS: u32 = 115;
 pub global PROOF_FIELDS: u32 = 458;
 
-// Public-input layout — mirrors zkpassport-packages Constants.sol / lib/Types.sol.
-// For outer_count_K: total length = K + 5, param commitments = K - 3.
+// Public-input layout of a circuits 0.23.x outer proof — mirrors zkpassport-packages
+// Constants.sol / lib/Types.sol. For outer_count_K: total length = K + 6, param commitments = K - 3.
 pub(crate) global PI_CERT_ROOT: u32 = 0;
 pub(crate) global PI_CIRCUIT_ROOT: u32 = 1;
 pub(crate) global PI_CURRENT_DATE: u32 = 2;
 pub(crate) global PI_SCOPE: u32 = 3;
 pub(crate) global PI_SUBSCOPE: u32 = 4;
 pub global PI_PARAMS_START: u32 = 5;
-// Tail (from the end): [len-3] nullifier_type, [len-2] scoped_nullifier, [len-1] oprf_pk_hash
+// Tail (from the end): [len-4] nullifier_type, [len-3] scoped_nullifier, [len-2] oprf_pk_hash,
+// [len-1] verification_method
+
+// How the ID's data was verified, the outer proof's last public input: the eMRTD chip, signed by
+// the issuing country. The only method this library accepts: L1 checks more for the others.
+pub global VERIFICATION_METHOD_ICAO_CHIP: Field = 100;
 
 // NullifierType — mirrors lib/Types.sol
 pub global NULLIFIER_TYPE_NON_SALTED: u8 = 0;

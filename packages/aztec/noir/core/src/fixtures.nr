@@ -42,16 +42,29 @@ pub global DISCLOSE_COMMITMENT: Field =
 pub(crate) global BIND_ACCOUNT: Field =
     0x1122334455667788990011223344556677889900112233445566778899001122;
 
-/// bind_user_address_commitment(BIND_ACCOUNT).
+/// bind_commitment(BIND_ACCOUNT, 679261766): the account bound to Aztec testnet, whose rollup
+/// version is its chain id.
 pub(crate) global BIND_COMMITMENT: Field =
-    0x1fe004f678d9cf91bf41adf1ee3cd1b12f30799a167cc8c4c9307fa9a7399970;
+    0x260abafd2a3531d54ac6b4595a8a231bee885906858d3fa97d9dc09e8121c69e;
 
-/// Public inputs transcribed from a real outer_count_4 proof (a byte-disclosure check against a
-/// synthetic certificate registry and a circuits release's circuit registry, current_date
+/// bind_commitment(BIND_ACCOUNT, 1): the account bound to Ethereum, a chain id of 1 byte.
+pub(crate) global BIND_ETHEREUM_COMMITMENT: Field =
+    0x2eb3badb5ab257ee4297f37349f98e2cd660b818e045b5f27468cfdfa8e75784;
+
+/// bind_commitment(BIND_ACCOUNT, 8453): the account bound to Base, a chain id of 2 bytes.
+pub(crate) global BIND_BASE_COMMITMENT: Field =
+    0x06efdd6f82ecf532cb3b9c0e4bcbf394afb72b0856a36a44393401d2689b8ac3;
+
+/// bind_commitment(BIND_ACCOUNT, 11155111): the account bound to Sepolia, a chain id of 3 bytes.
+pub(crate) global BIND_ETHEREUM_SEPOLIA_COMMITMENT: Field =
+    0x24f821a4af84d2c3fc77264c43b513edf7a1ec34471fcaf06c5ca5d55e5b3e76;
+
+/// Public inputs transcribed from a real circuits 0.23.0 outer_count_4 proof (a byte-disclosure
+/// check against a synthetic certificate registry and the release's circuit registry, current_date
 /// 2050-01-01), in the K=4 layout parse.nr decodes.
-pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
-    0x27465e0ef850b441de340e5d0223edc6e21b6902fb57550bb367b5df382375f9, // cert root
-    0x0289526299c3d1afa2ad1113678fb426ed587156a1a4ba622023d81989728210, // circuit root
+pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 10] = [
+    0x1b8e5d87ccfbc9a6bc78d462cef815afa7f1ad749bb9b00141a1bcc3b776cb5c, // cert root
+    0x002ec7a7f7faa8aa6507eec1920a6b775114de2c5a9d9c608fce9223d5cc6321, // circuit root
     0x00000000000000000000000000000000000000000000000000000000967a7600, // current_date
     0x0000000000000000000000000000000000000000000000000000000000000000, // domain
     0x0000000000000000000000000000000000000000000000000000000000000000, // scope
@@ -59,7 +72,11 @@ pub(crate) global FIXTURE_PUBLIC_INPUTS: [Field; 9] = [
     0x0000000000000000000000000000000000000000000000000000000000000000, // nullifier_type
     0x1c2de0aff0b433e96e0f1da31cec1d9e8b5e98c75d8d5c2e3e255ad689fe6354, // scoped_nullifier
     0x0000000000000000000000000000000000000000000000000000000000000000, // oprf_pk_hash
+    0x0000000000000000000000000000000000000000000000000000000000000064, // verification_method
 ];
 
 // A real age proof for tests, written by test-harness/generate-proof-fixtures.sh.
 pub mod proof;
+
+// The age proof bound to TXE's network.
+pub mod txe;

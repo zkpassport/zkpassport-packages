@@ -4,6 +4,7 @@ export {
   assembleProofCapsule,
   assembleSanctionsCapsule,
   type OuterProofParts,
+  toAztecCapsules,
 } from "./capsule.ts"
 export {
   DISCLOSE_CAPSULE_SLOT,
@@ -13,6 +14,7 @@ export {
   PROOF_CAPSULE_SLOT,
   PROOF_FIELDS,
   SANCTIONS_CAPSULE_SLOT,
+  SUPPORTED_CIRCUIT_VERSION,
   VK_FIELDS,
 } from "./constants.ts"
 export {

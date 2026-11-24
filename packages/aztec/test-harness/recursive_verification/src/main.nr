@@ -15,7 +15,7 @@ global K: u32 = 4;
 fn main(
     verification_key: [Field; 115],
     proof: [Field; 458],
-    public_inputs: pub [Field; K + 5],
+    public_inputs: pub [Field; K + 6],
     expected_vk_hash: pub Field,
     disclose_mask: [bool; 90],
     disclosed_bytes: [u8; 90],
