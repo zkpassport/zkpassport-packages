@@ -4,8 +4,9 @@
  * Convention (mirrors the ZKPassport SDK's L1 `params.version` encoding): the
  * CircuitManifest.version semver is packed as three 2-byte big-endian fields
  * (major, minor, patch) left-aligned in a bytes32, read as a Field. Example:
- * "0.20.0" -> 0x0000001400…00. Consumer apps must pin the same value they pass
- * in ServiceConfig.version.
+ * "0.20.0" -> 0x0000001400…00. Proof capsules end with the same encoding of the
+ * release that made the proof, which the registry checks its vks against; apps set
+ * the oldest release they accept with ServiceConfig.min_version.
  */
 import { Fr } from "@aztec-labs/aztec.js/fields"
 

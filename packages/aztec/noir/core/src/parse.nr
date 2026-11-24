@@ -12,14 +12,15 @@ pub struct PublicInputs<let K: u32> {
     pub nullifier_type: u8,
     pub scoped_nullifier: Field,
     pub oprf_pk_hash: Field,
+    pub verification_method: Field,
 }
 
-pub fn parse_public_inputs<let K: u32>(public_inputs: [Field; K + 5]) -> PublicInputs<K> {
+pub fn parse_public_inputs<let K: u32>(public_inputs: [Field; K + 6]) -> PublicInputs<K> {
     let current_date_f = public_inputs[PI_CURRENT_DATE];
     let current_date = current_date_f as u64;
     assert(current_date as Field == current_date_f, "current_date out of range");
 
-    let nullifier_type_f = public_inputs[K + 5 - 3];
+    let nullifier_type_f = public_inputs[K + 6 - 4];
     let nullifier_type = nullifier_type_f as u8;
     assert(nullifier_type as Field == nullifier_type_f, "nullifier_type out of range");
 
@@ -36,8 +37,9 @@ pub fn parse_public_inputs<let K: u32>(public_inputs: [Field; K + 5]) -> PublicI
         scope: public_inputs[PI_SUBSCOPE],
         param_commitments,
         nullifier_type,
-        scoped_nullifier: public_inputs[K + 5 - 2],
-        oprf_pk_hash: public_inputs[K + 5 - 1],
+        scoped_nullifier: public_inputs[K + 6 - 3],
+        oprf_pk_hash: public_inputs[K + 6 - 2],
+        verification_method: public_inputs[K + 6 - 1],
     }
 }
 
@@ -57,6 +59,7 @@ mod test {
         assert(p.nullifier_type == 0);
         assert(p.scoped_nullifier == FIXTURE_PUBLIC_INPUTS[7]);
         assert(p.oprf_pk_hash == 0);
+        assert(p.verification_method == 100);
     }
 
     #[test(should_fail_with = "current_date out of range")]

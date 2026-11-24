@@ -10,13 +10,10 @@ pub contract VerifierTest {
     use zkpassport_aztec_verifier::constants::NULLIFIER_TYPE_NON_SALTED;
     use zkpassport_aztec_verifier::query::Query;
     use zkpassport_aztec_verifier::verify::{scope_hash, ServiceConfig, verify_zkpassport_proof};
-
-    // packed("0.22.0"), the circuits release the age fixture was proved with
-    pub global CIRCUIT_VERSION: Field =
-        0x0000001600000000000000000000000000000000000000000000000000000000;
+    use zkpassport_aztec_verifier::version::{circuit_version, MIN_SUPPORTED_CIRCUIT_VERSION};
 
     global SERVICE: ServiceConfig = ServiceConfig {
-        version: CIRCUIT_VERSION,
+        min_version: MIN_SUPPORTED_CIRCUIT_VERSION,
         domain: scope_hash("example.com"),
         scope: 0,
         unique_identifier_type: NULLIFIER_TYPE_NON_SALTED,
@@ -28,6 +25,21 @@ pub contract VerifierTest {
     fn verify_age(user: AztecAddress) -> Field {
         let query = Query::new().age_min(18).bind_user_address(user);
         verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query).unique_identifier
+    }
+
+    // An app that only accepts proofs from circuits 0.23.1 or later
+    #[external("private")]
+    fn verify_age_from_0_23_1(user: AztecAddress) -> Field {
+        let config = ServiceConfig {
+            min_version: circuit_version(0, 23, 1),
+            domain: SERVICE.domain,
+            scope: SERVICE.scope,
+            unique_identifier_type: SERVICE.unique_identifier_type,
+            validity_period: SERVICE.validity_period,
+            dev_mode: SERVICE.dev_mode,
+        };
+        let query = Query::new().age_min(18).bind_user_address(user);
+        verify_zkpassport_proof(self.context, self.msg_sender(), config, query).unique_identifier
     }
 
     #[external("private")]

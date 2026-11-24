@@ -15,15 +15,17 @@ use zkpassport::disclosed_data::{
     disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
 };
 use zkpassport::verify::verify_outer_proof_core;
+use zkpassport::version::assert_circuit_version_supported;
 use zkpassport_registry_contract::{
     local_network_registry::LOCAL_NETWORK_REGISTRY_ADDRESS, ZKPassportRegistry,
 };
 
 pub struct ServiceConfig {
-    // Circuit-manifest version this app accepts (the registry keys vks by it). Convention:
-    // CircuitManifest.version packed as 2-byte BE major/minor/patch, left-aligned bytes32 —
-    // the same encoding the ZKPassport SDK sends as L1's params.version.
-    pub version: Field,
+    // The oldest circuits release the app accepts, as `circuit_version(major, minor, patch)`
+    // packs it. The proof capsule carries the release the proof was made with, which the registry
+    // authenticates; the library parses 0.23.x, so MIN_SUPPORTED_CIRCUIT_VERSION accepts every
+    // release it can verify.
+    pub min_version: Field,
     pub domain: Field, // scope_hash of the domain the app's requests come from, never 0
     pub scope: Field, // scope_hash of a scope within the domain, 0 for the whole domain
     pub unique_identifier_type: u8, // the real NULLIFIER_TYPE_* the proof must carry
@@ -158,6 +160,9 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// `query` says what the proof must show. A query that discloses a field also reads the disclose
 /// capsule, and one that asks for sanctions reads the sanctions capsule.
 ///
+/// The proof capsule is `vk ‖ proof ‖ public inputs (K + 6) ‖ circuit version`: an outer_count_K
+/// proof of circuits 0.23.x, and the release it was made with, packed as `circuit_version` does.
+///
 /// In TXE and on a local network this is the local network registry, see
 /// `zkpassport_registry_contract::local_network_registry`. Use
 /// `verify_zkpassport_proof_with_registry` on a network without a ZKPassport registry.
@@ -185,7 +190,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
     // Capsule load is unconstrained oracle data, everything downstream constrains it (as it must).
     // Safety: the loaded blob is untrusted input; verify_outer_proof_core and the freshness/
     // registry checks below constrain every field derived from it.
-    let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + K + 5]> =
+    let blob: Option<[Field; VK_FIELDS + PROOF_FIELDS + K + 6 + 1]> =
         unsafe { capsules::load(context.this_address(), PROOF_CAPSULE_SLOT, capsule_scope) };
 
     assert(blob.is_some(), "missing zkpassport proof capsule");
@@ -202,10 +207,15 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
         proof[i] = blob[VK_FIELDS + i];
     }
 
-    let mut public_inputs = [0; K + 5];
-    for i in 0..K + 5 {
+    let mut public_inputs = [0; K + 6];
+    for i in 0..K + 6 {
         public_inputs[i] = blob[VK_FIELDS + PROOF_FIELDS + i];
     }
+
+    // The registry below only accepts the proof's vk under the release that built it, which
+    // authenticates this value.
+    let version = blob[VK_FIELDS + PROOF_FIELDS + K + 6];
+    assert_circuit_version_supported(version, config.min_version);
 
     // The disclose payload and the sanctions root are loaded once, here: a second load is a
     // separate oracle call the sender's PXE can answer differently, so only these copies are
@@ -264,7 +274,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
     let registry = ZKPassportRegistry::at(registry);
     registry
         .assert_proof_valid(
-            config.version,
+            version,
             out.vk_hash,
             parsed.certificate_registry_root,
             parsed.circuit_registry_root,
@@ -382,7 +392,7 @@ mod test {
 
     fn service_config(domain: Field, unique_identifier_type: u8) -> ServiceConfig {
         ServiceConfig {
-            version: 0,
+            min_version: 0,
             domain,
             scope: 0,
             unique_identifier_type,
