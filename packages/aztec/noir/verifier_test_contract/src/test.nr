@@ -455,7 +455,7 @@ unconstrained fn accepts_a_latest_sanctions_root() {
     );
 
     assert_eq(
-        env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user)),
+        env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user)),
         SANCTIONS_ROOT,
     );
 }
@@ -475,7 +475,7 @@ unconstrained fn rejects_a_sanctions_root_the_registry_does_not_have() {
         Option::some(OLD_SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 #[test(should_fail_with = "invalid sanctions registry root")]
@@ -496,7 +496,7 @@ unconstrained fn rejects_a_sanctions_root_replaced_more_than_a_window_before_the
         Option::some(OLD_SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 // Valid at the proof's date, but replaced more than a window before the anchor block
@@ -519,7 +519,7 @@ unconstrained fn accepts_a_sanctions_root_replaced_after_the_proof_was_made() {
     );
 
     assert_eq(
-        env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user)),
+        env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user)),
         OLD_SANCTIONS_ROOT,
     );
 }
@@ -539,7 +539,7 @@ unconstrained fn rejects_a_missing_sanctions_capsule() {
         Option::none(),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 // Both roots are valid at the proof's date; the capsule carries the one the proof didn't use
@@ -561,7 +561,7 @@ unconstrained fn rejects_a_sanctions_root_other_than_the_proofs() {
         Option::some(OLD_SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 #[test(should_fail_with = "param commitment mismatch")]
@@ -579,7 +579,7 @@ unconstrained fn rejects_a_non_strict_sanctions_proof_for_a_strict_query() {
         Option::some(SANCTIONS_ROOT),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_strict_sanctions(user));
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user));
 }
 
 #[test]
@@ -598,7 +598,7 @@ unconstrained fn accepts_a_non_strict_sanctions_proof_for_a_non_strict_query() {
     );
 
     assert_eq(
-        env.call_private(sender, VerifierTest::at(verifier).verify_sanctions(user)),
+        env.call_private(sender, VerifierTest::at(verifier).verify_non_strict_sanctions(user)),
         SANCTIONS_ROOT,
     );
 }

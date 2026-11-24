@@ -57,8 +57,8 @@ pub contract VerifierTest {
     }
 
     #[external("private")]
-    fn verify_strict_sanctions(user: AztecAddress) -> Field {
-        let query = Query::new().strict_sanctions().bind_user_address(user);
+    fn verify_non_strict_sanctions(user: AztecAddress) -> Field {
+        let query = Query::new().non_strict_sanctions().bind_user_address(user);
         verify_zkpassport_proof(self.context, self.msg_sender(), SERVICE, query)
             .sanctions_root
             .unwrap()
