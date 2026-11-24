@@ -1,4 +1,5 @@
 import { circuitVersionToBytes32 } from "../registry"
+import type { FacematchCommittedInputs } from "../types"
 import { outerTrailingInputs } from "./public-input-layout"
 
 /** A capsule for an Aztec contract: the slot the contract reads it from and its fields as hex */
@@ -23,6 +24,7 @@ export const AZTEC_DISCLOSE_LENGTH = 90
 export const AZTEC_PROOF_CAPSULE_SLOT = 1
 export const AZTEC_DISCLOSE_CAPSULE_SLOT = 2
 export const AZTEC_SANCTIONS_CAPSULE_SLOT = 3
+export const AZTEC_FACE_MATCH_CAPSULE_SLOT = 4
 
 const AZTEC_SUPPORTED_CIRCUITS_MAJOR = 0
 const AZTEC_SUPPORTED_CIRCUITS_MINOR = 23
@@ -101,6 +103,31 @@ export function getAztecDiscloseCapsule(
 /** The sanctions capsule: the sanctions root the proof was made against */
 export function getAztecSanctionsCapsule(rootHash: string): string[] {
   return [hexField(rootHash)]
+}
+
+/**
+ * The face match capsule: the face match's parameters in the order its proof commits them, one
+ * field each: the root key leaf, the environment (1 for production, 0 for development), the app id
+ * hash, the integrity public key hash, the mode (1 for regular, 2 for strict) and the revocation
+ * root, 0 for a face match that commits none, as an iOS one. The hashes are read with `BigInt`, as
+ * the SDK reads them to check the face match's commitment.
+ */
+export function getAztecFacematchCapsule(facematch: FacematchCommittedInputs): string[] {
+  const environment = { development: 0n, production: 1n }[facematch.environment]
+  const mode = { regular: 1n, strict: 2n }[facematch.mode]
+  if (environment === undefined || mode === undefined) {
+    throw new Error(
+      `Unknown face match environment ${facematch.environment} or mode ${facematch.mode}`,
+    )
+  }
+  return [
+    BigInt(facematch.rootKeyLeaf),
+    environment,
+    BigInt(facematch.appIdHash),
+    BigInt(facematch.integrityPubkeyHash),
+    mode,
+    BigInt(facematch.revocationRoot ?? 0),
+  ].map(hexField)
 }
 
 // A field as 0x-prefixed 32-byte hex. A string is read as hex, with or without 0x, never as decimal.

@@ -23,8 +23,8 @@ already supplies it: `registry_contract/`, `verifier/`, and `core/` for the `zkp
 | Package | Type | Purpose | Key dependencies |
 |---|---|---|---|
 | `zkpassport_registry_contract` | `contract` | The registry. Roles (`admin`/`operator`) are plain `PublicMutable`, writes take effect instantly. Everything else: `paused`, per-registry root sets (certificate/circuit/sanctions) with validity windows and revocation, version-accepted VK sets, and the OPRF pubkey hash, is `DelayedPublicMutable` (24h delay). Exposes `update_root` (operator), policy setters (admin or operator), and private view functions (`assert_proof_valid`, `assert_sanctions_root_valid`, `assert_root_valid_at_timestamp`) that verifiers can bind to. | `aztec` (git, tag `v6.0.0`) |
-| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
-| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `commitments`, `constants`, `disclosed_data` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose and sanctions payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
+| `zkpassport` | `lib` | Pure, no-`aztec`-dependency core: outer-proof recursion (`verify_outer_proof_core`), public-input parsing, the circuits-version encoding and policy (`version.nr`), ZKPassport's app ids and the attestation root keys a face match is checked against (`app_attest.nr`, the L1 verifier's `AppAttest` constants), a face match's parameters, the parser for their capsule payload and the L1 verifier's policy for them, for now iOS only (`face_match.nr`), and commitment wrappers (`age_commitment`, `disclose_commitment`, `sanctions_commitment`, `bind_commitment`, `birthdate_commitment`, `expiry_date_commitment`, `nationality_inclusion_commitment`, `nationality_exclusion_commitment`, `issuing_country_inclusion_commitment`, `issuing_country_exclusion_commitment`) over the ZKPassport circuits' own Noir libs, and `face_match_commitment`, which computes the circuits 0.23.0 face match commitment itself. | `bb_proof_verification` (git, tag `v6.0.0`), `poseidon` (git, tag `v0.3.0`), plus the ZKPassport `circuits` commitment libs (git, tag `noir-v1.0.0`) — see Pins below |
+| `zkpassport_aztec_verifier` | `lib` | The glue Aztec apps actually depend on: re-exports `zkpassport`'s `app_attest`, `commitments`, `constants`, `disclosed_data`, `face_match` and `version`, and adds `query.nr` — `Query`, what a proof must show — and `verify.nr` — `ServiceConfig`, `scope_hash`, `verify_zkpassport_proof` (which also loads and checks the disclose, sanctions and face match payloads) with a `_with_registry` variant, `VerifiedProof` with a reader per disclosed field, and `emit_uniqueness_nullifier`. This is the only crate consumer contracts should import. | `aztec`, `poseidon`, `zkpassport` (path), `zkpassport_registry_contract` (path) |
 | `zkpassport_verifier_test_contract` | `contract` | A contract that calls `verify_zkpassport_proof` with one query per kind of check, for the workspace's TXE tests of the capsules a sender's PXE hands the verifier. Not deployed. | `aztec`, `zkpassport` (path), `zkpassport_aztec_verifier` (path), `zkpassport_registry_contract` (path) |
 
 TXE integration tests are colocated in the contract crate (upstream noir-contracts style):
@@ -100,8 +100,9 @@ network without one, use `verify_zkpassport_proof_with_registry`.
 `Query` asks for each check once, in the terms of the ZKPassport SDK's query: `age_min`,
 `age_max` and `age_between`; the same for `birthdate` and `expiry_date`, in Unix seconds;
 `nationality_in`, `nationality_out`, `issuing_country_in` and `issuing_country_out`;
-`bind_user_address`; `sanctions`, strict like the SDK's, and `non_strict_sanctions`; a `disclose_*` method per MRZ field; and
-`disclose_full_name`, which requires the whole name where `disclose_name` accepts part of it.
+`bind_user_address`; `sanctions`, strict like the SDK's, and `non_strict_sanctions`; `face_match`
+and `strict_face_match`; a `disclose_*` method per MRZ field; and `disclose_full_name`, which
+requires the whole name where `disclose_name` accepts part of it.
 The proof must carry exactly the subproofs the query asks for, so the ZKPassport request that
 made it asks for the same checks.
 
@@ -185,6 +186,23 @@ A query that asks for sanctions screening needs the sanctions root the proof was
 `verify_zkpassport_proof` loads it once, adds its commitment, checks it in the registry at the
 proof's date, and returns it in `VerifiedProof.sanctions_root`.
 
+A query that asks for a face match, `face_match()` or `strict_face_match()`, needs the six
+parameters the face match proof commits, in its order: the root key leaf, the environment, the app
+id hash, the integrity public key hash, the mode and the revocation root. The client stashes them,
+from `assembleFacematchCapsule` or the SDK's `getAztecVerifierParameters`, in
+`zkpassport::constants::FACE_MATCH_CAPSULE_SLOT` (`= 4`). `verify_zkpassport_proof` loads them
+once, accepts them as the L1 verifier's `isFaceMatchVerified` accepts an iOS face match, adds
+their commitment, and returns them in `VerifiedProof.face_match`. That is a face match made in
+production, in the mode the query asks for, by ZKPassport's iOS app or App Clip under Apple's App
+Attest root key, with no integrity key or revocation root: `zkpassport::app_attest` holds L1's app
+ids and root keys. Android face matches fail with "Android face match not supported yet". With
+Android unsupported, every face match that verifies is an iOS one, so the query takes no OS like
+L1's `os` argument.
+
+The ZKPassport SDK only makes a salted unique identifier with a strict face match, so an app that
+requires one, with `.unique_identifier_type(NULLIFIER_TYPE_SALTED)`, asks for
+`strict_face_match()`. The library doesn't pair the two itself, as L1 doesn't.
+
 ## Trust considerations
 
 1. **ZKPassportRegistry is the source of truth.** Certificate, circuit, and sanctions root sets are
@@ -241,6 +259,11 @@ proof's date, and returns it in `VerifiedProof.sanctions_root`.
    therefore land up to `validity_period` plus a day after the date its proof was screened at, and
    the sanctions root it was screened against may have been replaced up to the registry's validity
    window before that date. Apps that need recent screening set a short `validity_period`.
+9. **Face matches are checked against attestation keys and app ids pinned in the library.**
+   `zkpassport::app_attest` holds the L1 verifier's `AppAttest` constants, which
+   `test-harness/fixture-conformance.test.ts` holds it to, and the registry plays no part. A new
+   ZKPassport app or attestation root key takes a library update, as it takes a verifier update on
+   L1.
 
 ## Running the tests
 
@@ -339,5 +362,5 @@ transcript. Everywhere else in this workspace the 6.0.0 toolchain is used.
 | `aztec-nr` (the `aztec` crate) | git `https://github.com/aztec-labs-eng/aztec-nr`, tag `v6.0.0`, dir `aztec` | Depended on by `zkpassport_registry_contract` and `zkpassport_aztec_verifier`, which share one `aztec` source. |
 | `bb_proof_verification` | git `https://github.com/AztecProtocol/aztec-packages/`, tag `v6.0.0`, dir `barretenberg/noir/bb_proof_verification` | `zkpassport`'s recursive-verification dependency, at the barretenberg release the 6.0.0 toolchain ships. |
 | `poseidon` | git `https://github.com/noir-lang/poseidon`, tag `v0.3.0` | Pinned for commitment parity with ZKPassport's own circuits; used by `zkpassport` and `zkpassport_aztec_verifier`. |
-| ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0` (= `327d19eb`, release 0.22.0) for the libs; submodule at `4d90f1f8` (release 0.23.0) for the fixtures | `zkpassport`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `compare_date_lib`, `inclusion_check_country_lib`, `exclusion_check_country_lib`, `exclusion_check_sanctions_lib`. Their commitments are the same in 0.23.0, which the conformance anchors check. The proof fixtures are generated from the `test-harness/circuits` **submodule** and prove the circuits released at its version. Only fixture regeneration (`test-harness/generate-proof-fixtures.sh`) needs the submodule initialized — building/testing the workspace does not. |
+| ZKPassport `circuits` repo | git `https://github.com/zkpassport/circuits`, tag `noir-v1.0.0` (= `327d19eb`, release 0.22.0) for the libs; submodule at `4d90f1f8` (release 0.23.0) for the fixtures | `zkpassport`'s commitment libs: `utils`, `disclose_lib`, `bind_lib`, `compare_age_lib`, `compare_date_lib`, `inclusion_check_country_lib`, `exclusion_check_country_lib`, `exclusion_check_sanctions_lib`. Their commitments are the same in 0.23.0, which the conformance anchors check. The face match commitment is not: 0.23.0 added the attestation revocation root to it, so `face_match_commitment` computes it without the `facematch` lib. The proof fixtures are generated from the `test-harness/circuits` **submodule** and prove the circuits released at its version. Only fixture regeneration (`test-harness/generate-proof-fixtures.sh`) needs the submodule initialized — building/testing the workspace does not. |
 | `@zkpassport/utils` (TS) | `0.40.0-beta.3` (the `circuits` submodule's pin) | `test-harness/generate-proof-fixtures.ts` imports it from the `circuits` submodule's own node_modules. `test-harness/fixture-conformance.test.ts` reads the conformance vectors from this repo's `packages/zkpassport-utils/conformance/vectors.json`. Not a dependency of `scripts/` or any Noir package. |

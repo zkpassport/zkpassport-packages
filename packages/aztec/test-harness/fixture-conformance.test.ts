@@ -1,7 +1,8 @@
 // This test pins the fixtures we use to test the Noir libraries to their external references:
 // - the commitment anchors in fixtures.nr to the SDK's conformance vectors,
 // - FIXTURE_PUBLIC_INPUTS to the public inputs of the checked-in disclose proof fixture,
-// - the proof fixtures themselves to the circuits submodule commit they were generated from.
+// - the proof fixtures themselves to the circuits submodule commit they were generated from,
+// - the App Attest constants in app_attest.nr to the L1 verifier's.
 // The sanctions anchors are checked by zkpassport-sdk's tests/aztec-query-conformance.test.ts,
 // against the SDK's query builders.
 //
@@ -16,15 +17,17 @@ import discloseFixture from "./fixtures/outer_count_4_disclose.json"
 import { evaluateExpressions, parseNoirFile } from "./vendor/constants-generator"
 
 const FIXTURES_NR = fileURLToPath(new URL("../noir/core/src/fixtures.nr", import.meta.url))
-// name => decimal string (or an array of them, for array globals)
-const anchors = evaluateExpressions(
-  parseNoirFile(readFileSync(FIXTURES_NR, "utf8")).constantsExpressions,
+const APP_ATTEST_NR = fileURLToPath(new URL("../noir/core/src/app_attest.nr", import.meta.url))
+const CONSTANTS_SOL = fileURLToPath(
+  new URL("../../registry-contracts/src/lib/Constants.sol", import.meta.url),
 )
-const hex = (name: string): string =>
-  "0x" +
-  BigInt(anchors[name] as string)
-    .toString(16)
-    .padStart(64, "0")
+// name => decimal string (or an array of them, for array globals)
+const noirGlobals = (path: string) =>
+  evaluateExpressions(parseNoirFile(readFileSync(path, "utf8")).constantsExpressions)
+const anchors = noirGlobals(FIXTURES_NR)
+const fieldHex = (value: string | bigint): string =>
+  "0x" + BigInt(value).toString(16).padStart(64, "0")
+const hex = (name: string): string => fieldHex(anchors[name] as string)
 const vector = (proofType: string) => vectors.vectors.find((v) => v.proofType === proofType)!
 const namedVector = (name: string) => vectors.vectors.find((v) => v.name === name)!
 
@@ -39,6 +42,8 @@ test("every constant in fixtures.nr is checked here", () => {
     "BIRTHDATE_COMMITMENT",
     "DISCLOSE_COMMITMENT",
     "EXPIRY_DATE_COMMITMENT",
+    "FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT",
+    "FACE_MATCH_IOS_STRICT_COMMITMENT",
     "FIXTURE_PUBLIC_INPUTS",
     "ISSUING_COUNTRY_EXCLUSION_COMMITMENT",
     "ISSUING_COUNTRY_INCLUSION_COMMITMENT",
@@ -66,6 +71,48 @@ test.each([
 
 test("DISCLOSE_COMMITMENT matches the published disclose vector", () => {
   expect(hex("DISCLOSE_COMMITMENT")).toBe(vector("disclose").commitment)
+})
+
+test.each([
+  ["FACE_MATCH_IOS_STRICT_COMMITMENT", "facematch_ios_strict"],
+  ["FACE_MATCH_IOS_APP_CLIP_REGULAR_COMMITMENT", "facematch_ios_app_clip_regular"],
+])("%s matches the published %s vector", (anchor, name) => {
+  expect(hex(anchor)).toBe(namedVector(name).commitment)
+})
+
+// A library's `bytes32 constant NAME = 0x...;` declarations, by name
+function solidityBytes32Constants(source: string, library: string): Record<string, string> {
+  const body = source.match(new RegExp(`library\\s+${library}\\s*\\{([^}]*)\\}`))?.[1]
+  if (body === undefined) throw new Error(`no library ${library} in Constants.sol`)
+  const code = body.replace(/\/\/.*$/gm, "")
+  const constants = [
+    ...code.matchAll(/bytes32\s+constant\s+(\w+)\s*=\s*(0x[0-9a-fA-F]{64})\s*;/g),
+  ].map(([, name, value]) => [name, fieldHex(value)])
+  // A declaration in any other form would otherwise go unchecked
+  expect(constants).toHaveLength(code.match(/\bconstant\b/g)?.length ?? 0)
+  return Object.fromEntries(constants)
+}
+
+const appAttest = Object.fromEntries(
+  Object.entries(noirGlobals(APP_ATTEST_NR)).map(([name, value]) => [
+    name,
+    fieldHex(value as string),
+  ]),
+)
+
+test("app_attest.nr holds the L1 verifier's AppAttest constants", () => {
+  const l1 = solidityBytes32Constants(readFileSync(CONSTANTS_SOL, "utf8"), "AppAttest")
+  expect(Object.keys(l1).length).toBeGreaterThan(0)
+  expect(appAttest).toEqual(l1)
+})
+
+test.each([
+  ["facematch_ios_strict", "IOS_APP_ID_HASH"],
+  ["facematch_ios_app_clip_regular", "IOS_APP_CLIP_APP_ID_HASH"],
+])("the %s vector is a face match from %s, under Apple's root key", (name, appId) => {
+  const { params } = namedVector(name)
+  expect(params.rootKeyLeaf).toBe(appAttest.APPLE_ROOT_KEY_HASH)
+  expect(params.appIdHash).toBe(appAttest[appId])
 })
 
 test("BIND_ACCOUNT matches the published Aztec testnet bind vector's user address", () => {

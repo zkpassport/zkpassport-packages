@@ -6,14 +6,16 @@ use aztec::{
 };
 use poseidon::poseidon2::Poseidon2;
 use zkpassport::constants::{
-    CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, NULLIFIER_TYPE_NON_SALTED,
-    NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE, NULLIFIER_TYPE_SALTED,
-    NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS, SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
+    CURRENT_DATE_MAX_SKEW, DISCLOSE_CAPSULE_SLOT, FACE_MATCH_CAPSULE_SLOT,
+    NULLIFIER_TYPE_NON_SALTED, NULLIFIER_TYPE_NON_SALTED_MOCK, NULLIFIER_TYPE_NONE,
+    NULLIFIER_TYPE_SALTED, NULLIFIER_TYPE_SALTED_MOCK, PROOF_CAPSULE_SLOT, PROOF_FIELDS,
+    SANCTIONS_CAPSULE_SLOT, VK_FIELDS,
 };
 use zkpassport::disclosed_data::{
     disclosed_birthdate, disclosed_document_number, disclosed_document_type, disclosed_expiry_date,
     disclosed_gender, disclosed_issuing_country, disclosed_name, disclosed_nationality,
 };
+use zkpassport::face_match::{assert_face_match_policy, FaceMatch, parse_face_match_payload};
 use zkpassport::verify::verify_outer_proof_core;
 use zkpassport::version::{assert_circuit_version_supported, MIN_SUPPORTED_CIRCUIT_VERSION};
 use zkpassport_registry_contract::{
@@ -140,6 +142,7 @@ pub struct VerifiedProof {
     pub current_date: u64,
     pub disclosure: Option<Disclosure>, // some exactly when the query discloses a field
     pub sanctions_root: Option<Field>, // some exactly when the query asks for sanctions
+    pub face_match: Option<FaceMatch>, // some exactly when the query asks for a face match
 }
 
 impl VerifiedProof {
@@ -257,7 +260,8 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// selects where the capsule is read from, nothing about the proof's validity depends on it.
 ///
 /// `query` says what the proof must show. A query that discloses a field also reads the disclose
-/// capsule, and one that asks for sanctions reads the sanctions capsule.
+/// capsule, one that asks for sanctions reads the sanctions capsule, and one that asks for a face
+/// match reads the face match capsule.
 ///
 /// The proof capsule is `vk ‖ proof ‖ public inputs (K + 6) ‖ circuit version`: an outer_count_K
 /// proof of circuits 0.23.x, and the release it was made with, packed as `circuit_version` does.
@@ -333,9 +337,9 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
     let version = blob[VK_FIELDS + PROOF_FIELDS + K + 6];
     assert_circuit_version_supported(version, config.min_version);
 
-    // The disclose payload and the sanctions root are loaded once, here: a second load is a
-    // separate oracle call the sender's PXE can answer differently, so only these copies are
-    // bound to the proof.
+    // The disclose payload, the sanctions root and the face match are loaded once, here: a second
+    // load is a separate oracle call the sender's PXE can answer differently, so only these copies
+    // are bound to the proof.
     let disclosure = if D == 1 {
         // Safety: the loaded payload is untrusted input; parse_disclose_payload range-constrains
         // every element, and the query's disclose commitment binds the result to the proof.
@@ -367,6 +371,26 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
         Option::none()
     };
 
+    let face_match = if query.face_match_mode().is_some() {
+        // Safety: the loaded payload is untrusted input; parse_face_match_payload range-checks it,
+        // the policy checks it the way the L1 verifier does, and the query's face match commitment
+        // binds it to the proof.
+        let payload: Option<[Field; 6]> = unsafe {
+            capsules::load(
+                context.this_address(),
+                FACE_MATCH_CAPSULE_SLOT,
+                capsule_scope,
+            )
+        };
+
+        assert(payload.is_some(), "missing face match capsule");
+        let face_match = parse_face_match_payload(payload.unwrap());
+        assert_face_match_policy(face_match, query.face_match_mode().unwrap());
+        Option::some(face_match)
+    } else {
+        Option::none()
+    };
+
     // Stateless core: recursion, domain and scope, nullifier policy, multiset commitment coverage.
     let out = verify_outer_proof_core::<K>(
         vk,
@@ -375,7 +399,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
         config.domain,
         config.scope,
         config.dev_mode,
-        query.expected_commitments(disclosure, sanctions_root, context.version()),
+        query.expected_commitments(disclosure, sanctions_root, face_match, context.version()),
     );
     let parsed = out.parsed;
 
@@ -410,6 +434,7 @@ pub fn verify_zkpassport_proof_with_registry<let K: u32, let D: u32>(
         current_date: parsed.current_date,
         disclosure,
         sanctions_root,
+        face_match,
     }
 }
 
@@ -523,6 +548,7 @@ mod test {
             current_date: 0,
             disclosure,
             sanctions_root: Option::none(),
+            face_match: Option::none(),
         }
     }
 
