@@ -46,6 +46,12 @@ import {
 
 const SALT = BigInt("0x" + "11".repeat(31))
 
+/**
+ * Proofs by circuit and inputs. Test files run in one process, so a subproof whose inputs repeat
+ * across files, like a passport's DSC proof, is proved once.
+ */
+const PROOFS = new Map<string, string>()
+
 // Copied from zkpassport-mobile-app src/lib/circuit-matcher.ts
 const APPLE_APP_ATTEST_ROOT_KEY_LEAF =
   "0x2532418a107c5306fa8308c22255792cf77e4a290cbce8a840a642a3e591340b"
@@ -394,6 +400,12 @@ async function proveCircuit(
   inputs: object,
   options?: { evm?: boolean },
 ): Promise<string> {
+  const proofKey = JSON.stringify([circuit.vkey_hash, options, inputs])
+  const existingProof = PROOFS.get(proofKey)
+  if (existingProof) {
+    return existingProof
+  }
+
   // Packaged circuits carry no debug symbols
   const noir = new Noir({
     bytecode: circuit.bytecode,
@@ -404,10 +416,12 @@ async function proveCircuit(
   const { witness } = await noir.execute(inputs as InputMap)
   const { proof, publicInputs } = await prover.prove(circuit.bytecode, witness, options)
 
-  return (
+  const provedCircuit =
     publicInputs.map((input) => input.replace(/^0x/, "").padStart(64, "0")).join("") +
     Buffer.from(proof).toString("hex")
-  )
+  PROOFS.set(proofKey, provedCircuit)
+
+  return provedCircuit
 }
 
 /** Start a prover on the bb.js release for `bbVersion` */
