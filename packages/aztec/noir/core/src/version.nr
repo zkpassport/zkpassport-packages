@@ -11,6 +11,10 @@ global TWO_POW_240: Field = 2.pow_32(240);
 /// sends it to L1: major, minor and patch as 2-byte big-endian integers, left-aligned in 32 bytes.
 /// "0.23.0" is `circuit_version(0, 23, 0)` = 0x0000001700…00.
 pub fn circuit_version(major: u16, minor: u16, patch: u16) -> Field {
+    assert((major != 0) | (minor != 0) | (patch != 0), "circuit version 0.0.0 encodes to 0");
+    // A Field is below the BN254 scalar field modulus, 0x30644e72e131a029…, so a version from
+    // major 0x3064 up can wrap around
+    assert(major < 0x3064, "circuit version major must be below 12388");
     (major as Field) * TWO_POW_240 + (minor as Field) * TWO_POW_224 + (patch as Field) * TWO_POW_208
 }
 
@@ -70,6 +74,20 @@ mod test {
             circuit_version(1, 2, 3),
             0x0001000200030000000000000000000000000000000000000000000000000000,
         );
+        assert_eq(
+            circuit_version(12387, 65535, 65535),
+            0x3063ffffffff0000000000000000000000000000000000000000000000000000,
+        );
+    }
+
+    #[test(should_fail_with = "circuit version 0.0.0 encodes to 0")]
+    fn rejects_0_0_0() {
+        let _ = circuit_version(0, 0, 0);
+    }
+
+    #[test(should_fail_with = "circuit version major must be below 12388")]
+    fn rejects_a_major_from_12388() {
+        let _ = circuit_version(12388, 0, 0);
     }
 
     #[test]

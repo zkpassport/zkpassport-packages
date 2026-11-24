@@ -169,6 +169,42 @@ unconstrained fn verifies_an_age_proof() {
     assert(env.call_private(sender, VerifierTest::at(verifier).verify_age(user)) != 0);
 }
 
+#[test]
+unconstrained fn verifies_an_age_proof_for_the_user_it_is_bound_to() {
+    let (mut env, verifier) = setup([]);
+    let user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS);
+    let sender = env.create_light_account();
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(age_fixture_blob_for_txe()),
+        Option::none(),
+        Option::none(),
+    );
+
+    assert(env.call_private(sender, VerifierTest::at(verifier).verify_age_for_user(user)) != 0);
+}
+
+#[test(should_fail_with = "param commitment mismatch")]
+unconstrained fn rejects_an_age_proof_for_a_user_it_is_not_bound_to() {
+    let (mut env, verifier) = setup([]);
+    let other_user = AztecAddress::from_field(AGE_FIXTURE_BIND_ADDRESS + 1);
+    let sender = env.create_light_account();
+
+    deliver(
+        &mut env,
+        verifier,
+        sender,
+        Option::some(age_fixture_blob_for_txe()),
+        Option::none(),
+        Option::none(),
+    );
+
+    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age_for_user(other_user));
+}
+
 // The age fixture's capsule, claiming another circuits release
 fn fixture_claiming(version: Field) -> [Field; 585] {
     let mut blob = age_fixture_blob_for_txe();
