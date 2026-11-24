@@ -18,7 +18,9 @@ use zkpassport::fixtures::{
     },
     txe::age_fixture_blob_for_txe,
 };
-use zkpassport::version::circuit_version;
+use zkpassport::version::{
+    circuit_version, SUPPORTED_CIRCUITS_MAJOR, SUPPORTED_CIRCUITS_MINOR, unpack_circuit_version,
+};
 use zkpassport_registry_contract::{
     local_network_registry::{
         deploy_local_network_registry, LOCAL_NETWORK_REGISTRY_ADDRESS, LOCAL_NETWORK_REGISTRY_ADMIN,
@@ -205,6 +207,12 @@ unconstrained fn rejects_an_age_proof_for_a_user_it_is_not_bound_to() {
     let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age_for_user(other_user));
 }
 
+// The release after the age fixture's, in the same family
+fn next_patch_release() -> Field {
+    let (major, minor, patch) = unpack_circuit_version(AGE_FIXTURE_CIRCUIT_VERSION);
+    circuit_version(major, minor, patch + 1)
+}
+
 // The age fixture's capsule, claiming another circuits release
 fn fixture_claiming(version: Field) -> [Field; 585] {
     let mut blob = age_fixture_blob_for_txe();
@@ -231,25 +239,31 @@ unconstrained fn verify_age_claiming<let M: u32>(version: Field, enabled_version
 
 #[test(should_fail_with = "unsupported circuits version")]
 unconstrained fn rejects_a_proof_claiming_an_older_layout() {
-    verify_age_claiming(circuit_version(0, 22, 0), []);
+    verify_age_claiming(
+        circuit_version(SUPPORTED_CIRCUITS_MAJOR, SUPPORTED_CIRCUITS_MINOR - 1, 0),
+        [],
+    );
 }
 
 #[test(should_fail_with = "unsupported circuits version")]
 unconstrained fn rejects_a_proof_claiming_a_newer_layout() {
-    verify_age_claiming(circuit_version(0, 24, 0), []);
+    verify_age_claiming(
+        circuit_version(SUPPORTED_CIRCUITS_MAJOR, SUPPORTED_CIRCUITS_MINOR + 1, 0),
+        [],
+    );
 }
 
-// The registry accepts the fixture's vk under 0.23.0 only, so claiming another 0.23.x release the
-// library parses still fails: the registry authenticates the version
+// The registry accepts the fixture's vk under the fixture's release only, so claiming another
+// release the library parses still fails: the registry authenticates the version
 #[test(should_fail_with = "version not enabled")]
 unconstrained fn rejects_a_proof_claiming_a_release_the_registry_does_not_accept() {
-    verify_age_claiming(circuit_version(0, 23, 1), []);
+    verify_age_claiming(next_patch_release(), []);
 }
 
-// Even with 0.23.1 enabled, the registry accepts the fixture's vk under 0.23.0 only
+// Even with that release enabled, the registry accepts the fixture's vk under the fixture's only
 #[test(should_fail_with = "vk not accepted")]
 unconstrained fn rejects_a_proof_claiming_a_release_its_vk_is_not_accepted_under() {
-    verify_age_claiming(circuit_version(0, 23, 1), [circuit_version(0, 23, 1)]);
+    verify_age_claiming(next_patch_release(), [next_patch_release()]);
 }
 
 #[test(should_fail_with = "circuits version older than the service accepts")]
@@ -267,7 +281,10 @@ unconstrained fn rejects_a_proof_older_than_the_services_minimum() {
         Option::none(),
     );
 
-    let _ = env.call_private(sender, VerifierTest::at(verifier).verify_age_from_0_23_1(user));
+    let _ = env.call_private(
+        sender,
+        VerifierTest::at(verifier).verify_age_from(user, next_patch_release()),
+    );
 }
 
 #[test(should_fail_with = "missing zkpassport proof capsule")]

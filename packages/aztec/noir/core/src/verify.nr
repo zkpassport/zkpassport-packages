@@ -12,7 +12,7 @@ pub struct VerifiedOuterProof<let K: u32> {
     pub vk_hash: Field,
 }
 
-/// Verifies a circuits 0.23.x outer proof (K + 6 public inputs) of an ICAO chip read.
+/// Verifies an outer proof (K + 6 public inputs) of an ICAO chip read.
 ///
 /// Does NOT check: the circuits version, registry roots, vk acceptance, OPRF binding, or freshness
 /// (needs a PrivateContext).

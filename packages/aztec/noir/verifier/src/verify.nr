@@ -24,8 +24,8 @@ use zkpassport_registry_contract::{
 pub struct ServiceConfig {
     // The oldest circuits release the app accepts, as `circuit_version(major, minor, patch)`
     // packs it. The proof capsule carries the release the proof was made with, which the registry
-    // authenticates; the library parses 0.23.x, so MIN_SUPPORTED_CIRCUIT_VERSION accepts every
-    // release it can verify.
+    // authenticates; MIN_SUPPORTED_CIRCUIT_VERSION accepts every release the library
+    // can verify.
     pub min_version: Field,
     pub domain: Field, // scope_hash of the domain the app's requests come from, never 0
     pub scope: Field, // scope_hash of a scope within the domain, 0 for the whole domain
@@ -260,7 +260,7 @@ pub fn scope_hash<let N: u32>(value: str<N>) -> Field {
 /// capsule, and one that asks for sanctions reads the sanctions capsule.
 ///
 /// The proof capsule is `vk ‖ proof ‖ public inputs (K + 6) ‖ circuit version`: an outer_count_K
-/// proof of circuits 0.23.x, and the release it was made with, packed as `circuit_version` does.
+/// proof, and the release it was made with, packed as `circuit_version` does.
 ///
 /// In TXE and on a local network this is the local network registry, see
 /// `zkpassport_registry_contract::local_network_registry`. Use

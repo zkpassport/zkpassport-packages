@@ -1,4 +1,4 @@
-// The one circuits release family this library parses: 0.23.x outer proofs carry K + 6 public
+// The one circuits release family this library parses: its outer proofs carry K + 6 public
 // inputs, ending in the verification method. Another minor release may change that layout.
 pub global SUPPORTED_CIRCUITS_MAJOR: u16 = 0;
 pub global SUPPORTED_CIRCUITS_MINOR: u16 = 23;
@@ -19,7 +19,8 @@ pub fn circuit_version(major: u16, minor: u16, patch: u16) -> Field {
 }
 
 /// The oldest circuits release this library verifies.
-pub global MIN_SUPPORTED_CIRCUIT_VERSION: Field = circuit_version(0, 23, 0);
+pub global MIN_SUPPORTED_CIRCUIT_VERSION: Field =
+    circuit_version(SUPPORTED_CIRCUITS_MAJOR, SUPPORTED_CIRCUITS_MINOR, 0);
 
 /// Splits a packed circuits release into (major, minor, patch), failing on any other bits.
 pub fn unpack_circuit_version(version: Field) -> (u16, u16, u16) {
@@ -60,8 +61,12 @@ pub fn assert_circuit_version_supported(version: Field, min_version: Field) {
 mod test {
     use crate::version::{
         assert_circuit_version_supported, circuit_version, MIN_SUPPORTED_CIRCUIT_VERSION,
-        unpack_circuit_version,
+        SUPPORTED_CIRCUITS_MAJOR, SUPPORTED_CIRCUITS_MINOR, unpack_circuit_version,
     };
+
+    fn supported(patch: u16) -> Field {
+        circuit_version(SUPPORTED_CIRCUITS_MAJOR, SUPPORTED_CIRCUITS_MINOR, patch)
+    }
 
     #[test]
     fn packs_like_the_sdk() {
@@ -104,25 +109,31 @@ mod test {
     }
 
     #[test]
-    fn accepts_a_0_23_release_at_or_above_the_minimum() {
-        assert_circuit_version_supported(circuit_version(0, 23, 0), MIN_SUPPORTED_CIRCUIT_VERSION);
-        assert_circuit_version_supported(circuit_version(0, 23, 4), MIN_SUPPORTED_CIRCUIT_VERSION);
-        assert_circuit_version_supported(circuit_version(0, 23, 4), circuit_version(0, 23, 4));
-        assert_circuit_version_supported(circuit_version(0, 23, 4), circuit_version(0, 22, 9));
+    fn accepts_a_supported_release_at_or_above_the_minimum() {
+        assert_circuit_version_supported(supported(0), MIN_SUPPORTED_CIRCUIT_VERSION);
+        assert_circuit_version_supported(supported(0), supported(0));
+        assert_circuit_version_supported(supported(4), supported(0));
+        assert_circuit_version_supported(supported(4), supported(4));
     }
 
     #[test(should_fail_with = "circuits version older than the service accepts")]
     fn rejects_a_release_older_than_the_minimum() {
-        assert_circuit_version_supported(circuit_version(0, 23, 1), circuit_version(0, 23, 2));
+        assert_circuit_version_supported(supported(1), supported(2));
     }
 
     #[test(should_fail_with = "unsupported circuits version")]
-    fn rejects_an_older_layout() {
-        assert_circuit_version_supported(circuit_version(0, 22, 0), circuit_version(0, 22, 0));
+    fn rejects_a_newer_minor_release_even_above_the_minimum() {
+        assert_circuit_version_supported(
+            circuit_version(SUPPORTED_CIRCUITS_MAJOR, SUPPORTED_CIRCUITS_MINOR + 1, 0),
+            supported(0),
+        );
     }
 
     #[test(should_fail_with = "unsupported circuits version")]
-    fn rejects_a_newer_layout_even_above_the_minimum() {
-        assert_circuit_version_supported(circuit_version(0, 24, 0), MIN_SUPPORTED_CIRCUIT_VERSION);
+    fn rejects_a_newer_major_release_even_above_the_minimum() {
+        assert_circuit_version_supported(
+            circuit_version(SUPPORTED_CIRCUITS_MAJOR + 1, SUPPORTED_CIRCUITS_MINOR, 0),
+            supported(0),
+        );
     }
 }
