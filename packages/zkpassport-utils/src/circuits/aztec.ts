@@ -24,8 +24,15 @@ export const AZTEC_PROOF_CAPSULE_SLOT = 1
 export const AZTEC_DISCLOSE_CAPSULE_SLOT = 2
 export const AZTEC_SANCTIONS_CAPSULE_SLOT = 3
 
-/** The circuits releases ZKPassport's Aztec library verifies: 0.23.x */
-export const AZTEC_SUPPORTED_CIRCUIT_VERSION = /^0\.23\.\d+$/
+const AZTEC_SUPPORTED_CIRCUITS_MAJOR = 0
+const AZTEC_SUPPORTED_CIRCUITS_MINOR = 23
+
+/** The circuits releases ZKPassport's Aztec library verifies: every patch of 0.23 */
+export const AZTEC_SUPPORTED_CIRCUIT_VERSION = new RegExp(
+  `^${AZTEC_SUPPORTED_CIRCUITS_MAJOR}\\.${AZTEC_SUPPORTED_CIRCUITS_MINOR}\\.\\d+$`,
+)
+/** `AZTEC_SUPPORTED_CIRCUIT_VERSION` for messages: "0.23.x" */
+export const AZTEC_SUPPORTED_CIRCUIT_VERSION_LABEL = `${AZTEC_SUPPORTED_CIRCUITS_MAJOR}.${AZTEC_SUPPORTED_CIRCUITS_MINOR}.x`
 
 /** Whether ZKPassport's Aztec library verifies proofs of the circuits release `version` */
 export function isAztecSupportedCircuitVersion(version: string): boolean {
@@ -52,7 +59,7 @@ export function getAztecProofCapsule(
   if (!isAztecSupportedCircuitVersion(parts.version)) {
     throw new Error(
       `Circuits ${parts.version} proofs do not verify on Aztec: ZKPassport's Aztec library ` +
-        `verifies circuits 0.23.x`,
+        `verifies circuits ${AZTEC_SUPPORTED_CIRCUIT_VERSION_LABEL}`,
     )
   }
   const publicInputCount = getAztecOuterPublicInputCount(subproofs)
@@ -65,7 +72,7 @@ export function getAztecProofCapsule(
       `Outer proof shape mismatch: vk ${parts.vk.length}/${AZTEC_OUTER_VK_FIELDS}, ` +
         `proof ${parts.proof.length}/${AZTEC_OUTER_PROOF_FIELDS}, public inputs ` +
         `${parts.publicInputs.length}/${publicInputCount}, expected an outer_count_${subproofs} ` +
-        `proof of circuits 0.23.x`,
+        `proof of circuits ${AZTEC_SUPPORTED_CIRCUIT_VERSION_LABEL}`,
     )
   }
   return [

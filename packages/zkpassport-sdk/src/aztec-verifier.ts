@@ -12,6 +12,7 @@ import {
   getAztecSanctionsCapsule,
   getNumberOfPublicInputs,
   getProofData,
+  AZTEC_SUPPORTED_CIRCUIT_VERSION_LABEL,
   isAztecSupportedCircuitVersion,
   ProofResult,
   SanctionsCommittedInputs,
@@ -48,7 +49,7 @@ export class AztecVerifier {
     if (!isAztecSupportedCircuitVersion(proof.version)) {
       throw new Error(
         `Circuits ${proof.version} proofs cannot be verified on Aztec: ZKPassport's Aztec library ` +
-          `verifies circuits 0.23.x`,
+          `verifies circuits ${AZTEC_SUPPORTED_CIRCUIT_VERSION_LABEL}`,
       )
     }
     const committedInputs = proof.committedInputs ?? {}

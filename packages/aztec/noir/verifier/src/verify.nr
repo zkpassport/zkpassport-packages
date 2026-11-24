@@ -40,8 +40,8 @@ impl ServiceConfig {
     /// a non-salted unique identifier, accepts proofs up to 7 days old, as the ZKPassport SDK does
     /// by default, and rejects mock documents. The methods below change each of these.
     ///
-    /// The domain is lowercased, as the SDK lowercases it, so their hashes match. Only ASCII letters
-    /// are lowercased here, so write any other letters in lowercase.
+    /// The domain is lowercased, as the SDK lowercases it, so their hashes match. It must be ASCII,
+    /// as the hostname a browser reports is: write an internationalized domain in its `xn--` form.
     ///
     /// Build it in a global, so the domain is hashed at compile time and a mistake such as an
     /// empty domain fails to compile:
@@ -52,6 +52,10 @@ impl ServiceConfig {
         let mut hostname = domain.as_bytes();
         for i in 0..N {
             let byte = hostname[i];
+            assert(
+                byte < 128,
+                "service domain must be ASCII, with an internationalized domain in its xn-- form",
+            );
             if (byte >= 65) & (byte <= 90) {
                 hostname[i] = byte + 32;
             }
@@ -577,7 +581,7 @@ mod test {
 
     #[test]
     fn new_service_config_keeps_what_the_sdk_keeps() {
-        assert(ServiceConfig::new("bücher.de").domain == scope_hash("bücher.de"));
+        assert(ServiceConfig::new("xn--bcher-kva.de").domain == scope_hash("xn--bcher-kva.de"));
         assert(ServiceConfig::new("my_app.example.com").domain == scope_hash("my_app.example.com"));
     }
 
@@ -604,6 +608,11 @@ mod test {
     #[test(should_fail_with = "service domain must be a hostname, such as example.com")]
     fn new_service_config_rejects_whitespace() {
         let _ = ServiceConfig::new(" example.com");
+    }
+
+    #[test(should_fail_with = "service domain must be ASCII, with an internationalized domain in its xn-- form")]
+    fn new_service_config_rejects_a_non_ascii_domain() {
+        let _ = ServiceConfig::new("bücher.example");
     }
 
     #[test]
