@@ -2,6 +2,8 @@
 // - the commitment anchors in fixtures.nr to the SDK's conformance vectors,
 // - FIXTURE_PUBLIC_INPUTS to the public inputs of the checked-in disclose proof fixture,
 // - the proof fixtures themselves to the circuits submodule commit they were generated from.
+// The sanctions anchors are checked by zkpassport-sdk's tests/aztec-query-conformance.test.ts,
+// against the SDK's query builders.
 //
 // Run from the repo root: `bun test packages/aztec/test-harness/fixture-conformance.test.ts`
 import { expect, test } from "bun:test"
@@ -42,6 +44,8 @@ test("every constant in fixtures.nr is checked here", () => {
     "ISSUING_COUNTRY_INCLUSION_COMMITMENT",
     "NATIONALITY_EXCLUSION_COMMITMENT",
     "NATIONALITY_INCLUSION_COMMITMENT",
+    "SANCTIONS_COMMITMENT",
+    "SANCTIONS_ROOT",
   ])
 })
 

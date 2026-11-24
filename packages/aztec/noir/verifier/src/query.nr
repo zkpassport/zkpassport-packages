@@ -433,6 +433,7 @@ mod test {
         issuing_country_inclusion_commitment, nationality_exclusion_commitment,
         nationality_inclusion_commitment, sanctions_commitment,
     };
+    use zkpassport::fixtures::{SANCTIONS_COMMITMENT, SANCTIONS_ROOT};
 
     fn subproofs<let K: u32, let D: u32>(_query: Query<K, D>) -> u32 {
         K
@@ -548,12 +549,12 @@ mod test {
     }
 
     #[test]
-    fn sanctions_expects_a_strict_commitment() {
+    fn sanctions_expects_the_commitment_the_sdks_sanctions_asks_for() {
         let query = Query::new().sanctions();
 
         assert_eq(
-            query.expected_commitments(Option::none(), Option::some(0xabc), CHAIN_ID),
-            [sanctions_commitment(0xabc, true)],
+            query.expected_commitments(Option::none(), Option::some(SANCTIONS_ROOT), CHAIN_ID),
+            [SANCTIONS_COMMITMENT],
         );
     }
 
