@@ -21,7 +21,7 @@ body.flow-page {
   --zkp-text-title: 22px;
   --zkp-text-body: 14px;
   --zkp-text-small: 12.5px;
-  background: #060c22;
+  background: #0a1746;
   color-scheme: dark;
   /* The window is a fixed size and the card fills it, so the page itself never
      scrolls; a screen that outgrows the card scrolls inside the stage */
