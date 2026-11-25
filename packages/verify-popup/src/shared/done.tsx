@@ -18,10 +18,12 @@ export function Done({
 }: {
   outcome: DoneOutcome
   appName: string
-  // A tab the user opened themselves can't be closed by the page, so it offers no Return button
   closable?: boolean
 }) {
-  const closesItself = outcome.kind === "verified" && !!window.opener
+  // A page opened from a link, or by the user themselves, has no window to go back to, and the
+  // browser will not close it, so it says so instead of offering a button that does nothing
+  const canClose = closable && !!window.opener
+  const closesItself = outcome.kind === "verified" && canClose
   const secondsLeft = useAutoClose(closesItself)
   return (
     <div className="flow-body">
@@ -29,17 +31,20 @@ export function Done({
         <div className="flow-seal" dangerouslySetInnerHTML={{ __html: ICON_SEAL_CHECK }} />
         <p className="flow-done-title">Verified</p>
         <Outcome outcome={outcome} appName={appName} />
+        <p className="flow-done-sub">Your ID never left your phone.</p>
+      </div>
+      <Actions>
+        {canClose ? (
+          <Primary onClick={() => window.close()}>Return to {appName}</Primary>
+        ) : (
+          <p className="flow-actions-note">You can close this page now.</p>
+        )}
         {closesItself ? (
-          <p className="flow-done-sub">
-            This window closes in {secondsLeft} {secondsLeft === 1 ? "second" : "seconds"}
+          <p className="flow-actions-note">
+            Closing in {secondsLeft} {secondsLeft === 1 ? "second" : "seconds"}
           </p>
         ) : null}
-      </div>
-      {closable ? (
-        <Actions>
-          <Primary onClick={() => window.close()}>Return to {appName}</Primary>
-        </Actions>
-      ) : null}
+      </Actions>
     </div>
   )
 }

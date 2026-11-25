@@ -2,19 +2,21 @@ import { describeQuery, type QueryDescriptionItem } from "@zkpassport/ui/hosted"
 import type { Query } from "@zkpassport/sdk"
 
 import { ICON_CHECK } from "../shared/icons"
-import { Main, Secondary } from "../shared/controls"
+import { Heading, Main, Primary, Secondary } from "../shared/controls"
 
 const SKELETON_ROWS = 2
 
 // A preview: the mobile app shows the consent screen that actually binds
 export function Intro({
   appName,
+  logo,
   query,
   purpose,
   onContinue,
   onChangeWallet,
 }: {
   appName: string
+  logo?: string
   query: Query | null
   purpose?: string
   onContinue: () => void
@@ -25,24 +27,23 @@ export function Intro({
   return (
     <div className="flow-body">
       <Main>
-        <p className="flow-lede">
-          {appName} uses ZKPassport to verify your identity privately. Your ID is checked on your
-          phone, and its details never reach a server.
-        </p>
+        <Heading title="Verify your identity privately" lock="Your ID never leaves your phone" />
 
         <div className="intro-asks">
-          <p className="intro-asks-head">{appName} wants to verify</p>
+          <p className="intro-asks-head">
+            {logo ? <img className="intro-asks-logo" src={logo} alt="" /> : null}
+            {appName} wants to verify
+          </p>
           {items ? <Asks items={items} purpose={purpose} /> : <AsksLoading />}
         </div>
 
         <div className="intro-chip">
-          <button type="button" className="flow-primary" disabled={!items} onClick={onContinue}>
+          <Primary forward disabled={!items} onClick={onContinue}>
             Continue
-          </button>
+          </Primary>
           {onChangeWallet ? (
             <Secondary onClick={onChangeWallet}>Use another wallet</Secondary>
           ) : null}
-          <p className="intro-privacy">Your ID data never leaves your device.</p>
         </div>
       </Main>
     </div>

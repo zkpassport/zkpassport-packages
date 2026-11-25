@@ -49,6 +49,7 @@ export type RequestCallbacks = {
   onError?: (message: string) => void
   /** The bridge gave up. Unlike other failures, resuming can still recover a finished proof. */
   onConnectionLost?: () => void
+  onPhoneConnected?: (connected: boolean) => void
 }
 
 export type RequestHandle = {
@@ -61,6 +62,8 @@ export type RequestHandle = {
   /** Try again on the same bridge, keeping whatever the phone has already sent. */
   resume: () => void
 }
+
+const PHONE_RECHECK_MS = 15 * 1000
 
 export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): RequestHandle {
   const [state, setState] = useState<RequestState>("preparing")
@@ -81,6 +84,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
     const sdk = new ZKPassport(domain)
     let cancelled = false
     let requestId: string | null = null
+    let phoneRecheck: ReturnType<typeof setTimeout> | undefined
 
     // The old keypair brings the old bridge topic with it, so the phone is still talking to this
     // request. A plain retry asks for a new one instead.
@@ -163,6 +167,17 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
         if (built.requestReceived()) callbacksRef.current.onReceived?.()
         else setState(built.isBridgeConnected() ? "waiting" : "connecting")
 
+        if (resumeWith) {
+          const checkPhone = () => {
+            sdk.isPhoneConnected(built.requestId).then((connected) => {
+              if (cancelled) return
+              callbacksRef.current.onPhoneConnected?.(connected)
+              if (!connected) phoneRecheck = setTimeout(checkPhone, PHONE_RECHECK_MS)
+            })
+          }
+          checkPhone()
+        }
+
         setUrl(built.url)
         try {
           setQrSvg(renderQrSvg(built.url))
@@ -178,6 +193,7 @@ export function useRequest(config: RequestConfig, callbacks: RequestCallbacks): 
 
     return () => {
       cancelled = true
+      clearTimeout(phoneRecheck)
       if (requestId) sdk.cancelRequest(requestId)
     }
   }, [attempt])

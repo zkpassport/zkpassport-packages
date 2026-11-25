@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { isMobileLike } from "@zkpassport/ui/hosted"
 
-import { Actions, Heading, Main, Primary, Secondary } from "../shared/controls"
+import { FootLinks, Heading, Main } from "../shared/controls"
+import { ErrorScreen } from "../shared/error"
 import { useOpenApp } from "../shared/use-open-app"
 
 /**
@@ -20,15 +21,17 @@ export function withProof(
   return { ...progress, done: progress.done + 1, total: proof.total ?? progress.total }
 }
 
+export type PhoneState = "checking" | "connected" | "gone" | null
+
 export function Waiting({
   progress,
   onStartAgain,
-  unconfirmed = false,
+  phone = null,
   requestUrl = null,
 }: {
   progress: ScanProgress
   onStartAgain: () => void
-  unconfirmed?: boolean
+  phone?: PhoneState
   requestUrl?: string | null
 }) {
   const approving = progress.stage === "scanned"
@@ -36,39 +39,50 @@ export function Waiting({
   const [mobile] = useState(isMobileLike)
   const { openApp } = useOpenApp(requestUrl, { probe: false })
   const canOpenApp = mobile && requestUrl !== null
+
+  if (phone === "gone") {
+    return (
+      <ErrorScreen
+        title="Lost connection to your phone"
+        message="ZKPassport was closed or went offline before you finished. Start again to continue."
+        onRetry={onStartAgain}
+        retryLabel="Start again"
+        links={
+          canOpenApp ? (
+            <button type="button" className="scan-reveal" onClick={openApp}>
+              Open ZKPassport again
+            </button>
+          ) : null
+        }
+      />
+    )
+  }
+
   return (
     <div className="flow-body">
       <Main>
-        <Heading title={approving ? "Check your phone" : "Checking your ID"} />
+        <Heading title={approving ? "Approve on your phone" : "Verifying your ID"} />
         <div className="flow-waiting">
           {approving ? <PhoneSwipe /> : <PulsingDots />}
           <div className="flow-waiting-text">
             <p className="flow-hint" role="status">
-              {caption(progress)}
+              {phone === "checking"
+                ? "Checking your phone…"
+                : approving
+                  ? "Slide to verify in ZKPassport"
+                  : caption(progress)}
             </p>
             <p className="flow-keep-open">
-              {unconfirmed
-                ? canOpenApp
-                  ? "Nothing in ZKPassport? Open it again, or start again."
-                  : "Nothing on your phone? Start again."
-                : slow
-                  ? "Taking longer than usual. Check your phone."
-                  : "Keep this window open"}
+              {slow ? "Taking longer than usual. Check your phone." : "Keep this page open"}
             </p>
-            {unconfirmed ? null : (
-              <button type="button" className="scan-reveal" onClick={onStartAgain}>
-                Start again
-              </button>
-            )}
           </div>
         </div>
       </Main>
-      {unconfirmed ? (
-        <Actions>
-          {canOpenApp ? <Primary onClick={openApp}>Open ZKPassport again</Primary> : null}
-          <Secondary onClick={onStartAgain}>Start again</Secondary>
-        </Actions>
-      ) : null}
+      <FootLinks>
+        <button type="button" className="scan-reveal" onClick={onStartAgain}>
+          Start again
+        </button>
+      </FootLinks>
     </div>
   )
 }
@@ -90,11 +104,11 @@ function useSlowProgress(stage: ScanProgress["stage"]): boolean {
 // Proving runs for several seconds, so the line follows the proofs the bridge
 // sends back rather than a timer
 function caption(progress: ScanProgress): string {
-  if (progress.stage === "scanned") return "Approve in the ZKPassport app"
+  if (progress.stage !== "proving") return ""
   const { done, total } = progress
-  if (total === null) return "Your phone is working on it..."
-  if (done < total) return `Checking your details · ${done} of ${total}`
-  return "Finishing up..."
+  if (total === null) return "Your phone is working on it…"
+  if (done < total) return `Checking your ID · ${done} of ${total}`
+  return "Finishing up…"
 }
 
 // The app confirms with a slide, not a tap, so the knob runs the track over and

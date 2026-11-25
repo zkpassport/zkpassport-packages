@@ -136,7 +136,7 @@ export function App() {
   if (alreadyDone) {
     return (
       <Frame>
-        <FlowCard name={appName} logo={config.request.logo} screenKey="done">
+        <FlowCard screenKey="done">
           <Done outcome={{ kind: "verified" }} appName={appName} />
         </FlowCard>
       </Frame>
@@ -173,17 +173,15 @@ export function App() {
 
 function EndedNotice() {
   return (
-    <Notice>
-      This verification is no longer running. Go back to the website and start it again.
-    </Notice>
+    <Notice title="This verification has ended">Go back to the website and start it again.</Notice>
   )
 }
 
 function OpenedDirectlyNotice() {
   return (
-    <Notice>
-      This page verifies your ID for websites that use ZKPassport. Open it from a website's "Verify
-      with ZKPassport" button.
+    <Notice title="Nothing to verify here">
+      This page opens from a website&rsquo;s &ldquo;Verify your identity&rdquo; button. Go back to
+      the site and start there.
     </Notice>
   )
 }
@@ -191,13 +189,10 @@ function OpenedDirectlyNotice() {
 function InAppBrowserNotice() {
   const site = referringSite()
   return (
-    <>
-      <Notice>
-        You&rsquo;re in an app&rsquo;s built-in browser, which can&rsquo;t complete verification.
-        Open {site ? site.host : "the site that sent you here"} in your browser and start again.
-      </Notice>
-      {site ? <LinkActions url={site.url} /> : null}
-    </>
+    <Notice title="Open this in your browser" after={site ? <LinkActions url={site.url} /> : null}>
+      This app&rsquo;s built-in browser can&rsquo;t complete verification. Open{" "}
+      {site ? site.host : "the site that sent you here"} in your browser and start again.
+    </Notice>
   )
 }
 
