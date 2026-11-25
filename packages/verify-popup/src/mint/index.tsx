@@ -17,7 +17,7 @@ import { Resolving } from "./resolving"
 import type { ZKPassportQRCodeOptions } from "@zkpassport/ui/hosted"
 import type { ScanProgress } from "../verify/waiting"
 import { Intro } from "../verify/intro"
-import { isStalledAttempt } from "../verify/lane"
+import { codeReplaced, codeShown, type Attempts } from "../verify/lane"
 import { Scan } from "../verify/scan"
 import { useRequestUrl } from "../verify/use-request-url"
 import { Waiting } from "../verify/waiting"
@@ -112,6 +112,8 @@ export function FlowBody({
     useCredentialFlow({ request, credential, appName, chain, send })
   const switchChain = useSwitchChain()
   const disconnect = useDisconnect()
+  // Kept here because starting over rebuilds the verify step
+  const [attempts, setAttempts] = useState<Attempts>({})
 
   // Verifying costs the user real work, and a verified proof waiting to be
   // minted is lost with the window. Resolving and the endings are cheap.
@@ -129,6 +131,8 @@ export function FlowBody({
             purpose={request.purpose}
             options={step.cardOptions}
             progress={scan}
+            attempts={attempts}
+            onAttempts={setAttempts}
             onStartAgain={startOver}
             onChangeWallet={onChangeWallet}
           />
@@ -147,7 +151,10 @@ export function FlowBody({
             onSwitchChain={() => switchChain.mutate({ chainId: chain.id })}
             onMint={mint}
             onChangeWallet={() => disconnect.mutate()}
-            onStartOver={startOver}
+            onStartOver={() => {
+              setAttempts(codeReplaced(attempts, true))
+              startOver()
+            }}
             onCheckTransaction={checkTransaction}
           />
         )
@@ -211,6 +218,8 @@ function VerifyStep({
   purpose,
   options,
   progress,
+  attempts,
+  onAttempts,
   onStartAgain,
   onChangeWallet,
 }: {
@@ -219,13 +228,13 @@ function VerifyStep({
   purpose?: string
   options: ZKPassportQRCodeOptions
   progress: ScanProgress | null
+  attempts: Attempts
+  onAttempts: (attempts: Attempts) => void
   onStartAgain: () => void
   onChangeWallet?: () => void
 }) {
   const [consented, setConsented] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
-  const [stalledAttempts, setStalledAttempts] = useState(0)
-  const codeShownAt = useRef<number | null>(null)
+  const [failure, setFailure] = useState<{ message: string; explained?: boolean } | null>(null)
   const req = useRequest(
     {
       // The policy's domain is read from the chain, not from the opener
@@ -249,35 +258,41 @@ function VerifyStep({
       onProving: options.onGeneratingProof,
       onProof: options.onProofGenerated,
       onResult: (result) => {
-        if (!result.verified) setFailure("Your ID could not be verified. Please try again.")
+        if (!result.verified)
+          setFailure({ message: "Your ID could not be verified. Please try again." })
         options.onResult?.(result)
       },
       onReject: () => {
-        setFailure("The request was declined on your phone.")
+        setFailure({ message: "The request was declined on your phone.", explained: true })
         options.onReject?.()
       },
       onError: (message) => {
-        setFailure(String(message))
+        setFailure({ message: String(message) })
         options.onError?.(message)
       },
     },
   )
 
   useEffect(() => {
-    codeShownAt.current = req.url ? Date.now() : null
+    if (req.url) onAttempts(codeShown(attempts))
   }, [req.url])
 
-  const link = useRequestUrl(req.url, options, stalledAttempts)
+  const link = useRequestUrl(req.url, options, attempts.stalledAttempts)
   const appClip = useContinueToAppClip(link.url, () => setConsented(true))
 
   const tryAgain = () => {
     setFailure(null)
-    if (isStalledAttempt(codeShownAt.current, Date.now())) setStalledAttempts((n) => n + 1)
+    onAttempts(codeReplaced(attempts, failure?.explained))
     req.retry()
   }
 
-  if (failure) return <ErrorScreen message={failure} onRetry={tryAgain} />
-  if (progress) return <Waiting progress={progress} onStartAgain={onStartAgain} />
+  const startAgain = () => {
+    onAttempts(codeReplaced(attempts))
+    onStartAgain()
+  }
+
+  if (failure) return <ErrorScreen message={failure.message} onRetry={tryAgain} />
+  if (progress) return <Waiting progress={progress} onStartAgain={startAgain} />
   if (!consented) {
     return (
       <Intro
