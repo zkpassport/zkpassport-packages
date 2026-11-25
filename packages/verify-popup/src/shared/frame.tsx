@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from "react"
 
-import { useFlowPage } from "./flow-card"
-import { ZKPASSPORT_WORDMARK } from "./icons"
+import { PoweredBy, useFlowPage } from "./flow-card"
 import "../main.css"
 
 export function Frame({ children }: { children: ReactNode }) {
@@ -24,7 +23,6 @@ export function Notice({
   useFlowPage()
   return (
     <div className="flow-card" data-theme="light">
-      <p className="r-mark" dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }} />
       <div className="flow-stage">
         <div className="flow-step">
           <div className="flow-notice" role="status">
@@ -34,6 +32,7 @@ export function Notice({
           </div>
         </div>
       </div>
+      <PoweredBy />
     </div>
   )
 }

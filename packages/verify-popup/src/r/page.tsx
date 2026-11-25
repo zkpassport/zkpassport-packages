@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react"
 import { isInAppBrowser } from "@zkpassport/ui/hosted"
 
-import { useFlowPage } from "../shared/flow-card"
+import { PoweredBy, useFlowPage } from "../shared/flow-card"
 import { Frame } from "../shared/frame"
-import { ZKPASSPORT_WORDMARK } from "../shared/icons"
 import { LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
 import { CLOSE_ON_RETURN_HASH, canOpenAppClip, useOpenApp } from "../shared/use-open-app"
@@ -27,7 +26,6 @@ export function RequestPage() {
   return (
     <Frame>
       <div className="flow-card">
-        <p className="r-mark" dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }} />
         <div className="flow-stage">
           <div className="flow-step">
             <div className="flow-body">
@@ -74,6 +72,7 @@ export function RequestPage() {
             </div>
           </div>
         </div>
+        <PoweredBy />
       </div>
     </Frame>
   )

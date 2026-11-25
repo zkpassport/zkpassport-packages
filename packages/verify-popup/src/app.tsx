@@ -136,7 +136,7 @@ export function App() {
   if (alreadyDone) {
     return (
       <Frame>
-        <FlowCard name={appName} logo={config.request.logo} screenKey="done">
+        <FlowCard screenKey="done">
           <Done outcome={{ kind: "verified" }} appName={appName} />
         </FlowCard>
       </Frame>

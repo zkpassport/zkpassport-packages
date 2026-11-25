@@ -6,8 +6,6 @@ import "../main.css"
 export type ProgressSegment = "todo" | "active" | "done"
 
 type FlowCardProps = {
-  name: string
-  logo?: string
   // Left out on the opening and closing screens, where there is nothing to count
   progress?: ProgressSegment[]
   // Changes remount the screen, which replays its entrance animation
@@ -28,20 +26,10 @@ export function useFlowPage() {
   }, [])
 }
 
-export function FlowCard({ name, logo, progress, screenKey, wide, children }: FlowCardProps) {
+export function FlowCard({ progress, screenKey, wide, children }: FlowCardProps) {
   useFlowPage()
   return (
     <div className="flow-card" data-theme="light" data-wide={wide ? "" : undefined}>
-      <div className="flow-id">
-        <span className="flow-id-app">
-          {logo ? <img className="flow-id-logo" src={logo} alt="" /> : null}
-          <span className="flow-id-name">{name}</span>
-        </span>
-        <span className="flow-id-tie" aria-hidden="true">
-          -
-        </span>
-        <span className="flow-id-mark" dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }} />
-      </div>
       <div className="flow-stage">
         <div key={screenKey} className="flow-step">
           {children}
@@ -54,6 +42,21 @@ export function FlowCard({ name, logo, progress, screenKey, wide, children }: Fl
           ))}
         </ol>
       ) : null}
+      <PoweredBy />
     </div>
+  )
+}
+
+export function PoweredBy() {
+  return (
+    <p className="flow-powered">
+      Powered by
+      <span
+        className="flow-powered-mark"
+        role="img"
+        aria-label="ZKPassport"
+        dangerouslySetInnerHTML={{ __html: ZKPASSPORT_WORDMARK }}
+      />
+    </p>
   )
 }

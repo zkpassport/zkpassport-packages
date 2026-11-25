@@ -4,7 +4,6 @@
 /* On the body only while a flow is mounted, so these colours stay off the
    popup's other screens. */
 body.flow-page {
-  --zkp-bg: #0a1746;
   --zkp-stage: #182659;
   --zkp-surface: #27366e;
   --zkp-raised: #35447f;
@@ -45,10 +44,10 @@ body.flow-page {
   max-width: 420px;
   flex: 1;
   max-height: 780px;
-  padding: 14px 8px 12px;
+  padding: 6px 16px 14px;
   border: none;
   border-radius: 26px;
-  background: var(--zkp-bg);
+  background: var(--zkp-stage);
   color: var(--zkp-fg);
   /* The stack the Verify with ZKPassport button uses, so the two read as one
      product across the website and this page */
@@ -71,8 +70,6 @@ body.flow-page {
   cursor: pointer;
 }
 
-/* The lighter box the step lives on, so the eye lands on the step and not on
-   the header or the progress bar that frame it */
 .flow-stage {
   display: flex;
   flex-direction: column;
@@ -83,10 +80,27 @@ body.flow-page {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  margin-top: 16px;
-  padding: 0 8px;
-  border-radius: 20px;
-  background: var(--zkp-stage);
+}
+
+.flow-powered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding-top: 12px;
+  font-size: var(--zkp-text-small);
+  color: var(--zkp-dim);
+}
+
+.flow-powered-mark {
+  line-height: 0;
+}
+
+.flow-powered-mark svg {
+  width: 78px;
+  height: auto;
+  display: block;
 }
 
 /* A full browser tab is wider than the 460px popup window, and has no fixed
@@ -106,60 +120,6 @@ body.flow-page {
   .flow-stage {
     overflow: visible;
   }
-}
-
-/* Who is asking on the left, who is checking on the right. Nothing countable
-   here — it would read as a step indicator. */
-.flow-id {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  padding: 0 12px;
-}
-
-.flow-id-app {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.flow-id-logo {
-  width: 19px;
-  height: 19px;
-  border-radius: 6px;
-  object-fit: contain;
-}
-
-.flow-id-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--zkp-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Names the pair as a handshake between the two, and keeps clear of a long app
-   name once it has ellipsised */
-.flow-id-tie {
-  margin: 0 12px;
-  font-family: ui-monospace, monospace;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--zkp-dim);
-}
-
-.flow-id-mark {
-  justify-self: end;
-  line-height: 0;
-}
-
-.flow-id-mark svg {
-  width: 84px;
-  height: auto;
-  display: block;
 }
 
 .flow-step {
@@ -291,7 +251,7 @@ body.flow-page {
 .flow-title {
   margin: 0;
   font-size: var(--zkp-text-title);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
   letter-spacing: -0.015em;
   color: var(--zkp-fg);
@@ -1213,19 +1173,6 @@ a.flow-primary {
   display: block;
   height: 44px;
   width: auto;
-}
-
-.r-mark {
-  display: flex;
-  justify-content: center;
-  margin: 0;
-  padding: 4px 12px 0;
-  line-height: 0;
-}
-.r-mark svg {
-  width: 110px;
-  height: auto;
-  display: block;
 }
 
 .r-actions {

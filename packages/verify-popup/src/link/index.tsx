@@ -34,7 +34,6 @@ export function LinkVerification({ linkId, session }: { linkId: string; session:
       request={link.request}
       query={link.query}
       appName={appName}
-      logo={link.request.logo}
       session={session}
       onRequestCreated={(created, { resumed }) => {
         activeRequest.current = created

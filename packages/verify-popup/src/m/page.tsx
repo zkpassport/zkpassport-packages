@@ -32,7 +32,7 @@ export function MintPage() {
 
 function ErrorCard({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <FlowCard name={FALLBACK_NAME} screenKey="error">
+    <FlowCard screenKey="error">
       <ErrorScreen message={message} onRetry={onRetry} closable={false} />
     </FlowCard>
   )
@@ -64,7 +64,7 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
 
   if (details.status === "loading") {
     return (
-      <FlowCard name={FALLBACK_NAME} screenKey="loading">
+      <FlowCard screenKey="loading">
         <Resolving />
       </FlowCard>
     )
@@ -82,13 +82,13 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
   if (!recipient) {
     if (status === "reconnecting") {
       return (
-        <FlowCard name={appName} logo={details.request.logo} screenKey="loading">
+        <FlowCard screenKey="loading">
           <Resolving />
         </FlowCard>
       )
     }
     return (
-      <FlowCard name={appName} logo={details.request.logo} screenKey="connect">
+      <FlowCard screenKey="connect">
         <Connect
           title="Connect your wallet"
           hint="The credential goes to this wallet, which also pays a small network fee."

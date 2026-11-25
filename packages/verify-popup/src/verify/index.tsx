@@ -72,7 +72,7 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
 
   if (resolution && "error" in resolution) {
     return (
-      <FlowCard name={appName} logo={request.logo} screenKey="error">
+      <FlowCard screenKey="error">
         <ErrorScreen
           title="This site isn’t set up yet"
           message={`${appName} can’t use ZKPassport verification from this page yet.`}
@@ -85,7 +85,7 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
 
   if (!resolution) {
     return (
-      <FlowCard name={appName} logo={request.logo} screenKey="intro">
+      <FlowCard screenKey="intro">
         <Intro appName={appName} query={null} purpose={request.purpose} onContinue={() => {}} />
       </FlowCard>
     )
@@ -97,7 +97,6 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
       request={request}
       query={query}
       appName={appName}
-      logo={request.logo}
       session={session}
       send={send}
     />
@@ -109,7 +108,6 @@ type VerifyRequestProps = {
   request: PopupConfigureMessage["request"]
   query: PopupConfigureMessage["query"]
   appName: string
-  logo?: string
   session: Session
   send: SendEvent
   onRequestCreated?: (
@@ -123,7 +121,6 @@ export function VerifyRequest({
   request,
   query,
   appName,
-  logo,
   session,
   send,
   onRequestCreated,
@@ -262,7 +259,7 @@ export function VerifyRequest({
   }
 
   return (
-    <FlowCard name={appName} logo={logo} screenKey={screen}>
+    <FlowCard screenKey={screen}>
       {screen === "done" ? <Done outcome={{ kind: "verified" }} appName={appName} /> : null}
       {screen === "error" && failure ? (
         <ErrorScreen

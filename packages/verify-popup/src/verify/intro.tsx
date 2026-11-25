@@ -25,7 +25,7 @@ export function Intro({
   return (
     <div className="flow-body">
       <Main>
-        <Heading title="Verify privately" lock="Your ID never leaves your phone" />
+        <Heading title="Verify your identity privately" lock="Your ID never leaves your phone" />
 
         <div className="intro-asks">
           <p className="intro-asks-head">{appName} wants to verify</p>
