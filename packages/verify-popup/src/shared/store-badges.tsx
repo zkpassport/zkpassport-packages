@@ -5,6 +5,14 @@ import {
   playStoreUrlWithReferrer,
 } from "@zkpassport/ui/app-link"
 
+/** The store page for this phone, or null where it is not a phone the app runs on. */
+export function storeUrlFor(requestUrl: string | null): string | null {
+  const os = detectMobileOs()
+  if (os === "ios") return APP_STORE_URL
+  if (os === "android") return playStoreUrlWithReferrer(requestUrl)
+  return null
+}
+
 /** Store links for the ZKPassport app, narrowed to the platform the visitor is on. */
 export function StoreBadges({ requestUrl }: { requestUrl: string | null }) {
   const os = detectMobileOs()

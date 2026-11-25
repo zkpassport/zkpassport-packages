@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { copyRequestForInstall } from "@zkpassport/ui/app-link"
 import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
 import { ICON_ZKP_MARK } from "../shared/icons"
 import { FootLinks, Heading, LockLine, Main, Primary } from "../shared/controls"
 import { CopyLink, LinkActions } from "../shared/link-actions"
-import { StoreBadges } from "../shared/store-badges"
+import { StoreBadges, storeUrlFor } from "../shared/store-badges"
 import {
   canOpenAppClip,
   isOnAppClipPage,
@@ -120,6 +121,20 @@ function ContinueInApp({
   const appClip = isAppClipLane(requestUrl)
   // The page iOS shows the App Clip banner and card on, so it is the app page from the start
   const [onAppClipPage] = useState(isOnAppClipPage)
+  // A tap on Open ZKPassport that finds no app goes on to the store, with the request copied
+  // during the tap for the app to pick up after the install
+  const storeOnMiss = useRef(false)
+  useEffect(() => {
+    if (!appNotFound || !storeOnMiss.current) return
+    storeOnMiss.current = false
+    const storeUrl = storeUrlFor(requestUrl)
+    if (storeUrl) window.location.assign(storeUrl)
+  }, [appNotFound, requestUrl])
+  const openOrInstall = () => {
+    copyRequestForInstall(requestUrl)
+    storeOnMiss.current = true
+    openApp()
+  }
 
   const anotherPhone = (
     <button type="button" className="scan-reveal" onClick={onRevealQr}>
@@ -192,25 +207,23 @@ function ContinueInApp({
             <StoreBadges requestUrl={requestUrl} />
           </div>
           <div className="scan-hero">
+            {clipPrompt && requestUrl ? (
+              <button
+                type="button"
+                className="scan-reveal"
+                onClick={() => openAppClipPage(requestUrl)}
+              >
+                Show the banner again
+              </button>
+            ) : null}
+            {anotherPhone}
             <p className="scan-sub">Already have the app?</p>
-            <Primary busy={opening} forward onClick={openApp}>
+            <Primary busy={opening} forward onClick={openOrInstall}>
               {opening ? "Opening…" : "Open ZKPassport"}
             </Primary>
             {escape}
           </div>
         </Main>
-        <FootLinks>
-          {clipPrompt && requestUrl ? (
-            <button
-              type="button"
-              className="scan-reveal"
-              onClick={() => openAppClipPage(requestUrl)}
-            >
-              Show the banner again
-            </button>
-          ) : null}
-          {anotherPhone}
-        </FootLinks>
       </div>
     )
   }
