@@ -73,7 +73,7 @@ export function Waiting({
                   : caption(progress)}
             </p>
             <p className="flow-keep-open">
-              {slow ? "Taking longer than usual. Check your phone." : "Keep this window open"}
+              {slow ? "Taking longer than usual. Check your phone." : "Keep this page open"}
             </p>
           </div>
         </div>
@@ -106,9 +106,9 @@ function useSlowProgress(stage: ScanProgress["stage"]): boolean {
 function caption(progress: ScanProgress): string {
   if (progress.stage !== "proving") return ""
   const { done, total } = progress
-  if (total === null) return "Your phone is working on it..."
-  if (done < total) return `Checking your details · ${done} of ${total}`
-  return "Finishing up..."
+  if (total === null) return "Your phone is working on it…"
+  if (done < total) return `Checking your ID · ${done} of ${total}`
+  return "Finishing up…"
 }
 
 // The app confirms with a slide, not a tap, so the knob runs the track over and

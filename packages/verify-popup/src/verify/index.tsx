@@ -227,7 +227,7 @@ export function VerifyRequest({
       },
       onConnectionLost: () => {
         failWith({
-          title: "Lost touch with your phone",
+          title: "Lost connection to your phone",
           message: "Check your phone is online, then reconnect.",
           keepsBridge: true,
         })

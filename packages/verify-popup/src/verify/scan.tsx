@@ -42,7 +42,7 @@ export function Scan({
       <Main>
         <Heading
           title={mobile ? "Scan from another phone" : "Scan with your phone"}
-          hint={mobile ? undefined : "Continue the verification on your iPhone or Android phone"}
+          hint={mobile ? undefined : "Continue on your iPhone or Android phone"}
         />
         <div className="scan-slot" data-state={state}>
           <div className="scan-skeleton" />
@@ -55,7 +55,7 @@ export function Scan({
           ) : null}
         </div>
         <div className="scan-foot">
-          <LockLine>Your ID is read on your phone, never uploaded</LockLine>
+          <LockLine>Your ID never leaves your phone</LockLine>
         </div>
       </Main>
       <FootLinks>
@@ -173,7 +173,7 @@ function ContinueInApp({
           </button>
         ) : null}
         <button type="button" className="scan-reveal" onClick={onRevealQr}>
-          Use another device instead
+          Use another phone instead
         </button>
       </FootLinks>
     </div>

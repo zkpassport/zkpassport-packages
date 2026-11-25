@@ -52,7 +52,7 @@ export function ErrorScreen({
         ) : canClose ? (
           <Primary onClick={() => window.close()}>Close</Primary>
         ) : null}
-        {onStartOver ? <Secondary onClick={onStartOver}>Start over</Secondary> : null}
+        {onStartOver ? <Secondary onClick={onStartOver}>Start again</Secondary> : null}
       </Actions>
       {links ? <FootLinks>{links}</FootLinks> : null}
     </div>
