@@ -28,7 +28,6 @@ export function Waiting({
 }: {
   progress: ScanProgress
   onStartAgain: () => void
-  /** The progress was read back from an earlier page and the phone has not been heard from since. */
   unconfirmed?: boolean
   requestUrl?: string | null
 }) {

@@ -119,7 +119,6 @@ export function VerifyRequest({
   // A dashboard policy arrives as {}: the real checks come back from the SDK
   const hasQuery = Object.keys(query ?? {}).length > 0
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
-  // Progress read back from storage says where the phone was, not that it still holds the request
   const [unconfirmed, setUnconfirmed] = useState(scan !== null)
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)

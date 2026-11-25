@@ -145,7 +145,6 @@ export function createVerification(
   onStateChange: (state: VerificationState) => void,
 ): VerificationController {
   // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
-  // A phone cannot bring the verification's tab forward, so there the button stays the way back
   const resumableNow = (status: VerificationStatus) =>
     (status !== "in-progress" || isMobileLike()) &&
     !!loadPendingVerification(toRequestKey(getOptions()))
@@ -185,7 +184,6 @@ export function createVerification(
     const resuming = loadPendingVerification(requestKey)
 
     if (popupHandle) {
-      // Focusing another tab does nothing on a phone, so there the tab is closed and opened again
       if (!popupHandle.popup.closed && !isMobileLike()) {
         popupHandle.popup.focus()
         return
