@@ -48,7 +48,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "flex-start",
     gap: 12,
-    padding: 8,
+    padding: "18px 18px 20px",
     boxSizing: "border-box",
   },
 }

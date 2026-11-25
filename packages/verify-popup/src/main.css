@@ -115,7 +115,7 @@ body.flow-page {
     max-height: none;
     /* The popup window's inner height, so short screens keep the card's
        proportions, capped so the card alone never overflows a short window */
-    min-height: min(742px, calc(100dvh - 16px));
+    min-height: min(742px, calc(100dvh - 38px));
   }
   .flow-stage {
     overflow: visible;
