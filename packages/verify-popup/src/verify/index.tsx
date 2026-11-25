@@ -119,6 +119,8 @@ export function VerifyRequest({
   // A dashboard policy arrives as {}: the real checks come back from the SDK
   const hasQuery = Object.keys(query ?? {}).length > 0
   const [scan, setScan] = useState<ScanProgress | null>(() => progressSoFar(session))
+  // Progress read back from storage says where the phone was, not that it still holds the request
+  const [unconfirmed, setUnconfirmed] = useState(scan !== null)
   const [verified, setVerified] = useState(false)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [stalledAttempts, setStalledAttempts] = useState(
@@ -163,16 +165,19 @@ export function VerifyRequest({
           .catch(failFrom)
       },
       onReceived: () => {
+        setUnconfirmed(false)
         setScan({ stage: "scanned" })
         updateSession(session, { stage: "scanned" })
         send({ type: "request-received" })
       },
       onProving: () => {
+        setUnconfirmed(false)
         setScan({ stage: "proving", done: 0, total: null })
         updateSession(session, { stage: "proving" })
         send({ type: "generating" })
       },
       onProof: (proof) => {
+        setUnconfirmed(false)
         setScan((current) => withProof(current, proof))
         send({ type: "proof-generated", index: proof.index, total: proof.total, name: proof.name })
       },
@@ -240,7 +245,14 @@ export function VerifyRequest({
           onStartOver={failure.keepsBridge ? startAgain : undefined}
         />
       ) : null}
-      {screen === "waiting" && scan ? <Waiting progress={scan} onStartAgain={startAgain} /> : null}
+      {screen === "waiting" && scan ? (
+        <Waiting
+          progress={scan}
+          onStartAgain={startAgain}
+          unconfirmed={unconfirmed}
+          requestUrl={link.url}
+        />
+      ) : null}
       {screen === "scan" ? (
         <Scan state={req.state} url={link.url} qrSvg={link.qrSvg} onNewCode={startAgain} />
       ) : null}
