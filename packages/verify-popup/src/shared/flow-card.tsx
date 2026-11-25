@@ -10,8 +10,6 @@ type FlowCardProps = {
   progress?: ProgressSegment[]
   // Changes remount the screen, which replays its entrance animation
   screenKey: string
-  // The credential flow opens in a full tab, so its card can take more width
-  wide?: boolean
   children: ReactNode
 }
 
@@ -26,10 +24,10 @@ export function useFlowPage() {
   }, [])
 }
 
-export function FlowCard({ progress, screenKey, wide, children }: FlowCardProps) {
+export function FlowCard({ progress, screenKey, children }: FlowCardProps) {
   useFlowPage()
   return (
-    <div className="flow-card" data-theme="light" data-wide={wide ? "" : undefined}>
+    <div className="flow-card" data-theme="light">
       <div className="flow-stage">
         <div key={screenKey} className="flow-step">
           {children}

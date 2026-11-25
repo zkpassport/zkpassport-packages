@@ -4,7 +4,11 @@ import { PoweredBy, useFlowPage } from "./flow-card"
 import "../main.css"
 
 export function Frame({ children }: { children: ReactNode }) {
-  return <div style={styles.frame}>{children}</div>
+  return (
+    <div className="flow-frame" style={styles.frame}>
+      {children}
+    </div>
+  )
 }
 
 /**
