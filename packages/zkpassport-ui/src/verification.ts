@@ -1,6 +1,7 @@
 import type { AllowedVerificationMethod } from "@zkpassport/sdk"
 import {
   openVerificationPopup,
+  type OpenVerificationPopupOptions,
   type PopupCredentialConfig,
   type PopupErrorCode,
   type PopupRequestConfig,
@@ -9,6 +10,7 @@ import {
 } from "@zkpassport/sdk/popup"
 import { getChainFromId, NullifierType, type ProofMode } from "@zkpassport/sdk"
 
+import { detectMobileOs } from "./app-link"
 import { isInAppBrowser, isMobileLike } from "./environment"
 import { ZKPassportError, type ZKPassportErrorKind } from "./errors"
 import { logger } from "./logger"
@@ -96,8 +98,13 @@ export type VerificationController = {
   dispose: () => void
 }
 
-const POPUP_BLOCKED_MESSAGE =
-  "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
+// Browsers on iOS have one pop-up switch for every site, so there is no per-site permission to grant
+function popupBlockedMessage(): string {
+  if (detectMobileOs() === "ios") {
+    return "The verification window didn’t open. Tap the button again, or turn off pop-up blocking in your browser’s settings."
+  }
+  return "Your browser blocked the verification window. Allow pop-ups for this site, then try again."
+}
 // Names the site so the user knows what to reopen
 function inAppBrowserMessage(): string {
   const site = window.location.hostname.replace(/^www\./, "") || "this page"
@@ -139,7 +146,8 @@ export function createVerification(
 ): VerificationController {
   // A rebuilt tab has nothing else: its callbacks and its window handle went with the old page
   const resumableNow = (status: VerificationStatus) =>
-    status !== "in-progress" && !!loadPendingVerification(toRequestKey(getOptions()))
+    (status !== "in-progress" || isMobileLike()) &&
+    !!loadPendingVerification(toRequestKey(getOptions()))
 
   let state: VerificationState = {
     status: "idle",
@@ -176,7 +184,7 @@ export function createVerification(
     const resuming = loadPendingVerification(requestKey)
 
     if (popupHandle) {
-      if (!popupHandle.popup.closed) {
+      if (!popupHandle.popup.closed && !isMobileLike()) {
         popupHandle.popup.focus()
         return
       }
@@ -236,9 +244,8 @@ export function createVerification(
       return
     }
 
-    const handle = openVerificationPopup({
+    const popupOptions: OpenVerificationPopupOptions = {
       popupUrl: options.overrides?.popupUrl,
-      session: resuming?.session,
       request: request.config,
       query: request.query as never,
       credential: request.credential,
@@ -279,10 +286,15 @@ export function createVerification(
         // Closing without a result returns the button to idle: nothing failed, the user left
         onClose: () => fail("closed", "The verification window was closed.", { status: "idle" }),
       },
-    })
+    }
+    // A browser can refuse to bring back the earlier verification's window yet open a new one, so
+    // the tap still gets the user a verification
+    const handle =
+      openVerificationPopup({ ...popupOptions, session: resuming?.session }) ??
+      (resuming ? openVerificationPopup(popupOptions) : null)
 
     if (!handle) {
-      fail("blocked", POPUP_BLOCKED_MESSAGE)
+      fail("blocked", popupBlockedMessage())
       return
     }
 
@@ -291,7 +303,7 @@ export function createVerification(
     rememberPendingVerification(handle.session, requestKey)
     setStatus("in-progress")
 
-    if (resuming) {
+    if (handle.session === resuming?.session) {
       stopHiddenWatch = watchForHiddenPopup(() => {
         stopHiddenWatch = null
         if (settled || latestAttempt !== thisAttempt) return

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
+import { isMobileLike } from "@zkpassport/ui/hosted"
 
-import { Heading, Main } from "../shared/controls"
+import { Actions, Heading, Main, Primary, Secondary } from "../shared/controls"
+import { useOpenApp } from "../shared/use-open-app"
 
 /**
  * How far the phone has got, once it has picked the request up. While proving,
@@ -21,12 +23,19 @@ export function withProof(
 export function Waiting({
   progress,
   onStartAgain,
+  unconfirmed = false,
+  requestUrl = null,
 }: {
   progress: ScanProgress
   onStartAgain: () => void
+  unconfirmed?: boolean
+  requestUrl?: string | null
 }) {
   const approving = progress.stage === "scanned"
   const slow = useSlowProgress(progress.stage)
+  const [mobile] = useState(isMobileLike)
+  const { openApp } = useOpenApp(requestUrl, { probe: false })
+  const canOpenApp = mobile && requestUrl !== null
   return (
     <div className="flow-body">
       <Main>
@@ -38,14 +47,28 @@ export function Waiting({
               {caption(progress)}
             </p>
             <p className="flow-keep-open">
-              {slow ? "Taking longer than usual. Check your phone." : "Keep this window open"}
+              {unconfirmed
+                ? canOpenApp
+                  ? "Nothing in ZKPassport? Open it again, or start again."
+                  : "Nothing on your phone? Start again."
+                : slow
+                  ? "Taking longer than usual. Check your phone."
+                  : "Keep this window open"}
             </p>
-            <button type="button" className="scan-reveal" onClick={onStartAgain}>
-              Start again
-            </button>
+            {unconfirmed ? null : (
+              <button type="button" className="scan-reveal" onClick={onStartAgain}>
+                Start again
+              </button>
+            )}
           </div>
         </div>
       </Main>
+      {unconfirmed ? (
+        <Actions>
+          {canOpenApp ? <Primary onClick={openApp}>Open ZKPassport again</Primary> : null}
+          <Secondary onClick={onStartAgain}>Start again</Secondary>
+        </Actions>
+      ) : null}
     </div>
   )
 }
