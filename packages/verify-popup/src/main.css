@@ -996,10 +996,8 @@ a.flow-address[data-chip]:hover {
   margin-top: 4px;
   padding: 14px 18px;
   border: 1px solid transparent;
-  background: linear-gradient(180deg, #fbdca9 0%, #f3c47c 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 1px 2px rgba(0, 0, 0, 0.3);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   color: #0a1746;
   /* The Verify with ZKPassport button's corner and type, so the two read as one
      control */
@@ -1016,15 +1014,15 @@ a.flow-address[data-chip]:hover {
     transform 100ms ease;
 }
 .flow-primary:hover {
-  filter: brightness(1.05);
+  filter: brightness(0.94);
 }
 .flow-primary:active:not(:disabled) {
   transform: scale(0.98);
-  filter: brightness(0.97);
+  filter: brightness(0.9);
 }
 .flow-primary:focus-visible,
 .flow-secondary:focus-visible {
-  outline: 2px solid var(--zkp-brand);
+  outline: 2px solid var(--zkp-fg);
   outline-offset: 2px;
 }
 .flow-primary .flow-glyph[data-after] {
