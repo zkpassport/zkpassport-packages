@@ -21,8 +21,8 @@ body.flow-page {
   --zkp-text-title: 22px;
   --zkp-text-body: 14px;
   --zkp-text-small: 12.5px;
-  background: #ffffff;
-  color-scheme: light;
+  background: #060c22;
+  color-scheme: dark;
   /* The window is a fixed size and the card fills it, so the page itself never
      scrolls; a screen that outgrows the card scrolls inside the stage */
   overflow: hidden;
@@ -48,7 +48,6 @@ body.flow-page {
   border: none;
   border-radius: 8px;
   background: var(--zkp-stage);
-  color-scheme: dark;
   color: var(--zkp-fg);
   /* The stack the Verify with ZKPassport button uses, so the two read as one
      product across the website and this page */
