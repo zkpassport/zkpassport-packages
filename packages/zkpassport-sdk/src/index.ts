@@ -269,22 +269,15 @@ export class ZKPassport {
   private onErrorCallbacks: Record<string, Array<(topic: string) => void>> = {}
   //private wasmVerifierInit: boolean = false
 
+  // The hostname as a browser reports it: lowercase, without port, path, query or fragment, and
+  // an internationalized domain in its ASCII xn-- form, so every caller hashes the same bytes
   private normalizeDomain(domain: string) {
-    return (
-      domain
-        .trim()
-        // Remove protocol
-        .replace(/^https?:\/\//, "")
-        // Remove trailing slash and anything after it
-        .replace(/\/[^/]*$/, "")
-        // Remove port
-        .replace(/:[0-9]+/, "")
-        // Remove query parameters
-        .replace(/\?.*$/, "")
-        // Remove hash
-        .replace(/#.*$/, "")
-        .toLowerCase()
-    )
+    const host = domain.trim().replace(/^https?:\/\//i, "")
+    try {
+      return new URL(`https://${host}`).hostname
+    } catch {
+      throw new Error(`Invalid domain '${domain}': expected a hostname such as example.com`)
+    }
   }
 
   constructor(_domain?: string) {
