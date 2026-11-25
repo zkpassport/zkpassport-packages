@@ -3,7 +3,6 @@ import { useEffect } from "react"
 /** Browsers supply their own wording, and ignore this without a prior click. */
 let leavingOnPurpose = false
 
-/** Leaves for another page of this flow without the close warning. */
 export function leaveWithoutAsking(url: string) {
   leavingOnPurpose = true
   window.location.assign(url)

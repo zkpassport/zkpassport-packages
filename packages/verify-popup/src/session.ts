@@ -60,7 +60,7 @@ function hexToBytes(hex: Hex): Uint8Array {
 export function openSession(): Session {
   sweepExpiredSessions()
   const fromUrl =
-    new URLSearchParams(window.location.hash.slice(1)).get("s") ??
+    new URLSearchParams(new URL(window.location.href).hash.slice(1)).get("s") ??
     new URLSearchParams(window.location.search).get("s")
   if (fromUrl) return { id: fromUrl, resumed: read(fromUrl) !== null, fromUrl: true }
 

@@ -11,36 +11,10 @@ type AppOpenState = "idle" | "opening" | "opened" | "nothing-opened"
 /** Marks a request page this page opened, so that page closes itself when the user comes back */
 export const CLOSE_ON_RETURN_HASH = "#close-on-return"
 
-const SAME_TAB_KEY = "zkpassport:app-clip-same-tab"
-
-/**
- * `?appclip=same-tab` on any verifier page turns on handing over to the App Clip in the same tab
- * for this browser, and `?appclip=new-tab` turns it off.
- */
-export function rememberAppClipMode() {
-  const mode = new URLSearchParams(window.location.search).get("appclip")
-  try {
-    if (mode === "same-tab") window.localStorage.setItem(SAME_TAB_KEY, "1")
-    if (mode === "new-tab") window.localStorage.removeItem(SAME_TAB_KEY)
-  } catch {
-    return
-  }
-}
-
-function opensAppClipInSameTab(): boolean {
-  try {
-    return window.localStorage.getItem(SAME_TAB_KEY) === "1"
-  } catch {
-    return false
-  }
-}
-
-/** This verifier, reloaded at the App Clip's path so iOS offers the clip on it */
 function appClipPageFor(requestUrl: string, sessionId: string): string {
   return `${window.location.origin}/c${new URL(requestUrl).search}#s=${sessionId}`
 }
 
-/** Whether this is the verifier reloaded at the App Clip's path */
 export function isOnAppClipPage(): boolean {
   return (
     /^\/c(\.html)?$/.test(window.location.pathname) &&
@@ -103,7 +77,7 @@ export function useOpenApp(
     // Clip card try the full app instead, as from /r. So does the /c page itself: there the link is
     // this page, and the clip didn't take over (iOS offers the clip on this page through its banner)
     if (canOpenAppClip(requestUrl) && !isSamePage(requestUrl, window.location.href)) {
-      if (sessionId && opensAppClipInSameTab()) {
+      if (sessionId) {
         leaveWithoutAsking(appClipPageFor(requestUrl, sessionId))
         return
       }

@@ -96,62 +96,6 @@ function ContinueInApp({
   onRevealQr: () => void
   onStartAgain?: () => void
 }) {
-  const [onAppClipPage] = useState(isOnAppClipPage)
-  if (onAppClipPage && requestUrl) {
-    return <TapAppClipBanner requestUrl={requestUrl} onRevealQr={onRevealQr} />
-  }
-  return (
-    <OpenInApp
-      requestUrl={requestUrl}
-      appClipOpened={appClipOpened}
-      sessionId={sessionId}
-      asks={asks}
-      onRevealQr={onRevealQr}
-      onStartAgain={onStartAgain}
-    />
-  )
-}
-
-function TapAppClipBanner({
-  requestUrl,
-  onRevealQr,
-}: {
-  requestUrl: string
-  onRevealQr: () => void
-}) {
-  return (
-    <div className="flow-body">
-      <Main>
-        <Heading title="Continue in ZKPassport" lock="Your ID never leaves your phone" />
-        <p className="flow-lede">Tap Open in the ZKPassport banner at the top of this page.</p>
-      </Main>
-      <FootLinks>
-        <button type="button" className="scan-reveal" onClick={() => openAppClipPage(requestUrl)}>
-          Don&rsquo;t see the banner? Open it another way
-        </button>
-        <button type="button" className="scan-reveal" onClick={onRevealQr}>
-          Use another phone instead
-        </button>
-      </FootLinks>
-    </div>
-  )
-}
-
-function OpenInApp({
-  requestUrl,
-  appClipOpened,
-  sessionId,
-  asks,
-  onRevealQr,
-  onStartAgain,
-}: {
-  requestUrl: string | null
-  appClipOpened?: boolean
-  sessionId?: string
-  asks?: ReactNode
-  onRevealQr: () => void
-  onStartAgain?: () => void
-}) {
   const [inAppBrowser] = useState(isInAppBrowser)
   // An in-app browser swallows the custom scheme even when the app is installed, so a probe there
   // would always report a miss
@@ -166,6 +110,10 @@ function OpenInApp({
   // The App Clip link opens ZKPassport on an iPhone without installing first. Whether the clip can
   // read this ID is only known once it has the ID, so nothing here promises it can
   const appClip = isAppClipLane(requestUrl)
+  const [onAppClipPage] = useState(isOnAppClipPage)
+  if (onAppClipPage && requestUrl) {
+    return <TapAppClipBanner requestUrl={requestUrl} onRevealQr={onRevealQr} />
+  }
 
   const title = handedOff
     ? "Approve in ZKPassport"
@@ -242,6 +190,31 @@ function OpenInApp({
             Having trouble? Start again
           </button>
         ) : null}
+        <button type="button" className="scan-reveal" onClick={onRevealQr}>
+          Use another phone instead
+        </button>
+      </FootLinks>
+    </div>
+  )
+}
+
+function TapAppClipBanner({
+  requestUrl,
+  onRevealQr,
+}: {
+  requestUrl: string
+  onRevealQr: () => void
+}) {
+  return (
+    <div className="flow-body">
+      <Main>
+        <Heading title="Continue in ZKPassport" lock="Your ID never leaves your phone" />
+        <p className="flow-lede">Tap Open in the ZKPassport banner at the top of this page.</p>
+      </Main>
+      <FootLinks>
+        <button type="button" className="scan-reveal" onClick={() => openAppClipPage(requestUrl)}>
+          Don&rsquo;t see the banner? Open it another way
+        </button>
         <button type="button" className="scan-reveal" onClick={onRevealQr}>
           Use another phone instead
         </button>
