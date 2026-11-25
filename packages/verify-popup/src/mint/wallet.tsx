@@ -50,13 +50,13 @@ function describeConnectError(error: Error): string {
   ) {
     return "You cancelled the connection."
   }
-  return "Could not connect to that wallet."
+  return "Couldn’t connect to that wallet."
 }
 
 /** `verified` shows that the holder has already proved who they are. */
 export function Connect({
-  title = "Connect a wallet",
-  hint = "It only pays the network fee, not where your token goes.",
+  title = "Connect your wallet",
+  hint = "This wallet only pays the network fee. It doesn’t receive the credential.",
   verified = true,
 }: {
   title?: string

@@ -40,7 +40,7 @@ export function Mint(props: MintProps) {
 
   // Anyone can pay, so the connected wallet is not where the token lands
   const rows: Row[] = [
-    { label: "Token goes to", value: <AddressLink chain={chain} address={recipient} /> },
+    { label: "Credential goes to", value: <AddressLink chain={chain} address={recipient} /> },
     { label: "Network", value: chain.name },
   ]
   // Once the transaction is out there, the receipt belongs with the other facts,
@@ -53,7 +53,7 @@ export function Mint(props: MintProps) {
   return (
     <div className="flow-body">
       <Main>
-        <Heading title="Mint your verification" badge={<VerifiedBadge />} />
+        <Heading title="Mint your credential" badge={<VerifiedBadge />} />
         <Panel>
           <div className="flow-wallet-row">
             {connector?.icon ? <img src={connector.icon} alt="" /> : null}
@@ -92,16 +92,18 @@ function MintNote({
   }
   switch (phase.kind) {
     case "unconfirmed":
-      return <Note alert>The transaction was sent, but we could not confirm it yet.</Note>
+      return <Note alert>The transaction was sent but isn&rsquo;t confirmed yet.</Note>
     case "failed": {
       const error = phase.error
       if (error.kind === "insufficient-funds") {
-        return <Note alert>This wallet does not have enough {chain.nativeCurrency.symbol}.</Note>
+        return (
+          <Note alert>This wallet doesn&rsquo;t have enough {chain.nativeCurrency.symbol}.</Note>
+        )
       }
       if (error.kind === "reverted") {
         return (
           <>
-            <Note alert>The verification cannot be minted from this wallet.</Note>
+            <Note alert>This wallet can&rsquo;t receive this credential.</Note>
             {error.detail ? <ErrorDetail text={error.detail} /> : null}
           </>
         )
@@ -119,7 +121,7 @@ function MintNote({
     default:
       return (
         <>
-          <LockLine>The token holds no personal data</LockLine>
+          <LockLine>The credential holds no personal data</LockLine>
           <Note>
             It only proves you passed the check.
             {payerDiffers ? " This wallet only pays the fee." : ""}
@@ -170,7 +172,7 @@ function MintAction({
         return <Primary onClick={onChangeWallet}>Use another wallet</Primary>
       }
       if (error.kind === "reverted") {
-        return <Primary onClick={onStartOver}>Start over</Primary>
+        return <Primary onClick={onStartOver}>Start again</Primary>
       }
       if (error.kind === "failed") {
         return <Primary onClick={onMint}>Try again</Primary>
