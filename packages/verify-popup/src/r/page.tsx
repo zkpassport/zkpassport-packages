@@ -48,9 +48,7 @@ export function RequestPage() {
                       <strong>Open App Clip</strong> on the card.
                     </p>
                     <div className="r-actions">
-                      <p className="r-note">
-                        No banner? Get the app. Your request will be waiting.
-                      </p>
+                      <p className="r-note">No banner? Get the ZKPassport app.</p>
                       <StoreBadges requestUrl={requestUrl} />
                     </div>
                   </>
