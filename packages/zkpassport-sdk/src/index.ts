@@ -27,7 +27,6 @@ import {
   type AllowedVerificationMethod,
 } from "@zkpassport/utils"
 import { noLogger as logger } from "./logger"
-import { waitForBridgeConnection } from "./bridge-connection"
 import { Buffer } from "buffer/"
 import { createRegistryClient } from "@zkpassport/registry"
 import { Bridge, BridgeInterface, type KeyPair } from "@obsidion/bridge"
@@ -70,6 +69,20 @@ if (typeof globalThis.Buffer === "undefined") {
 
 const DEFAULT_PURPOSE = "Verify identity privately"
 const BRIDGE_CONNECT_TIMEOUT_MS = 10_000
+
+/** Resolves once the bridge connection is open, or after the timeout if it never opens */
+function waitForBridgeConnection(bridge: BridgeInterface, timeoutMs: number): Promise<void> {
+  if (bridge.isBridgeConnected()) return Promise.resolve()
+  return new Promise((resolve) => {
+    const settle = () => {
+      clearTimeout(timer)
+      unsubscribe.forEach((stop) => stop())
+      resolve()
+    }
+    const timer = setTimeout(settle, timeoutMs)
+    const unsubscribe = [bridge.onConnect(settle), bridge.onFailedToConnect(settle)]
+  })
+}
 
 type RegistryClientOptions = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
