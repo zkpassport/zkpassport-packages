@@ -68,6 +68,21 @@ if (typeof globalThis.Buffer === "undefined") {
 }
 
 const DEFAULT_PURPOSE = "Verify identity privately"
+const BRIDGE_CONNECT_TIMEOUT_MS = 10_000
+
+/** Resolves once the bridge connection is open, or after the timeout if it never opens */
+function waitForBridgeConnection(bridge: BridgeInterface, timeoutMs: number): Promise<void> {
+  if (bridge.isBridgeConnected()) return Promise.resolve()
+  return new Promise((resolve) => {
+    const settle = () => {
+      clearTimeout(timer)
+      unsubscribe.forEach((stop) => stop())
+      resolve()
+    }
+    const timer = setTimeout(settle, timeoutMs)
+    const unsubscribe = [bridge.onConnect(settle), bridge.onFailedToConnect(settle)]
+  })
+}
 
 type RegistryClientOptions = NonNullable<Parameters<typeof createRegistryClient>[1]>
 
@@ -851,6 +866,11 @@ export class ZKPassport {
       bridgeUrl,
       replayFrom: replayMissedMessages ? 1 : undefined,
     })
+
+    // The bridge takes the first connection to a request as the website's. The request must not
+    // be handed out, to be scanned, before this connection is open: a phone that got there first
+    // would be reported as the website, and its handshake would be missed.
+    await waitForBridgeConnection(bridge, BRIDGE_CONNECT_TIMEOUT_MS)
 
     const topic = bridge.connection.getBridgeId()
 
