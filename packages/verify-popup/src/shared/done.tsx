@@ -65,7 +65,7 @@ function useAutoClose(active: boolean): number {
 
 function Outcome({ outcome, appName }: { outcome: DoneOutcome; appName: string }) {
   if (outcome.kind === "verified") {
-    return <p className="flow-done-sub">{appName} got your proof.</p>
+    return <p className="flow-done-sub">{appName} has everything it needs.</p>
   }
   if (outcome.kind === "already-verified") {
     return (
