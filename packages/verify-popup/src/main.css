@@ -1340,3 +1340,13 @@ a.flow-primary {
   gap: 12px;
   padding-top: 4px;
 }
+
+/* The 460px desktop popup is as narrow as a phone, so it is the touch screen that marks a phone */
+@media (max-width: 599px) and (pointer: coarse) {
+  .flow-body {
+    padding-bottom: 6px;
+  }
+  .flow-powered {
+    padding-top: 8px;
+  }
+}
