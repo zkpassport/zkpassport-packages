@@ -17,7 +17,7 @@ const METADATA_TIMEOUT_MS = 5_000
 
 type PolicyDetails =
   | { status: "loading" }
-  | { status: "unavailable"; message: string; retryable: boolean }
+  | { status: "unavailable"; message: string; detail?: string; retryable: boolean }
   | { status: "ready"; request: PopupRequestConfig }
 
 /**
@@ -30,10 +30,18 @@ export function MintPage() {
   return <MintFromLink link={link} />
 }
 
-function ErrorCard({ message, onRetry }: { message: string; onRetry?: () => void }) {
+function ErrorCard({
+  message,
+  detail,
+  onRetry,
+}: {
+  message: string
+  detail?: string
+  onRetry?: () => void
+}) {
   return (
     <FlowCard screenKey="error">
-      <ErrorScreen message={message} onRetry={onRetry} closable={false} />
+      <ErrorScreen message={message} detail={detail} onRetry={onRetry} closable={false} />
     </FlowCard>
   )
 }
@@ -73,6 +81,7 @@ function MintBody({ link, chain }: { link: MintLink; chain: Chain }) {
     return (
       <ErrorCard
         message={details.message}
+        detail={details.detail}
         onRetry={details.retryable ? () => setReads((count) => count + 1) : undefined}
       />
     )
@@ -159,7 +168,8 @@ function usePolicyDetails(chain: Chain, policyId: `0x${string}`, reads: number):
               : String(reason)
         setDetails({
           status: "unavailable",
-          message: `Could not read the credential from ${chain.name}: ${detail}`,
+          message: `Couldn’t read the credential from ${chain.name}. Try again.`,
+          detail,
           retryable: true,
         })
       })

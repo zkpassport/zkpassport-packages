@@ -58,7 +58,7 @@ export function CredentialFlow({ request, credential, rpHost, send }: Credential
   // nothing to retry
   if ("error" in resolved) {
     return (
-      <FlowCard screenKey="error" wide>
+      <FlowCard screenKey="error">
         <ErrorScreen
           title="This site isn’t set up yet"
           message={`${appName} can’t save verifications on this network yet.`}
@@ -181,7 +181,6 @@ export function FlowBody({
     <FlowCard
       progress={progressSegments(step.kind, payer !== undefined, phase)}
       screenKey={step.kind}
-      wide
     >
       {screen}
     </FlowCard>

@@ -88,7 +88,7 @@ body.flow-page {
   justify-content: center;
   gap: 6px;
   margin: 0;
-  padding-top: 12px;
+  padding: 18px 0 6px;
   font-size: var(--zkp-text-small);
   color: var(--zkp-dim);
 }
@@ -109,8 +109,18 @@ body.flow-page {
 @media (min-width: 600px) {
   body.flow-page {
     overflow: auto;
+    background:
+      radial-gradient(ellipse 1000px 820px at 50% 460px, #1a2a75, transparent 72%) fixed,
+      radial-gradient(ellipse 1600px 700px at 50% 100%, #0f1b4a, transparent 70%) fixed,
+      #070f2b;
+  }
+  .flow-frame {
+    padding-top: clamp(18px, (100dvh - 780px) / 2, 64px) !important;
   }
   .flow-card {
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.06),
+      0 24px 80px rgb(2 6 24 / 0.55);
     flex: none;
     max-height: none;
     /* The popup window's inner height, so short screens keep the card's
@@ -516,7 +526,7 @@ a.flow-address[data-chip]:hover {
   justify-content: center;
   gap: 3px;
   margin: 0;
-  padding: 16px 0 0;
+  padding: 16px 0 6px;
   list-style: none;
 }
 
@@ -1328,12 +1338,4 @@ a.flow-primary {
   align-items: center;
   gap: 12px;
   padding-top: 4px;
-}
-
-/* The credential flow opens in a full tab: wider card, so its tables and the
-   wallet list have room */
-@media (min-width: 600px) {
-  .flow-card[data-wide] {
-    max-width: 520px;
-  }
 }
