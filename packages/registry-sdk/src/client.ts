@@ -1,5 +1,5 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
-import { Binary, getIdFromChain } from "@zkpassport/utils"
+import { Binary, getIdFromChain, normaliseHash, strip0x } from "@zkpassport/utils"
 import { PackagedCertificatesFile } from "@zkpassport/utils/types"
 import { ultraVkToFields } from "@zkpassport/utils/circuits"
 import {
@@ -45,7 +45,6 @@ import {
   RegistryClientOptions,
   type RootDetails,
 } from "./types"
-import { normaliseHash, strip0x } from "./utils"
 import { withRetry } from "@zkpassport/utils"
 import documentSupportRules from "./document-support-rules.json"
 

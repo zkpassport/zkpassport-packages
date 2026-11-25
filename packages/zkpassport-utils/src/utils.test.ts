@@ -3,6 +3,7 @@ import {
   getChainFromId,
   getChainFromQuery,
   getIdFromChain,
+  normaliseHash,
   packBeBitsIntoField,
   packBeBytesIntoFields,
 } from "./utils"
@@ -217,5 +218,22 @@ describe("Utils", () => {
     expect(getChainFromQuery(unboundQuery, false)).toBe("ethereum")
     expect(getChainFromQuery(queryBoundWithoutChain, true)).toBe("ethereum_sepolia")
     expect(getChainFromQuery(queryBoundWithoutChain, false)).toBe("ethereum")
+  })
+})
+
+describe("normaliseHash", () => {
+  const hash = `0x${"00".repeat(30)}ab12`
+
+  test("pads a bigint to 32 bytes", () => {
+    expect(normaliseHash(0xab12n)).toBe(hash)
+  })
+
+  test("pads and lowercases a hex string, with or without its 0x prefix", () => {
+    expect(normaliseHash("0xAB12")).toBe(hash)
+    expect(normaliseHash("AB12")).toBe(hash)
+  })
+
+  test("leaves a normalised hash as it is", () => {
+    expect(normaliseHash(hash)).toBe(hash)
   })
 })

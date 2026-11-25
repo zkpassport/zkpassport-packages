@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { createRegistryClient } from "./client"
 import { RegistryRequestTimeoutError } from "./errors"
-import { normaliseHash } from "./utils"
+import { normaliseHash } from "@zkpassport/utils"
 
 const ROOT_A = `0x${"11".repeat(32)}`
 const ROOT_B = `0x${"22".repeat(32)}`

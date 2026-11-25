@@ -109,6 +109,18 @@ export function strip0x(input: string): string {
 }
 
 /**
+ * Normalise a hash to a 0x-prefixed, 64 character lowercase hex string
+ * @param hash - The hash to normalise
+ * @returns The normalised hash
+ */
+export function normaliseHash(hash: string | bigint): string {
+  if (typeof hash === "bigint") {
+    return `0x${hash.toString(16).toLowerCase().padStart(64, "0")}`
+  }
+  return `0x${strip0x(hash).toLowerCase().padStart(64, "0")}`
+}
+
+/**
  * Normalise a hex string or bigint into a 0x-prefixed even 0-padded hex string
  * @param hex - The hex string or bigint to normalise
  * @returns A normalised hex string, e.g. 0x0123

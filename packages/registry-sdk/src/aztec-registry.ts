@@ -1,6 +1,6 @@
 import { poseidon2HashAsync } from "@zkpassport/poseidon2"
 import { RpcEndpointError, type RpcEndpointSession } from "./errors"
-import { normaliseHash } from "./utils"
+import { normaliseHash } from "@zkpassport/utils"
 
 /**
  * Reads ZKPassportRegistry, ZKPassport's registry contract on an Aztec network, from an Aztec node's public storage.

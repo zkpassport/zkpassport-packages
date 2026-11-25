@@ -1,5 +1,5 @@
 import { findNetworkConstants, getNetworkConstants } from "./networks"
-import { normaliseHash } from "./utils"
+import { normaliseHash } from "@zkpassport/utils"
 
 /**
  * Default number of retries for fetching data
