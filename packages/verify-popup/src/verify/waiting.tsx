@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { isMobileLike } from "@zkpassport/ui/hosted"
 
-import { Actions, Heading, LockLine, Main, Primary, Secondary } from "../shared/controls"
+import { Actions, Heading, Main, Primary, Secondary } from "../shared/controls"
 import { useOpenApp } from "../shared/use-open-app"
 
 /**
@@ -43,15 +43,9 @@ export function Waiting({
         <div className="flow-waiting">
           {approving ? <PhoneSwipe /> : <PulsingDots />}
           <div className="flow-waiting-text">
-            <div role="status">
-              {approving ? (
-                <p className="flow-hint">Slide to approve in ZKPassport</p>
-              ) : finishing(progress) ? (
-                <p className="flow-hint">Finishing up…</p>
-              ) : (
-                <LockLine>On your phone. Your ID isn&rsquo;t uploaded.</LockLine>
-              )}
-            </div>
+            <p className="flow-hint" role="status">
+              {approving ? "Slide to approve in ZKPassport" : caption(progress)}
+            </p>
             <p className="flow-keep-open">
               {unconfirmed
                 ? canOpenApp
@@ -97,9 +91,14 @@ function useSlowProgress(stage: ScanProgress["stage"]): boolean {
   return slow
 }
 
-// The proof count means nothing to the user, so it only decides when the wait is nearly over
-function finishing(progress: ScanProgress): boolean {
-  return progress.stage === "proving" && progress.total !== null && progress.done >= progress.total
+// Proving runs for several seconds, so the line follows the proofs the bridge
+// sends back rather than a timer
+function caption(progress: ScanProgress): string {
+  if (progress.stage !== "proving") return ""
+  const { done, total } = progress
+  if (total === null) return "Your phone is working on it..."
+  if (done < total) return `Checking your details · ${done} of ${total}`
+  return "Finishing up..."
 }
 
 // The app confirms with a slide, not a tap, so the knob runs the track over and
