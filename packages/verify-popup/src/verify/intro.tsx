@@ -9,12 +9,14 @@ const SKELETON_ROWS = 2
 // A preview: the mobile app shows the consent screen that actually binds
 export function Intro({
   appName,
+  logo,
   query,
   purpose,
   onContinue,
   onChangeWallet,
 }: {
   appName: string
+  logo?: string
   query: Query | null
   purpose?: string
   onContinue: () => void
@@ -28,7 +30,10 @@ export function Intro({
         <Heading title="Verify your identity privately" lock="Your ID never leaves your phone" />
 
         <div className="intro-asks">
-          <p className="intro-asks-head">{appName} wants to verify</p>
+          <p className="intro-asks-head">
+            {logo ? <img className="intro-asks-logo" src={logo} alt="" /> : null}
+            {appName} wants to verify
+          </p>
           {items ? <Asks items={items} purpose={purpose} /> : <AsksLoading />}
         </div>
 

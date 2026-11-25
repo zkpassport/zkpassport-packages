@@ -21,8 +21,8 @@ body.flow-page {
   --zkp-text-title: 22px;
   --zkp-text-body: 14px;
   --zkp-text-small: 12.5px;
-  background: #060c22;
-  color-scheme: dark;
+  background: #ffffff;
+  color-scheme: light;
   /* The window is a fixed size and the card fills it, so the page itself never
      scrolls; a screen that outgrows the card scrolls inside the stage */
   overflow: hidden;
@@ -46,8 +46,9 @@ body.flow-page {
   max-height: 780px;
   padding: 6px 16px 14px;
   border: none;
-  border-radius: 26px;
+  border-radius: 8px;
   background: var(--zkp-stage);
+  color-scheme: dark;
   color: var(--zkp-fg);
   /* The stack the Verify with ZKPassport button uses, so the two read as one
      product across the website and this page */
@@ -115,7 +116,7 @@ body.flow-page {
     max-height: none;
     /* The popup window's inner height, so short screens keep the card's
        proportions, capped so the card alone never overflows a short window */
-    min-height: min(742px, calc(100dvh - 38px));
+    min-height: min(742px, calc(100dvh - 16px));
   }
   .flow-stage {
     overflow: visible;
@@ -820,12 +821,21 @@ a.flow-address[data-chip]:hover {
   background: var(--zkp-surface);
 }
 .intro-asks-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin: 0;
   padding: 13px 16px;
   border-bottom: 1px solid var(--zkp-border);
   font-size: var(--zkp-text-small);
   font-weight: 500;
   color: var(--zkp-muted);
+}
+.intro-asks-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: contain;
 }
 .intro-list {
   margin: 0;

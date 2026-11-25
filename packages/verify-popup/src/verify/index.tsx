@@ -86,7 +86,13 @@ export function VerifyFlow({ request, query, rpHost, session, send }: VerifyFlow
   if (!resolution) {
     return (
       <FlowCard screenKey="intro">
-        <Intro appName={appName} query={null} purpose={request.purpose} onContinue={() => {}} />
+        <Intro
+          appName={appName}
+          logo={request.logo}
+          query={null}
+          purpose={request.purpose}
+          onContinue={() => {}}
+        />
       </FlowCard>
     )
   }
@@ -291,6 +297,7 @@ export function VerifyRequest({
       {screen === "intro" ? (
         <Intro
           appName={appName}
+          logo={request.logo}
           query={req.query ?? (hasQuery ? query : null)}
           purpose={request.purpose}
           onContinue={appClip.onContinue}

@@ -132,6 +132,7 @@ export function FlowBody({
         return (
           <VerifyStep
             appName={appName}
+            logo={request.logo}
             rpHost={rpHost}
             purpose={request.purpose}
             options={step.cardOptions}
@@ -218,6 +219,7 @@ function progressSegments(
  */
 function VerifyStep({
   appName,
+  logo,
   rpHost,
   purpose,
   options,
@@ -228,6 +230,7 @@ function VerifyStep({
   onChangeWallet,
 }: {
   appName: string
+  logo?: string
   rpHost: string
   purpose?: string
   options: ZKPassportQRCodeOptions
@@ -328,6 +331,7 @@ function VerifyStep({
     return (
       <Intro
         appName={appName}
+        logo={logo}
         query={req.query}
         purpose={purpose}
         onContinue={appClip.onContinue}
