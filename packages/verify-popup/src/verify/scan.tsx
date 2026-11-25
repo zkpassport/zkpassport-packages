@@ -1,11 +1,11 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { isInAppBrowser, isMobileLike } from "@zkpassport/ui/hosted"
 
 import { ICON_ZKP_MARK } from "../shared/icons"
 import { FootLinks, Heading, LockLine, Main, Primary } from "../shared/controls"
 import { CopyLink, LinkActions } from "../shared/link-actions"
 import { StoreBadges } from "../shared/store-badges"
-import { useOpenApp } from "../shared/use-open-app"
+import { isOnAppClipPage, openAppClipPage, useOpenApp } from "../shared/use-open-app"
 import type { RequestState } from "../request"
 import { isAppClipLane } from "./lane"
 
@@ -15,12 +15,16 @@ export function Scan({
   qrSvg,
   onNewCode,
   appClipOpened,
+  sessionId,
+  asks,
 }: {
   state: RequestState
   url: string | null
   qrSvg: string | null
   onNewCode?: () => void
   appClipOpened?: boolean
+  sessionId?: string
+  asks?: ReactNode
 }) {
   const [qrRevealed, setQrRevealed] = useState(false)
   const [mobile] = useState(isMobileLike)
@@ -31,6 +35,8 @@ export function Scan({
         key={url ?? "preparing"}
         requestUrl={url}
         appClipOpened={appClipOpened}
+        sessionId={sessionId}
+        asks={asks}
         onRevealQr={() => setQrRevealed(true)}
         onStartAgain={onNewCode}
       />
@@ -78,11 +84,71 @@ export function Scan({
 function ContinueInApp({
   requestUrl,
   appClipOpened,
+  sessionId,
+  asks,
   onRevealQr,
   onStartAgain,
 }: {
   requestUrl: string | null
   appClipOpened?: boolean
+  sessionId?: string
+  asks?: ReactNode
+  onRevealQr: () => void
+  onStartAgain?: () => void
+}) {
+  const [onAppClipPage] = useState(isOnAppClipPage)
+  if (onAppClipPage && requestUrl) {
+    return <TapAppClipBanner requestUrl={requestUrl} onRevealQr={onRevealQr} />
+  }
+  return (
+    <OpenInApp
+      requestUrl={requestUrl}
+      appClipOpened={appClipOpened}
+      sessionId={sessionId}
+      asks={asks}
+      onRevealQr={onRevealQr}
+      onStartAgain={onStartAgain}
+    />
+  )
+}
+
+function TapAppClipBanner({
+  requestUrl,
+  onRevealQr,
+}: {
+  requestUrl: string
+  onRevealQr: () => void
+}) {
+  return (
+    <div className="flow-body">
+      <Main>
+        <Heading title="Continue in ZKPassport" lock="Your ID never leaves your phone" />
+        <p className="flow-lede">Tap Open in the ZKPassport banner at the top of this page.</p>
+      </Main>
+      <FootLinks>
+        <button type="button" className="scan-reveal" onClick={() => openAppClipPage(requestUrl)}>
+          Don&rsquo;t see the banner? Open it another way
+        </button>
+        <button type="button" className="scan-reveal" onClick={onRevealQr}>
+          Use another phone instead
+        </button>
+      </FootLinks>
+    </div>
+  )
+}
+
+function OpenInApp({
+  requestUrl,
+  appClipOpened,
+  sessionId,
+  asks,
+  onRevealQr,
+  onStartAgain,
+}: {
+  requestUrl: string | null
+  appClipOpened?: boolean
+  sessionId?: string
+  asks?: ReactNode
   onRevealQr: () => void
   onStartAgain?: () => void
 }) {
@@ -92,6 +158,7 @@ function ContinueInApp({
   const { openState, openApp } = useOpenApp(requestUrl, {
     probe: !inAppBrowser,
     opened: appClipOpened,
+    sessionId,
   })
   const opening = openState === "opening"
   const handedOff = openState === "opened"
@@ -104,9 +171,11 @@ function ContinueInApp({
     ? "Approve in ZKPassport"
     : appNotFound
       ? "Get the ZKPassport app"
-      : appClip
-        ? "Continue on this phone"
-        : "Continue in ZKPassport"
+      : asks
+        ? "Verify your identity privately"
+        : appClip
+          ? "Continue on this phone"
+          : "Continue in ZKPassport"
 
   return (
     <div className="flow-body">
@@ -121,6 +190,7 @@ function ContinueInApp({
             be waiting.
           </p>
         ) : null}
+        {asks && !handedOff && !appNotFound ? asks : null}
         <div className="scan-hero" data-state={openState}>
           {handedOff ? null : requestUrl ? (
             <Primary busy={opening} forward onClick={openApp}>

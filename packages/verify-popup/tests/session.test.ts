@@ -13,16 +13,20 @@ const PREFIX = "zkpassport:session:"
 
 type Store = Map<string, string>
 
-function setupWindow(search = ""): Store {
+function setupWindow(search = "", hash = ""): Store {
   const store: Store = new Map()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(globalThis as any).window = {
-    location: { href: `${ORIGIN}/${search}`, search },
+    location: { href: `${ORIGIN}/${search}${hash}`, search, hash },
     history: {
       replaceState: (_state: unknown, _title: string, url: URL | string) => {
         const next = new URL(String(url))
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(globalThis as any).window.location = { href: next.href, search: next.search }
+        ;(globalThis as any).window.location = {
+          href: next.href,
+          search: next.search,
+          hash: next.hash,
+        }
       },
     },
     localStorage: {
@@ -77,6 +81,13 @@ afterEach(() => {
 })
 
 describe("openSession", () => {
+  test("takes the verification from after the #, where the App Clip page carries it", () => {
+    setupWindow("?d=example.com&s=c2VydmljZQ%3D%3D&t=abc", "#s=from-hash")
+    store("from-hash", { createdAt: Date.now(), configuration: CONFIGURATION })
+
+    expect(openSession()).toEqual({ id: "from-hash", resumed: true, fromUrl: true })
+  })
+
   test("takes the verification from the page's own URL", () => {
     setupWindow("?s=abc-123")
 
